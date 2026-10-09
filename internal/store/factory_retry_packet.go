@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -117,6 +118,9 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 		return factory.Assignment{}, errors.New("reservation behind a retry is not held")
 	}
 	if err = checkAdmissionTx(ctx, tx, a.Repository, a.Connection, a.ProjectID); err != nil {
+		return factory.Assignment{}, err
+	}
+	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.ID, nil, run.Deadline, time.Now()); err != nil {
 		return factory.Assignment{}, err
 	}
 	if err = tx.Commit(); err != nil {

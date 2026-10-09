@@ -9,6 +9,7 @@ import (
 )
 
 type factoryPolicyRequest struct {
+	AttemptLimits    *factory.AttemptLimits           `json:"attempt_limits"`
 	Roles            map[string]factory.RoleSelection `json:"roles"`
 	PublishActor     actorRefRequest                  `json:"publish_actor"`
 	CreateActor      actorRefRequest                  `json:"create_actor"`
@@ -58,6 +59,7 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		Enabled: in.Enabled, Paused: in.Paused, TargetBranch: in.TargetBranch, Roles: in.Roles,
 		Checks: in.RequiredChecks, MergeMethod: in.MergeMethod,
 		Publish: publish, Create: create, Review: review, Merge: merge, MaxConcurrent: in.MaxConcurrent,
+		AttemptLimits: factory.EffectiveAttemptLimits(in.AttemptLimits),
 	}
 	if policy.Revision < 0 || policy.Validate() != nil {
 		auth.JSONError(w, 400, "invalid_policy", "Repository policy is incomplete or invalid.")

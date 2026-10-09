@@ -32,7 +32,7 @@ func checkPolicyFixture(checks []string, revision int64) RepositoryPolicy {
 		Merge:      ActorBindingRef{TokenID: 1, ActorID: 2, Kind: OpMerge},
 		Repository: 7, Revision: revision, GrantedBy: 1,
 		TargetBranch: "refs/heads/main", Checks: checks,
-		MergeMethod: MergeFastForward, MaxConcurrent: 1, Enabled: true,
+		MergeMethod: MergeFastForward, AttemptLimits: DefaultAttemptLimits(), MaxConcurrent: 1, Enabled: true,
 	}
 }
 

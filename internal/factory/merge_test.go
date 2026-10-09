@@ -218,6 +218,7 @@ func testMergePolicy() RepositoryPolicy {
 		Create:        ActorBindingRef{TokenID: 1, ActorID: 5, Kind: OpPRCreate},
 		Review:        ActorBindingRef{TokenID: 2, ActorID: 6, Kind: OpReviewSubmit},
 		Merge:         ActorBindingRef{TokenID: 3, ActorID: 8, Kind: OpMerge},
+		AttemptLimits: DefaultAttemptLimits(),
 		MaxConcurrent: 2,
 	}
 }

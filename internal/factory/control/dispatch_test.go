@@ -45,7 +45,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatalf("assignment authority = %+v", a.Authority)
 	}
 	for _, want := range []string{
-		"Prompt template: soda-f07-f2-v3", "Effective limits: this run may use at most 120 minutes",
+		"Prompt template: soda-f07-f2-v4", "Recorded attempt active-time limit: 120 minutes",
 		"Required evidence checks: ci", "Required evidence:", "report blocked with the concrete reason",
 		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 2",
 		"sponsorship concurrency for this connection in this repository is 2",

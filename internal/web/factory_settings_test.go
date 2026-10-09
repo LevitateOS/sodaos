@@ -80,7 +80,7 @@ func factoryEncryptedServer(t *testing.T) *Server {
 func factoryPolicyBody(commandID string) string {
 	return `{"command_id":"` + commandID + `","expected_revision":0,"enabled":true,"paused":false,` +
 		`"target_branch":"refs/heads/main",` +
-		`"roles":{"soda-coder":{"harness":"codex-0.157.1","model":"test"},"soda-reviewer":{"harness":"codex-0.157.1","model":"test"}},` +
+		`"roles":{"soda-coder":{"harness":"codex","harness_version":"codex-0.157.1","model":"test"},"soda-reviewer":{"harness":"codex","harness_version":"codex-0.157.1","model":"test"}},` +
 		`"required_checks":["native-ci/build"],"merge_method":"fast-forward-only",` +
 		`"publish_actor":{"token_id":"11","actor_id":"12"},"create_actor":{"token_id":"11","actor_id":"12"},` +
 		`"review_actor":{"token_id":"13","actor_id":"14"},"merge_actor":{"token_id":"15","actor_id":"16"},` +
@@ -145,6 +145,10 @@ func TestFactoryPolicyJourney(t *testing.T) {
 	if receipt.CommandID != command || receipt.Revision != 1 || receipt.Withdrawn {
 		t.Fatalf("receipt: %+v", receipt)
 	}
+	policy, err := s.Store.RepositoryPolicy(t.Context(), 7)
+	if err != nil || policy.AttemptLimits != factory.DefaultAttemptLimits() {
+		t.Fatalf("omitted attempt limits were not recorded as defaults: %+v %v", policy.AttemptLimits, err)
+	}
 	assertNoSecrets(t, w.Body.String())
 	replay := httptest.NewRecorder()
 	nativeAPIServe(t, s, replay, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", factoryPolicyBody(command), "alice"))
@@ -172,6 +176,23 @@ func TestFactoryPolicyJourney(t *testing.T) {
 	nativeAPIServe(t, s, forged, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", impersonate, "alice"))
 	if forged.Code != 400 {
 		t.Fatal("body-selected authorizer accepted", forged.Code, forged.Body.String())
+	}
+	invalidLimits := strings.Replace(factoryPolicyBody(factory.NewID()), `"max_concurrent":2`, `"max_concurrent":2,"attempt_limits":{"active_minutes":0,"correction_cycles":3}`, 1)
+	invalid := httptest.NewRecorder()
+	nativeAPIServe(t, s, invalid, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", invalidLimits, "alice"))
+	if invalid.Code != 400 {
+		t.Fatal("zero active attempt time accepted", invalid.Code, invalid.Body.String())
+	}
+	customLimits := strings.Replace(factoryPolicyBody(factory.NewID()), `"expected_revision":0`, `"expected_revision":1`, 1)
+	customLimits = strings.Replace(customLimits, `"max_concurrent":2`, `"max_concurrent":2,"attempt_limits":{"active_minutes":45,"correction_cycles":1}`, 1)
+	custom := httptest.NewRecorder()
+	nativeAPIServe(t, s, custom, apiTestRequest(http.MethodPut, "/api/repositories/7/factory/policy", customLimits, "alice"))
+	if custom.Code != 200 {
+		t.Fatal("valid repository attempt limits rejected", custom.Code, custom.Body.String())
+	}
+	policy, err = s.Store.RepositoryPolicy(t.Context(), 7)
+	if err != nil || policy.AttemptLimits != (factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1}) {
+		t.Fatalf("repository attempt limits were not recorded: %+v %v", policy.AttemptLimits, err)
 	}
 }
 

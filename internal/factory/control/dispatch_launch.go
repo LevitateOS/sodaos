@@ -116,7 +116,7 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness is unavailable"})
 		return
 	}
-	plan, wait, failed := planAttempt(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control)
+	plan, wait, failed := planAttempt(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control, false)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
 		return

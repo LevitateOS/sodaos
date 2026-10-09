@@ -78,6 +78,7 @@ func lifecycleWebGrants(t *testing.T, s *Server, repository int64, paused bool) 
 		Create:        factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpPRCreate},
 		Review:        factory.ActorBindingRef{TokenID: 13, ActorID: 14, Kind: factory.OpReviewSubmit},
 		Merge:         factory.ActorBindingRef{TokenID: 15, ActorID: 16, Kind: factory.OpMerge},
+		AttemptLimits: factory.DefaultAttemptLimits(),
 		MaxConcurrent: 2,
 	}
 	if err := s.Store.SaveRepositoryPolicy(ctx, policy); err != nil {

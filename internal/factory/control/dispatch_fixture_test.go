@@ -133,6 +133,7 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 		Checks: []string{"ci"}, MergeMethod: factory.MergeFastForward,
 		Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate),
 		Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge),
+		AttemptLimits: factory.DefaultAttemptLimits(),
 		MaxConcurrent: 2,
 	}
 	if err := db.SaveRepositoryPolicy(ctx, fx.policy); err != nil {

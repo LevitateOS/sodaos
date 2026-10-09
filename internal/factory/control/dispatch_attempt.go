@@ -33,6 +33,8 @@ type attemptPlan struct {
 	gateRev              int64
 	applianceConcurrent  int
 	repositoryConcurrent int
+	freshAttempt         bool
+	attemptLimits        factory.AttemptLimits
 }
 
 // dispatchOne dispatches one queued issue or reports exactly why it
@@ -68,7 +70,7 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		}
 		retry = &pending
 	}
-	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control)
+	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control, retry != nil)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: failed.Reason, Detail: failed.Detail})
 		return
@@ -102,6 +104,8 @@ func admissionWait(err error) *planWait {
 		return waitFor(WaitSponsorship, "sponsorship runs at its limit")
 	case errors.Is(err, store.ErrAllowanceExhausted):
 		return waitFor(WaitAllowance, "sponsorship allowance is exhausted")
+	case errors.Is(err, factory.ErrAttemptTimeExhausted):
+		return waitFor(WaitAllowance, "attempt active-time allowance is exhausted")
 	case errors.Is(err, store.ErrConnectionUsageBudget):
 		return waitFor(WaitAllowance, "connection rolling usage budget is exhausted")
 	case errors.Is(err, store.ErrAdmissionChanged):
@@ -127,11 +131,11 @@ func refreshOccupancy(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 // planAttempt verifies one dispatch end to end without recording
 // anything. Every check that fails reports its wait or failure; a full
 // plan hands its exact bound inputs to the executor.
-func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl) (*attemptPlan, *planWait, *planWait) {
+func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool) (*attemptPlan, *planWait, *planWait) {
 	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
 		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
 	}
-	plan := &attemptPlan{control: control}
+	plan := &attemptPlan{control: control, freshAttempt: freshAttempt}
 	effective, err := deps.Authority(ctx, repository)
 	if err != nil {
 		return nil, nil, waitFor(DispatchErrStore, "authority unreadable")
@@ -195,7 +199,7 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		ApplianceConcurrent:   plan.applianceConcurrent,
 		RepositoryConcurrent:  plan.repositoryConcurrent,
 		SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
-		PlannedMinutes:        plan.planned,
+		AttemptLimits:         plan.attemptLimits,
 		Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
 		Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
 		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),

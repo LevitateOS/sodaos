@@ -60,7 +60,7 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 	if err = registerDispatchTx(ctx, tx, d); err != nil {
 		return err
 	}
-	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view); err != nil {
+	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view, false); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -71,7 +71,7 @@ func sameControlOutcome(left, right factory.IssueControl) bool {
 		maps.Equal(left.EndpointHeads, right.EndpointHeads) && maps.Equal(left.Satisfied, right.Satisfied)
 }
 
-func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView, freshAttempt bool) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
@@ -145,7 +145,10 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if err = checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants); err != nil {
 		return err
 	}
-	return nil
+	if freshAttempt {
+		return startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.ID, grants.policy.AttemptLimits, run.Deadline, time.Now())
+	}
+	return admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.ID, &grants.policy.AttemptLimits, run.Deadline, time.Now())
 }
 
 func checkQueuedControlTx(ctx context.Context, tx *sql.Tx, expected factory.IssueControl, repository, issue int64, acceptance string) error {

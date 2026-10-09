@@ -107,8 +107,33 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if connectionMinutes < int64(remaining) {
 		remaining = int(connectionMinutes)
 	}
+	now := time.Now()
+	deadline := now.Add(time.Duration(remaining) * time.Minute)
+	plan.attemptLimits = plan.policy.AttemptLimits
+	attemptSeconds := int64(plan.policy.AttemptLimits.ActiveMinutes) * 60
+	if !plan.freshAttempt {
+		allowance, allowanceErr := deps.Store.AttemptAllowance(ctx, repository, plan.control.Issue)
+		switch {
+		case allowanceErr == nil:
+			plan.attemptLimits = allowance.Limits
+			attemptSeconds = allowance.RemainingSeconds(now)
+		case errors.Is(allowanceErr, store.ErrNotFound):
+		default:
+			return nil, waitFor(DispatchErrStore, "attempt allowance unreadable")
+		}
+	}
+	if attemptSeconds <= 0 {
+		return waitFor(WaitAllowance, "attempt active-time allowance is exhausted"), nil
+	}
+	attemptDeadline := time.Unix(now.Unix()+attemptSeconds, 0)
+	if attemptDeadline.Before(deadline) {
+		deadline = attemptDeadline
+	}
+	if boundedMinutes := int((deadline.Sub(now) + time.Minute - 1) / time.Minute); boundedMinutes < remaining {
+		remaining = boundedMinutes
+	}
 	plan.planned = remaining
-	plan.deadline = time.Now().Add(time.Duration(remaining) * time.Minute)
+	plan.deadline = deadline
 	return nil, nil
 }
 

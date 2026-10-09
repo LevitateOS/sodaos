@@ -50,6 +50,7 @@ func (fx *st15Fixture) setupProject() error {
 		Create:        actor(factory.OpPRCreate, fx.cfg.TokenID, fx.cfg.ActorID),
 		Review:        actor(factory.OpReviewSubmit, fx.cfg.ReviewerTokenID, fx.cfg.ReviewerID),
 		Merge:         actor(factory.OpMerge, fx.cfg.TokenID, fx.cfg.ActorID),
+		AttemptLimits: factory.DefaultAttemptLimits(),
 		MaxConcurrent: 2,
 	}
 	if _, err := fx.coord.ApplyPolicy(ctx, factory.NewID(), "soda-maintainer", 0, policy); err != nil {

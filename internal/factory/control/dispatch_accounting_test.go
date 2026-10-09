@@ -177,6 +177,93 @@ func TestDispatchInterruptionReleasesOnlyUnused(t *testing.T) {
 	}
 }
 
+func TestReleasedLaunchRetryKeepsPromptAllowanceWhenUsageShortensDeadline(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	head := fx.accept(t, 3, "d333333333333333333333333")
+	fx.queue(t, 3, head.ID)
+
+	launchCalls := 0
+	fx.host.launch = func(in project.FactoryLaunch) (project.FactoryState, error) {
+		launchCalls++
+		if launchCalls == 1 {
+			return project.FactoryState{}, errors.New("host down")
+		}
+		return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+	}
+	first := DispatchPass(ctx, fx.deps())
+	if len(first.Launched) != 0 || waitReason(first, 3) != WaitLaunchRefused {
+		t.Fatalf("first pass = %+v %+v %+v", first.Launched, first.Waits, first.Errors)
+	}
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstRun, err := db.FactoryRun(ctx, assignment.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstPromptSHA := assignment.PromptSHA
+	firstSpan := firstRun.Deadline.Sub(firstRun.Started)
+	if firstSpan < 119*time.Minute || firstSpan > 120*time.Minute {
+		t.Fatalf("first deadline span = %v", firstSpan)
+	}
+	rootAllowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Record a separate settled run's provider charge between retries.
+	now := time.Now().UTC()
+	otherRun := firstRun
+	otherRun.ID = factory.NewID()
+	otherRun.Started = now.Add(-2 * time.Minute)
+	otherRun.Outcome, otherRun.Summary, otherRun.Reconciled = "", "", false
+	if err := db.RecordFactoryRun(ctx, otherRun); err != nil {
+		t.Fatal(err)
+	}
+	otherRun.Outcome, otherRun.Summary, otherRun.Reconciled = factory.Failed, "settled", true
+	if err := db.SaveFactoryRun(ctx, otherRun); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.RecordRunUsage(ctx, factory.Usage{
+		RunID: otherRun.ID, Repository: fx.repo, Connection: "conn", Minutes: 2,
+		StartedAt: otherRun.Started, EndedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	second := DispatchPass(ctx, fx.deps())
+	if len(second.Launched) != 1 || second.Launched[0].Issue != 3 {
+		t.Fatalf("second pass = launched %+v waits %+v errors %+v", second.Launched, second.Waits, second.Errors)
+	}
+	updated, err := db.Assignment(ctx, assignment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondRun, err := db.FactoryRun(ctx, second.Launched[0].RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent := fx.host.launches[len(fx.host.launches)-1]
+	if updated.PromptSHA != firstPromptSHA || sent.Run.Assignment != firstPromptSHA {
+		t.Fatalf("retry prompt SHA changed: first=%s assignment=%s launch=%s", firstPromptSHA, updated.PromptSHA, sent.Run.Assignment)
+	}
+	if !strings.Contains(string(updated.Prompt), "120 minutes") {
+		t.Fatalf("retry prompt lost configured 120-minute allowance: %s", updated.Prompt)
+	}
+	if span := secondRun.Deadline.Sub(secondRun.Started); span >= firstSpan-time.Minute || span < 117*time.Minute {
+		t.Fatalf("retry deadline span = %v, first = %v", span, firstSpan)
+	}
+	afterAllowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterAllowance.RootAssignment != rootAllowance.RootAssignment || afterAllowance.Limits != rootAllowance.Limits {
+		t.Fatalf("root allowance changed: before=%+v after=%+v", rootAllowance, afterAllowance)
+	}
+}
+
 func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
@@ -207,6 +294,18 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	priorRun, err := db.FactoryRun(ctx, old.Run)
 	if err != nil || !priorRun.Reconciled || priorRun.Outcome != factory.Failed {
 		t.Fatalf("latest failed run: %+v %v", priorRun, err)
+	}
+	oldAllowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatalf("previous attempt allowance: %v", err)
+	}
+	policy, err := db.RepositoryPolicy(ctx, fx.repo)
+	if err != nil {
+		t.Fatalf("repository policy: %v", err)
+	}
+	policy.AttemptLimits.ActiveMinutes = 45
+	if err := db.SaveRepositoryPolicy(ctx, policy); err != nil {
+		t.Fatalf("lower current attempt allowance: %v", err)
 	}
 
 	var retriedRun string
@@ -240,6 +339,13 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	reservation, err := db.Reservation(ctx, fresh.ID)
 	if err != nil || reservation.State != factory.ReservationHeld || reservation.Connection != "conn" || reservation.PlannedMinutes <= 0 {
 		t.Fatalf("fresh retry allowance reservation: %+v %v", reservation, err)
+	}
+	freshAllowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
+	if err != nil || freshAllowance.RootAssignment != commandID || freshAllowance.Limits.ActiveMinutes != 45 {
+		t.Fatalf("fresh retry root allowance: %+v %v", freshAllowance, err)
+	}
+	if oldAllowance.RootAssignment == freshAllowance.RootAssignment || oldAllowance.Limits.ActiveMinutes != factory.DefaultAttemptLimits().ActiveMinutes {
+		t.Fatalf("explicit retry did not create a fresh policy allowance: old=%+v fresh=%+v", oldAllowance, freshAllowance)
 	}
 	if currentOld, err := db.Assignment(ctx, old.ID); err != nil || currentOld.Stage != factory.AssignmentFinished || len(currentOld.RunHistory) != len(oldHistory) {
 		t.Fatalf("old attempt history changed: %+v %v", currentOld, err)

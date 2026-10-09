@@ -39,8 +39,9 @@ var (
 	ErrAllowanceClock       = errors.New("attempt allowance clock moved backwards")
 )
 
-// AttemptAllowance retains one issue's automatic attempt across assignments,
-// acceptance edits and pauses. Active time includes review and native waits;
+// AttemptAllowance retains one automatic attempt across assignments,
+// acceptance edits and pauses. An explicit maintainer Retry starts a new
+// allowance and preserves this one in history. Active time includes review and native waits;
 // callers may pause its clock only after confirming all affected runs stopped.
 // Corrections are charged before launch by the correction assignment identity.
 type AttemptAllowance struct {

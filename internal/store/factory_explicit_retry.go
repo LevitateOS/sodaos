@@ -171,7 +171,7 @@ func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.
 	if err = registerDispatchTx(ctx, tx, d); err != nil {
 		return err
 	}
-	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view); err != nil {
+	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view, true); err != nil {
 		return err
 	}
 	return tx.Commit()

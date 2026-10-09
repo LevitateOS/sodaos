@@ -79,6 +79,7 @@ func nativeCheckPolicy(t *testing.T, db *store.Store, c nativeST09Config, checks
 		Checks: checks, MergeMethod: factory.MergeFastForward,
 		Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate),
 		Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge),
+		AttemptLimits: factory.DefaultAttemptLimits(),
 		MaxConcurrent: 2,
 	}
 	nativeMust(t, db.SaveRepositoryPolicy(ctx, policy))

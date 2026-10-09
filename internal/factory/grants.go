@@ -155,6 +155,7 @@ type RepositoryPolicy struct {
 	TargetBranch  string                   `json:"target_branch"`
 	Checks        []string                 `json:"required_checks"`
 	MergeMethod   string                   `json:"merge_method"`
+	AttemptLimits AttemptLimits            `json:"attempt_limits"`
 	MaxConcurrent int                      `json:"max_concurrent"`
 	Enabled       bool                     `json:"enabled"`
 	Paused        bool                     `json:"paused"`
@@ -193,6 +194,9 @@ func (p RepositoryPolicy) Validate() error {
 	}
 	if p.MaxConcurrent < 1 || p.MaxConcurrent > MaxPolicyConcurrent {
 		return errors.New("invalid repository concurrency limit")
+	}
+	if err := p.AttemptLimits.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

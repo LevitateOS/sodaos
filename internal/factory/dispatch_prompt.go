@@ -46,7 +46,7 @@ type PromptInputs struct {
 	ApplianceConcurrent   int
 	RepositoryConcurrent  int
 	SponsorshipConcurrent int
-	PlannedMinutes        int
+	AttemptLimits         AttemptLimits
 	Repository            int64
 	Issue                 int64
 	NativeRev             int64
@@ -71,7 +71,7 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	if !project.ValidDecisionID(in.AcceptanceID) || !ValidCommit(in.SourceCommit) || in.TargetBranch == "" {
 		return nil, errors.New("invalid dispatch prompt references")
 	}
-	if in.Title == "" || in.PlannedMinutes < 1 || in.ApplianceConcurrent < 1 || in.RepositoryConcurrent < 1 || in.SponsorshipConcurrent < 1 || len(in.RequiredChecks) == 0 || in.ProviderConnection == "" {
+	if in.Title == "" || in.AttemptLimits.Validate() != nil || in.ApplianceConcurrent < 1 || in.RepositoryConcurrent < 1 || in.SponsorshipConcurrent < 1 || len(in.RequiredChecks) == 0 || in.ProviderConnection == "" {
 		return nil, errors.New("dispatch prompt needs selected controller inputs")
 	}
 	if len(in.Prerequisites) > 0 {
@@ -100,7 +100,7 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	}
 	var b strings.Builder
 	b.WriteString("# Soda factory coding assignment\n\n")
-	b.WriteString("Prompt template: soda-f07-f2-v3\n")
+	b.WriteString("Prompt template: soda-f07-f2-v4\n")
 	b.WriteString("Repository: " + strconv.FormatInt(in.Repository, 10) + "\n")
 	b.WriteString("Issue: " + strconv.FormatInt(in.Issue, 10) + "\n")
 	b.WriteString("Acceptance: " + in.AcceptanceID + " @ native revision " + strconv.FormatInt(in.NativeRev, 10) + "\n")
@@ -111,7 +111,8 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	b.WriteString("Provider connection: " + strconv.Quote(in.ProviderConnection) + "\n")
 	b.WriteString("\n## Controller policy\n\n")
 	b.WriteString("Permitted actions: inspect and modify the prepared checkout to implement the accepted objective; run relevant local checks; report the resulting candidate and evidence. Do not change grants, select another provider or model, publish refs, create or merge pull requests, or expose credentials.\n")
-	b.WriteString("Effective limits: this run may use at most " + strconv.Itoa(in.PlannedMinutes) + " minutes; appliance concurrency is " + strconv.Itoa(in.ApplianceConcurrent) + " and repository concurrency is " + strconv.Itoa(in.RepositoryConcurrent) + "; sponsorship concurrency for this connection in this repository is " + strconv.Itoa(in.SponsorshipConcurrent) + ". These are selected limits for this dispatch.\n")
+	b.WriteString("Recorded attempt active-time limit: " + strconv.Itoa(in.AttemptLimits.ActiveMinutes) + " minutes. Automatic retries and accepted edits do not replenish it. Only an explicit maintainer Retry starts a fresh allowance under current policy. The host enforces each run's absolute deadline within the remaining attempt and provider allowances.\n")
+	b.WriteString("Concurrency limits: appliance concurrency is " + strconv.Itoa(in.ApplianceConcurrent) + " and repository concurrency is " + strconv.Itoa(in.RepositoryConcurrent) + "; sponsorship concurrency for this connection in this repository is " + strconv.Itoa(in.SponsorshipConcurrent) + ".\n")
 	if len(in.RequiredChecks) > 0 {
 		b.WriteString("Required evidence checks: " + strings.Join(in.RequiredChecks, "; ") + "\n")
 	}

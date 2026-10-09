@@ -22,6 +22,7 @@ func grantTestPolicy() RepositoryPolicy {
 		Create:        ActorBindingRef{TokenID: 11, ActorID: 12, Kind: OpPRCreate},
 		Review:        ActorBindingRef{TokenID: 13, ActorID: 14, Kind: OpReviewSubmit},
 		Merge:         ActorBindingRef{TokenID: 15, ActorID: 16, Kind: OpMerge},
+		AttemptLimits: DefaultAttemptLimits(),
 		MaxConcurrent: 2,
 	}
 }
@@ -53,11 +54,13 @@ func TestRepositoryPolicyValidation(t *testing.T) {
 		"unsupported family": mutate(func(p *RepositoryPolicy) {
 			p.Roles[project.RoleCoder] = RoleSelection{Harness: "unknown", HarnessVers: "0.157.1", Model: "m"}
 		}),
-		"merge method":     mutate(func(p *RepositoryPolicy) { p.MergeMethod = "merge" }),
-		"swappedKind":      mutate(func(p *RepositoryPolicy) { p.Merge.Kind = OpRefPublish }),
-		"zero token":       mutate(func(p *RepositoryPolicy) { p.Publish.TokenID = 0 }),
-		"zero concurrency": mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 0 }),
-		"high concurrency": mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 99 }),
+		"merge method":               mutate(func(p *RepositoryPolicy) { p.MergeMethod = "merge" }),
+		"swappedKind":                mutate(func(p *RepositoryPolicy) { p.Merge.Kind = OpRefPublish }),
+		"zero token":                 mutate(func(p *RepositoryPolicy) { p.Publish.TokenID = 0 }),
+		"zero concurrency":           mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 0 }),
+		"high concurrency":           mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 99 }),
+		"zero active attempt time":   mutate(func(p *RepositoryPolicy) { p.AttemptLimits.ActiveMinutes = 0 }),
+		"negative correction cycles": mutate(func(p *RepositoryPolicy) { p.AttemptLimits.CorrectionCycles = -1 }),
 	} {
 		if err := bad.Validate(); err == nil {
 			t.Errorf("%s: policy accepted", name)

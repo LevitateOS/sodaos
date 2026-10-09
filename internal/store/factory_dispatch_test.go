@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -180,7 +181,7 @@ func dispatchTestPrompt(t *testing.T) []byte {
 		Preparation: "f" + strings.Repeat("b", 24),
 		Harness:     "codex", Model: "m", Role: project.RoleCoder,
 		ProviderConnection: "conn", RequiredChecks: []string{"ci"},
-		ApplianceConcurrent: 2, RepositoryConcurrent: 2, SponsorshipConcurrent: 2, PlannedMinutes: 120,
+		ApplianceConcurrent: 2, RepositoryConcurrent: 2, SponsorshipConcurrent: 2, AttemptLimits: factory.DefaultAttemptLimits(),
 		RequirementsID: "d" + strings.Repeat("e", 24), ApprovalID: "d" + strings.Repeat("f", 24),
 		Title: "objective",
 	})
@@ -355,8 +356,24 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		now := time.Now().UTC()
 		db := dispatchStoreFixture(t)
 		firstAt := now.Add(-4 * time.Hour)
-		a, reservation, run, view := dispatchTestPacket(t, firstAt)
-		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		a, reservation, run, _ := dispatchTestPacket(t, firstAt)
+		// Seed an existing held process with its original immutable binding.
+		// Fresh admission correctly refuses its now-expired deadline.
+		if err := db.RecordFactoryRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+		assignmentData, err := json.Marshal(a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`, a.ID, a.Repository, a.Issue, a.Run, a.Stage, a.Revision, string(assignmentData)); err != nil {
+			t.Fatal(err)
+		}
+		reservationData, err := json.Marshal(reservation)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_reservations(assignment,repository,connection,state,data) VALUES($1,$2,$3,$4,$5)`, a.ID, a.Repository, a.Connection, reservation.State, string(reservationData)); err != nil {
 			t.Fatal(err)
 		}
 		budget, err := db.ConnectionUsageBudget(ctx, "conn")

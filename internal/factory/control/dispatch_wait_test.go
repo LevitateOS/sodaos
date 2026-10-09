@@ -238,7 +238,7 @@ func TestCheckHarnessSelectsPolicyFamily(t *testing.T) {
 		}
 		return pin, nil
 	}}
-	plan := &attemptPlan{policy: factory.RepositoryPolicy{Roles: map[string]factory.RoleSelection{
+	plan := &attemptPlan{policy: factory.RepositoryPolicy{AttemptLimits: factory.DefaultAttemptLimits(), Roles: map[string]factory.RoleSelection{
 		project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.0", Model: "muse-spark-1.3"},
 		project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "codex-model"},
 	}}}
@@ -263,7 +263,7 @@ func TestCheckHarnessRejectsFamilyAndVersionMismatch(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fx := dispatchFixture{host: &fakeDispatchHost{harness: func(string) (project.FactoryHarnessPin, error) { return tc.pin, nil }}}
-			plan := &attemptPlan{policy: factory.RepositoryPolicy{Roles: map[string]factory.RoleSelection{
+			plan := &attemptPlan{policy: factory.RepositoryPolicy{AttemptLimits: factory.DefaultAttemptLimits(), Roles: map[string]factory.RoleSelection{
 				project.RoleCoder: {Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.0", Model: "m"},
 			}}}
 			if wait := checkHarness(context.Background(), DispatchDeps{Host: fx.host}, plan); wait == nil || wait.Reason != WaitHarness {
