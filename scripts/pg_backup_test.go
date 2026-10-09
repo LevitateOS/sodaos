@@ -56,34 +56,50 @@ func pgFixtureStart(t *testing.T, env ...string) map[string]string {
 	// The Rust port preserves the shell CLI exactly: `start` prints
 	// KEY=VALUE assignments, `stop <container>` removes the container.
 	bin := buildRustPortBinary(t, "soda-pg-fixture")
+	fixtureDir, err := os.MkdirTemp("", "soda-pg-test-")
+	if err != nil {
+		t.Fatalf("create fixture secret directory: %v", err)
+	}
 	cmd := exec.Command(bin, "start")
-	cmd.Env = append(os.Environ(), env...)
+	cmd.Env = append(append(os.Environ(), env...), "SODA_PG_FIXTURE_DIR="+fixtureDir)
 	out, err := cmd.CombinedOutput()
 	if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 3 {
+		if removeErr := os.RemoveAll(fixtureDir); removeErr != nil {
+			t.Fatalf("remove unused fixture secret directory: %v", removeErr)
+		}
 		t.Skipf("postgres fixture unavailable: %s", strings.TrimSpace(string(out)))
 	}
 	if err != nil {
-		t.Fatalf("fixture start: %v: %s", err, out)
+		t.Fatalf("fixture start: %v: %s; retained private directory %s pending confirmed cleanup", err, out, fixtureDir)
 	}
 	vars := map[string]string{}
 	for line := range strings.Lines(string(out)) {
 		key, value, ok := strings.Cut(strings.TrimSpace(line), "=")
 		if !ok || key == "" {
-			t.Fatalf("bad fixture line: %q", line)
+			t.Fatalf("bad fixture line: %q; retained private directory %s pending confirmed cleanup", line, fixtureDir)
 		}
 		vars[key] = strings.Trim(value, `"`)
+	}
+	if vars["SODA_PG_CONTAINER"] != "" {
+		t.Cleanup(func() {
+			stop := exec.Command(bin, "stop", vars["SODA_PG_CONTAINER"])
+			if out, err := stop.CombinedOutput(); err != nil {
+				t.Errorf("fixture stop: %v: %s", err, out)
+				return
+			}
+			if err := os.RemoveAll(fixtureDir); err != nil {
+				t.Errorf("remove fixture secret directory: %v", err)
+			}
+		})
 	}
 	for _, key := range []string{"SODA_PG_CONTAINER", "SODA_PG_PORT", "SODA_PG_DIR"} {
 		if vars[key] == "" {
 			t.Fatalf("fixture omitted %s: %s", key, out)
 		}
 	}
-	t.Cleanup(func() {
-		stop := exec.Command(bin, "stop", vars["SODA_PG_CONTAINER"])
-		if out, err := stop.CombinedOutput(); err != nil {
-			t.Errorf("fixture stop: %v: %s", err, out)
-		}
-	})
+	if vars["SODA_PG_DIR"] != fixtureDir {
+		t.Fatalf("fixture secret directory = %q, want owned path %q", vars["SODA_PG_DIR"], fixtureDir)
+	}
 	return vars
 }
 
