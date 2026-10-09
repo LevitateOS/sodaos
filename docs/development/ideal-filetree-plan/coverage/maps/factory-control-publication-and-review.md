@@ -249,8 +249,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–92, 115–164, 211–244; file scaffold; prepareReviewer; reviewLeg1; ciFail; requireContentStatus; reviewLeg2 | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 93–114, 165–210, 245–252; reviewLeg; correctA; st15CheckLink | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: reviewLeg; Current declaration duty: correctA; Current declaration duty: st15CheckLink — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–18, 39–84, 145–178; file scaffold; reviewLeg1; ciFail; requireContentStatus; reviewLeg2 | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current review/CI/merge-completion journey duties; the former direct reviewer-preparation helper was removed in favor of the existing production child producer. |
+| 19–38, 85–144, 179–185; reviewLeg; correctA; st15CheckLink | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Drives and validates the current candidate through production reviewer/correction child assignments and recorded check links. |
 
 
 ## Current path reconciliation at `45ebf4c4`

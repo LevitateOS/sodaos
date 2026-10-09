@@ -265,10 +265,11 @@ Observed size: 694 lines, including tests where embedded. Keep the same Go packa
 
 - `internal/factory/control/st15_demo_journey_test.go` — One composed demo entry and final receipt.
 - `internal/factory/control/st15_demo_coding_test.go` — Original coding dispatch, native publication and browser observations.
-- `internal/factory/control/st15_demo_review_test.go` — Independent reviewer/fix/new-head/fresh-review sequence.
+- `internal/factory/control/st15_demo_review_test.go` — Independent reviewer/fix/new-head/fresh-review sequence driven by the canonical production child producer.
+- `internal/factory/control/st15_demo_runs_test.go` — Production PublishPass child discovery/admission and run binding (`publishChildRun`), plus recorded stop/accounting/review helpers (`stopSettled`, `settleDispatched`, `submitReview`).
 - `internal/factory/control/st15_demo_completion_test.go` — Native CI, merge/dependant and retention proof.
 
-Evidence: TestST15ComposedDemo at 664; writeFinalReceipt at 651; dispatchA at 99; publishA at 193; runBrowser at 71; prepareReviewer at 238; reviewLeg1 at 326; correctA at 376; reviewLeg2 at 422; ciPass at 458; mergeAndDependants at 474; proveRetention at 590.
+Evidence: TestST15ComposedDemo at 664; writeFinalReceipt at 651; dispatchA at 99; publishA at 193; runBrowser at 71; publishChildRun in st15_demo_runs_test.go; reviewLeg1 at 39; correctA at 85; reviewLeg2 at 145; ciPass at 458; mergeAndDependants at 474; proveRetention at 590.
 
 ## internal/factory/control/st15_demo_native_test.go
 
