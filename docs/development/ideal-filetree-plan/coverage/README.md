@@ -2,11 +2,12 @@
 
 ## Complete source-to-slice coverage
 
-Current path navigation is reconciled at `729a88b0` (2026-10-09): all 2,529
+Current path navigation is reconciled at `e0e2413f` (2026-10-09): all 2,541
 tracked paths appear once in the inventories, with no missing or duplicate
-current path rows. Twenty-seven additions and fifty-one retirements are mapped
-selectively to their established owners. The desired tree contains these paths
-and the unimplemented D06 Rust personal-Git payload. The detailed duty/body
+current path rows. Twelve later Factory prompt, preparation and expiry paths
+are linked to their current responsibility maps; the earlier addition and
+retirement receipts retain their original scope. The desired tree contains
+these paths and the unimplemented D06 Rust personal-Git payload. The detailed duty/body
 snapshot below remains historical at `519b76bd`; current path membership and
 repaired navigation do not requalify its source or runtime conclusions.
 
@@ -56,22 +57,21 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 
 ### Source roots
 
-| Current root | Tracked paths |
+| Current root at `e0e2413f` | Tracked paths |
 | --- | ---: |
-| `(root)` | 22 |
+| `(root)` | 20 |
 | `.agents` | 1 |
 | `.githooks` | 1 |
 | `assets` | 175 |
-| `cmd` | 338 |
-| `docs` | 323 |
-| `factory-os` | 1 |
+| `cmd` | 336 |
+| `docs` | 318 |
 | `frontend` | 345 |
-| `internal` | 451 |
-| `lib` | 429 |
+| `internal` | 453 |
+| `lib` | 420 |
 | `scripts` | 80 |
-| `system` | 64 |
-| `tests` | 141 |
-| `tools` | 193 |
+| `system` | 65 |
+| `tests` | 138 |
+| `tools` | 189 |
 
 ### Inspection and evidence reuse
 

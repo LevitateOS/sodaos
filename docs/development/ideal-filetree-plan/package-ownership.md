@@ -2,7 +2,7 @@
 
 ## Current package and path mapping
 
-Source `45ebf4c4` (2026-10-09): 2526 tracked paths and 28 tracked Cargo
+Source `e0e2413f` (2026-10-09): 2,541 tracked paths and 28 tracked Cargo
 packages (`cmd`: 14, `lib`: 8, `tools`: 6). These are source/package counts,
 separate from the historical audit and runtime evidence below.
 
@@ -15,7 +15,7 @@ separate from the historical audit and runtime evidence below.
 | cmd | 336 |
 | docs | 318 |
 | frontend | 345 |
-| internal | 438 |
+| internal | 453 |
 | lib | 420 |
 | scripts | 80 |
 | system | 65 |

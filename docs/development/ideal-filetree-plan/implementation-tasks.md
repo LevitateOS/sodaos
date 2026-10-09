@@ -21,19 +21,20 @@ below; shared duties route through their physical writer in the lane schedule.
 ## Current task state (2026-10-09)
 
 Implementation is active under the owner's “go”, “commit early and often” and
-subsequent all-tasks goal. Current reconciliation uses source `5cf87c3c`;
+subsequent all-tasks goal. Current path reconciliation uses source `e0e2413f`;
 `04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
 first twelve selected packets are committed, followed by readiness/artifact
 identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and
 selective caller simplifications.
 Completed checks are source/development evidence; no installed, provider or
 native-worker qualification is inferred. Seven pre-existing dirty guidance
-files remain untouched. The full path comparison at `81ea7b5e` counts 2,524
-tracked paths and 2,498 then-desired leaves, with 190 differing paths classified
-separately. The supported leaf corrections, including the fixed-path startup owner, bring
-the desired tree to 2,524 leaves (including the fresh-packet authority regression, five owner-required provenance records and the two live sha2 provider/import profiles). The two former omitted Compose/Muse formatter leaves are now deleted at their last callers; their remaining application duties live with launch, Compose, account and config owners. This selective correction does not close the full R02.targets/joins census. The established responsibility snapshot and
-historical validity reviews retain their original scope; affected owner deltas
-are recorded selectively, with full R02.targets regeneration still pending.
+files remain untouched. The current tree and tracked-file inventories account for all 2,541 tracked
+paths; the sole additional desired leaf is the unimplemented D06 Rust
+personal-Git payload. Historical path comparisons retain their original
+identities. The responsibility body snapshot remains pinned to `519b76bd`,
+with selective current owner/caller deltas recorded in the affected maps.
+Full R02.targets/joins acceptance remains open; path accounting does not renew
+historical validity reviews or establish installed qualification.
 
 The [finding allocation](execution-findings.md) is the detailed subtask section
 of this same plan: 75 prior canonical dispositions plus the CA profile question,

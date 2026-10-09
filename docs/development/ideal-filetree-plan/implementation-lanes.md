@@ -6,7 +6,7 @@ and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. The canonical
-[current task state](implementation-tasks.md#current-task-state-2026-10-08)
+[current task state](implementation-tasks.md#current-task-state-2026-10-09)
 records completed L00–L15, L17 and L18 source scopes, completed L16.G and deferred
 optional L16 adoption. L10.N4 retains curl at source scope; its shipped-image,
 TLS and provider qualification remain with R04. L17 completes the fixed
@@ -195,16 +195,17 @@ hunk editing of a shared file as a substitute for ownership.
   rather than schedule that move again. Use these bounded outputs:
   - [x] **R02.inventory** Duty/body coverage retains the `519b76bd` snapshot
     with `58a99730` root/assets closure. Path navigation is reconciled through
-    `45ebf4c4`: 2,526 current tracked paths, no missing or duplicate rows; 25
-    additions and 51 retirements have explicit current/historical dispositions.
-    Keep selective deltas current; this does not renew historical body reviews.
+    `e0e2413f`: all 2,541 current tracked paths appear once, with twelve later
+    prompt/preparation/expiry additions linked to their current owner maps.
+    Earlier addition/retirement receipts retain their scope. Keep selective
+    deltas current; this does not renew historical body reviews.
   - [x] **R02.tasks** Current findings are reconciled from `04286c48` into the
     existing tasks/lanes with named owner/scope/prerequisites/acceptance, explicit
     completed/withdrawn/held dispositions and superseded pending directions.
   - [ ] **R02.targets** Reconcile implemented defining destinations, current
     library adapters and evidenced retirements in the tree, ownership, ports,
     slice cards and decomposition records after replacement boundaries settle.
-    The `45ebf4c4` path refresh maps every current leaf and retains only the
+    The `e0e2413f` path refresh maps every current leaf and retains only the
     explicit unimplemented D06 Rust payload as a future leaf; it supersedes
     optional Codex/Muse/Project/Tailnet filenames with current owners. Remaining
     slice/body allocation and join acceptance keep this task open. Preserve

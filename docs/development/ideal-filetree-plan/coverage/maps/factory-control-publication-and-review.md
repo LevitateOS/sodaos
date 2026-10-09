@@ -118,6 +118,8 @@ Current source addition at `b38a37b4`; existing coordinator and Store owners rem
 | File scaffold; publicationChildLimit; producePublishedChildren; producePublicationChild; currentReviewReport; currentChildCheckAssessment; prepareReviewCandidate; candidatePreparationStateMatches; candidatePreparationIdentityMatches; observeCandidatePreparation; executePublicationChild; existingMatchesPublicationChild; publicationChildID; publicationPreparationID; fenceChildPublication | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Produces exact-head review/correction children, invokes canonical preparation/dispatch admission and fences failed or exhausted continuation. Store retains authority, deadline and retirement state ownership. Source/development evidence is recorded in [F07](../../reviews/F07.md#current-prompt-and-preparation-observation-source-cuts); full exhaustion/intervention and native qualification remain open. |
 | buildPublicationChildPrompt | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Uses canonical recorded prompt inputs and the role-specific output contract, delivering bounded provenance-checked repository context into the prompt digest. [F07 source/development evidence](../../reviews/F07.md#current-prompt-and-preparation-observation-source-cuts) records this completed boundary; full autonomous/native/provider qualification remains open. |
 
+<a id="r02-current-path-internal-factory-control-publication-children-test-go"></a>
+
 ## [internal/factory/control/publication_children_test.go](../../../../../internal/factory/control/publication_children_test.go)
 
 | Current named units | Owner | Disposition | Responsibility / evidence |
