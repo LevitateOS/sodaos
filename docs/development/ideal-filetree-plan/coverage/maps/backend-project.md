@@ -40,6 +40,16 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–27; file scaffold; TestFactoryCandidateRequiresFreshBoundedPreparation | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestFactoryCandidateRequiresFreshBoundedPreparation — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-factory-context"></a>
+
+## [internal/project/factory_context.go](../../../../../internal/project/factory_context.go)
+
+Current source inspected; owns the typed, bounded request and provenance-validated response for one prepared checkout.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–104; FactoryPreparationContextRequest; Validate; FactoryContextFile; FactoryPreparationContext; ValidateFor; ValidateContent; validFactoryContextPath | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Exact project/preparation/role/source/base/diff/candidate/deadline bindings and bounded selected-path/content contract; context bytes are transient prompt material. |
+
 <a id="coverage-d5bcb7f11505"></a>
 
 ## [internal/project/factory_export.go](../../../../../internal/project/factory_export.go)

@@ -218,6 +218,16 @@ current source declaration/method inspection; receiver methods normalized by met
 | 1–106, 119–193; file scaffold; attemptPlan; dispatchOne; planWait; waitFor; admissionWait; planAttempt | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 107–118; refreshOccupancy | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: refreshOccupancy — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-factory-control-dispatch-context"></a>
+
+## [internal/factory/control/dispatch_context.go](../../../../../internal/factory/control/dispatch_context.go)
+
+Current source inspected; selects accepted repository references and reads context from the bound native preparation before prompt construction.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–81; repositoryPathReference; readRepositoryContext; acceptedRepositoryPathReferences | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Bounds accepted path references, rejects overflow before native I/O, applies the attempt deadline and validates exact prepared-source/base/candidate response bindings. |
+
 <a id="coverage-8f05676f603c"></a>
 
 ## [internal/factory/control/dispatch_concurrency_test.go](../../../../../internal/factory/control/dispatch_concurrency_test.go)

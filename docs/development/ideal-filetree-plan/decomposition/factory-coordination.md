@@ -29,7 +29,7 @@ Observed size: 442 lines, including tests where embedded. Keep the same Go packa
 - `internal/factory/assignment.go` — Canonical assignment identity, stage and validation.
 - `internal/factory/assignment_result.go` — Reported and synthesized harness results.
 - `internal/factory/assignment_resources.go` — Canonical reservation and usage records.
-- `internal/factory/dispatch_prompt.go` and `dispatch_prompt_stage.go` — Accepted input sections, bounded prompt construction and canonical review/correction stage evidence. Approved-base references are recorded; relevant repository context material remains pending.
+- `internal/factory/dispatch_prompt.go` and `dispatch_prompt_stage.go` — Accepted input sections, bounded prompt construction, canonical review/correction stage evidence, and provenance-checked repository context in the immutable prompt digest. `internal/factory/control/dispatch_context.go` selects accepted path references and applies the active deadline; `internal/project/factory_context.go` owns the typed bounded request/response; `internal/host/factory_context.go` is the native client boundary. `lib/host/src/prepare/source.rs` reads exact objects from the approved preparation checkout. This source/development path does not claim installed/provider/full-loop qualification or universal tool-read isolation.
 
 Evidence: Assignment at 67; ValidAssignmentStage at 36; AssignmentResult at 184; ParseHarnessResult at 248; Reservation at 297; Usage at 326; PromptInputs at 359; BuildDispatchPrompt at 388.
 

@@ -89,6 +89,16 @@ exact-blob current maintained map; full spans retained
 | 52–60, 70–78; Client.FactoryLaunch, Client.FactoryHarness | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Native factory assignment launch or pinned harness observation; declarations/fields: `Client.FactoryLaunch`, `Client.FactoryHarness` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 97–130; factoryExportResponseLimit, Client.FactoryExport, factoryExportError | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Exact factory candidate export protocol; declarations/fields: `factoryExportResponseLimit`, `Client.FactoryExport`, `factoryExportError` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
+<a id="coverage-host-factory-context"></a>
+
+## [internal/host/factory_context.go](../../../../../internal/host/factory_context.go)
+
+Current source inspected; bounded native preparation-context client route.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–36; factoryContextResponseLimit; Client.ReadPreparationContext | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Applies request deadline and response-size limit, then validates exact project/preparation/role/source/base/diff/candidate provenance and selected content. |
+
 <a id="coverage-41c6f09f058d"></a>
 
 ## [internal/host/factory_export_test.go](../../../../../internal/host/factory_export_test.go)

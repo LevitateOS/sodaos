@@ -142,7 +142,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–106; file scaffold; PromptSource; PromptInputs; fenceCollision; BuildDispatchPrompt; writePromptSection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–258; file scaffold; PromptSource; PromptInputs; fenceCollision; BuildDispatchPrompt; writeRepositoryContext; writePromptSection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Binds bounded repository context to the exact prompt scope and renders selected setup/check instructions, files and candidate diff into the digest-covered assignment. |
 
 <a id="coverage-fb603e59c85e"></a>
 

@@ -149,7 +149,7 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–121; current module/import/attribute shell; declaration role_exec; declaration must_role_exec; declaration clone_preparation_source; declaration confirm_preparation_head; declaration single_line_trimmed | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/prepare/source.rs into its current native target.; 6 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–444; current module/import/attribute shell; role_exec; must_role_exec; clone_preparation_source; confirm_preparation_head; Runtime::read_preparation_context; context_git; add_context_instruction_paths; single_line_trimmed | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Owns role-specific execution and exact checkout/head confirmation, plus bounded Git reads of setup/check instructions, selected files and the requested candidate diff from the prepared native checkout. This is a source/development transport/core proof, not installed or full-loop qualification. |
 
 <a id="coverage-cc6bca0c7bbd"></a>
 
