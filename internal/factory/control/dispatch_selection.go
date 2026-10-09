@@ -152,15 +152,16 @@ func selectPreparation(ctx context.Context, deps DispatchDeps, plan *attemptPlan
 // coding selection exactly: same proved family and version, a valid
 // content pin and a pinned execution image.
 func checkHarness(ctx context.Context, deps DispatchDeps, plan *attemptPlan) *planWait {
-	pin, err := deps.Host.FactoryHarness(ctx)
+	selection := plan.policy.Roles[project.RoleCoder]
+	pin, err := deps.Host.FactoryHarness(ctx, selection.Harness)
 	if err != nil {
 		return waitFor(WaitHarness, "staged harness pin unreadable")
 	}
 	if err := pin.Validate(); err != nil {
 		return waitFor(WaitHarness, "staged harness is not pinned")
 	}
-	if want := plan.policy.Roles[project.RoleCoder].Harness; pin.Version != want {
-		return waitFor(WaitHarness, "policy selects harness "+want)
+	if pin.Harness != selection.Harness || pin.Version != selection.HarnessVers {
+		return waitFor(WaitHarness, "policy selects harness "+selection.Harness+" version "+selection.HarnessVers)
 	}
 	plan.pin = pin
 	return nil

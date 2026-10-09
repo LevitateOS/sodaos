@@ -36,9 +36,9 @@ fn internal(_err: String) -> BackendError {
 
 /// `strictjson.Decode` failure inside a native dispatch: Go returns the
 /// error and ServeHTTP renders 500.
-/// Empty-object body (`dispatchProfile`, `/factory-harness`): Go decodes
-/// into `struct{}`, so `{}` (and JSON `null`, which decodes into any Go
-/// value) passes and anything else fails.
+/// Empty-object body (`dispatchProfile`): Go decodes into `struct{}`, so
+/// `{}` (and JSON `null`) passes and anything else fails. `/factory-harness`
+/// has its own explicit family request decoder.
 fn decode_empty(body: &[u8]) -> Result<(), BackendError> {
     decode_empty_or_null(body).map_err(|e| internal(e))
 }

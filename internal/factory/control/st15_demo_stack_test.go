@@ -291,7 +291,7 @@ func (fx *st15Fixture) setupHostStack() error {
 	var pin project.FactoryHarnessPin
 	readyDeadline := time.Now().Add(30 * time.Second)
 	for {
-		pin, err = hostClient.FactoryHarness(fx.ctx)
+		pin, err = hostClient.FactoryHarness(fx.ctx, project.FactoryHarnessMuse)
 		if err == nil {
 			break
 		}

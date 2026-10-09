@@ -61,7 +61,7 @@ func TestOpenRejectsOldSchemaWithoutMutation(t *testing.T) {
 	if !ok {
 		t.Skip("SODA_PG_* fixture unavailable")
 	}
-	for _, version := range []int{1, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25} {
+	for _, version := range []int{1, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28} {
 		t.Run("version_"+strconv.Itoa(version), func(t *testing.T) {
 			ctx := context.Background()
 			dsn, drop, err := createEphemeralDatabase(ctx, admin)

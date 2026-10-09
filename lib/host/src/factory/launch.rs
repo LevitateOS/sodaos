@@ -21,7 +21,15 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         deadline: Instant,
     ) -> Result<FactoryState, FactoryError> {
         req.validate().map_err(FactoryError::msg)?;
-        if req.harness_sha256.is_empty() || req.harness_sha256 != self.terminal.harness_sha256() {
+        let pin = self
+            .terminal
+            .harness_pin(&req.run.harness)
+            .map_err(FactoryError::msg)?;
+        if pin.harness != req.run.harness
+            || pin.version != req.run.harness_vers
+            || pin.sha256.is_empty()
+            || req.harness_sha256 != pin.sha256
+        {
             return Err(FactoryError::msg(
                 "factory harness is unavailable until its own proof passes",
             ));

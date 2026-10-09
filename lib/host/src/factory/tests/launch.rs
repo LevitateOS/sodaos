@@ -73,6 +73,8 @@ fn launch_muse_harness_acquires_muse_provider() {
     let (_dir, factory, _exec, term, broker) = wired_factory("launch-muse-provider");
     let mut req = sample_launch();
     req.run.harness = FACTORY_HARNESS_MUSE.to_string();
+    req.run.harness_vers = term.muse_version.clone();
+    req.harness_sha256 = term.muse_sha256.clone();
     script_success(&term, &broker, &req.run, 0, "done");
     let state = factory.launch(&req, deadline()).unwrap();
     assert_eq!(state.phase, "completed");
@@ -82,6 +84,7 @@ fn launch_muse_harness_acquires_muse_provider() {
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].provider_id, "muse");
     assert_eq!(calls[0].execution_id, req.run.id);
+    assert_eq!(term.reserve_calls.borrow()[0].0, term.muse_sha256);
 }
 
 #[test]
@@ -110,6 +113,15 @@ fn launch_prechecks_reject_before_any_seam() {
     // Harness mismatch.
     let mut bad = sample_launch();
     bad.harness_sha256 = "0".repeat(64);
+    assert_eq!(
+        factory.launch(&bad, deadline()).unwrap_err().message(),
+        "factory harness is unavailable until its own proof passes"
+    );
+    // A Muse run cannot be admitted with Codex's identity, even when that
+    // digest is otherwise the configured Codex pin.
+    let mut bad = sample_launch();
+    bad.run.harness = FACTORY_HARNESS_MUSE.to_string();
+    bad.run.harness_vers = term.muse_version.clone();
     assert_eq!(
         factory.launch(&bad, deadline()).unwrap_err().message(),
         "factory harness is unavailable until its own proof passes"

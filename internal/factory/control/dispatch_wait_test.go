@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -119,7 +120,7 @@ func TestDispatchWaitReasons(t *testing.T) {
 		},
 		"harness mismatch": {
 			mutate: func(fx *dispatchFixture, db *store.Store) {
-				fx.host.harness = func() (project.FactoryHarnessPin, error) {
+				fx.host.harness = func(family string) (project.FactoryHarnessPin, error) {
 					return project.FactoryHarnessPin{Harness: project.FactoryHarnessCodex, Version: "9.9.9", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
 				}
 			},
@@ -127,7 +128,7 @@ func TestDispatchWaitReasons(t *testing.T) {
 		},
 		"harness unpinned": {
 			mutate: func(fx *dispatchFixture, db *store.Store) {
-				fx.host.harness = func() (project.FactoryHarnessPin, error) {
+				fx.host.harness = func(family string) (project.FactoryHarnessPin, error) {
 					return project.FactoryHarnessPin{}, nil
 				}
 			},
@@ -224,6 +225,54 @@ func TestDispatchWaitReasons(t *testing.T) {
 	}
 }
 
+func TestCheckHarnessSelectsPolicyFamily(t *testing.T) {
+	fx := dispatchFixture{harness: "0.157.1"}
+	available := map[string]project.FactoryHarnessPin{
+		project.FactoryHarnessCodex: {Harness: project.FactoryHarnessCodex, Version: "0.157.1", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)},
+		project.FactoryHarnessMuse:  {Harness: project.FactoryHarnessMuse, Version: "1.4.0", SHA256: strings.Repeat("c", 64), Image: "sha256:" + strings.Repeat("d", 64)},
+	}
+	fx.host = &fakeDispatchHost{harness: func(family string) (project.FactoryHarnessPin, error) {
+		pin, ok := available[family]
+		if !ok {
+			return project.FactoryHarnessPin{}, errors.New("family unavailable")
+		}
+		return pin, nil
+	}}
+	plan := &attemptPlan{policy: factory.RepositoryPolicy{Roles: map[string]factory.RoleSelection{
+		project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.0", Model: "muse-spark-1.3"},
+		project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "codex-model"},
+	}}}
+	if wait := checkHarness(context.Background(), DispatchDeps{Host: fx.host}, plan); wait != nil {
+		t.Fatalf("Muse selection waited: %+v", wait)
+	}
+	if len(fx.host.families) != 1 || fx.host.families[0] != project.FactoryHarnessMuse {
+		t.Fatalf("requested families = %v, want [muse]", fx.host.families)
+	}
+	if plan.pin.Harness != project.FactoryHarnessMuse || plan.pin.Version != "1.4.0" {
+		t.Fatalf("selected pin = %+v", plan.pin)
+	}
+}
+
+func TestCheckHarnessRejectsFamilyAndVersionMismatch(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		pin  project.FactoryHarnessPin
+	}{
+		{name: "wrong family", pin: project.FactoryHarnessPin{Harness: project.FactoryHarnessCodex, Version: "1.4.0", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}},
+		{name: "wrong version", pin: project.FactoryHarnessPin{Harness: project.FactoryHarnessMuse, Version: "9.9.9", SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fx := dispatchFixture{host: &fakeDispatchHost{harness: func(string) (project.FactoryHarnessPin, error) { return tc.pin, nil }}}
+			plan := &attemptPlan{policy: factory.RepositoryPolicy{Roles: map[string]factory.RoleSelection{
+				project.RoleCoder: {Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.0", Model: "m"},
+			}}}
+			if wait := checkHarness(context.Background(), DispatchDeps{Host: fx.host}, plan); wait == nil || wait.Reason != WaitHarness {
+				t.Fatalf("wait = %+v, want harness wait", wait)
+			}
+		})
+	}
+}
+
 func TestDispatchWaitsWhenPolicyChangesAfterPlanning(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
@@ -232,7 +281,7 @@ func TestDispatchWaitsWhenPolicyChangesAfterPlanning(t *testing.T) {
 	fx.queue(t, 3, head.ID)
 
 	harnessRead := false
-	fx.host.harness = func() (project.FactoryHarnessPin, error) {
+	fx.host.harness = func(family string) (project.FactoryHarnessPin, error) {
 		// Planning has already captured authority and policy by this point;
 		// withdraw dispatch authority before the Store records the packet.
 		harnessRead = true
@@ -245,7 +294,7 @@ func TestDispatchWaitsWhenPolicyChangesAfterPlanning(t *testing.T) {
 			return project.FactoryHarnessPin{}, err
 		}
 		return project.FactoryHarnessPin{
-			Harness: project.FactoryHarnessCodex, Version: fx.harness,
+			Harness: family, Version: fx.harness,
 			SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64),
 		}, nil
 	}

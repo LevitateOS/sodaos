@@ -67,10 +67,15 @@ func (c *Client) FactoryInspect(ctx context.Context, in project.FactoryInspect) 
 	return out, factoryNotFound(err)
 }
 
-func (c *Client) FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error) {
+func (c *Client) FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error) {
 	var out project.FactoryHarnessPin
-	err := c.callLimit(ctx, "/factory-harness", struct{}{}, &out, factoryResponseLimit)
-	if err == nil && out.Validate() != nil {
+	if !project.ValidHarnessFamily(family) {
+		return out, errors.New("unsupported factory harness family")
+	}
+	err := c.callLimit(ctx, "/factory-harness", struct {
+		Harness string `json:"harness"`
+	}{Harness: family}, &out, factoryResponseLimit)
+	if err == nil && (out.Validate() != nil || out.Harness != family) {
 		err = errors.New("native factory harness pin is not usable")
 	}
 	return out, err

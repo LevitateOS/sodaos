@@ -79,9 +79,7 @@ pub use self::state::{FactoryHarnessPin, FactoryState, OutputSlice};
 /// Supervised native boundary: the `terminal.Service` methods the factory
 /// orchestrator calls. Ported with the terminal lane; tests script fakes.
 pub trait FactoryTerminal {
-    fn harness_family(&self) -> String;
-    fn harness_version(&self) -> String;
-    fn harness_sha256(&self) -> String;
+    fn harness_pin(&self, family: &str) -> Result<FactoryHarnessPin, String>;
     fn reserve(
         &self,
         run: &FactoryRun,
@@ -220,12 +218,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     /// `HarnessPin`: the staged-harness identity the executor admits.
     /// `image` stays empty here; the daemon route fills it from its
     /// configuration, exactly like the Go dispatch.
-    pub fn harness_pin(&self) -> FactoryHarnessPin {
-        FactoryHarnessPin {
-            harness: self.terminal.harness_family(),
-            version: self.terminal.harness_version(),
-            sha256: self.terminal.harness_sha256(),
-            image: String::new(),
-        }
+    pub fn harness_pin(&self, family: &str) -> Result<FactoryHarnessPin, String> {
+        self.terminal.harness_pin(family)
     }
 }

@@ -25,7 +25,8 @@ func dispatchDigest(text string) string {
 type fakeDispatchHost struct {
 	launch   func(project.FactoryLaunch) (project.FactoryState, error)
 	inspect  func(project.FactoryInspect) (project.FactoryState, error)
-	harness  func() (project.FactoryHarnessPin, error)
+	harness  func(string) (project.FactoryHarnessPin, error)
+	families []string
 	launches []project.FactoryLaunch
 }
 
@@ -41,8 +42,9 @@ func (f *fakeDispatchHost) FactoryInspect(ctx context.Context, in project.Factor
 	return f.inspect(in)
 }
 
-func (f *fakeDispatchHost) FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error) {
-	return f.harness()
+func (f *fakeDispatchHost) FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error) {
+	f.families = append(f.families, family)
+	return f.harness(family)
 }
 
 func (f *fakeDispatchHost) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
@@ -125,8 +127,8 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 	fx.policy = factory.RepositoryPolicy{
 		Repository: fx.repo, GrantedBy: 7, Enabled: true, TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder:    {Harness: fx.harness, Model: "test-model"},
-			project.RoleReviewer: {Harness: fx.harness, Model: "test-model"},
+			project.RoleCoder:    {Harness: project.FactoryHarnessCodex, HarnessVers: fx.harness, Model: "test-model"},
+			project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: fx.harness, Model: "test-model"},
 		},
 		Checks: []string{"ci"}, MergeMethod: factory.MergeFastForward,
 		Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate),
@@ -190,8 +192,8 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 		launch: func(in project.FactoryLaunch) (project.FactoryState, error) {
 			return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
 		},
-		harness: func() (project.FactoryHarnessPin, error) {
-			return project.FactoryHarnessPin{Harness: project.FactoryHarnessCodex, Version: fx.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+		harness: func(family string) (project.FactoryHarnessPin, error) {
+			return project.FactoryHarnessPin{Harness: family, Version: fx.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
 		},
 	}
 	fx.broker = &fakeDispatchBroker{}

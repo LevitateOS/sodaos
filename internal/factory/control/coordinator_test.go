@@ -57,7 +57,7 @@ func (s *stubHost) FactoryExport(ctx context.Context, in project.FactoryExport) 
 	return project.FactoryExportState{}, errors.New("unexpected host export")
 }
 
-func (s *stubHost) FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error) {
+func (s *stubHost) FactoryHarness(ctx context.Context, _ string) (project.FactoryHarnessPin, error) {
 	if s.harness == nil {
 		return project.FactoryHarnessPin{}, errors.New("unexpected host harness query")
 	}

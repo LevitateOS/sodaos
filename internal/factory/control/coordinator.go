@@ -43,7 +43,7 @@ type HostFactory interface {
 	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
 	FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error)
 	FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error)
-	FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error)
+	FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error)
 }
 
 // BrokerExecution is the coordinator's entire broker surface: close seals

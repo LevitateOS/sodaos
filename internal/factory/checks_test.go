@@ -3,6 +3,8 @@ package factory
 import (
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func checkTargetFixture() CheckTarget {
@@ -21,7 +23,7 @@ func adoptedChecksFixture(checks ...string) AdoptedChecks {
 }
 
 func checkPolicyFixture(checks []string, revision int64) RepositoryPolicy {
-	roles := map[string]RoleSelection{"soda-coder": {Harness: "codex-0.1.0", Model: "m"}, "soda-reviewer": {Harness: "codex-0.1.0", Model: "m"}}
+	roles := map[string]RoleSelection{"soda-coder": {Harness: project.FactoryHarnessCodex, HarnessVers: "0.1.0", Model: "m"}, "soda-reviewer": {Harness: project.FactoryHarnessCodex, HarnessVers: "0.1.0", Model: "m"}}
 	return RepositoryPolicy{
 		Roles:      roles,
 		Publish:    ActorBindingRef{TokenID: 1, ActorID: 2, Kind: OpRefPublish},

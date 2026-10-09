@@ -71,7 +71,23 @@ fn factory_routes_report_unavailable_root() {
         Err(BackendError::Unavailable)
     ));
     assert!(matches!(
+        backend().factory_harness(br#"{"harness":"codex"}"#, "sha256:0"),
+        Err(BackendError::Unavailable)
+    ));
+}
+
+#[test]
+fn factory_harness_requires_explicit_supported_selection() {
+    assert!(matches!(
         backend().factory_harness(b"{}", "sha256:0"),
+        Err(BackendError::Internal)
+    ));
+    assert!(matches!(
+        backend().factory_harness(br#"{"harness":"codex","extra":true}"#, "sha256:0"),
+        Err(BackendError::Internal)
+    ));
+    assert!(matches!(
+        backend().factory_harness(br#"{"harness":"unsupported"}"#, "sha256:0"),
         Err(BackendError::Unavailable)
     ));
 }

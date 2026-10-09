@@ -3,6 +3,8 @@ package factory
 import (
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func testMerge() Merge {
@@ -210,7 +212,7 @@ func TestMergeTerminalStages(t *testing.T) {
 func testMergePolicy() RepositoryPolicy {
 	return RepositoryPolicy{
 		Repository: 7, GrantedBy: 5, Enabled: true, TargetBranch: "refs/heads/main",
-		Roles:  map[string]RoleSelection{"soda-coder": {Harness: "codex", Model: "m"}, "soda-reviewer": {Harness: "codex", Model: "m"}},
+		Roles:  map[string]RoleSelection{"soda-coder": {Harness: project.FactoryHarnessCodex, HarnessVers: "1.0.0", Model: "m"}, "soda-reviewer": {Harness: project.FactoryHarnessCodex, HarnessVers: "1.0.0", Model: "m"}},
 		Checks: []string{"verify"}, MergeMethod: MergeFastForward,
 		Publish:       ActorBindingRef{TokenID: 1, ActorID: 5, Kind: OpRefPublish},
 		Create:        ActorBindingRef{TokenID: 1, ActorID: 5, Kind: OpPRCreate},
@@ -264,8 +266,7 @@ func TestVerifyMergeCheckEvidence(t *testing.T) {
 func TestMergeTargetChanged(t *testing.T) {
 	m := testMerge()
 	p := testPublication()
-	p.PRCreate.HeadRef, p.PRCreate.BaseRef, p.PRCreate.HeadOID, p.PRCreate.BaseOID =
-		m.HeadRef, m.BaseRef, m.HeadOID, m.BaseOID
+	p.PRCreate.HeadRef, p.PRCreate.BaseRef, p.PRCreate.HeadOID, p.PRCreate.BaseOID = m.HeadRef, m.BaseRef, m.HeadOID, m.BaseOID
 	p.Repository, p.Issue, p.PRNumber, p.PRID = m.Repository, m.Issue, m.PRNumber, m.PRID
 	if MergeTargetChanged(m, p) {
 		t.Fatal("identical target reported changed")

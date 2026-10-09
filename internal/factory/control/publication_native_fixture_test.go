@@ -240,7 +240,7 @@ func (*nativeHost) FactoryInspect(context.Context, project.FactoryInspect) (proj
 	return project.FactoryState{}, errors.New("unexpected inspect")
 }
 
-func (*nativeHost) FactoryHarness(context.Context) (project.FactoryHarnessPin, error) {
+func (*nativeHost) FactoryHarness(context.Context, string) (project.FactoryHarnessPin, error) {
 	return project.FactoryHarnessPin{}, errors.New("unexpected harness")
 }
 
@@ -283,7 +283,7 @@ func nativeSeed(t *testing.T, c nativeST09Config, n nativeCandidate) *nativeFixt
 	actor := func(kind string) factory.ActorBindingRef {
 		return factory.ActorBindingRef{TokenID: c.TokenID, ActorID: c.ActorID, Kind: kind}
 	}
-	nativeMust(t, db.SaveRepositoryPolicy(ctx, factory.RepositoryPolicy{Repository: c.Repository, GrantedBy: c.CreatorID, Enabled: true, TargetBranch: c.BaseBranch, Roles: map[string]factory.RoleSelection{project.RoleCoder: {Harness: "1.2.3", Model: "fixture"}, project.RoleReviewer: {Harness: "1.2.3", Model: "fixture"}}, Checks: []string{"verify"}, MergeMethod: factory.MergeFastForward, Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate), Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge), MaxConcurrent: 2}))
+	nativeMust(t, db.SaveRepositoryPolicy(ctx, factory.RepositoryPolicy{Repository: c.Repository, GrantedBy: c.CreatorID, Enabled: true, TargetBranch: c.BaseBranch, Roles: map[string]factory.RoleSelection{project.RoleCoder: {Harness: project.FactoryHarnessCodex, HarnessVers: "1.2.3", Model: "fixture"}, project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "1.2.3", Model: "fixture"}}, Checks: []string{"verify"}, MergeMethod: factory.MergeFastForward, Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate), Review: actor(factory.OpReviewSubmit), Merge: actor(factory.OpMerge), MaxConcurrent: 2}))
 	nativeMust(t, db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: c.CreatorID, MaxConcurrentRuns: 2, MaxQueued: 10}))
 	nativeMust(t, db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: c.Repository, GrantedBy: c.CreatorID, MaxConcurrent: 2, Active: true}))
 	nativeMust(t, db.SaveSponsorship(ctx, factory.Sponsorship{Repository: c.Repository, GrantedBy: c.CreatorID, Generation: 1, Connection: "fixture-connection", GrantID: "fixture-grant", Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true}))

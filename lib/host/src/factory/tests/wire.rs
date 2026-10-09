@@ -296,7 +296,7 @@ fn open_factory_matrix() {
 fn harness_pin_shape_matches_go() {
     let dir = test_state_dir("harness");
     let factory = dummy_factory(&dir);
-    let pin = factory.harness_pin();
+    let pin = factory.harness_pin(FACTORY_HARNESS_CODEX).unwrap();
     assert_eq!(pin.harness, "codex");
     assert_eq!(pin.version, "v1");
     assert_eq!(pin.sha256, "f".repeat(64));

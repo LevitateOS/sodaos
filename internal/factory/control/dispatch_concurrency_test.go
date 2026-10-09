@@ -59,7 +59,7 @@ func (h *mutexDispatchHost) FactoryInspect(context.Context, project.FactoryInspe
 	return project.FactoryState{}, host.ErrRunNotFound
 }
 
-func (h *mutexDispatchHost) FactoryHarness(context.Context) (project.FactoryHarnessPin, error) {
+func (h *mutexDispatchHost) FactoryHarness(context.Context, string) (project.FactoryHarnessPin, error) {
 	return h.pin, nil
 }
 

@@ -40,22 +40,27 @@ fn cv_slice_to_factory(
 // -- seam implementations --
 
 impl factory::FactoryTerminal for TerminalSeam {
-    fn harness_family(&self) -> String {
-        self.pin_family().to_string()
-    }
-    fn harness_version(&self) -> String {
-        if self.pin_family() == factory::FACTORY_HARNESS_MUSE {
-            self.muse_harness_version.clone()
-        } else {
-            self.harness_version.clone()
+    fn harness_pin(&self, family: &str) -> Result<factory::FactoryHarnessPin, String> {
+        let (binary, version, sha256) = match family {
+            factory::FACTORY_HARNESS_CODEX => {
+                (&self.harness, &self.harness_version, &self.harness_sha256)
+            }
+            factory::FACTORY_HARNESS_MUSE => (
+                &self.muse_harness,
+                &self.muse_harness_version,
+                &self.muse_harness_sha256,
+            ),
+            _ => return Err("unsupported factory harness".to_string()),
+        };
+        if binary.is_empty() {
+            return Err("factory harness is not configured".to_string());
         }
-    }
-    fn harness_sha256(&self) -> String {
-        if self.pin_family() == factory::FACTORY_HARNESS_MUSE {
-            self.muse_harness_sha256.clone()
-        } else {
-            self.harness_sha256.clone()
-        }
+        Ok(factory::FactoryHarnessPin {
+            harness: family.to_string(),
+            version: version.clone(),
+            sha256: sha256.clone(),
+            image: String::new(),
+        })
     }
     fn reserve(
         &self,
@@ -249,16 +254,42 @@ impl TerminalSeam {
             muse_harness_version: self.muse_harness_version.clone(),
         }
     }
+}
 
-    /// The pin advertises the codex harness when configured, else the
-    /// muse harness when configured, else nothing usable.
-    fn pin_family(&self) -> &'static str {
-        if !self.harness.is_empty() {
-            factory::FACTORY_HARNESS_CODEX
-        } else if !self.muse_harness.is_empty() {
-            factory::FACTORY_HARNESS_MUSE
-        } else {
-            factory::FACTORY_HARNESS_CODEX
+#[cfg(test)]
+mod tests {
+    use super::TerminalSeam;
+    use crate::factory::{self, FactoryTerminal};
+
+    fn seam() -> TerminalSeam {
+        TerminalSeam {
+            harness: "/configured/codex".to_string(),
+            harness_version: "codex-1".to_string(),
+            harness_sha256: "c".repeat(64),
+            muse_harness: "/configured/muse".to_string(),
+            muse_harness_version: "muse-2".to_string(),
+            muse_harness_sha256: "d".repeat(64),
         }
+    }
+
+    #[test]
+    fn harness_pin_uses_the_requested_configured_family() {
+        let seam = seam();
+        let codex = seam.harness_pin(factory::FACTORY_HARNESS_CODEX).unwrap();
+        let muse = seam.harness_pin(factory::FACTORY_HARNESS_MUSE).unwrap();
+        assert_eq!(codex.harness, factory::FACTORY_HARNESS_CODEX);
+        assert_eq!(codex.version, "codex-1");
+        assert_eq!(codex.sha256, "c".repeat(64));
+        assert_eq!(muse.harness, factory::FACTORY_HARNESS_MUSE);
+        assert_eq!(muse.version, "muse-2");
+        assert_eq!(muse.sha256, "d".repeat(64));
+    }
+
+    #[test]
+    fn harness_pin_rejects_unsupported_or_unconfigured_family() {
+        let mut seam = seam();
+        assert!(seam.harness_pin("other").is_err());
+        seam.muse_harness.clear();
+        assert!(seam.harness_pin(factory::FACTORY_HARNESS_MUSE).is_err());
     }
 }

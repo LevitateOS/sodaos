@@ -16,7 +16,7 @@ import (
 type DispatchHost interface {
 	FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error)
 	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
-	FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error)
+	FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error)
 }
 
 // DispatchBroker is the dispatch slice of the broker surface: get reads

@@ -45,7 +45,7 @@ func (f *fakePublishHost) FactoryTakeover(ctx context.Context, in project.Factor
 	return project.TakeoverResult{}, errors.New("unexpected host takeover")
 }
 
-func (f *fakePublishHost) FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error) {
+func (f *fakePublishHost) FactoryHarness(ctx context.Context, _ string) (project.FactoryHarnessPin, error) {
 	return project.FactoryHarnessPin{}, errors.New("unexpected host harness")
 }
 

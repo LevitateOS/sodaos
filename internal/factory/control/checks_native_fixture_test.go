@@ -73,8 +73,8 @@ func nativeCheckPolicy(t *testing.T, db *store.Store, c nativeST09Config, checks
 	policy := factory.RepositoryPolicy{
 		Repository: c.Repository, GrantedBy: c.ActorID, Enabled: true, TargetBranch: c.BaseBranch,
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder:    {Harness: "1.2.3", Model: "fixture"},
-			project.RoleReviewer: {Harness: "1.2.3", Model: "fixture"},
+			project.RoleCoder:    {Harness: project.FactoryHarnessCodex, HarnessVers: "1.2.3", Model: "fixture"},
+			project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "1.2.3", Model: "fixture"},
 		},
 		Checks: checks, MergeMethod: factory.MergeFastForward,
 		Publish: actor(factory.OpRefPublish), Create: actor(factory.OpPRCreate),

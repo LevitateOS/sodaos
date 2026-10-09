@@ -42,8 +42,8 @@ func (fx *st15Fixture) setupProject() error {
 	policy := factory.RepositoryPolicy{
 		Repository: fx.cfg.Repository, GrantedBy: owner, Enabled: true, TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder:    {Harness: fx.versions, Model: "muse-spark-1.3"},
-			project.RoleReviewer: {Harness: fx.versions, Model: "muse-spark-1.3"},
+			project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: fx.versions, Model: "muse-spark-1.3"},
+			project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: fx.versions, Model: "muse-spark-1.3"},
 		},
 		Checks: []string{"st15-build", "st15-test"}, MergeMethod: factory.MergeFastForward,
 		Publish:       actor(factory.OpRefPublish, fx.cfg.TokenID, fx.cfg.ActorID),

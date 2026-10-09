@@ -10,8 +10,8 @@ import (
 
 func grantTestPolicy() RepositoryPolicy {
 	roles := map[string]RoleSelection{
-		project.RoleCoder:    {Harness: "codex-0.157.1", Model: "test-model"},
-		project.RoleReviewer: {Harness: "codex-0.157.1", Model: "test-model"},
+		project.RoleCoder:    {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test-model"},
+		project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test-model"},
 	}
 	return RepositoryPolicy{
 		Repository: 42, GrantedBy: 7, Enabled: true,
@@ -41,7 +41,18 @@ func TestRepositoryPolicyValidation(t *testing.T) {
 		"duplicate checks": mutate(func(p *RepositoryPolicy) { p.Checks = []string{"a", "a"} }),
 		"bare branch":      mutate(func(p *RepositoryPolicy) { p.TargetBranch = "main" }),
 		"missing role":     mutate(func(p *RepositoryPolicy) { delete(p.Roles, project.RoleReviewer) }),
-		"extra role":       mutate(func(p *RepositoryPolicy) { p.Roles["soda-admin"] = RoleSelection{Harness: "x", Model: "y"} }),
+		"extra role": mutate(func(p *RepositoryPolicy) {
+			p.Roles["soda-admin"] = RoleSelection{Harness: "x", HarnessVers: "x", Model: "y"}
+		}),
+		"missing family": mutate(func(p *RepositoryPolicy) {
+			p.Roles[project.RoleCoder] = RoleSelection{HarnessVers: "0.157.1", Model: "m"}
+		}),
+		"missing version": mutate(func(p *RepositoryPolicy) {
+			p.Roles[project.RoleCoder] = RoleSelection{Harness: project.FactoryHarnessCodex, Model: "m"}
+		}),
+		"unsupported family": mutate(func(p *RepositoryPolicy) {
+			p.Roles[project.RoleCoder] = RoleSelection{Harness: "unknown", HarnessVers: "0.157.1", Model: "m"}
+		}),
 		"merge method":     mutate(func(p *RepositoryPolicy) { p.MergeMethod = "merge" }),
 		"swappedKind":      mutate(func(p *RepositoryPolicy) { p.Merge.Kind = OpRefPublish }),
 		"zero token":       mutate(func(p *RepositoryPolicy) { p.Publish.TokenID = 0 }),

@@ -98,16 +98,17 @@ func (a ActorBindingRef) Validate() error {
 	return nil
 }
 
-// RoleSelection pins the harness and model for one factory role. Only
+// RoleSelection pins the harness family, version and model for one factory role. Only
 // harnesses with their own proof are selectable at dispatch; the policy
 // records the selection without proving it.
 type RoleSelection struct {
-	Harness string `json:"harness"`
-	Model   string `json:"model"`
+	Harness     string `json:"harness"`
+	HarnessVers string `json:"harness_version"`
+	Model       string `json:"model"`
 }
 
 func (s RoleSelection) Validate() error {
-	if !project.ValidHarnessVersion(s.Harness) {
+	if !project.ValidHarnessFamily(s.Harness) || !project.ValidHarnessVersion(s.HarnessVers) {
 		return errors.New("invalid role harness selection")
 	}
 	if s.Model == "" || len(s.Model) > 128 || strings.IndexFunc(s.Model, func(r rune) bool {

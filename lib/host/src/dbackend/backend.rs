@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
-use crate::{domain, factory, project, terminal};
+use crate::{domain, factory, json, project, terminal};
 
 use super::tailnet::{decode_tailnet_empty, map_tailnet_err};
 use super::websocket;
@@ -13,6 +13,12 @@ use super::{
 
 #[cfg(test)]
 mod tests;
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FactoryHarnessRequest {
+    harness: String,
+}
 
 // -- project routes (daemon.go dispatchProfile/Create/Targeted/Mutation) --
 
@@ -211,10 +217,16 @@ impl ExecBackend for DaemonBackend {
     }
 
     fn factory_harness(&self, body: &[u8], image: &str) -> Result<Vec<u8>, BackendError> {
+        let req: FactoryHarnessRequest =
+            json::decode_strict_as(body).map_err(|err| internal(err.to_string()))?;
+        if !factory::valid_harness_family(&req.harness) {
+            return Err(BackendError::Unavailable);
+        }
         let factory = self.factory()?;
-        decode_empty(body)?;
         // Go stamps the daemon image onto the pin before validation.
-        let mut pin = factory.harness_pin();
+        let mut pin = factory
+            .harness_pin(&req.harness)
+            .map_err(|_| BackendError::Unavailable)?;
         pin.image = image.to_string();
         pin.validate().map_err(|_| BackendError::Unavailable)?;
         Ok(pin.encode().into_bytes())

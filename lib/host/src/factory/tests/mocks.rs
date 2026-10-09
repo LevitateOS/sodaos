@@ -49,6 +49,8 @@ pub(in crate::factory) type ExportCall = (String, String, String, String, String
 pub(in crate::factory) struct FakeTerminal {
     pub(in crate::factory) version: String,
     pub(in crate::factory) sha256: String,
+    pub(in crate::factory) muse_version: String,
+    pub(in crate::factory) muse_sha256: String,
     pub(in crate::factory) reserve: RefCell<VecDeque<Result<Binding, FactoryError>>>,
     pub(in crate::factory) start: RefCell<VecDeque<Result<(), FactoryError>>>,
     pub(in crate::factory) wait: RefCell<VecDeque<Result<(i64, String), FactoryError>>>,
@@ -70,6 +72,8 @@ impl FakeTerminal {
         FakeTerminal {
             version: "v1".to_string(),
             sha256: "f".repeat(64),
+            muse_version: "m2".to_string(),
+            muse_sha256: "e".repeat(64),
             reserve: RefCell::new(VecDeque::new()),
             start: RefCell::new(VecDeque::new()),
             wait: RefCell::new(VecDeque::new()),
@@ -96,14 +100,18 @@ impl FakeTerminal {
 }
 
 impl FactoryTerminal for FakeTerminal {
-    fn harness_family(&self) -> String {
-        FACTORY_HARNESS_CODEX.to_string()
-    }
-    fn harness_version(&self) -> String {
-        self.version.clone()
-    }
-    fn harness_sha256(&self) -> String {
-        self.sha256.clone()
+    fn harness_pin(&self, family: &str) -> Result<FactoryHarnessPin, String> {
+        let (version, sha256) = match family {
+            FACTORY_HARNESS_CODEX => (&self.version, &self.sha256),
+            FACTORY_HARNESS_MUSE => (&self.muse_version, &self.muse_sha256),
+            _ => return Err("unsupported factory harness".to_string()),
+        };
+        Ok(FactoryHarnessPin {
+            harness: family.to_string(),
+            version: version.clone(),
+            sha256: sha256.clone(),
+            image: String::new(),
+        })
     }
     fn reserve(
         &self,
@@ -315,14 +323,8 @@ impl Executor for std::rc::Rc<FakeExec> {
 }
 
 impl FactoryTerminal for std::rc::Rc<FakeTerminal> {
-    fn harness_family(&self) -> String {
-        (**self).harness_family()
-    }
-    fn harness_version(&self) -> String {
-        (**self).harness_version()
-    }
-    fn harness_sha256(&self) -> String {
-        (**self).harness_sha256()
+    fn harness_pin(&self, family: &str) -> Result<FactoryHarnessPin, String> {
+        (**self).harness_pin(family)
     }
     fn reserve(
         &self,
