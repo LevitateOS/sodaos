@@ -413,10 +413,28 @@ func (fx *nativeFixture) work(t *testing.T, a factory.Assignment, n nativeCandid
 
 func (fx *nativeFixture) observe(t *testing.T, w factory.PublicationWork) factory.PublicationWork {
 	t.Helper()
-	observation, err := fx.pub.ObservePublication(context.Background(), w)
-	nativeMust(t, err)
-	w.NativeRev, w.ComparisonOID, w.NotAfter = observation.NativeRev, observation.Comparison, time.Now().Add(10*time.Minute).Unix()
-	return w
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	for {
+		if err := nativeContextError(ctx); err != nil {
+			t.Fatalf("native publication observation did not settle: %v", err)
+		}
+		observation, err := fx.pub.ObservePublication(ctx, w)
+		if ctxErr := nativeContextError(ctx); ctxErr != nil {
+			t.Fatalf("native publication observation did not settle: %v", ctxErr)
+		}
+		if err == nil {
+			w.NativeRev, w.ComparisonOID, w.NotAfter = observation.NativeRev, observation.Comparison, time.Now().Add(10*time.Minute).Unix()
+			return w
+		}
+		var wait *factory.PublicationWait
+		if !errors.As(err, &wait) || wait.Reason != "native_busy" && wait.Reason != "revision_moved" {
+			t.Fatalf("native publication observation failed: %v", err)
+		}
+		if !nativeContextWait(ctx, 100*time.Millisecond) {
+			t.Fatalf("native publication observation did not settle: %v", nativeContextError(ctx))
+		}
+	}
 }
 
 func (fx *nativeFixture) terminal(t *testing.T, id string) factory.OperationOutcome {
