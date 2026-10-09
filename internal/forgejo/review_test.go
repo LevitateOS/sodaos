@@ -90,7 +90,7 @@ func TestReviewerLookupAfterCredentialLoss(t *testing.T) {
 	fake := &scriptedBackgroundServer{revision: 12, ops: map[string]extensions.OperationRecord{}}
 	bg := NewServiceBackground(serveScriptedBackground(t, fake), uint32(os.Getuid()), "")
 	credential := observationCredential(t, "test-pat")
-	r := NewReviewer(bg, observationREST(t, 11, Repository{}, nil), credential)
+	r := NewReviewer(bg, observationREST(t, 11), credential)
 	w := reviewTestWork()
 	ctx := context.Background()
 	pending, err := r.SubmitReview(ctx, w)
@@ -121,7 +121,7 @@ func TestReviewerLookupAfterCredentialLoss(t *testing.T) {
 func TestReviewerActorMismatch(t *testing.T) {
 	fake := &scriptedBackgroundServer{revision: 12, ops: map[string]extensions.OperationRecord{}}
 	bg := NewServiceBackground(serveScriptedBackground(t, fake), uint32(os.Getuid()), "")
-	r := NewReviewer(bg, observationREST(t, 12, Repository{}, nil), observationCredential(t, "test-pat"))
+	r := NewReviewer(bg, observationREST(t, 12), observationCredential(t, "test-pat"))
 	_, err := r.SubmitReview(context.Background(), reviewTestWork())
 	var wait *factory.PublicationWait
 	if !errors.As(err, &wait) || wait.Reason != "authority_lost" || fake.submits != 0 {
@@ -185,7 +185,7 @@ func TestReviewerLostSubmitReply(t *testing.T) {
 	})}
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { _ = server.Close(); _ = listener.Close() })
-	r := NewReviewer(NewServiceBackground(socket, uint32(os.Getuid()), ""), observationREST(t, 11, Repository{}, nil), observationCredential(t, "test-pat"))
+	r := NewReviewer(NewServiceBackground(socket, uint32(os.Getuid()), ""), observationREST(t, 11), observationCredential(t, "test-pat"))
 	got, err := r.SubmitReview(context.Background(), w)
 	if err != nil {
 		t.Fatal(err)

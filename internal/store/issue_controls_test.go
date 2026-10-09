@@ -165,25 +165,17 @@ func TestAcceptanceDependants(t *testing.T) {
 	if err := s.AdmitAcceptanceDecision(ctx, unrelated); err != nil {
 		t.Fatal(err)
 	}
-	var dependants []factory.DependenceRef
-	err := s.VisitAcceptanceDependants(ctx, 7, 9, func(dependant factory.DependenceRef) error {
-		dependants = append(dependants, dependant)
-		return nil
-	})
-	if err != nil || len(dependants) != 1 || dependants[0].Issue != 3 {
-		t.Fatal("dependant scan wrong:", dependants, err)
+	dependants, _, more, err := s.AcceptanceDependantsPage(ctx, 7, 9, factory.DependenceRef{})
+	if err != nil || more || len(dependants) != 1 || dependants[0].Issue != 3 {
+		t.Fatal("dependant page wrong:", dependants, more, err)
 	}
-	var none []factory.DependenceRef
-	err = s.VisitAcceptanceDependants(ctx, 7, 3, func(dependant factory.DependenceRef) error {
-		none = append(none, dependant)
-		return nil
-	})
-	if err != nil || len(none) != 0 {
-		t.Fatal("empty dependant scan wrong:", none, err)
+	none, _, more, err := s.AcceptanceDependantsPage(ctx, 7, 3, factory.DependenceRef{})
+	if err != nil || more || len(none) != 0 {
+		t.Fatal("empty dependant page wrong:", none, more, err)
 	}
 }
 
-func TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
+func TestAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
 	s, ctx := readinessTestStore(t)
 	digest := strings.Repeat("d", 64)
 	for issue := int64(1); issue <= acceptanceDependantsPageSize+1; issue++ {
@@ -235,59 +227,15 @@ func TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
 		t.Fatal("page after empty result must retain the later match:", page, cursor, hasMore, err)
 	}
 
-	var found []int64
-	if err := s.VisitAcceptanceDependants(ctx, 7, 9, func(dependant factory.DependenceRef) error {
-		found = append(found, dependant.Issue)
-		return nil
-	}); err != nil {
-		t.Fatal("paged scan:", err)
-	}
-	if !reflect.DeepEqual(found, []int64{1, acceptanceDependantsPageSize + 1}) {
-		t.Fatal("sparse page scan lost or reordered matches:", found)
-	}
-
-	found = nil
-	if err := s.VisitAcceptanceDependants(ctx, 7, 11, func(dependant factory.DependenceRef) error {
-		found = append(found, dependant.Issue)
-		return nil
-	}); err != nil || !reflect.DeepEqual(found, []int64{acceptanceDependantsPageSize + 1}) {
-		t.Fatal("empty matching page must not end the scan:", found, err)
-	}
-
 	lateCtx, cancel := context.WithCancel(ctx)
-	visited := 0
-	err = s.VisitAcceptanceDependants(lateCtx, 7, 10, func(factory.DependenceRef) error {
-		visited++
-		if visited == acceptanceDependantsPageSize {
-			cancel()
-		}
-		return nil
-	})
-	if !errors.Is(err, context.Canceled) || visited != acceptanceDependantsPageSize {
-		t.Fatalf("late page failure must propagate after bounded progress: visited=%d err=%v", visited, err)
+	defer cancel()
+	page, cursor, hasMore, err = s.AcceptanceDependantsPage(lateCtx, 7, 10, factory.DependenceRef{})
+	if err != nil || len(page) != acceptanceDependantsPageSize || !hasMore {
+		t.Fatal("first bounded page did not finish before cancellation:", page, cursor, hasMore, err)
 	}
-}
-
-func TestReadinessSweepState(t *testing.T) {
-	s, ctx := readinessTestStore(t)
-	if _, err := s.ReadinessSweepRevision(ctx, 7); !errors.Is(err, ErrNotFound) {
-		t.Fatal("absent sweep state must report not found:", err)
-	}
-	if err := s.SaveReadinessSweep(ctx, 7, 12, time.Unix(600, 0)); err != nil {
-		t.Fatal(err)
-	}
-	revision, err := s.ReadinessSweepRevision(ctx, 7)
-	if err != nil || revision != 12 {
-		t.Fatal("sweep revision wrong:", revision, err)
-	}
-	if err := s.SaveReadinessSweep(ctx, 7, 15, time.Unix(700, 0)); err != nil {
-		t.Fatal(err)
-	}
-	revision, err = s.ReadinessSweepRevision(ctx, 7)
-	if err != nil || revision != 15 {
-		t.Fatal("sweep revision advance wrong:", revision, err)
-	}
-	if err := s.SaveReadinessSweep(ctx, 0, 15, time.Now()); err == nil {
-		t.Fatal("invalid sweep state saved")
+	cancel()
+	_, _, _, err = s.AcceptanceDependantsPage(lateCtx, 7, 10, cursor)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatal("later page ignored cancellation:", err)
 	}
 }

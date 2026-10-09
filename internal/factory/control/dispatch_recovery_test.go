@@ -13,7 +13,21 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
+
+type countingAcceptanceSource struct {
+	inner   AcceptanceSource
+	byIssue map[string]int
+}
+
+func (s *countingAcceptanceSource) ReadAcceptanceEvidence(ctx context.Context, repository, issue string, commentIDs []string) (AcceptanceEvidence, error) {
+	if s.byIssue == nil {
+		s.byIssue = map[string]int{}
+	}
+	s.byIssue[repository+"/"+issue]++
+	return s.inner.ReadAcceptanceEvidence(ctx, repository, issue, commentIDs)
+}
 
 func TestRecoveryConsumesSettledRunWithoutHook(t *testing.T) {
 	ctx := context.Background()
@@ -403,13 +417,11 @@ func TestReleasedChildRetryRefusesSupersededPublication(t *testing.T) {
 	}
 }
 
-func TestCompletionTriggersDependantReassessment(t *testing.T) {
+func TestDispatchResumesPersistedReadinessFromIntakeEvent(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	endpointHead := fx.accept(t, 3, "d333333333333333333333333")
-	endpoint := endpointHead
-	// The dependant adopts the endpoint as a code prerequisite.
 	dependent := factory.Acceptance{
 		ID: "d555555555555555555555555", Repository: fx.repo, IssueIndex: "5", Approver: 5, NativeRev: 41,
 		TitleDigest: dispatchDigest("dep title"), ContentDigest: dispatchDigest("dep body"), ContentVersion: 1,
@@ -429,48 +441,65 @@ func TestCompletionTriggersDependantReassessment(t *testing.T) {
 		},
 		"7/3": {
 			Issue: AcceptanceIssueView{
-				Index: "3", TitleDigest: endpoint.TitleDigest, ContentDigest: endpoint.ContentDigest,
-				ContentVer: endpoint.ContentVersion, Visible: true,
+				Index: "3", TitleDigest: endpointHead.TitleDigest, ContentDigest: endpointHead.ContentDigest,
+				ContentVer: endpointHead.ContentVersion, Visible: true,
 			},
-			Comments: []AcceptanceComment{{ID: "11", Digest: endpoint.Sources[0].Digest, ContentVer: 0, Visible: true}},
+			Comments: []AcceptanceComment{{ID: "11", Digest: endpointHead.Sources[0].Digest, ContentVer: 0, Visible: true}},
 			Revision: 41,
 		},
 	}}
-	coord := &Coordinator{Store: db, AcceptanceReads: source}
-	outcome, err := coord.assessCascade(ctx, fx.repo, 5, map[factory.DependenceRef]bool{})
-	if err != nil || !outcome.changed || outcome.control.Readiness != factory.ReadinessBlocked {
-		t.Fatalf("dependant assessment = %+v %v", outcome, err)
+	countedSource := &countingAcceptanceSource{inner: source}
+	fx.reads.err = &AcceptanceRefusal{Reason: RefusalNativeBusy}
+	coord := &Coordinator{
+		Store: db, Host: fx.host, Broker: fx.broker,
+		DispatchReads: fx.reads, AcceptanceReads: countedSource,
 	}
-	revision := outcome.control.Revision
-	reads := source.reads
+	// Acceptance admission creates head work for both fixtures. Drain those
+	// sources first so they cannot account for the later dependent read.
+	if report := coord.Dispatch(ctx); len(report.Errors) != 0 {
+		t.Fatalf("initial head-work drain errors = %+v", report.Errors)
+	}
+	for _, headWorkID := range []string{"root:7/3", "root:7/5"} {
+		if _, err := db.ReadinessWork(ctx, headWorkID); !errors.Is(err, store.ErrNotFound) {
+			t.Fatalf("initial head source %s remains pending: %v", headWorkID, err)
+		}
+	}
+	dependentReads := countedSource.byIssue["7/5"]
 
-	fx.queue(t, 3, endpointHead.ID)
-	report := DispatchPass(ctx, fx.deps())
-	if len(report.Launched) != 1 {
-		t.Fatalf("launched = %+v", report.Launched)
+	// Admit through the authenticated intake producer and force only its page
+	// work to yield. Dispatch must resume this persisted source on a fresh pass.
+	delivery := "endpoint-head-intake"
+	passCtx, _, cancelPass := coord.readinessPass(ctx)
+	readinessBudgetFrom(passCtx).pages.Store(readinessMaxPages)
+	_, _, err := coord.ObserveIssueEvent(passCtx, readinessHint(delivery, fx.repo, 3))
+	cancelPass()
+	if !errors.Is(err, ErrReadinessPassPending) {
+		t.Fatalf("intake should yield with durable work pending, got %v", err)
 	}
-	run, err := db.FactoryRun(ctx, report.Launched[0].RunID)
-	if err != nil {
-		t.Fatal(err)
+	workID := readinessDeliverySourceID(delivery)
+	if seen, seenErr := db.IntakeDeliverySeen(ctx, delivery); seenErr != nil || seen {
+		t.Fatalf("yield acknowledged incomplete delivery: seen=%t err=%v", seen, seenErr)
 	}
-	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "done", true
-	if err := db.SaveFactoryRun(ctx, run); err != nil {
-		t.Fatal(err)
+	work, err := db.ReadinessWork(ctx, workID)
+	if err != nil || work.Delivery != delivery {
+		t.Fatalf("yield did not preserve the source: %+v err=%v", work, err)
 	}
-	finished, ok := AccountSettledRun(ctx, db, run, "", time.Now())
-	if !ok || finished.Outcome != factory.NeedsHuman {
-		t.Fatalf("accounted = %+v %v", finished, ok)
+
+	if report := coord.Dispatch(ctx); len(report.Errors) != 0 {
+		t.Fatalf("dispatch/drain errors = %+v", report.Errors)
 	}
-	coord.assessDispatchDependants(ctx, fx.repo, 3)
-	if source.reads <= reads {
-		t.Fatal("dependant was not reassessed after completion")
+	if countedSource.byIssue["7/5"] <= dependentReads {
+		t.Fatal("dispatch resume did not reassess the dependent after initial head work was drained")
+	}
+	if seen, seenErr := db.IntakeDeliverySeen(ctx, delivery); seenErr != nil || !seen {
+		t.Fatalf("completed intake delivery was not acknowledged: seen=%t err=%v", seen, seenErr)
+	}
+	if _, workErr := db.ReadinessWork(ctx, workID); !errors.Is(workErr, store.ErrNotFound) {
+		t.Fatalf("completed source remains pending: err=%v", workErr)
 	}
 	after, err := db.IssueControl(ctx, fx.repo, 5)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if after.Revision != revision || after.Readiness != factory.ReadinessBlocked || after.Reason != factory.BlockerCodePending {
-		t.Fatalf("dependant after completion = %+v", after)
+	if err != nil || after.Readiness != factory.ReadinessBlocked || after.Reason != factory.BlockerCodePending {
+		t.Fatalf("dependent control after durable dispatch = %+v err=%v", after, err)
 	}
 }
 

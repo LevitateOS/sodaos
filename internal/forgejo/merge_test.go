@@ -108,7 +108,8 @@ func mergeTestSnapshots(w factory.MergeWork) (NativeSnapshot, NativeSnapshot) {
 		Provenance: CreationProvenance{PosterID: strconv.FormatInt(w.PRAuthorID, 10)},
 		Visible:    true, Complete: true,
 	}}
-	snapshot := NativeSnapshot{Revision: w.NativeRev, RepositoryID: strconv.FormatInt(w.Repository, 10),
+	snapshot := NativeSnapshot{
+		Revision: w.NativeRev, RepositoryID: strconv.FormatInt(w.Repository, 10),
 		Pull: &PullEvidence{
 			ID: strconv.FormatInt(w.PRID, 10), IssueID: strconv.FormatInt(w.IssueID, 10), Number: strconv.FormatInt(w.PRNumber, 10),
 			HeadRepoID: strconv.FormatInt(w.Repository, 10), HeadBranch: head, HeadTip: w.HeadOID, BaseBranch: base,
@@ -250,7 +251,7 @@ func TestMergerLookupAfterCredentialLoss(t *testing.T) {
 	fake := &scriptedBackgroundServer{revision: 12, ops: map[string]extensions.OperationRecord{}}
 	bg := NewServiceBackground(serveScriptedBackground(t, fake), uint32(os.Getuid()), "")
 	credential := observationCredential(t, "test-pat")
-	m := NewMerger(bg, observationREST(t, 13, Repository{}, nil), credential)
+	m := NewMerger(bg, observationREST(t, 13), credential)
 	w := mergeTestWork()
 	ctx := context.Background()
 	pending, err := m.SubmitMerge(ctx, w)

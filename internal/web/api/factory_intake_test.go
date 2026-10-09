@@ -185,9 +185,6 @@ func TestServiceReadinessSourceNilGuards(t *testing.T) {
 	if _, _, err := source.ObserveNativeRevision(context.Background()); err == nil {
 		t.Fatal("nil source observed revision")
 	}
-	if _, _, err := source.ListRepositoryIssues(context.Background(), 7, 1); err == nil {
-		t.Fatal("nil source listed issues")
-	}
 	source = &ServiceReadinessSource{}
 	if _, err := source.ReadAcceptanceEvidence(context.Background(), "7", "3", nil); err == nil {
 		t.Fatal("observerless source read evidence")

@@ -48,13 +48,6 @@ type fakeObserver struct {
 	revision int64
 	idle     bool
 	revErr   error
-	pages    map[int]fakeIssuePage
-	byRepo   map[int64][]int64
-}
-
-type fakeIssuePage struct {
-	indexes []int64
-	hasMore bool
 }
 
 func (f *fakeObserver) ObserveNativeRevision(context.Context) (int64, bool, error) {
@@ -62,20 +55,6 @@ func (f *fakeObserver) ObserveNativeRevision(context.Context) (int64, bool, erro
 		return 0, false, f.revErr
 	}
 	return f.revision, f.idle, nil
-}
-
-func (f *fakeObserver) ListRepositoryIssues(_ context.Context, repository int64, page int) ([]int64, bool, error) {
-	if f.byRepo != nil {
-		if page != 1 {
-			return nil, false, nil
-		}
-		return f.byRepo[repository], false, nil
-	}
-	listed, ok := f.pages[page]
-	if !ok {
-		return nil, false, nil
-	}
-	return listed.indexes, listed.hasMore, nil
 }
 
 func readinessView(issue string) AcceptanceIssueView {

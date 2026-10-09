@@ -9,9 +9,8 @@ import (
 
 // ServiceReadinessSource adapts the unattended service observation client
 // to the coordinator's acceptance evidence and readiness observation
-// interfaces: bracketed snapshot reads through the background channel,
-// cheap revision observations, and bounded issue enumeration over the
-// same service credential.
+// interfaces: bracketed snapshot reads and cheap revision observations
+// through the background channel.
 type ServiceReadinessSource struct {
 	Evidence AcceptanceSnapshotSource
 	Dispatch DispatchSnapshotSource
@@ -67,13 +66,4 @@ func (s *ServiceReadinessSource) ObserveNativeRevision(ctx context.Context) (int
 		return 0, false, err
 	}
 	return observation.Revision, observation.Idle, nil
-}
-
-// ListRepositoryIssues enumerates one bounded page of a repository's
-// native issue indexes, oldest first.
-func (s *ServiceReadinessSource) ListRepositoryIssues(ctx context.Context, repository int64, page int) ([]int64, bool, error) {
-	if s == nil || s.Observer == nil {
-		return nil, false, forgejo.ErrUnavailable
-	}
-	return s.Observer.ListIssuesPage(ctx, repository, page)
 }

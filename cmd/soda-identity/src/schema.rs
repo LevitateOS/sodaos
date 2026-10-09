@@ -3,11 +3,11 @@
 // drift test below re-extracts the Go literals at test time and
 // fails on any difference, so a Go schema change forces a
 // regeneration of this file in the same patch.
-pub const SCHEMA_VERSION: i64 = 37;
+pub const SCHEMA_VERSION: i64 = 38;
 
 pub const STATEMENTS: &[&str] = &[
     r#"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"#,
-    r#"INSERT INTO schema_version(version) VALUES(37)"#,
+    r#"INSERT INTO schema_version(version) VALUES(38)"#,
     r#"CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')"#,
     r#"CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))"#,
     r#"CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))"#,
@@ -54,7 +54,6 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')"#,
     r#"CREATE TABLE factory_publications(seq BIGINT GENERATED ALWAYS AS IDENTITY, assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), run TEXT NOT NULL, stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_check_assessments(repository INTEGER NOT NULL CHECK(repository>0), pr INTEGER NOT NULL CHECK(pr>0), revision INTEGER NOT NULL, data JSONB NOT NULL, PRIMARY KEY(repository,pr))"#,
     r#"CREATE TABLE factory_merges(seq BIGINT GENERATED ALWAYS AS IDENTITY, publication TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), pr INTEGER NOT NULL CHECK(pr>0), stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)"#,
-    r#"CREATE TABLE factory_readiness_sweeps(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL CHECK(revision>0), swept_at INTEGER NOT NULL)"#,
     r#"CREATE TABLE factory_readiness_budget(id INTEGER PRIMARY KEY CHECK(id=1), generation BIGINT NOT NULL CHECK(generation>=1), next_turn BIGINT NOT NULL CHECK(next_turn>=1))"#,
     r#"INSERT INTO factory_readiness_budget(id,generation,next_turn) VALUES(1,1,1)"#,
     r#"CREATE TABLE factory_readiness_sources(

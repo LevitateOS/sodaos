@@ -2,50 +2,37 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
-
-// TestReadinessSweepReachesDeepPages proves repeated bounded sweeps
-// continue past the first page window instead of revisiting its prefix.
-func TestReadinessSweepReachesDeepPages(t *testing.T) {
-	evidence := map[string]AcceptanceEvidence{}
-	pages := map[int]fakeIssuePage{}
-	for page := 1; page <= 5; page++ {
-		issue := int64(10 + page)
-		evidence[fmt.Sprintf("42/%d", issue)] = readinessEvidence(12, readinessView(fmt.Sprint(issue)), nil, nil)
-		pages[page] = fakeIssuePage{indexes: []int64{issue}, hasMore: page < 5}
-	}
-	observer := &fakeObserver{revision: 12, idle: true, pages: pages}
-	c := readinessCoordinator(t, &fakeEvidenceSource{evidence: evidence}, observer)
-	grantFullAuthority(t, c)
-	for range 3 {
-		if _, err := c.ReconcileReadiness(context.Background(), 42); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, err := c.Store.IssueControl(context.Background(), 42, 15); err != nil {
-		t.Fatalf("repeated sweeps never reached page 5: %v", err)
-	}
-}
 
 // TestDispatchPassReachesRunnableBehindWaitingPrefix proves repeated
 // bounded dispatch passes rotate past a permanently waiting prefix to
 // later runnable work.
 func TestDispatchPassReachesRunnableBehindWaitingPrefix(t *testing.T) {
-	db, _ := dispatchTestDB(t)
+	db, dsn := dispatchTestDB(t)
+	fixtureDB, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = fixtureDB.Close() }()
 	fx := dispatchSeed(t, db)
 	ctx := context.Background()
+	forgetAdmissionHeader := func(issue int64) {
+		t.Helper()
+		if _, err := fixtureDB.ExecContext(ctx, `DELETE FROM factory_readiness_sources WHERE id=$1`, fmt.Sprintf("root:%d/%d", fx.repo, issue)); err != nil {
+			t.Fatalf("remove emitted fixture header for issue %d: %v", issue, err)
+		}
+	}
 	const waiting = MaxDispatchVisits
 	base := time.Now().Add(-time.Hour)
 	for i := int64(1); i <= waiting; i++ {
 		issue := 100 + i
 		fx.accept(t, issue, fmt.Sprintf("d%024x", issue))
+		forgetAdmissionHeader(issue)
 		fx.queueAt(t, issue, fx.decision[issue].ID, base.Add(time.Duration(i)*time.Second))
 		// The accepted objective changed after admission: every pass
 		// must wait on these without consuming or finishing them.
@@ -55,6 +42,7 @@ func TestDispatchPassReachesRunnableBehindWaitingPrefix(t *testing.T) {
 	}
 	runnable := int64(500)
 	fx.accept(t, runnable, fmt.Sprintf("d%024x", runnable))
+	forgetAdmissionHeader(runnable)
 	fx.queueAt(t, runnable, fx.decision[runnable].ID, base.Add(time.Duration(waiting+1)*time.Second))
 	deps := fx.deps()
 	// The shared traversal cursor is owned by the coordinator in
@@ -72,6 +60,4 @@ func TestDispatchPassReachesRunnableBehindWaitingPrefix(t *testing.T) {
 	if _, err := db.AssignmentByRun(ctx, fx.host.launches[0].Run.ID); err != nil {
 		t.Fatal("launched run has no dispatch packet:", err)
 	}
-	_ = project.RoleCoder
-	_ = store.ErrNotFound
 }

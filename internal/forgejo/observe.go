@@ -2,7 +2,6 @@ package forgejo
 
 import (
 	"context"
-	"net/url"
 	"strconv"
 	"sync"
 
@@ -10,14 +9,9 @@ import (
 	"github.com/levitateos/sodaos/internal/config"
 )
 
-// Observation issue pages bound one reconciliation listing: 50 issues per
-// page like native snapshot pages, oldest first so the oldest work is
-// discovered before any sweep cap truncates the listing.
-const ObservationIssuePageSize = 50
-
 // ServiceObserver is the unattended native observation client: a lazily
 // bootstrapped service background client for permission-checked snapshot
-// reads, plus bounded REST enumeration over the same service credential.
+// reads and actor resolution over the same service credential.
 // Bootstrap and actor resolution happen on first use and stay in memory;
 // failures report per call without caching, so a later Fountain start or
 // credential rotation recovers without a Soda restart.
@@ -142,24 +136,6 @@ func (r *serviceSnapshotReader) ReadSnapshot(ctx context.Context, _ extensions.C
 	return reader.ReadSnapshot(ctx, r.observer.Credential(), req)
 }
 
-// ListIssuesPage enumerates one bounded page of a repository's native
-// issue indexes, oldest first. Pull requests are excluded server-side;
-// assessment re-verifies issue shape from authoritative snapshots.
-func (o *ServiceObserver) ListIssuesPage(ctx context.Context, repository int64, page int) ([]int64, bool, error) {
-	if o.rest == nil || o.credentialFile == "" || repository <= 0 || page < 1 {
-		return nil, false, ErrUnavailable
-	}
-	token, err := config.Secret(o.credentialFile)
-	if err != nil {
-		return nil, false, err
-	}
-	repo, err := o.rest.RepositoryByID(ctx, token, repository)
-	if err != nil {
-		return nil, false, err
-	}
-	return o.rest.ListRepositoryIssuesPage(ctx, token, repo.Owner.Login, repo.Name, page)
-}
-
 // RepositoryByID resolves one repository's owner/name locator by ID.
 func (c *Client) RepositoryByID(ctx context.Context, token string, id int64) (Repository, error) {
 	var repo Repository
@@ -174,40 +150,4 @@ func (c *Client) RepositoryByID(ctx context.Context, token string, id int64) (Re
 		return Repository{}, ErrInvalidResponse
 	}
 	return repo, nil
-}
-
-// ListedIssue is the bounded native issue locator carried by list pages.
-type ListedIssue struct {
-	Index int64 `json:"index"`
-}
-
-// ListRepositoryIssuesPage lists one bounded page of a repository's issue
-// indexes, oldest first. At most the page size is accepted; a full page
-// reports more work until a short page ends the listing.
-func (c *Client) ListRepositoryIssuesPage(ctx context.Context, token, owner, name string, page int) ([]int64, bool, error) {
-	if !repositoryPart(owner) || !repositoryPart(name) || page < 1 {
-		return nil, false, ErrInvalidResponse
-	}
-	query := url.Values{
-		"state": {"all"}, "type": {"issues"}, "sort": {"oldest"},
-		"limit": {strconv.Itoa(ObservationIssuePageSize)}, "page": {strconv.Itoa(page)},
-	}
-	var items []ListedIssue
-	path := "/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name) + "/issues?" + query.Encode()
-	if err := c.request(ctx, "GET", path, token, nil, &items); err != nil {
-		return nil, false, err
-	}
-	if len(items) > ObservationIssuePageSize {
-		return nil, false, ErrInvalidResponse
-	}
-	seen := make(map[int64]bool, len(items))
-	var indexes []int64
-	for _, item := range items {
-		if item.Index <= 0 || seen[item.Index] {
-			return nil, false, ErrInvalidResponse
-		}
-		seen[item.Index] = true
-		indexes = append(indexes, item.Index)
-	}
-	return indexes, len(items) == ObservationIssuePageSize, nil
 }

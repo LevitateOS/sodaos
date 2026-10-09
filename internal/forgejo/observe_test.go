@@ -23,7 +23,7 @@ func observationCredential(t *testing.T, secret string) string {
 	return path
 }
 
-func observationREST(t *testing.T, userID int64, repo Repository, issues []ListedIssue) *Client {
+func observationREST(t *testing.T, userID int64) *Client {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "token test-pat" {
@@ -34,64 +34,14 @@ func observationREST(t *testing.T, userID int64, repo Repository, issues []Liste
 		switch {
 		case r.URL.Path == "/api/v1/user":
 			_ = json.NewEncoder(w).Encode(User{ID: userID, Login: "soda-tester"})
-		case strings.HasPrefix(r.URL.Path, "/api/v1/repositories/"):
-			_ = json.NewEncoder(w).Encode(repo)
-		case strings.HasSuffix(r.URL.Path, "/issues"):
-			_ = json.NewEncoder(w).Encode(issues)
+		case r.URL.Path == "/api/v1/repositories/7":
+			_ = json.NewEncoder(w).Encode(Repository{ID: 7, Name: "n", FullName: "o/n", Owner: User{ID: 3, Login: "o"}})
 		default:
 			http.NotFound(w, r)
 		}
 	}))
 	t.Cleanup(server.Close)
 	return New(server.URL)
-}
-
-func TestServiceObserverListsIssuesOldestFirst(t *testing.T) {
-	repo := Repository{ID: 7, Name: "n", FullName: "o/n", Owner: User{ID: 3, Login: "o"}}
-	rest := observationREST(t, 11, repo, []ListedIssue{{Index: 3}, {Index: 9}})
-	observer := NewServiceObserver("/run/soda/background.sock", 1001, observationCredential(t, "test-pat"), rest)
-	indexes, hasMore, err := observer.ListIssuesPage(context.Background(), 7, 1)
-	if err != nil || hasMore || len(indexes) != 2 || indexes[0] != 3 || indexes[1] != 9 {
-		t.Fatal("issue listing wrong:", indexes, hasMore, err)
-	}
-}
-
-func TestServiceObserverListBounds(t *testing.T) {
-	repo := Repository{ID: 7, Name: "n", FullName: "o/n", Owner: User{ID: 3, Login: "o"}}
-	full := make([]ListedIssue, 0, ObservationIssuePageSize)
-	for i := int64(1); i <= ObservationIssuePageSize; i++ {
-		full = append(full, ListedIssue{Index: i})
-	}
-	rest := observationREST(t, 11, repo, full)
-	observer := NewServiceObserver("/run/soda/background.sock", 1001, observationCredential(t, "test-pat"), rest)
-	indexes, hasMore, err := observer.ListIssuesPage(context.Background(), 7, 1)
-	if err != nil || !hasMore || len(indexes) != ObservationIssuePageSize {
-		t.Fatal("full page must report more:", len(indexes), hasMore, err)
-	}
-	over := append(append([]ListedIssue{}, full...), ListedIssue{Index: 999})
-	restOver := observationREST(t, 11, repo, over)
-	observerOver := NewServiceObserver("/run/soda/background.sock", 1001, observationCredential(t, "test-pat"), restOver)
-	if _, _, err = observerOver.ListIssuesPage(context.Background(), 7, 1); err == nil {
-		t.Fatal("oversized page accepted")
-	}
-	dupes := observationREST(t, 11, repo, []ListedIssue{{Index: 3}, {Index: 3}})
-	observerDupes := NewServiceObserver("/run/soda/background.sock", 1001, observationCredential(t, "test-pat"), dupes)
-	if _, _, err = observerDupes.ListIssuesPage(context.Background(), 7, 1); err == nil {
-		t.Fatal("duplicate index accepted")
-	}
-	badRepo := Repository{ID: 8, Name: "n", FullName: "o/n", Owner: User{ID: 3, Login: "o"}}
-	restBad := observationREST(t, 11, badRepo, nil)
-	observerBad := NewServiceObserver("/run/soda/background.sock", 1001, observationCredential(t, "test-pat"), restBad)
-	if _, _, err = observerBad.ListIssuesPage(context.Background(), 7, 1); err == nil {
-		t.Fatal("mismatched repository accepted")
-	}
-	if _, _, err = observer.ListIssuesPage(context.Background(), 7, 0); err == nil {
-		t.Fatal("page zero accepted")
-	}
-	unconfigured := NewServiceObserver("", 1001, "", nil)
-	if _, _, err = unconfigured.ListIssuesPage(context.Background(), 7, 1); err == nil {
-		t.Fatal("unconfigured observer listed")
-	}
 }
 
 // fakeBackgroundServer speaks the SDK bootstrap/revision/snapshot paths
@@ -157,8 +107,7 @@ func TestServiceObserverBootstrapsOnce(t *testing.T) {
 	admission := strings.Repeat("a", 43)
 	fake := &fakeBackgroundServer{t: t, admission: admission}
 	socket := serveBackgroundSocket(t, fake)
-	repo := Repository{ID: 7, Name: "n", FullName: "o/n", Owner: User{ID: 3, Login: "o"}}
-	rest := observationREST(t, 11, repo, nil)
+	rest := observationREST(t, 11)
 	observer := NewServiceObserver(socket, uint32(os.Getuid()), observationCredential(t, "test-pat"), rest)
 	ctx := context.Background()
 	observation, err := observer.SnapshotReader().ReadNativeRevision(ctx)
@@ -182,8 +131,7 @@ func TestServiceObserverBootstrapsOnce(t *testing.T) {
 }
 
 func TestServiceObserverBootstrapFailure(t *testing.T) {
-	repo := Repository{ID: 7, Name: "n", FullName: "o/n", Owner: User{ID: 3, Login: "o"}}
-	rest := observationREST(t, 11, repo, nil)
+	rest := observationREST(t, 11)
 	observer := NewServiceObserver(filepath.Join(t.TempDir(), "missing.sock"), uint32(os.Getuid()), observationCredential(t, "test-pat"), rest)
 	if _, err := observer.SnapshotReader().ReadNativeRevision(context.Background()); err == nil {
 		t.Fatal("missing socket observed")

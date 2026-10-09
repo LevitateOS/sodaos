@@ -82,7 +82,6 @@ type Coordinator struct {
 	Reviews         ReviewExecutor
 	Checks          CheckObserver
 	Merges          MergeExecutor
-	traversal       traversalState
 	queue           DispatchQueueCursor
 	lock            *os.File
 	requestGate     sync.RWMutex

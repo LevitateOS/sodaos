@@ -12,12 +12,11 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// ReadinessObservation is the coordinator's native observation surface for
-// readiness: cheap revision polls and bounded issue enumeration. Evidence
-// reads stay on AcceptanceSource; this interface never authorizes work.
+// ReadinessObservation supplies the cheap native revision check used to
+// bracket readiness evidence. Evidence reads stay on AcceptanceSource; this
+// interface never authorizes work.
 type ReadinessObservation interface {
 	ObserveNativeRevision(ctx context.Context) (revision int64, idle bool, err error)
-	ListRepositoryIssues(ctx context.Context, repository int64, page int) (indexes []int64, hasMore bool, err error)
 }
 
 // IntakeHint is one authenticated native event hint: the delivery identity
@@ -70,7 +69,7 @@ type assessOutcome struct {
 
 // ObserveIssueEvent consumes one authenticated native event hint: it
 // suppresses duplicate deliveries, attempts verified initial adoption for
-// creations, and assesses the issue plus its dependants. Assessment is
+// creations, and assesses the issue plus persisted dependant work. Assessment is
 // idempotent: duplicate or unchanged observations record nothing new.
 // Transient observation failures report an error so the native side
 // retries; the delivery is logged only after a successful assessment.
@@ -124,64 +123,6 @@ func (c *Coordinator) ObserveIssueEvent(ctx context.Context, hint IntakeHint) (f
 func readinessDeliverySourceID(delivery string) string {
 	digest := sha256.Sum256([]byte(delivery))
 	return "delivery:" + hex.EncodeToString(digest[:])
-}
-
-// assessCascade assesses one issue and reassesses every recorded dependant
-// exactly once. It still walks dependants when this issue is unchanged:
-// an earlier dependant scan may have failed after this issue was recorded.
-func (c *Coordinator) assessCascade(ctx context.Context, repository, issue int64, visited map[factory.DependenceRef]bool) (assessOutcome, error) {
-	key := factory.DependenceRef{Repository: repository, Issue: issue}
-	if visited[key] {
-		return assessOutcome{}, nil
-	}
-	visited[key] = true
-	complete := false
-	defer func() {
-		if !complete {
-			delete(visited, key)
-		}
-	}()
-	outcome, err := c.assessOne(ctx, repository, issue)
-	if err != nil {
-		return outcome, err
-	}
-	if outcome.skip {
-		complete = true
-		return outcome, nil
-	}
-	if err := c.visitDependants(ctx, repository, issue, visited); err != nil {
-		return outcome, err
-	}
-	complete = true
-	return outcome, nil
-}
-
-// assessDependants retries descendants without rerecording an unchanged
-// sweep root. The root is marked visited so cycles do not re-enter it.
-func (c *Coordinator) assessDependants(ctx context.Context, repository, issue int64, visited map[factory.DependenceRef]bool) error {
-	key := factory.DependenceRef{Repository: repository, Issue: issue}
-	if visited[key] {
-		return nil
-	}
-	visited[key] = true
-	complete := false
-	defer func() {
-		if !complete {
-			delete(visited, key)
-		}
-	}()
-	if err := c.visitDependants(ctx, repository, issue, visited); err != nil {
-		return err
-	}
-	complete = true
-	return nil
-}
-
-func (c *Coordinator) visitDependants(ctx context.Context, repository, issue int64, visited map[factory.DependenceRef]bool) error {
-	return c.Store.VisitAcceptanceDependants(ctx, repository, issue, func(dependant factory.DependenceRef) error {
-		_, err := c.assessCascade(ctx, dependant.Repository, dependant.Issue, visited)
-		return err
-	})
 }
 
 // assessOne assesses one issue against authoritative native evidence,

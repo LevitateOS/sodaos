@@ -76,8 +76,7 @@ func publishWorkFixture(t *testing.T) factory.PublicationWork {
 
 func publishTestPublisher(t *testing.T, background *ServiceBackground) (*Publisher, factory.PublicationWork) {
 	t.Helper()
-	repo := Repository{ID: 7, Name: "n", FullName: "o/n", Owner: User{ID: 3, Login: "o"}}
-	rest := observationREST(t, 11, repo, nil)
+	rest := observationREST(t, 11)
 	root := t.TempDir()
 	if err := os.Chmod(root, 0o700); err != nil {
 		t.Fatal(err)
