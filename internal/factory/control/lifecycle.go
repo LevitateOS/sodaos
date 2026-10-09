@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -99,6 +100,7 @@ func (c *Coordinator) withdrawAndStopRuns(ctx context.Context, repository int64,
 		}
 		return factory.Withdrawal{}, nil, err
 	}
+	preparationErr := c.stopCandidatePreparations(ctx, repository, p.ID)
 	runs, err := c.projectRuns(ctx, p.ID)
 	if err != nil {
 		return factory.Withdrawal{}, nil, err
@@ -115,7 +117,46 @@ func (c *Coordinator) withdrawAndStopRuns(ctx context.Context, repository int64,
 			Confirmed: settled.Confirmed, Uncertain: settled.Uncertain,
 		})
 	}
+	if preparationErr != nil {
+		return withdrawal, outcomes, preparationErr
+	}
 	return withdrawal, outcomes, nil
+}
+
+func (c *Coordinator) stopCandidatePreparations(ctx context.Context, repository int64, projectID string) error {
+	return c.stopCandidatePreparationsForRoot(ctx, repository, projectID, 0, "")
+}
+
+func (c *Coordinator) stopCandidatePreparationsForRoot(ctx context.Context, repository int64, projectID string, issue int64, root string) error {
+	after := ""
+	for {
+		page, err := c.Store.CandidatePreparations(ctx, repository, projectID, issue, root, after, 64, 0)
+		if err != nil {
+			return err
+		}
+		if len(page) == 0 {
+			return nil
+		}
+		if c.Host == nil {
+			return errors.New("candidate preparation host unavailable")
+		}
+		for _, record := range page {
+			after = record.Preparation.Preparation.ID
+			state, stopErr := c.Host.StopPreparation(ctx, project.PrepareStop{Project: projectID, ID: after})
+			if stopErr != nil {
+				return stopErr
+			}
+			if err = c.Store.RecordCandidatePreparationStop(ctx, after, state); err != nil {
+				return err
+			}
+			if state.Retirement != "confirmed" {
+				return store.ErrCandidatePreparationPending
+			}
+		}
+		if len(page) < 64 {
+			return nil
+		}
+	}
 }
 
 // projectRuns lists one project's recorded runs: every unsettled run

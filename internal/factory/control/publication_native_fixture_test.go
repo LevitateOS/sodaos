@@ -248,6 +248,18 @@ func (*nativeHost) FactoryTakeover(context.Context, project.FactoryTakeover) (pr
 	return project.TakeoverResult{}, errors.New("unexpected takeover")
 }
 
+func (*nativeHost) PrepareCandidate(context.Context, project.FactoryCandidate) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("candidate preparation unavailable in native publication fixture")
+}
+
+func (*nativeHost) InspectPreparation(context.Context, project.PrepareInspect) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation inspection unavailable in native publication fixture")
+}
+
+func (*nativeHost) StopPreparation(context.Context, project.PrepareStop) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation stop unavailable in native publication fixture")
+}
+
 func (h *nativeHost) FactoryExport(_ context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
 	return project.FactoryExportState{ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Container: strings.Repeat("c", 64), Candidate: in.Candidate, Bundle: base64.StdEncoding.EncodeToString(h.bundle)}, nil
 }

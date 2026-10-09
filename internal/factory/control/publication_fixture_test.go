@@ -49,6 +49,18 @@ func (f *fakePublishHost) FactoryHarness(ctx context.Context, _ string) (project
 	return project.FactoryHarnessPin{}, errors.New("unexpected host harness")
 }
 
+func (*fakePublishHost) PrepareCandidate(context.Context, project.FactoryCandidate) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("candidate preparation unavailable in publication fixture")
+}
+
+func (*fakePublishHost) InspectPreparation(context.Context, project.PrepareInspect) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation inspection unavailable in publication fixture")
+}
+
+func (*fakePublishHost) StopPreparation(context.Context, project.PrepareStop) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation stop unavailable in publication fixture")
+}
+
 func (f *fakePublishHost) FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
 	f.exports = append(f.exports, in)
 	if f.export != nil {

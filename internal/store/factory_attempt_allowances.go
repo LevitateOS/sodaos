@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrAttemptRunsPending  = errors.New("attempt runs are not confirmed settled")
+	ErrAttemptRunsPending  = errors.New("attempt runs or preparations are not confirmed settled")
 	ErrAttemptRootMismatch = errors.New("assignment does not match the recorded attempt root")
 )
 
@@ -215,8 +215,9 @@ func lockAttemptAllowanceRootTx(ctx context.Context, tx *sql.Tx, repository, iss
 	return allowance, nil
 }
 
-// attemptRootRunsSettledTx confirms every recorded run view for this root has
-// stopped and been reconciled. Retained historical attempts remain in scope.
+// attemptRootRunsSettledTx confirms every recorded run view is reconciled and
+// every admitted native candidate preparation is quiescent. Retained history
+// remains in scope.
 func attemptRootRunsSettledTx(ctx context.Context, tx *sql.Tx, repository, issue int64, root string) (bool, error) {
 	var settled bool
 	err := tx.QueryRowContext(ctx, `SELECT NOT EXISTS (
@@ -225,6 +226,17 @@ func attemptRootRunsSettledTx(ctx context.Context, tx *sql.Tx, repository, issue
 		JOIN factory_assignments a ON a.id=v.attempt
 		WHERE (r.active OR NOT r.settled OR COALESCE(r.data->>'reconciled','false') <> 'true')
 		  AND a.repository=$1 AND a.issue=$2 AND a.data->>'attempt_root'=$3
+		LIMIT 1
+	) AND NOT EXISTS (
+		SELECT 1 FROM project_preparations p
+		WHERE p.project_id=(SELECT data->>'project_id' FROM factory_assignments WHERE id=$3)
+		  AND p.data ? 'factory_admission'
+		  AND (p.data->'factory_admission'->>'repository')::bigint=$1
+		  AND (p.data->'factory_admission'->>'issue')::bigint=$2
+		  AND p.data->'factory_admission'->>'attempt_root'=$3
+		  AND NOT (COALESCE((p.data#>>'{state,ready}')::boolean,FALSE)
+		    OR (COALESCE((p.data#>>'{factory_admission,stopped}')::boolean,FALSE)
+		      AND COALESCE(p.data#>>'{factory_admission,retirement}'='confirmed',FALSE)))
 		LIMIT 1
 	)`, repository, issue, root).Scan(&settled)
 	return settled, err
@@ -498,6 +510,20 @@ func (s *Store) FreezeAttemptAllowances(ctx context.Context, repository, expecte
 	}
 	if err = rows.Close(); err != nil {
 		return err
+	}
+	var preparationsPending bool
+	if err = tx.QueryRowContext(ctx, `SELECT EXISTS (
+		SELECT 1 FROM project_preparations p
+		WHERE (p.data->'factory_admission'->>'repository')::bigint=$1
+		  AND p.data ? 'factory_admission'
+		  AND NOT (COALESCE((p.data#>>'{state,ready}')::boolean,FALSE)
+		    OR (COALESCE((p.data#>>'{factory_admission,stopped}')::boolean,FALSE)
+		      AND COALESCE(p.data#>>'{factory_admission,retirement}'='confirmed',FALSE)))
+		LIMIT 1)`, repository).Scan(&preparationsPending); err != nil {
+		return err
+	}
+	if preparationsPending {
+		return ErrAttemptRunsPending
 	}
 	const pageLimit = 128
 	var afterRoot string

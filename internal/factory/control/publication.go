@@ -94,6 +94,7 @@ func (c *Coordinator) PublishPass(ctx context.Context) PublishReport {
 	for _, a := range assignments {
 		c.publishOne(ctx, a, &report)
 	}
+	c.producePublishedChildren(ctx, &report)
 	c.consumePublicationChildren(ctx, &report)
 	return report
 }

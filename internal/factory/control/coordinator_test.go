@@ -64,6 +64,18 @@ func (s *stubHost) FactoryHarness(ctx context.Context, _ string) (project.Factor
 	return s.harness()
 }
 
+func (*stubHost) PrepareCandidate(context.Context, project.FactoryCandidate) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("candidate preparation unavailable in coordinator stub")
+}
+
+func (*stubHost) InspectPreparation(context.Context, project.PrepareInspect) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation inspection unavailable in coordinator stub")
+}
+
+func (*stubHost) StopPreparation(context.Context, project.PrepareStop) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation stop unavailable in coordinator stub")
+}
+
 type stubBroker struct {
 	get   func(kind, id string) (identity.Execution, error)
 	close func(kind, id string) error

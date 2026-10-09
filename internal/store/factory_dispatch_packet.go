@@ -444,7 +444,14 @@ func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, co
 		SELECT 1 FROM factory_runs r
 			WHERE r.active
 			  AND r.id NOT IN (SELECT run FROM factory_assignments WHERE run!='')
-			  AND r.data->>'project_id'=$2`, 2, repository, projectID)
+			  AND r.data->>'project_id'=$2
+		UNION ALL
+		SELECT 1 FROM project_preparations p
+			WHERE p.project_id=$2 AND p.data ? 'factory_admission'
+			  AND (p.data->'factory_admission'->>'repository')::bigint=$1
+			  AND NOT (COALESCE((p.data#>>'{state,ready}')::boolean,FALSE)
+			    OR (COALESCE((p.data#>>'{factory_admission,stopped}')::boolean,FALSE)
+			      AND COALESCE(p.data#>>'{factory_admission,retirement}'='confirmed',FALSE)))`, 2, repository, projectID)
 	if err != nil {
 		return err
 	}

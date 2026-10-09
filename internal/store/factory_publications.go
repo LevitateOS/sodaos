@@ -412,6 +412,41 @@ func (s *Store) OpenPublications(ctx context.Context, limit int) ([]factory.Publ
 	return out, rows.Err()
 }
 
+// ActivePublishedPublications returns published candidates whose exact
+// assignment root still owns an open active allowance and has not merged.
+// The active-attempt cap keeps this bounded without walking settled history.
+func (s *Store) ActivePublishedPublications(ctx context.Context, limit int) ([]factory.Publication, error) {
+	if limit <= 0 || limit > storePublicationLimit {
+		return nil, errors.New("invalid active publication listing limit")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT p.data FROM factory_publications p
+		JOIN factory_assignments a ON a.id=p.assignment
+		JOIN factory_attempt_allowances l ON l.repository=p.repository AND l.issue=p.issue
+			AND l.root_assignment=a.data->>'attempt_root'
+		WHERE p.stage='published'
+		  AND l.data->>'active'='true' AND COALESCE(l.data->>'closed','false') <> 'true'
+		  AND NOT EXISTS (SELECT 1 FROM factory_merges m
+			WHERE m.publication=p.data->>'id' AND m.stage='merged')
+		ORDER BY p.seq LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []factory.Publication
+	for rows.Next() {
+		var data []byte
+		var p factory.Publication
+		if err = rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(data, &p); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // PublishableAssignments lists finished assignments whose harness
 // reported a completed exact candidate and that carry no publication
 // yet, oldest first. Only succeeded work with an attributable report

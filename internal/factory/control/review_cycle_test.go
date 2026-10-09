@@ -72,26 +72,9 @@ func TestCheckPassReassessesFailedHead(t *testing.T) {
 
 func TestCheckPassOpensMergeOnFreshPass(t *testing.T) {
 	ctx := context.Background()
-	fx := publishSeed(t)
-	policy, err := fx.db.RepositoryPolicy(ctx, fx.seed.repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The merge reviewer must be independent of the PR author; override
-	// before the assignment captures its authority.
-	policy.Review = factory.ActorBindingRef{TokenID: 2, ActorID: 6, Kind: factory.OpReviewSubmit}
-	if err := fx.db.SaveRepositoryPolicy(ctx, policy); err != nil {
-		t.Fatal(err)
-	}
-	a := fx.finishReported(t, 15)
-	fx.wire(happyPublisher())
-	fx.pass(t)
-	p, err := fx.db.PublicationByAssignment(ctx, a.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p.Stage != factory.PublicationPublished {
-		t.Fatalf("seed publication not published: %+v", p)
+	fx, host, owner, p := publishedChildProducerSeed(t, 15)
+	if p.Stage != factory.PublicationPublished || len(host.launches) != 1 {
+		t.Fatalf("published candidate did not produce its reviewer: publication=%+v launches=%d", p, len(host.launches))
 	}
 	checks := happyCheckObserver()
 	observe := checks.observe
@@ -101,17 +84,38 @@ func TestCheckPassOpensMergeOnFreshPass(t *testing.T) {
 		return observed, err
 	}
 	fx.coord.Checks = checks
-	fx.coord.Merges = happyMerger()
+	merger := happyMerger()
+	fx.coord.Merges = merger
 	report := fx.coord.CheckPass(ctx)
 	if len(report.Errors) != 0 || len(report.Assessed) != 1 || report.Assessed[0].Verdict != factory.CheckPass {
 		t.Fatalf("check pass: %+v", report)
 	}
-	m, err := fx.db.MergeByPublication(ctx, p.ID)
-	if err != nil {
-		t.Fatalf("fresh pass opened no merge: %v", err)
+	if _, err := fx.db.MergeByPublication(ctx, p.ID); err == nil || len(merger.submits) != 0 {
+		t.Fatalf("CI pass alone opened or submitted a merge: merger=%+v err=%v", merger.submits, err)
 	}
-	if m.Stage != factory.MergeMerged {
-		t.Fatalf("fresh pass merge stage: %+v", m)
+	_, reviewerRun := settleProducedChild(t, fx, host.launches[0].Run.ID,
+		"```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```")
+	reviewer := &fakeReviewer{
+		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+		outcome:  committedOutcome(`{"review_id":33}`),
+		adopted: factory.ReviewOutcome{
+			ReviewID: 33, CommentID: 34, ReviewerID: 6, PRID: p.PRID,
+			PRNumber: p.PRNumber, IssueID: p.PRCreate.IssueID,
+			HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID,
+			CommitID: p.Candidate, Event: "APPROVED",
+		},
+	}
+	fx.coord.Reviews = reviewer
+	consumed := fx.coord.PublishPass(ctx)
+	if len(consumed.Errors) != 0 || len(consumed.Waits) != 0 || len(reviewer.submitted) != 1 {
+		t.Fatalf("canonical reviewer result was not submitted: report=%+v reviews=%+v", consumed, reviewer.submitted)
+	}
+	if child, err := fx.db.AssignmentByRun(ctx, reviewerRun.ID); err != nil || child.PublicationAssignment != owner.ID || child.AttemptRoot != owner.AttemptRoot {
+		t.Fatalf("review result lost parent assignment identity: child=%+v err=%v", child, err)
+	}
+	m, err := fx.db.MergeByPublication(ctx, p.ID)
+	if err != nil || m.Stage != factory.MergeMerged || len(merger.submits) != 1 {
+		t.Fatalf("approved reviewer did not open and complete the merge: merge=%+v submits=%d err=%v", m, len(merger.submits), err)
 	}
 }
 

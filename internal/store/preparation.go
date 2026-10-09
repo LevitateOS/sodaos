@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
 )
 
@@ -130,25 +132,65 @@ func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparat
 	if err := p.Validate(); err != nil {
 		return err
 	}
-	next := p
-	next.Preparation.Revision++
-	data, err := json.Marshal(next)
+	var raw []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, p.Preparation.ID).Scan(&raw); err != nil {
+		return err
+	}
+	_, meta, err := unmarshalCandidatePreparation(raw)
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE project_preparations SET revision=$1,data=$2 WHERE id=$3 AND revision=$4`,
-		next.Preparation.Revision, string(data), p.Preparation.ID, p.Preparation.Revision)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var allowance factory.AttemptAllowance
+	if meta != nil {
+		allowance, err = lockAttemptAllowanceRootTx(ctx, tx, meta.Repository, meta.Issue, meta.AttemptRoot)
+		if err != nil {
+			return err
+		}
+	}
+	var currentRaw []byte
+	var revision int64
+	if err = tx.QueryRowContext(ctx, `SELECT revision,data FROM project_preparations WHERE id=$1 FOR UPDATE`, p.Preparation.ID).Scan(&revision, &currentRaw); err != nil {
+		return err
+	}
+	current, currentMeta, err := unmarshalCandidatePreparation(currentRaw)
+	if err != nil {
+		return err
+	}
+	if (meta == nil) != (currentMeta == nil) || meta != nil && !sameCandidatePreparationAdmission(*meta, *currentMeta, false) {
+		return errors.New("preparation admission changed during observation")
+	}
+	if currentMeta != nil && currentMeta.Stopped && currentMeta.Retirement == "confirmed" && !p.State.Stopped {
+		return errors.New("confirmed preparation stop cannot be replaced by a later observation")
+	}
+	if revision != p.Preparation.Revision || !samePreparationIdentity(current, p) {
+		return errors.New("stale or changed preparation observation")
+	}
+	current.State = p.State
+	current.Preparation.Revision++
+	var data []byte
+	if currentMeta == nil {
+		data, err = json.Marshal(current)
+	} else {
+		data, err = marshalCandidatePreparation(current, *currentMeta)
+	}
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE project_preparations SET revision=$1,data=$2 WHERE id=$3 AND revision=$4`,
+		current.Preparation.Revision, string(data), p.Preparation.ID, revision); err != nil {
 		return fmt.Errorf("preparation observation failed: %w", err)
 	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
+	if meta != nil && allowance.Closed {
+		if err = transitionLockedAttemptRootTx(ctx, tx, allowance, true, time.Now()); err != nil {
+			return err
+		}
 	}
-	if n != 1 {
-		return errors.New("stale preparation revision")
-	}
-	return nil
+	return tx.Commit()
 }
 
 // Preparation returns one durable preparation record by identity.

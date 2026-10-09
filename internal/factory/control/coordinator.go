@@ -44,6 +44,9 @@ type HostFactory interface {
 	FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error)
 	FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error)
 	FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error)
+	PrepareCandidate(ctx context.Context, in project.FactoryCandidate) (project.PrepareState, error)
+	InspectPreparation(ctx context.Context, in project.PrepareInspect) (project.PrepareState, error)
+	StopPreparation(ctx context.Context, in project.PrepareStop) (project.PrepareState, error)
 }
 
 // BrokerExecution is the coordinator's entire broker surface: close seals

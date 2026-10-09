@@ -13,7 +13,7 @@ import (
 )
 
 type publicationRecoveryHost struct {
-	*fakePublishHost
+	*producerFlowHost
 	output string
 }
 
@@ -205,13 +205,17 @@ func TestPublishPassRecoversFinishedReviewerAndCorrectionChildren(t *testing.T) 
 }
 
 func TestRecoverDispatchDerivesReviewerResultBeforeChildSubmission(t *testing.T) {
-	fx, owner, publication, run := reviewRunSeed(t, false)
+	fx, producer, owner, publication := publishedChildProducerSeed(t, 18)
+	run, err := fx.db.FactoryRun(context.Background(), producer.launches[0].Run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	output := "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"empty input panics\",\"findings\":[\"empty input\"]}\n```"
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "review settled", true
 	if err := fx.db.SaveFactoryRun(context.Background(), run); err != nil {
 		t.Fatal(err)
 	}
-	fx.coord.Host = &publicationRecoveryHost{fakePublishHost: fx.host, output: output}
+	fx.coord.Host = &publicationRecoveryHost{producerFlowHost: producer, output: output}
 	recovered := RecoverDispatch(context.Background(), fx.coord.dispatchDeps())
 	if len(recovered.Errors) != 0 || len(recovered.Recovered) != 1 {
 		t.Fatalf("reviewer assignment did not recover: %+v", recovered)

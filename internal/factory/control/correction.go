@@ -144,7 +144,7 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 		}
 	}
 	if reported.Candidate == p.Candidate || reported.Candidate == p.BaseSHA {
-		correctionWait(&report, p.ID, "candidate_invalid")
+		c.fenceCorrection(ctx, &report, &p, factory.PublishReasonInvalid)
 		return report
 	}
 	if err := recordConfirmedUsage(ctx, c.Store, assignment, run, time.Now()); err != nil {

@@ -59,6 +59,18 @@ func (f *fakeDispatchHost) FactoryExport(ctx context.Context, in project.Factory
 	return project.FactoryExportState{}, errors.New("unexpected host export")
 }
 
+func (*fakeDispatchHost) PrepareCandidate(context.Context, project.FactoryCandidate) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("candidate preparation unavailable in dispatch fixture")
+}
+
+func (*fakeDispatchHost) InspectPreparation(context.Context, project.PrepareInspect) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation inspection unavailable in dispatch fixture")
+}
+
+func (*fakeDispatchHost) StopPreparation(context.Context, project.PrepareStop) (project.PrepareState, error) {
+	return project.PrepareState{}, errors.New("preparation stop unavailable in dispatch fixture")
+}
+
 type fakeDispatchBroker struct {
 	get func(kind, id string) (identity.Execution, error)
 }

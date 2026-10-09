@@ -25,6 +25,8 @@ const reviewCyclePassLimit = 256
 func (c *Coordinator) CheckPass(ctx context.Context) CheckReport {
 	report := CheckReport{Assessed: []CheckLink{}}
 	if c.Checks == nil {
+		children := PublishReport{}
+		c.producePublishedChildren(ctx, &children)
 		report.Unavailable = true
 		return report
 	}
@@ -50,6 +52,9 @@ func (c *Coordinator) CheckPass(ctx context.Context) CheckReport {
 			if link.Verdict != factory.CheckPass || c.Merges == nil {
 				continue
 			}
+			if !c.currentPublicationApproved(ctx, p) {
+				continue
+			}
 			// A fresh pass opens the merge row: the merge pass
 			// itself still demands the independent review and
 			// re-verifies checks live before submitting.
@@ -57,6 +62,8 @@ func (c *Coordinator) CheckPass(ctx context.Context) CheckReport {
 			c.mergeOne(ctx, p, &merges)
 		}
 	}
+	children := PublishReport{}
+	c.producePublishedChildren(ctx, &children)
 	return report
 }
 
@@ -89,11 +96,21 @@ func (c *Coordinator) progressAfterPublish(ctx context.Context, assignmentID str
 			}
 		}
 	}
-	if c.Merges == nil || !c.checkCurrent(ctx, p) {
+	children := PublishReport{}
+	c.producePublishedChildren(ctx, &children)
+	if fresh, err := c.Store.PublicationByAssignment(ctx, assignmentID); err == nil {
+		p = fresh
+	}
+	if c.Merges == nil || !c.checkCurrent(ctx, p) || !c.currentPublicationApproved(ctx, p) {
 		return
 	}
 	report := MergeReport{Merged: []MergeLink{}}
 	c.mergeOne(ctx, p, &report)
+}
+
+func (c *Coordinator) currentPublicationApproved(ctx context.Context, p factory.Publication) bool {
+	review, ok, pending, refused := c.currentReviewReport(ctx, p)
+	return ok && !pending && !refused && review.Verdict == "approve"
 }
 
 // SubmitReviewForRun submits one settled reviewer run's genuine verdict
