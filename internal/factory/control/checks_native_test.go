@@ -1,17 +1,13 @@
 package control_test
 
 // Native check-assessment proof (ST11, S-checks). Fixture candidates, PRs
-// and commit statuses are prepared through ordinary native Git and REST
-// writes; assessment reads only bracketed native snapshots plus disclosed
-// accepted-policy records, and no agent narrative enters the verdict. The
-// small native workflow is committed last and verified through ordinary
-// native run/status reads, because a head carrying an Actions-posted
-// status currently refuses checks-family snapshots with 503 (a Fountain
-// defect routed to the coordinator, not a Soda verdict). The cancelled,
-// skipped, arbitrary-state and genuine-workflow-pending snapshot cases
-// are skipped until that conversion fix lands; the skips name the defect
-// and un-skip mechanically. Absence of SODA_ST11_NATIVE skips native
-// work and is never passing evidence.
+// and ordinary commit statuses are prepared through native Git and REST.
+// Assessment reads bracketed native snapshots and disclosed accepted-policy
+// records; agent narrative never enters the verdict. Workflow cases also
+// require Actions enabled without a runner, and read genuine Actions-produced
+// pending evidence through native snapshots and ordinary run/status APIs.
+// Absence of SODA_ST11_NATIVE skips native work and never counts as passing
+// evidence. Ordinary-status and workflow producer scopes remain distinct.
 
 import (
 	"testing"
