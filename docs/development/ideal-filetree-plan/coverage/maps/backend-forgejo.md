@@ -28,7 +28,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–165; file scaffold; maxBackgroundBodyBytes; validBackgroundAdmission; validBackgroundOperationID; backgroundSecret; checkBackgroundRecord; admissionForCall; bootstrap; verifiedPeer | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–46, 51–140, 203–214; file scaffold; maxBackgroundBodyBytes; validBackgroundAdmission; validBackgroundOperationID; backgroundSecret; checkBackgroundRecord; admissionForCall; bootstrap; verifiedPeer | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current retained helpers and declaration spans; the `G02` callback bootstrap/redirect cut is assigned below. |
+| 47–49, 141–202; rejectBackgroundRedirect; ServiceBackground.performBootstrap | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Existing callback admission bootstrap refuses redirects, preserving the exact callback path. The focused local redirect fixture covers refusal only. |
 
 <a id="coverage-b3264fdcee80"></a>
 
@@ -38,7 +39,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–319; file scaffold; scriptedBackgroundServer; current; handler; serveOp; TestServiceBackgroundVerifiesPeerBeforeSendingCredential; TestServiceBackgroundRejectsForeignNestedRecord; shortSocketPath; serveScriptedBackground; TestServiceBackgroundSharesOneAdmission; TestServiceBackgroundRebindsAfterRevocation; TestServiceBackgroundMapsDispatchStatuses | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 12 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–759; file scaffold; scriptedBackgroundServer; current; handler; serveOp; shortSocketPath; serveScriptedBackground; TestServiceBackgroundVerifiesPeerBeforeSendingCredential; TestServiceBackgroundRejectsForeignNestedRecord; TestServiceBackgroundRefusesRedirects; TestServiceBackgroundSharesOneAdmission; TestServiceBackgroundBootstrapWaiterContextDoesNotCancelSharedBootstrap; TestServiceBackgroundStaleRejectionWaitsForForcedBootstrap; TestServiceBackgroundRebindsAfterRevocation; TestServiceBackgroundDelayedUnauthorizedReusesReplacementAdmission; TestServiceBackgroundMapsDispatchStatuses | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current source/test spans include the local callback redirect refusal fixture, shared admission and waiter-cancellation cases. The redirect test covers bootstrap and revision paths only; it is not native/provider qualification. |
 
 <a id="coverage-fc3a0ed46e1c"></a>
 
@@ -48,7 +49,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–121; file scaffold; maxBackgroundStatusBody; checkBackgroundLookup; call; post; readStatusBody | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–42, 114–121; file scaffold; maxBackgroundStatusBody; checkBackgroundLookup; readStatusBody | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Retained response validation and bounded status-body helpers. |
+| 43–112; ServiceBackground.call; ServiceBackground.post | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Existing callback admission and 401 rebind path; POST now refuses redirects so credentials remain bound to the exact callback path. Local REST/Unix tests only, not native/provider qualification. |
 
 <a id="coverage-7757b0beb8a1"></a>
 
@@ -161,9 +163,9 @@ exact-blob current maintained map; full spans retained
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–49, 111–138; ServiceObserver; NewServiceObserver; Credential; SnapshotReader; serviceSnapshotReader; ReadNativeRevision; ReadSnapshot | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current native revision/snapshot owner for accepted readiness evidence. The bounded retirement selectors passed; this does not establish exhaustive trigger or installed/native behavior. |
-| 50–109; ensureClient; sharedBackgroundLocked; ShareBackground; ensureActor | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Lazy service bootstrap and actor resolution remain, including sharing one admission with readers and publishers. Their physical calls are not included in the current readiness RPC accounting proof. `ensureActor` currently holds the observer mutex across REST `Current`; a shorter-deadline caller may wait behind that request, and the focused repair is still pending. |
-| 139–153; Client.RepositoryByID | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Publication caller at [internal/forgejo/publish.go:231](../../../../../internal/forgejo/publish.go#L231) still resolves the repository locator by native ID. Issue-list pagination declarations were retired at `07ab24bd`. |
+| 1–17, 40–55, 157–180; ServiceObserver; NewServiceObserver; Credential; SnapshotReader; serviceSnapshotReader; ReadNativeRevision; ReadSnapshot | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current native revision/snapshot owner for accepted readiness evidence. These source checks do not establish installed/native behavior. |
+| 18–39, 57–68, 70–92, 94–152; serviceActorCall; ensureClient; sharedBackgroundLocked; ShareBackground; ensureActor; loadServiceActor | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Lazy service admission and actor resolution remain shared with readers and publishers. `ensureActor` coalesces the REST lookup outside `mu`; each waiter honors its context. The held-Current local regression proves a short revision caller can proceed while the actor lookup remains blocked. This does not bound aggregate physical native calls including bootstrap and actor admission. |
+| 183–196; Client.RepositoryByID | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Publication caller at [internal/forgejo/publish.go:231](../../../../../internal/forgejo/publish.go#L231) still resolves the repository locator by native ID. Issue-list pagination declarations were retired at `07ab24bd`. |
 
 <a id="coverage-d3e08163e098"></a>
 
@@ -173,7 +175,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–198; file scaffold; observationCredential; observationREST; TestServiceObserverListsIssuesOldestFirst; TestServiceObserverListBounds; fakeBackgroundServer; handler; serveBackgroundSocket; TestServiceObserverBootstrapsOnce; TestServiceObserverBootstrapFailure | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–235; file scaffold; observationCredential; observationREST; fakeBackgroundServer; handler; serveBackgroundSocket; TestServiceObserverBootstrapsOnce; TestServiceObserverShortRevisionCallerDoesNotWaitForActorLookup; TestServiceObserverBootstrapFailure | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current helper and tests include the held-REST-call regression: the actor lookup owner remains blocked while a separate revision observation succeeds and a short-context waiter returns. Local REST/Unix fixture evidence only. |
 
 <a id="coverage-e3cb6caf989e"></a>
 
