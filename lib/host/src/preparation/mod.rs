@@ -19,7 +19,9 @@ pub use self::candidate::FactoryCandidate;
 pub use self::decisions::{AdminApproval, RequirementAcceptance};
 pub use self::setup::{setup_digest_of, ApprovedSetup};
 pub use self::state::{
-    HoldState, PrepareHold, PrepareInspect, PrepareState, PrepareStop, ResolvedTool,
+    ContextFile, HoldState, PreparationContext, PrepareContextRead, PrepareHold, PrepareInspect,
+    PrepareState, PrepareStop, ResolvedTool, MAX_CONTEXT_FILES, MAX_CONTEXT_FILE_BYTES,
+    MAX_CONTEXT_PATH_BYTES, MAX_CONTEXT_TOTAL_BYTES,
 };
 
 pub const ROLE_CODER: &str = "soda-coder";

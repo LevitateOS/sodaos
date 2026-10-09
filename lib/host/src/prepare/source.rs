@@ -2,7 +2,10 @@
 use std::time::Instant;
 
 use super::paths::preparation_paths;
-use crate::preparation::Preparation;
+use crate::preparation::{
+    self, ContextFile, Preparation, PreparationContext, PrepareContextRead, MAX_CONTEXT_FILE_BYTES,
+    MAX_CONTEXT_TOTAL_BYTES,
+};
 use crate::project::{Executor, Runtime};
 
 impl<E: Executor> Runtime<E> {
@@ -109,6 +112,200 @@ impl<E: Executor> Runtime<E> {
             return Err("preparation checkout is not the approved commit".to_string());
         }
         Ok(())
+    }
+
+    /// Read bounded prompt material from exact Git objects in one ready
+    /// preparation checkout. The returned bytes are transient and never
+    /// enter the durable preparation receipt.
+    pub fn read_preparation_context(
+        &self,
+        input: &PrepareContextRead,
+        deadline: Instant,
+    ) -> Result<PreparationContext, String> {
+        input.validate()?;
+        let container = self.prepare_container(&input.project, true, deadline)?;
+        let state = self
+            .inspect_preparation_state(&input.project, &input.id, &container, deadline, None)
+            .map_err(|error| error.to_string())?;
+        if !state.ready
+            || state.stopped
+            || state.phase != preparation::PREPARE_READY
+            || !preparation::valid_factory_role(&state.role)
+            || state.source_commit != input.source_commit
+        {
+            return Err("preparation context source is not the recorded ready checkout".into());
+        }
+        if (state.role == preparation::ROLE_CODER && input.approved_base != state.source_commit)
+            || (state.role == preparation::ROLE_REVIEWER && input.candidate != state.source_commit)
+        {
+            return Err("preparation context commits do not match the recorded role source".into());
+        }
+
+        let (checkout, _, _, home) = preparation_paths(&state.role, &state.id);
+        let head = self.context_git(
+            &container,
+            &state.role,
+            &checkout,
+            &home,
+            &["rev-parse", "--verify", "HEAD^{commit}"],
+            1024,
+            deadline,
+        )?;
+        if std::str::from_utf8(&head).ok().map(str::trim) != Some(input.candidate.as_str()) {
+            return Err("preparation context candidate differs from checkout HEAD".into());
+        }
+        self.context_git(
+            &container,
+            &state.role,
+            &checkout,
+            &home,
+            &[
+                "merge-base",
+                "--is-ancestor",
+                &input.approved_base,
+                &input.candidate,
+            ],
+            1,
+            deadline,
+        )?;
+
+        let files = self.approved_preparation_files(
+            &container,
+            &state.id,
+            &state.role,
+            &state.setup_digest,
+            None,
+            &state.source_commit,
+            deadline,
+        )?;
+        let setup = files
+            .get(preparation::FACTORY_SETUP_ENTRY)
+            .cloned()
+            .ok_or_else(|| "approved setup entrypoint is missing".to_string())?;
+        let check = files
+            .get(preparation::FACTORY_CHECK_ENTRY)
+            .cloned()
+            .ok_or_else(|| "approved check entrypoint is missing".to_string())?;
+        if std::str::from_utf8(&setup).is_err() || std::str::from_utf8(&check).is_err() {
+            return Err("approved setup context is not UTF-8 text".into());
+        }
+        let mut total = setup.len().saturating_add(check.len());
+        if total > MAX_CONTEXT_TOTAL_BYTES {
+            return Err("preparation context exceeds its aggregate bound".into());
+        }
+
+        let mut context_files = Vec::with_capacity(input.paths.len());
+        for path in &input.paths {
+            let remaining = MAX_CONTEXT_TOTAL_BYTES.saturating_sub(total);
+            let cap = MAX_CONTEXT_FILE_BYTES.min(remaining);
+            let expression = format!("{}:{path}", input.approved_base);
+            let content = self.context_git(
+                &container,
+                &state.role,
+                &checkout,
+                &home,
+                &["cat-file", "blob", expression.as_str()],
+                cap.saturating_add(1),
+                deadline,
+            )?;
+            if content.len() > cap {
+                return Err("approved-base context file exceeds its bound".into());
+            }
+            if content.contains(&0) || std::str::from_utf8(&content).is_err() {
+                return Err("approved-base context file is not UTF-8 text".into());
+            }
+            total += content.len();
+            context_files.push(ContextFile {
+                path: path.clone(),
+                content,
+            });
+        }
+
+        let mut diff_args = vec![
+            "diff".to_string(),
+            "--no-ext-diff".to_string(),
+            "--no-textconv".to_string(),
+            "--no-renames".to_string(),
+            input.approved_base.clone(),
+            input.candidate.clone(),
+            "--".to_string(),
+        ];
+        diff_args.extend(input.paths.iter().map(|path| format!(":(literal){path}")));
+        let diff_refs: Vec<&str> = diff_args.iter().map(String::as_str).collect();
+        let remaining = MAX_CONTEXT_TOTAL_BYTES.saturating_sub(total);
+        let diff = self.context_git(
+            &container,
+            &state.role,
+            &checkout,
+            &home,
+            &diff_refs,
+            remaining.saturating_add(1),
+            deadline,
+        )?;
+        if diff.len() > remaining {
+            return Err("candidate context diff exceeds its aggregate bound".into());
+        }
+        if diff
+            .split(|byte| *byte == b'\n')
+            .any(|line| line.starts_with(b"Binary files "))
+        {
+            return Err("candidate context diff contains a binary file".into());
+        }
+        if diff.contains(&0) || std::str::from_utf8(&diff).is_err() {
+            return Err("candidate context diff is not UTF-8 text".into());
+        }
+
+        Ok(PreparationContext {
+            project: input.project.clone(),
+            id: input.id.clone(),
+            role: state.role,
+            source_commit: state.source_commit,
+            approved_base: input.approved_base.clone(),
+            candidate: input.candidate.clone(),
+            setup,
+            check,
+            files: context_files,
+            diff,
+        })
+    }
+
+    fn context_git(
+        &self,
+        container: &str,
+        role: &str,
+        checkout: &str,
+        home: &str,
+        git_args: &[&str],
+        stdout_limit: usize,
+        deadline: Instant,
+    ) -> Result<Vec<u8>, String> {
+        let mut args = vec![
+            "exec".to_string(),
+            "--user".to_string(),
+            role.to_string(),
+            container.to_string(),
+            "/usr/bin/env".to_string(),
+            "-i".to_string(),
+            "PATH=/usr/bin:/bin".to_string(),
+            "LC_ALL=C".to_string(),
+            format!("HOME={home}"),
+            "GIT_CONFIG_NOSYSTEM=1".to_string(),
+            "GIT_CONFIG_GLOBAL=/dev/null".to_string(),
+            "GIT_NO_REPLACE_OBJECTS=1".to_string(),
+            "GIT_TERMINAL_PROMPT=0".to_string(),
+            "GIT_OPTIONAL_LOCKS=0".to_string(),
+            "/usr/bin/git".to_string(),
+            "-c".to_string(),
+            "core.hooksPath=/dev/null".to_string(),
+            "-c".to_string(),
+            "core.fsmonitor=false".to_string(),
+            "-C".to_string(),
+            checkout.to_string(),
+        ];
+        args.extend(git_args.iter().map(|arg| (*arg).to_string()));
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        self.exec
+            .run_bounded(&[], "/usr/bin/podman", &refs, deadline, stdout_limit, 1024)
     }
 }
 

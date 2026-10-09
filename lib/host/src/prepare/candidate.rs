@@ -144,7 +144,7 @@ impl<E: Executor> Runtime<E> {
     }
 
     /// `candidateProtectedFile`: one root-owned read-only regular file.
-    fn candidate_protected_file(
+    pub(super) fn candidate_protected_file(
         &self,
         container: &str,
         filename: &str,
@@ -201,10 +201,28 @@ impl<E: Executor> Runtime<E> {
         source_commit: &str,
         deadline: Instant,
     ) -> Result<HashMap<String, Vec<u8>>, String> {
-        let dir = path_join(&[
-            preparation::FACTORY_PREPARATIONS_DIR,
+        self.approved_preparation_files(
+            container,
             &input.source_preparation,
-        ]);
+            &input.preparation.role,
+            &input.preparation.setup_digest,
+            Some(&input.preparation.credential),
+            source_commit,
+            deadline,
+        )
+    }
+
+    pub(super) fn approved_preparation_files(
+        &self,
+        container: &str,
+        preparation_id: &str,
+        role: &str,
+        setup_digest: &str,
+        expected_credential: Option<&str>,
+        source_commit: &str,
+        deadline: Instant,
+    ) -> Result<HashMap<String, Vec<u8>>, String> {
+        let dir = path_join(&[preparation::FACTORY_PREPARATIONS_DIR, preparation_id]);
         let snapshot = path_join(&[&dir, "snapshot"]);
         let meta = self
             .podman(
@@ -231,11 +249,11 @@ impl<E: Executor> Runtime<E> {
         let raw = self.candidate_protected_file(container, &request_path, 4096, deadline)?;
         const ERR: &str = "candidate approved snapshot differs from its recorded inputs";
         let request: SavedRequest = json::decode_strict_as(&raw).map_err(|_| ERR.to_string())?;
-        if request.id != input.source_preparation
-            || request.role != input.preparation.role
-            || request.setup_digest != input.preparation.setup_digest
+        if request.id != preparation_id
+            || request.role != role
+            || request.setup_digest != setup_digest
             || request.source_commit != source_commit
-            || request.credential != input.preparation.credential
+            || expected_credential.is_some_and(|credential| request.credential != credential)
         {
             return Err(ERR.to_string());
         }
@@ -269,7 +287,7 @@ impl<E: Executor> Runtime<E> {
             )?;
             files.insert(name.to_string(), contents);
         }
-        if preparation::setup_digest_of(&files) != input.preparation.setup_digest {
+        if preparation::setup_digest_of(&files) != setup_digest {
             return Err("candidate approved snapshot differs from its digest".to_string());
         }
         Ok(files)

@@ -139,6 +139,120 @@ pub struct PrepareInspect {
     pub id: String,
 }
 
+/// Bounded, transient repository material read from one recorded preparation.
+/// The caller supplies the exact approved base and candidate object IDs; this
+/// value is never part of the durable preparation receipt.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PrepareContextRead {
+    pub project: String,
+    pub id: String,
+    pub source_commit: String,
+    pub approved_base: String,
+    pub candidate: String,
+    pub paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ContextFile {
+    pub path: String,
+    pub content: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PreparationContext {
+    pub project: String,
+    pub id: String,
+    pub role: String,
+    pub source_commit: String,
+    pub approved_base: String,
+    pub candidate: String,
+    pub setup: Vec<u8>,
+    pub check: Vec<u8>,
+    pub files: Vec<ContextFile>,
+    pub diff: Vec<u8>,
+}
+
+pub const MAX_CONTEXT_FILES: usize = 12;
+pub const MAX_CONTEXT_PATH_BYTES: usize = 256;
+pub const MAX_CONTEXT_FILE_BYTES: usize = 8 * 1024;
+pub const MAX_CONTEXT_TOTAL_BYTES: usize = 32 * 1024;
+
+impl PrepareContextRead {
+    pub fn validate(&self) -> Result<(), String> {
+        if !domain::valid_id(&self.project)
+            || !valid_preparation_id(&self.id)
+            || !domain::is_hex_lower(&self.source_commit)
+            || self.source_commit.len() != 40
+            || !domain::is_hex_lower(&self.approved_base)
+            || self.approved_base.len() != 40
+            || !domain::is_hex_lower(&self.candidate)
+            || self.candidate.len() != 40
+            || self.paths.is_empty()
+            || self.paths.len() > MAX_CONTEXT_FILES
+        {
+            return Err("invalid preparation context request".to_string());
+        }
+        let mut total = 0usize;
+        let mut previous: Option<&str> = None;
+        for path in &self.paths {
+            if !valid_context_path(path) || previous.is_some_and(|old| old >= path.as_str()) {
+                return Err("invalid preparation context path set".to_string());
+            }
+            total = total
+                .checked_add(path.len())
+                .ok_or_else(|| "preparation context path set exceeds bounds".to_string())?;
+            previous = Some(path);
+        }
+        if total > MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES {
+            return Err("preparation context path set exceeds bounds".to_string());
+        }
+        Ok(())
+    }
+}
+
+fn valid_context_path(path: &str) -> bool {
+    if path.is_empty()
+        || path.len() > MAX_CONTEXT_PATH_BYTES
+        || path.starts_with('/')
+        || path.contains('\\')
+        || path.contains('\0')
+    {
+        return false;
+    }
+    path.split('/').all(|part| {
+        if part.is_empty() || part == "." || part == ".." {
+            return false;
+        }
+        let lower = part.to_ascii_lowercase();
+        !(lower == ".git"
+            || lower == ".soda-home"
+            || lower == ".ssh"
+            || lower == ".aws"
+            || lower == ".codex"
+            || lower == ".muse"
+            || lower == ".config"
+            || lower == ".docker"
+            || lower == ".kube"
+            || lower == "credentials"
+            || lower == "credentials.json"
+            || lower == "secrets"
+            || lower == "private"
+            || lower == "auth.json"
+            || lower == "token.json"
+            || lower == ".netrc"
+            || lower == ".git-credentials"
+            || lower == ".npmrc"
+            || lower == ".pypirc"
+            || lower == ".env"
+            || lower.starts_with(".env.")
+            || lower == "id_rsa"
+            || lower == "id_ed25519"
+            || [".pem", ".key", ".p12", ".pfx"]
+                .iter()
+                .any(|ext| lower.ends_with(ext)))
+    })
+}
+
 impl PrepareInspect {
     pub fn validate(&self) -> Result<(), String> {
         if !domain::valid_id(&self.project) || !valid_preparation_id(&self.id) {
@@ -149,6 +263,50 @@ impl PrepareInspect {
 
     pub fn decode(body: &[u8]) -> Result<Self, String> {
         json::decode_strict_as(body).map_err(|e| e.0)
+    }
+}
+
+impl PrepareContextRead {
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        json::decode_strict_as(body).map_err(|error| error.0)
+    }
+}
+
+impl PreparationContext {
+    /// Go-compatible JSON response; every byte field uses padded standard
+    /// base64, as do the existing project preparation bundle fields.
+    pub fn encode(&self) -> String {
+        let mut out = String::from("{\"project\":");
+        out.push_str(&json::quote(&self.project));
+        out.push_str(",\"id\":");
+        out.push_str(&json::quote(&self.id));
+        out.push_str(",\"role\":");
+        out.push_str(&json::quote(&self.role));
+        out.push_str(",\"source_commit\":");
+        out.push_str(&json::quote(&self.source_commit));
+        out.push_str(",\"approved_base\":");
+        out.push_str(&json::quote(&self.approved_base));
+        out.push_str(",\"candidate\":");
+        out.push_str(&json::quote(&self.candidate));
+        out.push_str(",\"setup\":");
+        out.push_str(&json::quote(&crate::ssh::b64_encode(&self.setup)));
+        out.push_str(",\"check\":");
+        out.push_str(&json::quote(&crate::ssh::b64_encode(&self.check)));
+        out.push_str(",\"files\":[");
+        for (index, file) in self.files.iter().enumerate() {
+            if index != 0 {
+                out.push(',');
+            }
+            out.push_str("{\"path\":");
+            out.push_str(&json::quote(&file.path));
+            out.push_str(",\"content\":");
+            out.push_str(&json::quote(&crate::ssh::b64_encode(&file.content)));
+            out.push('}');
+        }
+        out.push_str("],\"diff\":");
+        out.push_str(&json::quote(&crate::ssh::b64_encode(&self.diff)));
+        out.push('}');
+        out
     }
 }
 
@@ -173,6 +331,14 @@ impl PrepareStop {
 
 typed_state_object!(PrepareInspect, "a preparation inspection object", {
     project => "project": String, id => "id": String
+});
+typed_state_object!(PrepareContextRead, "a preparation context request", {
+    project => "project": String,
+    id => "id": String,
+    source_commit => "source_commit": String,
+    approved_base => "approved_base": String,
+    candidate => "candidate": String,
+    paths => "paths": Vec<String>
 });
 typed_state_object!(PrepareStop, "a preparation stop object", {
     project => "project": String, id => "id": String
