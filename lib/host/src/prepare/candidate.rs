@@ -1,6 +1,6 @@
 // Protected candidate snapshot reads and candidate preparation.
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use super::paths::path_join;
 use crate::json;
@@ -79,12 +79,14 @@ impl<E: Executor> Runtime<E> {
         deadline: Instant,
     ) -> Result<PrepareState, String> {
         input.validate()?;
+        let deadline = Self::cap_by_wire_deadline(deadline, &input.deadline)?;
         let container = self.prepare_container(&input.preparation.project, true, deadline)?;
         let source = self.inspect_preparation_state(
             &input.preparation.project,
             &input.source_preparation,
             &container,
             deadline,
+            None,
         )?;
         if !source.ready
             || source.stopped
@@ -97,7 +99,7 @@ impl<E: Executor> Runtime<E> {
         }
         let files =
             self.candidate_approved_files(&container, input, &source.source_commit, deadline)?;
-        self.prepare(
+        self.prepare_inner(
             &Prepare {
                 preparation: input.preparation.clone(),
                 setup: preparation::ApprovedSetup {
@@ -106,7 +108,37 @@ impl<E: Executor> Runtime<E> {
                 },
             },
             deadline,
+            Some(&input.deadline),
         )
+    }
+
+    fn cap_by_wire_deadline(
+        operation_deadline: Instant,
+        wire_deadline: &str,
+    ) -> Result<Instant, String> {
+        let absolute_nanos = soda_wire_time::parse_nanos(wire_deadline)
+            .ok_or_else(|| "candidate preparation deadline is invalid".to_string())?;
+        let now_wall = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(duration) => duration.as_nanos() as i128,
+            Err(error) => -(error.duration().as_nanos() as i128),
+        };
+        let remaining_nanos = absolute_nanos - now_wall;
+        if remaining_nanos <= 0 {
+            return Err("candidate preparation deadline has expired".to_string());
+        }
+        let now = Instant::now();
+        let operation_remaining = operation_deadline
+            .saturating_duration_since(now)
+            .as_nanos()
+            .min(i128::MAX as u128) as i128;
+        if operation_remaining == 0 {
+            return Err("candidate preparation deadline has expired".to_string());
+        }
+        let bounded_nanos = remaining_nanos
+            .min(operation_remaining)
+            .min(u64::MAX as i128);
+        let bounded = Duration::from_nanos(bounded_nanos as u64);
+        Ok(operation_deadline.min(now + bounded))
     }
 
     /// `candidateProtectedFile`: one root-owned read-only regular file.

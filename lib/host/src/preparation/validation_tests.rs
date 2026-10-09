@@ -250,12 +250,14 @@ fn candidate_validation_branches() {
         preparation: prep,
         source_preparation: format!("f{}", "c".repeat(24)),
         bundle: b"BUNDLE".to_vec(),
+        deadline: "2099-01-01T00:00:00Z".to_string(),
     };
     assert!(c.validate().is_ok());
     let c = FactoryCandidate {
         preparation: preparation(),
         source_preparation: format!("f{}", "c".repeat(24)),
         bundle: b"BUNDLE".to_vec(),
+        deadline: "2099-01-01T00:00:00Z".to_string(),
     };
     assert_eq!(
         c.validate().unwrap_err(),
@@ -268,6 +270,7 @@ fn candidate_validation_branches() {
         preparation: prep,
         source_preparation: id,
         bundle: b"BUNDLE".to_vec(),
+        deadline: "2099-01-01T00:00:00Z".to_string(),
     };
     assert_eq!(
         c.validate().unwrap_err(),
@@ -279,6 +282,7 @@ fn candidate_validation_branches() {
         preparation: prep,
         source_preparation: format!("f{}", "c".repeat(24)),
         bundle: Vec::new(),
+        deadline: "2099-01-01T00:00:00Z".to_string(),
     };
     assert_eq!(
         c.validate().unwrap_err(),

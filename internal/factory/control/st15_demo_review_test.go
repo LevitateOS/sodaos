@@ -52,8 +52,9 @@ func (fx *st15Fixture) prepareReviewer(head, coderRunID string) string {
 		fx.t.Fatalf("ST15 admit reviewer %s: admitted=%v err=%v", prep.ID, admitted, err)
 	}
 	client := hostexec.NewClient(fx.cfg.HostSocket)
+	deadline := time.Now().Add(15 * time.Minute)
 	state, err := client.PrepareCandidate(ctx, project.FactoryCandidate{
-		Preparation: prep, SourcePreparation: fx.reviewPrep, Bundle: bundle,
+		Preparation: prep, SourcePreparation: fx.reviewPrep, Bundle: bundle, Deadline: deadline,
 	})
 	if err != nil {
 		fx.t.Fatalf("ST15 prepare reviewer %s: %v", prep.ID, err)
@@ -61,7 +62,6 @@ func (fx *st15Fixture) prepareReviewer(head, coderRunID string) string {
 	if state.ID != prep.ID {
 		fx.t.Fatalf("ST15 reviewer preparation identity differs: %+v", state)
 	}
-	deadline := time.Now().Add(15 * time.Minute)
 	for {
 		state, err = client.InspectPreparation(ctx, project.PrepareInspect{Project: fx.projectID, ID: prep.ID})
 		if err != nil {

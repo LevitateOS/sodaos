@@ -3,6 +3,16 @@ use crate::records::{do_inspect, read_log};
 use crate::state_json::StateValue;
 use crate::testutil::{approve_default, assert_fail, op_value, record_value, Scratch, PID, PID2};
 use std::path::Path;
+use std::time::{Duration, Instant};
+
+fn role_run_scratch() -> (Scratch, crate::Ctx, std::path::PathBuf) {
+    let scratch = Scratch::fresh();
+    let ctx = scratch.ctx(Path::new("/usr/bin/git"));
+    crate::fsx::ensure_layout(&ctx).unwrap();
+    let directory = crate::fsx::prep_dir(&ctx, PID).unwrap();
+    crate::fsx::mkdir_p(&directory, 0o755).unwrap();
+    (scratch, ctx, directory)
+}
 
 #[test]
 fn parent_matrix() {
@@ -352,13 +362,12 @@ fn log_io_failure_reaps_child_and_reports_unconfirmed() {
         std::fs::metadata("/usr/bin/yes").is_ok(),
         "P07-F1 regression needs /usr/bin/yes"
     );
-    let dir = std::env::temp_dir().join(format!("soda-f1-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let (_scratch, ctx, dir) = role_run_scratch();
     let logpath = dir.join("no-such-dir").join("setup.log");
     let argv = vec!["/usr/bin/yes".to_string()];
     let uid = unsafe { libc::geteuid() };
     let gid = unsafe { libc::getegid() };
-    let outcome = run_as_role(&argv, &[], &dir, &logpath, uid, gid);
+    let outcome = run_as_role(&ctx, &dir, &argv, &[], &dir, &logpath, uid, gid, None);
     assert!(
         outcome.is_err(),
         "log I/O failure must report unconfirmed, got {outcome:?}"
@@ -387,7 +396,6 @@ fn log_io_failure_reaps_child_and_reports_unconfirmed() {
             libc::waitpid(*pid, std::ptr::null_mut(), 0);
         }
     }
-    std::fs::remove_dir_all(&dir).ok();
     assert!(
         leaked.is_empty(),
         "log I/O failure leaked role children: {leaked:?}"
@@ -405,14 +413,13 @@ fn log_io_failure_terminates_silent_child_bounded() {
         std::fs::metadata("/bin/sleep").is_ok(),
         "P07-001 regression needs /bin/sleep"
     );
-    let dir = std::env::temp_dir().join(format!("soda-f1s-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let (_scratch, ctx, dir) = role_run_scratch();
     let logpath = dir.join("no-such-dir").join("setup.log");
     let argv = vec!["/bin/sleep".to_string(), "10".to_string()];
     let uid = unsafe { libc::geteuid() };
     let gid = unsafe { libc::getegid() };
     let start = std::time::Instant::now();
-    let outcome = run_as_role(&argv, &[], &dir, &logpath, uid, gid);
+    let outcome = run_as_role(&ctx, &dir, &argv, &[], &dir, &logpath, uid, gid, None);
     let elapsed = start.elapsed();
     assert!(
         outcome.is_err(),
@@ -442,7 +449,6 @@ fn log_io_failure_terminates_silent_child_bounded() {
             libc::waitpid(*pid, std::ptr::null_mut(), 0);
         }
     }
-    std::fs::remove_dir_all(&dir).ok();
     assert!(
         leaked.is_empty(),
         "log I/O failure leaked silent children: {leaked:?}"
@@ -453,25 +459,137 @@ fn log_io_failure_terminates_silent_child_bounded() {
     );
 }
 
-/// CODEX-P07-001: cleanup that cannot confirm the child reports
-/// uncertainty (never Ok, never the original error alone). A reaped pid is
-/// deterministically gone, so this pins the unconfirmed mapping without
-/// fabricating native state.
 #[test]
-fn log_failure_cleanup_reports_unconfirmed_when_child_gone() {
-    let pid = unsafe { libc::fork() };
-    assert!(pid >= 0, "fork failed");
-    if pid == 0 {
+fn setup_deadline_terminates_descendants_and_joins_capture() {
+    let (_scratch, ctx, dir) = role_run_scratch();
+    let child_pid_path = dir.join("sleep.pid");
+    let script = format!(
+        "/bin/sleep 30 & echo $! > {}; wait",
+        child_pid_path.display()
+    );
+    let argv = vec!["/bin/bash".to_string(), "-c".to_string(), script];
+    let uid = unsafe { libc::geteuid() };
+    let gid = unsafe { libc::getegid() };
+    let start = Instant::now();
+    let result = run_as_role(
+        &ctx,
+        &dir,
+        &argv,
+        &[],
+        &dir,
+        &dir.join("setup.log"),
+        uid,
+        gid,
+        Some(Instant::now() + Duration::from_millis(200)),
+    )
+    .unwrap();
+    assert_eq!(result, 124, "deadline exit code must be nonzero");
+    assert!(
+        start.elapsed() < Duration::from_secs(4),
+        "cleanup was unbounded"
+    );
+    let child_pid: i32 = std::fs::read_to_string(&child_pid_path)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let (state, _) = proc_state_group(&Path::new("/proc").join(child_pid.to_string()));
+    assert!(!matches!(state.as_deref(), Some(state) if state != "Z"));
+    assert!(
+        !active_child_path(&dir).exists(),
+        "active child receipt survived join"
+    );
+}
+
+#[test]
+fn setup_deadline_keeps_receipt_for_escaped_stdout_holder() {
+    let (_scratch, ctx, dir) = role_run_scratch();
+    let quiet_supervisor_pgid = dead_pgid();
+    let started =
+        format!("{{\"pid\": {quiet_supervisor_pgid}, \"pgid\": {quiet_supervisor_pgid}}}");
+    crate::fsx::write_new(&dir.join("started.json"), started.as_bytes(), 0o644).unwrap();
+    crate::fsx::write_new(
+        &dir.join("finished.json"),
+        b"{\"setup_exit\": 127, \"check_exit\": null, \"launch_error\": true}",
+        0o644,
+    )
+    .unwrap();
+    let escaped_pid_path = dir.join("escaped-sleep.pid");
+    let script = format!(
+        "/usr/bin/setsid /bin/sleep 30 & echo $! > '{}'; exit 0",
+        escaped_pid_path.display()
+    );
+    let argv = vec!["/bin/bash".to_string(), "-c".to_string(), script];
+    let uid = unsafe { libc::geteuid() };
+    let gid = unsafe { libc::getegid() };
+    let start = Instant::now();
+    let result = run_as_role(
+        &ctx,
+        &dir,
+        &argv,
+        &[],
+        &dir,
+        &dir.join("setup.log"),
+        uid,
+        gid,
+        Some(Instant::now() + Duration::from_millis(250)),
+    );
+    let elapsed = start.elapsed();
+
+    // Capture the regression observations before cleanup, but do not assert
+    // until both the escaped process and the receipt's direct child are reaped.
+    let receipt = std::fs::read_to_string(active_child_path(&dir))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
+    let direct_pid = receipt
+        .as_ref()
+        .and_then(|value| value.get("pid"))
+        .and_then(serde_json::Value::as_i64)
+        .and_then(|pid| i32::try_from(pid).ok());
+    let escaped_pid = std::fs::read_to_string(&escaped_pid_path)
+        .ok()
+        .and_then(|text| text.trim().parse::<i32>().ok());
+    let escaped_is_sleep = escaped_pid
+        .and_then(|pid| (pid > 1 && proc_comm(pid).as_deref() == Some("sleep")).then_some(pid));
+    let receipt_retained = active_child_path(&dir).exists();
+    let running_while_original_group_quiet =
+        !group_alive(quiet_supervisor_pgid, Path::new("/proc"))
+            && matches!(any_running(&ctx), Ok(true));
+
+    if let Some(pid) = escaped_is_sleep {
         unsafe {
-            libc::_exit(0);
+            libc::kill(pid, libc::SIGKILL);
         }
     }
-    let mut status = 0;
-    assert_eq!(unsafe { libc::waitpid(pid, &mut status, 0) }, pid);
-    assert_eq!(terminate_child(pid), None);
-    assert_eq!(
-        log_failure_cleanup(pid, Error::io_msg("write: broken pipe")),
-        Error::Fail("log capture failed; role child termination unconfirmed".to_string()),
+    if let Some(pid) = direct_pid.filter(|pid| own_child_pids().contains(pid)) {
+        unsafe {
+            libc::kill(pid, libc::SIGKILL);
+            libc::waitpid(pid, std::ptr::null_mut(), 0);
+        }
+    }
+    if let Some(pid) = escaped_is_sleep {
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while proc_comm(pid).is_some() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    assert!(result.is_err(), "deadline must fail, got {result:?}");
+    assert!(
+        elapsed < Duration::from_secs(4),
+        "deadline cleanup was unbounded: {elapsed:?}"
+    );
+    assert!(
+        receipt_retained,
+        "uncertain capture must retain active-child receipt"
+    );
+    assert!(
+        escaped_is_sleep.is_some(),
+        "fixture must launch its escaped sleep process"
+    );
+    assert!(
+        running_while_original_group_quiet,
+        "active receipt must keep any_running true after the original process group goes quiet"
     );
 }
 

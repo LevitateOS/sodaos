@@ -10,7 +10,7 @@ pub(super) fn candidate_body(new_fid: &str, src_fid: &str, digest: &str) -> Vec<
     let prep_start = raw.find("\"preparation\":").unwrap() + "\"preparation\":".len();
     let prep_end = raw.find(",\"setup\":").unwrap();
     let prep = &raw[prep_start..prep_end];
-    format!("{{\"preparation\":{prep},\"source_preparation\":{src_fid:?},\"bundle\":\"Y2FuZGlkYXRlLWJ1bmRsZQ==\"}}")
+    format!("{{\"preparation\":{prep},\"source_preparation\":{src_fid:?},\"bundle\":\"Y2FuZGlkYXRlLWJ1bmRsZQ==\",\"deadline\":\"2099-01-01T00:00:00Z\"}}")
         .into_bytes()
 }
 

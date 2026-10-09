@@ -10,6 +10,7 @@ pub struct FactoryCandidate {
     pub preparation: Preparation,
     pub source_preparation: String,
     pub bundle: Vec<u8>,
+    pub deadline: String,
 }
 
 impl FactoryCandidate {
@@ -25,6 +26,9 @@ impl FactoryCandidate {
         }
         if self.bundle.is_empty() || self.bundle.len() > MAX_SOURCE_BUNDLE {
             return Err("candidate source bundle exceeds preparation bounds".to_string());
+        }
+        if soda_wire_time::parse_nanos(&self.deadline).is_none() {
+            return Err("candidate preparation deadline is invalid".to_string());
         }
         Ok(())
     }
@@ -52,6 +56,7 @@ impl<'de> Deserialize<'de> for FactoryCandidate {
                 let mut preparation = None;
                 let mut source_preparation = None;
                 let mut bundle = None;
+                let mut deadline = None;
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("preparation") {
                         if let Some(v) = map.next_value::<Option<Preparation>>()? {
@@ -65,10 +70,14 @@ impl<'de> Deserialize<'de> for FactoryCandidate {
                         if let Some(v) = map.next_value::<Option<super::setup::GoBytes>>()? {
                             bundle = Some(v.0);
                         }
+                    } else if key.eq_ignore_ascii_case("deadline") {
+                        if let Some(v) = map.next_value::<Option<String>>()? {
+                            deadline = Some(v);
+                        }
                     } else {
                         return Err(de::Error::unknown_field(
                             &key,
-                            &["preparation", "source_preparation", "bundle"],
+                            &["preparation", "source_preparation", "bundle", "deadline"],
                         ));
                     }
                 }
@@ -76,6 +85,7 @@ impl<'de> Deserialize<'de> for FactoryCandidate {
                     preparation: preparation.unwrap_or_default(),
                     source_preparation: source_preparation.unwrap_or_default(),
                     bundle: bundle.unwrap_or_default(),
+                    deadline: deadline.unwrap_or_default(),
                 })
             }
         }

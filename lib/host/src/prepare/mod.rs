@@ -122,9 +122,14 @@ impl<E: Executor> Runtime<E> {
         id: &str,
         container: &str,
         deadline: Instant,
+        worker_deadline: Option<&str>,
     ) -> Result<PrepareState, String> {
         let mut body = String::from("{\"id\":");
         body.push_str(&json::quote(id));
+        if let Some(worker_deadline) = worker_deadline {
+            body.push_str(",\"deadline\":");
+            body.push_str(&json::quote(worker_deadline));
+        }
         body.push_str(",\"op\":\"inspect\"}");
         let raw = self.factory_helper(project, &body, deadline)?;
         let mut state = map_preparation_state(container, &raw)?;
@@ -135,22 +140,40 @@ impl<E: Executor> Runtime<E> {
 
     /// `Prepare`: approve, clone, verify, resolve tools, record, start.
     pub fn prepare(&self, input: &Prepare, deadline: Instant) -> Result<PrepareState, String> {
+        self.prepare_inner(input, deadline, None)
+    }
+
+    fn prepare_inner(
+        &self,
+        input: &Prepare,
+        deadline: Instant,
+        worker_deadline: Option<&str>,
+    ) -> Result<PrepareState, String> {
         input.validate()?;
         let prep = &input.preparation;
         let container = self.prepare_container(&prep.project, true, deadline)?;
         self.factory_helper(&prep.project, "{\"op\":\"ensure\"}", deadline)?;
         if let Err(err) = self.approve_preparation(prep, &input.setup, deadline) {
-            if let Ok(stopped) =
-                self.inspect_preparation_state(&prep.project, &prep.id, &container, deadline)
-            {
+            if let Ok(stopped) = self.inspect_preparation_state(
+                &prep.project,
+                &prep.id,
+                &container,
+                deadline,
+                worker_deadline,
+            ) {
                 if stopped.stopped {
                     return Ok(stopped);
                 }
             }
             return Err(err);
         }
-        let state =
-            self.inspect_preparation_state(&prep.project, &prep.id, &container, deadline)?;
+        let state = self.inspect_preparation_state(
+            &prep.project,
+            &prep.id,
+            &container,
+            deadline,
+            worker_deadline,
+        )?;
         if state.stopped || state.ready || state.phase == preparation::PREPARE_FAILED {
             return Ok(state);
         }
@@ -159,18 +182,42 @@ impl<E: Executor> Runtime<E> {
         let (tools, missing) = self.resolve_preparation_tools(prep, deadline)?;
         self.record_preparation_tools(prep, &tools, &missing, &verified, deadline)?;
         if !missing.is_empty() || !verified.refusal.is_empty() {
-            return self.inspect_preparation_state(&prep.project, &prep.id, &container, deadline);
+            return self.inspect_preparation_state(
+                &prep.project,
+                &prep.id,
+                &container,
+                deadline,
+                worker_deadline,
+            );
         }
-        let mut body = String::from("{\"id\":");
+        let mut body = String::from("{");
+        if let Some(worker_deadline) = worker_deadline {
+            body.push_str("\"deadline\":");
+            body.push_str(&json::quote(worker_deadline));
+            body.push(',');
+        }
+        body.push_str("\"id\":");
         body.push_str(&json::quote(&prep.id));
         body.push_str(",\"op\":\"start\"}");
         if let Err(err) = self.factory_helper(&prep.project, &body, deadline) {
             // Go returns the re-observed state alongside the error; every
             // caller drops the state on error, so only the error crosses.
-            let _ = self.inspect_preparation_state(&prep.project, &prep.id, &container, deadline);
+            let _ = self.inspect_preparation_state(
+                &prep.project,
+                &prep.id,
+                &container,
+                deadline,
+                worker_deadline,
+            );
             return Err(err);
         }
-        self.inspect_preparation_state(&prep.project, &prep.id, &container, deadline)
+        self.inspect_preparation_state(
+            &prep.project,
+            &prep.id,
+            &container,
+            deadline,
+            worker_deadline,
+        )
     }
 
     /// `InspectPreparation`: authoritative state, never mutating.
@@ -181,7 +228,7 @@ impl<E: Executor> Runtime<E> {
     ) -> Result<PrepareState, String> {
         input.validate()?;
         let container = self.prepare_container(&input.project, false, deadline)?;
-        self.inspect_preparation_state(&input.project, &input.id, &container, deadline)
+        self.inspect_preparation_state(&input.project, &input.id, &container, deadline, None)
     }
 
     /// `StopPreparation`: persist the stop tombstone, report the state.
@@ -204,7 +251,7 @@ impl<E: Executor> Runtime<E> {
             return Err(ERR.to_string());
         }
         let mut state =
-            self.inspect_preparation_state(&input.project, &input.id, &container, deadline)?;
+            self.inspect_preparation_state(&input.project, &input.id, &container, deadline, None)?;
         state.retirement = retirement;
         Ok(state)
     }

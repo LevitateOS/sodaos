@@ -63,12 +63,17 @@ fn candidate_reuses_ready_source() {
         preparation: prep,
         source_preparation: source.clone(),
         bundle: b"BUNDLE".to_vec(),
+        deadline: "2099-01-01T00:00:00Z".to_string(),
     };
     let state = rt.prepare_candidate(&input, deadline()).unwrap();
     assert_eq!(state.phase, "running");
     assert_eq!(state.id, fid);
     let calls = mock.calls.borrow();
     assert_eq!(calls.len(), 30);
+    assert_eq!(
+        String::from_utf8(calls[28].0.clone()).unwrap(),
+        format!("{{\"deadline\":\"2099-01-01T00:00:00Z\",\"id\":{fid:?},\"op\":\"start\"}}")
+    );
     // The snapshot stat covers all four directories.
     assert_eq!(
         calls[2].2[..7],
@@ -97,12 +102,35 @@ fn candidate_reuses_ready_source() {
         preparation: prep,
         source_preparation: source.clone(),
         bundle: b"BUNDLE".to_vec(),
+        deadline: "2099-01-01T00:00:00Z".to_string(),
     };
     assert_eq!(
         rt.prepare_candidate(&input, deadline()).unwrap_err(),
         "candidate source preparation is not ready for this role and setup"
     );
     assert_eq!(mock.calls.borrow().len(), 2);
+}
+
+#[test]
+fn candidate_expired_deadline_refuses_before_native_io() {
+    let mut prep = preparation();
+    prep.role = "soda-reviewer".to_string();
+    let input = FactoryCandidate {
+        preparation: prep,
+        source_preparation: format!("f{}", "c".repeat(24)),
+        bundle: b"BUNDLE".to_vec(),
+        deadline: "2000-01-01T00:00:00Z".to_string(),
+    };
+    let mock = Mock::new(Vec::new());
+    let rt = Runtime {
+        exec: &mock,
+        config: test_config(),
+    };
+    assert_eq!(
+        rt.prepare_candidate(&input, deadline()).unwrap_err(),
+        "candidate preparation deadline has expired"
+    );
+    assert!(mock.calls.borrow().is_empty());
 }
 
 #[test]
@@ -115,6 +143,7 @@ fn candidate_rejects_bad_snapshots() {
         preparation: prep.clone(),
         source_preparation: source.clone(),
         bundle: b"BUNDLE".to_vec(),
+        deadline: "2099-01-01T00:00:00Z".to_string(),
     };
     // Unprotected directories.
     let mock = Mock::new(vec![

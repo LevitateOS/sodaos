@@ -251,8 +251,11 @@ pub fn phase_of(ctx: &crate::Ctx, directory: &Path) -> Result<(String, Option<St
 }
 
 pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Error> {
-    let shape_ok = validate::as_object(data)
-        .is_some_and(|e| validate::key_set(e, &["op"]) || validate::key_set(e, &["op", "id"]));
+    let shape_ok = validate::as_object(data).is_some_and(|entries| {
+        validate::key_set(entries, &["op"])
+            || validate::key_set(entries, &["op", "id"])
+            || validate::key_set(entries, &["op", "id", "deadline"])
+    });
     if !shape_ok {
         return fail("unsupported inspect request");
     }
@@ -263,6 +266,19 @@ pub fn do_inspect(ctx: &crate::Ctx, data: &StateValue) -> Result<StateValue, Err
     }
     let pid = validate::check_id(data.get("id").unwrap_or(&StateValue::Null))?.to_string();
     let directory = fsx::prep_dir(ctx, &pid)?;
+    if let Some(deadline) = data.get("deadline") {
+        let expected = deadline
+            .as_str()
+            .filter(|text| soda_wire_time::parse_nanos(text).is_some())
+            .ok_or_else(|| Error::fail("invalid preparation deadline"))?;
+        match fsx::read_json(ctx, &directory.join("started.json"), 1024) {
+            Ok(started)
+                if started.get("deadline").and_then(|value| value.as_str()) == Some(expected) => {}
+            Err(Error::Missing) => {}
+            Ok(_) => return fail("preparation start deadline changed"),
+            Err(error) => return Err(error),
+        }
+    }
     let request = match fsx::read_json(ctx, &directory.join("request.json"), 4096) {
         Ok(value) => value,
         Err(Error::Missing) => {

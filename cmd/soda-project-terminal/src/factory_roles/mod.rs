@@ -175,18 +175,25 @@ fn main_inner(ctx: &Ctx) -> Result<(), Error> {
         _ => return fail("unsupported factory operation"),
     };
     fsx::ensure_layout(ctx)?;
-    // The state lock serializes mutating ops; `inspect` shares it.
-    let lock_file = fsx::open_ro(&ctx.lock, false)?;
-    use std::os::unix::io::AsRawFd;
-    let fd = lock_file.as_raw_fd();
-    let flag = if op == "inspect" {
-        libc::LOCK_SH
+    // Stop owns the lock while fencing and signalling the detached worker;
+    // taking it here would deadlock its separate state-lock descriptor.
+    let lock_file = if op == "stop" {
+        None
     } else {
-        libc::LOCK_EX
+        // The state lock serializes mutating ops; `inspect` shares it.
+        let lock_file = fsx::open_ro(&ctx.lock, false)?;
+        use std::os::unix::io::AsRawFd;
+        let fd = lock_file.as_raw_fd();
+        let flag = if op == "inspect" {
+            libc::LOCK_SH
+        } else {
+            libc::LOCK_EX
+        };
+        if unsafe { libc::flock(fd, flag) } != 0 {
+            return Err(Error::io_msg("flock failed"));
+        }
+        Some(lock_file)
     };
-    if unsafe { libc::flock(fd, flag) } != 0 {
-        return Err(Error::io_msg("flock failed"));
-    }
     let result = dispatch_op(ctx, op, &data);
     let line = result.map(|value| {
         let mut text = emit::dumps_default(&value);

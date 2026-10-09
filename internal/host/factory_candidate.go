@@ -13,7 +13,16 @@ func (c *Client) PrepareCandidate(ctx context.Context, in project.FactoryCandida
 	if err := in.Validate(); err != nil {
 		return out, err
 	}
+	ctx, cancel := context.WithDeadline(ctx, in.Deadline)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return out, err
+	}
+	in.Deadline, _ = ctx.Deadline()
 	err := c.callLimit(ctx, "/prepare-candidate", in, &out, prepareResponseLimit)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return out, ctxErr
+	}
 	if err == nil && !preparationIdentityConfirmed(in.Preparation, out) {
 		err = errors.New("native candidate preparation does not match its identity")
 	}

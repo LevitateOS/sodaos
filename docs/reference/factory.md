@@ -78,6 +78,15 @@ The coordinator receives lease and binding metadata, never credential bytes.
 Unknown credential return keeps the connection unavailable until the run is
 accounted for.
 
+Fresh reviewer candidate preparation requires an absolute deadline supplied
+by its caller. The host caps snapshot work by that deadline and records it
+for the detached setup/check worker; repeating the start cannot replace it.
+Shorter HTTP or helper observation limits can report uncertainty without
+extending the worker's deadline. Cleanup has bounded termination and join
+grace periods. An unconfirmed child or output join keeps maintenance release
+blocked, even when the original process group appears quiet. Manual
+preparation uses the same child custody without a candidate deadline.
+
 ## Retained publication validation
 
 Candidate publication is a separately persisted conditional operation built

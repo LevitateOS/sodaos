@@ -2,10 +2,13 @@ package host
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -60,10 +63,18 @@ func TestPrepareCandidateClientBindsExactSource(t *testing.T) {
 		SourceCommit: strings.Repeat("c", 40), SetupDigest: strings.Repeat("d", 64),
 	}
 	for _, wrong := range []bool{false, true} {
+		deadline := time.Now().Add(time.Minute)
 		c := NewClient("unused")
 		c.HTTP = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			if r.URL.Path != "/prepare-candidate" {
 				t.Fatal("wrong preparation route")
+			}
+			var got project.FactoryCandidate
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			if !got.Deadline.Equal(deadline) {
+				t.Fatal("absolute deadline was not delivered to native preparation")
 			}
 			out := project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Container: strings.Repeat("e", 64), Phase: project.PrepareRunning}
 			if wrong {
@@ -71,9 +82,54 @@ func TestPrepareCandidateClientBindsExactSource(t *testing.T) {
 			}
 			return jsonResponse(out), nil
 		})}
-		_, err := c.PrepareCandidate(context.Background(), project.FactoryCandidate{Preparation: prep, SourcePreparation: "f111111111111111111111111", Bundle: []byte("candidate")})
+		_, err := c.PrepareCandidate(context.Background(), project.FactoryCandidate{Preparation: prep, SourcePreparation: "f111111111111111111111111", Bundle: []byte("candidate"), Deadline: deadline})
 		if (err != nil) != wrong {
 			t.Fatalf("source confirmation: %v", err)
 		}
+	}
+	t.Run("parent deadline reaches native worker", func(t *testing.T) {
+		parentDeadline := time.Now().Add(30 * time.Second)
+		ctx, cancel := context.WithDeadline(context.Background(), parentDeadline)
+		defer cancel()
+		in := project.FactoryCandidate{Preparation: prep, SourcePreparation: "f111111111111111111111111", Bundle: []byte("candidate"), Deadline: parentDeadline.Add(time.Minute)}
+		c := NewClient("unused")
+		c.HTTP = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			var got project.FactoryCandidate
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			if !got.Deadline.Equal(parentDeadline) {
+				t.Fatal("parent deadline was not delivered to the native worker")
+			}
+			return jsonResponse(project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Container: strings.Repeat("e", 64), Phase: project.PrepareRunning}), nil
+		})}
+		if _, err := c.PrepareCandidate(ctx, in); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, alreadyExpired := range []bool{true, false} {
+		t.Run(fmt.Sprintf("deadline expired before I/O=%t", alreadyExpired), func(t *testing.T) {
+			deadline := time.Now().Add(100 * time.Millisecond)
+			if alreadyExpired {
+				deadline = time.Now().Add(-time.Second)
+			}
+			in := project.FactoryCandidate{Preparation: prep, SourcePreparation: "f111111111111111111111111", Bundle: []byte("candidate"), Deadline: deadline}
+			c := NewClient("unused")
+			called := false
+			c.HTTP = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				called = true
+				if alreadyExpired {
+					t.Fatal("expired preparation reached I/O")
+				}
+				<-r.Context().Done()
+				return jsonResponse(project.PrepareState{ID: prep.ID, Project: prep.Project, Role: prep.Role, SourceCommit: prep.SourceCommit, SetupDigest: prep.SetupDigest, Container: strings.Repeat("e", 64), Phase: project.PrepareRunning}), nil
+			})}
+			if _, err := c.PrepareCandidate(context.Background(), in); !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("expired preparation response error: %v", err)
+			}
+			if called == alreadyExpired {
+				t.Fatal("preparation did not exercise its expected transport path")
+			}
+		})
 	}
 }

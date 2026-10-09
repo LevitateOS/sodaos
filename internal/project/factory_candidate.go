@@ -1,6 +1,9 @@
 package project
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // FactoryCandidate prepares a fresh reviewer checkout of one exact candidate,
 // reusing only a ready preparation's protected approved setup. The coordinator
@@ -11,6 +14,7 @@ type FactoryCandidate struct {
 	Preparation       Preparation `json:"preparation"`
 	SourcePreparation string      `json:"source_preparation"`
 	Bundle            []byte      `json:"bundle"`
+	Deadline          time.Time   `json:"deadline"`
 }
 
 func (p FactoryCandidate) Validate() error {
@@ -25,6 +29,9 @@ func (p FactoryCandidate) Validate() error {
 	}
 	if len(p.Bundle) == 0 || len(p.Bundle) > MaxSourceBundle {
 		return errors.New("candidate source bundle exceeds preparation bounds")
+	}
+	if p.Deadline.IsZero() {
+		return errors.New("candidate preparation requires an absolute deadline")
 	}
 	return nil
 }
