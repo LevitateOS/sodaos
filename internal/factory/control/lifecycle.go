@@ -49,7 +49,11 @@ func (c *Coordinator) PauseRepository(ctx context.Context, commandID, principal 
 	if err != nil {
 		return factory.PauseReceipt{}, err
 	}
-	if err = c.Store.FreezeAttemptAllowances(bounded, repository, withdrawal.Revision, time.Now()); err != nil {
+	_, gateRevision, _, err := c.Store.DispatchState(bounded, repository)
+	if err != nil {
+		return factory.PauseReceipt{}, err
+	}
+	if err = c.Store.FreezeAttemptAllowances(bounded, repository, gateRevision, time.Now()); err != nil {
 		return factory.PauseReceipt{}, err
 	}
 	receipt := factory.PauseReceipt{Withdrawal: withdrawal, Runs: outcomes, CommandID: cmd.ID, Paused: true}

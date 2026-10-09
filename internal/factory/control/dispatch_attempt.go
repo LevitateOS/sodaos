@@ -107,6 +107,8 @@ func admissionWait(err error) *planWait {
 		return waitFor(WaitAllowance, "sponsorship allowance is exhausted")
 	case errors.Is(err, factory.ErrAttemptTimeExhausted):
 		return waitFor(WaitAllowance, "attempt active-time allowance is exhausted")
+	case errors.Is(err, factory.ErrAttemptClosed):
+		return waitFor(WaitAttemptRecorded, "attempt is terminal; explicit Retry is required")
 	case errors.Is(err, store.ErrConnectionUsageBudget):
 		return waitFor(WaitAllowance, "connection rolling usage budget is exhausted")
 	case errors.Is(err, store.ErrAdmissionChanged):

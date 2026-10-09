@@ -58,7 +58,29 @@ func (s *Store) transitionReservation(ctx context.Context, assignmentID, state s
 	if state != factory.ReservationConsumed && state != factory.ReservationReleased {
 		return errors.New("invalid reservation transition")
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_reservations
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var currentData []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_reservations WHERE assignment=$1 FOR UPDATE`, assignmentID).Scan(&currentData); err != nil {
+		return err
+	}
+	var current factory.Reservation
+	if err = json.Unmarshal(currentData, &current); err != nil {
+		return err
+	}
+	if err = current.Validate(); err != nil {
+		return err
+	}
+	if current.AssignmentID != assignmentID {
+		return errors.New("reservation row binding does not match its assignment")
+	}
+	if current.State != factory.ReservationHeld {
+		return ErrNotFound
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE factory_reservations
 		SET state=$1, data=jsonb_set(jsonb_set(data,'{state}',to_jsonb($2::text)),'{revision}',to_jsonb((data->>'revision')::bigint+1))
 		WHERE assignment=$3 AND state='held'`, state, state, assignmentID)
 	if err != nil {
@@ -71,7 +93,12 @@ func (s *Store) transitionReservation(ctx context.Context, assignmentID, state s
 	if n != 1 {
 		return ErrNotFound
 	}
-	return nil
+	if state == factory.ReservationReleased {
+		if err = deactivateReleasedAttemptTx(ctx, tx, assignmentID, time.Now()); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // ConsumeReservation marks one held reservation consumed by its recorded

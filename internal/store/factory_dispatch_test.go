@@ -337,6 +337,35 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		if _, err := db.Assignment(ctx, b.ID); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("refused packet left an assignment: %v", err)
 		}
+		settled := run
+		settled.Outcome, settled.Reconciled, settled.Summary = factory.Succeeded, true, "completed"
+		if err := db.SaveFactoryRun(ctx, settled); err != nil {
+			t.Fatal(err)
+		}
+		finished, err := db.Assignment(ctx, a.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result := factory.Result{
+			Status: "completed", Summary: "completed", Candidate: a.SourceCommit, Findings: []string{},
+		}
+		finished.Stage, finished.Outcome, finished.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported
+		bound := factory.ResultFromHarness(a.ID, run.ID, result, now.Unix())
+		finished.Result = &bound
+		finished.FinishedUnix = now.Unix()
+		if err := db.FinishAssignment(ctx, finished); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.ConsumeReservation(ctx, a.ID); err != nil {
+			t.Fatal(err)
+		}
+		allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+		if err != nil || !allowance.Active || allowance.Closed {
+			t.Fatalf("settled reported attempt allowance = %+v, %v", allowance, err)
+		}
+		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
+			t.Fatalf("packet bypassed appliance limit after session settled: %v", err)
+		}
 	})
 	t.Run("allowance", func(t *testing.T) {
 		db := grantStoreFixture(t)
@@ -369,6 +398,17 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 			RunID: run.ID, Repository: a.Repository, Connection: a.Connection,
 			Minutes: 30, StartedAt: now.Add(-30 * time.Minute), EndedAt: now,
 		}); err != nil {
+			t.Fatal(err)
+		}
+		finished, err := db.Assignment(ctx, a.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		finished.Stage, finished.Outcome, finished.Reason = factory.AssignmentFinished, factory.Failed, factory.AssignReasonRunFailed
+		bound := factory.ResultSynthesized(a.ID, run.ID, "failed", "completed", now.Unix())
+		finished.Result = &bound
+		finished.FinishedUnix = now.Unix()
+		if err := db.FinishAssignment(ctx, finished); err != nil {
 			t.Fatal(err)
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)

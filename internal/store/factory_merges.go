@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -59,8 +60,17 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 	if err := m.Validate(); err != nil {
 		return err
 	}
-	previous, err := s.MergeByPublication(ctx, m.PublicationID)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var previousData []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_merges WHERE publication=$1 FOR UPDATE`, m.PublicationID).Scan(&previousData); err != nil {
+		return err
+	}
+	var previous factory.Merge
+	if err = json.Unmarshal(previousData, &previous); err != nil {
 		return err
 	}
 	if previous.Revision != m.Revision-1 {
@@ -73,13 +83,18 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 	if registering && (previous.WithdrawRequested || m.WithdrawRequested) {
 		return ErrDispatchClosed
 	}
+	if registering {
+		if err = ensureAttemptOpenForRegistrationTx(ctx, tx, m.AssignmentID); err != nil {
+			return err
+		}
+	}
 	data, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
 	// Gate inspection and registration share one statement: a withdrawal
 	// either sees this operation or closes the gate before it can register.
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_merges SET stage=$1,revision=$2,data=$3
+	result, err := tx.ExecContext(ctx, `UPDATE factory_merges SET stage=$1,revision=$2,data=$3
 		WHERE publication=$4 AND revision=$5
 		AND (NOT $6 OR (
 		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=$7 AND NOT open)
@@ -116,7 +131,14 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 		}
 		return ErrStaleRevision
 	}
-	return nil
+	closeRoot := m.Stage == factory.MergeMerged || m.Stage == factory.MergeFenced ||
+		m.Stage == factory.MergeFailed && m.Reason != factory.MergeReasonSuperseded && m.Reason != factory.MergeReasonWithdrawn
+	if m.Stage != factory.MergeOpen {
+		if err = transitionAttemptAssignmentTx(ctx, tx, previous.AssignmentID, closeRoot, time.Now()); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func mergeUpdateAllowed(old, next factory.Merge) error {

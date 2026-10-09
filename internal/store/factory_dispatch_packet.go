@@ -152,19 +152,22 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
 	}
-	if err = checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants); err != nil {
-		return err
-	}
 	now := time.Now()
 	if freshAttempt {
-		return startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, grants.policy.AttemptLimits, run.Deadline, now)
-	}
-	if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder {
-		if err = consumeCorrectionAttemptTx(ctx, tx, a, now); err != nil {
+		if err = startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, grants.policy.AttemptLimits, run.Deadline, now); err != nil {
+			return err
+		}
+	} else {
+		if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder {
+			if err = consumeCorrectionAttemptTx(ctx, tx, a, now); err != nil {
+				return err
+			}
+		}
+		if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now); err != nil {
 			return err
 		}
 	}
-	return admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now)
+	return checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants)
 }
 
 // validateAttemptPacketTx checks whether this packet owns a publication or
@@ -446,6 +449,20 @@ func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, co
 		return err
 	}
 	if repoSessions > 1 {
+		return ErrRepositoryFull
+	}
+	activeAttempts, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_attempt_allowances WHERE data->>'active'='true'`, grants.capacity.MaxConcurrentRuns+1)
+	if err != nil {
+		return err
+	}
+	if activeAttempts > grants.capacity.MaxConcurrentRuns {
+		return ErrCapacityFull
+	}
+	repoAttempts, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND data->>'active'='true'`, 2, repository)
+	if err != nil {
+		return err
+	}
+	if repoAttempts > 1 {
 		return ErrRepositoryFull
 	}
 	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`, grants.sponsorship.MaxConcurrent+1, repository, connection)

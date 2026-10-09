@@ -343,7 +343,7 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 		t.Fatalf("fresh retry allowance reservation: %+v %v", reservation, err)
 	}
 	freshAllowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
-	if err != nil || freshAllowance.RootAssignment != commandID || freshAllowance.Limits.ActiveMinutes != 45 {
+	if err != nil || freshAllowance.RootAssignment != commandID || freshAllowance.Limits.ActiveMinutes != 45 || !freshAllowance.Active || freshAllowance.Closed {
 		t.Fatalf("fresh retry root allowance: %+v %v", freshAllowance, err)
 	}
 	if oldAllowance.RootAssignment == freshAllowance.RootAssignment || oldAllowance.Limits.ActiveMinutes != factory.DefaultAttemptLimits().ActiveMinutes {

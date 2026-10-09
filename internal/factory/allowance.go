@@ -35,15 +35,18 @@ func EffectiveAttemptLimits(limits *AttemptLimits) AttemptLimits {
 
 var (
 	ErrAttemptTimeExhausted = errors.New("attempt active-time allowance exhausted")
+	ErrAttemptClosed        = errors.New("attempt is closed; explicit retry is required")
 	ErrCorrectionExhausted  = errors.New("attempt correction allowance exhausted")
 	ErrAllowanceClock       = errors.New("attempt allowance clock moved backwards")
 )
 
 // AttemptAllowance retains one automatic attempt across assignments,
 // acceptance edits and pauses. An explicit maintainer Retry starts a new
-// allowance and preserves this one in history. Active time includes review and native waits;
-// callers may pause its clock only after confirming all affected runs stopped.
-// Corrections are charged before launch by the correction assignment identity.
+// allowance and preserves this one in history. Active time includes review
+// and native waits; callers may pause its clock only after confirming all
+// affected runs stopped. Closed prevents automatic reactivation after a
+// terminal attempt result. Corrections are charged before launch by the
+// correction assignment identity.
 type AttemptAllowance struct {
 	Limits         AttemptLimits `json:"limits"`
 	Corrections    []string      `json:"corrections"`
@@ -54,6 +57,7 @@ type AttemptAllowance struct {
 	ActiveSeconds  int64         `json:"active_seconds"`
 	CheckpointUnix int64         `json:"checkpoint_unix"`
 	Active         bool          `json:"active"`
+	Closed         bool          `json:"closed"`
 }
 
 func (a AttemptAllowance) Validate() error {
@@ -100,6 +104,9 @@ func (a AttemptAllowance) Checkpoint(now time.Time, active bool) (AttemptAllowan
 	}
 	if now.Unix() < a.CheckpointUnix {
 		return AttemptAllowance{}, ErrAllowanceClock
+	}
+	if a.Closed && active {
+		return AttemptAllowance{}, ErrAttemptClosed
 	}
 	if a.Active {
 		elapsed := now.Unix() - a.CheckpointUnix

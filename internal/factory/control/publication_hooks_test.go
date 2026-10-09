@@ -212,9 +212,8 @@ func TestReconcileSettlesOnlyAndReplaysWithoutAdvancement(t *testing.T) {
 	childExec.adopted.Operation = childExec.outcome
 	fx.coord.Reviews = childExec
 
-	// A second completed candidate and a queued issue would be publishable
-	// and dispatchable if operator Reconcile advanced the workflow.
-	newCandidate := fx.finishReported(t, 6)
+	// A queued issue would be dispatchable if operator Reconcile advanced
+	// the workflow while settling the recorded reviewer child.
 	queued := fx.seed.accept(t, 5, "d555555555555555555555555")
 	fx.seed.queue(t, 5, queued.ID)
 	fx.coord.DispatchReads = fx.seed.reads
@@ -242,9 +241,6 @@ func TestReconcileSettlesOnlyAndReplaysWithoutAdvancement(t *testing.T) {
 	if err != nil || !settled.Reconciled || settled.Outcome != factory.Succeeded || closed != 1 {
 		t.Fatalf("settled accounting state: %+v %v closes=%d", settled, err, closed)
 	}
-	if _, err := fx.db.PublicationByAssignment(ctx, newCandidate.ID); !errors.Is(err, store.ErrNotFound) {
-		t.Fatalf("reconcile published a new candidate: %v", err)
-	}
 	checks := fx.coord.Checks.(*fakeCheckObserver)
 	merger := fx.coord.Merges.(*fakeMerger)
 	if len(host.launches) != 0 || fx.seed.reads.calls != readsBefore || len(childExec.works) != 0 || len(checks.targets) != 0 || len(merger.observes) != 0 || len(merger.submits) != 0 ||
@@ -255,5 +251,28 @@ func TestReconcileSettlesOnlyAndReplaysWithoutAdvancement(t *testing.T) {
 	again, err := fx.coord.Reconcile(ctx, command)
 	if err != nil || !reflect.DeepEqual(receipt, again) || closed != 1 || len(host.launches) != 0 || len(childExec.works) != 0 {
 		t.Fatalf("reconcile replay: %+v %v closes=%d launches=%d reviews=%d", again, err, closed, len(host.launches), len(childExec.works))
+	}
+}
+
+func TestReconcileDoesNotPublishSettledCandidate(t *testing.T) {
+	ctx := context.Background()
+	fx := publishSeed(t)
+	candidate := fx.finishReported(t, 3)
+	exec := happyPublisher()
+	fx.wire(exec)
+	command := factory.Command{ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandReconcile, "")}
+	receipt, err := fx.coord.Reconcile(ctx, command)
+	if err != nil || len(receipt.Settled) != 0 || len(receipt.Fenced) != 0 {
+		t.Fatalf("reconcile receipt: %+v %v", receipt, err)
+	}
+	if _, err := fx.db.PublicationByAssignment(ctx, candidate.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("reconcile published a settled candidate: %v", err)
+	}
+	if len(exec.submits) != 0 || len(exec.creates) != 0 || len(exec.pushes) != 0 {
+		t.Fatalf("reconcile performed native publication: submits=%d creates=%d pushes=%d", len(exec.submits), len(exec.creates), len(exec.pushes))
+	}
+	again, err := fx.coord.Reconcile(ctx, command)
+	if err != nil || !reflect.DeepEqual(receipt, again) || len(exec.submits) != 0 || len(exec.creates) != 0 || len(exec.pushes) != 0 {
+		t.Fatalf("reconcile replay advanced publication: %+v %v submits=%d creates=%d pushes=%d", again, err, len(exec.submits), len(exec.creates), len(exec.pushes))
 	}
 }

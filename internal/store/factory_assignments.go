@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -48,7 +50,27 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	paused, err := attemptPauseActiveTx(ctx, tx, a.Repository)
+	if err != nil {
+		return err
+	}
+	var currentData []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ID).Scan(&currentData); err != nil {
+		return err
+	}
+	var current factory.Assignment
+	if err = json.Unmarshal(currentData, &current); err != nil {
+		return err
+	}
+	if current.Revision != a.Revision || current.Stage != factory.AssignmentAssigned || current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
+		return ErrNotFound
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1
 		WHERE id=$2 AND revision=$3 AND stage='assigned'
 		AND data->>'attempt_root'=$4 AND data->>'publication_assignment'=$5`,
 		string(data), a.ID, a.Revision, a.AttemptRoot, a.PublicationAssignment)
@@ -62,7 +84,16 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if n != 1 {
 		return ErrNotFound
 	}
-	return nil
+	if !(a.Outcome == factory.Succeeded && a.Reason == factory.AssignReasonReported) {
+		closeRoot := a.Reason != factory.AssignReasonSuperseded && a.Reason != factory.AssignReasonWithdrawn && a.Reason != factory.AssignReasonCancelled
+		if paused {
+			closeRoot = false
+		}
+		if err = transitionAttemptAssignmentTx(ctx, tx, a.ID, closeRoot, time.Now()); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // AssignedAssignments lists every unfinished dispatch assignment, oldest

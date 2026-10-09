@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -101,6 +102,9 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 		if !open {
 			return ErrDispatchClosed
 		}
+		if err = ensureAttemptOpenForRegistrationTx(ctx, tx, p.AssignmentID); err != nil {
+			return err
+		}
 	}
 	data, err := json.Marshal(p)
 	if err != nil {
@@ -137,6 +141,12 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	}
 	if n != 1 {
 		return ErrStaleRevision
+	}
+	if p.Stage == factory.PublicationFailed || p.Stage == factory.PublicationFenced || p.Stage == factory.PublicationWithdrawn {
+		closeRoot := p.Reason != factory.PublishReasonSuperseded && p.Reason != factory.PublishReasonWithdrawn
+		if err = transitionAttemptAssignmentTx(ctx, tx, p.AssignmentID, closeRoot, time.Now()); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
 	}
 	return tx.Commit()
 }

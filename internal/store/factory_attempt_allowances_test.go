@@ -294,7 +294,7 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 	if err = validateAttemptAllowanceRow(previous, a.Repository, a.Issue, a.ID, previous.Revision); err != nil {
 		t.Fatal(err)
 	}
-	if previous.Limits != factory.DefaultAttemptLimits() || len(previous.Corrections) != 3 || previous.ActiveSeconds != int64(previous.Limits.ActiveMinutes*60) || previous.Active {
+	if previous.Limits != factory.DefaultAttemptLimits() || len(previous.Corrections) != 3 || previous.ActiveSeconds != int64(previous.Limits.ActiveMinutes*60) || previous.Active || !previous.Closed {
 		t.Fatalf("prior root consumption changed: %+v", previous)
 	}
 }
@@ -414,7 +414,7 @@ func TestPauseFreezesOnlyAfterSettledViewsAndRechecksGateRevision(t *testing.T) 
 		t.Fatal(err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil || allowance.Active {
+	if err != nil || allowance.Active || allowance.Closed {
 		t.Fatalf("pause did not freeze allowance: %+v, %v", allowance, err)
 	}
 	if _, _, err = db.ReopenDispatch(ctx, a.Repository, withdrawal.Revision); err != nil {

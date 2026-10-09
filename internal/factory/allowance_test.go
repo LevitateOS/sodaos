@@ -91,3 +91,19 @@ func TestAttemptTimeExhaustionStopsCorrections(t *testing.T) {
 		t.Fatal("correction launched after time exhaustion", err)
 	}
 }
+
+func TestClosedAttemptAllowanceCanStopButCannotResumeOrConsumeCorrection(t *testing.T) {
+	a, start := allowanceFixture()
+	a.Closed = true
+
+	stopped, err := a.Checkpoint(start.Add(time.Minute), false)
+	if err != nil || stopped.Active || !stopped.Closed || stopped.ActiveSeconds != 60 {
+		t.Fatalf("closed clock did not preserve elapsed charge while stopping: %+v %v", stopped, err)
+	}
+	if _, err := stopped.Checkpoint(start.Add(2*time.Minute), true); !errors.Is(err, ErrAttemptClosed) {
+		t.Fatalf("closed attempt resumed: %v", err)
+	}
+	if _, _, err := a.ConsumeCorrection(NewID(), start.Add(time.Minute)); !errors.Is(err, ErrAttemptClosed) {
+		t.Fatalf("closed attempt consumed a correction: %v", err)
+	}
+}

@@ -155,10 +155,10 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	default:
 		return factory.Assignment{}, errors.New("reservation behind a retry is not held")
 	}
-	if err = checkAdmissionLimitsTx(ctx, tx, current.Repository, current.Connection, current.ProjectID, grants); err != nil {
+	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, current.AttemptRoot, nil, run.Deadline, time.Now()); err != nil {
 		return factory.Assignment{}, err
 	}
-	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, current.AttemptRoot, nil, run.Deadline, time.Now()); err != nil {
+	if err = checkAdmissionLimitsTx(ctx, tx, current.Repository, current.Connection, current.ProjectID, grants); err != nil {
 		return factory.Assignment{}, err
 	}
 	if err = tx.Commit(); err != nil {

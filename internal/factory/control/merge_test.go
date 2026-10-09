@@ -36,6 +36,39 @@ func TestMergePassMergesOneExactPR(t *testing.T) {
 	}
 }
 
+func TestAttemptSlotRemainsActiveUntilConfirmedMerge(t *testing.T) {
+	ctx := context.Background()
+	fx, p := mergeSeed(t, 3)
+	allowance, err := fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
+	if err != nil || !allowance.Active || allowance.Closed {
+		t.Fatalf("published coder attempt allowance = %+v, %v", allowance, err)
+	}
+	if p.Stage != factory.PublicationPublished || p.PRNumber <= 0 {
+		t.Fatalf("seed publication is not awaiting review: %+v", p)
+	}
+
+	secondHead := fx.publish.seed.accept(t, 4, "d444444444444444444444444")
+	fx.publish.seed.queue(t, 4, secondHead.ID)
+	waiting := DispatchPass(ctx, fx.publish.seed.deps())
+	if len(waiting.Launched) != 0 || waitReason(waiting, 4) != WaitRepository {
+		t.Fatalf("second issue bypassed active attempt slot: %+v", waiting)
+	}
+
+	fx.wire(happyMerger())
+	if report := fx.pass(t); len(report.Merged) != 1 {
+		t.Fatalf("confirmed merge report = %+v", report)
+	}
+	allowance, err = fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
+	if err != nil || !allowance.Closed || allowance.Active {
+		t.Fatalf("merged coder attempt allowance = %+v, %v", allowance, err)
+	}
+
+	ready := DispatchPass(ctx, fx.publish.seed.deps())
+	if len(ready.Launched) != 1 || ready.Launched[0].Issue != 4 {
+		t.Fatalf("confirmed merge did not release the next attempt slot: %+v", ready)
+	}
+}
+
 func TestMergePassSkipsRowWithoutCurrentPass(t *testing.T) {
 	fx, p := mergeSeed(t, 3)
 	ctx := context.Background()
