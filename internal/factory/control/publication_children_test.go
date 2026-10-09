@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"slices"
 	"strings"
@@ -275,6 +276,128 @@ func TestPublishPassProducesCorrectionThenFreshReviewForChangedHead(t *testing.T
 	allowance, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
 	if err != nil || allowance.RootAssignment != owner.AttemptRoot || !slices.Contains(allowance.Corrections, correction.ID) {
 		t.Fatalf("correction was not charged to the owner's cumulative allowance: %+v %v", allowance, err)
+	}
+}
+
+func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
+	ctx := context.Background()
+	fx, host, owner, _ := publishedChildProducerSeed(t, 28)
+	checks := happyCheckObserver()
+	checks.observe = func(target factory.CheckTarget) (factory.ObservedChecks, error) {
+		observed, err := happyCheckObserver().observe(target)
+		observed.Checks = []factory.ObservedCheck{{Context: "ci", State: "failure"}}
+		return observed, err
+	}
+	fx.coord.Checks = checks
+	requestChanges := "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"cycle finding\",\"findings\":[\"cycle finding\"]}\n```"
+	correctionIDs := make([]string, 0, factory.DefaultAttemptLimits().CorrectionCycles)
+	priorActiveSeconds := int64(0)
+
+	for cycle := 0; cycle < factory.DefaultAttemptLimits().CorrectionCycles; cycle++ {
+		current, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+		if err != nil || current.Stage != factory.PublicationPublished {
+			t.Fatalf("cycle %d publication = %+v, %v", cycle+1, current, err)
+		}
+		reviewerLaunch := host.launches[len(host.launches)-1]
+		_, reviewerRun := settleProducedChild(t, fx, reviewerLaunch.Run.ID, requestChanges)
+		fx.coord.Reviews = &fakeReviewer{
+			observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+			outcome:  committedOutcome("review-receipt-" + string(rune('1'+cycle))),
+			adopted: factory.ReviewOutcome{
+				ReviewID: int64(31 + cycle), CommentID: int64(41 + cycle), ReviewerID: 6, PRID: current.PRID,
+				PRNumber: current.PRNumber, IssueID: current.PRCreate.IssueID,
+				HeadOID: current.Candidate, BaseOID: current.PRCreate.BaseOID,
+				CommitID: current.Candidate, Event: "REQUEST_CHANGES",
+			},
+		}
+		if _, err := fx.coord.SubmitReviewForRun(ctx, reviewerRun.ID); err != nil {
+			t.Fatalf("cycle %d review submission: %v", cycle+1, err)
+		}
+
+		launchesBefore := len(host.launches)
+		checkReport := fx.coord.CheckPass(ctx)
+		if len(checkReport.Errors) != 0 || len(host.launches) != launchesBefore+1 {
+			t.Fatalf("cycle %d did not admit exactly one correction: report=%+v launches=%d before=%d", cycle+1, checkReport, len(host.launches), launchesBefore)
+		}
+		correctionLaunch := host.launches[len(host.launches)-1]
+		correction, err := fx.db.AssignmentByRun(ctx, correctionLaunch.Run.ID)
+		if err != nil || correction.Role != project.RoleCoder || correction.AttemptRoot != owner.AttemptRoot ||
+			correction.PublicationAssignment != owner.ID || correction.SourceCommit != current.Candidate {
+			t.Fatalf("cycle %d correction identity = %+v, %v", cycle+1, correction, err)
+		}
+		correctionIDs = append(correctionIDs, correction.ID)
+		newHead := strings.Repeat(string(rune('d'+cycle)), 40)
+		_, correctionRun := settleProducedChild(t, fx, correction.Run, correctionOutput(newHead))
+		corrected := fx.coord.PublishCorrection(ctx, correctionRun.ID)
+		if len(corrected.Errors) != 0 || len(corrected.Corrected) != 1 || corrected.Corrected[0].HeadOID != newHead {
+			t.Fatalf("cycle %d correction receipt = %+v", cycle+1, corrected)
+		}
+
+		allowance, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+		if err != nil || allowance.RootAssignment != owner.AttemptRoot || allowance.Limits != factory.DefaultAttemptLimits() ||
+			!allowance.Active || allowance.Closed || len(allowance.Corrections) != cycle+1 ||
+			!slices.Equal(allowance.Corrections, correctionIDs) || allowance.ActiveSeconds < priorActiveSeconds {
+			t.Fatalf("cycle %d allowance changed root/time/cycle custody: %+v, %v", cycle+1, allowance, err)
+		}
+		priorActiveSeconds = allowance.ActiveSeconds
+		pass := fx.coord.PublishPass(ctx)
+		if len(pass.Errors) != 0 || len(host.launches) != launchesBefore+2 {
+			t.Fatalf("cycle %d changed head did not get one reviewer: report=%+v launches=%d", cycle+1, pass, len(host.launches))
+		}
+	}
+
+	current, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil || current.Candidate != strings.Repeat("f", 40) || len(host.launches) != 7 || len(host.preparations) != 4 {
+		t.Fatalf("three-cycle pre-exhaustion state: publication=%+v launches=%d preparations=%d err=%v", current, len(host.launches), len(host.preparations), err)
+	}
+	finalReviewerLaunch := host.launches[len(host.launches)-1]
+	_, finalReviewerRun := settleProducedChild(t, fx, finalReviewerLaunch.Run.ID, requestChanges)
+	fx.coord.Reviews = &fakeReviewer{
+		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+		outcome:  committedOutcome("review-receipt-exhausted"),
+		adopted: factory.ReviewOutcome{
+			ReviewID: 34, CommentID: 44, ReviewerID: 6, PRID: current.PRID,
+			PRNumber: current.PRNumber, IssueID: current.PRCreate.IssueID,
+			HeadOID: current.Candidate, BaseOID: current.PRCreate.BaseOID,
+			CommitID: current.Candidate, Event: "REQUEST_CHANGES",
+		},
+	}
+	if _, err := fx.coord.SubmitReviewForRun(ctx, finalReviewerRun.ID); err != nil {
+		t.Fatalf("exhausted-head review submission: %v", err)
+	}
+	exhaustedBefore, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+	if err != nil || exhaustedBefore.RootAssignment != owner.AttemptRoot || exhaustedBefore.Limits != factory.DefaultAttemptLimits() ||
+		!exhaustedBefore.Active || exhaustedBefore.Closed || len(exhaustedBefore.Corrections) != 3 ||
+		!slices.Equal(exhaustedBefore.Corrections, correctionIDs) || exhaustedBefore.ActiveSeconds < priorActiveSeconds {
+		t.Fatalf("pre-exhaustion allowance = %+v, %v", exhaustedBefore, err)
+	}
+	runsBefore, err := fx.db.ProjectFactoryRuns(ctx, owner.ProjectID, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	launchesBefore, preparationsBefore := len(host.launches), len(host.preparations)
+	exhaustedPass := fx.coord.CheckPass(ctx)
+	if len(exhaustedPass.Errors) != 0 || len(host.launches) != launchesBefore || len(host.preparations) != preparationsBefore {
+		t.Fatalf("exhausted correction created child work: report=%+v launches=%d preparations=%d", exhaustedPass, len(host.launches), len(host.preparations))
+	}
+	exhaustedChildID := publicationChildID(current.ID, current.Candidate, project.RoleCoder)
+	if _, err := fx.db.Assignment(ctx, exhaustedChildID); !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("exhausted correction assignment exists: %v", err)
+	}
+	runsAfter, err := fx.db.ProjectFactoryRuns(ctx, owner.ProjectID, 100)
+	if err != nil || len(runsAfter) != len(runsBefore) {
+		t.Fatalf("exhausted correction run was recorded: before=%d after=%d err=%v", len(runsBefore), len(runsAfter), err)
+	}
+	fenced, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil || fenced.Stage != factory.PublicationFenced || fenced.Outcome != factory.NeedsHuman {
+		t.Fatalf("exhaustion did not request maintainer intervention: publication=%+v err=%v", fenced, err)
+	}
+	allowance, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+	if err != nil || allowance.RootAssignment != owner.AttemptRoot || allowance.Limits != factory.DefaultAttemptLimits() ||
+		allowance.Active || !allowance.Closed || len(allowance.Corrections) != 3 ||
+		!slices.Equal(allowance.Corrections, correctionIDs) || allowance.CheckpointUnix < exhaustedBefore.CheckpointUnix ||
+		allowance.ActiveSeconds != exhaustedBefore.ActiveSeconds+allowance.CheckpointUnix-exhaustedBefore.CheckpointUnix {
+		t.Fatalf("exhaustion did not close the settled root while accounting for elapsed time: before=%+v after=%+v err=%v", exhaustedBefore, allowance, err)
 	}
 }
 
