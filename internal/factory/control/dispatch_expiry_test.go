@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func TestDispatchClosesExpiredReportedAttemptBeforeEarlyReturn(t *testing.T) {
@@ -107,5 +108,88 @@ func TestDispatchClosesExpiredReportedAttemptBeforeEarlyReturn(t *testing.T) {
 	afterReplayUsage, err := db.UsageTotal(ctx, fx.repo, "conn")
 	if err != nil || afterReplayUsage != usageBefore {
 		t.Fatalf("expiry replay changed usage: %d -> %d, %v", usageBefore, afterReplayUsage, err)
+	}
+}
+
+func TestExplicitRetryCreatesFreshRootFromSettledReviewerChildAfterExpiry(t *testing.T) {
+	ctx := context.Background()
+	fx, producer, owner, _ := publishedChildProducerSeed(t, 27)
+	if len(producer.launches) != 1 {
+		t.Fatalf("initial production did not launch one reviewer: %+v", producer.launches)
+	}
+	child, priorRun := settleProducedChild(t, fx, producer.launches[0].Run.ID,
+		"```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"handle empty input\",\"findings\":[\"empty input\"]}\n```")
+	if child.Role != project.RoleReviewer || child.PublicationAssignment != owner.ID || child.AttemptRoot != owner.AttemptRoot ||
+		priorRun.Outcome != factory.Succeeded || !priorRun.Reconciled {
+		t.Fatalf("settled production child lost owner linkage: child=%+v run=%+v", child, priorRun)
+	}
+	usageBefore, err := fx.db.UsageTotal(ctx, owner.Repository, owner.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowance, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+	if err != nil || allowance.RootAssignment != owner.AttemptRoot || !allowance.Active || allowance.Closed {
+		t.Fatalf("reviewer result did not remain on active root: %+v %v", allowance, err)
+	}
+
+	// Expire this genuine root in the disposable PostgreSQL fixture; DispatchPass
+	// performs the production closure and makes the explicit-retry wait visible.
+	fixtureDB, err := sql.Open("pgx", fx.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = fixtureDB.Close() }()
+	allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes * 60)
+	allowance.CheckpointUnix = time.Now().Unix()
+	allowance.Revision++
+	data, err := json.Marshal(allowance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = fixtureDB.ExecContext(ctx, `UPDATE factory_attempt_allowances SET revision=$1,data=$2 WHERE root_assignment=$3`, allowance.Revision, string(data), allowance.RootAssignment); err != nil {
+		t.Fatal(err)
+	}
+
+	deps := fx.seed.deps()
+	deps.Host = producer
+	fx.seed.queue(t, owner.Issue, owner.Acceptance)
+	launchesBeforeExpiry := len(producer.launches)
+	expired := DispatchPass(ctx, deps)
+	if len(expired.Launched) != 0 || len(expired.Errors) != 0 || len(expired.Waits) != 1 ||
+		expired.Waits[0].Reason != WaitAttemptRecorded || expired.Waits[0].Detail != "attempt is closed; maintainer intervention is required" ||
+		len(producer.launches) != launchesBeforeExpiry {
+		t.Fatalf("expired root did not fence automatic work: report=%+v launches=%d", expired, len(producer.launches))
+	}
+	closed, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+	if err != nil || !closed.Closed || closed.Active {
+		t.Fatalf("expired root was not closed and released: %+v %v", closed, err)
+	}
+
+	commandID := factory.NewID()
+	decision, err := fx.coord.RetryRun(ctx, commandID, "native:7", priorRun.ID)
+	if err != nil || !decision.Queued || decision.Prior != priorRun.ID || decision.CommandID != commandID {
+		t.Fatalf("explicit retry of settled child: %+v %v", decision, err)
+	}
+	launchCount := len(producer.launches)
+	replay, err := fx.coord.RetryRun(ctx, commandID, "native:7", priorRun.ID)
+	if err != nil || replay != decision || len(producer.launches) != launchCount {
+		t.Fatalf("retry command replay diverged or launched: replay=%+v err=%v launches=%d", replay, err, len(producer.launches))
+	}
+
+	fresh := DispatchPass(ctx, deps)
+	if len(fresh.Launched) != 1 || len(fresh.Errors) != 0 || len(producer.launches) != launchCount+1 {
+		t.Fatalf("explicit retry did not produce one fresh launch: %+v launches=%d", fresh, len(producer.launches))
+	}
+	assignment, err := fx.db.Assignment(ctx, commandID)
+	if err != nil || assignment.ID != commandID || assignment.AttemptRoot != commandID || assignment.PublicationAssignment != commandID || assignment.Run == priorRun.ID {
+		t.Fatalf("explicit retry did not create a fresh root: %+v %v", assignment, err)
+	}
+	freshAllowance, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+	if err != nil || freshAllowance.RootAssignment != commandID || !freshAllowance.Active || freshAllowance.Closed {
+		t.Fatalf("fresh retry allowance: %+v %v", freshAllowance, err)
+	}
+	usageAfter, err := fx.db.UsageTotal(ctx, owner.Repository, owner.Connection)
+	if err != nil || usageAfter != usageBefore {
+		t.Fatalf("fresh retry changed recorded prior usage: %d -> %d, %v", usageBefore, usageAfter, err)
 	}
 }

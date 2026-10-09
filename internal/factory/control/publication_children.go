@@ -72,9 +72,11 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	if allowance.Closed {
 		if allowance.Active {
 			if stopErr := c.stopCandidatePreparationsForRoot(ctx, p.Repository, p.ProjectID, p.Issue, owner.AttemptRoot); stopErr != nil {
-				publicationWait(report, p.ID, "attempt_expiry_retirement_pending")
+				publicationWait(report, p.ID, "attempt is closed; native preparation retirement remains pending")
+				return
 			}
 		}
+		publicationWait(report, p.ID, "attempt is closed; maintainer intervention is required")
 		return
 	}
 	if !allowance.Active {
@@ -88,8 +90,10 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		}
 		if closed {
 			if stopErr := c.stopCandidatePreparationsForRoot(ctx, p.Repository, p.ProjectID, p.Issue, owner.AttemptRoot); stopErr != nil {
-				publicationWait(report, p.ID, "attempt_expiry_retirement_pending")
+				publicationWait(report, p.ID, "attempt is closed; native preparation retirement remains pending")
+				return
 			}
+			publicationWait(report, p.ID, "attempt is closed; maintainer intervention is required")
 		}
 		return
 	}

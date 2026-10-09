@@ -496,23 +496,31 @@ func TestPublishPassSubmitsSettledReviewChild(t *testing.T) {
 	}
 }
 
-func TestRetryTruthfulReasons(t *testing.T) {
+func TestRetryRefusesStandaloneRunsWithoutLinkedAssignments(t *testing.T) {
 	host, broker := &stubHost{}, &stubBroker{}
+	launches := 0
+	host.launch = func(project.FactoryLaunch) (project.FactoryState, error) {
+		launches++
+		return project.FactoryState{}, nil
+	}
 	c := coordinatorFixture(t, host, broker)
 	lifecycleProjectFixture(t, c, 42)
 	grantFullAuthority(t, c)
 	readyPreparations(t, c, lifecycleProject)
 	settleStubs(host, broker)
 
-	// A succeeded run relaunches nothing.
+	// A standalone succeeded run has no canonical assignment to retry.
 	succeeded := recordRun(t, c, func(r *factory.Run) { r.Role = project.RoleCoder })
 	succeeded.Outcome, succeeded.Reconciled = factory.Succeeded, true
 	if err := c.Store.SaveFactoryRun(context.Background(), succeeded); err != nil {
 		t.Fatal(err)
 	}
-	decision, err := c.RetryRun(context.Background(), factory.NewID(), "native:7", succeeded.ID)
-	if err != nil || !strings.Contains(decision.Reason, "nothing relaunches") {
-		t.Fatalf("succeeded retry: %+v %v", decision, err)
+	commandID := factory.NewID()
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", succeeded.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("standalone succeeded run was admitted: %v", err)
+	}
+	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("succeeded standalone retry persisted a command: %v", err)
 	}
 
 	// A review run resubmits through a new review, never dispatch.
@@ -520,21 +528,27 @@ func TestRetryTruthfulReasons(t *testing.T) {
 	if _, err := c.Stop(context.Background(), stopCommand(review.ID)); err != nil {
 		t.Fatal(err)
 	}
-	decision, err = c.RetryRun(context.Background(), factory.NewID(), "native:7", review.ID)
-	if err != nil || !strings.Contains(decision.Reason, "new review") {
-		t.Fatalf("reviewer retry: %+v %v", decision, err)
+	commandID = factory.NewID()
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", review.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("standalone reviewer run was admitted: %v", err)
+	}
+	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("reviewer standalone retry persisted a command: %v", err)
 	}
 
-	// A failed coder run without a dispatchable issue records truthfully.
+	// A standalone failed coder run is not enough to queue a fresh attempt.
 	failed := recordRun(t, c, func(r *factory.Run) { r.Role = project.RoleCoder })
 	if _, err := c.Stop(context.Background(), stopCommand(failed.ID)); err != nil {
 		t.Fatal(err)
 	}
-	decision, err = c.RetryRun(context.Background(), factory.NewID(), "native:7", failed.ID)
-	if err != nil || !decision.Queued {
-		t.Fatalf("failed retry refused: %+v %v", decision, err)
+	commandID = factory.NewID()
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", failed.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("standalone failed run was admitted: %v", err)
 	}
-	if !strings.Contains(decision.Reason, "no dispatchable issue") && !strings.Contains(decision.Reason, "reassessment unavailable") {
-		t.Fatalf("failed retry reason: %q", decision.Reason)
+	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("failed standalone retry persisted a command: %v", err)
+	}
+	if launches != 0 {
+		t.Fatalf("standalone retry launched %d runs", launches)
 	}
 }

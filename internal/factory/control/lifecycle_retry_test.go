@@ -6,10 +6,17 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
-func TestRetryStaysQueuedAfterReconciledRun(t *testing.T) {
+func TestRetryRequiresLinkedTerminalAttempt(t *testing.T) {
 	host, broker := &stubHost{}, &stubBroker{}
+	launches := 0
+	host.launch = func(project.FactoryLaunch) (project.FactoryState, error) {
+		launches++
+		return project.FactoryState{}, nil
+	}
 	c := coordinatorFixture(t, host, broker)
 	lifecycleProjectFixture(t, c, 42)
 	grantFullAuthority(t, c)
@@ -24,18 +31,17 @@ func TestRetryStaysQueuedAfterReconciledRun(t *testing.T) {
 	if _, err := c.Stop(context.Background(), stopCommand(r.ID)); err != nil {
 		t.Fatal(err)
 	}
-	decision, err := c.RetryRun(context.Background(), factory.NewID(), "native:7", r.ID)
-	if err != nil || !decision.Queued || decision.Prior != r.ID {
-		t.Fatal("reconciled retry refused", decision, err)
+	commandID := factory.NewID()
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", r.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("standalone reconciled run became a retry command: %v", err)
 	}
-	if err = decision.Validate(); err != nil {
-		t.Fatal(err)
+	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("unlinked retry persisted a command: %v", err)
 	}
-	replay, err := c.RetryRun(context.Background(), decision.CommandID, "native:7", r.ID)
-	if err != nil || replay != decision {
-		t.Fatal("retry replay diverged", replay, err)
-	}
-	if _, err = c.RetryRun(context.Background(), factory.NewID(), "native:7", factory.NewID()); !errors.Is(err, ErrNotFound) {
+	if _, err := c.RetryRun(context.Background(), factory.NewID(), "native:7", factory.NewID()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unknown retry: %v", err)
+	}
+	if launches != 0 {
+		t.Fatalf("unlinked retry launched %d runs", launches)
 	}
 }
