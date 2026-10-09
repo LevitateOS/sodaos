@@ -1,6 +1,24 @@
 use super::*;
 
 #[test]
+fn release_payload_schema_tracks_store_schema_owners() {
+    let expected = format!("= {SCHEMA_VERSION}");
+    let go = include_str!("../../../../internal/store/schema.go");
+    let identity = include_str!("../../../../cmd/soda-identity/src/schema.rs");
+    assert!(
+        go.lines()
+            .any(|line| line.trim() == format!("const schemaFormatVersion {expected}")),
+        "Go schemaFormatVersion must match release payload schema {SCHEMA_VERSION}"
+    );
+    assert!(
+        identity
+            .lines()
+            .any(|line| line.trim() == format!("pub const SCHEMA_VERSION: i64 {expected};")),
+        "soda-identity SCHEMA_VERSION must match release payload schema {SCHEMA_VERSION}"
+    );
+}
+
+#[test]
 fn oracle_prefix_and_digest_shapes() {
     // Oracle: Go ValidRepositoryPrefix + Digest vectors.
     assert!(valid_repository_prefix("ghcr.io/example/sodaos"));
