@@ -47,3 +47,6 @@ tokio = { version = "=1.53.2", default-features = false, features = ["rt", "net"
 url = "=2.5.8"
 percent-encoding = "=2.3.2"
 soda-wire-time = { path = "../wire-time" }
+
+[dev-dependencies]
+tar = "=0.4.46"

@@ -2009,6 +2009,7 @@ dependencies = [
  "soda-release-deliver",
  "soda-release-image",
  "soda-wire-time",
+ "tar",
  "tokio",
  "url",
 ]
