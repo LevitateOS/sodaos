@@ -1,6 +1,6 @@
 # Supervised factory-run operator interface
 
-This reference describes the existing `rust/soda-factory` operator interface:
+This reference describes the Rust `cmd/soda-factory` operator interface:
 status reads recorded run state, stop retires one run, and reconcile settles
 outstanding runs. Runs execute as supervised Project CLI runs with durable
 start/stop receipts, exact run/container/unit/incarnation binding and
@@ -23,14 +23,14 @@ configured OS peer UID and records that peer as the command principal; no
 command can supply a human native identity, accept requirements, change
 repository policy, enlarge sponsorship or clear a native reservation.
 
-Build the operator binary with the repository's pinned Go toolchain:
+Build the operator binary from the pinned Cargo workspace:
 
 ```sh
-go build -o .artifacts/soda-factory ./cmd/soda-factory
-.artifacts/soda-factory --socket /run/soda/operator/operator.sock status
-.artifacts/soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
-.artifacts/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID stop RUN_ID
-.artifacts/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID reconcile
+cargo build --locked -p soda-factory
+target/debug/soda-factory --socket /run/soda/operator/operator.sock status
+target/debug/soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
+target/debug/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID stop RUN_ID
+target/debug/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID reconcile
 ```
 
 Status is a read without a durable command and returns bounded recorded run
