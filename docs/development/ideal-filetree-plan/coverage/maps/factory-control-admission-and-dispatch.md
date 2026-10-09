@@ -7,6 +7,11 @@ One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
 
+Selective readiness source delta at `07ab24bd` (production integration
+`25ab7a48`): persisted readiness batches now belong to the current coordinator
+and Store pages. The old sweep, recursive visitor, issue-list bridges and their
+exclusive test machinery are retired. Historical map/body pins remain historical.
+
 <a id="coverage-bd92c58c05f9"></a>
 <a id="internalfactorycontrolacceptancego-1"></a>
 
@@ -133,7 +138,7 @@ exact-blob current maintained map; full spans retained
 | 51; BrokerExecution.CloseExecution | [I06](../../slices/identity-brokering.md#i06-completion-revocation-and-reconciliation) | retained | Broker terminal execution close contract; declarations/fields: `BrokerExecution.CloseExecution` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 68; Coordinator.Store | [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) | retained | Coordinator dependency/read/effect contract for independent slice; declarations/fields: `Coordinator.Store` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 71; Coordinator.AcceptanceReads | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Coordinator dependency/read/effect contract for independent slice; declarations/fields: `Coordinator.AcceptanceReads` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 72, 78; Coordinator.Readiness, Coordinator.traversal | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Coordinator dependency/read/effect contract for independent slice; declarations/fields: `Coordinator.Readiness`, `Coordinator.traversal` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 72; Coordinator.Readiness | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Native revision/snapshot observer used to bracket readiness evidence; the obsolete traversal field was removed at `07ab24bd`. |
 | 75; Coordinator.Reviews | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Coordinator dependency/read/effect contract for independent slice; declarations/fields: `Coordinator.Reviews` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 76; Coordinator.Checks | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Coordinator dependency/read/effect contract for independent slice; declarations/fields: `Coordinator.Checks` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 77; Coordinator.Merges | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Coordinator dependency/read/effect contract for independent slice; declarations/fields: `Coordinator.Merges` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
@@ -193,8 +198,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–280; file scaffold; DispatchHost; DispatchBroker; DispatchComment; DispatchIssue; DispatchInputs; DispatchReads; DispatchWait; DispatchLaunch; DispatchError; DispatchReport; newDispatchReport; DispatchDeps; dispatchReady; RecoverDispatch; DispatchPass; dispatchDeps; Dispatch; dispatchAfterIntake | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 19 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 281–290; assessDispatchDependants | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current declaration duty: assessDispatchDependants — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–286; file scaffold; DispatchHost; DispatchBroker; DispatchComment; DispatchIssue; DispatchInputs; DispatchReads; DispatchWait; DispatchLaunch; DispatchError; DispatchReport; newDispatchReport; DispatchDeps; dispatchReady; RecoverDispatch; DispatchPass; dispatchDeps; Dispatch; dispatchAfterIntake | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current dispatch contract and bounded queue pass. `Coordinator.Dispatch` invokes the durable readiness drain after its ordinary pass; see the F06 current drain owner in `readiness_work.go`. The old `assessDispatchDependants` helper was retired at `07ab24bd`. |
 
 <a id="coverage-cb30171eac23"></a>
 
@@ -619,13 +623,23 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/control/readiness.go](../../../../../internal/factory/control/readiness.go)
 
-Current intake, traversal and assessment responsibilities at `7763c62e`.
+Current intake/assessment responsibilities and selective durable-drain delta at `07ab24bd`; per-issue deadline correction is `7763c62e`.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–168, 312–379; scaffold, ReadinessObservation, IntakeHint/Validate, assessOutcome, ObserveIssueEvent, assessCascade, assessDependants, visitDependants, assess | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Authenticated intake, idempotent delivery and current synchronous dependant traversal; assessment derives readiness from current acceptance, authority and prerequisite evidence. Durable traversal and aggregate bounds remain B03.C-lifetime. |
-| 169–293, 380–400; assessOne, issueAssessor, obscured/obscuredVerdict, acceptanceBlocker, authorityBlockers, record, carrySatisfaction | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | One assessment's evidence and persistence. `7763c62e` keeps prerequisite/cycle reads and final recording inside its existing two-minute context, with the tighter status-read child preserved. Focused actual PG17 regression, blocker and retry checks pass; this does not bound the whole cascade. |
-| 294–311; readinessVerdict | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Ordered blocker classification for authorization, blocked and queued outcomes. |
+| 1–127; scaffold, ReadinessObservation, IntakeHint/Validate, assessOutcome, ObserveIssueEvent, readinessDeliverySourceID | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Authenticated intake, duplicate delivery handling, durable source creation and selected-delivery completion before acknowledgement. An incomplete critical delivery remains unrecorded for its existing retry; aggregate actual-trigger behavior remains B03.C-lifetime. |
+| 128–303; assessOne, issueAssessor, obscured/obscuredVerdict, acceptanceBlocker, authorityBlockers, record, carrySatisfaction | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | One assessment's evidence and persistence. `7763c62e` keeps prerequisite/cycle reads and final recording inside its existing two-minute context, with the tighter status-read child preserved. Focused actual PG17 regression, blocker and retry checks pass; this does not bound the whole cascade. |
+| 304–321; readinessVerdict | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Ordered blocker classification for authorization, blocked and queued outcomes. |
+
+<a id="r02-current-path-internal-factory-control-readiness-work-go"></a>
+
+## [internal/factory/control/readiness_work.go](../../../../../internal/factory/control/readiness_work.go)
+
+Current durable production drain, source integration `25ab7a48`.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–328; pass budget, evidence/page/assessment/selection counters, local drain exclusion, source selection/checkpoint/complete/defer and bounded graph processing | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Production continuation over Store `ReadinessWork` nodes. The intake regression demonstrates authenticated delivery yield/resume through Dispatch; the retirement packet reused 26 passing Store/schema/control cases and passed the corrected intake/cycle/fairness selectors. This does not prove aggregate physical RPC bounds through bootstrap/actor admission, successful completion workflow, or mutable-keyset restart; schema 39 removes the unused persisted `RootChanged` marker, while the invocation-local result remains. |
 
 <a id="coverage-f7aaecb325be"></a>
 
@@ -635,8 +649,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–16, 39–80, 108–111, 119–127; file scaffold; totalCalls; fakeObserver; fakeIssuePage; ObserveNativeRevision; ListRepositoryIssues; readinessHint; findBlocker | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 17–38, 81–107, 112–118, 128–142; fakeEvidenceSource; ReadAcceptanceEvidence; readinessView; readinessEvidence; readinessDecision; readinessCoordinator; mustAdmit; setupCodePrereq | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current declaration duty: fakeEvidenceSource; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–16, 39–58, 87–104; file scaffold; totalCalls; fakeObserver; ObserveNativeRevision; readinessHint | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current fixtures keep only native revision observation; list-page fakes and issue-list adapters were removed at `07ab24bd`. |
+| 17–38, 60–85, 91–121; fakeEvidenceSource; ReadAcceptanceEvidence; readinessView; readinessEvidence; readinessDecision; readinessCoordinator; mustAdmit; setupCodePrereq | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current declaration duty: fake evidence and accepted prerequisite setup helpers for readiness assessment tests. |
 
 <a id="coverage-574e43afaa56"></a>
 
@@ -649,17 +663,6 @@ current source declaration/method inspection; receiver methods normalized by met
 | 1–10, 35–51; file scaffold; setupResultPrereq | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current scaffold duty: file scaffold; Current declaration duty: setupResultPrereq — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 11–34, 52–125; TestClosureAloneCannotSatisfyCodeOutcome; TestResultPrereqClosureOccurrence; TestResultPrereqNeedsAcceptedResolution | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current declaration duty: TestClosureAloneCannotSatisfyCodeOutcome; Current declaration duty: TestResultPrereqClosureOccurrence; Current declaration duty: TestResultPrereqNeedsAcceptedResolution — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
-<a id="coverage-2d95280a7dbb"></a>
-
-## [internal/factory/control/readiness_sweep.go](../../../../../internal/factory/control/readiness_sweep.go)
-
-current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| Current named duties: file scaffold; ReadinessSweepUnavailable; SweepFailure; ReadinessSweep; ReconcileReadiness | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Per-repository bounded readiness assessment, page rotation and failure reporting remain. At `6cc4771c`, the unused all-repository sweep/report/repository cursor are removed after operator Reconcile stops advancing work. |
-| 148–216; sweepFailed; sweepPrecheck | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current declaration duty: sweepFailed; Current declaration duty: sweepPrecheck — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-
 <a id="coverage-5f62fc9c60ac"></a>
 
 ## [internal/factory/control/readiness_sweep_test.go](../../../../../internal/factory/control/readiness_sweep_test.go)
@@ -668,8 +671,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–13, 100–116, 225–266; file scaffold; TestReconcileSkipsDisabledPolicy; TestFindPrereqCycle; TestFindPrereqCycleExceedsBound | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 14–99, 117–224; TestReconcileDiscoversMissedIssue; TestReconcileSkipsUnchanged; TestReconcileDetectsNativeChange; TestReconcileBusyAndUnavailable; TestReconcileRecordsIssueFailures; TestReconcileReadinessAll; TestSweepPrecheckCatchesWithdrawal | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current declaration duty: TestReconcileDiscoversMissedIssue; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–59; file scaffold; TestFindPrereqCycle; TestFindPrereqCycleExceedsBound | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current retained tests cover bounded cycle detection and its over-limit result. Sweep tests were retired at `07ab24bd`; the two cycle selectors passed in the corrected three-selector control batch. |
 
 <a id="coverage-8d8ccde235b9"></a>
 <a id="internalfactorycontrolreadiness_testgo-1"></a>
@@ -794,8 +796,7 @@ exact-blob current maintained map; full spans retained
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–76; whole file; traversalState; traversalState.nextSweepPage; traversalState.advanceSweepPage; traversalState.nextSweepRepo; traversalState.advanceSweepRepo | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
-| 77–126; DispatchQueueCursor, NewDispatchQueueCursor, DispatchQueueCursor.start, DispatchQueueCursor.advance, DispatchQueueCursor.reset | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Bounded dispatch queue cursor mechanics; declarations/fields: `DispatchQueueCursor`, `NewDispatchQueueCursor`, `DispatchQueueCursor.start`, `DispatchQueueCursor.advance`, `DispatchQueueCursor.reset` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 1–64; file scaffold; DispatchQueueCursor, NewDispatchQueueCursor, DispatchQueueCursor.start, DispatchQueueCursor.advance, DispatchQueueCursor.reset | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Bounded dispatch queue cursor mechanics and fair rotation remain. All process-local sweep/page/repository cursor state was removed at `07ab24bd`. |
 
 <a id="coverage-3f65bf95377c"></a>
 
@@ -805,5 +806,4 @@ exact-blob current maintained map; full spans retained
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| TestReadinessSweepReachesDeepPages | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Repeated per-repository bounded sweeps reach deep pages. The all-repository rotation test and its exclusive implementation are retired in `6cc4771c`; dispatch queue rotation remains with its current owner. |
-| 66–103; TestDispatchPassReachesRunnableBehindWaitingPrefix | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Dispatch queue continuation beyond waiting prefix assertions; declarations/fields: `TestDispatchPassReachesRunnableBehindWaitingPrefix` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 1–61; TestDispatchPassReachesRunnableBehindWaitingPrefix | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Actual dispatch queue continuation beyond a waiting prefix. The corrected retirement selector passes; per-fixture source headers are removed only through the fixture SQL connection because queue rotation, not source admission, is under test. |

@@ -1591,9 +1591,9 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── publication_test.go
 │   │   │   ├── publication_withdraw.go
 │   │   │   ├── readiness.go
+│   │   │   ├── readiness_work.go
 │   │   │   ├── readiness_fixture_test.go
 │   │   │   ├── readiness_prerequisite_test.go
-│   │   │   ├── readiness_sweep.go
 │   │   │   ├── readiness_sweep_test.go
 │   │   │   ├── readiness_test.go
 │   │   │   ├── readiness_visibility_test.go
