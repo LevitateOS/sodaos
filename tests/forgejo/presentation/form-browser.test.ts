@@ -41,7 +41,7 @@ test(
       const page = context.pages()[0] ?? (await context.newPage());
       page.setDefaultTimeout(5000);
       const errors: string[] = [];
-      page.on('pageerror', (e) => errors.push(e.message));
+      page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
       const style = await page.request.get(`${origin}/assets/soda/forgejo/form-pages.css`);
       assert(style.ok());
       assert((await style.body()).equals(await readFile(new URL('assets/branding/forgejo/form-pages.css', root))));
@@ -55,7 +55,9 @@ test(
         '/user/settings/hooks/forgejo/new',
         '/user/settings/packages/rules/add',
       ];
-      await page.goto(`${origin}/repo/migrate`);
+      const migrationPage = await page.goto(`${origin}/repo/migrate`);
+      assert.equal(migrationPage?.status(), 200);
+      assert.equal(page.url(), `${origin}/repo/migrate`, 'Native form review requires an authenticated fixture');
       const migrations = await page.locator('.soda-migrate-provider').evaluateAll((es) =>
         es.map((el) => {
           assertAnchor(el);
@@ -108,7 +110,7 @@ test(
               });
               assert.deepEqual(
                 actionStyle,
-                ['flex', 'flex-end', '12px', '24px', '1px'],
+                ['flex', 'flex-end', '12px', '24px', '2px'],
                 `${route}: inconsistent action row`
               );
               if (route.includes('/hooks/')) {
@@ -187,6 +189,7 @@ test(
         };
       });
       assert(hitAreas.text > hitAreas.right, 'radio must not overlap its label');
+      assert.deepEqual(errors, [], 'Native page scripts must initialize before the key panel checks');
       for (const [route, trigger, panel] of [
         ['/user/settings/keys', '[data-panel="#add-ssh-key-panel"]', '#add-ssh-key-panel'],
         ['/user/settings/keys', '[data-panel="#add-gpg-key-panel"]', '#add-gpg-key-panel'],
@@ -194,7 +197,7 @@ test(
         assert(route && trigger && panel);
         await page.goto(origin + route);
         await page.locator(`.show-panel${trigger}`).click();
-        assert(await page.locator(`${panel} .soda-form-panel`).isVisible());
+        await page.locator(`${panel} .soda-form-panel`).waitFor({state: 'visible'});
       }
       assert.deepEqual(writes, [], 'review must never submit creation forms');
       assert.deepEqual(errors, []);

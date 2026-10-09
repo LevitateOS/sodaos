@@ -13,7 +13,7 @@
 {{$branded := or $page.PageIsHome $page.PageIsSignIn $page.LinkAccountMode $page.PageIsExploreRepositories $page.PageIsExploreUsers $page.PageIsExploreOrganizations $page.PageIsExploreCode $page.ContextUser $page.PageIsInstall $page.Repository $page.Org $auth}}
 {{if and (not $page.IsSigned) $branded}}
 	{{if eq .Placement "head"}}
-		<script src="{{AssetUrlPrefix}}/soda/forgejo/login-theme.js?v=2" data-app-sub-url="{{AppSubUrl}}"></script>
+		<script src="{{AssetUrlPrefix}}/soda/forgejo/login-theme.js?v=3" data-app-sub-url="{{AppSubUrl}}"></script>
 	{{else if and (eq .Placement "navbar") (not (or $page.PageIsHome $page.PageIsSignIn $page.LinkAccountMode $page.PageIsInstall))}}
 		{{template "custom/soda/theme_toggle" dict}}
 	{{end}}

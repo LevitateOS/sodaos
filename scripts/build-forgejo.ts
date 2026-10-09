@@ -44,7 +44,7 @@ export function collectForgejoSources() {
 
 // Also used by the browser smoke fixture: imports must work from either public
 // asset directory, including when Forgejo has an AppSubUrl prefix.
-export async function buildForgejoModule(source: string, destination: string) {
+export async function buildForgejoModule(source: string, destination: string, format: 'esm' | 'iife' = 'esm') {
   assert(litDestination, 'The shared Lit runtime must be in the production payload');
   const runtime = resolve(source) === litSource;
   const relative = posix.relative(posix.dirname(destination), litDestination);
@@ -52,7 +52,7 @@ export async function buildForgejoModule(source: string, destination: string) {
   const result = await Bun.build({
     entrypoints: [source],
     target: 'browser',
-    format: 'esm',
+    format,
     minify: true,
     // Lit ships development assertions unless the production condition is set.
     define: {'process.env.NODE_ENV': '"production"'},
@@ -96,7 +96,9 @@ export async function buildForgejoAssets(out: string) {
   for (const [file, source] of sources) {
     const destination = destinations.get(file);
     assert(destination);
-    const output = await buildForgejoModule(source, destination);
+    // The five behavior entrypoints have classic template callers; Lit and
+    // the importing browser fixtures retain their module graph.
+    const output = await buildForgejoModule(source, destination, file === 'lit.js' ? 'esm' : 'iife');
     await Bun.write(resolve(out, file), output);
   }
 }
