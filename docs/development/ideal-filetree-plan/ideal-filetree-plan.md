@@ -136,9 +136,12 @@ providers into the broker, and fold the two Project helpers into the existing
 Project-terminal package. The helper package fold is canonical at the investigation pin; preserve its
 completed placement and installed executable identities. Remaining behavioral
 findings stay separate from that completed consolidation. The Rust host
-already has its daemon binary and release compile wiring in source. Its proposed
-entrypoint move to `cmd/soda-host` stays in the same `soda-host` package and
-service. The four
+already has its daemon binary and release compile wiring in source. Retain its
+entrypoint at `lib/host/src/main.rs` in the existing `soda-host` package and
+service. The earlier `cmd/soda-host` placement proposal is superseded by the
+[host ownership assessment](package-ownership.md#recommended-package-changes).
+This source placement correction preserves the decided Go/Rust/Python policy.
+The four
 landed release crates (`soda-release-build`, `soda-release-deliver`,
 `soda-release-image`, `soda-release-tools`) retain their identities under `lib/`.
 The selected pure OCI and delivered-content helpers consolidate into those

@@ -43,7 +43,7 @@ target allocation or refresh R02 counts.
 
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
-| Host helper binary and host daemon entrypoint | The Tailnet helper binary is current at `cmd/soda-forgejo-tailnet/main.rs`, selected from `lib/host/Cargo.toml`. `cmd/soda-host/main.rs` remains a proposed same-package placement; current `soda-host` selection is `lib/host/src/main.rs`. |
+| Host helper binary and host daemon entrypoint | The Tailnet helper remains at `cmd/soda-forgejo-tailnet/main.rs`, selected from `lib/host/Cargo.toml`. Retain `lib/host/src/main.rs` for `soda-host`; the optional `cmd/soda-host/main.rs` placement is superseded by the [current host ownership assessment](package-ownership.md#recommended-package-changes). |
 | Identity `http*`, `pg.rs`, Store/Tx and `strict*` | Hyper listener/admission and tokio-postgres deadline/typed transaction adapters; Serde profile/domain rules. No HTTP frame, PG wire/DSN or SQL translator engine |
 | A-owned `lib/unix-http/{Cargo.toml,src/lib.rs}` | Shared bounded Hyper Unix client and driver/deadline custody; callers retain socket, status and credential policy |
 | Host `daemon/{admission,backend,broker,config,http,response,routes,server,websocket}`, `json/{mod,number}`, `sha256.rs`, `ssh/mod` | The admission/backend/response/routes/server source join is complete under one defining daemon module. `daemon/broker.rs` directly implements `FactoryBroker` and `MuseHooks` for `BrokerClient`; dbackend keeps `DaemonBackend`'s `IdentityBroker` implementation and native deadline policy. `daemon/config.rs` is now the defining Config owner and contains the private `daemon/config/tests.rs` child; `main.rs` calls it directly and retains the same `BackendConfig` projection. BrokerSeam/HooksSeam are retired. Broader R02/main/backend and installed/native qualification remain open. Retain listener custody, request policy, one upgrade/pump lifetime, Serde schemas, ssh-key fingerprint policy and raw sha2 digest recipes |
@@ -381,8 +381,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   └── main.rs
 │   │   └── Cargo.toml
 │   ├── soda-forgejo-tailnet/
-│   │   └── main.rs
-│   ├── soda-host/
 │   │   └── main.rs
 │   ├── soda-identity/
 │   │   ├── src/
@@ -2169,6 +2167,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── request.rs
 │   │   │   │   └── target.rs
 │   │   │   ├── lib.rs
+│   │   │   ├── main.rs
 │   │   │   ├── net.rs
 │   │   │   └── sha256.rs
 │   │   ├── tests/

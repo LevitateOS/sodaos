@@ -29,7 +29,7 @@ including comments and tests; they do not measure performance or safety.
 
 | Port | What the current source establishes | Recommendation for this refactor |
 | --- | --- | --- |
-| Host project/preparation/Tailnet daemon | Historical `f7e9cf9d` source has Rust daemon, native adapters, binary manifest and Rust release compile selection; Go daemon/executor directories are absent | Retain `lib/host`; its current `soda-host` bin selects `lib/host/src/main.rs`. `cmd/soda-host/main.rs` remains the proposed same-package entrypoint placement, held until shipping command discovery excludes this no-manifest Rust directory from the Go recipe. The concrete backend is split under `lib/host/src/dbackend/`; its source allocation and focused development checks are complete. This does not qualify native, installed or systemd behavior; wider R02 remains open. |
+| Host project/preparation/Tailnet daemon | Historical `f7e9cf9d` source has Rust daemon, native adapters, binary manifest and Rust release compile selection; Go daemon/executor directories are absent | Retain `lib/host` and its selected entrypoint `lib/host/src/main.rs`; supersede optional `cmd/soda-host/main.rs` placement as specified in [host ownership](package-ownership.md#recommended-package-changes). Concrete backend allocation and focused source checks are complete; broader R02 and native/installed/systemd qualification remain open. |
 | Project terminal | Replaces four embedded Python programs at one existing installed helper boundary; native file descriptors, PTY and process handling stay inside the Project | Retain one helper and split its real terminal/subscription/key concerns. This is the strongest current boundary for a selective native port; benefit still needs runtime evidence. |
 | Identity broker | Real replacement of the former Go broker; retains an established custody service | Consolidate provider packages. Reassess handwritten PostgreSQL transport/codecs and cross-language schema/wire maintenance before expanding them. The separate service predates the language change. |
 | Installer + image import | Rust release-build/deliver and native installer/import owners are current; predecessor Go release code is absent. D05/D11 compare their actual guarantees and caller contracts. | Retain both native commands. Delivery owns payload/content admission and canonical OCI archive/content inspection; release-build production callers retain export, config-ID and raw-hash policy. The importer keeps its independent native lifecycle and layout result. The allocated source cutovers are complete; installed/native authority remains separately gated. No FFI, RPC, extra crate or service. |
@@ -130,10 +130,12 @@ closing their allocation dimensions. No installed cutover proof is claimed.
 The current Rust host has a library and real daemon binary. The earlier inspected
 `pr/26` revision, `b306756d00c6801278bb205ea0c8bc9de1d0456a`, lacked that
 entrypoint and concrete backend; those limitations describe that historical
-revision, not the current pinned source. The current package still has one
-`lib/host/Cargo.toml` and selects `lib/host/src/main.rs` as the `soda-host`
-binary. The proposed `cmd/soda-host/main.rs` entrypoint remains a same-package
-placement target, not a current source path or a second manifest.
+revision, not the current pinned source. The current package has one
+`lib/host/Cargo.toml` selecting `lib/host/src/main.rs` as its `soda-host`
+binary. The earlier `cmd/soda-host/main.rs` placement proposal is superseded by
+the [current ownership assessment](package-ownership.md#recommended-package-changes).
+Actual Cargo metadata confirms the existing manifest/bin/source path; this
+source inspection adds no execution or native/installed qualification.
 
 Keep these Go client files whole: access_keys.go, client.go,
 factory_candidate.go, factory_client.go, lifecycle.go, os.go, prepare.go,
@@ -163,7 +165,8 @@ installed proof:
 
 | Target | Existing responsibility and evidence |
 | --- | --- |
-| `cmd/soda-host/main.rs` | Proposed same-package placement for the current `soda-host` entrypoint at `lib/host/src/main.rs`; package/bin identity and CLI remain unchanged. Hold the physical move: `cmd/` discovery treats a new no-manifest `cmd/soda-host/` directory as a Go command and would select both the Go recipe and fixed Rust target. Resolve that shipping discovery join before moving the file. |
+| `lib/host/src/main.rs` | Retained current `soda-host` entrypoint selected by the single `lib/host/Cargo.toml` package/bin target. Cargo metadata receipt confirms the selected source path. |
+| `cmd/soda-host/main.rs` | Superseded optional placement; no desired target leaf. The [host ownership assessment](package-ownership.md#recommended-package-changes) retains the current package/bin/service and shipping behavior. |
 | `lib/host/src/daemon/mod.rs` | Retain/extract current Rust main.rs:185–440 host construction, root/fd3 activation, Muse listener, signal shutdown and bounded Muse→mux drain ordering. The former Go daemon is absent; this is current same-host ownership, not a pending port. H01 records shutdown/caller limits. |
 | `lib/host/src/daemon/config.rs` | Current defining owner after the source join: the byte-identical 288-line host Config/defaults/serde/release-overlay/validation module now lives here, with its existing 238-line test child at `daemon/config/tests.rs`. `main.rs` calls `daemon::config` directly; the `BackendConfig` projection and runtime policy are unchanged. The original `tests/data/iconfig` fixture path remains package-relative and unchanged. Receipt `.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/config-owner-join/checks-receipt.json` records nine config and four binary tests, all host targets compiling and the exact six-file format check passing; it is not installed, native or systemd qualification, and the broader R02/main/backend joins remain open. |
 | `lib/host/src/daemon/backend.rs` | Retain the defining BackendError/TerminalSession/ExecBackend/StubBackend route contract (221 lines). Concrete construction and the production implementation remain under `dbackend::DaemonBackend`; no concrete runtime or second state owner is extracted here. |
