@@ -619,13 +619,13 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/control/readiness.go](../../../../../internal/factory/control/readiness.go)
 
-current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+Current intake, traversal and assessment responsibilities at `7763c62e`.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–140, 281–347; file scaffold; ReadinessObservation; IntakeHint; Validate; assessOutcome; ObserveIssueEvent; assessCascade; assess | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 141–263, 348–366; assessOne; issueAssessor; obscured; obscuredVerdict; acceptanceBlocker; authorityBlockers; record; carrySatisfaction | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | Current declaration duty: assessOne; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 264–280; readinessVerdict | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: readinessVerdict — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–168, 312–379; scaffold, ReadinessObservation, IntakeHint/Validate, assessOutcome, ObserveIssueEvent, assessCascade, assessDependants, visitDependants, assess | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Authenticated intake, idempotent delivery and current synchronous dependant traversal; assessment derives readiness from current acceptance, authority and prerequisite evidence. Durable traversal and aggregate bounds remain B03.C-lifetime. |
+| 169–293, 380–400; assessOne, issueAssessor, obscured/obscuredVerdict, acceptanceBlocker, authorityBlockers, record, carrySatisfaction | [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) | retained | One assessment's evidence and persistence. `7763c62e` keeps prerequisite/cycle reads and final recording inside its existing two-minute context, with the tighter status-read child preserved. Focused actual PG17 regression, blocker and retry checks pass; this does not bound the whole cascade. |
+| 294–311; readinessVerdict | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Ordered blocker classification for authorization, blocked and queued outcomes. |
 
 <a id="coverage-f7aaecb325be"></a>
 
@@ -676,11 +676,11 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/control/readiness_test.go](../../../../../internal/factory/control/readiness_test.go)
 
-current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+Current production-intake fixtures and deadline regression at `7763c62e`.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–213; file scaffold; TestIntakeHintValidate; TestObserveIssueEventCreationQueues; TestObserveIssueEventDuplicateSuppresses; TestObserveIssueEventUnchangedBlockerSuppresses; TestCreationWithoutAuthorityWaitsForAdoption; TestEditedCreationNeedsExplicitAdoption; TestPullHintSkips; TestObserveWithoutReadsRefuses; TestReadinessVerdictPrecedence | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–321; scaffold, eleven intake/readiness tests, acceptanceEvidenceDeadline, deadlineRecordingAcceptanceSource and its ReadAcceptanceEvidence | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Production coordinator intake, creation/adoption, duplicate suppression, unchanged-root retry, pull/visibility refusal and readiness classification. The new `TestObserveIssueEventBoundsPrerequisiteEvidenceRead` reproduces unbounded endpoint evidence before the repair and passes afterward; two existing blocker/retry tests pass, and the affected regression passes after review's timing hardening. Actual PostgreSQL is used; evidence comes from the existing fake source. All owned clusters stopped before deletion; durable continuation and installed/native qualification remain open. |
 
 <a id="coverage-5fe3a2cf91af"></a>
 
