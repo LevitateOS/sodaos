@@ -398,8 +398,8 @@ func checkAssignmentAuthorityTx(ctx context.Context, t *sql.Tx, expected factory
 	return nil
 }
 
-// checkAdmissionLimitsTx enforces appliance, repository, sponsorship,
-// repository allowance and connection rolling usage limits inside the admission transaction. The limit rows are
+// checkAdmissionLimitsTx enforces appliance, one-session-per-repository,
+// sponsorship, repository allowance and connection rolling usage limits inside the admission transaction. The limit rows are
 // locked first so concurrent admissions serialize here; the packet's own
 // held reservation is already recorded, so every comparison accounts for
 // it and refuses exactly when the pre-packet state plus this admission
@@ -424,19 +424,28 @@ func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, co
 	if heldTotal+unattributed > grants.capacity.MaxConcurrentRuns {
 		return ErrCapacityFull
 	}
-	repoLimit := grants.policy.MaxConcurrent
-	if grants.operator.MaxConcurrent < repoLimit {
-		repoLimit = grants.operator.MaxConcurrent
-	}
-	heldRepo, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1`, repoLimit+1, repository)
+	// One executing factory session per repository is a product invariant,
+	// even when the policy or operator has configured a larger concurrency
+	// value. Count held reservations and every active attributed run: a run
+	// whose reservation was consumed or released still owns its process slot.
+	repoSessions, err := cappedCountTx(ctx, t, `
+		SELECT 1 FROM factory_reservations
+			WHERE state='held' AND repository=$1
+		UNION ALL
+		SELECT 1 FROM factory_runs r
+			JOIN factory_assignments a ON a.run=r.id
+			WHERE r.active AND a.repository=$1
+			  AND NOT EXISTS (SELECT 1 FROM factory_reservations res
+				WHERE res.assignment=a.id AND res.state='held')
+		UNION ALL
+		SELECT 1 FROM factory_runs r
+			WHERE r.active
+			  AND r.id NOT IN (SELECT run FROM factory_assignments WHERE run!='')
+			  AND r.data->>'project_id'=$2`, 2, repository, projectID)
 	if err != nil {
 		return err
 	}
-	unattributedProject, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_runs WHERE active AND id NOT IN (SELECT run FROM factory_assignments WHERE run!='') AND data->>'project_id'=$1`, repoLimit+1, projectID)
-	if err != nil {
-		return err
-	}
-	if heldRepo+unattributedProject > repoLimit {
+	if repoSessions > 1 {
 		return ErrRepositoryFull
 	}
 	slots, err := cappedCountTx(ctx, t, `SELECT 1 FROM factory_reservations WHERE state='held' AND repository=$1 AND connection=$2`, grants.sponsorship.MaxConcurrent+1, repository, connection)

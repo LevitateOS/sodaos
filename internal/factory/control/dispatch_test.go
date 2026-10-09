@@ -47,7 +47,7 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	for _, want := range []string{
 		"Prompt template: soda-f07-f2-v4", "Recorded attempt active-time limit: 120 minutes",
 		"Required evidence checks: ci", "Required evidence:", "report blocked with the concrete reason",
-		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 2",
+		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 1",
 		"sponsorship concurrency for this connection in this repository is 2",
 		"Preparation requirements: " + a.Authority.RequirementsID + " approval: " + a.Authority.ApprovalID,
 	} {

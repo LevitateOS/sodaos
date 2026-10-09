@@ -42,6 +42,14 @@ func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	originalRun, err = db.FactoryRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalRun.Outcome, originalRun.Reconciled, originalRun.Summary = factory.Failed, true, "superseded"
+	if err = db.SaveFactoryRun(ctx, originalRun); err != nil {
+		t.Fatal(err)
+	}
 	retry, retryView := retryTestRun(t, a, run)
 	currentAuthority := a.Authority
 	currentAuthority.Policy++ // SaveRepositoryPolicy above advanced the live grant revision.
@@ -316,6 +324,14 @@ func TestAttemptAllowanceExhaustionRollsBackRetry(t *testing.T) {
 
 	control, err := db.IssueControl(ctx, a.Repository, a.Issue)
 	if err != nil {
+		t.Fatal(err)
+	}
+	storedRun, err := db.FactoryRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storedRun.Outcome, storedRun.Reconciled, storedRun.Summary = factory.Failed, true, "superseded"
+	if err = db.SaveFactoryRun(ctx, storedRun); err != nil {
 		t.Fatal(err)
 	}
 	retry, retryView := retryTestRun(t, a, run)

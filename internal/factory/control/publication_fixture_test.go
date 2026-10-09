@@ -245,6 +245,9 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	if err := fx.db.FinishAssignment(ctx, a); err != nil {
 		t.Fatal(err)
 	}
+	if err := fx.db.ConsumeReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
 	return a
 }
 

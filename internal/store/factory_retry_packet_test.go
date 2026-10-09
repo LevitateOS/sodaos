@@ -62,6 +62,7 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = currentControl
+	settle(run.ID)
 	next, err := db.RecordRetryPacket(ctx, a, expected, a.Authority, second, secondView, 30)
 	if err != nil || next.Attempts != 2 || next.Run != second.ID || len(next.RunHistory) != 2 {
 		t.Fatalf("attempt not recorded: %+v %v", next, err)
@@ -77,7 +78,7 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 	}
 	// Recovery settles the superseded run before the next attempt, so it
 	// stops counting against capacity.
-	settle(run.ID)
+	settle(second.ID)
 	third, thirdView := retryTestRun(t, a, run)
 	current, err := db.RecordRetryPacket(ctx, next, expected, next.Authority, third, thirdView, 30)
 	if err != nil {
@@ -107,6 +108,33 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 	}
 }
 
+func TestRecordRetryPacketRefusesAnotherActiveRepositorySession(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	expected, err := db.IssueControl(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, retryView := retryTestRun(t, a, run)
+	if _, err := db.RecordRetryPacket(ctx, a, expected, a.Authority, retry, retryView, 30); !errors.Is(err, ErrRepositoryFull) {
+		t.Fatalf("retry overlapping an active attributed run error = %v, want %v", err, ErrRepositoryFull)
+	}
+	if _, err := db.FactoryRun(ctx, retry.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("refused retry left a run: %v", err)
+	}
+	current, err := db.Assignment(ctx, a.ID)
+	if err != nil || current.Run != run.ID || current.Attempts != 1 {
+		t.Fatalf("refused retry changed its assignment: %+v %v", current, err)
+	}
+}
+
 func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
@@ -116,6 +144,14 @@ func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := dispatchTestControlFor(t, db, a)
+	confirmedUnused, err := db.FactoryRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmedUnused.Outcome, confirmedUnused.Reconciled, confirmedUnused.Summary = factory.Failed, true, "launch confirmed unused"
+	if err := db.SaveFactoryRun(ctx, confirmedUnused); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
 		t.Fatal(err)
 	}

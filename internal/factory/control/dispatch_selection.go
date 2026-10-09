@@ -41,10 +41,10 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 	return factory.Sponsorship{}, waitFor(WaitAuthority, "sponsorship changed during dispatch"), nil
 }
 
-// checkLimits enforces appliance, repository, sponsorship and allowance
-// limits against held reservations, unattributed active runs and
-// confirmed usage, then sizes the plan's deadline from the remaining
-// allowance. The deadline never exceeds the host's supervised bound.
+// checkLimits enforces appliance, repository-session, sponsorship and
+// allowance limits against unsettled runs, held reservations and confirmed
+// usage, then sizes the plan's deadline from the remaining allowance. The
+// deadline never exceeds the host's supervised bound.
 func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan) (*planWait, *planWait) {
 	capacity, err := deps.Store.Capacity(ctx)
 	if err != nil {
@@ -69,7 +69,17 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if grant.MaxConcurrent < repoLimit {
 		repoLimit = grant.MaxConcurrent
 	}
+	if repoLimit > 1 {
+		repoLimit = 1
+	}
 	plan.repositoryConcurrent = repoLimit
+	unsettled, err := deps.Store.ProjectUnsettledRuns(ctx, plan.projectID, 1)
+	if err != nil {
+		return nil, waitFor(DispatchErrStore, "repository run state unreadable")
+	}
+	if len(unsettled) != 0 {
+		return waitFor(WaitRepository, "repository has an unsettled factory session"), nil
+	}
 	if occupancy.heldRepo(repository)+occupancy.byProject[plan.projectID] >= repoLimit {
 		return waitFor(WaitRepository, "repository runs at its limit"), nil
 	}

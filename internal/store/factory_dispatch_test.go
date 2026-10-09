@@ -255,6 +255,40 @@ func TestRecordDispatchPacket(t *testing.T) {
 	}
 }
 
+func TestRecordDispatchPacketEnforcesOneRepositorySession(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name             string
+		releasePriorSlot bool
+	}{
+		{name: "held reservation"},
+		{name: "active attributed run after reservation release", releasePriorSlot: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := dispatchStoreFixture(t)
+			now := time.Now().UTC()
+			first, reservation, run, view := dispatchTestPacket(t, now)
+			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(first), first, reservation, run, view); err != nil {
+				t.Fatal(err)
+			}
+			if tc.releasePriorSlot {
+				if err := db.ReleaseReservation(ctx, first.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			second, nextReservation, nextRun, nextView := dispatchTestPacket(t, now)
+			second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, nextRun.ID, []string{nextRun.ID}
+			second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
+			nextReservation.AssignmentID = second.ID
+			nextView.Issue, nextView.Attempt = second.Issue, second.ID
+			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(second), second, nextReservation, nextRun, nextView); !errors.Is(err, ErrRepositoryFull) {
+				t.Fatalf("second same-repository session error = %v, want %v", err, ErrRepositoryFull)
+			}
+			assertDispatchPacketAbsent(t, db, second)
+		})
+	}
+}
+
 func TestRecordDispatchPacketRejectsChangedQueuedControlAtomically(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
@@ -320,6 +354,23 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
 			t.Fatal(err)
 		}
+		settled, err := db.FactoryRun(ctx, run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		settled.Outcome, settled.Reconciled, settled.Summary = factory.Failed, true, "completed"
+		if err := db.SaveFactoryRun(ctx, settled); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.ConsumeReservation(ctx, a.ID); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.RecordRunUsage(ctx, factory.Usage{
+			RunID: run.ID, Repository: a.Repository, Connection: a.Connection,
+			Minutes: 30, StartedAt: now.Add(-30 * time.Minute), EndedAt: now,
+		}); err != nil {
+			t.Fatal(err)
+		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
 		b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
@@ -363,6 +414,10 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		db := dispatchStoreFixture(t)
 		firstAt := now.Add(-4 * time.Hour)
 		a, reservation, run, _ := dispatchTestPacket(t, firstAt)
+		// This is a different repository sharing the same provider connection;
+		// the product allows cross-repository use of available appliance slots.
+		a.Repository, reservation.Repository = 8, 8
+		a.ProjectID, run.ProjectID = "p888888888888888888888888", "p888888888888888888888888"
 		// Seed an existing held process with its original immutable binding.
 		// Fresh admission correctly refuses its now-expired deadline.
 		if err := db.RecordFactoryRun(ctx, run); err != nil {

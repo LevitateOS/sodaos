@@ -185,23 +185,6 @@ func TestDispatchWaitReasons(t *testing.T) {
 			},
 			reason: WaitRepository,
 		},
-		"sponsorship full": {
-			mutate: func(fx *dispatchFixture, db *store.Store) {
-				sp, err := db.Sponsorship(ctx, fx.repo, "conn")
-				if err != nil {
-					t.Fatal(err)
-				}
-				sp.MaxConcurrent = 1
-				if err := db.SaveSponsorship(ctx, sp); err != nil {
-					t.Fatal(err)
-				}
-				head := fx.accept(t, 9, "d999999999999999999999999")
-				fx.queue(t, 9, head.ID)
-			},
-			reason:   WaitSponsorship,
-			launched: 3,
-			waited:   9,
-		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -222,6 +205,38 @@ func TestDispatchWaitReasons(t *testing.T) {
 				t.Fatal("host launched while waiting")
 			}
 		})
+	}
+}
+
+func TestDispatchWaitsForAttributedUnsettledRepositorySession(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	firstHead := fx.accept(t, 3, "d333333333333333333333333")
+	secondHead := fx.accept(t, 4, "d444444444444444444444444")
+	fx.queue(t, 3, firstHead.ID)
+	fx.queue(t, 4, secondHead.ID)
+	firstPass := DispatchPass(ctx, fx.deps())
+	if len(firstPass.Launched) != 1 || firstPass.Launched[0].Issue != 3 {
+		t.Fatalf("first pass did not launch one session: %+v", firstPass)
+	}
+	firstRunID := firstPass.Launched[0].RunID
+	fx.host.inspect = func(in project.FactoryInspect) (project.FactoryState, error) {
+		if in.ID != firstRunID {
+			return project.FactoryState{}, errors.New("unexpected run inspection")
+		}
+		return project.FactoryState{ID: in.ID, Project: in.Project, Role: project.RoleCoder, Phase: project.FactoryRunning}, nil
+	}
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ReleaseReservation(ctx, assignment.ID); err != nil {
+		t.Fatal(err)
+	}
+	secondPass := DispatchPass(ctx, fx.deps())
+	if len(secondPass.Launched) != 0 || len(fx.host.launches) != 1 || waitReason(secondPass, 4) != WaitRepository {
+		t.Fatalf("unsettled attributed session did not block the next issue: %+v", secondPass)
 	}
 }
 
