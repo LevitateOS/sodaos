@@ -458,9 +458,11 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–17; file scaffold | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 22–205, 208–229; RecordIssueAssessment, IssueControl(s), intake delivery, AcceptanceDependants and readiness sweep state | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | `AcceptanceDependants` uses stable 64-row keyset pages, closes each cursor before decision reads and propagates late errors. Total-visited, recursion and query bounds remain open under RES-GO-ACCEPTANCE-DEPENDANTS-1 |
-| 231–252; FactoryPolicies | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Repository factory policy listing for readiness sweeps |
+| 1–21; file scaffold and intake bounds | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: imports/constants — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 23–150; RecordIssueAssessment, IssueControl(s), intake delivery | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Store issue assessments and delivery deduplication for readiness/intake. |
+| 151–251; AcceptanceDependantsPage, VisitAcceptanceDependants | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | `AcceptanceDependantsPage` materializes at most 64 ordered head keys before canonical JSON matching and returns a cursor over scanned candidates; `VisitAcceptanceDependants` closes rows before callbacks and still synchronously drains all pages. The focused Store selectors pass at `08b2b997` (two PG17 tests, zero skips). Durable continuation, aggregate bounds, total traversal/storage policy and production resume remain open under RES-GO-ACCEPTANCE-DEPENDANTS-1. |
+| 253–274; readiness sweep revision state | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Readiness sweep revision read/write state. |
+| 276–297; FactoryPolicies | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Repository factory policy listing for readiness sweeps |
 
 <a id="coverage-aaa37b27b70e"></a>
 
@@ -470,7 +472,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–250; current intake, readiness and accepted-dependant fixtures; TestAcceptanceDependants; TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure; TestReadinessSweepState and related Store tests | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Store page/retry packet passed 38 actual PostgreSQL checks (5 + 33); exact test cluster stopped; no live DB snapshot. Total traversal/resource profile remains open |
+| 1–290; current intake/readiness/accepted-dependant fixtures; TestAcceptanceDependants; TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure; TestReadinessSweepState and related Store tests | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Historical Store page/retry evidence remains 38 actual PG checks (5 + 33) at `d7d86a38`. Current bounded page assertion was added to the existing late-failure test; the two named selectors passed once with zero skips and confirmed fixture cleanup at `08b2b997`. These do not prove durable cascade continuation, aggregate resource bounds or native qualification. |
 
 <a id="coverage-cad8b9caa61e"></a>
 
