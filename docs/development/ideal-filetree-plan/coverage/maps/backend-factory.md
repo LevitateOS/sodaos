@@ -31,11 +31,13 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/allowance.go](../../../../../internal/factory/allowance.go)
 
+At `165d0d03`, this canonical domain owner distinguishes terminal `Closed` from active clock/slot custody and rejects reactivation or correction consumption on a closed root. Store and coordinator owners implement retirement and native outcome joins; the domain test alone does not prove those workflows.
+
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–138; file scaffold; AttemptLimits; DefaultAttemptLimits; Validate; EffectiveAttemptLimits; AttemptAllowance; RemainingSeconds; Checkpoint; ConsumeCorrection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–146; file scaffold; AttemptLimits; DefaultAttemptLimits; Validate; EffectiveAttemptLimits; AttemptAllowance; RemainingSeconds; Checkpoint; ConsumeCorrection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-a3d80b07dd64"></a>
 
@@ -45,7 +47,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–93; file scaffold; allowanceFixture; TestAttemptLimitsDefaultsAndOwnerValues; TestAttemptAllowanceExcludesOnlyConfirmedQueuedIntervals; TestCorrectionConsumptionChargesFailuresAndReplays; TestAttemptTimeExhaustionStopsCorrections | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–109; file scaffold; allowanceFixture; TestAttemptLimitsDefaultsAndOwnerValues; TestAttemptAllowanceExcludesOnlyConfirmedQueuedIntervals; TestCorrectionConsumptionChargesFailuresAndReplays; TestAttemptTimeExhaustionStopsCorrections; TestClosedAttemptAllowanceCanStopButCannotResumeOrConsumeCorrection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-edd20d1e6636"></a>
 <a id="internalfactoryassignmentgo-1"></a>

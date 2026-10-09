@@ -696,10 +696,10 @@ Persists and applies validated, revisioned Factory policy/capacity/operator-gran
 
 ### [internal/store/factory_attempt_allowances.go](../../../../../internal/store/factory_attempt_allowances.go)
 
-F07 owns issue-scoped allowance snapshots and transactional deadline admission; F08 owns the fresh explicit-retry root transition and pause freeze after repository runs settle under the closed gate revision. Store-source responsibility only; the PG tests cover these store transactions, not the complete automatic loop, corrections, or session exclusivity.
+F07 owns issue-scoped allowance snapshots, transactional deadline admission and separate configured active-attempt capacity; F08 owns fresh explicit-retry roots, terminal closure and release/pause clock transitions after associated runs settle/reconcile. F09/F10/F12 call that canonical Store owner for publication/review/merge outcomes. At `165d0d03`, latest assignment/publication ownership is checked under the exact root lock; terminal closure blocks new native intent while existing receipts remain recoverable. `Active` retains clock/slot custody until retirement, independently of `Closed`. Owned-PostgreSQL checks exercise these transactions and selected coordinator joins; they do not establish automatic child production, cumulative native mutation deadlines or the complete native loop.
 
 <a id="r02-current-path-internal-store-factory-attempt-allowances-test-go"></a>
 
 ### [internal/store/factory_attempt_allowances_test.go](../../../../../internal/store/factory_attempt_allowances_test.go)
 
-F07/F08 PostgreSQL store-fixture checks cover allowance admission, retry snapshots, fresh-root preservation and pause freeze. They do not establish end-to-end automatic-cycle, correction-flow, or session-exclusivity behavior.
+F07/F08 PostgreSQL store-fixture checks cover allowance admission, retry snapshots, old-root closure with preserved usage, fresh-root activation and pause freeze after retirement under the current gate revision. They do not establish the complete automatic/native loop; configured active-root capacity and settled review/CI retention have separate production-path checks in `factory_dispatch_test.go` and control `merge_test.go`.
