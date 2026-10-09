@@ -242,7 +242,7 @@ func TestCheckHarnessSelectsPolicyFamily(t *testing.T) {
 		project.RoleCoder:    {Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.0", Model: "muse-spark-1.3"},
 		project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "codex-model"},
 	}}}
-	if wait := checkHarness(context.Background(), DispatchDeps{Host: fx.host}, plan); wait != nil {
+	if wait := checkHarnessFor(context.Background(), DispatchDeps{Host: fx.host}, plan, project.RoleCoder); wait != nil {
 		t.Fatalf("Muse selection waited: %+v", wait)
 	}
 	if len(fx.host.families) != 1 || fx.host.families[0] != project.FactoryHarnessMuse {
@@ -266,7 +266,7 @@ func TestCheckHarnessRejectsFamilyAndVersionMismatch(t *testing.T) {
 			plan := &attemptPlan{policy: factory.RepositoryPolicy{AttemptLimits: factory.DefaultAttemptLimits(), Roles: map[string]factory.RoleSelection{
 				project.RoleCoder: {Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.0", Model: "m"},
 			}}}
-			if wait := checkHarness(context.Background(), DispatchDeps{Host: fx.host}, plan); wait == nil || wait.Reason != WaitHarness {
+			if wait := checkHarnessFor(context.Background(), DispatchDeps{Host: fx.host}, plan, project.RoleCoder); wait == nil || wait.Reason != WaitHarness {
 				t.Fatalf("wait = %+v, want harness wait", wait)
 			}
 		})

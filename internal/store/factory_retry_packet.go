@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -15,10 +16,10 @@ import (
 // capacity atomically. Attempts are bounded; an exhausted assignment
 // refuses with ErrAssignmentActive so the caller finishes it instead of
 // launching. The expected revision guards concurrent retries: only the
-// first packet at this revision records, and the admission limits are
-// rechecked inside the same transaction, so a retry never spends room a
+// first packet at this revision records. Admission limits and fresh authority
+// are rechecked inside the same transaction, so a retry never spends room a
 // concurrent admission consumed.
-func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, expected factory.IssueControl, run factory.Run, view factory.RunView, planned int) (factory.Assignment, error) {
+func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, expected factory.IssueControl, authority factory.AuthorityRef, run factory.Run, view factory.RunView, planned int) (factory.Assignment, error) {
 	if err := run.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}
@@ -56,6 +57,11 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if current.Revision != a.Revision {
 		return factory.Assignment{}, ErrStaleRevision
 	}
+	if current.Repository != a.Repository || current.Issue != a.Issue || current.Run != a.Run || current.Connection != a.Connection ||
+		run.ProjectID != current.ProjectID || run.Role != current.Role || run.InputSHA != current.SourceCommit ||
+		run.Harness != current.Harness || run.Model != current.Model {
+		return factory.Assignment{}, ErrStaleRevision
+	}
 	if current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
 		return factory.Assignment{}, ErrStaleRevision
 	}
@@ -63,6 +69,31 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 		return factory.Assignment{}, ErrAssignmentActive
 	}
 	if err = validateAttemptPacketTx(ctx, tx, current, false); err != nil {
+		return factory.Assignment{}, err
+	}
+	grants, err := loadAdmissionGrantsTx(ctx, tx, current.Repository, current.Connection)
+	if err != nil {
+		return factory.Assignment{}, err
+	}
+	if err = checkAssignmentAuthorityTx(ctx, tx, authority, current, grants); err != nil {
+		return factory.Assignment{}, err
+	}
+	var previousData []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_runs WHERE id=$1 FOR UPDATE`, current.Run).Scan(&previousData); err != nil {
+		return factory.Assignment{}, err
+	}
+	var previous factory.Run
+	if err = json.Unmarshal(previousData, &previous); err != nil {
+		return factory.Assignment{}, err
+	}
+	if previous.Admission == nil || previous.Admission.Policy.TargetBranch != grants.policy.TargetBranch ||
+		!slices.Equal(previous.Admission.Policy.Checks, grants.policy.Checks) ||
+		previous.Admission.Policy.Roles[current.Role] != grants.policy.Roles[current.Role] ||
+		previous.Admission.Profile != *grants.environment.Profile {
+		return factory.Assignment{}, ErrAdmissionChanged
+	}
+	run.Admission = &factory.RunAdmission{Authority: authority, Policy: grants.policy, Profile: *grants.environment.Profile}
+	if err = run.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}
 	for _, seen := range current.RunHistory {
@@ -124,7 +155,7 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	default:
 		return factory.Assignment{}, errors.New("reservation behind a retry is not held")
 	}
-	if err = checkAdmissionTx(ctx, tx, a.Repository, a.Connection, a.ProjectID); err != nil {
+	if err = checkAdmissionLimitsTx(ctx, tx, current.Repository, current.Connection, current.ProjectID, grants); err != nil {
 		return factory.Assignment{}, err
 	}
 	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, current.AttemptRoot, nil, run.Deadline, time.Now()); err != nil {

@@ -271,7 +271,8 @@ func (g OperatorGrant) Validate() error {
 
 // AuthorityRef binds one dispatch decision to the exact grant, preparation
 // and acceptance revisions behind it. Fountain treats these revisions as
-// opaque; a changed grant closes dispatch rather than renewing old work.
+// opaque. Each launch revalidates current grants; a retry records its fresh
+// admission without renewing the existing attempt's allowance.
 type AuthorityRef struct {
 	RequirementsID        string `json:"requirements_id,omitempty"`
 	ApprovalID            string `json:"approval_id,omitempty"`

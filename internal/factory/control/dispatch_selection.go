@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 // selectSponsorship picks the authority-bound active sponsorship: the
 // first active grant in connection order, at its bound revision, with
-// the coder role. Any other connection is never a fallback.
-func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64, effective factory.EffectiveAuthority) (factory.Sponsorship, *planWait, *planWait) {
+// permission for the requested dispatch role. Any other connection is
+// never a fallback.
+func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64, effective factory.EffectiveAuthority, role string) (factory.Sponsorship, *planWait, *planWait) {
 	sponsorships, err := deps.Store.Sponsorships(ctx, repository)
 	if err != nil {
 		return factory.Sponsorship{}, nil, waitFor(DispatchErrStore, "sponsorships unreadable")
@@ -25,12 +25,12 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 		if sponsorship.Revision != effective.Authority.Sponsorship || sponsorship.Connection != effective.Authority.SponsorshipConnection {
 			return factory.Sponsorship{}, waitFor(WaitAuthority, "sponsorship changed during dispatch"), nil
 		}
-		codes := false
-		for _, role := range sponsorship.Roles {
-			codes = codes || role == project.RoleCoder
+		permitted := false
+		for _, grantedRole := range sponsorship.Roles {
+			permitted = permitted || grantedRole == role
 		}
-		if !codes {
-			return factory.Sponsorship{}, waitFor(WaitSponsorshipRole, "sponsorship permits no coding role"), nil
+		if !permitted {
+			return factory.Sponsorship{}, waitFor(WaitSponsorshipRole, "sponsorship does not permit this role"), nil
 		}
 		budget, err := deps.Store.ConnectionUsageBudget(ctx, sponsorship.Connection)
 		if err != nil || budget.Revision != effective.Authority.ConnectionUsageBudget {
@@ -138,10 +138,9 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	return nil, nil
 }
 
-// selectPreparation binds the coder preparation the current heads
-// authorize: ready, for the coding role, and built from the current
-// requirement and approval decisions. Any other preparation waits.
-func selectPreparation(ctx context.Context, deps DispatchDeps, plan *attemptPlan) (*planWait, *planWait) {
+// selectPreparationFor binds a ready role preparation built from the current
+// requirement and approval decisions. An exact ID preserves child work.
+func selectPreparationFor(ctx context.Context, deps DispatchDeps, plan *attemptPlan, role, exactID string) (*planWait, *planWait) {
 	requirement, err := deps.Store.RequirementHead(ctx, plan.projectID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -161,7 +160,7 @@ func selectPreparation(ctx context.Context, deps DispatchDeps, plan *attemptPlan
 		return nil, waitFor(DispatchErrStore, "preparations unreadable")
 	}
 	for _, prep := range preparations {
-		if prep.Preparation.Role != project.RoleCoder || !prep.State.Ready {
+		if prep.Preparation.Role != role || !prep.State.Ready || (exactID != "" && prep.Preparation.ID != exactID) {
 			continue
 		}
 		if prep.Preparation.Requirements.ID != requirement || prep.Preparation.Approval.ID != approval {
@@ -171,14 +170,16 @@ func selectPreparation(ctx context.Context, deps DispatchDeps, plan *attemptPlan
 		plan.requirement, plan.approval = requirement, approval
 		return nil, nil
 	}
-	return waitFor(WaitPreparation, "no ready coding preparation matches the current decisions"), nil
+	return waitFor(WaitPreparation, "no ready role preparation matches the current decisions"), nil
 }
 
-// checkHarness requires the host's staged pin to match the policy's
-// coding selection exactly: same proved family and version, a valid
-// content pin and a pinned execution image.
-func checkHarness(ctx context.Context, deps DispatchDeps, plan *attemptPlan) *planWait {
-	selection := plan.policy.Roles[project.RoleCoder]
+// checkHarnessFor requires the staged pin to match the selected role's
+// policy family and version, with valid content and a pinned image.
+func checkHarnessFor(ctx context.Context, deps DispatchDeps, plan *attemptPlan, role string) *planWait {
+	selection := plan.policy.Roles[role]
+	if selection.Harness == "" || selection.HarnessVers == "" || selection.Model == "" {
+		return waitFor(WaitHarness, "policy has no selection for this role")
+	}
 	pin, err := deps.Host.FactoryHarness(ctx, selection.Harness)
 	if err != nil {
 		return waitFor(WaitHarness, "staged harness pin unreadable")

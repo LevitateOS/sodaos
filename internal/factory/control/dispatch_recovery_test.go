@@ -1,15 +1,18 @@
 package control
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func TestRecoveryConsumesSettledRunWithoutHook(t *testing.T) {
@@ -45,6 +48,356 @@ func TestRecoveryConsumesSettledRunWithoutHook(t *testing.T) {
 	}
 	if total, _ := db.UsageTotal(ctx, 7, "conn"); total < 1 {
 		t.Fatalf("usage = %d", total)
+	}
+}
+
+func TestReleasedReviewerChildRetryKeepsRecordedPlan(t *testing.T) {
+	ctx := context.Background()
+	fx, parent, _, run := reviewRunSeed(t, false)
+	child, err := fx.db.AssignmentByRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var launches []project.FactoryLaunch
+	host := &fakeDispatchHost{
+		launch: func(in project.FactoryLaunch) (project.FactoryState, error) {
+			launches = append(launches, in)
+			return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+		},
+		harness: func(family string) (project.FactoryHarnessPin, error) {
+			return project.FactoryHarnessPin{Harness: family, Version: fx.seed.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+		},
+	}
+	deps := fx.seed.deps()
+	deps.Host = host
+	deps.Broker = &fakeDispatchBroker{}
+	reservation, err := fx.db.Reservation(ctx, child.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unused, fenced := confirmUnused(ctx, deps, child, run); !unused || fenced {
+		t.Fatalf("child run was not confirmed unused: unused=%t fenced=%t", unused, fenced)
+	}
+	report := DispatchReport{}
+	recoverUnused(ctx, deps, child, reservation, run, &report)
+	if len(launches) != 1 || launches[0].Run.Role != project.RoleReviewer ||
+		launches[0].Run.Preparation != child.Preparation || launches[0].Run.HarnessVers != child.HarnessVers ||
+		launches[0].Run.Model != child.Model || launches[0].Run.SourceCommit != child.SourceCommit || launches[0].Run.Connection != child.Connection ||
+		!bytes.Equal(launches[0].Prompt, child.Prompt) || launches[0].Run.Assignment != child.PromptSHA {
+		t.Fatalf("review retry changed its recorded plan: launches=%+v errors=%+v", launches, report.Errors)
+	}
+	after, err := fx.db.Assignment(ctx, child.ID)
+	if err != nil || after.Attempts != 2 || after.AttemptRoot != parent.AttemptRoot ||
+		after.PublicationAssignment != parent.ID || after.Role != project.RoleReviewer ||
+		!bytes.Equal(after.Prompt, child.Prompt) || after.PromptSHA != child.PromptSHA {
+		t.Fatalf("review retry changed child identity: %+v err=%v", after, err)
+	}
+}
+
+func TestReleasedCorrectionChildRetryKeepsRecordedPlan(t *testing.T) {
+	ctx := context.Background()
+	fx, publication := checkSeed(t, 16)
+	parent, err := fx.db.Assignment(ctx, publication.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, run := fx.childRun(t, parent, publication, project.RoleCoder, publication.Candidate, parent.Preparation, false)
+	child, err := fx.db.AssignmentByRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var launches []project.FactoryLaunch
+	host := &fakeDispatchHost{
+		launch: func(in project.FactoryLaunch) (project.FactoryState, error) {
+			launches = append(launches, in)
+			return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+		},
+		harness: func(family string) (project.FactoryHarnessPin, error) {
+			return project.FactoryHarnessPin{Harness: family, Version: fx.seed.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+		},
+	}
+	deps := fx.seed.deps()
+	deps.Host = host
+	deps.Broker = &fakeDispatchBroker{}
+	reservation, err := fx.db.Reservation(ctx, child.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unused, fenced := confirmUnused(ctx, deps, child, run); !unused || fenced {
+		t.Fatalf("correction child run was not confirmed unused: unused=%t fenced=%t", unused, fenced)
+	}
+	report := DispatchReport{}
+	recoverUnused(ctx, deps, child, reservation, run, &report)
+	if len(launches) != 1 || launches[0].Run.Role != project.RoleCoder ||
+		launches[0].Run.Preparation != child.Preparation || launches[0].Run.Model != child.Model ||
+		launches[0].Run.SourceCommit != child.SourceCommit || launches[0].Run.Connection != child.Connection ||
+		!bytes.Equal(launches[0].Prompt, child.Prompt) || launches[0].Run.Assignment != child.PromptSHA {
+		t.Fatalf("correction retry changed its recorded plan: launches=%+v errors=%+v", launches, report.Errors)
+	}
+	after, err := fx.db.Assignment(ctx, child.ID)
+	if err != nil || after.Attempts != 2 || after.AttemptRoot != parent.AttemptRoot ||
+		after.PublicationAssignment != parent.ID || after.Role != project.RoleCoder || !bytes.Equal(after.Prompt, child.Prompt) {
+		t.Fatalf("correction retry changed child identity: %+v err=%v", after, err)
+	}
+}
+
+func TestReleasedReviewerRetryAcceptsCurrentAuthorityAndNativeRevision(t *testing.T) {
+	ctx := context.Background()
+	fx, _, _, run := reviewRunSeed(t, false)
+	child, err := fx.db.AssignmentByRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capacity, err := fx.db.Capacity(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capacity.MaxConcurrentRuns++
+	if err := fx.db.SaveCapacity(ctx, capacity); err != nil {
+		t.Fatal(err)
+	}
+	budget, err := fx.db.ConnectionUsageBudget(ctx, child.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fx.db.SaveConnectionUsageBudget(ctx, budget); err != nil {
+		t.Fatal(err)
+	}
+	control, err := fx.db.IssueControl(ctx, child.Repository, child.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	control.NativeRev++
+	control.Fingerprint = strings.Repeat("4", 64)
+	if _, _, err := fx.db.RecordIssueAssessment(ctx, control, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	inputKey := fmt.Sprintf("%d/%d", child.Repository, child.Issue)
+	inputs := fx.seed.reads.inputs[inputKey]
+	inputs.Revision = control.NativeRev
+	fx.seed.reads.inputs[inputKey] = inputs
+	var launches []project.FactoryLaunch
+	host := &fakeDispatchHost{
+		launch: func(in project.FactoryLaunch) (project.FactoryState, error) {
+			launches = append(launches, in)
+			return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+		},
+		harness: func(family string) (project.FactoryHarnessPin, error) {
+			return project.FactoryHarnessPin{Harness: family, Version: fx.seed.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+		},
+	}
+	deps := fx.seed.deps()
+	deps.Host = host
+	deps.Broker = &fakeDispatchBroker{}
+	reservation, err := fx.db.Reservation(ctx, child.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unused, fenced := confirmUnused(ctx, deps, child, run); !unused || fenced {
+		t.Fatalf("reviewer run was not confirmed unused: unused=%t fenced=%t", unused, fenced)
+	}
+	report := DispatchReport{}
+	recoverUnused(ctx, deps, child, reservation, run, &report)
+	if len(launches) != 1 || launches[0].Run.Role != project.RoleReviewer || !bytes.Equal(launches[0].Prompt, child.Prompt) {
+		t.Fatalf("retry did not retain the current-authorized child plan: launches=%+v errors=%+v", launches, report.Errors)
+	}
+	after, err := fx.db.Assignment(ctx, child.ID)
+	if err != nil || after.Attempts != child.Attempts+1 || after.Authority != child.Authority ||
+		after.AttemptRoot != child.AttemptRoot || after.PublicationAssignment != child.PublicationAssignment ||
+		after.SourceCommit != child.SourceCommit || after.PromptSHA != child.PromptSHA || !bytes.Equal(after.Prompt, child.Prompt) ||
+		len(after.RunHistory) != len(child.RunHistory)+1 || !slices.Equal(after.RunHistory[:len(child.RunHistory)], child.RunHistory) {
+		t.Fatalf("retry changed the child assignment plan: before=%+v after=%+v err=%v", child, after, err)
+	}
+	retryRun, err := fx.db.FactoryRun(ctx, after.Run)
+	if err != nil || retryRun.Admission == nil {
+		t.Fatalf("retry run admission is missing: %+v err=%v", retryRun.Admission, err)
+	}
+	currentCapacity, err := fx.db.Capacity(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentBudget, err := fx.db.ConnectionUsageBudget(ctx, child.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retryRun.Admission.Authority.Capacity != currentCapacity.Revision ||
+		retryRun.Admission.Authority.ConnectionUsageBudget != currentBudget.Revision {
+		t.Fatalf("retry run did not capture current capacity/budget revisions: admission=%+v capacity=%d budget=%d", retryRun.Admission.Authority, currentCapacity.Revision, currentBudget.Revision)
+	}
+}
+
+func TestReleasedReviewerRetryRefusesLostSponsorship(t *testing.T) {
+	for name, change := range map[string]func(*factory.Sponsorship){
+		"withdrawn":             func(s *factory.Sponsorship) { s.Active = false },
+		"reviewer role removed": func(s *factory.Sponsorship) { s.Roles = []string{project.RoleCoder} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			fx, _, _, run := reviewRunSeed(t, false)
+			child, err := fx.db.AssignmentByRun(ctx, run.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sponsorship, err := fx.db.Sponsorship(ctx, child.Repository, child.Connection)
+			if err != nil {
+				t.Fatal(err)
+			}
+			change(&sponsorship)
+			if err := fx.db.SaveSponsorship(ctx, sponsorship); err != nil {
+				t.Fatal(err)
+			}
+			var launches []project.FactoryLaunch
+			host := &fakeDispatchHost{
+				launch: func(in project.FactoryLaunch) (project.FactoryState, error) {
+					launches = append(launches, in)
+					return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+				},
+				harness: func(family string) (project.FactoryHarnessPin, error) {
+					return project.FactoryHarnessPin{Harness: family, Version: fx.seed.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+				},
+			}
+			deps := fx.seed.deps()
+			deps.Host = host
+			deps.Broker = &fakeDispatchBroker{}
+			reservation, err := fx.db.Reservation(ctx, child.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if unused, fenced := confirmUnused(ctx, deps, child, run); !unused || fenced {
+				t.Fatalf("reviewer run was not confirmed unused: unused=%t fenced=%t", unused, fenced)
+			}
+			report := DispatchReport{}
+			recoverUnused(ctx, deps, child, reservation, run, &report)
+			if len(launches) != 0 {
+				t.Fatalf("child launched after sponsorship change: %+v", launches)
+			}
+			after, err := fx.db.Assignment(ctx, child.ID)
+			if err != nil || after.Stage != factory.AssignmentFinished || after.Reason != factory.AssignReasonWithdrawn {
+				t.Fatalf("unauthorized child was not retired: %+v err=%v", after, err)
+			}
+		})
+	}
+}
+
+func TestReleasedReviewerRetryRefusesChangedRequiredChecks(t *testing.T) {
+	ctx := context.Background()
+	fx, _, _, run := reviewRunSeed(t, false)
+	child, err := fx.db.AssignmentByRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := fx.db.RepositoryPolicy(ctx, child.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.Checks = []string{"new-required-check"}
+	if err := fx.db.SaveRepositoryPolicy(ctx, policy); err != nil {
+		t.Fatal(err)
+	}
+	var launches []project.FactoryLaunch
+	host := &fakeDispatchHost{
+		launch: func(in project.FactoryLaunch) (project.FactoryState, error) {
+			launches = append(launches, in)
+			return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+		},
+		harness: func(family string) (project.FactoryHarnessPin, error) {
+			return project.FactoryHarnessPin{Harness: family, Version: fx.seed.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+		},
+	}
+	deps := fx.seed.deps()
+	deps.Host = host
+	deps.Broker = &fakeDispatchBroker{}
+	reservation, err := fx.db.Reservation(ctx, child.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unused, fenced := confirmUnused(ctx, deps, child, run); !unused || fenced {
+		t.Fatalf("reviewer run was not confirmed unused: unused=%t fenced=%t", unused, fenced)
+	}
+	report := DispatchReport{}
+	recoverUnused(ctx, deps, child, reservation, run, &report)
+	if len(launches) != 0 {
+		t.Fatalf("child launched with obsolete required checks: %+v", launches)
+	}
+	after, err := fx.db.Assignment(ctx, child.ID)
+	if err != nil || after.Stage != factory.AssignmentFinished || after.Reason != factory.AssignReasonSuperseded {
+		t.Fatalf("obsolete child was not retired: %+v err=%v", after, err)
+	}
+}
+
+func TestReleasedChildRetryRefusesSupersededPublication(t *testing.T) {
+	ctx := context.Background()
+	fx, publication := checkSeed(t, 16)
+	parent, err := fx.db.Assignment(ctx, publication.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	correction := correctionRun(t, fx, parent, strings.Repeat("d", 40))
+	// Keep the publisher whose target-tip ledger was populated by checkSeed's
+	// initial publication; a fresh happyPublisher would observe an empty ref.
+	exec := fx.exec
+	exec.push = func(factory.PublicationWork) (factory.OperationOutcome, error) {
+		return factory.OperationOutcome{NotObserved: true}, nil
+	}
+	pending := fx.coord.PublishCorrection(ctx, correction.ID)
+	if len(pending.Waits) != 1 || pending.Waits[0].Reason != "push_unconfirmed" {
+		t.Fatalf("correction intent was not left pending: %+v", pending)
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, parent.ID)
+	if err != nil || len(stored.Corrections) != 1 || stored.Candidate != publication.Candidate ||
+		stored.Corrections[0].Effect != factory.OpEffectPending || stored.Corrections[0].Work == nil {
+		t.Fatalf("pending correction intent is not recorded against the old head: %+v %v", stored, err)
+	}
+	sponsorship, err := fx.db.Sponsorship(ctx, parent.Repository, parent.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sponsorship.Roles = append(sponsorship.Roles, project.RoleReviewer)
+	if err := fx.db.SaveSponsorship(ctx, sponsorship); err != nil {
+		t.Fatal(err)
+	}
+	_, reviewRun := fx.childRun(t, parent, publication, project.RoleReviewer, publication.Candidate, "f222222222222222222222222", false)
+	staleChild, err := fx.db.AssignmentByRun(ctx, reviewRun.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	work := exec.pushes[len(exec.pushes)-1]
+	exec.ledger[work.OperationID] = publicationTestOutcome(work, factory.OpRefPublish, committedOutcome("correction-receipt"))
+	advanced := fx.coord.PublishCorrection(ctx, correction.ID)
+	if len(advanced.Corrected) != 1 || advanced.Corrected[0].HeadOID != strings.Repeat("d", 40) {
+		t.Fatalf("recorded correction was not reconciled: %+v", advanced)
+	}
+	var launches []project.FactoryLaunch
+	host := &fakeDispatchHost{
+		launch: func(in project.FactoryLaunch) (project.FactoryState, error) {
+			launches = append(launches, in)
+			return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
+		},
+		harness: func(family string) (project.FactoryHarnessPin, error) {
+			return project.FactoryHarnessPin{Harness: family, Version: fx.seed.harness, SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64)}, nil
+		},
+	}
+	deps := fx.seed.deps()
+	deps.Host = host
+	deps.Broker = &fakeDispatchBroker{}
+	reservation, err := fx.db.Reservation(ctx, staleChild.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unused, fenced := confirmUnused(ctx, deps, staleChild, reviewRun); !unused || fenced {
+		t.Fatalf("stale child run was not confirmed unused: unused=%t fenced=%t", unused, fenced)
+	}
+	report := DispatchReport{}
+	recoverUnused(ctx, deps, staleChild, reservation, reviewRun, &report)
+	if len(launches) != 0 {
+		t.Fatalf("stale reviewer child launched: %+v", launches)
+	}
+	after, err := fx.db.Assignment(ctx, staleChild.ID)
+	if err != nil || after.Stage != factory.AssignmentFinished || after.Reason != factory.AssignReasonSuperseded {
+		t.Fatalf("stale child was not retired: %+v err=%v", after, err)
+	}
+	if len(report.Errors) != 0 || len(report.Waits) != 0 {
+		t.Fatalf("stale child retry report: %+v", report)
 	}
 }
 

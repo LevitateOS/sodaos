@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -106,10 +107,10 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 }
 
 // retryAttempt relaunches one released assignment after re-checking
-// limits, preparation, harness and inputs. The stored prompt must equal
-// the reverified rebuild; anything else finishes the attempt instead of
-// running stale work. Limit and preparation waits defer quietly: the
-// fresh visit already reports the issue as assigned.
+// limits, role preparation, harness and inputs. Root prompts are rebuilt
+// and compared; child prompts remain their recorded immutable bytes.
+// Limit and preparation waits defer quietly: the fresh visit already
+// reports the issue as assigned.
 func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, report *DispatchReport) {
 	occupancy, err := snapshotOccupancy(ctx, deps.Store)
 	if err != nil {
@@ -121,21 +122,93 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness is unavailable"})
 		return
 	}
-	plan, wait, failed := planAttempt(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control, false)
+	child := a.PublicationAssignment != a.ID
+	publicationTarget := ""
+	if child {
+		publication, publicationErr := deps.Store.PublicationByAssignment(ctx, a.PublicationAssignment)
+		if publicationErr != nil {
+			if errors.Is(publicationErr, store.ErrNotFound) {
+				finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published parent no longer holds", report)
+				return
+			}
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "published parent unreadable"})
+			return
+		}
+		if publication.Stage != factory.PublicationPublished || publication.WithdrawRequested || publication.Candidate != a.SourceCommit ||
+			publication.Acceptance != a.Acceptance || publication.Repository != a.Repository || publication.Issue != a.Issue ||
+			publication.AssignmentID != a.PublicationAssignment {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published parent no longer holds", report)
+			return
+		}
+		publicationTarget = publication.TargetBranch
+		if a.Role != project.RoleCoder && a.Role != project.RoleReviewer {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "child role no longer holds", report)
+			return
+		}
+	}
+	role, exactPreparation := project.RoleCoder, ""
+	if child {
+		role, exactPreparation = a.Role, a.Preparation
+	}
+	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control, false, role, exactPreparation, child)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
 		return
 	}
 	if wait != nil {
 		switch wait.Reason {
-		case WaitAuthority, WaitDispatchClosed:
+		case WaitAuthority, WaitDispatchClosed, WaitSponsorshipRole:
 			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "grants no longer authorize dispatch", report)
 		case WaitInputsChanged, WaitInputsHidden, WaitIssueClosed, WaitIssueLocked:
 			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "accepted inputs no longer hold", report)
 		}
 		return
 	}
-	if !bytes.Equal(plan.prompt, a.Prompt) {
+	if child {
+		selection := plan.policy.Roles[a.Role]
+		if plan.attemptRoot != a.AttemptRoot ||
+			plan.sponsorship.Connection != a.Connection || selection.Model != a.Model ||
+			a.Harness != plan.pin.Harness+"-"+plan.pin.Version || a.HarnessVers != plan.pin.Version ||
+			plan.prep.Preparation.ID != a.Preparation || plan.policy.TargetBranch != publicationTarget {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded child profile or authority changed", report)
+			return
+		}
+		previousRun, runErr := deps.Store.FactoryRun(ctx, a.Run)
+		if runErr != nil {
+			if errors.Is(runErr, store.ErrNotFound) {
+				finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "prior child run profile is unavailable", report)
+				return
+			}
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "prior child run unreadable"})
+			return
+		}
+		if previousRun.Admission == nil {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "prior child run profile is unavailable", report)
+			return
+		}
+		environment, envErr := deps.Store.EnvironmentGrant(ctx, a.Repository)
+		if envErr != nil {
+			if errors.Is(envErr, store.ErrNotFound) {
+				finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "environment authorization no longer holds", report)
+				return
+			}
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "environment profile unreadable"})
+			return
+		}
+		previous := previousRun.Admission
+		oldSelection, hadOldSelection := previous.Policy.Roles[a.Role]
+		if !environment.Active || environment.Profile == nil {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "environment authorization no longer holds", report)
+			return
+		}
+		if !hadOldSelection ||
+			previous.Policy.TargetBranch != plan.policy.TargetBranch ||
+			!slices.Equal(previous.Policy.Checks, plan.policy.Checks) ||
+			oldSelection != selection || previous.Profile != *environment.Profile {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded child launch profile changed", report)
+			return
+		}
+	} else if !bytes.Equal(plan.prompt, a.Prompt) {
 		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "accepted inputs no longer hold", report)
 		return
 	}
@@ -147,7 +220,7 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
-	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, run, view, plan.planned)
+	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
 	if err != nil {
 		if errors.Is(err, store.ErrDispatchControlStale) {
 			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during retry"})

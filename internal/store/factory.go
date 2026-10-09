@@ -13,6 +13,9 @@ import (
 // RecordFactoryRun stores a fresh supervised run before any host call. A
 // consumed run ID is never reused; only the supervisor mutates the record.
 func (s *Store) RecordFactoryRun(ctx context.Context, r factory.Run) error {
+	if r.Admission != nil {
+		return errors.New("run admission requires an atomic dispatch packet")
+	}
 	if err := r.Validate(); err != nil {
 		return err
 	}
@@ -41,7 +44,9 @@ func (s *Store) FactoryRun(ctx context.Context, id string) (factory.Run, error) 
 }
 
 // SaveFactoryRun persists supervisor observations. Credential facts and the
-// settled marker only advance; a terminal outcome never changes.
+// settled marker only advance; a terminal outcome never changes. Admission
+// metadata belongs to the dispatch transaction and is preserved when an
+// observation omits it; an attempted replacement refuses.
 func (s *Store) SaveFactoryRun(ctx context.Context, r factory.Run) error {
 	if err := r.Validate(); err != nil {
 		return err
@@ -50,7 +55,9 @@ func (s *Store) SaveFactoryRun(ctx context.Context, r factory.Run) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_runs SET active=$1,settled=$2,data=$3 WHERE id=$4
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_runs SET active=$1,settled=$2,
+data=($3::jsonb - 'admission') || jsonb_build_object('admission',data->'admission') WHERE id=$4
+AND (($7::jsonb->'admission') IS NULL OR (data->'admission')=($7::jsonb->'admission'))
 AND (coalesce(data->>'identity_lease_id','')='' OR (data->>'identity_lease_id'=$5 AND (data->>'identity_generation')::bigint=$6))
 AND ((data->'identity_binding') IS NULL OR (data->'identity_binding')=($7::jsonb->'identity_binding'))
 AND (coalesce((data->>'credential_delegated')::boolean,FALSE)=FALSE OR $8)

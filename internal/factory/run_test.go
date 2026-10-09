@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func testRun() Run {
@@ -25,6 +26,41 @@ func TestRunRequiresExecutionAddress(t *testing.T) {
 	r.ProjectID = "../../other"
 	if err := r.Validate(); err == nil {
 		t.Fatal("non-project address accepted")
+	}
+}
+
+func TestRunAdmissionBindsPolicyProfileAndRoleSelection(t *testing.T) {
+	r := testRun()
+	policy := grantTestPolicy()
+	policy.Revision = 1
+	r.Role, r.Model = project.RoleCoder, policy.Roles[project.RoleCoder].Model
+	r.Admission = &RunAdmission{
+		Authority: AuthorityRef{Policy: 1},
+		Policy:    policy,
+		Profile: project.Profile{
+			ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless",
+			Architecture: "amd64", Image: "sha256:" + strings.Repeat("b", 64), Revision: strings.Repeat("c", 40),
+		},
+	}
+	if err := r.Validate(); err != nil {
+		t.Fatalf("valid admission rejected: %v", err)
+	}
+
+	changed := r
+	changed.Admission = &RunAdmission{Authority: r.Admission.Authority, Policy: r.Admission.Policy, Profile: r.Admission.Profile}
+	changed.Admission.Policy.Revision++
+	if err := changed.Validate(); err == nil {
+		t.Fatal("policy revision mismatch accepted")
+	}
+	changed.Admission = &RunAdmission{Authority: r.Admission.Authority, Policy: r.Admission.Policy, Profile: r.Admission.Profile}
+	changed.Admission.Profile.Image = "unpinned"
+	if err := changed.Validate(); err == nil {
+		t.Fatal("invalid admitted profile accepted")
+	}
+	changed.Admission = &RunAdmission{Authority: r.Admission.Authority, Policy: r.Admission.Policy, Profile: r.Admission.Profile}
+	changed.Model = "another-model"
+	if err := changed.Validate(); err == nil {
+		t.Fatal("run outside admitted role selection accepted")
 	}
 }
 

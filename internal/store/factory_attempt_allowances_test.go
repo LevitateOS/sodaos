@@ -24,6 +24,10 @@ func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 	if err != nil || allowance.RootAssignment != a.ID || allowance.Limits != factory.DefaultAttemptLimits() || !allowance.Active {
 		t.Fatalf("initial allowance = %+v, %v", allowance, err)
 	}
+	originalRun, err := db.FactoryRun(ctx, run.ID)
+	if err != nil || originalRun.Admission == nil || originalRun.Admission.Policy.AttemptLimits != factory.DefaultAttemptLimits() {
+		t.Fatalf("initial run admission = %+v, %v", originalRun.Admission, err)
+	}
 
 	policy, err := db.RepositoryPolicy(ctx, a.Repository)
 	if err != nil {
@@ -39,8 +43,18 @@ func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	retry, retryView := retryTestRun(t, a, run)
-	if _, err = db.RecordRetryPacket(ctx, a, control, retry, retryView, 30); err != nil {
+	currentAuthority := a.Authority
+	currentAuthority.Policy++ // SaveRepositoryPolicy above advanced the live grant revision.
+	if _, err = db.RecordRetryPacket(ctx, a, control, currentAuthority, retry, retryView, 30); err != nil {
 		t.Fatal(err)
+	}
+	storedOriginal, err := db.FactoryRun(ctx, run.ID)
+	if err != nil || storedOriginal.Admission == nil || storedOriginal.Admission.Policy.AttemptLimits != factory.DefaultAttemptLimits() {
+		t.Fatalf("policy change rewrote original run admission = %+v, %v", storedOriginal.Admission, err)
+	}
+	storedRetry, err := db.FactoryRun(ctx, retry.ID)
+	if err != nil || storedRetry.Admission == nil || storedRetry.Admission.Policy.AttemptLimits != policy.AttemptLimits {
+		t.Fatalf("retry did not capture current admission policy = %+v, %v", storedRetry.Admission, err)
 	}
 	allowance, err = db.AttemptAllowance(ctx, a.Repository, a.Issue)
 	if err != nil || allowance.RootAssignment != a.ID || allowance.Limits != factory.DefaultAttemptLimits() {
@@ -183,7 +197,7 @@ func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	retryRun, retryView := retryTestRun(t, child, childRun)
-	if _, err = db.RecordRetryPacket(ctx, child, control, retryRun, retryView, 30); err != nil {
+	if _, err = db.RecordRetryPacket(ctx, child, control, child.Authority, retryRun, retryView, 30); err != nil {
 		t.Fatalf("correction retry refused: %v", err)
 	}
 	allowance, err = db.AttemptAllowance(ctx, root.Repository, root.Issue)
@@ -305,7 +319,7 @@ func TestAttemptAllowanceExhaustionRollsBackRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	retry, retryView := retryTestRun(t, a, run)
-	if _, err = db.RecordRetryPacket(ctx, a, control, retry, retryView, 30); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
+	if _, err = db.RecordRetryPacket(ctx, a, control, a.Authority, retry, retryView, 30); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
 		t.Fatalf("exhausted retry error = %v", err)
 	}
 	if _, err = db.FactoryRun(ctx, retry.ID); !errors.Is(err, ErrNotFound) {

@@ -133,6 +133,13 @@ func refreshOccupancy(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 // anything. Every check that fails reports its wait or failure; a full
 // plan hands its exact bound inputs to the executor.
 func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool) (*attemptPlan, *planWait, *planWait) {
+	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, freshAttempt, project.RoleCoder, "", false)
+}
+
+// planAttemptForRole shares the mutable dispatch checks between initial coder
+// work and retries. A recorded child supplies its own role and exact approved
+// preparation; callers keep its prompt bytes instead of rebuilding a new plan.
+func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool) (*attemptPlan, *planWait, *planWait) {
 	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
 		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
 	}
@@ -164,7 +171,7 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		return nil, nil, waitFor(DispatchErrStore, "policy unreadable")
 	}
 	plan.policy = policy
-	sponsorship, wait, failed := selectSponsorship(ctx, deps, repository, effective)
+	sponsorship, wait, failed := selectSponsorship(ctx, deps, repository, effective, role)
 	if failed != nil || wait != nil {
 		return nil, wait, failed
 	}
@@ -177,10 +184,12 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if wait, failed := checkLimits(ctx, deps, occupancy, plan); failed != nil || wait != nil {
 		return nil, wait, failed
 	}
-	if wait, failed := selectPreparation(ctx, deps, plan); failed != nil || wait != nil {
+	if wait, failed := selectPreparationFor(ctx, deps, plan, role, preparation); failed != nil || wait != nil {
 		return nil, wait, failed
 	}
-	if wait := checkHarness(ctx, deps, plan); wait != nil {
+	plan.effective.Authority.RequirementsID = plan.requirement
+	plan.effective.Authority.ApprovalID = plan.approval
+	if wait := checkHarnessFor(ctx, deps, plan, role); wait != nil {
 		return nil, wait, nil
 	}
 	if wait, failed := readAttemptInputs(ctx, deps, plan, repository, issue); failed != nil || wait != nil {
@@ -189,31 +198,37 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if plan.inputs.Revision != control.NativeRev {
 		return nil, waitFor(WaitInputsChanged, "readiness observation changed before dispatch"), nil
 	}
-	prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
-		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
-		AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
-		Preparation:    plan.prep.Preparation.ID,
-		RequirementsID: plan.requirement, ApprovalID: plan.approval,
-		Harness: plan.pin.Harness, Model: policy.Roles[project.RoleCoder].Model, Role: project.RoleCoder,
-		ProviderConnection:    plan.sponsorship.Connection,
-		RequiredChecks:        policy.Checks,
-		ApplianceConcurrent:   plan.applianceConcurrent,
-		RepositoryConcurrent:  plan.repositoryConcurrent,
-		SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
-		AttemptLimits:         plan.attemptLimits,
-		Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
-		Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
-		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
-		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
-	})
-	if err != nil {
-		if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
-			return nil, waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes"), nil
+	selection := policy.Roles[role]
+	if recordedPrompt {
+		plan.prompt = nil
+		plan.promptSHA = ""
+	} else {
+		prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
+			Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
+			AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
+			Preparation:    plan.prep.Preparation.ID,
+			RequirementsID: plan.requirement, ApprovalID: plan.approval,
+			Harness: plan.pin.Harness, Model: selection.Model, Role: role,
+			ProviderConnection:    plan.sponsorship.Connection,
+			RequiredChecks:        policy.Checks,
+			ApplianceConcurrent:   plan.applianceConcurrent,
+			RepositoryConcurrent:  plan.repositoryConcurrent,
+			SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
+			AttemptLimits:         plan.attemptLimits,
+			Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
+			Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
+			Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
+			Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
+		})
+		if err != nil {
+			if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
+				return nil, waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes"), nil
+			}
+			return nil, waitFor(WaitPrompt, "accepted inputs exceed the prompt bound"), nil
 		}
-		return nil, waitFor(WaitPrompt, "accepted inputs exceed the prompt bound"), nil
+		plan.prompt = prompt
+		plan.promptSHA = project.FactoryPromptDigest(prompt)
 	}
-	plan.prompt = prompt
-	plan.promptSHA = project.FactoryPromptDigest(prompt)
 	open, gateRev, _, err := deps.Store.DispatchState(ctx, repository)
 	if err != nil {
 		return nil, nil, waitFor(DispatchErrStore, "dispatch gate unreadable")

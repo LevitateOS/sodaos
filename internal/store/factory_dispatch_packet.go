@@ -96,6 +96,9 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if d.ID != a.ID || d.Repository != a.Repository {
 		return errors.New("dispatch packet registration does not match its assignment")
 	}
+	if d.Authority != a.Authority {
+		return ErrAdmissionChanged
+	}
 	if a.Stage != factory.AssignmentAssigned || a.Outcome != "" || a.Result != nil {
 		return errors.New("dispatch packet carries a fresh assignment")
 	}
@@ -109,6 +112,17 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 		return errors.New("dispatch packet view does not match its assignment")
 	}
 	if err := validateAttemptPacketTx(ctx, tx, a, freshAttempt); err != nil {
+		return err
+	}
+	grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
+	if err != nil {
+		return err
+	}
+	if err = checkAssignmentAuthorityTx(ctx, tx, a.Authority, a, grants); err != nil {
+		return err
+	}
+	run.Admission = &factory.RunAdmission{Authority: a.Authority, Policy: grants.policy, Profile: *grants.environment.Profile}
+	if err = run.Validate(); err != nil {
 		return err
 	}
 	adata, err := json.Marshal(a)
@@ -137,13 +151,6 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES($1,$2,$3,$4)`,
 		view.RunID, view.Repository, view.Issue, view.Attempt); err != nil {
 		return fmt.Errorf("dispatch packet failed: %w", err)
-	}
-	grants, err := loadAdmissionGrantsTx(ctx, tx, a.Repository, a.Connection)
-	if err != nil {
-		return err
-	}
-	if err = checkDispatchAuthorityTx(ctx, tx, d, a, grants); err != nil {
-		return err
 	}
 	if err = checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants); err != nil {
 		return err
@@ -272,6 +279,7 @@ type admissionGrants struct {
 	operator    factory.OperatorGrant
 	sponsorship factory.Sponsorship
 	usageBudget factory.ConnectionUsageBudget
+	environment project.EnvironmentGrant
 }
 
 func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, connection string) (admissionGrants, error) {
@@ -345,21 +353,23 @@ func loadAdmissionGrantsTx(ctx context.Context, t *sql.Tx, repository int64, con
 	if grants.usageBudget.Connection != connection || grants.usageBudget.Validate() != nil {
 		return admissionGrants{}, ErrAdmissionChanged
 	}
+	var environmentData []byte
+	if err = t.QueryRowContext(ctx, `SELECT data FROM project_environment_grants WHERE repository=$1 FOR UPDATE`, repository).Scan(&environmentData); err != nil {
+		return admissionGrants{}, admissionChanged(err)
+	}
+	if err = json.Unmarshal(environmentData, &grants.environment); err != nil {
+		return admissionGrants{}, err
+	}
+	if grants.environment.Validate() != nil {
+		return admissionGrants{}, ErrAdmissionChanged
+	}
 	return grants, nil
 }
 
-func checkDispatchAuthorityTx(ctx context.Context, t *sql.Tx, d factory.DispatchRegistration, a factory.Assignment, grants admissionGrants) error {
-	if d.Authority != a.Authority {
-		return ErrAdmissionChanged
-	}
-	var environment project.EnvironmentGrant
-	var edata []byte
-	if err := t.QueryRowContext(ctx, `SELECT data FROM project_environment_grants WHERE repository=$1 FOR UPDATE`, a.Repository).Scan(&edata); err != nil {
-		return admissionChanged(err)
-	}
-	if err := json.Unmarshal(edata, &environment); err != nil {
-		return err
-	}
+// checkAssignmentAuthorityTx binds fresh authorization to the grant rows locked
+// for this admission. A retry retains its original assignment history while
+// checking the current role grant and the same approved preparation decisions.
+func checkAssignmentAuthorityTx(ctx context.Context, t *sql.Tx, expected factory.AuthorityRef, a factory.Assignment, grants admissionGrants) error {
 	var requirement, approval string
 	if err := t.QueryRowContext(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=$1 FOR UPDATE`, a.ProjectID).Scan(&requirement); err != nil {
 		return admissionChanged(err)
@@ -368,41 +378,33 @@ func checkDispatchAuthorityTx(ctx context.Context, t *sql.Tx, d factory.Dispatch
 		return admissionChanged(err)
 	}
 
-	coder := false
+	permitted := false
 	for _, role := range grants.sponsorship.Roles {
-		coder = coder || role == project.RoleCoder
+		permitted = permitted || role == a.Role
 	}
 	if !grants.policy.Enabled || grants.policy.Paused || !grants.operator.Active ||
-		!grants.sponsorship.Active || !coder || !environment.Active {
+		!grants.sponsorship.Active || !permitted || !grants.environment.Active || grants.environment.Profile == nil {
 		return ErrAdmissionChanged
 	}
 	current := factory.AuthorityRef{
 		Policy: grants.policy.Revision, Operator: grants.operator.Revision,
 		Capacity: grants.capacity.Revision, Sponsorship: grants.sponsorship.Revision,
 		SponsorshipConnection: grants.sponsorship.Connection, ConnectionUsageBudget: grants.usageBudget.Revision,
-		Environment: environment.Revision, RequirementsID: requirement, ApprovalID: approval,
+		Environment: grants.environment.Revision, RequirementsID: requirement, ApprovalID: approval,
 	}
-	if current != a.Authority {
+	if current != expected || requirement != a.Authority.RequirementsID || approval != a.Authority.ApprovalID {
 		return ErrAdmissionChanged
 	}
 	return nil
 }
 
-// checkAdmissionTx enforces appliance, repository, sponsorship,
+// checkAdmissionLimitsTx enforces appliance, repository, sponsorship,
 // repository allowance and connection rolling usage limits inside the admission transaction. The limit rows are
 // locked first so concurrent admissions serialize here; the packet's own
 // held reservation is already recorded, so every comparison accounts for
 // it and refuses exactly when the pre-packet state plus this admission
 // would exceed a limit. Count reads are capped just past each limit,
 // which decides exact admission without scanning settled history.
-func checkAdmissionTx(ctx context.Context, t *sql.Tx, repository int64, connection, projectID string) error {
-	grants, err := loadAdmissionGrantsTx(ctx, t, repository, connection)
-	if err != nil {
-		return err
-	}
-	return checkAdmissionLimitsTx(ctx, t, repository, connection, projectID, grants)
-}
-
 func checkAdmissionLimitsTx(ctx context.Context, t *sql.Tx, repository int64, connection, projectID string, grants admissionGrants) error {
 	charge, err := connectionUsageCharge(ctx, t, connection, time.Now())
 	if err != nil {

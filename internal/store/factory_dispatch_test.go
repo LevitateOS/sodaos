@@ -174,12 +174,13 @@ func dispatchTestRegistration(a factory.Assignment) factory.DispatchRegistration
 
 func dispatchTestPrompt(t *testing.T) []byte {
 	t.Helper()
+	selection := grantTestPolicy().Roles[project.RoleCoder]
 	prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
 		Repository: 7, Issue: 3, NativeRev: 5,
 		AcceptanceID: "d" + strings.Repeat("a", 24),
 		TargetBranch: "refs/heads/main", SourceCommit: strings.Repeat("c", 40),
 		Preparation: "f" + strings.Repeat("b", 24),
-		Harness:     "codex", Model: "m", Role: project.RoleCoder,
+		Harness:     selection.Harness, Model: selection.Model, Role: project.RoleCoder,
 		ProviderConnection: "conn", RequiredChecks: []string{"ci"},
 		ApplianceConcurrent: 2, RepositoryConcurrent: 2, SponsorshipConcurrent: 2, AttemptLimits: factory.DefaultAttemptLimits(),
 		RequirementsID: "d" + strings.Repeat("e", 24), ApprovalID: "d" + strings.Repeat("f", 24),
@@ -193,6 +194,7 @@ func dispatchTestPrompt(t *testing.T) []byte {
 
 func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
 	t.Helper()
+	selection := grantTestPolicy().Roles[project.RoleCoder]
 	prompt := dispatchTestPrompt(t)
 	sum := sha256.Sum256(prompt)
 	assignmentID, runID := factory.NewID(), factory.NewID()
@@ -201,7 +203,7 @@ func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factor
 		ProjectID: dispatchTestProjectID(), Role: project.RoleCoder,
 		Repository: 7, Issue: 3, Revision: 0, NativeRev: 5,
 		Acceptance: "d" + strings.Repeat("a", 24), Preparation: "f" + strings.Repeat("b", 24),
-		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "m",
+		Harness: selection.Harness + "-" + selection.HarnessVers, HarnessVers: selection.HarnessVers, Model: selection.Model,
 		Connection: "conn", SourceCommit: strings.Repeat("c", 40),
 		Prompt: prompt, PromptSHA: hex.EncodeToString(sum[:]),
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned, Attempts: 1,
@@ -211,7 +213,7 @@ func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factor
 	run := factory.Run{
 		ID: runID, ProjectID: a.ProjectID, Role: project.RoleCoder, InputSHA: strings.Repeat("c", 40),
 		Started: now, Deadline: now.Add(30 * time.Minute),
-		Image: "sha256:" + strings.Repeat("b", 64), Harness: "codex-1.2.3", Model: "m",
+		Image: "sha256:" + strings.Repeat("b", 64), Harness: selection.Harness + "-" + selection.HarnessVers, Model: selection.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: 7, Issue: 3, Attempt: a.ID}
 	return a, r, run, view

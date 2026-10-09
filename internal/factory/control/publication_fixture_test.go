@@ -192,7 +192,6 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 		ProjectID: fx.seed.proj, Role: project.RoleCoder,
 		Repository: fx.seed.repo, Issue: issue, Revision: 0, NativeRev: 41,
 		Acceptance: decision.ID, Preparation: "f111111111111111111111111",
-		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "m",
 		Connection: "conn", SourceCommit: strings.Repeat("c", 40),
 		Prompt: prompt, PromptSHA: dispatchDigest("prompt"),
 		Run: factory.NewID(), RunHistory: []string{}, Stage: factory.AssignmentAssigned, Attempts: 1,
@@ -202,6 +201,12 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	if err != nil || !authority.Effective {
 		t.Fatalf("fixture authority: %+v %v", authority, err)
 	}
+	policy, err := fx.db.RepositoryPolicy(ctx, a.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selection := policy.Roles[a.Role]
+	a.Harness, a.HarnessVers, a.Model = selection.Harness+"-"+selection.HarnessVers, selection.HarnessVers, selection.Model
 	a.Authority = authority.Authority
 	a.Authority.RequirementsID, err = fx.db.RequirementHead(ctx, a.ProjectID)
 	if err != nil {
@@ -221,7 +226,7 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	run := factory.Run{
 		ID: a.Run, ProjectID: a.ProjectID, Role: project.RoleCoder, InputSHA: strings.Repeat("c", 40),
 		Started: now, Deadline: now.Add(30 * time.Minute),
-		Image: "sha256:" + strings.Repeat("b", 64), Harness: "codex-1.2.3", Model: "m",
+		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: a.Run, Repository: fx.seed.repo, Issue: issue, Attempt: a.ID}
 	if err := fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, dispatchControlForAssignment(t, fx.db, a), a, r, run, view); err != nil {
@@ -255,12 +260,20 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 	if err != nil || !authority.Effective {
 		t.Fatalf("child fixture authority: %+v %v", authority, err)
 	}
+	policy, err := fx.db.RepositoryPolicy(ctx, parent.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selection, ok := policy.Roles[role]
+	if !ok {
+		t.Fatalf("child fixture role %q has no policy selection", role)
+	}
 	a := factory.Assignment{
 		Authority: authority.Authority,
 		ID:        factory.NewID(), AttemptRoot: parent.AttemptRoot, PublicationAssignment: parent.ID,
 		ProjectID: parent.ProjectID, Role: role, Repository: parent.Repository, Issue: parent.Issue,
 		NativeRev: parent.NativeRev, Acceptance: parent.Acceptance, Preparation: preparation,
-		Harness: parent.Harness, HarnessVers: parent.HarnessVers, Model: parent.Model,
+		Harness: selection.Harness + "-" + selection.HarnessVers, HarnessVers: selection.HarnessVers, Model: selection.Model,
 		Connection: parent.Connection, SourceCommit: source,
 		Prompt: []byte("child prompt"), PromptSHA: dispatchDigest("child prompt"),
 		Run: factory.NewID(), RunHistory: []string{}, Stage: factory.AssignmentAssigned,

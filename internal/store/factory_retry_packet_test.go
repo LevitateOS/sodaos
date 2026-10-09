@@ -3,10 +3,14 @@ package store
 import (
 	"context"
 	"errors"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func retryTestRun(t *testing.T, a factory.Assignment, run factory.Run) (factory.Run, factory.RunView) {
@@ -47,7 +51,7 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 	if _, _, err := db.RecordIssueAssessment(ctx, changed, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.RecordRetryPacket(ctx, a, expected, second, secondView, 30); !errors.Is(err, ErrDispatchControlStale) {
+	if _, err := db.RecordRetryPacket(ctx, a, expected, a.Authority, second, secondView, 30); !errors.Is(err, ErrDispatchControlStale) {
 		t.Fatalf("stale control retry error = %v", err)
 	}
 	if _, err := db.FactoryRun(ctx, second.ID); !errors.Is(err, ErrNotFound) {
@@ -58,29 +62,29 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = currentControl
-	next, err := db.RecordRetryPacket(ctx, a, expected, second, secondView, 30)
+	next, err := db.RecordRetryPacket(ctx, a, expected, a.Authority, second, secondView, 30)
 	if err != nil || next.Attempts != 2 || next.Run != second.ID || len(next.RunHistory) != 2 {
 		t.Fatalf("attempt not recorded: %+v %v", next, err)
 	}
 	if _, err = db.FactoryRun(ctx, second.ID); err != nil {
 		t.Fatalf("retry run missing: %v", err)
 	}
-	if _, err = db.RecordRetryPacket(ctx, a, expected, second, secondView, 30); !errors.Is(err, ErrStaleRevision) {
+	if _, err = db.RecordRetryPacket(ctx, a, expected, a.Authority, second, secondView, 30); !errors.Is(err, ErrStaleRevision) {
 		t.Fatalf("stale retry accepted: %v", err)
 	}
-	if _, err = db.RecordRetryPacket(ctx, next, expected, second, secondView, 30); err == nil {
+	if _, err = db.RecordRetryPacket(ctx, next, expected, next.Authority, second, secondView, 30); err == nil {
 		t.Fatal("reused run identity accepted")
 	}
 	// Recovery settles the superseded run before the next attempt, so it
 	// stops counting against capacity.
 	settle(run.ID)
 	third, thirdView := retryTestRun(t, a, run)
-	current, err := db.RecordRetryPacket(ctx, next, expected, third, thirdView, 30)
+	current, err := db.RecordRetryPacket(ctx, next, expected, next.Authority, third, thirdView, 30)
 	if err != nil {
 		t.Fatalf("third attempt refused: %v", err)
 	}
 	fourth, fourthView := retryTestRun(t, a, run)
-	if _, err = db.RecordRetryPacket(ctx, current, expected, fourth, fourthView, 30); !errors.Is(err, ErrAssignmentActive) {
+	if _, err = db.RecordRetryPacket(ctx, current, expected, current.Authority, fourth, fourthView, 30); !errors.Is(err, ErrAssignmentActive) {
 		t.Fatalf("fourth attempt accepted: %v", err)
 	}
 	finished, err := db.Assignment(ctx, a.ID)
@@ -116,7 +120,7 @@ func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	second, secondView := retryTestRun(t, a, run)
-	next, err := db.RecordRetryPacket(ctx, a, expected, second, secondView, 45)
+	next, err := db.RecordRetryPacket(ctx, a, expected, a.Authority, second, secondView, 45)
 	if err != nil {
 		t.Fatalf("retry refused: %v", err)
 	}
@@ -142,11 +146,193 @@ func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
 	// A refused retry consumes no attempt either: the assignment still
 	// retries once room frees.
 	third, thirdView := retryTestRun(t, a, run)
-	if _, err = db.RecordRetryPacket(ctx, next, expected, third, thirdView, 45); !errors.Is(err, ErrCapacityFull) {
+	currentAuthority := next.Authority
+	currentAuthority.Capacity = 2
+	if _, err = db.RecordRetryPacket(ctx, next, expected, currentAuthority, third, thirdView, 45); !errors.Is(err, ErrCapacityFull) {
 		t.Fatalf("over-capacity retry accepted: %v", err)
 	}
 	stored, err := db.Assignment(ctx, a.ID)
 	if err != nil || stored.Attempts != next.Attempts {
 		t.Fatalf("retry attempts wrong: %+v %v", stored, err)
+	}
+}
+
+func TestRecordRetryPacketRefusesWithdrawnOperatorAtomically(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	db := dispatchStoreFixture(t)
+	a, reservation, run, view := dispatchTestPacket(t, now)
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	allowanceBefore, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operator, err := db.OperatorGrant(ctx, a.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operator.Active = false
+	if err = db.SaveOperatorGrant(ctx, operator); err != nil {
+		t.Fatal(err)
+	}
+	control, err := db.IssueControl(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, retryView := retryTestRun(t, a, run)
+	currentAuthority := a.Authority
+	currentAuthority.Operator++
+	if _, err = db.RecordRetryPacket(ctx, a, control, currentAuthority, retry, retryView, 30); !errors.Is(err, ErrAdmissionChanged) {
+		t.Fatalf("withdrawn-operator retry error = %v", err)
+	}
+	if _, err = db.FactoryRun(ctx, retry.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("refused retry left a run: %v", err)
+	}
+	stored, err := db.Assignment(ctx, a.ID)
+	if err != nil || stored.Revision != a.Revision || stored.Run != a.Run || len(stored.RunHistory) != len(a.RunHistory) || stored.Attempts != a.Attempts {
+		t.Fatalf("refused retry changed assignment: %+v, %v", stored, err)
+	}
+	storedReservation, err := db.Reservation(ctx, a.ID)
+	if err != nil || storedReservation.State != factory.ReservationReleased {
+		t.Fatalf("refused retry changed reservation: %+v, %v", storedReservation, err)
+	}
+	allowanceAfter, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+	if err != nil || allowanceAfter.Limits != allowanceBefore.Limits ||
+		allowanceAfter.RootAssignment != allowanceBefore.RootAssignment || allowanceAfter.Revision != allowanceBefore.Revision ||
+		allowanceAfter.ActiveSeconds != allowanceBefore.ActiveSeconds || allowanceAfter.CheckpointUnix != allowanceBefore.CheckpointUnix ||
+		allowanceAfter.Active != allowanceBefore.Active || !slices.Equal(allowanceAfter.Corrections, allowanceBefore.Corrections) {
+		t.Fatalf("refused retry changed allowance: before=%+v after=%+v err=%v", allowanceBefore, allowanceAfter, err)
+	}
+}
+
+func TestRecordRetryPacketRefusesRoleRemovedFromSponsorshipAtomically(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	db := dispatchStoreFixture(t)
+	a, reservation, run, view := dispatchTestPacket(t, now)
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	sponsorship, err := db.Sponsorship(ctx, a.Repository, a.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sponsorship.Roles = []string{project.RoleReviewer}
+	if err = db.SaveSponsorship(ctx, sponsorship); err != nil {
+		t.Fatal(err)
+	}
+	control, err := db.IssueControl(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, retryView := retryTestRun(t, a, run)
+	currentAuthority := a.Authority
+	currentAuthority.Sponsorship++
+	if _, err = db.RecordRetryPacket(ctx, a, control, currentAuthority, retry, retryView, 30); !errors.Is(err, ErrAdmissionChanged) {
+		t.Fatalf("role-removed retry error = %v", err)
+	}
+	if _, err = db.FactoryRun(ctx, retry.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("refused retry left a run: %v", err)
+	}
+	stored, err := db.Assignment(ctx, a.ID)
+	if err != nil || stored.Revision != a.Revision || stored.Run != a.Run || stored.Attempts != a.Attempts || !slices.Equal(stored.RunHistory, a.RunHistory) {
+		t.Fatalf("refused retry changed assignment: %+v, %v", stored, err)
+	}
+	storedReservation, err := db.Reservation(ctx, a.ID)
+	if err != nil || storedReservation.State != factory.ReservationReleased {
+		t.Fatalf("refused retry changed reservation: %+v, %v", storedReservation, err)
+	}
+}
+
+func TestRecordRetryPacketRefusesChangedEnvironmentAtomically(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	db := dispatchStoreFixture(t)
+	a, reservation, run, view := dispatchTestPacket(t, now)
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	environment, err := db.EnvironmentGrant(ctx, a.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment.Profile.Revision = "d" + strings.Repeat("e", 39)
+	if err = db.SaveEnvironmentGrant(ctx, environment); err != nil {
+		t.Fatal(err)
+	}
+	control, err := db.IssueControl(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, retryView := retryTestRun(t, a, run)
+	if _, err = db.RecordRetryPacket(ctx, a, control, a.Authority, retry, retryView, 30); !errors.Is(err, ErrAdmissionChanged) {
+		t.Fatalf("changed-environment retry error = %v", err)
+	}
+	if _, err = db.FactoryRun(ctx, retry.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("refused retry left a run: %v", err)
+	}
+	stored, err := db.Assignment(ctx, a.ID)
+	if err != nil || stored.Revision != a.Revision || stored.Run != a.Run || stored.Attempts != a.Attempts || !slices.Equal(stored.RunHistory, a.RunHistory) {
+		t.Fatalf("refused retry changed assignment: %+v, %v", stored, err)
+	}
+	storedReservation, err := db.Reservation(ctx, a.ID)
+	if err != nil || storedReservation.State != factory.ReservationReleased {
+		t.Fatalf("refused retry changed reservation: %+v, %v", storedReservation, err)
+	}
+}
+
+func TestSupervisorRunWritesPreserveAdmissionSnapshot(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := db.FactoryRun(ctx, run.ID)
+	if err != nil || stored.Admission == nil {
+		t.Fatalf("dispatch omitted run admission: %+v, %v", stored.Admission, err)
+	}
+	want := *stored.Admission
+	observed := stored
+	observed.Admission = nil
+	observed.Summary = "supervisor observation"
+	if err = db.SaveFactoryRun(ctx, observed); err != nil {
+		t.Fatalf("observational write refused: %v", err)
+	}
+	afterObservation, err := db.FactoryRun(ctx, run.ID)
+	if err != nil || !reflect.DeepEqual(afterObservation.Admission, &want) {
+		t.Fatalf("omission cleared admission: %+v, %v", afterObservation.Admission, err)
+	}
+	changed := afterObservation
+	changedAdmission := want
+	changed.Admission = &changedAdmission
+	changed.Admission.Profile.Revision = "d" + strings.Repeat("e", 39)
+	if err = db.SaveFactoryRun(ctx, changed); err == nil {
+		t.Fatal("supervisor overwrote immutable admission profile")
+	}
+	afterMutation, err := db.FactoryRun(ctx, run.ID)
+	if err != nil || !reflect.DeepEqual(afterMutation.Admission, &want) {
+		t.Fatalf("rejected admission mutation persisted: %+v, %v", afterMutation.Admission, err)
+	}
+	forged := afterMutation
+	forged.ID = factory.NewID()
+	forgedAdmission := want
+	forged.Admission = &forgedAdmission
+	if err = db.RecordFactoryRun(ctx, forged); err == nil {
+		t.Fatal("standalone run with copied admission was recorded")
+	}
+	if _, err = db.FactoryRun(ctx, forged.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("forged admission left a run: %v", err)
 	}
 }

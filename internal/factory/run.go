@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 var digest = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -17,6 +18,7 @@ func ValidDigest(value string) bool { return digest.MatchString(value) }
 // The supervisor reconciles its lease/binding/credential facts against host
 // and broker truth; Reconciled marks the settled run exactly once.
 type Run struct {
+	Admission           *RunAdmission     `json:"admission,omitempty"`
 	CredentialDelegated bool              `json:"credential_delegated"`
 	CredentialReturned  bool              `json:"credential_returned"`
 	IdentityLeaseID     string            `json:"identity_lease_id,omitempty"`
@@ -36,6 +38,15 @@ type Run struct {
 	Model               string            `json:"model"`
 }
 
+// RunAdmission is the immutable authorization and execution profile captured
+// when a dispatch packet admits this run. Standalone supervisor runs may omit
+// it because they do not originate from factory dispatch.
+type RunAdmission struct {
+	Authority AuthorityRef     `json:"authority"`
+	Policy    RepositoryPolicy `json:"policy"`
+	Profile   project.Profile  `json:"profile"`
+}
+
 func (r Run) Validate() error {
 	if !ValidID(r.ID) || !ValidCommit(r.InputSHA) {
 		return errors.New("invalid factory execution identity")
@@ -46,6 +57,9 @@ func (r Run) Validate() error {
 	if err := r.validateDeadline(); err != nil {
 		return err
 	}
+	if err := r.validateAdmission(); err != nil {
+		return err
+	}
 	if err := r.validateProvenance(); err != nil {
 		return err
 	}
@@ -53,6 +67,27 @@ func (r Run) Validate() error {
 		return err
 	}
 	return r.validateCredentials()
+}
+
+func (r Run) validateAdmission() error {
+	if r.Admission == nil {
+		return nil
+	}
+	a := r.Admission
+	if err := a.Policy.Validate(); err != nil {
+		return errors.New("invalid run admission policy")
+	}
+	if err := a.Profile.Validate(); err != nil {
+		return errors.New("invalid run admission profile")
+	}
+	if a.Policy.Revision != a.Authority.Policy {
+		return errors.New("run admission policy revision does not match authority")
+	}
+	selection, ok := a.Policy.Roles[r.Role]
+	if !ok || r.Harness != selection.Harness+"-"+selection.HarnessVers || r.Model != selection.Model {
+		return errors.New("run does not match admitted role selection")
+	}
+	return nil
 }
 
 func (r Run) validateDeadline() error {

@@ -219,6 +219,7 @@ func TestReleasedLaunchRetryKeepsPromptAllowanceWhenUsageShortensDeadline(t *tes
 	now := time.Now().UTC()
 	otherRun := firstRun
 	otherRun.ID = factory.NewID()
+	otherRun.Admission = nil // This usage-control run is standalone, not a dispatch packet.
 	otherRun.Started = now.Add(-2 * time.Minute)
 	otherRun.Outcome, otherRun.Summary, otherRun.Reconciled = "", "", false
 	if err := db.RecordFactoryRun(ctx, otherRun); err != nil {
