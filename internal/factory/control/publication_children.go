@@ -298,7 +298,7 @@ func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publ
 		requested = plan.deadline.Unix()
 	}
 	registration := store.CandidatePreparationRegistration{
-		Repository: p.Repository, Issue: p.Issue, Project: p.ProjectID,
+		Repository: p.Repository, Issue: p.Issue, ActorID: owner.ActorID, Project: p.ProjectID,
 		OwnerAssignment: owner.ID, ChildAssignment: publicationChildID(p.ID, p.Candidate, project.RoleReviewer),
 		AttemptRoot: owner.AttemptRoot, PublicationID: p.ID, Connection: plan.sponsorship.Connection,
 		Authority: plan.effective.Authority, GateRevision: plan.gateRev, Control: plan.control,
@@ -446,7 +446,7 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 		Model: plan.policy.Roles[role].Model, Connection: plan.sponsorship.Connection,
 		SourceCommit: p.Candidate, Prompt: plan.prompt, PromptSHA: plan.promptSHA,
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
-		Attempts: 1, CreatedUnix: now.Unix(),
+		Attempts: 1, CreatedUnix: now.Unix(), ActorID: owner.ActorID,
 	}
 	if err := assignment.Validate(); err != nil {
 		publicationError(report, p.ID, "child_assignment_invalid")
@@ -481,7 +481,7 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 			ID: runID, Project: owner.ProjectID, Role: role,
 			Preparation: preparationID, Harness: plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model: assignment.Model, Assignment: assignment.PromptSHA, SourceCommit: p.Candidate,
-			Connection: plan.sponsorship.Connection, Actor: plan.sponsorship.GrantedBy, Deadline: plan.deadline,
+			Connection: plan.sponsorship.Connection, Actor: assignment.ActorID, Deadline: plan.deadline,
 		},
 		Prompt: plan.prompt, HarnessSHA256: plan.pin.SHA256,
 	}

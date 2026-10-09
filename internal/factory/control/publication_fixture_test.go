@@ -205,7 +205,7 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	assignmentID := factory.NewID()
 	a := factory.Assignment{
 		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
-		ProjectID: fx.seed.proj, Role: project.RoleCoder,
+		ProjectID: fx.seed.proj, ActorID: 7, Role: project.RoleCoder,
 		Repository: fx.seed.repo, Issue: issue, Revision: 0, NativeRev: 41,
 		Acceptance: decision.ID, Preparation: "f111111111111111111111111",
 		Connection: "conn", SourceCommit: strings.Repeat("c", 40),
@@ -290,7 +290,7 @@ func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publ
 	a := factory.Assignment{
 		Authority: authority.Authority,
 		ID:        factory.NewID(), AttemptRoot: parent.AttemptRoot, PublicationAssignment: parent.ID,
-		ProjectID: parent.ProjectID, Role: role, Repository: parent.Repository, Issue: parent.Issue,
+		ProjectID: parent.ProjectID, ActorID: parent.ActorID, Role: role, Repository: parent.Repository, Issue: parent.Issue,
 		NativeRev: parent.NativeRev, Acceptance: parent.Acceptance, Preparation: preparation,
 		Harness: selection.Harness + "-" + selection.HarnessVers, HarnessVers: selection.HarnessVers, Model: selection.Model,
 		Connection: parent.Connection, SourceCommit: source,

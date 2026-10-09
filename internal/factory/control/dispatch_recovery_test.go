@@ -81,6 +81,7 @@ func TestReleasedReviewerChildRetryKeepsRecordedPlan(t *testing.T) {
 	report := DispatchReport{}
 	recoverUnused(ctx, deps, child, reservation, run, &report)
 	if len(launches) != 1 || launches[0].Run.Role != project.RoleReviewer ||
+		launches[0].Run.Actor != child.ActorID ||
 		launches[0].Run.Preparation != child.Preparation || launches[0].Run.HarnessVers != child.HarnessVers ||
 		launches[0].Run.Model != child.Model || launches[0].Run.SourceCommit != child.SourceCommit || launches[0].Run.Connection != child.Connection ||
 		!bytes.Equal(launches[0].Prompt, child.Prompt) || launches[0].Run.Assignment != child.PromptSHA {
@@ -129,6 +130,7 @@ func TestReleasedCorrectionChildRetryKeepsRecordedPlan(t *testing.T) {
 	report := DispatchReport{}
 	recoverUnused(ctx, deps, child, reservation, run, &report)
 	if len(launches) != 1 || launches[0].Run.Role != project.RoleCoder ||
+		launches[0].Run.Actor != child.ActorID ||
 		launches[0].Run.Preparation != child.Preparation || launches[0].Run.Model != child.Model ||
 		launches[0].Run.SourceCommit != child.SourceCommit || launches[0].Run.Connection != child.Connection ||
 		!bytes.Equal(launches[0].Prompt, child.Prompt) || launches[0].Run.Assignment != child.PromptSHA {

@@ -57,7 +57,7 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if current.Revision != a.Revision {
 		return factory.Assignment{}, ErrStaleRevision
 	}
-	if current.Repository != a.Repository || current.Issue != a.Issue || current.Run != a.Run || current.Connection != a.Connection ||
+	if current.Repository != a.Repository || current.Issue != a.Issue || current.Run != a.Run || current.Connection != a.Connection || current.ActorID != a.ActorID ||
 		run.ProjectID != current.ProjectID || run.Role != current.Role || run.InputSHA != current.SourceCommit ||
 		run.Harness != current.Harness || run.Model != current.Model {
 		return factory.Assignment{}, ErrStaleRevision

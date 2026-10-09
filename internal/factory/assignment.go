@@ -59,7 +59,8 @@ func validAssignReason(reason string) bool {
 // Assignment is one durable automatic dispatch for a native issue. Run is
 // the latest run identity; RunHistory lists every attempt's run identity
 // in order. Result arrives at finish; the prompt bytes stay inspectable
-// afterwards.
+// afterwards. ActorID binds the broker actor from the selected sponsorship
+// grant to this assignment.
 type Assignment struct {
 	Authority             AuthorityRef      `json:"authority"`
 	Result                *AssignmentResult `json:"result,omitempty"`
@@ -89,6 +90,7 @@ type Assignment struct {
 	Attempts              int               `json:"attempts"`
 	CreatedUnix           int64             `json:"created_unix"`
 	FinishedUnix          int64             `json:"finished_unix,omitempty"`
+	ActorID               int64             `json:"actor_id,string"`
 }
 
 // Validate rejects malformed assignments. Assigned work carries no outcome
@@ -102,6 +104,9 @@ func (a Assignment) Validate() error {
 	}
 	if a.Repository <= 0 || a.Issue <= 0 || a.Revision < 0 || a.NativeRev < 1 {
 		return errors.New("invalid assignment scope")
+	}
+	if a.ActorID <= 0 {
+		return errors.New("invalid assignment execution actor")
 	}
 	if !project.ValidDecisionID(a.Acceptance) {
 		return errors.New("invalid assignment acceptance")

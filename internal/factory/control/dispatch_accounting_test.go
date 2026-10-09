@@ -106,7 +106,7 @@ func TestRecordConfirmedUsagePreservesFractionalIntervalAndFirstWrite(t *testing
 	fx := dispatchSeed(t, db)
 	start := time.Date(2026, 10, 1, 0, 0, 0, 123456789, time.FixedZone("test", 2*60*60))
 	run := factory.Run{ID: factory.NewID(), Started: start}
-	a := factory.Assignment{Repository: fx.repo, Connection: "conn"}
+	a := factory.Assignment{Repository: fx.repo, Connection: "conn", ActorID: 7}
 	end := start.Add(time.Minute + time.Nanosecond)
 	if err := recordConfirmedUsage(ctx, db, a, run, end); err != nil {
 		t.Fatal(err)

@@ -22,6 +22,9 @@ func selectSponsorship(ctx context.Context, deps DispatchDeps, repository int64,
 		if !sponsorship.Active {
 			continue
 		}
+		if sponsorship.Validate() != nil {
+			return factory.Sponsorship{}, waitFor(WaitAuthority, "sponsorship execution identity is unavailable"), nil
+		}
 		if sponsorship.Revision != effective.Authority.Sponsorship || sponsorship.Connection != effective.Authority.SponsorshipConnection {
 			return factory.Sponsorship{}, waitFor(WaitAuthority, "sponsorship changed during dispatch"), nil
 		}

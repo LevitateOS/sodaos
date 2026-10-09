@@ -108,6 +108,44 @@ func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 	}
 }
 
+func TestRecordRetryPacketPreservesExecutionActor(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := db.FactoryRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous.Outcome, previous.Reconciled, previous.Summary = factory.Failed, true, "released for retry"
+	if err := db.SaveFactoryRun(ctx, previous); err != nil {
+		t.Fatal(err)
+	}
+	sponsorship, err := db.Sponsorship(ctx, a.Repository, a.Connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sponsorship.ActorID++
+	if err := db.SaveSponsorship(ctx, sponsorship); err != nil {
+		t.Fatal(err)
+	}
+	control, err := db.IssueControl(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority := a.Authority
+	authority.Sponsorship++
+	retry, retryView := retryTestRun(t, a, run)
+	if _, err := db.RecordRetryPacket(ctx, a, control, authority, retry, retryView, 30); !errors.Is(err, ErrAdmissionChanged) {
+		t.Fatalf("retry changed the admitted execution actor: %v", err)
+	}
+	if _, err := db.FactoryRun(ctx, retry.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("rejected actor change left a run: %v", err)
+	}
+}
+
 func TestRecordRetryPacketRefusesAnotherActiveRepositorySession(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)

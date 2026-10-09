@@ -82,7 +82,7 @@ func TestGrantValidation(t *testing.T) {
 		t.Fatal("unbounded operator grant accepted")
 	}
 	sponsorship := Sponsorship{
-		Repository: 42, GrantedBy: 9, Connection: "conn-1", GrantID: "grant-1",
+		Repository: 42, GrantedBy: 9, ActorID: 9, ProjectID: "p" + strings.Repeat("a", 24), Connection: "conn-1", GrantID: "grant-1",
 		Generation: 3, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
 	}
 	if err := sponsorship.Validate(); err != nil {
@@ -121,7 +121,7 @@ func TestEvaluateAuthority(t *testing.T) {
 	operator := OperatorGrant{Repository: 42, GrantedBy: 1, Active: true, MaxConcurrent: 2}
 	capacity := Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2}
 	sponsorship := Sponsorship{
-		Repository: 42, GrantedBy: 9, Connection: "c", GrantID: "g",
+		Repository: 42, GrantedBy: 9, ActorID: 9, ProjectID: "p" + strings.Repeat("a", 24), Connection: "c", GrantID: "g",
 		Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
 	}
 	env := project.EnvironmentGrant{Repository: 42, Owner: 7, Active: true}

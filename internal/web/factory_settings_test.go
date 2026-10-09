@@ -270,10 +270,14 @@ func TestFactoryEnvironmentGrantIsOwnerOnly(t *testing.T) {
 func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	s := factoryEncryptedServer(t)
 	s.API.Identity = &stubIdentityClient{
-		connections: []identity.Connection{{ID: "conn-1", ProviderID: identity.Codex, OwnerID: 1, Label: "test", Generation: 1, State: identity.Ready}},
+		connections: []identity.Connection{
+			{ID: "conn-1", ProviderID: identity.Codex, OwnerID: 1, Label: "test", Generation: 1, State: identity.Ready},
+			{ID: "conn-2", ProviderID: identity.Codex, OwnerID: 1, Label: "delegated", Generation: 1, State: identity.Ready},
+		},
 		grants: []identity.Grant{
 			{ID: "grant-1", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject},
 			{ID: "grant-2", ConnectionID: "conn-1", UserID: 1, ProjectID: factorySettingsProject, Revoked: true},
+			{ID: "grant-3", ConnectionID: "conn-2", UserID: 2, ProjectID: factorySettingsProject},
 		},
 	}
 	sponsor := func(command, grant string, generation int64) string {
@@ -288,6 +292,18 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 	w := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "alice")
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
+	}
+	stored, err := s.Store.Sponsorship(t.Context(), 7, "conn-1")
+	if err != nil || stored.ActorID != 1 || stored.ProjectID != factorySettingsProject {
+		t.Fatalf("sponsorship did not preserve selected broker actor/project: %+v %v", stored, err)
+	}
+	delegated := put("conn-2", sponsor(factory.NewID(), "grant-3", 1), "alice")
+	if delegated.Code != http.StatusOK {
+		t.Fatal("connection owner could not select delegated grant", delegated.Code, delegated.Body.String())
+	}
+	stored, err = s.Store.Sponsorship(t.Context(), 7, "conn-2")
+	if err != nil || stored.GrantedBy != 1 || stored.ActorID != 2 || stored.ProjectID != factorySettingsProject {
+		t.Fatalf("delegated sponsorship did not separate sponsor from broker actor: %+v %v", stored, err)
 	}
 	assertNoSecrets(t, w.Body.String())
 	foreign := put("conn-1", sponsor(factory.NewID(), "grant-1", 1), "bob")
@@ -317,7 +333,7 @@ func TestFactorySponsorshipNeedsConnectionOwner(t *testing.T) {
 		} `json:"sponsorships"`
 	}
 	decodeBody(t, status, &view)
-	if len(view.Sponsorships) != 1 || view.Sponsorships[0].Allowance != 0 {
+	if len(view.Sponsorships) != 2 || view.Sponsorships[0].Allowance != 0 || view.Sponsorships[1].Allowance != 0 {
 		t.Fatalf("allowance leaked to non-owner: %+v", view.Sponsorships)
 	}
 	stub := s.API.Identity.(*stubIdentityClient)

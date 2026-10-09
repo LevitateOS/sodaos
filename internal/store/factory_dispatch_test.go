@@ -51,7 +51,7 @@ func seedDispatchLimits(t *testing.T, db *Store) {
 		db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2, MaxQueued: 10}),
 		db.SaveRepositoryPolicy(ctx, policy),
 		db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 7, MaxConcurrent: 2, Active: true}),
-		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, Generation: 1, Connection: "conn", GrantID: "grant", Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true}),
+		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, ActorID: 7, ProjectID: dispatchTestProjectID(), Generation: 1, Connection: "conn", GrantID: "grant", Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true}),
 	} {
 		if err != nil {
 			t.Fatal(err)
@@ -201,6 +201,7 @@ func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factor
 	a := factory.Assignment{
 		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
 		ProjectID: dispatchTestProjectID(), Role: project.RoleCoder,
+		ActorID:    7,
 		Repository: 7, Issue: 3, Revision: 0, NativeRev: 5,
 		Acceptance: "d" + strings.Repeat("a", 24), Preparation: "f" + strings.Repeat("b", 24),
 		Harness: selection.Harness + "-" + selection.HarnessVers, HarnessVers: selection.HarnessVers, Model: selection.Model,
@@ -234,6 +235,15 @@ func TestRecordDispatchPacket(t *testing.T) {
 	byRun, err := db.AssignmentByRun(ctx, run.ID)
 	if err != nil || byRun.ID != a.ID {
 		t.Fatalf("assignment by run unreadable: %+v %v", byRun, err)
+	}
+	forged := got
+	forged.ActorID++
+	forged.Stage, forged.Outcome, forged.Reason = factory.AssignmentFinished, factory.Failed, factory.AssignReasonRunFailed
+	forged.FinishedUnix = now.Unix()
+	result := factory.ResultSynthesized(forged.ID, forged.Run, "failed", "run failed", forged.FinishedUnix)
+	forged.Result = &result
+	if err := db.FinishAssignment(ctx, forged); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("finish changed the recorded execution actor: %v", err)
 	}
 	stored, err := db.FactoryRun(ctx, run.ID)
 	if err != nil || stored.ProjectID != a.ProjectID {
@@ -305,6 +315,34 @@ func TestRecordDispatchPacketRejectsChangedQueuedControlAtomically(t *testing.T)
 		t.Fatalf("stale queued control error = %v", err)
 	}
 	assertDispatchPacketAbsent(t, db, a)
+}
+
+func TestRecordDispatchPacketBindsExecutionActorAndProject(t *testing.T) {
+	ctx := context.Background()
+	for name, change := range map[string]func(*factory.Sponsorship){
+		"actor":   func(s *factory.Sponsorship) { s.ActorID++ },
+		"project": func(s *factory.Sponsorship) { s.ProjectID = "p" + strings.Repeat("e", 24) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			db := dispatchStoreFixture(t)
+			sponsorship, err := db.Sponsorship(ctx, 7, "conn")
+			if err != nil {
+				t.Fatal(err)
+			}
+			change(&sponsorship)
+			if err := db.SaveSponsorship(ctx, sponsorship); err != nil {
+				t.Fatal(err)
+			}
+			a, reservation, run, view := dispatchTestPacket(t, time.Now().UTC())
+			a.Authority.Sponsorship = sponsorship.Revision + 1
+			if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); !errors.Is(err, ErrAdmissionChanged) {
+				t.Fatalf("packet admitted mismatched execution binding: %v", err)
+			}
+			if _, err := db.Assignment(ctx, a.ID); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("rejected packet persisted assignment: %v", err)
+			}
+		})
+	}
 }
 
 func isAssignmentActive(err error) bool {

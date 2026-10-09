@@ -47,11 +47,17 @@ func (s *API) apiFactorySponsorship(w http.ResponseWriter, r *http.Request, v st
 		Connection: connection, GrantID: in.GrantID, Generation: in.Generation, Roles: in.Roles,
 		AllowanceMinutes: in.AllowanceMinutes, MaxConcurrent: in.MaxConcurrent, Active: in.Active,
 	}
-	if sponsorship.Revision < 0 || sponsorship.Validate() != nil {
+	if sponsorship.Revision < 0 {
 		auth.JSONError(w, 400, "invalid_sponsorship", "Sponsorship is incomplete or invalid.")
 		return
 	}
-	if !s.checkSponsorshipBroker(w, r, v, sponsorship) {
+	grant, ok := s.checkSponsorshipBroker(w, r, v, sponsorship)
+	if !ok {
+		return
+	}
+	sponsorship.ActorID, sponsorship.ProjectID = grant.UserID, grant.ProjectID
+	if sponsorship.Validate() != nil {
+		auth.JSONError(w, 400, "invalid_sponsorship", "Sponsorship is incomplete or invalid.")
 		return
 	}
 	receipt, err := s.Coordinator.ApplySponsorship(r.Context(), in.CommandID, factoryPrincipal(v), in.ExpectedRevision, sponsorship)
@@ -66,19 +72,19 @@ func (s *API) apiFactorySponsorship(w http.ResponseWriter, r *http.Request, v st
 // own current connection and a live canonical broker grant. It reads grant
 // metadata only from the identity broker; credential custody stays with the
 // broker. Refusals preserve the established sponsorship admission contract.
-func (s *API) checkSponsorshipBroker(w http.ResponseWriter, r *http.Request, v store.Session, sponsorship factory.Sponsorship) bool {
+func (s *API) checkSponsorshipBroker(w http.ResponseWriter, r *http.Request, v store.Session, sponsorship factory.Sponsorship) (identity.Grant, bool) {
 	if s.Identity == nil {
 		auth.JSONError(w, 503, "identity_unavailable", "Identity service is unavailable.")
-		return false
+		return identity.Grant{}, false
 	}
 	connections, err := s.Identity.Connections(r.Context(), v.User.ID)
 	if err != nil {
 		if errors.Is(err, identity.ErrDenied) {
 			auth.JSONError(w, 403, "connection_owner_required", "Only the connection owner can sponsor factory use.")
-			return false
+			return identity.Grant{}, false
 		}
 		auth.JSONError(w, 503, "store_unavailable", "Could not read provider connection.")
-		return false
+		return identity.Grant{}, false
 	}
 	var connection identity.Connection
 	found := false
@@ -90,28 +96,28 @@ func (s *API) checkSponsorshipBroker(w http.ResponseWriter, r *http.Request, v s
 	}
 	if !found {
 		auth.JSONError(w, 404, "not_found", "Provider connection not found.")
-		return false
+		return identity.Grant{}, false
 	}
 	if connection.OwnerID != v.User.ID {
 		auth.JSONError(w, 403, "connection_owner_required", "Only the connection owner can sponsor factory use.")
-		return false
+		return identity.Grant{}, false
 	}
 	if connection.Generation != sponsorship.Generation {
 		auth.JSONError(w, 409, "stale_credential_generation", "Connection credential changed; refresh and retry.")
-		return false
+		return identity.Grant{}, false
 	}
 	grants, err := s.Identity.Grants(r.Context(), v.User.ID, sponsorship.Connection)
 	if err != nil {
 		if errors.Is(err, identity.ErrNotFound) {
 			auth.JSONError(w, 404, "not_found", "Broker grant not found.")
-			return false
+			return identity.Grant{}, false
 		}
 		if errors.Is(err, identity.ErrDenied) {
 			auth.JSONError(w, 403, "connection_owner_required", "Only the connection owner can sponsor factory use.")
-			return false
+			return identity.Grant{}, false
 		}
 		auth.JSONError(w, 503, "store_unavailable", "Could not read broker grant.")
-		return false
+		return identity.Grant{}, false
 	}
 	var grant identity.Grant
 	found = false
@@ -123,13 +129,17 @@ func (s *API) checkSponsorshipBroker(w http.ResponseWriter, r *http.Request, v s
 	}
 	if !found {
 		auth.JSONError(w, 404, "not_found", "Broker grant not found.")
-		return false
+		return identity.Grant{}, false
 	}
 	if grant.ConnectionID != sponsorship.Connection || grant.Revoked {
 		auth.JSONError(w, 409, "grant_unavailable", "Broker grant is revoked or belongs elsewhere.")
-		return false
+		return identity.Grant{}, false
 	}
-	return true
+	if grant.UserID <= 0 || !project.ValidID(grant.ProjectID) {
+		auth.JSONError(w, 409, "grant_unavailable", "Broker grant has no valid execution identity.")
+		return identity.Grant{}, false
+	}
+	return grant, true
 }
 
 type factoryEnvironmentGrantRequest struct {

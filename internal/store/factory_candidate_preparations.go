@@ -19,6 +19,7 @@ import (
 type CandidatePreparationRegistration struct {
 	Repository        int64
 	Issue             int64
+	ActorID           int64
 	Project           string
 	OwnerAssignment   string
 	ChildAssignment   string
@@ -49,6 +50,7 @@ type candidatePreparationEnvelope struct {
 type candidatePreparationRegistration struct {
 	Repository      int64                `json:"repository"`
 	Issue           int64                `json:"issue"`
+	ActorID         int64                `json:"actor_id,string"`
 	Project         string               `json:"project"`
 	OwnerAssignment string               `json:"owner_assignment"`
 	ChildAssignment string               `json:"child_assignment"`
@@ -92,7 +94,7 @@ func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation proje
 	if err != nil {
 		return empty, false, err
 	}
-	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration); err != nil {
+	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID); err != nil {
 		return empty, false, err
 	}
 	if allowance.Closed {
@@ -113,7 +115,7 @@ func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation proje
 		return empty, false, factory.ErrAttemptTimeExhausted
 	}
 	meta := candidatePreparationRegistration{
-		Repository: registration.Repository, Issue: registration.Issue, Project: registration.Project,
+		Repository: registration.Repository, Issue: registration.Issue, ActorID: registration.ActorID, Project: registration.Project,
 		OwnerAssignment: registration.OwnerAssignment, ChildAssignment: registration.ChildAssignment,
 		AttemptRoot: registration.AttemptRoot, PublicationID: registration.PublicationID,
 		Connection: registration.Connection, Authority: registration.Authority,
@@ -188,7 +190,7 @@ func (s *Store) AuthorizeCandidatePreparation(ctx context.Context, id string) (i
 		return 0, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	_, err = authorizeCandidatePreparationTx(ctx, tx, preparation, registration)
+	grants, err := authorizeCandidatePreparationTx(ctx, tx, preparation, registration)
 	if err != nil {
 		return 0, err
 	}
@@ -196,7 +198,7 @@ func (s *Store) AuthorizeCandidatePreparation(ctx context.Context, id string) (i
 	if err != nil {
 		return 0, err
 	}
-	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration); err != nil {
+	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID); err != nil {
 		return 0, err
 	}
 	var currentData []byte
@@ -346,7 +348,7 @@ func (s *Store) RecordCandidatePreparationStop(ctx context.Context, id string, s
 }
 
 func validateCandidatePreparationRegistration(preparation project.StoredPreparation, r CandidatePreparationRegistration) error {
-	if r.Repository <= 0 || r.Issue <= 0 || !project.ValidID(r.Project) || r.Project != preparation.Preparation.Project ||
+	if r.Repository <= 0 || r.Issue <= 0 || r.ActorID <= 0 || !project.ValidID(r.Project) || r.Project != preparation.Preparation.Project ||
 		!factory.ValidID(r.OwnerAssignment) || !factory.ValidID(r.ChildAssignment) || !factory.ValidID(r.AttemptRoot) ||
 		!factory.ValidID(r.PublicationID) || r.Connection == "" || r.GateRevision < 0 || r.RequestedNotAfter <= 0 ||
 		r.Control.Validate() != nil || r.Control.Repository != r.Repository || r.Control.Issue != r.Issue ||
@@ -376,7 +378,7 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 	assignment := factory.Assignment{
 		Authority: r.Authority, ID: r.ChildAssignment, AttemptRoot: r.AttemptRoot,
 		PublicationAssignment: r.OwnerAssignment, ProjectID: r.Project,
-		Role: project.RoleReviewer, Repository: r.Repository, Issue: r.Issue,
+		ActorID: r.ActorID, Role: project.RoleReviewer, Repository: r.Repository, Issue: r.Issue,
 		NativeRev: r.Control.NativeRev, Acceptance: r.Control.Acceptance,
 		Preparation: preparation.Preparation.ID, Connection: r.Connection,
 		SourceCommit: preparation.Preparation.SourceCommit,
@@ -400,13 +402,16 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 	if err != nil {
 		return empty, err
 	}
+	if grants.sponsorship.ProjectID != r.Project || grants.sponsorship.ActorID != r.ActorID {
+		return empty, ErrAdmissionChanged
+	}
 	if err = checkAssignmentAuthorityTx(ctx, tx, r.Authority, assignment, grants); err != nil {
 		return empty, err
 	}
 	return grants, nil
 }
 
-func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparation project.StoredPreparation, r CandidatePreparationRegistration) error {
+func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparation project.StoredPreparation, r CandidatePreparationRegistration, actorID int64) error {
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, r.Repository, r.Issue, r.AttemptRoot)
 	if err != nil {
 		return err
@@ -417,6 +422,14 @@ func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparati
 	}
 	owner, err := currentAttemptOwnerTx(ctx, tx, r.Repository, r.Issue, r.AttemptRoot)
 	if err != nil || owner != r.OwnerAssignment {
+		return ErrAttemptRootMismatch
+	}
+	var data []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1`, owner).Scan(&data); err != nil {
+		return ErrAttemptRootMismatch
+	}
+	var assignment factory.Assignment
+	if err = json.Unmarshal(data, &assignment); err != nil || assignment.ActorID != actorID || assignment.ProjectID != r.Project {
 		return ErrAttemptRootMismatch
 	}
 	return nil
@@ -442,7 +455,7 @@ func unmarshalCandidatePreparation(data []byte) (project.StoredPreparation, *can
 
 func registrationFromMeta(m candidatePreparationRegistration) CandidatePreparationRegistration {
 	return CandidatePreparationRegistration{
-		Repository: m.Repository, Issue: m.Issue, Project: m.Project, OwnerAssignment: m.OwnerAssignment,
+		Repository: m.Repository, Issue: m.Issue, ActorID: m.ActorID, Project: m.Project, OwnerAssignment: m.OwnerAssignment,
 		ChildAssignment: m.ChildAssignment, AttemptRoot: m.AttemptRoot, PublicationID: m.PublicationID,
 		Connection: m.Connection, Authority: m.Authority, GateRevision: m.GateRevision,
 		Control: m.Control, RequestedNotAfter: m.NotAfter,

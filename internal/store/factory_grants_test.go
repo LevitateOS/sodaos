@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,7 +90,7 @@ func TestSponsorships(t *testing.T) {
 	db := grantStoreFixture(t)
 	ctx := context.Background()
 	sp := factory.Sponsorship{
-		Repository: 42, GrantedBy: 9, Connection: "conn-1", GrantID: "grant-1",
+		Repository: 42, GrantedBy: 9, ActorID: 8, ProjectID: "p" + strings.Repeat("a", 24), Connection: "conn-1", GrantID: "grant-1",
 		Generation: 3, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
 	}
 	if err := db.SaveSponsorship(ctx, sp); err != nil {

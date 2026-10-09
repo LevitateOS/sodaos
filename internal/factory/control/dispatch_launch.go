@@ -39,7 +39,7 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		Model: plan.policy.Roles[project.RoleCoder].Model, Connection: plan.sponsorship.Connection,
 		SourceCommit: plan.inputs.Tip, Prompt: plan.prompt, PromptSHA: plan.promptSHA,
 		Run: runID, RunHistory: []string{runID}, Stage: factory.AssignmentAssigned,
-		Attempts: 1, CreatedUnix: now.Unix(),
+		Attempts: 1, CreatedUnix: now.Unix(), ActorID: plan.sponsorship.ActorID,
 	}
 	if err := assignment.Validate(); err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch assignment invalid"})
@@ -94,7 +94,7 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 			Harness:     plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model:      assignment.Model,
 			Assignment: plan.promptSHA, SourceCommit: plan.inputs.Tip,
-			Connection: plan.sponsorship.Connection, Actor: plan.sponsorship.GrantedBy,
+			Connection: plan.sponsorship.Connection, Actor: assignment.ActorID,
 			Deadline: plan.deadline,
 		},
 		Prompt: plan.prompt, HarnessSHA256: plan.pin.SHA256,
@@ -241,7 +241,7 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 			Harness:     plan.pin.Harness, HarnessVers: a.HarnessVers,
 			Model:      a.Model,
 			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
-			Connection: a.Connection, Actor: plan.sponsorship.GrantedBy,
+			Connection: a.Connection, Actor: a.ActorID,
 			Deadline: plan.deadline,
 		},
 		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,

@@ -24,7 +24,7 @@ func publicationStoreFixture(t *testing.T) *Store {
 		db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2, MaxQueued: 10}),
 		db.SaveRepositoryPolicy(ctx, policy),
 		db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 7, Active: true, MaxConcurrent: 2}),
-		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, Connection: "conn", GrantID: "grant", Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true}),
+		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, ActorID: 7, ProjectID: projectID, Connection: "conn", GrantID: "grant", Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true}),
 		db.SaveEnvironmentGrant(ctx, project.EnvironmentGrant{Repository: 7, Owner: 7, Active: true, Profile: &project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("b", 64), Revision: strings.Repeat("c", 40)}}),
 	} {
 		if err != nil {

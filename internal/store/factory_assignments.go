@@ -67,7 +67,7 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if err = json.Unmarshal(currentData, &current); err != nil {
 		return err
 	}
-	if current.Revision != a.Revision || current.Stage != factory.AssignmentAssigned || current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
+	if current.Revision != a.Revision || current.Stage != factory.AssignmentAssigned || current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment || current.ActorID != a.ActorID {
 		return ErrNotFound
 	}
 	result, err := tx.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1

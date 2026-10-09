@@ -198,6 +198,9 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 		return nil, wait, failed
 	}
 	plan.sponsorship = sponsorship
+	if sponsorship.ProjectID != plan.projectID {
+		return nil, waitFor(WaitAuthority, "sponsorship grant belongs to a different Project"), nil
+	}
 	decision, err := deps.Store.AcceptanceDecision(ctx, head)
 	if err != nil {
 		return nil, nil, waitFor(DispatchErrStore, "acceptance decision unreadable")

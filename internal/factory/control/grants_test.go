@@ -64,7 +64,7 @@ func grantFullAuthority(t *testing.T, c *Coordinator) {
 	}
 	if _, err := c.ApplySponsorship(ctx, factory.NewID(), "native:9", 0,
 		factory.Sponsorship{
-			Repository: 42, GrantedBy: 9, Connection: "conn-1", GrantID: "grant-1",
+			Repository: 42, GrantedBy: 9, ActorID: 9, ProjectID: "p" + strings.Repeat("a", 24), Connection: "conn-1", GrantID: "grant-1",
 			Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
 		}); err != nil {
 		t.Fatal(err)
@@ -122,7 +122,7 @@ func TestSponsorshipWithdrawalKeepsDispatchWithActiveSibling(t *testing.T) {
 	c := coordinatorFixture(t, nil, nil)
 	ctx := context.Background()
 	active := factory.Sponsorship{
-		Repository: 42, GrantedBy: 9, Connection: "conn-keep", GrantID: "grant-1",
+		Repository: 42, GrantedBy: 9, ActorID: 9, ProjectID: "p" + strings.Repeat("a", 24), Connection: "conn-keep", GrantID: "grant-1",
 		Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true,
 	}
 	if _, err := c.ApplySponsorship(ctx, factory.NewID(), "native:9", 0, active); err != nil {

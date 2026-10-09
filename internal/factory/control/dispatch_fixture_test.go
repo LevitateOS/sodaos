@@ -182,7 +182,7 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 		t.Fatal(err)
 	}
 	if err := db.SaveSponsorship(ctx, factory.Sponsorship{
-		Repository: fx.repo, GrantedBy: 7, Generation: 1, Connection: "conn", GrantID: "grant",
+		Repository: fx.repo, GrantedBy: 7, ActorID: 7, ProjectID: fx.proj, Generation: 1, Connection: "conn", GrantID: "grant",
 		Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true,
 	}); err != nil {
 		t.Fatal(err)

@@ -90,7 +90,7 @@ func lifecycleWebGrants(t *testing.T, s *Server, repository int64, paused bool) 
 	if err := s.Store.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 1, MaxConcurrentRuns: 2, MaxQueued: 4}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Store.SaveSponsorship(ctx, factory.Sponsorship{Repository: repository, GrantedBy: 1, Connection: "conn-1", GrantID: "grant-1", Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true}); err != nil {
+	if err := s.Store.SaveSponsorship(ctx, factory.Sponsorship{Repository: repository, GrantedBy: 1, ActorID: 1, ProjectID: webTerminalProject, Connection: "conn-1", GrantID: "grant-1", Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Store.SaveConnectionUsageBudget(ctx, factory.ConnectionUsageBudget{Connection: "conn-1", RollingMinutes: factory.DefaultConnectionUsageBudgetMinutes}); err != nil {

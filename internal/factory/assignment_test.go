@@ -65,7 +65,7 @@ func testAssignment(prompt []byte) Assignment {
 		Acceptance:  "d" + strings.Repeat("a", 24),
 		Preparation: "f" + strings.Repeat("b", 24),
 		Harness:     "codex-1.2.3", HarnessVers: "1.2.3", Model: "test-model",
-		Connection: "conn", SourceCommit: strings.Repeat("c", 40),
+		Connection: "conn", SourceCommit: strings.Repeat("c", 40), ActorID: 7,
 		Prompt: prompt, PromptSHA: hex.EncodeToString(sum[:]),
 		Run: NewID(), RunHistory: nil, Stage: AssignmentAssigned, Attempts: 1,
 		CreatedUnix: 1700000000,
@@ -80,11 +80,12 @@ func TestAssignmentValidate(t *testing.T) {
 		t.Fatalf("valid assignment refused: %v", err)
 	}
 	cases := map[string]func(*Assignment){
-		"identity":   func(a *Assignment) { a.ID = "short" },
-		"project":    func(a *Assignment) { a.ProjectID = "nope" },
-		"role":       func(a *Assignment) { a.Role = "wizard" },
-		"scope":      func(a *Assignment) { a.Issue = 0 },
-		"acceptance": func(a *Assignment) { a.Acceptance = "bad" },
+		"identity":        func(a *Assignment) { a.ID = "short" },
+		"project":         func(a *Assignment) { a.ProjectID = "nope" },
+		"execution actor": func(a *Assignment) { a.ActorID = 0 },
+		"role":            func(a *Assignment) { a.Role = "wizard" },
+		"scope":           func(a *Assignment) { a.Issue = 0 },
+		"acceptance":      func(a *Assignment) { a.Acceptance = "bad" },
 		"preparation": func(a *Assignment) {
 			a.Preparation = "bad"
 		},

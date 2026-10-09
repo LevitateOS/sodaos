@@ -389,6 +389,9 @@ func checkAssignmentAuthorityTx(ctx context.Context, t *sql.Tx, expected factory
 		!grants.sponsorship.Active || !permitted || !grants.environment.Active || grants.environment.Profile == nil {
 		return ErrAdmissionChanged
 	}
+	if grants.sponsorship.ActorID != a.ActorID || grants.sponsorship.ProjectID != a.ProjectID {
+		return ErrAdmissionChanged
+	}
 	current := factory.AuthorityRef{
 		Policy: grants.policy.Revision, Operator: grants.operator.Revision,
 		Capacity: grants.capacity.Revision, Sponsorship: grants.sponsorship.Revision,

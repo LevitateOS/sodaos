@@ -358,7 +358,7 @@ func TestDispatchNeverFallsBackToAnotherConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 	rich := factory.Sponsorship{
-		Repository: fx.repo, GrantedBy: 7, Generation: 1, Connection: "zzz-rich", GrantID: "grant2",
+		Repository: fx.repo, GrantedBy: 7, ActorID: 7, ProjectID: fx.proj, Generation: 1, Connection: "zzz-rich", GrantID: "grant2",
 		Roles: []string{project.RoleCoder}, AllowanceMinutes: 10080, MaxConcurrent: 8, Active: true,
 	}
 	if err := db.SaveSponsorship(ctx, rich); err != nil {

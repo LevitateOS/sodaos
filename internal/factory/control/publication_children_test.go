@@ -132,9 +132,19 @@ func settleProducedChild(t *testing.T, fx *publishFixture, runID, output string)
 
 func TestPublishPassProducesExactReviewerChildAndReplays(t *testing.T) {
 	ctx := context.Background()
-	fx, host, owner, publication := publishedChildProducerSeed(t, 23)
+	fx, host, owner, publication := publishedChildProducerSeed(t, 23, project.PrepareRunning)
+	admissions, admissionErr := fx.db.CandidatePreparations(ctx, owner.Repository, owner.ProjectID, owner.Issue, owner.AttemptRoot, "", 64, 0)
+	if admissionErr != nil || len(admissions) != 1 {
+		t.Fatalf("running review preparation admission missing: %+v %v", admissions, admissionErr)
+	}
+	changed := admissions[0].Admission
+	changed.ActorID++
+	if _, _, err := fx.db.AdmitCandidatePreparation(ctx, project.StoredPreparation{Preparation: admissions[0].Preparation.Preparation}, changed); !errors.Is(err, store.ErrAdmissionChanged) {
+		t.Fatalf("candidate preparation replay changed execution actor: %v", err)
+	}
+	host.prepPhase = project.PrepareReady
 	first := fx.coord.PublishPass(ctx)
-	if len(first.Errors) != 0 || len(host.launches) != 1 || len(host.preparations) != 1 {
+	if len(first.Errors) != 0 || len(host.launches) != 1 || len(host.preparations) != 2 {
 		t.Fatalf("review child production: report=%+v launches=%d preparations=%d", first, len(host.launches), len(host.preparations))
 	}
 	launch := host.launches[0]
@@ -142,7 +152,7 @@ func TestPublishPassProducesExactReviewerChildAndReplays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prep := host.preparations[0]
+	prep := host.preparations[len(host.preparations)-1]
 	if len(host.contextReads) != 1 || len(host.contextRoles) != 1 {
 		t.Fatalf("review context admission reads=%+v roles=%+v", host.contextReads, host.contextRoles)
 	}
@@ -161,6 +171,7 @@ func TestPublishPassProducesExactReviewerChildAndReplays(t *testing.T) {
 		t.Fatal(err)
 	}
 	if child.Role != project.RoleReviewer || child.PublicationAssignment != owner.ID || child.AttemptRoot != owner.AttemptRoot ||
+		child.ActorID != owner.ActorID || launch.Run.Actor != child.ActorID ||
 		child.SourceCommit != publication.Candidate || launch.Run.SourceCommit != publication.Candidate || launch.Run.Preparation != child.Preparation ||
 		prep.Preparation.ID != publicationPreparationID(publication.ID, publication.Candidate) ||
 		prep.Preparation.Role != project.RoleReviewer || prep.Preparation.SourceCommit != publication.Candidate ||
@@ -171,7 +182,7 @@ func TestPublishPassProducesExactReviewerChildAndReplays(t *testing.T) {
 		t.Fatalf("review child lost exact publication linkage: assignment=%+v launch=%+v prep=%+v", child, launch.Run, prep)
 	}
 	second := fx.coord.PublishPass(ctx)
-	if len(second.Errors) != 0 || len(host.launches) != 1 || len(host.preparations) != 1 {
+	if len(second.Errors) != 0 || len(host.launches) != 1 || len(host.preparations) != 2 {
 		t.Fatalf("review child replay repeated preparation or launch: report=%+v launches=%d preparations=%d", second, len(host.launches), len(host.preparations))
 	}
 }
