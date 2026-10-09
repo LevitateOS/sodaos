@@ -122,8 +122,9 @@ The following recommendations are design proposals for the owner to assess.
 
 Current scoped placement also retains `tools/soda-rootfs-server`: `d89f4563`
 moved its Go command/tests and rebound service references. These B07/rootfs
-updates do not refresh the historical root counts, import census or full R02
-coverage above.
+updates do not refresh the historical root counts or import census above.
+Current R02 target/owner/source-join mapping has its separate accepted
+[source crosswalk](build-and-operational-joins.md#current-r02-source-join-crosswalk).
 
 Historical publication evidence: `internal/forgejo/publish.go:37-58` and
 `internal/host/publish/operation.go:19-35`. Process/worker evidence:

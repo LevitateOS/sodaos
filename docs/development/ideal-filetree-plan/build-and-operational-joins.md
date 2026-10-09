@@ -1,5 +1,35 @@
 # Build, installation and operational joins
 
+## Current R02 source join crosswalk
+
+Reconciled against `818a004e` (2026-10-09). This indexes the accepted source
+joins and current selectors; the earlier audit below keeps its original pin.
+The [current inventories](coverage/inventory/README.md),
+[responsibility maps](coverage/maps/README.md) and
+[library caller maps](library-integrations/README.md) supply the per-path and
+per-integration allocations. Source mapping does not renew historical body
+validity or establish installed, provider or media qualification. Each reused
+receipt retains its own frozen inputs and stated scope.
+
+| Boundary | Current source chain and verification selector | Accepted evidence / remaining limit |
+| --- | --- | --- |
+| Go application and Store | `go.mod` → defining `internal/{store,factory,forgejo,identity,web/api}` owners and their actual imports; package tests remain with those owners. [Go/package ownership](package-ownership.md) and the current backend maps identify retained caller and SQL duties. | R03's combined source receipts retain their recorded scope; later account, prompt, grant and correction packets have their own focused proofs. No complete native workflow claim. |
+| Schema emission | `internal/store/schema.go` → `cmd/soda-identity/src/schema.rs` and release-image `model::SCHEMA_VERSION` → `payload_stage::complete_candidate` → `Payload.schema`. Existing selector: `model::tests::release_payload_schema_tracks_store_schema_owners`. | `818a004e` repairs the missed 35→36 release version. The existing regression failed before the fix and passed after it (1 passed, 0 failed/ignored); independent Luna medium review accepted. The earlier `45ebf4c4` schema-28 receipt is historical. No new candidate production claim. |
+| Native host and broker | Root/owner Cargo manifests → `lib/host/src/main.rs` and `cmd/soda-identity/src/main.rs`; host `lib.rs` exports daemon/dbackend/pops modules and current callers. Host/Identity service declarations select their retained binaries. | Accepted daemon, broker-trait, canonical-binding, private-owner and config-owner join receipts; current [host decomposition](decomposition/host-runtime.md). `11f3c15d` removes obsolete pops wiring/oracle instructions with the Rust item suffix unchanged. Systemd and native runtime qualification remain R04. |
+| Project helpers | `production_assets::assets` → package `soda-project-terminal` bins `project-terminal`, `project-account`, `project-factory-roles` → `project-tools/bin` → `system/project/Containerfile` → `/usr/libexec/soda/`. Actual fixture selects `CargoBinary(t, "soda-project-terminal", "project-factory-roles")`; account binary tests use their declared target. | Current guest/host selector maps, A03 helper supervision and P03/P09 source receipts. Test-root commands and fake hooks do not establish installed privileges. |
+| Browser and Forgejo | `frontend/forgejo/payload.json` / extension manifest → existing Bun builders → `production_assets::assets` → `payload_stage` → Forgejo/extension Containerfiles. Browser entrypoints and generated assets keep their defining owners. | Accepted B08 browser/form and payload-selector evidence, plus the source chain below. Served/installed asset identity and full browser journeys remain separate. |
+| Compiler and shipping | Cargo metadata admission in `build_compile` → runtime/tool package-bin tuples → `production_compile` Rust/Go recipes → staged commands and sorted `tools.json`. The compiled `soda-install` output is linked as `tools/soda-installer`. | Accepted host-entrypoint package/bin/compiler joins and current manifest/source selectors. Target count does not imply shipping count or successful release assembly. |
+| Candidate/import/install | `payload_stage` and delivery admission → actual candidate-check CLI; image-import and installer owner manifests select their commands. `scripts/check-native.sh` invokes candidate-check and source checks; authored media/config consumers remain in `system/host/`. | `d56b7667` exercises the compiled checker with generated host plus six OCI archives and truncated-tailnet refusal. Generated archives do not satisfy authenticated producer, import/install or Q7 media evidence. |
+| Acceptance/probes | `tools/acceptance/Cargo.toml` → `soda-acceptance`, `soda-acceptance-remote`, `soda-host-probes`; `RUST_TOOLS`/shipping compilation → tool outputs and `/usr/libexec/soda/soda-host-probes` → retained `tests/installed/` selectors and `host_probes` implementations. | C11's source/driver/custody receipts retain their scope; current stage/installed selectors are mapped. Actual matching-candidate and installed execution remain C11.V/R04. |
+| Dependencies/config/services | Cargo, Go and Bun manifests/locks → existing dependency/compiler admission. Release-image `prepare`/`complete` copy fixed configuration/services, rewrite vendor paths and bind local images. | Current dependency/caller maps and accepted config-owner/L17 source joins. No dependency resolution, live service or provider observation is inferred. |
+| Future D06 personal Git | Current Go `internal/acceptance/personal_git.go` and tests remain live. The sole future leaf, `tools/acceptance/src/personal_git.rs`, has its eventual Go invocation/Rust dispatch/staging/test cutover recorded in [verification decomposition](decomposition/verification-and-support.md). | Explicitly unimplemented future target. No current Rust module, manifest target, caller or installed selector is invented; the existing private-input repair does not implement that cutover. |
+
+The existing R04 gate owns actual boot, installation, invoked-byte identity,
+services, provider effects and complete native journeys. Mapping those selectors
+here supplies source joins; it does not execute or qualify them.
+
+## Historical source audit (2026-10-07)
+
 The source connects command discovery, browser builders, staged services and
 payload identities to their installation consumers. One installed-host script
 still checks obsolete executable paths. Its documentation also overstates the

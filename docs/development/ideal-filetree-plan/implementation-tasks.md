@@ -33,8 +33,10 @@ paths; the sole additional desired leaf is the unimplemented D06 Rust
 personal-Git payload. Historical path comparisons retain their original
 identities. The responsibility body snapshot remains pinned to `519b76bd`,
 with selective current owner/caller deltas recorded in the affected maps.
-Full R02.targets/joins acceptance remains open; path accounting does not renew
-historical validity reviews or establish installed qualification.
+Current R02 target/owner/source-join mapping is complete against `818a004e`,
+after independent Luna medium original-scope acceptance. The
+[current source crosswalk](build-and-operational-joins.md#current-r02-source-join-crosswalk)
+keeps historical validity reviews and actual installed qualification separate.
 
 The [finding allocation](execution-findings.md) is the detailed subtask section
 of this same plan: 75 prior canonical dispositions plus the CA profile question,
@@ -58,7 +60,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 
 | Remaining work | Current disposition and exact next boundary | Owner / task |
 | --- | --- | --- |
-| Current inventory / later target regeneration | Current source responsibility inventory/maps are complete at their recorded snapshot. Keep selective owner/caller deltas with each change; regenerate the full desired tree/decomposition after replacement boundaries settle. Existing task allocation is reconciled here. | Coordinator / R02.inventory complete; R02.targets/joins pending |
+| Current inventory / target and source joins | All 2,541 current leaves and their current owner/target/selector joins are reconciled; the sole future D06 payload remains explicitly unimplemented. Historical body/validity records retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
 | Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Completed in `7334f36b`; candidate count/bytes are admitted before retained variants, with per-file staging and escaped-pattern admission separately bounded. | C / L16.G complete |
 | Host provider HTTP | Source scope complete: `9cea539f` retains mature curl through the owned Executor (11 actual checks: 5 executor, 6 provider; host daemon compiled; independent review passed), and `8026d9ac` declares curl in the generated host package inputs (two existing package-profile tests passed). No ureq cutover. Shipped-binary/RPM inventory, TLS and live provider qualification remain open; no installed-provider claim. | C / L10.N4 source complete; R04 qualification open |
@@ -72,8 +74,9 @@ is complete for the implemented adoption scopes at `d7eca882`. Fresh focused
 evidence tests and locked offline all-target Rust workspace checks pass; final
 unchanged-source packet receipts and independent reviews retain their scope.
 The owning Go fixture row is reconciled in `93b50615`. L17 source completion
-supersedes the CFG01 parser hold; R02.targets/joins and selected R04 qualification remain open; none is
-reclassified by this source-verification result.
+supersedes the CFG01 parser hold. R02 mapping has its separate accepted current
+crosswalk; selected R04 qualification remains open and is not reclassified by
+these source-verification results.
 
 The broader [R03 source verification](implementation-lanes.md#coordinator-checklist)
 now covers current implemented source at `6f1f9354`. Its follow-up fixtures
@@ -82,8 +85,9 @@ rollback regression requires the exact injected PostgreSQL error, while the
 control review regression retains the durable unsent intent and no-submit
 assertions. The old failed composite stays recorded, and independent evidence
 review supports reuse plus focused reruns. Missing native browser inputs,
-installed workflows, open product decisions and full R02 reconciliation remain
-separate; this does not close their parent tasks.
+installed workflows and open product decisions remain separate; this does not
+close their parent tasks. Current R02 mapping is accepted independently through
+the source crosswalk.
 
 ## A — Projects, identity and Spaces
 
