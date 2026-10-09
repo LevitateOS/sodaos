@@ -29,7 +29,7 @@ Observed size: 442 lines, including tests where embedded. Keep the same Go packa
 - `internal/factory/assignment.go` — Canonical assignment identity, stage and validation.
 - `internal/factory/assignment_result.go` — Reported and synthesized harness results.
 - `internal/factory/assignment_resources.go` — Canonical reservation and usage records.
-- `internal/factory/dispatch_prompt.go` — Accepted input sections and bounded prompt construction.
+- `internal/factory/dispatch_prompt.go` and `dispatch_prompt_stage.go` — Accepted input sections, bounded prompt construction and canonical review/correction stage evidence. Approved-base references are recorded; relevant repository context material remains pending.
 
 Evidence: Assignment at 67; ValidAssignmentStage at 36; AssignmentResult at 184; ParseHarnessResult at 248; Reservation at 297; Usage at 326; PromptInputs at 359; BuildDispatchPrompt at 388.
 
