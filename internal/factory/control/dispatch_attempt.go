@@ -49,6 +49,18 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "assignments unreadable"})
 		return
 	}
+	attemptClosed := false
+	if hasAssignment {
+		attemptClosed, err = deps.Store.CloseExpiredAttempt(ctx, latest.ID)
+		if err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "attempt allowance unreadable"})
+			return
+		}
+		if attemptClosed && latest.Stage != factory.AssignmentFinished {
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAllowance, Detail: "attempt is closed; maintainer intervention is required"})
+			return
+		}
+	}
 	if hasAssignment && latest.Stage != factory.AssignmentFinished {
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAssigned})
 		return
@@ -62,7 +74,11 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if hasAssignment && latest.Acceptance == head {
 		pending, retryErr := deps.Store.PendingExplicitRetry(ctx, repository, issue, head)
 		if errors.Is(retryErr, store.ErrNotFound) {
-			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAttemptRecorded})
+			detail := "attempt result is recorded; explicit Retry is required"
+			if attemptClosed {
+				detail = "attempt is closed; maintainer intervention is required"
+			}
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAttemptRecorded, Detail: detail})
 			return
 		}
 		if retryErr != nil {
@@ -70,6 +86,10 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 			return
 		}
 		retry = &pending
+	}
+	if attemptClosed && retry == nil {
+		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAttemptRecorded, Detail: "attempt is closed; maintainer intervention is required"})
+		return
 	}
 	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control, retry != nil)
 	if failed != nil {

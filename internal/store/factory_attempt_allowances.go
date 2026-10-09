@@ -84,6 +84,67 @@ func (s *Store) CapAttemptDeadline(ctx context.Context, assignmentID string, req
 	return deadline, nil
 }
 
+// CloseExpiredAttempt closes automatic continuation for the current exact
+// assignment root once its cumulative active-time allowance is exhausted.
+// It is safe to replay: a closed root can still be deactivated after its last
+// descendant run is confirmed settled.
+func (s *Store) CloseExpiredAttempt(ctx context.Context, assignmentID string) (bool, error) {
+	if !factory.ValidID(assignmentID) {
+		return false, errors.New("invalid attempt assignment")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var raw []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1`, assignmentID).Scan(&raw); err != nil {
+		return false, err
+	}
+	var assignment factory.Assignment
+	if err = json.Unmarshal(raw, &assignment); err != nil {
+		return false, err
+	}
+	if err = assignment.Validate(); err != nil {
+		return false, err
+	}
+	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	// Serialize the current publication-owner check with dispatch/retry writes
+	// on this root. Historical children of that owner share the same allowance.
+	owner, err := currentAttemptOwnerTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
+	if errors.Is(err, sql.ErrNoRows) || err == nil && assignment.PublicationAssignment != owner {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	now := time.Now()
+	if !allowance.Closed {
+		if !allowance.Active {
+			return false, tx.Commit()
+		}
+		if now.Unix() < allowance.CheckpointUnix {
+			return false, factory.ErrAllowanceClock
+		}
+		if allowance.RemainingSeconds(now) > 0 {
+			return false, tx.Commit()
+		}
+	}
+	if err = transitionLockedAttemptRootTx(ctx, tx, allowance, true, now); err != nil {
+		return false, err
+	}
+	if err = tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func attemptDeadlineUnix(allowance factory.AttemptAllowance, now time.Time) (int64, error) {
 	if err := allowance.Validate(); err != nil {
 		return 0, factory.ErrAttemptTimeExhausted

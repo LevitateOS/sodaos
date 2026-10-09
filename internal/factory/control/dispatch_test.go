@@ -85,8 +85,8 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatalf("reservation = %+v %v", reservation, err)
 	}
 
-	// Settle the first run through the accounting hook, then the younger
-	// issue drains on the next pass.
+	// Settlement releases the executing session. The successful attempt
+	// retains its slot while its candidate still needs review and CI.
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "done", true
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
@@ -106,8 +106,12 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatalf("usage total = %d", total)
 	}
 	second := DispatchPass(ctx, fx.deps())
-	if len(second.Launched) != 1 || second.Launched[0].Issue != 5 {
-		t.Fatalf("second pass launched = %+v waits = %+v", second.Launched, second.Waits)
+	if len(second.Launched) != 0 || len(second.Errors) != 0 || waitReason(second, 5) != WaitCapacity {
+		t.Fatalf("settled successful attempt released capacity: %+v", second)
+	}
+	allowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
+	if err != nil || !allowance.Active || allowance.Closed || allowance.RootAssignment != a.AttemptRoot {
+		t.Fatalf("settled candidate attempt = %+v, %v", allowance, err)
 	}
 }
 
