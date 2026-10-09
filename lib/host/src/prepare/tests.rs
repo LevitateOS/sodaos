@@ -225,23 +225,27 @@ fn map_state_validates_and_assembles() {
                                   // Ready must agree with the phase.
     let raw = observation("running", "soda-coder", true, false);
     assert_eq!(
-        map_preparation_state("cid", &raw).unwrap_err(),
+        map_preparation_state("cid", &raw).unwrap_err().to_string(),
         "preparation observation is inconsistent"
     );
     let raw = observation("ready", "soda-coder", false, false);
     assert_eq!(
-        map_preparation_state("cid", &raw).unwrap_err(),
+        map_preparation_state("cid", &raw).unwrap_err().to_string(),
         "preparation observation is inconsistent"
     );
     // Unknown phase / role / digest / commit.
     let mut bad = String::from_utf8(observation("nope", "soda-coder", false, false)).unwrap();
     assert_eq!(
-        map_preparation_state("cid", bad.as_bytes()).unwrap_err(),
+        map_preparation_state("cid", bad.as_bytes())
+            .unwrap_err()
+            .to_string(),
         "invalid preparation observation"
     );
     bad = bad.replace("\"soda-coder\"", "\"coder\"");
     assert_eq!(
-        map_preparation_state("cid", bad.as_bytes()).unwrap_err(),
+        map_preparation_state("cid", bad.as_bytes())
+            .unwrap_err()
+            .to_string(),
         "invalid preparation observation"
     );
     // Oversized logs.
@@ -252,7 +256,9 @@ fn map_state_validates_and_assembles() {
          \"setup_log\":{big:?}}}"
     );
     assert_eq!(
-        map_preparation_state("cid", raw.as_bytes()).unwrap_err(),
+        map_preparation_state("cid", raw.as_bytes())
+            .unwrap_err()
+            .to_string(),
         "preparation observation exceeds the bounded size"
     );
     // Log assembly, tools, exits.
@@ -269,6 +275,34 @@ fn map_state_validates_and_assembles() {
     assert_eq!(state.setup_exit, Some(0));
     assert_eq!(state.check_exit, Some(3));
     assert_eq!(state.missing, "go");
+}
+
+#[test]
+fn map_state_distinguishes_unknown_identity_from_invalid_observation() {
+    assert_eq!(
+        map_preparation_state(
+            "cid",
+            br#"{"hold":{"active":false,"revision":0},"known":false}"#
+        )
+        .unwrap_err(),
+        PreparationObservationError::NotFound
+    );
+    assert!(matches!(
+        map_preparation_state("cid", br#"{"known":false,"phase":"ready"}"#),
+        Err(PreparationObservationError::Invalid(_))
+    ));
+    assert!(matches!(
+        map_preparation_state("cid", b"{"),
+        Err(PreparationObservationError::Invalid(_))
+    ));
+    assert!(matches!(
+        map_preparation_state("cid", br#"{"phase":"ready"}"#),
+        Err(PreparationObservationError::Invalid(_))
+    ));
+    assert!(matches!(
+        map_preparation_state("cid", br#"{"known":null}"#),
+        Err(PreparationObservationError::Invalid(_))
+    ));
 }
 
 #[test]

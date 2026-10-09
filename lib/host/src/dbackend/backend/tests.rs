@@ -136,6 +136,21 @@ fn factory_error_mapping() {
         BackendError::Internal
     ));
 }
+
+#[test]
+fn preparation_absence_is_not_confused_with_inspection_failure() {
+    use crate::prepare::PreparationObservationError;
+    assert_eq!(
+        super::map_preparation_observation_error(PreparationObservationError::NotFound),
+        BackendError::NotFound
+    );
+    assert_eq!(
+        super::map_preparation_observation_error(PreparationObservationError::Invalid(
+            "invalid preparation observation".to_string()
+        )),
+        BackendError::Internal
+    );
+}
 #[test]
 fn terminal_accept_mints_unique_sessions() {
     let backend = backend();

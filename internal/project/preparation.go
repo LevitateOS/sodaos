@@ -84,6 +84,10 @@ func ValidPreparePhase(phase string) bool {
 }
 
 var (
+	// ErrPreparationNotFound reports an exact native preparation identity that
+	// has not been recorded. A caller may retry its immutable admitted request.
+	ErrPreparationNotFound = errors.New("native preparation not found")
+
 	preparationID = regexp.MustCompile(`^f[0-9a-f]{24}$`)
 	decisionID    = regexp.MustCompile(`^d[0-9a-f]{24}$`)
 	sha256Hex     = regexp.MustCompile(`^[0-9a-f]{64}$`)

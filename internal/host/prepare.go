@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -29,6 +30,10 @@ func (c *Client) Prepare(ctx context.Context, in project.Prepare) (project.Prepa
 func (c *Client) InspectPreparation(ctx context.Context, in project.PrepareInspect) (project.PrepareState, error) {
 	var out project.PrepareState
 	err := c.callLimit(ctx, "/prepare-inspect", in, &out, prepareResponseLimit)
+	var httpErr nativeHTTPError
+	if errors.As(err, &httpErr) && httpErr.status == http.StatusNotFound {
+		return out, project.ErrPreparationNotFound
+	}
 	if err == nil && (out.ID != in.ID || out.Project != in.Project || !project.ValidPreparePhase(out.Phase) ||
 		!project.ValidContainerID(out.Container)) {
 		err = errors.New("native preparation observation does not match its identity")

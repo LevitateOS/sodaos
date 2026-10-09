@@ -81,13 +81,15 @@ impl<E: Executor> Runtime<E> {
         input.validate()?;
         let deadline = Self::cap_by_wire_deadline(deadline, &input.deadline)?;
         let container = self.prepare_container(&input.preparation.project, true, deadline)?;
-        let source = self.inspect_preparation_state(
-            &input.preparation.project,
-            &input.source_preparation,
-            &container,
-            deadline,
-            None,
-        )?;
+        let source = self
+            .inspect_preparation_state(
+                &input.preparation.project,
+                &input.source_preparation,
+                &container,
+                deadline,
+                None,
+            )
+            .map_err(|error| error.to_string())?;
         if !source.ready
             || source.stopped
             || source.role != input.preparation.role

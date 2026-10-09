@@ -25,13 +25,13 @@ mod tools;
 pub use self::paths::{
     path_join, preparation_paths, prepare_id_map, single_line, valid_resolved_tool_path,
 };
-pub use self::state::{map_preparation_state, LauncherEvidence};
+pub use self::state::{map_preparation_state, LauncherEvidence, PreparationObservationError};
 
 #[derive(Default)]
 struct StopResponse {
     stopped: String,
     retirement: String,
-    known: bool,
+    known: Option<bool>,
 }
 
 impl<'de> Deserialize<'de> for StopResponse {
@@ -60,9 +60,7 @@ impl<'de> Deserialize<'de> for StopResponse {
                             out.retirement = v;
                         }
                     } else if key.eq_ignore_ascii_case("known") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.known = v;
-                        }
+                        out.known = map.next_value::<Option<bool>>()?;
                     } else {
                         return Err(de::Error::unknown_field(
                             &key,
@@ -123,7 +121,7 @@ impl<E: Executor> Runtime<E> {
         container: &str,
         deadline: Instant,
         worker_deadline: Option<&str>,
-    ) -> Result<PrepareState, String> {
+    ) -> Result<PrepareState, PreparationObservationError> {
         let mut body = String::from("{\"id\":");
         body.push_str(&json::quote(id));
         if let Some(worker_deadline) = worker_deadline {
@@ -131,7 +129,9 @@ impl<E: Executor> Runtime<E> {
             body.push_str(&json::quote(worker_deadline));
         }
         body.push_str(",\"op\":\"inspect\"}");
-        let raw = self.factory_helper(project, &body, deadline)?;
+        let raw = self
+            .factory_helper(project, &body, deadline)
+            .map_err(PreparationObservationError::Invalid)?;
         let mut state = map_preparation_state(container, &raw)?;
         state.id = id.to_string();
         state.project = project.to_string();
@@ -167,13 +167,15 @@ impl<E: Executor> Runtime<E> {
             }
             return Err(err);
         }
-        let state = self.inspect_preparation_state(
-            &prep.project,
-            &prep.id,
-            &container,
-            deadline,
-            worker_deadline,
-        )?;
+        let state = self
+            .inspect_preparation_state(
+                &prep.project,
+                &prep.id,
+                &container,
+                deadline,
+                worker_deadline,
+            )
+            .map_err(|error| error.to_string())?;
         if state.stopped || state.ready || state.phase == preparation::PREPARE_FAILED {
             return Ok(state);
         }
@@ -182,13 +184,15 @@ impl<E: Executor> Runtime<E> {
         let (tools, missing) = self.resolve_preparation_tools(prep, deadline)?;
         self.record_preparation_tools(prep, &tools, &missing, &verified, deadline)?;
         if !missing.is_empty() || !verified.refusal.is_empty() {
-            return self.inspect_preparation_state(
-                &prep.project,
-                &prep.id,
-                &container,
-                deadline,
-                worker_deadline,
-            );
+            return self
+                .inspect_preparation_state(
+                    &prep.project,
+                    &prep.id,
+                    &container,
+                    deadline,
+                    worker_deadline,
+                )
+                .map_err(|error| error.to_string());
         }
         let mut body = String::from("{");
         if let Some(worker_deadline) = worker_deadline {
@@ -218,6 +222,7 @@ impl<E: Executor> Runtime<E> {
             deadline,
             worker_deadline,
         )
+        .map_err(|error| error.to_string())
     }
 
     /// `InspectPreparation`: authoritative state, never mutating.
@@ -225,9 +230,13 @@ impl<E: Executor> Runtime<E> {
         &self,
         input: &PrepareInspect,
         deadline: Instant,
-    ) -> Result<PrepareState, String> {
-        input.validate()?;
-        let container = self.prepare_container(&input.project, false, deadline)?;
+    ) -> Result<PrepareState, PreparationObservationError> {
+        input
+            .validate()
+            .map_err(PreparationObservationError::Invalid)?;
+        let container = self
+            .prepare_container(&input.project, false, deadline)
+            .map_err(PreparationObservationError::Invalid)?;
         self.inspect_preparation_state(&input.project, &input.id, &container, deadline, None)
     }
 
@@ -246,12 +255,26 @@ impl<E: Executor> Runtime<E> {
         const ERR: &str = "preparation stop unconfirmed";
         let response: StopResponse = json::decode_strict_as(&raw).map_err(|_| ERR.to_string())?;
         let retirement = response.retirement;
-        if response.stopped != input.id || (retirement != "confirmed" && retirement != "uncertain")
+        if response.stopped != input.id
+            || response.known.is_none()
+            || (retirement != "confirmed" && retirement != "uncertain")
         {
             return Err(ERR.to_string());
         }
-        let mut state =
-            self.inspect_preparation_state(&input.project, &input.id, &container, deadline, None)?;
+        if response.known == Some(false) {
+            return Ok(PrepareState {
+                id: input.id.clone(),
+                project: input.project.clone(),
+                phase: preparation::PREPARE_STOPPED.to_string(),
+                container,
+                stopped: true,
+                retirement,
+                ..Default::default()
+            });
+        }
+        let mut state = self
+            .inspect_preparation_state(&input.project, &input.id, &container, deadline, None)
+            .map_err(|error| error.to_string())?;
         state.retirement = retirement;
         Ok(state)
     }

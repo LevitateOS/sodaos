@@ -257,6 +257,53 @@ fn inspect_stop_hold_paths() {
         String::from_utf8(mock.calls.borrow()[1].0.clone()).unwrap(),
         format!("{{\"id\":{fid:?},\"op\":\"stop\"}}")
     );
+    // An unknown identity receives a confirmed tombstone before any approval
+    // or start, so the caller can safely retain that state as retirement proof.
+    let mock = Mock::new(vec![
+        Ok(container_payload(&id)),
+        Ok(
+            format!("{{\"stopped\":{fid:?},\"retirement\":\"confirmed\",\"known\":false}}")
+                .into_bytes(),
+        ),
+    ]);
+    let rt = Runtime {
+        exec: &mock,
+        config: test_config(),
+    };
+    let state = rt
+        .stop_preparation(
+            &PrepareStop {
+                project: id.clone(),
+                id: fid.clone(),
+            },
+            deadline(),
+        )
+        .unwrap();
+    assert_eq!(state.id, fid);
+    assert_eq!(state.project, id);
+    assert_eq!(state.phase, crate::preparation::PREPARE_STOPPED);
+    assert!(state.stopped);
+    assert_eq!(state.retirement, "confirmed");
+    assert_eq!(mock.calls.borrow().len(), 2);
+    let mock = Mock::new(vec![
+        Ok(container_payload(&id)),
+        Ok(format!("{{\"stopped\":{fid:?},\"retirement\":\"confirmed\"}}").into_bytes()),
+    ]);
+    let rt = Runtime {
+        exec: &mock,
+        config: test_config(),
+    };
+    assert_eq!(
+        rt.stop_preparation(
+            &PrepareStop {
+                project: id.clone(),
+                id: fid.clone()
+            },
+            deadline(),
+        )
+        .unwrap_err(),
+        "preparation stop unconfirmed"
+    );
     // Stop with a bad tombstone.
     let mock = Mock::new(vec![
         Ok(container_payload(&id)),

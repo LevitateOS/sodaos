@@ -7,8 +7,7 @@
 //! [`account`](crate::account), [`prepare`](crate::prepare) and the
 //! [`domain`]/[`preparation`] DTOs; this layer only binds the wire contract
 //! the daemon adapter programs against: strict-decode request types plus
-//! `Result<String, String>` JSON responses with the exact Go field
-//! shapes. It ports no executor logic itself, so behavior can never drift
+//! JSON responses with the exact Go field shapes. It ports no executor logic itself, so behavior can never drift
 //! from the typed ops.
 //!
 //! Wiring: the integrator adds `pub mod pops;` to `lib.rs`. Until then this
@@ -41,8 +40,10 @@
 //!
 //! # Errors
 //!
-//! Every op error is an exact Go message string, wire-opaque: the adapter
-//! maps by substring. `Req::decode` retains strict object admission, input
+//! Most op errors are exact Go message strings, wire-opaque: the adapter
+//! maps by the owning route. Preparation inspection preserves a typed
+//! not-found result so an unknown identity maps to HTTP 404; malformed or
+//! failed observations remain internal errors. `Req::decode` retains strict object admission, input
 //! bounds, UTF-8, duplicate and field checks. Typed request decoders use
 //! Serde diagnostics; parser wording and offsets are implementation details.
 //! Executor (podman/systemctl/helper) failures pass through raw unless the
@@ -103,8 +104,9 @@
 //!   `candidate approved file is not protected`,
 //!   `candidate approved file is unavailable or exceeds bounds`); then the
 //!   full `prepare` set for the delegated fresh preparation.
-//! * `inspect_preparation`: `invalid preparation address`, then container
-//!   binding, helper and observation faults as in `prepare`.
+//! * `inspect_preparation`: `invalid preparation address`, native not-found
+//!   for an exact unknown identity, then container binding, helper and
+//!   malformed observation faults as in `prepare`.
 //! * `stop_preparation`: `invalid preparation address`,
 //!   `preparation stop unconfirmed`, then container binding, helper and
 //!   observation faults as in `prepare`.
@@ -260,7 +262,7 @@ impl<E: project::Executor> Ops<E> {
         &self,
         req: &InspectPreparationReq,
         deadline: Instant,
-    ) -> Result<String, String> {
+    ) -> Result<String, crate::prepare::PreparationObservationError> {
         Ok(self
             .runtime()
             .inspect_preparation(&req.0, deadline)?

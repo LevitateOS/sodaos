@@ -5,9 +5,26 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
 use std::fmt;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PreparationObservationError {
+    NotFound,
+    Invalid(String),
+}
+
+impl fmt::Display for PreparationObservationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotFound => f.write_str("preparation not found"),
+            Self::Invalid(message) => f.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for PreparationObservationError {}
+
 #[derive(Default)]
 struct HelperInspection {
-    known: bool,
+    known: Option<bool>,
     phase: String,
     role: String,
     setup_digest: String,
@@ -42,9 +59,7 @@ impl<'de> Deserialize<'de> for HelperInspection {
                 let mut out = HelperInspection::default();
                 while let Some(key) = map.next_key::<String>()? {
                     if key.eq_ignore_ascii_case("known") {
-                        if let Some(v) = map.next_value::<Option<bool>>()? {
-                            out.known = v;
-                        }
+                        out.known = map.next_value::<Option<bool>>()?;
                     } else if key.eq_ignore_ascii_case("phase") {
                         if let Some(v) = map.next_value::<Option<String>>()? {
                             out.phase = v;
@@ -193,9 +208,13 @@ pub(crate) fn quote_bytes_base64(out: &mut String, bytes: &[u8]) {
 
 /// `mapPreparationState`: validated observation plus container identity.
 /// ID and project are filled in by the caller.
-pub fn map_preparation_state(container: &str, raw: &[u8]) -> Result<PrepareState, String> {
+pub fn map_preparation_state(
+    container: &str,
+    raw: &[u8],
+) -> Result<PrepareState, PreparationObservationError> {
     const ERR: &str = "invalid preparation observation";
-    let observed: HelperInspection = json::decode_strict_as(raw).map_err(|_| ERR.to_string())?;
+    let observed: HelperInspection = json::decode_strict_as(raw)
+        .map_err(|_| PreparationObservationError::Invalid(ERR.to_string()))?;
     let HelperInspection {
         known,
         phase,
@@ -213,16 +232,38 @@ pub fn map_preparation_state(container: &str, raw: &[u8]) -> Result<PrepareState
         hold: _,
         verified: _,
     } = observed;
-    if !known
-        || !preparation::valid_prepare_phase(&phase)
+    let Some(known) = known else {
+        return Err(PreparationObservationError::Invalid(ERR.to_string()));
+    };
+    if !known {
+        if !phase.is_empty()
+            || !role.is_empty()
+            || !setup_digest.is_empty()
+            || !source_commit.is_empty()
+            || !tools.is_empty()
+            || !missing.is_empty()
+            || stopped
+            || ready
+            || setup_exit.is_some()
+            || check_exit.is_some()
+            || !setup_log.is_empty()
+            || !check_log.is_empty()
+        {
+            return Err(PreparationObservationError::Invalid(ERR.to_string()));
+        }
+        return Err(PreparationObservationError::NotFound);
+    }
+    if !preparation::valid_prepare_phase(&phase)
         || !preparation::valid_factory_role(&role)
         || !preparation::valid_digest(&setup_digest)
         || !preparation::valid_commit(&source_commit)
     {
-        return Err(ERR.to_string());
+        return Err(PreparationObservationError::Invalid(ERR.to_string()));
     }
     if setup_log.len() > 66560 || check_log.len() > 66560 {
-        return Err("preparation observation exceeds the bounded size".to_string());
+        return Err(PreparationObservationError::Invalid(
+            "preparation observation exceeds the bounded size".to_string(),
+        ));
     }
     let mut state = PrepareState {
         role,
@@ -242,7 +283,9 @@ pub fn map_preparation_state(container: &str, raw: &[u8]) -> Result<PrepareState
         state.output = format!("--- setup ---\n{setup_log}\n--- check ---\n{check_log}");
     }
     if state.ready != (state.phase == preparation::PREPARE_READY) {
-        return Err("preparation observation is inconsistent".to_string());
+        return Err(PreparationObservationError::Invalid(
+            "preparation observation is inconsistent".to_string(),
+        ));
     }
     Ok(state)
 }

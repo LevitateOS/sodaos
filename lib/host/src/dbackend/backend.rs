@@ -14,6 +14,15 @@ use super::{
 #[cfg(test)]
 mod tests;
 
+fn map_preparation_observation_error(
+    error: crate::prepare::PreparationObservationError,
+) -> BackendError {
+    match error {
+        crate::prepare::PreparationObservationError::NotFound => BackendError::NotFound,
+        crate::prepare::PreparationObservationError::Invalid(message) => internal(message),
+    }
+}
+
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FactoryHarnessRequest {
@@ -145,7 +154,7 @@ impl ExecBackend for DaemonBackend {
         self.pops
             .inspect_preparation(&req, native_deadline())
             .map(String::into_bytes)
-            .map_err(internal)
+            .map_err(map_preparation_observation_error)
     }
 
     fn stop_preparation(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {

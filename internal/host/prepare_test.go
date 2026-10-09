@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -32,6 +33,44 @@ func TestStopClientRequiresConfirmedStop(t *testing.T) {
 	})}
 	if _, err := c.StopPreparation(context.Background(), project.PrepareStop{Project: "p0123456789abcdef01234567", ID: "f0123456789abcdef01234567"}); err == nil {
 		t.Fatal("unconfirmed stop accepted")
+	}
+}
+
+func TestStopClientAcceptsConfirmedPreStartTombstone(t *testing.T) {
+	in := project.PrepareStop{Project: "p0123456789abcdef01234567", ID: "f0123456789abcdef01234567"}
+	c := NewClient("unused")
+	c.HTTP = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return jsonResponse(project.PrepareState{
+			ID: in.ID, Project: in.Project, Phase: project.PrepareStopped,
+			Stopped: true, Retirement: "confirmed",
+		}), nil
+	})}
+	state, err := c.StopPreparation(context.Background(), in)
+	if err != nil || !state.Stopped || state.Phase != project.PrepareStopped {
+		t.Fatalf("pre-start tombstone was not confirmed: %+v, %v", state, err)
+	}
+}
+
+func TestInspectPreparationClientMapsOnlyNativeNotFound(t *testing.T) {
+	in := project.PrepareInspect{Project: "p0123456789abcdef01234567", ID: "f0123456789abcdef01234567"}
+	for _, status := range []int{http.StatusNotFound, http.StatusInternalServerError} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			c := NewClient("unused")
+			c.HTTP = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path != "/prepare-inspect" {
+					t.Fatalf("unexpected route %s", r.URL.Path)
+				}
+				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader("native response")), Header: make(http.Header)}, nil
+			})}
+			_, err := c.InspectPreparation(context.Background(), in)
+			if status == http.StatusNotFound {
+				if !errors.Is(err, project.ErrPreparationNotFound) {
+					t.Fatalf("missing preparation was not typed: %v", err)
+				}
+			} else if errors.Is(err, project.ErrPreparationNotFound) || err == nil {
+				t.Fatalf("inspection failure was confused with absence: %v", err)
+			}
+		})
 	}
 }
 
