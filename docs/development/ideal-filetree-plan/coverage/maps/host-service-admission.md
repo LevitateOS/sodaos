@@ -177,13 +177,13 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 <a id="coverage-6a5d4983a71e"></a>
 
-## [lib/host/src/iconfig/tests.rs](../../../../../lib/host/src/iconfig/tests.rs)
+## [lib/host/src/daemon/config/tests.rs](../../../../../lib/host/src/daemon/config/tests.rs)
 
 current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–231; current module/import/attribute shell; declaration GOLDENS; declaration PROJECT_IMAGE; declaration TAILNET_IMAGE; declaration golden; declaration golden_valid_configs; declaration golden_decode_errors; declaration golden_go_framing_parity; declaration golden_release_overlay; declaration golden_validators; declaration MUSE; declaration IDENTITY; declaration STAGED; declaration TAILNET; declaration NATIVE; declaration golden_validation_order; declaration crate_helpers_match_go_validators; declaration configured_muse_socket_requires_clean_absolute_spelling | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/iconfig/tests.rs into its current native target.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–238; current module/import/attribute shell; declaration GOLDENS; declaration PROJECT_IMAGE; declaration TAILNET_IMAGE; declaration golden; declaration golden_valid_configs; declaration golden_decode_errors; declaration golden_go_framing_parity; declaration golden_release_overlay; declaration host_payload_architecture_matches_native_policy; declaration golden_validators; declaration MUSE; declaration IDENTITY; declaration STAGED; declaration TAILNET; declaration NATIVE; declaration golden_validation_order; declaration crate_helpers_match_go_validators; declaration configured_muse_socket_requires_clean_absolute_spelling | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Imports and module declarations wire lib/host/src/daemon/config/tests.rs into its current native target.; 19 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
 
 <a id="coverage-f3d098ee8060"></a>
 

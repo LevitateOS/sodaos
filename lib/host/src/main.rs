@@ -13,10 +13,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use soda_host::daemon::config;
 use soda_host::daemon::routes::DaemonConfig;
 use soda_host::daemon::server::{self, Server};
 use soda_host::dbackend::{BackendConfig, DaemonBackend, MuseConfig};
-use soda_host::{iconfig, muse_serve, project, tailnet_domain};
+use soda_host::{muse_serve, project, tailnet_domain};
 
 const DEFAULT_CONFIG: &str = "/etc/soda/host.json";
 const RELEASE_CONFIG: &str = "/usr/share/soda/release.json";
@@ -163,7 +164,7 @@ fn run_tailnet_action(
         // Go `tailnet.ErrInvalid`.
         return Err(MainError::Other("invalid Tailnet request".to_string()));
     }
-    let config = iconfig::load_config(config_path, release_path)
+    let config = config::load_config(config_path, release_path)
         .map_err(|_| MainError::Other("tailnet unavailable".to_string()))?;
     if !config.tailnet_management || config.tailnet_image.is_empty() {
         return Ok(());
@@ -192,7 +193,7 @@ fn run_tailnet_action(
 
 // -- serve path (`serveHostSocket`) --
 
-fn open_backend(config: &iconfig::Config) -> DaemonBackend {
+fn open_backend(config: &config::Config) -> DaemonBackend {
     DaemonBackend::open(
         BackendConfig {
             project: project::Config {
@@ -223,7 +224,7 @@ fn open_backend(config: &iconfig::Config) -> DaemonBackend {
     )
 }
 
-fn serve_host_socket(config: iconfig::Config, listen_path: &str) -> Result<(), MainError> {
+fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), MainError> {
     if !is_root() {
         return Err(MainError::Other(
             "requires root and the soda-host systemd Unix socket".to_string(),
@@ -394,7 +395,7 @@ fn run() -> Result<(), MainError> {
     if !flags.project.is_empty() || !flags.positionals.is_empty() {
         return Err(MainError::Other("invalid Tailnet request".to_string()));
     }
-    let config = iconfig::load_config(&flags.config, &flags.release)
+    let config = config::load_config(&flags.config, &flags.release)
         .map_err(|e| MainError::Other(format!("invalid host configuration: {e}")))?;
     serve_host_socket(config, &flags.listen_path)
 }

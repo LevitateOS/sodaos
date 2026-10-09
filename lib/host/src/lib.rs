@@ -10,7 +10,6 @@ pub mod dbackend;
 pub mod domain;
 pub mod factory;
 pub mod iclient;
-pub mod iconfig;
 pub mod json;
 pub mod muse;
 pub mod muse_serve;

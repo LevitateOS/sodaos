@@ -3,7 +3,7 @@
 //!
 //! Request bodies are pinned against bytes captured from the live Go
 //! client; responses against the Go transport. Daemon config goldens
-//! live with their subject in `src/iconfig/tests.rs`.
+//! live with their subject in `src/daemon/config/tests.rs`.
 
 use soda_host::iclient::{execution_is_terminal, BrokerClient, Execution};
 use soda_host::{muse, terminal};

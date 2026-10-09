@@ -18,7 +18,7 @@ small integration proofs before transport replacement.
 
 | Finding and existing surface | Current target responsibility |
 | --- | --- |
-| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): host daemon and identity clients | Complete at L09 through `21387814`: Hyper owns HTTP/1 parsing/framing and the four clients use the selected Unix HTTP adapter. Host `daemon/{server,http,response,routes,websocket}` and `daemon/broker.rs` retain Soda listener custody, per-socket authority, route/admission limits, status/secrecy and broker request semantics; no generic HTTP engine is a target. The defining server/admission/backend/route and direct broker-trait source joins are complete; configuration placement and installed qualification remain pending. |
+| [N1](../../../research/library-reuse-investigation.md#n1), [N2](../../../research/library-reuse-investigation.md#n2): host daemon and identity clients | Complete at L09 through `21387814`: Hyper owns HTTP/1 parsing/framing and the four clients use the selected Unix HTTP adapter. Host `daemon/{server,http,response,routes,websocket}` and `daemon/broker.rs` retain Soda listener custody, per-socket authority, route/admission limits, status/secrecy and broker request semantics; no generic HTTP engine is a target. The defining server/admission/backend/route and direct broker/config source joins are complete; broader main/backend allocation and installed qualification remain pending. |
 | [N6](../../../research/library-reuse-investigation.md#n6): `daemon/websocket.rs`, `dbackend.rs`, terminal attachment | Complete at L09 through `21387814`: tungstenite owns WebSocket protocol parsing, with one nonblocking transport owner. Retain route/Origin/query admission, session expiry, inflight/TerminalGate lifetime, bounded child-output queue, readiness wakeup, child close/reap and shutdown. Handshake SHA-1/Base64 and handwritten frame state are retired. |
 | [N4](../../../research/library-reuse-investigation.md#n4), [N7](../../../research/library-reuse-investigation.md#n7): `tcontrol_provider.rs`, native/provider URL helpers | Retain the selected host curl/Executor request policy and URL/form/percent primitives. Preserve credential scope/lifetime, neutral errors, no uncertain replay, the resolver-inclusive deadline and raw lexical admission; generic authority/escape algorithms are superseded. Source selection is complete, with provider/native qualification separate. |
 | [N8](../../../research/library-reuse-investigation.md#n8), [N9](../../../research/library-reuse-investigation.md#n9): Tailnet address/time and terminal/Factory deadline codecs | Use std IP types and the selected time codec. Retain zone/mask, DNS/name and purpose-specific address policy, lease/deadline bounds, zero-time handling and original signed text; calendar/IP engines are superseded. |
@@ -105,7 +105,7 @@ records 39 existing test bodies passing with no failures or ignored cases: one
 moved broker conversion test, 18 backend cases, 16 actual-client cases against
 the scripted broker, and four binary tests. Both host binaries compile and the
 exact four-file format check passes. These checks do not establish full-service,
-native or installed behavior. Wider R02 allocation and configuration placement
+native or installed behavior. Wider R02 allocation and main/backend joins
 remain open.
 
 ## Current Forgejo Tailnet helper allocation
@@ -344,7 +344,7 @@ the existing Rust host package, not additional processes or mock services.
 | `lib/host/tests/identity_transport/common.rs` | Source1–176 actual broker socket/capture/reply/deadline/request/lease fixtures, full_binding230–245, DELIVERY_JSON246 and sized_lease499–505. Rebind used imports; the old config #[path]/load_config imports move to their real config subject. Retain ONE FakeBroker/socket counter/helper owner; child visibility is bounded to this private suite. |
 | `lib/host/tests/identity_transport/requests.rs` | Whole request/body/registration/return/deadline-encoding/HTML-escaping cases with attributes177–229 and248–444, importing actual BrokerClient/types and the single common fixture owner. |
 | `lib/host/tests/identity_transport/responses.rs` | Whole error/substrings/body-cap/strict-decode/deadline/transport/framing cases with attributes445–498 and506–692. The substring case starts attr483/body484 and ends497; the sized_lease helper499–505 remains common. Do not misplace this broker protocol in terminal PTY tests. |
-| `lib/host/src/config/tests.rs` | Config support694–705, including GOLDENS696, PROJECT_IMAGE697–698, TAILNET_IMAGE699–700 and golden702–704; complete config cases706–881 and whole reused-validator case attr883/body884–911. Import the actual Config and domain/factory/network/terminal/JSON subjects once; preserve fixture bytes, loader/overlay/error-order assertions and test-only provenance. |
+| `lib/host/src/daemon/config/tests.rs` | The existing 238-line private child suite remains under its defining `daemon/config.rs` module. Preserve the loader/overlay/validation-order and reused-validator assertions and test-only provenance; do not create a second top-level `config` module or move the package-relative `tests/data/iconfig` fixtures. |
 
 Current `rust/soda-host/Cargo.toml` has no explicit test declarations; the
 current oracle is auto-discovered. The new multi-file suite is discoverable at
@@ -355,8 +355,10 @@ with that move; do not describe a nonexistent old manifest declaration. Ordinary
 Cargo package test discovery remains in the same host package. Config tests
 are private real-subject descendants, not another integration crate.
 
-Keep the existing iconfig golden data at `lib/host/tests/data/iconfig/` and
-rebind its loader paths relative to the retained Cargo package root. Existing
+Keep the existing host-config golden data at `lib/host/tests/data/iconfig/` and
+retain its package-relative loader paths. The source owner is now
+`lib/host/src/daemon/config.rs` with tests in `daemon/config/tests.rs`; the
+fixture directory keeps its historical name. Existing
 `terminal_transport.rs` keeps actual terminal transport duties; it does not own
 the complete broker administration/request oracle. Each selected transport
 concern is below400 current source lines after cohesive fixture extraction.

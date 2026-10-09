@@ -190,7 +190,7 @@ fn golden_validation_order() {
 
 #[test]
 fn crate_helpers_match_go_validators() {
-    // The validators `iconfig` reuses (not reimplements) decide exactly
+    // The validators host configuration reuses decide exactly
     // like their Go regexes on boundary inputs.
     assert!(domain::valid_image_ref(&format!(
         "sha256:{}",
