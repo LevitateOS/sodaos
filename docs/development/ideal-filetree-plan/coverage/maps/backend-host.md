@@ -99,6 +99,16 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–44; file scaffold; TestFactoryExportClientPreservesConfirmedRefusals | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestFactoryExportClientPreservesConfirmedRefusals — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-3d416738d438"></a>
+
+## [internal/host/factory_harness_test.go](../../../../../internal/host/factory_harness_test.go)
+
+Current source at `35ce794a`; tests exercise the production host client's request and response admission.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–70; file scaffold; TestFactoryHarnessRequestsSelectedFamily; TestFactoryHarnessRejectsUnsupportedFamilyBeforeIO; TestFactoryHarnessRejectsWrongFamilyResponse | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Selected family reaches the native request; unsupported selection makes no request; a valid pin for another family refuses. Actual Go client checks pass; no installed host or provider execution is claimed. |
+
 <a id="coverage-ff42bb734720"></a>
 
 ## [internal/host/identity.go](../../../../../internal/host/identity.go)

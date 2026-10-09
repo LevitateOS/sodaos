@@ -175,7 +175,7 @@ H01/H04/D11/I09/N06/N02 current daemon configuration and Tailnet/service configu
 
 ### [lib/host/src/dbackend/backend.rs](../../../../../lib/host/src/dbackend/backend.rs)
 
-P01/P02/P03/P04/P05/P07/P12/F07/F08/S06/F09/F11/I09/N03/S05: concrete daemon backend routes (current source allocation table).
+P01/P02/P03/P04/P05/P07/P12/F07/F08/S06/F09/F11/I09/N03/S05: concrete daemon backend routes (current source allocation table). At `35ce794a`, F08 owns `FactoryHarnessRequest` and `factory_harness`: strict explicit-family admission and the matching configured pin query.
 
 <a id="r02-current-path-lib-host-src-dbackend-backend-tests-rs"></a>
 
@@ -187,7 +187,7 @@ P01/P02/H01/P05/F08/I09/S05: concrete backend assertions (current source allocat
 
 ### [lib/host/src/dbackend/factory_terminal.rs](../../../../../lib/host/src/dbackend/factory_terminal.rs)
 
-F07/F08/S06/F09, with I04 lease converter call (current source allocation table).
+F07/F08/S06/F09, with I04 lease converter call (current source allocation table). At `35ce794a`, F08 retains family-aware `harness_pin` and its two configured-family/refusal regressions. The singular family/version/digest getters and implicit `pin_family` are removed; historical selector evidence above remains historical.
 
 <a id="r02-current-path-lib-host-src-dbackend-mod-rs"></a>
 
