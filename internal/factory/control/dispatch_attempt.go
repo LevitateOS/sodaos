@@ -228,6 +228,7 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 		prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
 			Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 			AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
+			ApprovedBase:   plan.prep.Preparation.SourceCommit,
 			Preparation:    plan.prep.Preparation.ID,
 			RequirementsID: plan.requirement, ApprovalID: plan.approval,
 			Harness: plan.pin.Harness, Model: selection.Model, Role: role,
