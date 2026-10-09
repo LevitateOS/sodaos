@@ -26,7 +26,6 @@ type ReadinessWork struct {
 	ID, Delivery string
 	Root         factory.DependenceRef
 	Generation   int64
-	RootChanged  bool
 }
 
 type ReadinessWorkNode struct {
@@ -105,7 +104,7 @@ func (s *Store) NextReadinessWork(ctx context.Context, now time.Time) (Readiness
 	if err = tx.QueryRowContext(ctx, `SELECT id FROM factory_readiness_budget WHERE id=1 FOR UPDATE`).Scan(&locked); err != nil {
 		return ReadinessWork{}, err
 	}
-	work, err := readReadinessWork(ctx, tx, `SELECT id,delivery,repository,issue,generation,root_changed FROM factory_readiness_sources WHERE retry_at<=$1 ORDER BY turn,id LIMIT 1 FOR UPDATE`, now)
+	work, err := readReadinessWork(ctx, tx, `SELECT id,delivery,repository,issue,generation FROM factory_readiness_sources WHERE retry_at<=$1 ORDER BY turn,id LIMIT 1 FOR UPDATE`, now)
 	if err != nil {
 		return ReadinessWork{}, err
 	}
@@ -137,7 +136,7 @@ func (s *Store) BeginReadinessWork(ctx context.Context, id string, now time.Time
 	if err = tx.QueryRowContext(ctx, `SELECT id FROM factory_readiness_budget WHERE id=1 FOR UPDATE`).Scan(&locked); err != nil {
 		return ReadinessWork{}, err
 	}
-	work, err := readReadinessWork(ctx, tx, `SELECT id,delivery,repository,issue,generation,root_changed FROM factory_readiness_sources WHERE id=$1 AND retry_at<=$2 FOR UPDATE`, id, now)
+	work, err := readReadinessWork(ctx, tx, `SELECT id,delivery,repository,issue,generation FROM factory_readiness_sources WHERE id=$1 AND retry_at<=$2 FOR UPDATE`, id, now)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ReadinessWork{}, ErrReadinessPending
@@ -185,7 +184,7 @@ func readReadinessWork(ctx context.Context, q interface {
 }, query string, args ...any,
 ) (ReadinessWork, error) {
 	var work ReadinessWork
-	err := q.QueryRowContext(ctx, query, args...).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation, &work.RootChanged)
+	err := q.QueryRowContext(ctx, query, args...).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation)
 	return work, err
 }
 
@@ -198,7 +197,7 @@ func (s *Store) NextReadinessWorkNode(ctx context.Context, id string) (Readiness
 }
 
 // CheckpointReadinessAssessment advances one evaluated node atomically.
-func (s *Store) CheckpointReadinessAssessment(ctx context.Context, work ReadinessWork, node ReadinessWorkNode, skip, changed bool) error {
+func (s *Store) CheckpointReadinessAssessment(ctx context.Context, work ReadinessWork, node ReadinessWorkNode, skip bool) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -219,11 +218,6 @@ func (s *Store) CheckpointReadinessAssessment(ctx context.Context, work Readines
 		return rowsErr
 	} else if affected != 1 {
 		return ErrReadinessPending
-	}
-	if node.Ref == work.Root && changed {
-		if _, err = tx.ExecContext(ctx, `UPDATE factory_readiness_sources SET root_changed=TRUE WHERE id=$1`, work.ID); err != nil {
-			return err
-		}
 	}
 	return tx.Commit()
 }
@@ -382,7 +376,7 @@ func (s *Store) DeferReadinessWork(ctx context.Context, id string, now time.Time
 // ReadinessWork returns one source header; absent IDs report ErrNotFound.
 func (s *Store) ReadinessWork(ctx context.Context, id string) (ReadinessWork, error) {
 	var work ReadinessWork
-	err := s.db.QueryRowContext(ctx, `SELECT id,delivery,repository,issue,generation,root_changed FROM factory_readiness_sources WHERE id=$1`, id).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation, &work.RootChanged)
+	err := s.db.QueryRowContext(ctx, `SELECT id,delivery,repository,issue,generation FROM factory_readiness_sources WHERE id=$1`, id).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation)
 	return work, err
 }
 

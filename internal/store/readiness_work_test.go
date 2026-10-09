@@ -36,7 +36,7 @@ func TestReadinessWorkCheckpointAndAtomicDeliveryFinish(t *testing.T) {
 	if err != nil || node.Ref != root || node.State != "queued" {
 		t.Fatal("root node:", node, err)
 	}
-	if err := s.CheckpointReadinessAssessment(ctx, work, node, false, true); err != nil {
+	if err := s.CheckpointReadinessAssessment(ctx, work, node, false); err != nil {
 		t.Fatal("checkpoint root assessment:", err)
 	}
 	node, err = s.NextReadinessWorkNode(ctx, work.ID)
@@ -48,8 +48,8 @@ func TestReadinessWorkCheckpointAndAtomicDeliveryFinish(t *testing.T) {
 		t.Fatal("empty dependant scan:", more, err)
 	}
 	work, err = s.ReadinessWork(ctx, work.ID)
-	if err != nil || !work.RootChanged {
-		t.Fatal("root change flag was not retained:", work, err)
+	if err != nil {
+		t.Fatal("read source before completion:", err)
 	}
 	complete, err := s.CompleteReadinessWork(ctx, work, now)
 	if err != nil || !complete {
@@ -99,8 +99,8 @@ func TestReadinessWorkCapacityGenerationAndDefer(t *testing.T) {
 		t.Fatal(err)
 	}
 	work, err := s.BeginReadinessWork(ctx, "best-effort:1", now)
-	if err != nil || work.RootChanged {
-		t.Fatal("generation restart must not invent a changed assessment:", work, err)
+	if err != nil {
+		t.Fatal("generation restart:", err)
 	}
 	var nodes int
 	if err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_readiness_nodes WHERE source=$1`, work.ID).Scan(&nodes); err != nil || nodes != 1 {
@@ -161,7 +161,7 @@ func TestReadinessRedeliveryWakesOnlyMatchingSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.CheckpointReadinessAssessment(ctx, work, node, false, true); err != nil {
+	if err = s.CheckpointReadinessAssessment(ctx, work, node, false); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.EnqueueReadinessWork(ctx, critical, "wake", root); err != nil {
@@ -204,7 +204,7 @@ func TestReadinessWorkFairRotationAndStaleCheckpoint(t *testing.T) {
 	if _, err = s.db.ExecContext(ctx, `UPDATE factory_readiness_budget SET generation=generation+1 WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.CheckpointReadinessAssessment(ctx, work, node, false, false); !errors.Is(err, ErrReadinessPending) {
+	if err = s.CheckpointReadinessAssessment(ctx, work, node, false); !errors.Is(err, ErrReadinessPending) {
 		t.Fatal("stale generation checkpoint must be rejected:", err)
 	}
 }
@@ -232,7 +232,7 @@ func TestReadinessWorkPageCursorDedupAndCapacityRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.CheckpointReadinessAssessment(ctx, work, node, false, false); err != nil {
+	if err = s.CheckpointReadinessAssessment(ctx, work, node, false); err != nil {
 		t.Fatal(err)
 	}
 	node, err = s.NextReadinessWorkNode(ctx, work.ID)
@@ -266,7 +266,7 @@ func TestReadinessWorkPageCursorDedupAndCapacityRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.CheckpointReadinessAssessment(ctx, full, fullNode, false, false); err != nil {
+	if err = s.CheckpointReadinessAssessment(ctx, full, fullNode, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_readiness_nodes(source,repository,issue) SELECT $1,8,n FROM generate_series(1,$2) n`, full.ID, maxReadinessNodesPerWork-1); err != nil {
@@ -295,7 +295,7 @@ func TestReadinessWorkFinishPruneFailureRollsBackAckAndCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.CheckpointReadinessAssessment(ctx, work, node, true, false); err != nil {
+	if err = s.CheckpointReadinessAssessment(ctx, work, node, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.db.ExecContext(ctx, `INSERT INTO intake_deliveries(delivery,repository,issue,kind,received_at) SELECT 'old-'||n,7,3,'event',n FROM generate_series(1,$1) n`, MaxIntakeDeliveries+1); err != nil {
@@ -369,7 +369,7 @@ func TestAcceptanceHeadEventsAreAtomicAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.CheckpointReadinessAssessment(ctx, beforeMutation, rootNode, false, false); err != nil {
+	if err = s.CheckpointReadinessAssessment(ctx, beforeMutation, rootNode, false); err != nil {
 		t.Fatal(err)
 	}
 	rootNode, err = s.NextReadinessWorkNode(ctx, beforeMutation.ID)

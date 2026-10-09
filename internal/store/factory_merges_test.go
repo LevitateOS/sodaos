@@ -199,7 +199,7 @@ func TestNewlyMergedCompletionEnqueuesReadinessRootAtomically(t *testing.T) {
 			t.Fatal("new merge completion did not coalesce and invalidate prior root:", work, before, readinessGeneration(t, db), err)
 		}
 		resumed, beginErr := db.BeginReadinessWork(ctx, work.ID, time.Now())
-		if beginErr != nil || resumed.Generation != readinessGeneration(t, db) || resumed.RootChanged {
+		if beginErr != nil || resumed.Generation != readinessGeneration(t, db) {
 			t.Fatal("new merge evidence did not fence prior root progress:", resumed, beginErr)
 		}
 		if err = db.UpdateMerge(ctx, m); !errors.Is(err, ErrStaleRevision) || readinessGeneration(t, db) != before+1 {

@@ -339,7 +339,7 @@ func TestIntakeBudgetYieldRetainsCursorAndRedeliveryResumes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = c.Store.CheckpointReadinessAssessment(context.Background(), work, node, false, false); err != nil {
+	if err = c.Store.CheckpointReadinessAssessment(context.Background(), work, node, false); err != nil {
 		t.Fatal(err)
 	}
 	passCtx, _, cancel := c.readinessPass(context.Background())

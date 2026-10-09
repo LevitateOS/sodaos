@@ -284,7 +284,7 @@ func (c *Coordinator) processReadinessSource(ctx context.Context, work store.Rea
 			if node.Ref == work.Root {
 				rootChanged = outcome.changed
 			}
-			if err = c.Store.CheckpointReadinessAssessment(ctx, work, node, outcome.skip, node.Ref == work.Root && outcome.changed); err != nil {
+			if err = c.Store.CheckpointReadinessAssessment(ctx, work, node, outcome.skip); err != nil {
 				return false, false, err
 			}
 			continue
