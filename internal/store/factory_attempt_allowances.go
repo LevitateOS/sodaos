@@ -10,7 +10,10 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-var ErrAttemptRunsPending = errors.New("attempt runs are not confirmed settled")
+var (
+	ErrAttemptRunsPending  = errors.New("attempt runs are not confirmed settled")
+	ErrAttemptRootMismatch = errors.New("assignment does not match the recorded attempt root")
+)
 
 // AttemptAllowance returns the newest attempt allowance for the issue.
 // Explicit maintainer retries keep earlier allowance rows in history.
@@ -215,6 +218,9 @@ func admitAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue 
 	if err != nil {
 		return err
 	}
+	if allowance.RootAssignment != assignment {
+		return ErrAttemptRootMismatch
+	}
 	next, err := allowance.Checkpoint(now, true)
 	if err != nil {
 		return err
@@ -228,6 +234,28 @@ func admitAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue 
 		if err = saveAttemptAllowanceTx(ctx, tx, next); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// consumeCorrectionAttemptTx charges a correction child before its dispatch
+// packet commits. The root row is locked and matched to the immutable child
+// binding; replays of the same assignment are idempotent.
+func consumeCorrectionAttemptTx(ctx context.Context, tx *sql.Tx, assignment factory.Assignment, now time.Time) error {
+	allowance, err := lockAttemptAllowanceTx(ctx, tx, assignment.Repository, assignment.Issue)
+	if err != nil {
+		return err
+	}
+	if allowance.RootAssignment != assignment.AttemptRoot {
+		return ErrAttemptRootMismatch
+	}
+	next, consumed, err := allowance.ConsumeCorrection(assignment.ID, now)
+	if err != nil {
+		return err
+	}
+	if consumed || next.ActiveSeconds != allowance.ActiveSeconds || next.CheckpointUnix != allowance.CheckpointUnix || next.Active != allowance.Active {
+		next.Revision++
+		return saveAttemptAllowanceTx(ctx, tx, next)
 	}
 	return nil
 }

@@ -38,7 +38,7 @@ pub const NAMES: [&str; 6] = [
 pub const FORGEJO_COMPILER_IMAGE: &str =
     "docker.io/library/golang@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468";
 /// `store.SchemaVersion()`.
-pub const SCHEMA_VERSION: i64 = 30;
+pub const SCHEMA_VERSION: i64 = 31;
 pub const SODA_SOURCE: &str = "https://github.com/LevitateOS/sodaos";
 
 pub fn is_revision(s: &str) -> bool {

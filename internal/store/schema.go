@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 30
+const schemaFormatVersion = 31
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -16,7 +16,7 @@ const schemaFormatVersion = 30
 // instead of the SQLite rowid.
 var schemaStatements = []string{
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(30)`,
+	`INSERT INTO schema_version(version) VALUES(31)`,
 	`CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')`,
 	`CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))`,
 	`CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))`,

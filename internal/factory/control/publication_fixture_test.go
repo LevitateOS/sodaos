@@ -186,8 +186,10 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	decision := fx.seed.accept(t, issue, "d"+strings.Repeat("a", 23)+string(rune('0'+issue%10)))
 	now := time.Now().Truncate(time.Second)
 	prompt := []byte("prompt")
+	assignmentID := factory.NewID()
 	a := factory.Assignment{
-		ID: factory.NewID(), ProjectID: fx.seed.proj, Role: project.RoleCoder,
+		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
+		ProjectID: fx.seed.proj, Role: project.RoleCoder,
 		Repository: fx.seed.repo, Issue: issue, Revision: 0, NativeRev: 41,
 		Acceptance: decision.ID, Preparation: "f111111111111111111111111",
 		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "m",

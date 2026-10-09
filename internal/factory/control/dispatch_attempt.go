@@ -24,6 +24,7 @@ type attemptPlan struct {
 	control              factory.IssueControl
 	inputs               DispatchInputs
 	projectID            string
+	attemptRoot          string
 	prompt               []byte
 	promptSHA            string
 	deadline             time.Time

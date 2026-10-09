@@ -48,8 +48,10 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1 WHERE id=$2 AND revision=$3 AND stage='assigned'`,
-		string(data), a.ID, a.Revision)
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1
+		WHERE id=$2 AND revision=$3 AND stage='assigned'
+		AND data->>'attempt_root'=$4 AND data->>'publication_assignment'=$5`,
+		string(data), a.ID, a.Revision, a.AttemptRoot, a.PublicationAssignment)
 	if err != nil {
 		return err
 	}

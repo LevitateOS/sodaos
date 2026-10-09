@@ -102,11 +102,14 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if r.AssignmentID != a.ID || r.Repository != a.Repository || r.Connection != a.Connection || r.State != factory.ReservationHeld {
 		return errors.New("dispatch packet reservation does not match its assignment")
 	}
-	if run.ID != a.Run || run.Outcome != "" || run.Reconciled {
+	if run.ID != a.Run || run.ProjectID != a.ProjectID || run.Role != a.Role || run.InputSHA != a.SourceCommit || run.Outcome != "" || run.Reconciled {
 		return errors.New("dispatch packet run does not match its assignment")
 	}
 	if view.RunID != run.ID || view.Repository != a.Repository || view.Issue != a.Issue || view.Attempt != a.ID {
 		return errors.New("dispatch packet view does not match its assignment")
+	}
+	if err := validateAttemptPacketTx(ctx, tx, a, freshAttempt); err != nil {
+		return err
 	}
 	adata, err := json.Marshal(a)
 	if err != nil {
@@ -145,10 +148,101 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if err = checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants); err != nil {
 		return err
 	}
+	now := time.Now()
 	if freshAttempt {
-		return startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.ID, grants.policy.AttemptLimits, run.Deadline, time.Now())
+		return startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, grants.policy.AttemptLimits, run.Deadline, now)
 	}
-	return admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.ID, &grants.policy.AttemptLimits, run.Deadline, time.Now())
+	if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder {
+		if err = consumeCorrectionAttemptTx(ctx, tx, a, now); err != nil {
+			return err
+		}
+	}
+	return admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now)
+}
+
+// validateAttemptPacketTx checks whether this packet owns a publication or
+// is a reviewer/correction child of the currently published candidate.
+// Owner replans retain their prior allowance root while starting a new
+// publication; children retain both parent publication and allowance roots.
+func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, freshAttempt bool) error {
+	owner := a.PublicationAssignment == a.ID
+	if freshAttempt {
+		if !owner || a.AttemptRoot != a.ID || a.Role != project.RoleCoder {
+			return errors.New("fresh allowance requires a self-owned coder assignment")
+		}
+	}
+	if owner {
+		if a.Role != project.RoleCoder {
+			return errors.New("publication owner assignment must be a coder")
+		}
+		if a.AttemptRoot != a.ID {
+			var exists bool
+			if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&exists); err != nil {
+				return err
+			}
+			if !exists {
+				return ErrAttemptRootMismatch
+			}
+		}
+		return nil
+	}
+	if freshAttempt || (a.Role != project.RoleCoder && a.Role != project.RoleReviewer) {
+		return errors.New("child assignment has an invalid role or fresh allowance")
+	}
+	var parentData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.PublicationAssignment).Scan(&parentData); err != nil {
+		return err
+	}
+	var parent factory.Assignment
+	if err := json.Unmarshal(parentData, &parent); err != nil {
+		return err
+	}
+	if err := parent.Validate(); err != nil {
+		return err
+	}
+	if parent.ID != a.PublicationAssignment || parent.PublicationAssignment != parent.ID || parent.Role != project.RoleCoder ||
+		parent.Stage != factory.AssignmentFinished || parent.Outcome != factory.Succeeded ||
+		parent.Repository != a.Repository || parent.Issue != a.Issue || parent.ProjectID != a.ProjectID ||
+		parent.Acceptance != a.Acceptance || parent.AttemptRoot != a.AttemptRoot {
+		return errors.New("child assignment does not match its publication owner")
+	}
+	var publicationData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1 FOR UPDATE`, parent.ID).Scan(&publicationData); err != nil {
+		return err
+	}
+	var publication factory.Publication
+	if err := json.Unmarshal(publicationData, &publication); err != nil {
+		return err
+	}
+	if err := publication.Validate(); err != nil {
+		return err
+	}
+	if publication.AssignmentID != parent.ID || publication.Repository != a.Repository || publication.Issue != a.Issue ||
+		publication.Acceptance != a.Acceptance || publication.Stage != factory.PublicationPublished ||
+		publication.WithdrawRequested || publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
+		return errors.New("child assignment does not match the current published candidate")
+	}
+	var accepted string
+	if err := tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, a.Repository, a.Issue).Scan(&accepted); err != nil {
+		return err
+	}
+	if accepted != a.Acceptance {
+		return ErrAdmissionChanged
+	}
+	if a.Role == project.RoleCoder && a.Preparation != parent.Preparation {
+		return errors.New("correction must retain the publication coder preparation")
+	}
+	if a.Role == project.RoleReviewer && a.Preparation == parent.Preparation {
+		return errors.New("reviewer child requires a distinct preparation")
+	}
+	var rootExists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&rootExists); err != nil {
+		return err
+	}
+	if !rootExists {
+		return ErrAttemptRootMismatch
+	}
+	return nil
 }
 
 func checkQueuedControlTx(ctx context.Context, tx *sql.Tx, expected factory.IssueControl, repository, issue int64, acceptance string) error {

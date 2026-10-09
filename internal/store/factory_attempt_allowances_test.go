@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,7 +50,7 @@ func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, factory.NewID(), nil, time.Now().Add(time.Hour), time.Now()); err != nil {
+	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.ID, nil, time.Now().Add(time.Hour), time.Now()); err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
 	}
@@ -59,6 +60,148 @@ func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 	allowance, err = db.AttemptAllowance(ctx, a.Repository, a.Issue)
 	if err != nil || allowance.RootAssignment != a.ID || allowance.Limits != factory.DefaultAttemptLimits() {
 		t.Fatalf("new assignment identity replenished the allowance: %+v, %v", allowance, err)
+	}
+}
+
+func TestCorrectionAdmissionConsumesRootAllowanceOnce(t *testing.T) {
+	ctx := context.Background()
+	db := publicationStoreFixture(t)
+	now := time.Now().UTC()
+	root := recordFinishedAssignment(t, db, now, 3, true, "completed")
+	p := publicationTestRecord()
+	p.AssignmentID, p.Run, p.Preparation, p.BaseSHA = root.ID, root.Run, root.Preparation, root.SourceCommit
+	if err := db.RecordPublication(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	p.NativeRev, p.ObservedUnix, p.Comparison = 9, 1150, strings.Repeat("c", 40)
+	p.Publish = publishedStoreOperation(p, factory.OpRefPublish, 1, "branch-receipt")
+	p.Publish.Effect, p.Publish.Completion, p.Publish.Receipt = factory.OpEffectPending, factory.OpCompletionPending, ""
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	p.Publish.Effect, p.Publish.Completion, p.Publish.Receipt = factory.OpEffectCommitted, factory.OpCompletionComplete, "branch-receipt"
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	p.PRCreate = publishedStoreOperation(p, factory.OpPRCreate, 1, `{"pr_number":9}`)
+	p.PRCreate.Effect, p.PRCreate.Completion, p.PRCreate.Receipt = factory.OpEffectPending, factory.OpCompletionPending, ""
+	p.PRCreate.PRNumber, p.PRCreate.PRID, p.PRCreate.IssueID = 0, 0, 0
+	p.PRCreate.HeadRef, p.PRCreate.BaseRef, p.PRCreate.HeadOID, p.PRCreate.BaseOID = "", "", "", ""
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	p.PRCreate.Effect, p.PRCreate.Completion, p.PRCreate.Receipt = factory.OpEffectCommitted, factory.OpCompletionComplete, `{"pr_number":9}`
+	p.PRNumber, p.PRID = 9, 8
+	p.PRCreate.PRNumber, p.PRCreate.PRID, p.PRCreate.IssueID = 9, 8, p.Issue
+	p.PRCreate.HeadRef, p.PRCreate.BaseRef = factory.PublishBranchName(p.AssignmentID), p.TargetBranch
+	p.PRCreate.HeadOID, p.PRCreate.BaseOID = p.Candidate, p.Comparison
+	p.Stage, p.Outcome, p.Reason, p.FinishedUnix = factory.PublicationPublished, factory.Succeeded, factory.PublishReasonLinked, 1200
+	p.Revision++
+	if err := db.UpdatePublication(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+
+	newChild := func(source string) (factory.Assignment, factory.Reservation, factory.Run, factory.RunView, factory.IssueControl) {
+		child := root
+		child.ID, child.AttemptRoot, child.PublicationAssignment = factory.NewID(), root.AttemptRoot, root.ID
+		child.Run, child.RunHistory, child.Stage, child.Revision = factory.NewID(), nil, factory.AssignmentAssigned, 0
+		child.Attempts, child.Outcome, child.Reason, child.Result, child.FinishedUnix = 1, "", "", nil, 0
+		child.SourceCommit = source
+		child.RunHistory = []string{child.Run}
+		run := factory.Run{
+			ID: child.Run, ProjectID: child.ProjectID, Role: child.Role, InputSHA: source,
+			Started: time.Now().UTC(), Deadline: time.Now().UTC().Add(30 * time.Minute), Image: "sha256:" + strings.Repeat("b", 64), Harness: child.Harness, Model: child.Model,
+		}
+		reservation := factory.Reservation{AssignmentID: child.ID, Repository: child.Repository, Connection: child.Connection, State: factory.ReservationHeld, PlannedMinutes: 30}
+		view := factory.RunView{RunID: run.ID, Repository: child.Repository, Issue: child.Issue, Attempt: child.ID}
+		return child, reservation, run, view, dispatchTestControlFor(t, db, child)
+	}
+	allowance, err := db.AttemptAllowance(ctx, root.Repository, root.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowance.Corrections = []string{factory.NewID(), factory.NewID(), factory.NewID()}
+	allowance.Revision++
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	exhausted, reservation, exhaustedRun, exhaustedView, control := newChild(p.Candidate)
+	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(exhausted), control, exhausted, reservation, exhaustedRun, exhaustedView); !errors.Is(err, factory.ErrCorrectionExhausted) {
+		t.Fatalf("exhausted correction packet = %v", err)
+	}
+	if _, err = db.Assignment(ctx, exhausted.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("exhausted correction left assignment: %v", err)
+	}
+
+	allowance.Corrections = nil
+	allowance.Revision++
+	tx, err = db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	bad, badReservation, badRun, badView, badControl := newChild(strings.Repeat("4", 40))
+	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(bad), badControl, bad, badReservation, badRun, badView); err == nil {
+		t.Fatal("noncurrent published candidate packet accepted")
+	}
+	if _, err = db.Assignment(ctx, bad.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("candidate mismatch left assignment: %v", err)
+	}
+
+	child, childReservation, childRun, childView, control := newChild(p.Candidate)
+	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(child), control, child, childReservation, childRun, childView); err != nil {
+		t.Fatalf("published correction packet refused: %v", err)
+	}
+	allowance, err = db.AttemptAllowance(ctx, root.Repository, root.Issue)
+	if err != nil || allowance.RootAssignment != root.ID || len(allowance.Corrections) != 1 || allowance.Corrections[0] != child.ID {
+		t.Fatalf("correction packet charge = %+v, %v", allowance, err)
+	}
+
+	childRun.Outcome, childRun.Reconciled = factory.Failed, true
+	if err = db.SaveFactoryRun(ctx, childRun); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.ReleaseReservation(ctx, child.ID); err != nil {
+		t.Fatal(err)
+	}
+	retryRun, retryView := retryTestRun(t, child, childRun)
+	if _, err = db.RecordRetryPacket(ctx, child, control, retryRun, retryView, 30); err != nil {
+		t.Fatalf("correction retry refused: %v", err)
+	}
+	allowance, err = db.AttemptAllowance(ctx, root.Repository, root.Issue)
+	if err != nil || len(allowance.Corrections) != 1 || allowance.Corrections[0] != child.ID {
+		t.Fatalf("correction retry charged another cycle: %+v, %v", allowance, err)
+	}
+
+	wrongRoot, wrongReservation, wrongRun, wrongView, wrongControl := newChild(p.Candidate)
+	wrongRoot.AttemptRoot = factory.NewID()
+	if err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(wrongRoot), wrongControl, wrongRoot, wrongReservation, wrongRun, wrongView); err == nil {
+		t.Fatal("child with mismatched attempt root accepted")
+	}
+	if _, err = db.Assignment(ctx, wrongRoot.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("root mismatch left assignment: %v", err)
+	}
+	allowance, err = db.AttemptAllowance(ctx, root.Repository, root.Issue)
+	if err != nil || len(allowance.Corrections) != 1 || allowance.Corrections[0] != child.ID {
+		t.Fatalf("rejected child changed correction history: %+v, %v", allowance, err)
 	}
 }
 
@@ -81,6 +224,7 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 
 	root := a
 	root.ID, root.Run = factory.NewID(), factory.NewID()
+	root.AttemptRoot, root.PublicationAssignment = root.ID, root.ID
 	root.Stage, root.Outcome, root.Reason = factory.AssignmentFinished, factory.Failed, factory.AssignReasonRunFailed
 	root.Attempts, root.RunHistory, root.Revision = 1, []string{root.Run}, 0
 	root.FinishedUnix = now.Unix()

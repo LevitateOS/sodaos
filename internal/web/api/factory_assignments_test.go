@@ -10,8 +10,10 @@ import (
 
 func TestFactoryAssignmentDTORendersInputsAndResult(t *testing.T) {
 	prompt := []byte("assignment prompt")
+	assignmentID := "a" + strings.Repeat("0", 31)
 	a := factory.Assignment{
-		ID: "a" + strings.Repeat("0", 31), ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleCoder,
+		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
+		ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleCoder,
 		Repository: 7, Issue: 3, Acceptance: "d" + strings.Repeat("2", 24),
 		Preparation: "f" + strings.Repeat("3", 24), Harness: "codex-1.2.3", HarnessVers: "1.2.3",
 		Model: "m", Connection: "conn", SourceCommit: strings.Repeat("c", 40),

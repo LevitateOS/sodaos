@@ -18,7 +18,7 @@ var errExplicitRetryIneligible = errors.New("explicit retry is no longer dispatc
 func (s *Store) LatestIssueAssignment(ctx context.Context, repository, issue int64) (factory.Assignment, error) {
 	var assignment factory.Assignment
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&data)
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 AND data->>'publication_assignment'=id ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &assignment)
 	}
@@ -101,7 +101,8 @@ func (s *Store) PendingExplicitRetry(ctx context.Context, repository, issue int6
 		JOIN factory_commands c ON c.type=$1 AND c.target='run/'||a.run AND c.finished<>''
 		WHERE a.repository=$2 AND a.issue=$3 AND a.stage='finished' AND a.data->>'acceptance'=$4
 		AND a.data->>'role'=$5 AND a.data->>'outcome' IN ($6,$7)
-		AND a.id=(SELECT latest.id FROM factory_assignments latest WHERE latest.repository=$2 AND latest.issue=$3 ORDER BY latest.seq DESC LIMIT 1)
+		AND a.data->>'publication_assignment'=a.id
+		AND a.id=(SELECT latest.id FROM factory_assignments latest WHERE latest.repository=$2 AND latest.issue=$3 AND latest.data->>'publication_assignment'=latest.id ORDER BY latest.seq DESC LIMIT 1)
 		AND NOT EXISTS(SELECT 1 FROM factory_assignments consumed WHERE consumed.id=c.id)
 		ORDER BY c.created,c.id LIMIT 1`, factory.CommandRetry, repository, issue, acceptance,
 		project.RoleCoder, string(factory.Failed), string(factory.Cancelled)).Scan(&id, &outcome)
@@ -122,7 +123,7 @@ func (s *Store) PendingExplicitRetry(ctx context.Context, repository, issue int6
 // command, rechecks prior accounting and the accepted head, then commits the
 // retry assignment/run/reservation through the regular admission checks.
 func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.RetryDecision, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
-	if err := decision.Validate(); err != nil || a.ID != decision.CommandID || a.Role != project.RoleCoder {
+	if err := decision.Validate(); err != nil || a.ID != decision.CommandID || a.Role != project.RoleCoder || a.AttemptRoot != a.ID || a.PublicationAssignment != a.ID {
 		return errExplicitRetryIneligible
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -186,7 +187,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 		return errExplicitRetryIneligible
 	}
 	var assignmentData []byte
-	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 ORDER BY seq DESC LIMIT 1 FOR UPDATE`, repository, issue).Scan(&assignmentData)
+	err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 AND data->>'publication_assignment'=id ORDER BY seq DESC LIMIT 1 FOR UPDATE`, repository, issue).Scan(&assignmentData)
 	if err != nil {
 		return err
 	}
@@ -194,7 +195,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 	if err = json.Unmarshal(assignmentData, &assignment); err != nil {
 		return err
 	}
-	if assignment.Run != priorRun || assignment.Acceptance != acceptance || assignment.Stage != factory.AssignmentFinished || assignment.Role != project.RoleCoder || string(assignment.Outcome) != priorOutcome || (priorOutcome != string(factory.Failed) && priorOutcome != string(factory.Cancelled)) {
+	if assignment.Run != priorRun || assignment.Acceptance != acceptance || assignment.Stage != factory.AssignmentFinished || assignment.Role != project.RoleCoder || assignment.PublicationAssignment != assignment.ID || string(assignment.Outcome) != priorOutcome || (priorOutcome != string(factory.Failed) && priorOutcome != string(factory.Cancelled)) {
 		return errExplicitRetryIneligible
 	}
 	var runData []byte

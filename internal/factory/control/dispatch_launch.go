@@ -22,11 +22,16 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 	if retry != nil {
 		assignmentID = retry.CommandID
 	}
+	attemptRoot := plan.attemptRoot
+	if attemptRoot == "" {
+		attemptRoot = assignmentID
+	}
 	authority := plan.effective.Authority
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
 		Authority: authority,
-		ID:        assignmentID, ProjectID: plan.projectID, Role: project.RoleCoder,
+		ID:        assignmentID, AttemptRoot: attemptRoot, PublicationAssignment: assignmentID,
+		ProjectID: plan.projectID, Role: project.RoleCoder,
 		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 		Acceptance: plan.acceptance.ID, Preparation: plan.prep.Preparation.ID,
 		Harness: plan.pin.Harness + "-" + plan.pin.Version, HarnessVers: plan.pin.Version,

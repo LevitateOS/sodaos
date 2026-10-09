@@ -42,8 +42,10 @@ func testPrompt(t *testing.T) []byte {
 
 func testAssignment(prompt []byte) Assignment {
 	sum := sha256.Sum256(prompt)
+	id := NewID()
 	return Assignment{
-		ID:         NewID(),
+		ID:          id,
+		AttemptRoot: id, PublicationAssignment: id,
 		ProjectID:  "p" + strings.Repeat("d", 24),
 		Role:       project.RoleCoder,
 		Repository: 7, Issue: 3, Revision: 0, NativeRev: 11,

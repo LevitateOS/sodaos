@@ -195,9 +195,10 @@ func dispatchTestPacket(t *testing.T, now time.Time) (factory.Assignment, factor
 	t.Helper()
 	prompt := dispatchTestPrompt(t)
 	sum := sha256.Sum256(prompt)
-	runID := factory.NewID()
+	assignmentID, runID := factory.NewID(), factory.NewID()
 	a := factory.Assignment{
-		ID: factory.NewID(), ProjectID: dispatchTestProjectID(), Role: project.RoleCoder,
+		ID: assignmentID, AttemptRoot: assignmentID, PublicationAssignment: assignmentID,
+		ProjectID: dispatchTestProjectID(), Role: project.RoleCoder,
 		Repository: 7, Issue: 3, Revision: 0, NativeRev: 5,
 		Acceptance: "d" + strings.Repeat("a", 24), Preparation: "f" + strings.Repeat("b", 24),
 		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "m",
@@ -242,6 +243,7 @@ func TestRecordDispatchPacket(t *testing.T) {
 	}
 	again, r2, run2, view2 := dispatchTestPacket(t, now)
 	again.ID, again.Run, again.RunHistory = factory.NewID(), run2.ID, []string{run2.ID}
+	again.AttemptRoot, again.PublicationAssignment = again.ID, again.ID
 	r2.AssignmentID = again.ID
 	view2.Attempt = again.ID
 	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(again), again, r2, run2, view2); err == nil {
@@ -289,6 +291,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
 		b.Authority.Capacity = 2
 		r2.AssignmentID = b.ID
 		view2.Issue, view2.Attempt = 4, b.ID
@@ -317,6 +320,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
 		b.Authority.Sponsorship = 2
 		r2.AssignmentID = b.ID
 		view2.Issue, view2.Attempt = 4, b.ID
@@ -386,6 +390,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		second, r2, run2, view2 := dispatchTestPacket(t, now)
 		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 		second.Authority.ConnectionUsageBudget = budget.Revision + 1
 		r2.AssignmentID = second.ID
 		view2.Issue, view2.Attempt = 4, second.ID
@@ -408,6 +413,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		second, r2, run2, view2 := dispatchTestPacket(t, now)
 		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 		r2.AssignmentID = second.ID
 		view2.Issue, view2.Attempt = 4, second.ID
 		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(second), second, r2, run2, view2); err == nil {

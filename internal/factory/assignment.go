@@ -61,38 +61,40 @@ func validAssignReason(reason string) bool {
 // in order. Result arrives at finish; the prompt bytes stay inspectable
 // afterwards.
 type Assignment struct {
-	Authority    AuthorityRef      `json:"authority"`
-	Result       *AssignmentResult `json:"result,omitempty"`
-	Prompt       []byte            `json:"prompt"`
-	RunHistory   []string          `json:"run_history"`
-	ID           string            `json:"id"`
-	ProjectID    string            `json:"project_id"`
-	Role         string            `json:"role"`
-	Acceptance   string            `json:"acceptance"`
-	Preparation  string            `json:"preparation"`
-	Harness      string            `json:"harness"`
-	HarnessVers  string            `json:"harness_version"`
-	Model        string            `json:"model"`
-	Connection   string            `json:"connection"`
-	SourceCommit string            `json:"source_commit"`
-	PromptSHA    string            `json:"prompt_sha"`
-	Run          string            `json:"run"`
-	Stage        string            `json:"stage"`
-	Outcome      Outcome           `json:"outcome,omitempty"`
-	Reason       string            `json:"reason,omitempty"`
-	Repository   int64             `json:"repository,string"`
-	Issue        int64             `json:"issue,string"`
-	Revision     int64             `json:"revision"`
-	NativeRev    int64             `json:"native_revision"`
-	Attempts     int               `json:"attempts"`
-	CreatedUnix  int64             `json:"created_unix"`
-	FinishedUnix int64             `json:"finished_unix,omitempty"`
+	Authority             AuthorityRef      `json:"authority"`
+	Result                *AssignmentResult `json:"result,omitempty"`
+	Prompt                []byte            `json:"prompt"`
+	RunHistory            []string          `json:"run_history"`
+	ID                    string            `json:"id"`
+	AttemptRoot           string            `json:"attempt_root"`
+	PublicationAssignment string            `json:"publication_assignment"`
+	ProjectID             string            `json:"project_id"`
+	Role                  string            `json:"role"`
+	Acceptance            string            `json:"acceptance"`
+	Preparation           string            `json:"preparation"`
+	Harness               string            `json:"harness"`
+	HarnessVers           string            `json:"harness_version"`
+	Model                 string            `json:"model"`
+	Connection            string            `json:"connection"`
+	SourceCommit          string            `json:"source_commit"`
+	PromptSHA             string            `json:"prompt_sha"`
+	Run                   string            `json:"run"`
+	Stage                 string            `json:"stage"`
+	Outcome               Outcome           `json:"outcome,omitempty"`
+	Reason                string            `json:"reason,omitempty"`
+	Repository            int64             `json:"repository,string"`
+	Issue                 int64             `json:"issue,string"`
+	Revision              int64             `json:"revision"`
+	NativeRev             int64             `json:"native_revision"`
+	Attempts              int               `json:"attempts"`
+	CreatedUnix           int64             `json:"created_unix"`
+	FinishedUnix          int64             `json:"finished_unix,omitempty"`
 }
 
 // Validate rejects malformed assignments. Assigned work carries no outcome
 // or result; finished work carries both plus its reason.
 func (a Assignment) Validate() error {
-	if !ValidID(a.ID) {
+	if !ValidID(a.ID) || !ValidID(a.AttemptRoot) || !ValidID(a.PublicationAssignment) {
 		return errors.New("invalid assignment identity")
 	}
 	if !ValidProjectID(a.ProjectID) || !project.ValidFactoryRole(a.Role) {

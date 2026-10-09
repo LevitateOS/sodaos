@@ -115,6 +115,7 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		allowance, allowanceErr := deps.Store.AttemptAllowance(ctx, repository, plan.control.Issue)
 		switch {
 		case allowanceErr == nil:
+			plan.attemptRoot = allowance.RootAssignment
 			plan.attemptLimits = allowance.Limits
 			attemptSeconds = allowance.RemainingSeconds(now)
 		case errors.Is(allowanceErr, store.ErrNotFound):

@@ -25,7 +25,8 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if err := view.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}
-	if run.ID == "" || view.RunID != run.ID || view.Repository != a.Repository || view.Issue != a.Issue || view.Attempt != a.ID {
+	if run.ID == "" || run.ProjectID != a.ProjectID || run.Role != a.Role || run.InputSHA != a.SourceCommit ||
+		view.RunID != run.ID || view.Repository != a.Repository || view.Issue != a.Issue || view.Attempt != a.ID {
 		return factory.Assignment{}, errors.New("retry packet view does not match its attempt")
 	}
 	if run.Outcome != "" || run.Reconciled {
@@ -55,8 +56,14 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if current.Revision != a.Revision {
 		return factory.Assignment{}, ErrStaleRevision
 	}
+	if current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment {
+		return factory.Assignment{}, ErrStaleRevision
+	}
 	if current.Stage != factory.AssignmentAssigned || current.Attempts >= factory.MaxDispatchAttempts {
 		return factory.Assignment{}, ErrAssignmentActive
+	}
+	if err = validateAttemptPacketTx(ctx, tx, current, false); err != nil {
+		return factory.Assignment{}, err
 	}
 	for _, seen := range current.RunHistory {
 		if seen == run.ID {
@@ -120,7 +127,7 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if err = checkAdmissionTx(ctx, tx, a.Repository, a.Connection, a.ProjectID); err != nil {
 		return factory.Assignment{}, err
 	}
-	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.ID, nil, run.Deadline, time.Now()); err != nil {
+	if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, current.AttemptRoot, nil, run.Deadline, time.Now()); err != nil {
 		return factory.Assignment{}, err
 	}
 	if err = tx.Commit(); err != nil {

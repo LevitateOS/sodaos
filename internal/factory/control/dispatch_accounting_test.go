@@ -329,7 +329,7 @@ func TestExplicitRetryCreatesFreshAttempt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fresh retry assignment: %v", err)
 	}
-	if fresh.ID != commandID || fresh.Run == old.Run || fresh.Acceptance != head.ID || fresh.Repository != fx.repo || fresh.Issue != 3 || fresh.Attempts != 1 || len(fresh.RunHistory) != 1 || fresh.RunHistory[0] != fresh.Run {
+	if fresh.ID != commandID || fresh.AttemptRoot != fresh.ID || fresh.PublicationAssignment != fresh.ID || fresh.Run == old.Run || fresh.Acceptance != head.ID || fresh.Repository != fx.repo || fresh.Issue != 3 || fresh.Attempts != 1 || len(fresh.RunHistory) != 1 || fresh.RunHistory[0] != fresh.Run {
 		t.Fatalf("fresh retry assignment did not bind current accepted work: %+v", fresh)
 	}
 	freshRun, err := db.FactoryRun(ctx, fresh.Run)

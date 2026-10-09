@@ -3,11 +3,11 @@
 // drift test below re-extracts the Go literals at test time and
 // fails on any difference, so a Go schema change forces a
 // regeneration of this file in the same patch.
-pub const SCHEMA_VERSION: i64 = 30;
+pub const SCHEMA_VERSION: i64 = 31;
 
 pub const STATEMENTS: &[&str] = &[
     r#"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"#,
-    r#"INSERT INTO schema_version(version) VALUES(30)"#,
+    r#"INSERT INTO schema_version(version) VALUES(31)"#,
     r#"CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')"#,
     r#"CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))"#,
     r#"CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))"#,
