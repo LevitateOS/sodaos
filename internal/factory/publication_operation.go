@@ -55,6 +55,7 @@ func ValidOpCancellation(status string) bool {
 // committed receipt and verified against the submitted intent.
 type PublicationOperation struct {
 	Work           *PublicationIntent `json:"work,omitempty"`
+	RunID          string             `json:"run_id,omitempty"`
 	OperationID    string             `json:"operation_id"`
 	InstallationID string             `json:"installation_id,omitempty"`
 	ActorID        int64              `json:"actor_id,omitempty"`
@@ -81,6 +82,9 @@ type PublicationOperation struct {
 // identity, attempt count and record time, with links only for its own
 // kind. The effect stays empty while its submit is in flight.
 func (o PublicationOperation) Validate() error {
+	if o.RunID != "" && !ValidID(o.RunID) {
+		return errors.New("invalid publication operation run")
+	}
 	if o.Kind != OpRefPublish && o.Kind != OpPRCreate {
 		return errors.New("invalid publication operation kind")
 	}
@@ -88,7 +92,7 @@ func (o PublicationOperation) Validate() error {
 		return errors.New("invalid publication attempt count")
 	}
 	if o.Attempts == 0 {
-		if o.Work != nil || o.OperationID != "" || o.InstallationID != "" || o.ActorID != 0 || o.RepositoryID != 0 || o.Effect != "" || o.Cancellation != "" ||
+		if o.RunID != "" || o.Work != nil || o.OperationID != "" || o.InstallationID != "" || o.ActorID != 0 || o.RepositoryID != 0 || o.Effect != "" || o.Cancellation != "" ||
 			o.Completion != "" || o.Reason != "" || o.Receipt != "" || o.UpdatedUnix != 0 {
 			return errors.New("unsubmitted operation carries no observations")
 		}

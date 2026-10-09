@@ -113,6 +113,47 @@ func TestPublicationValidatesPublished(t *testing.T) {
 	}
 }
 
+func TestPublicationCorrectionRequiresRecordedRunAndMovesPublicationHead(t *testing.T) {
+	makeCorrection := func(runID string) PublicationOperation {
+		p := publishedPublication()
+		id := PublicationOperationID(p.ID, OpRefPublish, 2)
+		work := testPublicationIntent(id)
+		work.ExpectedOld = p.Candidate
+		work.Candidate = strings.Repeat("d", 40)
+		work.CorrectionNumber, work.CorrectionAuthor = p.PRNumber, p.PRCreate.Work.ActorID
+		return PublicationOperation{
+			Work: work, RunID: runID, OperationID: id, Kind: OpRefPublish,
+			Effect: OpEffectCommitted, Completion: OpCompletionComplete,
+			Attempts: 1, UpdatedUnix: 1250,
+		}
+	}
+
+	for name, runID := range map[string]string{"missing": "", "invalid": "not-a-run"} {
+		t.Run(name, func(t *testing.T) {
+			p := publishedPublication()
+			p.Corrections = CorrectionOps{makeCorrection(runID)}
+			p.Candidate = strings.Repeat("d", 40)
+			if err := p.Validate(); err == nil {
+				t.Fatalf("correction with %s RunID accepted", name)
+			}
+		})
+	}
+
+	t.Run("committed correction run becomes publication run", func(t *testing.T) {
+		p := publishedPublication()
+		correctionRun := "fedcba9876543210fedcba9876543210"
+		p.Corrections = CorrectionOps{makeCorrection(correctionRun)}
+		p.Candidate = strings.Repeat("d", 40)
+		if err := p.Validate(); err == nil {
+			t.Fatal("publication retaining the initial run after a committed correction was accepted")
+		}
+		p.Run = correctionRun
+		if err := p.Validate(); err != nil {
+			t.Fatalf("publication following committed correction run refused: %v", err)
+		}
+	})
+}
+
 func TestPublicationBoundsReviewHistoryAdmission(t *testing.T) {
 	makeReviews := func(count, bodyBytes int) Publication {
 		p := publishedPublication()

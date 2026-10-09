@@ -84,6 +84,8 @@ type Coordinator struct {
 	requestGate     sync.RWMutex
 	closing         atomic.Bool
 	ownerMu         sync.Mutex
+	// ownerMu also protects the bounded child-result recovery cursor.
+	publicationChildCursor string
 }
 
 func NewCoordinator(db *store.Store, host HostFactory, broker BrokerExecution) *Coordinator {

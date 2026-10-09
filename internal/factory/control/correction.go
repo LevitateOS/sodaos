@@ -119,6 +119,13 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 	if len(report.Errors) != 0 || len(report.Fenced) != 0 || len(report.Waits) != 0 || len(report.Corrected) != 0 {
 		return report
 	}
+	// A child admitted for an older publication head may finish after a
+	// different correction advances the branch. Its recorded intent above
+	// still gets reconciled, but stale source work cannot open a new write.
+	if p.Run != runID && assignment.SourceCommit != p.Candidate {
+		correctionWait(&report, p.ID, "candidate_superseded")
+		return report
+	}
 	// One identity per run: a recorded correction for this same candidate
 	// either continues under its identity or stays finished. Only a
 	// different candidate opens the next identity.
@@ -207,7 +214,7 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 		work.NativeRev, work.ComparisonOID, work.NotAfter = observation.NativeRev, observation.Comparison, now.Add(10*time.Minute).Unix()
 		intent := work.Intent()
 		op := factory.PublicationOperation{
-			Work: &intent, OperationID: work.OperationID, Kind: factory.OpRefPublish,
+			Work: &intent, RunID: runID, OperationID: work.OperationID, Kind: factory.OpRefPublish,
 			Attempts: 1, UpdatedUnix: now.Unix(),
 		}
 		p.Corrections = append(p.Corrections, op)
@@ -243,7 +250,7 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 			correctionWait(&report, p.ID, "submit_unconfirmed")
 			return report
 		}
-		if !c.adoptCorrectionOutcome(ctx, &p, runID, outcome, &report) {
+		if !c.adoptCorrectionOutcome(ctx, &p, outcome, &report) {
 			return report
 		}
 		op = p.Corrections[len(p.Corrections)-1]
@@ -258,7 +265,7 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 			correctionWait(&report, p.ID, "push_unconfirmed")
 			return report
 		}
-		if !c.adoptCorrectionOutcome(ctx, &p, runID, outcome, &report) {
+		if !c.adoptCorrectionOutcome(ctx, &p, outcome, &report) {
 			return report
 		}
 		op = p.Corrections[len(p.Corrections)-1]
@@ -297,9 +304,10 @@ func (c *Coordinator) reconcileRecordedCorrection(ctx context.Context, p *factor
 		correctionWait(report, p.ID, "lookup_unconfirmed")
 		return
 	}
-	// Crash recovery advances the head from the recorded intent; the run
-	// binding stays with the recorded run since the intent carries no run.
-	if !c.adoptCorrectionOutcome(ctx, p, "", outcome, report) {
+	// The correction row carries the child run independently of the
+	// credential-free native intent, so recovery attributes the new head
+	// to the same settled result that registered it.
+	if !c.adoptCorrectionOutcome(ctx, p, outcome, report) {
 		return
 	}
 	if p.Corrections[len(p.Corrections)-1].Effect == factory.OpEffectCommitted {
@@ -311,17 +319,19 @@ func (c *Coordinator) reconcileRecordedCorrection(ctx context.Context, p *factor
 // latest recorded correction. A commit advances the stored head before
 // the store, so the record always satisfies publication validation; an
 // unattributed outcome fences the publication instead.
-func (c *Coordinator) adoptCorrectionOutcome(ctx context.Context, p *factory.Publication, runID string, outcome factory.OperationOutcome, report *CorrectionReport) bool {
+func (c *Coordinator) adoptCorrectionOutcome(ctx context.Context, p *factory.Publication, outcome factory.OperationOutcome, report *CorrectionReport) bool {
 	op := &p.Corrections[len(p.Corrections)-1]
 	if !c.adoptObserved(op, outcome, time.Now()) {
 		c.fenceCorrection(ctx, report, p, factory.PublishReasonUnattributed)
 		return false
 	}
-	if op.Effect == factory.OpEffectCommitted && op.Work != nil {
-		p.Candidate = op.Work.Candidate
-		if runID != "" {
-			p.Run = runID
+	if op.Effect == factory.OpEffectCommitted {
+		if op.Work == nil || op.RunID == "" {
+			c.fenceCorrection(ctx, report, p, factory.PublishReasonUnattributed)
+			return false
 		}
+		p.Candidate = op.Work.Candidate
+		p.Run = op.RunID
 	}
 	return c.storeCorrection(ctx, p, report)
 }
@@ -361,6 +371,7 @@ func (c *Coordinator) cancelRecordedCorrection(ctx context.Context, p *factory.P
 			return
 		}
 		p.Candidate = op.Work.Candidate
+		p.Run = op.RunID
 		work := op.Work.Apply(factory.PublicationWork{AssignmentID: p.AssignmentID, Publication: p.ID})
 		if _, err := c.Publication.AdoptBranch(work, operationOutcomeOf(*op)); err != nil {
 			c.fenceCorrection(ctx, report, p, factory.PublishReasonUnattributed)

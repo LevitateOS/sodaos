@@ -94,7 +94,66 @@ func (c *Coordinator) PublishPass(ctx context.Context) PublishReport {
 	for _, a := range assignments {
 		c.publishOne(ctx, a, &report)
 	}
+	c.consumePublicationChildren(ctx, &report)
 	return report
+}
+
+// consumePublicationChildren advances one bounded page of finished child
+// results. The Store selector only returns children without a recorded native
+// intent; once one is registered, the existing publication reconciliation
+// path owns its lookup and replay.
+func (c *Coordinator) consumePublicationChildren(ctx context.Context, report *PublishReport) {
+	const childPageLimit = 64
+	c.ownerMu.Lock()
+	after := c.publicationChildCursor
+	c.ownerMu.Unlock()
+	children, err := c.Store.PendingPublicationChildren(ctx, after, childPageLimit)
+	if err != nil {
+		publicationError(report, "", "child_result_listing_unavailable")
+		return
+	}
+	if len(children) == 0 && after != "" {
+		c.ownerMu.Lock()
+		c.publicationChildCursor = ""
+		c.ownerMu.Unlock()
+		children, err = c.Store.PendingPublicationChildren(ctx, "", childPageLimit)
+		if err != nil {
+			publicationError(report, "", "child_result_listing_unavailable")
+			return
+		}
+	}
+	for _, child := range children {
+		c.ownerMu.Lock()
+		c.publicationChildCursor = child.ID
+		c.ownerMu.Unlock()
+		switch child.Role {
+		case project.RoleReviewer:
+			if _, err := c.SubmitReviewForRun(ctx, child.Run); err != nil {
+				publicationWait(report, child.PublicationAssignment, "review_child_pending")
+				continue
+			}
+			c.progressAfterPublish(ctx, child.PublicationAssignment)
+		case project.RoleCoder:
+			correction := c.PublishCorrection(ctx, child.Run)
+			for _, wait := range correction.Waits {
+				publicationWait(report, wait.ID, wait.Reason)
+			}
+			for _, failure := range correction.Errors {
+				publicationError(report, failure.ID, failure.Reason)
+			}
+			for _, id := range correction.Fenced {
+				report.Fenced = append(report.Fenced, id)
+			}
+			if len(correction.Corrected) != 0 {
+				c.progressAfterPublish(ctx, child.PublicationAssignment)
+			}
+		}
+	}
+	if len(children) < childPageLimit {
+		c.ownerMu.Lock()
+		c.publicationChildCursor = ""
+		c.ownerMu.Unlock()
+	}
 }
 
 func publicationError(report *PublishReport, id, reason string) {

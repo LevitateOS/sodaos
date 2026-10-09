@@ -200,8 +200,14 @@ func (p Publication) Validate() error {
 		}
 		initial = p.Publish.Work.Candidate
 		head := initial
+		committedRun := ""
+		runs := make(map[string]bool, len(p.Corrections))
 		for i := range p.Corrections {
 			correction := p.Corrections[i]
+			if !ValidID(correction.RunID) || runs[correction.RunID] {
+				return errors.New("correction lacks a distinct recorded run")
+			}
+			runs[correction.RunID] = true
 			if err := correction.Validate(); err != nil {
 				return err
 			}
@@ -226,10 +232,14 @@ func (p Publication) Validate() error {
 			}
 			if correction.Effect == OpEffectCommitted {
 				head = work.Candidate
+				committedRun = correction.RunID
 			}
 		}
 		if head != p.Candidate {
 			return errors.New("publication head differs from its committed corrections")
+		}
+		if committedRun != "" && p.Run != committedRun {
+			return errors.New("publication run differs from its committed correction")
 		}
 	}
 	if err := p.validateReviewOperations(nil); err != nil {

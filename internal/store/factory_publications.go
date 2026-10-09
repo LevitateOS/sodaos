@@ -154,6 +154,17 @@ func publicationUpdateAllowed(old, next factory.Publication) error {
 	if (old.Run != next.Run || old.Candidate != next.Candidate) && len(next.Corrections) == 0 {
 		return ErrPublicationConflict
 	}
+	if old.Run != next.Run {
+		committedRun := ""
+		for _, op := range next.Corrections {
+			if op.Effect == factory.OpEffectCommitted {
+				committedRun = op.RunID
+			}
+		}
+		if next.Run != committedRun {
+			return ErrPublicationConflict
+		}
+	}
 	if len(next.Corrections) < len(old.Corrections) {
 		return ErrPublicationConflict
 	}
@@ -184,7 +195,7 @@ func publicationUpdateAllowed(old, next factory.Publication) error {
 }
 
 func publicationOperationUpdateAllowed(old, next factory.PublicationOperation) bool {
-	if old.Kind != next.Kind {
+	if old.Kind != next.Kind || old.RunID != next.RunID {
 		return false
 	}
 	if old.Work != nil && (next.Work == nil || *old.Work != *next.Work || old.OperationID != next.OperationID || old.Attempts != next.Attempts) {
@@ -392,6 +403,54 @@ func (s *Store) PublishableAssignments(ctx context.Context, limit int) ([]factor
 		AND (a.data#>>'{result,reported}')::boolean
 		AND a.data#>>'{result,status}'='completed'
 		ORDER BY a.seq LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []factory.Assignment
+	for rows.Next() {
+		var data []byte
+		var a factory.Assignment
+		if err = rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(data, &a); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// PendingPublicationChildren lists finished child results awaiting their first
+// native registration. Registered operations retain their existing recovery
+// path. Only the current published head is eligible for a new effect.
+// The assignment cursor bounds each pass without letting a waiting child
+// permanently displace later work; a missing cursor starts at the oldest row.
+func (s *Store) PendingPublicationChildren(ctx context.Context, afterAssignment string, limit int) ([]factory.Assignment, error) {
+	if limit <= 0 || limit > storePublishableLimit || (afterAssignment != "" && !factory.ValidID(afterAssignment)) {
+		return nil, errors.New("invalid pending publication child listing")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT a.data FROM factory_assignments a
+		JOIN factory_publications p ON p.assignment=a.data->>'publication_assignment'
+		  AND p.repository=a.repository AND p.issue=a.issue
+		WHERE a.stage='finished' AND a.data->>'publication_assignment'<>a.id
+		AND a.data->>'role' IN ('soda-coder','soda-reviewer')
+		AND a.data->>'outcome'='succeeded'
+		AND a.data#>>'{result,reported}'='true'
+		AND a.data#>>'{result,status}'='completed'
+		AND p.stage='published' AND COALESCE(p.data->>'withdraw_requested','false')='false'
+		AND a.data->>'source_commit'=p.data->>'candidate'
+		AND NOT EXISTS (
+			SELECT 1 FROM jsonb_array_elements(COALESCE(p.data->'review_operations','[]'::jsonb)) op
+			WHERE op->>'run_id'=a.run
+		)
+		AND NOT EXISTS (
+			SELECT 1 FROM jsonb_array_elements(COALESCE(p.data->'corrections','[]'::jsonb)) op
+			WHERE op->>'run_id'=a.run
+		)
+		AND a.seq>COALESCE((SELECT seq FROM factory_assignments WHERE id=$1),0)
+		ORDER BY a.seq LIMIT $2`, afterAssignment, limit)
 	if err != nil {
 		return nil, err
 	}

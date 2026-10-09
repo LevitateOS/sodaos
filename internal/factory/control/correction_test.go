@@ -44,17 +44,6 @@ func TestPublishCorrectionAdvancesHead(t *testing.T) {
 			t.Fatalf("correction child was nominated as a new publication owner: %+v", child)
 		}
 	}
-	pass := fx.coord.PublishPass(ctx)
-	if len(pass.Errors) != 0 {
-		t.Fatalf("publication pass after correction result: %+v", pass)
-	}
-	if _, err := fx.db.PublicationByAssignment(ctx, child.ID); err == nil {
-		t.Fatal("publication pass created a separate child publication")
-	}
-	linked, err := fx.db.PublicationByAssignment(ctx, a.ID)
-	if err != nil || linked.ID != p.ID || linked.PRID != p.PRID || linked.PRNumber != p.PRNumber {
-		t.Fatalf("child pass changed the parent's linked PR: %+v %v", linked, err)
-	}
 	report := fx.coord.PublishCorrection(ctx, run.ID)
 	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Corrected) != 1 {
 		t.Fatalf("correction report: %+v", report)
@@ -78,7 +67,7 @@ func TestPublishCorrectionAdvancesHead(t *testing.T) {
 		t.Fatalf("correction unrecorded: %+v", after)
 	}
 	op := after.Corrections[0]
-	if op.OperationID != factory.PublicationOperationID(p.ID, factory.OpRefPublish, 2) ||
+	if op.RunID != run.ID || op.OperationID != factory.PublicationOperationID(p.ID, factory.OpRefPublish, 2) ||
 		op.Effect != factory.OpEffectCommitted || op.Work == nil ||
 		op.Work.Candidate != candidate || op.Work.ExpectedOld != p.Candidate ||
 		op.Work.CorrectionNumber != p.PRNumber {
@@ -90,6 +79,17 @@ func TestPublishCorrectionAdvancesHead(t *testing.T) {
 	}
 	if err := after.Validate(); err != nil {
 		t.Fatalf("corrected publication invalid: %v", err)
+	}
+	pass := fx.coord.PublishPass(ctx)
+	if len(pass.Errors) != 0 {
+		t.Fatalf("publication pass after correction result: %+v", pass)
+	}
+	if _, err := fx.db.PublicationByAssignment(ctx, child.ID); err == nil {
+		t.Fatal("publication pass created a separate child publication")
+	}
+	linked, err := fx.db.PublicationByAssignment(ctx, a.ID)
+	if err != nil || linked.ID != p.ID || linked.PRID != p.PRID || linked.PRNumber != p.PRNumber {
+		t.Fatalf("child pass changed the parent's linked PR: %+v %v", linked, err)
 	}
 	// The same run never opens a second correction identity.
 	replay := fx.coord.PublishCorrection(ctx, run.ID)
@@ -141,6 +141,35 @@ func TestPublishCorrectionRefusesWithoutChange(t *testing.T) {
 	}
 }
 
+func TestPublishCorrectionRefusesChildSupersededByNewerHead(t *testing.T) {
+	fx, p := checkSeed(t, 16)
+	ctx := context.Background()
+	owner, err := fx.db.Assignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := correctionRun(t, fx, owner, strings.Repeat("e", 40))
+	current := correctionRun(t, fx, owner, strings.Repeat("d", 40))
+	advanced := fx.coord.PublishCorrection(ctx, current.ID)
+	if len(advanced.Corrected) != 1 {
+		t.Fatalf("current correction did not advance: %+v", advanced)
+	}
+	native := fx.exec
+	observes, submits, pushes := len(native.observes), len(native.submits), len(native.pushes)
+	exports := len(fx.host.exports)
+	refused := fx.coord.PublishCorrection(ctx, stale.ID)
+	if len(refused.Corrected) != 0 || len(refused.Waits) != 1 || refused.Waits[0].Reason != "candidate_superseded" {
+		t.Fatalf("superseded correction was not refused: %+v", refused)
+	}
+	if len(native.observes) != observes || len(native.submits) != submits || len(native.pushes) != pushes || len(fx.host.exports) != exports {
+		t.Fatalf("superseded correction caused native work: publisher=%+v exports=%+v", native, fx.host.exports)
+	}
+	stored, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil || len(stored.Corrections) != 1 || stored.Candidate != strings.Repeat("d", 40) {
+		t.Fatalf("superseded correction changed publication: %+v %v", stored, err)
+	}
+}
+
 func TestWithdrawalCancelsRecordedCorrectionAndKeepsPublishedHead(t *testing.T) {
 	fx, p := checkSeed(t, 8)
 	ctx := context.Background()
@@ -151,7 +180,7 @@ func TestWithdrawalCancelsRecordedCorrectionAndKeepsPublishedHead(t *testing.T) 
 	intent.OperationID = factory.PublicationOperationID(p.ID, factory.OpRefPublish, 2)
 	intent.Candidate, intent.ExpectedOld = strings.Repeat("d", 40), p.Candidate
 	intent.CorrectionNumber, intent.CorrectionAuthor = p.PRNumber, p.PRCreate.Work.ActorID
-	op := factory.PublicationOperation{Work: &intent, OperationID: intent.OperationID, Kind: factory.OpRefPublish, Attempts: 1, UpdatedUnix: time.Now().Unix()}
+	op := factory.PublicationOperation{Work: &intent, RunID: p.Run, OperationID: intent.OperationID, Kind: factory.OpRefPublish, Attempts: 1, UpdatedUnix: time.Now().Unix()}
 	p.Corrections = append(p.Corrections, op)
 	p.Revision++
 	if err := fx.db.UpdatePublication(ctx, p); err != nil {
@@ -202,7 +231,7 @@ func TestWithdrawalWaitsForCommittedCorrectionCompletion(t *testing.T) {
 	outcome := committedOutcome("correction-receipt")
 	outcome.Completion = factory.OpCompletionPending
 	op := factory.PublicationOperation{
-		Work: &intent, OperationID: intent.OperationID, Kind: factory.OpRefPublish,
+		Work: &intent, RunID: p.Run, OperationID: intent.OperationID, Kind: factory.OpRefPublish,
 		Effect: factory.OpEffectCommitted, Cancellation: factory.OpCancelTooLate,
 		Completion: factory.OpCompletionPending, Receipt: string(outcome.Receipt), Attempts: 1, UpdatedUnix: time.Now().Unix(),
 	}

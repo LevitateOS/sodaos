@@ -458,8 +458,20 @@ func appendPendingCorrection(p *factory.Publication) {
 	intent.TargetBranch, intent.ComparisonRef, intent.ComparisonOID = p.TargetBranch, p.TargetBranch, p.Comparison
 	intent.Candidate, intent.ExpectedOld = strings.Repeat("d", 40), p.Candidate
 	intent.CorrectionNumber, intent.CorrectionAuthor = p.PRNumber, p.PRCreate.Work.ActorID
-	p.Corrections = append(p.Corrections, factory.PublicationOperation{Work: intent, OperationID: id, Kind: factory.OpRefPublish, Attempts: 1, UpdatedUnix: 1250})
+	p.Corrections = append(p.Corrections, factory.PublicationOperation{Work: intent, RunID: p.Run, OperationID: id, Kind: factory.OpRefPublish, Attempts: 1, UpdatedUnix: 1250})
 	p.Revision++
+}
+
+func TestPublicationCorrectionRunIDIsImmutable(t *testing.T) {
+	old := factory.PublicationOperation{
+		RunID: "0123456789abcdef0123456789abcdef", Kind: factory.OpRefPublish,
+		OperationID: "correction-op", Attempts: 1,
+	}
+	next := old
+	next.RunID = "1123456789abcdef0123456789abcdef"
+	if publicationOperationUpdateAllowed(old, next) {
+		t.Fatal("registered correction RunID changed during update")
+	}
 }
 
 func publicationStoreIntent(id string) *factory.PublicationIntent {
@@ -474,6 +486,7 @@ func seedPublicationAssignment(t *testing.T, db *Store, p factory.Publication) {
 	t.Helper()
 	a, reservation, run, view := dispatchTestPacket(t, time.Now())
 	a.ID, a.Run, a.RunHistory = p.AssignmentID, p.Run, []string{p.Run}
+	a.AttemptRoot, a.PublicationAssignment = a.ID, a.ID
 	a.Repository, a.Issue, a.ProjectID, a.Acceptance, a.Authority = p.Repository, p.Issue, p.ProjectID, p.Acceptance, p.Authority
 	reservation.AssignmentID, reservation.Repository = a.ID, a.Repository
 	run.ID, run.ProjectID = a.Run, a.ProjectID
