@@ -17,9 +17,8 @@ func TestST10PublishableAssignmentsExcludeReviewer(t *testing.T) {
 	reviewer, reservation, run, view := finishedPublishableAssignment(t, now, 4, true, "completed")
 	reviewer.Role, run.Role = project.RoleReviewer, project.RoleReviewer
 	assigned := reviewer
-	assigned.Stage, assigned.Outcome, assigned.Reason, assigned.Result, assigned.FinishedUnix =
-		factory.AssignmentAssigned, "", "", nil, 0
-	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(assigned), assigned, reservation, run, view); err != nil {
+	assigned.Stage, assigned.Outcome, assigned.Reason, assigned.Result, assigned.FinishedUnix = factory.AssignmentAssigned, "", "", nil, 0
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(assigned), assigned, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.FinishAssignment(ctx, reviewer); err != nil {

@@ -33,7 +33,7 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 	}
 	defer func() { _ = tx.Rollback() }()
 	var raw []byte
-	err = tx.QueryRowContext(ctx, `SELECT data FROM issue_controls WHERE repository=$1 AND issue=$2`, candidate.Repository, candidate.Issue).Scan(&raw)
+	err = tx.QueryRowContext(ctx, `SELECT data FROM issue_controls WHERE repository=$1 AND issue=$2 FOR UPDATE`, candidate.Repository, candidate.Issue).Scan(&raw)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return factory.IssueControl{}, false, err
 	}
@@ -45,6 +45,17 @@ func (s *Store) RecordIssueAssessment(ctx context.Context, candidate factory.Iss
 			return factory.IssueControl{}, false, err
 		}
 		if current.Fingerprint == candidate.Fingerprint {
+			if candidate.NativeRev > current.NativeRev {
+				current.NativeRev = candidate.NativeRev
+				current.AssessedUnix = now.Unix()
+				data, marshalErr := json.Marshal(current)
+				if marshalErr != nil {
+					return factory.IssueControl{}, false, marshalErr
+				}
+				if _, err = tx.ExecContext(ctx, `UPDATE issue_controls SET data=$3 WHERE repository=$1 AND issue=$2`, candidate.Repository, candidate.Issue, string(data)); err != nil {
+					return factory.IssueControl{}, false, fmt.Errorf("readiness observation refresh failed: %w", err)
+				}
+			}
 			return current, false, tx.Commit()
 		}
 		stored.Revision = current.Revision + 1

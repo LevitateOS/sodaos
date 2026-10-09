@@ -17,7 +17,7 @@ import (
 // first packet at this revision records, and the admission limits are
 // rechecked inside the same transaction, so a retry never spends room a
 // concurrent admission consumed.
-func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, run factory.Run, view factory.RunView, planned int) (factory.Assignment, error) {
+func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, expected factory.IssueControl, run factory.Run, view factory.RunView, planned int) (factory.Assignment, error) {
 	if err := run.Validate(); err != nil {
 		return factory.Assignment{}, err
 	}
@@ -38,6 +38,9 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, run
 	// Match dispatch and grant-command lock order before reading the current
 	// selected connection sponsorship and its budget.
 	if _, _, _, err = ensureDispatchGateTx(ctx, tx, a.Repository); err != nil {
+		return factory.Assignment{}, err
+	}
+	if err = checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return factory.Assignment{}, err
 	}
 	var raw []byte

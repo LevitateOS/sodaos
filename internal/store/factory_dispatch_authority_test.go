@@ -28,7 +28,7 @@ func TestRecordDispatchPacketRejectsStalePolicyAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, reservation, run, view)
+	err = recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view)
 	if !errors.Is(err, ErrAdmissionChanged) {
 		t.Fatalf("stale policy packet error = %v, want %v", err, ErrAdmissionChanged)
 	}
@@ -173,7 +173,7 @@ func TestRecordDispatchPacketRejectsStaleAuthorityMembers(t *testing.T) {
 			a.Authority = dispatchCurrentAuthority(t, db, a)
 			restore := tc.mutate(t, db, a)
 			t.Cleanup(restore)
-			err := db.RecordDispatchPacket(context.Background(), dispatchTestRegistration(a), a, reservation, run, view)
+			err := recordDispatchTestPacket(t, context.Background(), db, dispatchTestRegistration(a), a, reservation, run, view)
 			if !errors.Is(err, ErrAdmissionChanged) {
 				t.Fatalf("stale %s error = %v", tc.name, err)
 			}
@@ -344,7 +344,7 @@ func TestRecordDispatchPacketRequiresEffectiveAuthorityAndMatchingRegistration(t
 			registration := dispatchTestRegistration(a)
 			restore := tc.mutate(t, db, &a, &registration)
 			t.Cleanup(restore)
-			err := db.RecordDispatchPacket(context.Background(), registration, a, reservation, run, view)
+			err := recordDispatchTestPacket(t, context.Background(), db, registration, a, reservation, run, view)
 			if !errors.Is(err, ErrAdmissionChanged) {
 				t.Fatalf("ineffective/mismatched authority error = %v", err)
 			}
@@ -374,7 +374,7 @@ func TestRecordDispatchPacketRejectsMissingAuthorityRows(t *testing.T) {
 			if _, err := db.db.ExecContext(context.Background(), tc.query, value); err != nil {
 				t.Fatal(err)
 			}
-			err := db.RecordDispatchPacket(context.Background(), dispatchTestRegistration(a), a, reservation, run, view)
+			err := recordDispatchTestPacket(t, context.Background(), db, dispatchTestRegistration(a), a, reservation, run, view)
 			if !errors.Is(err, ErrAdmissionChanged) {
 				t.Fatalf("missing %s error = %v", tc.name, err)
 			}

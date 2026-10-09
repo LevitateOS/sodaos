@@ -71,6 +71,27 @@ func TestRecordIssueAssessment(t *testing.T) {
 	}
 }
 
+func TestRecordIssueAssessmentRefreshesNativeObservationWithoutSemanticRevision(t *testing.T) {
+	s, ctx := readinessTestStore(t)
+	now := time.Unix(800, 0)
+	candidate := readinessCandidate()
+	candidate.NativeRev = 10
+	first, changed, err := s.RecordIssueAssessment(ctx, candidate, now)
+	if err != nil || !changed {
+		t.Fatal("first assessment must record:", first, changed, err)
+	}
+	candidate.NativeRev = 11
+	refreshed, changed, err := s.RecordIssueAssessment(ctx, candidate, now.Add(time.Minute))
+	if err != nil || changed || refreshed.Revision != first.Revision || refreshed.NativeRev != 11 || refreshed.Fingerprint != first.Fingerprint {
+		t.Fatalf("equal semantic fingerprint did not refresh its native observation: %+v changed=%v err=%v", refreshed, changed, err)
+	}
+	candidate.NativeRev = 9
+	older, changed, err := s.RecordIssueAssessment(ctx, candidate, now.Add(2*time.Minute))
+	if err != nil || changed || older.NativeRev != 11 {
+		t.Fatalf("older observation downgraded the current marker: %+v changed=%v err=%v", older, changed, err)
+	}
+}
+
 func TestIssueControlsListOldestFirst(t *testing.T) {
 	s, ctx := readinessTestStore(t)
 	now := time.Now()

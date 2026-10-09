@@ -12,6 +12,7 @@ import (
 
 func testPrompt(t *testing.T) []byte {
 	t.Helper()
+	endpointAcceptance := "d" + strings.Repeat("e", 24)
 	prompt, err := BuildDispatchPrompt(PromptInputs{
 		Repository: 7, Issue: 3, NativeRev: 11,
 		AcceptanceID: "d" + strings.Repeat("a", 24),
@@ -23,8 +24,15 @@ func testPrompt(t *testing.T) []byte {
 		RepositoryConcurrent: 1, SponsorshipConcurrent: 1, PlannedMinutes: 120,
 		RequirementsID: "req-1", ApprovalID: "approval-1",
 		Title: "Fix the widget", Body: "The widget is broken.",
-		Sources:     []PromptSource{{ID: "9", Content: "answer text"}},
-		Resolutions: []PromptSource{{ID: "12", Content: "resolution text"}},
+		Sources:       []PromptSource{{ID: "9", Content: "answer text"}},
+		Resolutions:   []PromptSource{{ID: "12", Content: "resolution text"}},
+		Prerequisites: []AcceptedPrerequisite{{Occurrence: "21", DependsOn: "9", EndpointRepo: 7, EndpointIssue: 2, Outcome: PrereqCode, PrereqAcceptance: endpointAcceptance}},
+		Control: IssueControl{
+			Repository: 7, Issue: 3, NativeRev: 11, Revision: 2,
+			Acceptance: "d" + strings.Repeat("a", 24), Readiness: ReadinessQueued, Reason: ReasonEligible,
+			Fingerprint: strings.Repeat("a", 64), Authority: strings.Repeat("b", 64),
+			EndpointHeads: map[string]string{"21": endpointAcceptance},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +192,8 @@ func TestBuildDispatchPrompt(t *testing.T) {
 		"Repository: 7", "Issue: 3", "refs/heads/main", strings.Repeat("c", 40),
 		"Fix the widget", "The widget is broken.",
 		"### comment 9", "answer text", "### comment 12", "resolution text",
-		"Prompt template: soda-f07-f2-v1", "Permitted actions:",
+		"## Accepted prerequisites", "Occurrence 21: depends on issue 9", "outcome code", "satisfied as of queued readiness revision 2 (fingerprint",
+		"Prompt template: soda-f07-f2-v3", "Permitted actions:",
 		`Provider connection: "selected-connection"`,
 		"at most 120 minutes", "appliance concurrency is 2", "repository concurrency is 1",
 		"Required evidence checks: go test ./...", "report blocked", "```result-json",

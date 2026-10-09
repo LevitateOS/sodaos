@@ -231,12 +231,27 @@ func (fx *dispatchFixture) queueAt(t *testing.T, issue int64, head string, seen 
 	t.Helper()
 	control := factory.IssueControl{
 		Repository: fx.repo, Issue: issue, Acceptance: head,
+		NativeRev: fx.reads.inputs[fmt.Sprintf("%d/%d", fx.repo, issue)].Revision,
 		Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
 		Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
 	}
 	if _, _, err := fx.db.RecordIssueAssessment(context.Background(), control, seen); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func dispatchControlForAssignment(t *testing.T, db *store.Store, a factory.Assignment) factory.IssueControl {
+	t.Helper()
+	control := factory.IssueControl{
+		Repository: a.Repository, Issue: a.Issue, Acceptance: a.Acceptance, NativeRev: a.NativeRev,
+		Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
+		Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
+	}
+	stored, _, err := db.RecordIssueAssessment(context.Background(), control, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stored
 }
 
 func (fx *dispatchFixture) deps() DispatchDeps {

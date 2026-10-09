@@ -54,11 +54,15 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 	view := factory.RunView{RunID: runID, Repository: repository, Issue: issue, Attempt: assignmentID}
 	var packetErr error
 	if retry == nil {
-		packetErr = deps.Store.RecordDispatchPacket(ctx, registration, assignment, reservation, run, view)
+		packetErr = deps.Store.RecordDispatchPacket(ctx, registration, plan.control, assignment, reservation, run, view)
 	} else {
-		packetErr = deps.Store.RecordExplicitRetryPacket(ctx, *retry, registration, assignment, reservation, run, view)
+		packetErr = deps.Store.RecordExplicitRetryPacket(ctx, *retry, registration, plan.control, assignment, reservation, run, view)
 	}
 	if err := packetErr; err != nil {
+		if errors.Is(err, store.ErrDispatchControlStale) {
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during dispatch"})
+			return
+		}
 		if errors.Is(err, store.ErrDispatchClosed) {
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitDispatchClosed, Detail: "dispatch gate closed during dispatch"})
 			return
@@ -107,7 +111,12 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "capacity accounting unavailable"})
 		return
 	}
-	plan, wait, failed := planAttempt(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance)
+	control, err := deps.Store.IssueControl(ctx, a.Repository, a.Issue)
+	if err != nil {
+		report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness is unavailable"})
+		return
+	}
+	plan, wait, failed := planAttempt(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
 		return
@@ -133,8 +142,12 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
-	next, err := deps.Store.RecordRetryPacket(ctx, a, run, view, plan.planned)
+	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, run, view, plan.planned)
 	if err != nil {
+		if errors.Is(err, store.ErrDispatchControlStale) {
+			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during retry"})
+			return
+		}
 		// A limit refusal defers quietly: the fresh visit already
 		// reports the issue as assigned, and a later pass retries.
 		if admissionWait(err) != nil {

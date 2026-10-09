@@ -121,7 +121,7 @@ func (s *Store) PendingExplicitRetry(ctx context.Context, repository, issue int6
 // RecordExplicitRetryPacket serializes competing dispatchers on the gate and
 // command, rechecks prior accounting and the accepted head, then commits the
 // retry assignment/run/reservation through the regular admission checks.
-func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.RetryDecision, d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.RetryDecision, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if err := decision.Validate(); err != nil || a.ID != decision.CommandID || a.Role != project.RoleCoder {
 		return errExplicitRetryIneligible
 	}
@@ -171,7 +171,7 @@ func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.
 	if err = registerDispatchTx(ctx, tx, d); err != nil {
 		return err
 	}
-	if err = recordDispatchPacketTx(ctx, tx, d, a, r, run, view); err != nil {
+	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view); err != nil {
 		return err
 	}
 	return tx.Commit()

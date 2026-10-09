@@ -15,7 +15,7 @@ func TestReservationTransitions(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
@@ -36,7 +36,7 @@ func TestReservationTransitions(t *testing.T) {
 	b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
 	r2.AssignmentID = b.ID
 	view2.Issue, view2.Attempt = 4, b.ID
-	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(b), b, r2, run2, view2); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ReleaseReservation(ctx, b.ID); err != nil {
@@ -157,7 +157,7 @@ func TestActiveRunCountsSkipAttributed(t *testing.T) {
 	now := time.Now().UTC()
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	human := factory.Run{

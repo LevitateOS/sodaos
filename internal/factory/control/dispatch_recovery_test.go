@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -167,5 +168,76 @@ func TestIntakeTriggersAutomaticDispatch(t *testing.T) {
 	}
 	if len(fx.host.launches) != 1 {
 		t.Fatalf("launches after replay = %d", len(fx.host.launches))
+	}
+}
+
+func TestAssessedResultPrerequisiteAppearsInRecordedDispatchPrompt(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	endpoint := fx.accept(t, 3, "d333333333333333333333333")
+	dependent := fx.accept(t, 5, "d555555555555555555555555")
+	dependent.Predecessor = dependent.ID
+	dependent.ID = "d666666666666666666666666"
+	dependent.Prerequisites = []factory.AcceptedPrerequisite{{
+		Occurrence: "21", DependsOn: "9", EndpointRepo: fx.repo, EndpointIssue: 3,
+		Outcome: factory.PrereqResult,
+	}}
+	resolution := "accepted resolution"
+	dependent.Resolutions = []factory.SelectedSource{{ID: "31", ContentVersion: 0, Digest: dispatchDigest(resolution)}}
+	if err := db.AdmitAcceptanceDecision(ctx, dependent); err != nil {
+		t.Fatal(err)
+	}
+	fx.decision[5] = dependent
+	dependentInput := fx.reads.inputs["7/5"]
+	dependentInput.Comments = append(dependentInput.Comments, DispatchComment{ID: "31", Content: resolution, Digest: dispatchDigest(resolution), Visible: true})
+	fx.reads.inputs["7/5"] = dependentInput
+	endpointIssue := AcceptanceIssueView{
+		Index: "3", TitleDigest: endpoint.TitleDigest, ContentDigest: endpoint.ContentDigest,
+		ContentVer: endpoint.ContentVersion, Lifecycle: 4, ClosedUnix: 1_800_000_000,
+		Closed: true, Visible: true,
+	}
+	source := &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
+		"7/3": {
+			Issue:    endpointIssue,
+			Comments: []AcceptanceComment{{ID: "11", Digest: endpoint.Sources[0].Digest, Visible: true}},
+			Revision: 41,
+		},
+		"7/5": {
+			Issue: AcceptanceIssueView{
+				Index: "5", TitleDigest: dependent.TitleDigest, ContentDigest: dependent.ContentDigest,
+				ContentVer: dependent.ContentVersion, Visible: true,
+			},
+			Comments: []AcceptanceComment{
+				{ID: "11", Digest: dependent.Sources[0].Digest, Visible: true},
+				{ID: "31", Digest: dispatchDigest(resolution), Visible: true},
+			},
+			Dependencies: []AcceptanceEdge{{Occurrence: "21", DependsOn: "9", Visible: true}},
+			Revision:     41,
+		},
+	}}
+	coord := &Coordinator{
+		Store: db, Host: fx.host, Broker: fx.broker,
+		AcceptanceReads: source, DispatchReads: fx.reads,
+	}
+	control, changed, err := coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "result-dependency-dispatch", Repository: fx.repo, Issue: 5})
+	if err != nil || !changed || control.Readiness != factory.ReadinessQueued {
+		t.Fatalf("dependent readiness = %+v changed=%v err=%v", control, changed, err)
+	}
+	if len(fx.host.launches) != 1 {
+		t.Fatalf("dependency dispatch launches = %d", len(fx.host.launches))
+	}
+	assignment, err := db.LatestIssueAssignment(ctx, fx.repo, 5)
+	if err != nil || assignment.Stage != factory.AssignmentAssigned {
+		t.Fatalf("dependent assignment = %+v err=%v", assignment, err)
+	}
+	for _, want := range []string{
+		"## Accepted prerequisites", "Occurrence 21: depends on issue 9 at repository 7, issue 3; outcome result",
+		"satisfied as of queued readiness revision " + fmt.Sprint(control.Revision),
+		"lifecycle 4 closed at 1800000000 under acceptance " + dependent.ID,
+	} {
+		if !strings.Contains(string(assignment.Prompt), want) {
+			t.Errorf("recorded dependent prompt lacks %q", want)
+		}
 	}
 }

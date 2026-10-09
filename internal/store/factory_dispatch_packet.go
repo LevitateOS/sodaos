@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"time"
 
@@ -24,6 +26,7 @@ var ErrAssignmentActive = errors.New("issue already carries an unfinished assign
 // refusal means a concurrent admission consumed the room this attempt
 // planned against; the dispatcher waits instead of launching.
 var (
+	ErrDispatchControlStale  = errors.New("queued issue control changed during dispatch")
 	ErrCapacityFull          = errors.New("appliance runs at its limit")
 	ErrRepositoryFull        = errors.New("repository runs at its limit")
 	ErrSponsorshipFull       = errors.New("sponsorship runs at its limit")
@@ -33,19 +36,22 @@ var (
 )
 
 // RecordDispatchPacket stores one dispatch atomically: the gate
-// registration, the assigned assignment, its held reservation, the
+// registration, the exact current queued control, the assigned assignment, its held reservation, the
 // recorded run and the display binding. Either the whole packet lands or
 // nothing does, so a crash never leaves a reservation without its
 // assignment or a run without its dispatch. A second unfinished
 // assignment for the issue refuses with ErrAssignmentActive instead of
 // dispatching twice.
+// The control row is locked after the dispatch gate and before packet
+// writes; readiness assessment takes the same row lock, so changed or
+// missing outcome evidence refuses the whole transaction.
 //
 // The packet is also the atomic admission gate: the limit rows are
 // locked, the packet records, and then appliance, repository,
 // sponsorship, repository allowance and connection rolling usage limits are rechecked inside the same
 // transaction. Concurrent passes serialize here, so only room that
 // actually exists is admitted; the losers wait instead of launching.
-func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -54,13 +60,18 @@ func (s *Store) RecordDispatchPacket(ctx context.Context, d factory.DispatchRegi
 	if err = registerDispatchTx(ctx, tx, d); err != nil {
 		return err
 	}
-	if err = recordDispatchPacketTx(ctx, tx, d, a, r, run, view); err != nil {
+	if err = recordDispatchPacketTx(ctx, tx, d, expected, a, r, run, view); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
+func sameControlOutcome(left, right factory.IssueControl) bool {
+	return left.Reason == right.Reason && slices.Equal(left.Blockers, right.Blockers) &&
+		maps.Equal(left.EndpointHeads, right.EndpointHeads) && maps.Equal(left.Satisfied, right.Satisfied)
+}
+
+func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
@@ -74,6 +85,12 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 		return err
 	}
 	if err := view.Validate(); err != nil {
+		return err
+	}
+	if expected.NativeRev != a.NativeRev {
+		return ErrDispatchControlStale
+	}
+	if err := checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return err
 	}
 	if d.ID != a.ID || d.Repository != a.Repository {
@@ -127,6 +144,27 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	}
 	if err = checkAdmissionLimitsTx(ctx, tx, a.Repository, a.Connection, a.ProjectID, grants); err != nil {
 		return err
+	}
+	return nil
+}
+
+func checkQueuedControlTx(ctx context.Context, tx *sql.Tx, expected factory.IssueControl, repository, issue int64, acceptance string) error {
+	if err := expected.Validate(); err != nil || expected.Readiness != factory.ReadinessQueued || expected.Repository != repository || expected.Issue != issue || expected.Acceptance != acceptance {
+		return ErrDispatchControlStale
+	}
+	var controlData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM issue_controls WHERE repository=$1 AND issue=$2 FOR UPDATE`, repository, issue).Scan(&controlData); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrDispatchControlStale
+		}
+		return err
+	}
+	var current factory.IssueControl
+	if err := json.Unmarshal(controlData, &current); err != nil {
+		return err
+	}
+	if err := current.Validate(); err != nil || current.Readiness != factory.ReadinessQueued || current.Repository != repository || current.Issue != issue || current.Acceptance != acceptance || current.NativeRev != expected.NativeRev || current.Revision != expected.Revision || current.Fingerprint != expected.Fingerprint || current.Authority != expected.Authority || !sameControlOutcome(current, expected) {
+		return ErrDispatchControlStale
 	}
 	return nil
 }

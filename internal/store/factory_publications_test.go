@@ -148,7 +148,7 @@ func recordFinishedAssignment(t *testing.T, db *Store, now time.Time, issue int6
 	a, r, run, view := finishedPublishableAssignment(t, now, issue, reported, status)
 	assigned := a
 	assigned.Stage, assigned.Outcome, assigned.Reason, assigned.Result, assigned.FinishedUnix = factory.AssignmentAssigned, "", "", nil, 0
-	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(assigned), assigned, r, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(assigned), assigned, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.FinishAssignment(ctx, a); err != nil {
@@ -478,7 +478,7 @@ func seedPublicationAssignment(t *testing.T, db *Store, p factory.Publication) {
 	reservation.AssignmentID, reservation.Repository = a.ID, a.Repository
 	run.ID, run.ProjectID = a.Run, a.ProjectID
 	view.RunID, view.Attempt, view.Repository, view.Issue = a.Run, a.ID, a.Repository, a.Issue
-	if err := db.RecordDispatchPacket(context.Background(), dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+	if err := recordDispatchTestPacket(t, context.Background(), db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 }

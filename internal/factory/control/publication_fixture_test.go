@@ -222,7 +222,7 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: "codex-1.2.3", Model: "m",
 	}
 	view := factory.RunView{RunID: a.Run, Repository: fx.seed.repo, Issue: issue, Attempt: a.ID}
-	if err := fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, a, r, run, view); err != nil {
+	if err := fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, dispatchControlForAssignment(t, fx.db, a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	run.Outcome, run.Reconciled = factory.Succeeded, true

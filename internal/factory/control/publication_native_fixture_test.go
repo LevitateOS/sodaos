@@ -44,6 +44,21 @@ type nativeST09Config struct {
 	CreatorTokenFile string `json:"creator_token_file"`
 }
 
+func nativeDispatchControl(t *testing.T, db *store.Store, assignment factory.Assignment) factory.IssueControl {
+	t.Helper()
+	control := factory.IssueControl{
+		Repository: assignment.Repository, Issue: assignment.Issue,
+		Acceptance: assignment.Acceptance, NativeRev: assignment.NativeRev,
+		Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
+		Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
+	}
+	stored, _, err := db.RecordIssueAssessment(context.Background(), control, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stored
+}
+
 func loadNativeST09(t *testing.T) nativeST09Config {
 	t.Helper()
 	raw := os.Getenv("SODA_ST09_NATIVE")
@@ -357,7 +372,7 @@ func (fx *nativeFixture) assignment(t *testing.T, n nativeCandidate) factory.Ass
 	a := factory.Assignment{Authority: bound, ID: factory.NewID(), ProjectID: fx.project, Role: project.RoleCoder, Repository: c.Repository, Issue: issue.Number, NativeRev: decision.NativeRev, Acceptance: decision.ID, Preparation: fx.preparation, Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "fixture", Connection: "fixture-connection", SourceCommit: n.base, Prompt: prompt, PromptSHA: hex.EncodeToString(hash[:]), Run: factory.NewID(), Stage: factory.AssignmentAssigned, Attempts: 1, CreatedUnix: now.Unix()}
 	a.RunHistory = []string{a.Run}
 	run := factory.Run{ID: a.Run, ProjectID: a.ProjectID, Role: a.Role, InputSHA: n.base, Started: now, Deadline: now.Add(time.Hour), Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model}
-	nativeMust(t, fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, a, factory.Reservation{AssignmentID: a.ID, Repository: c.Repository, Connection: a.Connection, State: factory.ReservationHeld, PlannedMinutes: 30}, run, factory.RunView{RunID: a.Run, Repository: c.Repository, Issue: a.Issue, Attempt: a.ID}))
+	nativeMust(t, fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, nativeDispatchControl(t, fx.db, a), a, factory.Reservation{AssignmentID: a.ID, Repository: c.Repository, Connection: a.Connection, State: factory.ReservationHeld, PlannedMinutes: 30}, run, factory.RunView{RunID: a.Run, Repository: c.Repository, Issue: a.Issue, Attempt: a.ID}))
 	run.Reconciled, run.Outcome, run.Summary = true, factory.Succeeded, "completed fixture candidate"
 	nativeMust(t, fx.db.SaveFactoryRun(ctx, run))
 	nativeMust(t, fx.db.ConsumeReservation(ctx, a.ID))

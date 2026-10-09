@@ -21,6 +21,7 @@ type attemptPlan struct {
 	prep                 project.StoredPreparation
 	pin                  project.FactoryHarnessPin
 	acceptance           factory.Acceptance
+	control              factory.IssueControl
 	inputs               DispatchInputs
 	projectID            string
 	prompt               []byte
@@ -67,7 +68,7 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		}
 		retry = &pending
 	}
-	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head)
+	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: failed.Reason, Detail: failed.Detail})
 		return
@@ -126,8 +127,11 @@ func refreshOccupancy(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 // planAttempt verifies one dispatch end to end without recording
 // anything. Every check that fails reports its wait or failure; a full
 // plan hands its exact bound inputs to the executor.
-func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string) (*attemptPlan, *planWait, *planWait) {
-	plan := &attemptPlan{}
+func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl) (*attemptPlan, *planWait, *planWait) {
+	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
+		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
+	}
+	plan := &attemptPlan{control: control}
 	effective, err := deps.Authority(ctx, repository)
 	if err != nil {
 		return nil, nil, waitFor(DispatchErrStore, "authority unreadable")
@@ -177,6 +181,9 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if wait, failed := readAttemptInputs(ctx, deps, plan, repository, issue); failed != nil || wait != nil {
 		return nil, wait, failed
 	}
+	if plan.inputs.Revision != control.NativeRev {
+		return nil, waitFor(WaitInputsChanged, "readiness observation changed before dispatch"), nil
+	}
 	prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
 		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 		AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
@@ -190,10 +197,14 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
 		PlannedMinutes:        plan.planned,
 		Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
-		Sources:     promptSections(plan.acceptance.Sources, plan.inputs.Comments),
-		Resolutions: promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
+		Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
+		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
+		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
 	})
 	if err != nil {
+		if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {
+			return nil, waitFor(WaitInputsChanged, "readiness does not bind accepted prerequisite outcomes"), nil
+		}
 		return nil, waitFor(WaitPrompt, "accepted inputs exceed the prompt bound"), nil
 	}
 	plan.prompt = prompt
