@@ -3,6 +3,7 @@
 //! the diagnostic landing console every outcome reaches.
 
 use std::io::Read;
+use std::time::{Duration, Instant};
 
 use crate::buildx;
 use crate::candidate;
@@ -13,6 +14,8 @@ use crate::errors::Error;
 use crate::run::{DATA_DIR, DISK_ATTEMPT_MARKER};
 use crate::signal::Ctx;
 use crate::wizard::{collect_disk_install_choices, DiskInstallChoices};
+
+const DIAGNOSTIC_REBOOT_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 
 /// `readRegular`: bounded regular-file read that refuses symlinks.
 pub fn read_regular(path: &str, limit: u64) -> Result<Vec<u8>, Error> {
@@ -133,9 +136,9 @@ fn print_disk_complete(console: &Console) {
     ));
 }
 
-/// Terminal visible state for every disk-install outcome: success,
-/// cancellation, partial failure, EOF and reboot failure all land here and
-/// stay on an explicit reboot/poweroff prompt.
+/// Terminal visible state for every disk-install outcome. EOF or another
+/// terminal read failure makes one bounded reboot attempt; an explicit
+/// reboot/poweroff choice remains available while input works.
 pub fn land_diagnostic_console(
     ctx: &Ctx,
     console: &Console,
@@ -144,9 +147,9 @@ pub fn land_diagnostic_console(
 ) -> Result<(), Error> {
     if let Some(err) = &install_err {
         console.print(format_args!("Installation did not complete: {err}."));
-        console.print("No automatic retry or reboot was performed. Inspect this live boot from another terminal; confirming a power action below discards live-boot inspection state.");
+        console.print("No automatic retry was performed. Inspect this live boot from another terminal; confirming a power action below discards live-boot inspection state. If terminal input ends, one bounded reboot will be attempted.");
     } else {
-        console.print("Installation completed. The completion details above stay on screen; nothing further runs until you choose a power action.");
+        console.print("Installation completed. The completion details above stay on screen. Choose a power action; if terminal input ends, one bounded reboot will be attempted.");
     }
     let mut land_ctx = ctx.interrupt_scope();
     loop {
@@ -162,11 +165,15 @@ pub fn land_diagnostic_console(
                         "Terminal input failed ({err}); attempting one reboot so the machine is not stranded."
                     ),
                 );
-                if let Err(run_err) = run.run(ctx, "systemctl", &["reboot".to_string()], None) {
-                    if let Some(err) = install_err {
-                        return Err(err);
-                    }
-                    return Err(run_err);
+                let reboot_ctx = ctx.with_timeout(Instant::now() + DIAGNOSTIC_REBOOT_TIMEOUT);
+                if let Err(run_err) =
+                    run.run(&reboot_ctx, "systemctl", &["reboot".to_string()], None)
+                {
+                    console.print(format_args!(
+                        "Automatic reboot failed: {}.",
+                        failure_summary(&run_err)
+                    ));
+                    return Err(install_err.unwrap_or(run_err));
                 }
                 return install_err.map_or(Ok(()), Err);
             }

@@ -40,6 +40,11 @@ then key enrollment and private setup on the installed host. The installer write
 disks only after explicit confirmation. Interrupted writes must leave a recoverable
 or clearly failed machine state rather than a silently partial appliance.
 
+After a disk-install outcome, the live console offers an explicit reboot or
+poweroff choice. If terminal input ends or fails, the installer attempts one
+reboot with a two-minute bound. A failed reboot is reported; an existing install
+failure remains the returned primary error.
+
 ## After first boot
 
 1. Import a laptop SSH key after local password login when that path is selected ([optional key enrollment](../operator/enroll-key.md)).

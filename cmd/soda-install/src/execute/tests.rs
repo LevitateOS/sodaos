@@ -288,6 +288,41 @@ fn landing_outcomes() {
     let err = land_diagnostic_console(&ctx, &console, &rec, Some(Error::msg("disk write failed")))
         .unwrap_err();
     assert_eq!(err, Error::msg("disk write failed"));
+    assert_eq!(rec.calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn eof_reboot_is_one_bounded_attempt_and_returns_command_failure() {
+    let (ctx, _flag) = Ctx::test();
+    let calls = AtomicUsize::new(0);
+    let run = FnRunner::new(|ctx: &Ctx, name: &str, args: &[String], _| {
+        calls.fetch_add(1, Ordering::SeqCst);
+        assert_eq!(name, "systemctl");
+        assert_eq!(args, &["reboot".to_string()]);
+        let deadline = ctx
+            .deadline()
+            .expect("automatic reboot must have a deadline");
+        assert!(deadline > std::time::Instant::now());
+        assert!(deadline <= std::time::Instant::now() + std::time::Duration::from_secs(2 * 60));
+        Err(Error::CmdExit {
+            name: "systemctl".to_string(),
+            code: 1,
+            interrupted: false,
+        })
+    });
+    let (console, _w) = pipe_console(b"", true);
+
+    let err = land_diagnostic_console(&ctx, &console, &run, None).unwrap_err();
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        err,
+        Error::CmdExit {
+            name: "systemctl".to_string(),
+            code: 1,
+            interrupted: false,
+        }
+    );
 }
 
 #[test]
