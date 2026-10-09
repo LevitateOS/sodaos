@@ -709,3 +709,14 @@ F07 owns immutable candidate-preparation registration and current-authority/dead
 ### [internal/store/factory_attempt_allowances_test.go](../../../../../internal/store/factory_attempt_allowances_test.go)
 
 F07/F08 PostgreSQL store-fixture checks cover allowance admission, retry snapshots, old-root closure with preserved usage, fresh-root activation and pause freeze after retirement under the current gate revision. The `b38a37b4` packet adds Store-owned candidate-preparation admission/custody checks joined to the controller producer; `fa395bff` adds settled closed-root explicit Retry with preserved prior usage. These checks do not establish the full autonomous or installed/native/provider qualification; configured active-root capacity and settled review/CI retention have separate production-path checks in `factory_dispatch_test.go` and control `merge_test.go`.
+
+<a id="r02-current-path-internal-store-factory-attempt-expiry-test-go"></a>
+
+### [internal/store/factory_attempt_expiry_test.go](../../../../../internal/store/factory_attempt_expiry_test.go)
+
+Current source inspected at `4b829d67`; this selective ownership addition preserves earlier body-audit and runtime identities.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; saveExpiredAttemptAllowance | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Test-only fixture setup records expired, paused and future-checkpoint allowances through the existing transaction helper; it is not a public Store API. |
+| TestCloseExpiredAttemptClosesSettledRootAndReplays; TestCloseExpiredAttemptRetainsLiveRootUntilRecordedRunSettles; TestCloseExpiredAttemptIgnoresStalePublicationOwnerWithinRoot | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | PostgreSQL regressions cover unexpired/clock-regression/paused refusal, terminal close/replay, live-run retention until settlement, and stale publication ownership. [F10 source/development evidence](../../reviews/F10.md) retains the focused receipt and validated historical-assignment setup; these tests do not qualify cross-repository capacity or installed/native/provider behavior. |

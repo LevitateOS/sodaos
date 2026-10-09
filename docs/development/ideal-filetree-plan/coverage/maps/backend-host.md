@@ -172,6 +172,16 @@ exact-blob current maintained map; full spans retained
 | 1–48; whole file; prepareResponseLimit; preparationIdentityConfirmed; Client.Prepare; Client.InspectPreparation; Client.StopPreparation | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 6 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 49–56; Client.HoldPreparation | [P12](../../slices/projects.md#p12-maintenance-holds) | retained | Native preparation admission hold synchronization; declarations/fields: `Client.HoldPreparation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
+<a id="r02-current-path-internal-host-prepare-inspection-test-go"></a>
+
+## [internal/host/prepare_inspection_test.go](../../../../../internal/host/prepare_inspection_test.go)
+
+Current source inspected at `4b829d67`; existing preparation-retirement ownership remains in place.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; TestStopPreparationPreservesConfirmedAndUncertainReceipts | [P07](../../slices/projects.md#p07-checkout-allocation-and-preparation) | retained | Exercises the production client with a substituted HTTP round trip, confirming bound stop identity and preserved confirmed/uncertain retirement values. Shared HTTP fixture helpers remain at their existing H06 owner. This client-boundary evidence does not establish real native stop or installed preparation lifecycle. |
+
 <a id="coverage-cc94f369637c"></a>
 
 ## [internal/host/prepare_test.go](../../../../../internal/host/prepare_test.go)

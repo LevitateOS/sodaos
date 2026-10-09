@@ -1532,6 +1532,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── dispatch_accounting_test.go
 │   │   │   ├── dispatch_attempt.go
 │   │   │   ├── dispatch_concurrency_test.go
+│   │   │   ├── dispatch_context.go
+│   │   │   ├── dispatch_expiry_test.go
 │   │   │   ├── dispatch_fixture_test.go
 │   │   │   ├── dispatch_inputs.go
 │   │   │   ├── dispatch_launch.go
@@ -1714,12 +1716,15 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── factory_candidate.go
 │   │   ├── factory_candidate_test.go
 │   │   ├── factory_client.go
+│   │   ├── factory_context.go
+│   │   ├── factory_context_test.go
 │   │   ├── factory_export_test.go
 │   │   ├── factory_harness_test.go
 │   │   ├── identity.go
 │   │   ├── lifecycle.go
 │   │   ├── os.go
 │   │   ├── prepare.go
+│   │   ├── prepare_inspection_test.go
 │   │   ├── prepare_test.go
 │   │   ├── profiles.go
 │   │   ├── tailnet.go
@@ -1745,6 +1750,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── factory.go
 │   │   ├── factory_candidate.go
 │   │   ├── factory_candidate_test.go
+│   │   ├── factory_context.go
 │   │   ├── factory_export.go
 │   │   ├── factory_export_test.go
 │   │   ├── factory_harness.go
@@ -1768,7 +1774,9 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── factory.go
 │   │   ├── factory_attempt_allowances.go
 │   │   ├── factory_attempt_allowances_test.go
+│   │   ├── factory_attempt_expiry_test.go
 │   │   ├── factory_assignments.go
+│   │   ├── factory_candidate_preparations.go
 │   │   ├── factory_checks.go
 │   │   ├── factory_checks_test.go
 │   │   ├── factory_dispatch_authority_test.go

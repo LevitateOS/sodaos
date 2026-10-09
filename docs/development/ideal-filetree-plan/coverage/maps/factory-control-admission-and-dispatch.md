@@ -238,6 +238,17 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–123; file scaffold; rendezvousReads; ReadDispatchInputs; mutexDispatchHost; FactoryLaunch; FactoryInspect; FactoryHarness; TestConcurrentDispatchPassesPreserveCapacityAndBudget | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 8 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="r02-current-path-internal-factory-control-dispatch-expiry-test-go"></a>
+
+## [internal/factory/control/dispatch_expiry_test.go](../../../../../internal/factory/control/dispatch_expiry_test.go)
+
+Current source inspected at `4b829d67`; these current responsibilities do not renew historical body-audit evidence.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; TestDispatchClosesExpiredReportedAttemptBeforeEarlyReturn | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Production Dispatch closes an expired reported root before its early return, preserving the result and recorded usage without another host launch. Fixture setup expires the recorded root in disposable PostgreSQL; [F10 source/development evidence](../../reviews/F10.md) remains distinct from native/installed qualification. |
+| TestExplicitRetryCreatesFreshRootFromSettledReviewerChildAfterExpiry | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Uses production closure, explicit retry and dispatch to create one fresh root after a settled reviewer child; verifies command replay and preserved prior usage. The `fa395bff` [F07 source/development cut](../../reviews/F07.md) retains its scoped PostgreSQL evidence; host effects are substituted and full autonomous/native/provider qualification remains open. |
+
 <a id="coverage-1cd1aa56ae9c"></a>
 
 ## [internal/factory/control/dispatch_fixture_test.go](../../../../../internal/factory/control/dispatch_fixture_test.go)
