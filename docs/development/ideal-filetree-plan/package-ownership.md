@@ -184,6 +184,9 @@ The schema source remains `internal/store/schema.go`. Rust identity's schema
 copy explicitly follows that source and has a drift assertion
 (`rust/soda-identity/src/schema.rs:1-6,190-196`) (`cmd/soda-identity/src/schema.rs:1-6,190-196` **[run 20261005:** path moved by A05; drift assertion intact.]). Current storage is PostgreSQL;
 older SQLite wording in credentials/development documentation is stale.
+Release-image's `model::SCHEMA_VERSION` supplies the emitted `Payload.schema`.
+The coordinator updates that C-owned version with the B schema and A broker
+mirror; the existing release-model equality regression checks both owners.
 Current sponsorship metadata admission in
 `internal/web/api/factory_sponsorship.go` uses the existing private
 `internal/identity/client` broker-admin connection and grant readers. Rust broker
@@ -270,7 +273,7 @@ adds no generic helper, third DTO, runtime or state owner. Selective reservation
 | Host Muse child/listener and stop-owned run receipts | A physical writer; B remains F08-F3 accountable | F08-F3 receipt settlement is source complete under the existing per-run lock, with deterministic stale-snapshot regressions and independent medium review. Exclusive current launch/finish/receipt files, supervisor/FD joins, identity-safe signal/reap and bounded workers remain with A. Preserve terminal repair and parked C41; no new process framework or native qualification claim |
 | Go installed capture and C verification tooling | OBS-G01 B via temporary exclusive C11 handoff; remaining scripts/tools C | Reserve installed.go/process.go together, return after integration. Per-finding ownership overrides the generic directory default; one current writer and actual consumers |
 | Release worker/evidence, provisioning and installer CA/output duties | C / existing source owners | Same-file failure/admission repairs precede formatter removal. Feature-only trim preserves current CA algorithms; exact permanent profile consumes actual producer/guide decision. Real Runner/Production, signed originals and shipping selectors remain |
-| Dependencies, shared schemas/compile/payload joins and full target refresh | Coordinator integration, with canonical B schema/A mirror | Workers supply exact edge/tuple changes. Full tree/decomposition regeneration waits for implemented boundaries, while current source inventory and selective ownership remain maintained |
+| Dependencies, shared schemas/compile/payload joins and full target refresh | Coordinator integration, with canonical B schema, A broker mirror and C emitted release version | Workers supply exact edge/tuple changes. Full tree/decomposition regeneration waits for implemented boundaries, while current source inventory and selective ownership remain maintained |
 
 ## Existing execution topology
 
