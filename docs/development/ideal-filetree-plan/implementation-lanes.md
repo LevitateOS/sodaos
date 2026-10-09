@@ -121,6 +121,48 @@ an available worker can take another lane's ready packet through an explicit
 whole-file handoff. Prefer the longest remaining dependency chain and critical
 native assumptions; do not wait for every packet in a lane or wave to finish.
 
+## Ticket selection and planning with JEV
+
+The coordinator separates readiness to **plan**, **implement** and **qualify**
+each existing task. A missing installed target can hold qualification while
+source implementation proceeds. A missing upstream capability can still permit
+an interface proposal, a source-backed boundary proof or a prerequisite task.
+Planning must identify the unknown and the evidence that would settle it; it
+must not turn an assumed capability or model recommendation into an established
+contract. Mark only the affected output held, and release its files and worker.
+
+For consequential choices between ready tickets or disputed planning readiness,
+use JEV SystemOne as the coordinator's decision adviser. The
+[repository consultation procedure](../../../AGENTS.md) requires three fresh,
+independently worded requests with the same facts, constraints and alternatives,
+an equivalence check, retained requests/responses and investigation of
+disagreement. JEV receives supplied evidence; it does not inspect the repository
+or establish that a dependency works. Its typed questions should separately
+assess planning readiness and select the next ticket from an eligible shortlist.
+Keep authorization, prerequisite checks and completion evidence with their
+existing owners. Agreement informs the coordinator's selection; it cannot waive
+a missing prerequisite or prove acceptance.
+
+Before consultation, record the current source revision, exact task/finding IDs,
+required outcomes, one owner, reserved files, dependency evidence, outstanding
+unknowns, smallest useful next action, acceptance checks and expected cost for
+each candidate. Exclude credentials and private account files. Distinguish a
+missing fact from an engineering choice the coordinator can make within the
+owner's instruction. Prefer correctness repairs and work that removes a critical
+dependency, then useful independent simplification; retain the economical model
+allocation above. Include a defer option when no candidate is ready.
+
+Revalidate the selected action against current evidence before dispatch. Record
+the actual selection and rationale with the packet receipt in ignored
+`.artifacts/`, rather than building a second ticket database or runtime
+scheduler. Reconsult only when material facts or the alternatives change. If
+JEV is unavailable, record that limitation and let the coordinator continue
+authorized, evidence-supported work; unavailable advice does not block otherwise
+ready implementation. Do not invent a JEV response or reuse an old response for
+a different decision. This procedure governs development execution; a JEV
+integration into SodaOS's automatic ticket runner requires its own caller,
+authority, dependency and operational design.
+
 ## Current dispatch priority
 
 Select these outputs from the existing task list, using exact
