@@ -600,3 +600,178 @@ impl<E: Executor> Service<E> {
         self.factory_output_window(&binding.project, &stdout, offset, limit, deadline)
     }
 }
+
+#[cfg(test)]
+mod source_head_tests {
+    use super::*;
+    use crate::project::Native;
+    use std::cell::Cell;
+    use std::fs;
+    use std::path::PathBuf;
+
+    struct Scratch(PathBuf);
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    struct GitCheckoutExec {
+        calls: Cell<usize>,
+        checkout: String,
+    }
+
+    impl Executor for GitCheckoutExec {
+        fn run(
+            &self,
+            stdin: &[u8],
+            cmd: &str,
+            args: &[&str],
+            deadline: Instant,
+        ) -> Result<Vec<u8>, String> {
+            assert_eq!(cmd, "/usr/bin/podman");
+            let call = self.calls.get();
+            self.calls.set(call + 1);
+            if call % 2 == 0 {
+                assert_eq!(
+                    &args[..5],
+                    &[
+                        "--remote=false",
+                        "exec",
+                        "soda-test-container",
+                        "/usr/bin/sh",
+                        "-c"
+                    ]
+                );
+                return Ok(Vec::new());
+            }
+            assert_eq!(
+                args,
+                [
+                    "--remote=false",
+                    "exec",
+                    "--user",
+                    "soda-coder",
+                    "soda-test-container",
+                    "/usr/bin/git",
+                    "-C",
+                    self.checkout.as_str(),
+                    "rev-parse",
+                    "HEAD"
+                ]
+            );
+            Native.run(stdin, "/usr/bin/git", &args[6..], deadline)
+        }
+    }
+
+    #[test]
+    fn preparation_id_follows_current_checkout_head_and_rejects_stale_source() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let name = format!("soda-codex-head-{}-{nonce}", std::process::id());
+        let scratch = Scratch(std::env::temp_dir().join(name));
+        let checkout = scratch.0.join("checkout");
+        fs::create_dir_all(&checkout).unwrap();
+        let git = |args: &[&str]| {
+            Native
+                .run(
+                    &[],
+                    "/usr/bin/git",
+                    args,
+                    Instant::now() + Duration::from_secs(10),
+                )
+                .unwrap()
+        };
+        let path = checkout.to_str().unwrap();
+        git(&["-C", path, "init", "--quiet"]);
+        git(&["-C", path, "config", "--local", "user.name", "soda-test"]);
+        git(&[
+            "-C",
+            path,
+            "config",
+            "--local",
+            "user.email",
+            "soda-test@example.invalid",
+        ]);
+        git(&[
+            "-C",
+            path,
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "first",
+        ]);
+        let first = String::from_utf8(git(&["-C", path, "rev-parse", "HEAD"]))
+            .unwrap()
+            .trim()
+            .to_string();
+        git(&[
+            "-C",
+            path,
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "second",
+        ]);
+        let second = String::from_utf8(git(&["-C", path, "rev-parse", "HEAD"]))
+            .unwrap()
+            .trim()
+            .to_string();
+        assert_ne!(first, second);
+
+        let run = FactoryRun {
+            role: "soda-coder".into(),
+            preparation: "f0123456789abcdef01234567".into(),
+            ..Default::default()
+        };
+        let paths = |checkout: &str| FactoryCodexPaths {
+            checkout: checkout.into(),
+            run_dir: scratch.0.join("run").to_string_lossy().into_owned(),
+            home: scratch.0.join("home").to_string_lossy().into_owned(),
+            codex: scratch.0.join("codex").to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        for (source, expected) in [
+            (&second, None),
+            (&first, Some("factory checkout is not the assigned commit")),
+        ] {
+            let exec = GitCheckoutExec {
+                calls: Cell::new(0),
+                checkout: path.into(),
+            };
+            let svc = Service {
+                exec,
+                codex_harness: String::new(),
+                codex_harness_sha256: String::new(),
+                codex_harness_version: String::new(),
+                muse_harness: String::new(),
+                muse_harness_sha256: String::new(),
+                muse_harness_version: String::new(),
+            };
+            let assigned = FactoryRun {
+                source_commit: source.clone(),
+                ..run.clone()
+            };
+            let result = svc.factory_codex_setup(
+                "soda-test-container",
+                &assigned,
+                &paths(path),
+                1001,
+                1001,
+                Instant::now() + Duration::from_secs(10),
+            );
+            match expected {
+                None => assert!(result.is_ok(), "current candidate head refused: {result:?}"),
+                Some(message) => assert_eq!(result.unwrap_err(), message),
+            }
+            assert_eq!(svc.exec.calls.get(), 2);
+        }
+    }
+}
