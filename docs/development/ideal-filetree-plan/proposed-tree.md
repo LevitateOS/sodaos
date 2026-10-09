@@ -1575,6 +1575,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── prerequisites.go
 │   │   │   ├── publication.go
 │   │   │   ├── publication_authority.go
+│   │   │   ├── publication_children.go
+│   │   │   ├── publication_children_test.go
 │   │   │   ├── publication_effect_test.go
 │   │   │   ├── publication_export.go
 │   │   │   ├── publication_fixture_test.go
@@ -1627,6 +1629,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── checks_observation.go
 │   │   ├── checks_test.go
 │   │   ├── dispatch_prompt.go
+│   │   ├── dispatch_prompt_stage.go
+│   │   ├── dispatch_prompt_stage_test.go
 │   │   ├── effective_authority.go
 │   │   ├── grants.go
 │   │   ├── grants_test.go

@@ -144,6 +144,26 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–258; file scaffold; PromptSource; PromptInputs; fenceCollision; BuildDispatchPrompt; writeRepositoryContext; writePromptSection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Binds bounded repository context to the exact prompt scope and renders selected setup/check instructions, files and candidate diff into the digest-covered assignment. |
 
+<a id="r02-current-path-internal-factory-dispatch-prompt-stage-go"></a>
+
+## [internal/factory/dispatch_prompt_stage.go](../../../../../internal/factory/dispatch_prompt_stage.go)
+
+Current source and its `BuildDispatchPrompt` caller inspected at `ff2670d0`; existing assignment and dispatch ownership remains in place.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; promptStage; validatePromptStage; writePromptStage; admitPromptText | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Selects coding, review or correction prompt policy, validates exact candidate/base and consolidated evidence, renders stage findings, and admits aggregate text before expansion. `BuildDispatchPrompt` invokes these duties and binds approved repository context into the final bounded prompt. [F07 source/development evidence](../../reviews/F07.md#current-prompt-and-preparation-observation-source-cuts) remains distinct from native/provider qualification. |
+
+<a id="r02-current-path-internal-factory-dispatch-prompt-stage-test-go"></a>
+
+## [internal/factory/dispatch_prompt_stage_test.go](../../../../../internal/factory/dispatch_prompt_stage_test.go)
+
+Current source inspected at `ff2670d0`; this selective addition does not renew historical body-audit evidence.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; stagePromptInputs; stageRepositoryContext; stageCorrectionInputs; TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview; TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence; TestBuildDispatchPromptBindsRepositoryContextScope; TestBuildDispatchPromptRefusesOversizedAggregateStageEvidence | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Exercises production prompt construction for role-specific report contracts, fence neutralization, exact evidence/context scope and aggregate input refusal. Helpers supply typed fixture inputs; they do not prove native preparation or provider execution. |
+
 <a id="coverage-fb603e59c85e"></a>
 
 ## [internal/factory/effective_authority.go](../../../../../internal/factory/effective_authority.go)
