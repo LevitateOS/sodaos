@@ -99,6 +99,16 @@ Current source inspected; bounded native preparation-context client route.
 | --- | --- | --- | --- |
 | 1–36; factoryContextResponseLimit; Client.ReadPreparationContext | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Applies request deadline and response-size limit, then validates exact project/preparation/role/source/base/diff/candidate provenance and selected content. |
 
+<a id="coverage-host-factory-context-test"></a>
+
+## [internal/host/factory_context_test.go](../../../../../internal/host/factory_context_test.go)
+
+Current source inspected; production-client route and response contract regression.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–78; TestReadPreparationContextBindsCheckoutAndRejectsUnboundedContent | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Exercises the exact preparation-context route, deadline and provenance binding, and bounded file/content response refusals; this client test does not claim installed or provider execution. |
+
 <a id="coverage-41c6f09f058d"></a>
 
 ## [internal/host/factory_export_test.go](../../../../../internal/host/factory_export_test.go)

@@ -1,119 +1,43 @@
 package control_test
 
 import (
-	"encoding/base64"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
-	hostexec "github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-// reviewLeg runs one genuine reviewer agent and submits its verdict
-// through the separate reviewer actor.
-// prepareReviewer stages a fresh reviewer checkout of the exact
-// published candidate: each review reads the candidate in its own
-// preparation, never the coder checkout or a stale shared one. It
-// exports the candidate bundle from the coder run that produced it
-// and prepares a fresh reviewer identity from the ready reviewer
-// source preparation. It returns the fresh preparation ID.
-func (fx *st15Fixture) prepareReviewer(head, coderRunID string) string {
+// reviewLeg consumes the reviewer child produced by PublishPass and submits
+// its recorded report through the separate reviewer actor.
+func (fx *st15Fixture) reviewLeg(head string) (factory.ReviewOutcome, string) {
 	fx.t.Helper()
-	ctx := fx.ctx
-	exported, err := fx.coord.Host.FactoryExport(ctx, project.FactoryExport{
-		Project: fx.projectID, ID: coderRunID, Role: project.RoleCoder,
-		Preparation: fx.coderPrep, Candidate: head,
-	})
-	if err != nil {
-		fx.t.Fatalf("ST15 reviewer export %s: %v", head[:12], err)
-	}
-	if exported.ID != coderRunID || exported.Project != fx.projectID || exported.Candidate != head {
-		fx.t.Fatalf("ST15 reviewer export identity differs: %+v", exported)
-	}
-	bundle, err := base64.StdEncoding.DecodeString(exported.Bundle)
-	if err != nil || len(bundle) == 0 {
-		fx.t.Fatalf("ST15 reviewer export bundle invalid: %v", err)
-	}
-	source, err := fx.db.Preparation(ctx, fx.reviewPrep)
+	_, run, err := fx.publishChildRun(project.RoleReviewer, head)
 	if err != nil {
 		fx.t.Fatal(err)
 	}
-	prep := source.Preparation
-	prep.ID = "f" + st15RandHex(12)
-	prep.SourceCommit = head
-	if _, admitted, err := fx.db.AdmitPreparation(ctx, project.StoredPreparation{Preparation: prep}); err != nil || !admitted {
-		fx.t.Fatalf("ST15 admit reviewer %s: admitted=%v err=%v", prep.ID, admitted, err)
+	assignment, output := fx.settleDispatched(run.ID)
+	if assignment.Result == nil || assignment.Result.Review == nil {
+		st15Receipt(fx.t, "review-output-"+head[:12], map[string]any{"output_tail": tailLines(output, 40)})
+		fx.t.Fatal("ST15 recorded reviewer child lacks its parsed review report")
 	}
-	client := hostexec.NewClient(fx.cfg.HostSocket)
-	deadline := time.Now().Add(15 * time.Minute)
-	state, err := client.PrepareCandidate(ctx, project.FactoryCandidate{
-		Preparation: prep, SourcePreparation: fx.reviewPrep, Bundle: bundle, Deadline: deadline,
-	})
-	if err != nil {
-		fx.t.Fatalf("ST15 prepare reviewer %s: %v", prep.ID, err)
-	}
-	if state.ID != prep.ID {
-		fx.t.Fatalf("ST15 reviewer preparation identity differs: %+v", state)
-	}
-	for {
-		state, err = client.InspectPreparation(ctx, project.PrepareInspect{Project: fx.projectID, ID: prep.ID})
-		if err != nil {
-			fx.t.Fatal(err)
-		}
-		if state.Phase == project.PrepareReady {
-			stored, err := fx.db.Preparation(ctx, prep.ID)
-			if err != nil {
-				fx.t.Fatal(err)
-			}
-			state.ID, state.Project, state.Role = prep.ID, fx.projectID, project.RoleReviewer
-			stored.State = state
-			if err := fx.db.ObservePreparation(ctx, stored); err != nil {
-				fx.t.Fatal(err)
-			}
-			fx.t.Logf("ST15 reviewer preparation %s ready at %s", prep.ID, head[:12])
-			return prep.ID
-		}
-		if state.Phase == project.PrepareFailed || state.Phase == project.PrepareStopped {
-			fx.t.Fatalf("ST15 reviewer preparation %s ended %s", prep.ID, state.Phase)
-		}
-		if time.Now().After(deadline) {
-			fx.t.Fatalf("ST15 reviewer preparation %s not ready: %s", prep.ID, state.Phase)
-		}
-		time.Sleep(2 * time.Second)
-	}
-}
-
-func (fx *st15Fixture) reviewLeg(head, prep string) (factory.ReviewOutcome, string) {
-	fx.t.Helper()
-	title, body, _ := fx.readIssue(fx.issueAIndex)
-	answer := fx.readComment(fx.answerA)
-	prompt := fx.reviewPrompt(title, body, answer, head, fx.sourceHead)
-	// The review run itself is still driver-sequenced: reviewer dispatch
-	// is the remaining production gap. Its verdict submits through the
-	// production review path, never a fixture-native trio.
-	run, _ := fx.launchDirect(project.RoleReviewer, prep, fx.assignA, prompt, head)
-	output := fx.settleDirect(run, fx.assignA)
-	report, ok := factory.ParseReviewReport(output)
-	if !ok {
-		fx.t.Fatal("ST15 review lacks its fenced report")
-	}
+	report := *assignment.Result.Review
 	adopted, event := fx.submitReview(run.ID)
 	st15Receipt(fx.t, "review-"+head[:12], map[string]any{
-		"run": run.ID, "verdict": report.Verdict, "event": event,
+		"run": run.ID, "assignment": assignment.ID, "verdict": report.Verdict, "event": event,
 		"review": adopted.ReviewID, "summary": report.Summary, "findings": report.Findings,
 	})
 	return adopted, event
 }
 
 func (fx *st15Fixture) reviewLeg1() error {
-	adopted, event := fx.reviewLeg(fx.head1, fx.prepareReviewer(fx.head1, fx.runA))
+	adopted, event := fx.reviewLeg(fx.head1)
 	fx.review1, fx.verdict1 = adopted, event
 	return nil
 }
@@ -156,56 +80,66 @@ func (fx *st15Fixture) requireContentStatus(head, path string, status int) {
 	}
 }
 
-// correctA authorizes the explicit retry, runs the correction with the
-// recorded CI and review appendix, and observes its publication to the
-// same PR. The correction run itself is still driver-sequenced with its
-// findings appendix: findings-aware correction dispatch is the remaining
-// production gap. Settling runs through the production stop, which
-// publishes the correction automatically.
+// correctA observes the correction child admitted from recorded review and
+// CI evidence, then verifies its result advances the existing PR head.
 func (fx *st15Fixture) correctA() error {
-	if _, err := fx.coord.RetryRun(fx.ctx, factory.NewID(), "soda-maintainer", fx.runA); err != nil {
-		return fmt.Errorf("explicit retry: %w", err)
-	}
-	a, err := fx.db.Assignment(fx.ctx, fx.assignA)
+	assignment, run, err := fx.publishChildRun(project.RoleCoder, fx.head1)
 	if err != nil {
 		return err
 	}
-	var appendix strings.Builder
-	appendix.WriteString("\n\n## Correction\n\nThe candidate drew recorded findings; address every one and keep the fix:\n")
-	appendix.WriteString("- CI assessment revision " + strconv.FormatInt(fx.ciFailRev, 10) + ": required check st15-test failed on this head: required regression test tests/test_total_regression.py missing. Add that exact regression test.\n")
-	if fx.verdict1 == "REQUEST_CHANGES" {
-		appendix.WriteString("- Review " + strconv.FormatInt(fx.review1.ReviewID, 10) + " requested changes: " + fx.review1.Event + ". Address its findings.\n")
-	} else {
-		appendix.WriteString("- Review " + strconv.FormatInt(fx.review1.ReviewID, 10) + " approved the fix; the CI requirement above is the remaining work.\n")
+	if assignment.AttemptRoot != fx.assignA || assignment.PublicationAssignment != fx.assignA || assignment.ID == fx.assignA {
+		return fmt.Errorf("ST15 correction did not retain the original publication attempt: %+v", assignment)
 	}
-	appendix.WriteString("- After committing, run `git rev-parse HEAD`: the printed candidate must be the new head, never the head this run started from. If they match, the fix is uncommitted; commit it and re-read the head before printing.\n")
-	prompt := append(a.Prompt, appendix.String()...)
-	run, _ := fx.launchDirect(project.RoleCoder, fx.coderPrep, fx.assignA, string(prompt), fx.head1)
 	fx.runC = run.ID
-	receipt := fx.stopSettled(run.ID)
-	if receipt.Outcome != string(factory.Succeeded) {
-		st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(receipt.Reason, 40)})
-		return fmt.Errorf("correction run ended %s: %s", receipt.Outcome, receipt.Reason)
+	settled, output := fx.settleDispatched(run.ID)
+	if settled.ID != assignment.ID || settled.AttemptRoot != assignment.AttemptRoot || settled.Result == nil {
+		return fmt.Errorf("ST15 correction result lost its recorded child binding: %+v", settled)
+	}
+	allowance, err := fx.db.AttemptAllowance(fx.ctx, fx.cfg.Repository, fx.issueAIndex)
+	if err != nil || allowance.RootAssignment != fx.assignA || allowance.Closed || !allowance.Active {
+		return fmt.Errorf("ST15 correction publication attempt unavailable: %+v %v", allowance, err)
+	}
+	remaining := allowance.RemainingSeconds(time.Now())
+	if remaining <= 0 {
+		return errors.New("ST15 correction publication exceeded the existing attempt budget")
 	}
 	deadline := time.Now().Add(2 * time.Minute)
+	attemptDeadline := time.Now().Add(time.Duration(remaining) * time.Second)
+	if attemptDeadline.Before(deadline) {
+		deadline = attemptDeadline
+	}
+	ctx, cancel := context.WithDeadline(fx.ctx, deadline)
+	defer cancel()
+	var publicationReport control.PublishReport
 	for time.Now().Before(deadline) {
-		p, err := fx.db.PublicationByAssignment(fx.ctx, fx.assignA)
+		publicationReport = fx.coord.PublishPass(ctx)
+		for _, entry := range publicationReport.Errors {
+			if entry.Reason != "native_unavailable" {
+				st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(output, 40), "publish": publicationReport})
+				return fmt.Errorf("correction publication failed: %+v", publicationReport)
+			}
+		}
+		p, err := fx.db.PublicationByAssignment(ctx, fx.assignA)
 		if err != nil {
 			return err
 		}
 		if p.Candidate != fx.head1 && factory.ValidCommit(p.Candidate) {
 			fx.head2 = p.Candidate
 			fx.requireContentStatus(fx.head2, "tests/test_total_regression.py", http.StatusOK)
-			st15Receipt(fx.t, "correct-A", map[string]any{"head": fx.head2, "run": run.ID})
+			st15Receipt(fx.t, "correct-A", map[string]any{"head": fx.head2, "run": run.ID, "assignment": assignment.ID, "root": assignment.AttemptRoot})
 			return nil
 		}
-		time.Sleep(2 * time.Second)
+		wait := time.NewTimer(2 * time.Second)
+		select {
+		case <-ctx.Done():
+			wait.Stop()
+			st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(output, 40), "publish": publicationReport})
+			return fmt.Errorf("correction publication deadline: %w; final report: %+v", ctx.Err(), publicationReport)
+		case <-wait.C:
+		}
 	}
-	// Surface the production correction report once for the failure; when
-	// the stop already linked the head this replays as recorded.
-	report := fx.coord.PublishCorrection(fx.ctx, run.ID)
-	st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(receipt.Reason, 40), "report": report})
-	return fmt.Errorf("correction unpublished: %+v", report)
+	st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(output, 40), "report": publicationReport})
+	return fmt.Errorf("correction unpublished: %+v", publicationReport)
 }
 
 func (fx *st15Fixture) reviewLeg2() error {
@@ -232,7 +166,7 @@ func (fx *st15Fixture) reviewLeg2() error {
 	if _, err := fx.coord.Reviews.ObserveReview(fx.ctx, stale); err == nil {
 		return errors.New("stale head-1 review observed the corrected tip")
 	}
-	adopted, event := fx.reviewLeg(fx.head2, fx.prepareReviewer(fx.head2, fx.runC))
+	adopted, event := fx.reviewLeg(fx.head2)
 	if event != "APPROVED" {
 		return fmt.Errorf("fresh review did not approve the corrected head: %s", event)
 	}
