@@ -131,7 +131,6 @@ func TestNativeMergeWire(t *testing.T) {
 // binding of conditional approvals and change requests.
 func TestNativeMergeReviewSnapshot(t *testing.T) {
 	c := loadNativeST12(t)
-	ctx := context.Background()
 	p, _ := nativeMergePublish(t, c, "reviewsnap")
 	bg := forgejo.NewServiceBackground(c.Socket, uint32(os.Getuid()), "")
 	r := forgejo.NewReviewer(bg, forgejo.New(c.FountainURL), c.ReviewerTokenFile)
@@ -153,8 +152,8 @@ func TestNativeMergeReviewSnapshot(t *testing.T) {
 		} else {
 			req.PullNumber = strconv.FormatInt(p.prNumber, 10)
 		}
-		observed := nativeMergeCall(t, family+" snapshot", func() (extensions.NativeSnapshot, error) {
-			return bg.ReadSnapshot(ctx, extensions.CredentialFile(c.TokenFile), req)
+		observed := nativeMergeCall(t, family+" snapshot", func(callCtx context.Context) (extensions.NativeSnapshot, error) {
+			return bg.ReadSnapshot(callCtx, extensions.CredentialFile(c.TokenFile), req)
 		})
 		nativeMergeReceipt(t, "reviewsnap-"+family, observed)
 	}
@@ -167,8 +166,8 @@ func TestNativeMergeReviewSnapshot(t *testing.T) {
 		HeadRef: "refs/heads/" + p2.branch, BaseRef: c.BaseBranch, HeadOID: p2.head, BaseOID: p2.base,
 		Event: "REQUEST_CHANGES", Body: "ST12 snapshot probe findings.",
 	})
-	observed := nativeMergeCall(t, "reviews snapshot", func() (extensions.NativeSnapshot, error) {
-		return bg.ReadSnapshot(ctx, extensions.CredentialFile(c.TokenFile), extensions.SnapshotRequest{
+	observed := nativeMergeCall(t, "reviews snapshot", func(callCtx context.Context) (extensions.NativeSnapshot, error) {
+		return bg.ReadSnapshot(callCtx, extensions.CredentialFile(c.TokenFile), extensions.SnapshotRequest{
 			RepositoryID: strconv.FormatInt(c.Repository, 10), ActorID: strconv.FormatInt(c.ActorID, 10),
 			PullNumber: strconv.FormatInt(p2.prNumber, 10), Families: []string{"reviews"},
 		})
@@ -180,7 +179,6 @@ func TestNativeMergeReviewSnapshot(t *testing.T) {
 // evidence Soda consumes as completion confirmation.
 func TestNativeMergeConfirmationSnapshot(t *testing.T) {
 	c := loadNativeST12(t)
-	ctx := context.Background()
 	p, _ := nativeMergePublish(t, c, "confsnap")
 	bg := forgejo.NewServiceBackground(c.Socket, uint32(os.Getuid()), "")
 	payload := extensions.MergePayload{
@@ -206,8 +204,8 @@ func TestNativeMergeConfirmationSnapshot(t *testing.T) {
 		if family == "refs" {
 			req.Refs = []string{"refs/heads/" + p.branch, c.BaseBranch}
 		}
-		observed := nativeMergeCall(t, family+" snapshot", func() (extensions.NativeSnapshot, error) {
-			return bg.ReadSnapshot(ctx, extensions.CredentialFile(c.TokenFile), req)
+		observed := nativeMergeCall(t, family+" snapshot", func(callCtx context.Context) (extensions.NativeSnapshot, error) {
+			return bg.ReadSnapshot(callCtx, extensions.CredentialFile(c.TokenFile), req)
 		})
 		nativeMergeReceipt(t, "confsnap-"+family, observed)
 	}

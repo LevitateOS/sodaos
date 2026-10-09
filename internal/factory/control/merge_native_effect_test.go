@@ -19,14 +19,13 @@ import (
 // tombstone, and the later submit stays cancelled without any effect.
 func TestNativeMergeCancelBeforeSubmit(t *testing.T) {
 	c := loadNativeST12(t)
-	ctx := context.Background()
 	p, _ := nativeMergePublish(t, c, "cancelbefore")
 	before := nativeTip(t, c.nativeST09Config, c.BaseBranch)
 	bg := forgejo.NewServiceBackground(c.Socket, uint32(os.Getuid()), "")
 	merger := forgejo.NewMerger(bg, forgejo.New(c.FountainURL), c.TokenFile)
 	id := "soda-st12-cancelbefore-" + factory.NewID()
-	tombstone := nativeMergeCall(t, "cancel op", func() (factory.OperationOutcome, error) {
-		return merger.CancelOp(ctx, id)
+	tombstone := nativeMergeCall(t, "cancel op", func(callCtx context.Context) (factory.OperationOutcome, error) {
+		return merger.CancelOp(callCtx, id)
 	})
 	if tombstone.Effect != factory.OpEffectNotCommitted || tombstone.Cancellation != factory.OpCancelCancelled {
 		t.Fatalf("cancel before submit is not a tombstone: %+v", tombstone)
@@ -45,8 +44,8 @@ func TestNativeMergeCancelBeforeSubmit(t *testing.T) {
 	// identity, never a fresh one.
 	var outcome factory.OperationOutcome
 	for i := 0; i < 10; i++ {
-		outcome = nativeMergeCall(t, "submit after cancel", func() (factory.OperationOutcome, error) {
-			return merger.SubmitMerge(ctx, w)
+		outcome = nativeMergeCall(t, "submit after cancel", func(callCtx context.Context) (factory.OperationOutcome, error) {
+			return merger.SubmitMerge(callCtx, w)
 		})
 		if !nativeMergeStaleRefusal(outcome) {
 			break
@@ -68,7 +67,6 @@ func TestNativeMergeCancelBeforeSubmit(t *testing.T) {
 // too-late, the committed effect stands, and lookup confirms both.
 func TestNativeMergeCancelAfterCommit(t *testing.T) {
 	c := loadNativeST12(t)
-	ctx := context.Background()
 	p, _ := nativeMergePublish(t, c, "cancelafter")
 	bg := forgejo.NewServiceBackground(c.Socket, uint32(os.Getuid()), "")
 	merger := forgejo.NewMerger(bg, forgejo.New(c.FountainURL), c.TokenFile)
@@ -80,14 +78,14 @@ func TestNativeMergeCancelAfterCommit(t *testing.T) {
 		PRAuthorID: c.CreatorID, ReviewerID: c.ReviewerID, ActorID: c.ActorID,
 		AssessmentRevision: 1, ReviewID: 1,
 	})
-	cancelled := nativeMergeCall(t, "cancel after commit", func() (factory.OperationOutcome, error) {
-		return merger.CancelOp(ctx, submitted.OperationID)
+	cancelled := nativeMergeCall(t, "cancel after commit", func(callCtx context.Context) (factory.OperationOutcome, error) {
+		return merger.CancelOp(callCtx, submitted.OperationID)
 	})
 	if cancelled.Effect != factory.OpEffectCommitted || cancelled.Cancellation != factory.OpCancelTooLate {
 		t.Fatalf("cancel after commit is not too-late: %+v", cancelled)
 	}
-	looked := nativeMergeCall(t, "cancel lookup", func() (factory.OperationOutcome, error) {
-		return merger.LookupOp(ctx, submitted.OperationID)
+	looked := nativeMergeCall(t, "cancel lookup", func(callCtx context.Context) (factory.OperationOutcome, error) {
+		return merger.LookupOp(callCtx, submitted.OperationID)
 	})
 	if looked.Effect != factory.OpEffectCommitted || looked.Cancellation != factory.OpCancelTooLate {
 		t.Fatalf("lookup does not confirm the standing effect: %+v", looked)

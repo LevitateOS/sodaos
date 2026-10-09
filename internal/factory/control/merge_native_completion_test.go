@@ -31,7 +31,6 @@ func TestNativeMergeFullPass(t *testing.T) {
 // submit, and only then may the caller reseed.
 func nativeMergeFullPassAttempt(t *testing.T, c nativeST12Config) bool {
 	t.Helper()
-	ctx := context.Background()
 	fx, n := nativeMergeSetup(t, c)
 	p, _ := nativeMergeSeedPublication(t, c, fx, n)
 	nativeMergeApprove(t, c, p, "APPROVED", "ST12 proof approval.")
@@ -65,8 +64,8 @@ func nativeMergeFullPassAttempt(t *testing.T, c nativeST12Config) bool {
 	bg := forgejo.NewServiceBackground(c.Socket, uint32(os.Getuid()), "")
 	merger := forgejo.NewMerger(bg, forgejo.New(c.FountainURL), c.TokenFile)
 	work := m.Operation.Work.Apply(factory.MergeWork{MergeID: m.ID, PublicationID: m.PublicationID, Issue: m.Issue})
-	confirmation := nativeMergeCall(t, "completion observation", func() (factory.MergeConfirmation, error) {
-		return merger.ObserveCompletion(ctx, work)
+	confirmation := nativeMergeCall(t, "completion observation", func(callCtx context.Context) (factory.MergeConfirmation, error) {
+		return merger.ObserveCompletion(callCtx, work)
 	})
 	if m.MergedUnix != confirmation.MergedUnix || m.ClosedUnix != confirmation.ClosedUnix || confirmation.MergerID != c.ActorID {
 		t.Fatalf("completion stamps are not native evidence: %+v vs %+v", m, confirmation)

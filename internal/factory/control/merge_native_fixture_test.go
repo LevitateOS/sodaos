@@ -76,27 +76,59 @@ func nativeMergeReceipt(t *testing.T, label string, value any) {
 // errors count as motion, never as quiescence.
 func nativeMergeDrain(t *testing.T, bg *forgejo.ServiceBackground) extensions.NativeRevisionObservation {
 	t.Helper()
-	ctx := context.Background()
-	deadline := time.Now().Add(60 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 	var last extensions.NativeRevisionObservation
 	stable := time.Now()
 	first := true
-	for time.Now().Before(deadline) {
+	for {
+		if err := nativeMergeContextError(ctx); err != nil {
+			t.Fatalf("native revision never settled: %v", err)
+		}
 		revision, err := bg.ReadNativeRevision(ctx)
+		if ctxErr := nativeMergeContextError(ctx); ctxErr != nil {
+			t.Fatalf("native revision never settled: %v", ctxErr)
+		}
 		if err != nil || first || revision.Revision != last.Revision {
 			last = revision
 			stable = time.Now()
 			first = false
-			time.Sleep(100 * time.Millisecond)
+			if !nativeMergeWait(ctx, 100*time.Millisecond) {
+				t.Fatalf("native revision never settled: %v", nativeMergeContextError(ctx))
+			}
 			continue
 		}
 		if time.Since(stable) >= 1500*time.Millisecond {
+			if err := nativeMergeContextError(ctx); err != nil {
+				t.Fatalf("native revision never settled: %v", err)
+			}
 			return revision
 		}
-		time.Sleep(100 * time.Millisecond)
+		if !nativeMergeWait(ctx, 100*time.Millisecond) {
+			t.Fatalf("native revision never settled: %v", nativeMergeContextError(ctx))
+		}
 	}
-	t.Fatal("native revision never settled")
-	return extensions.NativeRevisionObservation{}
+}
+
+func nativeMergeContextError(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+		return context.DeadlineExceeded
+	}
+	return nil
+}
+
+func nativeMergeWait(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return nativeMergeContextError(ctx) == nil
+	}
 }
 
 // nativeMergeIdle waits for a quiescent host before a conditioned
@@ -126,19 +158,40 @@ func nativeMergeBusyError(err error) bool {
 // nativeMergeCall retries one idempotent native read (or same-identity
 // submit) until it answers; only the transient busy-host signal
 // retries, everything else fails fast.
-func nativeMergeCall[T any](t *testing.T, label string, call func() (T, error)) T {
-	t.Helper()
-	deadline := time.Now().Add(60 * time.Second)
+func nativeMergeCallContext[T any](ctx context.Context, call func(context.Context) (T, error)) (T, error) {
+	var zero T
 	for {
-		value, err := call()
+		if err := nativeMergeContextError(ctx); err != nil {
+			return zero, err
+		}
+		value, err := call(ctx)
+		if ctxErr := nativeMergeContextError(ctx); ctxErr != nil {
+			return zero, ctxErr
+		}
 		if err == nil {
-			return value
+			return value, nil
 		}
-		if !nativeMergeBusyError(err) || !time.Now().Before(deadline) {
-			t.Fatalf("native %s unanswered: %v", label, err)
+		if !nativeMergeBusyError(err) {
+			return zero, err
 		}
-		time.Sleep(200 * time.Millisecond)
+		if !nativeMergeWait(ctx, 200*time.Millisecond) {
+			return zero, nativeMergeContextError(ctx)
+		}
+		if ctxErr := nativeMergeContextError(ctx); ctxErr != nil {
+			return zero, ctxErr
+		}
 	}
+}
+
+func nativeMergeCall[T any](t *testing.T, label string, call func(context.Context) (T, error)) T {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	value, err := nativeMergeCallContext(ctx, call)
+	if err != nil {
+		t.Fatalf("native %s unanswered: %v", label, err)
+	}
+	return value
 }
 
 // nativeMergeSubmitReviewCommitted submits one conditional review and
@@ -227,7 +280,6 @@ func nativeMergeSubmitMergeCommitted(t *testing.T, m control.MergeExecutor, bg *
 // the exact receipt wire shape.
 func nativeMergeSubmitRawCommitted(t *testing.T, bg *forgejo.ServiceBackground, tokenFile, authRev string, actorID, repoID int64, payload []byte) extensions.OperationRecord {
 	t.Helper()
-	ctx := context.Background()
 	for attempt := 0; attempt < 10; attempt++ {
 		revision := nativeMergeIdle(t, bg)
 		intent := extensions.OperationIntent{
@@ -236,8 +288,8 @@ func nativeMergeSubmitRawCommitted(t *testing.T, bg *forgejo.ServiceBackground, 
 			AuthorizationRevision: authRev, ExpectedNativeRevision: revision.Revision,
 			NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: payload,
 		}
-		record := nativeMergeCall(t, "merge submit", func() (extensions.OperationRecord, error) {
-			return bg.SubmitOperation(ctx, extensions.CredentialFile(tokenFile), intent)
+		record := nativeMergeCall(t, "merge submit", func(callCtx context.Context) (extensions.OperationRecord, error) {
+			return bg.SubmitOperation(callCtx, extensions.CredentialFile(tokenFile), intent)
 		})
 		if record.EffectState == factory.OpEffectCommitted {
 			return record
