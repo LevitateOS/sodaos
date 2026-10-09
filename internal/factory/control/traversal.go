@@ -6,19 +6,17 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// This file owns the fair-traversal cursors shared by readiness sweeping
-// and dispatch visiting. Every bounded pass keeps its bound; the cursors
-// only rotate the start position so repeated passes reach deep pages,
-// repositories and queued work instead of revisiting the same prefix.
+// This file owns the fair-traversal cursors shared by per-repository
+// readiness sweeping and dispatch visiting. Every bounded pass keeps its
+// bound; cursors rotate page and queue positions so repeated passes reach
+// deep pages and queued work instead of revisiting the same prefix.
 // Cursor state is process-local progress: durable sweep revisions and
 // dispatch packets keep their existing store ownership.
 
-// traversalState carries the readiness sweep cursors: the next start
-// page per repository and the next start offset into enabled policies.
+// traversalState carries the next readiness page per repository.
 type traversalState struct {
 	mu        sync.Mutex
 	sweepPage map[int64]int
-	sweepRepo int
 }
 
 // nextSweepPage returns the page the next sweep of one repository
@@ -45,30 +43,6 @@ func (t *traversalState) advanceSweepPage(repository int64, next int, complete b
 		t.sweepPage = map[int64]int{}
 	}
 	t.sweepPage[repository] = next
-}
-
-// nextSweepRepo returns the enabled-policy offset the next
-// all-repository sweep starts at.
-func (t *traversalState) nextSweepRepo(total int) int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if total <= 0 {
-		return 0
-	}
-	return t.sweepRepo % total
-}
-
-// advanceSweepRepo continues the next all-repository sweep after the
-// repositories this one visited, or restarts once every enabled
-// repository was visited.
-func (t *traversalState) advanceSweepRepo(visited, total int) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if total <= 0 || total <= MaxSweepRepos {
-		t.sweepRepo = 0
-		return
-	}
-	t.sweepRepo = (t.sweepRepo + visited) % total
 }
 
 // DispatchQueueCursor is the fair-rotation position inside the

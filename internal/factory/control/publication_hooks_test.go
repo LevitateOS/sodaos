@@ -6,10 +6,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type publicationDispatchHost struct {
@@ -198,19 +200,60 @@ func TestPublicationPauseReceiptPreservesPendingNativeCancellation(t *testing.T)
 	}
 }
 
-func TestPublicationReconcileReceiptPersistsExactLink(t *testing.T) {
+func TestReconcileSettlesOnlyAndReplaysWithoutAdvancement(t *testing.T) {
 	ctx := context.Background()
-	fx := publishSeed(t)
-	a := fx.finishReported(t, 3)
-	exec := happyPublisher()
-	fx.wire(exec)
+	fx, _, p, childRun := reviewRunSeed(t, true)
+	accountChildResult(t, fx, childRun, "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```")
+	childExec := &fakeReviewer{
+		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+		outcome:  committedOutcome(`{"review_id":5}`),
+		adopted:  factory.ReviewOutcome{ReviewID: 5, CommentID: 6, ReviewerID: 6, PRID: p.PRID, PRNumber: p.PRNumber, IssueID: p.PRCreate.IssueID, HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID, CommitID: p.Candidate, Event: "APPROVED"},
+	}
+	childExec.adopted.Operation = childExec.outcome
+	fx.coord.Reviews = childExec
+
+	// A second completed candidate and a queued issue would be publishable
+	// and dispatchable if operator Reconcile advanced the workflow.
+	newCandidate := fx.finishReported(t, 6)
+	queued := fx.seed.accept(t, 5, "d555555555555555555555555")
+	fx.seed.queue(t, 5, queued.ID)
+	fx.coord.DispatchReads = fx.seed.reads
+	fx.coord.Checks = happyCheckObserver()
+	fx.coord.Merges = happyMerger()
+	readsBefore := fx.seed.reads.calls
+	publicationExec := fx.exec
+	publicationSubmits, publicationCreates, publicationPushes := len(publicationExec.submits), len(publicationExec.creates), len(publicationExec.pushes)
+
+	// Reconcile still retires and records a real outstanding run.
+	run := recordRun(t, fx.coord, nil)
+	host := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, candidate: strings.Repeat("2", 40)}
+	fx.coord.Host = host
+	closed := 0
+	fx.coord.Broker = &stubBroker{
+		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
+		close: func(string, string) error { closed++; return nil },
+	}
 	command := factory.Command{ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandReconcile, "")}
 	receipt, err := fx.coord.Reconcile(ctx, command)
-	if err != nil || receipt.Publication == nil || len(receipt.Publication.Published) != 1 || receipt.Publication.Published[0].AssignmentID != a.ID || receipt.Publication.Published[0].PRNumber != 9 {
-		t.Fatalf("reconcile receipt: %+v %v", receipt, err)
+	if err != nil || !reflect.DeepEqual(receipt.Settled, []string{run.ID}) || len(receipt.Fenced) != 0 {
+		t.Fatalf("reconcile settlement: %+v %v", receipt, err)
+	}
+	settled, err := fx.db.FactoryRun(ctx, run.ID)
+	if err != nil || !settled.Reconciled || settled.Outcome != factory.Succeeded || closed != 1 {
+		t.Fatalf("settled accounting state: %+v %v closes=%d", settled, err, closed)
+	}
+	if _, err := fx.db.PublicationByAssignment(ctx, newCandidate.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("reconcile published a new candidate: %v", err)
+	}
+	checks := fx.coord.Checks.(*fakeCheckObserver)
+	merger := fx.coord.Merges.(*fakeMerger)
+	if len(host.launches) != 0 || fx.seed.reads.calls != readsBefore || len(childExec.works) != 0 || len(checks.targets) != 0 || len(merger.observes) != 0 || len(merger.submits) != 0 ||
+		len(publicationExec.submits) != publicationSubmits || len(publicationExec.creates) != publicationCreates || len(publicationExec.pushes) != publicationPushes {
+		t.Fatalf("reconcile advanced work: launches=%d dispatch_reads=%d reviews=%+v checks=%+v merges=%+v publication=(%d,%d,%d)", len(host.launches), fx.seed.reads.calls-readsBefore, childExec.works, checks.targets, merger.submits,
+			len(publicationExec.submits), len(publicationExec.creates), len(publicationExec.pushes))
 	}
 	again, err := fx.coord.Reconcile(ctx, command)
-	if err != nil || !reflect.DeepEqual(receipt, again) || len(exec.submits) != 1 || len(exec.creates) != 1 {
-		t.Fatalf("reconcile replay: %+v %v", again, err)
+	if err != nil || !reflect.DeepEqual(receipt, again) || closed != 1 || len(host.launches) != 0 || len(childExec.works) != 0 {
+		t.Fatalf("reconcile replay: %+v %v closes=%d launches=%d reviews=%d", again, err, closed, len(host.launches), len(childExec.works))
 	}
 }

@@ -447,7 +447,7 @@ func TestReviewRegistrationRefusesClosedDispatchBeforeSubmit(t *testing.T) {
 	}
 }
 
-func TestStopSubmitsSettledReview(t *testing.T) {
+func TestPublishPassSubmitsSettledReviewChild(t *testing.T) {
 	ctx := context.Background()
 	fx, _, p, run := reviewRunSeed(t, false)
 	output := "notes\n```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"line 3 is wrong\",\"findings\":[\"line 3\"]}\n```"
@@ -480,6 +480,12 @@ func TestStopSubmitsSettledReview(t *testing.T) {
 	})
 	if err != nil || !receipt.Confirmed {
 		t.Fatalf("review stop: %+v %v", receipt, err)
+	}
+	if len(exec.works) != 0 {
+		t.Fatalf("stop command submitted a review: %+v", exec.works)
+	}
+	if report := fx.coord.PublishPass(ctx); len(report.Errors) != 0 {
+		t.Fatalf("automatic publication pass: %+v", report)
 	}
 	if len(exec.works) != 1 || exec.works[0].Event != "REQUEST_CHANGES" || exec.works[0].HeadOID != p.Candidate {
 		t.Fatalf("submitted review: %+v", exec.works)

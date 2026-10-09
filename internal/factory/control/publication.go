@@ -164,15 +164,6 @@ func publicationWait(report *PublishReport, id, reason string) {
 	report.Waits = append(report.Waits, PublishWait{ID: id, Reason: reason})
 }
 
-func (c *Coordinator) publishAfterSettle(ctx context.Context, a factory.Assignment) {
-	if c.Publication == nil || a.PublicationAssignment != a.ID || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" {
-		return
-	}
-	report := PublishReport{Published: []PublishLink{}}
-	c.publishOne(ctx, a, &report)
-	c.progressAfterPublish(ctx, a.ID)
-}
-
 func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, report *PublishReport) {
 	if a.PublicationAssignment != a.ID || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" || !factory.ValidCommit(a.Result.Candidate) {
 		return

@@ -208,36 +208,6 @@ func TestReconcileRecordsIssueFailures(t *testing.T) {
 	}
 }
 
-func TestReconcileReadinessAll(t *testing.T) {
-	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{
-		"42/3": readinessEvidence(12, readinessView("3"), nil, nil),
-		"43/5": readinessEvidence(12, readinessView("5"), nil, nil),
-	}}
-	observer := &fakeObserver{revision: 12, idle: true, byRepo: map[int64][]int64{
-		42: {3}, 43: {5},
-	}}
-	c := readinessCoordinator(t, source, observer)
-	grantFullAuthority(t, c)
-	other := grantPolicy()
-	other.Repository = 43
-	if err := c.Store.SaveRepositoryPolicy(context.Background(), other); err != nil {
-		t.Fatal(err)
-	}
-	report := c.reconcileReadinessAll(context.Background())
-	if report.Error != "" || len(report.Sweeps) != 2 {
-		t.Fatal("multi-repo report wrong:", report)
-	}
-	for _, sweep := range report.Sweeps {
-		if sweep.Seen != 1 || sweep.Changed != 1 {
-			t.Fatal("repo sweep wrong:", sweep)
-		}
-	}
-	unwired := coordinatorFixture(t, nil, nil)
-	if report := unwired.reconcileReadinessAll(context.Background()); len(report.Sweeps) != 0 {
-		t.Fatal("unwired reconcile swept:", report)
-	}
-}
-
 func TestSweepPrecheckCatchesWithdrawal(t *testing.T) {
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 	observer := &fakeObserver{revision: 12, idle: true, pages: map[int]fakeIssuePage{

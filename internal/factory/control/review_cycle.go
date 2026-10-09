@@ -341,32 +341,3 @@ func (c *Coordinator) publicationAssignmentsForRun(ctx context.Context, run fact
 	}
 	return assignment, owner, nil
 }
-
-// correctAfterSettle advances a completed correction child through the existing
-// publication's conditional branch operation. Its stored result supplies the
-// candidate, and the child retains its own usage and reservation identity.
-func (c *Coordinator) correctAfterSettle(ctx context.Context, run factory.Run) {
-	if c.Publication == nil || run.Role != project.RoleCoder || run.Outcome != factory.Succeeded {
-		return
-	}
-	assignment, owner, err := c.publicationAssignmentsForRun(ctx, run)
-	if err != nil || assignment.ID == owner.ID || assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded {
-		return
-	}
-	c.PublishCorrection(ctx, run.ID)
-	c.progressAfterPublish(ctx, owner.ID)
-}
-
-// reviewAfterSettle submits the reviewer child's recorded verdict through the
-// separate reviewer actor, then reconsiders its parent publication for merge.
-func (c *Coordinator) reviewAfterSettle(ctx context.Context, run factory.Run) {
-	if c.Reviews == nil || run.Role != project.RoleReviewer {
-		return
-	}
-	if _, err := c.SubmitReviewForRun(ctx, run.ID); err != nil {
-		return
-	}
-	if _, owner, err := c.publicationAssignmentsForRun(ctx, run); err == nil {
-		c.progressAfterPublish(ctx, owner.ID)
-	}
-}

@@ -34,32 +34,6 @@ func TestReadinessSweepReachesDeepPages(t *testing.T) {
 	}
 }
 
-// TestReadinessAllReachesDeepRepositories proves repeated bounded
-// all-repository sweeps rotate past the first repository window.
-func TestReadinessAllReachesDeepRepositories(t *testing.T) {
-	evidence := map[string]AcceptanceEvidence{}
-	byRepo := map[int64][]int64{}
-	c := readinessCoordinator(t, &fakeEvidenceSource{evidence: evidence},
-		&fakeObserver{revision: 12, idle: true, byRepo: byRepo})
-	ctx := context.Background()
-	for repo := int64(100); repo < 133; repo++ {
-		policy := grantPolicy()
-		policy.Repository = repo
-		if err := c.Store.SaveRepositoryPolicy(ctx, policy); err != nil {
-			t.Fatal(err)
-		}
-		issue := repo
-		byRepo[repo] = []int64{issue}
-		evidence[fmt.Sprintf("%d/%d", repo, issue)] = readinessEvidence(12, readinessView(fmt.Sprint(issue)), nil, nil)
-	}
-	for range 2 {
-		_ = c.reconcileReadinessAll(ctx)
-	}
-	if _, err := c.Store.IssueControl(ctx, 132, 132); err != nil {
-		t.Fatalf("repeated sweeps never reached repository 33: %v", err)
-	}
-}
-
 // TestDispatchPassReachesRunnableBehindWaitingPrefix proves repeated
 // bounded dispatch passes rotate past a permanently waiting prefix to
 // later runnable work.
@@ -98,6 +72,6 @@ func TestDispatchPassReachesRunnableBehindWaitingPrefix(t *testing.T) {
 	if _, err := db.AssignmentByRun(ctx, fx.host.launches[0].Run.ID); err != nil {
 		t.Fatal("launched run has no dispatch packet:", err)
 	}
-	var _ = project.RoleCoder
-	var _ = store.ErrNotFound
+	_ = project.RoleCoder
+	_ = store.ErrNotFound
 }

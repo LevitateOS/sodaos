@@ -30,13 +30,8 @@ type FencedRun struct {
 
 // ReconcileReceipt is the durable outcome of one reconcile command.
 type ReconcileReceipt struct {
-	Settled     []string         `json:"settled"`
-	Fenced      []FencedRun      `json:"fenced,omitempty"`
-	Readiness   *ReadinessReport `json:"readiness,omitempty"`
-	Dispatch    *DispatchReport  `json:"dispatch,omitempty"`
-	Publication *PublishReport   `json:"publication,omitempty"`
-	Checks      *CheckReport     `json:"checks,omitempty"`
-	Merge       *MergeReport     `json:"merge,omitempty"`
+	Settled []string    `json:"settled"`
+	Fenced  []FencedRun `json:"fenced,omitempty"`
 }
 
 // Stop retires one recorded run and settles it when retirement and broker
@@ -100,24 +95,6 @@ func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (Recon
 	receipt, err := c.reconcileRuns(bounded)
 	if err != nil {
 		return ReconcileReceipt{}, err
-	}
-	report := c.reconcileReadinessAll(bounded)
-	receipt.Readiness = &report
-	if c.DispatchReads != nil {
-		dispatch := c.Dispatch(bounded)
-		receipt.Dispatch = &dispatch
-	}
-	if c.Publication != nil {
-		published := c.PublishPass(bounded)
-		receipt.Publication = &published
-	}
-	if c.Checks != nil {
-		assessed := c.CheckPass(bounded)
-		receipt.Checks = &assessed
-	}
-	if c.Merges != nil {
-		merged := c.MergePass(bounded)
-		receipt.Merge = &merged
 	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
@@ -294,20 +271,11 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 		receipt.Uncertain, receipt.Reason = true, "run record unsettled"
 		return receipt
 	}
-	// Best-effort dispatch accounting: confirmed usage, reservation
-	// consume and the recorded result. Recovery replays anything missed;
-	// a completed issue retriggers its dependants.
+	// Settlement records accounting and the result. Reassessing dependants is
+	// local bookkeeping only; automatic publication/review/correction happens
+	// at the existing Start and Dispatch advancement boundaries.
 	if finished, ok := AccountSettledRun(ctx, c.Store, run, state.Output, time.Now()); ok && finished.Outcome == factory.Succeeded {
 		c.assessDispatchDependants(ctx, finished.Repository, finished.Issue)
-		c.publishAfterSettle(ctx, finished)
-	}
-	// A completed run beyond its assignment's finishing one advances the
-	// same PR as a correction; the finishing run published above.
-	c.correctAfterSettle(ctx, run)
-	// A completed reviewer run submits its genuine verdict through the
-	// separate reviewer actor using its durably recorded role-specific result.
-	if run.Role == project.RoleReviewer && outcome == factory.Succeeded {
-		c.reviewAfterSettle(ctx, run)
 	}
 	receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(outcome), run.Summary
 	return receipt
