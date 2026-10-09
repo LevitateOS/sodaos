@@ -223,6 +223,7 @@ Observed size: 701 lines, including tests where embedded. Keep the same Go packa
 - `internal/factory/control/publication_authority.go` — Current authority and exact native work construction.
 - `internal/factory/control/publication_withdraw.go` — Cancellation, withdrawal and late observed-effect adoption.
 - `internal/factory/control/publication_export.go` — Confirmed candidate export and bounded bundle decoding.
+- `internal/factory/control/publication_children.go` — Canonical reviewer/correction production and candidate preparation under the active root; Store owns admission and retirement custody.
 
 Evidence: PublishPass at 78; publishOne at 119; assignmentForPublication at 148; reconcilePublication at 163; adoptPublicationReceipts at 448; publicationAuthority at 388; publicationWork at 433; cancelPublications at 507; withdrawPublication at 576; adoptObserved at 620; exportCandidate at 671; decodeExportBundle at 688.
 

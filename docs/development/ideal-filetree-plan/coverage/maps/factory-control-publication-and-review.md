@@ -107,6 +107,24 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–187; file scaffold; PublicationExecutor; publishPassLimit; PublishLink; PublishWait; PublishError; PublishReport; PublishPass; publicationError; publicationWait; publishOne; assignmentForPublication; completePublication; publicationCallError; cancelRepositoryPublications; cancelAcceptancePublications; exportTerminal | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; `publishAfterSettle` retired in `6cc4771c`; retained named duties assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="r02-current-path-internal-factory-control-publication-children-go"></a>
+
+## [internal/factory/control/publication_children.go](../../../../../internal/factory/control/publication_children.go)
+
+Current source addition at `b38a37b4`; existing coordinator and Store owners remain in place.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; publicationChildLimit; producePublishedChildren; producePublicationChild; currentReviewReport; currentChildCheckAssessment; prepareReviewCandidate; candidatePreparationStateMatches; candidatePreparationIdentityMatches; observeCandidatePreparation; executePublicationChild; existingMatchesPublicationChild; publicationChildID; publicationPreparationID; fenceChildPublication | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Produces exact-head review/correction children, invokes canonical preparation/dispatch admission and fences failed or exhausted continuation. Store retains authority, deadline and retirement state ownership. Source/development evidence is recorded in [F07](../../reviews/F07.md#current-prompt-and-preparation-observation-source-cuts); full exhaustion/intervention and native qualification remain open. |
+| buildPublicationChildPrompt | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Uses canonical recorded prompt inputs and the role-specific output contract; bounded repository material remains pending. |
+
+## [internal/factory/control/publication_children_test.go](../../../../../internal/factory/control/publication_children_test.go)
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; producerFlowHost and methods; publishedChildProducerSeed; settleProducedChild; TestPublishPassProducesExactReviewerChildAndReplays; TestPublishPassProducesCorrectionThenFreshReviewForChangedHead | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Uses the production controller and Store with substituted host effects; proves exact child admission, replay and changed-head review, not native/provider execution. |
+| TestPauseKeepsRunningCandidatePreparationUntilStopReceiptConfirms | [F08](../../slices/factory-coordination.md#f08-execution-lifecycle) | retained | Confirmed stop releases custody; uncertain and failed/uncertain preparation receipts retain it and refuse further native effects. |
+
 <a id="coverage-f09-correction-reconcile"></a>
 
 ## [internal/factory/control/correction.go](../../../../../internal/factory/control/correction.go)
