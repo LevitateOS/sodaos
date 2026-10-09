@@ -424,3 +424,225 @@ func TestPauseFreezesOnlyAfterSettledViewsAndRechecksGateRevision(t *testing.T) 
 		t.Fatalf("freeze accepted stale closed-gate revision: %v", err)
 	}
 }
+
+func TestCapAttemptDeadlineUsesExactRemainingRootTime(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	now := time.Now().UTC()
+	a, reservation, run, view := dispatchTestPacket(t, now)
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	allowance, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes*60) - 30
+	allowance.CheckpointUnix = now.Unix()
+	allowance.Revision++
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	requested := now.Add(10 * time.Minute).Unix()
+	want := allowance.CheckpointUnix + int64(allowance.Limits.ActiveMinutes*60) - allowance.ActiveSeconds
+	got, err := db.CapAttemptDeadline(ctx, a.ID, requested)
+	if err != nil || got != want || got >= requested {
+		t.Fatalf("capped deadline = %d, want root expiry %d before request %d: %v", got, want, requested, err)
+	}
+
+	allowance.CheckpointUnix = time.Now().Add(time.Minute).Unix()
+	allowance.Revision++
+	tx, err = db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.CapAttemptDeadline(ctx, a.ID, requested); !errors.Is(err, factory.ErrAllowanceClock) {
+		t.Fatalf("future-checkpoint deadline cap error = %v", err)
+	}
+}
+
+func TestPublicationRegistrationCapsDeadlineAndRecoversRecordedReceipt(t *testing.T) {
+	ctx := context.Background()
+	db := publicationStoreFixture(t)
+	p := recordPublishedCorrectionFixture(t, db, ctx)
+	allowance, err := db.AttemptAllowance(ctx, p.Repository, p.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes*60) - 30
+	allowance.CheckpointUnix = now.Unix()
+	allowance.Revision++
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	requested := now.Add(10 * time.Minute).Unix()
+	capped, err := db.CapAttemptDeadline(ctx, p.AssignmentID, requested)
+	if err != nil || capped >= requested || capped != allowance.CheckpointUnix+int64(allowance.Limits.ActiveMinutes*60)-allowance.ActiveSeconds {
+		t.Fatalf("publication deadline cap = %d, request=%d allowance=%+v err=%v", capped, requested, allowance, err)
+	}
+	appendPendingCorrection(&p)
+	correctionIndex := len(p.Corrections) - 1
+	p.Corrections[correctionIndex].Work.NotAfter = requested
+	if err = db.UpdatePublication(ctx, p); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
+		t.Fatalf("overlong publication intent registration = %v", err)
+	}
+	p.Corrections[correctionIndex].Work.NotAfter = capped
+	if err = db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("capped publication intent registration: %v", err)
+	}
+
+	allowance.Closed, allowance.Active = true, false
+	allowance.Revision++
+	tx, err = db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	p.Corrections[correctionIndex].Effect = factory.OpEffectCommitted
+	p.Corrections[correctionIndex].Completion = factory.OpCompletionComplete
+	p.Corrections[correctionIndex].Receipt = "recorded-native-receipt"
+	p.Candidate = p.Corrections[correctionIndex].Work.Candidate
+	p.Run = p.Corrections[correctionIndex].RunID
+	p.Revision++
+	if err = db.UpdatePublication(ctx, p); err != nil {
+		t.Fatalf("existing receipt recovery after close: %v", err)
+	}
+	published, err := db.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil || len(published.Corrections) != 1 || published.Corrections[0].Receipt != "recorded-native-receipt" {
+		t.Fatalf("recorded receipt not recovered: %+v %v", published.Corrections, err)
+	}
+	appendPendingCorrection(&p)
+	newCorrection := len(p.Corrections) - 1
+	p.Corrections[newCorrection].RunID = factory.NewID()
+	p.Corrections[newCorrection].Work.Candidate = strings.Repeat("e", 40)
+	if err = db.UpdatePublication(ctx, p); !errors.Is(err, factory.ErrAttemptClosed) {
+		t.Fatalf("new publication intent registered after close: %v", err)
+	}
+	unchanged, err := db.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil || len(unchanged.Corrections) != 1 {
+		t.Fatalf("refused intent changed publication: %+v %v", unchanged.Corrections, err)
+	}
+}
+
+func TestPublicationRegistrationRefusesInactiveExhaustedOrMissingRoot(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode string
+	}{
+		{name: "inactive", mode: "inactive"},
+		{name: "exhausted", mode: "exhausted"},
+		{name: "missing", mode: "missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db := publicationStoreFixture(t)
+			p := recordPublishedCorrectionFixture(t, db, ctx)
+			allowance, err := db.AttemptAllowance(ctx, p.Repository, p.Issue)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch tc.mode {
+			case "inactive":
+				allowance.Active = false
+			case "exhausted":
+				allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes * 60)
+				allowance.CheckpointUnix = time.Now().Unix()
+			}
+			if tc.mode == "missing" {
+				if _, err = db.db.ExecContext(ctx, `DELETE FROM factory_attempt_allowances WHERE root_assignment=$1`, allowance.RootAssignment); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				allowance.Revision++
+				tx, beginErr := db.db.BeginTx(ctx, nil)
+				if beginErr != nil {
+					t.Fatal(beginErr)
+				}
+				if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+					_ = tx.Rollback()
+					t.Fatal(err)
+				}
+				if err = tx.Commit(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			appendPendingCorrection(&p)
+			p.Corrections[len(p.Corrections)-1].Work.NotAfter = time.Now().Add(10 * time.Minute).Unix()
+			if err = db.UpdatePublication(ctx, p); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
+				t.Fatalf("registration with %s root = %v", tc.mode, err)
+			}
+			stored, err := db.PublicationByAssignment(ctx, p.AssignmentID)
+			if err != nil || len(stored.Corrections) != 0 {
+				t.Fatalf("refused registration changed publication: %+v %v", stored.Corrections, err)
+			}
+		})
+	}
+}
+
+func TestMergeRegistrationRefusesExpiredRoot(t *testing.T) {
+	ctx := context.Background()
+	db := publicationStoreFixture(t)
+	m := mergeTestRecord()
+	seedMergeAssignment(t, db, m)
+	if err := db.RecordMerge(ctx, m); err != nil {
+		t.Fatal(err)
+	}
+	allowance, err := db.AttemptAllowance(ctx, m.Repository, m.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowance.ActiveSeconds = int64(allowance.Limits.ActiveMinutes * 60)
+	allowance.CheckpointUnix = time.Now().Unix()
+	allowance.Revision++
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = saveAttemptAllowanceTx(ctx, tx, allowance); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	m.Revision++
+	m.Operation = factory.MergeOperation{Kind: factory.OpMerge, Attempts: 1, OperationID: "soda-x-merge-1", UpdatedUnix: time.Now().Unix(), Work: mergeTestIntent("soda-x-merge-1")}
+	m.Operation.Work.NotAfter = time.Now().Add(10 * time.Minute).Unix()
+	if err = db.UpdateMerge(ctx, m); !errors.Is(err, factory.ErrAttemptTimeExhausted) {
+		t.Fatalf("expired-root merge registration = %v", err)
+	}
+	stored, err := db.MergeByPublication(ctx, m.PublicationID)
+	if err != nil || stored.Operation.Work != nil {
+		t.Fatalf("refused merge registration changed record: %+v %v", stored.Operation, err)
+	}
+}

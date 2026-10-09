@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -33,6 +34,78 @@ func (s *Store) AttemptAllowance(ctx context.Context, repository, issue int64) (
 		return factory.AttemptAllowance{}, err
 	}
 	return allowance, nil
+}
+
+// CapAttemptDeadline returns the earlier of the requested absolute expiry and
+// the exact assignment root's active-time expiry. Native operations are
+// admitted against this immutable wall-clock bound; existing intents are
+// always replayed from their recorded NotAfter instead of calling this again.
+func (s *Store) CapAttemptDeadline(ctx context.Context, assignmentID string, requested int64) (int64, error) {
+	if !factory.ValidID(assignmentID) || requested <= 0 {
+		return 0, factory.ErrAttemptTimeExhausted
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var raw []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1`, assignmentID).Scan(&raw); err != nil {
+		return 0, err
+	}
+	var assignment factory.Assignment
+	if err = json.Unmarshal(raw, &assignment); err != nil {
+		return 0, err
+	}
+	if err = assignment.Validate(); err != nil {
+		return 0, err
+	}
+	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, factory.ErrAttemptTimeExhausted
+	}
+	if err != nil {
+		return 0, err
+	}
+	now := time.Now()
+	deadline, err := attemptDeadlineUnix(allowance, now)
+	if err != nil {
+		return 0, err
+	}
+	if requested < deadline {
+		deadline = requested
+	}
+	if deadline <= now.Unix() {
+		return 0, factory.ErrAttemptTimeExhausted
+	}
+	if err = tx.Commit(); err != nil {
+		return 0, err
+	}
+	return deadline, nil
+}
+
+func attemptDeadlineUnix(allowance factory.AttemptAllowance, now time.Time) (int64, error) {
+	if err := allowance.Validate(); err != nil {
+		return 0, factory.ErrAttemptTimeExhausted
+	}
+	if now.Unix() < allowance.CheckpointUnix {
+		return 0, factory.ErrAllowanceClock
+	}
+	if allowance.Closed {
+		return 0, factory.ErrAttemptClosed
+	}
+	if !allowance.Active {
+		return 0, factory.ErrAttemptTimeExhausted
+	}
+	remaining := int64(allowance.Limits.ActiveMinutes)*60 - allowance.ActiveSeconds
+	if remaining <= 0 || allowance.CheckpointUnix > math.MaxInt64-remaining {
+		return 0, factory.ErrAttemptTimeExhausted
+	}
+	deadline := allowance.CheckpointUnix + remaining
+	if deadline <= now.Unix() {
+		return 0, factory.ErrAttemptTimeExhausted
+	}
+	return deadline, nil
 }
 
 func validateAttemptAllowanceRow(a factory.AttemptAllowance, repository, issue int64, root string, revision int64) error {
@@ -203,7 +276,10 @@ func attemptPauseActiveTx(ctx context.Context, tx *sql.Tx, repository int64) (bo
 	return false, nil
 }
 
-func ensureAttemptOpenForRegistrationTx(ctx context.Context, tx *sql.Tx, assignmentID string) error {
+func ensureAttemptDeadlineForRegistrationTx(ctx context.Context, tx *sql.Tx, assignmentID string, deadlines ...int64) error {
+	if len(deadlines) == 0 {
+		return factory.ErrAttemptTimeExhausted
+	}
 	var data []byte
 	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1`, assignmentID).Scan(&data); err != nil {
 		return err
@@ -217,13 +293,19 @@ func ensureAttemptOpenForRegistrationTx(ctx context.Context, tx *sql.Tx, assignm
 	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil
+		return factory.ErrAttemptTimeExhausted
 	}
 	if err != nil {
 		return err
 	}
-	if allowance.Closed {
-		return factory.ErrAttemptClosed
+	deadline, err := attemptDeadlineUnix(allowance, time.Now())
+	if err != nil {
+		return err
+	}
+	for _, registered := range deadlines {
+		if registered <= time.Now().Unix() || registered > deadline {
+			return factory.ErrAttemptTimeExhausted
+		}
 	}
 	return nil
 }

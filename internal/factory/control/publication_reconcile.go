@@ -187,7 +187,12 @@ func (c *Coordinator) reconcilePublication(ctx context.Context, p factory.Public
 			return
 		}
 		now := time.Now()
-		work.NativeRev, work.ComparisonOID, work.NotAfter = observation.NativeRev, observation.Comparison, now.Add(10*time.Minute).Unix()
+		notAfter, err := c.Store.CapAttemptDeadline(ctx, p.AssignmentID, now.Add(10*time.Minute).Unix())
+		if err != nil {
+			publicationWait(report, p.ID, "attempt_deadline_unavailable")
+			return
+		}
+		work.NativeRev, work.ComparisonOID, work.NotAfter = observation.NativeRev, observation.Comparison, notAfter
 		intent := work.Intent()
 		op.OperationID, op.Attempts, op.UpdatedUnix, op.Work = work.OperationID, 1, now.Unix(), &intent
 		p.NativeRev, p.Comparison, p.TargetTip, p.ObservedUnix = observation.NativeRev, observation.Comparison, observation.TargetTip, now.Unix()

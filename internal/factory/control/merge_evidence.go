@@ -79,7 +79,12 @@ func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge
 		return false
 	}
 	now := time.Now()
-	work.NativeRev, work.NotAfter = observation.NativeRev, now.Add(10*time.Minute).Unix()
+	notAfter, err := c.Store.CapAttemptDeadline(ctx, m.AssignmentID, now.Add(10*time.Minute).Unix())
+	if err != nil {
+		mergeWait(report, m.ID, "attempt_deadline_unavailable")
+		return false
+	}
+	work.NativeRev, work.NotAfter = observation.NativeRev, notAfter
 	intent := work.Intent()
 	op := &m.Operation
 	op.OperationID, op.Attempts, op.UpdatedUnix, op.Work = work.OperationID, 1, now.Unix(), &intent

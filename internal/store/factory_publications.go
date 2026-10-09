@@ -84,6 +84,22 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 		previous.PRCreate.Work == nil && p.PRCreate.Work != nil ||
 		len(p.Corrections) > len(previous.Corrections) ||
 		len(p.ReviewOperations) > len(previous.ReviewOperations)
+	var newDeadlines []int64
+	if previous.Publish.Work == nil && p.Publish.Work != nil {
+		newDeadlines = append(newDeadlines, p.Publish.Work.NotAfter)
+	}
+	if previous.PRCreate.Work == nil && p.PRCreate.Work != nil {
+		newDeadlines = append(newDeadlines, p.PRCreate.Work.NotAfter)
+	}
+	for i := len(previous.Corrections); i < len(p.Corrections); i++ {
+		if p.Corrections[i].Work == nil {
+			return factory.ErrAttemptTimeExhausted
+		}
+		newDeadlines = append(newDeadlines, p.Corrections[i].Work.NotAfter)
+	}
+	for i := len(previous.ReviewOperations); i < len(p.ReviewOperations); i++ {
+		newDeadlines = append(newDeadlines, p.ReviewOperations[i].Work.NotAfter)
+	}
 	if registering && (previous.WithdrawRequested || p.WithdrawRequested) {
 		return ErrDispatchClosed
 	}
@@ -102,7 +118,7 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 		if !open {
 			return ErrDispatchClosed
 		}
-		if err = ensureAttemptOpenForRegistrationTx(ctx, tx, p.AssignmentID); err != nil {
+		if err = ensureAttemptDeadlineForRegistrationTx(ctx, tx, p.AssignmentID, newDeadlines...); err != nil {
 			return err
 		}
 	}

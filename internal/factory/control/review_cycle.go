@@ -206,7 +206,11 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	if err != nil {
 		return empty, err
 	}
-	w.NativeRev, w.NotAfter = observed.NativeRev, time.Now().Unix()+600
+	notAfter, err := c.Store.CapAttemptDeadline(ctx, owner.ID, time.Now().Add(10*time.Minute).Unix())
+	if err != nil {
+		return empty, err
+	}
+	w.NativeRev, w.NotAfter = observed.NativeRev, notAfter
 	if err := w.Validate(); err != nil {
 		return empty, err
 	}

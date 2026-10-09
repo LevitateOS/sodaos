@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -43,7 +44,7 @@ func mergeTestIntent(operationID string) *factory.MergeIntent {
 		HeadOID: strings.Repeat("2", 40), BaseOID: strings.Repeat("1", 40),
 		Repository: 7, ActorID: 8, PRNumber: 9, PRID: 11, IssueID: 13,
 		PRAuthorID: 5, ReviewerID: 6,
-		NativeRev: 12, NotAfter: 1900, AssessmentRevision: 2, ReviewID: 21,
+		NativeRev: 12, NotAfter: time.Now().Add(10 * time.Minute).Unix(), AssessmentRevision: 2, ReviewID: 21,
 	}
 }
 

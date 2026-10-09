@@ -83,12 +83,25 @@ func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing
 func TestPublicationAcceptanceWithdrawalReceiptKeepsPendingAndExactScope(t *testing.T) {
 	ctx := context.Background()
 	fx := publishSeed(t)
-	a, other := fx.finishReported(t, 3), fx.finishReported(t, 4)
 	exec := happyPublisher()
-	exec.push = func(factory.PublicationWork) (factory.OperationOutcome, error) { return pendingOutcome(), nil }
 	fx.wire(exec)
+	other := fx.finishReported(t, 4)
 	fx.pass(t)
-	p, otherP := fx.publication(t, a), fx.publication(t, other)
+	otherP := fx.publication(t, other)
+	if otherP.Stage != factory.PublicationPublished || otherP.Publish.Effect != factory.OpEffectCommitted || otherP.PRCreate.Effect != factory.OpEffectCommitted {
+		t.Fatalf("other issue did not complete native publication: %+v", otherP)
+	}
+	// Preserve the known completed native receipts while making this historical
+	// publication terminal so the repository can admit a second active attempt.
+	otherP.Stage, otherP.Outcome, otherP.Reason, otherP.FinishedUnix = factory.PublicationFenced, factory.NeedsHuman, factory.PublishReasonFenced, time.Now().Unix()
+	otherP.Revision++
+	if err := fx.db.UpdatePublication(ctx, otherP); err != nil {
+		t.Fatalf("terminalize completed historical publication: %v", err)
+	}
+	a := fx.finishReported(t, 3)
+	exec.push = func(factory.PublicationWork) (factory.OperationOutcome, error) { return pendingOutcome(), nil }
+	fx.pass(t)
+	p := fx.publication(t, a)
 	exec.cancel = func(string) (factory.OperationOutcome, error) {
 		return factory.OperationOutcome{}, errors.New("cancel reply lost")
 	}
@@ -98,8 +111,11 @@ func TestPublicationAcceptanceWithdrawalReceiptKeepsPendingAndExactScope(t *test
 		t.Fatalf("withdrawal receipt: %+v %v", receipt, err)
 	}
 	current := fx.publication(t, a)
-	if current.Stage != factory.PublicationOpen || !current.WithdrawRequested || fx.publication(t, other).WithdrawRequested {
-		t.Fatalf("withdrawal scope: %+v other=%+v", current, otherP)
+	otherCurrent := fx.publication(t, other)
+	if current.Stage != factory.PublicationOpen || !current.WithdrawRequested || otherCurrent.WithdrawRequested ||
+		otherCurrent.Publish.Effect != factory.OpEffectCommitted || otherCurrent.PRCreate.Effect != factory.OpEffectCommitted ||
+		otherCurrent.Publish.Cancellation != factory.OpCancelNone || otherCurrent.PRCreate.Cancellation != factory.OpCancelNone {
+		t.Fatalf("withdrawal scope: %+v other=%+v", current, otherCurrent)
 	}
 	again, err := fx.coord.WithdrawAcceptance(ctx, command, "native:7", a.Repository, a.Issue, a.Acceptance, 7)
 	if err != nil || !reflect.DeepEqual(receipt, again) || len(exec.cancels) != 1 {
@@ -110,8 +126,9 @@ func TestPublicationAcceptanceWithdrawalReceiptKeepsPendingAndExactScope(t *test
 	if current = fx.publication(t, a); current.Stage != factory.PublicationWithdrawn || current.Publish.Cancellation != factory.OpCancelCancelled {
 		t.Fatalf("eventual cancellation: %+v", current)
 	}
-	if fx.publication(t, other).WithdrawRequested {
-		t.Fatal("issue withdrawal cancelled another issue")
+	otherCurrent = fx.publication(t, other)
+	if otherCurrent.WithdrawRequested || otherCurrent.Publish.Cancellation != factory.OpCancelNone || otherCurrent.PRCreate.Cancellation != factory.OpCancelNone {
+		t.Fatalf("issue withdrawal changed another issue's completed native effects: %+v", otherCurrent)
 	}
 }
 

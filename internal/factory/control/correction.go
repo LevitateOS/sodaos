@@ -211,7 +211,12 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 			return report
 		}
 		now := time.Now()
-		work.NativeRev, work.ComparisonOID, work.NotAfter = observation.NativeRev, observation.Comparison, now.Add(10*time.Minute).Unix()
+		notAfter, err := c.Store.CapAttemptDeadline(ctx, p.AssignmentID, now.Add(10*time.Minute).Unix())
+		if err != nil {
+			correctionWait(&report, p.ID, "attempt_deadline_unavailable")
+			return report
+		}
+		work.NativeRev, work.ComparisonOID, work.NotAfter = observation.NativeRev, observation.Comparison, notAfter
 		intent := work.Intent()
 		op := factory.PublicationOperation{
 			Work: &intent, RunID: runID, OperationID: work.OperationID, Kind: factory.OpRefPublish,

@@ -84,7 +84,7 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 		return ErrDispatchClosed
 	}
 	if registering {
-		if err = ensureAttemptOpenForRegistrationTx(ctx, tx, m.AssignmentID); err != nil {
+		if err = ensureAttemptDeadlineForRegistrationTx(ctx, tx, m.AssignmentID, m.Operation.Work.NotAfter); err != nil {
 			return err
 		}
 	}

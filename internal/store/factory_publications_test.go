@@ -159,39 +159,56 @@ func recordFinishedAssignment(t *testing.T, db *Store, now time.Time, issue int6
 	if err := db.SaveFactoryRun(ctx, settled); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
+	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
 		t.Fatal(err)
 	}
 	return a
 }
 
 func TestPublishableAssignmentsSelectsReportedCompleted(t *testing.T) {
-	db := publicationStoreFixture(t)
-	ctx := context.Background()
-	now := time.Now().Truncate(time.Second)
-	want := recordFinishedAssignment(t, db, now, 3, true, "completed")
-	recordFinishedAssignment(t, db, now, 4, false, "completed")
-	recordFinishedAssignment(t, db, now, 5, true, "blocked")
-	got, err := db.PublishableAssignments(ctx, 10)
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(got) != 1 || got[0].ID != want.ID {
-		t.Fatalf("publishable: %+v", got)
-	}
-	p := publicationTestRecord()
-	p.AssignmentID = want.ID
-	p.Repository, p.Issue = want.Repository, want.Issue
-	if err := db.RecordPublication(ctx, p); err != nil {
-		t.Fatalf("record: %v", err)
-	}
-	got, err = db.PublishableAssignments(ctx, 10)
-	if err != nil {
-		t.Fatalf("relist: %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("published assignment still publishable: %+v", got)
-	}
+	t.Run("reported completed result is eligible", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		ctx := context.Background()
+		want := recordFinishedAssignment(t, db, time.Now().Truncate(time.Second), 3, true, "completed")
+		got, err := db.PublishableAssignments(ctx, 10)
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		if len(got) != 1 || got[0].ID != want.ID {
+			t.Fatalf("publishable: %+v", got)
+		}
+	})
+	t.Run("no report is ineligible", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		recordFinishedAssignment(t, db, time.Now().Truncate(time.Second), 3, false, "completed")
+		got, err := db.PublishableAssignments(context.Background(), 10)
+		if err != nil || len(got) != 0 {
+			t.Fatalf("publishable without report: %+v %v", got, err)
+		}
+	})
+	t.Run("blocked result is ineligible", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		recordFinishedAssignment(t, db, time.Now().Truncate(time.Second), 3, true, "blocked")
+		got, err := db.PublishableAssignments(context.Background(), 10)
+		if err != nil || len(got) != 0 {
+			t.Fatalf("publishable blocked result: %+v %v", got, err)
+		}
+	})
+	t.Run("recorded publication excludes assignment", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		ctx := context.Background()
+		want := recordFinishedAssignment(t, db, time.Now().Truncate(time.Second), 3, true, "completed")
+		p := publicationTestRecord()
+		p.AssignmentID = want.ID
+		p.Repository, p.Issue = want.Repository, want.Issue
+		if err := db.RecordPublication(ctx, p); err != nil {
+			t.Fatalf("record: %v", err)
+		}
+		got, err := db.PublishableAssignments(ctx, 10)
+		if err != nil || len(got) != 0 {
+			t.Fatalf("published assignment still publishable: %+v %v", got, err)
+		}
+	})
 }
 
 func TestOutstandingPublicationsListsOpenAndFenced(t *testing.T) {
@@ -478,7 +495,7 @@ func publicationStoreIntent(id string) *factory.PublicationIntent {
 	return &factory.PublicationIntent{
 		OperationID: id, AuthRevision: "accepted-revision", Candidate: strings.Repeat("2", 40),
 		TargetBranch: "refs/heads/main", ExpectedOld: "absent", ComparisonRef: "refs/heads/main", ComparisonOID: strings.Repeat("1", 40),
-		PRTitle: "Factory candidate for #3", Repository: 7, ActorID: 5, NativeRev: 9, NotAfter: 1300,
+		PRTitle: "Factory candidate for #3", Repository: 7, ActorID: 5, NativeRev: 9, NotAfter: time.Now().Add(10 * time.Minute).Unix(),
 	}
 }
 
