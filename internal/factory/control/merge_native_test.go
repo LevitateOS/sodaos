@@ -44,36 +44,65 @@ func nativeMergeAPI(t *testing.T, c nativeST12Config, method, path string, body,
 		raw, err = json.Marshal(body)
 		nativeMust(t, err)
 	}
-	deadline := time.Now().Add(60 * time.Second)
-	client := &http.Client{
-		Timeout:       30 * time.Second,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	for {
 		var input io.Reader
 		if raw != nil {
 			input = bytes.NewReader(raw)
 		}
-		req, err := http.NewRequestWithContext(context.Background(), method, strings.TrimRight(c.FountainURL, "/")+path, input)
-		nativeMust(t, err)
-		req.Header.Set("Authorization", "token "+nativeSecret(t, c.CreatorTokenFile))
+		if err := nativeContextError(ctx); err != nil {
+			t.Fatalf("native fixture API %s %s exceeded its deadline: %v", method, path, err)
+		}
+		secret := nativeSecret(t, c.CreatorTokenFile)
+		requestCtx, cancelRequest := context.WithTimeout(ctx, 30*time.Second)
+		req, err := http.NewRequestWithContext(requestCtx, method, strings.TrimRight(c.FountainURL, "/")+path, input)
+		if err != nil {
+			cancelRequest()
+			nativeMust(t, err)
+		}
+		req.Header.Set("Authorization", "token "+secret)
 		req.Header.Set("Content-Type", "application/json")
 		response, err := client.Do(req)
 		if err != nil {
+			if ctxErr := nativeContextError(requestCtx); ctxErr != nil {
+				cancelRequest()
+				t.Fatalf("native fixture API %s %s exceeded its request deadline: %v", method, path, ctxErr)
+			}
+			cancelRequest()
+			if ctxErr := nativeContextError(ctx); ctxErr != nil {
+				t.Fatalf("native fixture API %s %s exceeded its deadline: %v", method, path, ctxErr)
+			}
 			t.Fatal("native API transport unavailable")
 		}
-		if response.StatusCode != http.StatusServiceUnavailable || !time.Now().Before(deadline) {
-			defer response.Body.Close()
-			if response.StatusCode < 200 || response.StatusCode >= 300 {
-				t.Fatalf("native fixture API %s %s: status %d", method, path, response.StatusCode)
-			}
-			if target != nil {
-				nativeMust(t, json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target))
-			}
-			return
+		status := response.StatusCode
+		var decodeErr error
+		if status >= 200 && status < 300 && target != nil {
+			decodeErr = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target)
 		}
 		response.Body.Close()
-		time.Sleep(200 * time.Millisecond)
+		requestErr := nativeContextError(requestCtx)
+		cancelRequest()
+		if requestErr != nil {
+			t.Fatalf("native fixture API %s %s exceeded its request deadline: %v", method, path, requestErr)
+		}
+		if ctxErr := nativeContextError(ctx); ctxErr != nil {
+			t.Fatalf("native fixture API %s %s exceeded its deadline: %v", method, path, ctxErr)
+		}
+		if decodeErr != nil {
+			nativeMust(t, decodeErr)
+		}
+		if status == http.StatusServiceUnavailable {
+			if !nativeContextWait(ctx, 200*time.Millisecond) {
+				t.Fatalf("native fixture API %s %s exceeded its deadline: %v", method, path, nativeContextError(ctx))
+			}
+			continue
+		}
+		if status < 200 || status >= 300 {
+			t.Fatalf("native fixture API %s %s: status %d", method, path, status)
+		}
+		return
 	}
 }
 

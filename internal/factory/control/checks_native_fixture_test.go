@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/project"
@@ -130,28 +131,46 @@ func (p nativeCheckPR) target(c nativeST09Config) factory.CheckTarget {
 	}
 }
 
-func nativePostStatusOnce(t *testing.T, c nativeST09Config, sha string, body []byte) (int, int64) {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func nativePostStatusOnce(parent context.Context, c nativeST09Config, sha string, body []byte) (int, int64, error) {
+	secret, err := config.Secret(c.TokenFile)
+	if err != nil {
+		return 0, 0, err
+	}
+	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		strings.TrimRight(c.FountainURL, "/")+"/api/v1/repos/"+c.Owner+"/"+c.Repo+"/statuses/"+sha, bytes.NewReader(body))
-	nativeMust(t, err)
-	req.Header.Set("Authorization", "token "+nativeSecret(t, c.TokenFile))
+	if err != nil {
+		return 0, 0, err
+	}
+	req.Header.Set("Authorization", "token "+secret)
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	response, err := client.Do(req)
 	if err != nil {
-		t.Fatal("native API transport unavailable")
+		if ctxErr := nativeContextError(ctx); ctxErr != nil {
+			return 0, 0, ctxErr
+		}
+		return 0, 0, errors.New("native API transport unavailable")
 	}
 	defer response.Body.Close()
+	if ctxErr := nativeContextError(ctx); ctxErr != nil {
+		return 0, 0, ctxErr
+	}
 	var created struct {
 		ID int64 `json:"id"`
 	}
+	var decodeErr error
 	if response.StatusCode == http.StatusCreated || response.StatusCode == http.StatusOK {
-		nativeMust(t, json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&created))
+		decodeErr = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&created)
 	}
-	return response.StatusCode, created.ID
+	if ctxErr := nativeContextError(ctx); ctxErr != nil {
+		return 0, 0, ctxErr
+	}
+	if decodeErr != nil {
+		return 0, 0, decodeErr
+	}
+	return response.StatusCode, created.ID, nil
 }
 
 func nativePostStatus(t *testing.T, c nativeST09Config, sha, checkContext, state string) {
@@ -166,19 +185,31 @@ func nativePostStatus(t *testing.T, c nativeST09Config, sha, checkContext, state
 	nativeMust(t, err)
 	// A busy host refuses the write with 503 while Actions run work
 	// settles; only that wait retries, bounded, never another refusal.
-	deadline := time.Now().Add(60 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 	for {
-		status, id := nativePostStatusOnce(t, c, sha, body)
+		if err := nativeContextError(ctx); err != nil {
+			t.Fatalf("native status post exceeded its deadline: %v", err)
+		}
+		status, id, err := nativePostStatusOnce(ctx, c, sha, body)
+		if err != nil {
+			t.Fatalf("native status API transport unavailable: %v", err)
+		}
+		if err := nativeContextError(ctx); err != nil {
+			t.Fatalf("native status post exceeded its deadline: %v", err)
+		}
 		if status == http.StatusCreated || status == http.StatusOK {
 			if id <= 0 {
 				t.Fatal("native status identity unconfirmed")
 			}
 			return
 		}
-		if status != http.StatusServiceUnavailable || !time.Now().Before(deadline) {
+		if status != http.StatusServiceUnavailable {
 			t.Fatalf("native status post refused: status %d", status)
 		}
-		time.Sleep(2 * time.Second)
+		if !nativeContextWait(ctx, 2*time.Second) {
+			t.Fatalf("native status post exceeded its deadline: %v", nativeContextError(ctx))
+		}
 	}
 }
 
@@ -187,25 +218,39 @@ type nativeListedStatus struct {
 	Status  string `json:"status"`
 }
 
-func nativeListStatuses(t *testing.T, c nativeST09Config, sha string) []nativeListedStatus {
-	t.Helper()
+func nativeListStatuses(ctx context.Context, c nativeST09Config, sha string) ([]nativeListedStatus, error) {
 	var listed []nativeListedStatus
-	nativeAPI(t, c, c.TokenFile, http.MethodGet, "/api/v1/repos/"+c.Owner+"/"+c.Repo+"/commits/"+sha+"/statuses", nil, &listed)
-	return listed
+	err := nativeAPIContext(ctx, c, c.TokenFile, http.MethodGet, "/api/v1/repos/"+c.Owner+"/"+c.Repo+"/commits/"+sha+"/statuses", nil, &listed)
+	return listed, err
 }
 
 func nativeWaitStatusContext(t *testing.T, c nativeST09Config, sha, prefix string) {
 	t.Helper()
-	deadline := time.Now().Add(90 * time.Second)
-	for time.Now().Before(deadline) {
-		for _, entry := range nativeListStatuses(t, c, sha) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	for {
+		if err := nativeContextError(ctx); err != nil {
+			t.Fatalf("native context %q never reported on %s: %v", prefix, sha[:12], err)
+		}
+		entries, err := nativeListStatuses(ctx, c, sha)
+		if err != nil {
+			t.Fatalf("native status list failed: %v", err)
+		}
+		if err := nativeContextError(ctx); err != nil {
+			t.Fatalf("native context %q never reported on %s: %v", prefix, sha[:12], err)
+		}
+		for _, entry := range entries {
 			if strings.HasPrefix(entry.Context, prefix) {
+				if err := nativeContextError(ctx); err != nil {
+					t.Fatalf("native context %q never reported on %s: %v", prefix, sha[:12], err)
+				}
 				return
 			}
 		}
-		time.Sleep(2 * time.Second)
+		if !nativeContextWait(ctx, 2*time.Second) {
+			t.Fatalf("native context %q never reported on %s: %v", prefix, sha[:12], nativeContextError(ctx))
+		}
 	}
-	t.Fatalf("native context %q never reported on %s", prefix, sha[:12])
 }
 
 func nativeObserveChecks(t *testing.T, assessor *forgejo.CheckAssessor, target factory.CheckTarget, actorID int64) factory.ObservedChecks {

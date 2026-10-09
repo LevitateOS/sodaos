@@ -82,35 +82,35 @@ func nativeMergeDrain(t *testing.T, bg *forgejo.ServiceBackground) extensions.Na
 	stable := time.Now()
 	first := true
 	for {
-		if err := nativeMergeContextError(ctx); err != nil {
+		if err := nativeContextError(ctx); err != nil {
 			t.Fatalf("native revision never settled: %v", err)
 		}
 		revision, err := bg.ReadNativeRevision(ctx)
-		if ctxErr := nativeMergeContextError(ctx); ctxErr != nil {
+		if ctxErr := nativeContextError(ctx); ctxErr != nil {
 			t.Fatalf("native revision never settled: %v", ctxErr)
 		}
 		if err != nil || first || revision.Revision != last.Revision {
 			last = revision
 			stable = time.Now()
 			first = false
-			if !nativeMergeWait(ctx, 100*time.Millisecond) {
-				t.Fatalf("native revision never settled: %v", nativeMergeContextError(ctx))
+			if !nativeContextWait(ctx, 100*time.Millisecond) {
+				t.Fatalf("native revision never settled: %v", nativeContextError(ctx))
 			}
 			continue
 		}
 		if time.Since(stable) >= 1500*time.Millisecond {
-			if err := nativeMergeContextError(ctx); err != nil {
+			if err := nativeContextError(ctx); err != nil {
 				t.Fatalf("native revision never settled: %v", err)
 			}
 			return revision
 		}
-		if !nativeMergeWait(ctx, 100*time.Millisecond) {
-			t.Fatalf("native revision never settled: %v", nativeMergeContextError(ctx))
+		if !nativeContextWait(ctx, 100*time.Millisecond) {
+			t.Fatalf("native revision never settled: %v", nativeContextError(ctx))
 		}
 	}
 }
 
-func nativeMergeContextError(ctx context.Context) error {
+func nativeContextError(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -120,14 +120,14 @@ func nativeMergeContextError(ctx context.Context) error {
 	return nil
 }
 
-func nativeMergeWait(ctx context.Context, delay time.Duration) bool {
+func nativeContextWait(ctx context.Context, delay time.Duration) bool {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		return false
 	case <-timer.C:
-		return nativeMergeContextError(ctx) == nil
+		return nativeContextError(ctx) == nil
 	}
 }
 
@@ -161,11 +161,11 @@ func nativeMergeBusyError(err error) bool {
 func nativeMergeCallContext[T any](ctx context.Context, call func(context.Context) (T, error)) (T, error) {
 	var zero T
 	for {
-		if err := nativeMergeContextError(ctx); err != nil {
+		if err := nativeContextError(ctx); err != nil {
 			return zero, err
 		}
 		value, err := call(ctx)
-		if ctxErr := nativeMergeContextError(ctx); ctxErr != nil {
+		if ctxErr := nativeContextError(ctx); ctxErr != nil {
 			return zero, ctxErr
 		}
 		if err == nil {
@@ -174,10 +174,10 @@ func nativeMergeCallContext[T any](ctx context.Context, call func(context.Contex
 		if !nativeMergeBusyError(err) {
 			return zero, err
 		}
-		if !nativeMergeWait(ctx, 200*time.Millisecond) {
-			return zero, nativeMergeContextError(ctx)
+		if !nativeContextWait(ctx, 200*time.Millisecond) {
+			return zero, nativeContextError(ctx)
 		}
-		if ctxErr := nativeMergeContextError(ctx); ctxErr != nil {
+		if ctxErr := nativeContextError(ctx); ctxErr != nil {
 			return zero, ctxErr
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"sync"
@@ -160,5 +161,55 @@ func TestNativeMergeCallContextRejectsElapsedDeadlineBeforeCancellation(t *testi
 	})
 	if !called || !errors.Is(err, context.DeadlineExceeded) || got.value != "" {
 		t.Fatalf("elapsed-deadline call = called:%t result:%+v err:%v, want called, zero result, and deadline", called, got, err)
+	}
+}
+
+func TestNativeAPIContextCancelsStalledHTTPRequest(t *testing.T) {
+	token, err := os.CreateTemp(os.TempDir(), "q5-token-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := token.Name()
+	if err := token.Close(); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tokenPath)
+	if err := os.Chmod(tokenPath, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tokenPath, []byte("fixture-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	started := make(chan struct{}, 1)
+	canceled := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":`))
+		w.(http.Flusher).Flush()
+		started <- struct{}{}
+		<-r.Context().Done()
+		canceled <- struct{}{}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+	var result struct {
+		ID int `json:"id"`
+	}
+	err = nativeAPIContext(ctx, nativeST09Config{FountainURL: server.URL, TokenFile: tokenPath}, tokenPath,
+		http.MethodGet, "/stall", nil, &result)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("stalled request error = %v, want deadline exceeded", err)
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("local HTTP handler did not receive request")
+	}
+	select {
+	case <-canceled:
+	case <-time.After(time.Second):
+		t.Fatal("local HTTP handler did not observe request cancellation")
 	}
 }
