@@ -64,9 +64,9 @@ fn run() -> i32 {
                 eprintln!("container name required");
                 return 2;
             }
-            // `exec podman rm -f`: stdout discarded, status propagated.
+            // Remove the container and its anonymous fixture volumes.
             match Command::new("podman")
-                .args(["rm", "-f", name])
+                .args(["rm", "-f", "-v", name])
                 .stdout(Stdio::null())
                 .status()
             {
@@ -304,10 +304,10 @@ fn first_port(output: &str) -> String {
     }
 }
 
-/// The EXIT trap after a successful `podman run`: best-effort `rm -f`.
+/// The EXIT trap after a successful `podman run`: best-effort container and anonymous-volume cleanup.
 fn cleanup(name: &str) {
     let _ = Command::new("podman")
-        .args(["rm", "-f", name])
+        .args(["rm", "-f", "-v", name])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
