@@ -10,26 +10,11 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-func correctionRun(t *testing.T, fx *publishFixture, a factory.Assignment) factory.Run {
+func correctionRun(t *testing.T, fx *publishFixture, a factory.Assignment, candidate string) factory.Run {
 	t.Helper()
-	now := time.Now().Truncate(time.Second)
-	run := factory.Run{
-		ID: factory.NewID(), ProjectID: a.ProjectID, Role: project.RoleCoder, InputSHA: a.SourceCommit,
-		Started: now.Add(-time.Minute), Deadline: now.Add(time.Hour),
-		Image: "sha256:" + strings.Repeat("c", 64), Harness: a.Harness, Model: a.Model,
-	}
-	if err := fx.db.RecordFactoryRun(context.Background(), run); err != nil {
-		t.Fatal(err)
-	}
-	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "correction finished", true
-	if err := fx.db.SaveFactoryRun(context.Background(), run); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := fx.db.RecordFactoryRunView(context.Background(), factory.RunView{
-		RunID: run.ID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	publication := fx.publication(t, a)
+	_, run := fx.childRun(t, a, publication, project.RoleCoder, publication.Candidate, a.Preparation, true)
+	accountChildResult(t, fx, run, correctionOutput(candidate))
 	return run
 }
 
@@ -44,9 +29,33 @@ func TestPublishCorrectionAdvancesHead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := correctionRun(t, fx, a)
 	candidate := strings.Repeat("d", 40)
-	report := fx.coord.PublishCorrection(ctx, a.ID, run.ID, correctionOutput(candidate))
+	run := correctionRun(t, fx, a, candidate)
+	child, err := fx.db.AssignmentByRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queued, err := fx.db.PublishableAssignments(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, assignment := range queued {
+		if assignment.ID == child.ID {
+			t.Fatalf("correction child was nominated as a new publication owner: %+v", child)
+		}
+	}
+	pass := fx.coord.PublishPass(ctx)
+	if len(pass.Errors) != 0 {
+		t.Fatalf("publication pass after correction result: %+v", pass)
+	}
+	if _, err := fx.db.PublicationByAssignment(ctx, child.ID); err == nil {
+		t.Fatal("publication pass created a separate child publication")
+	}
+	linked, err := fx.db.PublicationByAssignment(ctx, a.ID)
+	if err != nil || linked.ID != p.ID || linked.PRID != p.PRID || linked.PRNumber != p.PRNumber {
+		t.Fatalf("child pass changed the parent's linked PR: %+v %v", linked, err)
+	}
+	report := fx.coord.PublishCorrection(ctx, run.ID)
 	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Corrected) != 1 {
 		t.Fatalf("correction report: %+v", report)
 	}
@@ -75,11 +84,15 @@ func TestPublishCorrectionAdvancesHead(t *testing.T) {
 		op.Work.CorrectionNumber != p.PRNumber {
 		t.Fatalf("correction op: %+v", op)
 	}
+	work := fx.exec.pushes[len(fx.exec.pushes)-1]
+	if work.AssignmentID != a.ID || work.Publication != p.ID || work.RunID != run.ID {
+		t.Fatalf("correction work lost its parent authority or child run: %+v", work)
+	}
 	if err := after.Validate(); err != nil {
 		t.Fatalf("corrected publication invalid: %v", err)
 	}
 	// The same run never opens a second correction identity.
-	replay := fx.coord.PublishCorrection(ctx, a.ID, run.ID, correctionOutput(candidate))
+	replay := fx.coord.PublishCorrection(ctx, run.ID)
 	if len(replay.Corrected) != 0 || len(replay.Waits) != 1 || replay.Waits[0].Reason != "correction_recorded" {
 		t.Fatalf("correction replay: %+v", replay)
 	}
@@ -92,12 +105,15 @@ func TestPublishCorrectionRefusesWithoutChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := correctionRun(t, fx, a)
+	run := correctionRun(t, fx, a, p.Candidate)
 	// The unchanged head is not a correction.
-	same := fx.coord.PublishCorrection(ctx, a.ID, run.ID, correctionOutput(p.Candidate))
+	same := fx.coord.PublishCorrection(ctx, run.ID)
 	if len(same.Corrected) != 0 || len(same.Waits) != 1 || same.Waits[0].Reason != "candidate_invalid" {
 		t.Fatalf("unchanged head: %+v", same)
 	}
+	native := fx.exec
+	observes, submits, pushes := len(native.observes), len(native.submits), len(native.pushes)
+	creates, exports := len(native.creates), len(fx.host.exports)
 	// An unlinked run cannot correct the publication: a fresh run
 	// without a view carries no assignment linkage.
 	bare := factory.Run{
@@ -112,9 +128,13 @@ func TestPublishCorrectionRefusesWithoutChange(t *testing.T) {
 	if err := fx.db.SaveFactoryRun(ctx, bare); err != nil {
 		t.Fatal(err)
 	}
-	unlinked := fx.coord.PublishCorrection(ctx, a.ID, bare.ID, correctionOutput(strings.Repeat("e", 40)))
+	unlinked := fx.coord.PublishCorrection(ctx, bare.ID)
 	if len(unlinked.Corrected) != 0 || len(unlinked.Waits) != 1 || unlinked.Waits[0].Reason != "run_unlinked" {
 		t.Fatalf("unlinked run: %+v", unlinked)
+	}
+	if len(native.observes) != observes || len(native.submits) != submits || len(native.pushes) != pushes ||
+		len(native.creates) != creates || len(fx.host.exports) != exports {
+		t.Fatalf("unlinked correction reached native operations: publisher=%+v exports=%+v", native, fx.host.exports)
 	}
 	if len(fx.dbMustPublication(t, a.ID).Corrections) != 0 {
 		t.Fatal("refused corrections polluted the record")

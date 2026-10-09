@@ -387,6 +387,7 @@ func (s *Store) PublishableAssignments(ctx context.Context, limit int) ([]factor
 		LEFT JOIN factory_publications p ON p.assignment=a.id
 		WHERE a.stage='finished' AND p.assignment IS NULL
 		AND a.data->>'role'='soda-coder'
+		AND a.data->>'publication_assignment'=a.id
 		AND a.data->>'outcome'='succeeded'
 		AND (a.data#>>'{result,reported}')::boolean
 		AND a.data#>>'{result,status}'='completed'

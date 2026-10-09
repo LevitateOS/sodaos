@@ -146,6 +146,62 @@ func TestAssignmentResultExtendsRetainedValidation(t *testing.T) {
 	}
 }
 
+func TestAssignmentResultBindsReviewerReportToRoleAndCandidate(t *testing.T) {
+	prompt := testPrompt(t)
+	assignment := testAssignment(prompt)
+	assignment.Role = project.RoleReviewer
+	report := ReviewReport{Verdict: "request-changes", Summary: "Needs a fix", Body: "Handle the empty input.", Findings: []string{"empty input panics"}}
+	result := AssignmentResult{
+		AssignmentID: assignment.ID, RunID: assignment.Run, Status: "completed", Summary: report.Summary,
+		Candidate: assignment.SourceCommit, Findings: []string{}, Review: &report,
+		Reported: true, RecordedUnix: 1700000000,
+	}
+	if err := result.ValidateForAssignment(project.RoleReviewer, assignment.SourceCommit); err != nil {
+		t.Fatalf("reviewer result refused: %v", err)
+	}
+	assignment.Stage, assignment.Outcome, assignment.Reason = AssignmentFinished, Succeeded, AssignReasonReported
+	assignment.FinishedUnix, assignment.Result = result.RecordedUnix, &result
+	assignment.RunHistory = []string{assignment.Run}
+	if err := assignment.Validate(); err != nil {
+		t.Fatalf("finished reviewer assignment refused: %v", err)
+	}
+
+	if err := result.ValidateForAssignment(project.RoleCoder, assignment.SourceCommit); err == nil {
+		t.Fatal("coder assignment accepted reviewer evidence")
+	}
+	missing := result
+	missing.Review = nil
+	if err := missing.ValidateForAssignment(project.RoleReviewer, assignment.SourceCommit); err == nil {
+		t.Fatal("reported reviewer result without its report accepted")
+	}
+	wrongCandidate := result
+	wrongCandidate.Candidate = strings.Repeat("f", 40)
+	if err := wrongCandidate.ValidateForAssignment(project.RoleReviewer, assignment.SourceCommit); err == nil {
+		t.Fatal("reviewer report for a different candidate accepted")
+	}
+
+	wrongSummary := result
+	wrongSummary.Summary = "different from retained review"
+	if err := wrongSummary.ValidateForAssignment(project.RoleReviewer, assignment.SourceCommit); err == nil {
+		t.Fatal("reviewer result with a duplicate summary mismatch accepted")
+	}
+
+	for name, mutate := range map[string]func(*AssignmentResult){
+		"completed synthesized":   func(r *AssignmentResult) { r.Status = "completed" },
+		"candidate synthesized":   func(r *AssignmentResult) { r.Candidate = assignment.SourceCommit },
+		"review flag synthesized": func(r *AssignmentResult) { r.ReviewPassed = true },
+		"findings synthesized":    func(r *AssignmentResult) { r.Findings = []string{"coder finding"} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			synthesized := ResultSynthesized(assignment.ID, assignment.Run, "blocked", "run did not report", 1700000000)
+			mutate(&synthesized)
+			if err := synthesized.ValidateForAssignment(project.RoleReviewer, assignment.SourceCommit); err == nil {
+				t.Fatal("synthesized reviewer result carrying outcome evidence accepted")
+			}
+		})
+	}
+}
+
 func TestParseHarnessResult(t *testing.T) {
 	candidate := strings.Repeat("f", 40)
 	output := "working...\n```result-json\n" +

@@ -155,7 +155,7 @@ func (a Assignment) Validate() error {
 		if !validOutcome(a.Outcome) || a.Outcome == "" || !validAssignReason(a.Reason) || a.FinishedUnix <= 0 {
 			return errors.New("finished assignment lacks its outcome")
 		}
-		if a.Result == nil || a.Result.Validate() != nil {
+		if a.Result == nil || a.Result.ValidateForAssignment(a.Role, a.SourceCommit) != nil {
 			return errors.New("finished assignment lacks its recorded result")
 		}
 		if a.Result.AssignmentID != a.ID || a.Result.RunID != a.Run {

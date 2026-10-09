@@ -103,7 +103,7 @@ func (c *Coordinator) progressAfterPublish(ctx context.Context, assignmentID str
 // head it started from, carried in its recorded input; a correction that
 // landed first makes the verdict stale, never submitted. While no
 // reviewer is wired, submission reports unavailable instead of guessing.
-func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID, output string) (factory.ReviewOutcome, error) {
+func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (factory.ReviewOutcome, error) {
 	var empty factory.ReviewOutcome
 	if c.Reviews == nil {
 		return empty, errors.New("review submission unavailable")
@@ -118,11 +118,11 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID, output stri
 	if !run.Reconciled {
 		return empty, errors.New("review run is not settled")
 	}
-	view, err := c.Store.FactoryRunView(ctx, runID)
+	assignment, owner, err := c.publicationAssignmentsForRun(ctx, run)
 	if err != nil {
 		return empty, err
 	}
-	p, err := c.Store.PublicationByAssignment(ctx, view.Attempt)
+	p, err := c.Store.PublicationByAssignment(ctx, owner.ID)
 	if err != nil {
 		return empty, err
 	}
@@ -178,10 +178,11 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID, output stri
 	if head != p.Candidate {
 		return empty, errors.New("review head superseded by a correction")
 	}
-	report, ok := factory.ParseReviewReport(output)
-	if !ok {
-		return empty, errors.New("review report unparseable")
+	if assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded ||
+		assignment.Result == nil || !assignment.Result.Reported || assignment.Result.Review == nil {
+		return empty, errors.New("review lacks its recorded report")
 	}
+	report := *assignment.Result.Review
 	policy, err := c.Store.RepositoryPolicy(ctx, p.Repository)
 	if err != nil {
 		return empty, err
@@ -195,7 +196,7 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID, output stri
 		body = report.Summary
 	}
 	w := factory.ReviewWork{
-		OperationID: "review-" + run.ID, AuthRevision: factory.ReviewAuthRevision(view.Attempt, run.ID),
+		OperationID: "review-" + run.ID, AuthRevision: factory.ReviewAuthRevision(owner.ID, run.ID),
 		Repository: p.Repository, ActorID: policy.Review.ActorID,
 		PRNumber: p.PRNumber, PRID: p.PRID, IssueID: p.PRCreate.IssueID, PRAuthorID: p.PRCreate.Work.ActorID,
 		HeadRef: p.PRCreate.HeadRef, BaseRef: p.PRCreate.BaseRef, HeadOID: head, BaseOID: p.PRCreate.BaseOID,
@@ -307,44 +308,65 @@ func (c *Coordinator) reconcileRecordedReviews(ctx context.Context, p *factory.P
 	}
 }
 
-// correctAfterSettle advances one completed coder run beyond its
-// assignment's finishing one as a correction to the same PR. The
-// finishing run published above; later runs never reach accounting
-// because the assignment already finished, so this path finds them
-// through their recorded run view. Best effort: waits and errors stay
-// in the correction report for the next trigger; the settled run above
-// already recorded.
-func (c *Coordinator) correctAfterSettle(ctx context.Context, run factory.Run, output string) {
+// publicationAssignmentsForRun resolves the run's own assignment and the
+// coder assignment that owns its publication. Both scopes remain immutable;
+// the native operation uses the publication owner while usage belongs to the run.
+func (c *Coordinator) publicationAssignmentsForRun(ctx context.Context, run factory.Run) (factory.Assignment, factory.Assignment, error) {
+	view, err := c.Store.FactoryRunView(ctx, run.ID)
+	if err != nil {
+		return factory.Assignment{}, factory.Assignment{}, err
+	}
+	assignment, err := c.Store.Assignment(ctx, view.Attempt)
+	if err != nil {
+		return factory.Assignment{}, factory.Assignment{}, err
+	}
+	if assignment.Validate() != nil || assignment.Run != run.ID || assignment.ProjectID != run.ProjectID ||
+		assignment.Role != run.Role || assignment.SourceCommit != run.InputSHA ||
+		assignment.Repository != view.Repository || assignment.Issue != view.Issue {
+		return factory.Assignment{}, factory.Assignment{}, errors.New("run differs from its recorded assignment")
+	}
+	owner := assignment
+	if assignment.PublicationAssignment != assignment.ID {
+		owner, err = c.Store.Assignment(ctx, assignment.PublicationAssignment)
+		if err != nil {
+			return factory.Assignment{}, factory.Assignment{}, err
+		}
+	}
+	if owner.Validate() != nil || owner.PublicationAssignment != owner.ID || owner.Role != project.RoleCoder ||
+		owner.Repository != assignment.Repository || owner.Issue != assignment.Issue ||
+		owner.ProjectID != assignment.ProjectID || owner.Acceptance != assignment.Acceptance ||
+		owner.AttemptRoot != assignment.AttemptRoot ||
+		(assignment.Role == project.RoleCoder && assignment.Preparation != owner.Preparation) {
+		return factory.Assignment{}, factory.Assignment{}, errors.New("assignment differs from its publication owner")
+	}
+	return assignment, owner, nil
+}
+
+// correctAfterSettle advances a completed correction child through the existing
+// publication's conditional branch operation. Its stored result supplies the
+// candidate, and the child retains its own usage and reservation identity.
+func (c *Coordinator) correctAfterSettle(ctx context.Context, run factory.Run) {
 	if c.Publication == nil || run.Role != project.RoleCoder || run.Outcome != factory.Succeeded {
 		return
 	}
-	view, err := c.Store.FactoryRunView(ctx, run.ID)
-	if err != nil {
+	assignment, owner, err := c.publicationAssignmentsForRun(ctx, run)
+	if err != nil || assignment.ID == owner.ID || assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded {
 		return
 	}
-	a, err := c.Store.Assignment(ctx, view.Attempt)
-	if err != nil || a.Stage != factory.AssignmentFinished || a.Run == run.ID {
-		return
-	}
-	if _, err := c.Store.PublicationByAssignment(ctx, a.ID); err != nil {
-		return
-	}
-	c.PublishCorrection(ctx, a.ID, run.ID, output)
-	c.progressAfterPublish(ctx, a.ID)
+	c.PublishCorrection(ctx, run.ID)
+	c.progressAfterPublish(ctx, owner.ID)
 }
 
-// reviewAfterSettle submits a settled reviewer run's verdict and advances
-// its publication toward merge. Best effort like the coder publish path:
-// failures wait for an explicit submission; the settled run above already
-// recorded.
-func (c *Coordinator) reviewAfterSettle(ctx context.Context, run factory.Run, output string) {
+// reviewAfterSettle submits the reviewer child's recorded verdict through the
+// separate reviewer actor, then reconsiders its parent publication for merge.
+func (c *Coordinator) reviewAfterSettle(ctx context.Context, run factory.Run) {
 	if c.Reviews == nil || run.Role != project.RoleReviewer {
 		return
 	}
-	if _, err := c.SubmitReviewForRun(ctx, run.ID, output); err != nil {
+	if _, err := c.SubmitReviewForRun(ctx, run.ID); err != nil {
 		return
 	}
-	if view, err := c.Store.FactoryRunView(ctx, run.ID); err == nil {
-		c.progressAfterPublish(ctx, view.Attempt)
+	if _, owner, err := c.publicationAssignmentsForRun(ctx, run); err == nil {
+		c.progressAfterPublish(ctx, owner.ID)
 	}
 }

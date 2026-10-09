@@ -15,15 +15,16 @@ import (
 // syntax-checked only; publication validates it against fresh native
 // observations before use.
 type AssignmentResult struct {
-	AssignmentID string   `json:"assignment_id"`
-	RunID        string   `json:"run_id"`
-	Status       string   `json:"status"`
-	Summary      string   `json:"summary"`
-	Candidate    string   `json:"candidate"`
-	Findings     []string `json:"findings"`
-	ReviewPassed bool     `json:"review_passed"`
-	Reported     bool     `json:"reported"`
-	RecordedUnix int64    `json:"recorded_unix"`
+	Review       *ReviewReport `json:"review,omitempty"`
+	AssignmentID string        `json:"assignment_id"`
+	RunID        string        `json:"run_id"`
+	Status       string        `json:"status"`
+	Summary      string        `json:"summary"`
+	Candidate    string        `json:"candidate"`
+	Findings     []string      `json:"findings"`
+	ReviewPassed bool          `json:"review_passed"`
+	Reported     bool          `json:"reported"`
+	RecordedUnix int64         `json:"recorded_unix"`
 }
 
 // Validate extends Result validation with the dispatch binding.
@@ -34,10 +35,38 @@ func (r AssignmentResult) Validate() error {
 	if r.RecordedUnix <= 0 {
 		return errors.New("invalid result record time")
 	}
+	if r.Review != nil {
+		if err := r.Review.Validate(); err != nil {
+			return err
+		}
+	}
 	return Result{
 		Status: r.Status, Summary: r.Summary, Candidate: r.Candidate,
 		ReviewPassed: r.ReviewPassed, Findings: r.Findings,
 	}.Validate()
+}
+
+// ValidateForAssignment enforces the role-specific result contract. A
+// reviewer report is retained only for reviewer assignments and is bound to
+// the exact candidate the assignment reviewed.
+func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
+	if role == project.RoleReviewer {
+		if r.Reported {
+			if r.Review == nil || r.Status != "completed" || r.Candidate != sourceCommit || r.ReviewPassed || len(r.Findings) != 0 || r.Summary != r.Review.Summary {
+				return errors.New("reported reviewer result does not match its candidate")
+			}
+		} else if r.Review != nil || r.Status == "completed" || r.Candidate != "" || r.ReviewPassed || len(r.Findings) != 0 {
+			return errors.New("synthesized reviewer result carries report evidence")
+		}
+		return nil
+	}
+	if r.Review != nil {
+		return errors.New("non-reviewer result carries a review report")
+	}
+	return nil
 }
 
 // ToResult returns the retained harness result shape.

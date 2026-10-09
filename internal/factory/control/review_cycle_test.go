@@ -173,7 +173,7 @@ func (f *fakeReviewer) AdoptReview(w factory.ReviewWork, outcome factory.Operati
 	return adopted, nil
 }
 
-func reviewRunSeed(t *testing.T, head string) (*publishFixture, factory.Assignment, factory.Publication, factory.Run) {
+func reviewRunSeed(t *testing.T, settled bool) (*publishFixture, factory.Assignment, factory.Publication, factory.Run) {
 	t.Helper()
 	ctx := context.Background()
 	fx := publishSeed(t)
@@ -185,6 +185,14 @@ func reviewRunSeed(t *testing.T, head string) (*publishFixture, factory.Assignme
 	if err := fx.db.SaveRepositoryPolicy(ctx, policy); err != nil {
 		t.Fatal(err)
 	}
+	sponsorship, err := fx.db.Sponsorship(ctx, fx.seed.repo, "conn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sponsorship.Roles = append(sponsorship.Roles, project.RoleReviewer)
+	if err := fx.db.SaveSponsorship(ctx, sponsorship); err != nil {
+		t.Fatal(err)
+	}
 	a := fx.finishReported(t, 14)
 	fx.wire(happyPublisher())
 	fx.pass(t)
@@ -192,40 +200,21 @@ func reviewRunSeed(t *testing.T, head string) (*publishFixture, factory.Assignme
 	if err != nil {
 		t.Fatal(err)
 	}
-	if head == "" {
-		head = p.Candidate
-	}
-	now := time.Now().Truncate(time.Second)
-	run := factory.Run{
-		ID: factory.NewID(), ProjectID: a.ProjectID, Role: project.RoleReviewer, InputSHA: head,
-		Started: now, Deadline: now.Add(30 * time.Minute),
-		Image: "sha256:" + strings.Repeat("b", 64), Harness: "codex-1.2.3", Model: "m",
-	}
-	if err := fx.db.RecordFactoryRun(ctx, run); err != nil {
-		t.Fatal(err)
-	}
-	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "review finished", true
-	if err := fx.db.SaveFactoryRun(ctx, run); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := fx.db.RecordFactoryRunView(ctx, factory.RunView{
-		RunID: run.ID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	_, run := fx.childRun(t, a, p, project.RoleReviewer, p.Candidate, "f222222222222222222222222", settled)
 	return fx, a, p, run
 }
 
 func TestSubmitReviewForRunUnavailable(t *testing.T) {
-	fx, _, _, run := reviewRunSeed(t, "")
+	fx, _, _, run := reviewRunSeed(t, true)
+	accountChildResult(t, fx, run, "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```")
 	fx.coord.Reviews = nil
-	if _, err := fx.coord.SubmitReviewForRun(context.Background(), run.ID, "output"); err == nil {
+	if _, err := fx.coord.SubmitReviewForRun(context.Background(), run.ID); err == nil {
 		t.Fatal("unwired review submission succeeded")
 	}
 }
 
 func TestSubmitReviewForRunSubmitsExactHead(t *testing.T) {
-	fx, a, p, run := reviewRunSeed(t, "")
+	fx, a, p, run := reviewRunSeed(t, true)
 	exec := &fakeReviewer{
 		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
 		outcome:  committedOutcome(`{"review_id":3}`),
@@ -240,7 +229,8 @@ func TestSubmitReviewForRunSubmitsExactHead(t *testing.T) {
 	}
 	fx.coord.Reviews = exec
 	output := "notes\n```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
-	adopted, err := fx.coord.SubmitReviewForRun(context.Background(), run.ID, output)
+	accountChildResult(t, fx, run, output)
+	adopted, err := fx.coord.SubmitReviewForRun(context.Background(), run.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +255,7 @@ func TestSubmitReviewForRunSubmitsExactHead(t *testing.T) {
 
 func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
 	ctx := context.Background()
-	fx, a, p, run := reviewRunSeed(t, "")
+	fx, a, p, run := reviewRunSeed(t, true)
 	exec := &fakeReviewer{
 		observed:  factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
 		outcome:   committedOutcome(`{"review_id":3}`),
@@ -274,7 +264,8 @@ func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
 	}
 	fx.coord.Reviews = exec
 	output := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
-	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID, output); err == nil {
+	accountChildResult(t, fx, run, output)
+	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID); err == nil {
 		t.Fatal("lost review response was reported as complete")
 	}
 	stored, err := fx.db.PublicationByAssignment(ctx, a.ID)
@@ -323,9 +314,9 @@ func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
 		}
 	}
 
-	correction := correctionRun(t, fx, a)
 	candidate := strings.Repeat("d", 40)
-	report := fx.coord.PublishCorrection(ctx, a.ID, correction.ID, correctionOutput(candidate))
+	correction := correctionRun(t, fx, a, candidate)
+	report := fx.coord.PublishCorrection(ctx, correction.ID)
 	if len(report.Corrected) != 1 || report.Corrected[0].HeadOID != candidate {
 		t.Fatalf("correction did not advance published head: %+v", report)
 	}
@@ -339,7 +330,7 @@ func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
 	}
 	exec.observed.NativeRev = 19
 	exec.submitErr = nil
-	adopted, err := fx.coord.SubmitReviewForRun(ctx, run.ID, "malformed output must not replace saved work")
+	adopted, err := fx.coord.SubmitReviewForRun(ctx, run.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +361,7 @@ func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
 
 func TestWithdrawalCancelsRecordedReviewOperation(t *testing.T) {
 	ctx := context.Background()
-	fx, a, p, run := reviewRunSeed(t, "")
+	fx, a, p, run := reviewRunSeed(t, true)
 	exec := &fakeReviewer{
 		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
 		outcome:  pendingOutcome(),
@@ -378,7 +369,8 @@ func TestWithdrawalCancelsRecordedReviewOperation(t *testing.T) {
 	}
 	fx.coord.Reviews = exec
 	output := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
-	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID, output); err == nil {
+	accountChildResult(t, fx, run, output)
+	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID); err == nil {
 		t.Fatal("pending review incorrectly reported complete")
 	}
 	if _, err := fx.db.WithdrawDispatch(ctx, a.Repository, "pause", "operator"); err != nil {
@@ -406,11 +398,18 @@ func TestWithdrawalCancelsRecordedReviewOperation(t *testing.T) {
 }
 
 func TestSubmitReviewForRunRefusesStaleHead(t *testing.T) {
-	fx, _, p, run := reviewRunSeed(t, strings.Repeat("9", 40))
+	fx, a, p, run := reviewRunSeed(t, true)
 	exec := &fakeReviewer{}
 	fx.coord.Reviews = exec
 	output := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"s\",\"body\":\"b\",\"findings\":[]}\n```"
-	if _, err := fx.coord.SubmitReviewForRun(context.Background(), run.ID, output); err == nil {
+	accountChildResult(t, fx, run, output)
+	replacement := strings.Repeat("9", 40)
+	correction := correctionRun(t, fx, a, replacement)
+	advanced := fx.coord.PublishCorrection(context.Background(), correction.ID)
+	if len(advanced.Corrected) != 1 {
+		t.Fatalf("advance published head before stale review: %+v", advanced)
+	}
+	if _, err := fx.coord.SubmitReviewForRun(context.Background(), run.ID); err == nil {
 		t.Fatal("stale review submitted")
 	}
 	if len(exec.works) != 0 {
@@ -421,14 +420,15 @@ func TestSubmitReviewForRunRefusesStaleHead(t *testing.T) {
 
 func TestReviewRegistrationRefusesClosedDispatchBeforeSubmit(t *testing.T) {
 	ctx := context.Background()
-	fx, a, _, run := reviewRunSeed(t, "")
+	fx, a, _, run := reviewRunSeed(t, true)
 	if err := store.CloseDispatchAfterReviewRegistration(ctx, fx.dsn); err != nil {
 		t.Fatal("install isolated post-registration gate trigger")
 	}
 	exec := &fakeReviewer{observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()}}
 	fx.coord.Reviews = exec
 	output := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"LGTM\",\"findings\":[]}\n```"
-	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID, output); err == nil {
+	accountChildResult(t, fx, run, output)
+	if _, err := fx.coord.SubmitReviewForRun(ctx, run.ID); err == nil {
 		t.Fatal("review submitted after dispatch closed at the registration boundary")
 	}
 	if len(exec.submitted) != 0 {
@@ -449,21 +449,7 @@ func TestReviewRegistrationRefusesClosedDispatchBeforeSubmit(t *testing.T) {
 
 func TestStopSubmitsSettledReview(t *testing.T) {
 	ctx := context.Background()
-	fx, a, p, _ := reviewRunSeed(t, "")
-	now := time.Now().Truncate(time.Second)
-	run := factory.Run{
-		ID: factory.NewID(), ProjectID: a.ProjectID, Role: project.RoleReviewer, InputSHA: p.Candidate,
-		Started: now, Deadline: now.Add(30 * time.Minute),
-		Image: "sha256:" + strings.Repeat("b", 64), Harness: "codex-1.2.3", Model: "m",
-	}
-	if err := fx.db.RecordFactoryRun(ctx, run); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := fx.db.RecordFactoryRunView(ctx, factory.RunView{
-		RunID: run.ID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	fx, _, p, run := reviewRunSeed(t, false)
 	output := "notes\n```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"line 3 is wrong\",\"findings\":[\"line 3\"]}\n```"
 	host := &stubHost{}
 	broker := &stubBroker{}

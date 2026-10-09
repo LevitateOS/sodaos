@@ -106,7 +106,7 @@ func publicationWait(report *PublishReport, id, reason string) {
 }
 
 func (c *Coordinator) publishAfterSettle(ctx context.Context, a factory.Assignment) {
-	if c.Publication == nil || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" {
+	if c.Publication == nil || a.PublicationAssignment != a.ID || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" {
 		return
 	}
 	report := PublishReport{Published: []PublishLink{}}
@@ -115,7 +115,7 @@ func (c *Coordinator) publishAfterSettle(ctx context.Context, a factory.Assignme
 }
 
 func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, report *PublishReport) {
-	if a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" || !factory.ValidCommit(a.Result.Candidate) {
+	if a.PublicationAssignment != a.ID || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" || !factory.ValidCommit(a.Result.Candidate) {
 		return
 	}
 	if _, err := c.Store.PublicationByAssignment(ctx, a.ID); err == nil {

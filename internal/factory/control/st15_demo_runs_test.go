@@ -219,9 +219,9 @@ func (fx *st15Fixture) reviewPrompt(issueTitle, issueBody, answer, head, base st
 
 // submitReview submits one settled reviewer run's genuine verdict through
 // the production review path and returns the adopted outcome and event.
-func (fx *st15Fixture) submitReview(runID, output string) (factory.ReviewOutcome, string) {
+func (fx *st15Fixture) submitReview(runID string) (factory.ReviewOutcome, string) {
 	fx.t.Helper()
-	adopted, err := fx.coord.SubmitReviewForRun(fx.ctx, runID, output)
+	adopted, err := fx.coord.SubmitReviewForRun(fx.ctx, runID)
 	if err != nil {
 		fx.t.Fatalf("ST15 review submit: %v", err)
 	}

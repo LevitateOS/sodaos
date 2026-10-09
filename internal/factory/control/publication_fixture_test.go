@@ -243,6 +243,76 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	return a
 }
 
+// childRun admits a publication child through the same atomic dispatch packet
+// path used by production. Native execution remains the caller's explicit stub.
+func (fx *publishFixture) childRun(t *testing.T, parent factory.Assignment, publication factory.Publication, role, source, preparation string, settled bool) (factory.Assignment, factory.Run) {
+	t.Helper()
+	ctx := context.Background()
+	if publication.AssignmentID != parent.ID || publication.Stage != factory.PublicationPublished || publication.Candidate != source {
+		t.Fatalf("child fixture must use the current published candidate: publication=%+v source=%q", publication, source)
+	}
+	authority, err := fx.coord.EffectiveAuthority(ctx, parent.Repository)
+	if err != nil || !authority.Effective {
+		t.Fatalf("child fixture authority: %+v %v", authority, err)
+	}
+	a := factory.Assignment{
+		Authority: authority.Authority,
+		ID:        factory.NewID(), AttemptRoot: parent.AttemptRoot, PublicationAssignment: parent.ID,
+		ProjectID: parent.ProjectID, Role: role, Repository: parent.Repository, Issue: parent.Issue,
+		NativeRev: parent.NativeRev, Acceptance: parent.Acceptance, Preparation: preparation,
+		Harness: parent.Harness, HarnessVers: parent.HarnessVers, Model: parent.Model,
+		Connection: parent.Connection, SourceCommit: source,
+		Prompt: []byte("child prompt"), PromptSHA: dispatchDigest("child prompt"),
+		Run: factory.NewID(), RunHistory: []string{}, Stage: factory.AssignmentAssigned,
+		Attempts: 1, CreatedUnix: time.Now().Unix(),
+	}
+	a.Authority.RequirementsID, err = fx.db.RequirementHead(ctx, a.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Authority.ApprovalID, err = fx.db.ApprovalHead(ctx, a.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.RunHistory = []string{a.Run}
+	now := time.Now().Truncate(time.Second)
+	r := factory.Run{
+		ID: a.Run, ProjectID: a.ProjectID, Role: role, InputSHA: source,
+		Started: now, Deadline: now.Add(30 * time.Minute),
+		Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model,
+	}
+	reservation := factory.Reservation{
+		AssignmentID: a.ID, Repository: a.Repository, Connection: a.Connection,
+		State: factory.ReservationHeld, PlannedMinutes: 30,
+	}
+	view := factory.RunView{RunID: r.ID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
+	registration := factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}
+	if err := fx.db.RecordDispatchPacket(ctx, registration, dispatchControlForAssignment(t, fx.db, a), a, reservation, r, view); err != nil {
+		t.Fatal(err)
+	}
+	if settled {
+		r.Outcome, r.Summary, r.Reconciled = factory.Succeeded, "child finished", true
+		if err := fx.db.SaveFactoryRun(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return a, r
+}
+
+func accountChildResult(t *testing.T, fx *publishFixture, run factory.Run, output string) factory.Assignment {
+	t.Helper()
+	ctx := context.Background()
+	a, accounted := AccountSettledRun(ctx, fx.db, run, output, time.Now())
+	if !accounted || a.Result == nil || !a.Result.Reported {
+		t.Fatalf("settled child result was not accounted: assignment=%+v accounted=%t", a, accounted)
+	}
+	usage, err := fx.db.RunUsage(ctx, run.ID)
+	if err != nil || usage.RunID != a.Run || usage.Repository != a.Repository || usage.Connection != a.Connection || a.PublicationAssignment == a.ID {
+		t.Fatalf("child usage was not recorded against its own run: assignment=%+v usage=%+v err=%v", a, usage, err)
+	}
+	return a
+}
+
 func pendingOutcome() factory.OperationOutcome {
 	return factory.OperationOutcome{Effect: factory.OpEffectPending, Cancellation: factory.OpCancelNone, Completion: factory.OpCompletionPending}
 }

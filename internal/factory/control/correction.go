@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -53,7 +54,7 @@ func correctionWait(report *CorrectionReport, id, reason string) {
 }
 
 // PublishCorrection advances one published publication to the exact head a
-// newer reconciled correction run reported for the same assignment. The
+// reconciled coder child reported for its parent publication. The
 // run output nominates the candidate; the host export attests it, and the
 // conditional branch operation commits it to the same branch and PR. One
 // correction identity per run: a finished correction for a run never
@@ -61,27 +62,36 @@ func correctionWait(report *CorrectionReport, id, reason string) {
 // identity. The initial publication receipts stay untouched; corrections
 // chain behind them. The stored head always follows the latest committed
 // correction, so every store point satisfies publication validation.
-func (c *Coordinator) PublishCorrection(ctx context.Context, assignmentID, runID, output string) CorrectionReport {
+func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) CorrectionReport {
 	report := CorrectionReport{Corrected: []CorrectionLink{}}
 	if c.Publication == nil {
-		correctionError(&report, assignmentID, "operations_unavailable")
+		correctionError(&report, runID, "operations_unavailable")
 		return report
 	}
-	a, err := c.Store.Assignment(ctx, assignmentID)
+	run, err := c.Store.FactoryRun(ctx, runID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			correctionWait(&report, assignmentID, "assignment_missing")
+			correctionWait(&report, runID, "run_missing")
 		} else {
-			correctionError(&report, assignmentID, "store_unavailable")
+			correctionError(&report, runID, "store_unavailable")
 		}
 		return report
 	}
-	p, err := c.Store.PublicationByAssignment(ctx, assignmentID)
+	if !run.Reconciled {
+		correctionWait(&report, runID, "run_unsettled")
+		return report
+	}
+	assignment, a, err := c.publicationAssignmentsForRun(ctx, run)
+	if err != nil || assignment.ID == a.ID || assignment.Role != project.RoleCoder {
+		correctionWait(&report, runID, "run_unlinked")
+		return report
+	}
+	p, err := c.Store.PublicationByAssignment(ctx, a.ID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			correctionWait(&report, assignmentID, "publication_missing")
+			correctionWait(&report, a.ID, "publication_missing")
 		} else {
-			correctionError(&report, assignmentID, "store_unavailable")
+			correctionError(&report, a.ID, "store_unavailable")
 		}
 		return report
 	}
@@ -89,29 +99,13 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, assignmentID, runID
 		correctionWait(&report, p.ID, "publication_unpublished")
 		return report
 	}
-	run, err := c.Store.FactoryRun(ctx, runID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			correctionWait(&report, p.ID, "run_missing")
-		} else {
-			correctionError(&report, p.ID, "store_unavailable")
-		}
-		return report
-	}
-	if !run.Reconciled {
-		correctionWait(&report, p.ID, "run_unsettled")
-		return report
-	}
-	view, err := c.Store.FactoryRunView(ctx, runID)
-	if err != nil || view.Attempt != assignmentID {
-		correctionWait(&report, p.ID, "run_unlinked")
-		return report
-	}
-	reported, ok := factory.ParseHarnessResult(output)
-	if !ok || reported.Status != "completed" || !factory.ValidCommit(reported.Candidate) {
+	if assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded ||
+		assignment.Result == nil || !assignment.Result.Reported || assignment.Result.Status != "completed" ||
+		!factory.ValidCommit(assignment.Result.Candidate) {
 		correctionWait(&report, p.ID, "candidate_invalid")
 		return report
 	}
+	reported := assignment.Result.ToResult()
 	open, _, _, err := c.Store.DispatchState(ctx, p.Repository)
 	if err != nil {
 		correctionError(&report, p.ID, "store_unavailable")
@@ -146,7 +140,7 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, assignmentID, runID
 		correctionWait(&report, p.ID, "candidate_invalid")
 		return report
 	}
-	if err := recordConfirmedUsage(ctx, c.Store, a, run, time.Now()); err != nil {
+	if err := recordConfirmedUsage(ctx, c.Store, assignment, run, time.Now()); err != nil {
 		correctionError(&report, p.ID, "store_unavailable")
 		return report
 	}

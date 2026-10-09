@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -609,6 +610,20 @@ func TestAccountSettledRunResults(t *testing.T) {
 		}
 		return run
 	}
+	setupReviewer := func(t *testing.T) (*store.Store, factory.Assignment, factory.Run) {
+		t.Helper()
+		fx, _, _, run := reviewRunSeed(t, false)
+		view, err := fx.db.FactoryRunView(ctx, run.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assignment, err := fx.db.Assignment(ctx, view.Attempt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fx.db, assignment, run
+	}
+
 	t.Run("reported candidate", func(t *testing.T) {
 		db, a, run := setup(t)
 		run = settle(t, db, run, factory.Succeeded)
@@ -666,6 +681,60 @@ func TestAccountSettledRunResults(t *testing.T) {
 		}
 		if _, ok := AccountSettledRun(ctx, db, human, "", time.Now()); ok {
 			t.Fatal("unassigned run accounted")
+		}
+	})
+	for _, tc := range []struct {
+		name, verdict, summary, body string
+	}{
+		{name: "approve", verdict: "approve", summary: "No blocking findings."},
+		{name: "request changes", verdict: "request-changes", summary: "Fix the edge case.", body: "Empty input panics."},
+	} {
+		t.Run("reviewer "+tc.name, func(t *testing.T) {
+			db, assignment, run := setupReviewer(t)
+			run = settle(t, db, run, factory.Succeeded)
+			output := "```review-json\n" +
+				`{"verdict":"` + tc.verdict + `","summary":"` + tc.summary + `","body":"` + tc.body + `","findings":[]}` + "\n```"
+			finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+			if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported || finished.Result.Review == nil {
+				t.Fatalf("reviewer result = %+v, %v", finished, ok)
+			}
+			if finished.Result.Candidate != assignment.SourceCommit || finished.Result.Review.Verdict != tc.verdict || finished.Result.Review.Body != tc.body {
+				t.Fatalf("reviewer candidate/report = %+v", finished.Result)
+			}
+			if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {
+				t.Fatalf("review reservation = %+v, %v", reservation, err)
+			}
+			if total, err := db.UsageTotal(ctx, assignment.Repository, assignment.Connection); err != nil || total < 1 {
+				t.Fatalf("review usage = %d, %v", total, err)
+			}
+			if replay, err := db.Assignment(ctx, assignment.ID); err != nil || replay.Result == nil || !reflect.DeepEqual(replay.Result.Review, finished.Result.Review) {
+				t.Fatalf("persisted reviewer result = %+v, %v", replay.Result, err)
+			}
+			if replayed, ok := AccountSettledRun(ctx, db, run, output, time.Now()); ok || replayed.Stage != "" {
+				t.Fatalf("review accounting replay = %+v, %v", replayed, ok)
+			}
+		})
+	}
+	t.Run("malformed reviewer report needs human", func(t *testing.T) {
+		db, assignment, run := setupReviewer(t)
+		run = settle(t, db, run, factory.Succeeded)
+		output := "```review-json\n{\"verdict\":\"maybe\",\"summary\":\"unclear\",\"body\":\"\",\"findings\":[]}\n```"
+		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported || finished.Result.Review != nil {
+			t.Fatalf("malformed reviewer result = %+v %v", finished, ok)
+		}
+		if reservation, err := db.Reservation(ctx, assignment.ID); err != nil || reservation.State != factory.ReservationConsumed {
+			t.Fatalf("malformed review reservation = %+v, %v", reservation, err)
+		}
+	})
+	t.Run("review fence is not a coder report", func(t *testing.T) {
+		db, _, run := setup(t)
+		run = settle(t, db, run, factory.Succeeded)
+		output := "```review-json\n" +
+			`{"verdict":"approve","summary":"approved","body":"","findings":[]}` + "\n```"
+		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+		if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported || finished.Result.Review != nil {
+			t.Fatalf("coder accepted reviewer fence: %+v %v", finished, ok)
 		}
 	})
 }

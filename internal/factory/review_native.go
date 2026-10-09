@@ -210,6 +210,14 @@ func (r ReviewReport) Validate() error {
 	if len(r.Body) > 65536 || len(r.Summary) > 4096 {
 		return errors.New("review report exceeds its bound")
 	}
+	if len(r.Findings) > 64 {
+		return errors.New("review report has too many findings")
+	}
+	for _, finding := range r.Findings {
+		if len(finding) > 4096 {
+			return errors.New("review finding is too large")
+		}
+	}
 	return nil
 }
 

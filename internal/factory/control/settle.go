@@ -303,12 +303,11 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 	}
 	// A completed run beyond its assignment's finishing one advances the
 	// same PR as a correction; the finishing run published above.
-	c.correctAfterSettle(ctx, run, state.Output)
+	c.correctAfterSettle(ctx, run)
 	// A completed reviewer run submits its genuine verdict through the
-	// separate reviewer actor. Runs without an assignment (like reviews)
-	// never reach the accounting path above.
+	// separate reviewer actor using its durably recorded role-specific result.
 	if run.Role == project.RoleReviewer && outcome == factory.Succeeded {
-		c.reviewAfterSettle(ctx, run, state.Output)
+		c.reviewAfterSettle(ctx, run)
 	}
 	receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(outcome), run.Summary
 	return receipt

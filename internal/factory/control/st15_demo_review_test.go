@@ -104,7 +104,7 @@ func (fx *st15Fixture) reviewLeg(head, prep string) (factory.ReviewOutcome, stri
 	if !ok {
 		fx.t.Fatal("ST15 review lacks its fenced report")
 	}
-	adopted, event := fx.submitReview(run.ID, output)
+	adopted, event := fx.submitReview(run.ID)
 	st15Receipt(fx.t, "review-"+head[:12], map[string]any{
 		"run": run.ID, "verdict": report.Verdict, "event": event,
 		"review": adopted.ReviewID, "summary": report.Summary, "findings": report.Findings,
@@ -203,7 +203,7 @@ func (fx *st15Fixture) correctA() error {
 	}
 	// Surface the production correction report once for the failure; when
 	// the stop already linked the head this replays as recorded.
-	report := fx.coord.PublishCorrection(fx.ctx, fx.assignA, run.ID, receipt.Reason)
+	report := fx.coord.PublishCorrection(fx.ctx, run.ID)
 	st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(receipt.Reason, 40), "report": report})
 	return fmt.Errorf("correction unpublished: %+v", report)
 }

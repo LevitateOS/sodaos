@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -55,5 +56,33 @@ func TestParseReviewReport(t *testing.T) {
 	}
 	if got := ReviewAuthRevision("a1", "r1"); got == "" || len(got) > 512 {
 		t.Fatalf("review auth revision malformed: %q", got)
+	}
+}
+
+func TestReviewReportValidationBoundsPersistedEvidence(t *testing.T) {
+	tooMany := ReviewReport{Verdict: "approve", Findings: make([]string, 65)}
+	if err := tooMany.Validate(); err == nil {
+		t.Fatal("direct reviewer evidence above the result finding-count bound accepted")
+	}
+
+	tooLarge := ReviewReport{Verdict: "approve", Findings: []string{strings.Repeat("x", 4097)}}
+	if err := tooLarge.Validate(); err == nil {
+		t.Fatal("direct reviewer evidence above the result finding-size bound accepted")
+	}
+
+	encoded, err := json.Marshal(tooLarge)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := ParseReviewReport("```review-json\n" + string(encoded) + "\n```"); ok {
+		t.Fatal("parser accepted reviewer output beyond persisted finding bounds")
+	}
+
+	withinBounds := ReviewReport{Verdict: "request-changes", Summary: strings.Repeat("s", 4096), Body: "finding body", Findings: make([]string, 64)}
+	for i := range withinBounds.Findings {
+		withinBounds.Findings[i] = strings.Repeat("f", 4096)
+	}
+	if err := withinBounds.Validate(); err != nil {
+		t.Fatalf("review evidence at existing result bounds refused: %v", err)
 	}
 }
