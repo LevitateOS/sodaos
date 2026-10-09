@@ -3,11 +3,11 @@
 // drift test below re-extracts the Go literals at test time and
 // fails on any difference, so a Go schema change forces a
 // regeneration of this file in the same patch.
-pub const SCHEMA_VERSION: i64 = 36;
+pub const SCHEMA_VERSION: i64 = 37;
 
 pub const STATEMENTS: &[&str] = &[
     r#"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"#,
-    r#"INSERT INTO schema_version(version) VALUES(36)"#,
+    r#"INSERT INTO schema_version(version) VALUES(37)"#,
     r#"CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')"#,
     r#"CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))"#,
     r#"CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))"#,
@@ -55,6 +55,21 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')"#,
     r#"CREATE TABLE factory_check_assessments(repository INTEGER NOT NULL CHECK(repository>0), pr INTEGER NOT NULL CHECK(pr>0), revision INTEGER NOT NULL, data JSONB NOT NULL, PRIMARY KEY(repository,pr))"#,
     r#"CREATE TABLE factory_merges(seq BIGINT GENERATED ALWAYS AS IDENTITY, publication TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), pr INTEGER NOT NULL CHECK(pr>0), stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_readiness_sweeps(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL CHECK(revision>0), swept_at INTEGER NOT NULL)"#,
+    r#"CREATE TABLE factory_readiness_budget(id INTEGER PRIMARY KEY CHECK(id=1), generation BIGINT NOT NULL CHECK(generation>=1), next_turn BIGINT NOT NULL CHECK(next_turn>=1))"#,
+    r#"INSERT INTO factory_readiness_budget(id,generation,next_turn) VALUES(1,1,1)"#,
+    r#"CREATE TABLE factory_readiness_sources(
+id TEXT PRIMARY KEY CHECK(octet_length(id) BETWEEN 1 AND 160),
+delivery TEXT NOT NULL DEFAULT '' CHECK(octet_length(delivery)<=128),
+repository BIGINT NOT NULL CHECK(repository>0), issue BIGINT NOT NULL CHECK(issue>0),
+generation BIGINT NOT NULL DEFAULT 0 CHECK(generation>=0), turn BIGINT NOT NULL CHECK(turn>0),
+retry_at TIMESTAMPTZ NOT NULL DEFAULT 'epoch', attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6),
+root_changed BOOLEAN NOT NULL DEFAULT FALSE)"#,
+    r#"CREATE TABLE factory_readiness_nodes(
+source TEXT NOT NULL REFERENCES factory_readiness_sources(id) ON DELETE CASCADE,
+repository BIGINT NOT NULL CHECK(repository>0), issue BIGINT NOT NULL CHECK(issue>0),
+state TEXT NOT NULL DEFAULT 'queued' CHECK(state IN ('queued','scanning','done')),
+cursor_repository BIGINT NOT NULL DEFAULT 0 CHECK(cursor_repository>=0), cursor_issue BIGINT NOT NULL DEFAULT 0 CHECK(cursor_issue>=0),
+PRIMARY KEY(source,repository,issue), CHECK((cursor_repository=0)=(cursor_issue=0)))"#,
     r#"CREATE TABLE project_environment_grants(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, data JSONB NOT NULL)"#,
     r#"CREATE TABLE project_requirement_decisions(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), predecessor TEXT NOT NULL DEFAULT '', data JSONB NOT NULL)"#,
     r#"CREATE TABLE project_requirement_heads(project_id TEXT PRIMARY KEY REFERENCES projects(id), decision TEXT NOT NULL)"#,
@@ -188,6 +203,9 @@ pub const VERIFY_QUERIES: &[&str] = &[
     r#"SELECT seq,run,repository,issue,attempt FROM factory_run_views LIMIT 0"#,
     r#"SELECT seq,assignment,repository,issue,run,stage,revision,data FROM factory_publications LIMIT 0"#,
     r#"SELECT seq,publication,repository,issue,pr,stage,revision,data FROM factory_merges LIMIT 0"#,
+    r#"SELECT id,generation,next_turn FROM factory_readiness_budget LIMIT 0"#,
+    r#"SELECT id,delivery,repository,issue,generation,turn,retry_at,attempts,root_changed FROM factory_readiness_sources LIMIT 0"#,
+    r#"SELECT source,repository,issue,state,cursor_repository,cursor_issue FROM factory_readiness_nodes LIMIT 0"#,
 ];
 
 pub const VERIFY_TRIGGERS: &[(&str, &str)] = &[

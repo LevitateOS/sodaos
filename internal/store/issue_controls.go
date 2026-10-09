@@ -160,7 +160,15 @@ func (s *Store) AcceptanceDependantsPage(ctx context.Context, repository, issue 
 		(after.Repository == 0) != (after.Issue == 0) {
 		return nil, factory.DependenceRef{}, false, errors.New("invalid acceptance dependant page")
 	}
-	rows, err := s.db.QueryContext(ctx, `WITH candidate_heads AS MATERIALIZED (
+	return acceptanceDependantsPage(ctx, s.db, repository, issue, after)
+}
+
+type readinessQueryer interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
+func acceptanceDependantsPage(ctx context.Context, queryer readinessQueryer, repository, issue int64, after factory.DependenceRef) ([]factory.DependenceRef, factory.DependenceRef, bool, error) {
+	rows, err := queryer.QueryContext(ctx, `WITH candidate_heads AS MATERIALIZED (
 			SELECT h.repository, h.issue, h.decision
 			FROM issue_acceptance_heads h
 			WHERE (h.repository, h.issue) > ($1, $2)
