@@ -13,7 +13,7 @@ transaction; the six typed entrypoints preserve their separate policy, operator,
 capacity, sponsorship, connection-budget and environment duties. Private SQL
 helpers reuse the database/transaction executor without exporting raw SQL.
 
-The [current responsibility map](../coverage/maps/backend-store.md#internalstorefactory_grant_commandsgo)
+The [current responsibility map](../coverage/maps/backend-store.md)
 assigns disjoint fields/cases and shared mechanics to their existing slices.
 Control retains principal admission and external cancellation after commit.
 No extra package, runtime, generic Store API or split is selected merely to

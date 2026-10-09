@@ -74,7 +74,7 @@ release binary links the whole graph.
 
 ### COST-GO-SQLITE-FIXTURE-1 — a test helper imports a driver in production
 
-[staged_seed.go](../../../internal/store/staged_seed.go) blank-imports SQLite to
+`staged_seed.go` (`../../../internal/store/staged_seed.go`; historical source locator) blank-imports SQLite to
 seed an external staged Forgejo database. Its only callers are
 [merge_native_setup_test.go](../../../internal/factory/control/merge_native_setup_test.go)
 and [st15_demo_seed_test.go](../../../internal/factory/control/st15_demo_seed_test.go).
@@ -93,7 +93,7 @@ defect; no binary-size or native fixture execution claim is implied.
 
 ### COST-HOST-BUILD-EDGE-1 — native policy pulls in a build library
 
-[host iconfig](../../../lib/host/src/iconfig/mod.rs) uses release-build only for
+`host iconfig` (`../../../lib/host/src/iconfig/mod.rs`; historical source locator) uses release-build only for
 `files::require_native`; the unconditional [manifest edge](../../../lib/host/Cargo.toml)
 also compiles that library's broader build/HTTPS dependencies. Its separate
 release-deliver payload reader is live and retains image selection/conflict

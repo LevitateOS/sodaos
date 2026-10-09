@@ -81,7 +81,7 @@ actual source/scenario; do not change every harness merely to increase a count.
 | Go API/Store/coordinator tests | Actual routes, domain logic and ephemeral PostgreSQL execute when admitted; session-extension callbacks, Host/Broker/Forgejo observations and mutation responses are often doubles. This proves selected SQL/policy ordering under supplied results, not the external producer's atomicity or complete factory execution |
 | [Browser key controls](../../../tests/frontend/project-access-controls.test.ts), workspace/terminal/Forgejo components | Authored components or emitted assets run in fixture pages with local/intercepted APIs, socket simulators and gallery templates. Request/state/render assertions are useful. They do not prove real extension sessions, native authorities, deployed server-rendered pages or installed effects |
 | Release build/deliver/image oracles and worker tests | Production parser, orchestration, record and command-runner functions are called. Fake cargo/podman/go/bun hooks and synthetic ELF/OCI outputs substitute native tools; captured Go archives are historical parser inputs, sometimes replayed as fake Podman output. Selected raw-byte/hash and admission assertions remain valid at their input profile; command plans are not production builds |
-| [OCI gzip regressions](../../../lib/soda-release-build/src/oci/tests.rs), delivery document tests and asset/CLI tests | The EOF/trailer/member test calls the production archive scanner/decoder, not a copied decoder. Current document tests compare repeated writes and read back emitted content. Checked-in JSON/SVG/Butane inputs support parser/rendering/refusal/no-overwrite/mode checks; template byte snapshots are review aids, not external producer authority |
+| `OCI gzip regressions` (`../../../lib/soda-release-build/src/oci/tests.rs`; historical source locator), delivery document tests and asset/CLI tests | The EOF/trailer/member test calls the production archive scanner/decoder, not a copied decoder. Current document tests compare repeated writes and read back emitted content. Checked-in JSON/SVG/Butane inputs support parser/rendering/refusal/no-overwrite/mode checks; template byte snapshots are review aids, not external producer authority |
 | [Go build harness](../../../tests/build/helpers.go) and native helper tests | Current Rust Project account/role/provisioning/domain binaries are built and invoked; native Git/command/system effects are often recording stand-ins. Other build tests read source tokens or execute selected shell fragments. Distinguish binary behavior, script dispatch, static wiring and actual installed commands |
 | Installed browser/workload drivers and local emulator reuse | The [workspace scenario](../../../tests/installed/sodaspaces-workspace-journey.ts) can drive real UI writes with independent native observations when selected; local tests may supply MatrixNative doubles. Fake SSH/SCP/SFTP and workload commands prove orchestration/response interpretation only. The Lit installed case proves selected assets served in Chromium, not enrollment, terminal custody or factory/provider completion |
 
@@ -141,9 +141,9 @@ bridge, another model/provider adapter or a general test-selection framework.
 
 ### TEST-RETIREMENT-GUARDS-1 — historical paths and tokens freeze the cutover
 
-The six test functions in [project_keys_test.go](../../../tests/build/project_keys_test.go),
-[terminal_test.go](../../../tests/build/terminal_test.go) and
-[project_os_observation_test.go](../../../tests/build/project_os_observation_test.go)
+The six test functions in `project_keys_test.go` (`../../../tests/build/project_keys_test.go`; historical source locator),
+`terminal_test.go` (`../../../tests/build/terminal_test.go`; historical source locator) and
+`project_os_observation_test.go` (`../../../tests/build/project_os_observation_test.go`; historical source locator)
 check absent Python/Go predecessors and text in current Rust files. Tokens such as
 a function spelling, literal limit expression or comment do not execute key,
 terminal or OS behavior, and can obstruct harmless successor refactors.

@@ -79,7 +79,7 @@ writer or exploited allocation was established.
 
 ### ACC-SNAPSHOT-FILE-1 — content admission does not bind the hashed file
 
-The actual [Go lifecycle caller](../../../internal/acceptance/lifecycle_state.go)
+The actual `Go lifecycle caller` (`../../../internal/acceptance/lifecycle_state.go`; historical source locator)
 executes the root-run remote Project snapshot. Account homes/checkouts are
 user-owned and mutable; source therefore establishes a concurrent writer profile.
 Those accounts also have wheel/sudo: this is observer fidelity and bound enforcement,
