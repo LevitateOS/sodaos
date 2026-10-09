@@ -2,9 +2,9 @@
 
 ## Complete source-to-slice coverage
 
-Current path navigation is reconciled at `35ce794a` (2026-10-09): all 2,527
+Current path navigation is reconciled at `729a88b0` (2026-10-09): all 2,529
 tracked paths appear once in the inventories, with no missing or duplicate
-current path rows. Twenty-five additions and fifty-one retirements are mapped
+current path rows. Twenty-seven additions and fifty-one retirements are mapped
 selectively to their established owners. The desired tree contains these paths
 and the unimplemented D06 Rust personal-Git payload. The detailed duty/body
 snapshot below remains historical at `519b76bd`; current path membership and

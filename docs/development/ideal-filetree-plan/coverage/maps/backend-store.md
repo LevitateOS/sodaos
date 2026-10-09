@@ -691,3 +691,15 @@ F08 owns the retry receipt and eligibility facts; F07 owns serialized retry pack
 ### [internal/store/factory_grant_commands.go](../../../../../internal/store/factory_grant_commands.go)
 
 Persists and applies validated, revisioned Factory policy/capacity/operator-grant/sponsorship/budget and Project environment-grant commands, including withdrawal effects; slice owners are listed in the current inventory row.
+
+<a id="r02-current-path-internal-store-factory-attempt-allowances-go"></a>
+
+### [internal/store/factory_attempt_allowances.go](../../../../../internal/store/factory_attempt_allowances.go)
+
+F07 owns issue-scoped allowance snapshots and transactional deadline admission; F08 owns the fresh explicit-retry root transition and pause freeze after repository runs settle under the closed gate revision. Store-source responsibility only; the PG tests cover these store transactions, not the complete automatic loop, corrections, or session exclusivity.
+
+<a id="r02-current-path-internal-store-factory-attempt-allowances-test-go"></a>
+
+### [internal/store/factory_attempt_allowances_test.go](../../../../../internal/store/factory_attempt_allowances_test.go)
+
+F07/F08 PostgreSQL store-fixture checks cover allowance admission, retry snapshots, fresh-root preservation and pause freeze. They do not establish end-to-end automatic-cycle, correction-flow, or session-exclusivity behavior.
