@@ -15,21 +15,23 @@ import (
 // source, the verified prompt bytes, and the deadline the reservation
 // will hold.
 type attemptPlan struct {
-	effective   factory.EffectiveAuthority
-	policy      factory.RepositoryPolicy
-	sponsorship factory.Sponsorship
-	prep        project.StoredPreparation
-	pin         project.FactoryHarnessPin
-	acceptance  factory.Acceptance
-	inputs      DispatchInputs
-	projectID   string
-	prompt      []byte
-	promptSHA   string
-	deadline    time.Time
-	requirement string
-	approval    string
-	planned     int
-	gateRev     int64
+	effective            factory.EffectiveAuthority
+	policy               factory.RepositoryPolicy
+	sponsorship          factory.Sponsorship
+	prep                 project.StoredPreparation
+	pin                  project.FactoryHarnessPin
+	acceptance           factory.Acceptance
+	inputs               DispatchInputs
+	projectID            string
+	prompt               []byte
+	promptSHA            string
+	deadline             time.Time
+	requirement          string
+	approval             string
+	planned              int
+	gateRev              int64
+	applianceConcurrent  int
+	repositoryConcurrent int
 }
 
 // dispatchOne dispatches one queued issue or reports exactly why it
@@ -178,9 +180,16 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
 		Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 		AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
-		Preparation: plan.prep.Preparation.ID,
-		Harness:     plan.pin.Harness, Model: policy.Roles[project.RoleCoder].Model, Role: project.RoleCoder,
-		Title: plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
+		Preparation:    plan.prep.Preparation.ID,
+		RequirementsID: plan.requirement, ApprovalID: plan.approval,
+		Harness: plan.pin.Harness, Model: policy.Roles[project.RoleCoder].Model, Role: project.RoleCoder,
+		ProviderConnection:    plan.sponsorship.Connection,
+		RequiredChecks:        policy.Checks,
+		ApplianceConcurrent:   plan.applianceConcurrent,
+		RepositoryConcurrent:  plan.repositoryConcurrent,
+		SponsorshipConcurrent: plan.sponsorship.MaxConcurrent,
+		PlannedMinutes:        plan.planned,
+		Title:                 plan.inputs.Issue.Title, Body: plan.inputs.Issue.Body,
 		Sources:     promptSections(plan.acceptance.Sources, plan.inputs.Comments),
 		Resolutions: promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 	})

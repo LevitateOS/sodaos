@@ -61,6 +61,7 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		return nil, waitFor(DispatchErrStore, "operator grant unreadable")
 	}
 	repository := plan.policy.Repository
+	plan.applianceConcurrent = capacity.MaxConcurrentRuns
 	if occupancy.heldTotal()+occupancy.unattributed >= capacity.MaxConcurrentRuns {
 		return waitFor(WaitCapacity, "appliance runs at its limit"), nil
 	}
@@ -68,6 +69,7 @@ func checkLimits(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if grant.MaxConcurrent < repoLimit {
 		repoLimit = grant.MaxConcurrent
 	}
+	plan.repositoryConcurrent = repoLimit
 	if occupancy.heldRepo(repository)+occupancy.byProject[plan.projectID] >= repoLimit {
 		return waitFor(WaitRepository, "repository runs at its limit"), nil
 	}

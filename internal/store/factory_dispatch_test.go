@@ -160,6 +160,9 @@ func dispatchTestPrompt(t *testing.T) []byte {
 		TargetBranch: "refs/heads/main", SourceCommit: strings.Repeat("c", 40),
 		Preparation: "f" + strings.Repeat("b", 24),
 		Harness:     "codex", Model: "m", Role: project.RoleCoder,
+		ProviderConnection: "conn", RequiredChecks: []string{"ci"},
+		ApplianceConcurrent: 2, RepositoryConcurrent: 2, SponsorshipConcurrent: 2, PlannedMinutes: 120,
+		RequirementsID: "d" + strings.Repeat("e", 24), ApprovalID: "d" + strings.Repeat("f", 24),
 		Title: "objective",
 	})
 	if err != nil {

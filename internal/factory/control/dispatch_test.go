@@ -44,6 +44,17 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	if a.Authority.Sponsorship != 1 || a.Authority.RequirementsID == "" || a.Authority.ApprovalID == "" {
 		t.Fatalf("assignment authority = %+v", a.Authority)
 	}
+	for _, want := range []string{
+		"Prompt template: soda-f07-f2-v1", "Effective limits: this run may use at most 120 minutes",
+		"Required evidence checks: ci", "Required evidence:", "report blocked with the concrete reason",
+		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 2",
+		"sponsorship concurrency for this connection in this repository is 2",
+		"Preparation requirements: " + a.Authority.RequirementsID + " approval: " + a.Authority.ApprovalID,
+	} {
+		if !strings.Contains(string(a.Prompt), want) {
+			t.Errorf("recorded prompt lacks %q", want)
+		}
+	}
 	if len(fx.host.launches) != 1 {
 		t.Fatalf("host launches = %d", len(fx.host.launches))
 	}
