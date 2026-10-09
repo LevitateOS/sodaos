@@ -2,7 +2,9 @@
 
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-Current responsibility accounting at `519b76bd` (2026-10-07).
+Historical responsibility accounting at `519b76bd` (2026-10-07).
+The account/SSH selector sections below are refreshed at `e0e2413f` (2026-10-09);
+other rows retain their stated source and evidence scopes.
 One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
@@ -11,11 +13,11 @@ Disposition concerns the duty, not source validity or installed qualification.
 
 ## [lib/host/src/account/access_keys_tests.rs](../../../../../lib/host/src/account/access_keys_tests.rs)
 
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–169; current module/import/attribute shell; declaration access_keys_preview_observes_without_applying; declaration access_keys_apply_round_trips_preview_and_confirms_set; declaration access_keys_rejects_drift_and_bad_requests | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire lib/host/src/account/access_keys_tests.rs into its current native target.; 4 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–169; file scaffold; access_keys_preview_observes_without_applying; access_keys_apply_round_trips_preview_and_confirms_set; access_keys_rejects_drift_and_bad_requests | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Complete saved-key preview/apply, canonical-set confirmation, drift and key-request refusal tests. This corrects the prior P03 allocation without renewing their runtime evidence. |
 
 <a id="coverage-7417f4912a73"></a>
 <a id="rustsoda-hostsrcaccountrs-1"></a>
@@ -23,45 +25,48 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 ## [lib/host/src/account/mod.rs](../../../../../lib/host/src/account/mod.rs)
 
-Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
+Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
+| 1–20, 44–99, 298–342, 411–412; module/import scaffold; AGENT_PROGRAM; AccountConfirmation and visitor; confirm_account; Runtime.account; tests module wiring | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Account provisioning and echoed identity confirmation. Runtime.account consumes P04 key normalization; shared scaffold has one primary account owner. |
 | 101–160; GuestPrivilegeRequest; ProjectPrivilegeConfirmation; observe_project_access | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | The read-only observation binds status to the selected running private-userns container and uses the existing deadline/capped executor; typed guest status requires the echoed login/identity and boolean. — Current P03 source selectors. |
-| 1–100, 161–412; account and access-key functions/tests | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Existing account and access-key responsibilities; prior selector intervals are historical hints pending R02. |
+| 22–26, 28–42, 162–189, 192–200, 202–237, 239–279, 281–296, 344–407, 409–410; valid_key_revision; canonicalize_account_keys; canonical_keys; valid_access_keys_request; AccountKeyList and visitor; AccessKeyStateWire and visitor; decode_access_key_state; Runtime.access_keys; access_keys_tests module wiring | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | SSH key format/canonicalization, revision admission, typed saved-key decoding and preview/apply. canonicalize_account_keys is consumed by initial P03 account provisioning; that caller does not redefine its key-format duty. |
 
 <a id="coverage-05efeb0fc8c5"></a>
 
 ## [lib/host/src/account/tests.rs](../../../../../lib/host/src/account/tests.rs)
 
-current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–340; current module/import/attribute shell; declaration ED; declaration MockCall; declaration Mock; fields calls, script; declaration new; declaration run; declaration deadline; declaration test_config; declaration pid; declaration inspect_payload; declaration container_payload; declaration key_revision_shape; declaration account_keys_drop_comments_but_keep_newline; declaration development_keys_require_canonical_unique_lines; declaration access_key_state_decode_uses_plain_json_semantics; declaration agent_program_path_matches_go; declaration account_provisions_with_exact_body_and_argv; declaration account_rejects_bad_requests_and_unconfirmed_helpers | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Imports and module declarations wire lib/host/src/account/tests.rs into its current native target.; 18 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+| 1–79, 213–340; file scaffold; ED; MockCall; Mock and methods; deadline; test_config; pid; inspect_payload; container_payload; agent_program_path_matches_go; account_provisions_with_exact_body_and_argv; account_rejects_bad_requests_and_unconfirmed_helpers | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Shared account-operation fixture and native-helper request/confirmation tests. P04 tests consume the same scaffold without duplicating its owner. |
+| 80–87, 88–111, 112–165, 166–211; key_revision_shape; account_keys_drop_comments_but_keep_newline; development_keys_require_canonical_unique_lines; access_key_state_decode_uses_plain_json_semantics | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Key revision shape, authorized-key normalization and saved-key decoding policy. The normalization test follows canonicalize_account_keys, including its initial-account caller. |
 
 <a id="coverage-743d93e291d8"></a>
 
 ## [lib/host/src/domain/account.rs](../../../../../lib/host/src/domain/account.rs)
 
-Current ProjectAccess DTO declarations verified; prior account/access-key intervals are historical hints pending R02.
+Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 17–40; ProjectAccessRequest; ProjectAccessStatus | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Direct typed, required-field request/status boundary for the read-only native privilege observation. — Current source types. |
-| 1–16, 42–204; current module/import/attribute shell; declaration Account; fields project, login, identity, keys; declaration deserialize; declaration AccountVisitor; declaration Value; declaration expecting; declaration visit_map; declaration decode; declaration AccessKeys; fields project, login, identity, revision, keys, apply; declaration AccessKeysVisitor; declaration AccessKeyState; fields revision, keys; declaration encode | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing account/access-key IPC shapes; earlier intervals are historical hints pending R02. |
+| 1–16, 42–62, 64–111, 113–180, 182–204; module/import scaffold; Account; string_field and string_list_field macros; AccountVisitor; Account.decode; AccessKeys and visitor; AccessKeys.decode; AccessKeyState.encode | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing account/access-key IPC shapes and typed decoding/encoding support. Operation consumers remain P03/P04; current declaration allocation does not renew prior parser or native qualification. |
 
 <a id="coverage-4263fb98abf4"></a>
 <a id="coverage-f89f906a2051"></a>
 
 ## [lib/host/src/pops.rs](../../../../../lib/host/src/pops.rs)
 
-Current P03 selectors in this section verified; unaffected prior intervals are historical hints pending R02.
+Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 228–238; Ops.project_access | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Read-only project access observation calls the guest confirmation path and returns the typed bound status. — Current caller. |
-| 1–227; current module/import/attribute shell; declaration AccessKeysReq; declaration decode; declaration AccountReq; declaration PrepareReq; declaration PrepareCandidateReq; declaration InspectPreparationReq; declaration StopPreparationReq; declaration HoldPreparationReq; declaration Ops; fields exec, config; declaration runtime; declaration access_keys; declaration account; declaration prepare; declaration prepare_candidate; declaration inspect_preparation; declaration stop_preparation; declaration hold_preparation | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Existing operation declarations; earlier intervals are historical hints pending R02. |
+| 1–123, 146–166, 168–188, 190–210, 212–228, 253–315; module/import scaffold; PrepareReq; PrepareCandidateReq; PrepareContextReq; InspectPreparationReq; StopPreparationReq; HoldPreparationReq and their decode methods; Ops; Ops.runtime; Ops.prepare; Ops.prepare_candidate; Ops.prepare_context; Ops.inspect_preparation; Ops.stop_preparation; Ops.hold_preparation | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Shared native JSON operation adapters, deadline forwarding and runtime construction. Preparation and Factory context policy stay at their defining Runtime/domain owners. Opening wiring comments are historical and separately need correction; they do not describe current module admission. |
+| 124–133, 229–233; AccessKeysReq.decode; Ops.access_keys | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Account key preview/apply route adapter; canonical wire DTOs remain H01-owned. |
+| 135–144, 235–239, 241–251; AccountReq.decode; Ops.account; Ops.project_access | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Provisioning and read-only privilege observation route adapters, consuming the canonical IPC/account DTOs. The current project_access span corrects the former 228–238 locator. |
 
 <a id="coverage-6501cae87408"></a>
 

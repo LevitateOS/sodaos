@@ -2,7 +2,9 @@
 
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-Current responsibility accounting at `519b76bd` (2026-10-07).
+Historical responsibility accounting at `519b76bd` (2026-10-07).
+The account/SSH selector sections below are refreshed at `e0e2413f` (2026-10-09);
+other rows retain their stated source and evidence scopes.
 One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
@@ -232,14 +234,14 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/project/types.go](../../../../../internal/project/types.go)
 
-Current changed DTO section verified; earlier unaffected intervals are historical hints pending R02.
+Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 7–20; Create; Create.Validate | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Repository association and creation contract; prior interval is a historical hint pending R02. |
-| 22–28; Account | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human membership/account creation contract. — Current source selector. |
-| 30–51; ProjectAccessRequest; ProjectAccessStatus | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Canonical required-field request/status DTOs; the status has a required administrator observation. — Current source types and callers. |
-| 27, 63–68, 82–96; Account.Keys; Connection, AccessKeys, AccessKeyState | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Explicit authorized-key input and native development SSH contract; earlier intervals are historical hints pending R02. |
-| 53–61, 98–110; Environment, OSRelease, OSObservation | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed native runtime and Project OS DTO; earlier intervals are historical hints pending R02. |
-| 59; Environment.IP | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Observed native Project LAN IP field; prior selector is a historical hint pending R02. |
-| 70–80; Lifecycle, LifecycleState | [P05](../../slices/projects.md#p05-project-startstop) | retained | Project Start/Stop contract; prior interval is a historical hint pending R02. |
+| 1–5, 7–20; package/import scaffold; Create; Create.Validate | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Repository association and native creation identity. |
+| 22–26, 28; Account (project/login/identity fields) | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human account identity; Account.Keys has its separate P04 field selector. |
+| 30–51; ProjectAccessRequest; ProjectAccessRequest.Validate; ProjectAccessStatus | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Canonical required-field request/status DTOs; the status has a required administrator observation. — Current source types and callers. |
+| 27, 63–68, 82–96; Account.Keys; Connection; AccessKeys; AccessKeyState | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Explicit authorized-key input, native SSH connection/host-key material and key preview/apply state. |
+| 53–58, 60–61, 98–110; Environment (excluding IP); OSRelease; OSObservation | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Native runtime/profile and mutable OS observations; Environment.IP has its separate N02 field selector. |
+| 59; Environment.IP | [N02](../../slices/networking.md#n02-project-lan-access) | retained | Observed native Project LAN attachment. |
+| 70–80; Lifecycle; LifecycleState | [P05](../../slices/projects.md#p05-project-startstop) | retained | Project Start/Stop request and outcome. |

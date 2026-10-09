@@ -2,7 +2,9 @@
 
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
-Current responsibility accounting at `519b76bd` (2026-10-07).
+Historical responsibility accounting at `519b76bd` (2026-10-07).
+The account/SSH selector sections below are refreshed at `e0e2413f` (2026-10-09);
+other rows retain their stated source and evidence scopes.
 One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
@@ -45,16 +47,16 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/host/client.go](../../../../../internal/host/client.go)
 
-Current selectors are maintained here; earlier unaffected intervals are historical hints pending R02.
+Current declaration and caller allocation inspected at `e0e2413f`; earlier body and test evidence retains its recorded scope.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–77; package/import and shared bounded HTTP response helpers | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Shared bounded HTTP response helpers. Earlier unchanged selectors are historical hints pending R02. |
-| 78–86; Client.Create | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Project creation native operation; prior selector interval is a historical hint pending R02. |
-| 87–95; Client.Inspect | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed Project runtime identity/address; prior selector interval is a historical hint pending R02. |
-| 96–106; Client.Join | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Human Project account creation native operation; prior selector interval is a historical hint pending R02. |
+| 1–20, 22–24, 26–30, 32–54, 56–76; package/import scaffold; Client; nativeHTTPError; Error; NewClient; decodeNativeResponseLimit; readNativeResponseLimit; Client.call; Client.callLimit | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Shared Unix HTTP construction, bounded request/reply transport and native error rendering; operation policy remains with each caller. |
+| 78–86; Client.Create | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Creation request and bound running-endpoint confirmation. |
+| 87–95; Client.Inspect | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Observed Project identity and runtime address. |
+| 96–105; Client.Join | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Sends the bound project account to `/account` and requires its confirmation. |
 | 107–119; Client.ProjectAccess | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Read-only Project privilege observation; 4 KiB reply cap, required administrator value, and project/login/identity echo validation. — Current source method and caller. |
-| 121–128; Client.Connection; 130–133; validAddress | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Own native development connection observation and its address validator. — Current selectors verified. |
+| 121–128, 130–133; Client.Connection; validAddress | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Development SSH connection observation and its address validator. Create and Inspect consume the same validator; they do not acquire its defining ownership. |
 
 <a id="coverage-1c74cc0c7a7e"></a>
 
