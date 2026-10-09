@@ -38,6 +38,8 @@ type ReconcileReceipt struct {
 // closure confirm. A lost reply replays the durable outcome; it never
 // re-executes the stop.
 func (c *Coordinator) Stop(ctx context.Context, cmd factory.Command) (StopReceipt, error) {
+	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	if cmd.Type != factory.CommandStop {
 		return StopReceipt{}, errors.New("command is not a stop")
 	}
@@ -62,6 +64,9 @@ func (c *Coordinator) Stop(ctx context.Context, cmd factory.Command) (StopReceip
 	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
 		return StopReceipt{}, err
 	}
+	if ownsPass {
+		_, _ = c.drainReadinessWork(ctx, "")
+	}
 	return receipt, nil
 }
 
@@ -80,6 +85,8 @@ func replayStop(stored factory.Command) (StopReceipt, error) {
 // whose retirement, credential return and broker closure confirm. Runs with
 // unresolved effects stay fenced for a later command.
 func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (ReconcileReceipt, error) {
+	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	if cmd.Type != factory.CommandReconcile {
 		return ReconcileReceipt{}, errors.New("command is not a reconcile")
 	}
@@ -102,6 +109,9 @@ func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (Recon
 	}
 	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
 		return ReconcileReceipt{}, err
+	}
+	if ownsPass {
+		_, _ = c.drainReadinessWork(ctx, "")
 	}
 	return receipt, nil
 }
@@ -274,9 +284,7 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 	// Settlement records accounting and the result. Reassessing dependants is
 	// local bookkeeping only; automatic publication/review/correction happens
 	// at the existing Start and Dispatch advancement boundaries.
-	if finished, ok := AccountSettledRun(ctx, c.Store, run, state.Output, time.Now()); ok && finished.Outcome == factory.Succeeded {
-		c.assessDispatchDependants(ctx, finished.Repository, finished.Issue)
-	}
+	_, _ = AccountSettledRun(ctx, c.Store, run, state.Output, time.Now())
 	receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(outcome), run.Summary
 	return receipt
 }

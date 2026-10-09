@@ -319,3 +319,157 @@ func TestReadinessVerdictPrecedence(t *testing.T) {
 		t.Fatal("blocker precedence wrong:", verdict, reason)
 	}
 }
+
+func TestIntakeBudgetYieldRetainsCursorAndRedeliveryResumes(t *testing.T) {
+	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{
+		"42/3": readinessEvidence(12, readinessView("3"), nil, nil),
+	}}
+	c := readinessCoordinator(t, source, &fakeObserver{revision: 12, idle: true})
+	grantFullAuthority(t, c)
+	hint := readinessHint("delivery-budget-resume", 42, 3)
+	deliveryID := readinessDeliverySourceID(hint.Delivery)
+	if err := c.Store.EnqueueReadinessWork(context.Background(), deliveryID, hint.Delivery, factory.DependenceRef{Repository: 42, Issue: 3}); err != nil {
+		t.Fatal(err)
+	}
+	work, err := c.Store.BeginReadinessWork(context.Background(), deliveryID, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, err := c.Store.NextReadinessWorkNode(context.Background(), deliveryID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Store.CheckpointReadinessAssessment(context.Background(), work, node, false, false); err != nil {
+		t.Fatal(err)
+	}
+	passCtx, _, cancel := c.readinessPass(context.Background())
+	budget := readinessBudgetFrom(passCtx)
+	budget.pages.Store(readinessMaxPages)
+	if result, drainErr := c.drainReadinessWork(passCtx, hint.Delivery); drainErr != nil || result.targetDone {
+		t.Fatal("page-budget yield unexpectedly completed source:", result, drainErr)
+	}
+	cancel()
+	seen, err := c.Store.IntakeDeliverySeen(context.Background(), hint.Delivery)
+	if err != nil || seen {
+		t.Fatal("budget yield acknowledged intake:", seen, err)
+	}
+	continued, err := c.Store.NextReadinessWorkNode(context.Background(), deliveryID)
+	if err != nil || continued.State != "scanning" || continued.Cursor != (factory.DependenceRef{}) {
+		t.Fatal("budget yield discarded checkpoint:", continued, err)
+	}
+	if _, _, err = c.ObserveIssueEvent(context.Background(), hint); err != nil {
+		t.Fatal("redelivery did not resume saved work:", err)
+	}
+	seen, err = c.Store.IntakeDeliverySeen(context.Background(), hint.Delivery)
+	if err != nil || !seen {
+		t.Fatal("completed redelivery did not acknowledge:", seen, err)
+	}
+}
+
+func TestReadinessDrainDefersFailureAndAdvancesAnotherRoot(t *testing.T) {
+	source := &fakeEvidenceSource{
+		evidence: map[string]AcceptanceEvidence{
+			"42/4": readinessEvidence(12, readinessView("4"), nil, nil),
+		},
+		errs: map[string]error{"42/3": errors.New("temporary native read failure")},
+	}
+	c := readinessCoordinator(t, source, &fakeObserver{revision: 12, idle: true})
+	grantFullAuthority(t, c)
+	ctx := context.Background()
+	for _, item := range []struct {
+		id    string
+		issue int64
+	}{{"best-effort:failed", 3}, {"best-effort:ready", 4}} {
+		if err := c.Store.EnqueueReadinessWork(ctx, item.id, "", factory.DependenceRef{Repository: 42, Issue: item.issue}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := c.drainReadinessWork(ctx, ""); err != nil {
+		t.Fatal("best-effort drain:", err)
+	}
+	if _, err := c.Store.IssueControl(ctx, 42, 4); err != nil {
+		t.Fatal("failure on one root blocked a different due root:", err)
+	}
+	if _, err := c.Store.IssueControl(ctx, 42, 3); !errors.Is(err, store.ErrNotFound) {
+		t.Fatal("failed root unexpectedly recorded:", err)
+	}
+	if _, err := c.Store.ReadinessWork(ctx, "best-effort:failed"); err != nil {
+		t.Fatal("failed best-effort root was lost:", err)
+	}
+}
+
+func TestReadinessEvidenceBudgetCountsActualBrackets(t *testing.T) {
+	c := &Coordinator{}
+	ctx, _, cancel := c.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if !budget.reserveEvidence(51) || !budget.reserveEvidence(1) || budget.reserveEvidence(1) {
+		t.Fatal("conservative evidence reservations crossed the pass cap")
+	}
+	for i := 0; i < readinessMaxEvidenceRead; i++ {
+		if err := c.recordReadinessEvidence(ctx); err != nil {
+			t.Fatalf("actual bracket %d rejected: %v", i+1, err)
+		}
+	}
+	if err := c.recordReadinessEvidence(ctx); !errors.Is(err, ErrReadinessPassPending) {
+		t.Fatal("actual evidence counter exceeded the profile:", err)
+	}
+	if budget.nativeRPC.Load() != readinessMaxNativeRPC || budget.reserveNativeRPC(1) {
+		t.Fatal("evidence brackets and freshness polls can exceed the 156 native-call profile")
+	}
+}
+
+func TestReadinessPassPreservesShortCallerDeadline(t *testing.T) {
+	callerDeadline := time.Now().Add(500 * time.Millisecond)
+	callerCtx, callerCancel := context.WithDeadline(context.Background(), callerDeadline)
+	defer callerCancel()
+	ctx, _, cancel := (&Coordinator{}).readinessPass(callerCtx)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		t.Fatalf("pass expired before its caller deadline: %v", err)
+	}
+	workDeadline, ok := ctx.Deadline()
+	if !ok || !workDeadline.Before(callerDeadline) || !workDeadline.After(time.Now()) {
+		t.Fatalf("short caller deadline was not preserved with bounded cleanup slack: %v, caller %v", workDeadline, callerDeadline)
+	}
+	if budget := readinessBudgetFrom(ctx); budget == nil || !budget.outerDeadline.Equal(callerDeadline) {
+		t.Fatalf("pass lost original outer deadline: %+v", budget)
+	}
+}
+
+func TestReadinessCleanupStaysInsideOriginalDeadline(t *testing.T) {
+	outerDeadline := time.Now().Add(time.Second)
+	workCtx, cancelWork := context.WithDeadline(context.Background(), outerDeadline.Add(-100*time.Millisecond))
+	cancelWork()
+	cleanupCtx, cancelCleanup := readinessCleanupContext(workCtx, outerDeadline)
+	defer cancelCleanup()
+	deadline, ok := cleanupCtx.Deadline()
+	if !ok || deadline.After(outerDeadline) || deadline.After(time.Now().Add(readinessCleanupReserve)) {
+		t.Fatalf("cleanup extended beyond the pass horizon: deadline=%v outer=%v", deadline, outerDeadline)
+	}
+	if err := cleanupCtx.Err(); err != nil {
+		t.Fatalf("bounded cleanup inherited canceled work context: %v", err)
+	}
+}
+
+func TestReadinessDrainExcludesConcurrentLocalPass(t *testing.T) {
+	c := &Coordinator{}
+	c.cascadeMu.Lock()
+	defer c.cascadeMu.Unlock()
+	if _, err := c.drainReadinessWork(context.Background(), ""); !errors.Is(err, ErrReadinessPassPending) {
+		t.Fatalf("concurrent local pass was not bounded out: %v", err)
+	}
+}
+
+func TestReserveIssueAssessmentPropagatesStoreReadFailure(t *testing.T) {
+	c := coordinatorFixture(t, nil, nil)
+	if err := c.Store.Close(); err != nil {
+		t.Fatal("close fixture store:", err)
+	}
+	ctx, _, cancel := c.readinessPass(context.Background())
+	defer cancel()
+	reserved, err := c.reserveIssueAssessment(ctx, factory.DependenceRef{Repository: 42, Issue: 3})
+	if reserved || err == nil || errors.Is(err, ErrReadinessPassPending) {
+		t.Fatalf("store read failure was hidden as budget yield: reserved=%t err=%v", reserved, err)
+	}
+}

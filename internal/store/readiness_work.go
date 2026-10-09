@@ -36,7 +36,8 @@ type ReadinessWorkNode struct {
 
 // EnqueueReadinessWork durably admits or coalesces one root. A nonempty
 // delivery makes the source critical and therefore subject to intake
-// acknowledgement only by CompleteReadinessWork.
+// acknowledgement only by CompleteReadinessWork. An explicit redelivery
+// wakes that source without changing its fair turn or saved progress.
 func (s *Store) EnqueueReadinessWork(ctx context.Context, id, delivery string, root factory.DependenceRef) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -45,6 +46,11 @@ func (s *Store) EnqueueReadinessWork(ctx context.Context, id, delivery string, r
 	defer func() { _ = tx.Rollback() }()
 	if err = enqueueReadinessWorkTx(ctx, tx, id, delivery, root); err != nil {
 		return err
+	}
+	if delivery != "" {
+		if _, err = tx.ExecContext(ctx, `UPDATE factory_readiness_sources SET retry_at=$2 WHERE id=$1 AND retry_at>$2`, id, time.Now()); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -378,4 +384,20 @@ func (s *Store) ReadinessWork(ctx context.Context, id string) (ReadinessWork, er
 	var work ReadinessWork
 	err := s.db.QueryRowContext(ctx, `SELECT id,delivery,repository,issue,generation,root_changed FROM factory_readiness_sources WHERE id=$1`, id).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation, &work.RootChanged)
 	return work, err
+}
+
+// enqueueReadinessRootEventTx invalidates prior progress and coalesces a
+// best-effort root after a committed-domain transition, in the same tx.
+func enqueueReadinessRootEventTx(ctx context.Context, tx *sql.Tx, repository, issue int64) error {
+	if repository <= 0 || issue <= 0 {
+		return errors.New("invalid readiness root event")
+	}
+	var generation int64
+	if err := tx.QueryRowContext(ctx, `SELECT generation FROM factory_readiness_budget WHERE id=1 FOR UPDATE`).Scan(&generation); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE factory_readiness_budget SET generation=generation+1 WHERE id=1`); err != nil {
+		return err
+	}
+	return enqueueReadinessWorkTx(ctx, tx, fmt.Sprintf("root:%d/%d", repository, issue), "", factory.DependenceRef{Repository: repository, Issue: issue})
 }

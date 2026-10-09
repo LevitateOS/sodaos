@@ -29,7 +29,7 @@ func (c *Coordinator) AdmitInitialAcceptance(ctx context.Context, repository int
 	if c.AcceptanceReads == nil {
 		return factory.Acceptance{}, refuseAcceptance(RefusalSnapshotUnavailable)
 	}
-	evidence, err := c.AcceptanceReads.ReadAcceptanceEvidence(bounded, strconv.FormatInt(repository, 10), issue, nil)
+	evidence, err := c.readAcceptanceEvidence(bounded, factory.Acceptance{Repository: repository, IssueIndex: issue})
 	if err != nil {
 		var refusal *AcceptanceRefusal
 		if errors.As(err, &refusal) {

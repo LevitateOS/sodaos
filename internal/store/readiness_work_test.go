@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -119,6 +120,62 @@ func TestReadinessWorkSourceAdmissionBound(t *testing.T) {
 	}
 	if err := s.EnqueueReadinessWork(ctx, "source:overflow", "", factory.DependenceRef{Repository: 7, Issue: 1000}); !errors.Is(err, ErrReadinessCapacity) {
 		t.Fatal("source cap must refuse before allocation:", err)
+	}
+}
+
+func TestReadinessRedeliveryWakesOnlyMatchingSource(t *testing.T) {
+	s, ctx := readinessTestStore(t)
+	root := factory.DependenceRef{Repository: 7, Issue: 3}
+	const critical = "delivery:wake"
+	const bestEffort = "root:wake"
+	for _, item := range []struct{ id, delivery string }{{critical, "wake"}, {bestEffort, ""}} {
+		if err := s.EnqueueReadinessWork(ctx, item.id, item.delivery, root); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.DeferReadinessWork(ctx, item.id, time.Now().Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var beforeTurn, beforeAttempts int64
+	if err := s.db.QueryRowContext(ctx, `SELECT turn,attempts FROM factory_readiness_sources WHERE id=$1`, critical).Scan(&beforeTurn, &beforeAttempts); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.EnqueueReadinessWork(ctx, critical, "other-delivery", root); !errors.Is(err, ErrCommandConflict) {
+		t.Fatal("different delivery must not wake the source:", err)
+	}
+	if _, err := s.BeginReadinessWork(ctx, critical, time.Now()); !errors.Is(err, ErrReadinessPending) {
+		t.Fatal("conflicting delivery changed retry admission:", err)
+	}
+	if err := s.EnqueueReadinessWork(ctx, critical, "wake", root); err != nil {
+		t.Fatal(err)
+	}
+	var afterTurn, afterAttempts int64
+	if err := s.db.QueryRowContext(ctx, `SELECT turn,attempts FROM factory_readiness_sources WHERE id=$1`, critical).Scan(&afterTurn, &afterAttempts); err != nil || beforeTurn != afterTurn || beforeAttempts != afterAttempts {
+		t.Fatal("redelivery reset fairness or failure history:", beforeTurn, afterTurn, beforeAttempts, afterAttempts, err)
+	}
+	work, err := s.BeginReadinessWork(ctx, critical, time.Now())
+	if err != nil {
+		t.Fatal("matching delivery did not wake:", err)
+	}
+	node, err := s.NextReadinessWorkNode(ctx, critical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.CheckpointReadinessAssessment(ctx, work, node, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.EnqueueReadinessWork(ctx, critical, "wake", root); err != nil {
+		t.Fatal(err)
+	}
+	node, err = s.NextReadinessWorkNode(ctx, critical)
+	if err != nil || node.State != "scanning" {
+		t.Fatal("redelivery discarded a saved assessment:", node, err)
+	}
+	if err = s.EnqueueReadinessWork(ctx, bestEffort, "", root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.BeginReadinessWork(ctx, bestEffort, time.Now()); !errors.Is(err, ErrReadinessPending) {
+		t.Fatal("critical wake changed best-effort backoff:", err)
 	}
 }
 
@@ -264,4 +321,146 @@ func TestReadinessWorkFinishPruneFailureRollsBackAckAndCleanup(t *testing.T) {
 	if err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_readiness_nodes WHERE source=$1`, work.ID).Scan(&count); err != nil || count != 1 {
 		t.Fatal("failed completion must retain node progress:", count, err)
 	}
+}
+
+func readinessGeneration(t *testing.T, s *Store) int64 {
+	t.Helper()
+	var generation int64
+	if err := s.db.QueryRowContext(context.Background(), `SELECT generation FROM factory_readiness_budget WHERE id=1`).Scan(&generation); err != nil {
+		t.Fatal(err)
+	}
+	return generation
+}
+
+func fillReadinessSourceHeaders(t *testing.T, s *Store, prefix string, target int) {
+	t.Helper()
+	var existing int
+	if err := s.db.QueryRowContext(context.Background(), `SELECT count(*) FROM factory_readiness_sources`).Scan(&existing); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; existing < target; i++ {
+		id := fmt.Sprintf("%s:%d", prefix, i)
+		if err := s.EnqueueReadinessWork(context.Background(), id, "", factory.DependenceRef{Repository: 9, Issue: int64(i + 1)}); err != nil {
+			t.Fatalf("fill readiness headers (%d/%d): %v", existing, target, err)
+		}
+		existing++
+	}
+}
+
+func TestAcceptanceHeadEventsAreAtomicAndIdempotent(t *testing.T) {
+	s, ctx := readinessTestStore(t)
+	first := acceptanceFixture("d0123456789abcdef01234567", "")
+	if err := s.AdmitAcceptanceDecision(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	generation := readinessGeneration(t, s)
+	work, err := s.ReadinessWork(ctx, "root:7/3")
+	if err != nil || work.Generation != generation || generation != 2 {
+		t.Fatal("head advance did not atomically create current root:", work, generation, err)
+	}
+	if err = s.AdmitAcceptanceDecision(ctx, first); err != nil || readinessGeneration(t, s) != generation {
+		t.Fatal("identical head replay changed generation:", err, readinessGeneration(t, s))
+	}
+	beforeMutation, err := s.BeginReadinessWork(ctx, "root:7/3", time.Now())
+	if err != nil {
+		t.Fatal("begin root before head change:", err)
+	}
+	rootNode, err := s.NextReadinessWorkNode(ctx, beforeMutation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.CheckpointReadinessAssessment(ctx, beforeMutation, rootNode, false, false); err != nil {
+		t.Fatal(err)
+	}
+	rootNode, err = s.NextReadinessWorkNode(ctx, beforeMutation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.CheckpointReadinessPage(ctx, beforeMutation, rootNode); err != nil {
+		t.Fatal("save pre-mutation page cursor:", err)
+	}
+	second := acceptanceFixture("d123456789abcdef012345678", first.ID)
+	second.NativeRev++
+	if err = s.AdmitAcceptanceDecision(ctx, second); err != nil {
+		t.Fatal(err)
+	}
+	generation++
+	if got := readinessGeneration(t, s); got != generation {
+		t.Fatal("new head did not advance generation once:", got)
+	}
+	if _, err = s.CheckpointReadinessPage(ctx, beforeMutation, rootNode); !errors.Is(err, ErrReadinessPending) {
+		t.Fatal("head mutation must fence saved page cursor:", err)
+	}
+	if _, err = s.BeginReadinessWork(ctx, "root:7/3", time.Now()); err != nil {
+		t.Fatal("head mutation should reset active work to root:", err)
+	}
+	reset, err := s.NextReadinessWorkNode(ctx, "root:7/3")
+	if err != nil || reset.State != "queued" || reset.Cursor != (factory.DependenceRef{}) {
+		t.Fatal("saved progress was not reset to root:", reset, err)
+	}
+	if err = s.WithdrawAcceptanceDecision(ctx, 7, 3, second.ID, 5); err != nil {
+		t.Fatal(err)
+	}
+	generation++
+	if got := readinessGeneration(t, s); got != generation {
+		t.Fatal("withdrawal did not advance generation:", got)
+	}
+	if err = s.WithdrawAcceptanceDecision(ctx, 7, 3, second.ID, 5); err != nil || readinessGeneration(t, s) != generation {
+		t.Fatal("identical withdrawal replay changed generation:", err, readinessGeneration(t, s))
+	}
+}
+
+func TestAcceptanceRootCapacityRollsBackAdmissionAndWithdrawal(t *testing.T) {
+	t.Run("new-head-admission", func(t *testing.T) {
+		s, ctx := readinessTestStore(t)
+		fillReadinessSourceHeaders(t, s, "capacity:admit", maxReadinessSources)
+		before := readinessGeneration(t, s)
+		first := acceptanceFixture("d0123456789abcdef01234567", "")
+		first.IssueIndex = "4"
+		if err := s.AdmitAcceptanceDecision(ctx, first); !errors.Is(err, ErrReadinessCapacity) {
+			t.Fatal("full source table must reject new head advance:", err)
+		}
+		if _, err := s.AcceptanceHead(ctx, 7, 4); !errors.Is(err, ErrNotFound) || readinessGeneration(t, s) != before {
+			t.Fatal("refused admission partially committed:", err, readinessGeneration(t, s))
+		}
+		if _, err := s.AcceptanceDecision(ctx, first.ID); !errors.Is(err, ErrNotFound) {
+			t.Fatal("refused decision remains recorded:", err)
+		}
+	})
+	t.Run("existing-root-coalesces-at-capacity", func(t *testing.T) {
+		s, ctx := readinessTestStore(t)
+		first := acceptanceFixture("d0123456789abcdef01234567", "")
+		if err := s.AdmitAcceptanceDecision(ctx, first); err != nil {
+			t.Fatal(err)
+		}
+		fillReadinessSourceHeaders(t, s, "capacity:coalesce", maxReadinessSources)
+		before := readinessGeneration(t, s)
+		second := acceptanceFixture("d123456789abcdef012345678", first.ID)
+		second.NativeRev++
+		if err := s.AdmitAcceptanceDecision(ctx, second); err != nil {
+			t.Fatal("existing root must coalesce at source capacity:", err)
+		}
+		if got := readinessGeneration(t, s); got != before+1 {
+			t.Fatal("head mutation should advance generation once:", got, before)
+		}
+	})
+	t.Run("withdrawal", func(t *testing.T) {
+		s, ctx := readinessTestStore(t)
+		first := acceptanceFixture("d0123456789abcdef01234567", "")
+		if err := s.AdmitAcceptanceDecision(ctx, first); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM factory_readiness_sources WHERE id='root:7/3'`); err != nil {
+			t.Fatal(err)
+		}
+		fillReadinessSourceHeaders(t, s, "capacity:withdraw", maxReadinessSources)
+		before := readinessGeneration(t, s)
+		if err := s.WithdrawAcceptanceDecision(ctx, 7, 3, first.ID, 5); !errors.Is(err, ErrReadinessCapacity) {
+			t.Fatal("full source table must reject withdrawal:", err)
+		}
+		withdrawn, _, err := s.AcceptanceWithdrawn(ctx, 7, 3, first.ID)
+		if err != nil || withdrawn || readinessGeneration(t, s) != before {
+			t.Fatal("refused withdrawal partially committed:", withdrawn, readinessGeneration(t, s), err)
+		}
+	})
 }

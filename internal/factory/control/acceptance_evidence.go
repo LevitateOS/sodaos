@@ -25,6 +25,9 @@ func (c *Coordinator) readAcceptanceEvidence(ctx context.Context, decision facto
 			}
 		}
 	}
+	if err := c.recordReadinessEvidence(ctx); err != nil {
+		return AcceptanceEvidence{}, err
+	}
 	evidence, err := c.AcceptanceReads.ReadAcceptanceEvidence(ctx, strconv.FormatInt(decision.Repository, 10), decision.IssueIndex, commentIDs)
 	if err != nil {
 		var refusal *AcceptanceRefusal

@@ -138,6 +138,11 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 			return err
 		}
 	}
+	if m.Stage == factory.MergeMerged && previous.Stage != factory.MergeMerged {
+		if err = enqueueReadinessRootEventTx(ctx, tx, m.Repository, m.Issue); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 

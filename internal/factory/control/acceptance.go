@@ -116,6 +116,8 @@ type AcceptanceReceipt struct {
 func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal string, decision factory.Acceptance) (AcceptanceReceipt, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
+	bounded, ownsPass, cancelPass := c.readinessPass(bounded)
+	defer cancelPass()
 	if err := decision.Validate(); err != nil {
 		return AcceptanceReceipt{}, err
 	}
@@ -165,6 +167,8 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if err = c.Store.AdmitAcceptanceDecision(bounded, decision); err != nil {
 		if errors.Is(err, store.ErrStaleRevision) {
 			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"stale_revision"}`, time.Now())
+		} else if errors.Is(err, store.ErrReadinessCapacity) {
+			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"readiness_capacity"}`, time.Now())
 		}
 		return AcceptanceReceipt{}, err
 	}
@@ -188,6 +192,9 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
 		return AcceptanceReceipt{}, err
 	}
+	if ownsPass {
+		_, _ = c.drainReadinessWork(bounded, "")
+	}
 	return receipt, nil
 }
 
@@ -203,6 +210,9 @@ func replayAcceptance(stored factory.Command) (AcceptanceReceipt, error) {
 	}
 	if failure.Error == "stale_revision" {
 		return AcceptanceReceipt{}, store.ErrStaleRevision
+	}
+	if failure.Error == "readiness_capacity" {
+		return AcceptanceReceipt{}, store.ErrReadinessCapacity
 	}
 	var receipt AcceptanceReceipt
 	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {

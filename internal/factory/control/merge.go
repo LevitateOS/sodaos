@@ -73,14 +73,22 @@ type MergeReport struct {
 // write. The single merge phase has one immutable native authorization;
 // a terminal refusal never changes identity or erases its receipt.
 func (c *Coordinator) MergePass(ctx context.Context) MergeReport {
+	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	report := MergeReport{Merged: []MergeLink{}}
 	if c.Merges == nil {
 		report.Unavailable = true
+		if ownsPass {
+			_, _ = c.drainReadinessWork(ctx, "")
+		}
 		return report
 	}
 	pending, err := c.Store.OpenMerges(ctx, mergePassLimit)
 	if err != nil {
 		mergeError(&report, "", "store_unavailable")
+		if ownsPass {
+			_, _ = c.drainReadinessWork(ctx, "")
+		}
 		return report
 	}
 	for _, m := range pending {
@@ -89,6 +97,9 @@ func (c *Coordinator) MergePass(ctx context.Context) MergeReport {
 	mergeable, err := c.Store.MergeablePublications(ctx, mergePassLimit)
 	if err != nil {
 		mergeError(&report, "", "store_unavailable")
+		if ownsPass {
+			_, _ = c.drainReadinessWork(ctx, "")
+		}
 		return report
 	}
 	for _, p := range mergeable {
@@ -102,12 +113,16 @@ func (c *Coordinator) MergePass(ctx context.Context) MergeReport {
 		}
 		c.mergeOne(ctx, p, &report)
 	}
+	if ownsPass {
+		_, _ = c.drainReadinessWork(ctx, "")
+	}
 	return report
 }
 
 func mergeError(report *MergeReport, id, reason string) {
 	report.Errors = append(report.Errors, MergeError{ID: id, Reason: reason})
 }
+
 func mergeWait(report *MergeReport, id, reason string) {
 	report.Waits = append(report.Waits, MergeWait{ID: id, Reason: reason})
 }

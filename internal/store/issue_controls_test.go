@@ -212,6 +212,9 @@ func TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
 		if err := s.AdmitAcceptanceDecision(ctx, decision); err != nil {
 			t.Fatal("admit head", issue, err)
 		}
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM factory_readiness_sources WHERE id=$1`, fmt.Sprintf("root:7/%d", issue)); err != nil {
+			t.Fatal("remove page-only fixture root", issue, err)
+		}
 	}
 	page, cursor, hasMore, err := s.AcceptanceDependantsPage(ctx, 7, 9, factory.DependenceRef{})
 	if err != nil || !reflect.DeepEqual(page, []factory.DependenceRef{{Repository: 7, Issue: 1}}) ||

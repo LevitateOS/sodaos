@@ -160,6 +160,8 @@ func assessAcceptance(decision factory.Acceptance, evidence AcceptanceEvidence) 
 func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, principal string, repository, issue int64, decision string, withdrawer int64) (WithdrawalReceipt, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
+	bounded, ownsPass, cancelPass := c.readinessPass(bounded)
+	defer cancelPass()
 	if repository <= 0 || issue <= 0 || decision == "" || withdrawer <= 0 {
 		return WithdrawalReceipt{}, errors.New("invalid acceptance withdrawal")
 	}
@@ -182,18 +184,25 @@ func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, princip
 	if err = c.Store.WithdrawAcceptanceDecision(bounded, repository, issue, decision, withdrawer); err != nil {
 		if errors.Is(err, store.ErrStaleRevision) {
 			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"stale_revision"}`, time.Now())
+		} else if errors.Is(err, store.ErrReadinessCapacity) {
+			_ = c.Store.FinishFactoryCommand(bounded, cmd.ID, `{"error":"readiness_capacity"}`, time.Now())
 		}
 		return WithdrawalReceipt{}, err
 	}
-	receipt := WithdrawalReceipt{CommandID: cmd.ID, Decision: decision, Withdrawn: true,
+	receipt := WithdrawalReceipt{
+		CommandID: cmd.ID, Decision: decision, Withdrawn: true,
 		Publications: c.cancelAcceptancePublications(bounded, repository, issue, decision),
-		Merges:       c.cancelAcceptanceMerges(bounded, repository, issue, decision)}
+		Merges:       c.cancelAcceptanceMerges(bounded, repository, issue, decision),
+	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return WithdrawalReceipt{}, err
 	}
 	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
 		return WithdrawalReceipt{}, err
+	}
+	if ownsPass {
+		_, _ = c.drainReadinessWork(bounded, "")
 	}
 	return receipt, nil
 }
@@ -210,6 +219,9 @@ func replayWithdrawal(stored factory.Command) (WithdrawalReceipt, error) {
 	}
 	if failure.Error == "stale_revision" {
 		return WithdrawalReceipt{}, store.ErrStaleRevision
+	}
+	if failure.Error == "readiness_capacity" {
+		return WithdrawalReceipt{}, store.ErrReadinessCapacity
 	}
 	var receipt WithdrawalReceipt
 	if err := json.Unmarshal([]byte(stored.Outcome), &receipt); err != nil {

@@ -184,10 +184,7 @@ func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, repor
 	// dependants, and queued work launches within current limits.
 	// Failures wait for the next trigger; the merge above already
 	// recorded.
-	_, _ = c.assessCascade(ctx, m.Repository, m.Issue, make(map[factory.DependenceRef]bool))
-	// Completion itself is new dependant input (the code-prereq
-	// completion record): release dependants even when the merged
-	// issue's own verdict is unchanged, mirroring run settlement.
-	c.assessDispatchDependants(ctx, m.Repository, m.Issue)
+	// UpdateMerge atomically queued the completion root. The outer
+	// MergePass drains it once after its publication/settlement work.
 	c.dispatchAfterIntake(ctx)
 }

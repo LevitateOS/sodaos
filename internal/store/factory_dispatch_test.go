@@ -612,3 +612,60 @@ func TestConnectionUsageBudgetAdmitsExactPlannedMinutes(t *testing.T) {
 		t.Fatalf("unused exact-minute connection budget refused its complete reservation: %v", err)
 	}
 }
+
+func TestReportedAssignmentEnqueuesReadinessRootAtomically(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	t.Run("success", func(t *testing.T) {
+		db := dispatchStoreFixture(t)
+		a, reservation, run, view := dispatchTestPacket(t, now)
+		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+			t.Fatal(err)
+		}
+		before := readinessGeneration(t, db)
+		finished, err := db.Assignment(ctx, a.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		finished.Stage, finished.Outcome, finished.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported
+		finished.FinishedUnix = now.Unix()
+		result := factory.Result{Status: "completed", Summary: "completed", Candidate: a.SourceCommit, Findings: []string{}}
+		bound := factory.ResultFromHarness(a.ID, run.ID, result, now.Unix())
+		finished.Result = &bound
+		if err = db.FinishAssignment(ctx, finished); err != nil {
+			t.Fatal(err)
+		}
+		work, err := db.ReadinessWork(ctx, "root:7/3")
+		if err != nil || work.Root != (factory.DependenceRef{Repository: 7, Issue: 3}) || readinessGeneration(t, db) != before+1 {
+			t.Fatal("reported finish did not atomically enqueue root:", work, readinessGeneration(t, db), err)
+		}
+		if err = db.FinishAssignment(ctx, finished); !errors.Is(err, ErrNotFound) || readinessGeneration(t, db) != before+1 {
+			t.Fatal("stale terminal replay advanced generation:", err, readinessGeneration(t, db))
+		}
+	})
+	t.Run("source-capacity-rolls-back-finish", func(t *testing.T) {
+		db := dispatchStoreFixture(t)
+		a, reservation, run, view := dispatchTestPacket(t, now)
+		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+			t.Fatal(err)
+		}
+		fillReadinessSourceHeaders(t, db, "capacity:finish", maxReadinessSources)
+		finished, err := db.Assignment(ctx, a.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		finished.Stage, finished.Outcome, finished.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported
+		finished.FinishedUnix = now.Unix()
+		result := factory.Result{Status: "completed", Summary: "completed", Candidate: a.SourceCommit, Findings: []string{}}
+		bound := factory.ResultFromHarness(a.ID, run.ID, result, now.Unix())
+		finished.Result = &bound
+		before := readinessGeneration(t, db)
+		if err = db.FinishAssignment(ctx, finished); !errors.Is(err, ErrReadinessCapacity) {
+			t.Fatal("full source table must refuse finish:", err)
+		}
+		stored, err := db.Assignment(ctx, a.ID)
+		if err != nil || stored.Stage != factory.AssignmentAssigned || readinessGeneration(t, db) != before {
+			t.Fatal("refused finish partially committed:", stored.Stage, readinessGeneration(t, db), err)
+		}
+	})
+}

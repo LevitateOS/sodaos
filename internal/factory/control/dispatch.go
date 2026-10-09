@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
@@ -261,8 +262,16 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 // queued issues within current limits. It never fails: every operational
 // failure lands in the report, and a later pass retries.
 func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
+	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	report := DispatchPass(ctx, c.dispatchDeps())
 	c.publishAfterDispatch(ctx, report)
+	if ownsPass {
+		drain, err := c.drainReadinessWork(ctx, "")
+		if (err != nil && !errors.Is(err, ErrReadinessPassPending)) || drain.failed {
+			report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "readiness work deferred"})
+		}
+	}
 	return report
 }
 

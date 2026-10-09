@@ -84,7 +84,11 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if n != 1 {
 		return ErrNotFound
 	}
-	if !(a.Outcome == factory.Succeeded && a.Reason == factory.AssignReasonReported) {
+	if a.Outcome == factory.Succeeded && a.Reason == factory.AssignReasonReported {
+		if err = enqueueReadinessRootEventTx(ctx, tx, a.Repository, a.Issue); err != nil {
+			return err
+		}
+	} else {
 		closeRoot := a.Reason != factory.AssignReasonSuperseded && a.Reason != factory.AssignReasonWithdrawn && a.Reason != factory.AssignReasonCancelled
 		if paused {
 			closeRoot = false

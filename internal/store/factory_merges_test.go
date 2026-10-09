@@ -82,6 +82,9 @@ func TestUpdateMergeRegistersOnce(t *testing.T) {
 	ctx := context.Background()
 	m := mergeTestRecord()
 	seedMergeAssignment(t, db, m)
+	if err := db.EnqueueReadinessWork(ctx, "root:7/3", "", factory.DependenceRef{Repository: 7, Issue: 3}); err != nil {
+		t.Fatal("seed prior root for completion fence:", err)
+	}
 	if err := db.RecordMerge(ctx, m); err != nil {
 		t.Fatal(err)
 	}
@@ -107,6 +110,9 @@ func TestUpdateMergeGateRefusesWithdrawnDispatch(t *testing.T) {
 	ctx := context.Background()
 	m := mergeTestRecord()
 	seedMergeAssignment(t, db, m)
+	if err := db.EnqueueReadinessWork(ctx, "root:7/3", "", factory.DependenceRef{Repository: 7, Issue: 3}); err != nil {
+		t.Fatal("seed prior root for completion fence:", err)
+	}
 	if err := db.RecordMerge(ctx, m); err != nil {
 		t.Fatal(err)
 	}
@@ -149,4 +155,73 @@ func TestMergeListings(t *testing.T) {
 	if _, err := db.IssueMergeCompletion(ctx, 7, 3); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("completion without a merged merge: %v", err)
 	}
+}
+
+func prepareMergedTestUpdate(t *testing.T, db *Store) factory.Merge {
+	t.Helper()
+	ctx := context.Background()
+	m := mergeTestRecord()
+	seedMergeAssignment(t, db, m)
+	if err := db.RecordMerge(ctx, m); err != nil {
+		t.Fatal(err)
+	}
+	m.Revision++
+	now := time.Now().Unix()
+	operationID := factory.MergeOperationID(m.PublicationID, 1)
+	m.Operation = factory.MergeOperation{Kind: factory.OpMerge, Attempts: 1, OperationID: operationID, UpdatedUnix: now, Work: mergeTestIntent(operationID)}
+	if err := db.UpdateMerge(ctx, m); err != nil {
+		t.Fatal("register merge intent:", err)
+	}
+	m.Revision++
+	m.Stage, m.Outcome, m.Reason = factory.MergeMerged, factory.Succeeded, factory.MergeReasonMerged
+	m.FinishedUnix, m.MergedUnix, m.ClosedUnix = now, now, now
+	m.MergedCommit = m.HeadOID
+	m.Operation.Effect = factory.OpEffectCommitted
+	m.Operation.Completion = factory.OpCompletionComplete
+	m.Operation.MergedCommit = m.HeadOID
+	m.Operation.PRNumber, m.Operation.PRID, m.Operation.IssueID = m.PRNumber, m.PRID, m.IssueID
+	m.Operation.HeadRef, m.Operation.BaseRef = m.HeadRef, m.BaseRef
+	m.Operation.HeadOID, m.Operation.BaseOID = m.HeadOID, m.BaseOID
+	return m
+}
+
+func TestNewlyMergedCompletionEnqueuesReadinessRootAtomically(t *testing.T) {
+	ctx := context.Background()
+	t.Run("success", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		m := prepareMergedTestUpdate(t, db)
+		before := readinessGeneration(t, db)
+		if err := db.UpdateMerge(ctx, m); err != nil {
+			t.Fatal("finish merge:", err)
+		}
+		work, err := db.ReadinessWork(ctx, "root:7/3")
+		if err != nil || work.Root != (factory.DependenceRef{Repository: 7, Issue: 3}) || work.Generation != before || readinessGeneration(t, db) != before+1 {
+			t.Fatal("new merge completion did not coalesce and invalidate prior root:", work, before, readinessGeneration(t, db), err)
+		}
+		resumed, beginErr := db.BeginReadinessWork(ctx, work.ID, time.Now())
+		if beginErr != nil || resumed.Generation != readinessGeneration(t, db) || resumed.RootChanged {
+			t.Fatal("new merge evidence did not fence prior root progress:", resumed, beginErr)
+		}
+		if err = db.UpdateMerge(ctx, m); !errors.Is(err, ErrStaleRevision) || readinessGeneration(t, db) != before+1 {
+			t.Fatal("stale terminal merge replay advanced generation:", err, readinessGeneration(t, db))
+		}
+	})
+	t.Run("source-capacity-rolls-back-merge", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		m := prepareMergedTestUpdate(t, db)
+		// Earlier head-event processing is outside this completion fixture.
+		// Remove its task-owned header so completion needs a new source.
+		if _, err := db.db.ExecContext(ctx, `DELETE FROM factory_readiness_sources WHERE id='root:7/3'`); err != nil {
+			t.Fatal(err)
+		}
+		fillReadinessSourceHeaders(t, db, "capacity:merge", maxReadinessSources)
+		before := readinessGeneration(t, db)
+		if err := db.UpdateMerge(ctx, m); !errors.Is(err, ErrReadinessCapacity) {
+			t.Fatal("full source table must refuse merged transition:", err)
+		}
+		stored, err := db.MergeByPublication(ctx, m.PublicationID)
+		if err != nil || stored.Stage != factory.MergeOpen || stored.Revision != m.Revision-1 || readinessGeneration(t, db) != before {
+			t.Fatal("refused merge partially committed:", stored.Stage, stored.Revision, readinessGeneration(t, db), err)
+		}
+	})
 }

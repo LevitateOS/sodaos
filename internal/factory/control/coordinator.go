@@ -86,6 +86,7 @@ type Coordinator struct {
 	queue           DispatchQueueCursor
 	lock            *os.File
 	requestGate     sync.RWMutex
+	cascadeMu       sync.Mutex
 	closing         atomic.Bool
 	ownerMu         sync.Mutex
 	// ownerMu also protects the bounded child-result recovery cursor.
@@ -100,6 +101,8 @@ func NewCoordinator(db *store.Store, host HostFactory, broker BrokerExecution) *
 // outstanding runs. A second coordinator fails fast instead of reconciling
 // concurrently.
 func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
+	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	if c.Store == nil || c.Host == nil || c.Broker == nil {
 		return errors.New("factory coordinator dependencies required")
 	}
@@ -152,6 +155,9 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	}
 	if c.Merges != nil {
 		c.MergePass(ctx)
+	}
+	if ownsPass {
+		_, _ = c.drainReadinessWork(ctx, "")
 	}
 	c.requestGate.RUnlock()
 	return nil

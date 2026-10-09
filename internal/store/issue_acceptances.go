@@ -34,7 +34,7 @@ func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptanc
 	}
 	defer func() { _ = tx.Rollback() }()
 	var head sql.NullString
-	err = tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2`, d.Repository, issue).Scan(&head)
+	err = tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, d.Repository, issue).Scan(&head)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -81,6 +81,9 @@ func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptanc
 	if n != 1 {
 		return ErrStaleRevision
 	}
+	if err = enqueueReadinessRootEventTx(ctx, tx, d.Repository, issue); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -117,19 +120,32 @@ func (s *Store) WithdrawAcceptanceDecision(ctx context.Context, repository, issu
 	if repository <= 0 || issue <= 0 || withdrawer <= 0 || decision == "" {
 		return errors.New("invalid acceptance withdrawal")
 	}
-	head, err := s.AcceptanceHead(ctx, repository, issue)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var head string
+	if err = tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, repository, issue).Scan(&head); err != nil {
 		return err
 	}
 	if head != decision {
 		return ErrStaleRevision
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO issue_acceptance_withdrawals(repository,issue,decision,withdrawer) VALUES($1,$2,$3,$4) ON CONFLICT(repository,issue,decision) DO NOTHING`,
-		repository, issue, decision, withdrawer)
+	result, err := tx.ExecContext(ctx, `INSERT INTO issue_acceptance_withdrawals(repository,issue,decision,withdrawer) VALUES($1,$2,$3,$4) ON CONFLICT(repository,issue,decision) DO NOTHING`, repository, issue, decision, withdrawer)
 	if err != nil {
 		return fmt.Errorf("acceptance withdrawal failed: %w", err)
 	}
-	return nil
+	inserted, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if inserted == 1 {
+		if err = enqueueReadinessRootEventTx(ctx, tx, repository, issue); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // AcceptanceWithdrawn reports whether the named decision was withdrawn and,
