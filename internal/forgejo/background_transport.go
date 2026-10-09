@@ -78,7 +78,7 @@ func (b *ServiceBackground) post(ctx context.Context, path string, data []byte, 
 		return b.verifiedPeer(conn)
 	}}
 	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport}
+	client := &http.Client{Transport: transport, CheckRedirect: rejectBackgroundRedirect}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://extensionHost"+path, bytes.NewReader(data))
 	if err != nil {
 		return err

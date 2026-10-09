@@ -24,6 +24,13 @@ type ServiceObserver struct {
 	client         extensions.BackgroundClient
 	background     *ServiceBackground
 	actor          string
+	actorCall      *serviceActorCall
+}
+
+type serviceActorCall struct {
+	done  chan struct{}
+	actor string
+	err   error
 }
 
 // NewServiceObserver builds the service observation client over the
@@ -86,26 +93,62 @@ func (o *ServiceObserver) ShareBackground(background *ServiceBackground) {
 
 func (o *ServiceObserver) ensureActor(ctx context.Context) (string, error) {
 	o.mu.Lock()
-	defer o.mu.Unlock()
 	if o.actor != "" {
-		return o.actor, nil
+		actor := o.actor
+		o.mu.Unlock()
+		return actor, nil
 	}
 	if o.rest == nil || o.credentialFile == "" {
+		o.mu.Unlock()
 		return "", ErrUnavailable
 	}
-	token, err := config.Secret(o.credentialFile)
+	if call := o.actorCall; call != nil {
+		o.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-call.done:
+			return call.actor, call.err
+		}
+	}
+	call := &serviceActorCall{done: make(chan struct{})}
+	o.actorCall = call
+	rest, credentialFile := o.rest, o.credentialFile
+	o.mu.Unlock()
+
+	actor, lookupErr := loadServiceActor(ctx, rest, credentialFile)
+
+	o.mu.Lock()
+	if lookupErr == nil {
+		o.actor = actor
+	}
+	call.actor = actor
+	call.err = lookupErr
+	o.actorCall = nil
+	close(call.done)
+	o.mu.Unlock()
+	return actor, lookupErr
+}
+
+func loadServiceActor(ctx context.Context, rest *Client, credentialFile string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	token, err := config.Secret(credentialFile)
 	if err != nil {
 		return "", err
 	}
-	user, err := o.rest.Current(ctx, token)
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	user, err := rest.Current(ctx, token)
 	if err != nil {
 		return "", err
 	}
 	if user.ID <= 0 {
 		return "", ErrInvalidResponse
 	}
-	o.actor = strconv.FormatInt(user.ID, 10)
-	return o.actor, nil
+	return strconv.FormatInt(user.ID, 10), nil
 }
 
 // serviceSnapshotReader adapts the lazily bootstrapped service client to

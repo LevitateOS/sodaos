@@ -243,6 +243,66 @@ func serveScriptedBackground(t *testing.T, fake *scriptedBackgroundServer) strin
 	return socket
 }
 
+func TestServiceBackgroundRefusesRedirects(t *testing.T) {
+	for _, redirectedPath := range []string{"bootstrap", "revision"} {
+		t.Run(redirectedPath, func(t *testing.T) {
+			const admission = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+			var mu sync.Mutex
+			counts := map[string]int{}
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				counts[r.URL.Path]++
+				mu.Unlock()
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case extensions.BackgroundBootstrapPath:
+					if redirectedPath == "bootstrap" {
+						http.Redirect(w, r, "/redirect-target", http.StatusFound)
+						return
+					}
+					_ = json.NewEncoder(w).Encode(map[string]string{"admission": admission, "installation_id": "install-1"})
+				case extensions.BackgroundRevisionPath:
+					if redirectedPath == "revision" {
+						http.Redirect(w, r, "/redirect-target", http.StatusFound)
+						return
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{"revision": 12, "idle": true})
+				case "/redirect-target":
+					if redirectedPath == "bootstrap" {
+						_ = json.NewEncoder(w).Encode(map[string]string{"admission": admission, "installation_id": "install-1"})
+					} else {
+						_ = json.NewEncoder(w).Encode(map[string]any{"revision": 12, "idle": true})
+					}
+				default:
+					http.NotFound(w, r)
+				}
+			})
+			socket := shortSocketPath(t, "redirect.sock")
+			listener, err := net.Listen("unix", socket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = listener.Close() })
+			server := &http.Server{Handler: handler}
+			go func() { _ = server.Serve(listener) }()
+			t.Cleanup(func() { _ = server.Close() })
+
+			background := NewServiceBackground(socket, uint32(os.Getuid()), "")
+			if _, err = background.ReadNativeRevision(context.Background()); err == nil {
+				t.Fatal("background client accepted a redirected response")
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if counts["/redirect-target"] != 0 {
+				t.Fatalf("redirect target received %d requests", counts["/redirect-target"])
+			}
+			if redirectedPath == "bootstrap" && counts[extensions.BackgroundRevisionPath] != 0 {
+				t.Fatalf("revision path received a request after bootstrap redirect: %d", counts[extensions.BackgroundRevisionPath])
+			}
+		})
+	}
+}
+
 func TestServiceBackgroundSharesOneAdmission(t *testing.T) {
 	fake := &scriptedBackgroundServer{admissions: []string{}, revision: 12, ops: map[string]extensions.OperationRecord{}}
 	socket := serveScriptedBackground(t, fake)

@@ -44,6 +44,10 @@ func validBackgroundOperationID(id string) bool {
 	return true
 }
 
+func rejectBackgroundRedirect(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
+}
+
 func backgroundSecret(credential extensions.CredentialFile) (string, error) {
 	secret, err := config.Secret(string(credential))
 	if err != nil {
@@ -143,7 +147,7 @@ func (b *ServiceBackground) performBootstrap(ctx context.Context, socket, instal
 		return b.verifiedPeer(conn)
 	}}
 	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport}
+	client := &http.Client{Transport: transport, CheckRedirect: rejectBackgroundRedirect}
 	body, err := json.Marshal(struct {
 		InstallationID string `json:"installation_id,omitempty"`
 	}{InstallationID: installation})

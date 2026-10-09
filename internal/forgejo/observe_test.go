@@ -3,13 +3,17 @@ package forgejo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 )
@@ -127,6 +131,91 @@ func TestServiceObserverBootstrapsOnce(t *testing.T) {
 	}
 	if fake.token != "test-pat" {
 		t.Fatal("snapshot did not present the service credential")
+	}
+}
+
+func TestServiceObserverShortRevisionCallerDoesNotWaitForActorLookup(t *testing.T) {
+	currentStarted := make(chan struct{})
+	releaseCurrent := make(chan struct{})
+	var releaseOnce sync.Once
+	var currentStartedOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseCurrent) }) }
+	defer release()
+	var currentCalls atomic.Int32
+
+	rest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/user" {
+			http.NotFound(w, r)
+			return
+		}
+		currentCalls.Add(1)
+		currentStartedOnce.Do(func() { close(currentStarted) })
+		<-releaseCurrent
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(User{ID: 11, Login: "soda-tester"})
+	}))
+	t.Cleanup(rest.Close)
+	fake := &fakeBackgroundServer{admission: strings.Repeat("a", 43)}
+	observer := NewServiceObserver(serveBackgroundSocket(t, fake), uint32(os.Getuid()),
+		observationCredential(t, "test-pat"), New(rest.URL))
+
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := observer.SnapshotReader().ReadSnapshot(context.Background(), observer.Credential(), SnapshotRequest{
+			RepositoryID: "7", IssueIndex: "3", Families: []SnapshotFamily{FamilyIssue}, Limit: SnapshotPageLimit,
+		})
+		firstDone <- err
+	}()
+	select {
+	case <-currentStarted:
+	case <-time.After(time.Second):
+		t.Fatal("cold actor lookup did not reach Forgejo")
+	}
+
+	shortCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	shortSnapshotDone := make(chan error, 1)
+	go func() {
+		_, err := observer.SnapshotReader().ReadSnapshot(shortCtx, observer.Credential(), SnapshotRequest{
+			RepositoryID: "7", IssueIndex: "3", Families: []SnapshotFamily{FamilyIssue}, Limit: SnapshotPageLimit,
+		})
+		shortSnapshotDone <- err
+	}()
+	revisionCtx, cancelRevision := context.WithTimeout(context.Background(), time.Second)
+	defer cancelRevision()
+	revisionDone := make(chan error, 1)
+	go func() {
+		_, err := observer.SnapshotReader().ReadNativeRevision(revisionCtx)
+		revisionDone <- err
+	}()
+	select {
+	case err := <-revisionDone:
+		if err != nil {
+			t.Fatalf("revision call could not proceed during actor lookup: %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("revision caller remained blocked behind the actor lookup")
+	}
+	select {
+	case err := <-shortSnapshotDone:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("waiting snapshot did not stop at its own deadline: %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("short snapshot waiter did not honor its deadline before Current was released")
+	}
+	if calls := currentCalls.Load(); calls != 1 {
+		t.Fatalf("concurrent observer started %d actor lookups, want one", calls)
+	}
+
+	release()
+	select {
+	case err := <-firstDone:
+		if err != nil {
+			t.Fatalf("cold snapshot read failed: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cold snapshot read did not finish after Current was released")
 	}
 }
 
