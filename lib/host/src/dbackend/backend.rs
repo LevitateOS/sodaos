@@ -149,6 +149,14 @@ impl ExecBackend for DaemonBackend {
             .map_err(internal)
     }
 
+    fn prepare_context(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let req = crate::pops::PrepareContextReq::decode(body).map_err(internal)?;
+        self.pops
+            .prepare_context(&req, native_deadline())
+            .map(String::into_bytes)
+            .map_err(internal)
+    }
+
     fn inspect_preparation(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let req = crate::pops::InspectPreparationReq::decode(body).map_err(internal)?;
         self.pops

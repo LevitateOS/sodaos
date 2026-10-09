@@ -22,12 +22,30 @@ func dispatchDigest(text string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func fixturePreparationContext(in project.FactoryPreparationContextRequest, role string) project.FactoryPreparationContext {
+	files := make([]project.FactoryContextFile, 0, len(in.Paths))
+	for _, path := range in.Paths {
+		files = append(files, project.FactoryContextFile{Path: path, Content: []byte("synthetic selected source: " + path)})
+	}
+	return project.FactoryPreparationContext{
+		Project: in.Project, ID: in.ID, Role: role,
+		SourceCommit: in.SourceCommit, ApprovedBase: in.ApprovedBase,
+		DiffBase: in.DiffBase, Candidate: in.Candidate,
+		Setup: []byte("synthetic approved setup instructions"),
+		Check: []byte("synthetic required checks"),
+		Files: files,
+		Diff:  []byte("synthetic exact candidate diff"),
+	}
+}
+
 type fakeDispatchHost struct {
-	launch   func(project.FactoryLaunch) (project.FactoryState, error)
-	inspect  func(project.FactoryInspect) (project.FactoryState, error)
-	harness  func(string) (project.FactoryHarnessPin, error)
-	families []string
-	launches []project.FactoryLaunch
+	launch          func(project.FactoryLaunch) (project.FactoryState, error)
+	inspect         func(project.FactoryInspect) (project.FactoryState, error)
+	harness         func(string) (project.FactoryHarnessPin, error)
+	families        []string
+	launches        []project.FactoryLaunch
+	contextRequests []project.FactoryPreparationContextRequest
+	contextRoles    []string
 }
 
 func (f *fakeDispatchHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
@@ -45,6 +63,12 @@ func (f *fakeDispatchHost) FactoryInspect(ctx context.Context, in project.Factor
 func (f *fakeDispatchHost) FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error) {
 	f.families = append(f.families, family)
 	return f.harness(family)
+}
+
+func (f *fakeDispatchHost) ReadPreparationContext(_ context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+	f.contextRequests = append(f.contextRequests, in)
+	f.contextRoles = append(f.contextRoles, role)
+	return fixturePreparationContext(in, role), nil
 }
 
 func (f *fakeDispatchHost) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
@@ -175,7 +199,7 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 		t.Fatal(err)
 	}
 	reqID, apprID := "d111111111111111111111111", "d222222222222222222222222"
-	commit, digest := strings.Repeat("e", 40), strings.Repeat("d", 64)
+	commit, digest := fx.tip, strings.Repeat("d", 64)
 	if err := db.AdmitRequirementDecision(ctx, project.RequirementDecision{
 		ID: reqID, Project: fx.proj, Approver: 7, SourceCommit: commit, SetupDigest: digest, InputsDigest: digest,
 	}); err != nil {
@@ -214,9 +238,12 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 	return fx
 }
 
-func (fx *dispatchFixture) accept(t *testing.T, issue int64, id string) factory.Acceptance {
+func (fx *dispatchFixture) accept(t *testing.T, issue int64, id string, bodyOverride ...string) factory.Acceptance {
 	t.Helper()
-	title, body, answer := fmt.Sprintf("objective %d", issue), fmt.Sprintf("body %d", issue), fmt.Sprintf("answer %d", issue)
+	title, body, answer := fmt.Sprintf("objective %d; inspect README.md", issue), fmt.Sprintf("body %d", issue), fmt.Sprintf("answer %d", issue)
+	if len(bodyOverride) > 0 {
+		body = bodyOverride[0]
+	}
 	decision := factory.Acceptance{
 		ID: id, Repository: fx.repo, IssueIndex: fmt.Sprintf("%d", issue), Approver: 5, NativeRev: 41,
 		TitleDigest: dispatchDigest(title), ContentDigest: dispatchDigest(body), ContentVersion: 2,

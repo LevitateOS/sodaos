@@ -260,6 +260,10 @@ func (*nativeHost) StopPreparation(context.Context, project.PrepareStop) (projec
 	return project.PrepareState{}, errors.New("preparation stop unavailable in native publication fixture")
 }
 
+func (*nativeHost) ReadPreparationContext(context.Context, project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
+	return project.FactoryPreparationContext{}, errors.New("prepared repository context unavailable in native publication fixture")
+}
+
 func (h *nativeHost) FactoryExport(_ context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
 	return project.FactoryExportState{ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Container: strings.Repeat("c", 64), Candidate: in.Candidate, Bundle: base64.StdEncoding.EncodeToString(h.bundle)}, nil
 }

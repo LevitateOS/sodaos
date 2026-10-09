@@ -15,6 +15,7 @@ import (
 // client implements it; the coordinator passes its own host through.
 type DispatchHost interface {
 	FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error)
+	ReadPreparationContext(ctx context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error)
 	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
 	FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error)
 }

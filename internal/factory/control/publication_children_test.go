@@ -21,6 +21,8 @@ type producerFlowHost struct {
 	prepPhase      string
 	stopRetirement string
 	prepStops      []project.PrepareStop
+	contextReads   []project.FactoryPreparationContextRequest
+	contextRoles   []string
 }
 
 func (h *producerFlowHost) FactoryLaunch(_ context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
@@ -29,6 +31,12 @@ func (h *producerFlowHost) FactoryLaunch(_ context.Context, in project.FactoryLa
 		ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role,
 		Phase: project.FactoryCompleted, Container: strings.Repeat("c", 64),
 	}, nil
+}
+
+func (h *producerFlowHost) ReadPreparationContext(_ context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+	h.contextReads = append(h.contextReads, in)
+	h.contextRoles = append(h.contextRoles, role)
+	return fixturePreparationContext(in, role), nil
 }
 
 func (*producerFlowHost) FactoryHarness(_ context.Context, family string) (project.FactoryHarnessPin, error) {
@@ -135,6 +143,19 @@ func TestPublishPassProducesExactReviewerChildAndReplays(t *testing.T) {
 		t.Fatal(err)
 	}
 	prep := host.preparations[0]
+	if len(host.contextReads) != 1 || len(host.contextRoles) != 1 {
+		t.Fatalf("review context admission reads=%+v roles=%+v", host.contextReads, host.contextRoles)
+	}
+	contextRead := host.contextReads[0]
+	if host.contextRoles[0] != project.RoleReviewer || contextRead.Project != owner.ProjectID ||
+		contextRead.ID != prep.Preparation.ID || contextRead.SourceCommit != publication.Candidate ||
+		contextRead.ApprovedBase != owner.SourceCommit || contextRead.DiffBase != publication.PRCreate.BaseOID ||
+		contextRead.Candidate != publication.Candidate || !contextRead.NotAfter.Equal(launch.Run.Deadline) ||
+		!strings.Contains(string(child.Prompt), "synthetic approved setup instructions") ||
+		!strings.Contains(string(child.Prompt), "synthetic selected source: README.md") ||
+		!strings.Contains(string(child.Prompt), "synthetic exact candidate diff") {
+		t.Fatalf("review context lost exact candidate/base/role/deadline or prompt bytes: request=%+v role=%q", contextRead, host.contextRoles[0])
+	}
 	sourcePrep, err := fx.db.Preparation(ctx, prep.SourcePreparation)
 	if err != nil {
 		t.Fatal(err)
@@ -190,6 +211,16 @@ func TestPublishPassProducesCorrectionThenFreshReviewForChangedHead(t *testing.T
 		t.Fatalf("failed CI plus request-changes did not produce one correction: report=%+v launches=%d", checkReport, len(host.launches))
 	}
 	correctionLaunch := host.launches[1]
+	if len(host.contextReads) != 2 || len(host.contextRoles) != 2 {
+		t.Fatalf("correction did not read bounded repository context: reads=%+v roles=%+v", host.contextReads, host.contextRoles)
+	}
+	correctionContext := host.contextReads[1]
+	if host.contextRoles[1] != project.RoleCoder || correctionContext.ID != owner.Preparation ||
+		correctionContext.SourceCommit != owner.SourceCommit || correctionContext.ApprovedBase != owner.SourceCommit ||
+		correctionContext.DiffBase != publication.PRCreate.BaseOID || correctionContext.Candidate != publication.Candidate ||
+		!correctionContext.NotAfter.Equal(correctionLaunch.Run.Deadline) {
+		t.Fatalf("correction context changed base, role, candidate or deadline: request=%+v role=%q run=%+v", correctionContext, host.contextRoles[1], correctionLaunch.Run)
+	}
 	correction, err := fx.db.AssignmentByRun(ctx, correctionLaunch.Run.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -220,6 +251,15 @@ func TestPublishPassProducesCorrectionThenFreshReviewForChangedHead(t *testing.T
 	if newReview.Role != project.RoleReviewer || newReview.PublicationAssignment != owner.ID || newReview.AttemptRoot != owner.AttemptRoot ||
 		newReview.SourceCommit != newHead || strings.Contains(string(newReview.Prompt), "empty input panics") {
 		t.Fatalf("new-head review reused stale evidence or changed its root: %+v", newReview)
+	}
+	if len(host.contextReads) != 3 || len(host.contextRoles) != 3 {
+		t.Fatalf("changed head did not read fresh context: reads=%+v roles=%+v", host.contextReads, host.contextRoles)
+	}
+	newReviewContext := host.contextReads[2]
+	if host.contextRoles[2] != project.RoleReviewer || newReviewContext.ID != host.preparations[1].Preparation.ID ||
+		newReviewContext.ApprovedBase != owner.SourceCommit || newReviewContext.DiffBase != publication.PRCreate.BaseOID ||
+		newReviewContext.Candidate != newHead || !newReviewContext.NotAfter.Equal(host.launches[2].Run.Deadline) {
+		t.Fatalf("fresh review context lost changed head/base/deadline: request=%+v role=%q", newReviewContext, host.contextRoles[2])
 	}
 	allowance, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
 	if err != nil || allowance.RootAssignment != owner.AttemptRoot || !slices.Contains(allowance.Corrections, correction.ID) {

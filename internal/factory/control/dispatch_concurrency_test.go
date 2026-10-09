@@ -63,6 +63,10 @@ func (h *mutexDispatchHost) FactoryHarness(context.Context, string) (project.Fac
 	return h.pin, nil
 }
 
+func (*mutexDispatchHost) ReadPreparationContext(_ context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
+	return fixturePreparationContext(in, role), nil
+}
+
 func TestConcurrentDispatchPassesPreserveCapacityAndBudget(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)

@@ -114,7 +114,7 @@ impl<E: Executor> Runtime<E> {
         )
     }
 
-    fn cap_by_wire_deadline(
+    pub(super) fn cap_by_wire_deadline(
         operation_deadline: Instant,
         wire_deadline: &str,
     ) -> Result<Instant, String> {

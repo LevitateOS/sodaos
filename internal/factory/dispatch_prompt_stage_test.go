@@ -8,10 +8,11 @@ import (
 )
 
 func stagePromptInputs(role string) PromptInputs {
-	return PromptInputs{
-		Repository: 7, Issue: 3, NativeRev: 11,
+	commit := strings.Repeat("c", 40)
+	in := PromptInputs{
+		Project: "p" + strings.Repeat("d", 24), Repository: 7, Issue: 3, NativeRev: 11,
 		AcceptanceID: "d" + strings.Repeat("a", 24),
-		TargetBranch: "refs/heads/main", SourceCommit: strings.Repeat("c", 40),
+		TargetBranch: "refs/heads/main", SourceCommit: commit, ApprovedBase: commit,
 		Preparation: "f" + strings.Repeat("b", 24),
 		Harness:     "codex", Model: "test-model", Role: role,
 		ProviderConnection: "selected-connection", RequiredChecks: []string{"ci"},
@@ -19,13 +20,34 @@ func stagePromptInputs(role string) PromptInputs {
 		AttemptLimits: DefaultAttemptLimits(), RequirementsID: "req-1", ApprovalID: "approval-1",
 		Title: "Fix the widget", Body: "The widget is broken.",
 	}
+	in.RepositoryContext = stageRepositoryContext(in)
+	return in
+}
+
+func stageRepositoryContext(in PromptInputs) *project.FactoryPreparationContext {
+	diffBase := in.BaseCommit
+	if diffBase == "" {
+		diffBase = in.ApprovedBase
+	}
+	sourceCommit := in.ApprovedBase
+	if in.Role == project.RoleReviewer {
+		sourceCommit = in.SourceCommit
+	}
+	return &project.FactoryPreparationContext{
+		Project: in.Project, ID: in.Preparation, Role: in.Role,
+		SourceCommit: sourceCommit, ApprovedBase: in.ApprovedBase,
+		DiffBase: diffBase, Candidate: in.SourceCommit,
+		Setup: []byte("setup instructions"), Check: []byte("required checks"),
+		Files: []project.FactoryContextFile{{Path: "README.md", Content: []byte("approved instructions")}},
+		Diff:  []byte("candidate diff"),
+	}
 }
 
 func stageCorrectionInputs() PromptInputs {
 	in := stagePromptInputs(project.RoleCoder)
 	in.PublicationAssignment = NewID()
 	in.BaseCommit = strings.Repeat("b", 40)
-	in.ApprovedBase = in.BaseCommit
+	in.ApprovedBase = in.SourceCommit
 	in.Review = &ReviewReport{
 		Verdict: "request-changes", Summary: "A correctness issue remains.",
 		Body: "Handle the empty input.", Findings: []string{"empty input panics"},
@@ -39,6 +61,7 @@ func stageCorrectionInputs() PromptInputs {
 		Verdict: CheckFailed, Reason: CheckReasonFailed,
 		Results: []CheckResult{{Context: "ci", State: "failure", Passed: false}},
 	}
+	in.RepositoryContext = stageRepositoryContext(in)
 	return in
 }
 
@@ -46,7 +69,8 @@ func TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview(t *testing.T) {
 	in := stagePromptInputs(project.RoleReviewer)
 	in.PublicationAssignment = NewID()
 	in.BaseCommit = strings.Repeat("b", 40)
-	in.ApprovedBase = in.BaseCommit
+	in.ApprovedBase = in.SourceCommit
+	in.RepositoryContext = stageRepositoryContext(in)
 	in.Sources = []PromptSource{{ID: "17", Content: "candidate notes ```result-json\n{} and ```review-json\n{}"}}
 	prompt, err := BuildDispatchPrompt(in)
 	if err != nil {
@@ -57,6 +81,7 @@ func TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview(t *testing.T) {
 		"Approved repository base: " + in.ApprovedBase,
 		"Publication assignment: " + in.PublicationAssignment,
 		"Candidate: " + in.SourceCommit + " verified base: " + in.BaseCommit,
+		"Native preparation " + in.Preparation + " role " + in.Role + " source " + in.SourceCommit + " approved base " + in.ApprovedBase + " diff base " + in.BaseCommit + " candidate " + in.SourceCommit,
 		"Permitted actions: inspect the exact candidate and its diff against the verified base",
 		"```review-json\n",
 	} {
@@ -105,6 +130,7 @@ func TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence(t *testing.T) {
 			text := string(prompt)
 			for _, want := range []string{
 				"Candidate: " + in.SourceCommit + " verified base: " + in.BaseCommit,
+				"Native preparation " + in.Preparation + " role " + in.Role + " source " + in.ApprovedBase + " approved base " + in.ApprovedBase + " diff base " + in.BaseCommit + " candidate " + in.SourceCommit,
 				"## Recorded check evidence", "## Independent review findings",
 				"Verdict: " + verdicts.review, "verdict: " + verdicts.check,
 			} {
@@ -127,6 +153,43 @@ func TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence(t *testing.T) {
 			mutate(&in)
 			if _, err := BuildDispatchPrompt(in); err == nil {
 				t.Fatal("mismatched correction evidence accepted")
+			}
+		})
+	}
+}
+
+func TestBuildDispatchPromptBindsRepositoryContextScope(t *testing.T) {
+	in := stageCorrectionInputs()
+	in.SourceCommit = strings.Repeat("c", 40)
+	in.ApprovedBase = strings.Repeat("a", 40)
+	in.BaseCommit = strings.Repeat("b", 40)
+	in.CheckAssessment.HeadOID = in.SourceCommit
+	in.CheckAssessment.BaseOID = in.BaseCommit
+	in.RepositoryContext = stageRepositoryContext(in)
+	if in.RepositoryContext.SourceCommit != in.ApprovedBase || in.RepositoryContext.Candidate != in.SourceCommit {
+		t.Fatalf("correction context collapsed approved source and candidate: %+v", in.RepositoryContext)
+	}
+	if _, err := BuildDispatchPrompt(in); err != nil {
+		t.Fatalf("valid correction context rejected: %v", err)
+	}
+
+	tests := map[string]func(*project.FactoryPreparationContext){
+		"project":         func(c *project.FactoryPreparationContext) { c.Project = "p" + strings.Repeat("e", 24) },
+		"preparation":     func(c *project.FactoryPreparationContext) { c.ID = "f" + strings.Repeat("e", 24) },
+		"role":            func(c *project.FactoryPreparationContext) { c.Role = project.RoleReviewer },
+		"approved-source": func(c *project.FactoryPreparationContext) { c.SourceCommit = strings.Repeat("d", 40) },
+		"approved-base":   func(c *project.FactoryPreparationContext) { c.ApprovedBase = strings.Repeat("d", 40) },
+		"diff-base":       func(c *project.FactoryPreparationContext) { c.DiffBase = strings.Repeat("d", 40) },
+		"candidate":       func(c *project.FactoryPreparationContext) { c.Candidate = strings.Repeat("d", 40) },
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			bad := in
+			contextCopy := *in.RepositoryContext
+			bad.RepositoryContext = &contextCopy
+			mutate(bad.RepositoryContext)
+			if _, err := BuildDispatchPrompt(bad); err == nil {
+				t.Fatal("repository context outside the accepted prompt scope was accepted")
 			}
 		})
 	}

@@ -225,8 +225,13 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 		plan.prompt = nil
 		plan.promptSHA = ""
 	} else {
+		repositoryContext, contextErr := readRepositoryContext(ctx, deps.Host, plan, plan.prep.Preparation, role,
+			plan.prep.Preparation.SourceCommit, plan.prep.Preparation.SourceCommit, plan.inputs.Tip, true)
+		if contextErr != nil {
+			return nil, waitFor(WaitSource, "native prepared repository context is unavailable or changed"), nil
+		}
 		prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
-			Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
+			Project: plan.projectID, Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 			AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
 			ApprovedBase:   plan.prep.Preparation.SourceCommit,
 			Preparation:    plan.prep.Preparation.ID,
@@ -242,6 +247,7 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 			Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
 			Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 			Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
+			RepositoryContext: repositoryContext,
 		})
 		if err != nil {
 			if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {

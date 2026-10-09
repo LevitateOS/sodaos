@@ -230,6 +230,9 @@ impl ExecBackend for ScriptBackend {
     fn prepare_candidate(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.replay(body)
     }
+    fn prepare_context(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        self.replay(body)
+    }
     fn inspect_preparation(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.replay(body)
     }
@@ -522,7 +525,7 @@ fn terminal_gate_caps_and_releases() {
 
 #[test]
 fn route_table_has_every_go_route() {
-    assert_eq!(ROUTE_TABLE.len(), 34);
+    assert_eq!(ROUTE_TABLE.len(), 35);
     let count = |prefix: &str| {
         ROUTE_TABLE
             .iter()
@@ -550,6 +553,7 @@ fn route_table_has_every_go_route() {
         "/project-access",
         "/prepare",
         "/prepare-candidate",
+        "/prepare-context",
         "/prepare-inspect",
         "/prepare-stop",
         "/prepare-hold",

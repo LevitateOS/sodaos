@@ -39,6 +39,7 @@ var (
 // reports the staged-harness pin dispatch requires.
 type HostFactory interface {
 	FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error)
+	ReadPreparationContext(ctx context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error)
 	FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error)
 	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
 	FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error)

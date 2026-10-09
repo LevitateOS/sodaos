@@ -61,6 +61,10 @@ func (*fakePublishHost) StopPreparation(context.Context, project.PrepareStop) (p
 	return project.PrepareState{}, errors.New("preparation stop unavailable in publication fixture")
 }
 
+func (*fakePublishHost) ReadPreparationContext(context.Context, project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
+	return project.FactoryPreparationContext{}, errors.New("prepared repository context unavailable in publication fixture")
+}
+
 func (f *fakePublishHost) FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
 	f.exports = append(f.exports, in)
 	if f.export != nil {

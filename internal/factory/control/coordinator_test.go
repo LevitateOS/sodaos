@@ -76,6 +76,10 @@ func (*stubHost) StopPreparation(context.Context, project.PrepareStop) (project.
 	return project.PrepareState{}, errors.New("preparation stop unavailable in coordinator stub")
 }
 
+func (*stubHost) ReadPreparationContext(context.Context, project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error) {
+	return project.FactoryPreparationContext{}, errors.New("prepared repository context unavailable in coordinator stub")
+}
+
 type stubBroker struct {
 	get   func(kind, id string) (identity.Execution, error)
 	close func(kind, id string) error

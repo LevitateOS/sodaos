@@ -140,16 +140,18 @@ pub struct PrepareInspect {
 }
 
 /// Bounded, transient repository material read from one recorded preparation.
-/// The caller supplies the exact approved base and candidate object IDs; this
-/// value is never part of the durable preparation receipt.
+/// The caller supplies exact source, approved base, diff base, candidate and
+/// deadline values; this value is never part of the durable preparation receipt.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PrepareContextRead {
     pub project: String,
     pub id: String,
     pub source_commit: String,
     pub approved_base: String,
+    pub diff_base: String,
     pub candidate: String,
     pub paths: Vec<String>,
+    pub not_after: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -165,6 +167,7 @@ pub struct PreparationContext {
     pub role: String,
     pub source_commit: String,
     pub approved_base: String,
+    pub diff_base: String,
     pub candidate: String,
     pub setup: Vec<u8>,
     pub check: Vec<u8>,
@@ -185,10 +188,12 @@ impl PrepareContextRead {
             || self.source_commit.len() != 40
             || !domain::is_hex_lower(&self.approved_base)
             || self.approved_base.len() != 40
+            || !domain::is_hex_lower(&self.diff_base)
+            || self.diff_base.len() != 40
             || !domain::is_hex_lower(&self.candidate)
             || self.candidate.len() != 40
-            || self.paths.is_empty()
             || self.paths.len() > MAX_CONTEXT_FILES
+            || soda_wire_time::parse_nanos(&self.not_after).is_none()
         {
             return Err("invalid preparation context request".to_string());
         }
@@ -203,6 +208,9 @@ impl PrepareContextRead {
                 .ok_or_else(|| "preparation context path set exceeds bounds".to_string())?;
             previous = Some(path);
         }
+        if !self.paths.windows(2).all(|pair| pair[0] < pair[1]) {
+            return Err("invalid preparation context path set".to_string());
+        }
         if total > MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES {
             return Err("preparation context path set exceeds bounds".to_string());
         }
@@ -210,12 +218,13 @@ impl PrepareContextRead {
     }
 }
 
-fn valid_context_path(path: &str) -> bool {
+pub(crate) fn valid_context_path(path: &str) -> bool {
     if path.is_empty()
         || path.len() > MAX_CONTEXT_PATH_BYTES
         || path.starts_with('/')
         || path.contains('\\')
         || path.contains('\0')
+        || path.bytes().any(|byte| byte < b' ' || byte == 0x7f)
     {
         return false;
     }
@@ -286,6 +295,8 @@ impl PreparationContext {
         out.push_str(&json::quote(&self.source_commit));
         out.push_str(",\"approved_base\":");
         out.push_str(&json::quote(&self.approved_base));
+        out.push_str(",\"diff_base\":");
+        out.push_str(&json::quote(&self.diff_base));
         out.push_str(",\"candidate\":");
         out.push_str(&json::quote(&self.candidate));
         out.push_str(",\"setup\":");
@@ -337,8 +348,10 @@ typed_state_object!(PrepareContextRead, "a preparation context request", {
     id => "id": String,
     source_commit => "source_commit": String,
     approved_base => "approved_base": String,
+    diff_base => "diff_base": String,
     candidate => "candidate": String,
-    paths => "paths": Vec<String>
+    paths => "paths": Vec<String>,
+    not_after => "not_after": String
 });
 typed_state_object!(PrepareStop, "a preparation stop object", {
     project => "project": String, id => "id": String

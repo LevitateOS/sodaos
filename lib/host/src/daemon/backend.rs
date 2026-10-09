@@ -72,6 +72,7 @@ pub trait ExecBackend: Send + Sync {
     // -- prepare routes (daemon.go dispatchPrepare) --
     fn prepare(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn prepare_candidate(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
+    fn prepare_context(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn inspect_preparation(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn stop_preparation(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn hold_preparation(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
@@ -163,6 +164,9 @@ impl ExecBackend for StubBackend {
         Err(BackendError::Unimplemented)
     }
     fn prepare_candidate(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
+    fn prepare_context(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }
     fn inspect_preparation(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {

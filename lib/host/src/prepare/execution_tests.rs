@@ -206,7 +206,7 @@ impl Drop for ContextScratch {
     }
 }
 
-fn context_fixture() -> (ContextScratch, ContextGitExec, String, String) {
+fn context_fixture() -> (ContextScratch, ContextGitExec, String, String, String) {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.artifacts");
     std::fs::create_dir_all(&root).unwrap();
     let nonce = std::time::SystemTime::now()
@@ -217,6 +217,12 @@ fn context_fixture() -> (ContextScratch, ContextGitExec, String, String) {
         ContextScratch(root.join(format!("prepare-context-{}-{nonce}", std::process::id())));
     let checkout = scratch.0.join("checkout");
     std::fs::create_dir_all(checkout.join("src")).unwrap();
+    std::fs::write(checkout.join("AGENTS.md"), b"approved root instructions\n").unwrap();
+    std::fs::write(
+        checkout.join("src/AGENTS.md"),
+        b"approved src instructions\n",
+    )
+    .unwrap();
     let git = |args: &[&str]| {
         Native
             .run(
@@ -260,6 +266,8 @@ fn context_fixture() -> (ContextScratch, ContextGitExec, String, String) {
         "src/huge.txt",
         "src/nul.txt",
         "src/binary.txt",
+        "AGENTS.md",
+        "src/AGENTS.md",
     ]);
     git(&[
         "-C",
@@ -274,21 +282,27 @@ fn context_fixture() -> (ContextScratch, ContextGitExec, String, String) {
         .unwrap()
         .trim()
         .to_string();
+    std::fs::write(checkout.join("README.md"), b"current target branch\n").unwrap();
+    git(&["-C", path, "add", "README.md"]);
+    git(&[
+        "-C",
+        path,
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "diff base",
+    ]);
+    let diff_base = String::from_utf8(git(&["-C", path, "rev-parse", "HEAD"]))
+        .unwrap()
+        .trim()
+        .to_string();
     std::fs::write(
         checkout.join("src/lib.go"),
         b"package demo\nconst Value = 2\n",
     )
     .unwrap();
-    std::fs::write(checkout.join("src/huge.txt"), vec![b'y'; 40 * 1024]).unwrap();
-    std::fs::write(checkout.join("src/binary.txt"), b"candidate\0binary\n").unwrap();
-    git(&[
-        "-C",
-        path,
-        "add",
-        "src/lib.go",
-        "src/huge.txt",
-        "src/binary.txt",
-    ]);
+    git(&["-C", path, "add", "src/lib.go"]);
     git(&[
         "-C",
         path,
@@ -327,20 +341,22 @@ fn context_fixture() -> (ContextScratch, ContextGitExec, String, String) {
         setup_file,
         check_file,
     };
-    (scratch, exec, base, candidate)
+    (scratch, exec, base, diff_base, candidate)
 }
 
 #[test]
 fn preparation_context_reads_exact_base_and_candidate_diff_with_bounds() {
-    let (_scratch, exec, base, candidate) = context_fixture();
+    let (_scratch, exec, base, diff_base, candidate) = context_fixture();
     let project_id = pid();
     let input = PrepareContextRead {
         project: project_id,
         id: exec.prep_id.clone(),
         source_commit: base.clone(),
         approved_base: base.clone(),
+        diff_base: diff_base.clone(),
         candidate: candidate.clone(),
         paths: vec!["src/lib.go".to_string()],
+        not_after: "2099-01-01T00:00:00Z".to_string(),
     };
     let deadline = Instant::now() + Duration::from_secs(10);
     let runtime = Runtime {
@@ -349,12 +365,26 @@ fn preparation_context_reads_exact_base_and_candidate_diff_with_bounds() {
     };
     let material = runtime.read_preparation_context(&input, deadline).unwrap();
     assert_eq!(material.approved_base, base);
+    assert_eq!(material.diff_base, diff_base);
     assert_eq!(material.candidate, candidate);
+    let file = |path: &str| {
+        material
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .unwrap()
+    };
     assert_eq!(
-        material.files[0].content,
+        file("src/lib.go").content,
         b"package demo\nconst Value = 1\n"
     );
+    assert_eq!(file("AGENTS.md").content, b"approved root instructions\n");
+    assert_eq!(
+        file("src/AGENTS.md").content,
+        b"approved src instructions\n"
+    );
     assert!(String::from_utf8_lossy(&material.diff).contains("const Value = 2"));
+    assert!(!String::from_utf8_lossy(&material.diff).contains("current target branch"));
     assert!(!material.diff.windows(6).any(|part| part == b"never-"));
     assert_eq!(material.setup, b"#!/bin/sh\ntrue\n");
     assert_eq!(material.check, b"#!/bin/sh\ntrue\n");
@@ -365,6 +395,14 @@ fn preparation_context_reads_exact_base_and_candidate_diff_with_bounds() {
         .iter()
         .filter(|call| call.2 > 0)
         .all(|call| call.3 == 1024));
+    let expired = PrepareContextRead {
+        not_after: "2000-01-01T00:00:00Z".to_string(),
+        ..input.clone()
+    };
+    assert!(runtime
+        .read_preparation_context(&expired, deadline)
+        .unwrap_err()
+        .contains("deadline has expired"));
 
     let oversized = PrepareContextRead {
         paths: vec!["src/large.txt".to_string()],
@@ -373,15 +411,110 @@ fn preparation_context_reads_exact_base_and_candidate_diff_with_bounds() {
     assert!(runtime
         .read_preparation_context(&oversized, deadline)
         .is_err());
+    let checkout = exec.checkout.clone();
+    std::fs::write(
+        PathBuf::from(&checkout).join("src/huge.txt"),
+        vec![b'y'; 40 * 1024],
+    )
+    .unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &["-C", &checkout, "add", "src/huge.txt"],
+            deadline,
+        )
+        .unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &[
+                "-C",
+                &checkout,
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "large candidate diff",
+            ],
+            deadline,
+        )
+        .unwrap();
+    let large_candidate = String::from_utf8(
+        Native
+            .run(
+                &[],
+                "/usr/bin/git",
+                &["-C", &checkout, "rev-parse", "HEAD"],
+                deadline,
+            )
+            .unwrap(),
+    )
+    .unwrap()
+    .trim()
+    .to_string();
     let oversized_diff = PrepareContextRead {
         paths: vec!["src/huge.txt".to_string()],
+        candidate: large_candidate,
         ..input.clone()
     };
     assert!(runtime
         .read_preparation_context(&oversized_diff, deadline)
         .is_err());
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &["-C", &checkout, "reset", "--hard", &diff_base],
+            deadline,
+        )
+        .unwrap();
+    std::fs::write(
+        PathBuf::from(&checkout).join("src/binary.txt"),
+        b"candidate\0binary\n",
+    )
+    .unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &["-C", &checkout, "add", "src/binary.txt"],
+            deadline,
+        )
+        .unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &[
+                "-C",
+                &checkout,
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "binary candidate",
+            ],
+            deadline,
+        )
+        .unwrap();
+    let binary_head = String::from_utf8(
+        Native
+            .run(
+                &[],
+                "/usr/bin/git",
+                &["-C", &checkout, "rev-parse", "HEAD"],
+                deadline,
+            )
+            .unwrap(),
+    )
+    .unwrap()
+    .trim()
+    .to_string();
     let nul_base = PrepareContextRead {
         paths: vec!["src/nul.txt".to_string()],
+        candidate: binary_head.clone(),
         ..input.clone()
     };
     assert!(runtime
@@ -390,12 +523,130 @@ fn preparation_context_reads_exact_base_and_candidate_diff_with_bounds() {
         .contains("not UTF-8 text"));
     let binary_candidate = PrepareContextRead {
         paths: vec!["src/binary.txt".to_string()],
+        candidate: binary_head.clone(),
         ..input.clone()
     };
     assert!(runtime
         .read_preparation_context(&binary_candidate, deadline)
         .unwrap_err()
         .contains("binary file"));
+
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &["-C", &checkout, "reset", "--hard", &diff_base],
+            deadline,
+        )
+        .unwrap();
+    std::fs::write(PathBuf::from(&checkout).join("src/new.md"), b"new source\n").unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &["-C", &checkout, "add", "src/new.md"],
+            deadline,
+        )
+        .unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &[
+                "-C",
+                &checkout,
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "added candidate source",
+            ],
+            deadline,
+        )
+        .unwrap();
+    let added_head = String::from_utf8(
+        Native
+            .run(
+                &[],
+                "/usr/bin/git",
+                &["-C", &checkout, "rev-parse", "HEAD"],
+                deadline,
+            )
+            .unwrap(),
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+    let missing_path = PrepareContextRead {
+        paths: vec!["docs/not-present.md".to_string()],
+        candidate: added_head.clone(),
+        ..input.clone()
+    };
+    let added = runtime
+        .read_preparation_context(&missing_path, deadline)
+        .unwrap();
+    assert!(!added
+        .files
+        .iter()
+        .any(|file| file.path == "docs/not-present.md"));
+    assert!(!added.files.iter().any(|file| file.path == "src/new.md"));
+    assert!(String::from_utf8_lossy(&added.diff).contains("new source"));
+
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &["-C", &checkout, "reset", "--hard", &diff_base],
+            deadline,
+        )
+        .unwrap();
+    std::fs::write(PathBuf::from(&checkout).join(".env"), b"not context\n").unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &["-C", &checkout, "add", ".env"],
+            deadline,
+        )
+        .unwrap();
+    Native
+        .run(
+            &[],
+            "/usr/bin/git",
+            &[
+                "-C",
+                &checkout,
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "forbidden candidate source",
+            ],
+            deadline,
+        )
+        .unwrap();
+    let forbidden_head = String::from_utf8(
+        Native
+            .run(
+                &[],
+                "/usr/bin/git",
+                &["-C", &checkout, "rev-parse", "HEAD"],
+                deadline,
+            )
+            .unwrap(),
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+    let forbidden_change = PrepareContextRead {
+        paths: vec![],
+        candidate: forbidden_head,
+        ..input.clone()
+    };
+    assert!(runtime
+        .read_preparation_context(&forbidden_change, deadline)
+        .unwrap_err()
+        .contains("forbidden context path"));
     let stale = PrepareContextRead {
         candidate: base.clone(),
         ..input.clone()

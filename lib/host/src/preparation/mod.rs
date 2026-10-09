@@ -18,6 +18,7 @@ mod state;
 pub use self::candidate::FactoryCandidate;
 pub use self::decisions::{AdminApproval, RequirementAcceptance};
 pub use self::setup::{setup_digest_of, ApprovedSetup};
+pub(crate) use self::state::valid_context_path;
 pub use self::state::{
     ContextFile, HoldState, PreparationContext, PrepareContextRead, PrepareHold, PrepareInspect,
     PrepareState, PrepareStop, ResolvedTool, MAX_CONTEXT_FILES, MAX_CONTEXT_FILE_BYTES,

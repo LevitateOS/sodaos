@@ -187,6 +187,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	}
 	plan.inputs.Tip = p.Candidate
 	preparationID := plan.prep.Preparation.ID
+	contextPreparation := plan.prep.Preparation
 	if role == project.RoleReviewer {
 		prep, ready, prepErr := c.prepareReviewCandidate(ctx, p, owner, plan, report)
 		if prepErr != nil {
@@ -198,6 +199,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 			return
 		}
 		preparationID = prep.ID
+		contextPreparation = prep
 	}
 	if !time.Now().Before(plan.deadline) {
 		publicationWait(report, p.ID, "attempt_deadline_exhausted")
@@ -207,7 +209,13 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	if hasReview {
 		reviewInput = &review
 	}
-	prompt, err := buildPublicationChildPrompt(plan, p, owner, preparationID, role, reviewInput, checks)
+	repositoryContext, contextErr := readRepositoryContext(ctx, c.Host, plan, contextPreparation, role,
+		owner.SourceCommit, p.PRCreate.BaseOID, p.Candidate, false)
+	if contextErr != nil {
+		publicationWait(report, p.ID, "native prepared repository context is unavailable or changed")
+		return
+	}
+	prompt, err := buildPublicationChildPrompt(plan, p, owner, preparationID, role, reviewInput, checks, repositoryContext)
 	if err != nil {
 		publicationWait(report, p.ID, "child_prompt_invalid")
 		return
@@ -508,10 +516,10 @@ func publicationPreparationID(publication, head string) string {
 	return "f" + hex.EncodeToString(hash[:12])
 }
 
-func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner factory.Assignment, preparationID, role string, review *factory.ReviewReport, checks *factory.CheckAssessment) ([]byte, error) {
+func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner factory.Assignment, preparationID, role string, review *factory.ReviewReport, checks *factory.CheckAssessment, repositoryContext *project.FactoryPreparationContext) ([]byte, error) {
 	selection := plan.policy.Roles[role]
 	return factory.BuildDispatchPrompt(factory.PromptInputs{
-		Repository: p.Repository, Issue: p.Issue, NativeRev: plan.inputs.Revision,
+		Project: plan.projectID, Repository: p.Repository, Issue: p.Issue, NativeRev: plan.inputs.Revision,
 		AcceptanceID: p.Acceptance, TargetBranch: plan.policy.TargetBranch,
 		SourceCommit: p.Candidate, ApprovedBase: owner.SourceCommit, BaseCommit: p.PRCreate.BaseOID,
 		PublicationAssignment: p.AssignmentID, Preparation: preparationID,
@@ -525,6 +533,7 @@ func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner
 		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
 		Review: review, CheckAssessment: checks,
+		RepositoryContext: repositoryContext,
 	})
 }
 

@@ -1,9 +1,9 @@
 //! Project executor operations: the JSON adapter over the typed `Runtime` ops.
 //!
-//! This module serves the seven project-executor routes the Go daemon exposes
+//! This module serves the project-executor routes the Go daemon exposes
 //! in `dispatchMutation`/`dispatchPrepare` (`/access-keys`, `/account`,
-//! `/prepare`, `/prepare-candidate`, `/prepare-inspect`, `/prepare-stop`,
-//! `/prepare-hold`). The typed logic already lives in [`project`],
+//! `/prepare`, `/prepare-candidate`, `/prepare-context`, `/prepare-inspect`,
+//! `/prepare-stop`, `/prepare-hold`). The typed logic already lives in [`project`],
 //! [`account`](crate::account), [`prepare`](crate::prepare) and the
 //! [`domain`]/[`preparation`] DTOs; this layer only binds the wire contract
 //! the daemon adapter programs against: strict-decode request types plus
@@ -165,6 +165,17 @@ impl PrepareCandidateReq {
     }
 }
 
+/// `/prepare-context` request: a bounded read bound to one recorded prep and
+/// exact approved, diff-base, and candidate commits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrepareContextReq(pub preparation::PrepareContextRead);
+
+impl PrepareContextReq {
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        Ok(Self(preparation::PrepareContextRead::decode(body)?))
+    }
+}
+
 /// `/prepare-inspect` request: the exact `domain.PrepareInspect` JSON shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InspectPreparationReq(pub preparation::PrepareInspect);
@@ -254,6 +265,19 @@ impl<E: project::Executor> Ops<E> {
         deadline: Instant,
     ) -> Result<String, String> {
         Ok(self.runtime().prepare_candidate(&req.0, deadline)?.encode())
+    }
+
+    /// `/prepare-context`: read bounded exact-object prompt material. The
+    /// request's absolute deadline caps every native operation.
+    pub fn prepare_context(
+        &self,
+        req: &PrepareContextReq,
+        deadline: Instant,
+    ) -> Result<String, String> {
+        Ok(self
+            .runtime()
+            .read_preparation_context(&req.0, deadline)?
+            .encode())
     }
 
     /// `/prepare-inspect`: authoritative observed state, never mutating.

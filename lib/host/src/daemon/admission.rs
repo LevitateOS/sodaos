@@ -22,6 +22,7 @@ pub const NATIVE_CLEAN_PATHS: &[&str] = &[
     "/os",
     "/prepare",
     "/prepare-candidate",
+    "/prepare-context",
     "/prepare-inspect",
     "/prepare-stop",
     "/prepare-hold",

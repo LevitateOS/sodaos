@@ -1,10 +1,11 @@
 // Role execution and preparation source checkout/head confirmation.
+use std::collections::BTreeSet;
 use std::time::Instant;
 
 use super::paths::preparation_paths;
 use crate::preparation::{
-    self, ContextFile, Preparation, PreparationContext, PrepareContextRead, MAX_CONTEXT_FILE_BYTES,
-    MAX_CONTEXT_TOTAL_BYTES,
+    self, ContextFile, Preparation, PreparationContext, PrepareContextRead, MAX_CONTEXT_FILES,
+    MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_PATH_BYTES, MAX_CONTEXT_TOTAL_BYTES,
 };
 use crate::project::{Executor, Runtime};
 
@@ -123,6 +124,7 @@ impl<E: Executor> Runtime<E> {
         deadline: Instant,
     ) -> Result<PreparationContext, String> {
         input.validate()?;
+        let deadline = Self::cap_by_wire_deadline(deadline, &input.not_after)?;
         let container = self.prepare_container(&input.project, true, deadline)?;
         let state = self
             .inspect_preparation_state(&input.project, &input.id, &container, deadline, None)
@@ -168,6 +170,70 @@ impl<E: Executor> Runtime<E> {
             1,
             deadline,
         )?;
+        self.context_git(
+            &container,
+            &state.role,
+            &checkout,
+            &home,
+            &[
+                "merge-base",
+                "--is-ancestor",
+                &input.diff_base,
+                &input.candidate,
+            ],
+            1,
+            deadline,
+        )?;
+
+        let changed = self.context_git(
+            &container,
+            &state.role,
+            &checkout,
+            &home,
+            &[
+                "diff",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-renames",
+                "--name-only",
+                "-z",
+                &input.diff_base,
+                &input.candidate,
+                "--",
+            ],
+            MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES + 1,
+            deadline,
+        )?;
+        if changed.len() > MAX_CONTEXT_FILES * MAX_CONTEXT_PATH_BYTES {
+            return Err("candidate context path set exceeds its bound".into());
+        }
+        let mut selected = BTreeSet::new();
+        selected.insert("AGENTS.md".to_string());
+        selected.extend(input.paths.iter().cloned());
+        for raw_path in changed
+            .split(|byte| *byte == 0)
+            .filter(|path| !path.is_empty())
+        {
+            let path = std::str::from_utf8(raw_path)
+                .map_err(|_| "candidate context path is not UTF-8 text")?;
+            if !preparation::valid_context_path(path) {
+                return Err("candidate changes a forbidden context path".into());
+            }
+            selected.insert(path.to_string());
+        }
+        let source_paths: Vec<String> = selected.iter().cloned().collect();
+        for path in &source_paths {
+            add_context_instruction_paths(&mut selected, path);
+        }
+        if selected.len() > MAX_CONTEXT_FILES {
+            return Err("preparation context selects too many files".into());
+        }
+        let selected: Vec<String> = selected.into_iter().collect();
+        for path in &selected {
+            if !preparation::valid_context_path(path) {
+                return Err("candidate changes a forbidden context path".into());
+            }
+        }
 
         let files = self.approved_preparation_files(
             &container,
@@ -194,8 +260,56 @@ impl<E: Executor> Runtime<E> {
             return Err("preparation context exceeds its aggregate bound".into());
         }
 
-        let mut context_files = Vec::with_capacity(input.paths.len());
-        for path in &input.paths {
+        let mut tree_args = vec![
+            "ls-tree".to_string(),
+            "-r".to_string(),
+            "-z".to_string(),
+            "--full-tree".to_string(),
+            input.approved_base.clone(),
+            "--".to_string(),
+        ];
+        tree_args.extend(selected.iter().map(|path| format!(":(literal){path}")));
+        let tree_refs: Vec<&str> = tree_args.iter().map(String::as_str).collect();
+        let tree = self.context_git(
+            &container,
+            &state.role,
+            &checkout,
+            &home,
+            &tree_refs,
+            MAX_CONTEXT_FILES * (MAX_CONTEXT_PATH_BYTES + 96) + 1,
+            deadline,
+        )?;
+        let mut existing = BTreeSet::new();
+        for record in tree
+            .split(|byte| *byte == 0)
+            .filter(|record| !record.is_empty())
+        {
+            let Some(separator) = record.iter().position(|byte| *byte == b'\t') else {
+                return Err("approved-base context tree is invalid".into());
+            };
+            let metadata = std::str::from_utf8(&record[..separator])
+                .map_err(|_| "approved-base context tree is invalid")?;
+            let path = std::str::from_utf8(&record[separator + 1..])
+                .map_err(|_| "approved-base context path is not UTF-8 text")?;
+            if selected
+                .binary_search_by(|candidate| candidate.as_str().cmp(path))
+                .is_err()
+            {
+                continue;
+            }
+            let mut fields = metadata.split_ascii_whitespace();
+            let mode = fields.next().unwrap_or("");
+            let kind = fields.next().unwrap_or("");
+            if kind != "blob" || (mode != "100644" && mode != "100755") {
+                return Err("approved-base context entry is not a regular file".into());
+            }
+            existing.insert(path.to_string());
+        }
+        let mut context_files = Vec::with_capacity(existing.len());
+        for path in &selected {
+            if !existing.contains(path) {
+                continue;
+            }
             let remaining = MAX_CONTEXT_TOTAL_BYTES.saturating_sub(total);
             let cap = MAX_CONTEXT_FILE_BYTES.min(remaining);
             let expression = format!("{}:{path}", input.approved_base);
@@ -221,16 +335,14 @@ impl<E: Executor> Runtime<E> {
             });
         }
 
-        let mut diff_args = vec![
+        let diff_args = vec![
             "diff".to_string(),
             "--no-ext-diff".to_string(),
             "--no-textconv".to_string(),
             "--no-renames".to_string(),
-            input.approved_base.clone(),
+            input.diff_base.clone(),
             input.candidate.clone(),
-            "--".to_string(),
         ];
-        diff_args.extend(input.paths.iter().map(|path| format!(":(literal){path}")));
         let diff_refs: Vec<&str> = diff_args.iter().map(String::as_str).collect();
         let remaining = MAX_CONTEXT_TOTAL_BYTES.saturating_sub(total);
         let diff = self.context_git(
@@ -261,6 +373,7 @@ impl<E: Executor> Runtime<E> {
             role: state.role,
             source_commit: state.source_commit,
             approved_base: input.approved_base.clone(),
+            diff_base: input.diff_base.clone(),
             candidate: input.candidate.clone(),
             setup,
             check,
@@ -306,6 +419,19 @@ impl<E: Executor> Runtime<E> {
         let refs: Vec<&str> = args.iter().map(String::as_str).collect();
         self.exec
             .run_bounded(&[], "/usr/bin/podman", &refs, deadline, stdout_limit, 1024)
+    }
+}
+
+fn add_context_instruction_paths(selected: &mut BTreeSet<String>, path: &str) {
+    selected.insert("AGENTS.md".to_string());
+    let parts: Vec<&str> = path.split('/').collect();
+    let mut prefix = String::new();
+    for part in parts.iter().take(parts.len().saturating_sub(1)) {
+        if !prefix.is_empty() {
+            prefix.push('/');
+        }
+        prefix.push_str(part);
+        selected.insert(format!("{prefix}/AGENTS.md"));
     }
 }
 

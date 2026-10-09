@@ -2,11 +2,13 @@ package control
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
@@ -45,7 +47,8 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatalf("assignment authority = %+v", a.Authority)
 	}
 	for _, want := range []string{
-		"Prompt template: soda-f07-f2-v5", "Recorded attempt active-time limit: 120 minutes",
+		"Prompt template: soda-f07-f2-v6", "Recorded attempt active-time limit: 120 minutes",
+		"synthetic approved setup instructions", "synthetic exact candidate diff",
 		"Required evidence checks: ci", "Required evidence:", "report blocked with the concrete reason",
 		`Provider connection: "conn"`, "appliance concurrency is 1", "repository concurrency is 1",
 		"sponsorship concurrency for this connection in this repository is 2",
@@ -71,6 +74,16 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatal(err)
 	} else if span := run.Deadline.Sub(run.Started); span <= 119*time.Minute || span > 120*time.Minute {
 		t.Fatalf("run deadline span = %v", span)
+	} else if len(fx.host.contextRequests) != 1 || len(fx.host.contextRoles) != 1 {
+		t.Fatalf("prepared repository context reads = %+v roles=%+v", fx.host.contextRequests, fx.host.contextRoles)
+	} else {
+		contextRead := fx.host.contextRequests[0]
+		if fx.host.contextRoles[0] != project.RoleCoder || contextRead.ID != a.Preparation ||
+			contextRead.SourceCommit != a.SourceCommit || contextRead.ApprovedBase != a.SourceCommit ||
+			contextRead.DiffBase != a.SourceCommit || contextRead.Candidate != fx.tip ||
+			!contextRead.NotAfter.Equal(run.Deadline) || len(contextRead.Paths) != 1 || contextRead.Paths[0] != "README.md" {
+			t.Fatalf("initial context changed approved source, role or run deadline: request=%+v role=%q run=%+v", contextRead, fx.host.contextRoles[0], run)
+		}
 	}
 	run, err := db.FactoryRun(ctx, launched.RunID)
 	if err != nil || run.InputSHA != fx.tip || run.Reconciled {
@@ -112,6 +125,41 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	allowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
 	if err != nil || !allowance.Active || allowance.Closed || allowance.RootAssignment != a.AttemptRoot {
 		t.Fatalf("settled candidate attempt = %+v, %v", allowance, err)
+	}
+}
+
+func TestDispatchRefusesTargetDifferentFromPreparedCoderSource(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	head := fx.accept(t, 3, "d333333333333333333333333")
+	fx.queue(t, 3, head.ID)
+	inputs := fx.reads.inputs["7/3"]
+	inputs.Tip = strings.Repeat("f", 40)
+	fx.reads.inputs["7/3"] = inputs
+
+	report := DispatchPass(ctx, fx.deps())
+	if len(report.Launched) != 0 || len(report.Errors) != 0 || waitReason(report, 3) != WaitSource ||
+		len(fx.host.launches) != 0 || len(fx.host.contextRequests) != 0 {
+		t.Fatalf("mismatched prepared source launched or read context: %+v launches=%d reads=%+v", report, len(fx.host.launches), fx.host.contextRequests)
+	}
+}
+
+func TestDispatchRefusesRepositoryContextPathOverflowBeforeNativeRead(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	var body strings.Builder
+	for i := 0; i < project.MaxFactoryContextPaths; i++ {
+		body.WriteString(fmt.Sprintf("see selected-%02d.md\n", i))
+	}
+	head := fx.accept(t, 3, "d333333333333333333333333", body.String())
+	fx.queue(t, 3, head.ID)
+
+	report := DispatchPass(ctx, fx.deps())
+	if len(report.Launched) != 0 || len(report.Errors) != 0 || waitReason(report, 3) != WaitSource ||
+		len(fx.host.launches) != 0 || len(fx.host.contextRequests) != 0 {
+		t.Fatalf("path-reference overflow reached native context read or launch: %+v launches=%d reads=%+v", report, len(fx.host.launches), fx.host.contextRequests)
 	}
 }
 
