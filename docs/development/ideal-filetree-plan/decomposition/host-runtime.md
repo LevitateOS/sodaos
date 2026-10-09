@@ -109,6 +109,34 @@ exact four-file format check passes. These checks do not establish full-service,
 native or installed behavior. Wider R02 allocation and main/backend joins
 remain open.
 
+## Current concrete backend allocation
+
+The concrete runtime now has one defining `dbackend` module root at
+`lib/host/src/dbackend/mod.rs` (283 lines), preserving public
+`dbackend::{DaemonBackend,BackendConfig,MuseConfig}` paths, construction, state
+and its `IdentityBroker` implementation. Its private `backend.rs` (334 lines)
+owns `ExecBackend`; `factory_terminal.rs` (264) owns `FactoryTerminal` and run/
+output conversion; `tailnet.rs` (279) owns project/policy admission, views
+and its handler. Top-level Tailnet action dispatch remains in the whole
+ExecBackend implementation at `backend.rs`; `websocket.rs` (422) owns the
+coupled live terminal pump. The
+existing `daemon/backend.rs` route contract and `daemon/websocket.rs` HTTP
+upgrade adapter remain separate defining owners.
+
+The existing tests now live as private descendants at `backend/tests.rs` (129
+lines), `tailnet/tests.rs` (167) and `websocket/tests.rs` (233). The 42-line
+cfg(test) `test_support.rs` owns shared setup; pump and scratch-Tailnet fixtures
+stay with their consumers. Children use existing private root state directly;
+only actual sibling Tailnet entry helpers and the pump entry receive
+`pub(super)`. No forwarding methods or production test-only API were added.
+The source move and owner allocation are complete. The source/development
+receipt `.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/dbackend-private-owners/checks-receipt.json`
+records 18 backend tests, 32 daemon smoke tests and four binary tests passing
+with no failures or skips, all host targets compiling and the exact nine-file
+format check passing. These checks do not establish native, installed,
+systemd, full configured Project/Factory or full-service behavior; those joins
+and wider R02 remain open.
+
 ## Current Forgejo Tailnet helper allocation
 
 L11 implemented the existing privileged one-shot helper in
