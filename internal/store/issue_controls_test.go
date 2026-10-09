@@ -213,6 +213,25 @@ func TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
 			t.Fatal("admit head", issue, err)
 		}
 	}
+	page, cursor, hasMore, err := s.AcceptanceDependantsPage(ctx, 7, 9, factory.DependenceRef{})
+	if err != nil || !reflect.DeepEqual(page, []factory.DependenceRef{{Repository: 7, Issue: 1}}) ||
+		cursor != (factory.DependenceRef{Repository: 7, Issue: acceptanceDependantsPageSize}) || !hasMore {
+		t.Fatal("first sparse page must advance by scanned head:", page, cursor, hasMore, err)
+	}
+	page, cursor, hasMore, err = s.AcceptanceDependantsPage(ctx, 7, 9, cursor)
+	if err != nil || !reflect.DeepEqual(page, []factory.DependenceRef{{Repository: 7, Issue: acceptanceDependantsPageSize + 1}}) ||
+		cursor != (factory.DependenceRef{Repository: 7, Issue: acceptanceDependantsPageSize + 1}) || hasMore {
+		t.Fatal("last sparse page must return its match and finish:", page, cursor, hasMore, err)
+	}
+	page, cursor, hasMore, err = s.AcceptanceDependantsPage(ctx, 7, 11, factory.DependenceRef{})
+	if err != nil || len(page) != 0 || cursor != (factory.DependenceRef{Repository: 7, Issue: acceptanceDependantsPageSize}) || !hasMore {
+		t.Fatal("empty matching page must still expose scanned-head progress:", page, cursor, hasMore, err)
+	}
+	page, cursor, hasMore, err = s.AcceptanceDependantsPage(ctx, 7, 11, cursor)
+	if err != nil || !reflect.DeepEqual(page, []factory.DependenceRef{{Repository: 7, Issue: acceptanceDependantsPageSize + 1}}) || hasMore {
+		t.Fatal("page after empty result must retain the later match:", page, cursor, hasMore, err)
+	}
+
 	var found []int64
 	if err := s.VisitAcceptanceDependants(ctx, 7, 9, func(dependant factory.DependenceRef) error {
 		found = append(found, dependant.Issue)
@@ -234,7 +253,7 @@ func TestVisitAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
 
 	lateCtx, cancel := context.WithCancel(ctx)
 	visited := 0
-	err := s.VisitAcceptanceDependants(lateCtx, 7, 10, func(factory.DependenceRef) error {
+	err = s.VisitAcceptanceDependants(lateCtx, 7, 10, func(factory.DependenceRef) error {
 		visited++
 		if visited == acceptanceDependantsPageSize {
 			cancel()

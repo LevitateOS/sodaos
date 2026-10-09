@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -149,70 +150,103 @@ func (s *Store) RecordIntakeDelivery(ctx context.Context, delivery string, repos
 
 const acceptanceDependantsPageSize = 64
 
+// AcceptanceDependantsPage returns one bounded, stable page of acceptance
+// heads that name the endpoint as a prerequisite. Cursor advances over every
+// scanned head, including heads that do not match, so sparse pages can resume
+// without rescanning. HasMore describes candidate heads after Cursor, not
+// whether this page contained any matches.
+func (s *Store) AcceptanceDependantsPage(ctx context.Context, repository, issue int64, after factory.DependenceRef) ([]factory.DependenceRef, factory.DependenceRef, bool, error) {
+	if repository <= 0 || issue <= 0 || after.Repository < 0 || after.Issue < 0 ||
+		(after.Repository == 0) != (after.Issue == 0) {
+		return nil, factory.DependenceRef{}, false, errors.New("invalid acceptance dependant page")
+	}
+	rows, err := s.db.QueryContext(ctx, `WITH candidate_heads AS MATERIALIZED (
+			SELECT h.repository, h.issue, h.decision
+			FROM issue_acceptance_heads h
+			WHERE (h.repository, h.issue) > ($1, $2)
+			ORDER BY h.repository, h.issue
+			LIMIT $5
+		), page AS (
+			SELECT h.repository, h.issue,
+				EXISTS (
+					SELECT 1 FROM issue_acceptance_decisions d
+					WHERE d.id = h.decision AND EXISTS (
+						SELECT 1
+						FROM jsonb_array_elements(d.data->'prerequisites') AS prerequisite(value)
+						WHERE jsonb_typeof(value->'endpoint_repository') = 'string'
+						  AND jsonb_typeof(value->'endpoint_issue') = 'string'
+						  AND value->>'endpoint_repository' = $3::TEXT
+						  AND value->>'endpoint_issue' = $4::TEXT
+					)
+				) AS matches
+			FROM candidate_heads h
+		), more AS (
+			SELECT EXISTS (
+				SELECT 1
+				FROM issue_acceptance_heads h
+				CROSS JOIN LATERAL (
+					SELECT p.repository, p.issue FROM page p
+					ORDER BY p.repository DESC, p.issue DESC LIMIT 1
+				) last
+				WHERE (h.repository, h.issue) > (last.repository, last.issue)
+			) AS has_more
+		)
+		SELECT p.repository, p.issue, p.matches, more.has_more
+		FROM page p CROSS JOIN more
+		ORDER BY p.repository, p.issue`,
+		after.Repository, after.Issue, strconv.FormatInt(repository, 10), strconv.FormatInt(issue, 10), acceptanceDependantsPageSize)
+	if err != nil {
+		return nil, factory.DependenceRef{}, false, err
+	}
+	defer rows.Close()
+
+	dependants := make([]factory.DependenceRef, 0, acceptanceDependantsPageSize)
+	cursor := after
+	hasMore := false
+	for rows.Next() {
+		var candidate factory.DependenceRef
+		var matches bool
+		if err := rows.Scan(&candidate.Repository, &candidate.Issue, &matches, &hasMore); err != nil {
+			return nil, factory.DependenceRef{}, false, err
+		}
+		cursor = candidate
+		if matches {
+			dependants = append(dependants, candidate)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, factory.DependenceRef{}, false, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, factory.DependenceRef{}, false, err
+	}
+	return dependants, cursor, hasMore, nil
+}
+
 // VisitAcceptanceDependants visits recorded heads whose typed acceptance
 // declares the endpoint as a prerequisite. Heads are scanned in stable keyset
-// pages; each rows cursor is closed before the next decision query, and the
-// visitor receives matches in repository/issue order. The native graph stays
+// pages; each page's rows are closed before invoking the visitor, which
+// receives matches in repository/issue order. The native graph stays
 // canonical: unaccepted relations never appear here.
 func (s *Store) VisitAcceptanceDependants(ctx context.Context, repository, issue int64, visit func(factory.DependenceRef) error) error {
 	if repository <= 0 || issue <= 0 || visit == nil {
 		return errors.New("invalid acceptance dependant scan")
 	}
-	type head struct {
-		repository, issue int64
-		decision          string
-	}
-	afterRepository, afterIssue := int64(0), int64(0)
+	after := factory.DependenceRef{}
 	for {
-		rows, err := s.db.QueryContext(ctx, `SELECT repository, issue, decision
-			FROM issue_acceptance_heads
-			WHERE repository > $1 OR (repository = $1 AND issue > $2)
-			ORDER BY repository, issue LIMIT $3`, afterRepository, afterIssue, acceptanceDependantsPageSize)
+		dependants, cursor, hasMore, err := s.AcceptanceDependantsPage(ctx, repository, issue, after)
 		if err != nil {
 			return err
 		}
-		heads := make([]head, 0, acceptanceDependantsPageSize)
-		for rows.Next() {
-			var h head
-			if err = rows.Scan(&h.repository, &h.issue, &h.decision); err != nil {
-				_ = rows.Close()
+		for _, dependant := range dependants {
+			if err := visit(dependant); err != nil {
 				return err
 			}
-			heads = append(heads, h)
 		}
-		err = rows.Err()
-		closeErr := rows.Close()
-		if err != nil {
-			return err
-		}
-		if closeErr != nil {
-			return closeErr
-		}
-		if len(heads) == 0 {
+		if !hasMore {
 			return nil
 		}
-		for _, h := range heads {
-			decision, err := s.AcceptanceDecision(ctx, h.decision)
-			if err != nil {
-				if errors.Is(err, ErrNotFound) {
-					continue
-				}
-				return err
-			}
-			for _, prereq := range decision.Prerequisites {
-				if prereq.EndpointRepo == repository && prereq.EndpointIssue == issue {
-					if err := visit(factory.DependenceRef{Repository: h.repository, Issue: h.issue}); err != nil {
-						return err
-					}
-					break
-				}
-			}
-		}
-		last := heads[len(heads)-1]
-		afterRepository, afterIssue = last.repository, last.issue
-		if len(heads) < acceptanceDependantsPageSize {
-			return nil
-		}
+		after = cursor
 	}
 }
 
