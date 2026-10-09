@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
@@ -110,6 +111,67 @@ func TestObserveIssueEventUnchangedBlockerSuppresses(t *testing.T) {
 	}
 	if source.totalCalls() == calls {
 		t.Fatal("second observation read nothing; suppression must compare fresh evidence")
+	}
+}
+
+type acceptanceEvidenceDeadline struct {
+	repository, issue string
+	deadline          time.Time
+	observedAt        time.Time
+	hasDeadline       bool
+}
+
+type deadlineRecordingAcceptanceSource struct {
+	delegate *fakeEvidenceSource
+	reads    []acceptanceEvidenceDeadline
+}
+
+func (s *deadlineRecordingAcceptanceSource) ReadAcceptanceEvidence(ctx context.Context, repository, issue string, commentIDs []string) (AcceptanceEvidence, error) {
+	deadline, ok := ctx.Deadline()
+	s.reads = append(s.reads, acceptanceEvidenceDeadline{
+		repository: repository, issue: issue, deadline: deadline, observedAt: time.Now(), hasDeadline: ok,
+	})
+	return s.delegate.ReadAcceptanceEvidence(ctx, repository, issue, commentIDs)
+}
+
+func TestObserveIssueEventBoundsPrerequisiteEvidenceRead(t *testing.T) {
+	baseSource := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
+	c := readinessCoordinator(t, baseSource, &fakeObserver{revision: 12, idle: true})
+	root := readinessDecision("d"+strings.Repeat("1", 24), 42, "3", 12)
+	root.Prerequisites = []factory.AcceptedPrerequisite{{
+		Occurrence: "21", DependsOn: "8", EndpointRepo: 42, EndpointIssue: 9,
+		Outcome: factory.PrereqResult,
+	}}
+	mustAdmit(t, c, root)
+	rootEdge := []AcceptanceEdge{{Occurrence: "21", DependsOn: "8", Visible: true}}
+	baseSource.evidence["42/3"] = readinessEvidence(12, readinessView("3"), nil, rootEdge)
+	baseSource.evidence["42/9"] = readinessEvidence(12, readinessView("9"), nil, nil)
+	source := &deadlineRecordingAcceptanceSource{delegate: baseSource}
+	c.AcceptanceReads = source
+	grantFullAuthority(t, c)
+
+	if _, _, err := c.ObserveIssueEvent(context.Background(), readinessHint("deadline-1", 42, 3)); err != nil {
+		t.Fatal("background intake assessment failed:", err)
+	}
+	if len(source.reads) != 2 {
+		t.Fatalf("expected root and prerequisite evidence reads, got %+v", source.reads)
+	}
+	for _, key := range [][2]string{{"42", "3"}, {"42", "9"}} {
+		var found bool
+		for _, read := range source.reads {
+			if read.repository != key[0] || read.issue != key[1] {
+				continue
+			}
+			found = true
+			if !read.hasDeadline {
+				t.Errorf("evidence read %s/%s has no assessment deadline", key[0], key[1])
+			} else if read.deadline.After(read.observedAt.Add(2 * time.Minute)) {
+				t.Errorf("evidence read %s/%s exceeds the two-minute assessment budget: %s", key[0], key[1], read.deadline)
+			}
+		}
+		if !found {
+			t.Errorf("missing evidence read %s/%s: %+v", key[0], key[1], source.reads)
+		}
 	}
 }
 

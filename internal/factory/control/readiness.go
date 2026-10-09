@@ -199,7 +199,7 @@ func (c *Coordinator) assessOne(ctx context.Context, repository, issue int64) (a
 	if herr == nil {
 		status, evidence, err := c.acceptanceStatus(bounded, repository, strconv.FormatInt(issue, 10))
 		if err != nil {
-			return assessor.obscured(ctx, head, err)
+			return assessor.obscured(bounded, head, err)
 		}
 		assessor.head = head
 		assessor.status = &status
@@ -209,11 +209,11 @@ func (c *Coordinator) assessOne(ctx context.Context, repository, issue int64) (a
 			Repository: repository, IssueIndex: strconv.FormatInt(issue, 10),
 		})
 		if err != nil {
-			return assessor.obscured(ctx, "", err)
+			return assessor.obscured(bounded, "", err)
 		}
 		assessor.evidence = &evidence
 	}
-	return assessor.assess(ctx)
+	return assessor.assess(bounded)
 }
 
 // issueAssessor carries one issue's assessment inputs: the head decision
