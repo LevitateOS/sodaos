@@ -40,6 +40,7 @@ pub(super) fn provision_worker_tools(
             AUTHORITY,
         ],
     )?;
+    run("sudo", &["chmod", "0755", TOOLS, &tools_bin])?;
     migrate_candidate_home(&storage)?;
     if ls_nonempty(LEGACY_RUN) {
         println!(
@@ -197,7 +198,6 @@ pub(super) fn provision_worker_tools(
     if command_v("restorecon").is_some() {
         run("sudo", &["restorecon", "-R", &output_parent])?;
     }
-    run("sudo", &["chmod", "0755", TOOLS, &tools_bin])?;
     run("sudo", &["chmod", "0700", AUTHORITY])?;
 
     println!("-- verify tools as the worker user");
