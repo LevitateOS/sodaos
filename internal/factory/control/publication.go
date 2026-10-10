@@ -73,6 +73,10 @@ type PublishReport struct {
 // Each phase has one immutable native authorization; a terminal refusal never
 // changes identity or erases its receipt.
 func (c *Coordinator) PublishPass(ctx context.Context) PublishReport {
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
+	ctx, _, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	report := PublishReport{Published: []PublishLink{}}
 	if c.Publication == nil {
 		report.Unavailable = true

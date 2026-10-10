@@ -162,6 +162,9 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		return
 	}
 	control, err := deps.Store.IssueControl(ctx, p.Repository, p.Issue)
+	if err == nil {
+		control, err = c.refreshReadiness(ctx, control)
+	}
 	if err != nil || control.Readiness != factory.ReadinessQueued || control.Acceptance != p.Acceptance {
 		publicationWait(report, p.ID, "issue_readiness_not_current")
 		return

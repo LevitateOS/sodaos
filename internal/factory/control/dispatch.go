@@ -178,6 +178,7 @@ type DispatchDeps struct {
 	Broker    DispatchBroker
 	Reads     DispatchReads
 	Authority func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
+	Refresh   func(context.Context, factory.IssueControl) (factory.IssueControl, error)
 	Queue     *DispatchQueueCursor
 }
 
@@ -254,7 +255,8 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 	return DispatchDeps{
 		Store: c.Store, Host: c.Host, Broker: c.Broker,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
-		Queue: &c.queue,
+		Refresh: c.refreshReadiness,
+		Queue:   &c.queue,
 	}
 }
 
@@ -265,6 +267,8 @@ type activeDispatchKey struct{}
 // queued issues within current limits. It never fails: every operational
 // failure lands in the report, and a later pass retries.
 func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
 	ctx = context.WithValue(ctx, activeDispatchKey{}, c)
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()

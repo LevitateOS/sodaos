@@ -73,6 +73,8 @@ type MergeReport struct {
 // write. The single merge phase has one immutable native authorization;
 // a terminal refusal never changes identity or erases its receipt.
 func (c *Coordinator) MergePass(ctx context.Context) MergeReport {
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
 	report := MergeReport{Merged: []MergeLink{}}

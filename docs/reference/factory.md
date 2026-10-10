@@ -5,9 +5,10 @@ status reads recorded run state, stop retires one run, and reconcile settles
 outstanding runs. Runs execute as supervised Project CLI runs with durable
 start/stop receipts, exact run/container/unit/incarnation binding and
 credential return; the [Identity Broker](credentials.md#identity-broker) owns
-subscription custody and the host owns native execution. Automatic intake
-remains unavailable: nothing admits, launches, retries or publishes work.
-The target automatic lifecycle belongs to the
+subscription custody and the host owns native execution. The dashboard's
+automatic lifecycle uses native intake and current repository authority;
+these operator commands cannot admit, launch, retry or publish work.
+The automatic lifecycle belongs to the
 [product overview](../product/overview.md#software-factory-workflow); these
 command constraints do not define its limits. Component responsibilities
 belong to [architecture](../architecture/overview.md), and authority to
@@ -57,6 +58,15 @@ stay unresolved are listed as fenced with their reasons. Settled runs never
 reopen. Dashboard startup takes exclusive coordinator ownership of the
 database and settles outstanding runs before serving.
 
+While it owns the database, the same coordinator revisits durable automatic
+work every ten seconds through its serialized dispatch, publication, checks
+and merge passes. It inspects outstanding runs and settles only confirmed
+terminal execution; a live CLI stays supervised by the host. Delayed native
+CI and completed review/correction runs can therefore advance without another
+issue delivery. Each pass retains its existing bounded readiness budget and
+every attempt retains its original allowance. Shutdown cancels and joins this
+work before releasing database ownership.
+
 Run identities are never reused. A stop tombstone bars its identity from
 future work even when the run never reached the host, and a closed broker
 execution never acquires a replacement lease.
@@ -65,9 +75,11 @@ execution never acquires a replacement lease.
 
 Each recorded run carries its Project, role, input revision, deadline, pinned
 image and harness/model provenance, broker lease and generation, exact
-process binding and credential delegation/return facts. The only proved
-factory harness is Codex CLI `0.157.1`; other harnesses stay unavailable
-until their own supervised-run proof passes.
+process binding and credential delegation/return facts. Repository policy
+explicitly selects each role's harness family, version and model. Admission
+requires that selection to match the staged harness pin and Project image;
+it cannot substitute another profile. The supported subscription credential
+routes belong to the [credential contract](credentials.md#authentication-and-billing-choice).
 
 The [Identity Broker](credentials.md#identity-broker) delivers subscription
 credentials only after the host attests the exact waiting run binding, and

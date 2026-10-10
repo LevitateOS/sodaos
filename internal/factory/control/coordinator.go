@@ -88,6 +88,9 @@ type Coordinator struct {
 	cascadeMu       sync.Mutex
 	closing         atomic.Bool
 	ownerMu         sync.Mutex
+	progressMu      sync.Mutex
+	progressCancel  context.CancelFunc
+	progressDone    chan struct{}
 	// ownerMu also protects the bounded child-result recovery cursor.
 	publicationChildCursor string
 }
@@ -100,6 +103,9 @@ func NewCoordinator(db *store.Store, host HostFactory, broker BrokerExecution) *
 // outstanding runs. A second coordinator fails fast instead of reconciling
 // concurrently.
 func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
+	lifetime := ctx
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
 	if c.Store == nil || c.Host == nil || c.Broker == nil {
@@ -158,6 +164,7 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")
 	}
+	c.startProgress(lifetime)
 	c.requestGate.RUnlock()
 	return nil
 }
@@ -185,6 +192,11 @@ func (c *Coordinator) AdmitHTTP(next http.Handler) http.Handler {
 // terminal peers and closes listeners. Existing handler readers remain held.
 func (c *Coordinator) StopAdmission() {
 	c.closing.Store(true)
+	c.ownerMu.Lock()
+	if c.progressCancel != nil {
+		c.progressCancel()
+	}
+	c.ownerMu.Unlock()
 }
 
 // Close stops admission, waits for every admitted handler to finish, then
@@ -192,6 +204,12 @@ func (c *Coordinator) StopAdmission() {
 // fenced state; a later Start reconciles what remains.
 func (c *Coordinator) Close() error {
 	c.StopAdmission()
+	c.ownerMu.Lock()
+	done := c.progressDone
+	c.ownerMu.Unlock()
+	if done != nil {
+		<-done
+	}
 	c.requestGate.Lock()
 	defer c.requestGate.Unlock()
 	c.ownerMu.Lock()

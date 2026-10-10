@@ -91,6 +91,13 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAttemptRecorded, Detail: "attempt is closed; maintainer intervention is required"})
 		return
 	}
+	if deps.Refresh != nil {
+		control, err = deps.Refresh(ctx, control)
+		if err != nil {
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsUnavailable, Detail: "readiness refresh is unavailable"})
+			return
+		}
+	}
 	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control, retry != nil)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: failed.Reason, Detail: failed.Detail})

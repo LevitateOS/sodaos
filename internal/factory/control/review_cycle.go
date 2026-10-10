@@ -23,6 +23,10 @@ const reviewCyclePassLimit = 256
 // pass can never ride through. While no check assessor is wired, the
 // pass reports unavailable instead of guessing.
 func (c *Coordinator) CheckPass(ctx context.Context) CheckReport {
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
+	ctx, _, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	report := CheckReport{Assessed: []CheckLink{}}
 	if c.Checks == nil {
 		children := PublishReport{}
