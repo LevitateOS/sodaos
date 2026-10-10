@@ -258,10 +258,14 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 	}
 }
 
+// activeDispatchKey marks the Coordinator whose Dispatch owns a context.
+type activeDispatchKey struct{}
+
 // Dispatch resolves interrupted assignments, then dispatches the oldest
 // queued issues within current limits. It never fails: every operational
 // failure lands in the report, and a later pass retries.
 func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
+	ctx = context.WithValue(ctx, activeDispatchKey{}, c)
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
 	report := DispatchPass(ctx, c.dispatchDeps())
@@ -279,7 +283,7 @@ func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
 // intake assessment. Dispatch runs only while an accepted-input source
 // is wired; an unwired coordinator keeps its assessment-only behavior.
 func (c *Coordinator) dispatchAfterIntake(ctx context.Context) {
-	if c.DispatchReads == nil {
+	if c.DispatchReads == nil || ctx.Value(activeDispatchKey{}) == c {
 		return
 	}
 	_ = c.Dispatch(ctx)

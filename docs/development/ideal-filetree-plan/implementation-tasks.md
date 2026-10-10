@@ -210,6 +210,13 @@ Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 bound
 
   [CON-G-MERGE-PERSIST-1](execution-findings.md#rank-1-correctness-and-trustworthy-evidence) resolves recursive dispatch after failed merge-completion persistence. Six focused Go/PG17 checks and independent source review pass; the real normal-trigger regression covers capacity rollback and successful redelivery. This does not close whole-invocation bounds or native qualification.
 
+Automatic same-Coordinator dispatch reentry is source complete under
+[CON-G-DISPATCH-REENTRY-1](execution-findings.md#rank-1-correctness-and-trustworthy-evidence).
+Three actual PostgreSQL checks and independent source/oracle review pass.
+Standalone completion still dispatches; the owning pass consumes the durable
+completion root. This fixes replenished recursive sweeps without closing the
+remaining B03.C-lifetime aggregate and real-trigger qualification.
+
 ### B04 Publication, review and correction loop
 
 Lead B; [F09](reviews/F09.md), [F10](reviews/F10.md). B03 durable attempt/settlement/registration, B07 native adapters, A07 shared exports; Q3/Q5 apply to dependent loop work.

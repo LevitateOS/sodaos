@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -137,6 +138,71 @@ func TestMergeCompletionPersistenceFailureDoesNotReenterDispatch(t *testing.T) {
 	if err != nil || after.Readiness != factory.ReadinessQueued {
 		t.Fatalf("successful retry did not release the code dependant: %+v, %v", after, err)
 	}
+}
+
+func TestDispatchMergeCompletionDoesNotReenterActiveDispatch(t *testing.T) {
+	fx, p, exec, host := dispatchReentryFixture(t)
+	ctx := context.Background()
+
+	report := fx.publish.coord.Dispatch(ctx)
+
+	if waitReason(report, 4) != WaitHarness {
+		t.Fatalf("outer dispatch did not reach the bounded harness boundary: %+v", report)
+	}
+	if len(host.families) != 1 {
+		t.Fatalf("staged harness probes = %d, want only the outer dispatch pass", len(host.families))
+	}
+	merge := fx.merge(t, p)
+	if merge.Stage != factory.MergeMerged {
+		t.Fatalf("outer dispatch did not complete the merge: %+v", merge)
+	}
+	if len(exec.confirms) != 1 {
+		t.Fatalf("native completion confirmations = %d, want 1", len(exec.confirms))
+	}
+	if _, err := fx.publish.db.IssueMergeCompletion(ctx, p.Repository, p.Issue); err != nil {
+		t.Fatalf("confirmed completion was not durable: %v", err)
+	}
+	if _, err := fx.publish.db.ReadinessWork(ctx, "root:7/3"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("outer dispatch did not consume the durable completion continuation: %v", err)
+	}
+}
+
+func TestMergePassCompletionStillDispatchesStandalone(t *testing.T) {
+	fx, p, exec, host := dispatchReentryFixture(t)
+	ctx := context.Background()
+
+	fx.publish.coord.MergePass(ctx)
+
+	if len(host.families) != 1 {
+		t.Fatalf("standalone completion staged harness probes = %d, want one dispatch", len(host.families))
+	}
+	if merge := fx.merge(t, p); merge.Stage != factory.MergeMerged {
+		t.Fatalf("standalone merge pass did not complete the merge: %+v", merge)
+	}
+	if len(exec.confirms) != 1 {
+		t.Fatalf("native completion confirmations = %d, want 1", len(exec.confirms))
+	}
+	if _, err := fx.publish.db.IssueMergeCompletion(ctx, p.Repository, p.Issue); err != nil {
+		t.Fatalf("confirmed completion was not durable: %v", err)
+	}
+	if _, err := fx.publish.db.ReadinessWork(ctx, "root:7/3"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("standalone merge pass did not consume the durable completion continuation: %v", err)
+	}
+}
+
+func dispatchReentryFixture(t *testing.T) (*mergeFixture, factory.Publication, *fakeMerger, *fakeDispatchHost) {
+	t.Helper()
+	fx, p, exec := completedOpenMerge(t)
+	decision := fx.publish.seed.accept(t, 4, "d"+strings.Repeat("e", 23)+"4")
+	fx.publish.seed.queue(t, 4, decision.ID)
+	host := fx.publish.seed.host
+	host.harness = func(string) (project.FactoryHarnessPin, error) {
+		return project.FactoryHarnessPin{}, errors.New("stop at the staged harness boundary")
+	}
+	fx.publish.coord.Host = host
+	fx.publish.coord.Broker = fx.publish.seed.broker
+	fx.publish.coord.DispatchReads = fx.publish.seed.reads
+	return fx, p, exec, host
 }
 
 func completedOpenMerge(t *testing.T) (*mergeFixture, factory.Publication, *fakeMerger) {
