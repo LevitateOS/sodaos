@@ -364,6 +364,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–298; file scaffold; TestDispatchWaitReasons; TestDispatchNeverFallsBackToAnotherConnection; TestDispatchWithdrawnGateRecordsNothing | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 420–480; TestDispatchRejectsAcceptanceWithdrawalAfterPlanning | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Actual Store withdrawal commits at the post-planning host boundary; the current packet admission guard then prevents assignment, run/view persistence and host launch. This does not cover withdrawal after packet commit. |
 
 <a id="coverage-7d56dba1ba23"></a>
 
@@ -673,6 +674,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–59; file scaffold; TestFindPrereqCycle; TestFindPrereqCycleExceedsBound | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Current retained tests cover bounded cycle detection and its over-limit result. Sweep tests were retired at `07ab24bd`; the two cycle selectors passed in the corrected three-selector control batch. |
+| 70–202; TestAcceptanceHeadMutationBehindSavedCursorRestartsDelivery | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Actual PG17 critical-intake regression: a head mutation behind the saved cursor is reread on redelivery; the blocked late control and assessed node are retained, then source deletion and acknowledgement complete together. Native/provider revision boundaries are fake in-memory fixtures; aggregate bounds and full trigger-graph behavior remain open. |
 
 <a id="coverage-8d8ccde235b9"></a>
 <a id="internalfactorycontrolreadiness_testgo-1"></a>

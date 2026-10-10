@@ -145,6 +145,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–123, 205–236; file scaffold; ErrAssignmentActive; RecordDispatchPacket; admissionChanged; cappedCountTx; dispatchPacketError | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 6 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 124–204; checkAdmissionTx | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: checkAdmissionTx — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 260–296; checkQueuedControlTx | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Rechecks and locks the current acceptance head and withdrawal state in the packet transaction; shared admission guard for normal, retry, child and explicit-retry packets. The `473a0eb1` selected regression proves serialization at packet admission, not a withdrawal after packet commit and before a later host call. |
 
 <a id="coverage-4c931bde530b"></a>
 
@@ -164,8 +165,11 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–57, 88–168; file scaffold; TestReservationTransitions; queuedTestControl; TestQueuedControlsOldestFirst; TestActiveRunCountsSkipAttributed | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–55, 88–168; file scaffold; TestReservationTransitions; queuedTestControl; TestQueuedControlsOldestFirst; TestActiveRunCountsSkipAttributed | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 58–87; TestRunUsageFirstWriteWins | [I03](../../slices/identity-brokering.md#i03-delegation-and-connection-availability) | retained | Current declaration duty: TestRunUsageFirstWriteWins — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+The reservation transition test uses independent Store fixtures for consume and
+release/rehold, preserving the single active repository-attempt policy.
 
 <a id="coverage-18dff481a157"></a>
 <a id="internalstorefactory_dispatch_testgo-1"></a>
@@ -178,6 +182,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–25, 43–126; file scaffold; dispatchStoreFixture; dispatchTestRegistration; dispatchTestPrompt; dispatchTestPacket; TestRecordDispatchPacket; isAssignmentActive | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 26–42, 127–181; seedDispatchLimits; TestRecordDispatchPacketEnforcesLimits | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: seedDispatchLimits; Current declaration duty: TestRecordDispatchPacketEnforcesLimits — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 25–46, 313–343, 645–716; dispatchTestControlFor; TestRecordDispatchPacketRejectsChangedQueuedControlAtomically; TestRecordDispatchPacketRejectsWithdrawnAcceptanceAtomically; TestReportedAssignmentEnqueuesReadinessRootAtomically | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Store fixtures admit real acceptance heads; the withdrawal regression verifies atomic packet rollback. Reported-completion capacity setup consumes the admission notification before requiring a fresh source header. Actual normal-dispatch planning/withdrawal timing is exercised in the coordinator map. |
 
 <a id="coverage-f41e1a04a434"></a>
 
@@ -349,7 +354,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–131; file scaffold; retryTestRun; TestRecordRetryPacketBoundsAttemptsAndFinishes; TestRecordRetryPacketReholdsAndRefusesLimits | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–131; file scaffold; retryTestRun; TestRecordRetryPacketBoundsAttemptsAndFinishes | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 3 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 176–233; TestRecordRetryPacketReholdsAndRefusesLimits | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Retry/rehold admission retains the shared packet guard; the separate issue fixture carries its own acceptance decision rather than reusing another issue’s ID. |
 
 <a id="coverage-e2d89894d729"></a>
 
