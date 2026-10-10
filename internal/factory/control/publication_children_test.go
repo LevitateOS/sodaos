@@ -292,6 +292,17 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 	requestChanges := "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"cycle finding\",\"findings\":[\"cycle finding\"]}\n```"
 	correctionIDs := make([]string, 0, factory.DefaultAttemptLimits().CorrectionCycles)
 	priorActiveSeconds := int64(0)
+	advanceProduction := func(stage string) {
+		t.Helper()
+		report := fx.coord.Dispatch(ctx)
+		// Keep both native-read stubs aligned after the readiness observation.
+		inputs := fx.seed.reads.inputs["7/28"]
+		inputs.Revision = fx.reads.evidence["7/28"].Revision
+		fx.seed.reads.inputs["7/28"] = inputs
+		if len(report.Errors) != 0 {
+			t.Fatalf("%s production dispatch: %+v", stage, report)
+		}
+	}
 
 	for cycle := 0; cycle < factory.DefaultAttemptLimits().CorrectionCycles; cycle++ {
 		current, err := fx.db.PublicationByAssignment(ctx, owner.ID)
@@ -299,7 +310,7 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 			t.Fatalf("cycle %d publication = %+v, %v", cycle+1, current, err)
 		}
 		reviewerLaunch := host.launches[len(host.launches)-1]
-		_, reviewerRun := settleProducedChild(t, fx, reviewerLaunch.Run.ID, requestChanges)
+		settleProducedChild(t, fx, reviewerLaunch.Run.ID, requestChanges)
 		fx.coord.Reviews = &fakeReviewer{
 			observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
 			outcome:  committedOutcome("review-receipt-" + string(rune('1'+cycle))),
@@ -310,14 +321,10 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 				CommitID: current.Candidate, Event: "REQUEST_CHANGES",
 			},
 		}
-		if _, err := fx.coord.SubmitReviewForRun(ctx, reviewerRun.ID); err != nil {
-			t.Fatalf("cycle %d review submission: %v", cycle+1, err)
-		}
-
 		launchesBefore := len(host.launches)
-		checkReport := fx.coord.CheckPass(ctx)
-		if len(checkReport.Errors) != 0 || len(host.launches) != launchesBefore+1 {
-			t.Fatalf("cycle %d did not admit exactly one correction: report=%+v launches=%d before=%d", cycle+1, checkReport, len(host.launches), launchesBefore)
+		advanceProduction("settled reviewer")
+		if len(host.launches) != launchesBefore+1 {
+			t.Fatalf("cycle %d production consumer did not admit exactly one correction: launches=%d before=%d", cycle+1, len(host.launches), launchesBefore)
 		}
 		correctionLaunch := host.launches[len(host.launches)-1]
 		correction, err := fx.db.AssignmentByRun(ctx, correctionLaunch.Run.ID)
@@ -327,10 +334,11 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 		}
 		correctionIDs = append(correctionIDs, correction.ID)
 		newHead := strings.Repeat(string(rune('d'+cycle)), 40)
-		_, correctionRun := settleProducedChild(t, fx, correction.Run, correctionOutput(newHead))
-		corrected := fx.coord.PublishCorrection(ctx, correctionRun.ID)
-		if len(corrected.Errors) != 0 || len(corrected.Corrected) != 1 || corrected.Corrected[0].HeadOID != newHead {
-			t.Fatalf("cycle %d correction receipt = %+v", cycle+1, corrected)
+		settleProducedChild(t, fx, correction.Run, correctionOutput(newHead))
+		advanceProduction("settled correction")
+		corrected, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+		if err != nil || corrected.Candidate != newHead {
+			t.Fatalf("cycle %d production consumer did not adopt exact correction head: publication=%+v err=%v", cycle+1, corrected, err)
 		}
 
 		allowance, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
@@ -340,9 +348,10 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 			t.Fatalf("cycle %d allowance changed root/time/cycle custody: %+v, %v", cycle+1, allowance, err)
 		}
 		priorActiveSeconds = allowance.ActiveSeconds
-		pass := fx.coord.PublishPass(ctx)
-		if len(pass.Errors) != 0 || len(host.launches) != launchesBefore+2 {
-			t.Fatalf("cycle %d changed head did not get one reviewer: report=%+v launches=%d", cycle+1, pass, len(host.launches))
+		if len(host.launches) != launchesBefore+2 {
+			reviewer, reviewerErr := fx.db.Assignment(ctx, publicationChildID(corrected.ID, newHead, project.RoleReviewer))
+			assessment, assessmentErr := fx.db.CheckAssessment(ctx, corrected.Repository, corrected.PRNumber)
+			t.Fatalf("cycle %d production trigger did not admit one fresh-head reviewer: launches=%d publication=%+v allowance=%+v reviewer=%+v/%v assessment=%+v/%v", cycle+1, len(host.launches), corrected, allowance, reviewer, reviewerErr, assessment, assessmentErr)
 		}
 	}
 
@@ -351,7 +360,7 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 		t.Fatalf("three-cycle pre-exhaustion state: publication=%+v launches=%d preparations=%d err=%v", current, len(host.launches), len(host.preparations), err)
 	}
 	finalReviewerLaunch := host.launches[len(host.launches)-1]
-	_, finalReviewerRun := settleProducedChild(t, fx, finalReviewerLaunch.Run.ID, requestChanges)
+	settleProducedChild(t, fx, finalReviewerLaunch.Run.ID, requestChanges)
 	fx.coord.Reviews = &fakeReviewer{
 		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
 		outcome:  committedOutcome("review-receipt-exhausted"),
@@ -361,9 +370,6 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 			HeadOID: current.Candidate, BaseOID: current.PRCreate.BaseOID,
 			CommitID: current.Candidate, Event: "REQUEST_CHANGES",
 		},
-	}
-	if _, err := fx.coord.SubmitReviewForRun(ctx, finalReviewerRun.ID); err != nil {
-		t.Fatalf("exhausted-head review submission: %v", err)
 	}
 	exhaustedBefore, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
 	if err != nil || exhaustedBefore.RootAssignment != owner.AttemptRoot || exhaustedBefore.Limits != factory.DefaultAttemptLimits() ||
@@ -376,9 +382,9 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 		t.Fatal(err)
 	}
 	launchesBefore, preparationsBefore := len(host.launches), len(host.preparations)
-	exhaustedPass := fx.coord.CheckPass(ctx)
-	if len(exhaustedPass.Errors) != 0 || len(host.launches) != launchesBefore || len(host.preparations) != preparationsBefore {
-		t.Fatalf("exhausted correction created child work: report=%+v launches=%d preparations=%d", exhaustedPass, len(host.launches), len(host.preparations))
+	advanceProduction("settled exhausted-head reviewer")
+	if len(host.launches) != launchesBefore || len(host.preparations) != preparationsBefore {
+		t.Fatalf("exhausted correction created child work: launches=%d preparations=%d", len(host.launches), len(host.preparations))
 	}
 	exhaustedChildID := publicationChildID(current.ID, current.Candidate, project.RoleCoder)
 	if _, err := fx.db.Assignment(ctx, exhaustedChildID); !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, store.ErrNotFound) {
