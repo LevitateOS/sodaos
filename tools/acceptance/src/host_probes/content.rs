@@ -6,6 +6,17 @@ use crate::sha256;
 
 use super::{get_str, parse_json, podman, read_file, read_text, sha256_file, ProbeFailure};
 
+fn image_config_id_matches(observed: &str, expected: &str) -> bool {
+    let Some(expected_hex) = expected.strip_prefix("sha256:") else {
+        return false;
+    };
+    let observed = observed.strip_suffix('\n').unwrap_or(observed);
+    let observed_hex = observed.strip_prefix("sha256:").unwrap_or(observed);
+    expected_hex.len() == 64
+        && expected_hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+        && observed_hex == expected_hex
+}
+
 /// Installed content inventory, images, and (when activated) the
 /// extension package: the first `host.sh` Python block.
 pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
@@ -105,7 +116,7 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
             &["image", "inspect", "--format", "{{.Id}}", image],
             "inspect installed image",
         )?;
-        if observed.trim() != image {
+        if !image_config_id_matches(&observed, image) {
             return Err(ProbeFailure::exit(format!(
                 "{name} image identity differs from installed release"
             )));
@@ -155,6 +166,24 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
         "extension image package"
     };
     Ok(format!("Installed fork, {checked}, Soda service bytes and native architecture match the release inventory.\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::image_config_id_matches;
+
+    #[test]
+    fn podman_image_id_accepts_bare_or_prefixed_config_digest_only() {
+        let expected = format!("sha256:{}", "7".repeat(64));
+        let bare = "7".repeat(64);
+        assert!(image_config_id_matches(&format!("{bare}\n"), &expected));
+        assert!(image_config_id_matches(&format!("{expected}\n"), &expected));
+        assert!(!image_config_id_matches(
+            &format!("{}\n", "8".repeat(64)),
+            &expected
+        ));
+        assert!(!image_config_id_matches("not-a-digest\n", &expected));
+    }
 }
 
 fn check_extension_package(content: &JsonValue) -> Result<(), ProbeFailure> {

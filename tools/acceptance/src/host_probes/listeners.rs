@@ -61,6 +61,24 @@ pub(super) fn bound(
     Ok(())
 }
 
+/// Stock Cockpit's socket listens on every interface.
+pub(super) fn cockpit_bound(listeners: &BTreeSet<Listener>) -> Result<(), ProbeFailure> {
+    let mut found = false;
+    for listener in listeners {
+        if listener.port != 9090 {
+            continue;
+        }
+        if !matches!(listener.address.as_str(), "*" | "::" | "0.0.0.0") {
+            return Err(ProbeFailure::exit("unexpected additional service binding"));
+        }
+        found = true;
+    }
+    if !found {
+        return Err(ProbeFailure::exit("required service binding missing"));
+    }
+    Ok(())
+}
+
 fn published(
     listeners: &BTreeSet<Listener>,
     address: &str,
@@ -176,12 +194,29 @@ pub(super) fn parse_env_file(text: &str) -> Result<HashMap<String, String>, Prob
     Ok(env)
 }
 
+pub(super) fn tls_material_paths(
+    mode: Option<&str>,
+) -> Result<&'static [&'static str], ProbeFailure> {
+    match mode {
+        Some("internal") => Ok(&[
+            "/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt",
+            "/var/lib/soda/proxy/caddy/pki/authorities/local/root.key",
+            "/var/lib/soda/proxy/caddy/pki/authorities/local/intermediate.crt",
+            "/var/lib/soda/proxy/caddy/pki/authorities/local/intermediate.key",
+        ]),
+        Some("/etc/soda/tls/cert.pem /etc/soda/tls/key.pem") => {
+            Ok(&["/etc/soda/tls/cert.pem", "/etc/soda/tls/key.pem"])
+        }
+        _ => Err(ProbeFailure::exit("unsupported configured TLS mode")),
+    }
+}
+
 /// Listener, publication, credential-mode, and origin boundaries: the
 /// second `host.sh` Python block.
 pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
     let rows = run_output(&["ss", "-H", "-ltn"], "read listeners")?;
     let listeners = parse_listeners(&rows)?;
-    bound(&listeners, "127.0.0.1", 9090)?;
+    cockpit_bound(&listeners)?;
     published(&listeners, "127.0.0.1", 3000, 3000)?;
     if phase == "activated" {
         let cfg = parse_json(
@@ -205,16 +240,16 @@ pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
                 "configured dashboard credential permissions invalid",
             ));
         }
-        for name in ["cert.pem", "key.pem"] {
-            let info = std::fs::symlink_metadata(std::path::Path::new("/etc/soda/tls").join(name))
+        // These are the variables actually consumed by the packaged Caddy config,
+        // not ports reconstructed from a client's unrelated browser tunnel.
+        let env = parse_env_file(&read_text("/etc/soda/proxy.env", "read proxy.env")?)?;
+        for path in tls_material_paths(env.get("SODA_TLS").map(String::as_str))? {
+            let info = std::fs::symlink_metadata(path)
                 .map_err(|_| ProbeFailure::exit("TLS material permissions invalid"))?;
             if !info.is_file() || info.uid() != 0 || info.mode() & 0o7777 != 0o600 {
                 return Err(ProbeFailure::exit("TLS material permissions invalid"));
             }
         }
-        // These are the variables actually consumed by the packaged Caddy config,
-        // not ports reconstructed from a client's unrelated browser tunnel.
-        let env = parse_env_file(&read_text("/etc/soda/proxy.env", "read proxy.env")?)?;
         let bind_raw = env
             .get("SODA_BIND")
             .ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;

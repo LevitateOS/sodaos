@@ -1,3 +1,4 @@
+use super::listeners::{cockpit_bound, tls_material_paths};
 use super::*;
 
 #[test]
@@ -90,6 +91,27 @@ fn listeners_parse_and_bind() {
 }
 
 #[test]
+fn cockpit_requires_only_wildcard_bindings() {
+    let native = "LISTEN 0 4096 *:9090 *:*\n";
+    cockpit_bound(&parse_listeners(native).unwrap()).unwrap();
+    for address in ["0.0.0.0", "[::]"] {
+        let rows = format!("LISTEN 0 4096 {address}:9090 *:*\n");
+        cockpit_bound(&parse_listeners(&rows).unwrap()).unwrap();
+    }
+    for address in ["127.0.0.1", "10.0.2.15", "[::1]"] {
+        let rows = format!("{native}LISTEN 0 4096 {address}:9090 *:*\n");
+        assert_eq!(
+            cockpit_bound(&parse_listeners(&rows).unwrap()).unwrap_err(),
+            ProbeFailure::exit("unexpected additional service binding")
+        );
+    }
+    assert_eq!(
+        cockpit_bound(&parse_listeners("").unwrap()).unwrap_err(),
+        ProbeFailure::exit("required service binding missing")
+    );
+}
+
+#[test]
 fn env_files_skip_empty_and_reject_bare_words() {
     let env = parse_env_file("A=1\n\nB=x=y\n").unwrap();
     assert_eq!(env.get("A").unwrap(), "1");
@@ -98,6 +120,34 @@ fn env_files_skip_empty_and_reject_bare_words() {
         parse_env_file("BARE\n").unwrap_err(),
         ProbeFailure::failed("parse proxy.env")
     );
+}
+
+#[test]
+fn tls_profiles_match_activation_outputs() {
+    let local = parse_env_file(
+        "FORGEJO_ORIGIN=https://10.0.2.15\nSODA_BIND=10.0.2.15\nSODA_TLS=internal\n",
+    )
+    .unwrap();
+    let paths = tls_material_paths(local.get("SODA_TLS").map(String::as_str)).unwrap();
+    assert!(paths.contains(&"/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt"));
+    assert!(paths.contains(&"/var/lib/soda/proxy/caddy/pki/authorities/local/root.key"));
+    assert!(paths.contains(&"/var/lib/soda/proxy/caddy/pki/authorities/local/intermediate.key"));
+    assert!(!paths.iter().any(|path| path.starts_with("/etc/soda/tls/")));
+
+    let external = parse_env_file(
+        "FORGEJO_ORIGIN=https://10.0.2.15\nSODA_BIND=10.0.2.15\nSODA_TLS=/etc/soda/tls/cert.pem /etc/soda/tls/key.pem\n",
+    )
+    .unwrap();
+    assert_eq!(
+        tls_material_paths(external.get("SODA_TLS").map(String::as_str)).unwrap(),
+        ["/etc/soda/tls/cert.pem", "/etc/soda/tls/key.pem"]
+    );
+    for mode in [None, Some(""), Some("auto"), Some("/other/cert /other/key")] {
+        assert_eq!(
+            tls_material_paths(mode).unwrap_err(),
+            ProbeFailure::exit("unsupported configured TLS mode")
+        );
+    }
 }
 
 #[test]
