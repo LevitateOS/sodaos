@@ -21,6 +21,29 @@ type publicationDispatchHost struct {
 	stops     []project.FactoryStop
 }
 
+type cancelingPublicationCheckObserver struct {
+	cancel      context.CancelFunc
+	caller      context.Context
+	ctxErr      error
+	ctxDeadline time.Time
+}
+
+func (o *cancelingPublicationCheckObserver) ObserveChecks(ctx context.Context, _ factory.CheckTarget, _ int64) (factory.ObservedChecks, error) {
+	o.ctxDeadline, _ = ctx.Deadline()
+	if o.cancel != nil {
+		o.cancel()
+	}
+	select {
+	case <-ctx.Done():
+		o.ctxErr = ctx.Err()
+	case <-o.caller.Done():
+		o.ctxErr = ctx.Err()
+	case <-time.After(3 * time.Second):
+		o.ctxErr = ctx.Err()
+	}
+	return factory.ObservedChecks{}, errors.New("caller canceled during check observation")
+}
+
 func (h *publicationDispatchHost) FactoryStop(_ context.Context, in project.FactoryStop) (project.FactoryState, error) {
 	h.stops = append(h.stops, in)
 	return project.FactoryState{
@@ -77,6 +100,66 @@ func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing
 	fx.coord.Dispatch(ctx)
 	if len(h.launches) != 1 || len(exec.submits) != 1 || len(exec.creates) != 1 {
 		t.Fatal("repeat dispatch duplicated execution or publication")
+	}
+}
+
+func TestDispatchPublicationPassRetainsCallerCancellation(t *testing.T) {
+	// This fixture uses synthetic completed records only to reach the check
+	// boundary. It proves context propagation and custody handling, not native
+	// provider execution or effects.
+	for _, mode := range []string{"cancellation", "deadline"} {
+		t.Run(mode, func(t *testing.T) {
+			fx := publishSeed(t)
+			a := fx.finishReported(t, 3)
+			exec := happyPublisher()
+			fx.wire(exec)
+			fx.pass(t)
+			p := fx.publication(t, a)
+
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if mode == "deadline" {
+				ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
+			} else {
+				ctx, cancel = context.WithCancel(context.Background())
+			}
+			defer cancel()
+			observer := &cancelingPublicationCheckObserver{caller: ctx}
+			if mode == "cancellation" {
+				observer.cancel = cancel
+			}
+			fx.coord.Checks = observer
+			merger := happyMerger()
+			fx.coord.Merges = merger
+
+			started := time.Now()
+			fx.coord.Dispatch(ctx)
+			if elapsed := time.Since(started); elapsed > 3*time.Second {
+				t.Fatalf("dispatch did not return promptly after caller expiry: %v", elapsed)
+			}
+			if mode == "cancellation" && observer.ctxErr != context.Canceled {
+				t.Fatalf("publication child context lost caller cancellation: %v", observer.ctxErr)
+			}
+			if mode == "deadline" {
+				callerDeadline, ok := ctx.Deadline()
+				if !ok || observer.ctxDeadline.IsZero() || observer.ctxDeadline.After(callerDeadline) {
+					t.Fatalf("publication child deadline %v exceeds caller deadline %v", observer.ctxDeadline, callerDeadline)
+				}
+				if observer.ctxErr != context.DeadlineExceeded {
+					t.Fatalf("publication child did not expire with caller deadline: %v", observer.ctxErr)
+				}
+			}
+			current := fx.publication(t, a)
+			if current.Stage != factory.PublicationPublished {
+				t.Fatalf("expired assessment changed publication custody: %+v", current)
+			}
+			if _, err := fx.db.MergeByPublication(context.Background(), p.ID); !errors.Is(err, store.ErrNotFound) {
+				t.Fatalf("expired assessment created merge custody: %v", err)
+			}
+			if len(merger.submits) != 0 {
+				t.Fatalf("expired assessment submitted merge work: %+v", merger.submits)
+			}
+		})
 	}
 }
 

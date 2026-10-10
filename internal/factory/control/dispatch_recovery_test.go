@@ -12,6 +12,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -500,6 +501,121 @@ func TestDispatchResumesPersistedReadinessFromIntakeEvent(t *testing.T) {
 	after, err := db.IssueControl(ctx, fx.repo, 5)
 	if err != nil || after.Readiness != factory.ReadinessBlocked || after.Reason != factory.BlockerCodePending {
 		t.Fatalf("dependent control after durable dispatch = %+v err=%v", after, err)
+	}
+}
+
+func TestReportedAssignmentReadinessRootDrainsOnDispatch(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	seed := dispatchSeed(t, db)
+	root := seed.accept(t, 3, "d333333333333333333333333")
+	dependent := factory.Acceptance{
+		ID: "d" + strings.Repeat("5", 24), Repository: seed.repo, IssueIndex: "5", Approver: 5, NativeRev: 41,
+		TitleDigest: dispatchDigest("objective 5"), ContentDigest: dispatchDigest("body 5"), ContentVersion: 2,
+		Sources:     []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: dispatchDigest("answer 5")}},
+		Resolutions: []factory.SelectedSource{{ID: "31", ContentVersion: 0, Digest: dispatchDigest("resolution 5")}},
+		Prerequisites: []factory.AcceptedPrerequisite{{
+			Occurrence: "21", DependsOn: "9", EndpointRepo: seed.repo, EndpointIssue: 3,
+			Outcome: factory.PrereqResult,
+		}},
+	}
+	if err := db.AdmitAcceptanceDecision(ctx, dependent); err != nil {
+		t.Fatal(err)
+	}
+	rootEvidence := AcceptanceEvidence{
+		Revision: 41,
+		Issue:    AcceptanceIssueView{Index: "3", TitleDigest: root.TitleDigest, ContentDigest: root.ContentDigest, ContentVer: root.ContentVersion, Visible: true},
+		Comments: []AcceptanceComment{{ID: root.Sources[0].ID, Digest: root.Sources[0].Digest, ContentVer: root.Sources[0].ContentVersion, Visible: true}},
+	}
+	dependentEvidence := AcceptanceEvidence{
+		Revision: 41,
+		Issue:    AcceptanceIssueView{Index: "5", TitleDigest: dependent.TitleDigest, ContentDigest: dependent.ContentDigest, ContentVer: dependent.ContentVersion, Visible: true},
+		Comments: []AcceptanceComment{
+			{ID: dependent.Sources[0].ID, Digest: dependent.Sources[0].Digest, ContentVer: dependent.Sources[0].ContentVersion, Visible: true},
+			{ID: dependent.Resolutions[0].ID, Digest: dependent.Resolutions[0].Digest, ContentVer: dependent.Resolutions[0].ContentVersion, Visible: true},
+		},
+		Dependencies: []AcceptanceEdge{{Occurrence: "21", DependsOn: "9", Visible: true}},
+	}
+	evidence := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{
+		"7/3": rootEvidence, "7/5": dependentEvidence,
+	}}
+	countedEvidence := &countingAcceptanceSource{inner: evidence}
+	coord := NewCoordinator(db, seed.host, seed.broker)
+	coord.AcceptanceReads, coord.DispatchReads = countedEvidence, seed.reads
+
+	// This first real intake drains the initial acceptance roots and, through its
+	// existing dispatch hook, launches the assigned run. It establishes a baseline
+	// read count for the dependant before the successful report is recorded.
+	if _, _, err := coord.ObserveIssueEvent(ctx, readinessHint("assignment-report-root", seed.repo, 3)); err != nil {
+		t.Fatal("initial root intake:", err)
+	}
+	beforeDependentReads := countedEvidence.byIssue["7/5"]
+	workID := "root:7/3"
+	if _, err := db.ReadinessWork(ctx, workID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("initial root work was not completed before settlement: %v", err)
+	}
+	initialDependent, err := db.IssueControl(ctx, seed.repo, 5)
+	if err != nil || initialDependent.Readiness != factory.ReadinessBlocked || initialDependent.Reason != factory.BlockerResultPending {
+		t.Fatalf("open result prerequisite was not initially blocked: %+v, %v", initialDependent, err)
+	}
+	assigned, err := db.AssignedAssignments(ctx, 10)
+	if err != nil || len(assigned) != 1 || assigned[0].Issue != 3 {
+		t.Fatalf("intake dispatch did not record the root assignment: %+v, %v", assigned, err)
+	}
+
+	// The test substitutes only the host/native stop reply and broker boundary.
+	// Reconcile still runs the production settlement, result parser, Store write,
+	// and same-transaction readiness enqueue; this is not native qualification.
+	hostBoundary := &publicationDispatchHost{fakeDispatchHost: seed.host, candidate: seed.tip}
+	coord.Host = hostBoundary
+	coord.Broker = &stubBroker{
+		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
+		close: func(string, string) error { return nil },
+	}
+	// This nested pass models settlement inside a caller-owned coordinator pass,
+	// not an installed native report; the report below remains a substituted
+	// host boundary response.
+	passCtx, _, cancelPass := coord.readinessPass(ctx)
+	command := factory.Command{
+		ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0",
+		Digest: factory.CommandDigest(factory.CommandReconcile, ""),
+	}
+	reconcile, err := coord.Reconcile(passCtx, command)
+	cancelPass()
+	if err != nil || len(reconcile.Settled) != 1 || len(reconcile.Fenced) != 0 {
+		t.Fatalf("successful report settlement: %+v, %v", reconcile, err)
+	}
+	finished, err := db.Assignment(ctx, assigned[0].ID)
+	if err != nil || finished.Stage != factory.AssignmentFinished || finished.Outcome != factory.Succeeded ||
+		finished.Result == nil || !finished.Result.Reported {
+		t.Fatalf("settlement did not record a reported successful assignment: %+v, %v", finished, err)
+	}
+	if countedEvidence.byIssue["7/5"] != beforeDependentReads {
+		t.Fatal("nested settlement unexpectedly drained readiness before the next Dispatch trigger")
+	}
+	work, err := db.ReadinessWork(ctx, workID)
+	if err != nil || work.Root != (factory.DependenceRef{Repository: seed.repo, Issue: 3}) {
+		t.Fatalf("reported finish did not emit its durable root: %+v, %v", work, err)
+	}
+	// The substituted native snapshot now reports the selected resolution and
+	// endpoint closure needed by PrereqResult; assignment success alone does not
+	// satisfy that prerequisite.
+	rootEvidence.Issue.Closed, rootEvidence.Issue.Lifecycle, rootEvidence.Issue.ClosedUnix = true, 1, time.Now().Unix()
+	rootEvidence.Revision = 42
+	evidence.evidence["7/3"] = rootEvidence
+
+	if report := coord.Dispatch(ctx); len(report.Errors) != 0 {
+		t.Fatalf("Dispatch readiness drain reported errors: %+v", report.Errors)
+	}
+	if countedEvidence.byIssue["7/5"] <= beforeDependentReads {
+		t.Fatal("Dispatch did not reassess the dependent from the reported assignment root")
+	}
+	readyDependent, err := db.IssueControl(ctx, seed.repo, 5)
+	if err != nil || readyDependent.Readiness != factory.ReadinessQueued || readyDependent.Reason != factory.ReasonEligible {
+		t.Fatalf("closed, resolved result did not queue the reassessed dependent: %+v, %v", readyDependent, err)
+	}
+	if _, err = db.ReadinessWork(ctx, workID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("Dispatch did not complete the emitted source: %v", err)
 	}
 }
 

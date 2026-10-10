@@ -69,7 +69,7 @@ func (c *Coordinator) publishAfterDispatch(ctx context.Context, report DispatchR
 	if c.Publication == nil && c.Checks == nil && c.Merges == nil {
 		return
 	}
-	bounded, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Minute)
+	bounded, stop := context.WithTimeout(ctx, 10*time.Minute)
 	defer stop()
 	for _, launched := range report.Launched {
 		if launched.Phase != project.FactoryCompleted && launched.Phase != project.FactoryFailed && launched.Phase != project.FactoryStopped {
