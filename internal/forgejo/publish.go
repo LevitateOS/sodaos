@@ -265,7 +265,7 @@ func (p *Publisher) checkActor(ctx context.Context, actorID int64) error {
 	}
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
-	user, err := p.rest.Current(bounded, token)
+	user, err := loadActor(bounded, p.rest, token)
 	if err != nil {
 		return &factory.PublicationWait{Reason: "repository_unavailable"}
 	}

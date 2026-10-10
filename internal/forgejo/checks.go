@@ -43,7 +43,7 @@ func (a *CheckAssessor) checkActor(ctx context.Context, actor int64) error {
 	if err != nil {
 		return &factory.PublicationWait{Reason: "credential_invalid"}
 	}
-	user, err := a.rest.Current(ctx, token)
+	user, err := loadActor(ctx, a.rest, token)
 	if err != nil {
 		return &factory.PublicationWait{Reason: "credential_invalid"}
 	}

@@ -36,7 +36,7 @@ func (m *Merger) checkActor(ctx context.Context, actor int64) error {
 	if err != nil {
 		return &factory.PublicationWait{Reason: "credential_invalid"}
 	}
-	user, err := m.rest.Current(ctx, token)
+	user, err := loadActor(ctx, m.rest, token)
 	if err != nil {
 		return &factory.PublicationWait{Reason: "credential_invalid"}
 	}

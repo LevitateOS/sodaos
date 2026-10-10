@@ -143,6 +143,25 @@ func loadServiceActor(ctx context.Context, rest *Client, credentialFile string) 
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
+	user, err := loadActor(ctx, rest, token)
+	if err != nil {
+		return "", err
+	}
+	if user.ID <= 0 {
+		return "", ErrInvalidResponse
+	}
+	return strconv.FormatInt(user.ID, 10), nil
+}
+
+// loadActor resolves one credential through a private, single-use HTTP/1
+// transport so concurrent shared-client traffic cannot replenish retries.
+func loadActor(ctx context.Context, rest *Client, token string) (User, error) {
+	if err := ctx.Err(); err != nil {
+		return User{}, err
+	}
+	if rest == nil || rest.HTTP == nil || token == "" {
+		return User{}, ErrUnavailable
+	}
 	configured := *rest.HTTP
 	transport := configured.Transport
 	if transport == nil {
@@ -150,7 +169,7 @@ func loadServiceActor(ctx context.Context, rest *Client, credentialFile string) 
 	}
 	standard, ok := transport.(*http.Transport)
 	if !ok || standard == nil {
-		return "", ErrUnavailable
+		return User{}, ErrUnavailable
 	}
 	lookupTransport := standard.Clone()
 	protocols := new(http.Protocols)
@@ -163,16 +182,14 @@ func loadServiceActor(ctx context.Context, rest *Client, credentialFile string) 
 	defer lookupTransport.CloseIdleConnections()
 	lookupHTTP := configured
 	lookupHTTP.Transport = lookupTransport
+	lookupHTTP.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	lookupClient := *rest
 	lookupClient.HTTP = &lookupHTTP
 	user, err := lookupClient.Current(ctx, token)
 	if err != nil {
-		return "", err
+		return User{}, err
 	}
-	if user.ID <= 0 {
-		return "", ErrInvalidResponse
-	}
-	return strconv.FormatInt(user.ID, 10), nil
+	return user, nil
 }
 
 // serviceSnapshotReader adapts the lazily bootstrapped service client to
