@@ -98,7 +98,9 @@ allow init_t init_var_lib_t:file { execute execute_no_trans read map open getatt
 allow sshd_t init_tmp_t:file { open read getattr };
 allow sshd_t ssh_keygen_tmp_t:file { open read getattr };
 allow init_t ssh_keygen_tmp_t:file { unlink };
-allow init_t soda_build_cache_t:file { create open read write getattr setattr lock append unlink rename map };
+# Cargo runs build scripts and loads proc macros from its worker-private target
+# directory. Keep those executable outputs inside the existing worker sandbox.
+allow init_t soda_build_cache_t:file { create open read write getattr setattr lock append unlink rename map execute execute_no_trans };
 allow init_t soda_build_cache_t:dir { create open read write getattr setattr search add_name remove_name rmdir };
 # Provisioning (setup, restorecon) runs outside the worker domain and must
 # be able to label the cache dirs; without relabelto even root cannot.

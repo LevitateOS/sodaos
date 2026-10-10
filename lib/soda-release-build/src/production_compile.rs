@@ -5,12 +5,12 @@ use crate::production::Production;
 use crate::{io_error, Error};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
+use std::env;
 use std::path::{Path, PathBuf};
 
 impl Production {
-    /// The sole Rust command recipe for ported runtime programs. Builds
-    /// resolve dependencies from the network; the release binary is copied
-    /// to `dest`.
+    /// The sole Rust command recipe for ported runtime programs. Dependencies
+    /// are staged before worker admission; the release binary is copied to `dest`.
     pub fn compile_rust(&self, crate_name: &str, bin: &str, dest: &str) -> Result<(), Error> {
         self.validate()?;
         if crate_name.is_empty() || bin.is_empty() || crate_name.contains('/') || bin.contains('/')
@@ -25,6 +25,7 @@ impl Production {
                 "build".to_string(),
                 "--release".to_string(),
                 "--locked".to_string(),
+                "--offline".to_string(),
                 "--manifest-path".to_string(),
                 manifest.to_string_lossy().into_owned(),
                 "-p".to_string(),
@@ -33,7 +34,15 @@ impl Production {
                 bin.to_string(),
             ],
         )?;
-        let raw = std::fs::read(PathBuf::from(&self.source).join("target/release").join(bin))
+        let configured_target = env::var_os("CARGO_TARGET_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("target"));
+        let target = if configured_target.is_absolute() {
+            configured_target
+        } else {
+            PathBuf::from(&self.source).join(configured_target)
+        };
+        let raw = std::fs::read(target.join("release").join(bin))
             .map_err(|e| io_error("open", Path::new(bin), e))?;
         let dest_path = PathBuf::from(dest);
         std::fs::write(&dest_path, &raw).map_err(|e| io_error("open", &dest_path, e))?;

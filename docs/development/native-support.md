@@ -83,7 +83,12 @@ The configuration names `Executable`, canonical `Source`, the separate clean com
 `ForgejoSource`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
 `MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
-`soda-build-worker`; tools provide `go/bin/go` and `bin/bun`. The executable and its
+`soda-build-worker`; setup stages pinned Go, the repository-selected stable Rust
+sysroot under `Tools/rust`, and `Tools/bin/bun`. Cargo dependencies are fetched
+with the committed lockfile during setup. The worker builds offline with
+`CARGO_HOME` and `CARGO_TARGET_DIR` in its writable build home; source and compiler
+binds stay read-only. The worker cache SELinux type permits execution of Cargo's
+build scripts and proc macros inside that same sandbox. The executable and its
 parents are root-owned and not group/world writable, and its bytes must equal the
 running dispatcher. The internal `--worker-build` stage refuses other identities.
 

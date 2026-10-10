@@ -1,17 +1,21 @@
+use std::path::Path;
+
 use super::process::{capture, ls_nonempty, run, run_stdout_null, Captured};
 use super::selinux::{fcontext_add_or_modify, selinux_has_type};
 use super::storage::{migrate_candidate_home, refuse_active_build, Storage};
 use super::{
-    command_v, fail, stripped, Exit, AUTHORITY, LEGACY_RUN, PINNED_GO, TOOLS, WORKER_USER,
+    command_v, fail, stripped, stripped_string, Exit, AUTHORITY, LEGACY_RUN, PINNED_GO, TOOLS,
+    WORKER_USER,
 };
 
 /// Worker-tool outputs the remaining stages still need.
 pub(super) struct WorkerTools {
+    pub(super) rust_bin: String,
     pub(super) bun_final: String,
     pub(super) owned: String,
 }
 
-/// Provision worker directories, staged Go/bun and their verification.
+/// Provision worker directories, staged Go/Rust/Bun tools, and verification.
 pub(super) fn provision_worker_tools(
     output_parent: &str,
     storage: &Storage,
@@ -21,6 +25,9 @@ pub(super) fn provision_worker_tools(
 ) -> Result<WorkerTools, Exit> {
     println!("-- worker directories");
     let tools_bin = format!("{TOOLS}/bin");
+    let rust_final = format!("{TOOLS}/rust");
+    let rust_new = format!("{TOOLS}/rust.new");
+    let rust_bin = format!("{rust_final}/bin");
     run(
         "sudo",
         &[
@@ -40,6 +47,77 @@ pub(super) fn provision_worker_tools(
             storage.run
         );
     }
+
+    let active_toolchain = match capture("rustup", &["show", "active-toolchain"], false) {
+        Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
+        Captured::Done(code, out) if code == 0 => stripped_string(&out),
+        Captured::Done(_, _) => return fail("repository-selected stable Rust toolchain required"),
+    };
+    if !active_toolchain
+        .split_whitespace()
+        .next()
+        .is_some_and(|name| name == "stable" || name.starts_with("stable-"))
+    {
+        return fail("repository-selected stable Rust toolchain required");
+    }
+    let rust_sysroot = match capture("rustc", &["--print", "sysroot"], false) {
+        Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
+        Captured::Done(code, out) if code == 0 => stripped_string(&out),
+        Captured::Done(_, _) => return fail("cannot resolve selected Rust sysroot"),
+    };
+    let rust_sysroot_path = Path::new(&rust_sysroot);
+    if !rust_sysroot_path.is_absolute() {
+        return fail("selected Rust sysroot must be absolute");
+    }
+    for (tool, name) in [("rustc", "rustc"), ("cargo", "cargo")] {
+        let selected = match capture("rustup", &["which", name], false) {
+            Captured::SpawnFailed(code) => return Err(Exit::Propagate(code)),
+            Captured::Done(code, out) if code == 0 => stripped_string(&out),
+            Captured::Done(_, _) => return fail(format!("cannot resolve selected {tool}")),
+        };
+        if !Path::new(&selected).starts_with(rust_sysroot_path) || !Path::new(&selected).is_file() {
+            return fail(format!("selected {tool} is outside the Rust sysroot"));
+        }
+    }
+    run("sudo", &["rm", "-rf", &rust_new])?;
+    run("sudo", &["cp", "-a", &rust_sysroot, &rust_new])?;
+    run("sudo", &["chown", "-R", "root:root", &rust_new])?;
+    run(
+        "sudo",
+        &[
+            "find", &rust_new, "-type", "d", "-exec", "chmod", "0755", "{}", "+",
+        ],
+    )?;
+    run(
+        "sudo",
+        &[
+            "find", &rust_new, "-type", "f", "-exec", "chmod", "a+r", "{}", "+",
+        ],
+    )?;
+    if run_stdout_null(
+        "sudo",
+        &[
+            "-u",
+            WORKER_USER,
+            &format!("{rust_new}/bin/rustc"),
+            "--version",
+        ],
+    )
+    .is_err()
+        || run_stdout_null(
+            "sudo",
+            &[
+                "-u",
+                WORKER_USER,
+                &format!("{rust_new}/bin/cargo"),
+                "--version",
+            ],
+        )
+        .is_err()
+    {
+        return fail("staged stable Rust toolchain is not worker-runnable");
+    }
+
     let pinned_new = format!("{PINNED_GO}.new");
     let bun_new = format!("{tools_bin}/bun.new");
     run("sudo", &["rm", "-rf", &pinned_new, &bun_new])?;
@@ -60,11 +138,15 @@ pub(super) fn provision_worker_tools(
     }
     refuse_active_build()?;
     let tools_go = format!("{TOOLS}/go");
-    run("sudo", &["rm", "-rf", &tools_go, PINNED_GO])?;
+    run("sudo", &["rm", "-rf", &tools_go, PINNED_GO, &rust_final])?;
     run("sudo", &["mv", &pinned_new, PINNED_GO])?;
+    run("sudo", &["mv", &rust_new, &rust_final])?;
     let bun_final = format!("{tools_bin}/bun");
     run("sudo", &["mv", &bun_new, &bun_final])?;
-    run("sudo", &["chown", "-R", "root:root", PINNED_GO, TOOLS])?;
+    run(
+        "sudo",
+        &["chown", "-R", "root:root", PINNED_GO, &rust_final, TOOLS],
+    )?;
     if command_v("semanage").is_some() {
         let pattern = format!("{TOOLS}(/.*)?");
         fcontext_add_or_modify("bin_t", &pattern)?;
@@ -86,6 +168,11 @@ pub(super) fn provision_worker_tools(
     )?;
     if !selinux_has_type(&format!("{PINNED_GO}/bin/go"), ":lib_t:") {
         return fail("pinned GOROOT is not lib_t; the sandboxed worker could not execute it");
+    }
+    if !selinux_has_type(&format!("{rust_final}/bin/rustc"), ":bin_t:") {
+        return fail(
+            "staged Rust toolchain is not bin_t; the sandboxed worker could not execute it",
+        );
     }
     let owned = format!("{WORKER_USER}:{WORKER_USER}");
     run(
@@ -148,5 +235,26 @@ pub(super) fn provision_worker_tools(
     if run_stdout_null("sudo", &["-u", WORKER_USER, &bun_final, "--version"]).is_err() {
         return fail("provisioned bun is not worker-runnable");
     }
-    Ok(WorkerTools { bun_final, owned })
+    let rust_sysroot_ok = match capture(
+        "sudo",
+        &[
+            "-u",
+            WORKER_USER,
+            &format!("{rust_final}/bin/rustc"),
+            "--print",
+            "sysroot",
+        ],
+        false,
+    ) {
+        Captured::SpawnFailed(_) => false,
+        Captured::Done(code, out) => code == 0 && stripped(&out) == rust_final.as_bytes(),
+    };
+    if !rust_sysroot_ok {
+        return fail("staged Rust compiler does not resolve its worker sysroot");
+    }
+    Ok(WorkerTools {
+        rust_bin,
+        bun_final,
+        owned,
+    })
 }

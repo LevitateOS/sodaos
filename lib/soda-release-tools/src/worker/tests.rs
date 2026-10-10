@@ -211,6 +211,13 @@ fn worker_env_has_no_bun_cache_and_pinned_go_first() {
         assert!(!env.contains("BUN_INSTALL_CACHE_DIR"), "{env}");
     }
     assert!(w.environment.contains(&format!("HOME={WORKER_HOME}")));
+    assert!(w
+        .environment
+        .contains(&format!("CARGO_HOME={WORKER_HOME}/cargo")));
+    assert!(w
+        .environment
+        .contains(&format!("CARGO_TARGET_DIR={WORKER_HOME}/cargo-target")));
+    assert!(w.environment.contains(&"CARGO_NET_OFFLINE=true".to_owned()));
     let path = w
         .environment
         .iter()
@@ -220,6 +227,7 @@ fn worker_env_has_no_bun_cache_and_pinned_go_first() {
         path.starts_with(&format!("PATH={PINNED_GO_ROOT}/bin:")),
         "{path}"
     );
+    assert!(path.contains("/rust/bin:"), "{path}");
     assert!(!path.contains("soda-build-tools/go"), "{path}");
 }
 

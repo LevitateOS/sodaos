@@ -6,19 +6,35 @@ use super::{fail, stripped_string, Exit, PINNED_GO, WORKER_USER};
 pub(super) struct WorkerCaches {
     pub(super) go_mod: String,
     pub(super) go_build_cache: String,
+    pub(super) cargo_home: String,
+    pub(super) cargo_target: String,
 }
 
-/// Warm the worker Go/Bun caches (the isolated worker has no network).
+/// Warm compiler dependencies before the isolated worker runs offline.
 pub(super) fn warm_worker_caches(
     storage: &Storage,
     pinned: &str,
     owned: &str,
     bun_final: &str,
+    rust_bin: &str,
 ) -> Result<WorkerCaches, Exit> {
-    println!("-- warm worker caches (the isolated worker has no network)");
+    println!("-- warm worker caches before offline worker execution");
     let go_mod = format!("{}/go-mod", storage.home);
     let go_build_cache = format!("{}/go-build", storage.home);
-    run("sudo", &["mkdir", "-p", &go_mod, &go_build_cache])?;
+    let cargo_home = format!("{}/cargo", storage.home);
+    let cargo_target = format!("{}/cargo-target", storage.home);
+    run(
+        "sudo",
+        &[
+            "mkdir",
+            "-p",
+            &go_mod,
+            &go_build_cache,
+            &cargo_home,
+            &cargo_target,
+        ],
+    )?;
+    run("sudo", &["chown", "-R", owned, &cargo_home, &cargo_target])?;
     let toolchain = format!("go{pinned}");
     let pinned_go_bin = format!("{PINNED_GO}/bin/go");
     let home_env = format!("HOME={}", storage.home);
@@ -52,6 +68,30 @@ pub(super) fn warm_worker_caches(
     download_args.push("all");
     if run("sudo", &download_args).is_err() {
         return fail("cannot warm full Go module set");
+    }
+    let rust_path = format!("{rust_bin}:/usr/sbin:/usr/bin:/sbin:/bin");
+    let cargo_user_home = format!("HOME={}", storage.home);
+    let cargo_home_env = format!("CARGO_HOME={cargo_home}");
+    let cargo_target_env = format!("CARGO_TARGET_DIR={cargo_target}");
+    let cargo_path_env = format!("PATH={rust_path}");
+    let cargo_bin = format!("{rust_bin}/cargo");
+    let cargo_warm: Vec<&str> = vec![
+        "-u",
+        WORKER_USER,
+        "env",
+        &cargo_user_home,
+        &cargo_home_env,
+        &cargo_target_env,
+        "CARGO_NET_OFFLINE=false",
+        &cargo_path_env,
+        &cargo_bin,
+        "fetch",
+        "--locked",
+        "--manifest-path",
+        "Cargo.toml",
+    ];
+    if run_in_dir("sudo", &cargo_warm, ".", false, "cannot warm Cargo cache").is_err() {
+        return fail("cannot warm locked Rust dependency cache");
     }
     if run(
         "sudo",
@@ -165,5 +205,7 @@ pub(super) fn warm_worker_caches(
     Ok(WorkerCaches {
         go_mod,
         go_build_cache,
+        cargo_home,
+        cargo_target,
     })
 }

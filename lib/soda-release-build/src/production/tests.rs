@@ -118,7 +118,15 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
                         pkg => vec![pkg],
                     };
                     for bin in bins {
-                        let dest = PathBuf::from(dir).join("target/release").join(bin);
+                        let configured_target = std::env::var_os("CARGO_TARGET_DIR")
+                            .map(PathBuf::from)
+                            .unwrap_or_else(|| PathBuf::from("target"));
+                        let target = if configured_target.is_absolute() {
+                            configured_target
+                        } else {
+                            PathBuf::from(dir).join(configured_target)
+                        };
+                        let dest = target.join("release").join(bin);
                         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
                         std::fs::write(&dest, crate::elf::tests::fixture_elf()).unwrap();
                     }
@@ -293,7 +301,7 @@ fn oracle_compile_recipes() {
     .unwrap();
     let text = calls.lock().unwrap().join("\n");
     assert!(
-        text.contains("cargo build --release --locked")
+        text.contains("cargo build --release --locked --offline")
             && text.contains("-p soda-identity-compose --bin soda-identity-compose")
     );
     assert_eq!(text.matches("cargo build").count(), 1);

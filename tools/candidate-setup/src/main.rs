@@ -173,15 +173,30 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
         &pinned_goroot,
         &want,
     )?;
-    let worker_tools::WorkerTools { bun_final, owned } = tools;
+    let worker_tools::WorkerTools {
+        rust_bin,
+        bun_final,
+        owned,
+    } = tools;
 
-    let caches = worker_caches::warm_worker_caches(&storage, &pinned, &owned, &bun_final)?;
+    let caches =
+        worker_caches::warm_worker_caches(&storage, &pinned, &owned, &bun_final, &rust_bin)?;
     let worker_caches::WorkerCaches {
         go_mod,
         go_build_cache,
+        cargo_home,
+        cargo_target,
     } = caches;
 
-    selinux::install_worker_selinux(&bindir, &storage, &go_mod, &go_build_cache, &owned)?;
+    selinux::install_worker_selinux(
+        &bindir,
+        &storage,
+        &go_mod,
+        &go_build_cache,
+        &cargo_home,
+        &cargo_target,
+        &owned,
+    )?;
 
     fixture_authority::admit_fixture_authority(
         &pwd,

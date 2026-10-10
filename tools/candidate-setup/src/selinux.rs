@@ -33,6 +33,8 @@ pub(super) fn install_worker_selinux(
     storage: &Storage,
     go_mod: &str,
     go_build_cache: &str,
+    cargo_home: &str,
+    cargo_target: &str,
     owned: &str,
 ) -> Result<(), Exit> {
     println!("-- worker SELinux policy (process groups plus Go cache mapping)");
@@ -80,7 +82,13 @@ pub(super) fn install_worker_selinux(
     run("sudo", &["chown", &owned, &containers_conf])?;
     run("sudo", &["chmod", "0644", &containers_conf])?;
     if command_v("semanage").is_some() {
-        for cache in [go_build_cache, go_mod, go_config.as_str()] {
+        for cache in [
+            go_build_cache,
+            go_mod,
+            cargo_home,
+            cargo_target,
+            go_config.as_str(),
+        ] {
             let pattern = format!("{cache}(/.*)?");
             fcontext_add_or_modify("soda_build_cache_t", &pattern)?;
         }
@@ -95,6 +103,8 @@ pub(super) fn install_worker_selinux(
                 "-R",
                 &go_build_cache,
                 &go_mod,
+                cargo_home,
+                cargo_target,
                 &go_config,
                 &storage.run,
             ],
@@ -103,6 +113,11 @@ pub(super) fn install_worker_selinux(
     if !selinux_has_type(&go_build_cache, ":soda_build_cache_t:") {
         return fail(
             "worker Go cache is not soda_build_cache_t; the sandboxed worker could not map it",
+        );
+    }
+    if !selinux_has_type(cargo_target, ":soda_build_cache_t:") {
+        return fail(
+            "worker Cargo target is not soda_build_cache_t; the sandboxed worker could not map it",
         );
     }
     if !selinux_has_type(&storage.run, ":soda_build_runtime_t:") {
