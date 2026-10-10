@@ -109,11 +109,9 @@ pub fn inspect_complete_extension_unit(
         "/usr/bin/cat",
         &["/usr/lib/systemd/system/soda-extension-install.service".to_string()],
     )?;
+    let extension_image = &payload.image("extension").config;
     if unit.contains("localhost/soda-extension:dev")
-        || !unit.contains(&format!(
-            "--entrypoint=/usr/local/bin/gitea {} ",
-            payload.image("extension").config
-        ))
+        || !unit.contains(&format!("--entrypoint=/bin/sh {extension_image} -ec '"))
     {
         return Err(Error::msg(
             "host image lost Soda extension installer binding",
@@ -201,6 +199,34 @@ pub fn inspect_complete(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extension_unit_binds_selected_image_from_actual_service_fixture() {
+        const SERVICE: &str =
+            include_str!("../../../system/host/services/soda-extension-install.service");
+        const PLACEHOLDER: &str = "localhost/soda-extension:dev";
+        let selected = "sha256:selected-extension";
+        let unit = SERVICE.replace(PLACEHOLDER, selected);
+        let run = |_: &str, _: &str, _: &[String]| Ok(unit.clone());
+        let run_ref: InspectRun<'_> = &run;
+        let mut payload = model::Payload::default();
+        payload.images.push((
+            "extension".to_string(),
+            model::PayloadImage {
+                config: selected.to_string(),
+                ..Default::default()
+            },
+        ));
+
+        assert!(inspect_complete_extension_unit(&payload, run_ref).is_ok());
+        payload.images[0].1.config = "sha256:wrong-extension".to_string();
+        assert_eq!(
+            inspect_complete_extension_unit(&payload, run_ref)
+                .unwrap_err()
+                .0,
+            "host image lost Soda extension installer binding"
+        );
+    }
 
     #[test]
     fn oracle_quadlet_generator_binding_checks() {
