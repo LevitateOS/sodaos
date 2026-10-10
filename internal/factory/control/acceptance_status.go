@@ -2,12 +2,15 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -15,6 +18,8 @@ import (
 type WithdrawalReceipt struct {
 	Publications factory.PublicationWithdrawal `json:"publications"`
 	Merges       factory.MergeWithdrawal       `json:"merges"`
+	SettledRuns  int                           `json:"settled_runs"`
+	PendingRuns  []FencedRun                   `json:"pending_runs,omitempty"`
 	CommandID    string                        `json:"command_id"`
 	Decision     string                        `json:"decision"`
 	Withdrawn    bool                          `json:"withdrawn"`
@@ -166,7 +171,7 @@ func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, princip
 		return WithdrawalReceipt{}, errors.New("invalid acceptance withdrawal")
 	}
 	target := "repository/" + strconv.FormatInt(repository, 10) + "/issue/" + strconv.FormatInt(issue, 10) + "/withdrawal"
-	payload := `{"decision":` + strconv.Quote(decision) + `}`
+	payload := `{"decision":` + strconv.Quote(decision) + `,"withdrawer":` + strconv.FormatInt(withdrawer, 10) + `}`
 	cmd := factory.Command{
 		ID: commandID, Type: factory.CommandWithdrawal, Target: target, Principal: principal,
 		Payload: payload, Digest: factory.SettingsDigest(factory.CommandWithdrawal, target, payload),
@@ -179,7 +184,10 @@ func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, princip
 		return WithdrawalReceipt{}, err
 	}
 	if !created {
-		return replayWithdrawal(stored)
+		if stored.Finished != "" {
+			return replayWithdrawal(stored)
+		}
+		return c.resumeWithdrawal(bounded, stored, repository, issue, decision, withdrawer, ownsPass)
 	}
 	if err = c.Store.WithdrawAcceptanceDecision(bounded, repository, issue, decision, withdrawer); err != nil {
 		if errors.Is(err, store.ErrStaleRevision) {
@@ -189,20 +197,139 @@ func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, princip
 		}
 		return WithdrawalReceipt{}, err
 	}
+	return c.finishWithdrawal(bounded, cmd.ID, repository, issue, decision, ownsPass)
+}
+
+func (c *Coordinator) resumeWithdrawal(ctx context.Context, cmd factory.Command, repository, issue int64, decision string, withdrawer int64, ownsPass bool) (WithdrawalReceipt, error) {
+	if cmd.Type != factory.CommandWithdrawal || cmd.Target != "repository/"+strconv.FormatInt(repository, 10)+"/issue/"+strconv.FormatInt(issue, 10)+"/withdrawal" {
+		return WithdrawalReceipt{}, errors.New("withdrawal command scope mismatch")
+	}
+	var payload struct {
+		Decision   string `json:"decision"`
+		Withdrawer int64  `json:"withdrawer"`
+	}
+	if err := json.Unmarshal([]byte(cmd.Payload), &payload); err != nil || payload.Decision != decision || payload.Withdrawer != withdrawer {
+		return WithdrawalReceipt{}, errors.New("withdrawal command payload mismatch")
+	}
+	withdrawn, _, err := c.Store.AcceptanceWithdrawn(ctx, repository, issue, decision)
+	if err != nil {
+		return WithdrawalReceipt{}, err
+	}
+	if !withdrawn {
+		err = c.Store.WithdrawAcceptanceDecision(ctx, repository, issue, decision, withdrawer)
+		if err != nil {
+			if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrReadinessCapacity) {
+				code := "stale_revision"
+				if errors.Is(err, store.ErrReadinessCapacity) {
+					code = "readiness_capacity"
+				}
+				_ = c.Store.FinishFactoryCommand(ctx, cmd.ID, `{"error":"`+code+`"}`, time.Now())
+			}
+			return WithdrawalReceipt{}, err
+		}
+	}
+	return c.finishWithdrawal(ctx, cmd.ID, repository, issue, decision, ownsPass)
+}
+
+func (c *Coordinator) recoverAbandonedWithdrawal(ctx context.Context, cmd factory.Command) error {
+	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
+	defer stop()
+	var payload struct {
+		Decision   string `json:"decision"`
+		Withdrawer int64  `json:"withdrawer"`
+	}
+	if err := json.Unmarshal([]byte(cmd.Payload), &payload); err != nil || payload.Decision == "" || payload.Withdrawer <= 0 {
+		return errors.New("invalid abandoned withdrawal command")
+	}
+	var repository, issue int64
+	if _, err := fmt.Sscanf(cmd.Target, "repository/%d/issue/%d/withdrawal", &repository, &issue); err != nil || repository <= 0 || issue <= 0 || cmd.Target != "repository/"+strconv.FormatInt(repository, 10)+"/issue/"+strconv.FormatInt(issue, 10)+"/withdrawal" {
+		return errors.New("invalid abandoned withdrawal target")
+	}
+	_, err := c.resumeWithdrawal(bounded, cmd, repository, issue, payload.Decision, payload.Withdrawer, false)
+	if errors.Is(err, ErrCommandRunning) || errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrReadinessCapacity) {
+		return nil
+	}
+	return err
+}
+
+func (c *Coordinator) finishWithdrawal(ctx context.Context, commandID string, repository, issue int64, decision string, ownsPass bool) (WithdrawalReceipt, error) {
 	receipt := WithdrawalReceipt{
-		CommandID: cmd.ID, Decision: decision, Withdrawn: true,
-		Publications: c.cancelAcceptancePublications(bounded, repository, issue, decision),
-		Merges:       c.cancelAcceptanceMerges(bounded, repository, issue, decision),
+		CommandID: commandID, Decision: decision, Withdrawn: true,
+		Publications: c.cancelAcceptancePublications(ctx, repository, issue, decision),
+		Merges:       c.cancelAcceptanceMerges(ctx, repository, issue, decision),
+	}
+	cursor := ""
+	for {
+		page, next, err := c.Store.AcceptanceAssignmentsAfter(ctx, repository, issue, decision, cursor, 128)
+		if err != nil {
+			return receipt, err
+		}
+		for _, assignment := range page {
+			if err = assignment.Validate(); err != nil {
+				return receipt, err
+			}
+			for _, runID := range assignment.RunHistory {
+				run, err := c.Store.FactoryRun(ctx, runID)
+				if err != nil {
+					return receipt, err
+				}
+				view, err := c.Store.FactoryRunView(ctx, runID)
+				if err != nil {
+					return receipt, err
+				}
+				if view.Repository != repository || view.Issue != issue || view.Attempt != assignment.ID || run.ProjectID != assignment.ProjectID {
+					return receipt, errors.New("withdrawal run scope mismatch")
+				}
+				if !run.Reconciled && (c.Host == nil || c.Broker == nil) {
+					return receipt, errors.New("withdrawal stop dependencies unavailable")
+				}
+				stopped := c.settleRun(ctx, run)
+				if !stopped.Confirmed {
+					receipt.PendingRuns = []FencedRun{{ID: runID, Reason: stopped.Reason}}
+					return receipt, ErrCommandRunning
+				}
+				receipt.SettledRuns++
+				if current, loadErr := c.Store.FactoryRun(ctx, runID); loadErr != nil {
+					return receipt, loadErr
+				} else {
+					latest, lookupErr := c.Store.AssignmentByRun(ctx, runID)
+					if lookupErr == nil && latest.Stage == factory.AssignmentAssigned {
+						if c.Host == nil {
+							receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "accounting output unavailable"}}
+							return receipt, ErrCommandRunning
+						}
+						state, inspectErr := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: current.ProjectID, ID: runID})
+						if inspectErr != nil {
+							receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run inspection unconfirmed"}}
+							return receipt, ErrCommandRunning
+						}
+						if _, accounted := AccountSettledRun(ctx, c.Store, current, state.Output, time.Now()); !accounted {
+							receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run accounting pending"}}
+							return receipt, ErrCommandRunning
+						}
+					} else if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+						return receipt, lookupErr
+					}
+				}
+			}
+		}
+		if len(page) < 128 {
+			break
+		}
+		if next == cursor {
+			return receipt, errors.New("acceptance assignment cursor stalled")
+		}
+		cursor = next
 	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return WithdrawalReceipt{}, err
 	}
-	if err = c.Store.FinishFactoryCommand(bounded, cmd.ID, string(outcome), time.Now()); err != nil {
+	if err = c.Store.FinishFactoryCommand(ctx, commandID, string(outcome), time.Now()); err != nil {
 		return WithdrawalReceipt{}, err
 	}
 	if ownsPass {
-		_, _ = c.drainReadinessWork(bounded, "")
+		_, _ = c.drainReadinessWork(ctx, "")
 	}
 	return receipt, nil
 }

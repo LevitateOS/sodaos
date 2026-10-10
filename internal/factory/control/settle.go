@@ -175,6 +175,8 @@ func (c *Coordinator) settleAbandonedCommand(ctx context.Context, cmd factory.Co
 		return c.finishAbandonedCommand(ctx, cmd.ID, receipt)
 	case factory.CommandReconcile:
 		return c.finishAbandonedCommand(ctx, cmd.ID, ReconcileReceipt{Settled: settle.Settled, Fenced: settle.Fenced})
+	case factory.CommandWithdrawal:
+		return c.recoverAbandonedWithdrawal(ctx, cmd)
 	default:
 		return nil
 	}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -34,6 +35,51 @@ func (s *Store) AssignmentByRun(ctx context.Context, runID string) (factory.Assi
 		err = json.Unmarshal(data, &a)
 	}
 	return a, err
+}
+
+// AcceptanceAssignmentsAfter pages assignment lineage for one withdrawn
+// acceptance. All stages remain relevant because RunHistory includes retries.
+func (s *Store) AcceptanceAssignmentsAfter(ctx context.Context, repository, issue int64, decision, after string, limit int) ([]factory.Assignment, string, error) {
+	if repository <= 0 || issue <= 0 || decision == "" || limit <= 0 || limit > 256 {
+		return nil, after, errors.New("invalid acceptance assignment listing")
+	}
+	var cursor int64
+	if after != "" {
+		var err error
+		cursor, err = strconv.ParseInt(after, 10, 64)
+		if err != nil || cursor <= 0 {
+			return nil, after, errors.New("invalid acceptance assignment cursor")
+		}
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT seq,data FROM factory_assignments
+		WHERE repository=$1 AND issue=$2 AND data->>'acceptance'=$3 AND seq>$4
+		ORDER BY seq LIMIT $5`, repository, issue, decision, cursor, limit)
+	if err != nil {
+		return nil, after, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := make([]factory.Assignment, 0, limit)
+	next := after
+	for rows.Next() {
+		var seq int64
+		var data []byte
+		var a factory.Assignment
+		if err = rows.Scan(&seq, &data); err != nil {
+			return nil, after, err
+		}
+		if err = json.Unmarshal(data, &a); err != nil {
+			return nil, after, err
+		}
+		if a.Repository != repository || a.Issue != issue || a.Acceptance != decision {
+			return nil, after, errors.New("acceptance assignment scope mismatch")
+		}
+		out = append(out, a)
+		next = strconv.FormatInt(seq, 10)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, after, err
+	}
+	return out, next, nil
 }
 
 // FinishAssignment stores one assignment's terminal outcome exactly once.
