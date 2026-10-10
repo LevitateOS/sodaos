@@ -80,6 +80,18 @@ pub(crate) fn decode_field<T: DeserializeOwned + Default, E: de::Error>(
 /// first-folded lookup before typed conversion.
 macro_rules! case_record {
     ($ty:ident, { $($field:ident : $field_type:ty => $name:literal),+ $(,)? }) => {
+        $crate::jsonio::case_record!(@impl strict, $ty, { $($field : $field_type => $name),+ });
+    };
+    ($ty:ident, ignore_unknown, { $($field:ident : $field_type:ty => $name:literal),+ $(,)? }) => {
+        $crate::jsonio::case_record!(@impl ignore_unknown, $ty, { $($field : $field_type => $name),+ });
+    };
+    (@unknown strict, $key:ident, $map:ident) => {
+        return Err(serde::de::Error::custom(format!("unknown field {:?}", $key)));
+    };
+    (@unknown ignore_unknown, $key:ident, $map:ident) => {
+        $map.next_value::<serde::de::IgnoredAny>()?;
+    };
+    (@impl $unknown:ident, $ty:ident, { $($field:ident : $field_type:ty => $name:literal),+ $(,)? }) => {
         impl<'de> serde::Deserialize<'de> for $ty {
             fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
                 struct RecordVisitor;
@@ -102,7 +114,7 @@ macro_rules! case_record {
                                 matched = true;
                             })+
                             if !matched {
-                                return Err(serde::de::Error::custom(format!("unknown field {key:?}")));
+                                $crate::jsonio::case_record!(@unknown $unknown, key, map);
                             }
                         }
                         Ok($ty { $($field: $crate::jsonio::decode_field::<$field_type, A::Error>($field.0.or($field.1))?,)+ })

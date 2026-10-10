@@ -127,16 +127,46 @@ struct MediaMetaWire {
     images: crate::jsonio::OrderedMap<MediaMetaImage>,
 }
 
-crate::jsonio::case_record!(MediaMetaImage, {
+crate::jsonio::case_record!(MediaMetaImage, ignore_unknown, {
     path: String => "Path",
     sha256: String => "SHA256",
     size: i64 => "Size",
 });
 
-crate::jsonio::case_record!(MediaMetaWire, {
+crate::jsonio::case_record!(MediaMetaWire, ignore_unknown, {
     ostree_commit: String => "ostree-commit",
     images: crate::jsonio::OrderedMap<MediaMetaImage> => "Images",
 });
+
+#[cfg(test)]
+mod tests {
+    use super::MediaMeta;
+
+    #[test]
+    fn assembler_metadata_ignores_observed_root_and_image_extras() {
+        let meta = MediaMeta::parse(
+            r#"{
+                "ostree-commit":"commit-id",
+                "ostree-version":"44.20260913.3.2.soda-test",
+                "images":{
+                    "ostree":{
+                        "path":"ostree-commit.tar",
+                        "sha256":"abc",
+                        "size":12,
+                        "skip-compression":true
+                    }
+                }
+            }"#,
+        )
+        .expect("Assembler metadata with its producer fields should parse");
+
+        assert_eq!(meta.ostree_commit, "commit-id");
+        let image = meta.images.get("ostree").unwrap();
+        assert_eq!(image.path, "ostree-commit.tar");
+        assert_eq!(image.sha256, "abc");
+        assert_eq!(image.size, 12);
+    }
+}
 
 impl MediaMeta {
     pub fn parse(text: &str) -> Result<MediaMeta, Error> {
