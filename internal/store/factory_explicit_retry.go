@@ -11,7 +11,8 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-var errExplicitRetryIneligible = errors.New("explicit retry is no longer dispatchable")
+// ErrExplicitRetryIneligible identifies a refused retry, rather than a storage failure.
+var ErrExplicitRetryIneligible = errors.New("explicit retry is no longer dispatchable")
 
 // LatestIssueAssignment reads the newest recorded assignment directly; old
 // issue history stays bounded and cannot hide a newer active or terminal row.
@@ -34,7 +35,7 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 		return factory.Command{}, false, err
 	}
 	if err := decision.Validate(); err != nil || cmd.ID != decision.CommandID || cmd.Type != factory.CommandRetry || cmd.Target != "run/"+decision.Prior || repository <= 0 || issue <= 0 || acceptance == "" {
-		return factory.Command{}, false, errExplicitRetryIneligible
+		return factory.Command{}, false, ErrExplicitRetryIneligible
 	}
 	// The payload includes the immutable prior outcome. Run truth below
 	// verifies that value before the retry receipt is committed.
@@ -43,7 +44,7 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 		PriorOutcome string `json:"prior_outcome"`
 	}
 	if err := json.Unmarshal([]byte(cmd.Payload), &payload); err != nil || payload.PriorRun != decision.Prior || !retryableRunOutcome(payload.PriorOutcome) {
-		return factory.Command{}, false, errExplicitRetryIneligible
+		return factory.Command{}, false, ErrExplicitRetryIneligible
 	}
 	if cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
 		return factory.Command{}, false, ErrCommandConflict
@@ -72,7 +73,7 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 		return factory.Command{}, false, err
 	}
 	if collision {
-		return factory.Command{}, false, errExplicitRetryIneligible
+		return factory.Command{}, false, ErrExplicitRetryIneligible
 	}
 	if err = validateExplicitRetryFactsTx(ctx, tx, decision.Prior, repository, issue, acceptance, payload.PriorOutcome); err != nil {
 		return factory.Command{}, false, err
@@ -125,7 +126,7 @@ func (s *Store) PendingExplicitRetry(ctx context.Context, repository, issue int6
 		return factory.RetryDecision{}, err
 	}
 	if err = decision.Validate(); err != nil || decision.CommandID != id {
-		return factory.RetryDecision{}, errExplicitRetryIneligible
+		return factory.RetryDecision{}, ErrExplicitRetryIneligible
 	}
 	return decision, nil
 }
@@ -135,7 +136,7 @@ func (s *Store) PendingExplicitRetry(ctx context.Context, repository, issue int6
 // retry assignment/run/reservation through the regular admission checks.
 func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.RetryDecision, d factory.DispatchRegistration, expected factory.IssueControl, a factory.Assignment, r factory.Reservation, run factory.Run, view factory.RunView) error {
 	if err := decision.Validate(); err != nil || a.ID != decision.CommandID || a.Role != project.RoleCoder || a.AttemptRoot != a.ID || a.PublicationAssignment != a.ID {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -158,7 +159,7 @@ func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.
 		return err
 	}
 	if typ != factory.CommandRetry || target != "run/"+decision.Prior || finished == "" {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	var storedDecision factory.RetryDecision
 	if err = json.Unmarshal([]byte(outcome), &storedDecision); err != nil {
@@ -175,7 +176,7 @@ func (s *Store) RecordExplicitRetryPacket(ctx context.Context, decision factory.
 		return err
 	}
 	if priorPayload.PriorRun != decision.Prior || !retryableRunOutcome(priorPayload.PriorOutcome) {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	if err = validateExplicitRetryFactsTx(ctx, tx, decision.Prior, a.Repository, a.Issue, a.Acceptance, priorPayload.PriorOutcome); err != nil {
 		return err
@@ -195,7 +196,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 		return err
 	}
 	if head != acceptance {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	var priorAssignmentData []byte
 	err := tx.QueryRowContext(ctx, `SELECT a.data FROM factory_assignments a
@@ -208,12 +209,12 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 		return err
 	}
 	if err = priorAssignment.Validate(); err != nil {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	if priorAssignment.Run != priorRun || priorAssignment.Acceptance != acceptance || priorAssignment.Stage != factory.AssignmentFinished ||
 		!project.ValidFactoryRole(priorAssignment.Role) || string(priorAssignment.Outcome) != priorOutcome || !retryableRunOutcome(priorOutcome) ||
 		priorAssignment.Repository != repository || priorAssignment.Issue != issue {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	var latestData []byte
 	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2 ORDER BY seq DESC LIMIT 1 FOR UPDATE`, repository, issue).Scan(&latestData)
@@ -222,7 +223,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 	}
 	var latest factory.Assignment
 	if err = json.Unmarshal(latestData, &latest); err != nil || latest.Validate() != nil || latest.ID != priorAssignment.ID {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	var ownerData []byte
 	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE repository=$1 AND issue=$2
@@ -237,7 +238,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 	if err = owner.Validate(); err != nil || owner.Stage != factory.AssignmentFinished || owner.Role != project.RoleCoder ||
 		owner.Acceptance != acceptance || owner.AttemptRoot != owner.ID || priorAssignment.AttemptRoot != owner.ID ||
 		priorAssignment.PublicationAssignment != owner.ID {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	var runData []byte
 	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_runs WHERE id=$1 FOR UPDATE`, priorRun).Scan(&runData); err != nil {
@@ -248,11 +249,11 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 		return err
 	}
 	if !run.Reconciled || run.Role != priorAssignment.Role || string(run.Outcome) != priorOutcome || run.ProjectID != priorAssignment.ProjectID {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, repository, issue, owner.ID)
 	if err != nil || allowance.RootAssignment != owner.ID {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	// Preserve the original failed/cancelled coder-owner retry path: those
 	// outcomes already end the owner attempt without closing its reusable
@@ -261,14 +262,14 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 	stoppedOwnerFailure := priorAssignment.ID == owner.ID && priorAssignment.Role == project.RoleCoder &&
 		(priorOutcome == string(factory.Failed) || priorOutcome == string(factory.Cancelled))
 	if allowance.Active || (!allowance.Closed && !stoppedOwnerFailure) {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	settled, err := attemptRootRunsSettledTx(ctx, tx, repository, issue, owner.ID)
 	if err != nil {
 		return err
 	}
 	if !settled {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	if err = retryOperationsSettledTx(ctx, tx, owner); err != nil {
 		return err
@@ -283,7 +284,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 		return err
 	}
 	if err = reservation.Validate(); err != nil || reservation.AssignmentID != priorAssignment.ID || reservation.Repository != repository || reservation.Connection != priorAssignment.Connection || reservation.State != state {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	var usageData []byte
 	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_usage WHERE run=$1`, priorRun).Scan(&usageData)
@@ -293,7 +294,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 			return err
 		}
 		if err = usage.Validate(); err != nil || usage.RunID != priorRun || usage.Repository != repository || usage.Connection != priorAssignment.Connection || !usage.StartedAt.Equal(run.Started) || reservation.State != factory.ReservationConsumed {
-			return errExplicitRetryIneligible
+			return ErrExplicitRetryIneligible
 		}
 		return nil
 	}
@@ -301,7 +302,7 @@ func validateExplicitRetryFactsTx(ctx context.Context, tx *sql.Tx, priorRun stri
 		return err
 	}
 	if reservation.State != factory.ReservationReleased {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	return nil
 }
@@ -331,7 +332,7 @@ func retryOperationsSettledTx(ctx context.Context, tx *sql.Tx, owner factory.Ass
 		var publication factory.Publication
 		if err = pubRows.Scan(&data); err != nil || json.Unmarshal(data, &publication) != nil || publication.Validate() != nil {
 			_ = pubRows.Close()
-			return errExplicitRetryIneligible
+			return ErrExplicitRetryIneligible
 		}
 		publications = append(publications, publication)
 	}
@@ -343,22 +344,22 @@ func retryOperationsSettledTx(ctx context.Context, tx *sql.Tx, owner factory.Ass
 		return err
 	}
 	if len(publications) > storePublicationLimit {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	for _, publication := range publications {
 		if publication.Stage == factory.PublicationOpen ||
 			retryOperationNeedsResolution(publication.Publish.Attempts, publication.Publish.Effect, publication.Publish.Cancellation, publication.Publish.Completion) ||
 			retryOperationNeedsResolution(publication.PRCreate.Attempts, publication.PRCreate.Effect, publication.PRCreate.Cancellation, publication.PRCreate.Completion) {
-			return errExplicitRetryIneligible
+			return ErrExplicitRetryIneligible
 		}
 		for _, correction := range publication.Corrections {
 			if retryOperationNeedsResolution(correction.Attempts, correction.Effect, correction.Cancellation, correction.Completion) {
-				return errExplicitRetryIneligible
+				return ErrExplicitRetryIneligible
 			}
 		}
 		for _, review := range publication.ReviewOperations {
 			if review.Outcome.OperationID == "" || retryOperationNeedsResolution(1, review.Outcome.Effect, review.Outcome.Cancellation, review.Outcome.Completion) {
-				return errExplicitRetryIneligible
+				return ErrExplicitRetryIneligible
 			}
 		}
 	}
@@ -372,7 +373,7 @@ func retryOperationsSettledTx(ctx context.Context, tx *sql.Tx, owner factory.Ass
 		var merge factory.Merge
 		if err = mergeRows.Scan(&data); err != nil || json.Unmarshal(data, &merge) != nil || merge.Validate() != nil {
 			_ = mergeRows.Close()
-			return errExplicitRetryIneligible
+			return ErrExplicitRetryIneligible
 		}
 		merges = append(merges, merge)
 	}
@@ -384,12 +385,12 @@ func retryOperationsSettledTx(ctx context.Context, tx *sql.Tx, owner factory.Ass
 		return err
 	}
 	if len(merges) > storeMergeLimit {
-		return errExplicitRetryIneligible
+		return ErrExplicitRetryIneligible
 	}
 	for _, merge := range merges {
 		if merge.Stage == factory.MergeOpen || merge.Stage == factory.MergeMerged ||
 			retryOperationNeedsResolution(merge.Operation.Attempts, merge.Operation.Effect, merge.Operation.Cancellation, merge.Operation.Completion) {
-			return errExplicitRetryIneligible
+			return ErrExplicitRetryIneligible
 		}
 	}
 	return nil

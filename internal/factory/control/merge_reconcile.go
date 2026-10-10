@@ -19,6 +19,18 @@ func (c *Coordinator) reconcileMerge(ctx context.Context, m factory.Merge, repor
 		mergeError(report, m.ID, "store_unavailable")
 		return
 	}
+	// Expiry withdraws an undriven merge even when review never arrives.
+	// Recorded effects still go through the same cancellation and completion
+	// reconciliation; closing a root cannot erase a committed native merge.
+	closed, err := c.Store.CloseExpiredAttempt(ctx, m.AssignmentID)
+	if err != nil {
+		mergeError(report, m.ID, "attempt_expiry_unavailable")
+		return
+	}
+	if closed {
+		c.withdrawMerge(ctx, &m, report)
+		return
+	}
 	open, _, _, err := c.Store.DispatchState(ctx, m.Repository)
 	if err != nil {
 		mergeError(report, m.ID, "store_unavailable")

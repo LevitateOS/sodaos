@@ -26,6 +26,8 @@ func lifecycleControlError(w http.ResponseWriter, err error) {
 		auth.JSONError(w, 502, "takeover_unconfirmed", "Takeover was not confirmed; refresh and retry.")
 	case errors.Is(err, store.ErrTakeoverConflict):
 		auth.JSONError(w, 409, "takeover_conflict", "Takeover identity reused for different content.")
+	case errors.Is(err, store.ErrExplicitRetryIneligible):
+		auth.JSONError(w, 409, "retry_ineligible", "The prior attempt is not eligible for retry; refresh its settlement and current inputs.")
 	default:
 		factoryCommandError(w, err)
 	}
