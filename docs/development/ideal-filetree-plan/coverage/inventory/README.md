@@ -4,7 +4,7 @@ Each current tracked path appears once. Kind and per-duty owner/disposition are
 separate; detailed mixed/oversized units link to current responsibility maps.
 Source snapshot, reuse and limits: [coverage index](../README.md).
 
-Current tracked path count at `0ace2383`: **2,606**. Root counts below describe the current tracked tree; detailed named-duty/body selectors remain pinned to `519b76bd`.
+Current tracked path count at `d9c13531`: **2,607**. Root counts below describe the current tracked tree; detailed named-duty/body selectors remain pinned to `519b76bd`.
 
 The source-root grouping describes current paths rather than target packages.
 Former navigation filenames remain stable: `native-packages.md` covers `lib/`,
@@ -23,7 +23,7 @@ current inventory. No former-root rows count twice.
 | `internal` | 480 | [backend.md](backend.md) |
 | `lib` | 428 | [native-packages.md](native-packages.md) |
 | `scripts` | 81 | [scripts.md](scripts.md) |
-| `system` | 67 | [appliance.md](appliance.md) |
+| `system` | 68 | [appliance.md](appliance.md) |
 | `tests` | 140 | [tests.md](tests.md) |
 | `tools` | 197 | [tools.md](tools.md) |
 

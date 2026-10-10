@@ -2,7 +2,7 @@
 
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
-Current path navigation reconciled at `0ace2383` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
+Current path navigation reconciled at `d9c13531` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
 
 Current path accounting at `519b76bd` (2026-10-07).
 A file may contain several duties; each named duty has one defining owner and disposition.
@@ -71,6 +71,7 @@ Generated/third-party status and runtime use are separate from disposition.
 | [system/project/rootfs/etc/profile.d/soda-podman.sh](../../../../../system/project/rootfs/etc/profile.d/soda-podman.sh) | script | [P11](../../slices/projects.md#p11-nested-services-and-volumes) / retained | Current script scope; split declarations retain the path's release/install/qualification duty. |
 | [system/project/rootfs/etc/ssh/sshd_config.d/10-soda.conf](../../../../../system/project/rootfs/etc/ssh/sshd_config.d/10-soda.conf) | configuration / service / selector | [P04](../../slices/projects.md#p04-development-ssh-access) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |
 | [system/project/rootfs/etc/sudoers.d/soda-project](../../../../../system/project/rootfs/etc/sudoers.d/soda-project) | configuration / artifact input | [P03](../../slices/projects.md#p03-human-membership-and-accounts) / retained | Current artifact-or-source scope; split declarations retain the path's release/install/qualification duty. |
+| [system/project/rootfs/etc/systemd/system/soda-podman-workloads-stop.service](../../../../../system/project/rootfs/etc/systemd/system/soda-podman-workloads-stop.service) | configuration / service / selector | [P11](../../slices/projects.md#p11-nested-services-and-volumes) / retained | [current shutdown owner](../maps/project-system-definitions.md#coverage-project-workloads-shutdown) |
 | [system/project/rootfs/etc/systemd/system/soda-podman.service](../../../../../system/project/rootfs/etc/systemd/system/soda-podman.service) | configuration / service / selector | [P11](../../slices/projects.md#p11-nested-services-and-volumes) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |
 | [system/project/rootfs/etc/systemd/system/soda-podman.socket](../../../../../system/project/rootfs/etc/systemd/system/soda-podman.socket) | configuration / service / selector | [P11](../../slices/projects.md#p11-nested-services-and-volumes) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |
 | [system/project/rootfs/etc/systemd/system/soda-project-init.service](../../../../../system/project/rootfs/etc/systemd/system/soda-project-init.service) | configuration / service / selector | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |

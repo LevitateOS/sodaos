@@ -40,3 +40,13 @@ Current configuration/service body read and reconciled to line-bounded responsib
 | 27, 31; current configuration/service block | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Managed developer key directory; Per-Project native SSH host key generation — system/project/rootfs/usr/libexec/soda/project-init:27-27; current body read; consumer/selector is the service, rootfs copy or extension manifest named by the file; system/project/rootfs/usr/libexec/soda/project-init:31-31; current body read; consumer/selector is the service, rootfs copy or extension manifest named by the file |
 | 28; current configuration/service block | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Native identity/account markers — system/project/rootfs/usr/libexec/soda/project-init:28-28; current body read; consumer/selector is the service, rootfs copy or extension manifest named by the file |
 | 29; current configuration/service block | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Managed terminal runtime directory — system/project/rootfs/usr/libexec/soda/project-init:29-29; current body read; consumer/selector is the service, rootfs copy or extension manifest named by the file |
+
+<a id="coverage-project-workloads-shutdown"></a>
+
+## [system/project/rootfs/etc/systemd/system/soda-podman-workloads-stop.service](../../../../../system/project/rootfs/etc/systemd/system/soda-podman-workloads-stop.service)
+
+Current shutdown service introduced at `d9c13531` (2026-10-11).
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–13; shutdown ordering, local-engine stop, bounded grace and shutdown-only installation | [P11](../../slices/projects.md#p11-nested-services-and-volumes) | retained | Stop Project-local workloads through their native engine before final systemd shutdown, preserving container and volume identities. Retained-appliance development proof reproduces the surviving namespace-init process, then confirms the same Project exits 0 with the new unit; fresh candidate qualification remains separate. |

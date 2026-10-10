@@ -2,8 +2,8 @@
 
 ## Complete proposed tree
 
-Current target mapping: source `0ace2383` (2026-10-11). The complete tree
-contains all 2,606 tracked leaves, including the implemented D06 Rust remote
+Current target mapping: source `d9c13531` (2026-10-11). The complete tree
+contains all 2,607 tracked leaves, including the implemented D06 Rust remote
 payload, `tools/acceptance/src/personal_git.rs`. Current package/module/binary
 names are retained where their application owners are already defined. The
 old Muse, Project, Codex and Tailnet filename plans are superseded by their
@@ -2672,6 +2672,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       │   │   │   └── soda-project
 │       │   │   ├── systemd/
 │       │   │   │   └── system/
+│       │   │   │       ├── soda-podman-workloads-stop.service
 │       │   │   │       ├── soda-podman.service
 │       │   │   │       ├── soda-podman.socket
 │       │   │   │       └── soda-project-init.service
