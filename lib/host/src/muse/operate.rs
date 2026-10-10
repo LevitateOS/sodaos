@@ -1,8 +1,7 @@
 use std::time::Instant;
 
 use super::{
-    muse_delivery_valid, muse_project_credential_root, state_container, unit_invocation_argv,
-    MuseHooks, MuseRuntime,
+    muse_delivery_valid, muse_project_credential_root, state_container, MuseHooks, MuseRuntime,
 };
 use crate::project::Executor;
 use crate::terminal::{self, Binding, Delivery};
@@ -41,23 +40,12 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             .binding
             .as_ref()
             .ok_or_else(terminal::err_denied)?;
-        let unit = format!("soda-muse-{}.service", binding.id);
         if !muse_project_credential_root(binding) {
             return Err(terminal::err_denied());
         }
-        if let Ok(body) = self.guest(
-            &binding.project,
-            &[],
-            &unit_invocation_argv(&unit),
-            deadline,
-        ) {
-            let current = String::from_utf8_lossy(&body).trim().to_string();
-            if !current.is_empty() && current != binding.invocation_id {
-                return Err(terminal::err_stale());
-            }
-        }
+        self.validate_muse_binding(binding, deadline)?;
         if action == "validate" {
-            return self.validate_muse_binding(binding, deadline);
+            return Ok(());
         }
         if action != "stop" {
             return Err(terminal::err_denied());

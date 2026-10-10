@@ -1435,9 +1435,12 @@ fn retire_mount_matrix() {
 fn validate_and_ops_matrix() {
     let lease = lease_fixture();
     let binding = lease.binding.clone().unwrap();
-    let rt = runtime(FakeExec::new(vec![ok("active\n")]));
+    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
     assert!(rt.validate_muse_binding(&binding, deadline()).is_ok());
-    let rt = runtime(FakeExec::new(vec![ok("inactive\n")]));
+    let rt = runtime(FakeExec::new(vec![
+        ok(&format!("{IID}\n")),
+        ok("inactive\n"),
+    ]));
     assert_eq!(
         rt.validate_muse_binding(&binding, deadline()).unwrap_err(),
         terminal::ERR_STALE
@@ -1454,6 +1457,15 @@ fn validate_and_ops_matrix() {
         terminal::ERR_DENIED
     );
     assert!(rt.exec.calls().is_empty());
+    let mut missing_session = binding.clone();
+    missing_session.invocation_id.clear();
+    let rt = runtime(FakeExec::new(vec![]));
+    assert_eq!(
+        rt.validate_muse_binding(&missing_session, deadline())
+            .unwrap_err(),
+        terminal::ERR_STALE
+    );
+    assert!(rt.exec.calls().is_empty());
     // Ops dispatch.
     let delivery = Delivery {
         lease: lease.clone(),
@@ -1467,6 +1479,7 @@ fn validate_and_ops_matrix() {
     );
     let rt = runtime(FakeExec::new(vec![
         ok(&format!("{IID}\n")),
+        ok("active\n"),
         ok(""),
         ok("inactive\n"),
         err("exit status 1"),
@@ -1485,17 +1498,24 @@ fn validate_and_ops_matrix() {
             .unwrap_err(),
         terminal::ERR_STALE
     );
-    // Empty observation is tolerated (unit may be gone).
-    let rt = runtime(FakeExec::new(vec![ok("\n"), ok("active\n")]));
-    assert!(rt.muse_operation("validate", &delivery, deadline()).is_ok());
+    // Missing or unreadable session identity is stale before active state or effects.
+    for first in [ok("\n"), err("invocation unavailable")] {
+        let rt = runtime(FakeExec::new(vec![first]));
+        assert_eq!(
+            rt.muse_operation("validate", &delivery, deadline())
+                .unwrap_err(),
+            terminal::ERR_STALE
+        );
+        assert_eq!(rt.exec.calls().len(), 1);
+    }
     // Unknown actions deny after the invocation check.
-    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n"))]));
+    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
     assert_eq!(
         rt.muse_operation("launch", &delivery, deadline())
             .unwrap_err(),
         terminal::ERR_DENIED
     );
-    assert_eq!(rt.exec.calls().len(), 1);
+    assert_eq!(rt.exec.calls().len(), 2);
     // Malformed deliveries never call out.
     let rt = runtime(FakeExec::new(vec![]));
     assert_eq!(

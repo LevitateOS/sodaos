@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use super::{sleep_until, unit_active_argv, MuseHooks, MuseRuntime};
+use super::{sleep_until, unit_active_argv, unit_invocation_argv, MuseHooks, MuseRuntime};
 use crate::domain;
 use crate::project::Executor;
 use crate::terminal::{self, Binding};
@@ -51,7 +51,7 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         Ok(())
     }
 
-    /// `MuseRuntime.ValidateMuseBinding`: exact incarnation + active unit.
+    /// `MuseRuntime.ValidateMuseBinding`: exact incarnation and active unit session.
     pub fn validate_muse_binding(
         &self,
         binding: &Binding,
@@ -64,13 +64,23 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
         {
             return Err(terminal::err_denied());
         }
-        let body = self
+        if !terminal::valid_terminal_id(&binding.invocation_id) {
+            return Err(terminal::err_stale());
+        }
+        let unit = format!("soda-muse-{}.service", binding.id);
+        let invocation = self
             .guest(
                 &binding.project,
                 &[],
-                &unit_active_argv(&format!("soda-muse-{}.service", binding.id)),
+                &unit_invocation_argv(&unit),
                 deadline,
             )
+            .map_err(|_| terminal::err_stale())?;
+        if String::from_utf8_lossy(&invocation).trim() != binding.invocation_id {
+            return Err(terminal::err_stale());
+        }
+        let body = self
+            .guest(&binding.project, &[], &unit_active_argv(&unit), deadline)
             .map_err(|_| terminal::err_stale())?;
         if String::from_utf8_lossy(&body).trim() != "active" {
             return Err(terminal::err_stale());

@@ -158,6 +158,9 @@ persistent preferences.
 
 Each execution has a separate systemd unit and broker lease. The only container
 interface is the launch socket at `/run/soda-muse-interface/launch.sock`.
+Interactive Muse validation and stop require the recorded systemd invocation to
+match the currently observed invocation exactly and the unit to be active. A
+missing, unreadable or replaced session is stale and refuses the operation.
 Mount its dedicated public directory read-only, so socket replacement after service
 restart remains visible. Never place broker administration, credential-delivery
 sockets or credentials in that directory. The broker must confirm termination
