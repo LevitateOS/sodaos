@@ -35,3 +35,27 @@ require an explicit version decision; do not regenerate snapshots merely to make
 an unexpected dependency change pass. Keep `idRandomization` disabled. The seed is
 `soda-robot-v1:<lowercase Forgejo email hash>`: an avatar-email change can change
 the result. Different hashes are not a guarantee of visually distinct robots.
+
+## Use from a Soda Go caller
+
+The package renders SVG without identity lookups or network access. Import
+`github.com/levitateos/sodaos/internal/avatar` from inside this module:
+
+```go
+import "github.com/levitateos/sodaos/internal/avatar"
+
+svg, err := avatar.Render("0123456789abcdef0123456789abcdef", 128)
+```
+
+Check `err` before serving or saving `svg`. The example seed is synthetic;
+normal callers use Forgejo's 32-character hexadecimal email hash, never an
+email address or username. `NormalizeHash` validates and lowercases that hash.
+`Render` accepts sizes from 1 through 1024 and returns the same SVG for a given
+hash/size across restarts. Rendering is safe for concurrent callers.
+
+`Validate` checks the embedded artwork at service startup; `Definition` returns
+the canonical embedded style as an immutable string. Ordinary users receive
+avatars through the versioned route described by the
+[API reference](../../docs/reference/api.md). The
+[avatar design guide](../../docs/design/avatars.md) owns artwork/version rules,
+and [branding](../../docs/design/branding.md) owns the shared visual assets.

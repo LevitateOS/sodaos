@@ -112,6 +112,45 @@ toolchain selected by [rust-toolchain.toml](rust-toolchain.toml).
 | [Release assets](tools/release-assets/README.md) | Fetch and stage assets and render provisioning. |
 | [Test VM](tools/test-vm/README.md) | Start and access a prepared development VM. |
 
+## Go package guides
+
+Command guides describe installed or development-tool use. Internal package
+guides explain their user-facing feature and the integration surface for Go
+consumers in this module. The test packages document focused checks and their
+prerequisites. Toolchain and dependency pins, including the local Forgejo SDK
+replacement, live in [go.mod](go.mod).
+
+| Package guide | Use |
+| --- | --- |
+| [Dashboard](cmd/soda-dashboard/README.md) | Operate the Soda backend and factory coordinator. |
+| [Forgejo extension](cmd/soda-extension/README.md) | Run the native Forgejo extension bridge. |
+| [Tailnet command](cmd/soda-tailnet/README.md) | Inspect Tailnet status and operator guidance. |
+| [Installed acceptance](internal/acceptance/README.md) | Invoke scoped native client probes. |
+| [Architecture checks](internal/archcheck/README.md) | Check Go package dependency boundaries. |
+| [Avatar renderer](internal/avatar/README.md) | Render deterministic robot SVGs. |
+| [Configuration](internal/config/README.md) | Load and validate dashboard/operator configuration. |
+| [Factory records](internal/factory/README.md) | Use canonical factory records and validation. |
+| [Factory coordinator](internal/factory/control/README.md) | Coordinate readiness, dispatch and supervised run lifecycles. |
+| [File locks](internal/filelock/README.md) | Hold advisory locks around cooperating processes. |
+| [Forgejo client](internal/forgejo/README.md) | Observe and act through native Forgejo APIs. |
+| [Factory publication](internal/forgejo/publish/README.md) | Validate candidates and perform conditional Git/PR publication. |
+| [Host client](internal/host/README.md) | Call the privileged Rust host daemon over Unix sockets. |
+| [Identity records](internal/identity/README.md) | Use canonical provider connection, grant and execution records. |
+| [Identity client](internal/identity/client/README.md) | Call the private identity broker. |
+| [Project records](internal/project/README.md) | Use project identity, profile and preparation contracts. |
+| [Store](internal/store/README.md) | Persist application records through the PostgreSQL store. |
+| [Strict JSON](internal/strictjson/README.md) | Decode one bounded JSON object. |
+| [Tailnet integration](internal/tailnet/README.md) | Read native status and validate companion wire inputs. |
+| [Web server](internal/web/README.md) | Wire the backend mux, authentication and API. |
+| [Web API](internal/web/api/README.md) | Integrate product HTTP and terminal routes. |
+| [Web authentication](internal/web/auth/README.md) | Admit native extension identities and account operations. |
+| [Source and presentation tests](scripts/README.md) | Check templates, branding, wiring and wire contracts. |
+| [Build tests](tests/build/README.md) | Check packaging and native helper interfaces. |
+| [PNG comparison](tools/png-equal/README.md) | Compare decoded image pixels. |
+| [Avatar catalog](tools/soda-avatars/README.md) | Generate local artwork inspection sheets. |
+| [Installed probe command](tools/soda-installed-probes/README.md) | Observe HTTPS, developer access, Git and workloads. |
+| [Rootfs server](tools/soda-rootfs-server/README.md) | Serve public installer rootfs files to fixture VMs. |
+
 ## License
 
 Original SodaOS code, documentation and configuration are licensed under
