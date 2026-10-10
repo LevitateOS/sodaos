@@ -137,7 +137,7 @@ pub(super) fn provision_worker_tools(
     }
     let bun_path = command_v("bun").map(|p| p.to_string_lossy().into_owned());
     let bun_src = bun_path.as_deref().unwrap_or("");
-    run("sudo", &["cp", bun_src, &bun_new])?;
+    run("sudo", &["install", "-m", "0755", bun_src, &bun_new])?;
     if run_stdout_null("sudo", &["-u", WORKER_USER, &bun_new, "--version"]).is_err() {
         return fail("staged bun is not worker-runnable; refusing to publish it");
     }
