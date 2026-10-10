@@ -21,7 +21,7 @@ Notices: [Notices](../research/notices.md).
 | Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
 | `soda-render-provisioning` (`tools/release-assets`) | Public `system/host/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
 | `soda-artifacts` (`lib/soda-release-tools`), `soda-acceptance` (`rust/soda-acceptance`) | Separate native tool output, never appliance `cmd/`, rootfs or container payload. Candidates carry them for archive inspection and media-input conversion, not as installed programs. |
-| Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at their documented local scope. |
+| Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at their documented local scope. Current `832dfa16` development-appliance results and explicit task-built overlays are recorded in the implementation plan and ignored receipt; they do not qualify fresh media or a release. |
 
 Reuse and licensing are recorded in [native support notices](../research/notices.md). The predecessor checkout remains separate and preserved; `scripts/test-vm.sh` is superseded by the `soda-test-vm` Rust port.
 
@@ -46,7 +46,7 @@ The existing build now pulls the unchanged selected Forgejo/Caddy references for
 
 ## Build and artifact contract
 
-New production uses `soda-build` only.
+The current `soda-build` and `soda-candidate` public interfaces support development targets only; neither exposes a production build mode.
 Retained `.artifacts/native/` trees may still be read by maintenance tools.
 
 Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, occupied output or simultaneous build is refused; there is no automatic removal of earlier artifacts. `GOTOOLCHAIN=local` prevents implicit toolchain installation.
@@ -117,8 +117,9 @@ fields are edited by number with inline validation, and `go` starts only a
 runnable config. The run shows a live step table (spinner plus live elapsed
 per running phase, controller durations on completion; timestamped log
 fallback with `--non-interactive`). Flags only pre-seed answers. The wrapper
-never admits workers, signs, or publishes; production mode still needs the
-protected configs, and publication stays grant-scoped as below.
+never admits workers, signs, or publishes, and has no production mode. Fixture-only
+media authority is not production signing authority; release delivery and
+publication remain separately owned and grant-scoped as below.
 
 Substitute the operator-admitted absolute paths and explicit URL. Production
 builds are removed: omitting `--development` is refused, target flags require
