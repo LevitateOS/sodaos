@@ -186,3 +186,25 @@ This section reconciles current path ownership only. Existing numeric/body selec
 ### [system/containers/forgejo/setup](../../../../../system/containers/forgejo/setup)
 
 O04: top-level setup wrapper, lines 1–17; setup-upstream is sourced current script.
+
+<a id="current-dashboard-socket-contexts"></a>
+
+## [system/host/selinux/soda_dashboard.fc](../../../../../system/host/selinux/soda_dashboard.fc)
+
+Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| Complete two exact socket path/type declarations | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Host and identity admin socket labels preserve dedicated private IPC admission and systemd recreation. |
+
+<a id="current-dashboard-policy"></a>
+
+## [system/host/selinux/soda_dashboard.te](../../../../../system/host/selinux/soda_dashboard.te)
+
+Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| Module/domain/type declarations; host/admin/socket/process/listen permissions; file scaffold | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) | retained | Dedicated dashboard confinement and narrowly labeled IPC lifecycle; standard MCS labels remain. |
+| ntop_port_t name_connect | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Existing service observer accesses the configured native Forgejo REST listener. |
+| container_file_t Git scratch manage/child execution/private null device permissions | [G04](../../slices/forgejo-integration.md#g04-candidate-publication-and-pr-creation) | retained | Actual publication Git operations retain the private container label and MCS boundary. |

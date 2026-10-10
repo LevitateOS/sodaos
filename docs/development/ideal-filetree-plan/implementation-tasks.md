@@ -33,6 +33,30 @@ pass prepare/unlock with real key/agent tools through locally emulated SSH.
 The owner authorized commits of completed reviewed packets; installed personal-Git
 qualification remains C11.V/R04.
 
+The native Factory continuation produced one real Muse coder run, a candidate
+branch/PR and successful native Actions checks on the retained development
+appliance. Its original finite attempt expired before reviewer production;
+that run does not close B04.C. Source repair `465ce118` settles expired merge
+intent through existing withdrawal/adoption rules and reports explicit Retry
+ineligibility as HTTP 409. `0ace2383` adds periodic advancement to the same
+exclusive Coordinator, with shared pass budgets, authoritative readiness,
+confirmed terminal-run settlement and cancellation/join before owner release.
+All four new real-PostgreSQL regressions pass with Go 1.26.7 and the race
+detector, including delayed CI/reviewer progression, durable readiness without
+redelivery, conserved expired-root allowance and live-CLI preservation.
+Autonomous installed/provider continuation remains open.
+
+The lifecycle proxy repair `e7deb91f` removes its observed ten-second response
+cutoff; the actual Unix-socket regression passes beyond that cutoff. The
+Project's separate thirty-second signal-driven shutdown failure is unresolved.
+After a clean development-appliance restart, a retained SELinux overlay with
+empty file-context inputs caused socket access and status failure. Rebuilding
+that overlay with the existing current source's two socket contexts restores
+read-only lifecycle HTTP 200 under Enforcing; no new policy source fix is
+inferred. Fresh private accounts, keys and native first-use/personal-Git drivers
+are prepared for an unlaunched fresh-disk fixture. Authenticated media,
+installation, personal-Git and matching-candidate R04 checks remain open.
+
 Implementation is active under the owner's “go”, “commit early and often” and
 subsequent all-tasks goal. Current path reconciliation uses source `e0e2413f`;
 `04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
@@ -41,8 +65,10 @@ identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and
 selective caller simplifications.
 Completed checks are source/development evidence; no installed, provider or
 native-worker qualification is inferred. Seven pre-existing dirty guidance
-files remain untouched. The current tree and tracked-file inventories account for all 2,600 tracked
-paths at `c8a53fdb`, including the implemented D06 Rust personal-Git payload.
+files remain untouched. The current tree and tracked-file inventories account for all 2,606 tracked
+paths at `0ace2383`, including the implemented D06 Rust personal-Git payload,
+Coordinator progress owners/tests, Retry refusal test, socket policy inputs
+and native panel-ownership regression.
 Historical path comparisons retain their original
 identities. The responsibility body snapshot remains pinned to `519b76bd`,
 with selective current owner/caller deltas recorded in the affected maps.
@@ -73,7 +99,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 
 | Remaining work | Current disposition and exact next boundary | Owner / task |
 | --- | --- | --- |
-| Current inventory / target and source joins | All 2,600 current leaves are mapped at `c8a53fdb`; selective additions include package guides, four Factory/Forgejo test files and the implemented D06 payload with its caller/producer chain. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
+| Current inventory / target and source joins | All 2,606 current leaves are mapped at `0ace2383`; selective additions include package guides, four Factory/Forgejo test files and the implemented D06 payload with its caller/producer chain. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
 | Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Completed in `7334f36b`; candidate count/bytes are admitted before retained variants, with per-file staging and escaped-pattern admission separately bounded. | C / L16.G complete |
 | Host provider HTTP | Source scope complete: `9cea539f` retains mature curl through the owned Executor (11 actual checks: 5 executor, 6 provider; host daemon compiled; independent review passed), and `8026d9ac` declares curl in the generated host package inputs (two existing package-profile tests passed). No ureq cutover. Shipped-binary/RPM inventory, TLS and live provider qualification remain open; no installed-provider claim. | C / L10.N4 source complete; R04 qualification open |

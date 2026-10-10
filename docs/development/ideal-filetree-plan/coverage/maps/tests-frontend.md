@@ -199,3 +199,13 @@ Changed current body; prior ownership not reused as exact selectors
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–185; Spaces workspace test suite | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks workspace view state, selection, navigation and reactive presentation behavior. — Current source inspected at tests/frontend/workspace.test.ts; concrete renderer/build/test consumer is named in the selector and description. |
+
+<a id="current-workspace-panel-owner-test"></a>
+
+## [tests/frontend/workspace-panel.test.ts](../../../../../tests/frontend/workspace-panel.test.ts)
+
+Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| native panel yields saved terminal restoration to the full Spaces page; complete file | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Native page mount retires the shared panel first; ordinary repository navigation preserves its terminal renderer and socket owner. |

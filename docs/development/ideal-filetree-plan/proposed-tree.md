@@ -2,8 +2,8 @@
 
 ## Complete proposed tree
 
-Current target mapping: source `c8a53fdb` (2026-10-10). The complete tree
-contains all 2,600 tracked leaves, including the implemented D06 Rust remote
+Current target mapping: source `0ace2383` (2026-10-11). The complete tree
+contains all 2,606 tracked leaves, including the implemented D06 Rust remote
 payload, `tools/acceptance/src/personal_git.rs`. Current package/module/binary
 names are retained where their application owners are already defined. The
 old Muse, Project, Codex and Tailnet filename plans are superseded by their
@@ -1599,6 +1599,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── postgres_fixture_test.go
 │   │   │   ├── preparation_decisions.go
 │   │   │   ├── prerequisites.go
+│   │   │   ├── progress.go
+│   │   │   ├── progress_test.go
 │   │   │   ├── publication.go
 │   │   │   ├── publication_authority.go
 │   │   │   ├── publication_children.go
@@ -1901,6 +1903,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       │   ├── factory_intake_test.go
 │       │   ├── factory_issue_view.go
 │       │   ├── factory_lifecycle.go
+│       │   ├── factory_lifecycle_error_test.go
 │       │   ├── factory_output.go
 │       │   ├── factory_output_test.go
 │       │   ├── factory_policy.go
@@ -2617,7 +2620,9 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── base.json
 │   │   │   └── candidate.json
 │   │   ├── selinux/
-│   │   │   └── soda-build-worker.te
+│   │   │   ├── soda-build-worker.te
+│   │   │   ├── soda_dashboard.fc
+│   │   │   └── soda_dashboard.te
 │   │   ├── services/
 │   │   │   ├── README.md
 │   │   │   ├── forgejo.container
@@ -2801,6 +2806,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── workspace-first-use.test.ts
 │   │   ├── workspace-journey.test.ts
 │   │   ├── workspace-layout.test.ts
+│   │   ├── workspace-panel.test.ts
 │   │   ├── workspace-navigation.test.ts
 │   │   ├── workspace-persistence.test.ts
 │   │   ├── workspace-recovery.test.ts

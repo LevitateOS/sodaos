@@ -2,7 +2,7 @@
 
 ## Complete source-to-slice coverage
 
-Current path navigation is reconciled at `c8a53fdb` (2026-10-10): all 2,600
+Current path navigation is reconciled at `0ace2383` (2026-10-11): all 2,606
 tracked paths appear once in the inventories, with no missing or duplicate
 current path rows. Twelve later Factory prompt, preparation and expiry paths
 are linked to their current responsibility maps; the earlier addition and
@@ -58,21 +58,21 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 
 ### Source roots
 
-| Current root at `e0e2413f` | Tracked paths |
+| Current root at `0ace2383` | Tracked paths |
 | --- | ---: |
 | `(root)` | 20 |
 | `.agents` | 1 |
 | `.githooks` | 1 |
 | `assets` | 175 |
-| `cmd` | 336 |
+| `cmd` | 353 |
 | `docs` | 318 |
 | `frontend` | 345 |
-| `internal` | 453 |
-| `lib` | 420 |
-| `scripts` | 80 |
-| `system` | 65 |
-| `tests` | 138 |
-| `tools` | 189 |
+| `internal` | 480 |
+| `lib` | 428 |
+| `scripts` | 81 |
+| `system` | 67 |
+| `tests` | 140 |
+| `tools` | 197 |
 
 ### Inspection and evidence reuse
 

@@ -600,3 +600,13 @@ This section reconciles current path ownership only. Existing numeric/body selec
 ### [internal/web/api/factory_connection_usage_budget.go](../../../../../internal/web/api/factory_connection_usage_budget.go)
 
 F03 endpoint for owner-scoped budget reads and revision-checked command-backed updates.
+
+<a id="current-retry-refusal-test"></a>
+
+## [internal/web/api/factory_lifecycle_error_test.go](../../../../../internal/web/api/factory_lifecycle_error_test.go)
+
+Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| TestLifecycleRetryIneligibleIsConflict; complete file | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Wrapped explicit Retry ineligibility is a 409 domain refusal; actual storage failure retains its unavailable result. |

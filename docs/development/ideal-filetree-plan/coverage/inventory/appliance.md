@@ -2,7 +2,7 @@
 
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
-Current path navigation reconciled at `45ebf4c4` (2026-10-09); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
+Current path navigation reconciled at `0ace2383` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
 
 Current path accounting at `519b76bd` (2026-10-07).
 A file may contain several duties; each named duty has one defining owner and disposition.
@@ -34,6 +34,8 @@ Generated/third-party status and runtime use are separate from disposition.
 | [system/host/provisioning/base.json](../../../../../system/host/provisioning/base.json) | configuration / service / selector | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / retained, [O04](../../slices/operator-administration.md#o04-native-host-administration-and-updates) / retained | [current units](../maps/appliance-definitions.md#coverage-1e2a7106265c) |
 | [system/host/provisioning/candidate.json](../../../../../system/host/provisioning/candidate.json) | configuration / service / selector | [D11](../../slices/release-and-installation.md#d11-host-installation-and-payload-application) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |
 | [system/host/selinux/soda-build-worker.te](../../../../../system/host/selinux/soda-build-worker.te) | configuration / artifact input | [D01](../../slices/release-and-installation.md#d01-builder-admission-and-controllers) / retained | Current configuration scope; split declarations retain the path's release/install/qualification duty. |
+| [system/host/selinux/soda_dashboard.fc](../../../../../system/host/selinux/soda_dashboard.fc) | configuration / artifact input | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / retained | [current units](../maps/appliance-definitions.md#current-dashboard-socket-contexts) |
+| [system/host/selinux/soda_dashboard.te](../../../../../system/host/selinux/soda_dashboard.te) | configuration / artifact input | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / retained, [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / retained, [G04](../../slices/forgejo-integration.md#g04-candidate-publication-and-pr-creation) / retained | [current units](../maps/appliance-definitions.md#current-dashboard-policy) |
 | [system/host/services/README.md](../../../../../system/host/services/README.md) | documentation | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | Current documentation scope; split declarations retain the path's release/install/qualification duty. |
 | [system/host/services/forgejo.container](../../../../../system/host/services/forgejo.container) | configuration / service / selector | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) / retained, [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | [current units](../maps/appliance-definitions.md#coverage-0a787ad15dff) |
 | [system/host/services/soda-console.service](../../../../../system/host/services/soda-console.service) | configuration / service / selector | [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) / retained | Complete configuration input; consumers are the manifest/build or service/rootfs selector at this path. |

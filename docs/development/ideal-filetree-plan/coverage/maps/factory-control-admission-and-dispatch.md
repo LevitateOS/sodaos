@@ -810,3 +810,28 @@ exact-blob current maintained map; full spans retained
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–61; TestDispatchPassReachesRunnableBehindWaitingPrefix | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Actual dispatch queue continuation beyond a waiting prefix. The corrected retirement selector passes; per-fixture source headers are removed only through the fixture SQL connection because queue rotation, not source admission, is under test. |
+
+<a id="current-progress-owner"></a>
+
+## [internal/factory/control/progress.go](../../../../../internal/factory/control/progress.go)
+
+Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| progressPass; startProgress; runProgress; progressInterval; progressPassKey | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Same Coordinator serialization, owner-lock lifetime and cancellation/join; no second service. |
+| refreshReadiness | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Authoritative native revision refresh uses the existing assessment and bounded evidence budget. |
+| advanceProgress | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Bounded unsettled-run inspection/settlement, ordinary Dispatch and owned readiness drain; immutable attempt allowance remains at the Store. |
+
+<a id="current-progress-tests"></a>
+
+## [internal/factory/control/progress_test.go](../../../../../internal/factory/control/progress_test.go)
+
+Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+
+| Current named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| TestCoordinatorWakePreservesLiveCLIAndCloseJoinsInspection | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Live CLI remains supervised; exhausted inspection budget refuses work; Close cancels and joins. |
+| TestCoordinatorWakeResumesReadinessWithoutRedelivery | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Durable readiness completes without another delivery. |
+| TestCoordinatorWakesForCodingDelayedChecksAndReviewer; progressHost; progressInputs; progressRevision | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Normal producer reaches delayed native CI and a distinct exact-candidate reviewer without duplicate publication. |
+| TestCoordinatorWakeClosesExpiredRootWithoutMoreRuns; progressLiveHost; file scaffolding | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Finite original root closes without replenishment or additional launches/publications. |
