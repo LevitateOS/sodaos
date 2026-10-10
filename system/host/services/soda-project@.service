@@ -10,6 +10,7 @@ ExecStartPost=/usr/local/libexec/soda/soda-muse-maintain --bind-only --project %
 # Queue only; enrollment never waits inside the helper's project admission gate.
 ExecStartPost=-/usr/bin/systemctl --no-block start soda-tailnet@%i.service
 ExecStop=/usr/bin/podman stop --time 30 soda-%i
+ExecStopPost=/usr/bin/podman stop --ignore --time 30 soda-%i
 Restart=on-failure
 TimeoutStopSec=60
 KillMode=none

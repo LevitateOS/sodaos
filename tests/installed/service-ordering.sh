@@ -20,6 +20,8 @@ contains_property forgejo.service After soda-extension-install.service
 contains_property soda-extension-install.service Requires soda-image-import.service
 contains_property soda-extension-install.service Before forgejo.service
 contains_property soda-extension-install.service RemainAfterExit yes
+project_cleanup=$(systemctl show soda-project@ordering.service --property=ExecStopPost --value)
+[[ "$project_cleanup" == *"argv[]=/usr/bin/podman stop --ignore --time 30 soda-ordering"* ]]
 for unit in forgejo.service soda-dashboard.service soda-proxy.service; do
   path=$(systemctl show "$unit" --property=FragmentPath --value)
   [[ "$path" == /run/systemd/generator*/* && -f "$path" ]]
