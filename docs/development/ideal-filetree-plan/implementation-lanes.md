@@ -212,7 +212,7 @@ hunk editing of a shared file as a substitute for ownership.
 
 ## Coordinator checklist
 
-- [ ] **R00 — Dispatch preparation.** Refresh affected source/guidance and the
+- [x] **R00 — Dispatch preparation.** Current source-packet checkpoint is complete through `18554549`, after independent scope review. Accepted product choices, committed-only builder ingress and the remaining native subjects/owners/prerequisites are recorded in the existing continuation and [native subject inventory](../../../.artifacts/luna-batch-20261007-0caf6b91/outage-resume-01a11c77/native-builder-probe/remaining-native-subjects.json). Installed/media/provider subjects retain their owning open gates. A later packet or demonstrated boundary defect requires fresh preparation; this is not permanent readiness or R04 qualification. Refresh affected source/guidance and the
   selected findings' readiness. Record the scoped implementation/operational
   instruction, selected L packet and finding IDs, one lead, literal source/target
   file list, recipients, dependency results and actual smallest verification.
