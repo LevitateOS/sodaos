@@ -150,6 +150,11 @@ func TestAvatarProductionRoutesWithTestOwnedUpstreams(t *testing.T) {
 		t.Helper()
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			decoded := map[string]any{"upstream": name, "path": r.URL.RequestURI()}
+			requestBody, _ := io.ReadAll(r.Body)
+			decoded["body"] = string(requestBody)
+			decoded["signature"] = r.Header.Get("X-Forgejo-Signature")
+			decoded["delivery"] = r.Header.Get("X-Forgejo-Delivery")
+			decoded["event"] = r.Header.Get("X-Forgejo-Event")
 			// Python reads headers with .get: missing headers are null, not "".
 			if cookie := r.Header.Get("Cookie"); cookie != "" {
 				decoded["cookie"] = cookie
@@ -233,14 +238,17 @@ func TestAvatarProductionRoutesWithTestOwnedUpstreams(t *testing.T) {
 	})
 
 	client := &http.Client{Timeout: 3 * time.Second}
-	probe := func(path string) (map[string]any, error) {
-		req, err := http.NewRequest("GET", "http://127.0.0.1:"+strconv.Itoa(port)+path, nil)
+	probe := func(method, path, requestBody string) (map[string]any, error) {
+		req, err := http.NewRequest(method, "http://127.0.0.1:"+strconv.Itoa(port)+path, strings.NewReader(requestBody))
 		if err != nil {
 			return nil, err
 		}
 		req.Host = "forge.example.test"
 		req.Header.Set("Cookie", "fixture=value")
 		req.Header.Set("Authorization", "Bearer [REDACTED]")
+		req.Header.Set("X-Forgejo-Signature", "fixture-signature")
+		req.Header.Set("X-Forgejo-Delivery", "fixture-delivery")
+		req.Header.Set("X-Forgejo-Event", "issue_comment")
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
@@ -261,13 +269,13 @@ func TestAvatarProductionRoutesWithTestOwnedUpstreams(t *testing.T) {
 	}
 	request := func(t *testing.T, path string) map[string]any {
 		t.Helper()
-		decoded, err := probe(path)
+		decoded, err := probe(http.MethodGet, path, "")
 		Require(t, err == nil, "request %s: %v", path, err)
 		return decoded
 	}
 	started := false
 	for range 100 {
-		if _, err := probe("/"); err == nil {
+		if _, err := probe(http.MethodGet, "/", ""); err == nil {
 			started = true
 			break
 		}
@@ -299,5 +307,19 @@ func TestAvatarProductionRoutesWithTestOwnedUpstreams(t *testing.T) {
 		Check(t, response["path"] == path, "%s path = %v", path, response["path"])
 		Check(t, response["cookie"] == "fixture=value", "%s cookie = %v", path, response["cookie"])
 		Check(t, response["authorization"] == "Bearer [REDACTED]", "%s auth = %v", path, response["authorization"])
+	}
+	intake := "/-/soda/api/factory/intake"
+	response, err = probe(http.MethodPost, intake, `{"issue":{"number":1}}`)
+	Require(t, err == nil, "intake request: %v", err)
+	Check(t, response["upstream"] == "soda" && response["path"] == intake, "intake route = %v", response)
+	Check(t, response["cookie"] == nil && response["authorization"] == nil, "intake browser credentials = %v", response)
+	Check(t, response["signature"] == "fixture-signature" && response["delivery"] == "fixture-delivery" && response["event"] == "issue_comment",
+		"intake HMAC headers = %v", response)
+	Check(t, response["body"] == `{"issue":{"number":1}}`, "intake body = %v", response["body"])
+	for _, tc := range [][2]string{{http.MethodGet, intake}, {http.MethodPost, intake + "/extra"}, {http.MethodPost, "/-/soda/api/repositories/1/factory"}} {
+		response, err := probe(tc[0], tc[1], "")
+		Require(t, err == nil, "non-intake request: %v", err)
+		Check(t, response["upstream"] == "forgejo" && response["cookie"] == "fixture=value" && response["authorization"] == "Bearer [REDACTED]",
+			"non-intake route = %v", response)
 	}
 }

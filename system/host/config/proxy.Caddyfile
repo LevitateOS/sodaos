@@ -6,6 +6,16 @@
 {$FORGEJO_ORIGIN} {
 	bind {$SODA_BIND}
 	tls {$SODA_TLS:/etc/soda/tls/cert.pem /etc/soda/tls/key.pem}
+	@factory_intake {
+		method POST
+		path /-/soda/api/factory/intake
+	}
+	handle @factory_intake {
+		reverse_proxy 127.0.0.1:8080 {
+			header_up -Cookie
+			header_up -Authorization
+		}
+	}
 	# Public images never receive browser credentials.
 	handle /-/soda/avatars/* {
 		reverse_proxy 127.0.0.1:8080 {
