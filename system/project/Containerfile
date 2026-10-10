@@ -43,7 +43,7 @@ COPY ${ARTIFACT_DIR}/project-tools/bin/project-factory-roles /usr/libexec/soda/p
 RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2" && \
     chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account /usr/libexec/soda/project-factory-roles && \
     chmod 0440 /etc/sudoers.d/soda-project && \
-    systemctl enable sshd.service soda-project-init.service soda-podman.socket && \
+    systemctl enable sshd.service soda-project-init.service soda-podman.socket soda-podman-workloads-stop.service && \
     rm -f /etc/ssh/ssh_host_* && truncate -s 0 /etc/machine-id
 ENV container=podman
 STOPSIGNAL SIGRTMIN+3

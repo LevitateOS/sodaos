@@ -85,7 +85,7 @@ func TestRuntimeSocketIsProjectAdminOnly(t *testing.T) {
 	init := ReadFile(t, "system/project/rootfs/usr/libexec/soda/project-init")
 	Check(t, strings.Contains(init, "install -d -m 0750 -o root -g wheel /run/soda-podman"), "missing runtime dir install")
 	recipe := ReadFile(t, "system/project/Containerfile")
-	Check(t, strings.Contains(recipe, "systemctl enable sshd.service soda-project-init.service soda-podman.socket"), "missing enable")
+	Check(t, strings.Contains(recipe, "systemctl enable sshd.service soda-project-init.service soda-podman.socket soda-podman-workloads-stop.service"), "missing enable")
 }
 
 func TestRuntimeOnlyNetworkSysctlSubtreeIsRebound(t *testing.T) {

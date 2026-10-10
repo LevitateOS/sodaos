@@ -1,0 +1,13 @@
+[Unit]
+Description=Stop Project-local workloads before Project shutdown
+DefaultDependencies=no
+After=local-fs.target
+Before=shutdown.target umount.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/podman --remote=false stop --all --time 10
+TimeoutStartSec=20s
+
+[Install]
+WantedBy=shutdown.target
