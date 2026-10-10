@@ -45,7 +45,7 @@ fn hostname_vectors() {
 #[test]
 fn subnet_vectors() {
     assert!(project_subnet("10.89.0.0/24").is_ok());
-    assert!(project_subnet("0.0.0.0/0").is_ok());
+    assert!(project_subnet("10.91.0.0/24").is_ok());
     assert!(project_subnet("192.168.1.1/32").is_ok());
     for bad in [
         "10.89.0.1/24",
@@ -59,6 +59,34 @@ fn subnet_vectors() {
             project_subnet(bad).unwrap_err().to_string(),
             "canonical IPv4 project subnet required",
             "input {bad:?}"
+        );
+    }
+}
+
+#[test]
+fn project_subnet_rejects_overlapping_appliance_networks() {
+    const APPLIANCE_SUBNET: &str = "10.90.0.0/24";
+    const SODA_NETWORK: &str = include_str!("../../../../system/host/services/soda.network");
+
+    assert!(
+        SODA_NETWORK
+            .lines()
+            .any(|line| line.trim() == format!("Subnet={APPLIANCE_SUBNET}")),
+        "installer reservation must match the appliance Quadlet subnet"
+    );
+    for overlap in [
+        "10.88.0.0/16",   // exact default Podman bridge
+        "10.88.1.0/24",   // narrower than the default Podman bridge
+        "10.88.0.0/15",   // wider and overlapping both defaults
+        "10.90.0.0/24",   // exact appliance bridge
+        "10.90.0.128/25", // narrower than the appliance bridge
+        "10.90.0.0/23",   // wider than the appliance bridge
+        "0.0.0.0/0",      // contains both reserved networks
+    ] {
+        assert_eq!(
+            project_subnet(overlap).unwrap_err().to_string(),
+            "project subnet overlaps a reserved network",
+            "input {overlap:?}"
         );
     }
 }

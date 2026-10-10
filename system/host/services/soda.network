@@ -3,6 +3,7 @@ Description=Soda appliance container network
 
 [Network]
 Label=io.soda.network=appliance
+Subnet=10.90.0.0/24
 
 [Install]
 WantedBy=multi-user.target

@@ -93,7 +93,9 @@ listener. Browser/OAuth origins remain distinct configured values.
 ## Route projects to developers
 
 Choose a private project subnet that overlaps neither the host LAN nor other
-client/VPN routes. Project addresses live on the appliance's routed bridge.
+client/VPN routes. Soda also reserves `10.88.0.0/16` for Podman's default
+bridge and `10.90.0.0/24` for the appliance network. Project addresses live on
+the appliance's routed bridge.
 Establish either a LAN-router route via the appliance or a native Tailscale subnet
 route with the required administrator approval and access rules.
 

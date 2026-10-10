@@ -8,6 +8,8 @@ use serde_json::ser::Formatter;
 use serde_json::{Map, Value};
 use std::io::{self, Write};
 
+const RESERVED_PROJECT_NETWORKS: [&str; 2] = ["10.88.0.0/16", "10.90.0.0/24"];
+
 /// Hostname labels: 1-63 lowercase alphanumerics/dashes, starting and
 /// ending alphanumeric; the full name is 1-253 bytes.
 pub fn hostname(value: &str) -> bool {
@@ -31,7 +33,19 @@ pub fn hostname(value: &str) -> bool {
 /// Canonical IPv4 project subnet (`address/masked-bits`, no zones).
 pub fn project_subnet(value: &str) -> Result<(), Error> {
     match netip::parse_prefix(value) {
-        Ok(prefix) if prefix.addr().is4() && prefix == prefix.masked() => Ok(()),
+        Ok(prefix) if prefix.addr().is4() && prefix == prefix.masked() => {
+            let subnet = prefix.masked();
+            let overlaps_reserved = RESERVED_PROJECT_NETWORKS.iter().any(|reserved| {
+                let reserved = netip::parse_prefix(reserved)
+                    .expect("reserved project network must be a valid prefix")
+                    .masked();
+                reserved.contains(&subnet.addr()) || subnet.contains(&reserved.addr())
+            });
+            if overlaps_reserved {
+                return Err(Error::msg("project subnet overlaps a reserved network"));
+            }
+            Ok(())
+        }
         _ => Err(Error::msg("canonical IPv4 project subnet required")),
     }
 }
