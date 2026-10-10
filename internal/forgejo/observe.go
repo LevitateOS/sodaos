@@ -2,6 +2,8 @@ package forgejo
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 	"strconv"
 	"sync"
 
@@ -141,7 +143,29 @@ func loadServiceActor(ctx context.Context, rest *Client, credentialFile string) 
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	user, err := rest.Current(ctx, token)
+	configured := *rest.HTTP
+	transport := configured.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	standard, ok := transport.(*http.Transport)
+	if !ok || standard == nil {
+		return "", ErrUnavailable
+	}
+	lookupTransport := standard.Clone()
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	lookupTransport.Protocols = protocols
+	if lookupTransport.TLSClientConfig != nil {
+		lookupTransport.TLSClientConfig.NextProtos = []string{"http/1.1"}
+	}
+	lookupTransport.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
+	defer lookupTransport.CloseIdleConnections()
+	lookupHTTP := configured
+	lookupHTTP.Transport = lookupTransport
+	lookupClient := *rest
+	lookupClient.HTTP = &lookupHTTP
+	user, err := lookupClient.Current(ctx, token)
 	if err != nil {
 		return "", err
 	}

@@ -219,6 +219,96 @@ func TestServiceObserverShortRevisionCallerDoesNotWaitForActorLookup(t *testing.
 	}
 }
 
+func TestServiceActorLookupUsesPrivateSingleRequestTransport(t *testing.T) {
+	var requests atomic.Int32
+	var connections atomic.Int32
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/user" {
+			http.NotFound(w, r)
+			return
+		}
+		requests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(User{ID: 11, Login: "soda-tester"})
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			connections.Add(1)
+		}
+	}
+	server.Start()
+	t.Cleanup(server.Close)
+
+	rest := New(server.URL)
+	if _, err := rest.Current(context.Background(), "test-pat"); err != nil {
+		t.Fatal("seed shared keep-alive connection:", err)
+	}
+	if got := connections.Load(); got != 1 {
+		t.Fatalf("seed request opened %d connections, want one", got)
+	}
+
+	actor, err := loadServiceActor(context.Background(), rest, observationCredential(t, "test-pat"))
+	if err != nil || actor != "11" {
+		t.Fatalf("actor lookup = %q, %v", actor, err)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("actor lookup made %d total requests, want seed plus one lookup", got)
+	}
+	if got := connections.Load(); got != 2 {
+		t.Fatalf("actor lookup used shared connection pool; server saw %d connections, want two", got)
+	}
+
+	if _, err := rest.Current(context.Background(), "test-pat"); err != nil {
+		t.Fatal("shared keep-alive connection unavailable after actor lookup:", err)
+	}
+	if got := requests.Load(); got != 3 {
+		t.Fatalf("shared client made %d requests after reuse, want three total", got)
+	}
+	if got := connections.Load(); got != 2 {
+		t.Fatalf("shared client did not retain its pool; server saw %d connections, want two", got)
+	}
+}
+
+func TestServiceActorLookupClonedTransportUsesHTTP1AndPreservesHTTP2Client(t *testing.T) {
+	protocols := make(chan string, 3)
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/user" {
+			http.NotFound(w, r)
+			return
+		}
+		protocols <- r.Proto
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(User{ID: 11, Login: "soda-tester"})
+	}))
+	server.EnableHTTP2 = true
+	server.StartTLS()
+	t.Cleanup(server.Close)
+
+	rest := New(server.URL)
+	rest.HTTP = server.Client()
+	if _, err := rest.Current(context.Background(), "test-pat"); err != nil {
+		t.Fatal("seed HTTP/2 client:", err)
+	}
+	if got := <-protocols; got != "HTTP/2.0" {
+		t.Fatalf("seed request used %s, want HTTP/2.0", got)
+	}
+
+	actor, err := loadServiceActor(context.Background(), rest, observationCredential(t, "test-pat"))
+	if err != nil || actor != "11" {
+		t.Fatalf("actor lookup = %q, %v", actor, err)
+	}
+	if got := <-protocols; got != "HTTP/1.1" {
+		t.Fatalf("isolated actor lookup used %s, want HTTP/1.1", got)
+	}
+
+	if _, err := rest.Current(context.Background(), "test-pat"); err != nil {
+		t.Fatal("original HTTP/2 client failed after actor lookup:", err)
+	}
+	if got := <-protocols; got != "HTTP/2.0" {
+		t.Fatalf("original client used %s after lookup, want HTTP/2.0", got)
+	}
+}
+
 func TestServiceObserverBootstrapFailure(t *testing.T) {
 	rest := observationREST(t, 11)
 	observer := NewServiceObserver(filepath.Join(t.TempDir(), "missing.sock"), uint32(os.Getuid()), observationCredential(t, "test-pat"), rest)
