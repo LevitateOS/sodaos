@@ -27,7 +27,7 @@ Fixture scope only: it never creates qualification or signing configs.
 Manual equivalent of each step is printed by the script as it goes.
 
 One overview screen shows every choice (mode, output with freshness status,
-controller, worker config, fixture URL or protected configs). Type a field
+controller, worker config and fixture URL). Type a field
 number to edit it, `go` to start, `quit` to abort. Nothing runs before an
 explicit start. Flags only pre-seed answers:
 
@@ -44,16 +44,14 @@ soda-candidate --non-interactive --mode candidate \
 - `candidate`: development build only, no media or signing.
 - `media`: development installer ISO from a fixture rootfs URL. Never
   release-qualified, never distribution-ready.
-- `production`: protected qualification, optional final signing. Publication
-  stays separately grant-scoped.
 
 ## The rootfs URL, in one paragraph
 
 The ISO is only the boot menu. The rootfs is the actual operating system
 disk image (gigabytes), which the installer downloads during installation.
 The URL is the pickup address where the installer is told to fetch it. For
-local builds there is nothing to look up and nothing to hand-run: the setup
-tool creates `/var/lib/soda-rootfs`, the TUI prefills
+local builds there is nothing to look up and nothing to hand-run: the wrapper
+uses `.artifacts/rootfs` by default, the TUI prefills
 `http://127.0.0.1:8080`, the wrapper serves that folder during the build,
 and files the produced `*-rootfs.img` there afterwards. A busy port means
 you already serve it yourself; any non-loopback address stays fully yours.
@@ -68,5 +66,5 @@ locations live in [Native support](../development/native-support.md).
 ## Never
 
 Admit workers, sign payloads, publish images, or accept production keys as
-fixture input. Exit 2 means what the controller means: qualification passed
-but final signing is not connected, so there is no qualified release.
+fixture input. The wrapper returns the controller's exit status; successful
+development output does not qualify a release.
