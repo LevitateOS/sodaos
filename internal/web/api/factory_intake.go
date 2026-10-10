@@ -142,7 +142,7 @@ type intakeSender struct {
 }
 
 type intakeIssue struct {
-	Index int64 `json:"index"`
+	Index int64 `json:"number"`
 }
 
 type intakeIssueEvent struct {

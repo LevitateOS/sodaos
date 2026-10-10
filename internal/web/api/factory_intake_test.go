@@ -50,7 +50,7 @@ func TestFactoryIntakeOpenedCarriesCreatorAuthority(t *testing.T) {
 		Repository: 7, Issue: 3, Readiness: factory.ReadinessQueued,
 	}, changed: true}
 	handler := IntakeHandler{Coordinator: coordinator, Secret: []byte("intake-secret")}
-	body := `{"action":"opened","number":3,"issue":{"index":3},` +
+	body := `{"action":"opened","number":3,"issue":{"number":3},` +
 		`"repository":{"id":7,"permissions":{"push":true}},` +
 		`"sender":{"id":5},"extra_future_field":{"nested":true}}`
 	w := httptest.NewRecorder()
@@ -83,14 +83,14 @@ func TestFactoryIntakeHints(t *testing.T) {
 	if w.Code != http.StatusOK || coordinator.hint.Created {
 		t.Fatal("edited hint wrong:", w.Code, coordinator.hint)
 	}
-	comment := `{"issue":{"index":4},"repository":{"id":7},"is_pull":false}`
+	comment := `{"issue":{"number":4},"repository":{"id":7},"is_pull":false}`
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, intakeRequest(t, "issue_comment", "delivery-3", comment))
 	if w.Code != http.StatusOK || coordinator.hint.Issue != 4 {
 		t.Fatal("comment hint wrong:", w.Code, coordinator.hint)
 	}
 	before := coordinator.calls
-	pullComment := `{"issue":{"index":4},"repository":{"id":7},"is_pull":true}`
+	pullComment := `{"issue":{"number":4},"repository":{"id":7},"is_pull":true}`
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, intakeRequest(t, "issue_comment", "delivery-4", pullComment))
 	if w.Code != http.StatusOK || coordinator.calls != before {
@@ -137,7 +137,7 @@ func TestFactoryIntakeFailures(t *testing.T) {
 		t.Fatal("malformed hint accepted:", w.Code)
 	}
 	inconsistent := intakeRequest(t, "issues", "delivery-1",
-		`{"action":"edited","number":3,"issue":{"index":4},"repository":{"id":7}}`)
+		`{"action":"edited","number":3,"issue":{"number":4},"repository":{"id":7}}`)
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, inconsistent)
 	if w.Code != http.StatusBadRequest {

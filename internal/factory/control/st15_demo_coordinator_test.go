@@ -86,7 +86,7 @@ func (fx *st15Fixture) issueOpenedHint(issue st15Issue) {
 		"action": "opened", "number": issue.Number,
 		"repository": map[string]any{"id": fx.cfg.Repository, "permissions": map[string]any{"push": true, "admin": true}},
 		"sender":     map[string]any{"id": fx.cfg.CreatorID},
-		"issue":      map[string]any{"index": issue.Number},
+		"issue":      map[string]any{"number": issue.Number},
 	})
 	fx.t.Logf("ST15 intake opened #%d: %v", issue.Number, outcome)
 }
@@ -95,7 +95,7 @@ func (fx *st15Fixture) commentHint(index int64) {
 	fx.t.Helper()
 	outcome := fx.postIntake("issue_comment", map[string]any{
 		"repository": map[string]any{"id": fx.cfg.Repository},
-		"issue":      map[string]any{"index": index},
+		"issue":      map[string]any{"number": index},
 	})
 	fx.t.Logf("ST15 intake comment #%d: %v", index, outcome)
 }
