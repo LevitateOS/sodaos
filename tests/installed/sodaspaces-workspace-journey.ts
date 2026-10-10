@@ -6,7 +6,7 @@ import {object} from './sodaspaces-input';
 import type {MatrixInput} from './sodaspaces-matrix-input';
 import {newManagedTerminal, prepareManagedTerminal, terminalMenu} from './sodaspaces-controls';
 import {terminalID} from '../../frontend/spaces/sodaspaces-terminal-response';
-import {nativeSpacesMount, spacesAPI, spacesPage} from './sodaspaces-journey-evidence';
+import {nativeSpacesMount, spacesAPI, spacesPage, spacesContent} from './sodaspaces-journey-evidence';
 import type {MatrixEvidence, MatrixNative, MatrixSession} from './sodaspaces-journey-evidence';
 
 export async function exerciseWorkspaceMatrix(
@@ -92,11 +92,12 @@ export async function exerciseWorkspaceMatrix(
   };
   page.on('websocket', receive);
   const select = async (session: MatrixSession) => {
-    await page.getByRole('button', {name: 'Projects', exact: true}).click();
-    const all = page.getByRole('button', {name: 'All', exact: true});
+    const spaces = await spacesContent(page);
+    await spaces.getByRole('button', {name: 'Projects', exact: true}).click();
+    const all = spaces.getByRole('button', {name: 'All', exact: true});
     if (await all.isVisible()) await all.click();
-    await page.locator(`.soda-session-list button[data-terminal-id="${session.id}"]`).click();
-    await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
+    await spaces.locator(`.soda-session-list button[data-terminal-id="${session.id}"]`).click();
+    await spaces.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
     assert(!protocolFailure);
   };
   try {
@@ -104,7 +105,8 @@ export async function exerciseWorkspaceMatrix(
     await page.bringToFront();
     await page.goto(new URL(spacesPage, page.url()).href);
     await nativeSpacesMount(page);
-    await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+    let spaces = await spacesContent(page);
+    await spaces.locator('#sodaspaces-data[aria-busy=false]').waitFor();
     await page.setViewportSize({width: 1920, height: 1200});
     for (const project of request.projects)
       for (let number = 0; number < 3; number++) {
@@ -133,13 +135,14 @@ export async function exerciseWorkspaceMatrix(
       contender.on('websocket', receive);
       await contender.goto(new URL(spacesPage, page.url()).href);
       await nativeSpacesMount(contender);
-      await contender.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-      await contender.getByRole('button', {name: 'Projects', exact: true}).click();
+      const contenderSpaces = await spacesContent(contender);
+      await contenderSpaces.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+      await contenderSpaces.getByRole('button', {name: 'Projects', exact: true}).click();
       const first = sessions[0];
       assert(first);
-      await contender.locator(`.soda-session-list button[data-terminal-id="${first.id}"]`).click();
-      await contender.getByText('An existing writer is attached.', {exact: false}).waitFor();
-      assert.equal(await contender.locator('.is-connected').count(), 0);
+      await contenderSpaces.locator(`.soda-session-list button[data-terminal-id="${first.id}"]`).click();
+      await contenderSpaces.getByText('An existing writer is attached.', {exact: false}).waitFor();
+      assert.equal(await contenderSpaces.locator('.is-connected').count(), 0);
       assert(!protocolFailure);
     } finally {
       contender.off('websocket', receive);
@@ -149,22 +152,22 @@ export async function exerciseWorkspaceMatrix(
     // not this page. Use a real foreground transition, never focus emulation.
     await page.bringToFront();
     evidence.stage = 'same-document layout';
-    const hosts = await page.locator('.soda-workspace-terminal').elementHandles(),
-      screens = await page.locator('.xterm').elementHandles();
+    const hosts = await spaces.locator('.soda-workspace-terminal').elementHandles(),
+      screens = await spaces.locator('.xterm').elementHandles();
     assert.equal(hosts.length, 6);
     assert.equal(screens.length, 6);
     evidence.stage = 'split right';
-    await page.getByLabel('Pane actions', {exact: true}).click();
-    await page.getByRole('button', {name: 'Split right', exact: true}).click();
+    await spaces.getByLabel('Pane actions', {exact: true}).click();
+    await spaces.getByRole('button', {name: 'Split right', exact: true}).click();
     evidence.stage = 'move to pane';
-    await page.getByLabel('Move terminal to pane', {exact: true}).click();
-    await page.getByRole('button', {name: 'Pane 2', exact: true}).click();
+    await spaces.getByLabel('Move terminal to pane', {exact: true}).click();
+    await spaces.getByRole('button', {name: 'Pane 2', exact: true}).click();
     evidence.stage = 'compact then wide';
     await page.setViewportSize({width: 390, height: 800});
     await page.setViewportSize({width: 1920, height: 1200});
     evidence.stage = 'consolidate panes';
-    await page.getByLabel('Pane actions', {exact: true}).first().click();
-    await page.getByRole('button', {name: 'Consolidate panes', exact: true}).click();
+    await spaces.getByLabel('Pane actions', {exact: true}).first().click();
+    await spaces.getByRole('button', {name: 'Consolidate panes', exact: true}).click();
     for (const handle of [...hosts, ...screens]) assert(await handle.evaluate((node) => node.isConnected));
     evidence.same_document = true;
     evidence.stage = 'hide and show without native actions';
@@ -177,7 +180,8 @@ export async function exerciseWorkspaceMatrix(
     evidence.stage = 'exact reload';
     await page.reload();
     await nativeSpacesMount(page);
-    await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+    spaces = await spacesContent(page);
+    await spaces.locator('#sodaspaces-data[aria-busy=false]').waitFor();
     for (const session of sessions) {
       await select(session);
       const record = evidence.sessions.find((record) => record.id === session.id);
@@ -196,7 +200,7 @@ export async function exerciseWorkspaceMatrix(
       evidence.stage = 'end ' + sessions.indexOf(session);
       await select(session);
       await terminalMenu(page, 'End terminal…');
-      assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Cancel');
+      assert.equal(await spaces.locator('body').evaluate(() => document.activeElement?.textContent), 'Cancel');
       permit(session, 'end');
       const route = `${spacesAPI}/environments/${session.environment}/terminal-sessions/${session.id}`;
       const outcome = Promise.race([
@@ -214,7 +218,7 @@ export async function exerciseWorkspaceMatrix(
           })
           .then(() => 'transport-unconfirmed' as const),
       ]);
-      await page
+      await spaces
         .getByRole('dialog', {name: 'End terminal confirmation', exact: true})
         .getByRole('button', {name: 'End terminal', exact: true})
         .click();
