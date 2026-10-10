@@ -75,7 +75,11 @@ pub(super) fn provision_worker_tools(
             Captured::Done(code, out) if code == 0 => stripped_string(&out),
             Captured::Done(_, _) => return fail(format!("cannot resolve selected {tool}")),
         };
-        if !Path::new(&selected).starts_with(rust_sysroot_path) || !Path::new(&selected).is_file() {
+        let selected_path = std::fs::canonicalize(&selected)
+            .map_err(|err| Exit::Fail(format!("cannot resolve selected {tool}: {err}")))?;
+        let sysroot_path = std::fs::canonicalize(rust_sysroot_path)
+            .map_err(|err| Exit::Fail(format!("cannot resolve Rust sysroot: {err}")))?;
+        if !selected_path.starts_with(&sysroot_path) || !selected_path.is_file() {
             return fail(format!("selected {tool} is outside the Rust sysroot"));
         }
     }
