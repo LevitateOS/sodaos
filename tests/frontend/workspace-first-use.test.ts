@@ -5,6 +5,23 @@ import {setupWorkspaceDriver, chooseFirstRepository, fixture, textContents} from
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
+test('page stylesheet sizes the workspace host without drawer CSS', async (t) => {
+  const page = await fixture(t, 'page', () => {
+    document.querySelector('link[href="/assets/sodaspaces-drawer.css"]')?.remove();
+  });
+  const geometry = await page.locator('soda-spaces').evaluate((node) => {
+    const workspace = node.querySelector('.soda-workspace')!;
+    return {
+      display: getComputedStyle(node).display,
+      host: {width: node.clientWidth, height: node.clientHeight},
+      workspace: {width: workspace.clientWidth, height: workspace.clientHeight},
+    };
+  });
+  assert.equal(geometry.display, 'block');
+  assert(geometry.host.width > 0 && geometry.host.height > 0, 'page CSS must size the custom-element host');
+  assert(geometry.workspace.width > 0 && geometry.workspace.height > 0, 'workspace must inherit host geometry');
+});
+
 async function workspaceIntroGeometry(page: Page) {
   const workspace = page.locator('.soda-workspace');
   assert.equal(await page.locator('.soda-setup-footer:visible').count(), 0);

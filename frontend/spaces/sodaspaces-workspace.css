@@ -1,4 +1,5 @@
 /* Shared workspace presentation; pane geometry stays inside its mount. */
+soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-spaces-page-mount { min-height: 0; min-width: 0; }
 /* A Spaces page mount breaks its native shell out to full bleed. Native
    components.css loads last with !important gutters; this wins on
