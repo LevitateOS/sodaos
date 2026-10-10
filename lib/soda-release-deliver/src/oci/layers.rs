@@ -21,7 +21,9 @@ pub struct LayerMember {
     pub blocked: bool,
 }
 
-pub const MAX_OCI_LAYER_BYTES: u64 = 1 << 30;
+// Embedded compressed images in the current host producer can decode beyond
+// 1 GiB; the image-wide decoded budget remains the aggregate backstop.
+pub const MAX_OCI_LAYER_BYTES: u64 = 2 << 30;
 pub const MAX_OCI_LAYER_COMPRESSED_BYTES: u64 = 1 << 30;
 pub const MAX_OCI_IMAGE_LAYER_BYTES: u64 = 16 << 30;
 pub const MAX_OCI_IMAGE_COMPRESSED_BYTES: u64 = 4 << 30;

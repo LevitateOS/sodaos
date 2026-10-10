@@ -754,10 +754,14 @@ Decoded nonzero trailing archives/junk and duplicate wanted terminal members
 refuse. Raw descriptor size/hash, overlay/whiteout/ancestor policy and original
 signed bytes remain caller responsibilities. New USTAR output is deterministic;
 old Go writer hashes are historical observations, with no compatibility writer.
+The former 1 GiB decoded per-layer ceiling refused a current host OCI layer:
+its 1,029,793,481 compressed bytes decode to at least 1,293,400,576 bytes.
+The decoded layer ceiling is now 2 GiB; the 16 GiB image-wide decoded budget
+continues to bound aggregate expansion.
 
 | Admitted format | Production bounds |
 | --- | --- |
-| OCI layers | 1 GiB compressed and decoded per layer; 512 MiB wanted member; 100,000 entries; 4 GiB unique compressed descriptors and 16 GiB decoded per image |
+| OCI layers | 1 GiB compressed / 2 GiB decoded per layer; 512 MiB wanted member; 100,000 entries; 4 GiB unique compressed descriptors and 16 GiB decoded per image |
 | Terminal distributions | 10,000,000 compressed bytes, 256 MiB decoded including skipped members/padding, 2,000,000 bytes per retained wanted member and 100,000 entries; bounded same-FD cache reads |
 | Inline gzip | Image Ignition: 10 MiB compressed / 2 MiB decoded; acceptance: 2 MiB compressed / 1 MiB decoded, with encoded-source admission before expansion |
 | Emblem | 64 KiB same-FD regular-file input and 256 XML nodes; no DTD/entity resolver; resolved SVG namespaces, finite absolute M/L/H/V/Z closed rings only |
