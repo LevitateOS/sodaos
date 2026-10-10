@@ -18,11 +18,12 @@ container_file(soda_dashboard_file_t)
 container_domain_template(soda_dashboard, soda_dashboard)
 
 # OCI layers and private bind mounts retain Podman's standard container_file_t
-# type. These are the exact image, config, coordinator-lock, and extension
-# directory accesses observed from this dedicated domain. MCS labels continue
-# to isolate each container's private files.
-allow soda_dashboard_t container_file_t:file { execute getattr lock map open read write };
-allow soda_dashboard_t container_file_t:dir { add_name remove_name write };
+# type. The publisher creates and removes private Git scratch files; image
+# and config mounts remain read-only. Git subprocesses keep the same domain,
+# and MCS labels still isolate each container's private files.
+manage_dirs_pattern(soda_dashboard_t, container_file_t, container_file_t)
+manage_files_pattern(soda_dashboard_t, container_file_t, container_file_t)
+allow soda_dashboard_t container_file_t:file { execute execute_no_trans map };
 allow soda_dashboard_t container_file_t:lnk_file read;
 
 # Git opens Podman's private /dev/null, which retains container_file_t and
