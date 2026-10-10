@@ -41,21 +41,51 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
 }
 
 fn validate_identity_runtime(c: &Config) -> Result<(), String> {
-    if c.codex_harness.is_empty() {
-        return Ok(());
-    }
-    if !c.identity_socket.starts_with('/')
-        || !c.codex_harness.starts_with('/')
-        || c.codex_harness_sha256.len() != 64
-    {
-        return Err(String::from(
-            "explicit identity runtime socket and verified harness required",
-        ));
-    }
-    if !c.codex_harness_version.is_empty() && !valid_harness_version(&c.codex_harness_version) {
-        return Err(String::from("invalid staged harness version"));
+    for (harness, digest, version) in [
+        (
+            &c.codex_harness,
+            &c.codex_harness_sha256,
+            &c.codex_harness_version,
+        ),
+        (
+            &c.muse_harness,
+            &c.muse_harness_sha256,
+            &c.muse_harness_version,
+        ),
+    ] {
+        if harness.is_empty() {
+            continue;
+        }
+        if !is_clean_absolute_path(&c.identity_socket)
+            || !is_clean_absolute_path(harness)
+            || digest.len() != 64
+        {
+            return Err(String::from(
+                "explicit identity runtime socket and verified harness required",
+            ));
+        }
+        if !version.is_empty() && !valid_harness_version(version) {
+            return Err(String::from("invalid staged harness version"));
+        }
     }
     Ok(())
+}
+
+fn is_clean_absolute_path(path: &str) -> bool {
+    use std::path::{Component, Path, PathBuf};
+
+    if !Path::new(path).is_absolute() {
+        return false;
+    }
+    let mut rebuilt = PathBuf::new();
+    for component in Path::new(path).components() {
+        match component {
+            Component::RootDir => rebuilt.push("/"),
+            Component::Normal(part) => rebuilt.push(part),
+            Component::CurDir | Component::ParentDir | Component::Prefix(_) => return false,
+        }
+    }
+    rebuilt.to_str() == Some(path)
 }
 
 fn valid_harness_version(s: &str) -> bool {

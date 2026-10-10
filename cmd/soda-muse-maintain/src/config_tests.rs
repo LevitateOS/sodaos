@@ -54,6 +54,30 @@ fn host_config_decode_vectors() {
     assert_eq!(c.image, "second");
     let c = decode_host_config(br#"{"tailnet_management": true}"#).unwrap();
     assert!(c.tailnet_management);
+    let c = decode_host_config(
+        br#"{"identity_socket":"/run/soda/identity/runtime.sock","muse_harness":"/usr/libexec/soda/muse-harness","muse_harness_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","muse_harness_version":"1.2.3","image":"img","network":"net","bridge":"br","subnet":"10.0.0.0/24"}"#,
+    )
+    .unwrap();
+    assert_eq!(c.identity_socket, "/run/soda/identity/runtime.sock");
+    assert_eq!(c.muse_harness, "/usr/libexec/soda/muse-harness");
+    assert_eq!(c.muse_harness_sha256, hex_string('a', 64));
+    assert_eq!(c.muse_harness_version, "1.2.3");
+    validate_runtime_config(&c).unwrap();
+    let invalid_harness = Config {
+        identity_socket: String::from("/run/soda/identity/runtime.sock"),
+        muse_harness: String::from("relative/path"),
+        muse_harness_sha256: hex_string('a', 64),
+        image: String::from("img"),
+        network: String::from("net"),
+        bridge: String::from("br"),
+        subnet: String::from("10.0.0.0/24"),
+        ..Default::default()
+    };
+    assert_eq!(
+        validate_runtime_config(&invalid_harness).unwrap_err(),
+        "explicit identity runtime socket and verified harness required"
+    );
+    assert!(decode_host_config(br#"{"muse_harness":true}"#).is_err());
     let c = decode_host_config(br#"{"image": null, "tailnet_management": null}"#).unwrap();
     assert_eq!(c.image, "");
     assert!(!c.tailnet_management);
