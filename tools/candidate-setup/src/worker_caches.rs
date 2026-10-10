@@ -65,7 +65,6 @@ pub(super) fn warm_worker_caches(
     download_args.push(&pinned_go_bin);
     download_args.push("mod");
     download_args.push("download");
-    download_args.push("all");
     if run("sudo", &download_args).is_err() {
         return fail("cannot warm full Go module set");
     }
