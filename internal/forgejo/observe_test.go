@@ -55,6 +55,8 @@ type fakeBackgroundServer struct {
 	admission  string
 	bootstraps int
 	token      string
+	snapshot   func(extensions.SnapshotRequest) extensions.NativeSnapshot
+	revision   func() int64
 }
 
 func (f *fakeBackgroundServer) handler() http.Handler {
@@ -71,7 +73,11 @@ func (f *fakeBackgroundServer) handler() http.Handler {
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"revision": 12, "idle": true})
+			revision := int64(12)
+			if f.revision != nil {
+				revision = f.revision()
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"revision": revision, "idle": true})
 		case extensions.BackgroundSnapshotPath:
 			if r.Header.Get(extensions.AdmissionHeader) != f.admission {
 				http.Error(w, "forbidden", http.StatusForbidden)
@@ -86,7 +92,11 @@ func (f *fakeBackgroundServer) handler() http.Handler {
 				return
 			}
 			f.token = in.Token
-			_ = json.NewEncoder(w).Encode(map[string]any{"repository_id": in.RepositoryID})
+			if f.snapshot != nil {
+				_ = json.NewEncoder(w).Encode(f.snapshot(in.SnapshotRequest))
+			} else {
+				_ = json.NewEncoder(w).Encode(map[string]any{"repository_id": in.RepositoryID})
+			}
 		default:
 			http.NotFound(w, r)
 		}

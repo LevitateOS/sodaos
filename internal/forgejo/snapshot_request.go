@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+
+	extensions "forgejo.org/extension-sdk"
 )
 
 // Snapshot families select bounded native evidence. Unknown families refuse.
@@ -19,11 +21,12 @@ const (
 	FamilyReviews      SnapshotFamily = "reviews"
 	FamilyChecks       SnapshotFamily = "checks"
 	FamilyRefs         SnapshotFamily = "refs"
+	FamilyAncestry     SnapshotFamily = "ancestry"
 )
 
 func validFamily(family SnapshotFamily) bool {
 	switch family {
-	case FamilyIssue, FamilyComments, FamilyDependencies, FamilyPull, FamilyReviews, FamilyChecks, FamilyRefs:
+	case FamilyIssue, FamilyComments, FamilyDependencies, FamilyPull, FamilyReviews, FamilyChecks, FamilyRefs, FamilyAncestry:
 		return true
 	default:
 		return false
@@ -54,15 +57,16 @@ var (
 // SnapshotRequest selects bounded native evidence. Native integer IDs use
 // decimal strings; refs are full branch refs; SHAs are full object IDs.
 type SnapshotRequest struct {
-	RepositoryID string           `json:"repository_id"`
-	Families     []SnapshotFamily `json:"families"`
-	IssueIndex   string           `json:"issue_index,omitempty"`
-	PullNumber   string           `json:"pull_number,omitempty"`
-	CommentIDs   []string         `json:"comment_ids,omitempty"`
-	SHA          string           `json:"sha,omitempty"`
-	Refs         []string         `json:"refs,omitempty"`
-	Limit        int              `json:"limit,omitempty"`
-	Cursor       string           `json:"cursor,omitempty"`
+	RepositoryID string                              `json:"repository_id"`
+	Families     []SnapshotFamily                    `json:"families"`
+	IssueIndex   string                              `json:"issue_index,omitempty"`
+	PullNumber   string                              `json:"pull_number,omitempty"`
+	CommentIDs   []string                            `json:"comment_ids,omitempty"`
+	SHA          string                              `json:"sha,omitempty"`
+	Refs         []string                            `json:"refs,omitempty"`
+	Limit        int                                 `json:"limit,omitempty"`
+	Cursor       string                              `json:"cursor,omitempty"`
+	Ancestry     *extensions.SnapshotAncestryRequest `json:"ancestry,omitempty"`
 }
 
 func decimalID(id string) bool {
@@ -107,7 +111,7 @@ func ValidateRequest(req SnapshotRequest) error {
 	if !decimalID(req.RepositoryID) {
 		return ErrInvalidSnapshot
 	}
-	if len(req.Families) == 0 || len(req.Families) > 7 {
+	if len(req.Families) == 0 || len(req.Families) > 8 {
 		return ErrInvalidSnapshot
 	}
 	seen := make(map[SnapshotFamily]bool, len(req.Families))
@@ -149,6 +153,12 @@ func ValidateRequest(req SnapshotRequest) error {
 		return ErrInvalidSnapshot
 	}
 	if seen[FamilyRefs] && len(req.Refs) == 0 {
+		return ErrInvalidSnapshot
+	}
+	if seen[FamilyAncestry] != (req.Ancestry != nil) {
+		return ErrInvalidSnapshot
+	}
+	if req.Ancestry != nil && (!seen[FamilyRefs] || !fullOID(req.Ancestry.AncestorOID) || !fullOID(req.Ancestry.DescendantOID)) {
 		return ErrInvalidSnapshot
 	}
 	if seen[FamilyChecks] && req.SHA == "" {

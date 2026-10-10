@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -78,6 +79,39 @@ func TestMergePassFencesUnconfirmedCompletion(t *testing.T) {
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeFenced || m.Reason != factory.MergeReasonUnattributed {
 		t.Fatalf("unconfirmed completion merged: %+v", m)
+	}
+}
+
+func TestMergeCompletionRequiresExactAncestryWitness(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		contains bool
+		stage    string
+	}{
+		{name: "canonical true witness", contains: true, stage: factory.MergeMerged},
+		{name: "false witness", contains: false, stage: factory.MergeFenced},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fx, p, exec := completedOpenMerge(t)
+			baseTip := strings.Repeat("c", 40)
+			exec.confirm = func(w factory.MergeWork) (factory.MergeConfirmation, error) {
+				now := time.Now().Unix()
+				return factory.MergeConfirmation{
+					MergedCommit: w.HeadOID, BaseTip: baseTip, BaseContainsMergedCommit: tc.contains,
+					MergerID: w.ActorID, MergedUnix: now, ClosedUnix: now, NativeRev: 9,
+					ObservedUnix: now, IssueClosed: true,
+				}, nil
+			}
+			fx.wire(exec)
+			fx.pass(t)
+			merge := fx.merge(t, p)
+			if merge.Stage != tc.stage {
+				t.Fatalf("ancestry witness %v produced stage %s, want %s: %+v", tc.contains, merge.Stage, tc.stage, merge)
+			}
+			if tc.contains && (merge.MergedCommit != p.PRCreate.HeadOID || merge.Operation.MergedCommit != p.PRCreate.HeadOID) {
+				t.Fatalf("ancestry-confirmed merge lost exact commit attribution: %+v", merge)
+			}
+		})
 	}
 }
 

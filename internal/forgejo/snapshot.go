@@ -24,15 +24,16 @@ import (
 // NativeSnapshot is one revision-bound evidence set. Revision is the idle
 // native revision both bracket observations agreed on.
 type NativeSnapshot struct {
-	Revision     int64           `json:"revision"`
-	RepositoryID string          `json:"repository_id"`
-	Issue        *IssueEvidence  `json:"issue,omitempty"`
-	Comments     *CommentPage    `json:"comments,omitempty"`
-	Dependencies *DependencyPage `json:"dependencies,omitempty"`
-	Pull         *PullEvidence   `json:"pull,omitempty"`
-	Reviews      *ReviewPage     `json:"reviews,omitempty"`
-	Checks       *CheckSet       `json:"checks,omitempty"`
-	Refs         []RefEvidence   `json:"refs,omitempty"`
+	Revision     int64                        `json:"revision"`
+	RepositoryID string                       `json:"repository_id"`
+	Issue        *IssueEvidence               `json:"issue,omitempty"`
+	Comments     *CommentPage                 `json:"comments,omitempty"`
+	Dependencies *DependencyPage              `json:"dependencies,omitempty"`
+	Pull         *PullEvidence                `json:"pull,omitempty"`
+	Reviews      *ReviewPage                  `json:"reviews,omitempty"`
+	Checks       *CheckSet                    `json:"checks,omitempty"`
+	Refs         []RefEvidence                `json:"refs,omitempty"`
+	Ancestry     *extensions.SnapshotAncestry `json:"ancestry,omitempty"`
 }
 
 // SnapshotReader performs revision observations and snapshot reads over the
@@ -148,6 +149,10 @@ func ValidateSnapshot(req SnapshotRequest, snapshot NativeSnapshot, revision int
 		case FamilyRefs:
 			if err := validRefs(snapshot.Refs, req); err != nil {
 				return err
+			}
+		case FamilyAncestry:
+			if snapshot.Ancestry == nil || snapshot.Ancestry.AncestorOID != req.Ancestry.AncestorOID || snapshot.Ancestry.DescendantOID != req.Ancestry.DescendantOID {
+				return ErrIncompleteSnapshot
 			}
 		default:
 			return ErrInvalidSnapshot

@@ -151,7 +151,8 @@ func (c *Coordinator) mergeWork(m factory.Merge, policy factory.RepositoryPolicy
 
 // completeMerge confirms the native bookkeeping behind a committed,
 // completed merge before finishing: the PR merged to the exact head,
-// the base tip carries it, and the issue closed. Confirmed completion
+// the exact base tip equals or ancestrally contains it, and the issue
+// closed. Confirmed completion
 // then reassesses dependants so an eligible one becomes runnable.
 func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, report *MergeReport) {
 	op := &m.Operation
@@ -174,7 +175,7 @@ func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, repor
 		}
 		return
 	}
-	if confirmation.MergedCommit != m.HeadOID || confirmation.BaseTip != m.HeadOID || confirmation.MergerID != work.ActorID || !confirmation.IssueClosed || confirmation.MergedUnix <= 0 || confirmation.ClosedUnix <= 0 {
+	if confirmation.MergedCommit != m.HeadOID || confirmation.BaseTip == "" || confirmation.BaseTip != m.HeadOID && !confirmation.BaseContainsMergedCommit || confirmation.MergerID != work.ActorID || !confirmation.IssueClosed || confirmation.MergedUnix <= 0 || confirmation.ClosedUnix <= 0 {
 		c.finishMerge(ctx, *m, factory.MergeFenced, factory.NeedsHuman, factory.MergeReasonUnattributed, report)
 		return
 	}

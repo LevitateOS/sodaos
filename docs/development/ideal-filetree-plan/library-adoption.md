@@ -883,6 +883,13 @@ historical; release provenance must capture the actual clean Fountain revision.
 These source checks do not close B06's separate authority findings or native
 installed qualification.
 
+Current SDK source selection (2026-10-10): the owner-approved ancestry change
+is committed in clean Forgejo `174d081eac38af3b587ecc78e8212874f4ca0929`. Soda
+still resolves its existing `../forgejo-ext/sdk` replacement; no module/lock
+change is needed. F12-E20 records the exact new producer/caller checks and
+B05.C/B07.C source closure. The L15 c92 limiter evidence above remains valid
+at its historical scope; release provenance must record the selected new source.
+
 The separate B03.C operator limiter-EOF concern is now repaired in `a1fec662`:
 4 KiB+one is collected and overrun/read failures refuse before the unchanged
 schema decoder. Focused actual endpoint checks and independent review pass.

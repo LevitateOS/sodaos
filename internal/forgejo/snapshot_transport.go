@@ -53,6 +53,7 @@ func (r *BackgroundSnapshotReader) ReadSnapshot(ctx context.Context, credential 
 		Refs:         req.Refs,
 		Limit:        req.Limit,
 		Cursor:       req.Cursor,
+		Ancestry:     req.Ancestry,
 	}
 	for _, family := range req.Families {
 		mapped.Families = append(mapped.Families, string(family))
@@ -70,5 +71,6 @@ func (r *BackgroundSnapshotReader) ReadSnapshot(ctx context.Context, credential 
 		Reviews:      answer.Reviews,
 		Checks:       answer.Checks,
 		Refs:         answer.Refs,
+		Ancestry:     answer.Ancestry,
 	}, nil
 }

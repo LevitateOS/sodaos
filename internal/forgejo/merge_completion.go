@@ -79,7 +79,46 @@ func (m *Merger) ObserveCompletion(ctx context.Context, w factory.MergeWork) (fa
 	if snapshot.Revision != issue.Revision {
 		return empty, &factory.PublicationWait{Reason: "revision_moved"}
 	}
+	baseTip, err := mergeCompletionBaseTip(w, snapshot)
+	if err != nil {
+		return empty, err
+	}
+	if baseTip != w.HeadOID {
+		proof, err := BracketedRead(ctx, reader, credential, SnapshotRequest{
+			RepositoryID: repo,
+			Families:     []SnapshotFamily{FamilyRefs, FamilyAncestry},
+			Refs:         []string{w.BaseRef},
+			Ancestry:     &extensions.SnapshotAncestryRequest{AncestorOID: w.HeadOID, DescendantOID: baseTip},
+		})
+		if err != nil {
+			return empty, mergeReadError(err)
+		}
+		if proof.Revision != issue.Revision || proof.Revision != snapshot.Revision {
+			return empty, &factory.PublicationWait{Reason: "revision_moved"}
+		}
+		proofBaseTip, err := mergeCompletionBaseTip(w, proof)
+		if err != nil || proofBaseTip != baseTip {
+			return empty, &factory.PublicationWait{Reason: "revision_moved"}
+		}
+		snapshot.Ancestry = proof.Ancestry
+	}
 	return matchMergeConfirmation(w, issue, snapshot)
+}
+
+func mergeCompletionBaseTip(w factory.MergeWork, snapshot NativeSnapshot) (string, error) {
+	var baseTip string
+	for _, ref := range snapshot.Refs {
+		if !ref.Visible || !ref.Exists {
+			return "", &factory.PublicationRefusal{Reason: "pr_mismatch"}
+		}
+		if ref.Ref == w.BaseRef {
+			baseTip = ref.OID
+		}
+	}
+	if baseTip == "" {
+		return "", &factory.PublicationRefusal{Reason: "pr_mismatch"}
+	}
+	return baseTip, nil
 }
 
 func matchMergeConfirmation(w factory.MergeWork, issue, snapshot NativeSnapshot) (factory.MergeConfirmation, error) {
@@ -98,20 +137,20 @@ func matchMergeConfirmation(w factory.MergeWork, issue, snapshot NativeSnapshot)
 	if err != nil || merger != w.ActorID || p.MergedUnix <= 0 {
 		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
 	}
-	var baseTip string
-	for _, ref := range snapshot.Refs {
-		if !ref.Visible || !ref.Exists {
-			return empty, &factory.PublicationRefusal{Reason: "pr_mismatch"}
-		}
-		if ref.Ref == w.BaseRef {
-			baseTip = ref.OID
-		}
+	baseTip, err := mergeCompletionBaseTip(w, snapshot)
+	if err != nil {
+		return empty, err
 	}
-	if baseTip != w.HeadOID {
-		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
+	baseContainsMergedCommit := baseTip == w.HeadOID
+	if !baseContainsMergedCommit {
+		proof := snapshot.Ancestry
+		if proof == nil || proof.AncestorOID != w.HeadOID || proof.DescendantOID != baseTip || !proof.Reachable {
+			return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
+		}
+		baseContainsMergedCommit = true
 	}
 	if !i.IsClosed || i.ClosedUnix <= 0 {
 		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
 	}
-	return factory.MergeConfirmation{MergedCommit: w.HeadOID, BaseTip: baseTip, MergerID: merger, MergedUnix: p.MergedUnix, ClosedUnix: i.ClosedUnix, NativeRev: snapshot.Revision, ObservedUnix: time.Now().Unix(), IssueClosed: true}, nil
+	return factory.MergeConfirmation{MergedCommit: w.HeadOID, BaseTip: baseTip, BaseContainsMergedCommit: baseContainsMergedCommit, MergerID: merger, MergedUnix: p.MergedUnix, ClosedUnix: i.ClosedUnix, NativeRev: snapshot.Revision, ObservedUnix: time.Now().Unix(), IssueClosed: true}, nil
 }

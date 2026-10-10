@@ -60,14 +60,15 @@ type MergeObservation struct {
 // behind them. A committed ref without this confirmation never finishes
 // the bookkeeping.
 type MergeConfirmation struct {
-	MergedCommit string
-	BaseTip      string
-	MergerID     int64
-	MergedUnix   int64
-	ClosedUnix   int64
-	NativeRev    int64
-	ObservedUnix int64
-	IssueClosed  bool
+	MergedCommit             string
+	BaseTip                  string
+	BaseContainsMergedCommit bool
+	MergerID                 int64
+	MergedUnix               int64
+	ClosedUnix               int64
+	NativeRev                int64
+	ObservedUnix             int64
+	IssueClosed              bool
 }
 
 // MergeOutcome is one reconciled native merge: the operation state plus
