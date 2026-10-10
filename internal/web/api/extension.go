@@ -260,7 +260,7 @@ func extensionEnvironmentActionRoute(action, method string) bool {
 		return method == http.MethodGet || method == http.MethodPost
 	case "members", "connection", "os":
 		return method == http.MethodGet
-	case "lifecycle", "access-keys":
+	case "lifecycle", "access-keys", "preparation":
 		return method == http.MethodGet || method == http.MethodPost
 	}
 	return false
