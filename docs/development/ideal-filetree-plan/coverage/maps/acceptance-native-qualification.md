@@ -771,3 +771,13 @@ Former source `rust/soda-acceptance/src/trust.rs`; consult its pinned earlier Gi
 <a id="rustsoda-acceptancesrcvmrs-1"></a>
 
 Former source `rust/soda-acceptance/src/vm.rs`; consult its pinned earlier Git source and the current coverage disposition.
+
+<a id="tools-acceptance-src-personal-git-rs"></a>
+
+## [tools/acceptance/src/personal_git.rs](../../../../../tools/acceptance/src/personal_git.rs)
+
+Current source and named duties for the personal Git key helper; Go orchestration remains with the retained Go package.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–222; `private_write`, `private_replace`: private file creation and replacement; `run_quiet`: quiet subprocess execution; `agent_pid` and `tests::parses_only_numeric_agent_pid`: numeric SSH agent PID parsing; `write_git_ssh`: pinned Git SSH shim; `run`: prepare/unlock key and agent flow | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Current source/test delta at c8a53fdb, including C11.M-personal-git tested Go plus Rust with a real key; SSH remains emulated and installed-host proof remains open. The Rust module owns private file, key and agent work; Rust `lib.rs` exports it and `soda-acceptance-remote` dispatches it. The release-image compiler stages the adjacent Go/Rust tools; Go `RunPersonalGit` remains the orchestrator. |

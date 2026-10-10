@@ -2,12 +2,13 @@
 
 ## Complete source-to-slice coverage
 
-Current path navigation is reconciled at `e0e2413f` (2026-10-09): all 2,541
+Current path navigation is reconciled at `c8a53fdb` (2026-10-10): all 2,600
 tracked paths appear once in the inventories, with no missing or duplicate
 current path rows. Twelve later Factory prompt, preparation and expiry paths
 are linked to their current responsibility maps; the earlier addition and
 retirement receipts retain their original scope. The desired tree contains
-these paths and the unimplemented D06 Rust personal-Git payload. The detailed duty/body
+these paths and the implemented D06 Rust personal-Git payload. Later package
+guides and four Factory/Forgejo test files are selectively mapped. The detailed duty/body
 snapshot below remains historical at `519b76bd`; current path membership and
 repaired navigation do not requalify its source or runtime conclusions.
 

@@ -8,6 +8,7 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
+| [scripts/README.md](../../../../../scripts/README.md) | package guide | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Package guide for this retained owner: current entrypoints, responsibilities and contract guidance. Selective path addition at `c8a53fdb`; historical body and native receipts retain their scope. |
 | [scripts/build-forgejo-preview.ts](../../../../../scripts/build-forgejo-preview.ts) | program source | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Current script scope; split declarations retain the path's release/install/qualification duty. |
 | [scripts/build-forgejo.test.ts](../../../../../scripts/build-forgejo.test.ts) | test source | [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained | Current script scope; split declarations retain the path's release/install/qualification duty. |
 | [scripts/build-forgejo.ts](../../../../../scripts/build-forgejo.ts) | program source | [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained | Current script scope; split declarations retain the path's release/install/qualification duty. |

@@ -2,8 +2,8 @@
 
 ## Complete proposed tree
 
-Current target mapping: source `35803b57` (2026-10-09). The complete tree
-contains all 2,541 tracked leaves and one explicitly planned D06 Rust remote
+Current target mapping: source `c8a53fdb` (2026-10-10). The complete tree
+contains all 2,600 tracked leaves, including the implemented D06 Rust remote
 payload, `tools/acceptance/src/personal_git.rs`. Current package/module/binary
 names are retained where their application owners are already defined. The
 old Muse, Project, Codex and Tailnet filename plans are superseded by their
@@ -16,10 +16,11 @@ and its direct control callers. These are distinct mapped duties with one
 protected state owner. `main.rs` retains runtime construction, activation and
 shutdown, while the daemon modules define their current service duties.
 
-The D06 payload is unimplemented: the existing Go personal-Git orchestration
-still sends a user-scoped POSIX shell key/agent program. Its planned Rust
-replacement must join the real SSH invocation, ephemeral payload dispatch,
-secret inputs and key/agent custody before that cutover can be complete.
+The D06 source cutover is complete in `c8a53fdb`: the retained Go personal-Git
+orchestrator selects its adjacent Rust companion, sends binary and secret stdin
+through one pinned SSH invocation, and stages it privately under user HOME.
+Actual compiled caller/payload checks use real key/agent tools with locally
+emulated SSH; installed personal-Git qualification remains C11.V/R04.
 Unresolved behavioral corrections and installed qualification retain their
 existing tasks. Mapping every current leaf does not qualify its behavior.
 Earlier counts and source review pins remain historical; the
@@ -338,7 +339,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── main.rs
 │   │   │   ├── origin.rs
 │   │   │   └── system.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-console-welcome/
 │   │   ├── src/
 │   │   │   ├── config.rs
@@ -346,8 +348,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── origin.rs
 │   │   │   ├── tests.rs
 │   │   │   └── welcome.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-dashboard/
+│   │   ├── README.md
 │   │   ├── extension.go
 │   │   ├── extension_test.go
 │   │   ├── main.go
@@ -359,13 +363,15 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── operator_test.go
 │   │   └── postgres_fixture_test.go
 │   ├── soda-extension/
+│   │   ├── README.md
 │   │   ├── main.go
 │   │   └── main_test.go
 │   ├── soda-factory/
 │   │   ├── src/
 │   │   │   ├── main.rs
 │   │   │   └── operator_tests.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-forgejo-domain/
 │   │   ├── src/
 │   │   │   ├── tests/
@@ -379,11 +385,13 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── main.rs
 │   │   │   ├── marker.rs
 │   │   │   └── system.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-forgejo-migrate/
 │   │   ├── src/
 │   │   │   └── main.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-forgejo-tailnet/
 │   │   └── main.rs
 │   ├── soda-identity/
@@ -441,7 +449,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── broker.rs
 │   │   │   ├── enrollment.rs
 │   │   │   └── http.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-identity-compose/
 │   │   ├── src/
 │   │   │   ├── compose.rs
@@ -450,7 +459,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── main.rs
 │   │   │   ├── options.rs
 │   │   │   └── registration.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-image-import/
 │   │   ├── src/
 │   │   │   ├── oci/
@@ -472,7 +482,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── payload.rs
 │   │   │   ├── platform.rs
 │   │   │   └── sha256.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-install/
 │   │   ├── src/
 │   │   │   ├── candidate/
@@ -571,7 +582,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── pemx.rs
 │   │   │   ├── run.rs
 │   │   │   └── signal.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-muse/
 │   │   ├── src/
 │   │   │   ├── account.rs
@@ -586,7 +598,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── runtime.rs
 │   │   │   ├── shell.rs
 │   │   │   └── shell_tests.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-muse-maintain/
 │   │   ├── src/
 │   │   │   ├── archive.rs
@@ -615,7 +628,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── sha256.rs
 │   │   │   ├── stage.rs
 │   │   │   └── test_support.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-pg-maintenance/
 │   │   ├── src/
 │   │   │   ├── bin/
@@ -623,7 +637,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── soda-pg-init-roles.rs
 │   │   │   │   └── soda-pg-restore.rs
 │   │   │   └── lib.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-project-terminal/
 │   │   ├── src/
 │   │   │   ├── bin/
@@ -700,7 +715,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── cli.rs
 │   │   │   ├── factory_roles_oracle.rs
 │   │   │   └── project_account.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-setup/
 │   │   ├── src/
 │   │   │   ├── tests/
@@ -719,8 +735,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── secrets.rs
 │   │   │   ├── setup.rs
 │   │   │   └── system.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   └── soda-tailnet/
+│       ├── README.md
 │       ├── command.go
 │       ├── command_test.go
 │       └── main.go
@@ -1471,6 +1489,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       └── soda-tailnet.css
 ├── internal/
 │   ├── acceptance/
+│   │   ├── README.md
 │   │   ├── developer_access.go
 │   │   ├── developer_access_journey_test.go
 │   │   ├── developer_access_request_test.go
@@ -1493,6 +1512,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── workload_exec.go
 │   │   └── workload_exec_test.go
 │   ├── archcheck/
+│   │   ├── README.md
 │   │   └── arch_test.go
 │   ├── avatar/
 │   │   ├── testdata/
@@ -1502,6 +1522,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── avatar_test.go
 │   │   └── style-v1.json
 │   ├── config/
+│   │   ├── README.md
 │   │   ├── background_test.go
 │   │   ├── config.go
 │   │   ├── config_test.go
@@ -1511,6 +1532,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   └── review_credential_test.go
 │   ├── factory/
 │   │   ├── control/
+│   │   │   ├── README.md
 │   │   │   ├── acceptance.go
 │   │   │   ├── acceptance_evidence.go
 │   │   │   ├── acceptance_initial.go
@@ -1518,6 +1540,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── acceptance_status.go
 │   │   │   ├── acceptance_status_test.go
 │   │   │   ├── acceptance_test.go
+│   │   │   ├── acceptance_withdrawal_stop_test.go
 │   │   │   ├── checks_native_fixture_test.go
 │   │   │   ├── checks_native_stale_test.go
 │   │   │   ├── checks_native_test.go
@@ -1540,6 +1563,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── dispatch_occupancy.go
 │   │   │   ├── dispatch_recovery.go
 │   │   │   ├── dispatch_recovery_test.go
+│   │   │   ├── dispatch_reentry_test.go
 │   │   │   ├── dispatch_registration.go
 │   │   │   ├── dispatch_result.go
 │   │   │   ├── dispatch_selection.go
@@ -1591,12 +1615,12 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── publication_test.go
 │   │   │   ├── publication_withdraw.go
 │   │   │   ├── readiness.go
-│   │   │   ├── readiness_work.go
 │   │   │   ├── readiness_fixture_test.go
 │   │   │   ├── readiness_prerequisite_test.go
 │   │   │   ├── readiness_sweep_test.go
 │   │   │   ├── readiness_test.go
 │   │   │   ├── readiness_visibility_test.go
+│   │   │   ├── readiness_work.go
 │   │   │   ├── review_cycle.go
 │   │   │   ├── review_cycle_test.go
 │   │   │   ├── review_executor.go
@@ -1618,6 +1642,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── staged_seed_test.go
 │   │   │   ├── traversal.go
 │   │   │   └── traversal_test.go
+│   │   ├── README.md
 │   │   ├── acceptance.go
 │   │   ├── acceptance_test.go
 │   │   ├── allowance.go
@@ -1660,10 +1685,12 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── views.go
 │   │   └── views_test.go
 │   ├── filelock/
+│   │   ├── README.md
 │   │   ├── filelock.go
 │   │   └── filelock_test.go
 │   ├── forgejo/
 │   │   ├── publish/
+│   │   │   ├── README.md
 │   │   │   ├── candidate_validation.go
 │   │   │   ├── credentials.go
 │   │   │   ├── credentials_test.go
@@ -1679,6 +1706,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── publish_test.go
 │   │   │   ├── review_role_test.go
 │   │   │   └── source.go
+│   │   ├── README.md
+│   │   ├── actor_lookup_test.go
 │   │   ├── background.go
 │   │   ├── background_admission.go
 │   │   ├── background_test.go
@@ -1691,6 +1720,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── errors_test.go
 │   │   ├── merge.go
 │   │   ├── merge_completion.go
+│   │   ├── merge_completion_ancestry_test.go
 │   │   ├── merge_observation.go
 │   │   ├── merge_test.go
 │   │   ├── observe.go
@@ -1710,6 +1740,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── snapshot_transport.go
 │   │   └── snapshot_transport_test.go
 │   ├── host/
+│   │   ├── README.md
 │   │   ├── access_keys.go
 │   │   ├── client.go
 │   │   ├── doc.go
@@ -1733,9 +1764,11 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   └── terminal_client.go
 │   ├── identity/
 │   │   ├── client/
+│   │   │   ├── README.md
 │   │   │   ├── broker_compat_test.go
 │   │   │   ├── client.go
 │   │   │   └── client_test.go
+│   │   ├── README.md
 │   │   ├── enrollment.go
 │   │   ├── event.go
 │   │   ├── launch.go
@@ -1747,6 +1780,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── types.go
 │   │   └── types_test.go
 │   ├── project/
+│   │   ├── README.md
 │   │   ├── factory.go
 │   │   ├── factory_candidate.go
 │   │   ├── factory_candidate_test.go
@@ -1769,13 +1803,14 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── takeover_test.go
 │   │   └── types.go
 │   ├── store/
+│   │   ├── README.md
 │   │   ├── corruption.go
 │   │   ├── ephemeral.go
 │   │   ├── factory.go
+│   │   ├── factory_assignments.go
 │   │   ├── factory_attempt_allowances.go
 │   │   ├── factory_attempt_allowances_test.go
 │   │   ├── factory_attempt_expiry_test.go
-│   │   ├── factory_assignments.go
 │   │   ├── factory_candidate_preparations.go
 │   │   ├── factory_checks.go
 │   │   ├── factory_checks_test.go
@@ -1821,14 +1856,18 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── project_grants.go
 │   │   ├── project_grants_test.go
 │   │   ├── project_profile_test.go
+│   │   ├── readiness_work.go
+│   │   ├── readiness_work_test.go
 │   │   ├── schema.go
 │   │   ├── schema_test.go
 │   │   ├── store.go
 │   │   └── store_test.go
 │   ├── strictjson/
+│   │   ├── README.md
 │   │   ├── decode.go
 │   │   └── decode_test.go
 │   ├── tailnet/
+│   │   ├── README.md
 │   │   ├── control_types.go
 │   │   ├── control_validation.go
 │   │   ├── control_validation_test.go
@@ -1837,6 +1876,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   └── tailnet_test.go
 │   └── web/
 │       ├── api/
+│       │   ├── README.md
 │       │   ├── access_keys.go
 │       │   ├── api.go
 │       │   ├── dispatch_inputs.go
@@ -1889,6 +1929,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       │   ├── tailnet.go
 │       │   └── terminal_registry.go
 │       ├── auth/
+│       │   ├── README.md
 │       │   ├── auth.go
 │       │   ├── development_key.go
 │       │   ├── errors.go
@@ -1903,6 +1944,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       │   └── session.go
 │       ├── testdata/
 │       │   └── avatar-browser.ts
+│       ├── README.md
 │       ├── avatars.go
 │       ├── avatars_browser_test.go
 │       ├── avatars_test.go
@@ -2224,7 +2266,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── muse_serve_oracle.rs
 │   │   │   ├── tcodex_ops_oracle.rs
 │   │   │   └── tcontrol_oracle.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── release-inputs/
 │   │   ├── src/
 │   │   │   ├── reader/
@@ -2239,7 +2282,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── lib.rs
 │   │   │   ├── reader.rs
 │   │   │   └── trust_key.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-release-build/
 │   │   ├── src/
 │   │   │   ├── coreos/
@@ -2276,7 +2320,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── production.rs
 │   │   │   ├── oracle.rs
 │   │   │   └── oracle_vectors.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-release-deliver/
 │   │   ├── src/
 │   │   │   ├── buildx/
@@ -2326,6 +2371,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │       ├── fetch_state.rs
 │   │   │       └── main.rs
 │   │   ├── Cargo.toml
+│   │   ├── README.md
 │   │   └── tools.json
 │   ├── soda-release-image/
 │   │   ├── src/
@@ -2385,7 +2431,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   ├── media.rs
 │   │   │   │   └── staging.rs
 │   │   │   └── oracle.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── soda-release-tools/
 │   │   ├── src/
 │   │   │   ├── artifacts/
@@ -2439,15 +2486,18 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │       ├── soda_candidate.rs
 │   │   │       └── soda_candidate_check.rs
 │   │   ├── Cargo.toml
+│   │   ├── README.md
 │   │   └── build.rs
 │   ├── unix-http/
 │   │   ├── src/
 │   │   │   └── lib.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   └── wire-time/
 │       ├── src/
 │       │   └── lib.rs
-│       └── Cargo.toml
+│       ├── Cargo.toml
+│       └── README.md
 ├── scripts/
 │   ├── fixtures/
 │   │   ├── portcontracts/
@@ -2460,6 +2510,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── spaces-review.css
 │   │   ├── spaces-review.html
 │   │   └── spaces-scenarios.ts
+│   ├── README.md
 │   ├── build-forgejo-preview.ts
 │   ├── build-forgejo.test.ts
 │   ├── build-forgejo.ts
@@ -2629,6 +2680,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       └── muse-release.json
 ├── tests/
 │   ├── build/
+│   │   ├── README.md
 │   │   ├── avatar_integration_test.go
 │   │   ├── candidate_gate_test.go
 │   │   ├── complexity_scope_test.go
@@ -2868,6 +2920,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── structured.rs
 │   │   │   └── timestamps.rs
 │   │   ├── Cargo.toml
+│   │   ├── README.md
 │   │   └── build.rs
 │   ├── candidate-setup/
 │   │   ├── src/
@@ -2920,8 +2973,10 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   ├── pg-fixture/
 │   │   ├── src/
 │   │   │   └── main.rs
-│   │   └── Cargo.toml
+│   │   ├── Cargo.toml
+│   │   └── README.md
 │   ├── png-equal/
+│   │   ├── README.md
 │   │   ├── main.go
 │   │   └── main_test.go
 │   ├── release-assets/
@@ -2998,17 +3053,21 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── render_staging.rs
 │   │   │   └── render_terminal_logo.rs
 │   │   ├── Cargo.toml
+│   │   ├── README.md
 │   │   └── terminal-assets.lock.json
 │   ├── soda-avatars/
+│   │   ├── README.md
 │   │   ├── main.go
 │   │   └── main_test.go
 │   ├── soda-installed-probes/
+│   │   ├── README.md
 │   │   ├── cockpit_account_test.go
 │   │   ├── installed_probes_test.go
 │   │   ├── main.go
 │   │   ├── main_test.go
 │   │   └── project_state_test.go
 │   ├── soda-rootfs-server/
+│   │   ├── README.md
 │   │   ├── main.go
 │   │   ├── main_test.go
 │   │   └── soda-rootfs-server.service

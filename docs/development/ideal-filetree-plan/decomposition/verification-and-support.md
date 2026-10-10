@@ -49,22 +49,23 @@ No native qualification is inferred from this source cut.
 
 ## internal/acceptance/personal_git.go
 
-Observed size: 487 lines, including tests where embedded. Keep the Go probe's
-orchestration, exported contracts and execution order. The remote Python
-predecessor is retired. The current embedded POSIX shell program still has a
-planned Rust user-scoped payload replacement in the existing acceptance package,
-keeping actual SSH login, passphrase custody and key/agent lifetime. Moving the
-string to another Go file would not complete the remote-payload cutover.
+The source cutover is complete in `c8a53fdb`. Go keeps the probe's orchestration,
+exported contracts and execution order. The former remote key/agent program is
+replaced by the Rust user-scoped payload in the existing acceptance package,
+keeping ordinary-user SSH login, passphrase custody and key/agent lifetime.
 
 - `internal/acceptance/personal_git.go` — Current prepare/exercise admission, passphrase/public-key custody, target/SSH/Git URL policy, per-user exercise and outcome orchestration. Optional filename-only sibling splits are superseded.
 - `tools/acceptance/src/personal_git.rs` — Native replacement for the existing remote key/agent operation, called through the existing ephemeral acceptance payload; no new installed service.
 
-Evidence: RunPersonalGit at 451; runPersonalGit at 458; preparePassfile at 176; gitKeyUser at 213; fetchExportedKey at 238; loadGitTarget at 82; gitSSHBase at 126; validateGitURL at 267; exerciseCommand at 316; exerciseUser at 381; writeGitOutcomes at 405.
-
-Open detail: Update the real Go SSH invocation, Rust remote dispatch and
-personal_git_test.go together. Keep secret inputs off argv and output; target
-payload binding and ephemeral staging must follow the existing acceptance
-delivery rather than requiring a target compiler or installing another agent.
+The shipping compiler builds the Go probe beside the remote companion; the Go
+caller selects that sibling before creating passphrase files. One pinned SSH
+stdin sends the binary prefix followed by the secret, stages under the user's
+HOME with private permissions and exact cleanup, then invokes the Rust dispatch.
+Secret inputs stay off argv and output. The actual compiled Go/Rust pair passes
+prepare/unlock with real key/agent tools through locally emulated SSH, including
+encrypted-key admission, live-agent refusal and unchanged public identities.
+Go/Rust and producer-selector checks plus independent source review pass.
+Native SSH and installed behavior remain C11.V/R04.
 
 ## rust/soda-acceptance/src/command.rs
 

@@ -236,12 +236,13 @@ hunk editing of a shared file as a substitute for ownership.
   independent Luna medium original-scope acceptance. L18 and parked-seam
   dispositions remain complete; historical body/validity reviews retain their
   original pins. The [source crosswalk](build-and-operational-joins.md#current-r02-source-join-crosswalk)
-  records current joins and the explicitly unimplemented future D06 payload.
+  records accepted joins and the implemented D06 payload caller/producer delta.
   Actual installed/native/provider/media qualification remains R04.
   - [x] **R02.inventory** Duty/body coverage retains the `519b76bd` snapshot
     with `58a99730` root/assets closure. Path navigation is reconciled through
-    `e0e2413f`: all 2,541 current tracked paths appear once, with twelve later
-    prompt/preparation/expiry additions linked to their current owner maps.
+    `c8a53fdb`: all 2,600 current tracked paths appear once, including later
+    package guides, four Factory/Forgejo tests and the D06 payload. The prior
+    twelve prompt/preparation/expiry additions retain their owner maps.
     Earlier addition/retirement receipts retain their scope. Keep selective
     deltas current; this does not renew historical body reviews.
   - [x] **R02.tasks** Current findings are reconciled from `04286c48` into the
@@ -249,8 +250,8 @@ hunk editing of a shared file as a substitute for ownership.
     completed/withdrawn/held dispositions and superseded pending directions.
   - [x] **R02.targets** Current defining destinations, library adapters and
     evidenced retirements are reconciled in the tree, ownership, ports, slice
-    navigation and decomposition. All 2,541 tracked leaves are mapped, with
-    one explicit future D06 Rust payload. Current account/helper/test owner
+    navigation and decomposition. All 2,600 tracked leaves are mapped, including
+    the implemented D06 Rust payload and its exact caller/producer chain. Current account/helper/test owner
     selectors are corrected; generated/data/license and live wire/fixture
     duties remain assigned. This is target/owner mapping, not renewed validity.
   - [x] **R02.joins** Accepted current source crosswalk maps caller/import/

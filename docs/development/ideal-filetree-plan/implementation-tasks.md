@@ -18,7 +18,20 @@ implement just the named examples or repeat another packet's shared-file edits.
 Current source is post-integration canonical (run 20261005; implementation STARTED — see ticked boxes), superseding the clean `de65ff68` planning snapshot. The `f7e9cf9d` source audit and `d7e565aa`/`0d8d3b8e` structural baselines remain the preserved historical identities. All 80 slices have one primary packet
 below; shared duties route through their physical writer in the lane schedule.
 
-## Current task state (2026-10-09)
+## Current task state (2026-10-10)
+
+The active finishing goal repaired the native P8 Assembler metadata decoder
+in `0a845477` and aligned release schema emission with the two schema-39
+owners. The scoped parser regression, all 91 release-image checks, build-entrypoint
+compilation and independent source review pass. The repaired production metadata
+verifier also passes natively against the retained failed attempt's five media
+files and candidate import identities. This is a development consumer proof;
+the failed attempt remains failed, and fresh media completion/installed/provider
+qualification remain open. D06's personal-Git Rust payload cutover is complete
+at source scope in `c8a53fdb`: the actual compiled Go caller and Rust companion
+pass prepare/unlock with real key/agent tools through locally emulated SSH.
+The owner authorized commits of completed reviewed packets; installed personal-Git
+qualification remains C11.V/R04.
 
 Implementation is active under the owner's “go”, “commit early and often” and
 subsequent all-tasks goal. Current path reconciliation uses source `e0e2413f`;
@@ -28,9 +41,9 @@ identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and
 selective caller simplifications.
 Completed checks are source/development evidence; no installed, provider or
 native-worker qualification is inferred. Seven pre-existing dirty guidance
-files remain untouched. The current tree and tracked-file inventories account for all 2,541 tracked
-paths; the sole additional desired leaf is the unimplemented D06 Rust
-personal-Git payload. Historical path comparisons retain their original
+files remain untouched. The current tree and tracked-file inventories account for all 2,600 tracked
+paths at `c8a53fdb`, including the implemented D06 Rust personal-Git payload.
+Historical path comparisons retain their original
 identities. The responsibility body snapshot remains pinned to `519b76bd`,
 with selective current owner/caller deltas recorded in the affected maps.
 Current R02 target/owner/source-join mapping is complete against `818a004e`,
@@ -60,7 +73,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 
 | Remaining work | Current disposition and exact next boundary | Owner / task |
 | --- | --- | --- |
-| Current inventory / target and source joins | All 2,541 current leaves and their current owner/target/selector joins are reconciled; the sole future D06 payload remains explicitly unimplemented. Historical body/validity records retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
+| Current inventory / target and source joins | All 2,600 current leaves are mapped at `c8a53fdb`; selective additions include package guides, four Factory/Forgejo test files and the implemented D06 payload with its caller/producer chain. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
 | Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Completed in `7334f36b`; candidate count/bytes are admitted before retained variants, with per-file staging and escaped-pattern admission separately bounded. | C / L16.G complete |
 | Host provider HTTP | Source scope complete: `9cea539f` retains mature curl through the owned Executor (11 actual checks: 5 executor, 6 provider; host daemon compiled; independent review passed), and `8026d9ac` declares curl in the generated host package inputs (two existing package-profile tests passed). No ureq cutover. Shipped-binary/RPM inventory, TLS and live provider qualification remain open; no installed-provider claim. | C / L10.N4 source complete; R04 qualification open |
@@ -324,6 +337,8 @@ Lead C; [D01](reviews/D01.md), [D03](reviews/D03.md). Start early on disjoint re
 - [x] **C08.C** [run 20261005: LANDED (D01-F1..F5, D03-F1..F3, D01-F2/F3, mixed-cmd discovery proven); D01-F4 repair LANDED (86bce854, integrated 74a6a1b7) + SOURCE PASS per review-010; systemd/progress-output qualification separate] Correct recorded architecture namespace, clean-inspection/signal/progress and pipe-drain defects; explicitly fix D01-F2 obsolete Go controller build/candidate selectors and executable stamp, D03-F2 deleted Go artifact compile selector, and D03-F3 missing acceptance remote companion before inventory. Fix discovery for mixed Go/Rust `cmd` and explicit package/bin compilation in the actual cutover.
 - [x] **C08.V** [run 20261005: DONE (mirror counts matched, Go pins green, candidate-check no stale pins)] Verify real producer/worker subjects and exact tools/rootfs selectors without a full release first. `soda-candidate-check` is already Rust: rebind its paths, do not schedule another port.
 
+- [x] **C08.C-media-meta** Source correction in `0a845477`: preserve non-strict Assembler metadata admission at the root and image-record levels while keeping other release DTOs strict. The observed `ostree-version`/`skip-compression` regression failed before the repair and passes after it; all 91 release-image checks and the actual build entrypoint compile pass, with independent source review. The repaired `verify_build_meta` passes natively over the retained failed media attempt's five files and candidate archive/manifest identities. Fresh P8 completion and R04 qualification remain open. Scope and limits: [finding allocation](execution-findings.md).
+
 - [x] **C08.C-evidence** OBS-R01 is complete in `d3fc68a7` with seven actual diagnostic/log checks; OBS-W01 in `9d899d6e` with independent medium review and all 24 actual worker tests, including three trusted-executable argv checks outside the sandbox. Fresh attempt identity binds unit cleanup; unconfirmed custody retains runtime. The later matching-native development attempt exposed a real systemd producer mismatch: a collected exact unit reports `LoadState=not-found` and `ActiveState=inactive`. `18554549` parses named properties in either order and accepts that terminal pair while refusing missing, duplicate, unknown or contradictory records. Its focused production-parser regression, exact formatting, setup compile and independent medium review pass. CoreOS worker-config generation now records the physical admitted executable path without weakening ownership/hash admission. The failed pre-compilation attempts remain retained. The stale extension-unit entrypoint expectation is corrected in `302f614d`, after its actual-service fixture regression and independent review; a fresh matching-native candidate passes P1–P6. Its separate archive checker exposed the decoded-layer profile mismatch, corrected in `752343af` with four scanner checks, independent review and a passing native checker over those same retained archives. That consumer regression uses the new checker on the earlier candidate. Native Project startup then demonstrated restrictive snapshot extraction producing `/usr` mode `0700`; `cc9fcdc0` restores canonical archive permissions while keeping the snapshot root private. Its actual production-function restrictive-umask regression, affected build-entrypoint compilation, exact checks and independent medium review pass. Fresh corrected Project/media production and A03 compiled-helper subjects remain open under R01/A03.V; installed/provider qualification stays separate. Completed D03 drain/discovery work remains checked. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [x] **C08.C-artifact-cleanup** [2026-10-07: `26071cfc`; actual Butane failures/private output and child-reaping checks passed; independently reviewed] C owns CUST-C-BUTANE-CLEANUP-1 soda-artifacts output/child finalization, separate from installer enrollment. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 
@@ -362,6 +377,8 @@ Lead C; [D06](reviews/D06.md), [H06](reviews/H06.md). Local driver/gate correcti
 - [x] **C11.M-format** CLI03 is complete in `86812b0b`; REP-ACC-EVIDENCE-ROUNDTRIP-1 in `bcd105ae`. Independent review and 16 actual evidence plus nine driver checks pass. One bounded parse preserves raw numbers; direct sorted serialization retains redaction, collision, depth/size, LF and publication policy. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [x] **C11.M-dependencies** COST-GO-SQLITE-FIXTURE-1 source cut is complete in `c84d242c`: the unchanged helper lives in existing `control_test` support. Independent source-equivalence review, both fixture callers compiling and the actual dashboard dependency list (no modernc packages) pass. Acceptance SQLite remains; execution of the two native fixture flows is still separate C11.V/R04 evidence. Scope, prerequisites and acceptance: [finding allocation](execution-findings.md).
 - [x] **C11.M-tests** [Allocated source/test scope complete: historical guards `5413589a`, workload consumer checks/emulated SSH label `34112664`, bounded-reader wiring `273eb383`, emitter semantics `0e41bd2f`, unused callback/transcript retirement `f0064613`, build/image error wording `dabbb33e` (17 actual checks), and final delivery wording `c71b63be` (14 actual checks). Independent full-scope challenge retains the production command-plan assertion after actual runner/caller inspection; its header now explicitly labels fake hooks and synthetic artifacts. Current candidate binding-stage and nonqualifying-evidence refusal assertions, raw/signed bytes, Rust behavior tests, TestDependencyDirection, no-Python and terminal_assets remain. Reader wiring proves complete-value refusal/original-byte hashing, not the exact 4 MiB boundary. No broader C11.M, native/provider, C11.V or R04 closure.] C owns the completed consumer/oracle maintenance scope. Evidence and retained duties: [finding allocation](execution-findings.md).
+
+- [x] **C11.M-personal-git** Source cutover complete in `c8a53fdb`: only the remote key/agent operation moves into the existing compiled Rust companion. Go retains orchestration and prepare/unlock/exercise outcomes; the Go driver ships beside the companion in `artifacts/tools`. One pinned SSH stdin carries the ephemeral HOME-staged binary and secret. Go acceptance checks, 153 Rust library checks, six actual compiler-selector checks and independent review pass. The actual compiled Go/Rust pair passes prepare/unlock with real encrypted keys, agent refusal and unchanged public identities; SSH transport is locally emulated. Installed personal-Git qualification remains C11.V/R04. [Target and cutover](decomposition/verification-and-support.md#internalacceptancepersonal_gitgo).
 
 ## Selected library-adoption subpackets
 

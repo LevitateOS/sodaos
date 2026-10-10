@@ -14,7 +14,7 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
-The [current task state](implementation-tasks.md#current-task-state-2026-10-08)
+The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
 on **2026-10-07**; those pins remain historical snapshots.
 The selected [library adoption](library-adoption.md) is complete at its recorded
@@ -26,9 +26,10 @@ its installed generator/service identity remains R04. The
 assigns all 76 challenged dispositions to existing subtasks with exact owner,
 scope, prerequisites and acceptance; older slice findings remain in their parent
 records. Correctness precedes costly boundary decisions and settled caller cuts.
-Current path/owner navigation is reconciled at `45ebf4c4`: the target tree
-contains all 2,526 tracked leaves and the still-unimplemented D06 Rust remote
-payload. Current inventories distinguish those paths from retired predecessors;
+Current path navigation is reconciled at `c8a53fdb`: the target tree
+contains all 2,600 tracked leaves, including the implemented D06 Rust remote
+payload. The selective inventory delta maps later package guides and four
+Factory/Forgejo test files; historical source/body reviews retain their pins. Current inventories distinguish those paths from retired predecessors;
 the detailed body census remains historical at `519b76bd`. Optional filename
 splits are superseded by defining owners in the current modules. Full R02
 body/caller/join acceptance and R03/R04 qualification retain their separate gates.
