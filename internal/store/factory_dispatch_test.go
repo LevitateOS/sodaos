@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,15 @@ func dispatchStoreFixture(t *testing.T) *Store {
 
 func dispatchTestControlFor(t *testing.T, db *Store, a factory.Assignment) factory.IssueControl {
 	t.Helper()
+	if _, err := db.AcceptanceHead(context.Background(), a.Repository, a.Issue); errors.Is(err, ErrNotFound) {
+		decision := acceptanceFixture(a.Acceptance, "")
+		decision.Repository, decision.IssueIndex, decision.NativeRev = a.Repository, strconv.FormatInt(a.Issue, 10), a.NativeRev
+		if err := db.AdmitAcceptanceDecision(context.Background(), decision); err != nil {
+			t.Fatal(err)
+		}
+	} else if err != nil {
+		t.Fatal(err)
+	}
 	control := factory.IssueControl{
 		Repository: a.Repository, Issue: a.Issue, Acceptance: a.Acceptance, NativeRev: a.NativeRev,
 		Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
@@ -288,6 +298,7 @@ func TestRecordDispatchPacketEnforcesOneRepositorySession(t *testing.T) {
 			}
 			second, nextReservation, nextRun, nextView := dispatchTestPacket(t, now)
 			second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, nextRun.ID, []string{nextRun.ID}
+			second.Acceptance = "d" + strings.Repeat("b", 24)
 			second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 			nextReservation.AssignmentID = second.ID
 			nextView.Issue, nextView.Attempt = second.Issue, second.ID
@@ -313,6 +324,20 @@ func TestRecordDispatchPacketRejectsChangedQueuedControlAtomically(t *testing.T)
 	err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view)
 	if !errors.Is(err, ErrDispatchControlStale) {
 		t.Fatalf("stale queued control error = %v", err)
+	}
+	assertDispatchPacketAbsent(t, db, a)
+}
+
+func TestRecordDispatchPacketRejectsWithdrawnAcceptanceAtomically(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	a, r, run, view := dispatchTestPacket(t, time.Now())
+	expected := dispatchTestControlFor(t, db, a)
+	if err := db.WithdrawAcceptanceDecision(ctx, a.Repository, a.Issue, a.Acceptance, 7); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), expected, a, r, run, view); !errors.Is(err, ErrDispatchControlStale) {
+		t.Fatalf("withdrawn acceptance packet error = %v", err)
 	}
 	assertDispatchPacketAbsent(t, db, a)
 }
@@ -365,6 +390,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		b.Acceptance = "d" + strings.Repeat("b", 24)
 		b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
 		b.Authority.Capacity = 2
 		r2.AssignmentID = b.ID
@@ -451,6 +477,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		b, r2, run2, view2 := dispatchTestPacket(t, now)
 		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		b.Acceptance = "d" + strings.Repeat("b", 24)
 		b.AttemptRoot, b.PublicationAssignment = b.ID, b.ID
 		b.Authority.Sponsorship = 2
 		r2.AssignmentID = b.ID
@@ -525,6 +552,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		second, r2, run2, view2 := dispatchTestPacket(t, now)
 		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		second.Acceptance = "d" + strings.Repeat("b", 24)
 		second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 		second.Authority.ConnectionUsageBudget = budget.Revision + 1
 		r2.AssignmentID = second.ID
@@ -548,6 +576,7 @@ func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
 		}
 		second, r2, run2, view2 := dispatchTestPacket(t, now)
 		second.ID, second.Issue, second.Run, second.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		second.Acceptance = "d" + strings.Repeat("b", 24)
 		second.AttemptRoot, second.PublicationAssignment = second.ID, second.ID
 		r2.AssignmentID = second.ID
 		view2.Issue, view2.Attempt = 4, second.ID
@@ -648,6 +677,22 @@ func TestReportedAssignmentEnqueuesReadinessRootAtomically(t *testing.T) {
 		a, reservation, run, view := dispatchTestPacket(t, now)
 		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
 			t.Fatal(err)
+		}
+		// Consume the admission-created notification before filling the
+		// table: this case requires finish to allocate a new source header.
+		work, err := db.BeginReadinessWork(ctx, "root:7/3", now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		node, err := db.NextReadinessWorkNode(ctx, work.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = db.CheckpointReadinessAssessment(ctx, work, node, true); err != nil {
+			t.Fatal(err)
+		}
+		if complete, err := db.CompleteReadinessWork(ctx, work, now); err != nil || !complete {
+			t.Fatal("consume fixture admission work:", complete, err)
 		}
 		fillReadinessSourceHeaders(t, db, "capacity:finish", maxReadinessSources)
 		finished, err := db.Assignment(ctx, a.ID)

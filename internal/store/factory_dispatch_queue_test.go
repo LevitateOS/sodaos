@@ -31,11 +31,10 @@ func TestReservationTransitions(t *testing.T) {
 	if err != nil || len(held) != 0 {
 		t.Fatalf("consumed reservation still held: %+v %v", held, err)
 	}
-
+	// Release/rehold is an independent reservation transition. Use a fresh
+	// fixture rather than admitting another active attempt in this repository.
+	db = dispatchStoreFixture(t)
 	b, r2, run2, view2 := dispatchTestPacket(t, now)
-	b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
-	r2.AssignmentID = b.ID
-	view2.Issue, view2.Attempt = 4, b.ID
 	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(b), b, r2, run2, view2); err != nil {
 		t.Fatal(err)
 	}

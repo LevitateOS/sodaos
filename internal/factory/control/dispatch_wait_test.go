@@ -416,3 +416,65 @@ func TestDispatchWithdrawnGateRecordsNothing(t *testing.T) {
 		t.Fatal("host launched behind a closed gate")
 	}
 }
+
+func TestDispatchRejectsAcceptanceWithdrawalAfterPlanning(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	head := fx.accept(t, 3, "d333333333333333333333333")
+	fx.queue(t, 3, head.ID)
+	before, err := db.IssueControl(ctx, fx.repo, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	withdrawnAfterPlanning := false
+	fx.host.harness = func(family string) (project.FactoryHarnessPin, error) {
+		// The public withdrawal consumer commits this real Store producer
+		// before cancelling effects and best-effort readiness drain. Run it
+		// at the existing post-planning host boundary to model that overlap;
+		// no native/provider execution or withdrawal HTTP route is claimed.
+		if err := db.WithdrawAcceptanceDecision(ctx, fx.repo, 3, head.ID, 7); err != nil {
+			return project.FactoryHarnessPin{}, err
+		}
+		withdrawn, actor, err := db.AcceptanceWithdrawn(ctx, fx.repo, 3, head.ID)
+		if err != nil || !withdrawn || actor != 7 {
+			t.Fatalf("withdrawal was not committed: withdrawn=%v actor=%d err=%v", withdrawn, actor, err)
+		}
+		current, err := db.IssueControl(ctx, fx.repo, 3)
+		if err != nil || current.Readiness != factory.ReadinessQueued || current.Acceptance != head.ID ||
+			current.Revision != before.Revision || current.Fingerprint != before.Fingerprint {
+			t.Fatalf("fixture did not retain the captured queued control: %+v %v", current, err)
+		}
+		withdrawnAfterPlanning = true
+		return project.FactoryHarnessPin{
+			Harness: family, Version: fx.harness,
+			SHA256: strings.Repeat("a", 64), Image: "sha256:" + strings.Repeat("b", 64),
+		}, nil
+	}
+
+	coord := NewCoordinator(db, fx.host, fx.broker)
+	coord.DispatchReads = fx.reads
+	report := coord.Dispatch(ctx)
+	if !withdrawnAfterPlanning {
+		t.Fatal("Dispatch did not reach the post-planning withdrawal boundary")
+	}
+	if len(report.Launched) != 0 || len(fx.host.launches) != 0 {
+		t.Fatalf("Dispatch launched after committed acceptance withdrawal: %+v host launches=%d", report.Launched, len(fx.host.launches))
+	}
+	if _, err := db.LatestIssueAssignment(ctx, fx.repo, 3); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("withdrawn acceptance recorded an assignment: %v", err)
+	}
+	assigned, err := db.AssignedAssignments(ctx, 10)
+	if err != nil || len(assigned) != 0 {
+		t.Fatalf("withdrawn acceptance recorded assigned packets: %+v %v", assigned, err)
+	}
+	runs, err := db.FactoryRuns(ctx, 10)
+	if err != nil || len(runs) != 0 {
+		t.Fatalf("withdrawn acceptance recorded runs: %+v %v", runs, err)
+	}
+	views, err := db.FactoryRunViews(ctx, 10)
+	if err != nil || len(views) != 0 {
+		t.Fatalf("withdrawn acceptance recorded run views: %+v %v", views, err)
+	}
+}

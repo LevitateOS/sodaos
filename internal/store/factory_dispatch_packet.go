@@ -45,6 +45,8 @@ var (
 // The control row is locked after the dispatch gate and before packet
 // writes; readiness assessment takes the same row lock, so changed or
 // missing outcome evidence refuses the whole transaction.
+// Admission also locks the acceptance head shared with acceptance withdrawal;
+// a replaced or withdrawn head refuses even before readiness is reassessed.
 //
 // The packet is also the atomic admission gate: the limit rows are
 // locked, the packet records, and then appliance, repository,
@@ -271,6 +273,23 @@ func checkQueuedControlTx(ctx context.Context, tx *sql.Tx, expected factory.Issu
 		return err
 	}
 	if err := current.Validate(); err != nil || current.Readiness != factory.ReadinessQueued || current.Repository != repository || current.Issue != issue || current.Acceptance != acceptance || current.NativeRev != expected.NativeRev || current.Revision != expected.Revision || current.Fingerprint != expected.Fingerprint || current.Authority != expected.Authority || !sameControlOutcome(current, expected) {
+		return ErrDispatchControlStale
+	}
+	var head string
+	if err := tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, repository, issue).Scan(&head); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrDispatchControlStale
+		}
+		return err
+	}
+	if head != acceptance {
+		return ErrDispatchControlStale
+	}
+	var withdrawn bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM issue_acceptance_withdrawals WHERE repository=$1 AND issue=$2 AND decision=$3)`, repository, issue, acceptance).Scan(&withdrawn); err != nil {
+		return err
+	}
+	if withdrawn {
 		return ErrDispatchControlStale
 	}
 	return nil
