@@ -25,6 +25,10 @@ allow soda_dashboard_t container_file_t:file { execute getattr lock map open rea
 allow soda_dashboard_t container_file_t:dir { add_name remove_name write };
 allow soda_dashboard_t container_file_t:lnk_file read;
 
+# Git opens Podman's private /dev/null, which retains container_file_t and
+# the dashboard's MCS label. Keep character-device access within that label.
+allow soda_dashboard_t container_file_t:chr_file { getattr open read write };
+
 # The shared PostgreSQL unix socket and dashboard-to-Forgejo extension socket
 # use the existing :z container_file_t mount. Keep both cross-container IPC
 # directions scoped to this dedicated dashboard process domain.
