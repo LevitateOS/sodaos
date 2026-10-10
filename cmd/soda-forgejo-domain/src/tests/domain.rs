@@ -100,6 +100,13 @@ fn lift_removes_marker_and_unmasks() {
     assert!(stdout.contains("marker removed"), "{stdout}");
     assert!(stdout.contains("unmasked: forgejo.service"), "{stdout}");
     assert!(!marker.exists());
+    assert!(
+        sys.calls
+            .iter()
+            .any(|call| { call == &["systemctl", "unmask", "--runtime", "forgejo.service"] }),
+        "lift must remove the runtime mask created by inhibit: {:?}",
+        sys.calls
+    );
     // Unknown-marker refusal moved to lift_refuses_unknown_marker_before_unmask (O04-F1).
 }
 

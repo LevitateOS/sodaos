@@ -157,7 +157,8 @@ fn cmd_lift(paths: &Paths, sys: &mut dyn Sys, stdout: &mut dyn Write) -> Result<
     } else {
         let _ = writeln!(stdout, "marker already absent");
     }
-    let (code, out) = sys.run(&["systemctl", "unmask", UNIT]);
+    // Match inhibit's runtime mask; persistent operator masks stay intact.
+    let (code, out) = sys.run(&["systemctl", "unmask", "--runtime", UNIT]);
     if code != 0 {
         return Err(format!("systemctl unmask failed:\n{out}"));
     }
