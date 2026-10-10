@@ -8,6 +8,6 @@ origins() {
 }
 /usr/bin/tailscale status --json | /usr/libexec/soda/soda-host-probes forgejo-tailnet
 before=$(origins)
-/usr/local/libexec/soda/soda-forgejo-tailnet
+/usr/libexec/soda/soda-forgejo-tailnet
 [[ "$(origins)" == "$before" ]] || { echo 'Core browser origins changed during advertisement refresh' >&2; exit 1; }
 /usr/libexec/soda/soda-host-probes forgejo-advertisement
