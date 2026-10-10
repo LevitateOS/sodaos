@@ -224,8 +224,11 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             Err(_) => return self.denied_after_cleanup(&execution),
         };
         if shutdown.load(Ordering::SeqCst) {
-            let _ = child.kill();
-            let _ = child.wait();
+            let _ = crate::terminal::reap_failed_child(
+                child,
+                "muse launch cancelled before supervision",
+                shutdown.clone(),
+            );
             return self.denied_after_cleanup(&execution);
         }
         if self
@@ -233,13 +236,19 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
             .deliver_execution(&mut execution, session_end)
             .is_err()
         {
-            let _ = child.kill();
-            let _ = child.wait();
+            let _ = crate::terminal::reap_failed_child(
+                child,
+                "muse execution delivery failed",
+                shutdown.clone(),
+            );
             return self.denied_after_cleanup(&execution);
         }
         if shutdown.load(Ordering::SeqCst) {
-            let _ = child.kill();
-            let _ = child.wait();
+            let _ = crate::terminal::reap_failed_child(
+                child,
+                "muse launch cancelled before supervision",
+                shutdown.clone(),
+            );
             return self.denied_after_cleanup(&execution);
         }
         // Open an identity-bound handle before delegating control. Numeric PIDs
@@ -247,8 +256,11 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         let pidfd = match pidfd_open(child.id()) {
             Ok(fd) => fd,
             Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
+                let _ = crate::terminal::reap_failed_child(
+                    child,
+                    "muse child identity handle unavailable",
+                    shutdown.clone(),
+                );
                 return self.denied_after_cleanup(&execution);
             }
         };
@@ -256,13 +268,17 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         let conn_dup = match unsafe { BorrowedFd::borrow_raw(conn) }.try_clone_to_owned() {
             Ok(fd) => fd,
             Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
+                let _ = crate::terminal::reap_failed_child(
+                    child,
+                    "muse connection handle unavailable",
+                    shutdown.clone(),
+                );
                 return self.denied_after_cleanup(&execution);
             }
         };
         let control_cancel = std::sync::Arc::new(AtomicBool::new(false));
         let supervisor_cancel = control_cancel.clone();
+        let supervisor_shutdown = shutdown.clone();
         let snapshot = execution.clone();
         let supervisor = std::thread::Builder::new().spawn(move || {
             supervisor_owner.control_loop(
@@ -270,13 +286,13 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
                 stdin_control.as_raw_fd(),
                 pidfd.as_raw_fd(),
                 &supervisor_cancel,
-                &shutdown,
+                &supervisor_shutdown,
                 &snapshot,
                 session_end,
             );
             // The pidfd remains the same task identity after wait/reap; this
             // cannot signal a newly reused numeric PID.
-            let result = signal_supervised_child(pidfd.as_raw_fd(), &shutdown);
+            let result = signal_supervised_child(pidfd.as_raw_fd(), &supervisor_shutdown);
             drop(conn_dup);
             drop(stdin_control);
             drop(pidfd);
@@ -285,10 +301,13 @@ impl<E: Executor + Send + Sync + 'static, H: MuseHooks + Send + Sync + 'static> 
         let supervisor = match supervisor {
             Ok(supervisor) => supervisor,
             Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
                 // Captured descriptors are dropped when the failed spawn
                 // closure is discarded; keep cleanup under this owner.
+                let _ = crate::terminal::reap_failed_child(
+                    child,
+                    "muse supervisor start failed",
+                    shutdown.clone(),
+                );
                 return self.denied_after_cleanup(&execution);
             }
         };

@@ -210,7 +210,7 @@ pub struct NativeAttach {
     pub(in crate::terminal) shutdown: Arc<AtomicBool>,
 }
 
-fn reap_failed_attach(
+pub(crate) fn reap_failed_child(
     mut child: std::process::Child,
     reason: &str,
     shutdown: Arc<AtomicBool>,
@@ -254,19 +254,13 @@ impl NativeAttach {
         use std::os::fd::FromRawFd;
         let stdin = match child.stdin.take() {
             Some(stdin) => stdin,
-            None => {
-                return Err(reap_failed_attach(
-                    child,
-                    "test stdin unavailable",
-                    shutdown,
-                ))
-            }
+            None => return Err(reap_failed_child(child, "test stdin unavailable", shutdown)),
         };
         let stdout = match child.stdout.take() {
             Some(stdout) => stdout,
             None => {
                 drop(stdin);
-                return Err(reap_failed_attach(
+                return Err(reap_failed_child(
                     child,
                     "test stdout unavailable",
                     shutdown,
@@ -286,7 +280,7 @@ impl NativeAttach {
         {
             drop(stdin);
             drop(stdout);
-            return Err(reap_failed_attach(
+            return Err(reap_failed_child(
                 child,
                 "test terminal input unavailable",
                 shutdown,
@@ -336,7 +330,7 @@ impl NativeAttach {
         let stdin = match child.stdin.take() {
             Some(stdin) => stdin,
             None => {
-                return Err(reap_failed_attach(
+                return Err(reap_failed_child(
                     child,
                     "terminal stdin unavailable",
                     shutdown,
@@ -347,7 +341,7 @@ impl NativeAttach {
             Some(stdout) => stdout,
             None => {
                 drop(stdin);
-                return Err(reap_failed_attach(
+                return Err(reap_failed_child(
                     child,
                     "terminal stdout unavailable",
                     shutdown,
@@ -370,7 +364,7 @@ impl NativeAttach {
         {
             drop(stdin);
             drop(stdout);
-            return Err(reap_failed_attach(
+            return Err(reap_failed_child(
                 child,
                 "terminal input unavailable",
                 shutdown,

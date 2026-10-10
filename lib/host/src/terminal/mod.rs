@@ -59,6 +59,8 @@ pub use self::inspect::{
 };
 pub(crate) use self::inspect::{parse_go_int, parse_go_uint};
 
+pub(crate) use self::native::reap_failed_child;
+
 mod agent;
 
 pub use self::agent::{agent_argv, container_exists_argv, inspect_argv, EndIdentityHook, Service};
