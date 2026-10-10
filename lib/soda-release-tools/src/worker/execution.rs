@@ -216,7 +216,6 @@ fn systemctl_unit_terminal(unit: &str) -> Result<bool, String> {
             unit,
             "--property=LoadState",
             "--property=ActiveState",
-            "--value",
         ])
         .env_clear()
         .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
@@ -257,20 +256,35 @@ fn systemctl_unit_terminal(unit: &str) -> Result<bool, String> {
     }
     let text = std::str::from_utf8(&output)
         .map_err(|_| format!("systemctl show {unit}: invalid state encoding"))?;
-    let mut lines = text.lines();
-    let load = lines.next().unwrap_or_default();
-    let active = lines.next().unwrap_or_default();
-    let terminal = unit_state_is_terminal(load, active, lines.next().is_some())
+    let terminal = unit_state_output_is_terminal(text)
         .map_err(|()| format!("systemctl show {unit}: unrecognized unit state"))?;
     Ok(terminal)
 }
 
-pub(super) fn unit_state_is_terminal(load: &str, active: &str, extra: bool) -> Result<bool, ()> {
-    if extra {
-        return Err(());
+pub(super) fn unit_state_output_is_terminal(output: &str) -> Result<bool, ()> {
+    let mut load = None;
+    let mut active = None;
+    for line in output.lines() {
+        let (key, value) = line.split_once('=').ok_or(())?;
+        let slot = match key {
+            "LoadState" => &mut load,
+            "ActiveState" => &mut active,
+            _ => return Err(()),
+        };
+        if slot.replace(value).is_some() {
+            return Err(());
+        }
     }
+    unit_state_is_terminal(load.ok_or(())?, active.ok_or(())?)
+}
+
+fn unit_state_is_terminal(load: &str, active: &str) -> Result<bool, ()> {
     if load == "not-found" {
-        return if active.is_empty() { Ok(true) } else { Err(()) };
+        return if active == "inactive" {
+            Ok(true)
+        } else {
+            Err(())
+        };
     }
     if !matches!(load, "loaded" | "masked" | "error") {
         return Err(());

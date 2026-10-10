@@ -98,26 +98,37 @@ fn attempt_runtime_release_requires_terminal_unit_custody() {
 #[test]
 fn systemd_unit_state_requires_exact_terminal_observation() {
     assert_eq!(
-        execution::unit_state_is_terminal("not-found", "", false),
+        execution::unit_state_output_is_terminal("LoadState=not-found\nActiveState=inactive\n"),
         Ok(true)
     );
     assert_eq!(
-        execution::unit_state_is_terminal("loaded", "inactive", false),
+        execution::unit_state_output_is_terminal("ActiveState=inactive\nLoadState=loaded\n"),
         Ok(true)
     );
     assert_eq!(
-        execution::unit_state_is_terminal("loaded", "failed", false),
+        execution::unit_state_output_is_terminal("LoadState=loaded\nActiveState=failed\n"),
         Ok(true)
     );
     assert_eq!(
-        execution::unit_state_is_terminal("loaded", "active", false),
+        execution::unit_state_output_is_terminal("LoadState=loaded\nActiveState=active\n"),
         Ok(false)
     );
-    assert!(execution::unit_state_is_terminal("not-found", "active", false).is_err());
-    assert!(execution::unit_state_is_terminal("loaded", "", false).is_err());
-    assert!(execution::unit_state_is_terminal("loaded", "unknown", false).is_err());
-    assert!(execution::unit_state_is_terminal("activating", "activating", false).is_err());
-    assert!(execution::unit_state_is_terminal("loaded", "inactive", true).is_err());
+    for malformed in [
+        "LoadState=not-found\nActiveState=active\n",
+        "LoadState=loaded\n",
+        "ActiveState=inactive\n",
+        "LoadState=loaded\nLoadState=loaded\nActiveState=inactive\n",
+        "LoadState=loaded\nActiveState=inactive\nActiveState=inactive\n",
+        "LoadState=loaded\nActiveState=inactive\nUnknown=extra\n",
+        "LoadState=loaded\nActiveState=unknown\n",
+        "LoadState=activating\nActiveState=activating\n",
+        "LoadState=loaded\nActiveState=\n",
+    ] {
+        assert!(
+            execution::unit_state_output_is_terminal(malformed).is_err(),
+            "accepted malformed systemd state {malformed:?}"
+        );
+    }
 }
 
 fn test_config() -> WorkerConfig {

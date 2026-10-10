@@ -78,8 +78,13 @@ pub(super) fn admit_fixture_authority(
     }
 
     println!("-- restricted worker config");
+    let admitted = fs::canonicalize(ADMITTED)
+        .map_err(|err| Exit::Fail(format!("cannot resolve admitted controller: {err}")))?;
+    let admitted = admitted
+        .to_str()
+        .ok_or_else(|| Exit::Fail("admitted controller path is not UTF-8".to_owned()))?;
     let worker_config = worker_json(
-        ADMITTED,
+        admitted,
         &pwd,
         &forgejo_source,
         &output_parent,
