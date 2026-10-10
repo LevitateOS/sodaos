@@ -4,7 +4,7 @@ import {object} from './sodaspaces-input';
 import {newManagedTerminal, prepareManagedTerminal} from './sodaspaces-controls';
 import {projectId} from '../../frontend/spaces/sodaspaces-api';
 import {terminalID} from '../../frontend/spaces/sodaspaces-terminal-response';
-import {nativeSpacesMount, spacesAPI} from './sodaspaces-journey-evidence';
+import {nativeSpacesMount, spacesAPI, spacesContent} from './sodaspaces-journey-evidence';
 import type {FirstUseEvidence, MatrixFacts, MatrixSession} from './sodaspaces-journey-evidence';
 
 /** One selected repository/actor, one Create, keyless Join and terminal. Never End or cleanup. */
@@ -21,6 +21,7 @@ export async function exerciseFirstUse(
 ) {
   const origin = new URL(page.url()).origin;
   const generation = await nativeSpacesMount(page);
+  const spaces = await spacesContent(page);
   let expectedName = '',
     wireFailure = false,
     creates = 0,
@@ -64,22 +65,22 @@ export async function exerciseFirstUse(
   page.on('websocket', observe);
   try {
     evidence.stage = 'confirmed empty welcome';
-    await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+    await spaces.getByRole('heading', {name: 'Create your first project'}).waitFor();
     await native.capture?.('welcome');
-    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await spaces.getByRole('button', {name: 'Create project', exact: true}).click();
     evidence.stage = 'native repository discovery';
-    await page
+    await spaces
       .getByRole('radio', {name: new RegExp(input.repositoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))})
       .check();
     await native.capture?.('picker');
-    await page.getByRole('button', {name: 'Continue', exact: true}).click();
-    await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+    await spaces.getByRole('button', {name: 'Continue', exact: true}).click();
+    await spaces.getByRole('heading', {name: 'Configure project'}).waitFor();
     evidence.stage = 'installed profile selection';
-    const select = page.getByRole('combobox', {name: /^Project OS/});
+    const select = spaces.getByRole('combobox', {name: /^Project OS/});
     await select.waitFor();
     const profile = await select.inputValue();
     assert(profile);
-    assert.equal(await page.getByRole('checkbox').count(), 0, 'This selected Off fixture has no configured network');
+    assert.equal(await spaces.getByRole('checkbox').count(), 0, 'This selected Off fixture has no configured network');
     await native.capture?.('configure');
     evidence.stage = 'one explicit project creation';
     permit(`${spacesAPI}/environments`, {
@@ -91,7 +92,7 @@ export async function exerciseFirstUse(
       (r) => new URL(r.url()).pathname === `${spacesAPI}/environments` && r.request().method() === 'POST',
       {timeout: 260000}
     );
-    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await spaces.getByRole('button', {name: 'Create project', exact: true}).click();
     const reply = await created,
       value = object(await reply.json());
     if (projectId(value.id)) evidence.project = value.id;
@@ -100,7 +101,7 @@ export async function exerciseFirstUse(
     assert.equal(reply.status(), 201);
     assert(evidence.project && value.provisioned === true && value.repository_id === input.repository);
     evidence.stage = 'explicit browser-only Join';
-    await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+    await spaces.getByRole('button', {name: 'Join project', exact: true}).waitFor();
     await native.capture?.('join');
     permit(`${spacesAPI}/environments/${evidence.project}/join`, {ssh_keys: 'none'});
     const joined = page.waitForResponse(
@@ -109,12 +110,12 @@ export async function exerciseFirstUse(
         r.request().method() === 'POST',
       {timeout: 260000}
     );
-    await page.getByRole('button', {name: 'Join project', exact: true}).click();
+    await spaces.getByRole('button', {name: 'Join project', exact: true}).click();
     const joinReply = await joined;
     evidence.writes.push('Join');
     evidence.join_status = joinReply.status();
     assert.equal(joinReply.status(), 200);
-    await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+    await spaces.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
     await native.capture?.('first-terminal');
     evidence.stage = 'one native terminal';
     expectedName = (await prepareManagedTerminal(page, input.repositoryName, evidence.project)) || '';
@@ -132,7 +133,7 @@ export async function exerciseFirstUse(
     evidence.stage = 'reload and exact native reattachment';
     await page.reload();
     await nativeSpacesMount(page);
-    await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
+    await (await spacesContent(page)).locator('.soda-workspace-terminal:visible .is-connected').waitFor();
     assert(!wireFailure && creates === 1 && attaches >= 1);
     await native.inspect(evidence.session, facts);
     evidence.attached = true;

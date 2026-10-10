@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {lstat} from 'node:fs/promises';
 import type {Page, WebSocket} from 'playwright';
 import {object} from './sodaspaces-input';
+import {spacesContent} from './sodaspaces-journey-evidence';
 import {terminalID} from '../../frontend/spaces/sodaspaces-terminal-response';
 import type {MatrixInput, MatrixProject} from './sodaspaces-matrix-input';
 import type {MatrixFacts, MatrixSession} from './sodaspaces-journey-evidence';
@@ -204,7 +205,8 @@ export function observeMatrixShell(page: Page) {
       const marker = 'SODA_FACT_' + crypto.randomUUID().replaceAll('-', '');
       buffers.delete(session.id);
       const command = matrixShellCommand(marker, session.name, initialize);
-      const screen = page.locator('.soda-workspace-terminal:visible .xterm-helper-textarea');
+      const spaces = await spacesContent(page);
+      const screen = spaces.locator('.soda-workspace-terminal:visible .xterm-helper-textarea');
       await screen.focus();
       await page.keyboard.insertText(command);
       await page.keyboard.press('Enter');
