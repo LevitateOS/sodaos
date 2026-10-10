@@ -16,7 +16,8 @@ export async function exerciseWorkspaceMatrix(
   permit: (target: Omit<MatrixSession, 'id'> & {id?: string}, action: 'reserve' | 'end') => void,
   native: MatrixNative,
   evidence: MatrixEvidence,
-  otherPage: () => Promise<Page>
+  otherPage: () => Promise<Page>,
+  existingSessions: MatrixEvidence['sessions'] = []
 ) {
   const actor = request.actors[actorIndex];
   assert(actor);
@@ -108,25 +109,48 @@ export async function exerciseWorkspaceMatrix(
     let spaces = await spacesContent(page);
     await spaces.locator('#sodaspaces-data[aria-busy=false]').waitFor();
     await page.setViewportSize({width: 1920, height: 1200});
-    for (const project of request.projects)
-      for (let number = 0; number < 3; number++) {
-        const name = await prepareManagedTerminal(page, project.repository_path.slice(1), project.environment);
-        assert(name);
-        pending.push({name, environment: project.environment});
-        evidence.stage = 'create ' + sessions.length;
-        permit({name, environment: project.environment, actor}, 'reserve');
-        await newManagedTerminal(page, project.repository_path.slice(1), name, project.environment);
-        assert(!protocolFailure && pending.length === 0);
-        const session = sessions.at(-1);
-        assert(session);
-        evidence.stage = 'native facts ' + (sessions.length - 1);
-        const facts = await native.shell(page, session, true);
-        assert(facts.pid > 0 && facts.start && facts.login && facts.tty && facts.marker === session.name);
-        const record = evidence.sessions.find((record) => record.id === session.id);
-        assert(record);
-        record.facts = facts;
+    if (existingSessions.length) {
+      assert.equal(existingSessions.length, 6);
+      assert.equal(new Set(existingSessions.map((session) => session.id)).size, 6);
+      for (const record of existingSessions) {
+        assert(record.facts && !record.end_requested && !record.native_cleanup);
+        assert.equal(record.actor, actor);
+        assert(request.projects.some((project) => project.environment === record.environment));
+        assert(terminalID(record.id));
+        const session = {name: record.name, environment: record.environment, id: record.id, actor};
+        sessions.push(session);
+        evidence.sessions.push({...record});
+      }
+      for (const session of sessions) {
+        evidence.stage = 'attach retained ' + sessions.indexOf(session);
+        await select(session);
+        const record = evidence.sessions.find((record) => record.id === session.id),
+          project = request.projects.find((project) => project.environment === session.environment);
+        assert(record?.facts && project);
+        const facts = await native.shell(page, session, false);
+        assert.deepEqual(facts, record.facts);
         await native.inspect(project, actorIndex, session, facts, false);
       }
+    } else
+      for (const project of request.projects)
+        for (let number = 0; number < 3; number++) {
+          const name = await prepareManagedTerminal(page, project.repository_path.slice(1), project.environment);
+          assert(name);
+          pending.push({name, environment: project.environment});
+          evidence.stage = 'create ' + sessions.length;
+          permit({name, environment: project.environment, actor}, 'reserve');
+          await newManagedTerminal(page, project.repository_path.slice(1), name, project.environment);
+          assert(!protocolFailure && pending.length === 0);
+          const session = sessions.at(-1);
+          assert(session);
+          evidence.stage = 'native facts ' + (sessions.length - 1);
+          const facts = await native.shell(page, session, true);
+          assert(facts.pid > 0 && facts.start && facts.login && facts.tty && facts.marker === session.name);
+          const record = evidence.sessions.find((record) => record.id === session.id);
+          assert(record);
+          record.facts = facts;
+          await native.inspect(project, actorIndex, session, facts, false);
+        }
     assert.equal(sessions.length, 6);
     assert.equal(new Set(sessions.map((session) => session.id)).size, 6);
     evidence.stage = 'contending writer';
@@ -151,14 +175,32 @@ export async function exerciseWorkspaceMatrix(
     // Closing the contender can select the read-only journey's other native tab,
     // not this page. Use a real foreground transition, never focus emulation.
     await page.bringToFront();
+    spaces = await spacesContent(page);
     evidence.stage = 'same-document layout';
     const hosts = await spaces.locator('.soda-workspace-terminal').elementHandles(),
       screens = await spaces.locator('.xterm').elementHandles();
     assert.equal(hosts.length, 6);
     assert.equal(screens.length, 6);
     evidence.stage = 'split right';
+    const navigation = spaces.locator('.soda-workspace-navigation'),
+      restoreSidebar = await navigation.isVisible();
+    const splitRight = spaces.getByRole('button', {name: 'Split right', exact: true});
     await spaces.getByLabel('Pane actions', {exact: true}).click();
-    await spaces.getByRole('button', {name: 'Split right', exact: true}).click();
+    if (await splitRight.isDisabled()) {
+      await spaces.getByLabel('Pane actions', {exact: true}).click();
+      assert(restoreSidebar, 'The disabled split must be caused by the visible project sidebar');
+      await spaces.getByLabel('Workspace options', {exact: true}).click();
+      await spaces.getByRole('button', {name: 'Toggle sidebar', exact: true}).click();
+      const options = spaces.getByLabel('Workspace options', {exact: true});
+      if (await options.evaluate((summary) => summary.parentElement?.hasAttribute('open'))) await options.click();
+      await spaces.getByLabel('Pane actions', {exact: true}).click();
+    }
+    const splitDeadline = Date.now() + 15_000;
+    while (await splitRight.isDisabled()) {
+      assert(Date.now() < splitDeadline, 'Split right did not become available after the sidebar was hidden');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    await splitRight.click();
     evidence.stage = 'move to pane';
     await spaces.getByLabel('Move terminal to pane', {exact: true}).click();
     await spaces.getByRole('button', {name: 'Pane 2', exact: true}).click();
@@ -169,6 +211,11 @@ export async function exerciseWorkspaceMatrix(
     await spaces.getByLabel('Pane actions', {exact: true}).first().click();
     await spaces.getByRole('button', {name: 'Consolidate panes', exact: true}).click();
     for (const handle of [...hosts, ...screens]) assert(await handle.evaluate((node) => node.isConnected));
+    if (restoreSidebar && !(await navigation.isVisible())) {
+      await spaces.getByLabel('Workspace options', {exact: true}).click();
+      await spaces.getByRole('button', {name: 'Toggle sidebar', exact: true}).click();
+      await navigation.waitFor({state: 'visible'});
+    }
     evidence.same_document = true;
     evidence.stage = 'hide and show without native actions';
     const first = sessions[0];

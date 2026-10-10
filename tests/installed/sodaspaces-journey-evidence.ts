@@ -71,6 +71,11 @@ async function focusNativeBrowsing(page: Page) {
     current = await state();
   }
   assert.deepEqual(current, {expanded: 'false', label: 'Show panels'}, 'Native browsing focus control state mismatch');
+  if (!(await frame.evaluate((element: HTMLIFrameElement) => element.contentDocument?.hasFocus()))) {
+    // A second native page can take browsing focus when it closes. Restore it
+    // through a real visible-frame click before checking the native contract.
+    await frame.click();
+  }
   await page.waitForFunction(() => {
     const root = document.querySelector<HTMLElement>('[data-extension-workspace]');
     const frame = root?.querySelector<HTMLIFrameElement>('[data-extension-workspace-frame]');
