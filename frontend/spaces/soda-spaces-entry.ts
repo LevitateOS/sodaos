@@ -13,6 +13,8 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
     return link;
   });
   root.append(...styles);
+  // Retire the native panel before this page can restore the shared layout.
+  window.frameElement?.closest('[data-extension-workspace]')?.dispatchEvent(new Event('soda-spaces-opening'));
   const page = mountSpacesPage(root, transport, forgejoPrefix(context));
   return {
     dispose() {

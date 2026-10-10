@@ -1,5 +1,7 @@
 // Real emitted workspace; the shared model supplies synthetic HTTP/socket peers.
 import {mountSodaspaces} from '../../../frontend/spaces/sodaspaces-workspace.js';
+import {mount as mountWorkspacePanel} from '../../../frontend/spaces/soda-workspace-panel-entry.js';
+import {mount as mountSpacesEntry} from '../../../frontend/spaces/soda-spaces-entry.js';
 import {object} from '../../../frontend/spaces/sodaspaces-api.js';
 import {createWorkspaceModel} from './workspace-model.js';
 export {projectA, projectB} from './workspace-model.js';
@@ -73,7 +75,19 @@ function createWorkspaceFixture(mode: 'native' | 'page' = 'page', firstUse = fal
 declare global {
   interface Window {
     createWorkspaceFixture: typeof createWorkspaceFixture;
+    mountWorkspacePanel: typeof mountWorkspacePanel;
     workspaceFixture: ReturnType<typeof createWorkspaceFixture>;
   }
 }
 window.createWorkspaceFixture = createWorkspaceFixture;
+window.mountWorkspacePanel = mountWorkspacePanel;
+if (location.pathname === '/-/extensions/pages/soda/spaces') {
+  const model = installWorkspaceModel();
+  mountSpacesEntry(model.root, {
+    extensionId: 'soda',
+    pageId: 'spaces',
+    apiBase: location.origin + '/-/extensions/pages/soda/spaces/api/',
+    assetBase: location.origin + '/assets/',
+    sessionGeneration: model.generation,
+  });
+}

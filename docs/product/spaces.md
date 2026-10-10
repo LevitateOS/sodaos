@@ -24,6 +24,11 @@ and shell attachment in the persistent panel. A page or displayed repository
 change never retargets a terminal. A new target requires explicit terminal
 selection.
 
+When the native frame opens the full Spaces page, the panel releases its browser
+workspace and the page restores the saved layout. Returning to repository browsing
+restores the panel. This keeps one workspace owner from competing with another
+for the same terminal; native execution continues through the handoff.
+
 The host rechecks the signed-in account when returning from cached pages before
 showing private state or resuming operations. An expired flow cannot continue as a
 different actor. There is one workspace host; the former Soda-only shell and
