@@ -54,10 +54,11 @@ failure remains the returned primary error.
 ## Validation
 
 Media may select any authenticated `coreos-installer` version. The producer records
-the actual version from its selected Assembler image in the authenticated media
-inputs and live identity. Customization must observe that same version, and the
-live installer must match the authenticated identity before installation. A
-missing, malformed or different version refuses the handoff.
+the actual version from the candidate OS image in the authenticated live identity.
+The live installer must match that identity before installation. The Assembler's
+customization tool has its own recorded version, which customization must match;
+it can differ from the installer delivered in the candidate OS. A missing,
+malformed or different version refuses the corresponding handoff.
 
 Validate media and installation on native `x86_64` under the
 [platform scope](../architecture/release.md#architectures). Diskless boot evidence does

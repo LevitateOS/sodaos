@@ -17,12 +17,11 @@ pub fn validate_installer_version(version: &str) -> Result<(), Error> {
     Ok(())
 }
 
-/// Read the installer version from the exact selected Assembler image before
-/// its value is embedded in the candidate-derived live identity.
+/// Read the installer version from the exact selected OCI image.
 pub fn observe_installer_version(
     production: &dyn Production,
     root: &str,
-    id: &str,
+    image: &str,
 ) -> Result<String, Error> {
     let version = production.capture(
         root,
@@ -38,7 +37,7 @@ pub fn observe_installer_version(
             "--cap-drop=all".to_string(),
             "--security-opt=label=disable".to_string(),
             "--entrypoint=/usr/bin/coreos-installer".to_string(),
-            id.to_string(),
+            image.to_string(),
             "--version".to_string(),
         ],
     )?;

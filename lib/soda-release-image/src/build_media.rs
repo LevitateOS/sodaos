@@ -49,15 +49,8 @@ pub fn finish_build_media(
     if !request.wants_media() {
         return Ok(());
     }
-    let installer_version = lock.installer.clone();
-    media::validate_installer_version(&installer_version)?;
-    prepare_media_inputs(
-        production.source(),
-        production.out(),
-        tools,
-        &installer_version,
-        production,
-    )?;
+    media::validate_installer_version(&lock.installer)?;
+    prepare_media_inputs(production.source(), production.out(), tools, production)?;
     media::assemble_media(production, request, lock, next)?;
     Ok(())
 }
@@ -135,16 +128,15 @@ pub fn admit_media_tools(
 }
 
 /// Generate the live handoff in the same source-to-candidate run, using the
-/// exact candidate and once-compiled console. This is public build output,
-/// not protected media admission, ISO assembly or installation authority.
+/// candidate host's installer version and once-compiled console. This is
+/// public build output, not protected media admission, ISO assembly or
+/// installation authority.
 pub fn prepare_media_inputs(
     source: &str,
     out: &str,
     tools: &MediaTools,
-    installer_version: &str,
     production: &dyn Production,
 ) -> Result<(), Error> {
-    media::validate_installer_version(installer_version)?;
     let destination = production.capture(
         source,
         "podman",
@@ -170,6 +162,11 @@ pub fn prepare_media_inputs(
     )?;
     let candidate_text = sys::read_json_build_text(&sys::join(&[out, "candidate.json"]))?;
     let candidate = model::Candidate::parse(&candidate_text)?;
+    if !model::prefixed_digest(&candidate.host.config) {
+        return Err(Error::msg("candidate host image configuration required"));
+    }
+    let installer_version =
+        media::observe_installer_version(production, source, &candidate.host.config)?;
     let payload = fs::read(sys::join(&[out, "payload.json"]))?;
     let console = sys::hash_file(&sys::join(&[out, "tools/soda-installer"]))?;
     let live = ignition::candidate_live_config(
@@ -177,7 +174,7 @@ pub fn prepare_media_inputs(
         destination.as_bytes(),
         &candidate.host.manifest,
         &console,
-        installer_version,
+        &installer_version,
     )?;
     sys::write_new(
         &sys::join(&[out, "destination.ign"]),
@@ -192,11 +189,50 @@ pub fn prepare_media_inputs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
+
+    fn payload_fixture() -> model::Payload {
+        let revision = "a".repeat(40);
+        let core_os = "44.20260913.3.2".to_string();
+        let repository_prefix = "ghcr.io/levitateos/sodaos".to_string();
+        let images = model::NAMES
+            .iter()
+            .enumerate()
+            .map(|(index, name)| {
+                let manifest = format!("sha256:{:064x}", index + 10);
+                (
+                    (*name).to_string(),
+                    model::PayloadImage {
+                        reference: format!("{repository_prefix}-{name}@{manifest}"),
+                        config: format!("sha256:{:064x}", index + 1),
+                        manifest,
+                        archive_sha256: format!("{:064x}", index + 20),
+                    },
+                )
+            })
+            .collect();
+        model::Payload {
+            format: 3,
+            id: format!("{core_os}.soda-{}", &revision[..12]),
+            revision,
+            architecture: "x86_64".to_string(),
+            core_os,
+            base: format!("quay.io/fedora/fedora-coreos@sha256:{}", "b".repeat(64)),
+            repository_prefix,
+            schema: model::SCHEMA_VERSION,
+            presentation_sha256: "c".repeat(64),
+            host_packages_sha256: "d".repeat(64),
+            images,
+            upgrade_from: Vec::new(),
+        }
+    }
 
     #[test]
-    fn oracle_media_boundary_skips_without_target() {
+    fn oracle_media_boundary_skips_without_target_and_uses_host_version_for_live_identity() {
         // Oracle: Go TestCandidateBoundaryDoesNotAdmitOrDispatchMedia (half).
-        struct Stub;
+        struct Stub {
+            host_config: Option<String>,
+        }
         impl Production for Stub {
             fn source(&self) -> &str {
                 "/src"
@@ -225,8 +261,21 @@ mod tests {
             fn execute(&self, _: &str, _: &str, _: &[String]) -> Result<(), Error> {
                 panic!("dispatched")
             }
-            fn capture(&self, _: &str, _: &str, _: &[String]) -> Result<String, Error> {
-                panic!("dispatched")
+            fn capture(&self, _: &str, _: &str, args: &[String]) -> Result<String, Error> {
+                let Some(host_config) = &self.host_config else {
+                    panic!("dispatched")
+                };
+                if args.iter().any(|arg| arg == "--strict") {
+                    return Ok(
+                        r#"{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}"#.to_string()
+                    );
+                }
+                assert!(args.iter().any(|arg| arg == host_config));
+                assert!(args
+                    .iter()
+                    .any(|arg| arg == "--entrypoint=/usr/bin/coreos-installer"));
+                assert_eq!(args.last().map(String::as_str), Some("--version"));
+                Ok("coreos-installer 0.26.0\n".to_string())
             }
             fn resolve_inputs(&mut self) -> Result<(), Error> {
                 Ok(())
@@ -307,7 +356,7 @@ mod tests {
                 Ok(String::new())
             }
         }
-        let stub = Stub;
+        let stub = Stub { host_config: None };
         let candidate = request::Request {
             development: true,
             target: "candidate".to_string(),
@@ -324,5 +373,84 @@ mod tests {
             &mut |_| Ok(()),
         )
         .unwrap();
+
+        let temp = std::env::current_dir()
+            .unwrap()
+            .join(".artifacts")
+            .join(format!("soda-build-media-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp);
+        fs::create_dir_all(&temp).unwrap();
+        let out = temp.to_string_lossy().into_owned();
+        let host_config = format!("sha256:{}", "e".repeat(64));
+        let host_manifest = format!("sha256:{}", "f".repeat(64));
+        let assembler_version = "coreos-installer 0.27.0";
+        fs::write(
+            sys::join(&[&out, "candidate.json"]),
+            serde_json::json!({
+                "Host": {"Config": host_config, "Manifest": host_manifest}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(
+            sys::join(&[&out, "payload.json"]),
+            serde_json::to_vec(&payload_fixture()).unwrap(),
+        )
+        .unwrap();
+        fs::create_dir_all(sys::join(&[&out, "tools"])).unwrap();
+        fs::write(sys::join(&[&out, "tools/soda-installer"]), b"installer").unwrap();
+        let stub = Stub {
+            host_config: Some(host_config),
+        };
+        prepare_media_inputs(
+            "/src",
+            &out,
+            &MediaTools {
+                butane: BUTANE_IMAGE.to_string(),
+                architecture: "x86_64".to_string(),
+            },
+            &stub,
+        )
+        .unwrap();
+        let live: serde_json::Value =
+            serde_json::from_slice(&fs::read(sys::join(&[&out, "live.ign"])).unwrap()).unwrap();
+        let media_file = live["storage"]["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|file| file["path"] == "/var/usrlocal/share/soda-installer/media.json")
+            .unwrap();
+        let source = media_file["contents"]["source"].as_str().unwrap();
+        let encoded = source.strip_prefix("data:;base64,").unwrap();
+        let identity: serde_json::Value = serde_json::from_slice(
+            &base64::engine::general_purpose::STANDARD
+                .decode(encoded)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(identity["InstallerVersion"], "coreos-installer 0.26.0");
+        assert_ne!(identity["InstallerVersion"], assembler_version);
+
+        fs::write(
+            sys::join(&[&out, "candidate.json"]),
+            serde_json::json!({ "Host": {"Config": "--help", "Manifest": host_manifest} })
+                .to_string(),
+        )
+        .unwrap();
+        assert_eq!(
+            prepare_media_inputs(
+                "/src",
+                &out,
+                &MediaTools {
+                    butane: BUTANE_IMAGE.to_string(),
+                    architecture: "x86_64".to_string(),
+                },
+                &stub,
+            )
+            .unwrap_err()
+            .0,
+            "candidate host image configuration required"
+        );
+        let _ = fs::remove_dir_all(temp);
     }
 }

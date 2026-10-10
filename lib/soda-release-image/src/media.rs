@@ -43,6 +43,8 @@ pub struct MediaLock {
     pub config: String,
     #[serde(rename = "Architecture")]
     pub architecture: String,
+    /// Version of the Assembler's customization tool, distinct from the
+    /// candidate host installer embedded in live media identity.
     #[serde(rename = "Installer")]
     pub installer: String,
 }
