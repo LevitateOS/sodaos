@@ -80,6 +80,8 @@ pub fn extract_build_snapshot(
         source,
         "git",
         &[
+            "-c".to_string(),
+            "tar.umask=0022".to_string(),
             "archive".to_string(),
             "--format=tar".to_string(),
             "--output".to_string(),
@@ -95,9 +97,140 @@ pub fn extract_build_snapshot(
             "--file".to_string(),
             archive,
             "--no-same-owner".to_string(),
+            "--same-permissions".to_string(),
         ],
     )?;
     Ok(snapshot)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::process::Command;
+
+    #[test]
+    fn extract_build_snapshot_restores_archived_modes_under_restrictive_umask() {
+        const CHILD: &str = "SODA_SNAPSHOT_MODE_TEST_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            let status = Command::new("sh")
+                .arg("-c")
+                .arg("umask 077; exec \"$@\"")
+                .arg("sh")
+                .arg(std::env::current_exe().unwrap())
+                .arg("extract_build_snapshot_restores_archived_modes_under_restrictive_umask")
+                .arg("--nocapture")
+                .env(CHILD, "1")
+                .status()
+                .unwrap();
+            assert!(status.success(), "isolated restrictive-umask test failed");
+            return;
+        }
+
+        let attempt = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "soda-build-snapshot-mode-{}-{attempt}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("source");
+        let out = root.join("out");
+        let archived_usr = source.join("system/project/rootfs/usr");
+        fs::create_dir_all(&archived_usr).unwrap();
+        fs::create_dir_all(out.join("work")).unwrap();
+        fs::create_dir_all(out.join("artifacts")).unwrap();
+        let helper = archived_usr.join("libexec/soda/helper");
+        fs::create_dir_all(helper.parent().unwrap()).unwrap();
+        fs::write(&helper, "#!/bin/sh\nexit 0\n").unwrap();
+        let data = archived_usr.join("share/example.conf");
+        fs::create_dir_all(data.parent().unwrap()).unwrap();
+        fs::write(&data, "example=true\n").unwrap();
+        for dir in [
+            &source,
+            &source.join("system"),
+            &source.join("system/project"),
+            &source.join("system/project/rootfs"),
+            &archived_usr,
+            &archived_usr.join("libexec"),
+            &archived_usr.join("libexec/soda"),
+            &archived_usr.join("share"),
+        ] {
+            fs::set_permissions(dir, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(&data, fs::Permissions::from_mode(0o644)).unwrap();
+
+        for args in [
+            vec!["init", "-q"],
+            vec![
+                "-C",
+                source.to_str().unwrap(),
+                "config",
+                "user.email",
+                "fixture@example.invalid",
+            ],
+            vec![
+                "-C",
+                source.to_str().unwrap(),
+                "config",
+                "user.name",
+                "fixture",
+            ],
+            vec!["-C", source.to_str().unwrap(), "add", "system"],
+            vec!["-C", source.to_str().unwrap(), "commit", "-qm", "fixture"],
+        ] {
+            let status = Command::new("git")
+                .args(args)
+                .current_dir(&source)
+                .status()
+                .unwrap();
+            assert!(status.success(), "git fixture command failed");
+        }
+        let revision = Command::new("git")
+            .args(["-C", source.to_str().unwrap(), "rev-parse", "HEAD"])
+            .output()
+            .unwrap();
+        assert!(revision.status.success());
+        let revision = String::from_utf8(revision.stdout)
+            .unwrap()
+            .trim()
+            .to_string();
+
+        let runner = Runner::new(Rc::new(Cancel::new()));
+        let snapshot = extract_build_snapshot(
+            source.to_str().unwrap(),
+            out.to_str().unwrap(),
+            &revision,
+            &runner,
+        )
+        .unwrap();
+        let mode =
+            |path: &std::path::Path| fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(std::path::Path::new(&snapshot)), 0o700);
+        assert_eq!(
+            mode(&std::path::Path::new(&snapshot).join("system/project/rootfs/usr")),
+            0o755
+        );
+        assert_eq!(
+            mode(
+                &std::path::Path::new(&snapshot)
+                    .join("system/project/rootfs/usr/libexec/soda/helper")
+            ),
+            0o755
+        );
+        assert_eq!(
+            mode(
+                &std::path::Path::new(&snapshot)
+                    .join("system/project/rootfs/usr/share/example.conf")
+            ),
+            0o644
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 }
 
 pub fn setup_build_workspace(
