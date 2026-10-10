@@ -8,5 +8,6 @@ ConditionPathExists=/var/lib/soda/forgejo/gitea/conf/app.ini
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/bin/podman run --rm --pull=never --network=none --user=1000:1000 --cap-drop=all --security-opt=no-new-privileges --volume=/var/lib/soda/forgejo:/data:Z --env=FORGEJO__server__APP_DATA_PATH=/data/gitea --entrypoint=/bin/sh localhost/soda-extension:dev -ec 'environment-to-ini --config /data/gitea/conf/app.ini; exec /usr/local/bin/gitea --config /data/gitea/conf/app.ini extensions install --replace /usr/share/soda/extension'
 TimeoutStartSec=120
