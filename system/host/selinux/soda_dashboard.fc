@@ -1,0 +1,1 @@
+/run/soda/host\.sock -s system_u:object_r:soda_host_socket_t:s0

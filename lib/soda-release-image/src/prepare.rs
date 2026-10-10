@@ -103,6 +103,18 @@ impl PreparedWriter {
 
     pub fn write_base_files(&self, packages: &[String], repo: &str) -> Result<(), Error> {
         self.copy_file("system/host/Containerfile", "Containerfile", 0o644, false)?;
+        self.copy_file(
+            "system/host/selinux/soda_dashboard.te",
+            "selinux/soda_dashboard.te",
+            0o644,
+            false,
+        )?;
+        self.copy_file(
+            "system/host/selinux/soda_dashboard.fc",
+            "selinux/soda_dashboard.fc",
+            0o644,
+            false,
+        )?;
         // Bare names only: the install floats on current repositories and the
         // built image's inventory is recorded as the bill-of-materials.
         // Nothing here pins versions.

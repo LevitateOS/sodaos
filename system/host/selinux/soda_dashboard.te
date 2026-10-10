@@ -1,0 +1,49 @@
+policy_module(soda_dashboard, 1.0)
+
+gen_require(`
+	type container_t;
+	type container_file_t;
+	type init_t;
+	type unconfined_service_t;
+	type http_cache_port_t;
+	type node_t;
+')
+
+# Give only the dashboard container its own SELinux domain. The image itself
+# remains an ordinary confined container and keeps the container runtime's
+# standard per-container labels and MCS isolation.
+type soda_dashboard_file_t;
+container_file(soda_dashboard_file_t)
+container_domain_template(soda_dashboard, soda_dashboard)
+
+# OCI layers and private bind mounts retain Podman's standard container_file_t
+# type. These are the exact image, config, coordinator-lock, and extension
+# directory accesses observed from this dedicated domain. MCS labels continue
+# to isolate each container's private files.
+allow soda_dashboard_t container_file_t:file { execute getattr lock map open read write };
+allow soda_dashboard_t container_file_t:dir { add_name remove_name write };
+allow soda_dashboard_t container_file_t:lnk_file read;
+
+# The shared PostgreSQL unix socket and dashboard-to-Forgejo extension socket
+# use the existing :z container_file_t mount. Keep both cross-container IPC
+# directions scoped to this dedicated dashboard process domain.
+allow soda_dashboard_t container_file_t:sock_file { create getattr setattr unlink write };
+allow soda_dashboard_t container_t:unix_stream_socket connectto;
+allow container_t soda_dashboard_t:unix_stream_socket connectto;
+
+# systemd owns this socket and recreates it with RemoveOnStop. A dedicated
+# socket type preserves that lifecycle while granting the dashboard only the
+# write needed to connect and the exact host daemon peer it currently uses.
+type soda_host_socket_t;
+files_type(soda_host_socket_t)
+
+files_search_pids(soda_dashboard_t)
+allow soda_dashboard_t soda_host_socket_t:sock_file write;
+allow soda_dashboard_t unconfined_service_t:unix_stream_socket connectto;
+allow soda_dashboard_t http_cache_port_t:tcp_socket name_bind;
+allow soda_dashboard_t self:tcp_socket listen;
+allow soda_dashboard_t node_t:tcp_socket node_bind;
+
+# systemd creates and removes this one socket as its socket unit starts and
+# stops; it does not gain permission to relabel or manage other runtime files.
+allow init_t soda_host_socket_t:sock_file { create getattr setattr unlink };

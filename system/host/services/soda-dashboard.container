@@ -13,14 +13,15 @@ User=2000:2000
 DropCapability=all
 ReadOnly=true
 NoNewPrivileges=true
+SecurityLabelType=soda_dashboard_t
 Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,Z
 Volume=/etc/soda/grant-key:/etc/soda/grant-key:ro,Z
 Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z
 Volume=/run/soda/postgres:/run/soda/postgres:ro,z
 # systemd owns the host and identity listener files (RemoveOnStop); a shared
-# relabel would flip them to container_file_t, after which systemd can no
-# longer unlink them and socket restarts fail with EADDRINUSE. Mount without
-# relabeling: the dashboard connects fine under the policy var_run_t label.
+# relabel would break systemd's RemoveOnStop lifecycle. Keep the mount
+# unlabeled; the appliance policy assigns this socket its own type and grants
+# this dashboard domain only the access needed to connect to soda-host.
 Volume=/run/soda/host.sock:/run/soda/host.sock:ro
 Volume=/run/soda/identity:/run/soda/identity:ro
 Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw,Z

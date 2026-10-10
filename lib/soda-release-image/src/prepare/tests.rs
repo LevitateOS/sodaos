@@ -1,6 +1,45 @@
 use super::*;
 
 #[test]
+fn base_context_stages_dashboard_policy_sources() {
+    let root = std::env::temp_dir().join(format!(
+        "soda-release-prepare-policy-{}",
+        std::process::id()
+    ));
+    let source = root.join("source");
+    let output = root.join("output");
+    fs::create_dir_all(source.join("system/host/selinux")).expect("source tree");
+    fs::write(source.join("system/host/Containerfile"), b"FROM base\n").expect("Containerfile");
+    fs::write(
+        source.join("system/host/selinux/soda_dashboard.te"),
+        b"policy_module(soda_dashboard, 1.0)\n",
+    )
+    .expect("policy source");
+    fs::write(
+        source.join("system/host/selinux/soda_dashboard.fc"),
+        b"/run/soda/host\\.sock -s system_u:object_r:soda_host_socket_t:s0\n",
+    )
+    .expect("file contexts");
+
+    PreparedWriter {
+        source: source.to_string_lossy().into_owned(),
+        out: output.to_string_lossy().into_owned(),
+    }
+    .write_base_files(&[], "https://repo.invalid/repo")
+    .expect("base context");
+
+    assert_eq!(
+        fs::read(output.join("selinux/soda_dashboard.te")).expect("staged policy"),
+        b"policy_module(soda_dashboard, 1.0)\n"
+    );
+    assert_eq!(
+        fs::read(output.join("selinux/soda_dashboard.fc")).expect("staged file contexts"),
+        b"/run/soda/host\\.sock -s system_u:object_r:soda_host_socket_t:s0\n"
+    );
+    fs::remove_dir_all(root).expect("remove test tree");
+}
+
+#[test]
 fn oracle_base_inputs_require_exact_revision() {
     // Oracle: Go finishBaseInputs revision gate.
     struct Stub;

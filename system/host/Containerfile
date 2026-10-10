@@ -1,6 +1,16 @@
 # Local host-content candidate, not yet an installable Soda release. The caller
 # build context supplies the selected architecture-specific CoreOS image digest.
 ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS selinux-policy-build
+
+# Compile the appliance's targeted SELinux policy using this exact base's
+# platform headers, without adding the policy development toolchain to the
+# appliance package inventory.
+COPY selinux/ /run/soda-build/selinux/
+RUN rpm-ostree install selinux-policy-devel && \
+    make -f /usr/share/selinux/devel/Makefile \
+      -C /run/soda-build/selinux soda_dashboard.pp
+
 FROM ${BASE_IMAGE}
 
 # Keep the existing provisioning package list as the source of authority. The
@@ -14,6 +24,12 @@ RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.ur
     mkdir -p /usr/share/soda/host-image && \
     rpm -qa --qf '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' > /run/soda-build/packages.unsorted && \
     LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt
+
+COPY --from=selinux-policy-build \
+     /run/soda-build/selinux/soda_dashboard.pp \
+     /run/soda-build/soda_dashboard.pp
+RUN semodule --noreload -i /run/soda-build/soda_dashboard.pp && \
+    rm -f /run/soda-build/soda_dashboard.pp
 
 COPY rootfs/ /
 # Native rpm-ostree container finalization. Keep Fedora's update ownership;
