@@ -58,12 +58,12 @@ routing are separate configuration.
 | Area | Source / documentation |
 | --- | --- |
 | Product and architecture | [Overview](docs/product/overview.md), [Architecture](docs/architecture/overview.md), [Scope](docs/product/scope.md) |
-| Bounded software work | `rust/soda-factory/`, `internal/factory/`, [Operator reference](docs/reference/factory.md), [First task](docs/public/30-Use-Soda/15-software-factory.md) |
+| Bounded software work | [Factory command](cmd/soda-factory/README.md), `internal/factory/`, [Operator reference](docs/reference/factory.md), [First task](docs/public/30-Use-Soda/15-software-factory.md) |
 | Host capability strategy | [Host strategy](docs/research/host-strategy.md) |
 | API / auth / Forgejo customization | `cmd/`, `internal/`, [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md), [Forgejo](docs/reference/forgejo.md) |
 | Installation / operator access | `system/`, `scripts/`, [Installation](docs/guides/installation.md), [Operator setup](docs/guides/operator-setup.md), [Media](docs/guides/media.md) |
 | Project environments | `system/project/`, [Project OS](docs/reference/project-os.md), [Develop](docs/guides/develop.md), [Services](docs/guides/project-services.md), [CLIs](docs/guides/project-clis.md) |
-| Cockpit, runners, support tools | `assets/branding/cockpit/`, `tools/`, [Cockpit](docs/development/cockpit.md), [Runners](docs/reference/runners.md), [Native support](docs/development/native-support.md) |
+| Cockpit and support tools | `assets/branding/cockpit/`, `tools/`, [Cockpit](docs/development/cockpit.md), [Native support](docs/development/native-support.md) |
 | Branding and reuse | `assets/`, [Branding](docs/design/branding.md), [Attribution](docs/research/predecessor-reuse.md), [Console](docs/design/console-welcome.md), [Screenshots](docs/design/screenshot-capture.md) |
 | Public handbook | [Handbook](docs/public/10-Start-here/10-index.md), [Authoring](docs/public/README.md) |
 | Release | [Release architecture](docs/architecture/release.md), [Release workflow](docs/development/release.md) |
@@ -72,6 +72,45 @@ routing are separate configuration.
 Supported platform scope belongs to [Release architecture](docs/architecture/release.md#architectures).
 Builds, installation, provider mutations and destructive cleanup need applicable
 approval. Preserve credentials, project state, backups and failed evidence.
+
+## Rust package guides
+
+Every Cargo package has a local guide to its purpose, prerequisites and use.
+Start with the installed commands for appliance or project work. Library guides
+are for Rust consumers; build and fixture tools are for release developers and
+operators. Run their Cargo examples from this repository's root with the
+toolchain selected by [rust-toolchain.toml](rust-toolchain.toml).
+
+| Package guide | Use |
+| --- | --- |
+| [Activation](cmd/soda-activate/README.md) | Activate private browser and Git access. |
+| [Console welcome](cmd/soda-console-welcome/README.md) | Read appliance network and access guidance. |
+| [Factory command](cmd/soda-factory/README.md) | Inspect and retire supervised factory runs. |
+| [Forgejo domain](cmd/soda-forgejo-domain/README.md) | Control the Forgejo writer domain during recovery. |
+| [Forgejo migration](cmd/soda-forgejo-migrate/README.md) | Prepare database-password configuration at startup. |
+| [Identity Compose](cmd/soda-identity-compose/README.md) | Give a selected nested service Muse access. |
+| [Identity broker](cmd/soda-identity/README.md) | Operate the private provider-credential broker. |
+| [Image import](cmd/soda-image-import/README.md) | Import bundled images into host Podman storage. |
+| [Installer](cmd/soda-install/README.md) | Install to disk and continue appliance setup. |
+| [Muse launcher](cmd/soda-muse/README.md) | Run Muse from a provisioned project account. |
+| [Muse maintenance](cmd/soda-muse-maintain/README.md) | Restore packaged Muse tools in a retained project. |
+| [PostgreSQL maintenance](cmd/soda-pg-maintenance/README.md) | Back up, restore and provision appliance databases. |
+| [Project terminal helpers](cmd/soda-project-terminal/README.md) | Use managed terminals and understand their service helpers. |
+| [Operator setup](cmd/soda-setup/README.md) | Bootstrap the native operator binding and configuration. |
+| [Host service](lib/host/README.md) | Operate project provisioning and privileged host capabilities. |
+| [Release inputs](lib/release-inputs/README.md) | Validate release metadata from Rust. |
+| [Release build library](lib/soda-release-build/README.md) | Fetch inputs and run native build primitives. |
+| [Release delivery library](lib/soda-release-deliver/README.md) | Validate, sign and publish with protected release authority. |
+| [Release image library](lib/soda-release-image/README.md) | Assemble host content, candidates and installation media. |
+| [Release commands](lib/soda-release-tools/README.md) | Produce candidates and media and inspect artifacts. |
+| [Unix HTTP library](lib/unix-http/README.md) | Make bounded HTTP requests over Unix sockets. |
+| [Wire time library](lib/wire-time/README.md) | Parse and format shared protocol timestamps. |
+| [Acceptance support](tools/acceptance/README.md) | Run bounded native checks and collect evidence. |
+| [Candidate setup](tools/candidate-setup/README.md) | Prepare an isolated development builder. |
+| [Lab credentials](tools/lab-credentials/README.md) | Inspect credentials and select a rotation runbook. |
+| [PostgreSQL fixture](tools/pg-fixture/README.md) | Start a disposable local test database. |
+| [Release assets](tools/release-assets/README.md) | Fetch and stage assets and render provisioning. |
+| [Test VM](tools/test-vm/README.md) | Start and access a prepared development VM. |
 
 ## License
 

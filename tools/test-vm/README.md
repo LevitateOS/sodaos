@@ -1,38 +1,50 @@
 # soda-test-vm
 
-Rust port of `scripts/test-vm.sh`: manage the isolated x86_64 test VM
-prepared under `.artifacts/test-vm`. Never installs on the builder, deletes
-a disk, or changes host networking.
+Start and access the prepared local x86_64 development VM in
+`.artifacts/test-vm`. This tool is for operators and developers using a retained
+test fixture; it uses the existing disk and provisioning rather than preparing
+a new VM.
 
-Messages, exit codes, the QEMU command line, ssh/tail argv, lock handling,
-and pidfile checks match the shell exactly, with three deliberate deltas:
-the tool operates relative to the current directory (invoke it from the
-repository root; `$PWD` is honored only when it names the cwd) instead
-of cd-ing to the script's own location, whose cd/dirname failure modes
-are not modeled; the usage
-and started lines print the working `cargo run` invocation instead of the
-deleted script path; and `exec` uses execvp PATH search, which skips a
-broken shadow entry where bash would stop and fail. A non-EPIPE stdout
-failure (ENOSPC) panics instead of exiting silently like `echo`.
-Closed-pipe death (141, silent) matches the shell.
+## Prerequisites
 
-The operator key and known-hosts file travel as paths (`-i`,
-`UserKnownHostsFile`), never content; no secret bytes are read or printed.
+Run from the repository root. Starting requires native x86_64 Linux, read/write
+access to `/dev/kvm`, and QEMU at `/usr/libexec/qemu-kvm`. Set `QEMU` to another
+absolute executable path if needed. The guest receives 4 vCPUs and 8 GiB RAM.
 
-## Run
+Prepare these files under `.artifacts/test-vm/` before starting:
 
-```sh
-cargo run -p soda-test-vm -- [start|status|ssh [COMMAND...]|tunnel|web-tunnel|console]
-```
+- `disk.qcow2`: the fixture disk, which the guest can modify.
+- `soda.ign`: the fixture's Ignition provisioning document.
+- `operator`: the private SSH authentication key.
+- `known_hosts`: the trusted guest SSH host-key entry.
 
-## Tests
+Keep private inputs restricted. SSH uses strict host-key checking and connects
+as root through `127.0.0.1:22220`; it requires the system `ssh` client.
+
+## Use the fixture
 
 ```sh
-cargo test -p soda-test-vm
+cargo run -p soda-test-vm -- status
+cargo run -p soda-test-vm -- start
+cargo run -p soda-test-vm -- ssh
+cargo run -p soda-test-vm -- ssh hostname
 ```
 
-Unit tests pin pidfile semantics and argv construction; integration tests
-cover usage, status shapes, refusal paths, the QEMU command line, and the
-exec argv/failure shapes with fake QEMU/ssh/tail. No real VM is ever
-started. Tests past the KVM gate skip cleanly where `/dev/kvm` is not
-accessible.
+With no action, the command defaults to `status`. A stopped VM returns exit
+`1`; an already running VM is left running by `start`. Starting creates a
+lock, pidfile and console log beside the fixture inputs.
+
+| Action | Result |
+| --- | --- |
+| `tunnel` | Keep SSH forwards open for Forgejo at `http://localhost:23000` and Cockpit at `https://localhost:29090`. |
+| `web-tunnel` | Keep the fixture's private HTTPS endpoint forwarded at `https://localhost:24444`. |
+| `console` | Follow the last 80 lines and subsequent output of `console.log` using `tail`. |
+
+The services must already be configured inside the guest. Trust the fixture CA
+for HTTPS. Stop a tunnel or log tail with Ctrl-C; the VM keeps running.
+For an intentional guest shutdown, use `cargo run -p soda-test-vm -- ssh poweroff`.
+There is no `stop` action or disk-deletion command.
+
+See [local testing](../../docs/guides/local-testing.md) for fixture access and
+[native support](../../docs/development/native-support.md#fresh-vm-contract)
+for preparing a separate fresh VM with bounded acceptance evidence.

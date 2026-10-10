@@ -1,46 +1,56 @@
 # soda-candidate-setup
 
-Rust port of `scripts/setup-soda-candidate.sh` (plus the
-`scripts/candidate-storage.sh` defaults it sourced). Prepares this machine so
-`sudo soda-candidate` runs without a coding agent. Development and fixture
-scope only: never creates qualification or signing configs.
+Prepare a native development builder for isolated Soda candidate builds. This
+operator tool installs the candidate wrapper and admitted build controller,
+prepares worker tools/caches and storage, installs the worker SELinux policy,
+and creates a fixture-only media authority.
 
-Messages, exit codes, installed paths, file modes, and generated file bytes
-match the shell exactly. Like the script, the binary takes no arguments and
-ignores any it is given; it is driven by the working directory (the
-repository root) and the same environment variables.
+## Before running
 
-Deliberate deltas: the tool does not `cd` to the script's location (run it
-from the repository root); `worker.json` is delivered through `sudo tee`
-instead of `sudo python3` (bytes identical, staging I/O failures surface as
-setup errors instead of tracebacks); paths containing quotes or newlines
-produce valid JSON where the shell's unquoted heredoc died with a Python
-syntax error; death by signal during staging leaves the scratch staging
-behind while the script's EXIT trap removed it; spawn diagnostics carry the
-fixed tool prefix instead of `$0 ... line N`; and a non-EPIPE stdout
-failure (ENOSPC) panics instead of aborting like the `echo` builtin.
+Use an authorized x86_64 builder with working `sudo`, systemd, the existing
+`soda-build-worker` user, Go, Bun, Podman, Skopeo and `flock`. Run from a clean,
+committed Soda checkout with a clean canonical Forgejo fork checkout available.
+The repository pins the build toolchain; setup may download tools and warm
+caches. An active candidate worker prevents setup from proceeding.
 
-## Run
+This command changes the builder's installed files, policy and worker state.
+Its authority keys are for development fixtures and cannot replace release
+signing keys. The [native support guide](../../docs/development/native-support.md)
+owns candidate isolation and development-versus-qualification rules.
+
+## Prepare the builder
 
 From the repository root:
 
 ```sh
-cargo run -p soda-candidate-setup
+SODA_FORGEJO_SOURCE=/home/soda-builder/forgejo-source \
+  cargo run -p soda-candidate-setup
 ```
 
-Environment (same as the script):
+The command takes no CLI options; even `--help` is ignored and would run setup.
+Configure it through the environment:
 
-- `SODA_FORGEJO_SOURCE` (required): clean canonical Forgejo fork checkout.
-- `SODA_REPOSITORY_PREFIX` (default `ghcr.io/levitateos/sodaos`).
-- `SODA_REFRESH_AUTHORITY` (`1` regenerates the fixture media authority).
-- `SODA_CANDIDATE_ROOT/HOME/RUN/SCRATCH` (development/test overrides).
+| Variable | Use |
+| --- | --- |
+| `SODA_FORGEJO_SOURCE` | Required absolute canonical Forgejo fork checkout. |
+| `SODA_REPOSITORY_PREFIX` | Repository namespace; defaults to `ghcr.io/levitateos/sodaos`. |
+| `SODA_REFRESH_AUTHORITY` | Set to `1` to regenerate the fixture media authority. This invalidates signatures made with the old keys. |
+| `SODA_CANDIDATE_ROOT` | Worker storage root; defaults to `/home/soda-candidate`. |
+| `SODA_CANDIDATE_HOME` | Worker home; defaults to `home` under the storage root. |
+| `SODA_CANDIDATE_RUN` | Worker runtime; defaults to `run` under the storage root. |
+| `SODA_CANDIDATE_SCRATCH` | Worker scratch; defaults to `scratch` under the storage root. |
 
-## Tests
+Keep storage overrides on the workspace disk. They change worker storage, not
+all installed paths or the setup lease location.
 
-```sh
-cargo test -p soda-candidate-setup
-```
+## Result
 
-Unit tests pin the JSON bytes, parsers, and helpers; integration tests
-exercise every failure path up to (not including) the first privileged
-mutation, so the suite touches no services, credentials, or host state.
+Successful setup prints a development build invocation using the generated
+worker configuration. Candidate output is placed below
+`.artifacts/releases/isolated/`. Follow the printed command with a fresh output
+directory when ready to build; setup itself does not produce a candidate.
+
+For the build commands, see [release tools](../../lib/soda-release-tools/README.md)
+and [release workflow](../../docs/development/release.md). Installation and
+fixture provisioning remain separate operations in the
+[installation guide](../../docs/guides/installation.md).

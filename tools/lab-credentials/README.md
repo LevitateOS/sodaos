@@ -1,39 +1,55 @@
 # soda-rotate-lab-creds
 
-Rust port of `scripts/ops/rotate-lab-creds.sh`: lab credential inventory
-and owner-gated rotation (B7). Defaults to read-only inventory and prints
-runbooks; only `--execute` with `SODA_ROTATE_ACK=<class>` mutates, and only
-for fully scriptable classes. Secrets travel via 0600 files, never argv,
-environment values in logs, or stdout.
+Inspect lab credential file metadata and print rotation runbooks. This tool is
+for lab operators; it defaults to a read-only inventory. Only fixture media
+authority rotation is automated.
 
-Messages, exit codes, inspected paths, file modes, and generated file bytes
-match the shell exactly, with three deliberate deltas: the
-fixture-authority runbook prints the working `cargo run` invocation instead
-of the deleted shell path; usage and `set -u` crash lines carry the new
-argv0 instead of `$0 ... line N`; and a non-EPIPE stdout failure (ENOSPC)
-panics instead of exiting silently like `echo`. Closed-pipe death (141,
-silent) and staging cleanup on that path match the shell. Death by another
-signal (TERM/INT) during rotation leaves the 0700 staging directory behind
-while the script's EXIT trap removed it; there is no sound in-process fix,
-so a killed rotation needs its staging reaped by the owner. The metadata
-glob assumes C-locale collation order.
+## Inspect credentials
 
-## Run
+Run from the repository root with your normal operator shell environment:
 
 ```sh
-cargo run -p soda-rotate-lab-creds -- [inventory|--rotate CLASS [--execute]]
+cargo run -p soda-rotate-lab-creds -- inventory
+cargo run -p soda-rotate-lab-creds -- --help
+cargo run -p soda-rotate-lab-creds -- --rotate fixture-authority
 ```
 
-Classes: `fixture-authority` `cloudflared-token` `forgejo-runner`
-`lab-vm-operator`. Only `fixture-authority` is scriptable; the rest print
-owner-manual runbooks.
+The inventory prints paths, ownership, modes, sizes and timestamps, with
+`PASS`, `WARN` or `SKIP` per inspected item. It checks fixture authority,
+cloudflared, runner and VM operator-key paths and available build metadata;
+it does not print credential contents. Missing or unreadable files appear as
+skips. No arguments has the same effect as `inventory`.
 
-## Tests
+## Choose a rotation class
+
+| Class | Behavior |
+| --- | --- |
+| `fixture-authority` | Print a runbook, or regenerate fixture signing material with the execution options below. |
+| `cloudflared-token` | Print the owner-manual tunnel credential runbook. |
+| `forgejo-runner` | Print the owner-manual runner credential runbook. |
+| `lab-vm-operator` | Print the owner-manual VM operator-key runbook. |
+
+`--execute` does not automate the three manual classes.
+
+After explicitly selecting fixture-authority rotation, choose an existing
+private temporary directory on the workspace disk:
 
 ```sh
-cargo test -p soda-rotate-lab-creds
+TMPDIR=/home/soda-builder/private/tmp SODA_ROTATE_ACK=fixture-authority \
+  cargo run -p soda-rotate-lab-creds -- --rotate fixture-authority --execute
 ```
 
-Unit tests pin the JSON bytes, inventory formatting, and helpers;
-integration tests cover help, inventory structure, runbooks, and every
-refusal path. Nothing in the suite mutates credentials or services.
+Execution needs Skopeo, `sudo` access and the existing candidate worker setup.
+It replaces fixture authority material in `/var/lib/soda-candidate-authority`
+and updates its worker binding. Existing signatures stop verifying, so affected
+development attempts need setup again. `SODA_REPOSITORY_PREFIX` selects the
+namespace, defaulting to `ghcr.io/levitateos/sodaos`.
+
+Private staging files use restricted modes. Keep temporary staging on the
+workspace disk by setting `TMPDIR` to an existing private directory there.
+If rotation is interrupted, inspect any retained staging before cleaning up
+that run's files. Fixture keys are separate from release signing keys.
+
+See [candidate setup](../candidate-setup/README.md) for the worker setup and
+[native support](../../docs/development/native-support.md) for authority and
+release-delivery boundaries.
