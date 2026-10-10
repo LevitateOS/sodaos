@@ -6,6 +6,7 @@ gen_require(`
 	type init_t;
 	type unconfined_service_t;
 	type http_cache_port_t;
+	type ntop_port_t;
 	type node_t;
 ')
 
@@ -43,6 +44,10 @@ allow soda_dashboard_t unconfined_service_t:unix_stream_socket connectto;
 allow soda_dashboard_t http_cache_port_t:tcp_socket name_bind;
 allow soda_dashboard_t self:tcp_socket listen;
 allow soda_dashboard_t node_t:tcp_socket node_bind;
+
+# The service observer resolves its native actor through Forgejo's loopback
+# REST listener. Fedora labels the configured TCP port 3000 ntop_port_t.
+allow soda_dashboard_t ntop_port_t:tcp_socket name_connect;
 
 # systemd creates and removes this one socket as its socket unit starts and
 # stops; it does not gain permission to relabel or manage other runtime files.
