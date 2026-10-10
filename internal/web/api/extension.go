@@ -23,6 +23,8 @@ var (
 	errExtensionResponseInvalid  = errors.New("soda response could not be read")
 )
 
+const extensionResponseHeaderTimeout = stopOperationTimeout + time.Minute
+
 // Extension prepares the initial read/preferences bridge over a private Unix
 // socket. The receiving Soda listener must verify the native admission itself;
 // this transport must never point at the public dashboard browser listener.
@@ -31,7 +33,10 @@ func Extension(socket string) (http.Handler, func()) {
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "unix", socket)
 		},
-		ResponseHeaderTimeout: 10 * time.Second,
+		// An admitted mutation may outlive the browser/Fountain request and
+		// is bounded by its detached operation context. Keep this transport
+		// open long enough to return that operation's recorded outcome.
+		ResponseHeaderTimeout: extensionResponseHeaderTimeout,
 	}
 	proxy := &httputil.ReverseProxy{
 		Transport: transport,

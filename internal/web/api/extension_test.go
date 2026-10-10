@@ -2,17 +2,84 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
+
+func TestExtensionProxyWaitsForAdmittedLifecycleResponse(t *testing.T) {
+	suffix := strconv.Itoa(os.Getpid())
+	callbackPath := "@soda-callback-" + suffix
+	callbackListener, err := net.Listen("unix", callbackPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	callback := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var in extensions.CallbackRequest
+		if r.URL.Path != extensions.NativeCallbackPath || r.Header.Get(extensions.AdmissionHeader) != "test-admission" || json.NewDecoder(r.Body).Decode(&in) != nil || in.Operation != extensions.OperationCurrentActor {
+			http.Error(w, "denied", http.StatusForbidden)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Actor: &extensions.Actor{ID: "1", Username: "alice"}})
+	}))
+	callback.Listener.Close()
+	callback.Listener = callbackListener
+	callback.Start()
+	t.Cleanup(callback.Close)
+	t.Setenv(extensions.CallbackEnv, callbackPath)
+
+	servicePath := "@soda-service-" + suffix
+	serviceListener, err := net.Listen("unix", servicePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// The original 10-second proxy timeout returned 503 while a normal
+		// detached Project lifecycle operation was still running.
+		time.Sleep(10*time.Second + 100*time.Millisecond)
+		_, _ = io.WriteString(w, `{}`)
+	})}
+	go func() { _ = service.Serve(serviceListener) }()
+	t.Cleanup(func() { _ = service.Close() })
+
+	handler, closeTransport := Extension(servicePath)
+	t.Cleanup(closeTransport)
+	authority, err := json.Marshal(extensions.Authority{
+		ExtensionID: "soda", InstanceID: "proxy-test", SessionGeneration: "generation-1",
+		Contribution: extensions.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: "get"},
+		Actor:        extensions.Actor{ID: "1", Username: "alice"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/spaces", nil)
+	r.Header.Set(extensions.ContextHeader, string(authority))
+	r.Header.Set(extensions.AdmissionHeader, "test-admission")
+	w := httptest.NewRecorder()
+	started := time.Now()
+	handler.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("lifecycle-length response status = %d, body=%q", w.Code, w.Body.String())
+	}
+	if elapsed := time.Since(started); elapsed < 10*time.Second {
+		t.Fatalf("proxy returned before delayed response: %v", elapsed)
+	}
+	if extensionResponseHeaderTimeout <= stopOperationTimeout {
+		t.Fatalf("proxy response window %v does not cover admitted stop window %v", extensionResponseHeaderTimeout, stopOperationTimeout)
+	}
+}
 
 func TestExtensionResponseIsBounded(t *testing.T) {
 	response := &http.Response{
