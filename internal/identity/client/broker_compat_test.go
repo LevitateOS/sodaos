@@ -3,7 +3,7 @@ package client
 // Compatibility between the Go identity client and the Rust broker
 // binary: builds soda-identity, seeds one subscription connection and
 // drives every client call against it. Skips without the A10 fixture,
-// a writable tmpfs provider root (/dev/shm) or a cargo toolchain.
+// a writable tmpfs provider root or a cargo toolchain.
 import (
 	"bytes"
 	"context"
@@ -65,7 +65,11 @@ func buildBroker(t *testing.T) string {
 // private tmpfs, and the broker validates that before serving.
 func tmpfsRoot(t *testing.T) string {
 	t.Helper()
-	parent := filepath.Join("/dev/shm", fmt.Sprintf("soda-compat-%d", os.Getpid()))
+	base := os.Getenv("SODA_IDENTITY_TEST_TMPFS_DIR")
+	if base == "" {
+		base = "/dev/shm"
+	}
+	parent := filepath.Join(base, fmt.Sprintf("soda-compat-%d", os.Getpid()))
 	if err := os.MkdirAll(parent, 0o700); err != nil {
 		t.Skipf("tmpfs provider root unavailable: %v", err)
 	}
@@ -241,7 +245,7 @@ func TestRustBrokerCompatibility(t *testing.T) {
 	if err != nil || lease.ConnectionID != "conn-compat" || lease.GrantID != grant.ID {
 		t.Fatalf("acquire: %v %+v", err, lease)
 	}
-	execution, err := runtimeClient.GetExecution(ctx, identity.Factory, "execution-compat")
+	execution, err := adminClient.GetExecution(ctx, identity.Factory, "execution-compat")
 	if err != nil || execution.State != "live" || execution.LeaseID != lease.ID {
 		t.Fatalf("get execution: %v %+v", err, execution)
 	}
@@ -258,16 +262,16 @@ func TestRustBrokerCompatibility(t *testing.T) {
 	if err := runtimeClient.Return(ctx, lease.ID, binding, []byte(compatCredential)); err != nil {
 		t.Fatalf("return: %v", err)
 	}
-	execution, err = runtimeClient.GetExecution(ctx, identity.Factory, "execution-compat")
+	execution, err = adminClient.GetExecution(ctx, identity.Factory, "execution-compat")
 	if err != nil || execution.State != "terminal" {
 		t.Fatalf("terminal execution: %v %+v", err, execution)
 	}
 
 	// Error codes cross the wire unchanged.
-	if _, err := runtimeClient.GetExecution(ctx, identity.Factory, "missing"); err != identity.ErrNotFound {
+	if _, err := adminClient.GetExecution(ctx, identity.Factory, "missing"); err != identity.ErrNotFound {
 		t.Fatalf("missing execution: %v", err)
 	}
-	if err := runtimeClient.CloseExecution(ctx, identity.Factory, "execution-compat"); err != nil {
+	if err := adminClient.CloseExecution(ctx, identity.Factory, "execution-compat"); err != nil {
 		t.Fatalf("close execution: %v", err)
 	}
 	if err := adminClient.RevokeGrant(ctx, 1, grant.ID); err != nil {

@@ -56,7 +56,9 @@ fn route(
 ) -> Result<Option<Vec<u8>>, Error> {
     match path {
         "/connections" => Ok(Some(controller.connections(input.owner_id)?)),
-        "/available" => Ok(Some(controller.available(input.owner_id, &input.project_id)?)),
+        "/available" => Ok(Some(
+            controller.available(input.owner_id, &input.project_id)?,
+        )),
         "/revoke" => {
             controller.revoke(input.owner_id, &input.id)?;
             Ok(None)
@@ -89,6 +91,13 @@ fn route(
         "/leases" => Ok(Some(controller.leases(input.owner_id, &input.id)?)),
         "/lease/end" => {
             controller.end_lease(input.owner_id, &input.id)?;
+            Ok(None)
+        }
+        "/execution/get" => Ok(Some(serde_json::to_vec(
+            &controller.get_execution(&input.kind, &input.execution_id)?,
+        )?)),
+        "/execution/close" => {
+            controller.close_execution(&input.kind, &input.execution_id)?;
             Ok(None)
         }
         _ => {
@@ -142,13 +151,6 @@ pub(crate) fn route_runtime(
         }
         "/reconcile-lease" => {
             controller.reconcile_lease(&input.id)?;
-            Ok(None)
-        }
-        "/execution/get" => Ok(Some(serde_json::to_vec(
-            &controller.get_execution(&input.kind, &input.execution_id)?,
-        )?)),
-        "/execution/close" => {
-            controller.close_execution(&input.kind, &input.execution_id)?;
             Ok(None)
         }
         _ => Err(Error::denied("identity authority denied")),

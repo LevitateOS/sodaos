@@ -4,6 +4,7 @@
 mod common;
 
 use common::{controller, fixture_key, Ephemeral};
+use soda_identity::wire::{AcquireRequest, Request, UnixTime};
 use std::sync::Arc;
 
 #[test]
@@ -152,12 +153,110 @@ fn http_admission_matches_go() {
             let (status, _) = call(&runtime_path, &post("/connections", &body, ""));
             assert_eq!(status, 400, "strict body accepted: {body}");
         }
-        // Runtime paths are denied on the admin socket.
-        let (status, _) = call(
-            &admin_path,
-            &post("/acquire", r#"{"acquire":{"provider_id":"codex"}}"#, ""),
+        // Lifecycle administration fences acquisition without credential delivery.
+        broker.start_enrollment(1, "codex", "synthetic").unwrap();
+        let connection = broker
+            .enrollment(1, "enrollment-1")
+            .unwrap()
+            .connection
+            .unwrap();
+        let mut acquire = AcquireRequest {
+            repository_id: 0,
+            provider_id: "codex".to_string(),
+            execution_id: "admin-preclosed".to_string(),
+            actor_id: 1,
+            connection_id: connection.id,
+            project_id: "project".to_string(),
+            kind: "factory".to_string(),
+            deadline: UnixTime {
+                sec: UnixTime::now().sec + 3600,
+                nanos: 0,
+            },
+            role: String::new(),
+        };
+        let selector = r#"{"kind":"factory","execution_id":"admin-preclosed"}"#;
+        let (status, response) = call(&admin_path, &post("/execution/close", selector, ""));
+        assert_eq!((status, response.as_slice()), (200, b"{}\n".as_slice()));
+        let (status, response) = call(&admin_path, &post("/execution/get", selector, ""));
+        assert_eq!(status, 200);
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&response).unwrap(),
+            serde_json::json!({
+                "kind": "factory", "execution_id": "admin-preclosed", "digest": "", "state": "terminal",
+            })
         );
-        assert_eq!(status, 403);
+        let payload = serde_json::to_string(&Request {
+            acquire: Some(acquire.clone()),
+            ..Request::default()
+        })
+        .unwrap();
+        let (status, _) = call(&runtime_path, &post("/acquire", &payload, ""));
+        assert_eq!(
+            status, 403,
+            "admin closure must fence a valid later acquisition"
+        );
+        // A live execution's administration response carries only its metadata.
+        acquire.execution_id = "admin-metadata".to_string();
+        let lease = broker.acquire(&acquire).unwrap();
+        let (status, response) = call(
+            &admin_path,
+            &post(
+                "/execution/get",
+                r#"{"kind":"factory","execution_id":"admin-metadata"}"#,
+                "",
+            ),
+        );
+        assert_eq!(status, 200);
+        let metadata: serde_json::Value = serde_json::from_slice(&response).unwrap();
+        assert_eq!(metadata["kind"], "factory");
+        assert_eq!(metadata["execution_id"], "admin-metadata");
+        assert_eq!(metadata["lease_id"], lease.id);
+        assert_eq!(metadata["state"], "live");
+        assert!(!metadata["digest"].as_str().unwrap().is_empty());
+        let mut fields = metadata
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        fields.sort_unstable();
+        assert_eq!(
+            fields,
+            ["digest", "execution_id", "kind", "lease_id", "state"]
+        );
+        for path in ["/execution/get", "/execution/close"] {
+            for selector in [
+                r#"{"kind":"unknown","execution_id":"admin-metadata"}"#,
+                r#"{"kind":"factory"}"#,
+            ] {
+                let (status, _) = call(&admin_path, &post(path, selector, ""));
+                assert_eq!(status, 403, "invalid lifecycle selector on {path}");
+            }
+        }
+        // Credential custody and lease recovery remain runtime-only.
+        for (path, body) in [
+            ("/acquire", payload.as_str()),
+            (
+                "/register",
+                r#"{"id":"missing-lease","binding":{"kind":"factory","id":"admin-metadata","generation":1}}"#,
+            ),
+            (
+                "/return",
+                r#"{"id":"missing-lease","binding":{"kind":"factory","id":"admin-metadata","generation":1},"credential":"e30="}"#,
+            ),
+            (
+                "/reject",
+                r#"{"id":"missing-lease","binding":{"kind":"factory","id":"admin-metadata","generation":1}}"#,
+            ),
+            ("/reconcile-lease", r#"{"id":"missing-lease"}"#),
+        ] {
+            let (status, response) = call(&admin_path, &post(path, body, ""));
+            assert_eq!(
+                (status, response.as_slice()),
+                (403, b"denied\n".as_slice()),
+                "runtime-only route {path}"
+            );
+        }
         // Unknown paths are denied everywhere.
         let (status, _) = call(&runtime_path, &post("/nope", r#"{}"#, ""));
         assert_eq!(status, 403);

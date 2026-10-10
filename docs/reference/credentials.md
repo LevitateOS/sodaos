@@ -176,6 +176,9 @@ fixed process contract; the broker never shells out to container runtimes.
 The dashboard stays separate. `soda-identity.socket` admits administration at
 `/run/soda/identity/admin.sock` for the Soda service group; the execution socket
 `/run/soda/identity/runtime.sock` is owner-only (root host also has access).
+The dashboard uses administration to read nonsecret execution metadata and close
+executions, including fencing late acquisition. Acquisition, credential delivery,
+return, rejection and lease recovery stay on the host's execution socket.
 Systemd preserves the socket identity across service restarts and kills the full
 broker service cgroup, including enrollment children. Neither socket enters a
 project.
