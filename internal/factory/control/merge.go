@@ -184,10 +184,10 @@ func (c *Coordinator) storeMerge(ctx context.Context, m *factory.Merge, report *
 	return true
 }
 
-func (c *Coordinator) finishMerge(ctx context.Context, m factory.Merge, stage string, outcome factory.Outcome, reason string, report *MergeReport) {
+func (c *Coordinator) finishMerge(ctx context.Context, m factory.Merge, stage string, outcome factory.Outcome, reason string, report *MergeReport) bool {
 	m.Stage, m.Outcome, m.Reason, m.FinishedUnix = stage, outcome, reason, time.Now().Unix()
 	if !c.storeMerge(ctx, &m, report) {
-		return
+		return false
 	}
 	switch stage {
 	case factory.MergeMerged:
@@ -197,4 +197,5 @@ func (c *Coordinator) finishMerge(ctx context.Context, m factory.Merge, stage st
 	case factory.MergeFenced:
 		report.Fenced = append(report.Fenced, m.ID)
 	}
+	return true
 }

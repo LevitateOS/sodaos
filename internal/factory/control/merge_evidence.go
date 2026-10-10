@@ -179,7 +179,9 @@ func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, repor
 		return
 	}
 	m.MergedCommit, m.MergedUnix, m.ClosedUnix = confirmation.MergedCommit, confirmation.MergedUnix, confirmation.ClosedUnix
-	c.finishMerge(ctx, *m, factory.MergeMerged, factory.Succeeded, factory.MergeReasonMerged, report)
+	if !c.finishMerge(ctx, *m, factory.MergeMerged, factory.Succeeded, factory.MergeReasonMerged, report) {
+		return
+	}
 	// Best-effort dependant release: confirmed completion reassesses
 	// dependants, and queued work launches within current limits.
 	// Failures wait for the next trigger; the merge above already

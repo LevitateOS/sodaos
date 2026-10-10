@@ -208,6 +208,8 @@ Lead B; [F07](reviews/F07.md), [F08](reviews/F08.md). B01/B02, A02/A05/A07 bound
 
   The shared-pool actor retry defect is source complete under [CON-G-ACTOR-ATTEMPTS-1](execution-findings.md#rank-1-correctness-and-trustworthy-evidence): all actor callers use the existing private single-use HTTP/1 lookup. Independent review and 64 focused Go test results including subcases pass without failures/skips. This does not establish proxy/custom-dial or whole-Dispatch bounds; B03.C-lifetime remains open.
 
+  [CON-G-MERGE-PERSIST-1](execution-findings.md#rank-1-correctness-and-trustworthy-evidence) resolves recursive dispatch after failed merge-completion persistence. Six focused Go/PG17 checks and independent source review pass; the real normal-trigger regression covers capacity rollback and successful redelivery. This does not close whole-invocation bounds or native qualification.
+
 ### B04 Publication, review and correction loop
 
 Lead B; [F09](reviews/F09.md), [F10](reviews/F10.md). B03 durable attempt/settlement/registration, B07 native adapters, A07 shared exports; Q3/Q5 apply to dependent loop work.
