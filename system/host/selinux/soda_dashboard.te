@@ -47,3 +47,11 @@ allow soda_dashboard_t node_t:tcp_socket node_bind;
 # systemd creates and removes this one socket as its socket unit starts and
 # stops; it does not gain permission to relabel or manage other runtime files.
 allow init_t soda_host_socket_t:sock_file { create getattr setattr unlink };
+
+# The identity administration listener is separate from the owner-only
+# runtime listener. Only this exact socket is labeled for dashboard access;
+# both listeners' server process runs in unconfined_service_t.
+type soda_identity_admin_socket_t;
+files_type(soda_identity_admin_socket_t)
+allow init_t soda_identity_admin_socket_t:sock_file { create getattr setattr unlink };
+allow soda_dashboard_t soda_identity_admin_socket_t:sock_file { getattr write };
