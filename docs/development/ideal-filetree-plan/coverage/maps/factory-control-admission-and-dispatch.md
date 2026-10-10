@@ -311,7 +311,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–169; file scaffold; TestRecoveryConsumesSettledRunWithoutHook; TestCompletionTriggersDependantReassessment; TestHostNotFoundMatcherPinsHostSentinel; TestIntakeTriggersAutomaticDispatch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 1–506, 622–743; file scaffold; TestRecoveryConsumesSettledRunWithoutHook; TestCompletionTriggersDependantReassessment; TestHostNotFoundMatcherPinsHostSentinel; TestIntakeTriggersAutomaticDispatch | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 507–621; TestReportedAssignmentReadinessRootDrainsOnDispatch | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Actual reported-assignment completion emits durable readiness work and the normal Dispatch pass drains it; selected PostgreSQL fixture proof only, with aggregate trigger-graph limits still open. |
 
 <a id="coverage-90596fafa0a5"></a>
 
@@ -617,7 +618,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–57, 124–157; file scaffold; cancelPublications; adoptObserved; operationOutcomeOf; storePublication | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 58–123, 158–171; publishAfterDispatch; withdrawPublication; finishPublication | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: publishAfterDispatch; Current declaration duty: withdrawPublication; Current declaration duty: finishPublication — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 58–123, 158–171; publishAfterDispatch; withdrawPublication; finishPublication | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: publishAfterDispatch; Current declaration duty: withdrawPublication; Current declaration duty: finishPublication. The `3766b3c3` repair propagates the readiness caller deadline through publication handoff while retaining a 10-minute cap; its cancellation/custody regression exercises expiry at this boundary. |
 
 <a id="coverage-ddeb03ec3eda"></a>
 
@@ -639,7 +640,7 @@ Current durable production drain, source integration `25ab7a48`.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–328; pass budget, evidence/page/assessment/selection counters, local drain exclusion, source selection/checkpoint/complete/defer and bounded graph processing | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Production continuation over Store `ReadinessWork` nodes. The intake regression demonstrates authenticated delivery yield/resume through Dispatch; the retirement packet reused 26 passing Store/schema/control cases and passed the corrected intake/cycle/fairness selectors. This does not prove aggregate physical RPC bounds through bootstrap/actor admission, successful completion workflow, or mutable-keyset restart; schema 39 removes the unused persisted `RootChanged` marker, while the invocation-local result remains. |
+| 1–328; pass budget, evidence/page/assessment/selection counters, local drain exclusion, source selection/checkpoint/complete/defer and bounded graph processing | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Production continuation over Store `ReadinessWork` nodes. The intake regression demonstrates authenticated delivery yield/resume through Dispatch; the 2026-10 selected deadline join also covers reported assignment → durable root → normal Dispatch and caller-expiry/custody, while existing merge-completion and publication/dispatch handoff subjects run in that proof. The retirement packet reused 26 passing Store/schema/control cases and passed the corrected intake/cycle/fairness selectors. These selected joins do not prove aggregate physical RPC bounds through bootstrap/actor admission or mutable-keyset restart; schema 39 removes the unused persisted `RootChanged` marker, while the invocation-local result remains. |
 
 <a id="coverage-f7aaecb325be"></a>
 
