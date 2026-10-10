@@ -11,6 +11,10 @@ fn response(status: u16, content_type: &'static str, body: Vec<u8>) -> HttpRespo
         hyper::header::CONTENT_TYPE,
         content_type.parse().expect("static content type"),
     );
+    out.headers_mut().insert(
+        hyper::header::CONNECTION,
+        hyper::header::HeaderValue::from_static("close"),
+    );
     out
 }
 

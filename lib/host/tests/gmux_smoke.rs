@@ -327,7 +327,7 @@ impl ExecBackend for ScriptBackend {
 
 #[test]
 fn native_clean_paths_reject_query_and_escapes() {
-    assert_eq!(NATIVE_CLEAN_PATHS.len(), 19);
+    assert_eq!(NATIVE_CLEAN_PATHS.len(), 20);
     for path in NATIVE_CLEAN_PATHS {
         let mut q = head("POST", path);
         q.has_query = true;
@@ -1231,6 +1231,7 @@ fn server_serves_stub_routes_and_parser_rejections() {
         .unwrap();
     let response = read_all(&mut client);
     assert_eq!(status_of(&response), 501);
+    assert_eq!(response.header_value("connection").as_deref(), Some("close"));
 
     // Tailnet errors still carry no-store over the wire.
     let mut client = UnixStream::connect(&path).unwrap();
@@ -1304,6 +1305,11 @@ fn server_runs_terminal_upgrade_and_pump() {
     // The pump records the session and returns, closing the stream.
     let response = read_all(&mut client);
     assert_eq!(status_of(&response), 101);
+    assert_eq!(
+        response.header_value("connection").as_deref(),
+        Some("Upgrade"),
+        "Connection: close makes the actual Go client discard the upgrade header"
+    );
     assert_eq!(
         response.header_value("sec-websocket-accept").as_deref(),
         Some("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")

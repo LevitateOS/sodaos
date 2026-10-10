@@ -359,7 +359,9 @@ async fn handle_connection<B: ExecBackend + 'static>(
     });
     let mut builder = http1::Builder::new();
     builder
-        .keep_alive(false)
+        // Ordinary responses close explicitly. Disabling keep-alive here also
+        // adds `close` to a 101 response and breaks the Go WebSocket client.
+        .keep_alive(true)
         .max_buf_size(MAX_HEADER)
         .max_header_size(MAX_HEADER)
         .header_read_timeout(HEADER_TIMEOUT)
