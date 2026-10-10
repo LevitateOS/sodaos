@@ -248,6 +248,12 @@ pub fn compile_shipping_tools(
         "soda-acceptance-remote",
         &sys::join(&[&tools, "soda-acceptance-remote"]),
     )?;
+    // Personal Git sends this sibling payload from the outside Go probe driver.
+    production.compile(
+        "soda-installed-probes",
+        "./tools/soda-installed-probes",
+        &sys::join(&[&tools, "soda-installed-probes"]),
+    )?;
     // The Rust console is compiled into the image above; link the tools copy
     // from it so media hashes the exact shipped bytes.
     fs::hard_link(
@@ -553,10 +559,16 @@ mod tests {
                 && b == "soda-acceptance-remote"
                 && d == &format!("{tools}/soda-acceptance-remote")
         }));
+        assert!(recorder.go.borrow().iter().any(|(name, package, dest)| {
+            name == "soda-installed-probes"
+                && package == "./tools/soda-installed-probes"
+                && dest == &format!("{tools}/soda-installed-probes")
+        }));
         let inventory = fs::read(format!("{artifacts}/tools.json")).unwrap();
         let record: serde_json::Value = serde_json::from_slice(&inventory).unwrap();
         let files = record.get("Files").unwrap();
         assert!(files.get("soda-acceptance-remote").is_some());
+        assert!(files.get("soda-installed-probes").is_some());
         assert!(files.get("soda-artifacts").is_some());
         let _ = fs::remove_dir_all(&dir);
     }

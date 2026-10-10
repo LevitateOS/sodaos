@@ -5,134 +5,49 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestGitRemoteProgram(t *testing.T) {
-	pass := strings.Repeat("B", 43)
-	for _, prepare := range []bool{true, false} {
-		program := gitRemoteProgram(pass, prepare)
-		for _, placeholder := range []string{"PASSPHRASE_INPUT", "PREPARE_DIRECTORY", "PREPARE_KEY"} {
-			if strings.Contains(program, placeholder) {
-				t.Errorf("prepare=%v leaves %s", prepare, placeholder)
-			}
+func TestPersonalGitPayloadResolutionAndCommand(t *testing.T) {
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "soda-installed-probes")
+	payload := []byte("compiled-payload")
+	if err := os.WriteFile(personalGitPayloadPath(executable), payload, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadPersonalGitPayload(executable)
+	if err != nil || !bytes.Equal(got, payload) {
+		t.Fatalf("payload = %q, %v", got, err)
+	}
+	for _, tc := range []struct {
+		prepare bool
+		phase   string
+	}{{true, "prepare"}, {false, "unlock"}} {
+		command := personalGitRemoteCommand(len(payload), tc.prepare)
+		if !strings.Contains(command, `mktemp "$HOME/.soda-personal-git.XXXXXX"`) || !strings.Contains(command, "head -c 16") || !strings.Contains(command, "personal-git "+tc.phase) {
+			t.Errorf("command = %q", command)
 		}
-		if !strings.Contains(program, "printf '%s' '"+pass+"'") {
-			t.Errorf("prepare=%v misquotes passphrase", prepare)
-		}
-		if !strings.HasPrefix(program, "set -eu\n") {
-			t.Errorf("prepare=%v bad prefix", prepare)
-		}
-		if !strings.HasSuffix(program, "cat \"$base/identity.pub\"\n") {
-			t.Errorf("prepare=%v bad suffix", prepare)
-		}
-		if strings.Contains(strings.ToLower(program), "python") {
-			t.Errorf("prepare=%v carries Python", prepare)
+		if strings.Contains(command, "PASSPHRASE") {
+			t.Errorf("command carries secret placeholder: %q", command)
 		}
 	}
-	prepare := gitRemoteProgram(pass, true)
-	if !strings.Contains(prepare, "\nmkdir -m 0700 \"$base\"\n") || !strings.Contains(prepare, "ssh-keygen") {
-		t.Error("prepare program misses key generation")
-	}
-	if strings.Contains(prepare, `[ -d "$base" ] || exit 1`) || strings.Contains(prepare, `[ -f "$base/identity" ] || exit 1`) {
-		t.Error("prepare program carries unlock assertions")
-	}
-	unlock := gitRemoteProgram(pass, false)
-	if !strings.Contains(unlock, "\n[ -d \"$base\" ] || exit 1\n") || !strings.Contains(unlock, `[ -f "$base/identity" ] || exit 1`) {
-		t.Error("unlock program misses assertions")
-	}
-	if strings.Contains(unlock, "mkdir -m 0700") || strings.Contains(unlock, "ssh-keygen") {
-		t.Error("unlock program carries prepare actions")
-	}
-	// Byte-critical lines: the askpass helper shape and the agent PID
-	// capture must stay exact.
-	if !strings.Contains(prepare, `printf '#!/bin/sh\nexec /usr/bin/head -c 128 %s\n' "$password" > "$ask"`) {
-		t.Error("askpass line differs")
-	}
-	if !strings.Contains(prepare, `sed -n 's/.*SSH_AGENT_PID=\([0-9][0-9]*\).*/\1/p'`) {
-		t.Error("agent pid line differs")
+	if got := quoteRemoteShell("a'b"); got != `'a'\''b'` {
+		t.Errorf("quoted command = %q", got)
 	}
 }
 
-func TestGitRemoteProgramExecutesPrepareThenUnlock(t *testing.T) {
-	home := t.TempDir()
-	bin := t.TempDir()
-	stub := func(name, body string) {
-		t.Helper()
-		path := filepath.Join(bin, name)
-		if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+func TestPersonalGitPayloadMissingFailsBeforePassphraseCreation(t *testing.T) {
+	t.Setenv("SODA_NATIVE_VALIDATE", "soda-test")
+	fixture := gitFixture(t)
+	if err := runPersonalGitWithPayload([]string{"prepare", fixture}, &bytes.Buffer{}, func() ([]byte, error) {
+		return nil, errors.New("compiled personal-Git payload unavailable")
+	}); err == nil {
+		t.Fatal("missing sibling payload accepted")
 	}
-	// Stub keygen writes a fixed key pair for whatever -f path it gets.
-	stub("ssh-keygen", `while [ $# -gt 0 ]; do if [ "$1" = "-f" ]; then key="$2"; shift 2; else shift; fi; done
-printf 'PRIVATE\n' > "$key"
-printf 'ssh-ed25519 AAAASTUBKEY U08 personal project Git\n' > "$key.pub"`)
-	stub("ssh-agent", `printf 'SSH_AGENT_PID=4242; export SSH_AGENT_PID;\n'`)
-	// No live agent anywhere in the fixture: -l always reports none (exit 2).
-	stub("ssh-add", `if [ "$1" = "-l" ]; then exit 2; fi
-exit 0`)
-	run := func(program string) (string, int) {
-		t.Helper()
-		cmd := exec.Command("sh", "-se")
-		cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-		cmd.Stdin = strings.NewReader(program)
-		out, err := cmd.Output()
-		if err == nil {
-			return string(out), 0
-		}
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			return string(out), exit.ExitCode()
-		}
-		t.Fatalf("run: %v", err)
-		return "", -1
-	}
-	pass := strings.Repeat("C", 43)
-	base := filepath.Join(home, ".ssh/u08-personal-git")
-	out, code := run(gitRemoteProgram(pass, true))
-	if code != 0 {
-		t.Fatalf("prepare exit = %d", code)
-	}
-	if out != "ssh-ed25519 AAAASTUBKEY U08 personal project Git\n" {
-		t.Fatalf("prepare stdout = %q", out)
-	}
-	for _, dir := range []string{filepath.Join(home, ".ssh"), base} {
-		st, err := os.Stat(dir)
-		if err != nil || !st.IsDir() || st.Mode().Perm() != 0o700 {
-			t.Errorf("dir %s = %v %v", dir, st, err)
-		}
-	}
-	for _, gone := range []string{"temporary-passphrase", "temporary-askpass"} {
-		if _, err := os.Stat(filepath.Join(base, gone)); !os.IsNotExist(err) {
-			t.Errorf("%s retained", gone)
-		}
-	}
-	gitssh, err := os.ReadFile(filepath.Join(base, "git-ssh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"SSH_AUTH_SOCK=" + base + "/agent", "IdentitiesOnly=yes", "-i " + base + "/identity", "\"$@\""} {
-		if !strings.Contains(string(gitssh), want) {
-			t.Errorf("git-ssh misses %q:\n%s", want, gitssh)
-		}
-	}
-	if st, _ := os.Stat(filepath.Join(base, "git-ssh")); st.Mode().Perm() != 0o700 {
-		t.Errorf("git-ssh mode = %o", st.Mode().Perm())
-	}
-	pid, err := os.ReadFile(filepath.Join(base, "agent.pid"))
-	if err != nil || string(pid) != "4242\n" {
-		t.Errorf("agent.pid = %q %v", pid, err)
-	}
-	out, code = run(gitRemoteProgram(pass, false))
-	if code != 0 || out != "ssh-ed25519 AAAASTUBKEY U08 personal project Git\n" {
-		t.Fatalf("unlock = %d %q", code, out)
-	}
-	if _, code := run(gitRemoteProgram(pass, true)); code == 0 {
-		t.Error("second prepare accepted")
+	if _, err := os.Stat(filepath.Join(fixture, "personal-git", "u08-alice-8417-passphrase")); !os.IsNotExist(err) {
+		t.Fatalf("passphrase exists before payload admission: %v", err)
 	}
 }
 
@@ -308,8 +223,9 @@ func stubGitSSH(t *testing.T, pubkey, commit string) string {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "argv.log")
 	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> " + log + "\n" +
+		"case \"$*\" in *'personal-git prepare'*|*'personal-git unlock'*) size=$(wc -c); printf 'STDIN:%s\\n' \"$size\" >> " + log + "; printf '" + pubkey + "\\n'; exit 0;; esac\n" +
 		"body=$(cat)\n" +
-		"case \"$body\" in *'ssh-agent'*) printf '" + pubkey + "\\n';; *'git clone'*) printf 'noise\\nU08-COMMIT:" + commit + "\\n';; *) exit 0;; esac\n"
+		"case \"$body\" in *'git clone'*) printf 'noise\\nU08-COMMIT:" + commit + "\\n';; *) exit 0;; esac\n"
 	path := filepath.Join(dir, "ssh")
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
@@ -334,7 +250,9 @@ func TestRunPersonalGitPrepareUnlock(t *testing.T) {
 	commit := strings.Repeat("d", 40)
 	log := stubGitSSH(t, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFAKEKEYFORTEST", commit)
 	var stdout bytes.Buffer
-	if err := RunPersonalGit([]string{"prepare", fixture}, &stdout); err != nil {
+	if err := runPersonalGitWithPayload([]string{"prepare", fixture}, &stdout, func() ([]byte, error) {
+		return []byte("compiled payload bytes"), nil
+	}); err != nil {
 		t.Fatalf("prepare failed: %v", err)
 	}
 	directory := filepath.Join(fixture, "personal-git")
@@ -355,16 +273,29 @@ func TestRunPersonalGitPrepareUnlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"sh -se", "IdentitiesOnly=yes", "u08-alice-8417@10.89.0.2", "u08-bob-8417@10.89.0.2"} {
+	for _, want := range []string{`mktemp "$HOME/.soda-personal-git.XXXXXX"`, "personal-git prepare", "head -c 22", "IdentitiesOnly=yes", "u08-alice-8417@10.89.0.2", "u08-bob-8417@10.89.0.2", "STDIN:65"} {
 		if !strings.Contains(string(argv), want) {
 			t.Errorf("argv log misses %q:\n%s", want, argv)
 		}
 	}
+	for _, login := range []string{"u08-alice-8417", "u08-bob-8417"} {
+		passphrase, err := os.ReadFile(filepath.Join(directory, login+"-passphrase"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(argv), string(passphrase)) {
+			t.Fatal("passphrase appeared in SSH argv log")
+		}
+	}
 	stdout.Reset()
-	if err := RunPersonalGit([]string{"unlock", fixture}, &stdout); err != nil {
+	if err := runPersonalGitWithPayload([]string{"unlock", fixture}, &stdout, func() ([]byte, error) {
+		return []byte("compiled payload bytes"), nil
+	}); err != nil {
 		t.Fatalf("unlock failed: %v", err)
 	}
-	if err := RunPersonalGit([]string{"prepare", fixture}, &bytes.Buffer{}); err == nil {
+	if err := runPersonalGitWithPayload([]string{"prepare", fixture}, &bytes.Buffer{}, func() ([]byte, error) {
+		return []byte("compiled payload bytes"), nil
+	}); err == nil {
 		t.Error("second prepare accepted")
 	}
 }

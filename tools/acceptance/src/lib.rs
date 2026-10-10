@@ -18,6 +18,7 @@ pub mod files;
 pub mod host_probes;
 pub mod jsonio;
 pub mod native_phase;
+pub mod personal_git;
 pub mod probe;
 pub mod process;
 pub mod project_state;

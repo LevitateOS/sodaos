@@ -27,52 +27,46 @@ import (
 // PersonalGitUsage documents the probe's CLI surface.
 const PersonalGitUsage = "soda-installed-probes personal-git {prepare|exercise|unlock} FIXTURE_DIR"
 
-// gitRemoteTemplate is the remote key/agent program in POSIX shell,
-// piped to sh -se like gitFetchProbe. It replaces the retired Python
-// template command for command: same directories, modes, umask, askpass
-// shape, agent-singleton probe (ssh-add -l must exit 2 for a stale
-// socket), key add, temporary cleanup and git-ssh writer. Every child
-// closes stdin: the program itself arrives over stdin, so an inheriting
-// child would consume the script. The placeholders are replaced exactly
-// as before.
-const gitRemoteTemplate = `set -eu
-base="$HOME/.ssh/u08-personal-git"
-mkdir -p -m 0700 "$HOME/.ssh"
-PREPARE_DIRECTORY
-umask 077
-password="$base/temporary-passphrase"
-ask="$base/temporary-askpass"
-printf '%s' PASSPHRASE_INPUT > "$password"
-printf '#!/bin/sh\nexec /usr/bin/head -c 128 %s\n' "$password" > "$ask"
-chmod 0700 "$ask"
-export SSH_ASKPASS="$ask" SSH_ASKPASS_REQUIRE=force DISPLAY=soda-u08
-PREPARE_KEY
-# A socket without a live agent is a retained run-owned transient.
-if [ -e "$base/agent" ]; then
-	set +e
-	SSH_AUTH_SOCK="$base/agent" ssh-add -l </dev/null >/dev/null 2>&1
-	code=$?
-	set -e
-	if [ "$code" != 2 ]; then echo 'Agent already live; no duplicate start' >&2; exit 1; fi
-	rm -f "$base/agent"
-fi
-agent=$(ssh-agent -a "$base/agent" -s </dev/null)
-pid=$(printf '%s' "$agent" | sed -n 's/.*SSH_AGENT_PID=\([0-9][0-9]*\).*/\1/p')
-[ -n "$pid" ] || { echo 'Git key/agent operation failed' >&2; exit 1; }
-printf '%s\n' "$pid" > "$base/agent.pid"
-export SSH_AUTH_SOCK="$base/agent"
-ssh-add "$base/identity" </dev/null
-# Only these exact run-owned temporary secret inputs are removed.
-# The encrypted key and live agent remain in this user's home.
-rm -f "$password" "$ask"
-{
-	printf '#!/bin/sh\n'
-	printf 'export SSH_AUTH_SOCK=%s\n' "$base/agent"
-	printf 'exec /usr/bin/ssh -F /dev/null -o BatchMode=yes -o ForwardAgent=no -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%s -i %s "$@"\n' "$base/known_hosts" "$base/identity"
-} > "$base/git-ssh"
-chmod 0700 "$base/git-ssh"
-cat "$base/identity.pub"
-`
+const personalGitPayloadName = "soda-acceptance-remote"
+
+// personalGitPayloadPath selects the compiled companion using the same
+// adjacent-binary contract as the Rust acceptance driver.
+func personalGitPayloadPath(executable string) string {
+	return filepath.Join(filepath.Dir(executable), personalGitPayloadName)
+}
+
+func personalGitPayload() ([]byte, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	return loadPersonalGitPayload(executable)
+}
+
+func loadPersonalGitPayload(executable string) ([]byte, error) {
+	data, err := os.ReadFile(personalGitPayloadPath(executable))
+	if err != nil {
+		return nil, errors.New("compiled personal-Git payload unavailable")
+	}
+	if len(data) == 0 {
+		return nil, errors.New("compiled personal-Git payload unavailable")
+	}
+	return data, nil
+}
+
+// personalGitRemoteCommand stages exactly the known payload prefix. The
+// passphrase remains on SSH stdin for the compiled program to read.
+func personalGitRemoteCommand(payloadSize int, prepare bool) string {
+	phase := "unlock"
+	if prepare {
+		phase = "prepare"
+	}
+	return fmt.Sprintf(`umask 077 && tmp=$(mktemp "$HOME/.soda-personal-git.XXXXXX") && trap 'rm -f "$tmp"' EXIT && head -c %d > "$tmp" && chmod 700 "$tmp" && "$tmp" personal-git %s`, payloadSize, phase)
+}
+
+func quoteRemoteShell(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
 
 // gitFetchProbe is the collaborator fetch check piped to sh -se.
 const gitFetchProbe = `set -eu
@@ -169,19 +163,6 @@ func tokenPassphrase() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(secret[:]), nil
 }
 
-// gitRemoteProgram renders the remote program for a validated passphrase.
-// The passphrase charset ([A-Za-z0-9_-]) admits no quoting, so
-// single-quote wrapping is exact.
-func gitRemoteProgram(passphrase string, prepare bool) string {
-	program := strings.ReplaceAll(gitRemoteTemplate, "PASSPHRASE_INPUT", "'"+passphrase+"'")
-	if prepare {
-		program = strings.ReplaceAll(program, "PREPARE_DIRECTORY", `mkdir -m 0700 "$base"`)
-		return strings.ReplaceAll(program, "PREPARE_KEY", `ssh-keygen -q -t ed25519 -f "$base/identity" -C 'U08 personal project Git' </dev/null`)
-	}
-	program = strings.ReplaceAll(program, "PREPARE_DIRECTORY", `[ -d "$base" ] || exit 1`)
-	return strings.ReplaceAll(program, "PREPARE_KEY", `[ -f "$base/identity" ] || exit 1`)
-}
-
 // preparePassfile creates a fresh passphrase file with exclusive 0600.
 func preparePassfile(path string) error {
 	passphrase, err := tokenPassphrase()
@@ -230,7 +211,7 @@ func loadPassphrase(path string) (passphrase string, resultErr error) {
 }
 
 // gitKeyUser runs the prepare/unlock phase for one user.
-func (p *gitProbe) gitKeyUser(login, who string, prepare bool, stdout io.Writer) error {
+func (p *gitProbe) gitKeyUser(login, who string, prepare bool, payload []byte, stdout io.Writer) error {
 	base := p.gitSSHBase(login, who)
 	passfile := filepath.Join(p.directory, login+"-passphrase")
 	if prepare {
@@ -238,7 +219,7 @@ func (p *gitProbe) gitKeyUser(login, who string, prepare bool, stdout io.Writer)
 			return err
 		}
 	}
-	public, err := p.fetchExportedKey(base, passfile, prepare)
+	public, err := p.fetchExportedKey(base, passfile, prepare, payload)
 	if err != nil {
 		return err
 	}
@@ -254,14 +235,17 @@ func (p *gitProbe) gitKeyUser(login, who string, prepare bool, stdout io.Writer)
 	return err
 }
 
-// fetchExportedKey renders the remote program and returns the public part.
-func (p *gitProbe) fetchExportedKey(base []string, passfile string, prepare bool) ([]byte, error) {
+// fetchExportedKey sends the compiled personal-Git operation and returns the public part.
+func (p *gitProbe) fetchExportedKey(base []string, passfile string, prepare bool, payload []byte) ([]byte, error) {
 	passphrase, err := loadPassphrase(passfile)
 	if err != nil {
 		return nil, err
 	}
-	program := gitRemoteProgram(passphrase, prepare)
-	public, err := gitChecked(append(append([]string{"ssh"}, base...), "sh -se"), []byte(program))
+	stdin := make([]byte, 0, len(payload)+len(passphrase))
+	stdin = append(stdin, payload...)
+	stdin = append(stdin, passphrase...)
+	command := personalGitRemoteCommand(len(payload), prepare)
+	public, err := gitChecked(append(append([]string{"ssh"}, base...), "sh -c "+quoteRemoteShell(command)), stdin)
 	if err != nil {
 		return nil, err
 	}
@@ -431,9 +415,9 @@ func writeGitOutcomes(directory string, outcomes []gitOutcome) error {
 }
 
 // phaseKey runs prepare or unlock for both users.
-func (p *gitProbe) phaseKey(prepare bool, stdout io.Writer) error {
+func (p *gitProbe) phaseKey(prepare bool, payload []byte, stdout io.Writer) error {
 	for _, who := range []string{"alice", "bob"} {
-		if err := p.gitKeyUser("u08-"+who+"-8417", who, prepare, stdout); err != nil {
+		if err := p.gitKeyUser("u08-"+who+"-8417", who, prepare, payload, stdout); err != nil {
 			return err
 		}
 	}
@@ -476,6 +460,10 @@ func RunPersonalGit(args []string, stdout io.Writer) error {
 }
 
 func runPersonalGit(args []string, stdout io.Writer) error {
+	return runPersonalGitWithPayload(args, stdout, personalGitPayload)
+}
+
+func runPersonalGitWithPayload(args []string, stdout io.Writer, loadPayload func() ([]byte, error)) error {
 	if os.Getenv("SODA_NATIVE_VALIDATE") != "soda-test" {
 		return errors.New("explicit soda-test validation required")
 	}
@@ -503,5 +491,9 @@ func runPersonalGit(args []string, stdout io.Writer) error {
 	if phase == "exercise" {
 		return probe.phaseExercise(stdout)
 	}
-	return probe.phaseKey(phase == "prepare", stdout)
+	payload, err := loadPayload()
+	if err != nil {
+		return err
+	}
+	return probe.phaseKey(phase == "prepare", payload, stdout)
 }
