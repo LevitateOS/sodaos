@@ -131,21 +131,23 @@ func TestLoadGitTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if target.ip != "10.89.0.2" || target.repository != "shared-alice" {
+	if target.ip != "10.89.0.2" || target.gitHost != "127.0.0.1" || target.repository != "shared-alice" {
 		t.Errorf("default target = %+v", target)
 	}
 	path := filepath.Join(dir, "target.json")
-	if err := os.WriteFile(path, []byte(`{"ip": "10.89.0.5", "repository": "team-repo-1"}`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{"ip": "10.89.0.5", "git_host": "10.0.2.15", "repository": "team-repo-1"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	target, err = loadGitTarget(dir)
-	if err != nil || target.ip != "10.89.0.5" || target.repository != "team-repo-1" {
+	if err != nil || target.ip != "10.89.0.5" || target.gitHost != "10.0.2.15" || target.repository != "team-repo-1" {
 		t.Errorf("file target = %+v %v", target, err)
 	}
 	for _, body := range []string{
 		`{"ip": "10.90.0.2", "repository": "shared-alice"}`,
 		`{"ip": "10.89.0.2", "repository": "UPPER"}`,
 		`{"ip": "10.89.0.2", "repository": ""}`,
+		`{"ip": "10.89.0.2", "git_host": "10.0.2.15:2222", "repository": "shared-alice"}`,
+		`{"ip": "10.89.0.2", "git_host": "203.0.113.7", "repository": "shared-alice"}`,
 		`{"ip": "10.89.0.2"}`,
 		`{"repository": "shared-alice"}`,
 		`not json`,
@@ -161,8 +163,15 @@ func TestLoadGitTarget(t *testing.T) {
 
 func TestValidateGitURL(t *testing.T) {
 	good := "ssh://git@127.0.0.1:2222/u08-alice-8417/shared-alice.git"
-	if err := validateGitURL(good, "shared-alice"); err != nil {
+	if err := validateGitURL(good, "127.0.0.1", "shared-alice"); err != nil {
 		t.Errorf("valid advertisement rejected: %v", err)
+	}
+	native := "ssh://git@10.0.2.15:2222/u08-alice-8417/shared-alice.git"
+	if err := validateGitURL(native, "127.0.0.1", "shared-alice"); err == nil {
+		t.Fatal("native advertisement accepted by loopback fixture target")
+	}
+	if err := validateGitURL(native, "10.0.2.15", "shared-alice"); err != nil {
+		t.Errorf("explicit native endpoint rejected: %v", err)
 	}
 	for _, bad := range []string{
 		"http://git@127.0.0.1:2222/u08-alice-8417/shared-alice.git",
@@ -177,7 +186,7 @@ func TestValidateGitURL(t *testing.T) {
 		"not a url",
 		"",
 	} {
-		if err := validateGitURL(bad, "shared-alice"); err == nil {
+		if err := validateGitURL(bad, "127.0.0.1", "shared-alice"); err == nil {
 			t.Errorf("advertisement accepted: %q", bad)
 		}
 	}

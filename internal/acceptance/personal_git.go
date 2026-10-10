@@ -79,6 +79,7 @@ git show FETCH_HEAD:alice-native-git.txt | grep -qx 'u08-alice-8417 personal nat
 // gitTarget selects the project IP and repository.
 type gitTarget struct {
 	ip         string
+	gitHost    string
 	repository string
 }
 
@@ -86,7 +87,7 @@ type gitTarget struct {
 func loadGitTarget(fixture string) (gitTarget, error) {
 	path := filepath.Join(fixture, "target.json")
 	if _, err := os.Stat(path); err != nil {
-		return gitTarget{ip: "10.89.0.2", repository: "shared-alice"}, nil
+		return gitTarget{ip: "10.89.0.2", gitHost: "127.0.0.1", repository: "shared-alice"}, nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -100,7 +101,7 @@ func loadGitTarget(fixture string) (gitTarget, error) {
 }
 
 func parseGitTarget(raw map[string]json.RawMessage) (gitTarget, error) {
-	var target gitTarget
+	target := gitTarget{gitHost: "127.0.0.1"}
 	ipRaw, ok := raw["ip"]
 	if !ok || json.Unmarshal(ipRaw, &target.ip) != nil {
 		return gitTarget{}, errors.New("project IP required")
@@ -108,6 +109,15 @@ func parseGitTarget(raw map[string]json.RawMessage) (gitTarget, error) {
 	addr, err := netip.ParseAddr(target.ip)
 	if err != nil || !addr.Is4() || !netip.MustParsePrefix("10.89.0.0/24").Contains(addr) {
 		return gitTarget{}, errors.New("project IP outside the selected project network")
+	}
+	if hostRaw, ok := raw["git_host"]; ok {
+		if json.Unmarshal(hostRaw, &target.gitHost) != nil {
+			return gitTarget{}, errors.New("invalid Git host")
+		}
+	}
+	gitAddr, err := netip.ParseAddr(target.gitHost)
+	if err != nil || !gitAddr.Is4() || (!gitAddr.IsPrivate() && !gitAddr.IsLoopback()) {
+		return gitTarget{}, errors.New("Git host must be a private IPv4 address")
 	}
 	repoRaw, ok := raw["repository"]
 	if !ok || json.Unmarshal(repoRaw, &target.repository) != nil {
@@ -268,12 +278,12 @@ func checkUnlockedKey(pubPath string, public []byte) error {
 }
 
 // validateGitURL checks the actual repository advertisement.
-func validateGitURL(sshURL, repository string) error {
+func validateGitURL(sshURL, gitHost, repository string) error {
 	parsed, err := url.Parse(sshURL)
 	if err != nil {
 		return errors.New("invalid repository advertisement")
 	}
-	if err := checkGitEndpoint(parsed); err != nil {
+	if err := checkGitEndpoint(parsed, gitHost); err != nil {
 		return err
 	}
 	if err := checkGitUser(parsed); err != nil {
@@ -282,9 +292,9 @@ func validateGitURL(sshURL, repository string) error {
 	return checkGitPath(parsed, repository)
 }
 
-// checkGitEndpoint requires the loopback Git transport and port.
-func checkGitEndpoint(parsed *url.URL) error {
-	if !strings.EqualFold(parsed.Scheme, "ssh") || parsed.Hostname() != "127.0.0.1" {
+// checkGitEndpoint requires the explicitly selected Git host and product port.
+func checkGitEndpoint(parsed *url.URL, gitHost string) error {
+	if !strings.EqualFold(parsed.Scheme, "ssh") || parsed.Hostname() != gitHost {
 		return errors.New("invalid repository advertisement")
 	}
 	port, err := strconv.Atoi(parsed.Port())
@@ -375,7 +385,7 @@ func (p *gitProbe) loadExerciseRepo(login string) (string, json.RawMessage, erro
 	if json.Unmarshal(data, &repo) != nil {
 		return "", nil, errors.New("invalid repository record")
 	}
-	if err := validateGitURL(repo.SSHURL, p.target.repository); err != nil {
+	if err := validateGitURL(repo.SSHURL, p.target.gitHost, p.target.repository); err != nil {
 		return "", nil, err
 	}
 	return repo.SSHURL, repo.ID, nil
