@@ -32,7 +32,10 @@ pub fn prepare_build_media(
         &sys::join(&[&request.out, "evidence"]),
         production,
     )?;
-    let lock = media::prepare_assembler(production, &sys::join(&[&request.out, "work/media"]))?;
+    let root = sys::join(&[&request.out, "work/media"]);
+    let mut lock = media::prepare_assembler(production, &root)?;
+    let id = media::builder_id(&root)?;
+    lock.installer = media::observe_installer_version(production, production.source(), &id)?;
     Ok((tools, lock))
 }
 
@@ -46,7 +49,15 @@ pub fn finish_build_media(
     if !request.wants_media() {
         return Ok(());
     }
-    prepare_media_inputs(production.source(), production.out(), tools, production)?;
+    let installer_version = lock.installer.clone();
+    media::validate_installer_version(&installer_version)?;
+    prepare_media_inputs(
+        production.source(),
+        production.out(),
+        tools,
+        &installer_version,
+        production,
+    )?;
     media::assemble_media(production, request, lock, next)?;
     Ok(())
 }
@@ -130,8 +141,10 @@ pub fn prepare_media_inputs(
     source: &str,
     out: &str,
     tools: &MediaTools,
+    installer_version: &str,
     production: &dyn Production,
 ) -> Result<(), Error> {
+    media::validate_installer_version(installer_version)?;
     let destination = production.capture(
         source,
         "podman",
@@ -164,6 +177,7 @@ pub fn prepare_media_inputs(
         destination.as_bytes(),
         &candidate.host.manifest,
         &console,
+        installer_version,
     )?;
     sys::write_new(
         &sys::join(&[out, "destination.ign"]),

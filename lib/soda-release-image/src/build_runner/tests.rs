@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn metadata_deadline_is_scoped_to_the_metadata_operation() {
+fn bounded_deadlines_are_scoped_to_metadata_and_installer_version_probe() {
     assert_eq!(
         bounded_operation_deadline("cargo", &["metadata".to_string()]),
         Some(std::time::Duration::from_secs(120))
@@ -12,6 +12,43 @@ fn metadata_deadline_is_scoped_to_the_metadata_operation() {
     );
     assert_eq!(
         bounded_operation_deadline("git", &["metadata".to_string()]),
+        None
+    );
+    let probe = [
+        "--remote=false",
+        "run",
+        "--rm",
+        "--pull=never",
+        "--network=none",
+        "--read-only",
+        "--cap-drop=all",
+        "--security-opt=label=disable",
+        "--entrypoint=/usr/bin/coreos-installer",
+        "sha256:selected-assembler",
+        "--version",
+    ]
+    .map(str::to_string);
+    assert_eq!(
+        bounded_operation_deadline("podman", &probe),
+        Some(std::time::Duration::from_secs(120))
+    );
+    let customization = [
+        "--remote=false",
+        "run",
+        "--entrypoint=/usr/bin/coreos-installer",
+        "sha256:selected-assembler",
+        "iso",
+        "customize",
+        "/out/media/installer.iso",
+    ]
+    .map(str::to_string);
+    assert_eq!(bounded_operation_deadline("podman", &customization), None);
+    assert_eq!(
+        bounded_operation_deadline("podman", &probe[..probe.len() - 1]),
+        None
+    );
+    assert_eq!(
+        bounded_operation_deadline("podman", &["build".to_string(), ".".to_string()]),
         None
     );
 }
@@ -33,7 +70,7 @@ fn bounded_build_operation_expires_while_output_keeps_arriving() {
     )
     .unwrap_err();
     assert!(
-        error.0.contains("metadata deadline exceeded"),
+        error.0.contains("operation deadline exceeded"),
         "{}",
         error.0
     );

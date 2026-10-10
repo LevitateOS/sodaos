@@ -161,7 +161,9 @@ pub fn candidate_live_config(
     destination: &[u8],
     manifest: &str,
     console_sha256: &str,
+    installer_version: &str,
 ) -> Result<Vec<u8>, Error> {
+    crate::media::validate_installer_version(installer_version)?;
     let payload_text = std::str::from_utf8(payload)
         .map_err(|_| Error::msg("complete ordinary-Podman candidate required"))?;
     // Plain (non-strict) decode, like the Go owner.
@@ -186,7 +188,7 @@ pub fn candidate_live_config(
     let identity = MediaIdentity {
         architecture: parsed.architecture.clone(),
         release: parsed.core_os.clone(),
-        installer_version: "coreos-installer 0.26.0".to_string(),
+        installer_version: installer_version.to_string(),
         revision: parsed.revision.clone(),
         host_manifest: manifest.to_string(),
         payload_sha256: sum,

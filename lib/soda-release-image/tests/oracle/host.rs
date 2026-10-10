@@ -154,10 +154,14 @@ fn oracle_candidate_live_config() {
     let dest = br#"{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}"#;
     let manifest = format!("sha256:{}", "1".repeat(64));
     let console = "2".repeat(64);
-    let candidate = ignition::candidate_live_config(&payload, dest, &manifest, &console).unwrap();
+    let installer_version = "coreos-installer 0.27.1";
+    let candidate =
+        ignition::candidate_live_config(&payload, dest, &manifest, &console, installer_version)
+            .unwrap();
     assert_eq!(
         candidate,
-        ignition::candidate_live_config(&payload, dest, &manifest, &console).unwrap(),
+        ignition::candidate_live_config(&payload, dest, &manifest, &console, installer_version,)
+            .unwrap(),
         "candidate live config serialization is deterministic"
     );
 
@@ -179,7 +183,7 @@ fn oracle_candidate_live_config() {
     assert_eq!(identity["Architecture"], parsed_payload.architecture);
     assert_eq!(identity["Release"], parsed_payload.core_os);
     assert_eq!(identity["Revision"], parsed_payload.revision);
-    assert_eq!(identity["InstallerVersion"], "coreos-installer 0.26.0");
+    assert_eq!(identity["InstallerVersion"], installer_version);
     assert_eq!(identity["HostManifest"], manifest);
     assert_eq!(identity["PayloadSHA256"], sys::hex_sha256(&payload));
     assert_eq!(identity["ConsoleSHA256"], console);
@@ -227,6 +231,7 @@ fn oracle_candidate_live_config() {
             br#"{"ignition":{"version":"3.4.0"}}"#,
             &manifest,
             &console,
+            installer_version,
         )
         .is_err(),
         "L-live-baddest"
@@ -237,6 +242,7 @@ fn oracle_candidate_live_config() {
             br#"{"ignition":{"version":"3.5.0"},"passwd":{"users":[]}}"#,
             &manifest,
             &console,
+            installer_version,
         )
         .is_err(),
         "L-live-passwd"

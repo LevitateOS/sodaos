@@ -34,6 +34,7 @@ impl MediaIdentity {
         if self.architecture != arch
             || self.release.is_empty()
             || self.release != image_version
+            || !Self::valid_installer_version(&self.installer_version)
             || !buildx::revision(&self.revision)
             || !self.valid_content()
         {
@@ -42,6 +43,14 @@ impl MediaIdentity {
             ));
         }
         Ok(())
+    }
+
+    pub fn valid_installer_version(version: &str) -> bool {
+        version
+            .strip_prefix("coreos-installer ")
+            .is_some_and(|reported| {
+                !reported.trim().is_empty() && !version.chars().any(char::is_control)
+            })
     }
 
     pub fn valid_content(&self) -> bool {
@@ -252,8 +261,21 @@ mod tests {
             console_sha256: "d".repeat(64),
         };
         media.validate("44.20260817.3.2", "x86_64").unwrap();
+        let mut another_authenticated_version = media.clone();
+        another_authenticated_version.installer_version = "coreos-installer 0.27.1".to_string();
+        another_authenticated_version
+            .validate("44.20260817.3.2", "x86_64")
+            .unwrap();
         for version in ["", "44", "44.20260817.3.3"] {
             assert!(media.validate(version, "x86_64").is_err(), "{version:?}");
+        }
+        for installer_version in ["", "coreos-installer ", "coreos-installer 0.27.1\nother"] {
+            let mut bad = media.clone();
+            bad.installer_version = installer_version.to_string();
+            assert!(
+                bad.validate("44.20260817.3.2", "x86_64").is_err(),
+                "{installer_version:?}"
+            );
         }
         assert!(media.validate("44.20260817.3.2", "aarch64").is_err());
         let mut bad = media.clone();

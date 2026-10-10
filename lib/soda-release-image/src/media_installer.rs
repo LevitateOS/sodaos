@@ -7,6 +7,46 @@ use crate::media::{MediaMeta, NativeFn};
 use crate::rootfs;
 use crate::sys;
 
+pub fn validate_installer_version(version: &str) -> Result<(), Error> {
+    let Some(reported) = version.strip_prefix("coreos-installer ") else {
+        return Err(Error::msg("unrecognized installer version output"));
+    };
+    if reported.trim().is_empty() || version.chars().any(|c| c.is_control()) {
+        return Err(Error::msg("unrecognized installer version output"));
+    }
+    Ok(())
+}
+
+/// Read the installer version from the exact selected Assembler image before
+/// its value is embedded in the candidate-derived live identity.
+pub fn observe_installer_version(
+    production: &dyn Production,
+    root: &str,
+    id: &str,
+) -> Result<String, Error> {
+    let version = production.capture(
+        root,
+        "podman",
+        &[
+            "--remote=false".to_string(),
+            "run".to_string(),
+            "--rm".to_string(),
+            "--timeout=110".to_string(),
+            "--pull=never".to_string(),
+            "--network=none".to_string(),
+            "--read-only".to_string(),
+            "--cap-drop=all".to_string(),
+            "--security-opt=label=disable".to_string(),
+            "--entrypoint=/usr/bin/coreos-installer".to_string(),
+            id.to_string(),
+            "--version".to_string(),
+        ],
+    )?;
+    let version = version.trim().to_string();
+    validate_installer_version(&version)?;
+    Ok(version)
+}
+
 pub fn setup_media_rootfs(
     artifacts: &str,
     build_dir: &str,
@@ -88,10 +128,7 @@ pub fn customize_installer_iso(
     };
     let version = native("/usr/bin/coreos-installer", &["--version".to_string()])?;
     let version = version.trim().to_string();
-    if !version.starts_with("coreos-installer ") || version.chars().any(|c| c == '\r' || c == '\n')
-    {
-        return Err(Error::msg("unrecognized installer version output"));
-    }
+    validate_installer_version(&version)?;
     native(
         "/usr/bin/coreos-installer",
         &[

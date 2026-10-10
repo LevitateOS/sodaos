@@ -16,7 +16,6 @@ pub fn candidate_identity_matches(media: &MediaIdentity) -> Result<(), Error> {
     if media
         .validate(&media.release.clone(), &crate::run::architecture())
         .is_err()
-        || media.installer_version != "coreos-installer 0.26.0"
     {
         return Err(Error::msg("invalid candidate media identity"));
     }

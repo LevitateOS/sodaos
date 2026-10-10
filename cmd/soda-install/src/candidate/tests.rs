@@ -122,8 +122,15 @@ fn requirement_authenticates_all_images() {
     let mut bad = media.clone();
     bad.console_sha256 = "b".repeat(64);
     assert!(candidate_requirement(&bad, &root).is_err());
+    let mut alternate_installer = media.clone();
+    alternate_installer.installer_version = "coreos-installer 0.27.1".to_string();
+    assert_eq!(
+        candidate_requirement(&alternate_installer, &root).unwrap(),
+        unique_bytes,
+        "an authenticated recorded installer version is not restricted to one literal release"
+    );
     let mut bad = media.clone();
-    bad.installer_version = "coreos-installer 0.25.0".to_string();
+    bad.installer_version = "coreos-installer ".to_string();
     assert!(candidate_requirement(&bad, &root).is_err());
     // A missing blob refuses.
     let (root2, media2, _) = candidate_root_fixture();

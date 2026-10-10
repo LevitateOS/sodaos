@@ -26,8 +26,8 @@ pub use crate::media_container::{
     verify_meta_images, MediaMeta, MediaMetaImage,
 };
 pub use crate::media_installer::{
-    customize_installer_iso, prepare_and_verify_media, setup_media_rootfs, verify_customized_iso,
-    verify_media_readback,
+    customize_installer_iso, observe_installer_version, prepare_and_verify_media,
+    setup_media_rootfs, validate_installer_version, verify_customized_iso, verify_media_readback,
 };
 
 /// Container/run closure (`run func(name string, args ...string)`).
@@ -329,7 +329,9 @@ pub fn assemble_media(
         &rootfs_url,
         &rootfs_name,
     )?;
-    lock.installer = installer_version;
+    if lock.installer.is_empty() || lock.installer != installer_version {
+        return Err(Error::msg("Assembler installer version changed"));
+    }
     seal_media(
         &artifacts,
         &media_dir,

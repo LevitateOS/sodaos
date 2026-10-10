@@ -289,7 +289,7 @@ fn run_build_command_with_budget(
     let text = String::from_utf8_lossy(&captured).into_owned();
     if timed_out {
         return Err(Error::msg(format!(
-            "{base} failed; retain attempt and inspect build.log: metadata deadline exceeded"
+            "{base} failed; retain attempt and inspect build.log: operation deadline exceeded"
         )));
     }
     if cancel.is_cancelled() {
@@ -310,8 +310,14 @@ fn run_build_command_with_budget(
 }
 
 fn bounded_operation_deadline(base: &str, args: &[String]) -> Option<std::time::Duration> {
-    (base == "cargo" && args.first().is_some_and(|arg| arg == "metadata"))
-        .then_some(std::time::Duration::from_secs(120))
+    let metadata = base == "cargo" && args.first().is_some_and(|arg| arg == "metadata");
+    let installer_version_probe = base == "podman"
+        && args.iter().any(|arg| arg == "run")
+        && args
+            .iter()
+            .any(|arg| arg == "--entrypoint=/usr/bin/coreos-installer")
+        && args.last().is_some_and(|arg| arg == "--version");
+    (metadata || installer_version_probe).then_some(std::time::Duration::from_secs(120))
 }
 
 struct ChildGuard(std::process::Child);
