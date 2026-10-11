@@ -165,7 +165,7 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 	}
 	g, err := c.Store.IntentGeneration(ctx, r.ID)
 	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, store.ErrNotFound) {
-		payload, reused, e := c.prepareIntentGraph(ctx, r, revision)
+		payload, reused, submitted, e := c.prepareIntentGraph(ctx, r, revision)
 		if e != nil {
 			return factory.IntentGeneration{}, e
 		}
@@ -184,7 +184,7 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 		if e != nil {
 			return factory.IntentGeneration{}, e
 		}
-		g = factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: c.GraphActorID, NativeRev: revision, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: raw, TaskIssueIDs: reused, IntentDigest: r.Digest(), State: "pending"}
+		g = factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: c.GraphActorID, NativeRev: revision, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: raw, TaskIssueIDs: reused, SubmittedTasks: submitted, IntentDigest: r.Digest(), State: "pending"}
 		if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 			// Concurrent callers must converge on the winner's exact native
 			// revision and deadline rather than invent a second operation.
@@ -286,17 +286,25 @@ func (c *Coordinator) currentAcceptedIntent(ctx context.Context, r factory.Inten
 func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevision, g factory.IntentGeneration) error {
 	var receipt sdk.IssueGraphReceipt
 	if json.Unmarshal(g.Receipt, &receipt) != nil || receipt.ActorID != g.ActorID || receipt.RepositoryID != r.Repository {
-		return errors.New("native graph receipt does not bind accepted tasks")
+		return errors.New("native graph receipt does not bind submitted tasks")
 	}
-	issues, err := intentReceiptIssues(r, g, receipt)
+	if len(g.SubmittedTasks) == 0 {
+		return errors.New("generation predates submitted-task records")
+	}
+	scoped := r
+	scoped.Tasks = g.SubmittedTasks
+	if err := scoped.Validate(); err != nil {
+		return errors.New("submitted graph exceeds accepted scope")
+	}
+	issues, err := intentReceiptIssues(g.SubmittedTasks, g, receipt)
 	if err != nil {
 		return err
 	}
 	tasks := map[string]factory.IntentTask{}
-	for _, task := range r.Tasks {
+	for _, task := range g.SubmittedTasks {
 		tasks[task.Key] = task
 		if issues[task.Key].IssueID == 0 {
-			return errors.New("native graph receipt missing accepted task")
+			return errors.New("native graph receipt missing submitted task")
 		}
 	}
 	adopted := map[string]factory.IntentTaskBinding{}
@@ -408,7 +416,7 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 		active[key] = false
 		return nil
 	}
-	for _, task := range r.Tasks {
+	for _, task := range g.SubmittedTasks {
 		if err := adopt(task.Key); err != nil {
 			return err
 		}
