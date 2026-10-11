@@ -32,8 +32,9 @@ func (d Department) Validate() error {
 // reversible autonomous choices and assumptions. Provenance distinguishes
 // explicit human decisions from autonomous ones; human provenance must bind
 // Actor to the revision owner. Material marks consequential assumptions that
-// block dependent native work while unresolved. Empty Source/Provenance is a
-// legacy review input and infers supported/human for accepted choices.
+// block dependent native work while unresolved. Empty Source/Provenance is
+// explicitly unclassified unfinished draft input and infers no authorship;
+// ideas admitted into effective accepted work must state their basis.
 type ProductIdea struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
@@ -158,6 +159,9 @@ func (r IntentRevision) Validate() error {
 		if idea.Evidence != "" && !intentText(idea.Evidence, 4000) {
 			return errors.New("invalid choice evidence")
 		}
+		if r.State == "accepted" && idea.Decision != "pending" && (idea.Source == "" || idea.Provenance == "") {
+			return errors.New("effective work needs an explicit decision basis")
+		}
 		ideas[idea.ID] = idea
 	}
 	effective := map[string]bool{}
@@ -194,9 +198,6 @@ func (r IntentRevision) Validate() error {
 			}
 			if r.State == "accepted" {
 				if idea.Decision == "pending" {
-					if idea.Source == "" && idea.Provenance == "" {
-						return errors.New("task references unresolved scope")
-					}
 					if idea.Material || idea.Source == "assumption" || idea.Source == "requested" {
 						return errors.New("task references unresolved consequential scope")
 					}
