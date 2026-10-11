@@ -30,7 +30,7 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/repositories` | Native repository picker (`q`, `cursor`) |
 | GET | `/api/repositories/{repositoryID}/profiles` | Supported creation profiles |
 | GET | `/api/repositories/{repositoryID}/factory` | Factory policy, effective grants and missing authority |
-| GET, PUT | `/api/repositories/{repositoryID}/factory/activity` | Local lifecycle facts and independent owner/admin activity settings |
+| GET, PUT | `/api/repositories/{repositoryID}/factory/activity` | Local lifecycle facts with observation time/truncation and independent owner/admin activity settings |
 | PUT | `/api/repositories/{repositoryID}/factory/policy` | Owner/admin repository factory policy (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/operator-grant` | Operator repository permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/environment-grant` | Owner environment setup permission (command envelope) |
