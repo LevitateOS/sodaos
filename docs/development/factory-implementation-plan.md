@@ -25,6 +25,12 @@ The sole appliance target is **x86_64**, under the
 [release platform contract](../architecture/release.md#architectures). ARM support
 and qualification are excluded; no ARM machine or evidence is a handoff prerequisite.
 
+For the remaining end-to-end experience, use the
+[UX implementation backlog](#end-to-end-ux-implementation-tasks) below. Its UX task
+IDs and completion rules apply to the latest design. The historical FT/ST/RT
+assignments retain their original scope; neither those assignments nor the earlier
+FX receipts establish that the newly designed experience is implemented.
+
 ## Source baseline
 
 ### Intent-first experience extension (2026-10-11)
@@ -104,6 +110,497 @@ this document without changing that starting pair. Before assigning implementati
 changes against later source, reconcile the affected differences; do not reset a
 checkout to this baseline or discard intervening work. Toolchain and dependency
 versions remain in the selected source manifests and locks.
+
+## End-to-end UX implementation tasks
+
+This is the executable backlog for the latest
+[Spaces UX proposal](../design/spaces-ux.md#proposed-end-to-end-experience),
+[intent-first creation](../product/spaces.md#intent-first-creation),
+[intent review](../product/overview.md#intent-review-and-derived-work) and
+[System One design contract](../product/overview.md#planning-and-priority-judgments).
+It contains **68 tasks in nine logical lanes**. The `UX-` task prefix keeps
+this backlog distinct from similarly numbered ideal-filetree assignments. All are
+future work; this planning edit implements no runtime behavior and runs no
+deployment. Product and trust
+rules remain in their owning guides. Task-local contract changes update those
+owners rather than introducing another requirements document.
+
+The inspected source pair is Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
+and Fountain `e4b58254a0b5a6ac0bc60445860a02c2a6df6ed2`. Soda also contains seven
+unrelated modified ideal-filetree documents and the untracked experience planning
+input. Preserve them; inspect relevant changes without staging them wholesale.
+Recheck heads and dirty work at implementation start. These are source inputs,
+not the existing VM's installed versions.
+
+### What is already available, and what must change
+
+Reuse the corrected shared native shell, persistent Workspace owner, native
+authorization/session guards, Project/terminal machinery, atomic native issue
+graph writer and working Factory coding/review/correction/check/merge/closure loop.
+Do not schedule their replacement as new infrastructure.
+
+The remaining changes are concrete:
+
+- A visible **New Project** entry leading to a real native content page; private
+  saved requests, direct links, history, save/resume and recovery.
+- Genuine authored product alternatives and a nontechnical user walkthrough,
+  selected and checked with substantial bounded System One judgment.
+- Decision provenance and effect authorization that replace the current
+  every-idea acceptance gate. Supported or harmless reversible choices progress
+  autonomously; only consequential unsupported assumptions interrupt affected
+  work. Existing exact authorization carries through without another approval.
+- Repository binding, native generation and Project setup as distinct operations,
+  preserving original request identity and accepted work when later setup fails.
+- Useful work overview/detail, planning freshness, priority explanation, native
+  review/check/merge evidence, corrections, scope changes and separate allowances.
+- Permission-aware discovery, settings, activity, compact layouts and human
+  terminal controls within the existing shell.
+- Verified bounded optional native effects, followed by scoped source and
+  installed acceptance. Display preferences are not lifecycle automation.
+
+Three fresh, equivalently reworded JEV consultations returned actual HTTP 200
+responses from `jev-1.13.0`. Each preferred independent artifact handoffs, one
+integrator for shared files and ready tasks that unlock the limiting flow. Requests,
+responses and the semantic/wording audit are retained in ignored
+`.artifacts/ux-implementation-lanes-20261011/`. There was no recommendation
+disagreement. Agreement is scheduling advice, not evidence of optimal duration,
+working native capabilities, usability or implementation completion.
+
+### Dependency meanings and independently released handoffs
+
+**Start** lists the inputs needed to implement against a stable contract. **Finish**
+lists completed tasks whose real behavior is needed to accept this task. A dash
+means the current source baseline supplies that input. Entries in Finish are
+hard completion edges; they do not forbid earlier isolated coding, fixture work,
+copy or investigation. There is no implied order from task numbering, table order
+or lane membership.
+
+These handoffs are published individually by their feature owner, before the
+entire producer task finishes. Each includes exact fields and semantics, bounded
+request/response examples, empty/error/stale states, authorization basis and a
+revision identifier. A changed contract identifies affected consumers. Consumers
+can use declared synthetic fixtures early; integrated evidence must consume the
+real completed capability. Never let a fixture authorize an actual effect.
+
+| Handoff | Producer and concrete contents | Immediate consumers |
+| --- | --- | --- |
+| B | Inspected current source, existing callable interfaces and scoped reusable evidence. | Any independent investigation or unchanged-contract work. |
+| H-N | UX-C02: admitted new/request route shapes, parameter rules, appSubUrl, session/repository context and retained-owner event behavior. | UX-C03, UX-C06 and route fixtures. |
+| H-I | UX-I01/UX-I02: requested facts, supported/autonomous choices, corrections, unresolved assumptions, effective revision/repository and attributable authorization. | UX-S03–UX-S07, UX-U01/UX-U03–UX-U08, UX-F01/UX-F04 and generation fixtures. |
+| H-D | UX-S01/UX-S03: bounded authored alternatives, roles/actions/results/branches, evidence references, outcome mapping and authorship mechanism. | UX-S04–UX-S06 and UX-U04–UX-U06. UI composition can use examples before the proposer passes its capability proof. |
+| H-J | UX-S02: seven judgment purposes, semantic fingerprints, typed answers, uncertainty, reservation/cache/result records and refresh rules. | UX-S04–UX-S09 and UX-F03. |
+| H-A | UX-I04: independent allowance revision, units, consumed/reserved/available amounts, current owner, ceiling and CAS/change semantics. | UX-S02, UX-F06, UX-W05 and UX-V05. |
+| H-R | UX-F01/UX-F02/UX-F03/UX-F06: independently published request, work-detail, plan/priority and permission/usage DTOs with observation time/completeness. | UX-W01/UX-W05 and UX-V01–UX-V06, each using only its own DTO. |
+| H-L | UX-L01: verified primitive per optional event, exact actor/target, operation identity, bounds, permission and uncertain-result reconciliation contract. | UX-L02–UX-L06 and UX-V07, without delaying ordinary activity or work views. |
+
+If only one read DTO or route shape is ready, publish that portion. Do not wait
+for all H-R, H-N or H-I contributors. UX-C01 coordinates these releases; it is not a
+single giant schema milestone that every lane must wait for. An unresolved
+proposer or native-effect capability holds its consumers' acceptance, not unrelated
+drafts, terminal work or Factory read views.
+
+### Lanes, file ownership and shared resources
+
+Paths are relative to the named repository. **New** files below are proposed
+allocations alongside existing owners, not claims that they already exist. Keep
+Go domain/control/store/wire boundaries and browser TypeScript; no port or new
+cross-boundary adapter is part of this backlog.
+
+| Lane | Accountable responsibility | Exclusive source surface |
+| --- | --- | --- |
+| C — Native routing and integration | One integration lead, with explicit short leases for native proof work. | Fountain `routers/web/extensions/`, host `web_src/js/features/extensions.js`, affected native templates/SDK route declarations; Soda manifest/build entry wiring, `sodaspaces-workspace.ts`, `sodaspaces-workspace-setup.ts`, panel entry and shared registration files. |
+| I — Intent authority and persistence | One intent backend owner. | Soda `internal/factory/intent.go`, intent generation records/validation, `internal/store/factory_intents.go` and new narrowly scoped request/history/allowance readers, `internal/web/api/factory_intents.go`, generation handlers, `control/intent_generation*.go` and `control/intent_decomposition.go` native graph/delta assembly. |
+| S — Proposal and System One design | One judgment/proposal owner. | Soda `intent_proposal.go`, `judgment.go`, `control/intent_decomposition_judgment.go` advice/options, `control/planning.go`, `control/priority*.go`, exploration handler and new narrowly scoped proposal/judgment helpers/journal files. I owns actual graph assembly/write and invalidation; S supplies judgment results. |
+| U — Creation and product review | One request-state/browser owner. | Soda `sodaspaces-intent.ts`, intent response/types/view modules, repository picker and new private-request/walkthrough/challenge content modules. One owner holds revision-changing state. |
+| W — Human Workspace and settings | One Workspace presentation owner. | Soda workspace inventory/navigation/toolbar/pane/focus/layout helpers, Project/join/access views and `sodaspaces-factory-settings.ts`; new settings/recovery helpers where needed. |
+| F — Factory read models | One read/API owner. | Soda `internal/web/api/factory_issue_view.go`, `internal/web/api/factory_views.go`, `internal/web/api/factory_activity.go` and new bounded request/plan/permission projection and Store read files. F owns native activity reads; L owns separate action journal/configuration files. No duplicate scheduler. |
+| V — Work progress and interventions | One Factory browser owner. | Soda Factory display/screen/response/activity/view/navigation modules and new request overview/detail/revision/optional-action presentation helpers. |
+| L — Optional native effects | One lifecycle owner; individual native writers may be delegated separately. | Fountain separate label/assignee, reviewer-request and comment operation implementation/tests beside `services/nativeoperation/`; Soda separate action policy/control/journal/API files. C owns shared native dispatch/SDK wiring. |
+| Q — Verification, documentation and delivery | Integration lead owns evidence; feature owners supply focused checks. | Existing affected tests and owning docs, with explicit fixture-file leases. No second test framework, status service or publication pipeline. |
+
+Reserve these shared surfaces rather than allowing competing edits:
+
+| Resource | Single writer and handoff rule |
+| --- | --- |
+| Store schema/version registration and schema mirrors | C integrates exact table/index/transaction requirements from I/S/F/L; those owners keep SQL in their Store files. Publish each schema addition with its callable feature, not a disconnected database project. |
+| Native SDK operation types, service dispatch and route registry | C applies small reviewed additions from L/UX-C02. Separate UX-L02/UX-L03/UX-L04 writers work distinct files and submit their dispatch changes. UX-C02 leases exact native template/router files before changing them; the broad directory allocation is not concurrent edit permission. |
+| `internal/factory/intent.go` and canonical intent DTO | I owns definitions/validation. S supplies proposal requirements; no copied DTO or human-approved alias. |
+| API route/admission registration and serving coordinator composition | C integrates handler/wiring changes; I/F/L/S own concrete handlers or passes. A module compiles against the canonical definitions. |
+| Workspace root/setup, shared workspace CSS, toolbar callbacks and entry graph | C owns root/setup/shared CSS and final callback registration. W exclusively owns `sodaspaces-workspace-toolbar-view.ts`, including its callback interface; C requests interface changes from W. U/V/W send narrowly scoped integration requirements. Local feature styles remain with their content owner. |
+| Shared intent response/parser and request state | U owns; I/S provide exact wire examples. Another browser lane uses exported types and callbacks. |
+| Shared browser fixtures, PostgreSQL/native fixture setup and common test drivers | Q/C reserve a short exclusive edit lease; feature-specific tests and helpers stay disjoint. Do not run two mutating checks against the same fixture database or VM. |
+| Generated extension assets, native build/cache directories and VM updates | One build/delivery owner at a time. Reuse applicable outputs; keep all host writes, caches, temp files and receipts under `/home`. |
+
+Logical lane ownership persists when a slot changes hands. Before delegation,
+name exact files and handoff outputs; no two writers share a file. In the canonical
+checkouts, inspect task-owned diffs, run applicable checks, stage only reviewed
+changes and commit coherent boundaries often. Never amend, rewrite history,
+stage unrelated plans or commit ignored/private/generated receipts. A worker
+handoff records its commit, remaining integration requirements and actual evidence.
+
+### C — Native routing and integration tasks
+
+Existing source: Fountain `routers/web/extensions/extensions.go`,
+`modules/extensions/`, `web_src/js/features/extensions.js` and extension SDK;
+Soda `system/containers/extension/extension.json`, panel entry, workspace root/setup
+and `scripts/build-soda-extension.ts`.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-C01 | Inspect exact heads/dirty changes, map existing interface owners and reserve shared writers. Release each needed handoff independently with real examples and identify contract changes. Preserve all unrelated files; no broad audit, wholesale staging or speculative schema work. | B | — |
+| UX-C02 | Prove and implement the smallest generic native route support for new-request and saved-request content. Verify proposed `/workspace/new` and `/workspace/requests/:request` shapes against actual admission/route collision rules before relying on them. Keep native guards, normal auth/install/error layouts, appSubUrl and exactly one retained owner. No new shell or full-Workspace iframe. | B | — |
+| UX-C03 | Wire visible **New Project** to the native new-request page in populated and empty global Workspace; add repository **Plan new work** and preserve existing manual Project access. Direct load, title, query/fragment, Back/Forward and reload work without provisioning or account enrollment. | H-N, UX-U01 view contract | UX-C02, UX-U01 |
+| UX-C04 | Integrate request capture/resume, exploration/review, repository selection and generation status into the retained Workspace owner. Release capture/resume on H-N plus the private read contract; add review on H-D and commitment/status on their own ready contracts. Back/Cancel keeps the right draft/return target; no duplicate owner, stale callback or replayed effect. | H-N; H-I/private reads for capture; H-D only for review | UX-C03, UX-U03, UX-U04, UX-U05, UX-U06, UX-U07, UX-U08 |
+| UX-C05 | Incrementally wire discovery, Project/join/settings, request overview/detail, revision and ordinary activity. Changing content preserves current terminal identity/focus; browsing a repository cannot retarget an attached terminal. Integrate optional-action callbacks separately when UX-V07 is ready. | H-R, feature callbacks | UX-W01, UX-W02, UX-W03, UX-W04, UX-W05, UX-W06, UX-V01, UX-V02, UX-V03, UX-V04, UX-V05, UX-V06 |
+| UX-C06 | Keep native contribution declarations, extension entry/build graph, package assets/styles and mount-context use consistent. Prove new content loads through the actual contribution with one Lit/terminal ownership graph; no duplicate public asset copy. Subsequent content commits rerun affected asset checks. | H-N, UX-U01 entry contract | UX-C02, UX-U01 |
+| UX-C07 | Join remaining SDK/schema/route/coordinator callbacks through their single owners, including UX-I08 history enrichment of UX-U03. Remove superseded gates/callers/fixtures with replacements and reconcile contracts across both repositories. No legacy acceptance reader, parallel login or hidden second Workspace implementation remains. | Released feature patches | UX-C04, UX-C05, UX-C06, UX-I08, UX-L06, UX-V07 |
+
+UX-C02 uses existing native route/extension tests and the actual host module. UX-C03/UX-C04
+use navigation, first-use, intent, setup, panel and persistence fixtures. UX-C06 uses
+the existing extension build/package tests. Passing source fixtures do not
+establish installed browser behavior or continuity of a human process.
+
+### I — Intent authority and persistence tasks
+
+Existing source: `internal/factory/intent.go`, `intent_generation.go`, Store intent
+and generation files, intent APIs and `control/intent_generation*.go`. New query
+and allowance files stay in their existing named Go owners.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-I01 | Replace ambiguous per-idea decisions with attributable requested facts, evidence-supported choices, reversible autonomous choices, explicit corrections and unresolved consequential assumptions. Separate product choice provenance from authorization of native effects. Define explicit effective outcome subsets: unrelated authorized outcomes can progress while an unresolved branch stays pending. Validation rejects forged human attribution, invalid references and tasks referencing unresolved scope; ordinary choices require no per-card approval. Publish H-I first. | B | — |
+| UX-I02 | Persist exact effective revisions and outcome-scoped authorization with current-head CAS, actor/repository binding and immutable corrections/history, including private rejected/abandoned draft states. Preserve requested direction/pending outcomes separately from admissible work; partial progression cannot claim the whole request accepted/complete. Carry existing authorization; draft text, confidence or silence is never permission. Concurrent saves, stale predecessors, account changes and access loss refuse. | H-I | UX-I01 |
+| UX-I03 | Add bounded owner-private request listing/resume summaries with stable cursor and necessary state/context filters. Distinguish empty from unavailable; list neither another actor's drafts nor inaccessible private details. Deliberately replace the existing rejection of collection GET. Listing can finish independently of proposal/judgment work. | B, private identity contract | — |
+| UX-I04 | Add an independently revisioned finite planning allowance with current owner, explicit amount/unit, cumulative reservations/consumption, operator ceiling and CAS. Raising allowance alone preserves effective scope, native issue mappings and prior consumption. Reuse existing authorization for unchanged limits; an actual increase states its effect. Publish H-A before implementation ends. | H-I, current funding source | UX-I02 |
+| UX-I05 | Bind effective intent to initial native work and authority using exact current repository permission, bounded tasks/outcomes and attributable native requirements. Consume initial scoped decomposition before submission. A mixed-branch case generates/admit only independently authorized outcomes; unresolved dependent scope stays pending and cannot enter an accepted task. Replace accept/edit-only body generation; exclude private department metadata and discarded assumptions. Retain the atomic graph writer; no Project/human Join prerequisite. | H-I, H-D, UX-S07 graph options | UX-I02, UX-S05, UX-S06, UX-S07 |
+| UX-I06 | Reconcile the original generation request through atomic-native-committed, authority-adoption-pending, refused and uncertain outcomes. Retain verified mappings across restart/lost response; never submit a duplicate graph to repair observation. Setup failure preserves accepted work. This is not a claim that the native atomic packet partially commits. | H-I, existing operation receipts | UX-I05 |
+| UX-I07 | Implement product-scope revision/delta and affected-work treatment: reused, superseded, pending, running and delivered native records remain attributable. Changed scope invalidates affected authority and plans without silently retargeting a run or erasing delivery. Technical restructuring within unchanged authority stays autonomous; material unsupported scope changes hold their dependents. | H-I, graph/revision examples | UX-I02, UX-I05, UX-S07 |
+| UX-I08 | Add bounded owner-private revision/history readback and preserve department/repository-context privacy across list, resume and accepted native publication. A repository change after commitment creates a separate intent identity/request, retaining the old request independently; predecessor graph reuse cannot carry old repository issue IDs into the new one. Native repository creation returns to the saved original request. | H-I, existing private Department APIs | UX-I02, UX-I03 |
+
+Use domain validation, API intent-route/explore tests, Store PostgreSQL intent and
+generation tests and existing native graph fixtures. Required cases include CAS,
+owner isolation, invalid provenance, exact repository, carried authority, pending
+consequential assumptions, consumed allowance and original-request recovery.
+Changing a browser gate alone cannot complete UX-I01/UX-I02/UX-I05.
+
+### S — Proposal and System One design tasks
+
+Existing source: `intent_proposal.go`, `judgment.go`, exploration API,
+`control/intent_decomposition_judgment.go`, `control/planning.go`, `priority*.go`
+and their Store journals. System One classifies supplied alternatives; the
+proposal owner authors content and acquires allowed evidence.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-S01 | Prove an adequate bounded proposal/evidence producer before expanding orchestration. Current `ProposeIntent` only copies objective/scope and is not rich brainstorming. Inspect supported authored/input and existing planning capabilities; choose the smallest demonstrated producer with explicit authority, finite cost and output validation. Supply meaningful product alternatives and a user flow for representative supported objectives. An unavailable capability stays an explicit gap, never fabricated research or prose attributed to Jev. Consult JEV with actual alternatives before selecting a new approach. | B, latest UX contract | — |
+| UX-S02 | Define and implement the seven typed judgment purposes, supplied evidence/options, uncertainty results, semantic fingerprints and durable journal. Reserve finite allowance before calls; failures retain consumption. Reuse matching completed results. An interrupted reserved call without a durable answer remains charged/unavailable; do not promise upstream result lookup, refund or silently repeat unchanged input. Refresh only affected material inputs; no unbounded funding. Publish H-J independently. | H-A, judgment examples | UX-I04 |
+| UX-S03 | Author bounded product alternatives and walkthrough content: audience, roles, actions, meaningful branches/results, visibility, consequences, evidence and effective-outcome links. Distinguish sourced facts from suggested choices and unknowns. Replace complete-first/incremental as the only design comparison; preserve the full objective and corrections. Publish H-D independently. | H-I, UX-S01 producer contract | UX-I01, UX-S01 |
+| UX-S04 | Judge assumption consequences/contradictions over supplied evidence and resolutions. Seek evidence or choose supported/reversible within-scope defaults before interruption. Batch only unresolved consequential challenges, name assumption/consequence/recommendation and hold affected branches. Retain answers; declining one guess does not automatically approve its opposite. Permission and spending remain code-enforced regardless of confidence. | H-I, H-D, H-J | UX-S02, UX-S03 |
+| UX-S05 | Compare actual alternatives and consolidate a coherent proposal with preserved outcomes, constraints, optional exclusions and delivery milestones. Persist selected advice/provenance and finite failures; expose one proposal rather than a model-call tour or mandatory alternative vote. Corrections recompose affected portions without renewed approval of an explicit correction. | H-D, H-J | UX-S02, UX-S03, UX-S04 |
+| UX-S06 | Verify proposed walkthrough/example/summary and effective outcome consistency using supplied candidate corrections. Unknowns remain labeled; illustrations cannot silently add email, calendar, access, payments or other effects. Return specific mismatches for recomposition, not generic human approval. Exact proposal revision invalidates stale review displays. | H-D, H-J | UX-S05 |
+| UX-S07 | Judge supplied initial and later split/combine/dependency alternatives and recompose technical options within effective scope/bounds. Replace the current technical-revise-to-human-review error with a valid scoped alternative before initial native submission. Advice preserves cycle/outcome/bound constraints; UX-I05 consumes it for initial graph writes and UX-I07 for later native deltas/invalidation. Consequential product ambiguity alone needs a challenge. | H-I, H-J, current graph writer contract | UX-S02, UX-S06 |
+| UX-S08 | Preserve early provisional planning where stable facts permit it; identify missing interfaces/outputs and refresh relevant plan portions against actual prerequisite results before coding. Cache unchanged facts, record freshness/uncertainty and keep execution gates distinct from planning advice. No second planner/scheduler or invented time estimate. | H-J, existing PlanningRecord | UX-I05, UX-S02 |
+| UX-S09 | Preserve complete deterministically eligible priority comparisons, bounded tournament, uncertainty/fairness and fresh exact dispatch guards with the new judgment/allowance records. Explain the actual chosen comparison and facts. Stale advice, absent grants or exhausted funding cannot dispatch; tie/uncertainty handling cannot starve old eligible work. | H-J, existing priority implementation | UX-I05, UX-S02 |
+
+UX-S01 is an early capability proof, not permission to add a generative service or
+call an execution provider during this planning round. Future implementation uses
+actual existing grants/limits for any admitted producer. UX-S02/UX-S04–UX-S09 use injected
+typed chooser fixtures and existing intent decomposition, planning, priority and
+serving tests. The seven purposes are substantive decisions, not seven mandatory
+human screens or an instruction to call a model seven times on every render.
+
+### U — Creation and product review tasks
+
+Existing source: `sodaspaces-intent.ts`, `sodaspaces-intent-response.ts`,
+`sodaspaces-intent-view.ts` and repository picker; new walkthrough/challenge/request
+views stay content modules. C owns root/setup integration; U owns changing intent.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-U01 | Build the native content-only New Project composition: objective first, optional Department and quiet finite planning control. Loading/saved/unsaved/error states retain text. Offer Save and leave without promising reload recovery for unsaved edits; no opening repository/admin/provider form or provisioning on render. | H-I examples, B styling | UX-I02 |
+| UX-U02 | Implement accessible private Department selection/create dialog using current APIs: name/description, validation, Save/Cancel, objective retention and focus restoration. No organization directory, access grant or private key request. | B | — |
+| UX-U03 | Implement private saved-request inventory/resume with stable identities and accepted/draft/rejected/abandoned states. Restore the saved current revision on reload/login; stale responses, concurrent changes and account switches cannot reopen another actor's request. Resume/edit rejected direction; discard of unsaved edits never deletes accepted native work. Keep corrections when refresh fails. Basic resume uses the existing private current-revision read; UX-C07 wires history enrichment when UX-I08 arrives. | H-I, UX-I03 list examples | UX-I02, UX-I03 |
+| UX-U04 | Show bounded exploration and substantive supplied alternatives/consolidated recommendation. Preserve draft during failure/exhaustion and identify the actual judgment service or allowance. No fake progress/ETA, fake cancellation, provider substitution or mandatory vote on every option. | H-D, H-J, H-A | UX-S05, UX-I04 |
+| UX-U05 | Lead review with an understandable proposed-product flow: who acts, what they do, what happens on each meaningful branch and who sees the result. Include a labeled illustration and ordered-text equivalent. Optional Change something updates affected steps/example/summary and marks stale proposals; no technical task approval tour. | H-I, H-D | UX-I02, UX-S06, UX-U04 |
+| UX-U06 | Render only necessary batched assumption challenges, with recommended resolution, consequence and correction input. Preserve answers and continue independent work. Remove mandatory every-idea decisions and whole-review acceptance UI in concert with backend provenance; never auto-mark model defaults human-approved or treat silence as approval. | H-I, H-D challenge examples | UX-I02, UX-S04, UX-U05 |
+| UX-U07 | Implement exact eligible repository choice after review, with current permission/visibility, existing Project facts and native Create repository return path. Back preserves review. Summarize effective outcomes, repository, native effects and finite allowance. Carry existing exact authorization; show Create work only where initiating that effect. After commitment, another repository means a separate request, never relocation/recreation of existing work. | H-I, current native repository APIs | UX-I02, UX-I05, UX-U05, UX-U06 |
+| UX-U08 | Present committed/generating/adoption-pending/refused/uncertain status and verified original-request/native issue links. Back inspects the saved committed request, not a fresh submission. No generic resubmit on uncertainty or Project-failure rollback of accepted work. Setup is separate; current grants may allow execution already. | H-I, generation receipt examples | UX-I06, UX-U07 |
+
+Use existing `workspace-intent`, `workspace-first-use`, `workspace-setup`, recovery
+and navigation browser tests. Add cases for zero-question supported scope,
+necessary challenge, retained explicit correction and exact effect authorization;
+do not mirror every template with source-string assertions. UX-U01–UX-U06 composition
+can begin with the respective handoff examples while backend/proposer work runs.
+
+### W — Human Workspace and settings tasks
+
+Existing source: workspace inventory/navigation/toolbar/pane/focus/layout,
+Project/access views, factory settings and measurement/terminal controllers.
+Preserve the terminal resource layer; layout changes affect presentation only.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-W01 | Integrate discovery/search/recent work by stable Project, request and session identity. Group human sessions, saved requests and Factory attention; empty/loading/unavailable differ. Exact observed repository context does not rename or retarget another Project's terminal. | B, H-R request summary | UX-I03, UX-F01 |
+| UX-W02 | Present correct existing Project reuse/start or explicit Create with immutable supported profile, readiness and exact repository. Preserve accepted requests when setup fails. Keep manual use available; native browsing cannot create/start/join a Project. | B, H-I return target | — |
+| UX-W03 | Make explicit human Join/account/access and Open terminal states understandable, with current membership/authority and managed public SSH-key options. Factory readiness remains independent of human Join. No navigation enrollment or private key collection. | B | — |
+| UX-W04 | Preserve terminal tabs/splits/move/resize/layout and renderer/socket lifetime under new content. Display exact Project/account at input, maintain focus, and distinguish Rename/Hide/End/Stop Project by real effect. Compact view hides retained elements; full width restores the user's layout. | B, C callbacks | — |
+| UX-W05 | Group Project Overview/Access/Network/Factory settings with concise readiness links, current read-only/editable permissions and safe pending/errors. Separate planning calls from execution provider/account/grant usage and activity display settings. No billing-unit conversion, hidden provider switch or repeated access approval. | H-R permission/usage, H-A | UX-I04, UX-F06 |
+| UX-W06 | Handle login expiry/account change, permission loss, disconnected terminal, offline/stale refresh and recovery in the actual retained-owner lifecycle. Retire old authority, keep safe confirmed context and reconnect an existing authorized session. Status updates/dialogs cannot steal ongoing terminal input. | B, H-I error states | UX-I02 |
+| UX-W07 | Complete keyboard/focus, labeled dialogs/errors, polite state announcements, text/list alternatives, narrow/touch/zoom/reduced-motion and light/dark treatment across the new default journey. Long names retain identity; no color/hover-only meanings. Apply fixes as each view arrives rather than a late visual rewrite. | Arriving U/W/V views | UX-U05, UX-U06, UX-W01, UX-W02, UX-W03, UX-W04, UX-W05, UX-W06, UX-V01, UX-V02, UX-V03, UX-V04, UX-V05, UX-V06 |
+| UX-W08 | Reconcile first-use/welcome content with actual intent-first creation, Project reuse/create, explicit Join and manual terminal entry. Use plain effects and current actions, avoiding the old incomplete Welcome→repository→Create→terminal story. Hand matching handbook copy to UX-Q04. | Published implemented flow | UX-U01, UX-U05, UX-W02, UX-W03 |
+
+Reuse workspace navigation, attention, responsive, layout, panel, persistence,
+recovery, Project/access and settings-control tests. UX-W04's source/browser fixture
+checks must identify what terminal identity/lifetime they actually exercise;
+human process continuity needs UX-Q08's installed evidence. Graphical desktop access
+remains deferred and is not added to these tasks.
+
+### F — Factory read-model tasks
+
+Existing source: `internal/web/api/factory_issue_view.go`, `factory_views.go`,
+`factory_activity.go`, durable intent/planning/priority/attempt/merge records and
+native evidence reads. Add narrow bounded projections beside those owners.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-F01 | Expose bounded request overview: effective direction, exact context/native mappings, evidenced work-item counts, attention and current generation/setup state. Separate work-item completion from product-outcome evidence; no percentage invented from issue closure. Owner-private drafts and native repository visibility stay distinct. | H-I, current Store/native readers | UX-I02, UX-I03 |
+| UX-F02 | Expose bounded work-detail readiness/blockers, attempt/role/run stage and native review/correction/check/merge/closure facts. Include exact candidate/base, evidence links, observation time and current action capabilities. Distinguish requested control from confirmed outcome; no secrets or inaccessible source content. | B, existing issue-view contract | — |
+| UX-F03 | Expose recorded provisional/current/stale plan facts and actual priority comparison/uncertainty/fairness summaries. Complete/bounded pagination and missing/unavailable data remain explicit. GET never makes a judgment, provisions or dispatches work. | H-J, existing plan/priority records | UX-S02 |
+| UX-F04 | Expose scope revision differences and affected pending/running/delivered work from durable native mappings and current authority. Do not replace history with a speculative new graph or label a canceled attempt delivered. | H-I, UX-I07 delta contract | UX-I07 |
+| UX-F05 | Expose readable timestamped native activity outside admin settings, with current visibility, safe event/issue/PR links and last-confirmed state. Preserve unknown timestamps honestly; distinguish auth/permission/unavailable/empty. Optional action reads arrive through UX-L06, not as a prerequisite here. | B | — |
+| UX-F06 | Expose current permission/readiness and actual planning/execution usage units for settings, including unavailable usage and required owner action. Preserve separate native account/repository, Project Join, actor and broker grant boundaries. A viewer sees values without unauthorizable edits. | H-A, existing policy/grant/usage readers | UX-I04 |
+
+Reuse API Factory view/status tests, Store readers and current native visibility
+fixtures. Queries are bounded, actor-authorized and read-only. Do not create a
+parallel status authority, scheduler or event database.
+
+### V — Work progress and intervention tasks
+
+Existing source: Factory navigation/display/screen/response/view/activity modules;
+new request overview/detail/revision/action views remain Soda content.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-V01 | Build accepted-request overview with plain direction, attention, factual work-item counts/status and native issue/PR links. Show an accessible dependency list and optional graph from native relationships. Empty accepted work, waiting work, setup missing and unavailable reads differ. Outcome completion needs actual outcome evidence. Useful overview consumes UX-F01; detail enrichment arrives independently from UX-F02. | H-R overview examples | UX-F01 |
+| UX-V02 | Show prerequisites and provisional/current/stale planning plus factual Why next using recorded comparisons/age/uncertainty. Separate ready-to-plan from ready-to-execute; no fabricated ETA or confidence-as-permission. Graph/list filtering cannot hide required blockers. | H-R plan/priority examples | UX-F02, UX-F03 |
+| UX-V03 | Build work detail for coding, independent review, correction, checks, verified merge and original closure. Show exact reviewed/check candidate and native evidence; merge confirmed with closure pending remains distinct. Watch observes output; Stop watching does not terminate execution. | H-R detail | UX-F02 |
+| UX-V04 | Present current-authorized pause/resume/cancel/retry/takeover and Project Stop with exact scope/impact and pending-versus-confirmed results. Preserve retained work/terminals and existing finite attempts; no new attempt from ordinary refresh or reopened issue. Existing lifecycle APIs remain authoritative. | H-R action capabilities, B lifecycle API | UX-F02 |
+| UX-V05 | Present Change direction as attributable scope revision with affected work and running/delivered history. Keep independent allowance adjustment separate, with real units/remaining consumption and exact new amount. Explicit corrections need no second approval; unresolved consequential new scope holds its dependents. | H-I, H-A, H-R revision examples | UX-F04, UX-F06 |
+| UX-V06 | Put timestamped recent activity in repository work context with safe native links and refresh failure state. Label the three existing switches Activity visibility and retain read-only permissions; they do not enable effects or change execution policy. | UX-F05 event examples | UX-F05 |
+| UX-V07 | Show optional-effect configuration and result states: exact actor/targets, bound/budget, disabled/active/pending/delivered/failed and safe event links. Expose each configuration only after its actual native capability passes the per-event checkpoint below; unavailable effects stay unavailable. No credential enrollment. Keep effects separate from activity preferences and mandatory review. | H-L, H-R permission examples | UX-L06, UX-F06 |
+
+Use existing Factory view/settings/workspace-Factory browser tests. Compose each
+view from its own read DTO early. Do not make UX-V01–UX-V06 wait for optional native
+operations, or work-detail composition wait for all request creation screens.
+
+### L — Bounded optional lifecycle-action tasks
+
+These implement the three proposed event effects through verified native
+capabilities; they are not arbitrary hooks, scripts, extra AI calls, deployment
+automation or a replacement review system. Current default Factory behavior is
+complete with every optional effect disabled.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-L01 | Inventory/prove actual native label/assignee, PR reviewer-request and issue-comment primitives, actor eligibility, quotas and attributable operation/replay/reconciliation support. Select concrete feasible effects/bounds from the UX candidates through source evidence and required JEV consultation if the approach changes. No live mutation is needed for this proof. Publish each H-L capability separately. | B | — |
+| UX-L02 | Reuse or add the smallest generic native exact-issue label/assignment operation, capped at one configured label and one eligible assignee per generated issue/event. Current permission, target/revision, native receipt and replay/refusal cases pass. Avoid reimplementing mature upstream issue services. | H-L issue capability | UX-L01 |
+| UX-L03 | Reuse or add generic exact-PR reviewer request for up to three selected eligible human reviewers. Current actor/targets and deduplication pass; requested human review does not replace mandatory independent Factory review. This writer is independent of UX-L02/UX-L04. | H-L review capability | UX-L01 |
+| UX-L04 | Reuse or add generic exact-original-issue bounded comment operation with attributable receipt and uncertain-result reconciliation. Cap one 1,000-character completion note per event; lost response cannot duplicate publication. Soda supplies verified merge/closure applicability separately. | H-L comment capability | UX-L01 |
+| UX-L05 | Implement/test the common Soda source policy/journal and native-call contract: event applicability, finite reservations, durable action identity and per-target result. Initial attempt plus one retry only after definitive no-effect; denial stops and uncertainty reconciles. Revalidate actor/target/grants; optional failure leaves default delivery intact. Source policy tests may use H-L fixtures; actual event integrations release separately after the corresponding writer passes. | H-L, current durable native events | UX-L01 |
+| UX-L06 | Implement/test common permission-aware policy/configuration and bounded result reads with exact actor/targets, scope, budget and failure state. Enable no unproved event configuration: each action is gated by its own completed native capability, not all three. No dry-summary effect, AI call, currency fiction or preference-policy conflation. Revocation stops further effects. | H-L, UX-L05 policy/result contract | UX-L05 |
+| UX-L07 | Prove all three events through real affected native operations plus Soda durable action logic: exact generated issue, exact PR, and original completion only after verified merge **and** original closure. Test duplicate event/lost response, definitive failure, permission loss, bounded retry and unaffected default delivery. Reuse existing native fixtures; no execution-provider call is required. | Each completed effect capability | UX-L02, UX-L03, UX-L04, UX-L05, UX-L06 |
+
+UX-L02/UX-L03/UX-L04 have distinct implementation/test files. They share only the C-owned
+SDK/dispatch envelope. UX-L05/UX-L06 finish their common source contracts independently
+of the three native writers. This does not claim an event integration is proved:
+
+| Per-event checkpoint | Required completed behavior | Releases |
+| --- | --- | --- |
+| Generated issue effect | UX-L02 plus UX-L05/UX-L06 issue applicability, journal/config and focused native round trip. | That issue configuration and UX-V07's issue presentation. |
+| PR human-review request | UX-L03 plus UX-L05/UX-L06 PR applicability, journal/config and focused native round trip. | That PR configuration and UX-V07's review presentation. |
+| Original-issue completion note | UX-L04 plus UX-L05/UX-L06 verified merge/closure applicability, journal/config and focused native round trip. | That completion configuration and UX-V07's completion presentation. |
+
+One checkpoint releases its consumer without waiting for the other two. UX-L07
+qualifies the complete optional set. UX-V07's source view completion does not count
+as a native effect pass; UX-Q07 additionally requires UX-L07 and all checkpoints.
+
+### Q — Continuous verification, documentation and delivery tasks
+
+Use existing task-specific checks rather than a new acceptance framework. Each
+implementation task includes applicable checks and a coherent reviewed commit;
+Q coordinates the cross-task evidence, not a late separate testing phase.
+
+| Task | Deliverable and decisive completion condition | Start | Finish |
+| --- | --- | --- | --- |
+| UX-Q01 | Map the concrete acceptance cases below onto existing frontend/API/Store/native/serving drivers. Extend shared synthetic fixture models once under a writer lease; identify real versus supplied boundaries, known unrelated failures and cheapest meaningful checks. Begin with route/provenance/proposer risk cases. | B, arriving handoffs | — |
+| UX-Q02 | Run affected domain/Store/API/native source checks as backend packets land, covering exact scope/authority, actor isolation, CAS, finite reservation/cache/refresh, native graph recovery and current grants. Record actual revisions/scopes and failures; no broad-suite green claim from selected passes. | Completed backend packets | UX-I01, UX-I02, UX-I03, UX-I04, UX-I05, UX-I06, UX-I07, UX-I08, UX-S01, UX-S02, UX-S03, UX-S04, UX-S05, UX-S06, UX-S07, UX-S08, UX-S09, UX-F01, UX-F02, UX-F03, UX-F04, UX-F05, UX-F06 |
+| UX-Q03 | Run affected strict TS/Lit, format/lint/complexity, extension asset and Chromium checks as default content integrates. Exercise keyboard/compact/native navigation, no-question flow, targeted correction, saved resume, stale/account loss and one-owner terminal fixture continuity. Optional action UI gets its focused check when UX-V07 lands. | Completed content packets | UX-C03, UX-C04, UX-C05, UX-C06, UX-U02, UX-W07, UX-W08 |
+| UX-Q04 | Reconcile owning architecture/interface docs with provenance/judgments/allowance/effects, current API/Forgejo/Lit references with real interfaces, and public handbook/welcome instructions with the implemented journey. Keep proposals/installed evidence honest; update affected acceptance guidance and links. Preserve unrelated ideal-filetree edits; no broad documentation rewrite. | Actual completed feature interfaces | UX-C03, UX-I05, UX-I07, UX-I08, UX-S06, UX-S08, UX-S09, UX-W08, UX-F06, UX-V06, UX-L06 |
+| UX-Q05 | Prove the first usable source slice: native New Project entry → save/resume → coherent optional review/challenge → exact repository/effective commitment → native graph/original-request recovery. Require keyboard/focus/text-equivalent behavior for this slice without waiting for all UX-W07 surfaces. Use actual changed native/API boundaries with explicit external-judgment fixtures; browser fixtures alone cannot prove native handlers. No all-progress/settings/optional-action barrier. | Individually integrated slice | UX-C04, UX-C06 |
+| UX-Q06 | Extend the actual `Coordinator.Start` journey to effective intent/allowances: generate, provisional plan/actual-output refresh, eligible selection, code, independent review, correction, exact checks, verified merge, original closure and dependent pickup. Qualify corresponding progress views individually. Supply declared external boundary facts; never manually advance stages. Run without waiting for history/settings/welcome or aggregate UX-Q02/UX-Q03 closure. Optional effects disabled remains a full default. | Actual consumed default-loop capabilities | UX-I05, UX-I06, UX-S07, UX-S08, UX-S09, UX-F02, UX-F03, UX-V01, UX-V02, UX-V03 |
+| UX-Q07 | Audit coverage, contract consumption, coupled removals, commits and receipts across both repos; join aggregate UX-Q02/UX-Q03, creation/default proofs, optional UX-V07/UX-L07 and documentation here. Inspect task-owned diffs, complete applicable checks and coherent commits. Report source completion and missing installed/usability/provider/release evidence separately. | All source feature handoffs | UX-C01, UX-C07, UX-Q01, UX-Q02, UX-Q03, UX-Q04, UX-Q05, UX-Q06, UX-L07, UX-V07 |
+| UX-Q08 | Carry the existing-VM delivery instruction into a scoped update of the exact changed components when implementing this backlog: inspect retained target/state, use necessary backups and a matching package/component pair, then verify installed native request/work/settings journeys. Preserve human files/dirty work, Projects, containers/services/volumes and processes; no broad prune or rebuild of the appliance. Record installed direct navigation/account/repository/reload/history/query/fragment/single owner and live terminal evidence at the scope actually exercised. If the target/access is unavailable, retain the precise limitation and finish independent work; no TestOnly or other safeguard bypass. | UX-Q07 source evidence, admitted artifacts and applicable existing operational authorization/target access | UX-Q07 |
+
+The planning request itself executes none of UX-Q08. A later implementation carries
+the applicable existing VM authorization rather than requesting permission again.
+Build only affected deliverables through their existing native tools; do not
+repeat full production qualification to debug source/browser behavior. Installation,
+provider execution, release signing and publication have distinct evidence;
+UX-Q08 does not establish all of them. Human-process continuity and terminal
+renderer/socket continuity must each be observed rather than inferred from files.
+
+### Permissive dependency graph
+
+The graph shows **handoff outputs and selected joins**, not completion barriers
+between whole lanes. Dashed edges release fixture-based consumer work; solid
+edges require the particular completed capability for integrated acceptance.
+The Start/Finish task tables above are the exhaustive dependency list.
+
+```mermaid
+flowchart LR
+    B[Current source] --> N[UX-C02 native route proof]
+    B --> IP[UX-I01/UX-I02 intent contract]
+    B --> DP[UX-S01/UX-S03 proposal contract]
+    B --> RD[UX-F01/UX-F02/UX-F03 read contracts]
+    B --> LC[UX-L01 optional native capabilities]
+    IP -. early H-I .-> UI[U request/review content]
+    DP -. early H-D .-> UI
+    RD -. early H-R .-> WV[V/W work and Workspace content]
+    N --> ENTRY[UX-C03 native New Project entry]
+    IP --> GEN[UX-I05/UX-I06 effective native work]
+    DP --> DESIGN[UX-S02/UX-S04/UX-S05/UX-S06 funded design]
+    DESIGN --> GEN
+    DESIGN --> DECOMP[UX-S07 scoped task options]
+    DECOMP --> GEN
+    GEN --> CREATE[UX-C04/UX-Q05 usable creation slice]
+    UI --> CREATE
+    ENTRY --> CREATE
+    RD --> WORK[UX-C05/UX-Q03 default view integration]
+    WV --> WORK
+    GEN --> PLAN[UX-S08/UX-S09 scoped planning and priority]
+    GEN --> DEFAULT[UX-Q06 default serving journey]
+    RD --> PV[UX-V01/UX-V02/UX-V03 verified progress views]
+    PV --> DEFAULT
+    PLAN --> DEFAULT
+    LC --> LABEL[UX-L02 label/assignee]
+    LC --> REVIEW[UX-L03 human reviewer request]
+    LC --> NOTE[UX-L04 completion note]
+    LC --> ACTION[UX-L05/UX-L06 common policy/journal]
+    ACTION --> OPT[UX-V07 effect views]
+    LABEL --> EFFECT[UX-L07 all native effect checkpoints]
+    REVIEW --> EFFECT
+    NOTE --> EFFECT
+    ACTION --> EFFECT
+    DEFAULT --> JOIN[UX-Q07 source/doc/commit closure]
+    CREATE --> JOIN
+    WORK --> JOIN
+    OPT --> JOIN
+    EFFECT --> JOIN
+    JOIN --> VM[UX-Q08 exact-pair installed proof]
+```
+
+Important absent edges are deliberate:
+
+- Draft listing does not wait for product brainstorming or native effect work.
+- Native route proof does not wait for intent generation, planning or mutations.
+- Review composition begins from its contract; it does not wait for native issues.
+- Factory reads and existing human terminal work do not wait for creation UI.
+- Provisional planning does not wait for all dependencies to finish; execution
+  waits for its actual current requirements.
+- UX-L02/UX-L03/UX-L04 do not depend on each other. Ordinary activity, progress and the
+  default UX-Q06 journey do not depend on optional effects.
+- Each consumer uses its own completed interface, never every task in the
+  producer's lane. Source qualification and VM delivery have separate evidence.
+
+### Allocation for the current four-agent limit
+
+Use one integration/evidence lead and **at most three active implementation
+workers**. The nine lanes are queues of owned work, not nine simultaneous agents
+or permanent slot assignments. Reallocate at a coherent handoff/commit boundary;
+do not interrupt useful work just to fill all slots.
+
+| Readiness point, not a global wave | Integration lead | Worker 1 | Worker 2 | Worker 3 |
+| --- | --- | --- | --- | --- |
+| Initial independent work | UX-C01, early UX-C02 native route proof and UX-Q01 cases. | UX-I01 and independently ready UX-I03; publish H-I/list portions promptly. | UX-S01 proposer proof and UX-S02 journal/allowance requirements. | UX-U01/UX-U02 composition from published examples; current UX-W02/UX-W03 work if needed inputs are pending. |
+| Small contracts available | UX-C03/UX-C06 entry/assets; merge shared schema/route patches as supplied. | UX-I02/UX-I04, then UX-I05/UX-I06 once design and initial decomposition pass. | UX-S02–UX-S07; use spare readiness for UX-L01 capability inspection. | UX-U03–UX-U08 with source/API integration as each producer passes. |
+| First creation slice ready | UX-C04 and UX-Q05 immediately; do not wait for complete settings/progress. | UX-F01/UX-F02 and UX-I07/UX-I08 as their own prerequisites allow. | UX-S08/UX-S09 and UX-F03 handoff; then distinct native UX-L02/UX-L03/UX-L04 work. | UX-V01/UX-V03 or UX-W01/UX-W04/UX-W06, whichever unlocks the limiting default flow. |
+| Default views and native effect proofs arriving | UX-C05, incremental UX-Q02/UX-Q03 and actual UX-Q06; UX-Q04 owning-doc reconciliation. | UX-F04/UX-F06 and common UX-L05/UX-L06 from H-L while native writers proceed. | Remaining W/V work or separate native effects; respect file leases. | UX-V02/UX-V04/UX-V05/UX-V06, UX-W05/UX-W07/UX-W08 and UX-V07 as their own DTOs/effects arrive. |
+| Source closure/delivery | UX-C07/UX-Q07, then one admitted UX-Q08 update/installed check. | Resolve observed backend findings, then independent documentation/check work. | UX-L07/affected native findings and focused checks. | Remaining browser/effect checks and exact flow/copy reconciliation. |
+
+These allocations illustrate possible overlap; they add **no dependencies**.
+Any worker can take another owner's ready task after an explicit file/handoff
+transfer. One mutable native fixture/VM/build resource has one operator at a time.
+
+Prefer the ready task that releases a needed contract/native proof or advances
+the currently limiting end-user journey. Fit other independent ready work in the
+remaining slots. Maintain the ready queue from actual dependencies and exclusive
+resources; record observed task/check durations and recalculate the limiting path
+after each meaningful handoff/failure. Before duration data exists, claiming a
+precise optimal schedule or invented hour estimate would be misleading.
+
+The initial limiting chain is intent/proposer proof → funded coherent design →
+effective native generation → request commitment/recovery → usable creation slice.
+Native routes run alongside that chain. Factory reads/views, human Workspace and
+optional native effects overlap it. The final join waits for whichever of default
+journey, optional effects and documentation is actually last. Keep integration
+patches small and prompt so the single writer does not become the bottleneck.
+
+### Coverage, checks and completion
+
+| Designed surface/behavior | Task coverage |
+| --- | --- |
+| Global/repository Workspace and visible New Project | UX-C02/UX-C03/UX-C05, UX-W01 |
+| New Project/private Department/save/resume | UX-I02/UX-I03/UX-I08, UX-U01/UX-U02/UX-U03 |
+| Exploring, substantive alternatives and all seven judgment purposes | UX-S01–UX-S09, UX-U04 |
+| Nontechnical product flow, optional correction and consequential challenge | UX-I01/UX-I02, UX-S03–UX-S06, UX-U05/UX-U06, UX-W07 |
+| Repository choice, native creation return and exact commitment | UX-I02/UX-I05/UX-I08, UX-U07 |
+| Atomic generation/adoption/uncertain original-request recovery | UX-I05/UX-I06, UX-U08, UX-Q05 |
+| Work overview, outcome evidence, dependencies and planning freshness | UX-F01/UX-F02/UX-F03, UX-V01/UX-V02, UX-S07–UX-S09 |
+| Project setup, human Join/access and everyday terminal controls | UX-W02/UX-W03/UX-W04, UX-C05 |
+| Factory detail, Watch, independent review/fix/check/merge/original closure | UX-F02/UX-F03, UX-V03/UX-V04, UX-Q06 |
+| Material decision and running/delivered scope revision | UX-I07, UX-S04/UX-S07, UX-F04, UX-V05 |
+| Separate planning allowance/execution funding/current grants | UX-I04, UX-S02, UX-F06, UX-W05/UX-V05 |
+| Permission-aware Overview/Access/Network/Factory settings | UX-F06, UX-W05/UX-C05 |
+| Timestamped activity and three display preferences | UX-F05, UX-V06/UX-W05 |
+| Three bounded native effects and action visibility | UX-L01–UX-L07, UX-V07 |
+| Recovery: draft conflict, login/access, uncertain generation, setup, funding, terminal, stale checks/closure | UX-I02/UX-I06/UX-I08, UX-U03/UX-U04/UX-U08, UX-W06, UX-F02/UX-F06, UX-V03/UX-V04/UX-V05 |
+| Keyboard/compact/zoom/themes, focus and single retained terminal owner | UX-C02–UX-C06, UX-W04/UX-W06/UX-W07, UX-Q03/UX-Q08 |
+| Current welcome/public handbook/interface docs and scoped installed evidence | UX-W08, UX-Q04/UX-Q07/UX-Q08 |
+
+Use the smallest applicable existing commands with cache/temp configuration under
+`/home`. Select actual test names/files after changing the corresponding owner:
+
+| Change | Existing verification entry points |
+| --- | --- |
+| Intent/proposal/domain behavior | `go test ./internal/factory` with the affected `-run` selector. |
+| Store/API/control behavior | Focused `go test ./internal/store`, `./internal/web/api`, `./internal/factory/control` tests and their documented PostgreSQL fixtures. UX-Q06 uses the existing serving intent journey test as the composition owner. |
+| Native routes/operations | Fountain's existing `routers/web/extensions` and `services/nativeoperation` tests, including actual SQL/native fixtures; actual host-module browser checks for navigation/ownership. |
+| Browser content/terminal behavior | Affected `tests/frontend/workspace-*.test.ts`, `factory-view.test.ts`, `factory-settings-controls.test.ts` through the documented built-asset test commands. |
+| Types/assets/style/ownership | `bun run typecheck`, affected Oxc scripts, `scripts/build-soda-extension.test.ts`, Go house-style checks and `go test ./internal/archcheck/` when imports/ownership change. |
+| Installed exact pair | Existing authorized VM/native/installed drivers after UX-Q07, with explicit source/package/component identities and preserved-state evidence. |
+
+Commit after applicable checks pass at coherent feature or integration boundaries;
+a task may need several commits, and several tiny coupled replacements may share
+one coherent commit. Inspect the staged diff before each commit. Do not repeatedly
+run broad checks after unchanged inputs already passed. A failure blocks only
+its actual consumers; investigate the smallest missing fact and continue ready
+independent work. Known unrelated failures remain recorded with their real scope.
+
+Source completion requires every C/I/S/U/W/F/V/L source task plus UX-Q01–UX-Q07,
+their applicable checks and coupled removals. Installed completion additionally
+requires UX-Q08 on the exact delivered pair. Missing producer capability, failing
+native proof or unavailable target is not a completed task. Reconcile all 68 IDs
+with real commits/evidence at final handoff; no approval or passing JEV response
+can substitute for missing implementation proof.
+
+Do not demand routine human signoff to finish the backlog. A consequential
+unsupported product assumption is the only product-review challenge, with already
+granted authority preserved. A later available nontechnical reviewer can test
+whether they understand the flow and can correct it; this is optional usability
+evidence, not a new approval queue. Without such observation, report that limitation
+instead of claiming that model/technical review proves comprehension. Likewise,
+source fixtures alone do not prove installed terminal/socket/process continuity,
+normal managed-account enrollment, external provider execution or release signing.
 
 ## Owning contracts
 
