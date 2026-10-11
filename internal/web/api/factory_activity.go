@@ -3,8 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strings"
-	"unicode"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
@@ -25,11 +23,8 @@ func (s *API) apiFactoryActivity(w http.ResponseWriter, r *http.Request, v store
 		auth.ProviderError(w, err)
 		return
 	}
-	validPart := func(part string) bool {
-		return part != "" && part != "." && part != ".." && !strings.ContainsAny(part, "/\\%?#") && !strings.ContainsFunc(part, func(c rune) bool { return unicode.IsSpace(c) || unicode.IsControl(c) })
-	}
 	owner, name := access.repository.Owner.Login, access.repository.Name
-	if !validPart(owner) || !validPart(name) {
+	if !validNativeLinkPart(owner) || !validNativeLinkPart(name) {
 		auth.JSONError(w, 503, "invalid_native_metadata", "Repository metadata cannot produce a local link.")
 		return
 	}
