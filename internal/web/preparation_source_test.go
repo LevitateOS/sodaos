@@ -65,8 +65,10 @@ func newPreparationSourceTest(t *testing.T) *preparationSourceTest {
 			var in project.Prepare
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&in))
 			f.prepared = append(f.prepared, in.Preparation.ID)
-			state := project.PrepareState{ID: in.Preparation.ID, Project: in.Preparation.Project, Role: in.Preparation.Role, Phase: project.PrepareRunning,
-				Container: strings.Repeat("b", 64), SourceCommit: in.Preparation.SourceCommit, SetupDigest: in.Preparation.SetupDigest}
+			state := project.PrepareState{
+				ID: in.Preparation.ID, Project: in.Preparation.Project, Role: in.Preparation.Role, Phase: project.PrepareRunning,
+				Container: strings.Repeat("b", 64), SourceCommit: in.Preparation.SourceCommit, SetupDigest: in.Preparation.SetupDigest,
+			}
 			f.state[in.Preparation.ID] = state
 			if f.loseReply {
 				f.loseReply = false

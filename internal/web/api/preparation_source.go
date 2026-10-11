@@ -99,9 +99,13 @@ func (s *API) readPreparationSource(ctx context.Context, r *http.Request, p stor
 	if err != nil {
 		return draft, err
 	}
-	draft = preparationSourceDraft{source: source, setup: setup, setupFiles: setupFiles, tools: tools,
-		requirements: preparationRequirementPreview{SourceCommit: source.Commit, SetupDigest: project.SetupDigestOf(setup.Files),
-			InputsDigest: project.PreparationInputsDigestOf(setupFiles, inputDigests, tools), SourceInputs: inputs, Predecessor: head}}
+	draft = preparationSourceDraft{
+		source: source, setup: setup, setupFiles: setupFiles, tools: tools,
+		requirements: preparationRequirementPreview{
+			SourceCommit: source.Commit, SetupDigest: project.SetupDigestOf(setup.Files),
+			InputsDigest: project.PreparationInputsDigestOf(setupFiles, inputDigests, tools), SourceInputs: inputs, Predecessor: head,
+		},
+	}
 	return draft, nil
 }
 
@@ -261,9 +265,11 @@ func (s *API) apiPreparationStart(w http.ResponseWriter, r *http.Request, v stor
 	}
 	items := []preparationItemView{}
 	for _, selected := range []struct{ id, role string }{{in.CoderID, project.RoleCoder}, {in.ReviewerID, project.RoleReviewer}} {
-		prep := project.Prepare{Preparation: project.Preparation{ID: selected.id, Project: p.ID, Role: selected.role,
+		prep := project.Prepare{Preparation: project.Preparation{
+			ID: selected.id, Project: p.ID, Role: selected.role,
 			Requirements: requirement.Ref(requirementDepth), Approval: approval.Ref(approvalDepth),
-			SourceCommit: requirement.SourceCommit, SetupDigest: requirement.SetupDigest, Tools: draft.tools}, Setup: draft.setup}
+			SourceCommit: requirement.SourceCommit, SetupDigest: requirement.SetupDigest, Tools: draft.tools,
+		}, Setup: draft.setup}
 		observed, err := s.Coordinator.StartPreparation(r.Context(), prep, authorize)
 		if err != nil {
 			auth.JSONError(w, 409, "preparation_unconfirmed", "Preparation was not confirmed. Refresh its retained state and retry these same identities; failed or interrupted identities need a new preparation.")
