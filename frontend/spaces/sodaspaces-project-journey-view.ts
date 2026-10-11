@@ -156,9 +156,16 @@ function joinRefreshAction(input: JourneyViewInput) {
   </button>`;
 }
 
-function joinHelper(input: JourneyViewInput) {
-  return html`Joining as ${input.readJoinCaption()}. Factory work uses its own authority and does not wait for your
-  Join. Then you can open your first browser terminal.`;
+function joinHelper() {
+  return html`Then you can open your first browser terminal.`;
+}
+
+function renderJoinContext(input: JourneyViewInput) {
+  // Membership context lives below the vertically centered intro so the
+  // Join→terminal transition keeps its no-jump geometry (first-use matrix).
+  return html`<p>
+    Joining as ${input.readJoinCaption()}. Factory work uses its own authority and does not wait for your Join.
+  </p>`;
 }
 
 function renderJourneyJoin(input: JourneyViewInput) {
@@ -176,9 +183,10 @@ function renderJourneyJoin(input: JourneyViewInput) {
           >in this persistent human project.</span
         >`,
       action: joinAction(input),
-      helper: joinHelper(input),
+      helper: joinHelper(),
       feedback: joinFeedback(input),
     })}
+    ${renderJoinContext(input)}
   </section>`;
 }
 
