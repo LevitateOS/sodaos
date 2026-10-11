@@ -93,6 +93,108 @@ test('native generation failure retains acceptance and explains the remaining en
   );
 });
 
+test('save draft reports saved state and save-and-leave signals return without losing text', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => {
+    const seen: {name: string; detail: unknown}[] = [];
+    for (const name of ['intent-saved', 'intent-leave'])
+      document.addEventListener(name, (event) => seen.push({name, detail: (event as CustomEvent).detail}));
+    (window as unknown as {intentEvents: {name: string; detail: unknown}[]}).intentEvents = seen;
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  assert(await page.getByRole('button', {name: 'Save draft', exact: true}).isDisabled());
+  assert(await page.getByRole('button', {name: 'Save and leave', exact: true}).isDisabled());
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByText('Unsaved changes', {exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Saved', {exact: true}).waitFor();
+  const saved = await page.evaluate(
+    () => (window as unknown as {intentEvents: {name: string; detail: unknown}[]}).intentEvents
+  );
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0]?.name, 'intent-saved');
+  const detail = saved[0]?.detail as {intent: string; revision: string; state: string};
+  assert(/^d[0-9a-f]{24}$/.test(detail.intent));
+  assert(/^d[0-9a-f]{24}$/.test(detail.revision));
+  assert.equal(detail.state, 'draft');
+  const calls = await page.evaluate(() => window.workspaceFixture.calls);
+  assert(calls.some((call) => call.path.endsWith('/api/factory/intents') && call.body?.state === 'draft'));
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker for staff');
+  await page.getByText('Unsaved changes', {exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
+  await page.getByText('Saved', {exact: true}).waitFor();
+  const left = await page.evaluate(
+    () => (window as unknown as {intentEvents: {name: string; detail: unknown}[]}).intentEvents
+  );
+  assert.deepEqual(
+    left.map((entry) => entry.name),
+    ['intent-saved', 'intent-saved', 'intent-leave']
+  );
+  await page.evaluate(() => {
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/api/factory/intents') && init?.method === 'POST')
+          return Promise.resolve(new Response(null, {status: 500}));
+        return original(input, init);
+      },
+    });
+  });
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker for staff teams');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page
+    .getByText('Could not save or plan this request. Your choices are kept; try again.', {exact: true})
+    .waitFor();
+  assert.equal(
+    await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
+    'Build a leave tracker for staff teams'
+  );
+  await page.getByText('Unsaved changes', {exact: true}).waitFor();
+});
+
+test('department dialog validates, retains the objective and restores focus on cancel or save', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'New department', exact: true}).click();
+  const dialog = page.getByRole('dialog', {name: 'New department'});
+  await dialog.getByText('Name and description are required.', {exact: false}).waitFor();
+  assert(await dialog.getByRole('button', {name: 'Create department', exact: true}).isDisabled());
+  await dialog.getByLabel('Name', {exact: true}).fill('People operations');
+  assert(await dialog.getByRole('button', {name: 'Create department', exact: true}).isDisabled());
+  await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+  await dialog.waitFor({state: 'detached'});
+  assert.equal(
+    await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
+    'Build a leave tracker'
+  );
+  await page.waitForFunction(() => {
+    const active = document.querySelector('soda-intent')?.shadowRoot?.activeElement;
+    return active instanceof HTMLButtonElement && active.classList.contains('open-department');
+  });
+  await page.getByRole('button', {name: 'New department', exact: true}).click();
+  await dialog.getByLabel('Name', {exact: true}).fill('People operations');
+  await dialog.getByLabel('What does it do?', {exact: true}).fill('Supports staff onboarding');
+  await dialog.getByRole('button', {name: 'Create department', exact: true}).click();
+  await dialog.waitFor({state: 'detached'});
+  assert.equal(
+    await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
+    'Build a leave tracker'
+  );
+  const departmentValue = await page.evaluate(() => {
+    const select = document.querySelector('soda-intent')?.shadowRoot?.querySelector('select');
+    return select instanceof HTMLSelectElement ? select.value : 'missing';
+  });
+  assert.notEqual(departmentValue, '');
+  assert.notEqual(departmentValue, 'missing');
+  await page.waitForFunction(() => {
+    const active = document.querySelector('soda-intent')?.shadowRoot?.activeElement;
+    return active instanceof HTMLButtonElement && active.classList.contains('open-department');
+  });
+});
 test('an unavailable proposal keeps the objective editable and permits a bounded retry', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
