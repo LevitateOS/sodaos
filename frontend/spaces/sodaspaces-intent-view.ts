@@ -1,9 +1,13 @@
 import {html} from 'lit';
-import type {Department, IntentRevision, ProductIdea} from './sodaspaces-intent-response.js';
+import type {Department, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
 
 export interface IntentView {
   objective: string;
   saveNote: string;
+  savedRequests: SavedRequest[];
+  savedLoaded: boolean;
+  savedError: string;
+  savedMore: boolean;
   department: string;
   departments: Department[];
   revision: IntentRevision | undefined;
@@ -23,6 +27,9 @@ export interface IntentView {
   describe(): void;
   saveDraft(): void;
   saveAndLeave(): void;
+  loadSaved(): void;
+  moreSaved(): void;
+  resumeRequest(intent: string): void;
   revise(): void;
   decline(): void;
   continue(): void;
@@ -66,9 +73,55 @@ function entryActions(view: IntentView) {
     ><button class="primary" ?disabled=${locked} @click=${view.describe}>Explore ideas</button>
   </div>`;
 }
+function terminalNote(view: IntentView) {
+  if (view.revision?.state === 'declined')
+    return html`<p>This direction was declined. Revise the outcome and explore again for a new draft.</p>`;
+  if (view.revision?.state === 'rejected')
+    return html`<p>This direction was rejected. Revise the outcome and explore again for a new draft.</p>`;
+  if (view.revision?.state === 'abandoned')
+    return html`<p>This draft was abandoned. Revise the outcome and explore again to restart it.</p>`;
+  return '';
+}
+function requestState(state: SavedRequest['state']): string {
+  if (state === 'accepted') return 'Accepted';
+  if (state === 'declined') return 'Declined';
+  if (state === 'rejected') return 'Rejected';
+  if (state === 'abandoned') return 'Abandoned';
+  return 'Draft';
+}
+function savedRequestItem(view: IntentView, item: SavedRequest) {
+  const work = item.task_count ? ` · ${item.task_count} work items` : '';
+  return html`<li>
+    <p>${item.objective}</p>
+    <p>${requestState(item.state)}${work}</p>
+    <button ?disabled=${view.busy || view.blocked} @click=${() => view.resumeRequest(item.intent)}>Resume</button>
+  </li>`;
+}
+function savedRequests(view: IntentView) {
+  if (!view.savedLoaded && !view.savedError)
+    return html`<section aria-label="Saved requests"><p>Loading saved requests…</p></section>`;
+  if (view.savedError)
+    return html`<section aria-label="Saved requests">
+      <p>${view.savedError}</p>
+      <button @click=${view.loadSaved}>Retry</button>
+    </section>`;
+  if (!view.savedRequests.length)
+    return html`<section aria-label="Saved requests">
+      <h3>Saved requests</h3>
+      <p>No saved requests yet.</p>
+    </section>`;
+  return html`<section aria-label="Saved requests">
+    <h3>Saved requests</h3>
+    <ul>
+      ${view.savedRequests.map((item) => savedRequestItem(view, item))}
+    </ul>
+    ${view.savedMore ? html`<button @click=${view.moreSaved}>Show more</button>` : ''}
+  </section>`;
+}
 export function describeIntent(view: IntentView) {
   return html`<section class="intent-entry">
     <h2 tabindex="-1">What do you want to build?</h2>
+    ${terminalNote(view)}
     <label
       ><span class="sr-only">Describe what you want to build</span
       ><textarea
@@ -103,6 +156,7 @@ export function describeIntent(view: IntentView) {
     ${bounds(view)} ${entryActions(view)}
     <p>${view.saveNote}</p>
     <p>Only saved drafts can be resumed after reload. Unsaved edits stay in this view.</p>
+    ${savedRequests(view)}
   </section>`;
 }
 function productIdea(view: IntentView, idea: ProductIdea) {

@@ -1,8 +1,15 @@
 import {LitElement, html, css} from 'lit';
 import type {PropertyValues} from 'lit';
 import {object, check, SodaRequestError} from './sodaspaces-api.js';
-import {department, departments, intentRevision, newDecisionID} from './sodaspaces-intent-response.js';
-import type {Department, IntentRevision, ProductIdea} from './sodaspaces-intent-response.js';
+import {
+  decisionID,
+  department,
+  departments,
+  intentList,
+  intentRevision,
+  newDecisionID,
+} from './sodaspaces-intent-response.js';
+import type {Department, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
 import {describeIntent, reviewIntent, departmentDialog, reviewReady} from './sodaspaces-intent-view.js';
 import type {IntentView} from './sodaspaces-intent-view.js';
 
@@ -12,7 +19,12 @@ export class SodaIntent extends LitElement {
     api: {attribute: false},
     blocked: {type: Boolean},
     active: {type: Boolean},
+    request: {type: String},
     objective: {state: true},
+    savedRequests: {state: true},
+    savedLoaded: {state: true},
+    savedError: {state: true},
+    savedNext: {state: true},
     department: {state: true},
     departments: {state: true},
     revision: {state: true},
@@ -139,6 +151,11 @@ export class SodaIntent extends LitElement {
   declare api: IntentAPI | undefined;
   declare blocked: boolean;
   declare active: boolean;
+  declare request: string;
+  declare savedRequests: SavedRequest[];
+  declare savedLoaded: boolean;
+  declare savedError: string;
+  declare savedNext: string | undefined;
   declare objective: string;
   declare department: string;
   declare departments: Department[];
@@ -152,13 +169,21 @@ export class SodaIntent extends LitElement {
   declare departmentDescription: string;
   declare maxIssues: number;
   declare planningCalls: number;
-  private request: AbortController | undefined;
+  private operation: AbortController | undefined;
+  private resumeController: AbortController | undefined;
+  private resumeID = '';
+  private loadedRequest = '';
   private departmentsLoaded = false;
   generationNotice = '';
   constructor() {
     super();
     this.blocked = false;
     this.active = false;
+    this.request = '';
+    this.savedRequests = [];
+    this.savedLoaded = false;
+    this.savedError = '';
+    this.savedNext = undefined;
     this.objective = '';
     this.department = '';
     this.departments = [];
@@ -169,15 +194,32 @@ export class SodaIntent extends LitElement {
     this.planningCalls = 8;
   }
   protected updated(changed: PropertyValues<this>) {
-    if (!changed.has('active') && !changed.has('blocked')) return;
-    if (this.active && !this.blocked && !this.departmentsLoaded) void this.loadDepartments();
+    if (changed.has('active') || changed.has('blocked') || (changed.has('busy') && !this.busy)) this.activate();
+    if (this.resumeReady(changed)) this.resume();
+  }
+  private activate() {
+    if (!this.active || this.blocked || !this.api) return;
+    if (!this.departmentsLoaded) {
+      void this.loadDepartments().then((ok) => {
+        if (ok) this.fetchSaved(false);
+      });
+      return;
+    }
+    if (!this.savedLoaded && !this.savedError) this.fetchSaved(false);
+  }
+  private resumeReady(changed: PropertyValues<this>) {
+    return changed.has('request') || changed.has('api') || changed.has('active') || (changed.has('busy') && !this.busy);
   }
   disconnectedCallback() {
-    this.request?.abort();
+    this.operation?.abort();
+    this.resumeController?.abort();
     super.disconnectedCallback();
   }
   reset() {
-    this.request?.abort();
+    this.operation?.abort();
+    this.resumeController?.abort();
+    this.request = '';
+    this.loadedRequest = '';
     this.revision = undefined;
     this.objective = '';
     this.dirty = false;
@@ -186,7 +228,7 @@ export class SodaIntent extends LitElement {
   private async perform(operation: (signal: AbortSignal) => Promise<void>, note = 'Saving and planning…') {
     if (this.busy || this.blocked || !this.api) return false;
     const request = new AbortController();
-    this.request = request;
+    this.operation = request;
     this.busy = true;
     this.busyNote = note;
     this.error = '';
@@ -198,7 +240,7 @@ export class SodaIntent extends LitElement {
         this.error = 'Could not save or plan this request. Your choices are kept; try again.';
       return false;
     } finally {
-      if (this.request === request) this.busy = false;
+      if (this.operation === request) this.busy = false;
     }
   }
   private async call(path: string, body: Record<string, unknown> | undefined, signal: AbortSignal) {
@@ -207,11 +249,94 @@ export class SodaIntent extends LitElement {
     if (signal.aborted || this.blocked || !this.isConnected) throw Error('Intent request retired');
     return response;
   }
-  private async loadDepartments() {
-    await this.perform(async (signal) => {
+  private loadDepartments() {
+    return this.perform(async (signal) => {
       this.departments = departments(await this.call('/api/factory/departments', undefined, signal));
       this.departmentsLoaded = true;
+    }, 'Loading…');
+  }
+  private fetchSaved(more: boolean) {
+    if (more && this.savedNext === undefined) return;
+    const prior = this.error;
+    void this.perform(async (signal) => {
+      const query = more && this.savedNext ? `?cursor=${this.savedNext}&limit=20` : '?limit=20';
+      try {
+        const page = intentList(await this.call('/api/factory/intents' + query, undefined, signal));
+        this.savedRequests = more ? [...this.savedRequests, ...page.intents] : page.intents;
+        this.savedNext = page.next_cursor;
+        this.savedLoaded = true;
+        this.savedError = '';
+      } catch {
+        if (!signal.aborted) this.savedError = 'Could not load saved requests. Your edits are kept; try again.';
+      }
+    }, 'Loading saved requests…').then(() => {
+      if (this.error === '') this.error = prior;
     });
+  }
+  private resumeSuperseded(id: string): boolean {
+    if (!this.resumeController) return this.busy;
+    if (this.resumeID === id) return true;
+    this.resumeController.abort();
+    return false;
+  }
+  private resumeAdmitted(id: string): boolean {
+    if (!id || !this.api || !this.active || this.blocked) return false;
+    if (id === this.loadedRequest || id === this.revision?.intent) return false;
+    return !this.resumeSuperseded(id);
+  }
+  private resume() {
+    const id = this.request.trim();
+    if (!this.resumeAdmitted(id)) return;
+    if (!decisionID(id)) {
+      this.error = 'This saved request address is invalid. Your current edits are kept.';
+      return;
+    }
+    const controller = new AbortController();
+    this.resumeController = controller;
+    this.resumeID = id;
+    this.busy = true;
+    this.busyNote = 'Loading saved request…';
+    this.error = '';
+    void this.loadRequest(id, controller);
+  }
+  private async loadRequest(id: string, controller: AbortController) {
+    try {
+      const saved = intentRevision(await this.call('/api/factory/intents/' + id, undefined, controller.signal));
+      if (controller.signal.aborted || this.resumeController !== controller || this.request !== id) return;
+      if (saved.intent !== id) throw Error('Mismatched intent revision');
+      this.applyRevision(saved);
+      this.loadedRequest = id;
+      this.dispatchEvent(
+        new CustomEvent('intent-resumed', {
+          detail: {intent: saved.intent, revision: saved.id, state: saved.state},
+          bubbles: true,
+          composed: true,
+        })
+      );
+    } catch (error) {
+      this.resumeFailed(id, controller, error);
+    } finally {
+      if (this.resumeController === controller) {
+        this.resumeController = undefined;
+        this.resumeID = '';
+        this.busy = false;
+      }
+    }
+  }
+  private resumeFailed(id: string, controller: AbortController, error: unknown) {
+    if (controller.signal.aborted || this.resumeController !== controller) return;
+    this.loadedRequest = id;
+    if (error instanceof SodaRequestError && error.status === 404)
+      this.error = 'This saved request is unavailable to the current account. Your current edits are kept.';
+    else this.error = 'Could not load the saved request. Your current edits are kept; try again.';
+  }
+  private applyRevision(saved: IntentRevision) {
+    this.revision = saved;
+    this.objective = saved.objective;
+    this.department = saved.department || '';
+    this.maxIssues = saved.max_issues;
+    this.planningCalls = saved.planning_calls;
+    this.dirty = false;
   }
   private nextRevision(state: IntentRevision['state'], repository = '0'): IntentRevision {
     const current = this.revision;
@@ -229,7 +354,12 @@ export class SodaIntent extends LitElement {
       ...(current?.approach ? {approach: current.approach} : {}),
     };
   }
+  private terminalRevision(): boolean {
+    const state = this.revision?.state;
+    return state === 'declined' || state === 'rejected' || state === 'abandoned';
+  }
   private currentProposal() {
+    if (this.terminalRevision()) return {ideas: [], tasks: []};
     if (this.objective.trim() !== this.revision?.objective) return {ideas: [], tasks: []};
     return {ideas: this.revision?.ideas || [], tasks: this.revision?.tasks || []};
   }
@@ -244,6 +374,8 @@ export class SodaIntent extends LitElement {
     )
       throw Error('Mismatched intent revision');
     this.revision = saved;
+    this.savedLoaded = false;
+    this.savedError = '';
     return saved;
   }
   private async explore(signal: AbortSignal) {
@@ -373,6 +505,10 @@ export class SodaIntent extends LitElement {
     return {
       objective: this.objective,
       saveNote: this.saveNote(),
+      savedRequests: this.savedRequests,
+      savedLoaded: this.savedLoaded,
+      savedError: this.savedError,
+      savedMore: this.savedLoaded && this.savedNext !== undefined,
       department: this.department,
       departments: this.departments,
       revision: this.revision,
@@ -402,6 +538,13 @@ export class SodaIntent extends LitElement {
       describe: this.describe,
       saveDraft: this.saveDraft,
       saveAndLeave: this.saveAndLeave,
+      loadSaved: () => this.fetchSaved(false),
+      moreSaved: () => this.fetchSaved(true),
+      resumeRequest: (intent: string) => {
+        if (intent !== this.revision?.intent) this.loadedRequest = '';
+        this.request = intent;
+        this.resume();
+      },
       revise: this.revise,
       decline: this.decline,
       continue: this.continue,
@@ -410,10 +553,14 @@ export class SodaIntent extends LitElement {
       createDepartment: this.createDepartment,
     };
   }
+  private reviewing() {
+    const state = this.revision?.state;
+    return !!this.revision?.ideas.length && (state === 'draft' || state === 'accepted');
+  }
   protected render() {
     const view = this.view();
     return html`<div .inert=${this.departmentDialog}>
-        ${this.revision?.ideas.length ? reviewIntent(view) : describeIntent(view)}
+        ${this.reviewing() ? reviewIntent(view) : describeIntent(view)}
       </div>
       <p role="status">${this.busy ? this.busyNote : this.error}</p>
       ${departmentDialog(view)}`;
