@@ -82,8 +82,19 @@ func sameRevisionIDs(old, current []string) bool {
 	return true
 }
 
-func revisionTaskDiff(old, current []factory.IntentTask) revisionTaskDiffView {
-	diff := revisionTaskDiffView{Added: []factory.IntentTask{}, Removed: []factory.IntentTask{}, Changed: []revisionTaskChangeView{}, Reused: []string{}}
+// revisionTaskDiff renders the structural task difference from the
+// authoritative I07 delta: reused/changed/removed keys in old task
+// order, added bodies in new order, plus old-vs-new content for
+// changed keys from the two compared revision bodies.
+func revisionTaskDiff(delta factory.TaskDelta, old, current []factory.IntentTask) revisionTaskDiffView {
+	diff := revisionTaskDiffView{
+		Added: []factory.IntentTask{}, Removed: []factory.IntentTask{},
+		Changed: []revisionTaskChangeView{}, Reused: delta.Reused,
+		UnchangedCount: len(delta.Reused),
+	}
+	if diff.Reused == nil {
+		diff.Reused = []string{}
+	}
 	previous := make(map[string]factory.IntentTask, len(old))
 	for _, task := range old {
 		previous[task.Key] = task
@@ -91,59 +102,34 @@ func revisionTaskDiff(old, current []factory.IntentTask) revisionTaskDiffView {
 	now := make(map[string]factory.IntentTask, len(current))
 	for _, task := range current {
 		now[task.Key] = task
-		if _, ok := previous[task.Key]; !ok {
+	}
+	for _, key := range delta.Added {
+		if task, ok := now[key]; ok {
 			diff.Added = append(diff.Added, task)
 		}
 	}
-	for _, task := range old {
-		next, ok := now[task.Key]
-		if !ok {
+	for _, key := range delta.Removed {
+		if task, ok := previous[key]; ok {
 			diff.Removed = append(diff.Removed, task)
+		}
+	}
+	for _, key := range delta.Changed {
+		before, okBefore := previous[key]
+		next, okNext := now[key]
+		if !okBefore || !okNext {
 			continue
 		}
-		fields := revisionTaskChangedFields(task, next)
-		if len(fields) == 0 {
-			diff.Reused = append(diff.Reused, task.Key)
-			diff.UnchangedCount++
-			continue
-		}
-		change := revisionTaskChangeView{ChangedFields: fields, Key: task.Key}
+		fields := revisionTaskChangedFields(before, next)
+		change := revisionTaskChangeView{ChangedFields: fields, Key: key}
 		if slices.Contains(fields, "objective") {
-			change.OldObjective, change.NewObjective = task.Objective, next.Objective
+			change.OldObjective, change.NewObjective = before.Objective, next.Objective
 		}
 		if slices.Contains(fields, "outcomes") {
-			change.OldOutcomes, change.NewOutcomes = task.Outcomes, next.Outcomes
+			change.OldOutcomes, change.NewOutcomes = before.Outcomes, next.Outcomes
 		}
 		diff.Changed = append(diff.Changed, change)
 	}
 	return diff
-}
-
-// revisionEdgesChanged reports whether the task dependency edge set
-// differs between two durable revisions: a shared task's dependency
-// set changed, or an added/removed task carried incident edges.
-func revisionEdgesChanged(old, current []factory.IntentTask) bool {
-	previous := make(map[string]factory.IntentTask, len(old))
-	for _, task := range old {
-		previous[task.Key] = task
-	}
-	now := make(map[string]factory.IntentTask, len(current))
-	for _, task := range current {
-		now[task.Key] = task
-		if before, ok := previous[task.Key]; !ok {
-			if len(task.DependsOn) > 0 {
-				return true
-			}
-		} else if !sameRevisionIDs(before.DependsOn, task.DependsOn) {
-			return true
-		}
-	}
-	for _, task := range old {
-		if _, ok := now[task.Key]; !ok && len(task.DependsOn) > 0 {
-			return true
-		}
-	}
-	return false
 }
 
 // revisionIdeaChangeView renders one idea's decision transition between
@@ -243,11 +229,11 @@ type revisionComparisonView struct {
 	EdgesChanged bool                      `json:"edges_changed"`
 }
 
-func revisionComparisonDTO(old, current factory.IntentRevision) revisionComparisonView {
+func revisionComparisonDTO(delta factory.TaskDelta, old, current factory.IntentRevision) revisionComparisonView {
 	diff := revisionComparisonView{
-		Tasks: revisionTaskDiff(old.Tasks, current.Tasks), Ideas: revisionIdeaDiff(old.Ideas, current.Ideas),
+		Tasks: revisionTaskDiff(delta, old.Tasks, current.Tasks), Ideas: revisionIdeaDiff(old.Ideas, current.Ideas),
 		Effective:    revisionIDDiff(old.EffectiveOutcomes, current.EffectiveOutcomes),
-		EdgesChanged: revisionEdgesChanged(old.Tasks, current.Tasks),
+		EdgesChanged: delta.EdgesChanged,
 	}
 	if old.Repository != current.Repository {
 		diff.Repository = &revisionScalarChangeView{From: strconv.FormatInt(old.Repository, 10), To: strconv.FormatInt(current.Repository, 10)}
@@ -260,19 +246,66 @@ func revisionComparisonDTO(old, current factory.IntentRevision) revisionComparis
 
 func initialRevisionComparison() revisionComparisonView {
 	return revisionComparisonView{
-		Tasks: revisionTaskDiff(nil, nil), Ideas: revisionIdeaDiff(nil, nil),
+		Tasks: revisionTaskDiff(factory.TaskDelta{}, nil, nil), Ideas: revisionIdeaDiff(nil, nil),
 		Effective: revisionIDDiff(nil, nil), Initial: true,
 	}
 }
 
 // revisionAuthorityStates name whether one mapping's bound acceptance
-// still matches current readiness: current, superseded by a newer
-// acceptance, or unknown when no control record exists.
+// still carries head authority: current, superseded by a newer head,
+// or unknown when no currency record exists for it.
 const (
 	revisionAuthorityCurrent    = "current"
 	revisionAuthoritySuperseded = "superseded"
 	revisionAuthorityUnknown    = "unknown"
 )
+
+// revisionAuthorityState maps the I07 currency read onto the rendered
+// authority states. Unrecorded acceptances stay unknown, never current.
+func revisionAuthorityState(current, found bool) string {
+	if !found {
+		return revisionAuthorityUnknown
+	}
+	if !current {
+		return revisionAuthoritySuperseded
+	}
+	return revisionAuthorityCurrent
+}
+
+// revisionGenerationView renders one revision's confirmed submitted
+// graph facts separately from its accepted direction: the generation
+// state plus the submitted task keys behind it. SubmittedDiffers marks
+// a submitted graph whose keys diverge from the revision's accepted
+// tasks; before S07 adoption the two always match.
+type revisionGenerationView struct {
+	SubmittedKeys    []string `json:"submitted_keys,omitempty"`
+	State            string   `json:"state"`
+	SubmittedDiffers bool     `json:"submitted_differs,omitempty"`
+}
+
+func revisionGenerationDTO(generation factory.IntentGeneration, revision factory.IntentRevision) revisionGenerationView {
+	view := revisionGenerationView{State: generation.State, SubmittedKeys: []string{}}
+	for _, task := range generation.SubmittedTasks {
+		view.SubmittedKeys = append(view.SubmittedKeys, task.Key)
+	}
+	if len(generation.SubmittedTasks) > 0 {
+		submitted := make(map[string]bool, len(generation.SubmittedTasks))
+		for _, key := range view.SubmittedKeys {
+			submitted[key] = true
+		}
+		if len(submitted) != len(revision.Tasks) {
+			view.SubmittedDiffers = true
+		} else {
+			for _, task := range revision.Tasks {
+				if !submitted[task.Key] {
+					view.SubmittedDiffers = true
+					break
+				}
+			}
+		}
+	}
+	return view
+}
 
 // revisionWorkView renders one revision's mapped work item with its
 // content version, current evidenced state and authority freshness.
@@ -287,11 +320,11 @@ type revisionWorkView struct {
 }
 
 // revisionEntryView renders one scope revision: its identity, lineage,
-// structural comparison against its predecessor, generation state and
-// affected mapped work with current states.
+// structural comparison against its predecessor, confirmed submitted
+// graph facts and affected mapped work with current states.
 type revisionEntryView struct {
 	Comparison    revisionComparisonView `json:"comparison"`
-	Generation    requestGenerationView  `json:"generation"`
+	Generation    revisionGenerationView `json:"generation"`
 	Work          []revisionWorkView     `json:"work"`
 	Revision      string                 `json:"revision"`
 	State         string                 `json:"state"`
@@ -364,13 +397,18 @@ func (s *API) apiFactoryRevisionHistory(w http.ResponseWriter, r *http.Request, 
 	}
 	for i, revision := range shown {
 		entry := revisionEntryView{
-			Generation: requestGenerationView{State: requestGenerationAbsent},
+			Generation: revisionGenerationView{State: requestGenerationAbsent},
 			Work:       []revisionWorkView{},
 			Revision:   revision.ID, State: revision.State,
 			Repository: strconv.FormatInt(revision.Repository, 10), CreatedUnix: revision.CreatedUnix,
 		}
 		if i+1 < len(chain) {
-			entry.Comparison = revisionComparisonDTO(chain[i+1], revision)
+			delta, err := factory.DiffIntentTasks(chain[i+1], revision)
+			if err != nil {
+				auth.JSONError(w, 500, "history_invalid", "Could not compare request revisions.")
+				return
+			}
+			entry.Comparison = revisionComparisonDTO(delta, chain[i+1], revision)
 		} else if revision.Predecessor == "" {
 			entry.Comparison = initialRevisionComparison()
 		} else {
@@ -387,7 +425,7 @@ func (s *API) apiFactoryRevisionHistory(w http.ResponseWriter, r *http.Request, 
 			return
 		}
 		if generation, err := s.Store.IntentGeneration(r.Context(), revision.ID); err == nil {
-			entry.Generation.State = generation.State
+			entry.Generation = revisionGenerationDTO(generation, revision)
 		} else if !errors.Is(err, store.ErrNotFound) {
 			auth.JSONError(w, 503, "store_unavailable", "Could not read request generation.")
 			return
@@ -414,14 +452,13 @@ func (s *API) revisionEntryWork(w http.ResponseWriter, r *http.Request, entry *r
 			return false
 		}
 		authority := revisionAuthorityUnknown
-		if control, err := s.Store.IssueControl(r.Context(), revision.Repository, binding.IssueIndex); err == nil {
-			authority = revisionAuthoritySuperseded
-			if control.Acceptance != "" && control.Acceptance == binding.AcceptanceID {
-				authority = revisionAuthorityCurrent
+		if binding.AcceptanceID != "" {
+			current, found, err := s.Store.GeneratedIntentCurrent(r.Context(), binding.AcceptanceID)
+			if err != nil {
+				auth.JSONError(w, 503, "store_unavailable", "Could not read work authority.")
+				return false
 			}
-		} else if !errors.Is(err, store.ErrNotFound) {
-			auth.JSONError(w, 503, "store_unavailable", "Could not read work authority.")
-			return false
+			authority = revisionAuthorityState(current, found)
 		}
 		entry.Work = append(entry.Work, revisionWorkView{
 			TaskKey: binding.TaskKey, Issue: strconv.FormatInt(binding.IssueIndex, 10),

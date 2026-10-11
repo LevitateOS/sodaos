@@ -1029,6 +1029,7 @@ function revisionScopeLines(entry: RevisionEntry): string[] {
     lines.push(`Repository ${entry.comparison.repository_change.from} → ${entry.comparison.repository_change.to}.`);
   if (entry.comparison.state_change)
     lines.push(`State ${entry.comparison.state_change.from} → ${entry.comparison.state_change.to}.`);
+  if (entry.comparison.edges_changed) lines.push('Dependency edges changed.');
   return lines;
 }
 
@@ -1044,12 +1045,15 @@ function describeRevisionEntry(entry: RevisionEntry): RevisionEntryModel {
   return {
     headerText: `Revision ${entry.revision} (${entry.state})`,
     lineageText: revisionEntryLineage(entry),
-    tasksText: `Tasks: ${tasks.added.length} added, ${tasks.removed.length} removed, ${tasks.changed.length} changed, ${tasks.unchanged_count} unchanged.`,
+    tasksText: `Tasks: ${tasks.added.length} added, ${tasks.removed.length} removed, ${tasks.changed.length} changed, ${tasks.reused.length} reused, ${tasks.unchanged_count} unchanged.`,
     taskLines: revisionTaskLines(entry),
     ideasText: `Ideas: ${ideas.added.length} added, ${ideas.removed.length} removed, ${ideas.changed.length} changed.`,
     ideaLines: revisionIdeaLines(entry),
     scopeLines: revisionScopeLines(entry),
-    workLines: entry.work.map((row) => `${row.task_key} → issue ${row.issue_index}: ${row.state} (${row.authority})`),
+    workLines: entry.work.map(
+      (row) =>
+        `${row.task_key} → issue ${row.issue_index}: ${row.state} (${row.authority}), content version ${row.content_version}`
+    ),
   };
 }
 
