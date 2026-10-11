@@ -1,9 +1,18 @@
 import {html} from 'lit';
-import type {Department, IntentRevision, ProductIdea} from './sodaspaces-intent-response.js';
+import type {Department, Exploration, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
+import {explorationReview} from './sodaspaces-intent-walkthrough.js';
 
 export interface IntentView {
   objective: string;
   saveNote: string;
+  exploration: Exploration | undefined;
+  explorationStale: boolean;
+  changeOpen: boolean;
+  changeText: string;
+  savedRequests: SavedRequest[];
+  savedLoaded: boolean;
+  savedError: string;
+  savedMore: boolean;
   department: string;
   departments: Department[];
   revision: IntentRevision | undefined;
@@ -16,13 +25,21 @@ export interface IntentView {
   departmentDescription: string;
   maxIssues: number;
   planningCalls: number;
-  set(field: 'objective' | 'department' | 'departmentName' | 'departmentDescription', value: string): void;
+  set(
+    field: 'objective' | 'department' | 'departmentName' | 'departmentDescription' | 'changeText',
+    value: string
+  ): void;
   setBound(field: 'maxIssues' | 'planningCalls', value: number): void;
   decide(id: string, decision: ProductIdea['decision'], correction?: string): void;
+  toggleChange(open: boolean): void;
+  correctProposal(text: string): void;
   chooseApproach(approach: 'complete_first' | 'incremental'): void;
   describe(): void;
   saveDraft(): void;
   saveAndLeave(): void;
+  loadSaved(): void;
+  moreSaved(): void;
+  resumeRequest(intent: string): void;
   revise(): void;
   decline(): void;
   continue(): void;
@@ -66,9 +83,55 @@ function entryActions(view: IntentView) {
     ><button class="primary" ?disabled=${locked} @click=${view.describe}>Explore ideas</button>
   </div>`;
 }
+function terminalNote(view: IntentView) {
+  if (view.revision?.state === 'declined')
+    return html`<p>This direction was declined. Revise the outcome and explore again for a new draft.</p>`;
+  if (view.revision?.state === 'rejected')
+    return html`<p>This direction was rejected. Revise the outcome and explore again for a new draft.</p>`;
+  if (view.revision?.state === 'abandoned')
+    return html`<p>This draft was abandoned. Revise the outcome and explore again to restart it.</p>`;
+  return '';
+}
+function requestState(state: SavedRequest['state']): string {
+  if (state === 'accepted') return 'Accepted';
+  if (state === 'declined') return 'Declined';
+  if (state === 'rejected') return 'Rejected';
+  if (state === 'abandoned') return 'Abandoned';
+  return 'Draft';
+}
+function savedRequestItem(view: IntentView, item: SavedRequest) {
+  const work = item.task_count ? ` · ${item.task_count} work items` : '';
+  return html`<li>
+    <p>${item.objective}</p>
+    <p>${requestState(item.state)}${work}</p>
+    <button ?disabled=${view.busy || view.blocked} @click=${() => view.resumeRequest(item.intent)}>Resume</button>
+  </li>`;
+}
+function savedRequests(view: IntentView) {
+  if (!view.savedLoaded && !view.savedError)
+    return html`<section aria-label="Saved requests"><p>Loading saved requests…</p></section>`;
+  if (view.savedError)
+    return html`<section aria-label="Saved requests">
+      <p>${view.savedError}</p>
+      <button @click=${view.loadSaved}>Retry</button>
+    </section>`;
+  if (!view.savedRequests.length)
+    return html`<section aria-label="Saved requests">
+      <h3>Saved requests</h3>
+      <p>No saved requests yet.</p>
+    </section>`;
+  return html`<section aria-label="Saved requests">
+    <h3>Saved requests</h3>
+    <ul>
+      ${view.savedRequests.map((item) => savedRequestItem(view, item))}
+    </ul>
+    ${view.savedMore ? html`<button @click=${view.moreSaved}>Show more</button>` : ''}
+  </section>`;
+}
 export function describeIntent(view: IntentView) {
   return html`<section class="intent-entry">
     <h2 tabindex="-1">What do you want to build?</h2>
+    ${terminalNote(view)}
     <label
       ><span class="sr-only">Describe what you want to build</span
       ><textarea
@@ -103,6 +166,7 @@ export function describeIntent(view: IntentView) {
     ${bounds(view)} ${entryActions(view)}
     <p>${view.saveNote}</p>
     <p>Only saved drafts can be resumed after reload. Unsaved edits stay in this view.</p>
+    ${savedRequests(view)}
   </section>`;
 }
 function productIdea(view: IntentView, idea: ProductIdea) {
@@ -130,15 +194,35 @@ function productIdea(view: IntentView, idea: ProductIdea) {
     ${idea.decision === 'edit' ? html`<label>What should change?<textarea rows="3" maxlength="4000" .value=${idea.correction || ''} @input=${(event: Event) => view.decide(idea.id, 'edit', input(event))} ?disabled=${view.busy || view.blocked}></textarea></label>` : ''}
   </article>`;
 }
+function ideaDecided(idea: ProductIdea | undefined, allowDecline: boolean): boolean {
+  if (!idea || idea.decision === 'pending') return false;
+  if (idea.decision === 'decline') return allowDecline;
+  return idea.decision !== 'edit' || !!idea.correction?.trim();
+}
+function tasksDecided(revision: IntentRevision, ideas: Map<string, ProductIdea>): boolean {
+  for (const task of revision.tasks)
+    for (const id of task.idea_ids) if (!ideaDecided(ideas.get(id), false)) return false;
+  return true;
+}
+function challengesAnswered(view: IntentView, ideas: Map<string, ProductIdea>): boolean {
+  for (const challenge of view.exploration?.challenges || [])
+    if (!ideaDecided(ideas.get(challenge.idea), true)) return false;
+  return true;
+}
 export function reviewReady(view: IntentView) {
   const revision = view.revision;
   if (!revision || view.dirty || view.busy || view.blocked || !revision.tasks.length) return false;
-  return (
-    revision.ideas.length > 0 &&
-    revision.ideas.every(
-      (idea) => idea.decision !== 'pending' && (idea.decision !== 'edit' || !!idea.correction?.trim())
-    )
-  );
+  const ideas = new Map(revision.ideas.map((idea) => [idea.id, idea]));
+  return tasksDecided(revision, ideas) && challengesAnswered(view, ideas);
+}
+function refreshExploration(view: IntentView) {
+  if (view.revision?.state !== 'draft') return '';
+  return html`<button ?disabled=${view.busy || view.blocked} @click=${view.revise}>Refresh walkthrough</button>`;
+}
+function reviewLead(view: IntentView) {
+  if (!view.exploration) return refreshExploration(view);
+  return html`${explorationReview(view, view.exploration)}
+  ${view.explorationStale && !view.dirty ? refreshExploration(view) : ''}`;
 }
 function deliveryApproach(view: IntentView, revision: IntentRevision) {
   return html` <fieldset>
@@ -176,7 +260,8 @@ export function reviewIntent(view: IntentView) {
         @input=${(event: Event) => view.set('objective', input(event))}
       ></textarea>
     </label>
-    <p>Choose the ideas and assumptions that match what you want. Changes update the proposal before you continue.</p>
+    ${reviewLead(view)}
+    <p>Only asked questions and work-linked choices are required. Changes update the proposal before you continue.</p>
     ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}
     ${revision.ideas.map((idea) => productIdea(view, idea))}
