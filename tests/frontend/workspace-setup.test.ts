@@ -429,3 +429,93 @@ test('setup: failed creation preserves the accepted request across refresh witho
     1
   );
 });
+
+test('setup: intent entry receives the session actor and starts with an empty request', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.waitForFunction(() => {
+    const root = document.querySelector('soda-spaces');
+    const scope = root?.shadowRoot ?? root;
+    return (scope?.querySelector('soda-intent') as unknown as {actor: string} | null)?.actor === '1';
+  });
+  const request = await page.evaluate(() => {
+    const root = document.querySelector('soda-spaces');
+    const scope = root?.shadowRoot ?? root;
+    return (scope?.querySelector('soda-intent') as unknown as {request: string} | null)?.request;
+  });
+  assert.equal(request, '');
+});
+
+test('setup: saved draft resumes from its request route across history traversal', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  const saved = await page.evaluate(() => window.location.pathname);
+  await page.getByText('Saved', {exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname === '/workspace/new');
+  await page.getByText('Saved', {exact: true}).waitFor();
+  assert.equal(
+    await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
+    'Build a small project tracker'
+  );
+  await page.evaluate(() => {
+    (document.querySelector('soda-intent') as unknown as {reset(): void}).reset();
+  });
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === '';
+  });
+  await page.goBack();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  assert.equal(await page.evaluate(() => window.location.pathname), saved);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Build a small project tracker';
+  });
+  await page.getByText('Saved', {exact: true}).waitFor();
+});
+
+test('setup: unknown request route reports unavailable without losing the entry', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.evaluate(
+    (missing) => {
+      window.history.pushState({}, '', missing);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    },
+    '/workspace/requests/d' + '3'.repeat(24)
+  );
+  await page
+    .getByText('This saved request is unavailable to the current account. Your current edits are kept.', {exact: true})
+    .waitFor();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+});
+
+test('setup: saving a draft syncs the request route without leaving the flow', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  assert.match(await page.evaluate(() => window.location.pathname), /^\/workspace\/requests\/d[0-9a-f]{24}$/);
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+});
+
+test('setup: new entry canonicalizes the route and leave returns', async (t) => {
+  const page = await fixture(t, 'page', undefined, false);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.locator('.soda-create-another-project:visible').waitFor();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.equal(await page.evaluate(() => window.location.pathname), '/workspace/new');
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
+  await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor({state: 'hidden'});
+});
