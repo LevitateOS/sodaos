@@ -82,7 +82,7 @@ func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
 	fx.seed.queue(t, 31, decision.ID)
 	fx.reads.evidence[strconv.FormatInt(fx.seed.repo, 10)+"/31"] = AcceptanceEvidence{
 		Revision: 41,
-		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
+		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence, TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{{ID: decision.Sources[0].ID, Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
 	}
 	host := &lostReplyProgressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, entered: make(chan project.FactoryLaunch, 1), complete: make(chan struct{})}
@@ -407,7 +407,7 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 	key := strconv.FormatInt(fx.seed.repo, 10) + "/31"
 	fx.reads.evidence[key] = AcceptanceEvidence{
 		Revision: 41,
-		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
+		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence, TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{{ID: decision.Sources[0].ID, Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
 	}
 	var ready atomic.Bool
