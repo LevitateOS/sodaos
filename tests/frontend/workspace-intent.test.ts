@@ -37,7 +37,7 @@ async function installIntentStore(page: Page) {
     ];
     const buildExploration = (
       mode: ExplorationMode,
-      json: {id: string; intent: string; objective: string; ideas: {id: string}[]}
+      json: {id: string; intent: string; objective: string; ideas: {id: string; decision?: string}[]}
     ) => {
       const shared = {
         key: 'shared_review',
@@ -107,6 +107,7 @@ async function installIntentStore(page: Page) {
           mode === 'challenges'
             ? json.ideas.slice(0, 2).map((idea, index) => ({idea: idea.id, ...challengeTexts[index]}))
             : [],
+        settled: [] as string[],
         ...(mode === 'unsupported'
           ? {recommendation: null, consistency: null}
           : {
@@ -215,16 +216,17 @@ async function installIntentStore(page: Page) {
             id: string;
             intent: string;
             objective: string;
-            ideas: {id: string}[];
+            ideas: {id: string; decision?: string}[];
           };
           if (store.exploration === 'settled') {
-            const ideas = json.ideas.map((idea) => ({
-              ...idea,
-              decision: 'accept',
-              source: 'autonomous',
-              provenance: 'autonomous',
-            }));
+            const settled: string[] = [];
+            const ideas = json.ideas.map((idea) => {
+              if (idea.decision !== 'pending') return idea;
+              settled.push(idea.id);
+              return {...idea, decision: 'accept', source: 'autonomous', provenance: 'autonomous'};
+            });
             const exploration = buildExploration('supported', {...json, ideas});
+            exploration.settled = settled;
             return Response.json({...json, ideas, exploration});
           }
           if (store.exploration === 'votes') {
@@ -1086,7 +1088,27 @@ test('settled autonomous baseline advances without per-card votes or questions',
   const cards = page.locator('section.intent-review > article');
   assert.equal(await cards.count(), 1);
   assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
-  await cards.nth(0).getByText('Suggested', {exact: true}).waitFor();
+  await cards.nth(0).getByText('Decided automatically', {exact: true}).waitFor();
   assert.equal(await page.locator('section[aria-label="Questions needing your answer"]').count(), 0);
   assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  await setActor(page, '1');
+  const field = 'Correct the automatic choice: Build a leave tracker';
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('Track overtime too');
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('');
+  await updateProposal(page);
+  const restored = await lastPostedBody(page, 'draft');
+  const kept = ((restored.ideas || []) as {decision: string; provenance?: string; actor?: number}[])[0];
+  assert.equal(kept?.decision, 'accept');
+  assert.equal(kept?.provenance, 'autonomous');
+  assert.equal(kept?.actor, undefined);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('Track leave without external integrations');
+  await updateProposal(page);
+  const changed = await lastPostedBody(page, 'draft');
+  const edited = ((changed.ideas || []) as {decision: string; correction?: string; provenance?: string}[])[0];
+  assert.equal(edited?.decision, 'edit');
+  assert.equal(edited?.correction, 'Track leave without external integrations');
+  assert.equal(edited?.provenance, 'human');
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 1);
 });
