@@ -8,6 +8,7 @@ package project
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"maps"
 	"regexp"
@@ -312,6 +313,31 @@ func SetupDigestOf(files map[string][]byte) string {
 		h.Write(files[name])
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// PreparationInputsDigestOf binds the complete maintainer-selected source
+// inputs, protected setup files and required tool names. Sorting makes one
+// exact selection independent of browser or map iteration order.
+func PreparationInputsDigestOf(setupFiles []string, sourceInputs map[string]string, tools []string) string {
+	type input struct {
+		Path   string `json:"path"`
+		Digest string `json:"digest"`
+	}
+	inputs := make([]input, 0, len(sourceInputs))
+	for name, digest := range sourceInputs {
+		inputs = append(inputs, input{name, digest})
+	}
+	sort.Slice(inputs, func(i, j int) bool { return inputs[i].Path < inputs[j].Path })
+	setupFiles, tools = append([]string{}, setupFiles...), append([]string{}, tools...)
+	sort.Strings(setupFiles)
+	sort.Strings(tools)
+	data, _ := json.Marshal(struct {
+		Inputs []input  `json:"source_inputs"`
+		Setup  []string `json:"setup_files"`
+		Tools  []string `json:"required_tools"`
+	}{inputs, setupFiles, tools})
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:])
 }
 
 // ResolvedTool is one required tool resolved to an exact installed path and

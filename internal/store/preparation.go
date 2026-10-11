@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -119,11 +120,131 @@ func (s *Store) AdmitPreparation(ctx context.Context, p project.StoredPreparatio
 	if err != nil {
 		return project.StoredPreparation{}, false, err
 	}
-	if !existing.Preparation.Requirements.Equal(prep.Requirements) || existing.Preparation.Approval != prep.Approval ||
-		existing.Preparation.SourceCommit != prep.SourceCommit || existing.Preparation.SetupDigest != prep.SetupDigest {
+	if !sameStandingPreparationIdentity(existing, p) {
 		return project.StoredPreparation{}, false, errors.New("preparation identity already carries different approved inputs")
 	}
 	return existing, false, nil
+}
+
+// AdmitStandingPreparation records an explicit initial preparation against the
+// current separate human decisions. No caller observation can seed readiness.
+func (s *Store) AdmitStandingPreparation(ctx context.Context, p project.Preparation) (project.StoredPreparation, bool, error) {
+	if err := p.Validate(); err != nil {
+		return project.StoredPreparation{}, false, err
+	}
+	if p.Revision != 0 {
+		return project.StoredPreparation{}, false, ErrStaleRevision
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return project.StoredPreparation{}, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = authorizeStandingPreparationTx(ctx, tx, p); err != nil {
+		return project.StoredPreparation{}, false, err
+	}
+	stored := project.StoredPreparation{Preparation: p}
+	data, err := json.Marshal(stored)
+	if err != nil {
+		return project.StoredPreparation{}, false, err
+	}
+	result, err := tx.ExecContext(ctx, `INSERT INTO project_preparations(id,project_id,role,revision,requirements,approval,data) VALUES($1,$2,$3,$4,$5,$6,$7)
+		ON CONFLICT(id) DO NOTHING`, p.ID, p.Project, p.Role, p.Revision, p.Requirements.ID, p.Approval.ID, string(data))
+	if err != nil {
+		return project.StoredPreparation{}, false, err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return project.StoredPreparation{}, false, err
+	}
+	if n == 0 {
+		var raw []byte
+		if err = tx.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1 FOR UPDATE`, p.ID).Scan(&raw); err != nil {
+			return project.StoredPreparation{}, false, err
+		}
+		var meta *candidatePreparationRegistration
+		stored, meta, err = unmarshalCandidatePreparation(raw)
+		if err != nil {
+			return project.StoredPreparation{}, false, err
+		}
+		if meta != nil || !sameStandingPreparationIdentity(stored, project.StoredPreparation{Preparation: p}) {
+			return project.StoredPreparation{}, false, ErrCandidatePreparationConflict
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return project.StoredPreparation{}, false, err
+	}
+	return stored, n == 1, nil
+}
+
+// AuthorizeStandingPreparation rechecks the admission immediately before a
+// native effect. Authority reads remain the caller's separate native callback.
+func (s *Store) AuthorizeStandingPreparation(ctx context.Context, p project.Preparation) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = authorizeStandingPreparationTx(ctx, tx, p); err != nil {
+		return err
+	}
+	var raw []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1 FOR UPDATE`, p.ID).Scan(&raw); err != nil {
+		return err
+	}
+	stored, meta, err := unmarshalCandidatePreparation(raw)
+	if err != nil {
+		return err
+	}
+	if meta != nil || !sameStandingPreparationIdentity(stored, project.StoredPreparation{Preparation: p}) {
+		return ErrCandidatePreparationConflict
+	}
+	if stored.State.Stopped || stored.State.Phase == project.PrepareFailed || stored.State.Phase == project.PrepareInterrupted || stored.State.Phase == project.PrepareStopped {
+		return ErrCandidatePreparationConflict
+	}
+	return tx.Commit()
+}
+
+func authorizeStandingPreparationTx(ctx context.Context, tx *sql.Tx, p project.Preparation) error {
+	var requirement, approval string
+	if err := tx.QueryRowContext(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=$1 FOR SHARE`, p.Project).Scan(&requirement); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrStaleRevision
+		}
+		return err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT decision FROM project_approval_heads WHERE project_id=$1 FOR SHARE`, p.Project).Scan(&approval); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrStaleRevision
+		}
+		return err
+	}
+	if requirement != p.Requirements.ID || approval != p.Approval.ID || p.SourceCommit != p.Requirements.SourceCommit {
+		return ErrStaleRevision
+	}
+	if err := checkCandidatePreparationSetupTx(ctx, tx, p); err != nil {
+		return err
+	}
+	var held bool
+	err := tx.QueryRowContext(ctx, `SELECT hold FROM project_maintenance WHERE project_id=$1 FOR SHARE`, p.Project).Scan(&held)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if held {
+		return ErrAdmissionChanged
+	}
+	return nil
+}
+
+func sameStandingPreparationIdentity(left, right project.StoredPreparation) bool {
+	if !left.Preparation.Requirements.Equal(right.Preparation.Requirements) {
+		return false
+	}
+	// SourceInputs uses omitempty; an absent selection and an explicitly empty
+	// selection retain the same exact-source-only meaning after JSON storage.
+	left.Preparation.Requirements.SourceInputs = nil
+	right.Preparation.Requirements.SourceInputs = nil
+	return samePreparationIdentity(left, right)
 }
 
 // ObservePreparation advances only the observed state under CAS revision. The
