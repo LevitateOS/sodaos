@@ -2,7 +2,7 @@
 
 ## Complete source-to-slice coverage
 
-Current path navigation is reconciled at `d9c13531` (2026-10-11): all 2,607
+Current path navigation is reconciled at `81bcdea0` (2026-10-11): all 2,609
 tracked paths appear once in the inventories, with no missing or duplicate
 current path rows. Twelve later Factory prompt, preparation and expiry paths
 are linked to their current responsibility maps; the earlier addition and
@@ -42,7 +42,7 @@ A dependency or reader does not acquire defining ownership of the duty it consum
 | --- | ---: |
 | Historical paths including eighteen authored documents and one H06 test addition / missing / duplicate rows | 2,564 / 0 / 0 |
 | Established slice IDs represented | 80 |
-| Files with current detailed maps | 1,583 |
+| Files with current detailed maps | 1,585 |
 | Current mapped page families | 75 |
 | Recorded baseline named duties plus eighteen whole-document H06 duties | 20,117 + 18 = 20,135 |
 | Files with more than one defining slice | 492 |
@@ -58,7 +58,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 
 ### Source roots
 
-| Current root at `d9c13531` | Tracked paths |
+| Current root at `81bcdea0` | Tracked paths |
 | --- | ---: |
 | `(root)` | 20 |
 | `.agents` | 1 |
@@ -67,7 +67,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 | `cmd` | 353 |
 | `docs` | 318 |
 | `frontend` | 345 |
-| `internal` | 480 |
+| `internal` | 482 |
 | `lib` | 428 |
 | `scripts` | 81 |
 | `system` | 68 |

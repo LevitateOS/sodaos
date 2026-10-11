@@ -44,11 +44,19 @@ confirmed terminal-run settlement and cancellation/join before owner release.
 All four new real-PostgreSQL regressions pass with Go 1.26.7 and the race
 detector, including delayed CI/reviewer progression, durable readiness without
 redelivery, conserved expired-root allowance and live-CLI preservation.
-Autonomous installed/provider continuation remains open.
+Source repair `81bcdea0` gives an accepted explicit Retry a fresh coder checkout
+from the protected original source bundle. Real PostgreSQL race checks cover
+lost-reply adoption, fixed deadlines, authority invalidation, temporary read
+failures and conserved prior allowances; native Rust bundle/clone regressions
+pass. Installed continuation of the already accepted Retry remains open.
 
 The lifecycle proxy repair `e7deb91f` removes its observed ten-second response
-cutoff; the actual Unix-socket regression passes beyond that cutoff. The
-Project's separate thirty-second signal-driven shutdown failure is unresolved.
+cutoff; the actual Unix-socket regression passes beyond that cutoff. Source
+repair `d9c13531` stops native nested workloads before final Project shutdown.
+Normal owner Stop/Start succeeds on the retained development appliance with
+the same outer container, database/files containers, named volume and saved
+SQL markers; the earlier failed requests remain failed. Fresh matching-candidate
+qualification remains separate under R04.
 After a clean development-appliance restart, a retained SELinux overlay with
 empty file-context inputs caused socket access and status failure. Rebuilding
 that overlay with the existing current source's two socket contexts restores
@@ -58,15 +66,15 @@ are prepared for an unlaunched fresh-disk fixture. Authenticated media,
 installation, personal-Git and matching-candidate R04 checks remain open.
 
 Implementation is active under the owner's “go”, “commit early and often” and
-subsequent all-tasks goal. Current path reconciliation uses source `e0e2413f`;
+subsequent all-tasks goal. Current path reconciliation uses source `81bcdea0`;
 `04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
 first twelve selected packets are committed, followed by readiness/artifact
 identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and
 selective caller simplifications.
 Completed checks are source/development evidence; no installed, provider or
 native-worker qualification is inferred. Seven pre-existing dirty guidance
-files remain untouched. The current tree and tracked-file inventories account for all 2,606 tracked
-paths at `0ace2383`, including the implemented D06 Rust personal-Git payload,
+files remain untouched. The current tree and tracked-file inventories account for all 2,609 tracked
+paths at `81bcdea0`, including the implemented D06 Rust personal-Git payload,
 Coordinator progress owners/tests, Retry refusal test, socket policy inputs
 and native panel-ownership regression.
 Historical path comparisons retain their original
@@ -99,7 +107,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 
 | Remaining work | Current disposition and exact next boundary | Owner / task |
 | --- | --- | --- |
-| Current inventory / target and source joins | All 2,606 current leaves are mapped at `0ace2383`; selective additions include package guides, four Factory/Forgejo test files and the implemented D06 payload with its caller/producer chain. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
+| Current inventory / target and source joins | All 2,609 current leaves are mapped at `81bcdea0`; selective additions include package guides, four Factory/Forgejo test files and the implemented D06 payload with its caller/producer chain. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
 | Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Completed in `7334f36b`; candidate count/bytes are admitted before retained variants, with per-file staging and escaped-pattern admission separately bounded. | C / L16.G complete |
 | Host provider HTTP | Source scope complete: `9cea539f` retains mature curl through the owned Executor (11 actual checks: 5 executor, 6 provider; host daemon compiled; independent review passed), and `8026d9ac` declares curl in the generated host package inputs (two existing package-profile tests passed). No ureq cutover. Shipped-binary/RPM inventory, TLS and live provider qualification remain open; no installed-provider claim. | C / L10.N4 source complete; R04 qualification open |
@@ -173,8 +181,8 @@ Lead A; [P06](reviews/P06.md), [P07](reviews/P07.md). Shared guest-package owner
 
 Lead A; [P10](reviews/P10.md), [P11](reviews/P11.md). C owns system/Containerfile/compiler joins and the Muse-maintain command/stage implementation; A owns host tool-observation counterparts.
 
-- [x] **A04.M** [Source ownership closed at current source baseline `0fec7006`, after independent Luna low and medium proofs.] Retain mise/profile/systemd/OCI/workload substrates and selected Project definitions. Host launcher/tool observation remains in `prepare/tools.rs`; Muse staging remains in `muse/stage.rs`; Codex `stream_identity_harness` remains with terminal transfer and its Bash pipeline through the existing bounded `Executor`. Manual archive-header extraction is superseded by L13/CF-07. Source maintenance allocation, imports and callers are reconciled; no new code or tests are required. Later native development observations cover shared tools/workloads and a database-volume persistence probe; A04.V remains open because the normal Stop request returned 503 despite the later successful same-container Start recovery. R04 and fresh-candidate qualification remain open.
-- [ ] **A04.V** Preserve actual script subjects, read-only readiness, ordered bus/tool staging and volume lifetime. Retained-appliance development checks cover shared tools/service ordering and member plus external PostgreSQL client access; the same database container, named volume and SQL markers survive the recorded Stop failures and recovery. Active-workload diagnostics prove signal 37 reaches systemd-shutdown, which then waits for the files workload’s surviving PID-namespace init rather than mount teardown. Source repair `d9c13531` adds a shutdown-only native-engine stop unit, preserving API-service restart behavior and all volume/container identities. On P2 with the same files fixture, the normal owner Stop now returns 200 in 11.18 seconds and the same outer Project exits 0; normal Start returns 200 and the same workload serves again. Its native 10-second child stop fallback remains explicit, distinct from the earlier outer Project SIGKILL/137 failures. Receipts: `project2-stop-files-signal-02.json`, `project2-stop-files-shutdown-unit-01.json` and `project2-shutdown-unit-restored.log` under `.artifacts/goal-finish-plan-20261010/native-appliance-832dfa16-01/`. P1 database-plus-files Stop under this repair and fresh matching-candidate/R04 qualification remain open; no old failed Stop is relabeled.
+- [x] **A04.M** [Source ownership closed at current source baseline `0fec7006`, after independent Luna low and medium proofs.] Retain mise/profile/systemd/OCI/workload substrates and selected Project definitions. Host launcher/tool observation remains in `prepare/tools.rs`; Muse staging remains in `muse/stage.rs`; Codex `stream_identity_harness` remains with terminal transfer and its Bash pipeline through the existing bounded `Executor`. Manual archive-header extraction is superseded by L13/CF-07. Source maintenance allocation, imports and callers are reconciled; no new code or tests are required. A04.V now closes the bounded installed development subjects below, including successful normal Stop/Start with retained workload and volume identities. R04 fresh matching-candidate qualification remains separate.
+- [x] **A04.V** [2026-10-11: bounded development native subjects complete; independently reviewed.] Actual installed checks cover shared root-owned tools/inodes, member write denial, shared workspace visibility, read-only workload readiness and service/bus ordering. The same database container, named volume and SQL markers survived the retained failed Stops and recovery. Source repair `d9c13531` stops native nested workloads before final shutdown. With that exact DEVELOPMENT overlay, normal owner Stop/Start returned 200 on both Projects: P2 files-only Stop completed in 11.18 seconds with outer exit 0; P1 database-plus-files Stop also exited 0. The same outer containers restarted, and P1 retained exact database/files IDs, volume CreatedAt/mountpoint and both SQL markers, including the member-committed value. Files returned HTTP 200 and owner/member pinned SSH passed. The files workload’s native ten-second stop fallback remains explicit; earlier outer SIGKILL/137 and HTTP 503/502 failures remain failed. Receipts: `project1-shutdown-unit-development-receipt-01.json`, `project2-stop-files-shutdown-unit-01.json` and shared-tools/service/workload logs under `.artifacts/goal-finish-plan-20261010/native-appliance-832dfa16-01/`. This closes A04’s installed subjects; R04 fresh matching-candidate qualification remains separate.
 
 ### A05 Broker custody and execution state
 

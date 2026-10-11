@@ -713,7 +713,7 @@ F07: current Store.RecordDispatchPacket authority admission tests; file-wide tes
 
 ### [internal/store/factory_explicit_retry.go](../../../../../internal/store/factory_explicit_retry.go)
 
-F08 owns the retry receipt and eligibility facts; F07 owns serialized retry packet admission through the regular dispatch checks.
+F08 owns the retry receipt and eligibility facts; F07 owns serialized retry packet admission through the regular dispatch checks. At `81bcdea0`, the normal pending-Retry selector is shared by preparation custody admission; no parallel eligibility query is introduced.
 
 <a id="r02-current-path-internal-store-factory-grant-commands-go"></a>
 
@@ -731,7 +731,7 @@ F07 owns issue-scoped allowance snapshots, transactional deadline admission and 
 
 ### [internal/store/factory_candidate_preparations.go](../../../../../internal/store/factory_candidate_preparations.go)
 
-F07 owns immutable candidate-preparation registration and current-authority/deadline admission; F08 owns custody and confirmed/uncertain retirement transitions. The Store provides bounded scoped reads and preserves the recorded admission across pause/replay. The controller producer consumes these transactions before native preparation and launch. The source/development packet exercises selected transaction and producer joins, including explicit settled-root Retry from `fa395bff`; it does not establish installed/native/provider qualification or the full autonomous flow.
+F07 owns immutable candidate-preparation registration and current-authority/deadline admission; F08 owns custody and confirmed/uncertain retirement transitions. The Store provides bounded scoped reads and preserves the recorded admission across pause/replay. At `81bcdea0`, F07 extends admission to fresh coder setup owned by an accepted Retry command before run admission; F08 owns the bounded pending-custody read and established invalidation/retirement facts. The original native deadline is fixed, and setup creates no allowance, reservation or provider lease. The controller producer consumes these transactions before native preparation and launch. The source/development packet exercises selected transaction and producer joins, including explicit settled-root Retry from `fa395bff`; it does not establish installed/native/provider qualification or the full autonomous flow.
 
 <a id="r02-current-path-internal-store-factory-attempt-allowances-test-go"></a>
 

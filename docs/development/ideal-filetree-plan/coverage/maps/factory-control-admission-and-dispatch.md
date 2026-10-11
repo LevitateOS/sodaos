@@ -12,6 +12,27 @@ Selective readiness source delta at `07ab24bd` (production integration
 and Store pages. The old sweep, recursive visitor, issue-list bridges and their
 exclusive test machinery are retired. Historical map/body pins remain historical.
 
+<a id="coverage-b7b1cd2777fd"></a>
+
+## [internal/factory/control/dispatch_preparation.go](../../../../../internal/factory/control/dispatch_preparation.go)
+
+Selective current source delta at `81bcdea0` (2026-10-11); historical body selectors below retain their recorded pins.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| File scaffold; Coordinator.prepareRetryCoder | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Accepted explicit Retry owns a bounded fresh coder preparation before run admission. Native setup copies the protected original source bundle; lost replies adopt the same identity and deadline. |
+| Coordinator.reconcileRetryPreparations; retryPreparationInvalidated; Coordinator.retireRetryCoder | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Rejected, expired or invalidated setup retires through the existing native stop receipt without renewing the prior attempt allowance. Temporary Store/context errors preserve valid custody. |
+
+<a id="coverage-ca852e847367"></a>
+
+## [internal/factory/control/dispatch_preparation_test.go](../../../../../internal/factory/control/dispatch_preparation_test.go)
+
+Selective current source delta at `81bcdea0` (2026-10-11); historical body selectors below retain their recorded pins.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| Whole current file; consumedCoderRetry and actual Retry regression subjects | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Real PostgreSQL dispatch regressions cover consumed checkout replacement, lost native reply adoption, rejected packet retirement, early planning invalidation, current sponsorship authority and custody retention across temporary Store/context failures. Native Rust source-bundle checks remain at their Rust owner; installed continuation is separate. |
+
 <a id="coverage-bd92c58c05f9"></a>
 <a id="internalfactorycontrolacceptancego-1"></a>
 

@@ -2,8 +2,8 @@
 
 ## Complete proposed tree
 
-Current target mapping: source `d9c13531` (2026-10-11). The complete tree
-contains all 2,607 tracked leaves, including the implemented D06 Rust remote
+Current target mapping: source `81bcdea0` (2026-10-11). The complete tree
+contains all 2,609 tracked leaves, including the implemented D06 Rust remote
 payload, `tools/acceptance/src/personal_git.rs`. Current package/module/binary
 names are retained where their application owners are already defined. The
 old Muse, Project, Codex and Tailnet filename plans are superseded by their
@@ -1561,6 +1561,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── dispatch_inputs.go
 │   │   │   ├── dispatch_launch.go
 │   │   │   ├── dispatch_occupancy.go
+│   │   │   ├── dispatch_preparation.go
+│   │   │   ├── dispatch_preparation_test.go
 │   │   │   ├── dispatch_recovery.go
 │   │   │   ├── dispatch_recovery_test.go
 │   │   │   ├── dispatch_reentry_test.go

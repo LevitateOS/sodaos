@@ -7,6 +7,8 @@ One slice owns each named duty; disjoint complete symbols may share an owner.
 Compound fields/clauses may share a physical line with distinct selectors.
 Disposition concerns the duty, not source validity or installed qualification.
 
+Selective H01 delta at `81bcdea0`: `FactoryCandidate.validate` admits coder Retry only with an empty caller bundle. `Runtime.prepare_candidate` reads the source preparation’s protected original bundle and clones a fresh identity, preserving the previous checkout. Reviewer bundle behavior and the native role/setup/credential/source guards remain. The actual Rust regression covers fresh clone, changed-source refusal and unprotected-bundle refusal; historical body selectors retain their pins.
+
 <a id="coverage-8a335b4517a9"></a>
 
 ## [lib/host/src/preparation/candidate.rs](../../../../../lib/host/src/preparation/candidate.rs)
