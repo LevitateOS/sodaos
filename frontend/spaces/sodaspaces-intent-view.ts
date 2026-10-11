@@ -146,6 +146,7 @@ export function reviewIntent(view: IntentView) {
       ></textarea>
     </label>
     <p>Choose the ideas and assumptions that match what you want. Changes update the proposal before you continue.</p>
+    ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}
     ${revision.ideas.map((idea) => productIdea(view, idea))}
     <button ?disabled=${view.busy || view.blocked || !view.dirty} @click=${view.revise}>Update proposal</button>
     <details>
