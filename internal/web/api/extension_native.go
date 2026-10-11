@@ -134,17 +134,13 @@ func (s *API) extensionProductUser(w http.ResponseWriter, r *http.Request, actor
 
 func extensionProductContribution(path string, contribution extensions.Contribution) bool {
 	if path == "/api/settings/tailnet" || strings.HasPrefix(path, "/api/settings/tailnet/") {
-		return extensionAdminPageContribution(contribution, "tailnet")
+		return extensionPageContribution(contribution, "tailnet")
 	}
 	return extensionPageContribution(contribution, "spaces") || extensionWorkspacePanelContribution(contribution)
 }
 
 func extensionPageContribution(contribution extensions.Contribution, id string) bool {
 	return contribution.Kind == "page" && contribution.Scope == "global" && contribution.ID == id
-}
-
-func extensionAdminPageContribution(contribution extensions.Contribution, id string) bool {
-	return contribution.Kind == "page" && contribution.Scope == "admin" && contribution.ID == id
 }
 
 func extensionWorkspacePanelContribution(contribution extensions.Contribution) bool {

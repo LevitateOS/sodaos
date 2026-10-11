@@ -48,7 +48,7 @@ func ExtensionContribution(contribution extensions.Contribution) bool {
 		case "spaces":
 			return contribution.Scope == "global"
 		case "tailnet":
-			return contribution.Scope == "admin"
+			return contribution.Scope == "global"
 		default:
 			return false
 		}

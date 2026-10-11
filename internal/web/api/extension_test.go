@@ -234,8 +234,8 @@ func TestExtensionProductContributionScopes(t *testing.T) {
 	}{
 		{"/api/spaces", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"/api/environments/1/join", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
-		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, true},
-		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
+		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
+		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, false},
 		{"/api/environments/1/tailnet", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 	} {
 		t.Run(test.path+"/"+test.contribution.ID, func(t *testing.T) {

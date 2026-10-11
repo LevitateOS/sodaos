@@ -154,10 +154,14 @@ func nativeTestActorID(login string) string {
 }
 
 func nativeProductHeadersForActor(method, origin string, contribution extensions.Contribution, login string) http.Header {
+	return nativeProductHeadersForNativeActor(method, origin, contribution, extensions.Actor{ID: nativeTestActorID(login), Username: login})
+}
+
+func nativeProductHeadersForNativeActor(method, origin string, contribution extensions.Contribution, actor extensions.Actor) http.Header {
 	contribution.Action = strings.ToLower(method)
 	context, _ := json.Marshal(extensions.Authority{
 		ExtensionID: "soda", InstanceID: "native-test-instance", SessionGeneration: nativeProductGeneration,
-		Contribution: contribution, Actor: extensions.Actor{ID: nativeTestActorID(login), Username: login},
+		Contribution: contribution, Actor: actor,
 	})
 	return http.Header{
 		extensions.ContextHeader:           {string(context)},
@@ -189,7 +193,7 @@ func nativeAPIServeWithOptions(t *testing.T, s *Server, w http.ResponseWriter, r
 	path := strings.TrimPrefix(r.URL.Path, config.SodaPath)
 	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
 	if strings.HasPrefix(path, "/api/settings/tailnet") {
-		contribution.ID, contribution.Scope = "tailnet", "admin"
+		contribution.ID, contribution.Scope = "tailnet", "global"
 	}
 	for name, values := range nativeProductHeadersForActor(r.Method, s.Config.ForgejoURL, contribution, login) {
 		if name == "Origin" {
@@ -216,7 +220,7 @@ func nativeProductRequest(t *testing.T, proxy *httptest.Server, origin, method, 
 	}
 	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
 	if strings.HasPrefix(path, "/settings/tailnet") {
-		contribution.ID, contribution.Scope = "tailnet", "admin"
+		contribution.ID, contribution.Scope = "tailnet", "global"
 	} else if !strings.HasPrefix(path, "/spaces") && !strings.HasPrefix(path, "/environments") && !strings.HasPrefix(path, "/repositories") {
 		contribution = extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}
 	}

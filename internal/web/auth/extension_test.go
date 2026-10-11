@@ -20,9 +20,9 @@ func TestExtensionContribution(t *testing.T) {
 	}{
 		{"spaces page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"retired runners page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, false},
-		{"tailnet admin page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, true},
+		{"tailnet global page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
 		{"runners global page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
-		{"tailnet global page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
+		{"tailnet admin page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, false},
 		{"spaces admin page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "admin"}, false},
 		{"workspace panel", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
 		{"workspace panel with page scope", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "global"}, false},

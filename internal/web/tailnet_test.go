@@ -184,6 +184,45 @@ func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 	}
 }
 
+func TestTailnetBridgeUsesConfiguredOperatorInsteadOfSiteAdmin(t *testing.T) {
+	calls := 0
+	s := stubbedHostWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/tailnet/settings" {
+			t.Errorf("unexpected native dispatch %q", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(tailnetOffSettings())
+	})
+	request := func(actor extensions.Actor) *http.Response {
+		proxy := nativeProductProxyForActorWithCallbacks(t, s, extensions.Contribution{}, actor.Username, nil, func(extensions.CallbackRequest) extensions.CallbackResponse {
+			return extensions.CallbackResponse{Actor: &actor}
+		})
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, proxy.URL+"/settings/tailnet", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header = nativeProductHeadersForNativeActor(http.MethodGet, s.Config.ForgejoURL, extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, actor)
+		response, err := proxy.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = response.Body.Close() })
+		return response
+	}
+	configuredOperator := extensions.Actor{ID: "1", Username: "alice", SiteAdmin: false}
+	response := request(configuredOperator)
+	if response.StatusCode != http.StatusOK || calls != 1 {
+		t.Fatalf("configured non-site-admin operator: status=%d native calls=%d", response.StatusCode, calls)
+	}
+	unrelatedSiteAdmin := extensions.Actor{ID: "2", Username: "bob", SiteAdmin: true}
+	response = request(unrelatedSiteAdmin)
+	if response.StatusCode != http.StatusForbidden || calls != 1 {
+		t.Fatalf("unrelated site admin acquired configured operator access: status=%d native calls=%d", response.StatusCode, calls)
+	}
+}
+
 func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 	calls := 0
 	s := stubbedHostWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(422) })
