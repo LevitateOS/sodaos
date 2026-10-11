@@ -74,8 +74,10 @@ func (f *generatedGraphFixture) SubmitGraph(ctx context.Context, g factory.Inten
 		index := edit.IssueID - 100
 		snapshot := f.issues[index]
 		issue := snapshot.Issue
-		if issue == nil || issue.Title != edit.ExpectedTitle || issue.Content != edit.ExpectedBody || issue.ContentVersion != edit.ExpectedContentVersion {
-			return sdk.OperationRecord{}, errors.New("stale fake edit")
+		// Mirror the native writer guard: closed issues refuse edits
+		// atomically, exactly like a title/body/version mismatch.
+		if issue == nil || issue.IsClosed || issue.Title != edit.ExpectedTitle || issue.Content != edit.ExpectedBody || issue.ContentVersion != edit.ExpectedContentVersion {
+			return sdk.OperationRecord{}, errors.New("invalid operation intent")
 		}
 		if issue.Title != edit.Title {
 			issue.Lifecycle = append(issue.Lifecycle, sdk.SnapshotLifecycleEvent{OccurrenceID: strconv.FormatInt(1000+f.revision, 10), Kind: "retitled", OldTitle: issue.Title, NewTitle: edit.Title})
@@ -555,23 +557,60 @@ func TestIntentGraphSubmitsSelectedDecomposition(t *testing.T) {
 func TestIntentGraphDeltaRetainsDeliveredRecords(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
-	if _, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err != nil {
+	const keyA, keyB, keyC, keyD = "daaaaaaaaaaaaaaaaaaaaaaaa", "dbbbbbbbbbbbbbbbbbbbbbbbb", "dcccccccccccccccccccccccc", "ddddddddddddddddddddddddd"
+	first := r
+	first.ID = "d666666666666666666666666"
+	first.Predecessor = r.ID
+	first.Objective = "Build a request tracker"
+	first.Tasks = []factory.IntentTask{
+		{Key: keyA, Objective: "Request entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}},
+		{Key: keyB, Objective: "Request list", Outcomes: []string{"Show requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{keyA}},
+		{Key: keyC, Objective: "Request search", Outcomes: []string{"Find requests"}, IdeaIDs: []string{"d333333333333333333333333"}},
+	}
+	if err := c.Store.SaveIntentRevision(ctx, first); err != nil {
 		t.Fatal(err)
 	}
-	oldBindings, err := c.Store.IntentTaskBindings(ctx, r.ID)
-	if err != nil || len(oldBindings) != 2 {
+	var packets []sdk.IssueGraphPayload
+	submit := f.beforeSubmit
+	f.beforeSubmit = func(g factory.IntentGeneration) error {
+		if err := submit(g); err != nil {
+			return err
+		}
+		var p sdk.IssueGraphPayload
+		if err := json.Unmarshal(g.Payload, &p); err != nil {
+			return err
+		}
+		packets = append(packets, p)
+		return nil
+	}
+	if _, err := c.GenerateAcceptedIntent(ctx, first.Intent, first.Owner); err != nil {
+		t.Fatal(err)
+	}
+	oldBindings, err := c.Store.IntentTaskBindings(ctx, first.ID)
+	if err != nil || len(oldBindings) != 3 {
 		t.Fatalf("bindings=%v %v", oldBindings, err)
 	}
+	type frozen struct{ title, body string }
+	before := map[int64]frozen{}
 	for _, b := range oldBindings {
 		snap := f.issues[b.IssueIndex]
+		before[b.IssueIndex] = frozen{snap.Issue.Title, snap.Issue.Content}
 		snap.Issue.IsClosed = true
 		f.issues[b.IssueIndex] = snap
 	}
-	changed := r
-	changed.ID = "d666666666666666666666666"
-	changed.Predecessor = r.ID
-	changed.Tasks[0].Objective = "Request entry with validation"
-	changed.Tasks = append(changed.Tasks[:1], factory.IntentTask{Key: "d777777777777777777777777", Objective: "Notify managers", Outcomes: []string{"Managers are notified"}, IdeaIDs: []string{"d333333333333333333333333"}})
+	oldByKey := map[string]factory.IntentTaskBinding{}
+	for _, b := range oldBindings {
+		oldByKey[b.TaskKey] = b
+	}
+	changed := first
+	changed.ID = "d777777777777777777777777"
+	changed.Predecessor = first.ID
+	changed.Objective = "Build a request tracker with exports"
+	changed.Tasks = []factory.IntentTask{
+		{Key: keyA, Objective: "Request entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}},
+		{Key: keyB, Objective: "Request list with filters", Outcomes: []string{"Show requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{keyA}},
+		{Key: keyD, Objective: "Request export", Outcomes: []string{"Export requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{keyA}},
+	}
 	if err := c.Store.SaveIntentRevision(ctx, changed); err != nil {
 		t.Fatal(err)
 	}
@@ -582,20 +621,43 @@ func TestIntentGraphDeltaRetainsDeliveredRecords(t *testing.T) {
 	if g.State != "completed" {
 		t.Fatalf("state=%s", g.State)
 	}
+	if len(packets) != 2 {
+		t.Fatalf("packets=%d", len(packets))
+	}
+	delta := packets[1]
+	if len(delta.Edits) != 0 {
+		t.Fatalf("delta edited delivered records: %+v", delta.Edits)
+	}
+	created := map[string]bool{}
+	for _, entry := range delta.Creates {
+		created[entry.Key] = true
+	}
+	if len(created) != 2 || !created[keyB] || !created[keyD] {
+		t.Fatalf("delta creates=%v", created)
+	}
+	stored, err := c.Store.IntentGeneration(ctx, changed.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, ok := stored.Delivered[keyA]
+	if !ok || len(stored.Delivered) != 1 || ref.IssueID != oldByKey[keyA].IssueID || ref.IssueIndex != oldByKey[keyA].IssueIndex || ref.ContentVersion != oldByKey[keyA].ContentVersion {
+		t.Fatalf("delivered=%v", stored.Delivered)
+	}
 	for _, b := range oldBindings {
-		if !f.issues[b.IssueIndex].Issue.IsClosed {
+		after := f.issues[b.IssueIndex].Issue
+		if !after.IsClosed {
 			t.Fatal("delta reopened a delivered record")
 		}
+		want := before[b.IssueIndex]
+		if after.Title != want.title || after.Content != want.body {
+			t.Fatal("delta mutated a delivered record")
+		}
+		if strings.Contains(after.Content, "Superseded by accepted product revision") {
+			t.Fatal("delta wrote to a delivered record")
+		}
 	}
-	removed := f.issues[oldBindings[1].IssueIndex].Issue
-	if !strings.Contains(removed.Content, "Superseded by accepted product revision: "+changed.ID) {
-		t.Fatal("removed delivered outcome lost its supersession note")
-	}
-	if !strings.Contains(f.issues[oldBindings[0].IssueIndex].Issue.Content, "Request entry with validation") {
-		t.Fatal("changed delivered outcome lost new requirements")
-	}
-	kept, err := c.Store.IntentTaskBindings(ctx, r.ID)
-	if err != nil || len(kept) != 2 {
+	kept, err := c.Store.IntentTaskBindings(ctx, first.ID)
+	if err != nil || len(kept) != 3 {
 		t.Fatal("prior bindings not retained")
 	}
 	for _, b := range kept {
@@ -604,19 +666,96 @@ func TestIntentGraphDeltaRetainsDeliveredRecords(t *testing.T) {
 		}
 	}
 	fresh, err := c.Store.IntentTaskBindings(ctx, changed.ID)
-	if err != nil || len(fresh) != 2 {
+	if err != nil || len(fresh) != 3 {
 		t.Fatalf("new bindings=%v %v", fresh, err)
 	}
 	byKey := map[string]factory.IntentTaskBinding{}
 	for _, b := range fresh {
 		byKey[b.TaskKey] = b
 	}
-	if byKey["d444444444444444444444444"].IssueID != oldBindings[0].IssueID {
-		t.Fatal("changed delivered outcome did not reuse its issue")
+	if byKey[keyA].IssueID != oldByKey[keyA].IssueID || byKey[keyA].IssueIndex != oldByKey[keyA].IssueIndex {
+		t.Fatal("unchanged delivered outcome did not rebind its issue")
 	}
-	chained, err := c.Store.AcceptanceDecision(ctx, byKey["d444444444444444444444444"].AcceptanceID)
-	if err != nil || chained.Predecessor != oldBindings[0].AcceptanceID {
+	if byKey[keyB].IssueID == oldByKey[keyB].IssueID {
+		t.Fatal("changed delivered outcome reused its closed issue")
+	}
+	if _, ok := byKey[keyC]; ok {
+		t.Fatal("removed delivered outcome grants current authority")
+	}
+	chained, err := c.Store.AcceptanceDecision(ctx, byKey[keyA].AcceptanceID)
+	if err != nil || chained.Predecessor != oldByKey[keyA].AcceptanceID {
 		t.Fatalf("acceptance not chained: %+v %v", chained, err)
+	}
+	// A third revision recreates the delivered entry task: dependents stay
+	// delivered with their edges rewired to the new issue, and the twice
+	// delivered entry history is never rewritten.
+	for _, b := range fresh {
+		if b.TaskKey == keyA {
+			continue
+		}
+		snap := f.issues[b.IssueIndex]
+		snap.Issue.IsClosed = true
+		f.issues[b.IssueIndex] = snap
+	}
+	third := changed
+	third.ID = "d888888888888888888888888"
+	third.Predecessor = changed.ID
+	third.Objective = "Build a request tracker with exports and audit"
+	third.Tasks[0].Objective = "Request entry with validation"
+	if err := c.Store.SaveIntentRevision(ctx, third); err != nil {
+		t.Fatal(err)
+	}
+	g3, err := c.GenerateAcceptedIntent(ctx, third.Intent, third.Owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g3.State != "completed" {
+		t.Fatalf("state=%s", g3.State)
+	}
+	if len(packets) != 3 {
+		t.Fatalf("packets=%d", len(packets))
+	}
+	redelta := packets[2]
+	if len(redelta.Edits) != 0 {
+		t.Fatalf("second delta edited delivered records: %+v", redelta.Edits)
+	}
+	recreated := map[string]bool{}
+	for _, entry := range redelta.Creates {
+		recreated[entry.Key] = true
+	}
+	if len(recreated) != 1 || !recreated[keyA] {
+		t.Fatalf("second delta creates=%v", recreated)
+	}
+	final, err := c.Store.IntentTaskBindings(ctx, third.ID)
+	if err != nil || len(final) != 3 {
+		t.Fatalf("final bindings=%v %v", final, err)
+	}
+	byFinal := map[string]factory.IntentTaskBinding{}
+	for _, b := range final {
+		byFinal[b.TaskKey] = b
+	}
+	if byFinal[keyA].IssueID == byKey[keyA].IssueID {
+		t.Fatal("recreated delivered outcome reused its closed issue")
+	}
+	if byFinal[keyB].IssueID != byKey[keyB].IssueID || byFinal[keyD].IssueID != byKey[keyD].IssueID {
+		t.Fatal("delivered dependents did not rebind their issues")
+	}
+	dependent, err := c.Store.AcceptanceDecision(ctx, byFinal[keyB].AcceptanceID)
+	if err != nil || dependent.Predecessor != byKey[keyB].AcceptanceID {
+		t.Fatalf("dependent acceptance not chained: %+v %v", dependent, err)
+	}
+	if len(dependent.Prerequisites) != 1 || dependent.Prerequisites[0].PrereqAcceptance != byFinal[keyA].AcceptanceID {
+		t.Fatalf("dependent prerequisites do not track the recreated issue: %+v", dependent.Prerequisites)
+	}
+	for _, b := range oldBindings {
+		after := f.issues[b.IssueIndex].Issue
+		if !after.IsClosed {
+			t.Fatal("second delta reopened a delivered record")
+		}
+		want := before[b.IssueIndex]
+		if after.Title != want.title || after.Content != want.body {
+			t.Fatal("second delta mutated a delivered record")
+		}
 	}
 }
 
