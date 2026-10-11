@@ -241,7 +241,9 @@ function endpoint(value: unknown): string {
   check(id(value));
   return value;
 }
-function issueBlocker(value: unknown): IssueBlocker {
+// issueBlocker admits one stable prerequisite blocker shared by the
+// readiness and plan reads.
+export function issueBlocker(value: unknown): IssueBlocker {
   const raw = object(value);
   check(typeof raw.code === 'string' && raw.code.length > 0 && raw.code.length <= 64);
   return {

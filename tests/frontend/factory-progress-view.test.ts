@@ -4,10 +4,14 @@ import {
   describeDirectionRevision,
   describeOptionalEffects,
   describePrerequisites,
+  describeRecordedChoice,
+  describeRecordedPlan,
+  describeRequestOverview,
   describeWhyNext,
   describeWorkOverview,
   intentGeneration,
 } from '../../frontend/spaces/sodaspaces-factory-progress-view';
+import {issuePlan, requestOverview} from '../../frontend/spaces/sodaspaces-factory-progress-response';
 import type {FactoryIssueDetail} from '../../frontend/spaces/sodaspaces-factory-work-response';
 
 const path = '/soda-tester/demo';
@@ -253,6 +257,210 @@ test('revision and allowance stay attributable and exact', () => {
   assert.match(model.allowanceText, /Consumption record unavailable/);
   assert.equal(describeDirectionRevision(undefined, 'missing').headline, 'No accepted direction recorded.');
   assert.match(describeDirectionRevision(undefined, 'unavailable').headline, /could not be read/);
+});
+
+test('request overview projects evidenced counts and named attention', () => {
+  const view = requestOverview(
+    {
+      direction: {
+        objective: 'Let a team track demo work.',
+        ideas_by_decision: {accept: 2},
+        ideas_by_source: {requested: 2},
+        effective_outcomes: [],
+        ideas_total: 2,
+        tasks_total: 2,
+        unresolved_assumptions: 0,
+      },
+      context: {repository: '7'},
+      generation: {state: 'completed'},
+      setup: {state: 'ready', project: 'p0123456789abcdef01234567'},
+      work_items: {
+        by_state: {delivered: 1, working: 1, waiting: 0, attention: 1},
+        total: 3,
+        outcomes_total: 2,
+        outcomes_evidenced: 0,
+      },
+      mappings: [
+        {
+          task_key: taskA,
+          issue_id: '100',
+          issue_index: '11',
+          acceptance_id: revisionId,
+          created_unix: 1,
+          effective: true,
+        },
+        {
+          task_key: taskB,
+          issue_id: '101',
+          issue_index: '12',
+          acceptance_id: revisionId,
+          created_unix: 1,
+          effective: false,
+        },
+      ],
+      attention: [{code: 'work_attention', issue: '12'}, {code: 'generation_refused'}],
+      intent: intentId,
+      revision: revisionId,
+      state: 'accepted',
+      observed_unix: 1720000300,
+    },
+    intentId
+  );
+  const model = describeRequestOverview(view, path);
+  assert.equal(model.direction, 'Let a team track demo work.');
+  assert.match(model.countsText, /1 delivered · 1 working · 1 needs your decision/);
+  assert.equal(model.attention.length, 2);
+  assert.equal(model.attention[0]?.link, '/soda-tester/demo/issues/12');
+  assert.equal(model.mappings[1]?.effective, false);
+  assert.equal(model.setupText, 'Project setup ready.');
+  assert.match(model.outcomeNote, /0 of 2 accepted product outcomes evidenced/);
+  assert.match(model.observedText, /Observed/);
+  const draft = describeRequestOverview(requestOverview({...overviewDraft(), intent: intentId}, intentId), path);
+  assert.match(draft.direction, /Request is draft/);
+  assert.equal(draft.setupText, 'No repository assigned to this request.');
+});
+
+function overviewDraft() {
+  return {
+    direction: {
+      objective: 'Draft idea.',
+      ideas_by_decision: {},
+      ideas_by_source: {},
+      effective_outcomes: [],
+      ideas_total: 0,
+      tasks_total: 0,
+      unresolved_assumptions: 0,
+    },
+    context: {repository: '0'},
+    generation: {state: 'not_requested'},
+    setup: {state: 'repository_unassigned'},
+    work_items: {
+      by_state: {delivered: 0, working: 0, waiting: 0, attention: 0},
+      total: 0,
+      outcomes_total: 0,
+      outcomes_evidenced: 0,
+    },
+    mappings: [],
+    attention: [],
+    intent: intentId,
+    revision: revisionId,
+    state: 'draft',
+    observed_unix: 0,
+  };
+}
+
+test('recorded plans name freshness, strategy and missing prerequisites', () => {
+  const plan = issuePlan(
+    {
+      repository: '7',
+      issue: '12',
+      observed_unix: 1,
+      freshness: {state: 'stale', provisional: true, reasons: ['acceptance_changed']},
+      plan: {
+        candidate: {id: 'plan-1', repository: '7', issue: '12', readiness: 'queued', first_seen_unix: 1},
+        missing: [{code: 'prereq_code_pending', resolution: 'Wait for issue #11.'}],
+        steps: ['Implement the list.'],
+        strategy: 'incremental_acceptance',
+        snapshot: 'a'.repeat(64),
+        outcome: 'planned',
+        created_unix: 1,
+      },
+      comparisons: [],
+    },
+    '7',
+    '12'
+  );
+  const model = describeRecordedPlan(plan.plan, plan.freshness);
+  assert.match(model.freshnessText, /stale: acceptance changed/i);
+  assert.match(model.freshnessText, /Recorded as provisional/);
+  assert.match(model.strategyText, /incremental_acceptance/);
+  assert.match(model.missingText, /Wait for issue #11/);
+  assert.deepEqual(model.steps, ['Implement the list.']);
+  assert.equal(
+    describeRecordedPlan(undefined, {state: 'missing', provisional: false, reasons: []}).freshnessText,
+    'No recorded plan.'
+  );
+  assert.equal(
+    describeRecordedPlan(undefined, {state: 'provisional', provisional: true, reasons: []}).freshnessText,
+    'Provisional plan: conveys no permission to execute.'
+  );
+});
+
+test('recorded choices explain selection, fairness and masked winners', () => {
+  const comparison = {
+    candidates: [
+      {
+        id: 'cand-12',
+        repository: '7',
+        issue: '12',
+        readiness: 'queued',
+        first_seen_unix: 1720000000,
+        assessed_unix: 1720000050,
+        age_seconds: 3700,
+        impact_known: true,
+        risk_known: false,
+        effort_known: true,
+      },
+    ],
+    calls: [{selected: 'cand-12', model: 'jev-1', confidence: 0.8}],
+    probabilities: {'cand-12': 0.8},
+    snapshot: 'a'.repeat(64),
+    selected: 'cand-12',
+    outcome: 'planned',
+    created_unix: 1720000200,
+    candidates_total: 1,
+    other_count: 0,
+    probability_count: 1,
+    selected_visible: true,
+    probabilities_full: true,
+  };
+  const plan = issuePlan(
+    {
+      repository: '7',
+      issue: '12',
+      observed_unix: 1,
+      freshness: {state: 'current', provisional: false},
+      comparisons: [comparison],
+    },
+    '7',
+    '12'
+  );
+  const model = describeRecordedChoice(plan, path);
+  assert.match(model.selection, /Recorded choice: issue #12/);
+  assert.match(model.selection, /0\.8/);
+  assert.match(model.judgmentText, /jev-1/);
+  assert.match(model.candidates[0]?.ageText ?? '', /1 hour/);
+  assert.match(model.candidates[0]?.estimatesText ?? '', /impact, effort recorded/);
+  const masked = describeRecordedChoice(
+    issuePlan(
+      {
+        repository: '7',
+        issue: '12',
+        observed_unix: 1,
+        freshness: {state: 'missing', provisional: false},
+        comparisons: [{...comparison, candidates: [], selected_visible: false, other_count: 2}],
+      },
+      '7',
+      '12'
+    ),
+    path
+  );
+  assert.equal(masked.selection, "Another repository's work was selected.");
+  const none = describeRecordedChoice(
+    issuePlan(
+      {
+        repository: '7',
+        issue: '12',
+        observed_unix: 1,
+        freshness: {state: 'missing', provisional: false},
+        comparisons: [],
+      },
+      '7',
+      '12'
+    ),
+    path
+  );
+  assert.match(none.selection, /No recorded priority comparison/);
 });
 
 test('optional effects stay unavailable until their own checkpoint passes', () => {
