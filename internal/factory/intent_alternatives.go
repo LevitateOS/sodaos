@@ -17,9 +17,9 @@ type WalkthroughBranch struct {
 
 // WalkthroughStep names who acts, what they do and the visible result.
 type WalkthroughStep struct {
-	Actor    string             `json:"actor"`
-	Action   string             `json:"action"`
-	Result   string             `json:"result"`
+	Actor    string              `json:"actor"`
+	Action   string              `json:"action"`
+	Result   string              `json:"result"`
 	Branches []WalkthroughBranch `json:"branches,omitempty"`
 }
 
