@@ -2,9 +2,12 @@ import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {
   discoveryEmptyMessage,
+  groupSavedRequests,
   recentRowKeys,
+  requestRepositoryLabel,
   splitAttentionRows,
 } from '../../frontend/spaces/sodaspaces-workspace-navigation';
+import type {SavedRequestSummary} from '../../frontend/spaces/sodaspaces-workspace-navigation';
 import type {NavReading} from '../../frontend/spaces/sodaspaces-workspace-navigation';
 import type {Space} from '../../frontend/spaces/sodaspaces-inventory-response';
 import type {TerminalMetadata} from '../../frontend/spaces/sodaspaces-terminal-response';
@@ -68,4 +71,41 @@ test('attention split keeps ordinary sessions out of the attention group', () =>
     groups.sessions.map((row) => row.key),
     ['fresh']
   );
+});
+
+const summary = (intent: string, state: SavedRequestSummary['state'], created_unix: number): SavedRequestSummary => ({
+  intent,
+  revision: 'r' + intent,
+  state,
+  objective: 'Build ' + intent,
+  repository: '0',
+  created_unix,
+  effective_count: 0,
+  task_count: 0,
+});
+test('saved requests group by lifecycle with recent first and stable identity ties', () => {
+  const groups = groupSavedRequests([
+    summary('d3', 'abandoned', 30),
+    summary('d1', 'draft', 10),
+    summary('d2', 'accepted', 20),
+    summary('d0', 'draft', 10),
+    summary('d4', 'rejected', 40),
+  ]);
+  assert.deepEqual(
+    groups.drafts.map((row) => row.intent),
+    ['d0', 'd1']
+  );
+  assert.deepEqual(
+    groups.accepted.map((row) => row.intent),
+    ['d2']
+  );
+  assert.deepEqual(
+    groups.closed.map((row) => row.intent),
+    ['d4', 'd3']
+  );
+});
+test('unbound requests label their missing repository honestly', () => {
+  assert.equal(requestRepositoryLabel('0'), 'No repository yet');
+  assert.equal(requestRepositoryLabel(''), 'No repository yet');
+  assert.equal(requestRepositoryLabel('42'), '42');
 });
