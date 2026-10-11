@@ -285,3 +285,33 @@ test('partial project list explains missing items and retries reads without repl
     0
   );
 });
+test('offline refresh says offline instead of generic failure, then retry recovers', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.evaluate(() => {
+    Object.defineProperty(window.navigator, 'onLine', {value: false, configurable: true});
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes('/api/spaces') && (window as {__wOffline?: boolean}).__wOffline !== false)
+          throw new Error('offline fixture');
+        return original(input, init);
+      },
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByText(/You appear to be offline/).waitFor();
+  await page.evaluate(() => {
+    (window as {__wOffline?: boolean}).__wOffline = false;
+    Object.defineProperty(window.navigator, 'onLine', {value: true, configurable: true});
+  });
+  await page.getByRole('button', {name: 'Retry loading', exact: true}).click();
+  await page.locator('#sodaspaces-status').waitFor({state: 'hidden'});
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    0
+  );
+});
