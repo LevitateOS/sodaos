@@ -190,6 +190,8 @@ type DispatchDeps struct {
 	Priority      *PriorityJudgments
 	collectPlan   func(*attemptPlan)
 	checkPlan     func(*attemptPlan) bool
+	PlanCurrent   func(context.Context, factory.IssueControl) bool
+	PlanRecord    func(context.Context, int64, int64) (factory.PlanningRecord, error)
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -269,8 +271,10 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 		Store: c.Store, Host: c.Host, Broker: c.Broker,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
 		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, PrepareSource: c.prepareSourceCoder, RetireRetry: c.retireRetryCoder,
-		Queue:    &c.queue,
-		Priority: c.Priority,
+		Queue:       &c.queue,
+		Priority:    c.Priority,
+		PlanCurrent: c.planningCurrent,
+		PlanRecord:  c.planningRecord,
 	}
 }
 
@@ -287,7 +291,11 @@ func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
 	preparationErr := c.reconcileRetryPreparations(ctx)
+	planningErr := c.PlanningPass(ctx)
 	report := DispatchPass(ctx, c.dispatchDeps())
+	if planningErr != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: "planning_deferred", Detail: "bounded planning could not complete this pass"})
+	}
 	if preparationErr != nil {
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrHost, Detail: "retry preparation retirement is unconfirmed"})
 	}

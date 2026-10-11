@@ -2,6 +2,9 @@ package control
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -72,6 +75,10 @@ func dispatchPriorityPass(ctx context.Context, deps DispatchDeps, report Dispatc
 		}
 		dispatchOne(ctx, collect, &occupancy, control, &report)
 	}
+	if priorityAssessmentIncomplete(report) || ctx.Err() != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: "priority_incomplete", Detail: "candidate eligibility could not be completely established"})
+		return report
+	}
 	selected, err := selectPriority(ctx, deps.Priority, candidates, time.Now())
 	if err != nil {
 		for _, c := range candidates {
@@ -103,17 +110,39 @@ func dispatchPriorityPass(ctx context.Context, deps DispatchDeps, report Dispatc
 	for _, control := range freshControls {
 		dispatchOne(ctx, fresh, &freshOccupancy, control, &silent)
 	}
-	oldHash, _ := factory.PrioritySnapshot(candidates)
-	newHash, hashErr := factory.PrioritySnapshot(freshCandidates)
-	if hashErr != nil || oldHash != newHash {
+	oldHash, _ := priorityExactSnapshot(candidates)
+	newHash, hashErr := priorityExactSnapshot(freshCandidates)
+	if priorityAssessmentIncomplete(silent) || ctx.Err() != nil || hashErr != nil || oldHash != newHash {
 		report.Waits = append(report.Waits, DispatchWait{Repository: chosen.control.Repository, Issue: chosen.control.Issue, Reason: WaitInputsStale, Detail: "complete priority candidate snapshot changed"})
 		return report
 	}
 	deps.checkPlan = func(plan *attemptPlan) bool {
-		before, _ := factory.PrioritySnapshot([]factory.PriorityCandidate{priorityCandidate(chosen)})
-		after, _ := factory.PrioritySnapshot([]factory.PriorityCandidate{priorityCandidate(plan)})
+		before, _ := priorityExactSnapshot([]factory.PriorityCandidate{priorityCandidate(chosen)})
+		after, _ := priorityExactSnapshot([]factory.PriorityCandidate{priorityCandidate(plan)})
 		return before == after
 	}
 	dispatchOne(ctx, deps, &freshOccupancy, chosen.control, &report)
 	return report
+}
+
+func priorityExactSnapshot(candidates []factory.PriorityCandidate) (string, error) {
+	data, err := json.Marshal(candidates)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func priorityAssessmentIncomplete(report DispatchReport) bool {
+	if len(report.Errors) > 0 {
+		return true
+	}
+	for _, wait := range report.Waits {
+		switch wait.Reason {
+		case WaitInputsUnavailable, WaitInputsBusy, WaitInputsStale, WaitSource, WaitHarness:
+			return true
+		}
+	}
+	return false
 }

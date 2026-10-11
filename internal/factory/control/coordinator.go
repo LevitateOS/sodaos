@@ -84,6 +84,8 @@ type Coordinator struct {
 	Checks          CheckObserver
 	Merges          MergeExecutor
 	Priority        *PriorityJudgments
+	Planning        *PlanningJudgments
+	planningQueue   DispatchQueueCursor
 	queue           DispatchQueueCursor
 	lock            *os.File
 	requestGate     sync.RWMutex

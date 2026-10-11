@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"fmt"
+	"github.com/levitateos/sodaos/internal/store"
 	"testing"
 	"time"
 
@@ -23,6 +24,14 @@ func (f *priorityFixture) ReservePriorityJudgment(_ context.Context, _ string, c
 func (f *priorityFixture) RecordPriorityJudgment(_ context.Context, r factory.PriorityReceipt) error {
 	f.receipts = append(f.receipts, r)
 	return nil
+}
+func (f *priorityFixture) PriorityJudgment(_ context.Context, snapshot string) (factory.PriorityReceipt, error) {
+	for _, r := range f.receipts {
+		if r.Snapshot == snapshot {
+			return r, nil
+		}
+	}
+	return factory.PriorityReceipt{}, store.ErrNotFound
 }
 func (f *priorityFixture) Choose(_ context.Context, r factory.PriorityRequest) (factory.PriorityAnswer, error) {
 	f.calls = append(f.calls, r)
@@ -86,7 +95,7 @@ func TestPriorityUncertaintyAgeAndSingleCandidate(t *testing.T) {
 		t.Fatalf("uncertainty=%s %v", chosen, err)
 	}
 	candidates[0].Control.FirstSeenUnix = now.Add(-25 * time.Hour).Unix()
-	if chosen, err := selectPriority(context.Background(), deps, candidates, now); err != nil || chosen != "0" || len(f.calls) != 1 {
+	if chosen, err := selectPriority(context.Background(), deps, candidates, now); err != nil || chosen != "0" || len(f.calls) != 2 {
 		t.Fatalf("age=%s %v", chosen, err)
 	}
 	if chosen, err := selectPriority(context.Background(), nil, candidates[:1], now); err != nil || chosen != "0" {
@@ -106,7 +115,7 @@ func TestPriorityDispatchSelectsAndRefusesStaleSet(t *testing.T) {
 			fx.queueAt(t, 5, young.ID, time.Now())
 			f := &priorityFixture{choose: func(r factory.PriorityRequest) factory.PriorityAnswer {
 				if stale {
-					if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 2, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+					if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
 						t.Fatal(err)
 					}
 				}

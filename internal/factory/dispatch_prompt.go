@@ -44,6 +44,7 @@ type PromptInputs struct {
 	Review                *ReviewReport
 	CheckAssessment       *CheckAssessment
 	RepositoryContext     *project.FactoryPreparationContext
+	ImplementationPlan    *PlanningRecord
 	Preparation           string
 	RequirementsID        string
 	ApprovalID            string
@@ -177,6 +178,17 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 		b.WriteString(fenceCollision(in.Body) + "\n")
 	}
 	writePromptSection(&b, "Accepted sources", in.Sources)
+	if in.ImplementationPlan != nil {
+		plan := in.ImplementationPlan
+		if plan.Validate() != nil || plan.Provisional || plan.Outcome != "planned" || plan.Input.Candidate.Control.Acceptance != in.AcceptanceID || plan.Input.Candidate.Source != in.SourceCommit || plan.Input.Candidate.Control.Repository != in.Repository || plan.Input.Candidate.Control.Issue != in.Issue {
+			return nil, errors.New("implementation plan does not match dispatch")
+		}
+		b.WriteString("\n## Implementation approach\n\n")
+		b.WriteString("Recorded plan: " + plan.Snapshot + " strategy: " + plan.Strategy + ". The accepted requirements and controller policy remain authoritative.\n")
+		for _, step := range plan.Steps {
+			b.WriteString("- " + fenceCollision(step) + "\n")
+		}
+	}
 	writePromptPrerequisites(&b, in.Prerequisites, in.Control)
 	writePromptSection(&b, "Accepted resolutions", in.Resolutions)
 	if in.RepositoryContext != nil {

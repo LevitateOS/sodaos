@@ -108,6 +108,10 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 		return
 	}
+	if deps.PlanCurrent != nil && !deps.PlanCurrent(ctx, control) {
+		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: "plan_not_current", Detail: "implementation planning must refresh against current outputs"})
+		return
+	}
 	if deps.collectPlan != nil {
 		deps.collectPlan(plan)
 		return
@@ -273,6 +277,19 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 		if contextErr != nil {
 			return nil, waitFor(WaitSource, "native prepared repository context is unavailable or changed"), nil
 		}
+		var implementationPlan *factory.PlanningRecord
+		if deps.PlanRecord != nil {
+			record, recordErr := deps.PlanRecord(ctx, repository, issue)
+			if recordErr != nil {
+				return nil, waitFor("plan_not_current", "implementation approach is unavailable"), nil
+			}
+			if record.Snapshot != "" {
+				if record.Provisional || record.Outcome != "planned" {
+					return nil, waitFor("plan_not_current", "implementation approach is provisional or waiting"), nil
+				}
+				implementationPlan = &record
+			}
+		}
 		prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
 			Project: plan.projectID, Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
 			AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
@@ -290,7 +307,8 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 			Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
 			Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 			Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
-			RepositoryContext: repositoryContext,
+			RepositoryContext:  repositoryContext,
+			ImplementationPlan: implementationPlan,
 		})
 		if err != nil {
 			if errors.Is(err, factory.ErrPromptPrerequisiteEvidence) {

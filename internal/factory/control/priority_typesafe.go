@@ -23,22 +23,37 @@ type TypeSafePriority struct {
 }
 
 func (p *TypeSafePriority) Choose(ctx context.Context, request factory.PriorityRequest) (factory.PriorityAnswer, error) {
+	choices := make(map[string]any, len(request.Candidates))
+	for _, candidate := range request.Candidates {
+		choices[candidate.ID] = candidate
+	}
+	return p.Select(ctx, request, request.Rubric, choices)
+}
+
+// Select is shared by narrow product and planning judgments. Code supplies
+// complete state, a single rubric and explicit alternatives; this method grants
+// no authority and its caller must reserve consultation funding first.
+func (p *TypeSafePriority) Select(ctx context.Context, state any, question string, choices map[string]any) (factory.PriorityAnswer, error) {
+	request := factory.PriorityRequest{}
+	for id := range choices {
+		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: id})
+	}
 	if len(request.Candidates) < 2 || len(request.Candidates) > 255 {
 		return factory.PriorityAnswer{}, errors.New("invalid priority choice size")
+	}
+	info, err := os.Stat(p.APIKeyFile)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+		return factory.PriorityAnswer{}, ErrPriorityUnavailable
 	}
 	key, err := os.ReadFile(p.APIKeyFile)
 	if err != nil || len(bytes.TrimSpace(key)) == 0 {
 		return factory.PriorityAnswer{}, ErrPriorityUnavailable
 	}
-	criteria := make(map[string]factory.PriorityCandidate, len(request.Candidates))
-	for _, c := range request.Candidates {
-		criteria[c.ID] = c
-	}
 	model := p.Model
 	if model == "" {
 		model = "jev-latest"
 	}
-	body, err := json.Marshal(map[string]any{"model": model, "state": request, "questions": map[string]any{"priority": map[string]any{"type": "choice", "instructions": request.Rubric, "criteria": criteria}}})
+	body, err := json.Marshal(map[string]any{"model": model, "state": state, "questions": map[string]any{"priority": map[string]any{"type": "choice", "instructions": question, "criteria": choices}}})
 	if err != nil {
 		return factory.PriorityAnswer{}, err
 	}

@@ -62,6 +62,12 @@ type PriorityReceipt struct {
 
 // PrioritySnapshot binds the complete candidate evidence and current rubric.
 func PrioritySnapshot(candidates []PriorityCandidate) (string, error) {
+	candidates = append([]PriorityCandidate(nil), candidates...)
+	for i := range candidates {
+		candidates[i].Control.NativeRev = 0
+		candidates[i].Control.AssessedUnix = 0
+		candidates[i].PromptDigest = ""
+	}
 	seen := make(map[string]bool, len(candidates))
 	for _, c := range candidates {
 		if c.ID == "" || seen[c.ID] {

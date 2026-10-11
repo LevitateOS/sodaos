@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 // PriorityJournal reserves finite independently authorized consultation credit
@@ -13,6 +14,7 @@ import (
 type PriorityJournal interface {
 	ReservePriorityJudgment(context.Context, string, int) (bool, error)
 	RecordPriorityJudgment(context.Context, factory.PriorityReceipt) error
+	PriorityJudgment(context.Context, string) (factory.PriorityReceipt, error)
 }
 
 type PriorityChooser interface {
@@ -57,12 +59,20 @@ func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []f
 		age = 24 * time.Hour
 	}
 	receipt := factory.PriorityReceipt{Snapshot: snapshot, Candidates: candidates, CreatedUnix: now.Unix(), Calls: []factory.PriorityCall{}}
-	if oldest.Control.FirstSeenUnix > 0 && now.Sub(time.Unix(oldest.Control.FirstSeenUnix, 0)) >= age {
-		receipt.Selected, receipt.Outcome = oldest.ID, "fairness"
-		if err := deps.Journal.RecordPriorityJudgment(ctx, receipt); err != nil {
-			return "", err
+	fairness := oldest.Control.FirstSeenUnix > 0 && now.Sub(time.Unix(oldest.Control.FirstSeenUnix, 0)) >= age
+	previous, readErr := deps.Journal.PriorityJudgment(ctx, snapshot)
+	if readErr != nil && !errors.Is(readErr, store.ErrNotFound) {
+		return "", readErr
+	}
+	if readErr == nil && (previous.Outcome == "selected" || previous.Outcome == "fairness") {
+		for _, candidate := range candidates {
+			if candidate.ID == previous.Selected {
+				if fairness {
+					return oldest.ID, nil
+				}
+				return previous.Selected, nil
+			}
 		}
-		return oldest.ID, nil
 	}
 	maxCalls := deps.MaxCalls
 	if maxCalls <= 0 {
@@ -122,6 +132,9 @@ func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []f
 		remaining = winners
 	}
 	receipt.Selected, receipt.Outcome = remaining[0].ID, "selected"
+	if fairness {
+		receipt.Selected, receipt.Outcome = oldest.ID, "fairness"
+	}
 	if err := deps.Journal.RecordPriorityJudgment(ctx, receipt); err != nil {
 		return "", err
 	}
