@@ -225,19 +225,58 @@ function ideaCorrectionField(view: IntentView, idea: ProductIdea) {
     ></textarea>
   </label>`;
 }
-function ideaSettled(idea: ProductIdea): boolean {
-  return idea.decision === 'accept' && idea.provenance === 'autonomous';
+function ideaSettled(idea: ProductIdea, settled: Set<string>): boolean {
+  return settled.has(idea.id) || (idea.decision === 'accept' && idea.provenance === 'autonomous');
 }
-function productIdea(view: IntentView, idea: ProductIdea, challenged: Set<string>, referenced: Set<string>) {
-  const vote = !ideaSettled(idea) && !challenged.has(idea.id) && referenced.has(idea.id);
-  const basis = ideaBasis(idea);
+function ideaVote(idea: ProductIdea, challenged: Set<string>, referenced: Set<string>, settled: Set<string>): boolean {
+  if (ideaSettled(idea, settled)) return false;
+  return !challenged.has(idea.id) && referenced.has(idea.id);
+}
+function cardBasis(idea: ProductIdea, settled: Set<string>): string {
+  if (ideaSettled(idea, settled)) return 'Decided automatically';
+  return ideaBasis(idea);
+}
+function settledCorrection(view: IntentView, idea: ProductIdea, challenged: Set<string>, settled: Set<string>) {
+  if (challenged.has(idea.id) || !ideaSettled(idea, settled)) return '';
+  return html`<label
+    >Correct this automatic choice<textarea
+      rows="2"
+      maxlength="4000"
+      aria-label=${'Correct the automatic choice: ' + idea.description}
+      placeholder="Leave empty to keep the automatic choice"
+      .value=${idea.correction || ''}
+      ?disabled=${view.busy || view.blocked}
+      @input=${(event: Event) => {
+        const node = event.target;
+        if (node instanceof HTMLTextAreaElement) view.decide(idea.id, 'edit', node.value);
+      }}
+    ></textarea>
+  </label>`;
+}
+function explorationSettled(view: IntentView): Set<string> {
+  return new Set(view.exploration?.settled || []);
+}
+function correctionEcho(idea: ProductIdea, vote: boolean, settled: boolean) {
+  if (vote || settled || !idea.correction) return '';
+  return html`<p>Your correction: ${idea.correction}</p>`;
+}
+function productIdea(
+  view: IntentView,
+  idea: ProductIdea,
+  challenged: Set<string>,
+  referenced: Set<string>,
+  settled: Set<string>
+) {
+  const vote = ideaVote(idea, challenged, referenced, settled);
+  const basis = cardBasis(idea, settled);
+  const isSettled = ideaSettled(idea, settled);
   return html`<article>
     <h3>${idea.assumption ? 'Assumption' : 'Idea'}</h3>
     <p>${idea.description}</p>
     <p class="consequence">${idea.consequence}</p>
     ${basis ? html`<p>${basis}</p>` : ''} ${vote ? ideaChoice(view, idea) : ''}
-    ${vote ? ideaCorrectionField(view, idea) : ''}
-    ${!vote && idea.correction ? html`<p>Your correction: ${idea.correction}</p>` : ''}
+    ${vote ? ideaCorrectionField(view, idea) : ''} ${correctionEcho(idea, vote, isSettled)}
+    ${settledCorrection(view, idea, challenged, settled)}
   </article>`;
 }
 function ideaDecided(idea: ProductIdea | undefined, allowDecline: boolean): boolean {
@@ -339,6 +378,7 @@ export function reviewIntent(view: IntentView) {
   const revision = view.revision;
   if (!revision) return '';
   const challenged = new Set((view.exploration?.challenges || []).map((challenge) => challenge.idea));
+  const settled = explorationSettled(view);
   const referenced = new Set(revision.tasks.flatMap((task) => task.idea_ids));
   return html`<section class="intent-review">
     <h2 tabindex="-1">Review your product direction</h2>
@@ -355,7 +395,7 @@ export function reviewIntent(view: IntentView) {
     <p>Only asked questions and work-linked choices are required. Changes update the proposal before you continue.</p>
     ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}
-    ${revision.ideas.map((idea) => productIdea(view, idea, challenged, referenced))}
+    ${revision.ideas.map((idea) => productIdea(view, idea, challenged, referenced, settled))}
     <button ?disabled=${view.busy || view.blocked || !view.dirty} @click=${view.revise}>Update proposal</button>
     <details>
       <summary>Proposed work (${revision.tasks.length})</summary>

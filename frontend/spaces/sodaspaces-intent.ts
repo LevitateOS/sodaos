@@ -587,7 +587,16 @@ export class SodaIntent extends LitElement {
   private actorValid(): boolean {
     return this.actor !== '' && id(this.actor);
   }
+  private settledIDs(): Set<string> {
+    return new Set(this.exploration?.settled || []);
+  }
   private decidedIdea(idea: ProductIdea, decision: ProductIdea['decision'], correction?: string): ProductIdea {
+    if (decision === 'edit' && !(correction ?? '').trim() && this.settledIDs().has(idea.id)) {
+      const restored: ProductIdea = {...idea, decision: 'accept', provenance: 'autonomous'};
+      delete restored.correction;
+      delete restored.actor;
+      return restored;
+    }
     const next: ProductIdea = {...idea, decision};
     if (correction !== undefined) next.correction = correction;
     else if (decision !== 'edit') delete next.correction;

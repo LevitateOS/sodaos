@@ -110,6 +110,7 @@ export interface ConsistencyReport {
 export interface Exploration {
   content: ProposalContent;
   challenges: AssumptionChallenge[];
+  settled: string[];
   recommendation?: ConsolidatedProposal;
   consistency?: ConsistencyReport;
 }
@@ -419,9 +420,12 @@ function consistency(value: unknown): ConsistencyReport {
 }
 export function exploration(value: unknown): Exploration {
   const raw = object(value);
+  const settled = array(raw.settled ?? [], 50);
+  for (const id of settled) check(decisionID(id));
   const out: Exploration = {
     content: proposalContent(raw.content),
     challenges: array(raw.challenges, 50).map(challenge),
+    settled: settled.map(String),
   };
   if (raw.recommendation !== undefined && raw.recommendation !== null)
     out.recommendation = recommendation(raw.recommendation);
