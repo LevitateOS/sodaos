@@ -212,6 +212,36 @@ function renderObservedOS(input: SettingsViewInput) {
     input.requestInspectOS(event)
   );
 }
+function accessReadiness(input: SettingsViewInput): string {
+  if (input.readDetailLogin()) return `Joined as ${input.readDetailLogin()}`;
+  return input.readExecutionAllowed() ? 'Not joined' : 'Repository write access required';
+}
+function renderReadinessLinks(input: SettingsViewInput) {
+  if (!input.readEnvironment()) return html``;
+  const factory = input.readFactoryTransport();
+  return html`<nav class="soda-settings-readiness" aria-label="Settings readiness">
+    <ul>
+      <li>
+        Access: ${accessReadiness(input)}
+        <button type="button" class="ui basic button" @click=${() => input.selectView('access')}>Open Access</button>
+      </li>
+      <li>
+        Network: ${networkSummaryText(input)}
+        <button type="button" class="ui basic button" @click=${() => input.selectView('network')}>Open Network</button>
+      </li>
+      <li>
+        Factory: ${factory ? 'Policy and funding controls' : 'Unavailable in this context'}
+        ${
+          factory
+            ? html`<button type="button" class="ui basic button" @click=${() => input.selectView('factory')}>
+                Open Factory
+              </button>`
+            : ''
+        }
+      </li>
+    </ul>
+  </nav>`;
+}
 
 export function renderEnvironmentView(input: SettingsViewInput) {
   return html`<section
@@ -221,6 +251,7 @@ export function renderEnvironmentView(input: SettingsViewInput) {
     aria-label="Environment"
     ?hidden=${input.readSelected() !== 'environment'}
   >
+    ${renderReadinessLinks(input)}
     ${renderProjectOS(
       input.readProfiles(),
       input.readSelectedProfile(),

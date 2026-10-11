@@ -2,6 +2,8 @@ import {LitElement, html, nothing} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
 import {factoryCommandId} from './sodaspaces-factory-response.js';
+import {factoryAccessResponse} from './sodaspaces-factory-access-response.js';
+import type {FactoryAccess, FactoryAccessEditable, FactoryAccessUsage} from './sodaspaces-factory-access-response.js';
 import './sodaspaces-factory-activity.js';
 
 type FactoryContext = {
@@ -14,6 +16,7 @@ type FactoryContext = {
 type View = {
   status?: Record<string, unknown>;
   preparation?: Record<string, unknown>;
+  access?: FactoryAccess;
   connections: Record<string, unknown>[];
   grants: Record<string, unknown>[];
   usageBudget?: Record<string, unknown>;
@@ -46,6 +49,59 @@ function safeDetail(value: unknown) {
 
 function safeNumber(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isSafeInteger(value) ? value : fallback;
+}
+
+function accessReasonText(reason: string | undefined): string {
+  switch (reason) {
+    case 'owner_or_admin_required':
+      return 'needs repository owner or administrator';
+    case 'operator_required':
+      return 'needs operator';
+    case 'repository_owner_required':
+      return 'needs repository owner';
+    case 'connection_owner_required':
+      return 'needs connection owner';
+    case 'session_changed':
+      return 'session changed: refresh this view';
+    case 'identity_unavailable':
+      return 'identity unavailable';
+    case undefined:
+      return 'not permitted';
+    default:
+      return reason;
+  }
+}
+
+function accessActorText(actor: string): string {
+  switch (actor) {
+    case 'owner_or_admin':
+      return 'repository owner or administrator';
+    case 'operator':
+      return 'operator';
+    case 'connection_owner':
+      return 'connection owner';
+    case 'maintainer':
+      return 'maintainer';
+    default:
+      return actor;
+  }
+}
+
+function accessUsageStatusText(status: string): string {
+  switch (status) {
+    case 'connection_owner_only':
+      return 'visible to its connection owner only';
+    case 'usage_unavailable':
+      return 'usage unavailable';
+    case 'identity_unavailable':
+      return 'identity unavailable';
+    default:
+      return status;
+  }
+}
+
+function accessSpread(access: FactoryAccess | undefined): {access?: FactoryAccess} {
+  return access === undefined ? {} : {access};
 }
 
 function factoryDecisionId() {
@@ -339,11 +395,12 @@ export class SodaFactorySettings extends LitElement {
     context: FactoryContext,
     retained: {sourceSelection: View['sourceSelection']; sourcePreview: View['sourcePreview']}
   ): Promise<View> {
-    const [status, preparation] = await Promise.all([
+    const [status, preparation, access] = await Promise.all([
       this.request(`/api/repositories/${context.repository}/factory`),
       context.environment
         ? this.request(`/api/environments/${context.environment}/preparation`)
         : Promise.resolve(undefined),
+      this.loadAccess(context),
     ]);
     const nextPreparation = asObject(preparation || {});
     const sourcePreview = retainPreview(retained.sourcePreview, safeText(nextPreparation.requirements));
@@ -355,6 +412,7 @@ export class SodaFactorySettings extends LitElement {
     return {
       ...(status === undefined ? {} : {status: asObject(status)}),
       ...(preparation === undefined ? {} : {preparation: nextPreparation}),
+      ...accessSpread(access),
       ...(retained.sourceSelection === undefined ? {} : {sourceSelection: retained.sourceSelection}),
       ...(sourcePreview === undefined ? {} : {sourcePreview}),
       connections,
@@ -363,6 +421,14 @@ export class SodaFactorySettings extends LitElement {
       message: '',
       busy: false,
     };
+  }
+
+  private async loadAccess(context: FactoryContext) {
+    try {
+      return factoryAccessResponse(await this.request(`/api/repositories/${context.repository}/factory/access`));
+    } catch {
+      return undefined;
+    }
   }
 
   private async loadConnections() {
@@ -837,7 +903,7 @@ export class SodaFactorySettings extends LitElement {
       <soda-factory-activity .context=${context}></soda-factory-activity>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
-      ${this.renderProviderControls()}`;
+      ${this.renderProviderControls()} ${this.renderExecutionUsage()}`;
   }
 
   private renderSummary(status: Record<string, unknown>) {
@@ -1239,6 +1305,67 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       ${this.numberInput('Rolling minutes', 'rolling_minutes', safeNumber(budget?.rolling_minutes, 360))}
       ${this.submitButton('Save connection budget')}
     </form>`;
+  }
+
+  private renderExecutionUsage() {
+    const access = this.view.access;
+    if (!access)
+      return html`<fieldset>
+        <legend>Execution usage</legend>
+        <p>Execution usage is unavailable. Refresh current authority to retry.</p>
+      </fieldset>`;
+    return html`<fieldset>
+      <legend>Execution usage</legend>
+      <p>Provider execution minutes only. Planning calls are reported separately; amounts are never converted.</p>
+      ${
+        access.usage.length
+          ? access.usage.map((row) => this.renderUsageRow(row, access))
+          : html`<p>No sponsored execution connections.</p>`
+      }
+      ${this.renderAccessPermissions(access)} ${this.renderRequiredActions(access)}
+    </fieldset>`;
+  }
+
+  private renderUsageRow(row: FactoryAccessUsage, access: FactoryAccess) {
+    if (row.status !== undefined)
+      return html`<p>${safeText(row.connection) || 'Connection'}: ${accessUsageStatusText(row.status)}.</p>`;
+    const budget = row.budget_minutes === undefined ? 'budget unavailable' : `${row.budget_minutes} minutes budget`;
+    const used = row.used_minutes === undefined ? 'used unavailable' : `${row.used_minutes} minutes used`;
+    const budgetEdit = access.editable.usage_budgets.find((item) => item.connection === row.connection);
+    const permission = !budgetEdit
+      ? ''
+      : budgetEdit.editable
+        ? 'Budget editable.'
+        : `Budget read-only: ${accessReasonText(budgetEdit.reason)}.`;
+    return html`<p>${safeText(row.connection) || 'Connection'}: ${budget}; ${used}. ${permission}</p>`;
+  }
+
+  private renderAccessPermissions(access: FactoryAccess) {
+    const rows: [string, FactoryAccessEditable][] = [
+      ['Policy', access.editable.policy],
+      ['Activity display', access.editable.activity_settings],
+      ['Operator grant', access.editable.operator_grant],
+      ['Capacity', access.editable.capacity],
+      ['Environment grant', access.editable.environment_grant],
+    ];
+    return html`<ul>
+      ${rows.map(
+        ([label, item]) =>
+          html`<li>${label}: ${item.editable ? 'editable' : `read-only (${accessReasonText(item.reason)})`}.</li>`
+      )}
+    </ul>`;
+  }
+
+  private renderRequiredActions(access: FactoryAccess) {
+    if (!access.required_actions.length) return html`<p>No required owner actions.</p>`;
+    return html`<ul>
+      ${access.required_actions.map(
+        (action) =>
+          html`<li>
+            ${safeText(action.code)}: resolve as ${accessActorText(action.resolve_by)} in ${safeText(action.setting)}.
+          </li>`
+      )}
+    </ul>`;
   }
 
   private textInput(label: string, name: string, value = '') {

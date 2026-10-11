@@ -18,6 +18,7 @@ test('observed unread coalesces noisy hidden output, survives refresh, and clear
   });
   const tab = page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true});
   await tab.locator('.soda-unread').waitFor();
+  assert.equal(await tab.getByRole('img', {name: 'Unread output'}).count(), 1);
   assert.equal(
     await page.getByRole('tab', {name: 'Edit · alice/Alpha', exact: true}).locator('.soda-unread').count(),
     0
