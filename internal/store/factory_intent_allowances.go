@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 
@@ -88,8 +89,47 @@ func (s *Store) PlanningAllowance(ctx context.Context, intent string, owner int6
 	var a factory.PlanningAllowance
 	var raw []byte
 	err := s.db.QueryRowContext(ctx, `SELECT a.data FROM factory_intent_allowance_heads h JOIN factory_intent_allowances a ON a.id=h.revision WHERE h.intent=$1 AND h.owner_id=$2`, intent, owner).Scan(&raw)
-	if err == nil {
-		err = json.Unmarshal(raw, &a)
+	if err != nil {
+		return a, err
 	}
-	return a, err
+	if err = json.Unmarshal(raw, &a); err != nil {
+		return a, err
+	}
+	reserved, consumed, err := s.planningUsage(ctx, intent)
+	if err != nil {
+		return factory.PlanningAllowance{}, err
+	}
+	a.Reserved, a.Consumed = reserved, consumed
+	return a, nil
+}
+
+// planningUsage derives live counters from runtime records: a reserved call
+// without a recorded receipt stays reserved (charged and unavailable,
+// including interruptions and failures until recorded); a call with a
+// recorded receipt, completed or failed, is consumed. Saved record counters
+// are revision-time values only; admission and reads always derive live.
+func (s *Store) planningUsage(ctx context.Context, intent string) (reserved, consumed int, err error) {
+	err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_intent_planning_calls p WHERE p.intent=$1 AND EXISTS (SELECT 1 FROM factory_priority_judgments j WHERE j.snapshot=p.snapshot AND j.data IS NOT NULL)`, intent).Scan(&consumed)
+	if err != nil {
+		return 0, 0, err
+	}
+	var total int
+	if err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_intent_planning_calls WHERE intent=$1`, intent).Scan(&total); err != nil {
+		return 0, 0, err
+	}
+	return total - consumed, consumed, nil
+}
+
+// PlanningAllowanceAvailable reports whether the current independent
+// allowance admits another consultation for this owner-private intent. It is
+// an advisory gate; ReserveIntentJudgment remains authoritative.
+func (s *Store) PlanningAllowanceAvailable(ctx context.Context, intent string, owner int64) (bool, error) {
+	a, err := s.PlanningAllowance(ctx, intent, owner)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return a.Available() > 0, nil
 }

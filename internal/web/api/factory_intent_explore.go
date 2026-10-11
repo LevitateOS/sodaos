@@ -108,7 +108,12 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	design.Predecessor = ""
 	design.CreatedUnix = 0
 	design.Tasks = nil
-	if current.PlanningCalls < 1 {
+	available, err := s.Store.PlanningAllowanceAvailable(r.Context(), current.Intent, v.User.ID)
+	if err != nil {
+		factoryCommandError(w, err)
+		return
+	}
+	if !available {
 		auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
 		return
 	}

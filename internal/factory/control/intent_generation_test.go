@@ -158,8 +158,11 @@ func (f *generatedGraphFixture) ReadAcceptanceEvidence(_ context.Context, _, ind
 func acceptedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixture, factory.IntentRevision) {
 	t.Helper()
 	c := coordinatorFixture(t, nil, nil)
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Build a tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track requests", Consequence: "Clear ownership", Decision: "accept"}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Request entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "Request list", Outcomes: []string{"Show requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{"d444444444444444444444444"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Build a tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track requests", Consequence: "Clear ownership", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Request entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "Request list", Outcomes: []string{"Show requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{"d444444444444444444444444"}}}}
 	if err := c.Store.SaveIntentRevision(context.Background(), r); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Store.SavePlanningAllowance(context.Background(), factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: r.Intent, Owner: r.Owner, Amount: 32, Unit: factory.PlanningAllowanceUnit, Ceiling: 32, CreatedUnix: 1}); err != nil {
 		t.Fatal(err)
 	}
 	f := &generatedGraphFixture{revision: 10, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
@@ -185,7 +188,7 @@ func acceptedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixtu
 }
 
 func TestIntentGraphPayloadBindsProductDirection(t *testing.T) {
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Tracker", State: "accepted", MaxIssues: 5, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track", Consequence: "Visibility", Decision: "accept"}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Tracker", State: "accepted", MaxIssues: 5, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track", Consequence: "Visibility", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	p, err := IntentGraphPayload(r)
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +274,7 @@ func TestIntentGraphInterruptedNativeResponseReusesStoredOperation(t *testing.T)
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(p)
-	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 10, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, IntentDigest: r.Digest(), State: "pending"}
+	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 10, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, SubmittedTasks: append([]factory.IntentTask(nil), r.Tasks...), IntentDigest: r.Digest(), State: "pending"}
 	if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +393,7 @@ func TestIntentGraphStaleDurablePacketCancelsBeforeNativeEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(p)
-	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 9, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, IntentDigest: r.Digest(), State: "pending"}
+	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 9, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, SubmittedTasks: append([]factory.IntentTask(nil), r.Tasks...), IntentDigest: r.Digest(), State: "pending"}
 	if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}
@@ -417,6 +420,13 @@ func TestIntentGraphLongProposalRetainsAcceptedSemanticsWithinPacket(t *testing.
 	r.State = "accepted"
 	for i := range r.Ideas {
 		r.Ideas[i].Decision = "accept"
+		r.Ideas[i].Provenance = "human"
+		r.Ideas[i].Actor = 7
+		if r.Ideas[i].Assumption {
+			r.Ideas[i].Source = "assumption"
+		} else {
+			r.Ideas[i].Source = "requested"
+		}
 	}
 	payload, err := IntentGraphPayload(r)
 	if err != nil {
@@ -437,7 +447,7 @@ func TestIntentGraphLongProposalRetainsAcceptedSemanticsWithinPacket(t *testing.
 }
 
 func TestIntentGraphBodyIncludesReviewedChoicesAndCorrections(t *testing.T) {
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Track team requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Ask for full address", Decision: "edit", Correction: "Ask only for a work email", Consequence: "Avoid collecting unnecessary personal data"}, {ID: "d444444444444444444444444", Description: "Stay within existing access", Assumption: true, Decision: "edit", Correction: "Permit only current project members", Consequence: "No new account enrollment"}}, Tasks: []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Ask only for a work email", Outcomes: []string{"Accept member request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Track team requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Ask for full address", Decision: "edit", Correction: "Ask only for a work email", Consequence: "Avoid collecting unnecessary personal data", Source: "requested", Provenance: "human", Actor: 7}, {ID: "d444444444444444444444444", Description: "Stay within existing access", Assumption: true, Decision: "edit", Correction: "Permit only current project members", Consequence: "No new account enrollment", Source: "assumption", Provenance: "human", Actor: 7, Material: true}}, Tasks: []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Ask only for a work email", Outcomes: []string{"Accept member request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	payload, err := IntentGraphPayload(r)
 	if err != nil {
 		t.Fatal(err)
@@ -461,6 +471,152 @@ func TestIntentGraphDeclinedAssumptionDoesNotConstrainNativeScope(t *testing.T) 
 		if strings.Contains(body, "No external accounts") || strings.Contains(body, "Reject external integrations") {
 			t.Fatal("declined assumption entered native authority")
 		}
+	}
+}
+
+type recomposeGenerationChooser struct{}
+
+func (recomposeGenerationChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	selected := "revise"
+	if _, ok := choices[selected]; !ok {
+		for key := range choices {
+			if key != "keep" {
+				selected = key
+				break
+			}
+		}
+	}
+	probabilities := map[string]float64{}
+	for key := range choices {
+		probabilities[key] = 0
+	}
+	probabilities[selected] = 1
+	return factory.PriorityAnswer{Selected: selected, Model: "synthetic-model", Confidence: 1, Probabilities: probabilities}, nil
+}
+
+func TestIntentGraphSubmitsSelectedDecomposition(t *testing.T) {
+	c, _, _ := acceptedGenerationFixture(t)
+	ctx := context.Background()
+	r := factory.IntentRevision{ID: "d111111111111111111111112", Intent: "d222222222222222222222223", Owner: 7, Repository: 42, Objective: "Build a tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track requests", Consequence: "Clear ownership", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444445", Objective: "Request entry and list", Outcomes: []string{"Capture requests", "Show requests"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	if err := c.Store.SaveIntentRevision(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Store.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d989999999999999999999999", Intent: r.Intent, Owner: r.Owner, Amount: 32, Unit: factory.PlanningAllowanceUnit, Ceiling: 32, CreatedUnix: 1}); err != nil {
+		t.Fatal(err)
+	}
+	candidates := factory.DecompositionCandidates(r)
+	if len(candidates) < 2 {
+		t.Fatal("no split candidate to select")
+	}
+	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: recomposeGenerationChooser{}}
+	g, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := c.Store.IntentGeneration(ctx, r.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.SubmittedTasks) < 2 {
+		t.Fatalf("submitted=%d tasks, want the selected split graph", len(stored.SubmittedTasks))
+	}
+	var payload struct {
+		Creates []struct {
+			Key string `json:"key"`
+		} `json:"creates"`
+	}
+	if err = json.Unmarshal(stored.Payload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Creates) != len(stored.SubmittedTasks) {
+		t.Fatal("payload does not match submitted graph")
+	}
+	bindings, err := c.Store.IntentTaskBindings(ctx, r.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bindings) != len(stored.SubmittedTasks) {
+		t.Fatal("adoption does not match submitted graph")
+	}
+	outcomes := map[string]int{}
+	for _, task := range stored.SubmittedTasks {
+		for _, outcome := range task.Outcomes {
+			outcomes[outcome]++
+		}
+	}
+	if len(outcomes) != 2 || outcomes["Capture requests"] != 1 || outcomes["Show requests"] != 1 {
+		t.Fatalf("outcomes not preserved: %v", outcomes)
+	}
+	if g.State != "completed" {
+		t.Fatalf("state=%s", g.State)
+	}
+}
+
+func TestIntentGraphDeltaRetainsDeliveredRecords(t *testing.T) {
+	c, f, r := acceptedGenerationFixture(t)
+	ctx := context.Background()
+	if _, err := c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err != nil {
+		t.Fatal(err)
+	}
+	oldBindings, err := c.Store.IntentTaskBindings(ctx, r.ID)
+	if err != nil || len(oldBindings) != 2 {
+		t.Fatalf("bindings=%v %v", oldBindings, err)
+	}
+	for _, b := range oldBindings {
+		snap := f.issues[b.IssueIndex]
+		snap.Issue.IsClosed = true
+		f.issues[b.IssueIndex] = snap
+	}
+	changed := r
+	changed.ID = "d666666666666666666666666"
+	changed.Predecessor = r.ID
+	changed.Tasks[0].Objective = "Request entry with validation"
+	changed.Tasks = append(changed.Tasks[:1], factory.IntentTask{Key: "d777777777777777777777777", Objective: "Notify managers", Outcomes: []string{"Managers are notified"}, IdeaIDs: []string{"d333333333333333333333333"}})
+	if err := c.Store.SaveIntentRevision(ctx, changed); err != nil {
+		t.Fatal(err)
+	}
+	g, err := c.GenerateAcceptedIntent(ctx, changed.Intent, changed.Owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.State != "completed" {
+		t.Fatalf("state=%s", g.State)
+	}
+	for _, b := range oldBindings {
+		if !f.issues[b.IssueIndex].Issue.IsClosed {
+			t.Fatal("delta reopened a delivered record")
+		}
+	}
+	removed := f.issues[oldBindings[1].IssueIndex].Issue
+	if !strings.Contains(removed.Content, "Superseded by accepted product revision: "+changed.ID) {
+		t.Fatal("removed delivered outcome lost its supersession note")
+	}
+	if !strings.Contains(f.issues[oldBindings[0].IssueIndex].Issue.Content, "Request entry with validation") {
+		t.Fatal("changed delivered outcome lost new requirements")
+	}
+	kept, err := c.Store.IntentTaskBindings(ctx, r.ID)
+	if err != nil || len(kept) != 2 {
+		t.Fatal("prior bindings not retained")
+	}
+	for _, b := range kept {
+		if _, err := c.Store.AcceptanceDecision(ctx, b.AcceptanceID); err != nil {
+			t.Fatalf("prior acceptance lost: %v", err)
+		}
+	}
+	fresh, err := c.Store.IntentTaskBindings(ctx, changed.ID)
+	if err != nil || len(fresh) != 2 {
+		t.Fatalf("new bindings=%v %v", fresh, err)
+	}
+	byKey := map[string]factory.IntentTaskBinding{}
+	for _, b := range fresh {
+		byKey[b.TaskKey] = b
+	}
+	if byKey["d444444444444444444444444"].IssueID != oldBindings[0].IssueID {
+		t.Fatal("changed delivered outcome did not reuse its issue")
+	}
+	chained, err := c.Store.AcceptanceDecision(ctx, byKey["d444444444444444444444444"].AcceptanceID)
+	if err != nil || chained.Predecessor != oldBindings[0].AcceptanceID {
+		t.Fatalf("acceptance not chained: %+v %v", chained, err)
 	}
 }
 

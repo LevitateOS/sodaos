@@ -82,7 +82,7 @@ func TestIntentHistoryAndRepositoryIdentity(t *testing.T) {
 	b.Predecessor = a.ID
 	b.Repository = 42
 	b.State = "accepted"
-	b.Ideas = []factory.ProductIdea{{ID: "d444444444444444444444444", Description: "Track", Consequence: "Visibility", Decision: "accept"}}
+	b.Ideas = []factory.ProductIdea{{ID: "d444444444444444444444444", Description: "Track", Consequence: "Visibility", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}}
 	b.Tasks = []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Entry", Outcomes: []string{"Capture"}, IdeaIDs: []string{"d444444444444444444444444"}}}
 	if err := s.SaveIntentRevision(ctx, b); err != nil {
 		t.Fatal(err)
