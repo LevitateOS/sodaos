@@ -78,6 +78,7 @@ function viewFromTabKey(key: string, current: View): View | undefined {
 export class SodaProjectControls extends LitElement {
   static properties = {
     presentation: {state: true},
+    acceptedRequest: {state: true},
     networkReview: {state: true},
     network: {state: true},
     networkOptions: {state: true},
@@ -193,6 +194,7 @@ export class SodaProjectControls extends LitElement {
   declare private stopConfirmed: boolean;
   declare private emptyConfirmed: boolean;
   declare private useSavedKeys: boolean;
+  declare acceptedRequest: {intent: string; revision: string; objective: string} | undefined;
   private binding: ProjectContext | undefined;
   private readController: AbortController | undefined;
   private lifetime = new AbortController();
@@ -207,6 +209,7 @@ export class SodaProjectControls extends LitElement {
   }
   constructor() {
     super();
+    this.acceptedRequest = undefined;
     this.presentation = 'standard';
     this.networkReview = false;
     this.network = this.networkOptions = undefined;
@@ -332,6 +335,7 @@ export class SodaProjectControls extends LitElement {
       readRepositoryName: () => this.repositoryName,
       readBindingRepository: () => this.binding?.repositoryId || '',
       readJoinCaption: () => this.joinCaption(),
+      readAcceptedRequest: () => this.acceptedRequest,
       hasLifecycle: () => !!this.lifecycle,
       readProfiles: () => this.profiles,
       readSelectedProfile: () => this.selectedProfile,
@@ -624,6 +628,7 @@ export class SodaProjectControls extends LitElement {
     this.busy = false;
     this.readController?.abort();
     this.reset();
+    this.acceptedRequest = undefined;
     this.repository = this.repositoryName = '';
     this.status =
       'Page context changed. Reload the full repository page; no action was replayed or undone. A dispatched operation may still have completed.';
