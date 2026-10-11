@@ -230,6 +230,12 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 	if len(parts) == 5 && parts[2] == "factory" && parts[3] == "issues" {
 		return extensionProductID(parts[4]) && method == http.MethodGet
 	}
+	if len(parts) == 5 && parts[2] == "factory" && parts[3] == "lifecycle" {
+		return extensionProductID(parts[4]) && (method == http.MethodGet || method == http.MethodPut)
+	}
+	if len(parts) == 6 && parts[2] == "factory" && parts[3] == "lifecycle" && extensionProductID(parts[4]) {
+		return parts[5] == "actions" && method == http.MethodGet
+	}
 	if len(parts) == 6 && parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
 		return parts[5] == "acceptances" && method == http.MethodPost ||
 			parts[5] == "acceptance-preview" && method == http.MethodGet ||
