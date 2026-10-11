@@ -131,17 +131,19 @@ func (s *Store) SpaceProjectsAfter(ctx context.Context, after string, limit int)
 	return out, rows.Err()
 }
 
-// QueuedControlsAfter continues the deterministic oldest-first queued
+// DispatchControlsAfter continues the deterministic oldest-first dispatch
 // listing after one exclusive (first_seen_unix, repository, issue)
-// cursor. Without a cursor it matches QueuedControls from the beginning.
+// cursor. Accepted controls blocked by authority join queued controls so
+// reopening authority can resume them without a new native issue delivery.
 // Dispatch rotation advances the cursor so a waiting prefix cannot starve
 // later runnable work across repeated passes.
-func (s *Store) QueuedControlsAfter(ctx context.Context, limit int, firstSeen, repository, issue int64, hasCursor bool) ([]factory.IssueControl, error) {
+func (s *Store) DispatchControlsAfter(ctx context.Context, limit int, firstSeen, repository, issue int64, hasCursor bool) ([]factory.IssueControl, error) {
 	if limit <= 0 || limit > MaxQueuedDispatch {
 		return nil, errors.New("invalid queued control listing limit")
 	}
 	query := `SELECT data FROM issue_controls
-		WHERE data->>'readiness'='queued'
+		WHERE (data->>'readiness'='queued' OR (data->>'readiness'='not_authorized'
+			AND data->>'reason'='authority_missing' AND data->>'acceptance'<>''))
 		ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT $1`
 	var rows *sql.Rows
 	var err error
@@ -149,7 +151,8 @@ func (s *Store) QueuedControlsAfter(ctx context.Context, limit int, firstSeen, r
 		rows, err = s.db.QueryContext(ctx, query, limit)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `SELECT data FROM issue_controls
-			WHERE data->>'readiness'='queued'
+			WHERE (data->>'readiness'='queued' OR (data->>'readiness'='not_authorized'
+				AND data->>'reason'='authority_missing' AND data->>'acceptance'<>''))
 			AND ((data->>'first_seen_unix')::bigint, repository, issue) > ($1,$2,$3)
 			ORDER BY (data->>'first_seen_unix')::bigint ASC, repository ASC, issue ASC LIMIT $4`,
 			firstSeen, repository, issue, limit)

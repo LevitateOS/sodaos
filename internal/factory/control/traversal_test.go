@@ -7,12 +7,23 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 // TestDispatchPassReachesRunnableBehindWaitingPrefix proves repeated
 // bounded dispatch passes rotate past a permanently waiting prefix to
 // later runnable work.
 func TestDispatchPassReachesRunnableBehindWaitingPrefix(t *testing.T) {
+	for _, withdrawn := range []bool{false, true} {
+		t.Run(fmt.Sprintf("withdrawn_authority=%t", withdrawn), func(t *testing.T) {
+			dispatchBehindWaitingPrefix(t, withdrawn)
+		})
+	}
+}
+
+func dispatchBehindWaitingPrefix(t *testing.T, withdrawn bool) {
+	t.Helper()
 	db, dsn := dispatchTestDB(t)
 	fixtureDB, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -34,6 +45,18 @@ func TestDispatchPassReachesRunnableBehindWaitingPrefix(t *testing.T) {
 		fx.accept(t, issue, fmt.Sprintf("d%024x", issue))
 		forgetAdmissionHeader(issue)
 		fx.queueAt(t, issue, fx.decision[issue].ID, base.Add(time.Duration(i)*time.Second))
+		if withdrawn {
+			control, err := db.IssueControl(ctx, fx.repo, issue)
+			if err != nil {
+				t.Fatal(err)
+			}
+			control.Readiness, control.Reason = factory.ReadinessNotAuthorized, factory.BlockerAuthorityMissing
+			control.Blockers = []factory.Blocker{acceptanceBlocker(factory.BlockerAuthorityMissing, factory.MissingDispatch)}
+			control.Fingerprint = strings.Repeat("e", 64)
+			if _, _, err := db.RecordIssueAssessment(ctx, control, base.Add(time.Duration(i)*time.Second)); err != nil {
+				t.Fatal(err)
+			}
+		}
 		// The accepted objective changed after admission: every pass
 		// must wait on these without consuming or finishing them.
 		inputs := fx.reads.inputs[fmt.Sprintf("%d/%d", fx.repo, issue)]

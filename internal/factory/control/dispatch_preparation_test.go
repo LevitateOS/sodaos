@@ -323,3 +323,49 @@ func TestRetryRetainsPendingCustodyAcrossOperationalStoreFailure(t *testing.T) {
 		t.Fatalf("pending custody changed: %+v %v", pending, err)
 	}
 }
+
+func TestHoldReleaseWakesExistingRetryAfterProjectStop(t *testing.T) {
+	ctx := context.Background()
+	fx, c, command, _, _ := consumedCoderRetry(t)
+	head := fx.decision[3]
+	c.AcceptanceReads = &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
+		"7/3": {Revision: 41, Issue: AcceptanceIssueView{
+			Index: "3", Visible: true, TitleDigest: head.TitleDigest, ContentDigest: head.ContentDigest, ContentVer: 2,
+		}, Comments: []AcceptanceComment{{ID: "11", Visible: true, Digest: head.Sources[0].Digest}}},
+	}}
+	c.Readiness = &fakeObserver{revision: 41, idle: true}
+	before := len(fx.host.launches)
+	if err := fx.db.SaveMaintenanceHold(ctx, project.MaintenanceHold{Project: fx.proj, Hold: true}); err != nil {
+		t.Fatal(err)
+	}
+	withdrawal, err := fx.db.WithdrawDispatch(ctx, fx.repo, factory.CauseProjectStop, "native:7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.advanceProgress(ctx)
+	blocked, err := fx.db.IssueControl(ctx, fx.repo, 3)
+	if err != nil || blocked.Readiness != factory.ReadinessNotAuthorized || blocked.Reason != factory.BlockerAuthorityMissing || blocked.NativeRev != 41 {
+		t.Fatalf("Stop did not block readiness: %+v %v", blocked, err)
+	}
+	// No authority change means no native RPC, even if its observer fails.
+	c.Readiness = &fakeObserver{revErr: errors.New("unchanged authority must not read native state")}
+	if unchanged, err := c.refreshReadiness(ctx, blocked); err != nil || unchanged.Revision != blocked.Revision {
+		t.Fatalf("unchanged authority re-read native state: %+v %v", unchanged, err)
+	}
+	c.Readiness = &fakeObserver{revision: 41, idle: true}
+	if open, _, err := fx.db.ClearProjectStop(ctx, fx.repo, withdrawal.Revision); err != nil || !open {
+		t.Fatalf("Start did not restore gate: %t %v", open, err)
+	}
+	if err := fx.db.SaveMaintenanceHold(ctx, project.MaintenanceHold{Project: fx.proj, Revision: 1, Hold: false}); err != nil {
+		t.Fatal(err)
+	}
+	c.advanceProgress(ctx)
+	c.advanceProgress(ctx)
+	a, err := fx.db.Assignment(ctx, command)
+	if err != nil || a.AttemptRoot != command || len(fx.host.launches) != before+1 {
+		t.Fatalf("existing Retry stayed blocked after release: %+v %v", a, err)
+	}
+	if a.Acceptance != head.ID {
+		t.Fatal("release replaced accepted inputs")
+	}
+}

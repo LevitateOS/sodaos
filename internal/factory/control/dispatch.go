@@ -207,17 +207,17 @@ func RecoverDispatch(ctx context.Context, deps DispatchDeps) DispatchReport {
 }
 
 // DispatchPass resolves interrupted assignments, then dispatches the
-// oldest queued issues within current limits. It never fails: every
-// operational failure lands in the report, and a later pass retries.
-// Inference stays out: waits release nothing because they hold nothing,
-// and reservations release only capacity confirmed unused.
+// oldest queued or authority-blocked accepted issues within current limits.
+// Every operational failure lands in the report, and a later pass retries.
+// An explicit Retry may retain bounded preparation custody while waiting;
+// reservations release only capacity confirmed unused.
 func DispatchPass(ctx context.Context, deps DispatchDeps) DispatchReport {
 	report := RecoverDispatch(ctx, deps)
 	if !dispatchReady(deps) {
 		return report
 	}
 	firstSeen, repo, issue, hasCursor := deps.Queue.start()
-	queued, err := deps.Store.QueuedControlsAfter(ctx, MaxDispatchVisits, firstSeen, repo, issue, hasCursor)
+	queued, err := deps.Store.DispatchControlsAfter(ctx, MaxDispatchVisits, firstSeen, repo, issue, hasCursor)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "queued listing unavailable"})
 		return report
@@ -226,7 +226,7 @@ func DispatchPass(ctx context.Context, deps DispatchDeps) DispatchReport {
 		// Rotation reached the end of the listing: wrap to the
 		// beginning so this same pass still visits waiting work.
 		deps.Queue.reset()
-		queued, err = deps.Store.QueuedControlsAfter(ctx, MaxDispatchVisits, 0, 0, 0, false)
+		queued, err = deps.Store.DispatchControlsAfter(ctx, MaxDispatchVisits, 0, 0, 0, false)
 		if err != nil {
 			report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "queued listing unavailable"})
 			return report

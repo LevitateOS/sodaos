@@ -16,9 +16,11 @@ func inventoryFixture(t *testing.T) (*Store, context.Context) {
 }
 
 func inventoryRun(now time.Time, project string) factory.Run {
-	return factory.Run{ID: factory.NewID(), ProjectID: project, Role: "coder",
+	return factory.Run{
+		ID: factory.NewID(), ProjectID: project, Role: "coder",
 		InputSHA: strings.Repeat("a", 40), Started: now, Deadline: now.Add(time.Hour),
-		Image: "sha256:" + strings.Repeat("d", 64), Harness: "codex-0.157.1", Model: "test-model"}
+		Image: "sha256:" + strings.Repeat("d", 64), Harness: "codex-0.157.1", Model: "test-model",
+	}
 }
 
 func recordInventoryRun(t *testing.T, s *Store, ctx context.Context, r factory.Run, settled bool) factory.Run {
@@ -107,27 +109,45 @@ func TestSpaceProjectsAfterPages(t *testing.T) {
 	}
 }
 
-func TestQueuedControlsAfterContinues(t *testing.T) {
+func TestDispatchControlsAfterContinues(t *testing.T) {
 	s, ctx := inventoryFixture(t)
 	now := time.Unix(500, 0)
 	for _, issue := range []int64{3, 4, 5} {
 		candidate := readinessCandidate()
 		candidate.Issue = issue
 		candidate.Fingerprint = strings.Repeat(string(rune('a'+issue)), 64)
+		if issue == 4 {
+			candidate.Acceptance = "d" + strings.Repeat("a", 24)
+			candidate.Readiness, candidate.Reason = factory.ReadinessNotAuthorized, factory.BlockerAuthorityMissing
+			candidate.Blockers = []factory.Blocker{{Code: factory.BlockerAuthorityMissing, Resolution: factory.BlockerResolution(factory.BlockerAuthorityMissing)}}
+		}
 		if _, _, err := s.RecordIssueAssessment(ctx, candidate, now.Add(time.Duration(issue)*time.Second)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	first, err := s.QueuedControlsAfter(ctx, 2, 0, 0, 0, false)
+	for _, code := range []string{factory.BlockerAuthorityMissing, factory.BlockerAcceptanceInvalid} {
+		candidate := readinessCandidate()
+		candidate.Issue = 6
+		candidate.Readiness, candidate.Reason = factory.ReadinessNotAuthorized, code
+		candidate.Blockers = []factory.Blocker{{Code: code, Resolution: factory.BlockerResolution(code)}}
+		if code == factory.BlockerAcceptanceInvalid {
+			candidate.Issue = 7
+			candidate.Acceptance = "d" + strings.Repeat("a", 24)
+		}
+		if _, _, err := s.RecordIssueAssessment(ctx, candidate, now.Add(time.Duration(candidate.Issue)*time.Second)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := s.DispatchControlsAfter(ctx, 2, 0, 0, 0, false)
 	if err != nil || len(first) != 2 || first[0].Issue != 3 || first[1].Issue != 4 {
-		t.Fatalf("first queued page wrong: %+v %v", first, err)
+		t.Fatalf("first dispatch page wrong: %+v %v", first, err)
 	}
 	last := first[1]
-	rest, err := s.QueuedControlsAfter(ctx, 2, last.FirstSeenUnix, last.Repository, last.Issue, true)
+	rest, err := s.DispatchControlsAfter(ctx, 2, last.FirstSeenUnix, last.Repository, last.Issue, true)
 	if err != nil || len(rest) != 1 || rest[0].Issue != 5 {
-		t.Fatalf("continued queued page wrong: %+v %v", rest, err)
+		t.Fatalf("continued dispatch page wrong: %+v %v", rest, err)
 	}
-	if _, err = s.QueuedControlsAfter(ctx, 0, 0, 0, 0, false); err == nil {
-		t.Fatal("unbounded queued listing accepted")
+	if _, err = s.DispatchControlsAfter(ctx, 0, 0, 0, 0, false); err == nil {
+		t.Fatal("unbounded dispatch listing accepted")
 	}
 }
