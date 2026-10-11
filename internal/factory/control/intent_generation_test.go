@@ -465,13 +465,15 @@ func TestIntentGraphDeclinedAssumptionDoesNotConstrainNativeScope(t *testing.T) 
 }
 
 func TestIntentGraphEffectiveScopeExcludesPendingAndDepartment(t *testing.T) {
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Department: "d999999999999999999999999", Objective: "Build tracker", State: "accepted", MaxIssues: 10, CreatedUnix: 1,
+	r := factory.IntentRevision{
+		ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Department: "d999999999999999999999999", Objective: "Build tracker", State: "accepted", MaxIssues: 10, CreatedUnix: 1,
 		Ideas: []factory.ProductIdea{
 			{ID: "d333333333333333333333333", Description: "Track requests", Consequence: "Clear ownership", Decision: "accept", Source: "supported", Provenance: "autonomous", Evidence: "prior approved request"},
 			{ID: "d444444444444444444444444", Description: "Notify by email", Consequence: "Needs mail access", Assumption: true, Decision: "pending", Source: "assumption", Material: true},
 		},
 		Tasks:             []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Request entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}},
-		EffectiveOutcomes: []string{"d333333333333333333333333"}}
+		EffectiveOutcomes: []string{"d333333333333333333333333"},
+	}
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
 	}

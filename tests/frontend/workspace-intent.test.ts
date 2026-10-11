@@ -1,8 +1,301 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import type {Page} from 'playwright';
 import {setupWorkspaceDriver, fixture, reviewFirstIntent} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
+
+type ExplorationMode = 'supported' | 'unsupported' | 'challenges' | 'votes';
+interface IntentStore {
+  arm(id: string): void;
+  release(id: string): void;
+  seed(entries: Record<string, unknown>[]): void;
+  forbid: boolean;
+  sessionLost: boolean;
+  exploration: ExplorationMode | undefined;
+  generation: {state: string; staleAuth?: boolean; fail?: boolean} | undefined;
+}
+// Test-local private intent peer: records saved revisions, serves the declared
+// current-revision read and owner-private list, and gates/refuses loads on
+// demand. Shared fixtures stay untouched.
+async function installIntentStore(page: Page) {
+  await page.evaluate(() => {
+    const records = new Map<string, Record<string, unknown>>();
+    const gates = new Map<string, () => void>();
+    const single = (url: string) => url.match(/\/api\/factory\/intents\/([^/?#]+)$/)?.[1] || '';
+    const challengeTexts = [
+      {
+        assumption: 'Everyone on the team can see each request.',
+        consequence: 'Individual dates are exposed to the whole team.',
+        recommendation: 'Limit visibility to the employee and their manager.',
+      },
+      {
+        assumption: 'Undecided requests wait silently.',
+        consequence: 'Nobody knows a request is waiting.',
+        recommendation: 'Show undecided requests to the reviewer.',
+      },
+    ];
+    const buildExploration = (
+      mode: ExplorationMode,
+      json: {id: string; intent: string; objective: string; ideas: {id: string}[]}
+    ) => {
+      const shared = {
+        key: 'shared_review',
+        name: 'Shared review workflow',
+        audience: 'A person and their reviewer',
+        summary: 'Requests are reviewed by another person before completion.',
+        steps: [
+          {
+            actor: 'The person',
+            action: 'chooses dates and submits a request',
+            result: 'The reviewer can see the request',
+          },
+          {
+            actor: 'The reviewer',
+            action: 'makes a decision',
+            result: 'The person sees the decision',
+            branches: [
+              {outcome: 'Approved', result: 'The person sees confirmation'},
+              {outcome: 'Declined', result: 'The person sees the reason and can revise the request'},
+            ],
+          },
+        ],
+        visibility: 'The person and the reviewer see the request.',
+        consequences: 'Reviews take reviewer time.',
+        evidence: 'Authored pattern; no external research was performed.',
+        outcomes: [json.objective],
+      };
+      const content = {
+        producer: 'soda-authored-v1',
+        supported: mode !== 'unsupported',
+        intent: json.intent,
+        revision: json.id,
+        objective: json.objective,
+        facts: [json.objective],
+        ...(mode === 'unsupported'
+          ? {}
+          : {
+              alternatives: [
+                {
+                  key: 'single_person',
+                  name: 'Small single-person workflow',
+                  audience: 'One person managing their own requests',
+                  summary: 'Requests stay with one person.',
+                  steps: [
+                    {
+                      actor: 'The person',
+                      action: 'records the request',
+                      result: 'The request is tracked',
+                    },
+                  ],
+                  visibility: 'Only the person sees the request.',
+                  consequences: 'No review step exists.',
+                  evidence: 'Authored pattern; no external research was performed.',
+                  outcomes: [json.objective],
+                },
+                shared,
+              ],
+            }),
+        unknowns: [
+          'Who can see a request beyond the people named in the walkthrough is not established.',
+          'What happens while no decision has been made yet is not established.',
+        ],
+      };
+      return {
+        content,
+        challenges:
+          mode === 'challenges'
+            ? json.ideas.slice(0, 2).map((idea, index) => ({idea: idea.id, ...challengeTexts[index]}))
+            : [],
+        ...(mode === 'unsupported'
+          ? {recommendation: null, consistency: null}
+          : {
+              recommendation: {
+                producer: 'soda-authored-v1',
+                intent: json.intent,
+                revision: json.id,
+                objective: json.objective,
+                recommended: 'shared_review',
+                alternative: shared,
+                outcomes: [json.objective],
+                constraints: ['Only the reviewer can approve.'],
+                milestones: [
+                  {name: 'First usable request flow', result: 'A person can submit and track a request.'},
+                  {name: 'Review decisions', result: 'Reviewers can approve or decline with reasons.'},
+                ],
+                advice: 'f'.repeat(64),
+              },
+              consistency: {
+                producer: 'soda-authored-v1',
+                intent: json.intent,
+                revision: json.id,
+                mismatches: [],
+                confidence: 0.92,
+                advice: 'e'.repeat(64),
+              },
+            }),
+      };
+    };
+    const store = {
+      forbid: false,
+      sessionLost: false,
+      exploration: undefined as ExplorationMode | undefined,
+      generation: undefined as {state: string; staleAuth?: boolean; fail?: boolean} | undefined,
+      arm(id: string) {
+        gates.set(id, () => {});
+      },
+      release(id: string) {
+        const resolve = gates.get(id);
+        gates.delete(id);
+        resolve?.();
+      },
+      seed(entries: Record<string, unknown>[]) {
+        for (const entry of entries) records.set(String(entry.intent), entry);
+      },
+    };
+    (window as unknown as {intentStore: typeof store}).intentStore = store;
+    (window as unknown as {resumed: unknown[]}).resumed = [];
+    document.addEventListener('intent-resumed', (event) =>
+      (window as unknown as {resumed: unknown[]}).resumed.push((event as CustomEvent).detail)
+    );
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || 'GET';
+        const id = single(url);
+        if (id && method === 'GET') {
+          if (store.sessionLost) return new Response(null, {status: 403});
+          if (store.forbid) return new Response(null, {status: 404});
+          if (gates.has(id)) await new Promise<void>((resolve) => gates.set(id, resolve));
+          const record = records.get(id);
+          if (!record) return new Response(null, {status: 404});
+          return Response.json({...record, owner: '1', created_unix: 1});
+        }
+        if (url.includes('/api/factory/intents?') && method === 'GET') {
+          if (store.sessionLost) return new Response(null, {status: 403});
+          if (store.forbid) return new Response(null, {status: 404});
+          const intents = [...records.values()].map((record) => ({
+            intent: record.intent,
+            revision: record.id,
+            state: record.state,
+            objective: String(record.objective).slice(0, 280),
+            repository: record.repository,
+            created_unix: 1,
+            effective_count: 0,
+            task_count: Array.isArray(record.tasks) ? record.tasks.length : 0,
+          }));
+          return Response.json({intents});
+        }
+        if (url.includes('/api/factory/intents/') && url.endsWith('/generation') && method === 'GET') {
+          if (!store.generation) return original(input, init);
+          if (store.generation.fail) return new Response(null, {status: 503});
+          const intent = url.split('/').at(-2) || '';
+          const record = records.get(intent);
+          const revision = String(record?.id || 'd000000000000000000000000');
+          return Response.json({
+            state: store.generation.state,
+            revision_id: revision,
+            intent_id: intent,
+            operation_id: 'op-1',
+            actor_id: '1',
+            native_revision: 3,
+            authorization_revision: store.generation.staleAuth ? 'd999999999999999999999999' : revision,
+            not_after: 9,
+            payload: {},
+            intent_digest: 'd',
+            task_issue_ids: store.generation.state === 'pending' ? {} : {k1: '1'},
+          });
+        }
+        if (url.endsWith('/explore') && method === 'POST') {
+          const response = await original(input, init);
+          if (!response.ok || !store.exploration) return response;
+          const json = (await response.json()) as {
+            id: string;
+            intent: string;
+            objective: string;
+            ideas: {id: string}[];
+          };
+          if (store.exploration === 'votes') {
+            const extra = {
+              id: 'daaaaaaaaaaaaaaaaaaaaaaaa',
+              description: 'Suggested nightly summary',
+              consequence: 'A summary is sent every night.',
+              assumption: false,
+              decision: 'pending',
+              source: 'autonomous',
+              provenance: 'autonomous',
+            };
+            const ideas = json.ideas.some((idea) => idea.id === extra.id) ? json.ideas : [...json.ideas, extra];
+            const exploration = buildExploration('supported', {...json, ideas});
+            exploration.challenges = [
+              {idea: json.ideas[0]?.id || '', ...challengeTexts[0]},
+              {idea: extra.id, ...challengeTexts[1]},
+            ];
+            return Response.json({...json, ideas, exploration});
+          }
+          return Response.json({...json, exploration: buildExploration(store.exploration, json)});
+        }
+        if (url.endsWith('/api/factory/intents') && method === 'POST') {
+          const response = await original(input, init);
+          if (response.ok && typeof init?.body === 'string') {
+            const body = JSON.parse(init.body) as Record<string, unknown>;
+            records.set(String(body.intent), {...body});
+          }
+          return response;
+        }
+        return original(input, init);
+      },
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+}
+async function resetIntent(page: Page) {
+  await page.evaluate(() => {
+    (document.querySelector('soda-intent') as unknown as {reset(): void}).reset();
+  });
+}
+async function resumeIntent(page: Page, id: string) {
+  await page.evaluate((intent: string) => {
+    const target = document.querySelector('soda-intent') as unknown as {request: string; active: boolean};
+    target.active = true;
+    target.request = intent;
+  }, id);
+}
+async function intentObjective(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement ? area.value : 'missing';
+  });
+}
+async function setActor(page: Page, actor: string) {
+  await page.evaluate((value: string) => {
+    (document.querySelector('soda-intent') as unknown as {actor: string}).actor = value;
+  }, actor);
+}
+async function updateProposal(page: Page) {
+  const before = await page.evaluate(
+    () => (document.querySelector('soda-intent') as unknown as {revision?: {id: string}}).revision?.id || ''
+  );
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page.waitForFunction((prev: string) => {
+    const host = document.querySelector('soda-intent') as unknown as {revision?: {id: string}; busy: boolean};
+    return !host.busy && (host.revision?.id || '') !== prev;
+  }, before);
+}
+async function setExplorationMode(page: Page, mode: ExplorationMode) {
+  await page.evaluate((value: ExplorationMode) => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.exploration = value;
+  }, mode);
+}
+async function lastPostedBody(page: Page, state: string): Promise<Record<string, unknown>> {
+  return page.evaluate((wanted: string) => {
+    const calls = window.workspaceFixture.calls;
+    const found = [...calls].reverse().find((call) => call.body?.state === wanted);
+    return (found?.body || {}) as Record<string, unknown>;
+  }, state);
+}
 
 test('intent-first entry stores department and corrected product review before repository association', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
@@ -214,9 +507,8 @@ test('an unavailable proposal keeps the objective editable and permits a bounded
   });
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
-  await page
-    .getByText('Could not save or plan this request. Your choices are kept; try again.', {exact: true})
-    .waitFor();
+  await page.getByText('Exploration could not run. Your description is saved; try again.', {exact: true}).waitFor();
+  await page.getByText('Saved', {exact: true}).waitFor();
   assert.equal(
     await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
     'Build a leave tracker'
@@ -227,4 +519,531 @@ test('an unavailable proposal keeps the objective editable and permits a bounded
     await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.body?.state === 'accepted').length),
     0
   );
+});
+
+test('saved draft resumes by request id while superseded and refused loads keep safe context', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByText('No saved requests yet.', {exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('First draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Saved', {exact: true}).waitFor();
+  const first = await lastPostedBody(page, 'draft');
+  const id1 = String(first.intent);
+  assert(/^d[0-9a-f]{24}$/.test(id1));
+  await page.getByText('First draft', {exact: true}).waitFor();
+  const callsBefore = await page.evaluate(() => window.workspaceFixture.calls.length);
+  await resetIntent(page);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === '';
+  });
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), callsBefore);
+  await resumeIntent(page, id1);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'First draft';
+  });
+  await page.getByText('Saved', {exact: true}).waitFor();
+  const resumed = await page.evaluate(() => (window as unknown as {resumed: {intent: string}[]}).resumed);
+  assert.deepEqual(
+    resumed.map((entry) => entry.intent),
+    [id1]
+  );
+  await resetIntent(page);
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Second draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Second draft', {exact: true}).waitFor();
+  const second = await lastPostedBody(page, 'draft');
+  const id2 = String(second.intent);
+  assert.notEqual(id2, id1);
+  await resetIntent(page);
+  await page.evaluate((id: string) => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.arm(id);
+  }, id1);
+  await resumeIntent(page, id1);
+  await resumeIntent(page, id2);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Second draft';
+  });
+  await page.evaluate((id: string) => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.release(id);
+  }, id1);
+  await page.waitForTimeout(200);
+  assert.equal(await intentObjective(page), 'Second draft');
+  const later = await page.evaluate(() => (window as unknown as {resumed: {intent: string}[]}).resumed);
+  assert(later.length >= 2);
+  assert(later.slice(1).every((entry) => entry.intent === id2));
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = true;
+  });
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Local unsaved edits');
+  await resumeIntent(page, id1);
+  await page
+    .getByText('This saved request is unavailable to the current account. Your current edits are kept.', {exact: true})
+    .waitFor();
+  assert.equal(await intentObjective(page), 'Local unsaved edits');
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = false;
+  });
+  const resumedBeforeSwitch = await page.evaluate(() => (window as unknown as {resumed: unknown[]}).resumed.length);
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.sessionLost = true;
+    window.workspaceFixture.setUser('2');
+  });
+  await resetIntent(page);
+  await resumeIntent(page, id1);
+  await page.waitForTimeout(300);
+  assert.equal(await intentObjective(page), '');
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {resumed: unknown[]}).resumed.length),
+    resumedBeforeSwitch
+  );
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.sessionLost = false;
+    window.workspaceFixture.setUser('1');
+  });
+  assert.equal(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method === 'DELETE').length),
+    0
+  );
+});
+
+test('declined direction resumes for revision and re-explores as a new draft', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page.getByRole('button', {name: 'Decline proposal', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  const declined = await lastPostedBody(page, 'declined');
+  assert(/^d[0-9a-f]{24}$/.test(String(declined.intent)));
+  await page.getByText('Declined', {exact: false}).first().waitFor();
+  await resumeIntent(page, String(declined.intent));
+  await page
+    .getByText('This direction was declined. Revise the outcome and explore again for a new draft.', {exact: true})
+    .waitFor();
+  assert.equal(await intentObjective(page), 'Build a leave tracker');
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker for staff');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const successor = await lastPostedBody(page, 'draft');
+  assert.equal(successor.predecessor, declined.id);
+  assert.deepEqual(successor.ideas, []);
+});
+
+test('saved inventory lists states and separates empty from unavailable', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByText('No saved requests yet.', {exact: true}).waitFor();
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.seed([
+      {
+        intent: 'd111111111111111111111111',
+        id: 'd111111111111111111111112',
+        state: 'accepted',
+        objective: 'Accepted tracker',
+        repository: '7',
+        tasks: [{key: 'd111111111111111111111113'}],
+      },
+      {
+        intent: 'd222222222222222222222222',
+        id: 'd222222222222222222222223',
+        state: 'rejected',
+        objective: 'Rejected planner',
+        repository: '0',
+        tasks: [],
+      },
+      {
+        intent: 'd333333333333333333333333',
+        id: 'd333333333333333333333334',
+        state: 'abandoned',
+        objective: 'Abandoned board',
+        repository: '0',
+        tasks: [],
+      },
+    ]);
+  });
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Accepted tracker', {exact: true}).waitFor();
+  await page.getByText('Accepted', {exact: false}).first().waitFor();
+  await page.getByText('Rejected planner', {exact: true}).waitFor();
+  await page.getByText('Rejected', {exact: false}).first().waitFor();
+  await page.getByText('Abandoned board', {exact: true}).waitFor();
+  await page.getByText('Abandoned', {exact: false}).first().waitFor();
+  await page.getByText('Fresh draft', {exact: true}).waitFor();
+  await resetIntent(page);
+  await page.locator('li', {hasText: 'Fresh draft'}).getByRole('button', {name: 'Resume'}).click();
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Fresh draft';
+  });
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = true;
+  });
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Another draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Could not load saved requests. Your edits are kept; try again.', {exact: true}).waitFor();
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = false;
+  });
+  await page.getByRole('button', {name: 'Retry', exact: true}).click();
+  await page.getByText('Another draft', {exact: true}).waitFor();
+});
+
+test('saved inventory names each resume action and publishes list updates', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.evaluate(() => {
+    (window as unknown as {inventories: unknown[]}).inventories = [];
+    document.addEventListener('intent-inventory', (event) =>
+      (window as unknown as {inventories: unknown[]}).inventories.push((event as CustomEvent).detail)
+    );
+    (window as unknown as {intentStore: IntentStore}).intentStore.seed([
+      {
+        intent: 'd111111111111111111111111',
+        id: 'd111111111111111111111112',
+        state: 'draft',
+        objective: 'Seeded tracker',
+        repository: '0',
+        tasks: [],
+      },
+    ]);
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByRole('button', {name: 'Resume Seeded tracker', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Resume Fresh draft', exact: true}).waitFor();
+  const inventories = await page.evaluate(
+    () => (window as unknown as {inventories: {intents: {objective: string}[]}[]}).inventories
+  );
+  assert(inventories.length >= 1);
+  const latest = inventories.at(-1);
+  assert.deepEqual((latest?.intents || []).map((item) => item.objective).sort(), ['Fresh draft', 'Seeded tracker']);
+});
+
+test('review leads with the recommended walkthrough, illustration and text equivalent', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'supported');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page
+    .getByLabel('Describe what you want to build', {exact: true})
+    .fill('I need time off my manager can approve');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const flow = page.locator('section[aria-label="Recommended product flow"]');
+  await flow.getByRole('heading', {name: 'Here is how it would work'}).waitFor();
+  await flow.getByText('Shared review workflow', {exact: true}).waitFor();
+  await flow.getByText('The reviewer', {exact: false}).first().waitFor();
+  await flow.getByText('Approved:', {exact: false}).waitFor();
+  await flow.getByText('Who sees each result: The person and the reviewer see the request.', {exact: true}).waitFor();
+  await flow.getByText('Only the reviewer can approve.', {exact: true}).waitFor();
+  await flow.getByText('First usable request flow: A person can submit and track a request.', {exact: true}).waitFor();
+  assert.equal(await flow.locator('figure').count(), 1);
+  await flow.getByText('Illustrated flow: Shared review workflow.', {exact: false}).waitFor();
+  const compared = page.locator('section[aria-label="Compared approaches"]');
+  await compared.getByText('Small single-person workflow', {exact: true}).waitFor();
+  await compared.getByText('Shared review workflow', {exact: true}).waitFor();
+  assert.equal(await compared.getByRole('button').count(), 0);
+  await page
+    .getByText('Who can see a request beyond the people named in the walkthrough is not established.', {exact: true})
+    .waitFor();
+  await page.getByText('The walkthrough was checked against the accepted direction.', {exact: true}).waitFor();
+  assert.equal(await page.locator('section[aria-label="Questions needing your answer"]').count(), 0);
+});
+
+test('change something submits a correction and stale walkthroughs refresh on update', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'supported');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page.getByRole('button', {name: 'Change something', exact: true}).click();
+  await page.getByLabel('What should change?', {exact: true}).fill('Only counting business days');
+  await page.getByRole('button', {name: 'Submit change', exact: true}).click();
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .nth(1)
+    .waitFor();
+  const draft = await lastPostedBody(page, 'draft');
+  const added = ((draft.ideas || []) as {decision: string; correction?: string; source?: string}[]).find(
+    (idea) => idea.decision === 'edit' && idea.correction === 'Only counting business days'
+  );
+  assert(added);
+  assert.equal(added.source, 'requested');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor();
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor({state: 'detached'});
+});
+
+test('assumption challenges batch recommendations with retained answers', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'challenges');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page.getByRole('button', {name: 'Change something', exact: true}).click();
+  await page.getByLabel('What should change?', {exact: true}).fill('Track overtime too');
+  await page.getByRole('button', {name: 'Submit change', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const questions = page.locator('section[aria-label="Questions needing your answer"]');
+  await questions.getByText('Everyone on the team can see each request.', {exact: true}).waitFor();
+  await questions.getByText('Undecided requests wait silently.', {exact: true}).waitFor();
+  await questions
+    .getByText('Recommended resolution: Limit visibility to the employee and their manager.', {exact: true})
+    .waitFor();
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), true);
+  const first = questions.locator('article').first();
+  await first.getByLabel('Explain a correction').fill('Only the manager sees dates');
+  assert.equal(await first.getByLabel('Explain a correction').inputValue(), 'Only the manager sees dates');
+  const second = questions.locator('article').nth(1);
+  await second.getByRole('button', {name: 'Use recommended resolution', exact: true}).click();
+  await second.getByText('Answered: using the recommended resolution.', {exact: true}).waitFor();
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor();
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor({state: 'detached'});
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+});
+
+test('unsupported objectives show unknowns without fabricated alternatives', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'unsupported');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page
+    .getByText('No authored comparison covers this objective yet. Answer the questions below instead.', {exact: true})
+    .waitFor();
+  await page.getByText('What happens while no decision has been made yet is not established.', {exact: true}).waitFor();
+  assert.equal(await page.locator('section[aria-label="Recommended product flow"]').count(), 0);
+  assert.equal(await page.locator('section[aria-label="Compared approaches"]').count(), 0);
+  assert.equal(await page.locator('section[aria-label="Questions needing your answer"]').count(), 0);
+});
+
+test('planning allowance failures preserve the draft and identify the allowance', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    let calls = 0;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/explore')) {
+          calls += 1;
+          if (calls === 1)
+            return Promise.resolve(Response.json({error: {code: 'planning_unavailable'}}, {status: 503}));
+          if (calls === 2)
+            return Promise.resolve(Response.json({error: {code: 'planning_funding_required'}}, {status: 409}));
+        }
+        return original(input, init);
+      },
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page
+    .getByText(
+      'Exploration exhausted the planning allowance. Your description is saved; raise the allowance or try again.',
+      {exact: true}
+    )
+    .waitFor();
+  assert.equal(
+    await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
+    'Build a leave tracker'
+  );
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page
+    .getByText(
+      'Exploration needs a planning allowance. Your description is saved; set the planning allowance and try again.',
+      {exact: true}
+    )
+    .waitFor();
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+});
+
+test('human decisions record attributable provenance when the actor is known', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await setActor(page, '1');
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
+  await updateProposal(page);
+  const stamped = await lastPostedBody(page, 'draft');
+  const accepted = ((stamped.ideas || []) as {decision: string; provenance?: string; actor?: string}[]).find(
+    (idea) => idea.decision === 'accept'
+  );
+  assert.equal(accepted?.provenance, 'human');
+  assert.equal(accepted?.actor, '1');
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('pending');
+  await updateProposal(page);
+  const cleared = await lastPostedBody(page, 'draft');
+  const reset = ((cleared.ideas || []) as {decision: string; provenance?: string; actor?: string}[])[0];
+  assert.equal(reset?.decision, 'pending');
+  assert.equal(reset?.provenance, undefined);
+  assert.equal(reset?.actor, undefined);
+});
+
+test('idea cards keep votes only where a decision is required', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'votes');
+  await setActor(page, '1');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const cards = page.locator('section.intent-review > article');
+  assert.equal(await cards.count(), 2);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  assert.equal(await cards.nth(1).getByRole('combobox').count(), 0);
+  await cards.nth(1).getByText('Suggested', {exact: true}).waitFor();
+  const questions = page.locator('section[aria-label="Questions needing your answer"]');
+  assert.equal(await questions.locator('article').count(), 2);
+  await page.getByRole('button', {name: 'Change something', exact: true}).click();
+  await page.getByLabel('What should change?', {exact: true}).fill('Track overtime too');
+  await page.getByRole('button', {name: 'Submit change', exact: true}).click();
+  await page.waitForFunction(() => {
+    const host = document.querySelector('soda-intent') as unknown as {shadowRoot: ShadowRoot; busy: boolean};
+    return !host.busy && host.shadowRoot?.querySelectorAll('section.intent-review > article').length === 3;
+  });
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  assert.equal(await cards.nth(1).getByRole('combobox').count(), 0);
+  assert.equal(await cards.nth(2).getByRole('combobox').count(), 1);
+  await cards.nth(2).getByText('You requested', {exact: true}).waitFor();
+  await questions.locator('article').nth(0).getByLabel('Explain a correction').fill('Only the manager sees dates');
+  await questions.locator('article').nth(1).getByLabel('Explain a correction').fill('Send the summary to the person');
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor();
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor({state: 'detached'});
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  const draft = await lastPostedBody(page, 'draft');
+  const ideas = (draft.ideas || []) as {
+    description: string;
+    decision: string;
+    correction?: string;
+    source?: string;
+    provenance?: string;
+    actor?: string;
+  }[];
+  const corrected = ideas.find((idea) => idea.description === 'Suggested nightly summary');
+  assert.equal(corrected?.decision, 'edit');
+  assert.equal(corrected?.correction, 'Send the summary to the person');
+  assert.equal(corrected?.source, 'autonomous');
+  assert.equal(corrected?.provenance, 'human');
+  assert.equal(corrected?.actor, '1');
+});
+
+test('accepted review shows authorization, generation progress and unsaved loss', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.evaluate(() => {
+    (window as unknown as {reviewed: unknown}).reviewed = null;
+    document.addEventListener('intent-reviewed', (event) => {
+      (window as unknown as {reviewed: unknown}).reviewed = (event as CustomEvent).detail;
+    });
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
+  await page.getByLabel('Choose how to deliver the accepted workflow', {exact: true}).selectOption('complete_first');
+  await updateProposal(page);
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
+  await page.waitForFunction(() => (window as unknown as {reviewed: unknown}).reviewed !== null);
+  const reviewed = await page.evaluate(() => (window as unknown as {reviewed: Record<string, unknown>}).reviewed);
+  assert.equal(reviewed.approach, 'complete_first');
+  assert.equal(reviewed.authorizedIdeas, 1);
+  assert.equal(reviewed.tasks, 1);
+  assert.equal(((reviewed.decisions || []) as {decision: string}[]).length, 1);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  await page.waitForFunction(() => window.workspaceFixture.calls.some((call) => call.body?.state === 'accepted'));
+  const accepted = await lastPostedBody(page, 'accepted');
+  const intent = String(accepted.intent);
+  assert(/^d[0-9a-f]{24}$/.test(intent));
+  await page.close();
+  const fresh = await fixture(t, 'page', undefined, true);
+  await installIntentStore(fresh);
+  await fresh.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await fresh.evaluate((record: Record<string, unknown>) => {
+    const store = (window as unknown as {intentStore: IntentStore}).intentStore;
+    store.seed([record]);
+    store.generation = {state: 'pending'};
+  }, accepted);
+  await resumeIntent(fresh, intent);
+  await fresh.getByText('Authorized: 1 idea and 1 work item from your accepted direction.', {exact: true}).waitFor();
+  await fresh.getByText('Factory has not created work yet.', {exact: true}).waitFor();
+  await fresh.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.generation = {state: 'completed'};
+  });
+  await fresh.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await fresh
+    .getByText('Factory work is created. Execution still needs its own access and finite funding.', {exact: true})
+    .waitFor();
+  await fresh.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.generation = {state: 'completed', staleAuth: true};
+  });
+  await fresh.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await fresh
+    .getByText('Factory work references an older accepted direction. Refresh the status after updating.', {exact: true})
+    .waitFor();
+  await fresh.getByLabel('Desired outcome', {exact: true}).fill('Build a leave tracker for everyone');
+  await fresh
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
+  await fresh
+    .getByText(
+      '2 unsaved edits are kept in this view: outcome text, 1 idea decision. ' +
+        'Update proposal saves them; the walkthrough, Factory status and repository choice stay on the saved version until then.',
+      {exact: true}
+    )
+    .waitFor();
 });

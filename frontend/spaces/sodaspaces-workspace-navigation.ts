@@ -79,6 +79,40 @@ export function splitAttentionRows(
   for (const row of shown) (rowAttention(reading, space, row) ? attention : sessions).push(row);
   return {attention, sessions};
 }
+/** H-I saved-request list entry shape (UX-I03). List supply stays with U03 request state. */
+export interface SavedRequestSummary {
+  intent: string;
+  revision: string;
+  state: 'draft' | 'accepted' | 'declined' | 'rejected' | 'abandoned';
+  objective: string;
+  repository: string;
+  department?: string;
+  created_unix: number;
+  effective_count: number;
+  task_count: number;
+}
+export interface RequestGroups {
+  drafts: SavedRequestSummary[];
+  accepted: SavedRequestSummary[];
+  closed: SavedRequestSummary[];
+}
+function byRecency(a: SavedRequestSummary, b: SavedRequestSummary) {
+  return b.created_unix - a.created_unix || (a.intent < b.intent ? -1 : 1);
+}
+/** Group saved requests by lifecycle state; recent first, stable intent identity breaks ties. */
+export function groupSavedRequests(summaries: SavedRequestSummary[]): RequestGroups {
+  const groups: RequestGroups = {drafts: [], accepted: [], closed: []};
+  for (const summary of [...summaries].sort(byRecency)) {
+    if (summary.state === 'accepted') groups.accepted.push(summary);
+    else if (summary.state === 'draft') groups.drafts.push(summary);
+    else groups.closed.push(summary);
+  }
+  return groups;
+}
+/** Display label for a request's repository binding; "0" means not yet bound. */
+export function requestRepositoryLabel(repository: string): string {
+  return repository === '0' || !repository ? 'No repository yet' : repository;
+}
 export interface FilteredSpacesInput {
   reading: NavReading;
   spaces: Space[];

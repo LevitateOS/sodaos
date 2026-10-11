@@ -58,7 +58,7 @@ func selectPriority(ctx context.Context, deps *PriorityJudgments, candidates []f
 	if age <= 0 {
 		age = 24 * time.Hour
 	}
-	receipt := factory.PriorityReceipt{Snapshot: snapshot, Candidates: candidates, CreatedUnix: now.Unix(), Calls: []factory.PriorityCall{}}
+	receipt := factory.PriorityReceipt{Snapshot: snapshot, Purpose: factory.JudgmentNextWork, Candidates: candidates, CreatedUnix: now.Unix(), Calls: []factory.PriorityCall{}}
 	fairness := oldest.Control.FirstSeenUnix > 0 && now.Sub(time.Unix(oldest.Control.FirstSeenUnix, 0)) >= age
 	previous, readErr := deps.Journal.PriorityJudgment(ctx, snapshot)
 	if readErr != nil && !errors.Is(readErr, store.ErrNotFound) {
