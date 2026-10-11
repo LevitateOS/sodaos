@@ -26,8 +26,8 @@ packets and their demonstrated scope. The native issue14 correction/merge
 receipt closes B04.C; it does not establish the newly required long-run,
 missed-creation, lifecycle-occurrence, dependent-pickup or enrollment contracts.
 The current behavioral correction pair is Soda `4a51990b` and Fountain
-`1e6970300e`. Seventeen of the nineteen supplemental tasks are complete at
-their stated source/fixture scopes; V02 and V03 remain open. The actual serving coordinator now completes the fixture correction,
+`1e6970300e`. Eighteen of the nineteen supplemental tasks are complete at
+their stated source/fixture/native DEVELOPMENT scopes; V03 remains open. The actual serving coordinator now completes the fixture correction,
 fresh delayed CI, verified merge and dependent pickup without manually driven
 stages; current recovery, retry deadlines and capacity release also pass. Initial
 Project preparation now passes its normal public native-source preview, distinct
@@ -59,8 +59,21 @@ the six captured registrations were settled. These are development receipts. Ori
 issues stayed open, so that journey fails the complete V02 requirement.
 `4a51990b` repairs native closing references and persists the exact original
 closing occurrence before completion. Current PostgreSQL and actual serving-loop
-checks pass, including reopen/equal-time re-close refusal; the corrected native
-journey remains pending. The current subscription connection is TestOnly-seeded,
+checks pass, including reopen/equal-time re-close refusal. The corrected native
+journey passes: the sole serving dashboard recovered fresh issues #6 and #7 created
+during its confirmed outage, without retrying failed hook tasks #14 and #15. Six real
+Muse runs completed blocking review, correction, fresh approval, delayed exact-head
+CI, PRs #8 and #9 merges, original issue closures 49 and 54 and automatic dependent pickup
+from the confirmed merged source. The immutable first reviewer finding, correction
+and dependent token match. All six new exact Host retirements and broker returns
+pass; historical run/root projections and human containers/HOME-file marker hash are preserved,
+with total usage 12 minutes. Normal Pause closes gate revision 8 after zero custody. Native runs
+exceed the five-second launch observation; no broader long-duration claim is made.
+The failed Body-based observer is retained; the corrected durable-Findings/native
+review join passes. Receipts: `native-v02-original-closure-02/` and
+`original-closure-v02-02/` under the existing wave01 native-boundaries directory.
+Unchanged credential/cancellation and terminal evidence keeps its prior scope.
+The current subscription connection is TestOnly-seeded,
 despite real provider execution and custody: normal Meta device-account approval
 and matching installed-candidate qualification remain open under V03/C11.V/R04.
 
