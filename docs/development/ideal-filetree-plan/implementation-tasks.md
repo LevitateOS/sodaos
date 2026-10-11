@@ -25,7 +25,7 @@ now supplements this plan. Its four exclusive writer lanes retain completed
 packets and their demonstrated scope. The native issue14 correction/merge
 receipt closes B04.C; it does not establish the newly required long-run,
 missed-creation, lifecycle-occurrence, dependent-pickup or enrollment contracts.
-The current committed correction pair is Soda `9a184b7f` and Fountain
+The current committed correction pair is Soda `f163b044` and Fountain
 `1e6970300e`. Seventeen of the nineteen supplemental tasks are complete at
 their stated source/fixture scopes; V02 and V03 remain open. The actual serving coordinator now completes the fixture correction,
 fresh delayed CI, verified merge and dependent pickup without manually driven
@@ -37,6 +37,18 @@ joins and eleven rendered control tests pass after independent review. Fresh nat
 remain separate under C11.V/R04. The host restarted during the later `e5bb7dce` P8 media assembly:
 P1–P7 passed, but that interrupted media attempt is incomplete. Retained disks
 and failed-attempt artifacts remain development evidence at their recorded scope.
+
+The current native continuation passes fifteen credential-family/restriction/
+creation reads and five cancellation/restriction operations, normal owned-hook
+maintenance with broker tmpfs, fresh native checkout/delayed CI, normal source
+preview/requirement acceptance, and retained Project creation reconciliation
+through authenticated GET. The public acceptance-preview is covered by actual
+PostgreSQL proxy race checks in `abe6f363`; the native expanded hook-event matcher
+is repaired and checked in `f163b044`. This appliance uses explicitly identified
+development payloads from `9a184b7f`/`abe6f363`/`f163b044`. The current real
+serving/provider/dependent, terminal/intervention, normal provider enrollment
+and matching installed-candidate gates remain open; none follows from those
+individual receipts or the earlier issue14 result.
 
 The active finishing goal repaired the native P8 Assembler metadata decoder
 in `0a845477` and aligned release schema emission with the then-current
