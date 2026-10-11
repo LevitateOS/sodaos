@@ -12,7 +12,7 @@ import (
 func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a request form", State: "accepted", MaxIssues: 4, PlanningCalls: 2, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept"}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a request form", State: "accepted", MaxIssues: 4, PlanningCalls: 2, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	if err := s.SaveIntentRevision(ctx, r); err != nil {
 		t.Fatal(err)
 	}

@@ -5,7 +5,7 @@ import "testing"
 func validIntent() IntentRevision {
 	return IntentRevision{
 		ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a leave tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 3, CreatedUnix: 1,
-		Ideas: []ProductIdea{{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept"}},
+		Ideas: []ProductIdea{{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}},
 		Tasks: []IntentTask{{Key: "d444444444444444444444444", Objective: "Create request form", Outcomes: []string{"Requests can be submitted"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "Create manager view", Outcomes: []string{"Requests can be reviewed"}, IdeaIDs: []string{"d333333333333333333333333"}}},
 	}
 }
@@ -100,6 +100,7 @@ func TestIntentRequiresEvidenceAndEffectiveAuthorization(t *testing.T) {
 	r := validIntent()
 	r.Ideas[0].Source = "supported"
 	r.Ideas[0].Provenance = "autonomous"
+	r.Ideas[0].Actor = 0
 	if r.Validate() == nil {
 		t.Fatal("unsupported evidence choice accepted")
 	}
@@ -136,6 +137,28 @@ func TestIntentTerminalDraftStates(t *testing.T) {
 	r.Tasks[0].IdeaIDs = []string{"d333333333333333333333333"}
 	if r.Validate() == nil {
 		t.Fatal("draft task entered declined outcome")
+	}
+}
+
+func TestAcceptedWorkRequiresExplicitDecisionBasis(t *testing.T) {
+	r := validIntent()
+	r.Ideas[0].Source = ""
+	r.Ideas[0].Provenance = ""
+	r.Ideas[0].Actor = 0
+	if r.Validate() == nil {
+		t.Fatal("unclassified idea admitted into effective work")
+	}
+	r.State = "draft"
+	r.Repository = 0
+	if err := r.Validate(); err != nil {
+		t.Fatalf("unclassified draft refused: %v", err)
+	}
+	r = validIntent()
+	r.Ideas[0].Source = "autonomous"
+	r.Ideas[0].Provenance = "autonomous"
+	r.Ideas[0].Actor = 0
+	if err := r.Validate(); err != nil {
+		t.Fatalf("valid autonomous work refused: %v", err)
 	}
 }
 
