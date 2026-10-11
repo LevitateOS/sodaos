@@ -1,0 +1,141 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sync"
+	"testing"
+
+	"github.com/levitateos/sodaos/internal/factory"
+)
+
+func TestActivitySettingsIndependentAtomicRevision(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	defaults, revision, err := s.ActivitySettings(ctx, 7)
+	if err != nil || revision != 0 || defaults != factory.DefaultActivitySettings() {
+		t.Fatal(defaults, revision, err)
+	}
+	var wg sync.WaitGroup
+	results := make(chan error, 2)
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results <- s.SetActivitySettings(ctx, 7, 1, 0, factory.ActivitySettings{PRCreated: true})
+		}()
+	}
+	wg.Wait()
+	close(results)
+	ok, stale := 0, 0
+	for err := range results {
+		if err == nil {
+			ok++
+		} else if errors.Is(err, ErrStaleRevision) {
+			stale++
+		} else {
+			t.Fatal(err)
+		}
+	}
+	if ok != 1 || stale != 1 {
+		t.Fatal(ok, stale)
+	}
+	settings, revision, err := s.ActivitySettings(ctx, 7)
+	if err != nil || revision != 1 || settings.IssueCreated || !settings.PRCreated || settings.VerifiedMerge {
+		t.Fatal(settings, revision, err)
+	}
+	var count int
+	if err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_policies`).Scan(&count); err != nil || count != 0 {
+		t.Fatal("activity altered execution policy", count, err)
+	}
+}
+func TestActivityReportsOnlyCommittedPublishedAndConfirmedClosure(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	save := func(table, id string, v any) {
+		t.Helper()
+		raw, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		query := `INSERT INTO factory_publications(assignment,repository,issue,run,stage,revision,data) VALUES($1,7,3,'run','published',1,$2)`
+		if table == "merge" {
+			query = `INSERT INTO factory_merges(publication,repository,issue,pr,stage,revision,data) VALUES($1,7,3,4,'merged',1,$2)`
+		}
+		if _, err = s.db.ExecContext(ctx, query, id, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := factory.Publication{Repository: 7, Issue: 3, Stage: factory.PublicationPublished, Outcome: factory.Succeeded, Reason: factory.PublishReasonLinked, PRID: 104, PRNumber: 4, FinishedUnix: 10, Publish: factory.PublicationOperation{Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionComplete}, PRCreate: factory.PublicationOperation{Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionComplete, PRID: 104, PRNumber: 4}}
+	save("pr", "published", p)
+	p.PRCreate.Completion = factory.OpCompletionPending
+	p.PRID = 105
+	p.PRCreate.PRID = 105
+	save("pr", "pending", p)
+	m := factory.Merge{ID: "merge-complete", Repository: 7, Issue: 3, IssueID: 103, PRID: 104, PRNumber: 4, Stage: factory.MergeMerged, Outcome: factory.Succeeded, Reason: factory.MergeReasonMerged, HeadOID: "exact-head", MergedCommit: "exact-head", MergedUnix: 20, ClosedUnix: 21, FinishedUnix: 22, OriginalClosingOccurrence: "34", OriginalClosedUnix: 21, Operation: factory.MergeOperation{Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionComplete, MergedCommit: "exact-head", PRID: 104, PRNumber: 4, IssueID: 103}}
+	save("merge", "complete", m)
+	m.ID = "merge-unconfirmed"
+	m.OriginalClosedUnix = 0
+	save("merge", "unconfirmed", m)
+	m.ID = "merge-wrong-head"
+	m.OriginalClosedUnix = 21
+	m.MergedCommit = "another-head"
+	save("merge", "wrong-head", m)
+	out, err := s.RepositoryActivity(ctx, 7, "/current-owner/renamed")
+	if err != nil || len(out.Items) != 2 {
+		t.Fatal(out, err)
+	}
+	if out.Items[0].Kind != "verified_merge" || out.Items[0].URL != "/current-owner/renamed/issues/3" || out.Items[1].Kind != "pr_created" || out.Items[1].URL != "/current-owner/renamed/pulls/4" {
+		t.Fatal(out.Items)
+	}
+	if err = s.SetActivitySettings(ctx, 7, 1, 0, factory.ActivitySettings{}); err != nil {
+		t.Fatal(err)
+	}
+	out, err = s.RepositoryActivity(ctx, 7, "/current-owner/renamed")
+	if err != nil || len(out.Items) != 0 {
+		t.Fatal(out, err)
+	}
+}
+
+func TestActivityCreatedIssuesDeduplicateAndKeepNewestSixty(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_intent_heads(id,owner_id,revision) VALUES('intent',1,'r1')`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 65; i++ {
+		revision := fmt.Sprintf("r%d", i)
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_intent_revisions(id,intent,data) VALUES($1,'intent','{"repository":"7"}')`, revision); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_intent_generations(revision,data) VALUES($1,'{"state":"completed"}')`, revision); err != nil {
+			t.Fatal(err)
+		}
+		b := factory.IntentTaskBinding{RevisionID: revision, TaskKey: "task", IssueID: int64(1000 - i), IssueIndex: int64(i), AcceptanceID: "accepted", CreatedUnix: int64(i)}
+		raw, _ := json.Marshal(b)
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_intent_tasks(revision,task,data) VALUES($1,'task',$2)`, revision, string(raw)); err != nil {
+			t.Fatal(err)
+		}
+		if i == 65 {
+			if _, err := s.db.ExecContext(ctx, `INSERT INTO factory_intent_tasks(revision,task,data) VALUES($1,'reused',$2)`, revision, string(raw)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	out, err := s.RepositoryActivity(ctx, 7, "/owner/repo")
+	if err != nil || len(out.Items) != 60 {
+		t.Fatal(len(out.Items), err)
+	}
+	if out.Items[0].Issue != "65" || out.Items[59].Issue != "6" {
+		t.Fatal(out.Items[0], out.Items[59])
+	}
+	seen := map[string]bool{}
+	for _, item := range out.Items {
+		if seen[item.ID] {
+			t.Fatal("duplicate reused native issue", item)
+		}
+		seen[item.ID] = true
+	}
+}

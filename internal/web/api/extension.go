@@ -212,6 +212,8 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 	}
 	if len(parts) == 4 && parts[2] == "factory" {
 		switch parts[3] {
+		case "activity":
+			return method == http.MethodGet || method == http.MethodPut
 		case "policy", "operator-grant", "environment-grant":
 			return method == http.MethodPut
 		case "actions":

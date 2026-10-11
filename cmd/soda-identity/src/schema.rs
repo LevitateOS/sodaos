@@ -3,11 +3,12 @@
 // drift test below re-extracts the Go literals at test time and
 // fails on any difference, so a Go schema change forces a
 // regeneration of this file in the same patch.
-pub const SCHEMA_VERSION: i64 = 42;
+pub const SCHEMA_VERSION: i64 = 43;
 
 pub const STATEMENTS: &[&str] = &[
+    r#"CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)"#,
     r#"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"#,
-    r#"INSERT INTO schema_version(version) VALUES(42)"#,
+    r#"INSERT INTO schema_version(version) VALUES(43)"#,
     r#"CREATE TABLE factory_departments(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_intent_heads(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), revision TEXT NOT NULL)"#,
     r#"CREATE TABLE factory_intent_revisions(id TEXT PRIMARY KEY, intent TEXT NOT NULL REFERENCES factory_intent_heads(id), data JSONB NOT NULL)"#,
@@ -185,6 +186,7 @@ END $$ LANGUAGE plpgsql"#,
 ];
 
 pub const VERIFY_QUERIES: &[&str] = &[
+    r#"SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0"#,
     r#"SELECT id,login,name FROM users LIMIT 0"#,
     r#"SELECT id,user_id,public,fingerprint FROM keys LIMIT 0"#,
     r#"SELECT id,name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects LIMIT 0"#,

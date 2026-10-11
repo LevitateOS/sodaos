@@ -30,10 +30,17 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/repositories` | Native repository picker (`q`, `cursor`) |
 | GET | `/api/repositories/{repositoryID}/profiles` | Supported creation profiles |
 | GET | `/api/repositories/{repositoryID}/factory` | Factory policy, effective grants and missing authority |
+| GET, PUT | `/api/repositories/{repositoryID}/factory/activity` | Local lifecycle facts and independent owner/admin activity settings |
 | PUT | `/api/repositories/{repositoryID}/factory/policy` | Owner/admin repository factory policy (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/operator-grant` | Operator repository permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/environment-grant` | Owner environment setup permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
+| GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
+| POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
+| GET | `/api/factory/intents/{intentID}` | Current actor’s current intent revision |
+| POST | `/api/factory/intents/{intentID}/explore` | Bounded typed design consultation for a current draft |
+| POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
+| GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/actions` | Code-write pause/resume of factory dispatch (command envelope) |
 | POST | `/api/factory/runs/{runID}/actions` | Code-write run stop/retry/takeover (command envelope; takeover also requires membership) |
@@ -98,3 +105,11 @@ installed Project SSH key.
   endpoints.
 
 Credential and schema maintenance: [Credentials](credentials.md).
+
+Repository activity returns `{repository, repository_path, revision, settings, items}`. The repository ID is a decimal string and `repository_path` is the current visible native `/owner/repository` path. Settings are the three booleans `issue_created`, `pr_created`, and `verified_merge`; defaults are all true at revision zero. PUT requires `{expected_revision, settings}` with all three booleans, current native owner/admin authority and a current lifecycle session. A stale revision returns 412. These settings are stored separately from execution policy and confer no execution or external publication authority.
+
+The feed contains at most 60 local facts, ordered newest first: completed durable intent graph adoption creates deduplicated issue facts, published native PR effects create PR facts, and verified native merges create merge facts only after confirmed original issue closure. Every item contains `id`, `kind`, decimal `issue`, optional decimal `pr`, `created_unix`, `summary`, and `url`. Kinds match the settings names. URLs use current local native issue/PR paths; PR events describe creation rather than current review state. Issue timestamps come from observed native creation and are zero when unavailable; PR/merge timestamps are the durable completion observation. Pending or unconfirmed effects are excluded. Disabling a kind filters existing facts without deleting native history. No email, webhook, or external notification is sent.
+
+Product intent routes use the admitted native actor; body ownership cannot select another principal. Department POST accepts the department object and attributes ownership to the current actor; GET returns only that actor’s departments. Intent POST accepts an `IntentRevision` with immutable `id`, `intent`, `predecessor`, objective, reviewed ideas/tasks, repository, finite `max_issues` and `planning_calls`; the server attributes owner and creation time. A changed predecessor returns 412. Accepted scope must include a repository and tasks, and any selected repository requires current native owner/admin authority. GET is owner-scoped.
+
+Exploration POST accepts `{revision}` for the exact current draft; mismatched inputs return 412. It reserves a finite planning call against both the intent’s allowance and operator credit, records typed advice, and returns a successor revision for human review. Advice grants no acceptance or execution permission. Generation POST requires the actor’s current accepted intent, native repository owner/admin and a current lifecycle session; it uses the enrolled conditional native graph actor, immutable generation identity and durable receipts. Recovery reconciles the existing operation rather than creating a replacement. Generation GET returns the durable outcome, or `{state:"pending",revision_id}` before creation begins. Execution funding remains separate from consultation credit.

@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 42
+const schemaFormatVersion = 43
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -15,8 +15,9 @@ const schemaFormatVersion = 42
 // flags are BOOLEAN; insertion-ordered listings use explicit seq columns
 // instead of the SQLite rowid.
 var schemaStatements = []string{
+	`CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)`,
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(42)`,
+	`INSERT INTO schema_version(version) VALUES(43)`,
 	`CREATE TABLE factory_departments(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), data JSONB NOT NULL)`,
 	`CREATE TABLE factory_intent_heads(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), revision TEXT NOT NULL)`,
 	`CREATE TABLE factory_intent_revisions(id TEXT PRIMARY KEY, intent TEXT NOT NULL REFERENCES factory_intent_heads(id), data JSONB NOT NULL)`,
@@ -230,6 +231,7 @@ func storedSchemaVersion(ctx context.Context, t *sql.Tx) (int, error) {
 
 func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 	for _, query := range []string{
+		`SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0`,
 		`SELECT id,login,name FROM users LIMIT 0`,
 		`SELECT id,user_id,public,fingerprint FROM keys LIMIT 0`,
 		`SELECT id,name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects LIMIT 0`,
