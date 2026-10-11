@@ -61,7 +61,7 @@ before(async () => {
         );
       if (url.pathname !== '/') return new Response(null, {status: 404});
       return new Response(
-        '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>body{margin:0}.extension-workspace-layout{display:flex;height:calc(100dvh - 48px)}iframe{flex:1;min-width:0}.extension-workspace-panels{width:50%;min-width:0}.extension-workspace-panel,[data-extension-panel]{height:100%;min-height:0}h2{position:absolute;clip-path:inset(50%)}</style><main data-extension-workspace><button id="focus-native">Focus browsing</button><div class="extension-workspace-layout"><iframe title="Forgejo pages" src="/native/one"></iframe><aside class="extension-workspace-panels"><section class="extension-workspace-panel"><h2>Workspace</h2><div data-extension-panel></div></section></aside></div></main><script type="module" src="/assets/persistent-panel.js"></script>',
+        '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>body{margin:0}.extension-workspace-layout{display:flex;height:100dvh}iframe{flex:1;min-width:0}.extension-workspace-panels{width:50%;min-width:0}.extension-workspace-panel,[data-extension-panel]{height:100%;min-height:0}h2{position:absolute;clip-path:inset(50%)}</style><main data-extension-workspace><div class="extension-workspace-layout"><iframe title="Forgejo pages" src="/native/one"></iframe><aside class="extension-workspace-panels"><section class="extension-workspace-panel"><h2>Workspace</h2><div data-extension-panel></div></section></aside></div></main><script type="module" src="/assets/persistent-panel.js"></script>',
         {headers: {'Content-Type': 'text/html'}}
       );
     },
@@ -130,7 +130,7 @@ test('native panel keeps its Lit/xterm owner, socket and target while native pag
       '?draft=submitted+draft'
   );
   await page.setViewportSize({width: 390, height: 780});
-  await page.locator('#focus-native').focus();
+  await native.locator('input[name=draft]').focus();
   assert(await screen.evaluate((node) => node.isConnected));
   assert(
     await page.evaluate(

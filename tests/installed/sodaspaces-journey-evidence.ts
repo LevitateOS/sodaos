@@ -51,44 +51,7 @@ export async function spacesContent(page: Page): Promise<Page | FrameLocator> {
   // Forgejo's extension router. Keep this exact fixture opt-in local to tests.
   if (await page.locator('meta[name="soda-component-fixture"][content="spaces"]').count()) return page;
   await nativeSpacesMount(page);
-  await focusNativeBrowsing(page);
   return page.frameLocator(workspaceFrame);
-}
-
-async function focusNativeBrowsing(page: Page) {
-  const workspace = page.locator(workspaceMount);
-  const frame = page.locator(workspaceFrame);
-  const toggle = workspace.locator('[data-extension-workspace-toggle]');
-  await toggle.waitFor({state: 'visible'});
-  const state = async () => ({
-    expanded: await toggle.getAttribute('aria-expanded'),
-    label: (await toggle.innerText()).trim(),
-  });
-  let current = await state();
-  if (current.expanded === 'true' && current.label === 'Focus browsing') {
-    await toggle.click();
-    current = await state();
-  }
-  assert.deepEqual(current, {expanded: 'false', label: 'Show panels'}, 'Native browsing focus control state mismatch');
-  if (!(await frame.evaluate((element: HTMLIFrameElement) => element.contentDocument?.hasFocus()))) {
-    // A second native page can take browsing focus when it closes. Restore it
-    // through a real visible-frame click before checking the native contract.
-    await frame.click();
-  }
-  await page.waitForFunction(() => {
-    const root = document.querySelector<HTMLElement>('[data-extension-workspace]');
-    const frame = root?.querySelector<HTMLIFrameElement>('[data-extension-workspace-frame]');
-    const toggle = root?.querySelector<HTMLButtonElement>('[data-extension-workspace-toggle]');
-    return !!(
-      root?.classList.contains('focus-view') &&
-      toggle?.getAttribute('aria-expanded') === 'false' &&
-      toggle.textContent?.trim() === 'Show panels' &&
-      frame &&
-      document.activeElement === frame &&
-      frame.contentDocument?.hasFocus()
-    );
-  });
-  assert.equal(await frame.getAttribute('data-extension-workspace-frame'), '');
 }
 export interface FirstUseEvidence {
   stage: string;

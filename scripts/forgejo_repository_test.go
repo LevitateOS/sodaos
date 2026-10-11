@@ -1,6 +1,8 @@
 package scripts
 
 import (
+	"bytes"
+	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +39,127 @@ func TestForgejoRepositoryHeaderKeepsNativeAuthority(t *testing.T) {
 		if !templateCalls(header)[partial] {
 			t.Errorf("repository header no longer delegates to native template %q", partial)
 		}
+	}
+}
+
+type repositoryHeaderPermission struct {
+	read  bool
+	admin bool
+}
+
+func (p repositoryHeaderPermission) CanRead(unit any) bool {
+	return p.read && unit == "code"
+}
+
+func (p repositoryHeaderPermission) CanReadAny(...any) bool { return false }
+func (p repositoryHeaderPermission) IsAdmin() bool          { return p.admin }
+
+type repositoryHeaderVisibility struct{}
+
+func (repositoryHeaderVisibility) IsPrivate() bool { return false }
+
+type repositoryHeaderOwner struct {
+	ID         int64
+	Name       string
+	HomeLink   string
+	Visibility repositoryHeaderVisibility
+}
+
+type repositoryHeaderRepository struct {
+	ID                int64
+	Owner             repositoryHeaderOwner
+	Name              string
+	RepoLink          string
+	DefaultBranch     string
+	ObjectFormatName  string
+	IsBeingCreated    bool
+	IsBroken          bool
+	IsArchived        bool
+	IsPrivate         bool
+	IsTemplate        bool
+	IsFork            bool
+	IsGenerated       bool
+	NumOpenProjects   int
+	NumOpenActionRuns int
+	CanPullRequests   bool
+}
+
+func (repositoryHeaderRepository) CanEnablePulls() bool  { return false }
+func (repositoryHeaderRepository) NumOpenIssues(any) int { return 0 }
+func (repositoryHeaderRepository) NumOpenPulls(any) int  { return 0 }
+
+type repositoryHeaderSignedUser struct {
+	IsAdmin             bool
+	EnableRepoUnitHints bool
+}
+
+type repositoryHeaderLocale struct{}
+
+func (repositoryHeaderLocale) Tr(key string, _ ...any) string { return key }
+
+type repositoryHeaderContext struct{ Locale repositoryHeaderLocale }
+
+type repositoryHeaderDateUtils struct{}
+
+func (repositoryHeaderDateUtils) TimeSince(any) string { return "" }
+
+func renderForgejoRepositoryHeader(t *testing.T, permissions repositoryHeaderPermission, approvedExtensionPages []map[string]string) string {
+	t.Helper()
+	functions := template.FuncMap{
+		"AppSubUrl":        func() string { return "" },
+		"svg":              func(...any) string { return "icon" },
+		"ctx":              func() repositoryHeaderContext { return repositoryHeaderContext{} },
+		"RepoFlagsEnabled": func() bool { return false },
+		"MirrorRemoteAddress": func(any, any) struct{ Address string } {
+			return struct{ Address string }{}
+		},
+		"DateUtils": func() repositoryHeaderDateUtils { return repositoryHeaderDateUtils{} },
+		"CountFmt":  func(any) string { return "0" },
+	}
+	source := `{{define "repo/header"}}` + readForgejoTemplate(t, "repo", "header.tmpl") + `{{end}}
+{{define "repo/icon"}}REPOSITORY_ICON{{end}}
+{{define "repo/watch_unwatch"}}WATCH_CONTROL{{end}}
+{{define "repo/star_unstar"}}STAR_CONTROL{{end}}
+{{define "repo/header_fork"}}FORK_CONTROL{{end}}
+{{define "custom/extra_tabs"}}NATIVE_EXTRA_TABS{{end}}`
+	tmpl, err := template.New("repository-header").Funcs(functions).Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := map[string]any{
+		"Repository": repositoryHeaderRepository{
+			ID: 17, Owner: repositoryHeaderOwner{ID: 5, Name: "native-owner", HomeLink: "/native-owner"},
+			Name: "native-workspace", RepoLink: "/native-owner/native-workspace", DefaultBranch: "main",
+		},
+		"Permission": permissions, "ExtensionPages": map[string][]map[string]string{"repository": approvedExtensionPages},
+		"ExtensionPageURL": "/native-owner/native-workspace/workspace", "RepoLink": "/native-owner/native-workspace",
+		"SignedUser": repositoryHeaderSignedUser{}, "SignedUserID": int64(7), "IsSigned": true,
+		"UnitTypeCode": "code", "UnitTypeIssues": "issues", "UnitTypeExternalTracker": "external-tracker",
+		"UnitTypePullRequests": "pulls", "UnitTypeProjects": "projects", "UnitTypeReleases": "releases",
+		"UnitTypePackages": "packages", "UnitTypeWiki": "wiki", "UnitTypeExternalWiki": "external-wiki", "UnitTypeActions": "actions",
+		"DisableStars": true, "DisableForks": true,
+	}
+	var rendered bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&rendered, "repo/header", data); err != nil {
+		t.Fatal(err)
+	}
+	return rendered.String()
+}
+
+func TestForgejoRepositoryHeaderRendersWorkspaceOnceAndKeepsAdminSettings(t *testing.T) {
+	approvedExtensionPages := []map[string]string{
+		{"Title": "Workspace", "URL": "/native-owner/native-workspace/workspace", "Permission": "read"},
+		{"Title": "Repository settings contribution", "URL": "/native-owner/native-workspace/settings/workspace", "Permission": "admin"},
+	}
+	body := renderForgejoRepositoryHeader(t, repositoryHeaderPermission{read: true, admin: true}, approvedExtensionPages)
+	if got := strings.Count(body, `href="/native-owner/native-workspace/workspace"`); got != 1 {
+		t.Fatalf("native repository workspace link rendered %d times, want once", got)
+	}
+	if strings.Contains(body, "Repository settings contribution") || strings.Contains(body, `href="/native-owner/native-workspace/settings/workspace"`) {
+		t.Fatal("admin-only native contribution appeared as a repository header tab")
+	}
+	if !strings.Contains(body, `href="/native-owner/native-workspace/settings"`) {
+		t.Fatal("repository admin lost the existing settings entry point")
 	}
 }
 
