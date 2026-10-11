@@ -202,6 +202,18 @@ test('stopped environment has explicit Start only, and no terminal', async (t) =
   assert.deepEqual(JSON.parse((await writes(page))[0]?.body || '{}'), {action: 'start'});
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
 });
+test('overview readiness links summarize Access/Network and switch tabs', async (t) => {
+  const page = await fixture(t);
+  await refresh(page);
+  const readiness = page.getByRole('navigation', {name: 'Settings readiness'});
+  assert.match(await readiness.innerText(), /Access: Joined as/);
+  assert.match(await readiness.innerText(), /Network:/);
+  await readiness.getByRole('button', {name: 'Open Access', exact: true}).click();
+  await page.waitForFunction(
+    () => document.querySelector('[data-view="access"]')?.getAttribute('aria-selected') === 'true'
+  );
+  assert(await page.getByText('My development SSH keys', {exact: false}).isVisible());
+});
 test('non-administrator sees read-only shared-environment state without lifecycle controls', async (t) => {
   const page = await fixture(t, {admin: false});
   await refresh(page);
