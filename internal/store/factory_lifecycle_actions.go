@@ -159,7 +159,7 @@ func (s *Store) RegisterCapability(ctx context.Context, event, revision, install
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var storedRevision, storedInstallation string
 	err = tx.QueryRowContext(ctx, `SELECT revision,installation FROM factory_lifecycle_capabilities WHERE event=$1 FOR UPDATE`, event).Scan(&storedRevision, &storedInstallation)
 	switch {
@@ -238,7 +238,7 @@ func (s *Store) SaveConfig(ctx context.Context, c factory.LifecycleConfig) (fact
 	if err != nil {
 		return factory.LifecycleConfig{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var storedRevision int64
 	var storedEnabled bool
 	err = tx.QueryRowContext(ctx, `SELECT revision,enabled FROM factory_lifecycle_configs WHERE event=$1`, c.Event).Scan(&storedRevision, &storedEnabled)
