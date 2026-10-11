@@ -3,7 +3,7 @@
 use crate::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -15,15 +15,92 @@ fn io(error: std::io::Error) -> Error {
     Error::Io(error)
 }
 
-fn private_write(path: &Path, data: &[u8]) -> Result<(), Error> {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(path)
-        .map_err(io)?;
-    file.write_all(data).map_err(io)?;
-    file.sync_all().map_err(io)
+/// Removes only secret files this invocation successfully created. Register
+/// the path immediately after `create_new` succeeds so a later write/sync
+/// failure also cleans up the partial file without touching prior state.
+#[derive(Default)]
+struct InvocationTemps(Vec<(PathBuf, u64, u64)>);
+
+impl InvocationTemps {
+    fn private_write(&mut self, path: &Path, data: &[u8], mode: u32) -> Result<(), Error> {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(mode)
+            .open(path)
+            .map_err(io)?;
+        let metadata = file.metadata().map_err(io)?;
+        self.0
+            .push((path.to_path_buf(), metadata.dev(), metadata.ino()));
+        file.write_all(data).map_err(io)?;
+        file.sync_all().map_err(io)
+    }
+
+    fn cleanup(&mut self) -> Option<Error> {
+        let mut remaining = Vec::new();
+        let mut errors = Vec::new();
+        for (path, device, inode) in self.0.drain(..) {
+            match fs::symlink_metadata(&path) {
+                Ok(metadata)
+                    if metadata.dev() == device
+                        && metadata.ino() == inode
+                        && metadata.file_type().is_file() =>
+                {
+                    if let Err(error) = fs::remove_file(&path) {
+                        remaining.push((path, device, inode));
+                        errors.push(Some(io(error)));
+                    }
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => {
+                    remaining.push((path, device, inode));
+                    errors.push(Some(io(error)));
+                }
+            }
+        }
+        self.0 = remaining;
+        Error::join(errors)
+    }
+}
+
+impl Drop for InvocationTemps {
+    fn drop(&mut self) {
+        for (path, device, inode) in &self.0 {
+            if let Ok(metadata) = fs::symlink_metadata(path) {
+                if metadata.dev() == *device
+                    && metadata.ino() == *inode
+                    && metadata.file_type().is_file()
+                {
+                    let _ = fs::remove_file(path);
+                }
+            }
+        }
+    }
+}
+
+fn with_temporary_credentials<T>(
+    base: &Path,
+    passphrase: &[u8],
+    ask_script: &[u8],
+    operation: impl FnOnce(&Path, &Path) -> Result<T, Error>,
+) -> Result<T, Error> {
+    let password_path = base.join(PASSPHRASE_FILE);
+    let ask_path = base.join(ASKPASS_FILE);
+    let mut owned = InvocationTemps::default();
+    owned.private_write(&password_path, passphrase, 0o600)?;
+    owned.private_write(&ask_path, ask_script, 0o700)?;
+    fs::set_permissions(&ask_path, fs::Permissions::from_mode(0o700)).map_err(io)?;
+    let result = operation(&password_path, &ask_path);
+    match (result, owned.cleanup()) {
+        (Ok(value), None) => Ok(value),
+        (Err(error), None) => Err(error),
+        (Ok(_), Some(cleanup_error)) => Err(cleanup_error),
+        (Err(error), Some(cleanup_error)) => {
+            Err(Error::join(vec![Some(error), Some(cleanup_error)])
+                .expect("both operation and cleanup failed"))
+        }
+    }
 }
 
 fn private_replace(path: &Path, data: &[u8], mode: u32) -> Result<(), Error> {
@@ -73,7 +150,12 @@ fn agent_pid(output: &[u8]) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::agent_pid;
+    use super::{agent_pid, with_temporary_credentials};
+    use crate::error::Error;
+    use std::fs;
+
+    const PASSPHRASE: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFG";
+    const ASK_SCRIPT: &[u8] = b"#!/bin/sh\nexit 0\n";
 
     #[test]
     fn parses_only_numeric_agent_pid() {
@@ -83,6 +165,50 @@ mod tests {
         );
         assert_eq!(agent_pid(b"agent started"), None);
         assert_eq!(agent_pid(b"SSH_AGENT_PID=x;"), None);
+    }
+
+    #[test]
+    fn live_agent_refusal_removes_only_this_invocations_temporary_files() {
+        let home = tempfile::tempdir().unwrap();
+        let base = home.path().join("personal-git");
+        fs::create_dir(&base).unwrap();
+        fs::write(base.join("identity"), b"retained identity").unwrap();
+        fs::write(base.join("agent"), b"retained agent marker").unwrap();
+
+        let result = with_temporary_credentials(&base, PASSPHRASE, ASK_SCRIPT, |password, ask| {
+            assert_eq!(fs::read(password).unwrap(), PASSPHRASE);
+            assert_eq!(fs::read(ask).unwrap(), ASK_SCRIPT);
+            Err::<(), _>(Error::msg("Agent already live; no duplicate start"))
+        });
+
+        assert!(result.is_err());
+        assert!(!base.join(super::PASSPHRASE_FILE).exists());
+        assert!(!base.join(super::ASKPASS_FILE).exists());
+        assert_eq!(
+            fs::read(base.join("identity")).unwrap(),
+            b"retained identity"
+        );
+        assert_eq!(
+            fs::read(base.join("agent")).unwrap(),
+            b"retained agent marker"
+        );
+    }
+
+    #[test]
+    fn failed_second_temp_creation_cleans_first_and_preserves_preexisting_file() {
+        let home = tempfile::tempdir().unwrap();
+        let base = home.path().join("personal-git");
+        fs::create_dir(&base).unwrap();
+        fs::write(base.join(super::ASKPASS_FILE), b"preexisting").unwrap();
+
+        let result = with_temporary_credentials(&base, PASSPHRASE, ASK_SCRIPT, |_, _| Ok(()));
+
+        assert!(result.is_err());
+        assert!(!base.join(super::PASSPHRASE_FILE).exists());
+        assert_eq!(
+            fs::read(base.join(super::ASKPASS_FILE)).unwrap(),
+            b"preexisting"
+        );
     }
 }
 
@@ -129,94 +255,89 @@ pub fn run(phase: &str) -> Result<Vec<u8>, Error> {
         return Err(Error::msg("Git key/agent operation failed"));
     }
 
-    let password_path = base.join(PASSPHRASE_FILE);
-    let ask_path = base.join(ASKPASS_FILE);
-    private_write(&password_path, &passphrase)?;
     let ask_script =
         b"#!/bin/sh\nexec /usr/bin/head -c 128 \"$SODA_PERSONAL_GIT_PASSPHRASE_FILE\"\n";
-    private_write(&ask_path, ask_script)?;
-    fs::set_permissions(&ask_path, fs::Permissions::from_mode(0o700)).map_err(io)?;
-    let password_text = password_path
-        .to_str()
-        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-    let ask_text = ask_path
-        .to_str()
-        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-    let ask_env = [
-        ("SSH_ASKPASS", ask_text),
-        ("SSH_ASKPASS_REQUIRE", "force"),
-        ("DISPLAY", "soda-u08"),
-        ("SODA_PERSONAL_GIT_PASSPHRASE_FILE", password_text),
-    ];
-    if phase == "prepare" {
-        let output = run_quiet(
-            "ssh-keygen",
-            &[
-                "-q",
-                "-t",
-                "ed25519",
-                "-f",
-                identity
-                    .to_str()
-                    .ok_or_else(|| Error::msg("Git key/agent operation failed"))?,
-                "-C",
-                "U08 personal project Git",
-            ],
-            &ask_env,
-        )?;
-        if !output.status.success() {
-            return Err(Error::msg("Git key/agent operation failed"));
+    with_temporary_credentials(&base, &passphrase, ask_script, |password_path, ask_path| {
+        let password_text = password_path
+            .to_str()
+            .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+        let ask_text = ask_path
+            .to_str()
+            .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+        let ask_env = [
+            ("SSH_ASKPASS", ask_text),
+            ("SSH_ASKPASS_REQUIRE", "force"),
+            ("DISPLAY", "soda-u08"),
+            ("SODA_PERSONAL_GIT_PASSPHRASE_FILE", password_text),
+        ];
+        if phase == "prepare" {
+            let output = run_quiet(
+                "ssh-keygen",
+                &[
+                    "-q",
+                    "-t",
+                    "ed25519",
+                    "-f",
+                    identity
+                        .to_str()
+                        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?,
+                    "-C",
+                    "U08 personal project Git",
+                ],
+                &ask_env,
+            )?;
+            if !output.status.success() {
+                return Err(Error::msg("Git key/agent operation failed"));
+            }
         }
-    }
 
-    let socket = base.join("agent");
-    if socket.exists() {
+        let socket = base.join("agent");
+        if socket.exists() {
+            let socket_text = socket
+                .to_str()
+                .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+            let probe = run_quiet("ssh-add", &["-l"], &[("SSH_AUTH_SOCK", socket_text)])?;
+            if probe.status.code() != Some(2) {
+                return Err(Error::msg("Agent already live; no duplicate start"));
+            }
+            fs::remove_file(&socket).map_err(io)?;
+        }
         let socket_text = socket
             .to_str()
             .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-        let probe = run_quiet("ssh-add", &["-l"], &[("SSH_AUTH_SOCK", socket_text)])?;
-        if probe.status.code() != Some(2) {
-            return Err(Error::msg("Agent already live; no duplicate start"));
+        let agent = Command::new("ssh-agent")
+            .args(["-a", socket_text, "-s"])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+            .map_err(io)?;
+        if !agent.status.success() {
+            return Err(Error::msg("Git key/agent operation failed"));
         }
-        fs::remove_file(&socket).map_err(io)?;
-    }
-    let socket_text = socket
-        .to_str()
-        .ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-    let agent = Command::new("ssh-agent")
-        .args(["-a", socket_text, "-s"])
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .map_err(io)?;
-    if !agent.status.success() {
-        return Err(Error::msg("Git key/agent operation failed"));
-    }
-    let pid =
-        agent_pid(&agent.stdout).ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
-    private_replace(
-        &base.join("agent.pid"),
-        format!("{pid}\n").as_bytes(),
-        0o600,
-    )?;
-    let loaded = run_quiet(
-        "ssh-add",
-        &[identity
-            .to_str()
-            .ok_or_else(|| Error::msg("Git key/agent operation failed"))?],
-        &[
-            ("SSH_AUTH_SOCK", socket_text),
-            ask_env[0],
-            ask_env[1],
-            ask_env[2],
-            ask_env[3],
-        ],
-    )?;
-    if !loaded.status.success() {
-        return Err(Error::msg("Git key/agent operation failed"));
-    }
-    fs::remove_file(&password_path).map_err(io)?;
-    fs::remove_file(&ask_path).map_err(io)?;
-    write_git_ssh()?;
-    fs::read(base.join("identity.pub")).map_err(io)
+        let pid =
+            agent_pid(&agent.stdout).ok_or_else(|| Error::msg("Git key/agent operation failed"))?;
+        private_replace(
+            &base.join("agent.pid"),
+            format!("{pid}\n").as_bytes(),
+            0o600,
+        )?;
+        let loaded = run_quiet(
+            "ssh-add",
+            &[identity
+                .to_str()
+                .ok_or_else(|| Error::msg("Git key/agent operation failed"))?],
+            &[
+                ("SSH_AUTH_SOCK", socket_text),
+                ask_env[0],
+                ask_env[1],
+                ask_env[2],
+                ask_env[3],
+            ],
+        )?;
+        if !loaded.status.success() {
+            return Err(Error::msg("Git key/agent operation failed"));
+        }
+        write_git_ssh()?;
+        fs::read(base.join("identity.pub")).map_err(io)
+    })
 }
