@@ -3,5 +3,6 @@ FROM ${BASE_IMAGE}
 ARG ARTIFACT_DIR
 RUN dnf -y install ca-certificates git && dnf clean all
 COPY --chmod=0755 ${ARTIFACT_DIR}/bin/soda-dashboard /usr/local/bin/soda-dashboard
+COPY system/licenses/avatar-dependencies.txt /usr/share/licenses/soda/avatar-dependencies.txt
 USER 2000:2000
 ENTRYPOINT ["/usr/local/bin/soda-dashboard"]

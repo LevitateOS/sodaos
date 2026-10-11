@@ -1,6 +1,30 @@
 use super::*;
 
 #[test]
+fn host_context_delivers_avatar_dependency_notices() {
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let output = std::env::temp_dir().join(format!(
+        "soda-release-avatar-notices-{}",
+        std::process::id()
+    ));
+    fs::create_dir(&output).expect("fresh output");
+    PreparedWriter {
+        source: source.to_string_lossy().into_owned(),
+        out: output.to_string_lossy().into_owned(),
+    }
+    .stage_rootfs_files()
+    .expect("actual host staging");
+    let notice = output.join("rootfs/usr/share/licenses/soda/avatar-dependencies.txt");
+    assert_eq!(
+        fs::read(&notice).expect("installed dependency notices"),
+        fs::read(source.join("system/licenses/avatar-dependencies.txt"))
+            .expect("retained dependency notices")
+    );
+    assert_eq!(fs::metadata(&notice).unwrap().mode() & 0o777, 0o644);
+    fs::remove_dir_all(output).expect("remove output");
+}
+
+#[test]
 fn base_context_stages_dashboard_policy_sources() {
     let root = std::env::temp_dir().join(format!(
         "soda-release-prepare-policy-{}",

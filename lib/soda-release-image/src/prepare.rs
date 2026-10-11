@@ -235,6 +235,10 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
         ),
         ("LICENSE", "usr/share/licenses/soda/LICENSE"),
         ("NOTICE", "usr/share/licenses/soda/NOTICE"),
+        (
+            "system/licenses/avatar-dependencies.txt",
+            "usr/share/licenses/soda/avatar-dependencies.txt",
+        ),
     ]
     .into_iter()
     .map(|(a, b)| (a.to_string(), b.to_string()))
