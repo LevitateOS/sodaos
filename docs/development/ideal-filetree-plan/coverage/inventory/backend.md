@@ -2,7 +2,7 @@
 
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
-Current path navigation reconciled at `c9de3b26` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
+Current path navigation reconciled at `33090ed1` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
 
 Current path accounting at `519b76bd` (2026-10-07).
 A file may contain several duties; each named duty has one defining owner and disposition.

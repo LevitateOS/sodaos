@@ -2,7 +2,7 @@
 
 ## Complete source-to-slice coverage
 
-Current path navigation is reconciled at `c9de3b26` (2026-10-11): all 2,609
+Current path navigation is reconciled at `33090ed1` (2026-10-11): all 2,609
 tracked paths appear once in the inventories, with no missing or duplicate
 current path rows. Twelve later Factory prompt, preparation and expiry paths
 are linked to their current responsibility maps; the earlier addition and
@@ -58,7 +58,7 @@ Kind (program, fixture, generated output, third-party input) is separate from us
 
 ### Source roots
 
-| Current root at `c9de3b26` | Tracked paths |
+| Current root at `33090ed1` | Tracked paths |
 | --- | ---: |
 | `(root)` | 20 |
 | `.agents` | 1 |

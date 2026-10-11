@@ -142,7 +142,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–258; file scaffold; PromptSource; PromptInputs; fenceCollision; BuildDispatchPrompt; writeRepositoryContext; writePromptSection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Binds bounded repository context to the exact prompt scope and renders selected setup/check instructions, files and candidate diff into the digest-covered assignment. |
+| File scaffold; DispatchPromptTemplate; PromptSource; PromptInputs; fenceCollision; BuildDispatchPrompt; writeRepositoryContext; writePromptSection | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Binds bounded repository context to the exact prompt scope and renders selected setup/check instructions, files and candidate diff into the digest-covered assignment. At `4fab512a`, template v7 explicitly requires reviewer findings to be strings carrying location, evidence and required outcome; its concrete blocking example passes the actual strict review parser. Native report transport and the strict report DTO remain unchanged. |
 
 <a id="r02-current-path-internal-factory-dispatch-prompt-stage-go"></a>
 
@@ -162,7 +162,7 @@ Current source inspected at `ff2670d0`; this selective addition does not renew h
 
 | Current named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| File scaffold; stagePromptInputs; stageRepositoryContext; stageCorrectionInputs; TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview; TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence; TestBuildDispatchPromptBindsRepositoryContextScope; TestBuildDispatchPromptRefusesOversizedAggregateStageEvidence | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Exercises production prompt construction for role-specific report contracts, fence neutralization, exact evidence/context scope and aggregate input refusal. Helpers supply typed fixture inputs; they do not prove native preparation or provider execution. |
+| File scaffold; stagePromptInputs; stageRepositoryContext; stageCorrectionInputs; TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview; TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence; TestBuildDispatchPromptBindsRepositoryContextScope; TestBuildDispatchPromptRefusesOversizedAggregateStageEvidence | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Exercises production prompt construction for role-specific report contracts, fence neutralization, exact evidence/context scope and aggregate input refusal. At `4fab512a`, the reviewer example round-trips through the production strict report parser; the regression fails against the prior prompt. Helpers supply typed fixture inputs; they do not prove native preparation or provider execution. |
 
 <a id="coverage-fb603e59c85e"></a>
 
@@ -380,7 +380,7 @@ exact-blob current maintained map; full spans retained
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–9, 21–59; whole file; TestParseReviewReport | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; Source assertions for approve/request-changes review parsing, rejected malformed/unknown fields and stable auth revision, including an approve body containing nested diff fences; declarations/fields: `TestParseReviewReport` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| File scaffold; TestParseReviewReport | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Source assertions for approve/request-changes review parsing, rejected malformed/unknown fields and stable auth revision, including an approve body containing nested diff fences. At `4fab512a`, the actual native-shaped object finding is explicitly refused by the unchanged strict string-array parser. Historical body selectors retain their original evidence pin. |
 | 10–20; TestST10ReviewerCannotBecomePublication | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Reviewer cannot publish candidate assertions; declarations/fields: `TestST10ReviewerCannotBecomePublication` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
 <a id="coverage-689f99dfa2ef"></a>
