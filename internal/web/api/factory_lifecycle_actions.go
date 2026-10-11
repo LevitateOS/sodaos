@@ -113,10 +113,15 @@ func (s *API) apiFactoryLifecycleConfig(w http.ResponseWriter, r *http.Request, 
 		auth.JSONError(w, 404, "not_found", "Unknown lifecycle event.")
 		return
 	}
+	capable, err := s.Store.CapabilityProved(r.Context(), event)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read capability proof.")
+		return
+	}
 	c, err := s.Store.LifecycleConfig(r.Context(), event)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			auth.JSONResponse(w, 200, lifecycleConfigView{Event: event, Revision: "0", RepositoryID: strconv.FormatInt(repository, 10)})
+			auth.JSONResponse(w, 200, absentLifecycleConfigView(event, repository, capable))
 			return
 		}
 		auth.JSONError(w, 503, "store_unavailable", "Could not read lifecycle configuration.")
@@ -126,12 +131,13 @@ func (s *API) apiFactoryLifecycleConfig(w http.ResponseWriter, r *http.Request, 
 		auth.JSONError(w, 404, "not_found", "No lifecycle configuration for this repository.")
 		return
 	}
-	capable, err := s.Store.CapabilityProved(r.Context(), event)
-	if err != nil {
-		auth.JSONError(w, 503, "store_unavailable", "Could not read capability proof.")
-		return
-	}
 	auth.JSONResponse(w, 200, lifecycleConfigDTO(c, capable))
+}
+
+// absentLifecycleConfigView renders the default for an event with no
+// saved configuration: disabled settings with truthful capability state.
+func absentLifecycleConfigView(event string, repository int64, capable bool) lifecycleConfigView {
+	return lifecycleConfigView{Event: event, Revision: "0", Capable: capable, RepositoryID: strconv.FormatInt(repository, 10)}
 }
 
 // apiFactoryLifecycleConfigSave stores one event's configuration. Only
