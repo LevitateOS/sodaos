@@ -4,10 +4,53 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
+
+func TestIntentGenerationDeliveredMustChainPriorBindings(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	task := factory.IntentTask{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}
+	first := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a request form", State: "accepted", MaxIssues: 4, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}}, Tasks: []factory.IntentTask{task}}
+	if err := s.SaveIntentRevision(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	g1 := factory.IntentGeneration{RevisionID: first.ID, IntentID: first.Intent, OperationID: "graph-op-1", ActorID: 9, NativeRev: 1, AuthRevision: first.ID, NotAfter: 10, Payload: json.RawMessage(`{"creates":[]}`), SubmittedTasks: []factory.IntentTask{task}, IntentDigest: first.Digest(), State: "pending"}
+	if err := s.BeginIntentGeneration(ctx, g1); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BindIntentTaskAcceptance(ctx, factory.IntentTaskBinding{RevisionID: first.ID, TaskKey: task.Key, IssueID: 101, IssueIndex: 1, AcceptanceID: "d555555555555555555555555"}); err != nil {
+		t.Fatal(err)
+	}
+	next := first
+	next.ID = "d666666666666666666666666"
+	next.Predecessor = first.ID
+	if err := s.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	base := factory.IntentGeneration{RevisionID: next.ID, IntentID: next.Intent, OperationID: "graph-op-2", ActorID: 9, NativeRev: 2, AuthRevision: next.ID, NotAfter: 10, SubmittedTasks: []factory.IntentTask{task}, IntentDigest: next.Digest(), State: "pending"}
+	forged := base
+	forged.Payload = json.RawMessage(`{"creates":[]}`)
+	forged.Delivered = map[string]factory.DeliveredIssue{task.Key: {IssueID: 999, IssueIndex: 9}}
+	if err := s.BeginIntentGeneration(ctx, forged); err == nil || !strings.Contains(err.Error(), "invalid delivered reuse") {
+		t.Fatalf("fabricated delivered reuse accepted: %v", err)
+	}
+	edited := base
+	edited.Payload = json.RawMessage(`{"edits":[{"issue_id":101,"expected_title":"t","expected_body":"b","expected_content_version":0,"title":"t","body":"b"}]}`)
+	edited.Delivered = map[string]factory.DeliveredIssue{task.Key: {IssueID: 101, IssueIndex: 1}}
+	if err := s.BeginIntentGeneration(ctx, edited); err == nil || !strings.Contains(err.Error(), "delivered history unexpectedly mutated") {
+		t.Fatalf("delivered edit accepted: %v", err)
+	}
+	chained := base
+	chained.Payload = json.RawMessage(`{"creates":[]}`)
+	chained.Delivered = map[string]factory.DeliveredIssue{task.Key: {IssueID: 101, IssueIndex: 1}}
+	if err := s.BeginIntentGeneration(ctx, chained); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
