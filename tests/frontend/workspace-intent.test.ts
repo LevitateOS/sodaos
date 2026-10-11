@@ -5,7 +5,7 @@ import {setupWorkspaceDriver, fixture, reviewFirstIntent} from './fixtures/works
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
-type ExplorationMode = 'supported' | 'unsupported' | 'challenges' | 'votes';
+type ExplorationMode = 'supported' | 'unsupported' | 'challenges' | 'votes' | 'settled';
 interface IntentStore {
   arm(id: string): void;
   release(id: string): void;
@@ -217,6 +217,16 @@ async function installIntentStore(page: Page) {
             objective: string;
             ideas: {id: string}[];
           };
+          if (store.exploration === 'settled') {
+            const ideas = json.ideas.map((idea) => ({
+              ...idea,
+              decision: 'accept',
+              source: 'autonomous',
+              provenance: 'autonomous',
+            }));
+            const exploration = buildExploration('supported', {...json, ideas});
+            return Response.json({...json, ideas, exploration});
+          }
           if (store.exploration === 'votes') {
             const extra = {
               id: 'daaaaaaaaaaaaaaaaaaaaaaaa',
@@ -814,10 +824,19 @@ test('assumption challenges batch recommendations with retained answers', async 
     .waitFor();
   assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), true);
   const first = questions.locator('article').first();
-  await first.getByLabel('Explain a correction').fill('Only the manager sees dates');
-  assert.equal(await first.getByLabel('Explain a correction').inputValue(), 'Only the manager sees dates');
+  await first
+    .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+    .fill('Only the manager sees dates');
+  assert.equal(
+    await first
+      .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+      .inputValue(),
+    'Only the manager sees dates'
+  );
   const second = questions.locator('article').nth(1);
-  await second.getByRole('button', {name: 'Use recommended resolution', exact: true}).click();
+  await second
+    .getByRole('button', {name: 'Use recommended resolution for Undecided requests wait silently.', exact: true})
+    .click();
   await second.getByText('Answered: using the recommended resolution.', {exact: true}).waitFor();
   await page
     .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
@@ -948,8 +967,16 @@ test('idea cards keep votes only where a decision is required', async (t) => {
   assert.equal(await cards.nth(1).getByRole('combobox').count(), 0);
   assert.equal(await cards.nth(2).getByRole('combobox').count(), 1);
   await cards.nth(2).getByText('You requested', {exact: true}).waitFor();
-  await questions.locator('article').nth(0).getByLabel('Explain a correction').fill('Only the manager sees dates');
-  await questions.locator('article').nth(1).getByLabel('Explain a correction').fill('Send the summary to the person');
+  await questions
+    .locator('article')
+    .nth(0)
+    .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+    .fill('Only the manager sees dates');
+  await questions
+    .locator('article')
+    .nth(1)
+    .getByLabel('Explain a correction to Undecided requests wait silently.', {exact: true})
+    .fill('Send the summary to the person');
   await page
     .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
     .waitFor();
@@ -1046,4 +1073,20 @@ test('accepted review shows authorization, generation progress and unsaved loss'
       {exact: true}
     )
     .waitFor();
+});
+
+test('settled autonomous baseline advances without per-card votes or questions', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'settled');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const cards = page.locator('section.intent-review > article');
+  assert.equal(await cards.count(), 1);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  await cards.nth(0).getByText('Suggested', {exact: true}).waitFor();
+  assert.equal(await page.locator('section[aria-label="Questions needing your answer"]').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
 });

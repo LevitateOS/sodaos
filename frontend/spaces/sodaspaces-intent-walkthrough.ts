@@ -137,6 +137,7 @@ function challengeCorrection(view: IntentView, challenge: AssumptionChallenge, i
       >Explain a correction<textarea
         rows="2"
         maxlength="4000"
+        aria-label=${'Explain a correction to ' + challenge.assumption}
         .value=${idea.decision === 'edit' ? idea.correction || '' : ''}
         ?disabled=${view.busy || view.blocked}
         @input=${(event: Event) => {
@@ -146,6 +147,7 @@ function challengeCorrection(view: IntentView, challenge: AssumptionChallenge, i
       ></textarea>
     </label>
     <button
+      aria-label=${'Use recommended resolution for ' + challenge.assumption}
       ?disabled=${view.busy || view.blocked || idea.decision === 'accept'}
       @click=${() => view.decide(challenge.idea, 'accept')}
     >
