@@ -19,6 +19,12 @@ export function createIntentModel() {
       revisions.set(revision.id, revision);
       return Response.json({...body, owner: '1', created_unix: 1}, {status: 201});
     }
+    const single = method === 'GET' ? path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})$/) : null;
+    if (single) {
+      const stored = [...revisions.values()].find((revision) => revision.intent === single[1]);
+      if (!stored) return new Response(null, {status: 404});
+      return Response.json(stored);
+    }
     if (path.includes('/api/factory/intents/') && path.endsWith('/explore') && body) {
       const prior = revisions.get(String(body.revision));
       if (!prior) return new Response(null, {status: 409});

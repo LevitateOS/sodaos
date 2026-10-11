@@ -1007,6 +1007,7 @@ test('idea cards keep votes only where a decision is required', async (t) => {
 test('accepted review shows authorization, generation progress and unsaved loss', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await installIntentStore(page);
+  await setActor(page, '1');
   await page.evaluate(() => {
     (window as unknown as {reviewed: unknown}).reviewed = null;
     document.addEventListener('intent-reviewed', (event) => {
@@ -1037,6 +1038,10 @@ test('accepted review shows authorization, generation progress and unsaved loss'
   const accepted = await lastPostedBody(page, 'accepted');
   const intent = String(accepted.intent);
   assert(/^d[0-9a-f]{24}$/.test(intent));
+  const committed = ((accepted.ideas || []) as {decision: string; provenance?: string; actor?: string}[])[0];
+  assert.equal(committed?.decision, 'accept');
+  assert.equal(committed?.provenance, 'human');
+  assert.equal(committed?.actor, '1');
   await page.close();
   const fresh = await fixture(t, 'page', undefined, true);
   await installIntentStore(fresh);

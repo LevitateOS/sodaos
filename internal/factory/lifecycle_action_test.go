@@ -57,6 +57,27 @@ func TestLifecycleConfigValidate(t *testing.T) {
 	}
 }
 
+func TestLifecycleEventKindAndHandshake(t *testing.T) {
+	if got := LifecycleEventKind(LifecycleEventIssueCreated); got != LifecycleKindIssue {
+		t.Fatalf("issue kind %q", got)
+	}
+	if got := LifecycleEventKind(LifecycleEventPRCreated); got != LifecycleKindReview {
+		t.Fatalf("review kind %q", got)
+	}
+	if got := LifecycleEventKind(LifecycleEventVerifiedMerge); got != LifecycleKindNote {
+		t.Fatalf("note kind %q", got)
+	}
+	if got := LifecycleEventKind("nope"); got != "" {
+		t.Fatalf("unknown kind %q", got)
+	}
+	if !ValidHandshake(LifecycleHandshake{Installation: "i", Generation: "g"}) {
+		t.Fatal("empty kinds rejected")
+	}
+	if ValidHandshake(LifecycleHandshake{Generation: "g"}) || ValidHandshake(LifecycleHandshake{Installation: "i"}) {
+		t.Fatal("unattributable handshake accepted")
+	}
+}
+
 func TestLifecycleActionAttempts(t *testing.T) {
 	a := testIssueAction()
 	if !a.Applicable() {
