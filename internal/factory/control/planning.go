@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -32,6 +33,8 @@ type PlanningJudgments struct {
 // scope, even while visible prerequisite outcomes are pending. Classification
 // does not invent source changes or execute work; blocked portions stay explicit.
 func (c *Coordinator) PlanningPass(ctx context.Context) error {
+	ctx, unlock := c.progressPass(ctx)
+	defer unlock()
 	deps := c.Planning
 	if deps == nil {
 		return nil
@@ -165,6 +168,8 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 	cancel()
 	record.Judgment = answer
 	request := factory.PriorityRequest{Snapshot: snapshot, Rubric: planningRubric}
+	request.State, _ = json.Marshal(input)
+	request.Criteria = choices
 	for id := range choices {
 		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: id})
 	}

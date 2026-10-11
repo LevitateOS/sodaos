@@ -160,7 +160,7 @@ func TestServingCoordinatorDoesNotReuseOriginalClosureAfterReopen(t *testing.T) 
 	}
 }
 
-func servingCorrectionAndDependent(t *testing.T, laterLifecycle string) {
+func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configure ...func(*Coordinator)) {
 	t.Helper()
 	ctx := context.Background()
 	fx := publishSeed(t, map[string]string{"README.md": dispatchDigest("synthetic selected source: README.md")}) // substrate and standing operator/project authority only
@@ -293,21 +293,26 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string) {
 	dependentView := fx.reads.evidence["7/32"]
 	dependentView.Dependencies = []AcceptanceEdge{{Occurrence: "21", DependsOn: "131", Visible: true}}
 	fx.reads.evidence["7/32"] = dependentView
+	for _, apply := range configure {
+		apply(fx.coord)
+	}
 	if err = fx.coord.Start(ctx, filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = fx.coord.Close() })
-	_, _, err = fx.coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "serving-original-creation", Repository: 7, Issue: 31, Created: true, Creator: 5, CreatorWrite: true, CreationVerified: true, NativeIssueID: 131, CreatedUnix: created, TitleDigest: main.TitleDigest, ContentDigest: main.ContentDigest})
-	if err != nil && !errors.Is(err, ErrReadinessPassPending) {
-		t.Fatal(err)
-	}
-	head, err := fx.db.AcceptanceHead(ctx, 7, 31)
-	if err != nil || head != factory.InitialAcceptanceID(7, "131") {
-		t.Fatalf("normal creation did not admit exact initial inputs: head=%q error=%v", head, err)
-	}
-	dependent := factory.Acceptance{ID: "d" + strings.Repeat("f", 24), Repository: 7, IssueIndex: "32", Approver: 5, NativeRev: revision.Load(), TitleOccurrence: factory.OriginalOccurrence, TitleDigest: dependentView.Issue.TitleDigest, ContentDigest: dependentView.Issue.ContentDigest, Prerequisites: []factory.AcceptedPrerequisite{{Occurrence: "21", DependsOn: "131", EndpointRepo: 7, EndpointIssue: 31, Outcome: factory.PrereqCode, PrereqAcceptance: head}}}
-	if _, err = fx.coord.AdmitAcceptance(ctx, factory.NewID(), "native:5", dependent); err != nil {
-		t.Fatal(err)
+	if fx.coord.Graph == nil {
+		_, _, err = fx.coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "serving-original-creation", Repository: 7, Issue: 31, Created: true, Creator: 5, CreatorWrite: true, CreationVerified: true, NativeIssueID: 131, CreatedUnix: created, TitleDigest: main.TitleDigest, ContentDigest: main.ContentDigest})
+		if err != nil && !errors.Is(err, ErrReadinessPassPending) {
+			t.Fatal(err)
+		}
+		head, err := fx.db.AcceptanceHead(ctx, 7, 31)
+		if err != nil || head != factory.InitialAcceptanceID(7, "131") {
+			t.Fatalf("normal creation did not admit exact initial inputs: head=%q error=%v", head, err)
+		}
+		dependent := factory.Acceptance{ID: "d" + strings.Repeat("f", 24), Repository: 7, IssueIndex: "32", Approver: 5, NativeRev: revision.Load(), TitleOccurrence: factory.OriginalOccurrence, TitleDigest: dependentView.Issue.TitleDigest, ContentDigest: dependentView.Issue.ContentDigest, Prerequisites: []factory.AcceptedPrerequisite{{Occurrence: "21", DependsOn: "131", EndpointRepo: 7, EndpointIssue: 31, Outcome: factory.PrereqCode, PrereqAcceptance: head}}}
+		if _, err = fx.coord.AdmitAcceptance(ctx, factory.NewID(), "native:5", dependent); err != nil {
+			t.Fatal(err)
+		}
 	}
 	// Supply only later native CI truth. No further intake or stage call
 	// wakes the coordinator; its serving owner must complete the journey.

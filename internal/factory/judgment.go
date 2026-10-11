@@ -34,6 +34,8 @@ type PriorityRequest struct {
 	Snapshot   string              `json:"snapshot"`
 	Candidates []PriorityCandidate `json:"candidates"`
 	Rubric     string              `json:"rubric"`
+	State      json.RawMessage     `json:"state,omitempty"`
+	Criteria   map[string]any      `json:"criteria,omitempty"`
 }
 
 type PriorityAnswer struct {

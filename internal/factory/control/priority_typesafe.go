@@ -41,12 +41,17 @@ func (p *TypeSafePriority) Select(ctx context.Context, state any, question strin
 	if len(request.Candidates) < 2 || len(request.Candidates) > 255 {
 		return factory.PriorityAnswer{}, errors.New("invalid priority choice size")
 	}
-	info, err := os.Stat(p.APIKeyFile)
+	file, err := os.Open(p.APIKeyFile)
+	if err != nil {
+		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+	}
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
 		return factory.PriorityAnswer{}, ErrPriorityUnavailable
 	}
-	key, err := os.ReadFile(p.APIKeyFile)
-	if err != nil || len(bytes.TrimSpace(key)) == 0 {
+	key, err := io.ReadAll(io.LimitReader(file, 65537))
+	if err != nil || len(key) > 65536 || len(bytes.TrimSpace(key)) == 0 {
 		return factory.PriorityAnswer{}, ErrPriorityUnavailable
 	}
 	model := p.Model
@@ -88,7 +93,15 @@ func (p *TypeSafePriority) Select(ctx context.Context, state any, question strin
 			Output int64 `json:"output_tokens"`
 		} `json:"usage"`
 	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 1024*1024)).Decode(&out); err != nil {
+	responseBytes, err := io.ReadAll(io.LimitReader(response.Body, 1024*1024+1))
+	if err != nil || len(responseBytes) > 1024*1024 {
+		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+	}
+	decoder := json.NewDecoder(bytes.NewReader(responseBytes))
+	if err := decoder.Decode(&out); err != nil {
+		return factory.PriorityAnswer{}, ErrPriorityUnavailable
+	}
+	if decoder.Decode(new(any)) != io.EOF {
 		return factory.PriorityAnswer{}, ErrPriorityUnavailable
 	}
 	a := out.Answers["priority"]
