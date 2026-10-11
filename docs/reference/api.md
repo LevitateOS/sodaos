@@ -38,12 +38,15 @@ paths are private service routes, not public URLs to call directly:
 | PUT | `/api/repositories/{repositoryID}/factory/lifecycle/{event}` | Save effect configuration with revision CAS (owner/admin) |
 | GET | `/api/repositories/{repositoryID}/factory/lifecycle/{event}/actions?issue=N` | Bounded durable action results for one issue/event |
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
+| GET | `/api/repositories/{repositoryID}/factory/access` | Repository Factory permission, readiness and usage: execution usage plus viewer planning allowances |
 | GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
 | POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
 | GET | `/api/factory/intents` | Owner-private bounded request listing with stable cursor |
 | GET | `/api/factory/intents/{intentID}` | Current actor’s current intent revision |
 | GET | `/api/factory/intents/{intentID}/history` | Owner-private immutable revision history, newest first |
 | GET | `/api/factory/intents/{intentID}/allowance` | Current planning allowance head with available balance |
+| GET | `/api/factory/intents/{intentID}/overview` | Current owner-private request overview; unknown/foreign requests 404 without disclosure |
+| GET | `/api/factory/intents/{intentID}/revisions?limit=1..5` | Recent scope revisions with structural deltas and affected work states |
 | POST | `/api/factory/intent-allowances` | Save allowance revision with head CAS (body-carried intent) |
 | POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation/consistency judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `settled`, `recommendation`, `consistency`); supported/reversible choices settle autonomously, only consequential assumptions interrupt |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
@@ -59,6 +62,7 @@ paths are private service routes, not public URLs to call directly:
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances` | Code-write exact-inputs acceptance (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (command envelope) |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/assignment` | Current dispatch assignment: exact bound inputs, staged prompt, recorded result, publication operation IDs, effects, completion and cancellation |
+| GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/plan?limit=1..20` | Recorded plan and recent priority comparisons for one native issue (optional before_unix/before_snapshot cursor) |
 | POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; issues and comments queue readiness assessment) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/environments` | List / create environments |
