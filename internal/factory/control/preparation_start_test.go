@@ -191,6 +191,48 @@ func TestStartPreparationResumesSameWaitingOrApprovedIdentity(t *testing.T) {
 	}
 }
 
+func TestStartPreparationAdoptsOnlyMatchingConcurrentReadyObservation(t *testing.T) {
+	for _, same := range []bool{true, false} {
+		name := "changed_ready"
+		if same {
+			name = "identical_ready"
+		}
+		t.Run(name, func(t *testing.T) {
+			c, in, host := standingFixture(t)
+			prepares := 0
+			host.inspect = func(context.Context, project.PrepareInspect) (project.PrepareState, error) {
+				return project.PrepareState{}, project.ErrPreparationNotFound
+			}
+			observed := standingState(in, project.PrepareReady)
+			if !same {
+				observed.Output = "newer native inspection"
+			}
+			host.prepare = func(ctx context.Context, _ project.Prepare) (project.PrepareState, error) {
+				prepares++
+				current, err := c.Store.Preparation(ctx, in.Preparation.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// The serving observer commits before the original native
+				// Prepare reply reaches its captured-revision adoption.
+				if _, err := c.adoptStandingPreparation(ctx, current, observed); err != nil {
+					t.Fatal(err)
+				}
+				return standingState(in, project.PrepareReady), nil
+			}
+			returned, err := c.StartPreparation(t.Context(), in, standingAllow)
+			if (err == nil) != same {
+				t.Fatalf("matching=%v returned error: %v", same, err)
+			}
+			stored, readErr := c.Store.Preparation(t.Context(), in.Preparation.ID)
+			if readErr != nil || !reflect.DeepEqual(stored.State, observed) || stored.Preparation.Revision != 1 ||
+				!reflect.DeepEqual(returned, stored) || prepares != 1 {
+				t.Fatalf("concurrent observation changed: stored=%+v returned=%+v prepares=%d error=%v", stored, returned, prepares, readErr)
+			}
+		})
+	}
+}
+
 func TestStartPreparationLateReadyCannotOverwriteTerminalObservation(t *testing.T) {
 	for _, phase := range []string{project.PrepareFailed, project.PrepareStopped, project.PrepareInterrupted} {
 		t.Run(phase, func(t *testing.T) {

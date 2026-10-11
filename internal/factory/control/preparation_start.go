@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -103,6 +104,12 @@ func (c *Coordinator) adoptStandingPreparation(ctx context.Context, stored proje
 		if readErr != nil {
 			return project.StoredPreparation{}, errors.Join(err, readErr)
 		}
+		// The serving observer may have confirmed this exact reply first.
+		// Adopt that durable result without replacing any newer observation.
+		if current.Preparation.Revision > stored.Preparation.Revision && !preparationNeedsIntervention(current.State) &&
+			sameStandingPreparationObservation(current, observed) {
+			return current, nil
+		}
 		return current, err
 	}
 	current, err := c.Store.Preparation(ctx, stored.Preparation.ID)
@@ -113,6 +120,16 @@ func (c *Coordinator) adoptStandingPreparation(ctx context.Context, stored proje
 		return current, ErrPreparationIntervention
 	}
 	return current, nil
+}
+
+func sameStandingPreparationObservation(left, right project.StoredPreparation) bool {
+	if !left.Preparation.Requirements.Equal(right.Preparation.Requirements) {
+		return false
+	}
+	left.Preparation.Revision, right.Preparation.Revision = 0, 0
+	// Preserve the requirement reference's nil/empty selection semantics.
+	left.Preparation.Requirements.SourceInputs, right.Preparation.Requirements.SourceInputs = nil, nil
+	return reflect.DeepEqual(left, right)
 }
 
 func preparationNeedsIntervention(state project.PrepareState) bool {
