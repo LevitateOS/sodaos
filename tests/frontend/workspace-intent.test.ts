@@ -5,7 +5,7 @@ import {setupWorkspaceDriver, fixture, reviewFirstIntent} from './fixtures/works
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
-type ExplorationMode = 'supported' | 'unsupported' | 'challenges' | 'votes';
+type ExplorationMode = 'supported' | 'unsupported' | 'challenges' | 'votes' | 'settled';
 interface IntentStore {
   arm(id: string): void;
   release(id: string): void;
@@ -37,7 +37,7 @@ async function installIntentStore(page: Page) {
     ];
     const buildExploration = (
       mode: ExplorationMode,
-      json: {id: string; intent: string; objective: string; ideas: {id: string}[]}
+      json: {id: string; intent: string; objective: string; ideas: {id: string; decision?: string}[]}
     ) => {
       const shared = {
         key: 'shared_review',
@@ -107,6 +107,7 @@ async function installIntentStore(page: Page) {
           mode === 'challenges'
             ? json.ideas.slice(0, 2).map((idea, index) => ({idea: idea.id, ...challengeTexts[index]}))
             : [],
+        settled: [] as string[],
         ...(mode === 'unsupported'
           ? {recommendation: null, consistency: null}
           : {
@@ -215,8 +216,19 @@ async function installIntentStore(page: Page) {
             id: string;
             intent: string;
             objective: string;
-            ideas: {id: string}[];
+            ideas: {id: string; decision?: string}[];
           };
+          if (store.exploration === 'settled') {
+            const settled: string[] = [];
+            const ideas = json.ideas.map((idea) => {
+              if (idea.decision !== 'pending') return idea;
+              settled.push(idea.id);
+              return {...idea, decision: 'accept', source: 'autonomous', provenance: 'autonomous'};
+            });
+            const exploration = buildExploration('supported', {...json, ideas});
+            exploration.settled = settled;
+            return Response.json({...json, ideas, exploration});
+          }
           if (store.exploration === 'votes') {
             const extra = {
               id: 'daaaaaaaaaaaaaaaaaaaaaaaa',
@@ -814,10 +826,19 @@ test('assumption challenges batch recommendations with retained answers', async 
     .waitFor();
   assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), true);
   const first = questions.locator('article').first();
-  await first.getByLabel('Explain a correction').fill('Only the manager sees dates');
-  assert.equal(await first.getByLabel('Explain a correction').inputValue(), 'Only the manager sees dates');
+  await first
+    .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+    .fill('Only the manager sees dates');
+  assert.equal(
+    await first
+      .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+      .inputValue(),
+    'Only the manager sees dates'
+  );
   const second = questions.locator('article').nth(1);
-  await second.getByRole('button', {name: 'Use recommended resolution', exact: true}).click();
+  await second
+    .getByRole('button', {name: 'Use recommended resolution for Undecided requests wait silently.', exact: true})
+    .click();
   await second.getByText('Answered: using the recommended resolution.', {exact: true}).waitFor();
   await page
     .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
@@ -948,8 +969,16 @@ test('idea cards keep votes only where a decision is required', async (t) => {
   assert.equal(await cards.nth(1).getByRole('combobox').count(), 0);
   assert.equal(await cards.nth(2).getByRole('combobox').count(), 1);
   await cards.nth(2).getByText('You requested', {exact: true}).waitFor();
-  await questions.locator('article').nth(0).getByLabel('Explain a correction').fill('Only the manager sees dates');
-  await questions.locator('article').nth(1).getByLabel('Explain a correction').fill('Send the summary to the person');
+  await questions
+    .locator('article')
+    .nth(0)
+    .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+    .fill('Only the manager sees dates');
+  await questions
+    .locator('article')
+    .nth(1)
+    .getByLabel('Explain a correction to Undecided requests wait silently.', {exact: true})
+    .fill('Send the summary to the person');
   await page
     .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
     .waitFor();
@@ -1046,4 +1075,40 @@ test('accepted review shows authorization, generation progress and unsaved loss'
       {exact: true}
     )
     .waitFor();
+});
+
+test('settled autonomous baseline advances without per-card votes or questions', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'settled');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const cards = page.locator('section.intent-review > article');
+  assert.equal(await cards.count(), 1);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  await cards.nth(0).getByText('Decided automatically', {exact: true}).waitFor();
+  assert.equal(await page.locator('section[aria-label="Questions needing your answer"]').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  await setActor(page, '1');
+  const field = 'Correct the automatic choice: Build a leave tracker';
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('Track overtime too');
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('');
+  await updateProposal(page);
+  const restored = await lastPostedBody(page, 'draft');
+  const kept = ((restored.ideas || []) as {decision: string; provenance?: string; actor?: number}[])[0];
+  assert.equal(kept?.decision, 'accept');
+  assert.equal(kept?.provenance, 'autonomous');
+  assert.equal(kept?.actor, undefined);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('Track leave without external integrations');
+  await updateProposal(page);
+  const changed = await lastPostedBody(page, 'draft');
+  const edited = ((changed.ideas || []) as {decision: string; correction?: string; provenance?: string}[])[0];
+  assert.equal(edited?.decision, 'edit');
+  assert.equal(edited?.correction, 'Track leave without external integrations');
+  assert.equal(edited?.provenance, 'human');
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 1);
 });

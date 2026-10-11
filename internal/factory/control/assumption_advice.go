@@ -23,26 +23,35 @@ type assumptionEvidence struct {
 	Idea      factory.ProductIdea `json:"idea"`
 }
 
-// JudgeAssumptions batches challenges for pending assumption ideas in a draft
-// revision. Decided ideas keep their answers without another judgment, and
-// ordinary non-assumption choices never become challenges. Each unresolved
-// assumption consumes one finite reservation; an uncertain or default verdict
-// proceeds without interruption. Challenges hold only their own idea's
-// dependents; declining one guess changes no other decision. Permission and
-// spending stay code-enforced: this advice touches neither.
-func (c *Coordinator) JudgeAssumptions(ctx context.Context, r factory.IntentRevision, content factory.ProposalContent) ([]factory.AssumptionChallenge, error) {
+// JudgeAssumptions reviews supplied proposal ideas against a draft revision.
+// Decided ideas keep their answers without another judgment. Attributable
+// autonomous and evidenced supported choices settle without a human stamp and
+// without spending a call; unclassified legacy choices stay pending for the
+// person. Each pending assumption consumes one finite reservation: a confident
+// challenge verdict interrupts, while an uncertain or default verdict settles
+// a non-material assumption with autonomous basis. Material assumptions never
+// settle. Challenges hold only their own idea's dependents; declining one
+// guess changes no other decision. Permission and spending stay code-enforced:
+// this advice touches neither.
+func (c *Coordinator) JudgeAssumptions(ctx context.Context, r factory.IntentRevision, content factory.ProposalContent, ideas []factory.ProductIdea) (factory.AssumptionReview, error) {
 	if err := r.Validate(); err != nil {
-		return nil, err
+		return factory.AssumptionReview{}, err
 	}
 	if err := content.Validate(); err != nil {
-		return nil, err
+		return factory.AssumptionReview{}, err
 	}
 	if r.State != "draft" || content.Revision != r.ID || content.Intent != r.Intent {
-		return nil, errors.New("assumption review needs the matching draft revision")
+		return factory.AssumptionReview{}, errors.New("assumption review needs the matching draft revision")
 	}
-	var challenges []factory.AssumptionChallenge
-	for _, idea := range r.Ideas {
-		if !idea.Assumption || idea.Decision != "pending" {
+	var review factory.AssumptionReview
+	for _, idea := range ideas {
+		if idea.Decision != "pending" {
+			continue
+		}
+		if !idea.Assumption {
+			if settlement, ok := settleChoice(idea); ok {
+				review.Settled = append(review.Settled, settlement)
+			}
 			continue
 		}
 		state := assumptionEvidence{Objective: r.Objective, Facts: content.Facts, Unknowns: content.Unknowns, Idea: idea}
@@ -57,16 +66,35 @@ func (c *Coordinator) JudgeAssumptions(ctx context.Context, r factory.IntentRevi
 			},
 		})
 		if err != nil {
-			return nil, err
+			return factory.AssumptionReview{}, err
 		}
 		if answer.Selected != "challenge" || answer.Confidence < 0.5 {
+			if !idea.Material {
+				review.Settled = append(review.Settled, factory.AssumptionSettlement{Idea: idea.ID, Source: idea.Source, Provenance: "autonomous"})
+			}
 			continue
 		}
 		challenge := factory.AssumptionChallenge{Idea: idea.ID, Assumption: idea.Description, Consequence: idea.Consequence, Recommendation: factory.RecommendAssumptionResolution(idea)}
 		if err := challenge.Validate(); err != nil {
-			return nil, err
+			return factory.AssumptionReview{}, err
 		}
-		challenges = append(challenges, challenge)
+		review.Challenges = append(review.Challenges, challenge)
 	}
-	return challenges, nil
+	return review, review.Validate()
+}
+
+// settleChoice accepts attributable autonomous and evidenced supported
+// choices without a judgment call. Material, legacy-unclassified and
+// human-claimed choices stay pending for the person.
+func settleChoice(idea factory.ProductIdea) (factory.AssumptionSettlement, bool) {
+	if idea.Material || idea.Actor != 0 || idea.Provenance == "human" {
+		return factory.AssumptionSettlement{}, false
+	}
+	if idea.Source == "autonomous" && (idea.Provenance == "autonomous" || idea.Provenance == "") {
+		return factory.AssumptionSettlement{Idea: idea.ID, Source: "autonomous", Provenance: "autonomous"}, true
+	}
+	if idea.Source == "supported" && (idea.Provenance == "autonomous" || idea.Provenance == "") && idea.Evidence != "" {
+		return factory.AssumptionSettlement{Idea: idea.ID, Source: "supported", Provenance: "autonomous"}, true
+	}
+	return factory.AssumptionSettlement{}, false
 }

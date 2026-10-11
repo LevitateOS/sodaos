@@ -28,6 +28,7 @@ func intentID() (string, error) {
 type exploreData struct {
 	Content        factory.ProposalContent       `json:"content"`
 	Challenges     []factory.AssumptionChallenge `json:"challenges"`
+	Settled        []string                      `json:"settled"`
 	Recommendation *factory.ConsolidatedProposal `json:"recommendation,omitempty"`
 	Consistency    *factory.ConsistencyReport    `json:"consistency,omitempty"`
 }
@@ -37,11 +38,22 @@ type exploreResponse struct {
 	Exploration exploreData `json:"exploration"`
 }
 
-func attachExploration(proposal factory.IntentRevision, content factory.ProposalContent, challenges []factory.AssumptionChallenge, recommendation *factory.ConsolidatedProposal, consistency *factory.ConsistencyReport) exploreResponse {
+func attachExploration(proposal factory.IntentRevision, content factory.ProposalContent, challenges []factory.AssumptionChallenge, settled []string, recommendation *factory.ConsolidatedProposal, consistency *factory.ConsistencyReport) exploreResponse {
 	if challenges == nil {
 		challenges = []factory.AssumptionChallenge{}
 	}
-	return exploreResponse{IntentRevision: proposal, Exploration: exploreData{Content: content, Challenges: challenges, Recommendation: recommendation, Consistency: consistency}}
+	if settled == nil {
+		settled = []string{}
+	}
+	return exploreResponse{IntentRevision: proposal, Exploration: exploreData{Content: content, Challenges: challenges, Settled: settled, Recommendation: recommendation, Consistency: consistency}}
+}
+
+func settledIDs(review factory.AssumptionReview) []string {
+	ids := make([]string, 0, len(review.Settled))
+	for _, settlement := range review.Settled {
+		ids = append(ids, settlement.Idea)
+	}
+	return ids
 }
 
 const designRubric = "Using the full supplied objective and reviewed choices, choose a bounded implementation approach. Respect an explicitly selected approach; choose clarify if a declined or corrected assumption contradicts the objective or material outcomes remain unresolved. Do not impose declined assumptions or invent product capabilities. This advice grants no acceptance, repository authority or spending permission."
@@ -124,7 +136,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		proposal.Tasks = []factory.IntentTask{}
 		proposal.Ideas = append(proposal.Ideas, clarifyIdea(ids[103]))
 	}
-	challenges, err := coord.JudgeAssumptions(r.Context(), current, content)
+	review, err := coord.JudgeAssumptions(r.Context(), current, content, proposal.Ideas)
 	if err != nil {
 		if errors.Is(err, control.ErrPriorityUnavailable) {
 			auth.JSONError(w, 503, "planning_unavailable", "Assumption review failed; the consumed allowance is retained.")
@@ -133,6 +145,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		factoryCommandError(w, err)
 		return
 	}
+	proposal = factory.SettleAssumptions(proposal, review)
 	var recommendation *factory.ConsolidatedProposal
 	if content.Supported {
 		consolidated, err := coord.JudgeConsolidation(r.Context(), current, content)
@@ -167,7 +180,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 201, attachExploration(proposal, content, challenges, recommendation, consistency))
+	auth.JSONResponse(w, 201, attachExploration(proposal, content, review.Challenges, settledIDs(review), recommendation, consistency))
 }
 
 // clarifyIdea asks the one material product question blocking implementation.
