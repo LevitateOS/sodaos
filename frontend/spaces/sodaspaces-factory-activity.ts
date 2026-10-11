@@ -1,6 +1,6 @@
 import {LitElement, html} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
-import {object, readSodaJSON} from './sodaspaces-api.js';
+import {check, object, readSodaJSON} from './sodaspaces-api.js';
 
 const kinds = ['issue_created', 'pr_created', 'verified_merge'] as const;
 type Kind = (typeof kinds)[number];
@@ -9,6 +9,8 @@ type ActivityItem = {id: string; kind: Kind; summary: string; url: string; creat
 type Activity = {
   repository: string;
   revision: number;
+  observed_unix: number;
+  truncated: boolean;
   settings: Settings;
   items: ActivityItem[];
 };
@@ -27,29 +29,45 @@ export function nativePath(value: unknown): value is string {
   );
 }
 
-export function parseFactoryActivity(value: unknown, repository: string): Activity {
-  const data = object(value);
-  const settings = object(data.settings);
+function activityEnvelope(data: Record<string, unknown>, repository: string) {
+  check(data.repository === repository);
+  check(nativePath(data.repository_path));
+  check(typeof data.revision === 'number' && Number.isSafeInteger(data.revision) && data.revision >= 0);
+  check(timestamp(data.observed_unix));
+  check(data.truncated === undefined || typeof data.truncated === 'boolean');
+  check(Array.isArray(data.items) && data.items.length <= 60);
+  return {
+    revision: data.revision,
+    observed_unix: data.observed_unix,
+    truncated: data.truncated === true,
+    items: data.items,
+  };
+}
+function activitySettings(value: unknown): Settings {
+  const settings = object(value);
   if (
-    data.repository !== repository ||
-    !nativePath(data.repository_path) ||
-    typeof data.revision !== 'number' ||
-    !Number.isSafeInteger(data.revision) ||
-    data.revision < 0 ||
-    !Array.isArray(data.items) ||
-    data.items.length > 60 ||
-    kinds.some((kind) => typeof settings[kind] !== 'boolean')
+    typeof settings.issue_created !== 'boolean' ||
+    typeof settings.pr_created !== 'boolean' ||
+    typeof settings.verified_merge !== 'boolean'
   )
     throw Error('Invalid Factory activity response.');
-  const items = data.items.map((value) => parseItem(value, data.repository_path));
+  return {
+    issue_created: settings.issue_created,
+    pr_created: settings.pr_created,
+    verified_merge: settings.verified_merge,
+  };
+}
+export function parseFactoryActivity(value: unknown, repository: string): Activity {
+  const data = object(value);
+  const envelope = activityEnvelope(data, repository);
+  const settings = activitySettings(data.settings);
+  const items = envelope.items.map((value) => parseItem(value, data.repository_path));
   return {
     repository,
-    revision: data.revision,
-    settings: {
-      issue_created: settings.issue_created === true,
-      pr_created: settings.pr_created === true,
-      verified_merge: settings.verified_merge === true,
-    },
+    revision: envelope.revision,
+    observed_unix: envelope.observed_unix,
+    truncated: envelope.truncated,
+    settings,
     items,
   };
 }
@@ -181,9 +199,16 @@ export class SodaFactoryActivity extends LitElement {
   }
   private renderFeed(activity: Activity) {
     const visible = activity.items.filter((item) => activity.settings[item.kind]);
+    const observed = activityTimestamp(activity.observed_unix);
     return html`<p>
         Local activity shows recorded native work. Display settings do not change execution or send notifications.
       </p>
+      ${
+        observed
+          ? html`<p>Feed observed <time datetime=${observed.iso}>${observed.text}</time>.</p>`
+          : html`<p>Feed observation time unknown.</p>`
+      }
+      ${activity.truncated ? html`<p>Older entries exist beyond this page.</p>` : ''}
       <ul>
         ${visible.map(
           (item) => html`<li><a href=${item.url}>${item.summary}</a> ${renderItemTime(item.created_unix)}</li>`
