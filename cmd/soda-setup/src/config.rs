@@ -9,7 +9,6 @@ struct DashboardConfig<'a> {
     database_dsn_file: &'a str,
     host_socket: &'a str,
     identity_socket: &'a str,
-    grant_key_file: &'a str,
     operator_id: i64,
     forgejo_background_socket: &'static str,
     forgejo_background_host_uid: Option<i64>,
@@ -30,7 +29,6 @@ pub(crate) fn encode_dashboard_config(
     database_dsn_file: &str,
     host_socket: &str,
     identity_socket: &str,
-    grant_key_file: &str,
     operator_id: i64,
 ) -> Vec<u8> {
     let config = DashboardConfig {
@@ -40,7 +38,6 @@ pub(crate) fn encode_dashboard_config(
         database_dsn_file,
         host_socket,
         identity_socket,
-        grant_key_file,
         operator_id,
         forgejo_background_socket: "",
         forgejo_background_host_uid: None,

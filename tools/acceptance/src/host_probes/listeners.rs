@@ -223,23 +223,7 @@ pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
             &read_text("/etc/soda/dashboard.json", "read dashboard.json")?,
             "parse dashboard.json",
         )?;
-        // Retired bootstrap files are not dashboard credentials and need not exist.
-        let grant = get_str(&cfg, "grant_key_file", "parse dashboard.json")?;
-        let path = std::path::Path::new(grant);
-        let info = std::fs::symlink_metadata(path).map_err(|_| {
-            ProbeFailure::exit("configured dashboard credential permissions invalid")
-        })?;
         use std::os::unix::fs::MetadataExt;
-        if !grant.starts_with('/')
-            || !info.is_file()
-            || info.uid() != 0
-            || info.gid() != 2000
-            || info.mode() & 0o7777 != 0o640
-        {
-            return Err(ProbeFailure::exit(
-                "configured dashboard credential permissions invalid",
-            ));
-        }
         // These are the variables actually consumed by the packaged Caddy config,
         // not ports reconstructed from a client's unrelated browser tunnel.
         let env = parse_env_file(&read_text("/etc/soda/proxy.env", "read proxy.env")?)?;

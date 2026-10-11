@@ -8,23 +8,24 @@ use product APIs and controls rather than direct SQL.
 
 ## Open the production store
 
-The dashboard loads the DSN from its restricted `database_dsn_file` and the
-32-byte encryption key from `grant_key_file`, then uses:
+The dashboard loads the DSN from its restricted `database_dsn_file` and uses:
 
 ```go
-db, err := store.OpenEncrypted(dsn, key)
+db, err := store.OpenDashboard(dsn)
 ```
 
 Handle the error before using `db` and call `db.Close()` when its owner shuts
-down. Opening connects through the PostgreSQL driver, checks the encryption key
-against existing keyed state, initializes an empty database, or validates an
-existing current schema. It refuses an unversioned nonempty database, an
-incompatible schema or the wrong key; it does not silently migrate those states.
+down. Opening connects through the PostgreSQL driver, initializes an empty
+database, or validates an existing current schema. It refuses an unversioned
+nonempty database or an incompatible schema; it does not silently migrate those
+states. The identity broker exclusively owns the separately provisioned
+encryption key and encrypted credentials.
 
 The database role needs access to the selected database and permission to create
-the schema on first initialization. `Open(dsn)` is the unencrypted entrypoint;
-the serving dashboard uses `OpenEncrypted`. `SchemaVersion()` reports the source's
-current schema format without connecting.
+the schema on first initialization. `OpenEncrypted` is reserved for isolated Go
+encrypted credential fixtures; the production identity broker uses its separate
+Rust store. `SchemaVersion()` reports the source's current schema format without
+connecting.
 
 ## Consume typed records
 

@@ -4,7 +4,6 @@ package config
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +29,6 @@ type Config struct {
 	DatabaseDSNFile string `json:"database_dsn_file"`
 	HostSocket      string `json:"host_socket"`
 	IdentitySocket  string `json:"identity_socket"`
-	GrantKeyFile    string `json:"grant_key_file"`
 	OperatorID      int64  `json:"operator_id"`
 	// Optional native background admission inputs. When set, all three are
 	// required: the operator-configured shared service callback socket, the
@@ -116,7 +114,7 @@ func validateConfigPaths(c Config) error {
 	if c.IdentitySocket != "" && !filepath.IsAbs(c.IdentitySocket) {
 		return errors.New("identity_socket must be an absolute path")
 	}
-	for name, value := range map[string]string{"database_dsn_file": c.DatabaseDSNFile, "host_socket": c.HostSocket, "grant_key_file": c.GrantKeyFile} {
+	for name, value := range map[string]string{"database_dsn_file": c.DatabaseDSNFile, "host_socket": c.HostSocket} {
 		if !filepath.IsAbs(value) {
 			return fmt.Errorf("%s must be an absolute path", name)
 		}
@@ -190,24 +188,6 @@ func BaseURL(value string) error {
 		return errors.New("must be an HTTP(S) origin without credentials, path, query or fragment")
 	}
 	return nil
-}
-
-// GrantKey reads a separately provisioned 32-byte base64 key. Never generate a
-// replacement at startup: that would strand the persisted encrypted grants.
-func GrantKey(path string) ([]byte, error) {
-	st, err := os.Lstat(path)
-	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o027 != 0 {
-		return nil, errors.New("grant key must be a restricted regular file (0600 or 0640)")
-	}
-	value, err := Secret(path)
-	if err != nil {
-		return nil, err
-	}
-	key, err := base64.StdEncoding.Strict().DecodeString(value)
-	if err != nil || len(key) != 32 {
-		return nil, errors.New("grant key must encode exactly 32 bytes")
-	}
-	return key, nil
 }
 
 func Secret(path string) (string, error) {

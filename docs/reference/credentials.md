@@ -18,10 +18,11 @@ retire; whole-container capture is removed.
 ## New installations
 
 1. Operator creates a Forgejo site-admin access token with `read:user` and supplies it through a mode-0600 file.
-2. `soda-setup` calls the native API, records `operator_id`, retains broker
-   encryption material in restricted files, and revokes the bootstrap token
-   once its configuration is written. It does not keep a bootstrap-token
-   copy. A failed setup keeps the token so the operator can retry with it.
+2. `soda-setup` calls the native API and records `operator_id` in dashboard
+   configuration. It does not provision identity-broker configuration or its
+   encryption key. Once dashboard configuration is written, setup revokes the
+   bootstrap token. It does not keep a token copy; failed setup keeps the token
+   so the operator can retry.
 3. Setup refuses to overwrite existing configuration.
 4. `soda-activate` applies bind address and TLS, then starts the dashboard/proxy.
 

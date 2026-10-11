@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/config"
 	hostexec "github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/identity"
 	identityclient "github.com/levitateos/sodaos/internal/identity/client"
@@ -311,7 +310,7 @@ func (fx *st15Fixture) setupHostStack() error {
 
 // openFactoryStore opens the fixture dashboard store the live browser reads.
 func (fx *st15Fixture) openFactoryStore() error {
-	key, err := config.GrantKey(fx.cfg.GrantKeyFile)
+	key, err := st15BrokerKey(fx.cfg.GrantKeyFile)
 	if err != nil {
 		return err
 	}
@@ -322,4 +321,24 @@ func (fx *st15Fixture) openFactoryStore() error {
 	fx.db = db
 	fx.t.Cleanup(func() { _ = db.Close() })
 	return nil
+}
+
+func st15BrokerKey(path string) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o027 != 0 {
+		return nil, errors.New("ST15 broker key must be a restricted regular file")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errors.New("ST15 broker key is unreadable")
+	}
+	value := strings.TrimSpace(string(raw))
+	if value == "" || strings.ContainsAny(value, "\r\n\x00") {
+		return nil, errors.New("ST15 broker key encoding is invalid")
+	}
+	key, err := base64.StdEncoding.Strict().DecodeString(value)
+	if err != nil || len(key) != 32 {
+		return nil, errors.New("ST15 broker key must encode exactly 32 bytes")
+	}
+	return key, nil
 }

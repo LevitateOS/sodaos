@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::runtime::Builder;
-use tokio::time::{timeout_at, Instant};
-use tokio_postgres::{config::SslMode, Config, NoTls};
+use tokio::time::{Instant, timeout_at};
+use tokio_postgres::{Config, NoTls, config::SslMode};
 
 const ADMIN_OPERATION_BUDGET: Duration = Duration::from_secs(30);
 const ADMIN_CLEANUP_BUDGET: Duration = Duration::from_millis(250);
@@ -112,7 +112,11 @@ impl Ephemeral {
     }
 
     pub fn store(&self, key: &[u8]) -> Store {
-        Store::open_encrypted(&self.dsn, key).expect("open ephemeral store")
+        self.try_store(key).expect("open ephemeral store")
+    }
+
+    pub fn try_store(&self, key: &[u8]) -> Result<Store, soda_identity::wire::Error> {
+        Store::open_encrypted(&self.dsn, key)
     }
 
     pub fn exec(&self, sql: &str) -> bool {

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -80,9 +79,6 @@ pub(crate) fn fixture(dashboard: &str, forgejo_env: &str) -> Fixture {
     let root = temp.join("etc/soda");
     fs::create_dir_all(&root).expect("root");
     fs::write(root.join("dashboard.json"), dashboard).expect("dashboard");
-    fs::write(root.join("grant-key"), "synthetic, not a credential").expect("key");
-    fs::set_permissions(root.join("grant-key"), fs::Permissions::from_mode(0o600))
-        .expect("key mode");
     fs::write(root.join("forgejo.env"), forgejo_env).expect("env");
     fs::create_dir_all(temp.join("var/lib/soda/forgejo/gitea")).expect("ext parent");
     Fixture {
@@ -97,7 +93,7 @@ pub(crate) fn fixture(dashboard: &str, forgejo_env: &str) -> Fixture {
 
 pub(crate) fn dashboard(origin: &str, identity_socket: &str, operator_id: &str) -> String {
     format!(
-        "{{\"forgejo_url\":{origin:?},\"forgejo_internal_url\":\"http://127.0.0.1:3000\",\"listen\":\"127.0.0.1:8080\",\"grant_key_file\":\"/etc/soda/grant-key\",\"host_socket\":\"/run/soda/host.sock\",\"identity_socket\":{identity_socket:?},\"operator_id\":{operator_id}}}"
+        "{{\"forgejo_url\":{origin:?},\"forgejo_internal_url\":\"http://127.0.0.1:3000\",\"listen\":\"127.0.0.1:8080\",\"host_socket\":\"/run/soda/host.sock\",\"identity_socket\":{identity_socket:?},\"operator_id\":{operator_id}}}"
     )
 }
 

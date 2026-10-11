@@ -7,7 +7,7 @@ use crate::system::FORGEJO_RESPONSE_LIMIT;
 fn dashboard_config_bytes_match_go_encoder() {
     // Byte-exact reference captured from Go's json.Encoder over
     // config.Config for the same logical record (see PR07 notes).
-    let golden = "{\"listen\":\"127.0.0.1:8080\",\"forgejo_url\":\"https://forgejo.test\",\"forgejo_internal_url\":\"http://127.0.0.1:3000\",\"database_dsn_file\":\"/etc/soda/postgres/soda.dsn\",\"host_socket\":\"/run/soda/host.sock\",\"identity_socket\":\"\",\"grant_key_file\":\"/etc/soda/grant-key\",\"operator_id\":42,\"forgejo_background_socket\":\"\",\"forgejo_background_host_uid\":null,\"forgejo_background_credential_file\":\"\",\"forgejo_review_credential_file\":\"\",\"forgejo_merge_credential_file\":\"\",\"factory_intake_secret_file\":\"\",\"factory_publication_root\":\"\"}\n";
+    let golden = "{\"listen\":\"127.0.0.1:8080\",\"forgejo_url\":\"https://forgejo.test\",\"forgejo_internal_url\":\"http://127.0.0.1:3000\",\"database_dsn_file\":\"/etc/soda/postgres/soda.dsn\",\"host_socket\":\"/run/soda/host.sock\",\"identity_socket\":\"\",\"operator_id\":42,\"forgejo_background_socket\":\"\",\"forgejo_background_host_uid\":null,\"forgejo_background_credential_file\":\"\",\"forgejo_review_credential_file\":\"\",\"forgejo_merge_credential_file\":\"\",\"factory_intake_secret_file\":\"\",\"factory_publication_root\":\"\"}\n";
     let encoded = encode_dashboard_config(
         "127.0.0.1:8080",
         "https://forgejo.test",
@@ -15,7 +15,6 @@ fn dashboard_config_bytes_match_go_encoder() {
         "/etc/soda/postgres/soda.dsn",
         "/run/soda/host.sock",
         "",
-        "/etc/soda/grant-key",
         42,
     );
     assert_eq!(String::from_utf8(encoded).expect("utf8"), golden);
@@ -58,10 +57,12 @@ fn forgejo_user_decode_matches_client_rules() {
 
 #[test]
 fn config_strings_keep_go_html_and_line_separator_escapes() {
-    let encoded = encode_dashboard_config("<>&\u{2028}\u{2029}", "", "", "", "", "", "", 0);
-    assert!(String::from_utf8(encoded)
-        .unwrap()
-        .starts_with(r#"{"listen":"\u003c\u003e\u0026\u2028\u2029","forgejo_url":"""#));
+    let encoded = encode_dashboard_config("<>&\u{2028}\u{2029}", "", "", "", "", "", 0);
+    assert!(
+        String::from_utf8(encoded)
+            .unwrap()
+            .starts_with(r#"{"listen":"\u003c\u003e\u0026\u2028\u2029","forgejo_url":"""#)
+    );
 }
 
 #[test]

@@ -66,8 +66,8 @@ func sameJSONDocument(ctx context.Context, t *sql.Tx, stored, fresh []byte) (boo
 // file, never from configuration text.
 func Open(dsn string) (*Store, error) { return open(dsn, nil) }
 
-// OpenEncrypted is the production entrypoint. The operator-managed key protects
-// native identity credentials and must be validated before schema initialization.
+// OpenEncrypted is reserved for isolated Go credential fixtures; the production
+// identity broker owns its key through its separate Rust store.
 func OpenEncrypted(dsn string, key []byte) (*Store, error) {
 	cipher, err := newGrantCipher(key)
 	if err != nil {
@@ -76,13 +76,20 @@ func OpenEncrypted(dsn string, key []byte) (*Store, error) {
 	return open(dsn, cipher)
 }
 
-func configureStore(db *sql.DB, cipher *grantCipher) (*Store, error) {
+// OpenDashboard opens the dashboard's shared metadata store without granting
+// it authority over the identity broker's credential-encryption key.
+func OpenDashboard(dsn string) (*Store, error) { return openWithKeyCheck(dsn, nil, false) }
+
+func configureStore(db *sql.DB, cipher *grantCipher, checkKey bool) (*Store, error) {
 	// Concurrent dispatch passes admit through separate connections;
 	// the pool stays small because the appliance serves one backend.
 	db.SetMaxOpenConns(16)
 	db.SetMaxIdleConns(4)
 	s := &Store{db: db, grants: cipher}
-	err := s.checkGrantKey(context.Background())
+	var err error
+	if checkKey {
+		err = s.checkGrantKey(context.Background())
+	}
 	if err == nil {
 		err = initializeSchema(context.Background(), db)
 	}
@@ -97,6 +104,10 @@ func configureStore(db *sql.DB, cipher *grantCipher) (*Store, error) {
 }
 
 func open(dsn string, cipher *grantCipher) (*Store, error) {
+	return openWithKeyCheck(dsn, cipher, true)
+}
+
+func openWithKeyCheck(dsn string, cipher *grantCipher, checkKey bool) (*Store, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, errors.New("postgres connection string is required")
 	}
@@ -104,8 +115,9 @@ func open(dsn string, cipher *grantCipher) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return configureStore(db, cipher)
+	return configureStore(db, cipher, checkKey)
 }
+
 func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) UpsertUser(ctx context.Context, u User) error {

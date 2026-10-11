@@ -15,7 +15,6 @@ ReadOnly=true
 NoNewPrivileges=true
 SecurityLabelType=soda_dashboard_t
 Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,Z
-Volume=/etc/soda/grant-key:/etc/soda/grant-key:ro,Z
 Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z
 Volume=/run/soda/postgres:/run/soda/postgres:ro,z
 # systemd owns the host and identity listener files (RemoveOnStop); a shared

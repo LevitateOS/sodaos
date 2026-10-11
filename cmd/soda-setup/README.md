@@ -39,9 +39,9 @@ token stays in its restricted input file. The interactive
 ## Outputs and next steps
 
 Full setup records the Forgejo operator ID, writes the dashboard configuration,
-creates `grant-key` beside it, and creates or reuses the PostgreSQL credentials
-under `/etc/soda/postgres`. Existing configuration and encryption keys are not
-overwritten. The new configuration and key are private files.
+and creates or reuses PostgreSQL credentials under `/etc/soda/postgres`. The
+identity broker's encryption key and configuration are separately provisioned;
+setup never creates, changes or removes that key.
 
 After writing configuration, setup revokes the bootstrap token. If revocation
 cannot be confirmed, it reports that configuration was written and tells you to

@@ -7,7 +7,7 @@ use std::path::Path;
 use crate::cli::CliArgs;
 use crate::forgejo_env::rewrite_forgejo_env;
 use crate::origin::{activate_rejects_ip, check_browser_origin, origin_host_port};
-use crate::system::{runtime, usage, ActivateError, Paths, Sys};
+use crate::system::{ActivateError, Paths, Sys, runtime, usage};
 
 const MAX_DASHBOARD_BYTES: usize = 64 * 1024;
 
@@ -42,7 +42,9 @@ pub(crate) fn activate(
     }
     let root = &paths.root;
     if root.join("activated").exists() {
-        return Err(usage("already activated; use explicit native configuration maintenance instead of blind reactivation"));
+        return Err(usage(
+            "already activated; use explicit native configuration maintenance instead of blind reactivation",
+        ));
     }
     let dashboard_path = root.join("dashboard.json");
     let dashboard_file = fs::File::open(&dashboard_path)
@@ -97,10 +99,6 @@ pub(crate) fn activate(
             "bundled service recipes require the documented internal listeners",
         ));
     }
-    let grant_key = cfg
-        .get("grant_key_file")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
     let host_socket = cfg
         .get("host_socket")
         .and_then(serde_json::Value::as_str)
@@ -110,10 +108,7 @@ pub(crate) fn activate(
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.is_empty())
         .unwrap_or("/run/soda/identity/admin.sock");
-    if grant_key != "/etc/soda/grant-key"
-        || host_socket != "/run/soda/host.sock"
-        || identity_socket != "/run/soda/identity/admin.sock"
-    {
+    if host_socket != "/run/soda/host.sock" || identity_socket != "/run/soda/identity/admin.sock" {
         return Err(usage(
             "bundled isolated service mounts require the standard private file and socket paths",
         ));
@@ -127,7 +122,7 @@ pub(crate) fn activate(
         .map_err(|e| runtime(e.to_string()))?;
     sys.chown(root, 0, soda_gid)
         .map_err(|e| runtime(e.to_string()))?;
-    for name in ["dashboard.json", "grant-key"] {
+    for name in ["dashboard.json"] {
         let path = root.join(name);
         if path.parent() != Some(root.as_path()) || is_symlink(&path) {
             return Err(usage(
@@ -276,9 +271,15 @@ pub(crate) fn activate(
             pending[0]
         )));
     }
-    let _ = writeln!(stdout, "Activation requested. Services report active; perform the later login/SSH validation before trusting browser setup.");
+    let _ = writeln!(
+        stdout,
+        "Activation requested. Services report active; perform the later login/SSH validation before trusting browser setup."
+    );
     if args.local_tls {
-        let _ = writeln!(stdout, "Caddy manages local HTTPS certificates. Trust its public root certificate on each intended client before opening Soda; no domain or public certificate service is required.");
+        let _ = writeln!(
+            stdout,
+            "Caddy manages local HTTPS certificates. Trust its public root certificate on each intended client before opening Soda; no domain or public certificate service is required."
+        );
     }
     Ok(())
 }

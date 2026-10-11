@@ -18,7 +18,6 @@ The [public entry points](config.go) are:
 - `BaseURL`: admit an HTTP(S) origin without user credentials, application path,
   query or fragment.
 - `Secret`: read one nonempty restricted credential file, bounded to 64 KiB.
-- `GrantKey`: read a separately provisioned base64 key encoding exactly 32 bytes.
 - `Config.BackgroundServiceConfigured`: report whether any native background
   admission input is set; full validation still requires the complete set.
 
@@ -30,11 +29,10 @@ for the browser origin. Empty listener and identity-socket values receive the
 defaults in source. Credential and runtime paths are validated separately from
 the contents they reference.
 
-Keep database credentials, provider tokens and grant-key bytes in the configured
-restricted files. `Secret` trims outer whitespace and rejects embedded newline
-or NUL bytes. `GrantKey` requires a restricted regular file; never generate a
-replacement merely because startup cannot read it, since persisted grants use
-the existing key. Returned secrets must stay out of logs and browser responses.
+Keep database credentials and provider tokens in the configured restricted
+files. `Secret` trims outer whitespace and rejects embedded newline or NUL
+bytes. The identity broker owns its encryption key independently; the dashboard
+configuration reader does not load or manage that key.
 
 The [configuration reference](../../docs/reference/configuration.md) owns the
 operator fields and paths. Follow [operator setup](../../docs/guides/operator-setup.md)

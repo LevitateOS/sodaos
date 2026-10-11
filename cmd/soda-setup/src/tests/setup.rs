@@ -85,7 +85,7 @@ fn revoke_failure_after_publication_is_unconfirmed_without_retry() {
 }
 
 #[test]
-fn preserves_pre_existing_secrets_and_cleans_own_key() {
+fn preserves_pre_existing_secrets_and_does_not_create_broker_key() {
     let root = test_root();
     let dir = root.join("soda");
     fs::create_dir(&dir).expect("soda dir");
@@ -108,13 +108,40 @@ fn preserves_pre_existing_secrets_and_cleans_own_key() {
         fs::read_to_string(pg_dir.join("super.passwd")).expect("prior"),
         "operator-owned-secret\n"
     );
-    assert!(
-        !dir.join("grant-key").exists(),
-        "failed setup left its grant key"
-    );
+    assert!(!dir.join("grant-key").exists(), "setup created broker key");
     assert!(
         !dir.join("dashboard.json").exists(),
         "failed setup published config"
+    );
+}
+
+#[test]
+fn successful_setup_leaves_existing_broker_key_untouched() {
+    let root = test_root();
+    let dir = root.join("soda");
+    fs::create_dir(&dir).expect("soda dir");
+    let key_path = dir.join("grant-key");
+    fs::write(&key_path, "operator-provisioned broker key\n").expect("key");
+    let token_path = write_token(&root);
+    let stub = stub_server(true, false, "synthetic-bootstrap-token-not-for-retention");
+    let mut stdout = Vec::new();
+    setup(
+        "https://forgejo.test/",
+        &stub.url,
+        &token_path.to_string_lossy(),
+        &dir.join("dashboard.json"),
+        &root.join("postgres"),
+        &mut stdout,
+    )
+    .expect("setup succeeds");
+    assert_eq!(
+        fs::read(&key_path).expect("key remains"),
+        b"operator-provisioned broker key\n"
+    );
+    let config = fs::read_to_string(dir.join("dashboard.json")).expect("dashboard config");
+    assert!(
+        !config.contains("grant_key_file"),
+        "dashboard gained broker key authority"
     );
 }
 
@@ -174,7 +201,7 @@ fn credential_boundary_matrix() {
                 "{name}: token in error"
             );
         }
-        let success = name == "new" || name == "unrelated-file";
+        let success = name == "new" || name == "unrelated-file" || name == "existing-key";
         assert_eq!(err.is_ok(), success, "{name}: success={}", err.is_ok());
         let calls = stub.calls.lock().expect("calls").clone();
         let mut want_calls: Vec<String> = Vec::new();
@@ -210,8 +237,8 @@ fn credential_boundary_matrix() {
             }
             continue;
         }
-        // dashboard.json parses back with the operator identity and the
-        // trimmed browser origin, and the grant key decodes to 32 bytes.
+        // dashboard.json records the operator identity and trimmed browser
+        // origin without taking ownership of the broker key.
         let config = fs::read_to_string(&out).expect("config");
         assert!(config.contains("\"operator_id\":42"), "{config}");
         assert!(
@@ -224,15 +251,13 @@ fn credential_boundary_matrix() {
             0o600
         );
         let key_path = dir.join("grant-key");
-        assert_eq!(
-            fs::metadata(&key_path).expect("key").permissions().mode() & 0o777,
-            0o600
-        );
-        let key_text = fs::read_to_string(&key_path)
-            .expect("key")
-            .trim()
-            .to_string();
-        assert_eq!(key_text.len(), 44, "grant key length");
-        assert!(key_text.ends_with('='), "grant key padding");
+        if name == "existing-key" {
+            assert_eq!(
+                fs::read_to_string(&key_path).expect("key"),
+                "preserve original bytes\n"
+            );
+        } else {
+            assert!(!key_path.exists(), "setup created broker key");
+        }
     }
 }

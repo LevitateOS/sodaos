@@ -35,7 +35,6 @@ func intakeRouteServer(t *testing.T, secret string) (*Server, func()) {
 		DatabaseDSNFile:    filepath.Join(dir, "soda.dsn"),
 		HostSocket:         filepath.Join(dir, "host.sock"),
 		IdentitySocket:     filepath.Join(dir, "identity.sock"),
-		GrantKeyFile:       filepath.Join(dir, "grant-key"),
 		OperatorID:         1,
 	}
 	if secret != "" {

@@ -3,7 +3,7 @@ use super::fixtures::null_console;
 
 use crate::command::FnRunner;
 
-use crate::enroll::test_support::{drain_available, open_test_pty, temp_dir, ENV_LOCK};
+use crate::enroll::test_support::{ENV_LOCK, drain_available, open_test_pty, temp_dir};
 
 #[test]
 fn private_setup_addresses() {
@@ -137,7 +137,7 @@ fn setup_rollback_keeps_referenced_state() {
         std::fs::read(format!("{}/grant-key", root.path)).unwrap(),
         b"preexisting-key"
     );
-    // Orphan reservation cleaned.
+    // A broker key survives even if setup did not publish dashboard.json.
     let root = temp_dir();
     std::fs::write(format!("{}/grant-key", root.path), b"orphan-key").unwrap();
     let work = temp_dir();
@@ -155,15 +155,14 @@ fn setup_rollback_keeps_referenced_state() {
         err.to_string().contains("rerunning configure is safe"),
         "{err}"
     );
-    for name in ["grant-key", "setup-started"] {
-        assert!(
-            matches!(
-                std::fs::symlink_metadata(format!("{}/{}", root.path, name)),
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound
-            ),
-            "{name} survived rollback"
-        );
-    }
+    assert_eq!(
+        std::fs::read(format!("{}/grant-key", root.path)).unwrap(),
+        b"orphan-key"
+    );
+    assert!(matches!(
+        std::fs::symlink_metadata(format!("{}/setup-started", root.path)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound
+    ));
 }
 
 #[test]

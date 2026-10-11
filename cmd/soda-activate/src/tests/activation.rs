@@ -5,7 +5,7 @@ use super::fixtures::*;
 
 use crate::activation::activate;
 use crate::cli::CliArgs;
-use crate::system::{usage, ActivateError};
+use crate::system::{ActivateError, usage};
 
 #[test]
 fn first_activation_derives_provider_from_forgejo_origin() {
@@ -19,6 +19,9 @@ fn first_activation_derives_provider_from_forgejo_origin() {
             &dashboard(origin, "/run/soda/identity/admin.sock", "42"),
             "FORGEJO__ui__DEFAULT_THEME=soda-auto\nFORGEJO__server__SSH_DOMAIN=retained.example.test\n",
         );
+        let broker_key = fx.paths.root.join("grant-key");
+        fs::write(&broker_key, b"pre-provisioned broker key").expect("broker key");
+        fs::set_permissions(&broker_key, fs::Permissions::from_mode(0o600)).expect("key mode");
         let address = if origin == "https://[fd00::5]" {
             "fd00::5"
         } else {
@@ -61,14 +64,25 @@ fn first_activation_derives_provider_from_forgejo_origin() {
             vec![
                 (fx.paths.root.clone(), 0, 2000),
                 (fx.paths.root.join("dashboard.json"), 0, 2000),
-                (fx.paths.root.join("grant-key"), 0, 2000),
                 (ext.clone(), 1000, 1000),
                 (ext.join(".data"), 1000, 1000),
                 (ext.join(".data/soda"), 1000, 1000),
                 (ext.join(".data/soda/operator-id"), 1000, 1000),
             ]
         );
-        for name in ["dashboard.json", "grant-key"] {
+        assert_eq!(
+            fs::read(&broker_key).expect("broker key remains"),
+            b"pre-provisioned broker key"
+        );
+        assert_eq!(
+            fs::metadata(&broker_key)
+                .expect("broker key metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+        for name in ["dashboard.json"] {
             assert_eq!(
                 fs::metadata(fx.paths.root.join(name))
                     .expect("m")
@@ -241,7 +255,6 @@ fn dashboard_duplicate_fields_are_last_wins_and_unknown_fields_are_ignored() {
         "{\"forgejo_url\":\"https://192.168.2.100\",",
         "\"forgejo_internal_url\":\"http://127.0.0.1:3000\",",
         "\"listen\":\"127.0.0.1:8080\",",
-        "\"grant_key_file\":\"/etc/soda/grant-key\",",
         "\"host_socket\":\"/run/soda/host.sock\",",
         "\"identity_socket\":\"/run/soda/identity/admin.sock\",",
         "\"operator_id\":42,\"operator_id\":7,",

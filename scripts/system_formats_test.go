@@ -3,7 +3,8 @@
 // and Tier-1 CLI surfaces that Rust replacements must preserve. Fixtures
 // under fixtures/portcontracts are frozen shared contracts; port lanes may
 // change this harness to invoke a new binary but must keep the fixture bytes
-// identical.
+// identical. Explicit behavior changes update the owning contract and affected
+// vectors together; CR01 removes the dashboard's broker-key configuration.
 package scripts
 
 import (

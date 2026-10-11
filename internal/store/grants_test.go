@@ -55,3 +55,45 @@ func TestIdentityEncryptionKeyMustSurviveRestart(t *testing.T) {
 		t.Fatal("encrypted identity admitted without key validation marker", err)
 	}
 }
+
+func TestDashboardStoreDoesNotReadOrMutateBrokerKeyState(t *testing.T) {
+	key := bytes.Repeat([]byte{9}, 32)
+	broker, dsn := postgresFixture(t, key)
+	connection := identity.Connection{ProviderID: identity.Codex, ID: "dashboard-boundary", OwnerID: 1, Generation: 1, State: identity.Ready}
+	if err := broker.SeedIdentityConnection(t.Context(), connection, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
+		t.Fatal(err)
+	}
+	var before []byte
+	if err := broker.db.QueryRowContext(t.Context(), `SELECT ciphertext FROM grant_key_check WHERE id=1`).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if err := broker.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	dashboard, err := OpenDashboard(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dashboard.Close()
+	if dashboard.grants != nil {
+		t.Fatal("dashboard received broker encryption authority")
+	}
+	if err := dashboard.SeedIdentityConnection(t.Context(), connection, []byte(`{"tokens":{"refresh_token":"changed"}}`)); !errors.Is(err, ErrGrantKey) {
+		t.Fatalf("dashboard fixture helper accepted credential write: %v", err)
+	}
+	var after []byte
+	if err := dashboard.db.QueryRowContext(t.Context(), `SELECT ciphertext FROM grant_key_check WHERE id=1`).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("dashboard open changed broker key marker")
+	}
+	var stored []byte
+	if err := dashboard.db.QueryRowContext(t.Context(), `SELECT credential FROM identity_connections WHERE id=$1`, connection.ID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(stored, []byte("synthetic")) || bytes.Contains(stored, []byte("changed")) {
+		t.Fatal("dashboard exposed or replaced encrypted broker credential")
+	}
+}

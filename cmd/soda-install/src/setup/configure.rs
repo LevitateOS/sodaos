@@ -1,8 +1,8 @@
-use super::access::configured_access;
-use super::address::{private_setup_origin, setup_addresses, SetupAddress};
 use super::SBIN;
+use super::access::configured_access;
+use super::address::{SetupAddress, private_setup_origin, setup_addresses};
 
-use crate::command::{failure_summary, Runner};
+use crate::command::{Runner, failure_summary};
 use crate::console::Console;
 use crate::errors::{self, Error};
 use crate::signal::Ctx;
@@ -16,7 +16,7 @@ fn check_preexisting_install(root: &str) -> Result<bool, Error> {
     match std::fs::symlink_metadata(format!("{root}/activated")) {
         Ok(_) => return Ok(true),
         Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
-            return Err(Error::msg("cannot inspect existing activation"))
+            return Err(Error::msg("cannot inspect existing activation"));
         }
         Err(_) => {}
     }
@@ -26,13 +26,17 @@ fn check_preexisting_install(root: &str) -> Result<bool, Error> {
         std::fs::symlink_metadata(format!("{root}/dashboard.json")),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound
     ) {
-        return Err(Error::msg("operator configuration already exists; complete activation with the installed soda-activate command, or inspect the existing files before any manual maintenance; configure will not replay setup"));
+        return Err(Error::msg(
+            "operator configuration already exists; complete activation with the installed soda-activate command, or inspect the existing files before any manual maintenance; configure will not replay setup",
+        ));
     }
     if !matches!(
         std::fs::symlink_metadata(format!("{root}/setup-started")),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound
     ) {
-        return Err(Error::msg(format!("a previous setup attempt reserved {root}/setup-started but wrote no configuration; confirm no setup is running, remove only that reservation file, then rerun configure")));
+        return Err(Error::msg(format!(
+            "a previous setup attempt reserved {root}/setup-started but wrote no configuration; confirm no setup is running, remove only that reservation file, then rerun configure"
+        )));
     }
     Ok(false)
 }
@@ -192,21 +196,21 @@ pub(super) fn execute_setup_and_activation(
             ],
             None,
         ) {
-            // Roll back only this attempt's reservation: without dashboard.json
-            // nothing references the marker or the orphaned grant key, so a plain
-            // rerun is safe. A written dashboard.json is always preserved.
+            // Roll back only this attempt's reservation. Broker key files are
+            // independently provisioned and are never setup-owned state.
             let summary = failure_summary(&err);
             if matches!(
                 std::fs::symlink_metadata(format!("{root}/dashboard.json")),
                 Err(stat_err) if stat_err.kind() == std::io::ErrorKind::NotFound
             ) {
                 let _ = std::fs::remove_file(&started_path);
-                let _ = std::fs::remove_file(format!("{root}/grant-key"));
-                return Err(Error::msg(format!("operator setup failed; this attempt wrote no configuration and its reservation was removed, so rerunning configure is safe after addressing the cause. {summary}")));
+                return Err(Error::msg(format!(
+                    "operator setup failed; this attempt wrote no configuration and its reservation was removed, so rerunning configure is safe after addressing the cause. {summary}"
+                )));
             }
             return Err(Error::msg(format!(
-            "operator setup failed; inspect the existing configuration before retrying. {summary}"
-        )));
+                "operator setup failed; inspect the existing configuration before retrying. {summary}"
+            )));
         }
         if let Err(err) = run.run(
             ctx,

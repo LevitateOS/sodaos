@@ -11,7 +11,7 @@ reachability and certificate trust.
 ## Before activation
 
 - Use an installed appliance with its native `soda` service account and units.
-- Have `/etc/soda/dashboard.json` and `/etc/soda/grant-key` from setup,
+- Have `/etc/soda/dashboard.json` from setup,
   plus `/etc/soda/forgejo.env` supplied by the appliance image.
 - Select an explicit private appliance IP and the configured Forgejo HTTPS
   browser origin. The bundled internal listeners and private paths must match

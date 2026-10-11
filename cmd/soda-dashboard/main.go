@@ -111,15 +111,11 @@ func openDashboard(path string) (*web.Server, *store.Store, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	key, err := config.GrantKey(c.GrantKeyFile)
-	if err != nil {
-		return nil, nil, err
-	}
 	dsn, err := config.Secret(c.DatabaseDSNFile)
 	if err != nil {
 		return nil, nil, err
 	}
-	database, err := store.OpenEncrypted(dsn, key)
+	database, err := store.OpenDashboard(dsn)
 	if err != nil {
 		return nil, nil, err
 	}

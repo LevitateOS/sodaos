@@ -4,8 +4,8 @@ mod common;
 
 use base64::Engine;
 use common::{
-    binding, connection, controller, fixture_key, stub_provider, subscription, Ephemeral,
-    StubRuntime,
+    Ephemeral, StubRuntime, binding, connection, controller, fixture_key, stub_provider,
+    subscription,
 };
 use soda_identity::control::{self, Controller};
 use soda_identity::wire::*;
@@ -35,7 +35,10 @@ fn store_round_trip() {
     );
     assert_eq!(store.credential(&conn).unwrap(), subscription());
     assert_eq!(listed_connections(store.connections(1).unwrap()).len(), 1);
-    assert_eq!(listed_connections(store.available(1, "project").unwrap()).len(), 1);
+    assert_eq!(
+        listed_connections(store.available(1, "project").unwrap()).len(),
+        1
+    );
     // A foreign actor sees the connection only through a grant, without email.
     assert!(listed_connections(store.available(2, "project").unwrap()).is_empty());
     let grant = Grant {
@@ -57,6 +60,32 @@ fn store_round_trip() {
 }
 
 #[test]
+fn store_refuses_wrong_key_without_changing_encrypted_credentials() {
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let key = fixture_key();
+    let conn = connection("codex", 1, "wrong-key-check");
+    let store = fixture.store(&key);
+    store.save_connection(&conn, &subscription()).unwrap();
+    drop(store);
+
+    let wrong_key = [0xA5; 32];
+    let rejected = match fixture.try_store(&wrong_key) {
+        Ok(_) => panic!("broker admitted a different credential key"),
+        Err(error) => error.to_string(),
+    };
+    assert!(
+        rejected.contains("identity credential encryption key missing or incorrect"),
+        "wrong-key error was not bounded: {rejected}"
+    );
+
+    let reopened = fixture.store(&key);
+    assert_eq!(reopened.credential(&conn).unwrap(), subscription());
+}
+
+#[test]
 fn connection_listing_refuses_oversized_rows_and_aggregate_output() {
     let Some(fixture) = Ephemeral::create() else {
         eprintln!("SODA_PG_* fixture unavailable");
@@ -69,28 +98,39 @@ fn connection_listing_refuses_oversized_rows_and_aggregate_output() {
     second.label = "x".repeat(270_000);
     store.save_connection(&first, &subscription()).unwrap();
     store.save_connection(&second, &subscription()).unwrap();
-    assert!(store.connections(1).is_err(), "the list must refuse instead of returning a partial prefix");
+    assert!(
+        store.connections(1).is_err(),
+        "the list must refuse instead of returning a partial prefix"
+    );
 
     let mut oversized = connection("codex", 2, "oversized-row");
     oversized.label = "x".repeat(530_000);
     store.save_connection(&oversized, &subscription()).unwrap();
-    assert!(store.connections(2).is_err(), "a single oversized row must fail before JSON decode");
+    assert!(
+        store.connections(2).is_err(),
+        "a single oversized row must fail before JSON decode"
+    );
 
     let grant_conn = connection("codex", 3, "large-grant-list");
     store.save_connection(&grant_conn, &subscription()).unwrap();
     // Keep each indexed project id safely below PostgreSQL's index-entry
     // limit while making the complete compact JSON list exceed 512 KiB.
     for n in 0..600 {
-        store.save_grant(&Grant {
-            id: format!("large-grant-{n}"),
-            connection_id: grant_conn.id.clone(),
-            user_id: 4,
-            project_id: format!("{}-{n:04}", "p".repeat(900)),
-            revision: 1,
-            revoked: false,
-        }).unwrap();
+        store
+            .save_grant(&Grant {
+                id: format!("large-grant-{n}"),
+                connection_id: grant_conn.id.clone(),
+                user_id: 4,
+                project_id: format!("{}-{n:04}", "p".repeat(900)),
+                revision: 1,
+                revoked: false,
+            })
+            .unwrap();
     }
-    assert!(store.grants_for(&grant_conn.id).is_err(), "grant lists also refuse a partial prefix over the response budget");
+    assert!(
+        store.grants_for(&grant_conn.id).is_err(),
+        "grant lists also refuse a partial prefix over the response budget"
+    );
 }
 
 #[test]
@@ -107,21 +147,30 @@ fn reconcile_keyset_walk_finishes_while_each_page_is_deleted() {
     let broker = Controller::new(
         store,
         providers,
-        Box::new(StubRuntime { credential: subscription(), calls: Mutex::new(Vec::new()) }),
-    ).unwrap();
-    let deadline = UnixTime { sec: UnixTime::now().sec + 3600, nanos: 0 };
+        Box::new(StubRuntime {
+            credential: subscription(),
+            calls: Mutex::new(Vec::new()),
+        }),
+    )
+    .unwrap();
+    let deadline = UnixTime {
+        sec: UnixTime::now().sec + 3600,
+        nanos: 0,
+    };
     for n in 0..65 {
-        broker.acquire(&AcquireRequest {
-            repository_id: 0,
-            provider_id: "muse".to_string(),
-            execution_id: format!("execution-page-{n}"),
-            actor_id: 1,
-            connection_id: conn.id.clone(),
-            project_id: "project".to_string(),
-            kind: "factory".to_string(),
-            deadline,
-            role: String::new(),
-        }).unwrap();
+        broker
+            .acquire(&AcquireRequest {
+                repository_id: 0,
+                provider_id: "muse".to_string(),
+                execution_id: format!("execution-page-{n}"),
+                actor_id: 1,
+                connection_id: conn.id.clone(),
+                project_id: "project".to_string(),
+                kind: "factory".to_string(),
+                deadline,
+                role: String::new(),
+            })
+            .unwrap();
     }
     assert_eq!(listed_leases(broker.leases(1, &conn.id).unwrap()).len(), 65);
     broker.reconcile().unwrap();
@@ -175,7 +224,10 @@ fn muse_lease_returns_by_forget() {
         .unwrap();
     // Borrow, not rotation: the connection generation is untouched, the
     // lease is forgotten, the execution is terminal.
-    assert_eq!(listed_connections(broker.connections(1).unwrap())[0].generation, 1);
+    assert_eq!(
+        listed_connections(broker.connections(1).unwrap())[0].generation,
+        1
+    );
     assert!(listed_leases(broker.leases(1, &conn.id).unwrap()).is_empty());
     let execution = broker.get_execution("factory", "execution-muse").unwrap();
     assert_eq!(execution.state, "terminal");
@@ -356,7 +408,10 @@ fn end_lease_fences_same_id_reacquire() {
     let lease = broker.acquire(&acquire).unwrap();
     broker.register(&lease.id, &binding("factory", 1)).unwrap();
     broker.end_lease(1, &lease.id).unwrap();
-    assert_eq!(listed_connections(broker.connections(1).unwrap())[0].generation, 2);
+    assert_eq!(
+        listed_connections(broker.connections(1).unwrap())[0].generation,
+        2
+    );
     let execution = broker.get_execution("factory", "execution-end").unwrap();
     assert_eq!(execution.state, "terminal");
     assert!(broker.acquire(&acquire).is_err());
@@ -484,7 +539,10 @@ fn revoke_retires_live_leases() {
         })
         .unwrap();
     broker.revoke(1, &conn.id).unwrap();
-    assert_eq!(listed_connections(broker.connections(1).unwrap())[0].state, "revoked");
+    assert_eq!(
+        listed_connections(broker.connections(1).unwrap())[0].state,
+        "revoked"
+    );
     assert!(listed_leases(broker.leases(1, &conn.id).unwrap()).is_empty());
 }
 
@@ -520,29 +578,40 @@ fn grant_revoke_preserves_ungranted_and_other_grant_leases() {
     store.save_grant(&target_grant).unwrap();
     store.save_grant(&other_grant).unwrap();
     let broker = controller(store);
-    let deadline = UnixTime { sec: UnixTime::now().sec + 3600, nanos: 0 };
+    let deadline = UnixTime {
+        sec: UnixTime::now().sec + 3600,
+        nanos: 0,
+    };
     for (execution, actor, conn, project) in [
         ("target-execution", 2, &target_conn, "target-project"),
         ("other-execution", 2, &other_conn, "other-project"),
         ("ungranted-execution", 1, &ungranted_conn, "owner-project"),
     ] {
-        broker.acquire(&AcquireRequest {
-            repository_id: 0,
-            provider_id: "codex".to_string(),
-            execution_id: execution.to_string(),
-            actor_id: actor,
-            connection_id: conn.id.clone(),
-            project_id: project.to_string(),
-            kind: "factory".to_string(),
-            deadline,
-            role: String::new(),
-        }).unwrap();
+        broker
+            .acquire(&AcquireRequest {
+                repository_id: 0,
+                provider_id: "codex".to_string(),
+                execution_id: execution.to_string(),
+                actor_id: actor,
+                connection_id: conn.id.clone(),
+                project_id: project.to_string(),
+                kind: "factory".to_string(),
+                deadline,
+                role: String::new(),
+            })
+            .unwrap();
     }
 
     broker.revoke_grant(1, &target_grant.id).unwrap();
     assert!(listed_leases(broker.leases(1, &target_conn.id).unwrap()).is_empty());
-    assert_eq!(listed_leases(broker.leases(1, &other_conn.id).unwrap()).len(), 1);
-    assert_eq!(listed_leases(broker.leases(1, &ungranted_conn.id).unwrap()).len(), 1);
+    assert_eq!(
+        listed_leases(broker.leases(1, &other_conn.id).unwrap()).len(),
+        1
+    );
+    assert_eq!(
+        listed_leases(broker.leases(1, &ungranted_conn.id).unwrap()).len(),
+        1
+    );
 }
 
 #[test]
@@ -566,42 +635,59 @@ fn malformed_scoped_lease_selector_refuses_before_retirement() {
     };
     store.save_grant(&grant).unwrap();
     let broker = controller(store);
-    let deadline = UnixTime { sec: UnixTime::now().sec + 3600, nanos: 0 };
-    let lease = broker.acquire(&AcquireRequest {
-        repository_id: 0,
-        provider_id: "codex".to_string(),
-        execution_id: "malformed-selector-execution".to_string(),
-        actor_id: 2,
-        connection_id: conn.id.clone(),
-        project_id: "project".to_string(),
-        kind: "factory".to_string(),
-        deadline,
-        role: String::new(),
-    }).unwrap();
-    let conn_lease = broker.acquire(&AcquireRequest {
-        repository_id: 0,
-        provider_id: "codex".to_string(),
-        execution_id: "malformed-connection-execution".to_string(),
-        actor_id: 1,
-        connection_id: connection.id.clone(),
-        project_id: "project".to_string(),
-        kind: "factory".to_string(),
-        deadline,
-        role: String::new(),
-    }).unwrap();
+    let deadline = UnixTime {
+        sec: UnixTime::now().sec + 3600,
+        nanos: 0,
+    };
+    let lease = broker
+        .acquire(&AcquireRequest {
+            repository_id: 0,
+            provider_id: "codex".to_string(),
+            execution_id: "malformed-selector-execution".to_string(),
+            actor_id: 2,
+            connection_id: conn.id.clone(),
+            project_id: "project".to_string(),
+            kind: "factory".to_string(),
+            deadline,
+            role: String::new(),
+        })
+        .unwrap();
+    let conn_lease = broker
+        .acquire(&AcquireRequest {
+            repository_id: 0,
+            provider_id: "codex".to_string(),
+            execution_id: "malformed-connection-execution".to_string(),
+            actor_id: 1,
+            connection_id: connection.id.clone(),
+            project_id: "project".to_string(),
+            kind: "factory".to_string(),
+            deadline,
+            role: String::new(),
+        })
+        .unwrap();
     assert!(fixture.exec("UPDATE identity_leases SET data=jsonb_set(data,'{grant_id}','7'::jsonb) WHERE data->>'execution_id'='malformed-selector-execution'"));
 
     assert!(broker.revoke_grant(1, &grant.id).is_err());
-    let execution = broker.get_execution("factory", "malformed-selector-execution").unwrap();
-    assert_eq!(execution.state, "live", "invalid grant selectors must fail before any lease retirement");
+    let execution = broker
+        .get_execution("factory", "malformed-selector-execution")
+        .unwrap();
+    assert_eq!(
+        execution.state, "live",
+        "invalid grant selectors must fail before any lease retirement"
+    );
     assert_eq!(execution.lease_id, lease.id);
 
     // The independent owner lease still exists; its JSON selector is now
     // inconsistent with the relational connection scope.
     assert!(fixture.exec("UPDATE identity_leases SET data=jsonb_set(data,'{connection_id}','7'::jsonb) WHERE data->>'execution_id'='malformed-connection-execution'"));
     assert!(broker.revoke(1, &connection.id).is_err());
-    let execution = broker.get_execution("factory", "malformed-connection-execution").unwrap();
-    assert_eq!(execution.state, "live", "invalid connection selectors must fail before any lease retirement");
+    let execution = broker
+        .get_execution("factory", "malformed-connection-execution")
+        .unwrap();
+    assert_eq!(
+        execution.state, "live",
+        "invalid connection selectors must fail before any lease retirement"
+    );
     assert_eq!(execution.lease_id, conn_lease.id);
 }
 
@@ -614,34 +700,65 @@ fn connection_lists_refuse_relational_json_owner_and_state_mismatch() {
     let store = fixture.store(&fixture_key());
     let conn = connection("codex", 1, "malformed-connection-owner");
     store.save_connection(&conn, &subscription()).unwrap();
-    store.save_grant(&Grant {
-        id: "malformed-connection-grant".to_string(),
-        connection_id: conn.id.clone(),
-        user_id: 2,
-        project_id: "shared".to_string(),
-        revision: 1,
-        revoked: false,
-    }).unwrap();
+    store
+        .save_grant(&Grant {
+            id: "malformed-connection-grant".to_string(),
+            connection_id: conn.id.clone(),
+            user_id: 2,
+            project_id: "shared".to_string(),
+            revision: 1,
+            revoked: false,
+        })
+        .unwrap();
 
     assert!(fixture.exec("UPDATE identity_connections SET data=jsonb_set(data,'{owner_id}','\"2\"'::jsonb) WHERE id='malformed-connection-owner'"));
-    assert!(store.connections(1).is_err(), "owner listing must reject inconsistent owner metadata");
-    assert!(store.available(2, "shared").is_err(), "a granted actor must not receive email from mismatched JSON owner metadata");
+    assert!(
+        store.connections(1).is_err(),
+        "owner listing must reject inconsistent owner metadata"
+    );
+    assert!(
+        store.available(2, "shared").is_err(),
+        "a granted actor must not receive email from mismatched JSON owner metadata"
+    );
 
     assert!(fixture.exec("UPDATE identity_connections SET data=jsonb_set(jsonb_set(data,'{owner_id}','\"1\"'::jsonb),'{state}','\"revoked\"'::jsonb) WHERE id='malformed-connection-owner'"));
-    assert!(store.available(2, "shared").is_err(), "available listing must reject inconsistent state metadata");
+    assert!(
+        store.available(2, "shared").is_err(),
+        "available listing must reject inconsistent state metadata"
+    );
 
     assert!(fixture.exec("UPDATE identity_connections SET state=repeat('x',530000) WHERE id='malformed-connection-owner'"));
-    assert!(store.connections(1).is_err(), "owner listing must refuse an inconsistent raw state instead of returning a partial list");
-    assert!(listed_connections(store.available(2, "shared").unwrap()).is_empty(), "available listing must retain the ready-state filter");
+    assert!(
+        store.connections(1).is_err(),
+        "owner listing must refuse an inconsistent raw state instead of returning a partial list"
+    );
+    assert!(
+        listed_connections(store.available(2, "shared").unwrap()).is_empty(),
+        "available listing must retain the ready-state filter"
+    );
 
     assert!(fixture.exec("UPDATE identity_connections SET state='7',data=jsonb_set(data,'{state}','7'::jsonb) WHERE id='malformed-connection-owner'"));
-    assert!(store.connections(1).is_err(), "owner listing must reject malformed JSON state metadata");
-    assert!(listed_connections(store.available(2, "shared").unwrap()).is_empty(), "available listing must retain the ready-state filter for malformed JSON state metadata");
+    assert!(
+        store.connections(1).is_err(),
+        "owner listing must reject malformed JSON state metadata"
+    );
+    assert!(
+        listed_connections(store.available(2, "shared").unwrap()).is_empty(),
+        "available listing must retain the ready-state filter for malformed JSON state metadata"
+    );
 
-    assert!(fixture.exec("UPDATE identity_connections SET state='ready' WHERE id='malformed-connection-owner'"));
-    assert!(store.available(2, "shared").is_err(), "available listing must reject JSON state that disagrees with ready relational state");
+    assert!(fixture.exec(
+        "UPDATE identity_connections SET state='ready' WHERE id='malformed-connection-owner'"
+    ));
+    assert!(
+        store.available(2, "shared").is_err(),
+        "available listing must reject JSON state that disagrees with ready relational state"
+    );
 
     assert!(fixture.exec("UPDATE identity_connections SET data=jsonb_set(data,'{state}','\"ready\"'::jsonb) WHERE id='malformed-connection-owner'"));
     assert_eq!(listed_connections(store.connections(1).unwrap()).len(), 1);
-    assert_eq!(listed_connections(store.available(2, "shared").unwrap()).len(), 1);
+    assert_eq!(
+        listed_connections(store.available(2, "shared").unwrap()).len(),
+        1
+    );
 }
