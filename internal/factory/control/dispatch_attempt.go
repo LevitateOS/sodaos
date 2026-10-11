@@ -108,6 +108,14 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 		return
 	}
+	if deps.collectPlan != nil {
+		deps.collectPlan(plan)
+		return
+	}
+	if deps.checkPlan != nil && !deps.checkPlan(plan) {
+		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsStale, Detail: "priority input snapshot changed"})
+		return
+	}
 	executeFreshAttempt(ctx, deps, occupancy, plan, repository, issue, report, retry)
 }
 

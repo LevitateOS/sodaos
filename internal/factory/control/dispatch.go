@@ -187,6 +187,9 @@ type DispatchDeps struct {
 	PrepareSource func(context.Context, *attemptPlan) (bool, error)
 	RetireRetry   func(context.Context, *attemptPlan) error
 	Queue         *DispatchQueueCursor
+	Priority      *PriorityJudgments
+	collectPlan   func(*attemptPlan)
+	checkPlan     func(*attemptPlan) bool
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -220,6 +223,9 @@ func DispatchPass(ctx context.Context, deps DispatchDeps) DispatchReport {
 	report := RecoverDispatch(ctx, deps)
 	if !dispatchReady(deps) {
 		return report
+	}
+	if deps.Priority != nil {
+		return dispatchPriorityPass(ctx, deps, report)
 	}
 	firstSeen, repo, issue, hasCursor := deps.Queue.start()
 	queued, err := deps.Store.DispatchControlsAfter(ctx, MaxDispatchVisits, firstSeen, repo, issue, hasCursor)
@@ -263,7 +269,8 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 		Store: c.Store, Host: c.Host, Broker: c.Broker,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
 		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, PrepareSource: c.prepareSourceCoder, RetireRetry: c.retireRetryCoder,
-		Queue: &c.queue,
+		Queue:    &c.queue,
+		Priority: c.Priority,
 	}
 }
 
