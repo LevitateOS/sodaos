@@ -211,6 +211,16 @@ func (s *Store) DeleteForeignCapabilities(ctx context.Context, installation stri
 	return nil
 }
 
+// ClearLifecycleCapabilities removes every marker. The registrar calls
+// this when the current handshake fails or answers unattributably, so
+// no stale proof stays usable for new enables or new effects.
+func (s *Store) ClearLifecycleCapabilities(ctx context.Context) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM factory_lifecycle_capabilities`); err != nil {
+		return fmt.Errorf("lifecycle capability clear failed: %w", err)
+	}
+	return nil
+}
+
 // CapabilityProved reports whether event has a recorded capability proof.
 func (s *Store) CapabilityProved(ctx context.Context, event string) (bool, error) {
 	var revision string
