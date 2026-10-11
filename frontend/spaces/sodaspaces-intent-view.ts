@@ -1,5 +1,12 @@
 import {html} from 'lit';
-import type {Department, Exploration, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
+import type {
+  Department,
+  Exploration,
+  IntentGenerationStatus,
+  IntentRevision,
+  ProductIdea,
+  SavedRequest,
+} from './sodaspaces-intent-response.js';
 import {explorationReview} from './sodaspaces-intent-walkthrough.js';
 
 export interface IntentView {
@@ -9,6 +16,10 @@ export interface IntentView {
   explorationStale: boolean;
   changeOpen: boolean;
   changeText: string;
+  generation: IntentGenerationStatus | undefined;
+  generationError: string;
+  unsavedCount: number;
+  unsavedParts: string;
   savedRequests: SavedRequest[];
   savedLoaded: boolean;
   savedError: string;
@@ -33,6 +44,7 @@ export interface IntentView {
   decide(id: string, decision: ProductIdea['decision'], correction?: string): void;
   toggleChange(open: boolean): void;
   correctProposal(text: string): void;
+  refreshGeneration(): void;
   chooseApproach(approach: 'complete_first' | 'incremental'): void;
   describe(): void;
   saveDraft(): void;
@@ -169,29 +181,54 @@ export function describeIntent(view: IntentView) {
     ${savedRequests(view)}
   </section>`;
 }
-function productIdea(view: IntentView, idea: ProductIdea) {
+function ideaBasis(idea: ProductIdea): string {
+  if (idea.source === 'autonomous' || idea.provenance === 'autonomous') return 'Suggested';
+  if (idea.source === 'requested') return 'You requested';
+  if (idea.source === 'assumption' || idea.assumption) return 'Assumption';
+  if (idea.source === 'supported') return 'Supported by evidence';
+  return '';
+}
+function ideaChoice(view: IntentView, idea: ProductIdea) {
+  return html`<label
+    >Your choice<select
+      aria-label=${'Choice: ' + idea.description}
+      .value=${idea.decision}
+      ?disabled=${view.busy || view.blocked}
+      @change=${(event: Event) => {
+        const value = input(event);
+        if (value === 'pending' || value === 'accept' || value === 'decline' || value === 'edit')
+          view.decide(idea.id, value);
+      }}
+    >
+      <option value="pending">Choose…</option>
+      <option value="accept">Accept</option>
+      <option value="decline">Decline</option>
+      <option value="edit">Change</option>
+    </select></label
+  >`;
+}
+function ideaCorrectionField(view: IntentView, idea: ProductIdea) {
+  if (idea.decision !== 'edit') return '';
+  return html`<label
+    >What should change?<textarea
+      rows="3"
+      maxlength="4000"
+      .value=${idea.correction || ''}
+      @input=${(event: Event) => view.decide(idea.id, 'edit', input(event))}
+      ?disabled=${view.busy || view.blocked}
+    ></textarea>
+  </label>`;
+}
+function productIdea(view: IntentView, idea: ProductIdea, challenged: Set<string>, referenced: Set<string>) {
+  const vote = !challenged.has(idea.id) && referenced.has(idea.id);
+  const basis = ideaBasis(idea);
   return html`<article>
     <h3>${idea.assumption ? 'Assumption' : 'Idea'}</h3>
     <p>${idea.description}</p>
     <p class="consequence">${idea.consequence}</p>
-    <label
-      >Your choice<select
-        aria-label=${'Choice: ' + idea.description}
-        .value=${idea.decision}
-        ?disabled=${view.busy || view.blocked}
-        @change=${(event: Event) => {
-          const value = input(event);
-          if (value === 'pending' || value === 'accept' || value === 'decline' || value === 'edit')
-            view.decide(idea.id, value);
-        }}
-      >
-        <option value="pending">Choose…</option>
-        <option value="accept">Accept</option>
-        <option value="decline">Decline</option>
-        <option value="edit">Change</option>
-      </select></label
-    >
-    ${idea.decision === 'edit' ? html`<label>What should change?<textarea rows="3" maxlength="4000" .value=${idea.correction || ''} @input=${(event: Event) => view.decide(idea.id, 'edit', input(event))} ?disabled=${view.busy || view.blocked}></textarea></label>` : ''}
+    ${basis ? html`<p>${basis}</p>` : ''} ${vote ? ideaChoice(view, idea) : ''}
+    ${vote ? ideaCorrectionField(view, idea) : ''}
+    ${!vote && idea.correction ? html`<p>Your correction: ${idea.correction}</p>` : ''}
   </article>`;
 }
 function ideaDecided(idea: ProductIdea | undefined, allowDecline: boolean): boolean {
@@ -224,6 +261,49 @@ function reviewLead(view: IntentView) {
   return html`${explorationReview(view, view.exploration)}
   ${view.explorationStale && !view.dirty ? refreshExploration(view) : ''}`;
 }
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+function generationText(view: IntentView, generation: IntentGenerationStatus): string {
+  if (generation.authorization && generation.authorization !== view.revision?.id)
+    return 'Factory work references an older accepted direction. Refresh the status after updating.';
+  if (generation.state === 'pending') return 'Factory has not created work yet.';
+  if (generation.state === 'committed') return 'Factory confirmed the native work.';
+  if (generation.state === 'completed')
+    return 'Factory work is created. Execution still needs its own access and finite funding.';
+  if (generation.state === 'refused')
+    return 'Factory could not create the native work; an administrator must inspect the refusal.';
+  return 'Factory reported an unrecognized status. Your direction is saved.';
+}
+function generationStatus(view: IntentView) {
+  if (view.generationError)
+    return html`<p>${view.generationError}</p>
+      <button ?disabled=${view.busy || view.blocked} @click=${view.refreshGeneration}>Retry status</button>`;
+  const generation = view.generation;
+  if (!generation) return html`<p>Loading Factory status…</p>`;
+  return html`<p>${generationText(view, generation)}</p>
+    <button ?disabled=${view.busy || view.blocked} @click=${view.refreshGeneration}>Refresh status</button>`;
+}
+function lossSummary(view: IntentView) {
+  if (!view.unsavedCount) return '';
+  return html`<p>
+    ${plural(view.unsavedCount, 'unsaved edit is', 'unsaved edits are')} kept in this view: ${view.unsavedParts}. Update
+    proposal saves them; the walkthrough, Factory status and repository choice stay on the saved version until then.
+  </p>`;
+}
+function authorizationSection(view: IntentView) {
+  const revision = view.revision;
+  if (!revision || revision.state !== 'accepted') return '';
+  const authorized = revision.ideas.filter((idea) => idea.decision === 'accept' || idea.decision === 'edit');
+  return html`<section aria-label="Authorization and Factory work">
+    <h3>Authorization and Factory work</h3>
+    <p>
+      Authorized: ${plural(authorized.length, 'idea', 'ideas')} and
+      ${plural(revision.tasks.length, 'work item', 'work items')} from your accepted direction.
+    </p>
+    ${generationStatus(view)} ${lossSummary(view)}
+  </section>`;
+}
 function deliveryApproach(view: IntentView, revision: IntentRevision) {
   return html` <fieldset>
     <legend>Delivery approach</legend>
@@ -249,6 +329,8 @@ function deliveryApproach(view: IntentView, revision: IntentRevision) {
 export function reviewIntent(view: IntentView) {
   const revision = view.revision;
   if (!revision) return '';
+  const challenged = new Set((view.exploration?.challenges || []).map((challenge) => challenge.idea));
+  const referenced = new Set(revision.tasks.flatMap((task) => task.idea_ids));
   return html`<section class="intent-review">
     <h2 tabindex="-1">Review your product direction</h2>
     <label
@@ -260,11 +342,11 @@ export function reviewIntent(view: IntentView) {
         @input=${(event: Event) => view.set('objective', input(event))}
       ></textarea>
     </label>
-    ${reviewLead(view)}
+    ${reviewLead(view)} ${authorizationSection(view)}
     <p>Only asked questions and work-linked choices are required. Changes update the proposal before you continue.</p>
     ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}
-    ${revision.ideas.map((idea) => productIdea(view, idea))}
+    ${revision.ideas.map((idea) => productIdea(view, idea, challenged, referenced))}
     <button ?disabled=${view.busy || view.blocked || !view.dirty} @click=${view.revise}>Update proposal</button>
     <details>
       <summary>Proposed work (${revision.tasks.length})</summary>

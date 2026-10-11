@@ -6,11 +6,19 @@ import {
   department,
   departments,
   exploration as parseExploration,
+  intentGeneration,
   intentList,
   intentRevision,
   newDecisionID,
 } from './sodaspaces-intent-response.js';
-import type {Department, Exploration, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
+import type {
+  Department,
+  Exploration,
+  IntentGenerationStatus,
+  IntentRevision,
+  ProductIdea,
+  SavedRequest,
+} from './sodaspaces-intent-response.js';
 import {describeIntent, reviewIntent, departmentDialog, reviewReady} from './sodaspaces-intent-view.js';
 import type {IntentView} from './sodaspaces-intent-view.js';
 
@@ -40,6 +48,8 @@ export class SodaIntent extends LitElement {
     departmentDescription: {state: true},
     changeOpen: {state: true},
     changeText: {state: true},
+    generation: {state: true},
+    generationError: {state: true},
     maxIssues: {state: true},
     planningCalls: {state: true},
   };
@@ -176,12 +186,16 @@ export class SodaIntent extends LitElement {
   declare departmentDescription: string;
   declare changeOpen: boolean;
   declare changeText: string;
+  declare generation: IntentGenerationStatus | undefined;
+  declare generationError: string;
   declare maxIssues: number;
   declare planningCalls: number;
   private operation: AbortController | undefined;
   private resumeController: AbortController | undefined;
   private resumeID = '';
   private loadedRequest = '';
+  private generationIntent = '';
+  private savedSnapshot: IntentRevision | undefined;
   private departmentsLoaded = false;
   generationNotice = '';
   constructor() {
@@ -202,12 +216,21 @@ export class SodaIntent extends LitElement {
     this.busyNote = '';
     this.error = this.departmentName = this.departmentDescription = this.changeText = '';
     this.changeOpen = false;
+    this.generation = undefined;
+    this.generationError = '';
+    this.savedSnapshot = undefined;
     this.maxIssues = 20;
     this.planningCalls = 8;
   }
   protected updated(changed: PropertyValues<this>) {
     if (changed.has('active') || changed.has('blocked') || (changed.has('busy') && !this.busy)) this.activate();
     if (this.resumeReady(changed)) this.resume();
+    if (this.generationReady(changed)) this.fetchGeneration();
+  }
+  private generationReady(changed: PropertyValues<this>) {
+    return (
+      changed.has('revision') || changed.has('api') || changed.has('active') || (changed.has('busy') && !this.busy)
+    );
   }
   private activate() {
     if (!this.active || this.blocked || !this.api) return;
@@ -233,7 +256,11 @@ export class SodaIntent extends LitElement {
     this.request = '';
     this.loadedRequest = '';
     this.revision = undefined;
+    this.savedSnapshot = undefined;
     this.exploration = undefined;
+    this.generation = undefined;
+    this.generationError = '';
+    this.generationIntent = '';
     this.objective = '';
     this.dirty = false;
     this.error = '';
@@ -338,6 +365,39 @@ export class SodaIntent extends LitElement {
       }
     }
   }
+  private generationAdmitted(revision: IntentRevision, refresh: boolean): boolean {
+    if (!this.api || !this.active || this.blocked) return false;
+    if (!refresh && (this.generationIntent === revision.id || this.generationError)) return false;
+    return true;
+  }
+  private fetchGeneration(refresh = false) {
+    const revision = this.revision;
+    if (!revision || revision.state !== 'accepted' || !this.generationAdmitted(revision, refresh)) return;
+    if (refresh) {
+      this.generationIntent = '';
+      this.generationError = '';
+    }
+    void this.loadGeneration(revision, this.error);
+  }
+  private loadGeneration(revision: IntentRevision, prior: string) {
+    const id = revision.id;
+    void this.perform(async (signal) => {
+      try {
+        const status = intentGeneration(
+          await this.call('/api/factory/intents/' + revision.intent + '/generation', undefined, signal)
+        );
+        if (this.revision?.id !== id) return;
+        this.generation = status;
+        this.generationIntent = id;
+        this.generationError = '';
+      } catch {
+        if (!signal.aborted)
+          this.generationError = 'Factory status could not be loaded. Your direction is saved; try again.';
+      }
+    }, 'Loading Factory status…').then(() => {
+      if (this.error === '') this.error = prior;
+    });
+  }
   private resumeFailed(id: string, controller: AbortController, error: unknown) {
     if (controller.signal.aborted || this.resumeController !== controller) return;
     this.loadedRequest = id;
@@ -347,6 +407,7 @@ export class SodaIntent extends LitElement {
   }
   private applyRevision(saved: IntentRevision) {
     this.revision = saved;
+    this.savedSnapshot = structuredClone(saved);
     this.exploration = undefined;
     this.objective = saved.objective;
     this.department = saved.department || '';
@@ -402,6 +463,7 @@ export class SodaIntent extends LitElement {
     )
       throw Error('Mismatched intent revision');
     this.revision = saved;
+    this.savedSnapshot = structuredClone(saved);
     this.savedLoaded = false;
     this.savedError = '';
     return saved;
@@ -419,6 +481,7 @@ export class SodaIntent extends LitElement {
         throw Error('Mismatched proposal');
       this.exploration = readExploration(response, proposal);
       this.revision = proposal;
+      this.savedSnapshot = structuredClone(proposal);
       this.changeOpen = false;
       this.changeText = '';
       this.dirty = false;
@@ -466,7 +529,11 @@ export class SodaIntent extends LitElement {
     void this.perform(async (signal) => {
       await this.save('declined', '0', signal);
       this.revision = undefined;
+      this.savedSnapshot = undefined;
       this.exploration = undefined;
+      this.generation = undefined;
+      this.generationError = '';
+      this.generationIntent = '';
       this.dirty = false;
       this.changeOpen = false;
       this.changeText = '';
@@ -492,8 +559,23 @@ export class SodaIntent extends LitElement {
     }
   }
   private continue = () => {
-    if (reviewReady(this.view()))
-      this.dispatchEvent(new CustomEvent('intent-reviewed', {bubbles: true, composed: true}));
+    const revision = this.revision;
+    if (!revision || !reviewReady(this.view())) return;
+    const authorized = revision.ideas.filter((idea) => idea.decision === 'accept' || idea.decision === 'edit');
+    this.dispatchEvent(
+      new CustomEvent('intent-reviewed', {
+        detail: {
+          intent: revision.intent,
+          revision: revision.id,
+          approach: revision.approach,
+          authorizedIdeas: authorized.length,
+          tasks: revision.tasks.length,
+          decisions: authorized.map((idea) => ({idea: idea.id, decision: idea.decision})),
+        },
+        bubbles: true,
+        composed: true,
+      })
+    );
   };
   private actorValid(): boolean {
     return this.actor !== '' && id(this.actor);
@@ -588,7 +670,41 @@ export class SodaIntent extends LitElement {
     if (this.revision && !this.dirty && this.objective.trim() === this.revision.objective) return 'Saved';
     return 'Unsaved changes';
   }
+  private ideaChanged(idea: ProductIdea): boolean {
+    const saved = this.savedSnapshot?.ideas.find((entry) => entry.id === idea.id);
+    return !saved || saved.decision !== idea.decision || (saved.correction || '') !== (idea.correction || '');
+  }
+  private unsavedScalars(snapshot: IntentRevision): {count: number; parts: string[]} {
+    const parts: string[] = [];
+    let count = 0;
+    if (this.objective.trim() !== snapshot.objective) {
+      count += 1;
+      parts.push('outcome text');
+    }
+    if ((this.department || '') !== (snapshot.department || '')) {
+      count += 1;
+      parts.push('department');
+    }
+    if (this.maxIssues !== snapshot.max_issues || this.planningCalls !== snapshot.planning_calls) {
+      count += 1;
+      parts.push('planning limits');
+    }
+    return {count, parts};
+  }
+  private unsavedSummary(): {count: number; parts: string} {
+    const snapshot = this.savedSnapshot;
+    const revision = this.revision;
+    if (!snapshot || !revision || !this.dirty) return {count: 0, parts: ''};
+    const scalars = this.unsavedScalars(snapshot);
+    const decided = revision.ideas.filter((idea) => this.ideaChanged(idea)).length;
+    if (decided) {
+      scalars.count += decided;
+      scalars.parts.push(`${decided} idea decision${decided === 1 ? '' : 's'}`);
+    }
+    return {count: scalars.count, parts: scalars.parts.join(', ')};
+  }
   private view(): IntentView {
+    const unsaved = this.unsavedSummary();
     return {
       objective: this.objective,
       saveNote: this.saveNote(),
@@ -601,6 +717,10 @@ export class SodaIntent extends LitElement {
       revision: this.revision,
       exploration: this.exploration,
       explorationStale: this.explorationStale(),
+      generation: this.generation,
+      generationError: this.generationError,
+      unsavedCount: unsaved.count,
+      unsavedParts: unsaved.parts,
       changeOpen: this.changeOpen,
       changeText: this.changeText,
       busy: this.busy,
@@ -623,6 +743,7 @@ export class SodaIntent extends LitElement {
       decide: this.decide,
       toggleChange: this.toggleChange,
       correctProposal: this.correctProposal,
+      refreshGeneration: () => this.fetchGeneration(true),
       chooseApproach: (approach) => {
         if (!this.revision) return;
         this.revision = {...this.revision, approach};
