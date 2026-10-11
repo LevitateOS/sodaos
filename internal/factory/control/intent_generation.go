@@ -356,7 +356,9 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 			return refuseAcceptance(RefusalStaleEvidence)
 		}
 		issue := native.Issue
-		if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsClosed || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) || issue.Index != strconv.FormatInt(entry.IssueIndex, 10) || issue.Provenance.PosterID != strconv.FormatInt(g.ActorID, 10) || issue.Title != intentTaskTitle(task) || issue.Content != intentTaskBody(r, task) || issue.ContentVersion != entry.ContentVersion {
+		// Closed records adopt like open ones: native edits never reopen, so
+		// delivery survives the delta while bindings and acceptances chain on.
+		if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) || issue.Index != strconv.FormatInt(entry.IssueIndex, 10) || issue.Provenance.PosterID != strconv.FormatInt(g.ActorID, 10) || issue.Title != intentTaskTitle(task) || issue.Content != intentTaskBody(scoped, task) || issue.ContentVersion != entry.ContentVersion {
 			return refuseAcceptance(RefusalObjectiveChanged)
 		}
 		if native.Dependencies == nil || !native.Dependencies.Complete || native.Dependencies.IssueID != issue.ID || len(native.Dependencies.Items) != len(task.DependsOn) {

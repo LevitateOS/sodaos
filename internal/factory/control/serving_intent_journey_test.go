@@ -70,6 +70,9 @@ func TestServingAcceptedIntentCreatesPlansExecutesReviewsMergesAndUnblocks(t *te
 		if err := c.Store.SaveIntentRevision(ctx, r); err != nil {
 			t.Fatal(err)
 		}
+		if err := c.Store.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: r.Intent, Owner: r.Owner, Amount: 64, Unit: factory.PlanningAllowanceUnit, Ceiling: 64, CreatedUnix: 1}); err != nil {
+			t.Fatal(err)
+		}
 		fixture := &generatedGraphFixture{revision: 41, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}
 		for index := int64(1); index <= 30; index++ {
 			fixture.issues[index] = sdk.NativeSnapshot{}

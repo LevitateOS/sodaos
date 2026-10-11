@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 
@@ -279,11 +280,15 @@ func (s *Store) RecordPriorityJudgment(ctx context.Context, r factory.PriorityRe
 	return err
 }
 
-// ReserveIntentJudgment checks both the person's finite intent allowance and
-// the operator's independent consultation ceiling under one transaction.
+// ReserveIntentJudgment admits one planning consultation against the current
+// independent allowance for this owner-private intent, plus the operator's
+// global consultation ceiling, under one transaction. The embedded revision
+// PlanningCalls field no longer funds anything: a missing allowance, a
+// non-current scope/actor binding, or an exhausted amount refuses without
+// fallback and without inventing funding.
 func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevision, snapshot string) (bool, error) {
-	if r.PlanningCalls < 1 || !factory.ValidDigest(snapshot) {
-		return false, errors.New("invalid intent planning allowance")
+	if !factory.ValidDigest(snapshot) {
+		return false, errors.New("invalid planning snapshot")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -297,6 +302,24 @@ func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevis
 	if head != r.ID {
 		return false, ErrStaleRevision
 	}
+	var allowanceRevision string
+	if err = tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_allowance_heads WHERE intent=$1 AND owner_id=$2 FOR UPDATE`, r.Intent, r.Owner).Scan(&allowanceRevision); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	var allowanceRaw []byte
+	var allowance factory.PlanningAllowance
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_allowances WHERE id=$1`, allowanceRevision).Scan(&allowanceRaw); err != nil {
+		return false, err
+	}
+	if err = json.Unmarshal(allowanceRaw, &allowance); err != nil {
+		return false, err
+	}
+	if allowance.Intent != r.Intent || allowance.Owner != r.Owner || allowance.Unit != factory.PlanningAllowanceUnit {
+		return false, errors.New("planning allowance identity mismatch")
+	}
 	var spent, used, existing int
 	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
 		return false, err
@@ -307,7 +330,7 @@ func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevis
 	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, snapshot).Scan(&existing); err != nil {
 		return false, err
 	}
-	if existing > 0 || used >= r.PlanningCalls || spent >= s.PriorityCallBudget {
+	if existing > 0 || used >= allowance.Amount || spent >= s.PriorityCallBudget {
 		return false, nil
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, snapshot); err != nil {
