@@ -18,10 +18,25 @@ type ActivityItem struct {
 	Summary     string `json:"summary"`
 	URL         string `json:"url"`
 }
+
+// ActivityItemBound caps the rendered repository feed. The store reports
+// truncation explicitly; consumers never mistake a capped feed for the
+// complete history.
+const ActivityItemBound = 60
+
+// RepositoryActivity is the bounded readable feed for one repository:
+// the display settings revision, the newest confirmed native-work items
+// and the observation behind them. Each item's CreatedUnix is the
+// timestamp of its confirming durable record; zero means the confirming
+// record carries no timestamp and renders as unknown, never as 1970.
+// ObservedUnix marks when the feed was assembled. Truncated reports
+// whether the bound dropped entries.
 type RepositoryActivity struct {
 	Repository     string           `json:"repository"`
 	RepositoryPath string           `json:"repository_path"`
 	Revision       int64            `json:"revision"`
 	Settings       ActivitySettings `json:"settings"`
 	Items          []ActivityItem   `json:"items"`
+	ObservedUnix   int64            `json:"observed_unix"`
+	Truncated      bool             `json:"truncated,omitempty"`
 }
