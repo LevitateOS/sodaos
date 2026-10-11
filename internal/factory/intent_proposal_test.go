@@ -51,3 +51,27 @@ func TestProposalPreservesLongObjectiveAndBoundsReviewLabels(t *testing.T) {
 		}
 	}
 }
+
+func TestProposalApproachesKeepExactReviewedScope(t *testing.T) {
+	r := validIntent()
+	ids := make([]string, 104)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("d%024x", 1000+i)
+	}
+	incremental := ProposeIntent(r, ids)
+	r.Approach = "complete_first"
+	complete := ProposeIntent(r, ids)
+	if len(incremental.Tasks) != 2 || len(complete.Tasks) != 1 || len(complete.Tasks[0].Outcomes) != 3 {
+		t.Fatal("approach did not change task boundaries")
+	}
+	if complete.Objective != incremental.Objective || complete.Tasks[0].Objective != incremental.Tasks[0].Objective || complete.Tasks[0].IdeaIDs[0] != incremental.Tasks[0].IdeaIDs[0] {
+		t.Fatal("approach changed product scope")
+	}
+	if err := complete.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	r.Approach = "invent_features"
+	if r.Validate() == nil {
+		t.Fatal("unknown approach accepted")
+	}
+}

@@ -55,6 +55,7 @@ type IntentRevision struct {
 	Repository    int64         `json:"repository,string"`
 	Department    string        `json:"department,omitempty"`
 	Objective     string        `json:"objective"`
+	Approach      string        `json:"approach,omitempty"`
 	Ideas         []ProductIdea `json:"ideas"`
 	Tasks         []IntentTask  `json:"tasks"`
 	State         string        `json:"state"`
@@ -73,6 +74,9 @@ func (r IntentRevision) Validate() error {
 	}
 	if r.Predecessor != "" && !project.ValidDecisionID(r.Predecessor) || r.Department != "" && !project.ValidDecisionID(r.Department) {
 		return errors.New("invalid intent reference")
+	}
+	if r.Approach != "" && r.Approach != "incremental" && r.Approach != "complete_first" {
+		return errors.New("invalid implementation approach")
 	}
 	if r.State != "draft" && r.State != "accepted" && r.State != "declined" {
 		return errors.New("invalid intent state")

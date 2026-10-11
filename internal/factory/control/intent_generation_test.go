@@ -285,7 +285,7 @@ func TestIntentGraphInterruptedNativeResponseReusesStoredOperation(t *testing.T)
 	for _, b := range bindings {
 		current, generated, e := c.Store.GeneratedIntentCurrent(ctx, b.AcceptanceID)
 		if e != nil || current || !generated {
-			t.Fatal(fmt.Sprintf("old child authority survived correction: %v %v %v", current, generated, e))
+			t.Fatalf("old child authority survived correction: %v %v %v", current, generated, e)
 		}
 	}
 	if _, err = c.GenerateAcceptedIntent(ctx, r.Intent, r.Owner); err == nil {
@@ -439,5 +439,16 @@ func TestIntentGraphBodyIncludesReviewedChoicesAndCorrections(t *testing.T) {
 	}
 	if strings.Count(body, r.Tasks[0].Objective) != 1 {
 		t.Fatal("task and identical correction duplicated")
+	}
+}
+
+func TestIntentGraphDeclinedAssumptionDoesNotConstrainNativeScope(t *testing.T) {
+	_, _, r := acceptedGenerationFixture(t)
+	r.Ideas = append(r.Ideas, factory.ProductIdea{ID: "d888888888888888888888888", Description: "Reject external integrations", Consequence: "No external accounts are included", Assumption: true, Decision: "decline"})
+	for _, task := range r.Tasks {
+		body := intentTaskBody(r, task)
+		if strings.Contains(body, "No external accounts") || strings.Contains(body, "Reject external integrations") {
+			t.Fatal("declined assumption entered native authority")
+		}
 	}
 }

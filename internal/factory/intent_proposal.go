@@ -27,6 +27,10 @@ func ProposeIntent(r IntentRevision, ids []string) IntentRevision {
 		if len(verification) > 4000 {
 			verification = "Verify the accepted product behavior and its authority boundaries"
 		}
+		if r.Approach == "complete_first" {
+			r.Tasks = append(r.Tasks, IntentTask{Key: key, Objective: objective, IdeaIDs: []string{idea.ID}, Outcomes: []string{"The reviewed product behavior is implemented within the accepted objective", "Existing access and finite funding limits remain enforced", "Affected user workflow and authority boundaries pass focused checks"}})
+			continue
+		}
 		r.Tasks = append(r.Tasks, IntentTask{Key: key, Objective: objective, IdeaIDs: []string{idea.ID}, Outcomes: []string{"The reviewed product behavior is implemented within the accepted objective", "Existing access and finite funding limits remain enforced"}}, IntentTask{Key: check, Objective: verification, IdeaIDs: []string{idea.ID}, Outcomes: []string{"Affected user workflow and authority boundaries pass focused checks"}, DependsOn: []string{key}})
 	}
 	return r

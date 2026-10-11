@@ -57,13 +57,9 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		return
 	}
 	proposal.CreatedUnix = time.Now().Unix()
-	if err = proposal.Validate(); err != nil {
-		auth.JSONError(w, 400, "invalid_proposal", err.Error())
-		return
-	}
 	// Product exploration uses explicitly bounded consultation credit, distinct
 	// from execution funding. Failure remains visible and creates no acceptance.
-	candidates := []factory.PriorityCandidate{{ID: "incremental", Objective: current.Objective, Impact: "Deliver the smallest complete reviewed workflow; defer additional scope"}, {ID: "clarify", Objective: current.Objective, Risk: "Ask for missing material product outcomes before choosing implementation detail"}}
+	candidates := intentDesignCandidates(current)
 	design := current
 	design.ID = ""
 	design.Predecessor = ""
@@ -92,9 +88,12 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 409, "planning_unavailable", "Planning credit is exhausted or these inputs have already been consulted.")
 		return
 	}
-	request := factory.PriorityRequest{Snapshot: snapshot, Candidates: candidates, Rubric: "Using only the supplied objective, prefer a minimal complete first workflow when the requested product outcome is clear. Choose clarify when missing material intent prevents a coherent baseline. This advice grants no acceptance, repository authority or spending permission."}
+	request := factory.PriorityRequest{Snapshot: snapshot, Candidates: candidates, State: rawDesign, Criteria: intentDesignCriteria(), Rubric: "Using the full supplied objective and reviewed choices, choose a bounded implementation approach. Respect an explicitly selected approach; choose clarify if a declined or corrected assumption contradicts the objective or material outcomes remain unresolved. Do not impose declined assumptions or invent product capabilities. This advice grants no acceptance, repository authority or spending permission."}
 	chooser := control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
 	answer, callErr := chooser.Choose(r.Context(), request)
+	if callErr == nil {
+		callErr = answer.Validate(request)
+	}
 	receipt := factory.PriorityReceipt{Snapshot: snapshot, Candidates: candidates, CreatedUnix: time.Now().Unix(), Outcome: "product_design", Selected: answer.Selected, Calls: []factory.PriorityCall{{Request: request, Answer: answer}}}
 	if callErr != nil {
 		receipt.Calls[0].Failure = "consultation_unavailable"
@@ -108,13 +107,45 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 503, "planning_unavailable", "Design consultation failed; the consumed allowance is retained.")
 		return
 	}
+	proposal = applyIntentDesign(current, ids, proposal, answer)
 	if answer.Selected == "clarify" || answer.Confidence < 0.25 {
 		proposal.Tasks = []factory.IntentTask{}
 		proposal.Ideas = append(proposal.Ideas, factory.ProductIdea{ID: ids[103], Description: "Describe the first user action and the result that should count as success", Consequence: "Implementation waits until this material product question is resolved.", Assumption: true, Decision: "pending"})
+	}
+	if err = proposal.Validate(); err != nil {
+		auth.JSONError(w, 400, "invalid_proposal", err.Error())
+		return
 	}
 	if err = s.Store.SaveIntentRevision(r.Context(), proposal); err != nil {
 		factoryCommandError(w, err)
 		return
 	}
 	auth.JSONResponse(w, 201, proposal)
+}
+
+func intentDesignCriteria() map[string]any {
+	return map[string]any{"complete_first": "One task per reviewed product choice combines implementation and verification outcomes", "incremental": "Two tasks per reviewed product choice separate implementation and dependent verification", "clarify": "No work graph until consequential scope contradictions or missing product outcomes are reviewed"}
+}
+func intentDesignCandidates(r factory.IntentRevision) []factory.PriorityCandidate {
+	result := []factory.PriorityCandidate{}
+	for _, approach := range []string{"complete_first", "incremental"} {
+		if r.Approach != "" && r.Approach != approach {
+			continue
+		}
+		result = append(result, factory.PriorityCandidate{ID: approach, Objective: r.Objective, Impact: intentDesignCriteria()[approach].(string)})
+	}
+	return append(result, factory.PriorityCandidate{ID: "clarify", Objective: r.Objective, Risk: intentDesignCriteria()["clarify"].(string)})
+}
+func applyIntentDesign(current factory.IntentRevision, ids []string, proposal factory.IntentRevision, answer factory.PriorityAnswer) factory.IntentRevision {
+	if answer.Confidence < .25 || answer.Selected == "clarify" {
+		return proposal
+	}
+	approach := current.Approach
+	if approach == "" {
+		approach = answer.Selected
+	}
+	current.Approach = approach
+	derived := factory.ProposeIntent(current, ids)
+	proposal.Approach, proposal.Tasks = derived.Approach, derived.Tasks
+	return proposal
 }

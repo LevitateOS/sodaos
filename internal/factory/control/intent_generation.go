@@ -166,11 +166,10 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 		if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 			// Concurrent callers must converge on the winner's exact native
 			// revision and deadline rather than invent a second operation.
-			existing, e := c.Store.IntentGeneration(ctx, r.ID)
+			_, e := c.Store.IntentGeneration(ctx, r.ID)
 			if e != nil {
 				return g, err
 			}
-			g = existing
 		}
 		// Read the database's exact JSON representation before submitting.
 		// PostgreSQL JSONB normalizes object whitespace and key order.
