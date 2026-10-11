@@ -62,7 +62,7 @@ func TestRequestDirectionDTO(t *testing.T) {
 	if view.IdeasByDecision["accept"] != 1 || view.IdeasByDecision["pending"] != 2 {
 		t.Fatalf("decisions: %+v", view.IdeasByDecision)
 	}
-	if view.IdeasBySource["requested"] != 1 || view.IdeasBySource["assumption"] != 1 || view.IdeasBySource["legacy"] != 1 {
+	if view.IdeasBySource["requested"] != 1 || view.IdeasBySource["assumption"] != 1 || view.IdeasBySource["unclassified"] != 1 {
 		t.Fatalf("sources: %+v", view.IdeasBySource)
 	}
 	if len(view.EffectiveOutcomes) != 1 || view.EffectiveOutcomes[0] != "d1" {
@@ -91,10 +91,10 @@ func TestRequestUnresolvedAssumptions(t *testing.T) {
 }
 
 func TestRequestMappingDTO(t *testing.T) {
-	binding := factory.IntentTaskBinding{TaskKey: "task", IssueID: 103, IssueIndex: 3, AcceptanceID: "d1", CreatedUnix: 7}
+	binding := factory.IntentTaskBinding{TaskKey: "task", IssueID: 103, IssueIndex: 3, AcceptanceID: "d1", CreatedUnix: 7, ContentVersion: 2}
 	tasks := map[string]factory.IntentTask{"task": {Key: "task", IdeaIDs: []string{"d1"}}}
 	view := requestMappingDTO(binding, tasks, map[string]bool{"d1": true})
-	if view.TaskKey != "task" || view.IssueID != "103" || view.IssueIndex != "3" || view.AcceptanceID != "d1" || view.CreatedUnix != 7 || !view.Effective {
+	if view.TaskKey != "task" || view.IssueID != "103" || view.IssueIndex != "3" || view.AcceptanceID != "d1" || view.CreatedUnix != 7 || view.ContentVersion != 2 || !view.Effective {
 		t.Fatalf("mapping: %+v", view)
 	}
 	scoped := requestMappingDTO(binding, tasks, map[string]bool{"d2": true})
