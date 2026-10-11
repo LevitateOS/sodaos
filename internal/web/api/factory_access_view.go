@@ -207,21 +207,70 @@ func accessUsageDTO(in accessUsageInput) accessUsageView {
 // repository's Factory settings: the viewer's standing and save powers,
 // the effective-authority verdict with required actions, preparation
 // readiness and actual per-connection execution usage.
-type factoryAccessView struct {
-	Viewer       accessViewerView           `json:"viewer"`
-	Editable     accessEditableView         `json:"editable"`
-	Effective    factory.EffectiveAuthority `json:"effective"`
-	Preparation  *factoryPreparationView    `json:"preparation"`
-	RequiredActs []accessActionView         `json:"required_actions"`
-	Usage        []accessUsageView          `json:"usage"`
-	Repository   string                     `json:"repository"`
-	ObservedUnix int64                      `json:"observed_unix"`
+// accessAllowanceStatuses name one planning allowance's spend state.
+const (
+	accessAllowanceOK        = "ok"
+	accessAllowanceExhausted = "exhausted"
+)
+
+// accessAllowanceView renders one request's planning allowance in real
+// units: the independent revision's amount, reservation, consumption,
+// remainder and ceiling, plus whether the viewer may adjust it. The
+// listing is owner-private, so adjustment power is the viewer's own
+// gated on session currency; the allowance route revalidates at save.
+type accessAllowanceView struct {
+	Editable  accessEntryView `json:"editable"`
+	Intent    string          `json:"intent"`
+	ID        string          `json:"id"`
+	Unit      string          `json:"unit"`
+	Effect    string          `json:"effect,omitempty"`
+	Status    string          `json:"status"`
+	Amount    int             `json:"amount"`
+	Reserved  int             `json:"reserved"`
+	Consumed  int             `json:"consumed"`
+	Available int             `json:"available"`
+	Ceiling   int             `json:"ceiling"`
 }
 
-// apiFactoryAccess shows the current permission, readiness and execution
-// usage for one repository's Factory settings. Values on the status
-// route stay authoritative; this read adds powers, usage and required
-// actions. It never judges, provisions or dispatches.
+func accessAllowanceDTO(a factory.PlanningAllowance, sessionCurrent bool) accessAllowanceView {
+	view := accessAllowanceView{
+		Intent: a.Intent, ID: a.ID, Unit: a.Unit, Effect: a.Effect, Status: accessAllowanceOK,
+		Amount: a.Amount, Reserved: a.Reserved, Consumed: a.Consumed,
+		Available: a.Available(), Ceiling: a.Ceiling,
+	}
+	if view.Available <= 0 {
+		view.Status = accessAllowanceExhausted
+	}
+	view.Editable = accessEntryView{Editable: true}
+	if !sessionCurrent {
+		view.Editable = accessEntryView{Reason: accessReasonSession}
+	}
+	return view
+}
+
+// factoryAccessView is the permission, readiness and usage read for one
+// repository's Factory settings: the viewer's standing and save powers,
+// the effective-authority verdict with required actions, preparation
+// readiness, actual per-connection execution usage and the viewer's
+// planning allowances bound to the repository.
+type factoryAccessView struct {
+	Viewer            accessViewerView           `json:"viewer"`
+	Editable          accessEditableView         `json:"editable"`
+	Effective         factory.EffectiveAuthority `json:"effective"`
+	Preparation       *factoryPreparationView    `json:"preparation"`
+	RequiredActs      []accessActionView         `json:"required_actions"`
+	Usage             []accessUsageView          `json:"usage"`
+	Planning          []accessAllowanceView      `json:"planning"`
+	Repository        string                     `json:"repository"`
+	ObservedUnix      int64                      `json:"observed_unix"`
+	PlanningTruncated bool                       `json:"planning_truncated,omitempty"`
+}
+
+// apiFactoryAccess shows the current permission, readiness and usage for
+// one repository's Factory settings: execution usage plus the viewer's
+// planning allowances. Values on the status route stay authoritative;
+// this read adds powers, usage and required actions. It never judges,
+// provisions or dispatches.
 func (s *API) apiFactoryAccess(w http.ResponseWriter, r *http.Request, v store.Session) {
 	repository, ok := s.factoryRepository(w, r, v)
 	if !ok {
@@ -279,7 +328,7 @@ func (s *API) apiFactoryAccess(w http.ResponseWriter, r *http.Request, v store.S
 	}
 	view := factoryAccessView{
 		Viewer: viewer, Editable: accessEditableDTO(editable),
-		RequiredActs: []accessActionView{}, Usage: []accessUsageView{},
+		RequiredActs: []accessActionView{}, Usage: []accessUsageView{}, Planning: []accessAllowanceView{},
 		Repository: strconv.FormatInt(repository, 10), ObservedUnix: time.Now().Unix(),
 	}
 	if s.Coordinator == nil {
@@ -325,5 +374,14 @@ func (s *API) apiFactoryAccess(w http.ResponseWriter, r *http.Request, v store.S
 		}
 		view.Usage = append(view.Usage, accessUsageDTO(in))
 	}
+	allowances, truncated, err := s.Store.RepositoryIntentAllowances(ctx, repository, v.User.ID, store.MaxRepositoryAllowances)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read planning allowances.")
+		return
+	}
+	for _, allowance := range allowances {
+		view.Planning = append(view.Planning, accessAllowanceDTO(allowance, viewer.SessionCurrent))
+	}
+	view.PlanningTruncated = truncated
 	auth.JSONResponse(w, 200, view)
 }

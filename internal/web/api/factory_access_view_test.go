@@ -104,6 +104,21 @@ func TestAccessRequiredActions(t *testing.T) {
 	}
 }
 
+func TestAccessAllowanceDTO(t *testing.T) {
+	funded := accessAllowanceDTO(factory.PlanningAllowance{ID: "d1", Intent: "d2", Amount: 5, Unit: "planning_calls", Reserved: 1, Consumed: 2, Ceiling: 10}, true)
+	if funded.Status != accessAllowanceOK || funded.Available != 2 || funded.Unit != "planning_calls" || !funded.Editable.Editable {
+		t.Fatalf("funded: %+v", funded)
+	}
+	spent := accessAllowanceDTO(factory.PlanningAllowance{ID: "d1", Intent: "d2", Amount: 5, Unit: "planning_calls", Reserved: 1, Consumed: 4, Ceiling: 10}, true)
+	if spent.Status != accessAllowanceExhausted || spent.Available != 0 {
+		t.Fatalf("exhausted: %+v", spent)
+	}
+	stale := accessAllowanceDTO(factory.PlanningAllowance{Amount: 5, Unit: "planning_calls"}, false)
+	if stale.Editable.Editable || stale.Editable.Reason != accessReasonSession {
+		t.Fatalf("stale session: %+v", stale)
+	}
+}
+
 func TestAccessUsageDTO(t *testing.T) {
 	shown := accessUsageDTO(accessUsageInput{Connection: "conn-1", Owned: true, BudgetOK: true, UsedOK: true, Budget: 500, Used: 0})
 	if shown.Status != "" || shown.Unit != "minutes" || shown.BudgetMinutes != 500 || shown.UsedMinutes == nil || *shown.UsedMinutes != 0 {
