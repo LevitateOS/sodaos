@@ -235,12 +235,13 @@ const historyEntry = {
   created_unix: 1728670000,
   generation: {state: 'committed'},
   comparison: {
-    tasks: {added: [], removed: [], changed: [], unchanged_count: 2},
+    tasks: {added: [], removed: [], changed: [], reused: [TASK_A, TASK_B], unchanged_count: 2},
     ideas: {added: [], removed: [], changed: []},
     effective_outcomes: {added: [], removed: []},
     state_change: {from: 'draft', to: 'accepted'},
+    edges_changed: false,
   },
-  work: [{task_key: TASK_A, issue_index: '12', state: 'working', authority: 'current'}],
+  work: [{task_key: TASK_A, issue_index: '12', state: 'working', authority: 'current', content_version: 2}],
 };
 
 const historyFirst = {
@@ -250,10 +251,11 @@ const historyFirst = {
   created_unix: 1728660000,
   generation: {state: 'not_requested'},
   comparison: {
-    tasks: {added: [], removed: [], changed: [], unchanged_count: 0},
+    tasks: {added: [], removed: [], changed: [], reused: [], unchanged_count: 0},
     ideas: {added: [], removed: [], changed: []},
     effective_outcomes: {added: [], removed: []},
     initial: true,
+    edges_changed: false,
   },
   work: [],
 };

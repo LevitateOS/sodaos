@@ -665,6 +665,7 @@ const historyNow = {
           new_objective: 'Track demo work.',
         },
       ],
+      reused: ['d' + '4'.repeat(24)],
       unchanged_count: 1,
     },
     ideas: {
@@ -682,8 +683,9 @@ const historyNow = {
     },
     effective_outcomes: {added: [historyIdea], removed: []},
     state_change: {from: 'draft', to: 'accepted'},
+    edges_changed: true,
   },
-  work: [{task_key: taskA, issue_index: '12', state: 'working', authority: 'current'}],
+  work: [{task_key: taskA, issue_index: '12', state: 'working', authority: 'current', content_version: 3}],
 };
 
 const historyOld = {
@@ -693,10 +695,11 @@ const historyOld = {
   created_unix: 1728660000,
   generation: {state: 'not_requested'},
   comparison: {
-    tasks: {added: [], removed: [], changed: [], unchanged_count: 0},
+    tasks: {added: [], removed: [], changed: [], reused: [], unchanged_count: 0},
     ideas: {added: [], removed: [], changed: []},
     effective_outcomes: {added: [], removed: []},
     initial: true,
+    edges_changed: false,
   },
   work: [],
 };
@@ -707,13 +710,14 @@ test('revision history composes before/after and affected work per revision', ()
   assert.equal(model.truncatedNote, '');
   const current = model.entries[0];
   assert.match(current?.headerText ?? '', /accepted/);
-  assert.match(current?.tasksText ?? '', /1 added, 0 removed, 1 changed, 1 unchanged/);
+  assert.match(current?.tasksText ?? '', /1 added, 0 removed, 1 changed, 1 reused, 1 unchanged/);
   assert.match(current?.taskLines[0] ?? '', new RegExp(`\\+ ${taskB}: Ship demo\\.`));
   assert.match(current?.taskLines[1] ?? '', /objective: Track work\. → Track demo work\./);
   assert.match(current?.ideaLines[0] ?? '', /pending → accept \(decision only\)/);
   assert.match(current?.scopeLines[0] ?? '', new RegExp(`Effective outcomes added: ${historyIdea}`));
   assert.match(current?.scopeLines[1] ?? '', /State draft → accepted/);
-  assert.match(current?.workLines[0] ?? '', /working \(current\)/);
+  assert.match(current?.scopeLines[2] ?? '', /Dependency edges changed/);
+  assert.match(current?.workLines[0] ?? '', /working \(current\), content version 3/);
   assert.match(model.entries[1]?.lineageText ?? '', /First revision/);
   const cut = describeRevisionHistory(historyWith([historyNow], {truncated: true}), 'ready');
   assert.match(cut.truncatedNote, /beyond this page/);
