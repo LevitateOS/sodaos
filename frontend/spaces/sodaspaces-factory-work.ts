@@ -1115,14 +1115,15 @@ export class SodaFactoryWorkDetail extends LitElement {
     marks: {state: true},
     message: {state: true},
     busy: {state: true},
+    acting: {state: true},
   };
   declare private detail: FactoryIssueDetail | undefined;
   declare private runs: RunEntry[];
   declare private marks: InterventionMarks;
   declare private message: string;
   declare private busy: boolean;
+  declare private acting: InterventionKind | undefined;
   private current: WorkDetailContext | undefined;
-  private acting: InterventionKind | undefined;
   private armedStop = false;
   private serial = 0;
   protected createRenderRoot() {
