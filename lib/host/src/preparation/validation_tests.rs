@@ -249,6 +249,7 @@ fn candidate_validation_branches() {
     let c = FactoryCandidate {
         preparation: prep,
         source_preparation: format!("f{}", "c".repeat(24)),
+        source_run: None,
         bundle: b"BUNDLE".to_vec(),
         deadline: "2099-01-01T00:00:00Z".to_string(),
     };
@@ -256,6 +257,7 @@ fn candidate_validation_branches() {
     let c = FactoryCandidate {
         preparation: preparation(),
         source_preparation: format!("f{}", "c".repeat(24)),
+        source_run: None,
         bundle: b"BUNDLE".to_vec(),
         deadline: "2099-01-01T00:00:00Z".to_string(),
     };
@@ -266,12 +268,32 @@ fn candidate_validation_branches() {
     let mut coder = c.clone();
     coder.bundle.clear();
     assert!(coder.validate().is_ok());
+    coder.source_run = Some(crate::factory::FactoryExport {
+        project: coder.preparation.project.clone(),
+        id: "2".repeat(32),
+        role: ROLE_CODER.to_string(),
+        preparation: coder.source_preparation.clone(),
+        candidate: coder.preparation.source_commit.clone(),
+    });
+    assert!(coder.validate().is_ok());
+    for field in ["project", "candidate", "role", "id"] {
+        let mut bad = coder.clone();
+        let source = bad.source_run.as_mut().unwrap();
+        match field {
+            "project" => source.project = format!("p{}", "d".repeat(24)),
+            "candidate" => source.candidate = "4".repeat(40),
+            "role" => source.role = ROLE_REVIEWER.to_string(),
+            _ => source.id = "invalid".to_string(),
+        }
+        assert!(bad.validate().is_err(), "unbound {field} source accepted");
+    }
     let mut prep = preparation();
     prep.role = ROLE_REVIEWER.to_string();
     let id = prep.id.clone();
     let c = FactoryCandidate {
         preparation: prep,
         source_preparation: id,
+        source_run: None,
         bundle: b"BUNDLE".to_vec(),
         deadline: "2099-01-01T00:00:00Z".to_string(),
     };
@@ -284,6 +306,7 @@ fn candidate_validation_branches() {
     let c = FactoryCandidate {
         preparation: prep,
         source_preparation: format!("f{}", "c".repeat(24)),
+        source_run: None,
         bundle: Vec::new(),
         deadline: "2099-01-01T00:00:00Z".to_string(),
     };

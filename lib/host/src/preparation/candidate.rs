@@ -1,14 +1,16 @@
 // Fresh candidate preparation from protected role setup and source.
-use super::{MAX_SOURCE_BUNDLE, Preparation, ROLE_CODER, ROLE_REVIEWER, valid_preparation_id};
+use super::{valid_preparation_id, Preparation, MAX_SOURCE_BUNDLE, ROLE_CODER, ROLE_REVIEWER};
+use crate::factory::FactoryExport;
 use crate::json;
-use serde::Deserialize;
 use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FactoryCandidate {
     pub preparation: Preparation,
     pub source_preparation: String,
+    pub source_run: Option<FactoryExport>,
     pub bundle: Vec<u8>,
     pub deadline: String,
 }
@@ -23,6 +25,16 @@ impl FactoryCandidate {
         }
         if self.preparation.role == ROLE_CODER && !self.bundle.is_empty() {
             return Err("coder retry source must come from the protected preparation".into());
+        }
+        if let Some(source) = &self.source_run {
+            source.validate()?;
+            if self.preparation.role != ROLE_CODER
+                || source.role != ROLE_CODER
+                || source.project != self.preparation.project
+                || source.candidate != self.preparation.source_commit
+            {
+                return Err("candidate source run does not bind the coder preparation".into());
+            }
         }
         if self.preparation.role == ROLE_REVIEWER
             && (self.bundle.is_empty() || self.bundle.len() > MAX_SOURCE_BUNDLE)
@@ -57,6 +69,7 @@ impl<'de> Deserialize<'de> for FactoryCandidate {
             {
                 let mut preparation = None;
                 let mut source_preparation = None;
+                let mut source_run = None;
                 let mut bundle = None;
                 let mut deadline = None;
                 while let Some(key) = map.next_key::<String>()? {
@@ -67,6 +80,10 @@ impl<'de> Deserialize<'de> for FactoryCandidate {
                     } else if key.eq_ignore_ascii_case("source_preparation") {
                         if let Some(v) = map.next_value::<Option<String>>()? {
                             source_preparation = Some(v);
+                        }
+                    } else if key.eq_ignore_ascii_case("source_run") {
+                        if let Some(v) = map.next_value::<Option<FactoryExport>>()? {
+                            source_run = Some(v);
                         }
                     } else if key.eq_ignore_ascii_case("bundle") {
                         if let Some(v) = map.next_value::<Option<super::setup::GoBytes>>()? {
@@ -79,13 +96,20 @@ impl<'de> Deserialize<'de> for FactoryCandidate {
                     } else {
                         return Err(de::Error::unknown_field(
                             &key,
-                            &["preparation", "source_preparation", "bundle", "deadline"],
+                            &[
+                                "preparation",
+                                "source_preparation",
+                                "source_run",
+                                "bundle",
+                                "deadline",
+                            ],
                         ));
                     }
                 }
                 Ok(FactoryCandidate {
                     preparation: preparation.unwrap_or_default(),
                     source_preparation: source_preparation.unwrap_or_default(),
+                    source_run,
                     bundle: bundle.unwrap_or_default(),
                     deadline: deadline.unwrap_or_default(),
                 })

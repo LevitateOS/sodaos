@@ -9,13 +9,15 @@ import (
 // reusing only a ready preparation's protected approved setup. The coordinator
 // binds the current requirement/admin decisions before requesting preparation.
 // Neither role Git configuration nor its private home crosses this boundary.
-// An explicit coder Retry instead copies the protected original source bundle:
-// its caller supplies no bundle. Corrections retain their original checkout.
+// A coder copies protected source or addresses one settled coder export for a
+// refreshed source. Its caller supplies no bundle. Corrections retain their
+// original checkout; the native producer verifies unchanged approved setup.
 type FactoryCandidate struct {
-	Preparation       Preparation `json:"preparation"`
-	SourcePreparation string      `json:"source_preparation"`
-	Bundle            []byte      `json:"bundle"`
-	Deadline          time.Time   `json:"deadline"`
+	Preparation       Preparation    `json:"preparation"`
+	SourcePreparation string         `json:"source_preparation"`
+	SourceRun         *FactoryExport `json:"source_run,omitempty"`
+	Bundle            []byte         `json:"bundle"`
+	Deadline          time.Time      `json:"deadline"`
 }
 
 func (p FactoryCandidate) Validate() error {
@@ -27,6 +29,14 @@ func (p FactoryCandidate) Validate() error {
 	}
 	if p.Preparation.Role == RoleCoder && len(p.Bundle) != 0 {
 		return errors.New("coder retry source must come from the protected preparation")
+	}
+	if p.SourceRun != nil {
+		if err := p.SourceRun.Validate(); err != nil {
+			return err
+		}
+		if p.Preparation.Role != RoleCoder || p.SourceRun.Role != RoleCoder || p.SourceRun.Project != p.Preparation.Project || p.SourceRun.Candidate != p.Preparation.SourceCommit {
+			return errors.New("candidate source run does not bind the coder preparation")
+		}
 	}
 	if p.Preparation.Role == RoleReviewer && (len(p.Bundle) == 0 || len(p.Bundle) > MaxSourceBundle) {
 		return errors.New("candidate source bundle exceeds preparation bounds")

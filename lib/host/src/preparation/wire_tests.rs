@@ -41,6 +41,27 @@ fn prepare_decode_round_trip() {
 }
 
 #[test]
+fn candidate_decodes_protected_source_run_and_rejects_unknown_export_fields() {
+    let body = format!(
+        r#"{{"preparation":{},"source_preparation":"f{}","source_run":{{"project":{:?},"id":"{}","role":"soda-coder","preparation":"f{}","candidate":{:?}}},"bundle":null,"deadline":"2099-01-01T00:00:00Z"}}"#,
+        prep_json(),
+        "c".repeat(24),
+        pid(),
+        "2".repeat(32),
+        "c".repeat(24),
+        COMMIT
+    );
+    let candidate = FactoryCandidate::decode(body.as_bytes()).unwrap();
+    assert!(candidate.validate().is_ok());
+    assert_eq!(candidate.source_run.unwrap().candidate, COMMIT);
+    assert!(FactoryCandidate::decode(
+        body.replace("\"source_run\":{", "\"source_run\":{\"bundle\":\"bytes\",")
+            .as_bytes()
+    )
+    .is_err());
+}
+
+#[test]
 fn preparation_tool_list_null_elements_decode_as_empty_strings() {
     let body = prepare_json().replace(
         "\"preparation\":{",
