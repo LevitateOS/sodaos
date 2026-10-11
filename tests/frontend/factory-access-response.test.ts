@@ -25,7 +25,7 @@ const dto = () => ({
   effective: {missing: [], effective: true, dispatch_open: true},
   required_actions: [{code: 'usage_budget_missing', resolve_by: 'connection_owner', setting: 'usage_budgets'}],
   preparation: null,
-  usage: [{connection: 'c1', unit: 'minutes', budget_minutes: 360, used_minutes: 41}],
+  usage: [{connection: 'c1', unit: 'minutes', budget_minutes: 360, used_minutes: 41}] as Record<string, unknown>[],
   observed_unix: 1780000000,
   repository: '7',
 });
