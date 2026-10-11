@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -26,5 +27,32 @@ func TestIntentDesignRespectsExplicitApproachAndChangesGraph(t *testing.T) {
 	explicit := applyIntentDesign(r, ids, proposal, factory.PriorityAnswer{Selected: "complete_first", Confidence: 1})
 	if explicit.Approach != "incremental" || len(explicit.Tasks) != 2 {
 		t.Fatal("human choice lost")
+	}
+}
+
+func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
+	proposal := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", State: "draft"}
+	content := factory.DescribeAlternatives("Time-off requests my manager can approve")
+	challenges := []factory.AssumptionChallenge{{Idea: "d333333333333333333333333", Assumption: "Everyone can see each request", Consequence: "Dates are exposed", Recommendation: "Confirm it"}}
+	raw, err := json.Marshal(attachExploration(proposal, factory.ProposalContent{Producer: content.Producer, Supported: content.Supported, Unknowns: content.Unknowns}, challenges, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var merged map[string]any
+	if err := json.Unmarshal(raw, &merged); err != nil {
+		t.Fatal(err)
+	}
+	if merged["id"] != proposal.ID || merged["state"] != "draft" {
+		t.Fatalf("revision fields not flat: %v", merged)
+	}
+	exploration, ok := merged["exploration"].(map[string]any)
+	if !ok || exploration["recommendation"] != nil {
+		t.Fatalf("exploration missing: %v", merged)
+	}
+	if _, ok := exploration["content"].(map[string]any); !ok {
+		t.Fatal("content missing from exploration")
+	}
+	if list, ok := exploration["challenges"].([]any); !ok || len(list) != 1 {
+		t.Fatalf("challenges=%v", exploration["challenges"])
 	}
 }
