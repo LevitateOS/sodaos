@@ -20,8 +20,15 @@ func (s *Store) IntentGeneration(ctx context.Context, revision string) (factory.
 }
 
 func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
-	if !project.ValidDecisionID(g.RevisionID) || !project.ValidDecisionID(g.IntentID) || g.OperationID == "" || g.ActorID <= 0 || g.NativeRev < 1 || g.NotAfter <= 0 || !factory.ValidDigest(g.IntentDigest) || !json.Valid(g.Payload) || g.State != "pending" || len(g.Receipt) > 0 {
+	if !project.ValidDecisionID(g.RevisionID) || !project.ValidDecisionID(g.IntentID) || g.OperationID == "" || g.ActorID <= 0 || g.NativeRev < 1 || g.NotAfter <= 0 || !factory.ValidDigest(g.IntentDigest) || !json.Valid(g.Payload) || g.State != "pending" || len(g.Receipt) > 0 || len(g.SubmittedTasks) == 0 {
 		return errors.New("invalid intent generation")
+	}
+	seen := map[string]bool{}
+	for _, task := range g.SubmittedTasks {
+		if !project.ValidDecisionID(task.Key) || seen[task.Key] {
+			return errors.New("invalid submitted task graph")
+		}
+		seen[task.Key] = true
 	}
 	raw, err := json.Marshal(g)
 	if err != nil {

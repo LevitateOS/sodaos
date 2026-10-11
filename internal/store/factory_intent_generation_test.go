@@ -17,6 +17,10 @@ func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "graph-op-1", ActorID: 9, NativeRev: 1, AuthRevision: r.ID, NotAfter: 10, Payload: json.RawMessage(`{"creates":[]}`), IntentDigest: r.Digest(), State: "pending"}
+	if s.BeginIntentGeneration(ctx, g) == nil {
+		t.Fatal("generation without submitted tasks accepted")
+	}
+	g.SubmittedTasks = append([]factory.IntentTask(nil), r.Tasks...)
 	if err := s.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}
@@ -58,22 +62,90 @@ func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
 	}
 }
 
-func TestIntentPlanningHasTwoIndependentAllowances(t *testing.T) {
+func TestSupersededAcceptanceInvalidatesPlanningWithoutRetarget(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
-	s.PriorityCallBudget = 3
+	s.PriorityCallBudget = 100
 	ctx := context.Background()
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "Track requests", State: "draft", MaxIssues: 4, PlanningCalls: 1, CreatedUnix: 1}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Repository: 42, Objective: "Build a request form", State: "accepted", MaxIssues: 4, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Request form", Consequence: "Requests are recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Build request form", Outcomes: []string{"Submit a request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	if err := s.SaveIntentRevision(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	binding := factory.IntentTaskBinding{RevisionID: r.ID, TaskKey: "d444444444444444444444444", IssueID: 101, IssueIndex: 1, ContentVersion: 1, AcceptanceID: "d777777777777777777777777", CreatedUnix: 1}
+	if err := s.BindIntentTaskAcceptance(ctx, binding); err != nil {
+		t.Fatal(err)
+	}
+	next := r
+	next.ID = "d555555555555555555555555"
+	next.Predecessor = r.ID
+	next.Tasks[0].Objective = "Build request form with validation"
+	if err := s.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReserveIssuePlanning(ctx, binding.AcceptanceID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("superseded acceptance planned: %v", err)
+	}
+	kept, err := s.IntentTaskBindings(ctx, r.ID)
+	if err != nil || len(kept) != 1 || kept[0] != binding {
+		t.Fatalf("prior binding retargeted: %+v %v", kept, err)
+	}
+}
+
+func TestIntentPlanningUsesIndependentAllowance(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	s.PriorityCallBudget = 100
+	ctx := context.Background()
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1, Objective: "Track requests", State: "draft", MaxIssues: 4, PlanningCalls: 100, CreatedUnix: 1}
 	if err := s.SaveIntentRevision(ctx, r); err != nil {
 		t.Fatal(err)
 	}
 	a := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	b := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	if ok, err := s.ReserveIntentJudgment(ctx, r, a); err != nil || ok {
+		t.Fatal("missing allowance funded from the embedded field")
+	}
+	if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d333333333333333333333333", Intent: r.Intent, Owner: r.Owner, Amount: 1, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, CreatedUnix: 1}); err != nil {
+		t.Fatal(err)
+	}
 	ok, err := s.ReserveIntentJudgment(ctx, r, a)
 	if err != nil || !ok {
 		t.Fatal(ok, err)
 	}
 	ok, err = s.ReserveIntentJudgment(ctx, r, b)
 	if err != nil || ok {
-		t.Fatal("intent allowance exceeded")
+		t.Fatal("exhausted allowance admitted")
+	}
+	raised := factory.PlanningAllowance{ID: "d444444444444444444444444", Intent: r.Intent, Predecessor: "d333333333333333333333333", Owner: r.Owner, Amount: 2, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, Effect: "one more consultation for the same accepted scope", CreatedUnix: 1}
+	if err := s.SavePlanningAllowance(ctx, raised); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.ReserveIntentJudgment(ctx, r, b); err != nil || !ok {
+		t.Fatal("raised allowance did not release exhaustion")
+	}
+	head, err := s.IntentRevision(ctx, r.Intent, r.Owner)
+	if err != nil || head.ID != r.ID {
+		t.Fatal("allowance change moved intent scope")
+	}
+}
+
+func TestIntentPlanningRespectsGlobalOperatorCeiling(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	s.PriorityCallBudget = 1
+	ctx := context.Background()
+	for i, intent := range []string{"d222222222222222222222222", "d444444444444444444444444"} {
+		r := factory.IntentRevision{ID: []string{"d111111111111111111111111", "d333333333333333333333333"}[i], Intent: intent, Owner: 1, Objective: "Track requests", State: "draft", MaxIssues: 4, CreatedUnix: 1}
+		if err := s.SaveIntentRevision(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: []string{"d555555555555555555555555", "d666666666666666666666666"}[i], Intent: intent, Owner: 1, Amount: 4, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, CreatedUnix: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 1}
+	second := factory.IntentRevision{ID: "d333333333333333333333333", Intent: "d444444444444444444444444", Owner: 1}
+	if ok, err := s.ReserveIntentJudgment(ctx, first, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if ok, err := s.ReserveIntentJudgment(ctx, second, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"); err != nil || ok {
+		t.Fatal("global operator ceiling exceeded")
 	}
 }
