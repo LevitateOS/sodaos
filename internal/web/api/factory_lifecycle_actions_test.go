@@ -22,6 +22,17 @@ func TestLifecycleConfigDTOGatesEnabledOnCapability(t *testing.T) {
 	}
 }
 
+func TestAbsentConfigViewReportsCapability(t *testing.T) {
+	proved := absentLifecycleConfigView(factory.LifecycleEventIssueCreated, 9, true)
+	if proved.Enabled || !proved.Capable || proved.Revision != "0" || proved.RepositoryID != "9" {
+		t.Fatalf("proved default: %+v", proved)
+	}
+	unproved := absentLifecycleConfigView(factory.LifecycleEventIssueCreated, 9, false)
+	if unproved.Enabled || unproved.Capable {
+		t.Fatalf("unproved default: %+v", unproved)
+	}
+}
+
 func TestLifecycleActionDTORendersBudget(t *testing.T) {
 	a := factory.LifecycleAction{ID: "a1", Event: factory.LifecycleEventVerifiedMerge, Action: factory.LifecycleActionCompletionNote, ActorID: 7, RepositoryID: 9, IssueID: 12, Note: "done", AuthRevision: "r", MergeRef: "m", Closed: true, Attempts: 1, Results: map[string]string{"note": factory.LifecycleResultUncertain}}
 	view := lifecycleActionDTO(a)

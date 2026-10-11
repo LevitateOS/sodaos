@@ -11,14 +11,13 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// Optional lifecycle operation kinds. These strings must equal the
-// extension SDK's OperationKindLifecycleIssue/Review/Note once lane C
-// merges the native packet; the SDK is the canonical owner and the Soda
-// copy here keeps the writer compiling against the current SDK.
+// Optional lifecycle operation kinds, aliased from the factory domain so
+// event-to-kind mapping has one L-owned source. The extension SDK remains
+// the canonical owner of these strings.
 const (
-	LifecycleKindIssue  = "issue.lifecycle.apply"
-	LifecycleKindReview = "pull_request.review.request"
-	LifecycleKindNote   = "issue.comment.publish"
+	LifecycleKindIssue  = factory.LifecycleKindIssue
+	LifecycleKindReview = factory.LifecycleKindReview
+	LifecycleKindNote   = factory.LifecycleKindNote
 )
 
 // Lifecycle denial reasons: native outcomes that stop further attempts
