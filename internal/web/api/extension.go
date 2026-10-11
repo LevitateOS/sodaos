@@ -165,7 +165,7 @@ func extensionProductRoute(r *http.Request) bool {
 	case "repositories":
 		return extensionRepositoryRoute(parts, r.Method)
 	case "factory":
-		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance") {
+		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance" || parts[3] == "overview" || parts[3] == "revisions") {
 			return r.Method == http.MethodGet
 		}
 		if len(parts) == 2 && parts[1] == "intent-allowances" {
@@ -215,6 +215,8 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 	}
 	if len(parts) == 4 && parts[2] == "factory" {
 		switch parts[3] {
+		case "access":
+			return method == http.MethodGet
 		case "activity":
 			return method == http.MethodGet || method == http.MethodPut
 		case "policy", "operator-grant", "environment-grant":
@@ -240,6 +242,7 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 		return parts[5] == "acceptances" && method == http.MethodPost ||
 			parts[5] == "acceptance-preview" && method == http.MethodGet ||
 			parts[5] == "assignment" && method == http.MethodGet ||
+			parts[5] == "plan" && method == http.MethodGet ||
 			parts[5] == "withdrawal" && method == http.MethodPost
 	}
 	return false
