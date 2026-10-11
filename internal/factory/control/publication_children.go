@@ -309,7 +309,12 @@ func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publ
 	}
 	storedRecord, created, err := c.Store.AdmitCandidatePreparation(ctx, project.StoredPreparation{Preparation: prep}, registration)
 	if err != nil {
-		c.fenceChildPublication(ctx, p, report)
+		// A changed control, lost capacity race or unavailable Store admits
+		// nothing. The same owner retries; only a proved identity conflict
+		// makes this publication terminal.
+		if errors.Is(err, store.ErrCandidatePreparationConflict) || errors.Is(err, store.ErrAttemptRootMismatch) {
+			c.fenceChildPublication(ctx, p, report)
+		}
 		return project.Preparation{}, false, err
 	}
 	stored := storedRecord.Preparation

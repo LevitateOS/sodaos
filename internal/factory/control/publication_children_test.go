@@ -143,6 +143,16 @@ func TestPublishPassProducesExactReviewerChildAndReplays(t *testing.T) {
 	if _, _, err := fx.db.AdmitCandidatePreparation(ctx, project.StoredPreparation{Preparation: admissions[0].Preparation.Preparation}, changed); !errors.Is(err, store.ErrAdmissionChanged) {
 		t.Fatalf("candidate preparation replay changed execution actor: %v", err)
 	}
+	changedPreparation := project.StoredPreparation{Preparation: admissions[0].Preparation.Preparation}
+	changedPreparation.Preparation.SourceCommit = strings.Repeat("3", 40)
+	if _, _, err := fx.db.AdmitCandidatePreparation(ctx, changedPreparation, admissions[0].Admission); !errors.Is(err, store.ErrAttemptRootMismatch) {
+		t.Fatalf("candidate preparation changed published source without permanent refusal: %v", err)
+	}
+	changedPreparation.Preparation.SourceCommit = publication.Candidate
+	changedPreparation.Preparation.SetupDigest = strings.Repeat("3", 64)
+	if _, _, err := fx.db.AdmitCandidatePreparation(ctx, changedPreparation, admissions[0].Admission); !errors.Is(err, store.ErrCandidatePreparationConflict) {
+		t.Fatalf("candidate preparation changed immutable input without permanent refusal: %v", err)
+	}
 	host.prepPhase = project.PrepareReady
 	first := fx.coord.PublishPass(ctx)
 	if len(first.Errors) != 0 || len(host.launches) != 1 || len(host.preparations) != 2 {

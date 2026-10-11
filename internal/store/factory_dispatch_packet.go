@@ -216,7 +216,7 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 		parent.Stage != factory.AssignmentFinished || parent.Outcome != factory.Succeeded ||
 		parent.Repository != a.Repository || parent.Issue != a.Issue || parent.ProjectID != a.ProjectID ||
 		parent.Acceptance != a.Acceptance || parent.AttemptRoot != a.AttemptRoot {
-		return errors.New("child assignment does not match its publication owner")
+		return fmt.Errorf("%w: child assignment does not match its publication owner", ErrAttemptRootMismatch)
 	}
 	var publicationData []byte
 	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1 FOR UPDATE`, parent.ID).Scan(&publicationData); err != nil {
@@ -232,7 +232,7 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	if publication.AssignmentID != parent.ID || publication.Repository != a.Repository || publication.Issue != a.Issue ||
 		publication.Acceptance != a.Acceptance || publication.Stage != factory.PublicationPublished ||
 		publication.WithdrawRequested || publication.PRNumber <= 0 || publication.PRID <= 0 || publication.Candidate != a.SourceCommit {
-		return errors.New("child assignment does not match the current published candidate")
+		return fmt.Errorf("%w: child assignment does not match the current published candidate", ErrAttemptRootMismatch)
 	}
 	var accepted string
 	if err := tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, a.Repository, a.Issue).Scan(&accepted); err != nil {

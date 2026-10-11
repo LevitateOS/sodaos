@@ -66,6 +66,19 @@ type progressInputs struct {
 	revision *atomic.Int64
 }
 
+type preparationAdmissionRaceInputs struct {
+	DispatchReads
+	reassess func(context.Context) error
+}
+
+func (r *preparationAdmissionRaceInputs) ReadDispatchInputs(ctx context.Context, repository, issue string, comments []string, target string) (DispatchInputs, error) {
+	inputs, err := r.DispatchReads.ReadDispatchInputs(ctx, repository, issue, comments, target)
+	if err == nil && r.reassess != nil {
+		err = r.reassess(ctx)
+	}
+	return inputs, err
+}
+
 func (r progressInputs) ReadAcceptanceEvidence(ctx context.Context, repository, issue string, comments []string) (AcceptanceEvidence, error) {
 	evidence, err := r.AcceptanceSource.ReadAcceptanceEvidence(ctx, repository, issue, comments)
 	evidence.Revision = r.revision.Load()
@@ -228,8 +241,10 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 	reviewExecutor := &fakeReviewer{
 		observed: factory.ReviewObservation{NativeRev: 42, ObservedUnix: time.Now().Unix()},
 		outcome:  committedOutcome(`{"review_id":3}`),
-		adopted: factory.ReviewOutcome{ReviewID: 3, CommentID: 4, ReviewerID: 6, PRID: 8, PRNumber: 9, IssueID: 10,
-			HeadOID: strings.Repeat("2", 40), BaseOID: strings.Repeat("1", 40), CommitID: strings.Repeat("2", 40), Event: "APPROVED"},
+		adopted: factory.ReviewOutcome{
+			ReviewID: 3, CommentID: 4, ReviewerID: 6, PRID: 8, PRNumber: 9, IssueID: 10,
+			HeadOID: strings.Repeat("2", 40), BaseOID: strings.Repeat("1", 40), CommitID: strings.Repeat("2", 40), Event: "APPROVED",
+		},
 	}
 	fx.coord.Reviews = reviewExecutor
 	executor := happyPublisher()
@@ -372,5 +387,110 @@ func TestCoordinatorWakeClosesExpiredRootWithoutMoreRuns(t *testing.T) {
 	}
 	if len(fx.exec.pushes) != 1 || len(fx.exec.creates) != 1 {
 		t.Fatal("expiry rewrote the recorded publication")
+	}
+}
+
+func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
+	ctx := context.Background()
+	fx := publishSeed(t)
+	policy, err := fx.db.RepositoryPolicy(ctx, fx.seed.repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.Review = factory.ActorBindingRef{TokenID: 2, ActorID: 6, Kind: factory.OpReviewSubmit}
+	if err = fx.db.SaveRepositoryPolicy(ctx, policy); err != nil {
+		t.Fatal(err)
+	}
+	sponsor, err := fx.db.Sponsorship(ctx, fx.seed.repo, "conn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sponsor.Roles = append(sponsor.Roles, project.RoleReviewer)
+	if err = fx.db.SaveSponsorship(ctx, sponsor); err != nil {
+		t.Fatal(err)
+	}
+	owner := fx.finishReported(t, 33)
+	key := strconv.FormatInt(owner.Repository, 10) + "/33"
+	evidence := fx.reads.evidence[key]
+	evidence.Revision = 41
+	fx.reads.evidence[key] = evidence
+	prior, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ready atomic.Bool
+	ready.Store(true)
+	var reassessing atomic.Bool
+	reassessing.Store(true)
+	host := &progressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 2), checksReady: &ready}
+	fx.coord.Host = host
+	fx.coord.DispatchReads = &preparationAdmissionRaceInputs{DispatchReads: fx.seed.reads, reassess: func(ctx context.Context) error {
+		if !reassessing.Load() {
+			return nil
+		}
+		control, err := fx.db.IssueControl(ctx, owner.Repository, owner.Issue)
+		if err != nil {
+			return err
+		}
+		// A concurrent normal assessment changes semantic readiness after
+		// planning, before the Store's authoritative preparation admission.
+		if control.Fingerprint == strings.Repeat("f", 64) {
+			control.Fingerprint = strings.Repeat("e", 64)
+		} else {
+			control.Fingerprint = strings.Repeat("f", 64)
+		}
+		_, _, err = fx.db.RecordIssueAssessment(ctx, control, time.Now())
+		return err
+	}}
+	fx.coord.Reviews = &fakeReviewer{}
+	fx.coord.Broker = &stubBroker{get: func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound }, close: func(string, string) error { return nil }}
+	executor := happyPublisher()
+	observe := executor.observe
+	executor.observe = func(work factory.PublicationWork) (factory.PublicationObservation, error) {
+		observation, err := observe(work)
+		observation.NativeRev = 41
+		return observation, err
+	}
+	fx.wire(executor)
+	if err = fx.coord.Start(ctx, filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = fx.coord.Close() })
+	publication, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil || publication.Stage != factory.PublicationPublished {
+		t.Fatalf("stale admission changed publication: stage=%s err=%v", publication.Stage, err)
+	}
+	current, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+	if err != nil || current.RootAssignment != prior.RootAssignment || current.Revision != prior.Revision ||
+		current.Limits != prior.Limits || current.Closed || !current.Active ||
+		current.ActiveSeconds != prior.ActiveSeconds || current.CheckpointUnix != prior.CheckpointUnix || len(current.Corrections) != 0 {
+		t.Fatalf("stale admission changed active allowance: before=%+v after=%+v err=%v", prior, current, err)
+	}
+	if len(host.preparations) != 0 || len(host.launches) != 0 {
+		t.Fatal("stale admission reached native preparation or execution")
+	}
+	reassessing.Store(false)
+	select {
+	case launch := <-host.started:
+		child, err := fx.db.AssignmentByRun(ctx, launch.Run.ID)
+		if launch.Run.Role != project.RoleReviewer || launch.Run.SourceCommit != publication.Candidate ||
+			err != nil || child.ID != publicationChildID(publication.ID, publication.Candidate, project.RoleReviewer) ||
+			child.AttemptRoot != owner.AttemptRoot || child.PublicationAssignment != owner.ID {
+			t.Fatalf("owner wake lost exact reviewer binding: %+v", launch.Run)
+		}
+	case <-time.After(15 * time.Second):
+		if err = fx.coord.Close(); err != nil {
+			t.Fatal(err)
+		}
+		publication, _ = fx.db.PublicationByAssignment(ctx, owner.ID)
+		current, _ = fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+		admissions, _ := fx.db.CandidatePreparations(ctx, owner.Repository, owner.ProjectID, owner.Issue, owner.AttemptRoot, "", 64, 0)
+		t.Fatalf("owner wake did not retry stale preparation admission: stage=%s reason=%s active=%t closed=%t admissions=%d preparations=%d", publication.Stage, publication.Reason, current.Active, current.Closed, len(admissions), len(host.preparations))
+	}
+	if err = fx.coord.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(host.preparations) != 1 || len(host.launches) != 1 || len(fx.exec.pushes) != 1 || len(fx.exec.creates) != 1 {
+		t.Fatal("admission recovery duplicated preparation, execution or publication")
 	}
 }

@@ -110,7 +110,10 @@ type candidatePreparationRegistration struct {
 	Retirement      string               `json:"retirement,omitempty"`
 }
 
-var ErrCandidatePreparationPending = errors.New("candidate preparation retirement is not confirmed")
+var (
+	ErrCandidatePreparationPending  = errors.New("candidate preparation retirement is not confirmed")
+	ErrCandidatePreparationConflict = errors.New("candidate preparation immutable input changed")
+)
 
 // AdmitCandidatePreparation is the atomic pre-host gate for a candidate
 // preparation. Replays retain the first absolute native deadline and exact
@@ -118,13 +121,13 @@ var ErrCandidatePreparationPending = errors.New("candidate preparation retiremen
 func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation project.StoredPreparation, registration CandidatePreparationRegistration) (CandidatePreparationRecord, bool, error) {
 	var empty CandidatePreparationRecord
 	if err := preparation.Validate(); err != nil {
-		return empty, false, err
+		return empty, false, fmt.Errorf("%w: %v", ErrCandidatePreparationConflict, err)
 	}
 	if preparation.State.ID != "" || preparation.State.Phase != "" {
-		return empty, false, errors.New("candidate preparation admission must start without observed state")
+		return empty, false, fmt.Errorf("%w: admission must start without observed state", ErrCandidatePreparationConflict)
 	}
 	if err := validateCandidatePreparationRegistration(preparation, registration); err != nil {
-		return empty, false, err
+		return empty, false, fmt.Errorf("%w: %v", ErrCandidatePreparationConflict, err)
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -195,13 +198,13 @@ func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation proje
 		return empty, false, err
 	}
 	if !samePreparationIdentity(stored, preparation) || storedMeta == nil {
-		return empty, false, errors.New("preparation identity already carries different admission")
+		return empty, false, fmt.Errorf("%w: preparation identity already carries different admission", ErrCandidatePreparationConflict)
 	}
 	if !sameCandidatePreparationAdmission(*storedMeta, meta, !created) {
-		return empty, false, errors.New("candidate preparation admission changed")
+		return empty, false, fmt.Errorf("%w: candidate preparation admission changed", ErrCandidatePreparationConflict)
 	}
 	if revision != stored.Preparation.Revision {
-		return empty, false, errors.New("candidate preparation revision differs")
+		return empty, false, fmt.Errorf("%w: candidate preparation revision differs", ErrCandidatePreparationConflict)
 	}
 	if err = tx.Commit(); err != nil {
 		return empty, false, err
@@ -467,15 +470,27 @@ func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparati
 		return factory.ErrAttemptClosed
 	}
 	owner, err := currentAttemptOwnerTx(ctx, tx, r.Repository, r.Issue, r.AttemptRoot)
-	if err != nil || owner != r.OwnerAssignment {
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrAttemptRootMismatch
+	}
+	if err != nil {
+		return err
+	}
+	if owner != r.OwnerAssignment {
 		return ErrAttemptRootMismatch
 	}
 	var data []byte
 	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1`, owner).Scan(&data); err != nil {
-		return ErrAttemptRootMismatch
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrAttemptRootMismatch
+		}
+		return err
 	}
 	var assignment factory.Assignment
-	if err = json.Unmarshal(data, &assignment); err != nil || assignment.ActorID != actorID || assignment.ProjectID != r.Project {
+	if err = json.Unmarshal(data, &assignment); err != nil {
+		return err
+	}
+	if assignment.ActorID != actorID || assignment.ProjectID != r.Project {
 		return ErrAttemptRootMismatch
 	}
 	return nil

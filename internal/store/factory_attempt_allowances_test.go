@@ -9,7 +9,50 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
+
+func TestCandidatePreparationOwnerPreservesReadFailure(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	a, reservation, run, view := dispatchTestPacket(t, time.Now())
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	registration := CandidatePreparationRegistration{
+		Repository: a.Repository, Issue: a.Issue, AttemptRoot: a.AttemptRoot,
+		PublicationID: factory.NewID(), OwnerAssignment: a.ID, Project: a.ProjectID,
+	}
+	check := func() error {
+		t.Helper()
+		tx, err := db.db.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		return checkCandidatePreparationOwnerTx(ctx, tx, project.StoredPreparation{}, registration, a.ActorID)
+	}
+	if _, err := db.db.ExecContext(ctx, `UPDATE factory_assignments SET data=data || '{"actor_id":"not-an-integer"}'::jsonb WHERE id=$1`, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := check(); err == nil || errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("unreadable owner became a permanent identity refusal: %v", err)
+	}
+	data, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.db.ExecContext(ctx, `UPDATE factory_assignments SET data=$2 WHERE id=$1`, a.ID, string(data)); err != nil {
+		t.Fatal(err)
+	}
+	if err = check(); err != nil {
+		t.Fatalf("recovered exact owner remains unavailable: %v", err)
+	}
+	registration.OwnerAssignment = factory.NewID()
+	if err = check(); !errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("proved owner mismatch lost permanent refusal: %v", err)
+	}
+}
 
 func TestAttemptAllowanceSurvivesRetryAndPolicyChange(t *testing.T) {
 	ctx := context.Background()
