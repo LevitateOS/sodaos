@@ -432,6 +432,182 @@ function priorityComparison(value: unknown): PriorityComparison {
 // issuePlan binds one issue's recorded plan, freshness and recent
 // priority comparisons to its exact repository and issue. Paging
 // cursors travel as a pair; a half cursor is rejected.
+export interface PlanningAllowanceView {
+  readonly id: string;
+  readonly intent: string;
+  readonly owner: string;
+  readonly amount: number;
+  readonly unit: string;
+  readonly reserved: number;
+  readonly consumed: number;
+  readonly ceiling: number;
+  readonly created_unix: number;
+  readonly predecessor?: string;
+  readonly effect?: string;
+}
+function allowanceAmount(raw: Record<string, unknown>) {
+  check(typeof raw.amount === 'number' && Number.isSafeInteger(raw.amount) && raw.amount >= 0 && raw.amount <= 100);
+  check(typeof raw.ceiling === 'number' && Number.isSafeInteger(raw.ceiling) && raw.ceiling >= 0 && raw.ceiling <= 100);
+  check(raw.amount <= raw.ceiling);
+  return {amount: raw.amount, ceiling: raw.ceiling};
+}
+function allowanceConsumption(raw: Record<string, unknown>) {
+  check(typeof raw.reserved === 'number' && Number.isSafeInteger(raw.reserved) && raw.reserved >= 0);
+  check(typeof raw.consumed === 'number' && Number.isSafeInteger(raw.consumed) && raw.consumed >= 0);
+  return {reserved: raw.reserved, consumed: raw.consumed};
+}
+function allowanceBounds(raw: Record<string, unknown>) {
+  const amount = allowanceAmount(raw);
+  const consumption = allowanceConsumption(raw);
+  check(consumption.reserved + consumption.consumed <= amount.amount);
+  return {...amount, ...consumption};
+}
+function allowanceEffect(value: unknown): string | undefined {
+  if (value === undefined || value === '') return undefined;
+  check(typeof value === 'string' && value.trim() !== '' && value.length <= 4000);
+  return value;
+}
+// planningAllowance binds one planning allowance record to its exact
+// intent: the bounded amount in real planning-call units with reserved
+// and consumed consumption.
+export function planningAllowance(value: unknown, intent: string): PlanningAllowanceView {
+  const data = object(value);
+  check(decisionID(data.id) && data.intent === intent && id(data.owner));
+  check(data.unit === 'planning_calls');
+  check(typeof data.created_unix === 'number' && data.created_unix > 0);
+  if (data.predecessor !== undefined && data.predecessor !== '') check(decisionID(data.predecessor));
+  const bounds = allowanceBounds(data);
+  const effect = allowanceEffect(data.effect);
+  return {
+    id: data.id,
+    intent,
+    owner: data.owner,
+    ...bounds,
+    unit: 'planning_calls',
+    created_unix: data.created_unix,
+    ...(typeof data.predecessor === 'string' && data.predecessor !== '' ? {predecessor: data.predecessor} : {}),
+    ...(effect === undefined ? {} : {effect}),
+  };
+}
+
+export interface LifecycleEffectConfig {
+  readonly event: string;
+  readonly revision: string;
+  readonly enabled: boolean;
+  readonly capable: boolean;
+  readonly actor_id: string;
+  readonly repository_id: string;
+  readonly reviewer_ids: readonly string[];
+  readonly label_id?: string;
+  readonly assignee_id?: string;
+  readonly note?: string;
+}
+export interface LifecycleEffectAction {
+  readonly id: string;
+  readonly event: string;
+  readonly action: string;
+  readonly actor_id: string;
+  readonly issue_id: string;
+  readonly attempts: number;
+  readonly max_attempts: number;
+  readonly revoked: boolean;
+  readonly settled: boolean;
+  readonly results: Record<string, string>;
+}
+
+const lifecycleEvents = ['issue_created', 'pr_created', 'verified_merge'];
+const lifecycleActions: Record<string, string> = {
+  issue_created: 'issue_label_assignee',
+  pr_created: 'pr_reviewer_request',
+  verified_merge: 'original_completion_note',
+};
+const lifecycleResults = ['pending', 'delivered', 'failed', 'uncertain', 'denied'];
+
+function lifecycleNote(value: unknown): string | undefined {
+  if (value === undefined || value === '') return undefined;
+  check(typeof value === 'string' && [...value].length <= 1000);
+  return value;
+}
+function lifecycleActor(value: unknown): string {
+  check(typeof value === 'string' && (value === '' || decimalID(value)));
+  return value;
+}
+function lifecycleReviewers(value: unknown): string[] {
+  if (value === undefined) return [];
+  check(Array.isArray(value) && value.length <= 3);
+  for (const reviewer of value) check(id(reviewer));
+  return value as string[];
+}
+// lifecycleEffectConfig binds one event's optional-effect
+// configuration to its exact event and repository: enablement,
+// capability proof, actor, targets and revision.
+export function lifecycleEffectConfig(value: unknown, event: string, repository: string): LifecycleEffectConfig {
+  const data = object(value);
+  check(data.event === event && lifecycleEvents.includes(event));
+  check(decimalID(data.revision));
+  check(typeof data.enabled === 'boolean' && typeof data.capable === 'boolean');
+  check(data.repository_id === repository);
+  if (data.label_id !== undefined) check(id(data.label_id));
+  if (data.assignee_id !== undefined) check(id(data.assignee_id));
+  const note = lifecycleNote(data.note);
+  return {
+    event,
+    revision: data.revision,
+    enabled: data.enabled,
+    capable: data.capable,
+    actor_id: lifecycleActor(data.actor_id),
+    repository_id: repository,
+    reviewer_ids: lifecycleReviewers(data.reviewer_ids),
+    ...(data.label_id === undefined ? {} : {label_id: data.label_id as string}),
+    ...(data.assignee_id === undefined ? {} : {assignee_id: data.assignee_id as string}),
+    ...(note === undefined ? {} : {note}),
+  };
+}
+function lifecycleResultsMap(value: unknown): Record<string, string> {
+  if (value === undefined) return {};
+  const raw = object(value);
+  const keys = Object.keys(raw);
+  check(keys.length <= 8);
+  const out: Record<string, string> = {};
+  for (const key of keys) {
+    check(key.length >= 1 && key.length <= 128);
+    check(typeof raw[key] === 'string' && lifecycleResults.includes(raw[key] as string));
+    out[key] = raw[key] as string;
+  }
+  return out;
+}
+function lifecycleAction(value: unknown, issue: string, event: string): LifecycleEffectAction {
+  const raw = object(value);
+  check(typeof raw.id === 'string' && raw.id.length >= 1 && raw.id.length <= 128);
+  check(raw.event === event && lifecycleEvents.includes(event));
+  check(typeof raw.action === 'string' && raw.action === lifecycleActions[event]);
+  check(id(raw.actor_id) && raw.issue_id === issue);
+  check(typeof raw.attempts === 'number' && Number.isSafeInteger(raw.attempts) && raw.attempts >= 0);
+  check(typeof raw.revoked === 'boolean' && typeof raw.settled === 'boolean');
+  return {
+    id: raw.id,
+    event,
+    action: raw.action,
+    actor_id: raw.actor_id,
+    issue_id: issue,
+    attempts: raw.attempts,
+    max_attempts: counter(raw.max_attempts),
+    revoked: raw.revoked,
+    settled: raw.settled,
+    results: lifecycleResultsMap(raw.results),
+  };
+}
+// lifecycleEffectActions binds one issue/event's durable action results
+// to the exact issue and event. Attempts stay within the recorded
+// budget; revoked and unsettled actions read distinctly.
+export function lifecycleEffectActions(value: unknown, issue: string, event: string): LifecycleEffectAction[] {
+  const data = object(value);
+  check(Array.isArray(data.actions) && data.actions.length <= 64);
+  const actions = data.actions.map((entry) => lifecycleAction(entry, issue, event));
+  for (const action of actions) check(action.attempts <= action.max_attempts);
+  return actions;
+}
+
 function planCursor(data: Record<string, unknown>): {next_before_unix?: number; next_before_snapshot?: string} {
   if (data.next_before_unix === undefined && data.next_before_snapshot === undefined) return {};
   check(typeof data.next_before_unix === 'number' && Number.isSafeInteger(data.next_before_unix));

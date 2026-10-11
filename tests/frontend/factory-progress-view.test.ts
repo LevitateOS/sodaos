@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  describeAllowance,
   describeDirectionRevision,
-  describeOptionalEffects,
+  describeLifecycleEffect,
   describePrerequisites,
   describeRecordedChoice,
   describeRecordedPlan,
@@ -11,7 +12,11 @@ import {
   describeWorkOverview,
   intentGeneration,
 } from '../../frontend/spaces/sodaspaces-factory-progress-view';
-import {issuePlan, requestOverview} from '../../frontend/spaces/sodaspaces-factory-progress-response';
+import {
+  issuePlan,
+  planningAllowance,
+  requestOverview,
+} from '../../frontend/spaces/sodaspaces-factory-progress-response';
 import type {FactoryIssueDetail} from '../../frontend/spaces/sodaspaces-factory-work-response';
 
 const path = '/soda-tester/demo';
@@ -253,10 +258,37 @@ test('revision and allowance stay attributable and exact', () => {
   assert.equal(model.headline, 'Let a team track demo work.');
   assert.match(model.attribution, new RegExp(revisionId));
   assert.equal(model.taskCount, 2);
-  assert.match(model.allowanceText, /12 calls accepted/);
-  assert.match(model.allowanceText, /Consumption record unavailable/);
+  assert.match(model.allowanceText, /12/);
+  assert.match(model.allowanceText, /Live allowance reads separately/);
   assert.equal(describeDirectionRevision(undefined, 'missing').headline, 'No accepted direction recorded.');
   assert.match(describeDirectionRevision(undefined, 'unavailable').headline, /could not be read/);
+});
+
+test('allowance shows bounded units, consumption and attribution', () => {
+  const allowance = planningAllowance(
+    {
+      id: 'd' + 'b'.repeat(24),
+      intent: intentId,
+      predecessor: 'd' + 'a'.repeat(24),
+      owner: '1001',
+      amount: 12,
+      unit: 'planning_calls',
+      reserved: 3,
+      consumed: 4,
+      ceiling: 20,
+      effect: 'Extra comparison round.',
+      created_unix: 1,
+    },
+    intentId
+  );
+  const model = describeAllowance(allowance, 'ready');
+  assert.match(model.summaryText, /12 planning calls/);
+  assert.match(model.summaryText, /3 reserved, 4 consumed, 5 remaining/);
+  assert.match(model.attributionText, /owner 1001/);
+  assert.match(model.attributionText, /adjusts/);
+  assert.match(model.effectText, /Extra comparison round/);
+  assert.equal(describeAllowance(undefined, 'missing').summaryText, 'No planning allowance recorded.');
+  assert.match(describeAllowance(undefined, 'unavailable').summaryText, /could not be read/);
 });
 
 test('request overview projects evidenced counts and named attention', () => {
@@ -463,11 +495,65 @@ test('recorded choices explain selection, fairness and masked winners', () => {
   assert.match(none.selection, /No recorded priority comparison/);
 });
 
-test('optional effects stay unavailable until their own checkpoint passes', () => {
-  const models = describeOptionalEffects({issue_label: false, review_request: false, completion_note: false});
-  assert.equal(models.length, 3);
-  for (const model of models) assert.match(model.stateText, /has not passed/);
-  const passed = describeOptionalEffects({issue_label: true, review_request: false, completion_note: false});
-  assert.match(passed[0]?.stateText ?? '', /configuration is not yet exposed/);
-  assert.match(passed[1]?.stateText ?? '', /has not passed/);
+test('lifecycle effects gate on proof and name actor, targets and results', () => {
+  const config = {
+    event: 'pr_created',
+    revision: '4',
+    enabled: true,
+    capable: true,
+    actor_id: '1001',
+    repository_id: '7',
+    reviewer_ids: ['11', '12'],
+  };
+  const actions = [
+    {
+      id: 'op-1',
+      event: 'pr_created',
+      action: 'pr_reviewer_request',
+      actor_id: '1001',
+      issue_id: '12',
+      attempts: 1,
+      max_attempts: 2,
+      revoked: false,
+      settled: false,
+      results: {'11': 'delivered', '12': 'pending'},
+    },
+  ];
+  const model = describeLifecycleEffect('pr_created', config, 'ready', actions);
+  assert.equal(model.stateText, 'Active.');
+  assert.match(model.configText, /Actor 1001/);
+  assert.match(model.configText, /Reviewers 11, 12/);
+  assert.match(model.resultsText[0] ?? '', /1\/2 attempts/);
+  assert.match(model.resultsText[0] ?? '', /11: delivered; 12: pending/);
+  assert.equal(model.canConfigure, true);
+  assert.equal(describeLifecycleEffect('pr_created', {...config, capable: false}, 'ready', []).canConfigure, false);
+  assert.match(
+    describeLifecycleEffect('pr_created', {...config, capable: false}, 'ready', []).stateText,
+    /checkpoint has not passed/
+  );
+  assert.equal(describeLifecycleEffect('pr_created', {...config, enabled: false}, 'ready', []).stateText, 'Disabled.');
+  assert.equal(
+    describeLifecycleEffect('pr_created', {...config, revision: '0'}, 'ready', []).stateText,
+    'Not configured yet.'
+  );
+  assert.equal(describeLifecycleEffect('pr_created', undefined, 'unavailable', []).canConfigure, false);
+});
+
+test('each optional effect gates on its own native checkpoint', () => {
+  const effect = {
+    event: 'pr_created',
+    revision: '4',
+    enabled: true,
+    capable: true,
+    actor_id: '1001',
+    repository_id: '7',
+    reviewer_ids: ['11', '12'],
+  };
+  assert.equal(describeLifecycleEffect('pr_created', {...effect, capable: true}, 'ready', []).canConfigure, true);
+  assert.equal(describeLifecycleEffect('issue_created', {...effect, capable: false}, 'ready', []).canConfigure, false);
+  assert.equal(describeLifecycleEffect('verified_merge', {...effect, capable: false}, 'ready', []).canConfigure, false);
+  assert.match(
+    describeLifecycleEffect('issue_created', {...effect, capable: false}, 'ready', []).stateText,
+    /checkpoint has not passed/
+  );
 });
