@@ -34,6 +34,9 @@ paths are private service routes, not public URLs to call directly:
 | PUT | `/api/repositories/{repositoryID}/factory/policy` | Owner/admin repository factory policy (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/operator-grant` | Operator repository permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/environment-grant` | Owner environment setup permission (command envelope) |
+| GET | `/api/repositories/{repositoryID}/factory/lifecycle/{event}` | Optional-effect configuration with capability proof |
+| PUT | `/api/repositories/{repositoryID}/factory/lifecycle/{event}` | Save effect configuration with revision CAS (owner/admin) |
+| GET | `/api/repositories/{repositoryID}/factory/lifecycle/{event}/actions?issue=N` | Bounded durable action results for one issue/event |
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
 | GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
 | POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
