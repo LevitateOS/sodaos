@@ -262,12 +262,15 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 	launchTail(ctx, deps, next, run, launch, report)
 }
 
-// launchTail drives one recorded attempt run: a detached launch bounded
-// by the run deadline, then exactly one of launched, confirmed-unused
+const launchObservationTimeout = 5 * time.Second
+
+// launchTail briefly observes one recorded attempt's launch, then records
+// exactly one of launched, confirmed-unused
 // settle-and-release, or fenced-and-held. A returned error never guesses
-// the run's effects; the host and broker decide what is unused.
+// the run's effects; the host and broker decide what is unused. The native
+// run retains its admitted deadline after this observation ends.
 func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, run factory.Run, launch project.FactoryLaunch, report *DispatchReport) {
-	launchCtx, cancel := context.WithDeadline(context.WithoutCancel(ctx), run.Deadline)
+	launchCtx, cancel := context.WithTimeout(ctx, launchObservationTimeout)
 	defer cancel()
 	state, err := deps.Host.FactoryLaunch(launchCtx, launch)
 	if err == nil {

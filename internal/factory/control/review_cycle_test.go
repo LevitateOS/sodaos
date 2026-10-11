@@ -516,7 +516,7 @@ func TestRetryRefusesStandaloneRunsWithoutLinkedAssignments(t *testing.T) {
 		t.Fatal(err)
 	}
 	commandID := factory.NewID()
-	if _, err := c.RetryRun(context.Background(), commandID, "native:7", succeeded.ID); !errors.Is(err, store.ErrNotFound) {
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", succeeded.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
 		t.Fatalf("standalone succeeded run was admitted: %v", err)
 	}
 	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {
@@ -529,7 +529,7 @@ func TestRetryRefusesStandaloneRunsWithoutLinkedAssignments(t *testing.T) {
 		t.Fatal(err)
 	}
 	commandID = factory.NewID()
-	if _, err := c.RetryRun(context.Background(), commandID, "native:7", review.ID); !errors.Is(err, store.ErrNotFound) {
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", review.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
 		t.Fatalf("standalone reviewer run was admitted: %v", err)
 	}
 	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {
@@ -542,7 +542,7 @@ func TestRetryRefusesStandaloneRunsWithoutLinkedAssignments(t *testing.T) {
 		t.Fatal(err)
 	}
 	commandID = factory.NewID()
-	if _, err := c.RetryRun(context.Background(), commandID, "native:7", failed.ID); !errors.Is(err, store.ErrNotFound) {
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", failed.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
 		t.Fatalf("standalone failed run was admitted: %v", err)
 	}
 	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {

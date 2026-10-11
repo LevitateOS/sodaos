@@ -12,20 +12,22 @@ import (
 
 // DispatchHost is the dispatch slice of the host surface: launch starts
 // one recorded run under supervision, inspect observes one run without
-// mutating it, and harness reports the staged-harness pin. The host
+// mutating it, stop fences a run identity, and harness reports the staged-harness pin. The host
 // client implements it; the coordinator passes its own host through.
 type DispatchHost interface {
 	FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error)
 	ReadPreparationContext(ctx context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error)
 	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
+	FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error)
 	FactoryHarness(ctx context.Context, family string) (project.FactoryHarnessPin, error)
 }
 
 // DispatchBroker is the dispatch slice of the broker surface: get reads
-// one execution's nonsecret metadata. Dispatch never acquires,
+// one execution's nonsecret metadata and close fences late acquisition. Dispatch never acquires,
 // registers or handles credential delivery.
 type DispatchBroker interface {
 	GetExecution(ctx context.Context, kind, executionID string) (identity.Execution, error)
+	CloseExecution(ctx context.Context, kind, executionID string) error
 }
 
 // DispatchComment is one verified accepted native text section: the

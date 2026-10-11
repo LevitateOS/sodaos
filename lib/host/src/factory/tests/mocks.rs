@@ -62,6 +62,8 @@ pub(in crate::factory) struct FakeTerminal {
     pub(in crate::factory) takeover: RefCell<VecDeque<Result<(String, bool), FactoryError>>>,
     pub(in crate::factory) export: RefCell<VecDeque<Result<Vec<u8>, FactoryError>>>,
     pub(in crate::factory) reserve_calls: RefCell<Vec<(String, i64)>>,
+    pub(in crate::factory) reserve_deadlines: RefCell<Vec<Instant>>,
+    pub(in crate::factory) wait_deadlines: RefCell<Vec<Instant>>,
     pub(in crate::factory) takeover_calls: RefCell<Vec<TakeoverCall>>,
     pub(in crate::factory) export_calls: RefCell<Vec<ExportCall>>,
     pub(in crate::factory) output_calls: RefCell<Vec<(String, i64, i64)>>,
@@ -85,6 +87,8 @@ impl FakeTerminal {
             takeover: RefCell::new(VecDeque::new()),
             export: RefCell::new(VecDeque::new()),
             reserve_calls: RefCell::new(Vec::new()),
+            reserve_deadlines: RefCell::new(Vec::new()),
+            wait_deadlines: RefCell::new(Vec::new()),
             takeover_calls: RefCell::new(Vec::new()),
             export_calls: RefCell::new(Vec::new()),
             output_calls: RefCell::new(Vec::new()),
@@ -119,8 +123,9 @@ impl FactoryTerminal for FakeTerminal {
         _lease: &Lease,
         pin: &str,
         max_secs: i64,
-        _deadline: Instant,
+        deadline: Instant,
     ) -> Result<Binding, FactoryError> {
+        self.reserve_deadlines.borrow_mut().push(deadline);
         self.reserve_calls
             .borrow_mut()
             .push((pin.to_string(), max_secs));
@@ -135,7 +140,8 @@ impl FactoryTerminal for FakeTerminal {
     ) -> Result<(), FactoryError> {
         Self::pop(&self.start, "start")
     }
-    fn wait(&self, _lease: &Lease, _deadline: Instant) -> Result<(i64, String), FactoryError> {
+    fn wait(&self, _lease: &Lease, deadline: Instant) -> Result<(i64, String), FactoryError> {
+        self.wait_deadlines.borrow_mut().push(deadline);
         Self::pop(&self.wait, "wait")
     }
     fn stop(&self, _lease: &Lease, _deadline: Instant) -> Result<(), FactoryError> {

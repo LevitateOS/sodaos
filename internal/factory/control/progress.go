@@ -109,7 +109,20 @@ func (c *Coordinator) advanceProgress(ctx context.Context) {
 		return
 	}
 	for _, run := range runs {
-		if ctx.Err() != nil || !budget.reserveNativeRPC(1) {
+		if ctx.Err() != nil {
+			break
+		}
+		// Admission can remain approved while the broker is busy, without
+		// ever creating a native unit. The recorded deadline still bounds
+		// its custody; Stop preserves an already-retained terminal outcome.
+		if !time.Now().Before(run.Deadline) {
+			if !budget.reserveNativeRPC(5) {
+				break
+			}
+			c.settleRun(ctx, run)
+			continue
+		}
+		if !budget.reserveNativeRPC(1) {
 			break
 		}
 		state, err := c.Host.FactoryInspect(ctx, project.FactoryInspect{Project: run.ProjectID, ID: run.ID})

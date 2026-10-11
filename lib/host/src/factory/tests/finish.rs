@@ -4,6 +4,31 @@ use super::common::{
 };
 use super::mocks::script_success;
 use crate::factory::*;
+use std::time::{Duration, Instant};
+
+#[test]
+fn launch_execution_deadline_outlives_admission_rpc() {
+    let (_dir, factory, _exec, term, broker) = wired_factory("launch-long-result");
+    let req = sample_launch();
+    super::mocks::script_success(&term, &broker, &req.run, 0, "result retained");
+    let admission = Instant::now() + Duration::from_secs(1);
+    let state = factory.launch(&req, admission).unwrap();
+    assert_eq!(state.phase, FACTORY_COMPLETED);
+    assert!(term.reserve_deadlines.borrow()[0] <= admission);
+    assert!(term.wait_deadlines.borrow()[0] > admission + Duration::from_secs(30));
+    let observed = factory
+        .inspect(
+            &FactoryInspect {
+                project: req.run.project.clone(),
+                id: req.run.id.clone(),
+            },
+            deadline(),
+        )
+        .unwrap();
+    assert_eq!(observed, state);
+    assert!(observed.credential_returned);
+    assert_eq!(observed.retirement, "confirmed");
+}
 
 #[test]
 fn launch_failed_start_retires_cleanly() {

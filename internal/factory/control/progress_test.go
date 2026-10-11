@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,6 +23,184 @@ type progressHost struct {
 	states      map[string]project.FactoryState
 	started     chan project.FactoryLaunch
 	checksReady *atomic.Bool
+}
+
+// The native job and its durable receipt outlive a disconnected launch RPC.
+// Completion below changes only host truth; the production owner must perform
+// all accounting and publication itself.
+type lostReplyProgressHost struct {
+	*producerFlowHost
+	mu       sync.Mutex
+	state    project.FactoryState
+	entered  chan project.FactoryLaunch
+	complete chan struct{}
+}
+
+func (h *lostReplyProgressHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
+	h.mu.Lock()
+	h.launches = append(h.launches, in)
+	h.state = project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryRunning, Live: true, Delivered: true, LeaseID: "lease", Generation: 3}
+	h.mu.Unlock()
+	h.entered <- in
+	select {
+	case <-ctx.Done():
+		return project.FactoryState{}, ctx.Err()
+	case <-h.complete:
+		return h.FactoryInspect(ctx, project.FactoryInspect{ID: in.Run.ID})
+	}
+}
+
+func (h *lostReplyProgressHost) FactoryInspect(context.Context, project.FactoryInspect) (project.FactoryState, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.state, nil
+}
+
+func (h *lostReplyProgressHost) FactoryStop(context.Context, project.FactoryStop) (project.FactoryState, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.state.Live {
+		return project.FactoryState{}, errors.New("live run must not be stopped by observation timeout")
+	}
+	return h.state, nil
+}
+
+func (h *lostReplyProgressHost) finish() {
+	h.mu.Lock()
+	h.state.Live = false
+	h.state.Phase, h.state.Retirement = project.FactoryCompleted, "confirmed"
+	h.state.CredentialReturned = true
+	h.state.Output = "```result-json\n" + `{"status":"completed","summary":"done","candidate":"` + strings.Repeat("2", 40) + `","review_passed":false,"findings":[]}` + "\n```"
+	h.mu.Unlock()
+	close(h.complete)
+}
+
+func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
+	ctx := context.Background()
+	fx := publishSeed(t)
+	decision := fx.seed.accept(t, 31, "d333333333333333333333333")
+	fx.seed.queue(t, 31, decision.ID)
+	fx.reads.evidence[strconv.FormatInt(fx.seed.repo, 10)+"/31"] = AcceptanceEvidence{
+		Revision: 41,
+		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
+		Comments: []AcceptanceComment{{ID: decision.Sources[0].ID, Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
+	}
+	host := &lostReplyProgressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, entered: make(chan project.FactoryLaunch, 1), complete: make(chan struct{})}
+	fx.coord.Host, fx.coord.DispatchReads = host, fx.seed.reads
+	fx.coord.Broker = &stubBroker{get: func(kind, id string) (identity.Execution, error) {
+		return identity.Execution{Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal, Digest: "digest", LeaseID: "lease", Binding: &identity.Binding{Kind: kind, ID: id, Generation: 3, CredentialRoot: "/home/coder/runs/" + id}}, nil
+	}, close: func(string, string) error { return nil }}
+	executor := happyPublisher()
+	observe := executor.observe
+	executor.observe = func(work factory.PublicationWork) (factory.PublicationObservation, error) {
+		observation, err := observe(work)
+		observation.NativeRev = 41
+		return observation, err
+	}
+	fx.wire(executor)
+	if err := fx.coord.Start(ctx, filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = fx.coord.Close() })
+	request, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		_, _, _ = fx.coord.ObserveIssueEvent(request, readinessHint("lost-launch-reply", fx.seed.repo, 31))
+		close(done)
+	}()
+	var launch project.FactoryLaunch
+	select {
+	case launch = <-host.entered:
+	case <-time.After(time.Second):
+		t.Fatal("normal intake did not launch the recorded run")
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		host.finish()
+		<-done
+		t.Fatal("request cancellation retained the scheduling lease")
+	}
+	run, err := fx.db.FactoryRun(ctx, launch.Run.ID)
+	if err != nil || run.Reconciled || !run.Deadline.Equal(launch.Run.Deadline) {
+		t.Fatalf("lost reply changed admitted run custody/deadline: %+v %v", run, err)
+	}
+	assignment, err := fx.db.AssignmentByRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reservation, err := fx.db.Reservation(ctx, assignment.ID)
+	if err != nil || reservation.State != factory.ReservationHeld {
+		t.Fatalf("live run lost its held reservation: %+v %v", reservation, err)
+	}
+	host.finish()
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		stored, readErr := fx.db.FactoryRun(ctx, run.ID)
+		publication, publicationErr := fx.db.PublicationByAssignment(ctx, assignment.ID)
+		if readErr == nil && publicationErr == nil && stored.Reconciled && publication.Stage == factory.PublicationPublished {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("production owner did not settle/publish retained result: run=%+v publication=%+v errors=%v/%v", stored, publication, readErr, publicationErr)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err := fx.coord.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(host.launches) != 1 || len(executor.pushes) != 1 || len(executor.creates) != 1 {
+		t.Fatal("lost response duplicated a provider launch, branch or PR")
+	}
+}
+
+func TestCoordinatorWakeRetiresExpiredRecordedRun(t *testing.T) {
+	for _, phase := range []string{project.FactoryApproved, project.FactoryRunning} {
+		t.Run(phase, func(t *testing.T) {
+			var stops atomic.Int32
+			host := &stubHost{
+				inspect: func(in project.FactoryInspect) (project.FactoryState, error) {
+					return project.FactoryState{ID: in.ID, Project: in.Project, Phase: phase, Live: phase == project.FactoryRunning}, nil
+				},
+				stop: func(in project.FactoryStop) (project.FactoryState, error) {
+					stops.Add(1)
+					return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "expired"}, nil
+				},
+			}
+			broker := &stubBroker{get: func(kind, id string) (identity.Execution, error) {
+				return identity.Execution{Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal}, nil
+			}, close: func(string, string) error { return nil }}
+			c := coordinatorFixture(t, host, broker)
+			if err := c.Start(context.Background(), filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = c.Close() })
+			// Recorded after startup reconciliation, so only the serving owner
+			// can retire it. No request or test-provided advancement follows.
+			run := recordRun(t, c, func(run *factory.Run) {
+				run.Started = time.Now().Add(-2 * time.Minute)
+				run.Deadline = time.Now().Add(-time.Second)
+			})
+			deadline := time.Now().Add(12 * time.Second)
+			for {
+				current, err := c.Store.FactoryRun(context.Background(), run.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if current.Reconciled {
+					if current.Outcome != factory.Cancelled || !current.Deadline.Equal(run.Deadline) || stops.Load() != 1 {
+						t.Fatalf("expiry changed lifetime or repeated retirement: %+v stops=%d", current, stops.Load())
+					}
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatalf("expired %s receipt retained active custody", phase)
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+		})
+	}
 }
 
 func (h *progressHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {

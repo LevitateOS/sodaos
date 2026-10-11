@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestRetryRequiresLinkedTerminalAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	commandID := factory.NewID()
-	if _, err := c.RetryRun(context.Background(), commandID, "native:7", r.ID); !errors.Is(err, store.ErrNotFound) {
+	if _, err := c.RetryRun(context.Background(), commandID, "native:7", r.ID); !errors.Is(err, store.ErrExplicitRetryIneligible) {
 		t.Fatalf("standalone reconciled run became a retry command: %v", err)
 	}
 	if _, err := c.Store.FactoryCommand(context.Background(), commandID); !errors.Is(err, store.ErrNotFound) {
@@ -43,5 +44,18 @@ func TestRetryRequiresLinkedTerminalAttempt(t *testing.T) {
 	}
 	if launches != 0 {
 		t.Fatalf("unlinked retry launched %d runs", launches)
+	}
+}
+
+func TestRetryOwnershipRefusalPreservesOperationalErrors(t *testing.T) {
+	for _, missing := range []error{store.ErrNotFound, sql.ErrNoRows} {
+		if !errors.Is(retryOwnershipError(missing), store.ErrExplicitRetryIneligible) {
+			t.Fatalf("missing owner is not a domain refusal: %v", missing)
+		}
+	}
+	for _, unavailable := range []error{context.Canceled, context.DeadlineExceeded, errors.New("database unavailable")} {
+		if retryOwnershipError(unavailable) != unavailable {
+			t.Fatalf("operational read error changed classification: %v", unavailable)
+		}
 	}
 }

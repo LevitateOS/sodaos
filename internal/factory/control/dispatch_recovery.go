@@ -91,30 +91,54 @@ func activeHistoryRun(runs []*factory.Run) *factory.Run {
 	return nil
 }
 
-// confirmUnused determines whether an active attempt run provably never
-// consumed capacity. The host side holds no effects when the run was
-// never recorded, or when its receipt never left approved (recorded
-// intent, nothing started); anything later may have consumed. The broker
-// side holds nothing when no execution exists for the run. Only both
-// together confirm unused; a transport failure or any recorded effect
-// fences instead and the reservation stays held.
+// confirmUnused first observes both authorities, then durably fences an
+// apparently unused identity before releasing its reservation. A lost launch
+// reply can leave a native job in flight: absence alone cannot prove that
+// acquisition will never arrive. Any delivered or uncertain effect stays held.
 func confirmUnused(ctx context.Context, deps DispatchDeps, a factory.Assignment, run factory.Run) (unused, fenced bool) {
 	state, err := deps.Host.FactoryInspect(ctx, project.FactoryInspect{Project: a.ProjectID, ID: run.ID})
 	if err != nil {
 		if !isHostNotFound(err) {
 			return false, true
 		}
-	} else if state.ID != "" && state.Phase != project.FactoryApproved {
+	} else if state.ID != run.ID || state.Project != a.ProjectID {
+		return false, true
+	} else if state.Phase != project.FactoryApproved && !unusedStoppedState(state) {
 		return false, false
 	}
-	_, err = deps.Broker.GetExecution(ctx, identity.Factory, run.ID)
+	execution, err := deps.Broker.GetExecution(ctx, identity.Factory, run.ID)
 	if err != nil {
-		if errors.Is(err, identity.ErrNotFound) {
-			return true, false
+		if !errors.Is(err, identity.ErrNotFound) {
+			return false, true
 		}
+	} else if !unusedClosedExecution(execution, run.ID) {
+		return false, false
+	}
+	state, err = deps.Host.FactoryStop(ctx, project.FactoryStop{Project: a.ProjectID, ID: run.ID})
+	if err != nil || state.ID != run.ID || state.Project != a.ProjectID {
 		return false, true
 	}
-	return false, false
+	if !unusedStoppedState(state) {
+		return false, false
+	}
+	if err := deps.Broker.CloseExecution(ctx, identity.Factory, run.ID); err != nil {
+		return false, true
+	}
+	execution, err = deps.Broker.GetExecution(ctx, identity.Factory, run.ID)
+	if err != nil {
+		return false, true
+	}
+	return unusedClosedExecution(execution, run.ID), false
+}
+
+func unusedStoppedState(state project.FactoryState) bool {
+	return state.Phase == project.FactoryStopped && state.Retirement == "confirmed" &&
+		!state.Live && !state.Delivered && !state.CredentialReturned && state.LeaseID == ""
+}
+
+func unusedClosedExecution(execution identity.Execution, runID string) bool {
+	return execution.Kind == identity.Factory && execution.ExecutionID == runID &&
+		execution.State == identity.ExecutionTerminal && execution.LeaseID == "" && execution.Binding == nil
 }
 
 // hostRunNotFound is the host client's never-recorded miss text. Control

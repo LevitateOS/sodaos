@@ -40,12 +40,20 @@ pub(in crate::factory) fn seconds_until(deadline_nanos: i128) -> i64 {
 /// Operation deadline capped by the run deadline, like
 /// `context.WithDeadline(ctx, run.Deadline)`.
 pub(in crate::factory) fn drive_deadline(op: Instant, deadline_nanos: i128) -> Instant {
+    execution_deadline(deadline_nanos).min(op)
+}
+
+/// The admitted execution lifetime survives the launch observation RPC.
+/// Admission and cleanup retain their own bounded operation deadlines.
+pub(in crate::factory) fn execution_deadline(deadline_nanos: i128) -> Instant {
     let delta = deadline_nanos - system_nanos_now();
     if delta <= 0 {
         return Instant::now();
     }
     let wait = Duration::from_nanos(delta.min(u64::MAX as i128) as u64);
-    Instant::now().checked_add(wait).unwrap_or(op).min(op)
+    Instant::now()
+        .checked_add(wait)
+        .unwrap_or_else(Instant::now)
 }
 
 fn min_instant(a: Instant, b: Instant) -> Instant {

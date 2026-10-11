@@ -33,8 +33,8 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             // A tombstone for an unknown run carries no validated run
             // record; store it directly so later launches refuse without
             // a full identity.
-            drop(lock);
             self.store_tombstone(&receipt)?;
+            drop(lock);
             if self
                 .broker
                 .close_execution(IDENTITY_FACTORY, &req.id, deadline)

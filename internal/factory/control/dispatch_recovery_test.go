@@ -650,9 +650,9 @@ func TestIntakeTriggersAutomaticDispatch(t *testing.T) {
 		},
 	}}
 	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, AcceptanceReads: source, DispatchReads: fx.reads}
-	control, changed, err := coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "st08-intake-1", Repository: fx.repo, Issue: 3})
-	if err != nil || !changed || control.Readiness != factory.ReadinessQueued {
-		t.Fatalf("intake = %+v %v %v", control, changed, err)
+	control, _, err := coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "st08-intake-1", Repository: fx.repo, Issue: 3})
+	if err != nil || control.Readiness != factory.ReadinessQueued {
+		t.Fatalf("intake = %+v %v", control, err)
 	}
 	if len(fx.host.launches) != 1 {
 		t.Fatalf("automatic launches = %d", len(fx.host.launches))
@@ -697,6 +697,11 @@ func TestAssessedResultPrerequisiteAppearsInRecordedDispatchPrompt(t *testing.T)
 		ContentVer: endpoint.ContentVersion, Lifecycle: 4, ClosedUnix: 1_800_000_000,
 		Closed: true, Visible: true,
 	}
+	// The same idle native revision must report the endpoint closed in both
+	// acceptance and dispatch reads; only the dependent remains runnable.
+	endpointInput := fx.reads.inputs["7/3"]
+	endpointInput.Issue.Closed, endpointInput.Issue.Lifecycle, endpointInput.Issue.ClosedUnix = true, endpointIssue.Lifecycle, endpointIssue.ClosedUnix
+	fx.reads.inputs["7/3"] = endpointInput
 	source := &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
 		"7/3": {
 			Issue:    endpointIssue,
@@ -720,9 +725,9 @@ func TestAssessedResultPrerequisiteAppearsInRecordedDispatchPrompt(t *testing.T)
 		Store: db, Host: fx.host, Broker: fx.broker,
 		AcceptanceReads: source, DispatchReads: fx.reads,
 	}
-	control, changed, err := coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "result-dependency-dispatch", Repository: fx.repo, Issue: 5})
-	if err != nil || !changed || control.Readiness != factory.ReadinessQueued {
-		t.Fatalf("dependent readiness = %+v changed=%v err=%v", control, changed, err)
+	control, _, err := coord.ObserveIssueEvent(ctx, IntakeHint{Delivery: "result-dependency-dispatch", Repository: fx.repo, Issue: 5})
+	if err != nil || control.Readiness != factory.ReadinessQueued {
+		t.Fatalf("dependent readiness = %+v err=%v", control, err)
 	}
 	if len(fx.host.launches) != 1 {
 		t.Fatalf("dependency dispatch launches = %d", len(fx.host.launches))

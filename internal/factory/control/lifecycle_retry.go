@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"time"
@@ -64,23 +65,32 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 		return factory.RetryDecision{}, err
 	}
 	view, err := c.Store.FactoryRunView(bounded, run.ID)
-	if err != nil || view.RunID != run.ID || view.Repository <= 0 || view.Issue <= 0 {
-		return factory.RetryDecision{}, store.ErrNotFound
+	if err != nil {
+		return factory.RetryDecision{}, retryOwnershipError(err)
+	}
+	if view.RunID != run.ID || view.Repository <= 0 || view.Issue <= 0 {
+		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
 	}
 	assignment, err := c.Store.Assignment(bounded, view.Attempt)
-	if err != nil || assignment.Run != run.ID || assignment.AttemptRoot == "" {
-		return factory.RetryDecision{}, store.ErrNotFound
+	if err != nil {
+		return factory.RetryDecision{}, retryOwnershipError(err)
+	}
+	if assignment.Run != run.ID || assignment.AttemptRoot == "" {
+		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
 	}
 	owner, err := c.Store.LatestIssueAssignment(bounded, view.Repository, view.Issue)
-	if err != nil || owner.AttemptRoot != assignment.AttemptRoot || assignment.PublicationAssignment != owner.ID {
-		return factory.RetryDecision{}, store.ErrNotFound
+	if err != nil {
+		return factory.RetryDecision{}, retryOwnershipError(err)
+	}
+	if owner.AttemptRoot != assignment.AttemptRoot || assignment.PublicationAssignment != owner.ID {
+		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
 	}
 	head, err := c.Store.AcceptanceHead(bounded, view.Repository, view.Issue)
 	if err != nil {
-		return factory.RetryDecision{}, err
+		return factory.RetryDecision{}, retryOwnershipError(err)
 	}
 	if owner.Acceptance != head || assignment.Acceptance != head {
-		return factory.RetryDecision{}, store.ErrNotFound
+		return factory.RetryDecision{}, store.ErrExplicitRetryIneligible
 	}
 	stored, created, err := c.Store.RecordExplicitRetryCommand(bounded, cmd, decision, view.Repository, view.Issue, head, time.Now())
 	if err != nil {
@@ -90,6 +100,15 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 		return replayRetry(stored)
 	}
 	return decision, nil
+}
+
+// Missing ownership is a domain refusal. An unavailable database or malformed
+// stored record remains an operational error and cannot imply ineligibility.
+func retryOwnershipError(err error) error {
+	if errors.Is(err, store.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
+		return store.ErrExplicitRetryIneligible
+	}
+	return err
 }
 
 func onlyDispatchClosed(effective factory.EffectiveAuthority) bool {

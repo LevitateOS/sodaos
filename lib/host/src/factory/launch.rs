@@ -2,7 +2,9 @@ use std::time::Instant;
 
 use crate::project::Executor;
 
-use super::deadline::{drive_deadline, parse_deadline, seconds_until, system_nanos_now};
+use super::deadline::{
+    drive_deadline, execution_deadline, parse_deadline, seconds_until, system_nanos_now,
+};
 use super::receipt::{receipt_state, receipt_stop_owned, FactoryReceipt};
 use super::run::FACTORY_DEADLINE_BOUND_NANOS;
 use super::{
@@ -158,10 +160,10 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         }
         receipt.delivered = true;
         self.update_receipt(&mut receipt, deadline)?;
-        match self
-            .terminal
-            .wait(&lease.with_binding(&binding), run_deadline)
-        {
+        match self.terminal.wait(
+            &lease.with_binding(&binding),
+            execution_deadline(deadline_nanos),
+        ) {
             Ok((exit, output)) => {
                 self.finish_run(&receipt, &lease, &binding, exit, output, deadline)
             }

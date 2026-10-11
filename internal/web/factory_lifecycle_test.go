@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -186,7 +187,7 @@ func TestFactoryActionsRequireCurrentCodeWrite(t *testing.T) {
 	}
 }
 
-func TestFactoryRunStopAndRetry(t *testing.T) {
+func TestFactoryUncertainStopAndUnownedRunRetryRefusal(t *testing.T) {
 	s := lifecycleWebFixture(t)
 	lifecycleWebGrants(t, s, 7, false)
 	lifecycleWebPreparations(t, s)
@@ -208,18 +209,19 @@ func TestFactoryRunStopAndRetry(t *testing.T) {
 	if stopped.Confirmed || !stopped.Uncertain {
 		t.Fatalf("stop: %+v", stopped)
 	}
+	// Even a settled standalone run has no accepted assignment/root authority.
+	// This is a refusal subject, not a substitute for successful native Stop.
 	r.Outcome, r.Summary, r.Reconciled = factory.Cancelled, "stopped", true
 	if err := s.Store.SaveFactoryRun(t.Context(), r); err != nil {
 		t.Fatal(err)
 	}
-	retry := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"command_id":"`+factory.NewID()+`","action":"retry"}`, "alice")
-	if retry.Code != 200 {
+	command := factory.NewID()
+	retry := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"command_id":"`+command+`","action":"retry"}`, "alice")
+	if retry.Code != 409 || !strings.Contains(retry.Body.String(), `"retry_ineligible"`) {
 		t.Fatal(retry.Code, retry.Body.String())
 	}
-	var decision factory.RetryDecision
-	decodeBody(t, retry, &decision)
-	if !decision.Queued || decision.Prior != r.ID {
-		t.Fatalf("retry: %+v", decision)
+	if _, err := s.Store.FactoryCommand(t.Context(), command); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("unowned run recorded a retry command: %v", err)
 	}
 	assertNoSecrets(t, retry.Body.String())
 	bad := lifecycleAction(t, s, "POST", "/api/factory/runs/"+r.ID+"/actions", `{"command_id":"`+factory.NewID()+`","action":"launch"}`, "alice")

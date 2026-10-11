@@ -41,6 +41,7 @@ func fixturePreparationContext(in project.FactoryPreparationContextRequest, role
 type fakeDispatchHost struct {
 	launch             func(project.FactoryLaunch) (project.FactoryState, error)
 	inspect            func(project.FactoryInspect) (project.FactoryState, error)
+	stop               func(project.FactoryStop) (project.FactoryState, error)
 	harness            func(string) (project.FactoryHarnessPin, error)
 	families           []string
 	launches           []project.FactoryLaunch
@@ -80,7 +81,10 @@ func (f *fakeDispatchHost) ReadPreparationContext(_ context.Context, in project.
 }
 
 func (f *fakeDispatchHost) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
-	return project.FactoryState{}, errors.New("unexpected host stop")
+	if f.stop != nil {
+		return f.stop(in)
+	}
+	return project.FactoryState{ID: in.ID, Project: in.Project, Phase: project.FactoryStopped, Retirement: "confirmed"}, nil
 }
 
 func (f *fakeDispatchHost) FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error) {
@@ -114,10 +118,15 @@ func (f *fakeDispatchHost) StopPreparation(_ context.Context, in project.Prepare
 }
 
 type fakeDispatchBroker struct {
-	get func(kind, id string) (identity.Execution, error)
+	get    func(kind, id string) (identity.Execution, error)
+	close  func(kind, id string) error
+	closed map[string]bool
 }
 
 func (f *fakeDispatchBroker) GetExecution(ctx context.Context, kind, id string) (identity.Execution, error) {
+	if f.closed[id] {
+		return identity.Execution{Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal}, nil
+	}
 	if f.get == nil {
 		return identity.Execution{}, identity.ErrNotFound
 	}
@@ -125,7 +134,14 @@ func (f *fakeDispatchBroker) GetExecution(ctx context.Context, kind, id string) 
 }
 
 func (f *fakeDispatchBroker) CloseExecution(ctx context.Context, kind, id string) error {
-	return errors.New("unexpected broker close")
+	if f.close != nil {
+		return f.close(kind, id)
+	}
+	if f.closed == nil {
+		f.closed = map[string]bool{}
+	}
+	f.closed[id] = true
+	return nil
 }
 
 type fakeDispatchReads struct {
