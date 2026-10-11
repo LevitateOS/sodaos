@@ -45,7 +45,12 @@ func TestRequestWorkState(t *testing.T) {
 func TestRequestDirectionDTO(t *testing.T) {
 	view := requestDirectionDTO(factory.IntentRevision{
 		Objective: "Build a leave tracker", Approach: "incremental",
-		Ideas: []factory.ProductIdea{{Decision: "accept"}, {Decision: "pending"}, {Decision: "pending"}},
+		EffectiveOutcomes: []string{"d1"},
+		Ideas: []factory.ProductIdea{
+			{ID: "d1", Decision: "accept", Source: "requested"},
+			{ID: "d2", Decision: "pending"},
+			{ID: "d3", Decision: "pending", Source: "assumption", Assumption: true, Material: true},
+		},
 		Tasks: []factory.IntentTask{{Outcomes: []string{"a"}}, {Outcomes: []string{"b", "c"}}},
 	})
 	if view.Objective != "Build a leave tracker" || view.Approach != "incremental" {
@@ -57,12 +62,48 @@ func TestRequestDirectionDTO(t *testing.T) {
 	if view.IdeasByDecision["accept"] != 1 || view.IdeasByDecision["pending"] != 2 {
 		t.Fatalf("decisions: %+v", view.IdeasByDecision)
 	}
+	if view.IdeasBySource["requested"] != 1 || view.IdeasBySource["assumption"] != 1 || view.IdeasBySource["legacy"] != 1 {
+		t.Fatalf("sources: %+v", view.IdeasBySource)
+	}
+	if len(view.EffectiveOutcomes) != 1 || view.EffectiveOutcomes[0] != "d1" {
+		t.Fatalf("effective: %+v", view.EffectiveOutcomes)
+	}
+	if view.Unresolved != 1 {
+		t.Fatalf("unresolved: %+v", view)
+	}
+	legacy := requestDirectionDTO(factory.IntentRevision{})
+	if legacy.EffectiveOutcomes == nil || legacy.Unresolved != 0 {
+		t.Fatalf("legacy direction: %+v", legacy)
+	}
+}
+
+func TestRequestUnresolvedAssumptions(t *testing.T) {
+	ideas := []factory.ProductIdea{
+		{ID: "d1", Decision: "pending", Assumption: true, Material: true},
+		{ID: "d2", Decision: "pending", Assumption: true},
+		{ID: "d3", Decision: "accept", Assumption: true, Material: true},
+		{ID: "d4", Decision: "pending"},
+	}
+	unresolved := requestUnresolvedAssumptions(ideas)
+	if len(unresolved) != 1 || unresolved[0] != "d1" {
+		t.Fatalf("unresolved: %v", unresolved)
+	}
 }
 
 func TestRequestMappingDTO(t *testing.T) {
-	view := requestMappingDTO(factory.IntentTaskBinding{TaskKey: "task", IssueID: 103, IssueIndex: 3, AcceptanceID: "d1", CreatedUnix: 7})
-	if view.TaskKey != "task" || view.IssueID != "103" || view.IssueIndex != "3" || view.AcceptanceID != "d1" || view.CreatedUnix != 7 {
+	binding := factory.IntentTaskBinding{TaskKey: "task", IssueID: 103, IssueIndex: 3, AcceptanceID: "d1", CreatedUnix: 7}
+	tasks := map[string]factory.IntentTask{"task": {Key: "task", IdeaIDs: []string{"d1"}}}
+	view := requestMappingDTO(binding, tasks, map[string]bool{"d1": true})
+	if view.TaskKey != "task" || view.IssueID != "103" || view.IssueIndex != "3" || view.AcceptanceID != "d1" || view.CreatedUnix != 7 || !view.Effective {
 		t.Fatalf("mapping: %+v", view)
+	}
+	scoped := requestMappingDTO(binding, tasks, map[string]bool{"d2": true})
+	if scoped.Effective {
+		t.Fatalf("out-of-scope mapping effective: %+v", scoped)
+	}
+	unscoped := requestMappingDTO(binding, tasks, map[string]bool{})
+	if !unscoped.Effective {
+		t.Fatalf("legacy mapping ineffective: %+v", unscoped)
 	}
 }
 

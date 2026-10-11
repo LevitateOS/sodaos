@@ -12,27 +12,55 @@ import (
 )
 
 // requestDirectionView renders the effective direction of one build
-// request: the owner's objective, the delivery approach and the
-// decision counts behind it. Idea bodies stay on the revision read;
-// the overview carries direction and counts only.
+// request: the owner's objective, the delivery approach, the explicit
+// authorized outcome subset and the decision/source counts behind it.
+// Idea bodies stay on the revision read; the overview carries direction
+// and counts only.
 type requestDirectionView struct {
-	IdeasByDecision map[string]int `json:"ideas_by_decision"`
-	Objective       string         `json:"objective"`
-	Approach        string         `json:"approach,omitempty"`
-	IdeasTotal      int            `json:"ideas_total"`
-	TasksTotal      int            `json:"tasks_total"`
+	IdeasByDecision   map[string]int `json:"ideas_by_decision"`
+	IdeasBySource     map[string]int `json:"ideas_by_source"`
+	EffectiveOutcomes []string       `json:"effective_outcomes"`
+	Objective         string         `json:"objective"`
+	Approach          string         `json:"approach,omitempty"`
+	IdeasTotal        int            `json:"ideas_total"`
+	TasksTotal        int            `json:"tasks_total"`
+	Unresolved        int            `json:"unresolved_assumptions"`
 }
 
 func requestDirectionDTO(r factory.IntentRevision) requestDirectionView {
 	view := requestDirectionView{
-		IdeasByDecision: map[string]int{},
-		Objective:       r.Objective, Approach: r.Approach,
+		IdeasByDecision: map[string]int{}, IdeasBySource: map[string]int{},
+		EffectiveOutcomes: r.EffectiveOutcomes,
+		Objective:         r.Objective, Approach: r.Approach,
 		IdeasTotal: len(r.Ideas), TasksTotal: len(r.Tasks),
+	}
+	if view.EffectiveOutcomes == nil {
+		view.EffectiveOutcomes = []string{}
 	}
 	for _, idea := range r.Ideas {
 		view.IdeasByDecision[idea.Decision]++
+		source := idea.Source
+		if source == "" {
+			source = "legacy"
+		}
+		view.IdeasBySource[source]++
 	}
+	view.Unresolved = len(requestUnresolvedAssumptions(r.Ideas))
 	return view
+}
+
+// requestUnresolvedAssumptions returns the IDs of consequential
+// assumptions still awaiting the owner: material assumptions with no
+// recorded decision. Independent authorized work need not wait for
+// them; their dependents stay pending.
+func requestUnresolvedAssumptions(ideas []factory.ProductIdea) []string {
+	unresolved := []string{}
+	for _, idea := range ideas {
+		if idea.Assumption && idea.Material && idea.Decision == "pending" {
+			unresolved = append(unresolved, idea.ID)
+		}
+	}
+	return unresolved
 }
 
 // requestContextView renders the request's exact bound context: the
@@ -52,14 +80,32 @@ type requestMappingView struct {
 	IssueIndex   string `json:"issue_index"`
 	AcceptanceID string `json:"acceptance_id"`
 	CreatedUnix  int64  `json:"created_unix"`
+	Effective    bool   `json:"effective"`
 }
 
-func requestMappingDTO(b factory.IntentTaskBinding) requestMappingView {
-	return requestMappingView{
+func requestMappingDTO(b factory.IntentTaskBinding, tasks map[string]factory.IntentTask, effective map[string]bool) requestMappingView {
+	view := requestMappingView{
 		TaskKey: b.TaskKey,
 		IssueID: strconv.FormatInt(b.IssueID, 10), IssueIndex: strconv.FormatInt(b.IssueIndex, 10),
 		AcceptanceID: b.AcceptanceID, CreatedUnix: b.CreatedUnix,
+		Effective: requestMappingEffective(tasks[b.TaskKey], effective),
 	}
+	return view
+}
+
+// requestMappingEffective reports whether one mapped task stays within
+// the revision's explicit authorized outcome subset. An empty subset
+// means legacy unscoped review input and leaves mappings effective.
+func requestMappingEffective(task factory.IntentTask, effective map[string]bool) bool {
+	if len(effective) == 0 {
+		return true
+	}
+	for _, id := range task.IdeaIDs {
+		if !effective[id] {
+			return false
+		}
+	}
+	return true
 }
 
 // requestWorkStates name one mapped work item's evidenced state.
@@ -114,13 +160,15 @@ type requestCountsView struct {
 const (
 	requestAttentionGeneration = "generation_refused"
 	requestAttentionWork       = "work_attention"
+	requestAttentionAssumption = "unresolved_assumption"
 )
 
 // requestAttentionView names one item needing the owner: the code and
-// the affected native issue where one exists.
+// the affected native issue or product idea where one exists.
 type requestAttentionView struct {
 	Code  string `json:"code"`
 	Issue string `json:"issue,omitempty"`
+	Idea  string `json:"idea,omitempty"`
 }
 
 // requestGenerationStates name the native-graph generation facts. The
@@ -208,8 +256,19 @@ func (s *API) apiFactoryRequestOverview(w http.ResponseWriter, r *http.Request, 
 		auth.JSONError(w, 503, "store_unavailable", "Could not read request mappings.")
 		return
 	}
+	tasks := make(map[string]factory.IntentTask, len(revision.Tasks))
+	for _, task := range revision.Tasks {
+		tasks[task.Key] = task
+	}
+	effective := make(map[string]bool, len(revision.EffectiveOutcomes))
+	for _, id := range revision.EffectiveOutcomes {
+		effective[id] = true
+	}
+	for _, id := range requestUnresolvedAssumptions(revision.Ideas) {
+		view.Attention = append(view.Attention, requestAttentionView{Code: requestAttentionAssumption, Idea: id})
+	}
 	for _, binding := range bindings {
-		view.Mappings = append(view.Mappings, requestMappingDTO(binding))
+		view.Mappings = append(view.Mappings, requestMappingDTO(binding, tasks, effective))
 		state, ok := s.requestWorkItemState(w, r, revision.Repository, binding)
 		if !ok {
 			return
