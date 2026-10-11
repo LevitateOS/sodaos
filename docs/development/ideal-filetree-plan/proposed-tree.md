@@ -2,7 +2,7 @@
 
 ## Complete proposed tree
 
-Current target mapping: source `33090ed1` (2026-10-11). The complete tree
+Current target mapping: source `610a2df2` (2026-10-11). The complete tree
 contains all 2,609 tracked leaves, including the implemented D06 Rust remote
 payload, `tools/acceptance/src/personal_git.rs`. Current package/module/binary
 names are retained where their application owners are already defined. The

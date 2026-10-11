@@ -848,11 +848,12 @@ Selective current source at `c9de3b26` (2026-10-11); historical body selectors a
 
 ## [internal/factory/control/progress_test.go](../../../../../internal/factory/control/progress_test.go)
 
-Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+Selective current source at `610a2df2` (2026-10-11); historical body selectors above retain their original pins.
 
 | Current named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | TestCoordinatorWakePreservesLiveCLIAndCloseJoinsInspection | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Live CLI remains supervised; exhausted inspection budget refuses work; Close cancels and joins. |
 | TestCoordinatorWakeResumesReadinessWithoutRedelivery | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Durable readiness completes without another delivery. |
 | TestCoordinatorWakesForCodingDelayedChecksAndReviewer; progressHost; progressInputs; progressRevision | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Normal producer reaches delayed native CI and a distinct exact-candidate reviewer without duplicate publication. |
+| TestCoordinatorWakeRetriesStaleReviewPreparationAdmission; preparationAdmissionRaceInputs and ReadDispatchInputs | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | A normal Store assessment changes control after planning; authoritative stale admission has no native effect and preserves Published/root/time/cycles. The same Coordinator's next timer wake admits and launches one exact reviewer without redelivery/restart. Actual PostgreSQL17 race regression is RED before/GREEN after `610a2df2`; host/provider effects remain substituted. |
 | TestCoordinatorWakeClosesExpiredRootWithoutMoreRuns; progressLiveHost; file scaffolding | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Finite original root closes without replenishment or additional launches/publications. |

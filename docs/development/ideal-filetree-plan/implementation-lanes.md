@@ -240,7 +240,7 @@ hunk editing of a shared file as a substitute for ownership.
   Actual installed/native/provider/media qualification remains R04.
   - [x] **R02.inventory** Duty/body coverage retains the `519b76bd` snapshot
     with `58a99730` root/assets closure. Path navigation is reconciled through
-    `33090ed1`: all 2,609 current tracked paths appear once, including later
+    `610a2df2`: all 2,609 current tracked paths appear once, including later
     package guides, four Factory/Forgejo tests and the D06 payload. The prior
     twelve prompt/preparation/expiry additions retain their owner maps.
     The shutdown unit and fresh Retry preparation retain their native/build

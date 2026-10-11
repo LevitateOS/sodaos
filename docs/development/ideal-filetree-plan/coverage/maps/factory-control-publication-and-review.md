@@ -111,7 +111,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/control/publication_children.go](../../../../../internal/factory/control/publication_children.go)
 
-Current source addition at `b38a37b4`; existing coordinator and Store owners remain in place.
+Current source addition at `b38a37b4`; existing coordinator and Store owners remain in place. Selective delta at `610a2df2`: prepareReviewCandidate preserves the publication/root on retryable admission errors and fences only proved immutable-input/owner conflicts. Existing canonical owner wake, gates and deadline custody remain.
 
 | Current named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
@@ -124,7 +124,7 @@ Current source addition at `b38a37b4`; existing coordinator and Store owners rem
 
 | Current named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| File scaffold; producerFlowHost and methods; publishedChildProducerSeed; settleProducedChild; TestPublishPassProducesExactReviewerChildAndReplays; TestPublishPassProducesCorrectionThenFreshReviewForChangedHead; TestPublishPassFencesAfterThreeCorrectionCycles | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Uses the production controller and Store with substituted host effects; proves exact child admission, replay, changed-head review and three-cycle exhaustion. The exhausted pass creates no further child work, fences for intervention and closes settled custody while conserving root identity, limits and elapsed/cycle usage. [Focused development evidence](../../reviews/F10.md#current-correction-cycle-exhaustion-evidence) does not qualify native/provider execution. |
+| File scaffold; producerFlowHost and methods; publishedChildProducerSeed; settleProducedChild; TestPublishPassProducesExactReviewerChildAndReplays; TestPublishPassProducesCorrectionThenFreshReviewForChangedHead; TestPublishPassFencesAfterThreeCorrectionCycles | [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) | retained | Uses the production controller and Store with substituted host effects; proves exact child admission, replay, changed-head review and three-cycle exhaustion. The exhausted pass creates no further child work, fences for intervention and closes settled custody while conserving root identity, limits and elapsed/cycle usage. At `610a2df2`, the same exact-reviewer test also verifies permanent refusal of changed source or immutable preparation input. [Focused development evidence](../../reviews/F10.md#current-correction-cycle-exhaustion-evidence) does not qualify native/provider execution. |
 | TestPauseKeepsRunningCandidatePreparationUntilStopReceiptConfirms | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Confirmed stop releases custody; uncertain and failed/uncertain preparation receipts retain it and refuse further native effects. |
 
 <a id="coverage-f09-correction-reconcile"></a>
