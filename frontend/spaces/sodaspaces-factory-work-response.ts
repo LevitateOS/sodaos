@@ -190,11 +190,30 @@ function issueChecks(value: unknown): IssueChecks {
     results: raw.results.map(checkResult),
   };
 }
+function mergeReasonText(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (value === '') return undefined;
+  check(mergeReasons.includes(value as string));
+  return value as string;
+}
+function mergeCommitText(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  check(commitId(value));
+  return value;
+}
+function mergeFinishedUnix(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  return counter(value);
+}
 function issueMerge(value: unknown): IssueMerge {
   const raw = object(value);
-  check(decimalID(raw.pr_number) && decimalID(raw.pr_id) && commitId(raw.head_oid) && commitId(raw.base_oid));
-  if (raw.merged_commit !== undefined) check(commitId(raw.merged_commit));
-  if (raw.reason !== undefined) check(raw.reason === '' || mergeReasons.includes(raw.reason as string));
+  check(decimalID(raw.pr_number));
+  check(decimalID(raw.pr_id));
+  check(commitId(raw.head_oid));
+  check(commitId(raw.base_oid));
+  const reason = mergeReasonText(raw.reason);
+  const mergedCommit = mergeCommitText(raw.merged_commit);
+  const finished = mergeFinishedUnix(raw.finished_unix);
   return {
     stage: closedSet(raw.stage, mergeStages),
     resolution: text(raw.resolution, 1024),
@@ -203,9 +222,9 @@ function issueMerge(value: unknown): IssueMerge {
     pr_number: raw.pr_number,
     pr_id: raw.pr_id,
     revision: counter(raw.revision),
-    ...(typeof raw.reason === 'string' && raw.reason !== '' ? {reason: raw.reason} : {}),
-    ...(typeof raw.merged_commit === 'string' ? {merged_commit: raw.merged_commit} : {}),
-    ...(typeof raw.finished_unix === 'number' ? {finished_unix: counter(raw.finished_unix)} : {}),
+    ...(reason === undefined ? {} : {reason}),
+    ...(mergedCommit === undefined ? {} : {merged_commit: mergedCommit}),
+    ...(finished === undefined ? {} : {finished_unix: finished}),
   };
 }
 function acceptanceRef(value: unknown): IssueAcceptanceRef {

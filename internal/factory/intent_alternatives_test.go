@@ -8,7 +8,7 @@ import (
 
 func TestDescribeAlternativesCoversRepresentativeObjectives(t *testing.T) {
 	for objective, pattern := range map[string]string{
-		"I need a time-off request my manager can approve or decline with a reason": "decision",
+		"I need a time-off request my manager can approve or decline with a reason":  "decision",
 		"Let new hires submit onboarding details so staff can complete their intake": "intake",
 	} {
 		first, second := DescribeAlternatives(objective), DescribeAlternatives(objective)
