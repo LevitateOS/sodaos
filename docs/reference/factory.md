@@ -60,7 +60,13 @@ database and settles outstanding runs before serving.
 
 While it owns the database, the same coordinator revisits durable automatic
 work every ten seconds through its serialized dispatch, publication, checks
-and merge passes. It inspects outstanding runs and settles only confirmed
+and merge passes. The same serving owner recovers accepted-intent graph
+operations and records funded provisional plans, refreshes plans against actual
+dependency outputs before coding, and consults complete eligible candidate sets
+before fresh dispatch. Consultation configuration belongs to
+[service configuration](configuration.md#dashboard-fields); its product limits
+belong to [planning and priority](../product/overview.md#planning-and-priority-judgments).
+It inspects outstanding runs and settles only confirmed
 terminal execution; a live CLI stays supervised by the host. Delayed native
 CI and completed review/correction runs can therefore advance without another
 issue delivery. Each pass retains its existing bounded readiness budget and

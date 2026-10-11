@@ -20,6 +20,10 @@ factory credentials or run authority to a human project configuration.
 | `host_socket` | Unix socket path for the privileged host helper |
 | `identity_socket` | Private identity broker administration socket |
 | `operator_id` | Stable Forgejo user ID recorded at setup |
+| `forgejo_graph_credential_file`, `forgejo_graph_actor_id` | Paired absolute restricted secret-file path and separately enrolled native service actor for bounded issue graph operations. Requires the existing background service admission inputs. Current human intent-owner code-write permission remains independently checked. |
+| `typesafe_api_key_file` | Absolute server-only key file, regular and accessible only to its owner; never delivered to Projects or browser inputs. |
+| `typesafe_model` | System One classifier model; defaults to `jev-latest`. |
+| `factory_judgment_call_budget` | Finite cumulative consultation ceiling, between zero and 100,000 calls. Zero disables spending. Reserved failed or interrupted calls remain spent; changing this ceiling does not erase durable usage. Each intent has its own additional finite allowance. |
 
 Paths and secret files are operator-protected. Never commit secret contents or pass
 them on argv in shared logs.

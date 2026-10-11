@@ -123,6 +123,9 @@ func validateConfigPaths(c Config) error {
 	if c.ForgejoGraphCredentialFile != "" && !filepath.IsAbs(c.ForgejoGraphCredentialFile) {
 		return errors.New("forgejo_graph_credential_file must be absolute")
 	}
+	if c.ForgejoGraphCredentialFile != "" && !c.BackgroundServiceConfigured() {
+		return errors.New("forgejo_graph_credential_file requires background service inputs")
+	}
 	if c.FactoryJudgmentCallBudget < 0 || c.FactoryJudgmentCallBudget > 100000 {
 		return errors.New("factory_judgment_call_budget must be a finite nonnegative allowance")
 	}
