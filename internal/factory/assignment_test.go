@@ -265,7 +265,7 @@ func TestBuildDispatchPrompt(t *testing.T) {
 		"Fix the widget", "The widget is broken.",
 		"### comment 9", "answer text", "### comment 12", "resolution text",
 		"## Accepted prerequisites", "Occurrence 21: depends on issue 9", "outcome code", "satisfied as of queued readiness revision 2 (fingerprint",
-		"Prompt template: soda-f07-f2-v6", "Permitted actions:",
+		"Prompt template: soda-f07-f2-v7", "Permitted actions:",
 		"## Prepared repository context", "selected repository instructions", "exact candidate diff",
 		`Provider connection: "selected-connection"`,
 		"active-time limit: 120 minutes", "Automatic retries and accepted edits do not replenish it", "explicit maintainer Retry", "absolute deadline", "appliance concurrency is 2", "repository concurrency is 1",

@@ -39,6 +39,7 @@ func TestParseReviewReport(t *testing.T) {
 		"unknown field":     "```review-json\n{\"verdict\":\"approve\",\"summary\":\"s\",\"body\":\"b\",\"findings\":[],\"extra\":1}\n```",
 		"bad verdict":       "```review-json\n{\"verdict\":\"maybe\",\"summary\":\"s\",\"body\":\"b\",\"findings\":[]}\n```",
 		"changes w/o body":  "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"s\",\"body\":\"  \",\"findings\":[]}\n```",
+		"object finding":    "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"README.md:13 still has the pending line\",\"findings\":[{\"location\":\"README.md:13\",\"evidence\":\"pending line remains\",\"required\":\"replace the line\"}]}\n```",
 		"first block stale": "```review-json\n{\"verdict\":\"maybe\"}\n```\n" + changes,
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -83,6 +83,7 @@ func TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview(t *testing.T) {
 		"Candidate: " + in.SourceCommit + " verified base: " + in.BaseCommit,
 		"Native preparation " + in.Preparation + " role " + in.Role + " source " + in.SourceCommit + " approved base " + in.ApprovedBase + " diff base " + in.BaseCommit + " candidate " + in.SourceCommit,
 		"Permitted actions: inspect the exact candidate and its diff against the verified base",
+		`"findings" is a JSON array of strings`,
 		"```review-json\n",
 	} {
 		if !strings.Contains(text, want) {
@@ -100,6 +101,12 @@ func TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview(t *testing.T) {
 	}
 	if strings.Contains(text, "```result-json\n") || strings.Count(text, "```review-json\n") != 1 {
 		t.Fatal("reviewer report fence differs from the exact review-only contract")
+	}
+	// The model sees this example; its blocking finding must survive the
+	// same strict decoder used to account actual reviewer runs.
+	report, ok := ParseReviewReport(text)
+	if !ok || report.Verdict != "request-changes" || len(report.Findings) != 1 {
+		t.Fatalf("reviewer example is not a valid strict finding report: %+v %v", report, ok)
 	}
 }
 

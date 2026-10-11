@@ -14,7 +14,7 @@ import (
 // evidence; size and encoding refusals remain ordinary prompt errors.
 var ErrPromptPrerequisiteEvidence = errors.New("dispatch prompt prerequisite evidence invalid")
 
-const DispatchPromptTemplate = "soda-f07-f2-v6"
+const DispatchPromptTemplate = "soda-f07-f2-v7"
 
 // PromptSource is one verified accepted text section: a native comment ID
 // plus the content the bracketed read verified against its digest.
@@ -186,8 +186,9 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	b.WriteString("\n## Report\n\n")
 	b.WriteString("Close your work with exactly one fenced block:\n\n")
 	if in.Role == project.RoleReviewer {
+		b.WriteString(`Use verdict "approve" or "request-changes". "summary" and "body" are strings; "findings" is a JSON array of strings. Each finding string must contain its location, evidence and required outcome; do not use objects. Use [] when no finding remains. Example for a blocking finding:` + "\n\n")
 		b.WriteString("```" + ReviewReportFence + "\n")
-		b.WriteString(`{"verdict":"approve|request-changes","summary":"...","body":"...","findings":[]}` + "\n")
+		b.WriteString(`{"verdict":"request-changes","summary":"Blocking finding","body":"Describe the location, evidence and required outcome.","findings":["path:line: evidence; required outcome."]}` + "\n")
 	} else {
 		b.WriteString("```" + ResultFence + "\n")
 		b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
