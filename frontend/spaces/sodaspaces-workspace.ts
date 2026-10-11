@@ -590,9 +590,9 @@ export class SodaSpaces extends LitElement {
     return html`<p>${this.emptyFilterMessage()}</p>`;
   }
   private renderWelcomeFooter() {
-    if (this.welcomeScreen || this.setup === 'intent') return '';
     if (!this.welcomeScreen && !this.setup) return '';
-    const step = this.setup === 'configure' ? 2 : this.setup === 'repositories' ? 1 : undefined;
+    const step =
+      this.setup === 'configure' ? 3 : this.setup === 'repositories' ? 2 : this.setup === 'intent' ? 1 : undefined;
     return renderWelcomeSteps(step);
   }
   private onRenameDraft(name: string) {

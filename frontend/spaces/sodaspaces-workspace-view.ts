@@ -38,17 +38,19 @@ export function renderWorkspaceIntro(view: {
   </div>`;
 }
 
-export function renderWelcomeSteps(step?: 1 | 2) {
+export function renderWelcomeSteps(step?: 1 | 2 | 3) {
   return html`<ol
     class="soda-setup-footer soda-welcome-steps"
     aria-label=${step ? 'New project progress' : 'Getting started'}
     data-step=${step || 0}
   >
     <li aria-current=${step === 1 ? 'step' : 'false'}>
-      <span aria-hidden="true">${step === 2 ? '✓' : '01'}</span> Choose a repository
+      <span aria-hidden="true">${step && step > 1 ? '✓' : '01'}</span> Describe the work
     </li>
-    <li aria-current=${step === 2 ? 'step' : 'false'}><span aria-hidden="true">02</span> Create a project</li>
-    <li><span aria-hidden="true">03</span> Open a terminal</li>
+    <li aria-current=${step === 2 ? 'step' : 'false'}>
+      <span aria-hidden="true">${step === 3 ? '✓' : '02'}</span> Choose a repository
+    </li>
+    <li aria-current=${step === 3 ? 'step' : 'false'}><span aria-hidden="true">03</span> Create the project</li>
   </ol>`;
 }
 
