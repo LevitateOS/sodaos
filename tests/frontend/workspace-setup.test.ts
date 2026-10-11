@@ -359,38 +359,6 @@ test('setup: join states its account, authority and factory independence', async
   assert.match(await journey.innerText(), /repository write access confirmed/);
   assert.match(await journey.innerText(), /Factory work uses its own authority/);
 });
-test('setup: failed creation preserves the accepted request across refresh without resubmission', async (t) => {
-  const page = await fixture(t, 'page', undefined, true);
-  await page.evaluate(() => {
-    window.workspaceFixture.setCreateOutcome('rejected');
-    return window.workspaceFixture.api.refresh();
-  });
-  await chooseFirstRepository(page);
-  await page.evaluate(() => {
-    const el = document.querySelector('soda-spaces');
-    const scope = el?.shadowRoot ?? el;
-    const controls = scope?.querySelector('soda-project-controls') as unknown as {
-      acceptedRequest: {intent: string; revision: string; objective: string};
-    };
-    if (!controls) throw Error('Missing project controls');
-    controls.acceptedRequest = {
-      intent: 'd222222222222222222222222',
-      revision: 'd111111111111111111111111',
-      objective: 'Build leave tracker',
-    };
-  });
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
-  await page.getByText(/Accepted request preserved: Build leave tracker/).waitFor();
-  await page.getByRole('button', {name: 'Refresh status', exact: true}).click();
-  await page.getByText(/Accepted request preserved: Build leave tracker/).waitFor();
-  assert.match(await page.locator('.soda-project-journey').innerText(), /never\s+resubmit or lose it/);
-  assert.equal(
-    await page.evaluate(
-      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
-    ),
-    1
-  );
-});
 test('setup: welcome footer tracks describe, repository and create steps', async (t) => {
   const page = await fixture(t, 'page', undefined, false);
   await page.evaluate(() => {
@@ -427,4 +395,37 @@ test('setup: welcome footer tracks describe, repository and create steps', async
   await page.waitForFunction(() => document.querySelector('.soda-setup-footer')?.getAttribute('data-step') === '3');
   assert.deepEqual(await steps(), ['✓ Describe the work', '✓ Choose a repository', '03 Create the project']);
   assert.deepEqual(await current(), ['false', 'false', 'step']);
+});
+
+test('setup: failed creation preserves the accepted request across refresh without resubmission', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => {
+    window.workspaceFixture.setCreateOutcome('rejected');
+    return window.workspaceFixture.api.refresh();
+  });
+  await chooseFirstRepository(page);
+  await page.evaluate(() => {
+    const el = document.querySelector('soda-spaces');
+    const scope = el?.shadowRoot ?? el;
+    const controls = scope?.querySelector('soda-project-controls') as unknown as {
+      acceptedRequest: {intent: string; revision: string; objective: string};
+    };
+    if (!controls) throw Error('Missing project controls');
+    controls.acceptedRequest = {
+      intent: 'd222222222222222222222222',
+      revision: 'd111111111111111111111111',
+      objective: 'Build leave tracker',
+    };
+  });
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByText(/Accepted request preserved: Build leave tracker/).waitFor();
+  await page.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await page.getByText(/Accepted request preserved: Build leave tracker/).waitFor();
+  assert.match(await page.locator('.soda-project-journey').innerText(), /never\s+resubmit or lose it/);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    1
+  );
 });
