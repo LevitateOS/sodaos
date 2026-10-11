@@ -84,9 +84,9 @@ justify keeping obsolete implementations alive.
 - Work in the canonical `~/Projects/sodaos` checkout for this redesign. Do not create or use a worktree unless the owner explicitly changes that preference.
 
 - Inspect the working tree first; preserve unrelated changes. Make coherent local
-  changes only within the matching instruction. Never auto-commit. Commit, push,
-  PR creation, merge and deployment are distinct operations; permission for one
-  does not imply another. Do not amend or rewrite history without explicit permission.
+  changes only within the matching instruction. Make coherent verified local commits when authorized by the task. Push,
+  PR creation, merge and deployment remain distinct operations; an implementation
+  request alone does not imply publication or deployment. Do not amend or rewrite history without explicit permission.
 - Finish the requested work within its authorized scope. Check the current
   instruction and any existing authorization before asking again. A review or
   planning request does not authorize implementation or state-changing verification.
@@ -123,42 +123,26 @@ justify keeping obsolete implementations alive.
   workspace. If work cannot be done there, stop and say so instead of reaching
   for `/`. This covers the root filesystem only; explicitly approved privilege
   use is unaffected.
-- **Normal mode is read and recommend for implementation.** Backend, domain and
-  application code, databases/SQL, API contracts, non-presentational frontend
-  behavior, dependencies/manifests/locks, operational configuration and
-  infrastructure remain read-only. Even a backend implementation request means
-  concrete reference code in chat in this mode.
-- **Writable categories need an explicit matching command.** Frontend presentation
-  may use established product semantics, excluding fetching, submission, routing,
-  authorization, persistence and business rules. Tests require established
-  behavior, an explicit requirement or a reproduced regression. Comments must be
-  semantically inert; classify directives and tool-consumed comments by effect.
-  Documentation and developer tooling exclude manifests,
-  locks, CI/CD, containers, runtime configuration, generated source and infrastructure.
-  None of these categories can decide unresolved product behavior.
-- **Review and application are separate.** A combined review-and-fix request is
-  review-only. Applying findings requires a later direct command identifying them
-  and permission for the affected category. Never auto-fix an audit finding.
-- **Operations require their own authority.** Read-only Git inspection and known
-  commands that do not change tracked files, durable state, databases, configuration,
-  remote state or external services can proceed. Disposable caches/build artifacts
-  are allowed within the disk restriction above. Unknown side effects require
-  authorization. Provide commands for source-mutating formatters/generators instead
-  of running them in normal mode. Access to a host or ownership of a test fixture
-  alone does not authorize changing it or making provider calls.
-- **Respect existing authorization without broadening it.** Every mutation needs a
-  direct scoped instruction, authorship permission and operational permission.
-  Preserve authorization across turns and compaction, but never infer it from
-  evidence, suggestions, approval alone or an agent-written plan. Identify exact
-  task-owned resources before any authorized cleanup; never broadly prune,
-  recreate roots or guess names against unrelated or protected state. Report a
-  partial operation before attempting broader or destructive recovery.
-- **Override activation is exact.** Only `SUPER ADMIN OVERRIDE` as a standalone
-  user instruction activates override; state `SUPER ADMIN OVERRIDE active.` It
-  remains active until revoked and suspends normal-mode authorship/operational
-  restrictions only. Activation performs nothing. A subsequent direct scoped
-  command is still required; ownership, the product/trust contract, exact target,
-  evidence honesty and preservation of user work remain binding.
+- **Implement requested work.** A request to implement, fix or change software
+  authorizes the matching code, tests, documentation and operational configuration.
+  Make routine engineering choices and complete the work without asking again
+  for permissions already supplied by the task. A read-only review remains a
+  review; a combined review-and-fix request authorizes the requested fixes.
+- **Carry operational intent through to completion.** A deployment or installation
+  request includes the necessary build, transfer, installation, scoped service
+  restarts and verification on the identified target. Do not invent a separate
+  approval queue for each step. Preserve existing data and human processes;
+  inspect unknown effects and choose the smallest sufficient operation.
+- **Respect task scope and current instructions.** The owner's latest instruction
+  supersedes earlier restrictions within its scope. Do not infer permission to
+  push, publish, merge, contact others or perform unrelated destructive work.
+  Ask only when missing intent or target information prevents safe completion,
+  and finish independent work while waiting. A special override phrase is not
+  required for an ordinary direct instruction.
+- **Keep cleanup precise.** Identify exact task-owned resources before cleanup;
+  never broadly prune, recreate roots or guess names against unrelated or
+  protected state. Report partial operations and inspect retained state before
+  choosing a recovery.
 - Protect credentials, unrelated work and any state the owner explicitly requires
   keeping. Take consistent backups when that protection requires them; do not create
   a preservation programme for disposable experiments. Never blindly restore an old
