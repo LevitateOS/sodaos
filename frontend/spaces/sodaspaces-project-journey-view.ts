@@ -22,6 +22,7 @@ export interface JourneyViewInput {
   readStatus: () => string;
   readRepositoryName: () => string;
   readBindingRepository: () => string;
+  readJoinCaption: () => string;
   hasLifecycle: () => boolean;
   readProfiles: () => CreationProfile[];
   readSelectedProfile: () => string;
@@ -154,6 +155,11 @@ function joinRefreshAction(input: JourneyViewInput) {
   </button>`;
 }
 
+function joinHelper(input: JourneyViewInput) {
+  return html`Joining as ${input.readJoinCaption()}. Factory work uses its own authority and does not wait for your
+    Join. Then you can open your first browser terminal.`;
+}
+
 function renderJourneyJoin(input: JourneyViewInput) {
   return html`<section
     data-project-controls
@@ -169,7 +175,7 @@ function renderJourneyJoin(input: JourneyViewInput) {
           >in this persistent human project.</span
         >`,
       action: joinAction(input),
-      helper: html`Then you can open your first browser terminal.`,
+      helper: joinHelper(input),
       feedback: joinFeedback(input),
     })}
   </section>`;
@@ -206,7 +212,8 @@ function journeyExistingDescription(
   incomplete: boolean,
   stopped: boolean
 ) {
-  if (accountReady) return html`Your project account is ready for a browser terminal.`;
+  if (accountReady)
+    return html`Your project account is ready for a browser terminal. Use New terminal to open your first one.`;
   if (executionDenied(input))
     return html`You can inspect this project. Joining and terminal access require repository write permission.`;
   if (incomplete) return html`Project setup is incomplete. Ask the operator to inspect this project.`;
