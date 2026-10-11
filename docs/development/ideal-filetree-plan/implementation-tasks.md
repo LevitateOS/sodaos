@@ -20,6 +20,14 @@ below; shared duties route through their physical writer in the lane schedule.
 
 ## Current task state (2026-10-11)
 
+The later owner-authorized FX01–FX10 source extension is reconciled in the
+[Factory implementation plan](../factory-implementation-plan.md#intent-first-experience-extension-2026-10-11).
+It retains the Go domain/coordinator/Store/client owners and Fountain's native
+authority; no additional process or language cutover is introduced. This local
+commit delta does not advance the historical whole-tree inventory, slice-review
+baselines or installed qualification below. No merge was performed; a separately
+authorized merge still requires the [full maintenance workflow](maintenance.md).
+
 The owner-directed [19-task Fountain/Soda correction queue](fountain-soda-correctness-tasks.md#current-source-reconciliation-2026-10-11)
 now supplements this plan. Its four exclusive writer lanes retain completed
 packets and their demonstrated scope. The native issue14 correction/merge

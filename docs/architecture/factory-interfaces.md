@@ -1,8 +1,10 @@
 # Factory implementation interfaces
 
 This document owns the **target component interfaces** for the automatic factory:
-commands, durable records, transitions and execution bindings. These interfaces
-are not yet implemented. The [product contract](../product/overview.md),
+commands, durable records, transitions and execution bindings. Source implements
+the serving coordinator and the intent, planning and priority additions below;
+the [API reference](../reference/api.md) identifies exposed routes and the
+implementation plan records verification scope. The [product contract](../product/overview.md),
 [Project model](../product/projects.md), [Spaces contract](../product/spaces.md)
 and [trust model](trust.md) own their respective behavior and security rules;
 the [API reference](../reference/api.md) continues to describe existing routes.
@@ -147,6 +149,10 @@ Reject obsolete unreleased formats rather than migrating or reading both models.
 
 | Owner / record | Required identity, contents and invariants |
 | --- | --- |
+| `factory.Department`, `IntentRevision` | Private creator-owned context, immutable reviewed objective and consequential choices, exact repository and human owner, predecessor CAS, bounded derived task graph and finite consultation allowance. Department metadata grants no authority. Current accepted revision gates derived acceptance. |
+| `factory.IntentGeneration`, `IntentTaskBinding` | One immutable native graph operation packet per accepted revision, original operation ID and attributable receipt, task-key to native issue/version/acceptance mapping. Reuse native issue identities when revising existing tasks; preserve retired records. Fountain owns atomic native graph writes, dependencies and permission evidence. |
+| `factory.PlanningRecord`, priority judgment receipts | Semantic input snapshot, provisional prerequisite facts, selected bounded strategy and actual prompt steps; refresh before coding against real outputs. Complete deterministically eligible candidate inventory, bounded advice, consumed finite reservations, uncertainty/fairness outcome and fresh exact dispatch recheck. Advice cannot authorize execution. |
+| `factory.ActivitySettings` | Separately revisioned repository display preferences for issue creation, PR creation and verified merge summaries. Events derive from existing durable evidence; changing display preferences does not change execution policy or grants. |
 | `factory.RepositoryPolicy`, `OperatorGrant`, `Sponsorship` | Repository, granting native identity, revision, active/withdrawn state and the corresponding authorized fields. Sponsorship retains `GrantedBy` as the policy sponsor and records the selected canonical `identity.Grant.UserID` and `ProjectID` as its execution `ActorID` and `ProjectID`, alongside grant ID, connection and credential generation. Assignment admission checks that actor and Project; retries and publication children retain the recorded actor. Credential custody stays with the broker. An issue author or publication bot does not replace the selected grant actor. Appliance capacity is separately revisioned. |
 | `factory.Acceptance` | Immutable decision ID, predecessor, host-admitted approver, repository/issue, observed native revision, exact sources/digests and the complete approved prerequisites/outcomes/resolutions required by the [acceptance contract](../product/overview.md#accepted-requirements-and-native-records). Preserve attribution and selected text without bypassing native visibility. |
 | `factory.IssueControl` / assessment | One current control record per repository/issue: revision, current acceptance, pause/cancel/takeover latch, readiness classification, reason and assessment fingerprint. Assessment binds native evidence, authority and preparation versions; unchanged blocked inputs do not buy another assessment. Native issues and dependency graphs remain authoritative. |
@@ -325,16 +331,17 @@ equal idle observations; a changed/busy observation, missing page or inaccessibl
 required record cannot authorize work. This exposes native facts, not factory
 acceptance or readiness.
 
-`OperationIntent` has the common fields and exactly one of the four typed payloads
+`OperationIntent` has the common fields and exactly one of the five typed payloads
 owned by [conditional native mutations](trust.md#conditional-native-mutations):
-ref publication, PR creation, final review submission or merge. `OperationRecord`
+ref publication, PR creation, final review submission, merge or bounded native
+issue-graph mutation. `OperationRecord`
 returns immutable intent/provenance, execution status, effect, cancellation,
 completion, bounded refusal reason and kind-specific receipt. `OperationLookup`
 distinguishes `not_observed` from a saved operation; absence does not by itself
 authorize retry. Installation IDs and private execution secrets are host-derived,
 not payload-selected. Publication also needs SDK transport setup for one registered
 operation and verified native receive origin, with restricted credentials and no
-credential-forwarding redirects; it is not a fifth mutation operation.
+credential-forwarding redirects; it is not an additional mutation operation.
 
 | Native record family | Required durable boundary |
 | --- | --- |

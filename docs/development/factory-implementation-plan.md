@@ -27,6 +27,34 @@ and qualification are excluded; no ARM machine or evidence is a handoff prerequi
 
 ## Source baseline
 
+### Intent-first experience extension (2026-10-11)
+
+The owner-authorized FX01–FX10 work extends the existing serving implementation;
+it does not reopen the historical implementation baseline below. Product behavior
+is owned by [intent review](../product/overview.md#intent-review-and-derived-work),
+[planning and priority](../product/overview.md#planning-and-priority-judgments),
+[lifecycle actions](../product/overview.md#bounded-lifecycle-actions) and
+[Spaces creation](../product/spaces.md#intent-first-creation). Source interfaces
+and operator inputs remain in their existing owning references.
+
+| Packet | Local implementation and decisive verification |
+| --- | --- |
+| FX01–FX02 | Intent-first entry, private departments, revision-bound review, editable delivery designs and repository association after review. Domain/Store authority and rendered browser checks. |
+| FX03, FX07 | Durable accepted-intent graph generation and revision through Fountain's atomic native create/edit/dependency writer; exact provenance, current human write permission, replay and stale-parent refusal. Native SQL writer and Soda PostgreSQL/coordinator fixtures. |
+| FX04–FX06 | Finite recorded System One judgments, funded provisional plans and actual-output refresh, complete candidate tournament, fairness and fresh dispatch checks. Actual serving-loop planning/priority fixtures. |
+| FX08 | Three local activity display preferences derived from durable issue, PR and verified completion evidence; separate revision from execution policy. Store/API and rendered control checks. |
+| FX09 | Visible native Workspace tab, hidden empty aside removal, exact repository Project selection and recovery. Native navigation checks and rendered browser/capture evidence. |
+| FX10 | `TestServingAcceptedIntentCreatesPlansExecutesReviewsMergesAndUnblocks` exercises `Coordinator.Start` through native generation, planning, coding, blocking independent review, correction, exact checks, verified merge, original closure and dependent pickup. Boundary facts are supplied by fixtures; progression stages are not manually invoked. |
+
+These checks establish source and disposable native/SQL fixture behavior.
+Current-source installation, deployment and execution-provider qualification were
+not authorized. Existing installed receipts retain their original exact scope.
+Normal managed Muse Meta account approval remains the external V03/R04 gate;
+TestOnly admission does not close it. Production signing and public distribution
+remain unestablished. Broader legacy source failures are not relabeled green.
+
+### Historical planning input
+
 Recorded on September 30, 2026, before this planning edit:
 
 | Repository | Exact commit | Working tree at capture |

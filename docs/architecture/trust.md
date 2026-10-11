@@ -273,7 +273,8 @@ not replace Soda's product checks.
 
 This selects a minimal conditional-operation boundary, not a replacement identity
 system or an unrestricted durable delegation framework. The logical contract below
-covers merge, candidate ref publication, PR creation and review submission. The
+covers merge, candidate ref publication, PR creation, review submission and
+bounded issue-graph mutation. The
 coordination mechanism below is selected for the first single-host profile.
 The integration design below selects authentication, writer
 boundaries, recovery authority and initial methods; their implementation still
@@ -314,7 +315,7 @@ Fountain does not need a reusable hierarchy of factory grants.
 | `operation_id` | Caller-generated opaque unique ID, durably recorded before sending and never reused for another intent. Scoped to the authenticated installation. |
 | `actor_id` | Expected stable native user ID; must match the authenticated, permitted service principal. Native account state, token scope and repository permissions remain effective. |
 | `repository_id` | Stable native ID of the repository receiving the primary effect; the base repository for PR operations. Resolve by ID; do not authorize by a mutable owner/name or supplied clone URL. |
-| `kind` | One of the four operation kinds defined here; unknown kinds and arbitrary native commands are rejected. |
+| `kind` | One of the five operation kinds defined here; unknown kinds and arbitrary native commands are rejected. |
 | `authorization_revision` | Nonempty opaque application revision identifying the policy/accepted-input/grant decision behind this operation. Bound to the entire immutable intent. Fountain records validity and cancellation without interpreting that revision as Soda policy. It is not a bearer secret or a reusable grant. |
 | `expected_native_revision` | Opaque host-issued revision obtained with the stable native-read protocol below. Reservation acquisition requires equality with the current idle revision. It binds observed native inputs without telling Fountain what Soda considers eligible. |
 | `not_after` | Finite deadline for host admission into the guarded commit phase, checked at Git `prepared` or the database admission boundary defined for that kind, using host time and constrained by the host's maximum lifetime. An admitted write may finish afterward. Expiry prevents new admission; it does not release a reservation, undo a write or establish non-commit. No in-place renewal. |
@@ -983,3 +984,14 @@ native code-write authority. Revisions invalidate superseded work even if native
 issue text is unchanged. Exact native title/body/history/dependency evidence,
 independent Project/account grants and finite execution funding still apply.
 No classifier result supplies authority, native completion or verified correctness.
+
+`issue.graph.mutate` atomically creates native issues, edits exact observed
+title/body versions and inserts or removes explicit native dependency edges.
+The enrolled actor must retain native code and issue write permission. The SDK
+bounds the packet to 64 changes and 48 KiB, rejects duplicate targets and malformed
+references, and the native writer rejects cycles through the complete relevant
+dependency graph. Native effects and the attributable receipt commit together.
+Existing operation lookup, cancellation, deadline and replay rules apply; no
+automatic issue closing or deletion is granted. Repository-writer snapshots
+provide current permission evidence for at most eight named identities without
+making the service actor the human intent owner.

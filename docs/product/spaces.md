@@ -140,7 +140,12 @@ Product exploration presents a conservative proposed baseline and consequential
 assumptions for accept, decline or correction. Its proposed native task graph is
 returned by the backend, never manufactured in browser state. The initial
 baseline is not researched domain requirements or a claim that Jev generated
-product prose; Jev evaluates supplied alternatives.
+product prose; Jev evaluates supplied alternatives. Review compares a complete
+first workflow with verified incremental milestones and explains their delivery
+consequences. A changed approach requires an updated proposal before acceptance;
+both retain the same reviewed product outcomes. Corrected accepted assumptions
+enter native requirements, while rejected assumptions cannot impose their old
+constraints. Consequential contradictions require clarification before generation.
 
 Repository selection follows product review. The accepted revision binds that
 repository before generated work is admitted. Creating the persistent Project

@@ -563,6 +563,11 @@ history and compare the expected predecessor. A changed product direction needs
 fresh review; routine engineering decomposition within the accepted direction
 does not require separate approval of every issue. Current native evidence and
 independent execution, account, preparation and funding grants remain required.
+Code-defined delivery alternatives compare a complete first workflow with
+separately verified milestones without inventing domain features. Jev advises;
+the person can change the approach and review the resulting proposal. Accepted
+assumption corrections enter native requirements, rejected assumptions are
+excluded, and a consequential contradiction requires clarification.
 
 ## Planning and priority judgments
 
@@ -602,6 +607,18 @@ These actions use existing operation IDs, grants and finite attempt allowances.
 An uncertain outcome is reconciled under the original ID, and a refusal remains
 visible instead of creating a replacement effect. They require no generic hooks
 engine and cannot disable acceptance, accounting, independent review, exact
-candidate verification or original-issue closure. Optional outbound notifications
-or additional lifecycle effects need concrete recipient, authority, spending and
-failure decisions before configuration is added.
+candidate verification or original-issue closure.
+
+Factory settings display local activity summaries for created issues, created
+PRs and verified merges with confirmed original-issue closure. Each summary links
+to the exact native record and appears only after durable evidence establishes
+the event. Repository viewers can read it; current repository owners or
+administrators can select which of the three event kinds are displayed. All three
+are enabled by default. These separately revisioned preferences affect display
+only and cannot withdraw execution grants or change the complete workflow.
+The backend derives summaries from existing records without an additional native
+write, provider call, recipient or spending allowance. Refreshing retries a read;
+unavailable or incomplete evidence produces no invented successful event.
+Historical records remain preserved when an event kind is hidden. Optional
+outbound notifications or additional lifecycle effects need concrete recipient,
+authority, spending and failure decisions before configuration is added.
