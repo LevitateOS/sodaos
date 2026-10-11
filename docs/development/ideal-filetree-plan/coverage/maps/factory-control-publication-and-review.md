@@ -82,7 +82,7 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/control/merge_test.go](../../../../../internal/factory/control/merge_test.go)
 
-Selective source delta at `63ace9cd`: `TestMergePassWaitsForRequestedChangesThenCorrectedHead` proves the blocking-review wait, unchanged live allowance, normal corrected publication, fresh checks and the same merge row completing against the corrected head. `TestMergePassRefusesWrongCandidateIdentity` retains the permanent native-identity refusal boundary, replacing the obsolete terminal changes-request assertion. Actual PostgreSQL17/Go1.26.7 race and independent review pass; native continuation remains B04.C.
+Selective source delta at `63ace9cd`: `TestMergePassWaitsForRequestedChangesThenCorrectedHead` proves the blocking-review wait, unchanged live allowance, normal corrected publication, fresh checks and the same merge row completing against the corrected head. `TestMergePassRefusesWrongCandidateIdentity` retains the permanent native-identity refusal boundary, replacing the obsolete terminal changes-request assertion. Actual PostgreSQL17/Go1.26.7 race and independent review pass. Separately funded native issue14 now completes the same-root correction, exact-head checks, independent approval and merge with all four runs retired, closing selected B04.C; final matching-image joins remain R04.
 
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
