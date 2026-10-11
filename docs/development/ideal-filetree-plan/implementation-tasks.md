@@ -77,6 +77,20 @@ The current subscription connection is TestOnly-seeded,
 despite real provider execution and custody: normal Meta device-account approval
 and matching installed-candidate qualification remain open under V03/C11.V/R04.
 
+Fresh matching Soda `5408a220`/Fountain `1e6970300e` development media now
+passes native P1–P8, candidate checking, normal fresh-disk install/first boot and
+installed provenance for six images, 18 files, schema40 and running binaries.
+Clean/maintenance Factory enrollment, public preparation/funding and dashboard
+key isolation pass. The sole shipped serving coordinator recovers originals1/2
+after downtime and completes six real Muse executions, blocking independent
+review/correction, fresh native CI, two verified merges/original closures and
+automatic dependent pickup. Six native retirements/broker returns and finite
+usage6/20 reconcile; Pause closes gate3 with zero custody. The human container,
+file marker and shell PID/start are preserved. Detailed scope and receipts are
+in the [supplemental reconciliation](fountain-soda-correctness-tasks.md#current-source-reconciliation-2026-10-11).
+Matching-image human workflows/matrix/reboot and normal managed Muse device
+approval remain open under V03/C11.V/R04. Failed observers retain their failures.
+
 The active finishing goal repaired the native P8 Assembler metadata decoder
 in `0a845477` and aligned release schema emission with the then-current
 schema-39 owners. The later correction queue moves both Store/broker owners to

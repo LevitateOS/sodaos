@@ -27,6 +27,46 @@ committed inputs are Fountain `1e6970300e` and Soda
 `4a51990b`. Eighteen of nineteen tasks are complete at their stated source,
 fixture or native DEVELOPMENT scope. V03 remains open; matching installed
 qualification does not follow from development checks.
+The fresh native x86_64 candidate from Soda `5408a220` (the same shipping
+behavior as `4a51990b`) and Fountain `1e6970300e` has now completed P1–P8,
+candidate checking, authenticated media transfer, normal installation and first
+boot on its sole fresh 64 GiB disk. Installed provenance joins all six application
+image configurations, 18 selected files, schema40 and running service binaries.
+Normal clean Factory enrollment and existing-install maintenance pass, preserving
+the four native operation bindings. Seven public funding controls, exact source
+selection, distinct requirement/approval heads and both standing Ready roles pass.
+The installed dashboard remains UID2000 without effective capabilities; broker
+key/provider files and the runtime socket are inaccessible, while normal broker
+administration works. Six installed L10 transport cases pass at their stated TLS,
+bounded-response and invalid-provider-credential scope.
+
+The sole shipped serving dashboard recovered fresh originals #1 and #2 after
+confirmed outages, without hook redelivery or manually driven stages. Four real
+Muse runs completed coding, blocking independent review, correction and fresh
+approval; PR #3 merged `e14c671d12e8633252c08733c28fd86423a51613`. Two more runs
+automatically picked up that confirmed source; PR #4 merged
+`7c0605ca9af6156b7eb5672abf3ccd1f59f9e9dc`. Original closing occurrences 8 and
+13 match the durable completion records. The immutable first reviewer finding
+`0fa14f85091f` matches the corrected and dependent candidates, and native Actions
+3/4 and 5/6 succeed for their exact respective heads. Six Host retirements and
+broker returns reconcile; usage is six minutes within unchanged connection and
+sponsorship budgets of20, with attempt10/one-correction limits. Zero live runs,
+leases, held reservations or pending effects remain. Normal Pause closes gate3
+with six settled historical captures. The same human container, UID1000 file
+marker/hash/mode and terminal PID295/start143228 survived Factory work.
+
+These matching installed receipts are under
+`.artifacts/goal-finish-plan-20261010/native-appliance-final-01/`, including
+`installed-runtime-joins-04.json`, `work/final-native-read/`, the enrollment/funding
+logs and `human-marker-after-factory-01.log`. Independent review accepts their
+exact scopes. Observer failures remain retained: initial preparation409 followed
+by Ready readback, expired dependent-create guard before POST, relative-path/CDP
+failures and the corrected Attach-only terminal observation. Matching-image
+human workflows, complete terminal matrix and same-disk reboot recovery are still
+being checked. Provider execution uses explicitly TestOnly admission; normal
+managed Muse device-account approval remains a separate external enrollment gate.
+V03/C11.V/R04 remain open until their required remaining gates pass.
+
 Native DEVELOPMENT continuation has passed fifteen credential-family,
 public-only, resource-bound and retained-creation reads; five cancellation/
 restriction operations prove the durable pre-submit tombstone and absent ref.
@@ -107,7 +147,7 @@ P1–P7 and was interrupted in P8; it is not a completed installed candidate.
 | G02 | Complete at source/consumer scope on the identified pair: affected architecture, service wiring, strict Go formatting, browser and schema-emission checks pass. Independent review accepts 2,629 exact current leaves across the selective tree, inventory and ownership maps; historical body-review pins and unrelated dirty placement/reviews are preserved. The Fountain component is compiled natively with pinned Go1.26.7 and retained compiler provenance; this is artifact preparation, not a full candidate or installed qualification. |
 | V01 | Complete at serving-fixture scope: actual Coordinator.Start drives original creation → coder → independent blocking review → correction → fresh delayed CI → verified merge → original-issue closure → dependent pickup. `4a51990b` additionally proves reopening and equal-time re-closing block dependent pickup (actual PostgreSQL race, 74.073s for the focused closure packet), preserving existing timer, expiry, capacity and recovery receipts. Drivers supply boundary facts and call no settlement/publication/check/merge stages. This is fixture evidence; V02/V03 remain separate. |
 | V02 | Complete at native DEVELOPMENT scope on Soda `4a51990b` and Fountain `1e6970300e`: sole serving recovery, six real Muse runs, blocking finding/correction/fresh approval, exact-head delayed CI, PRs #8 and #9 merges, original closures 49 and 54 and automatic dependent source pickup pass. Six exact Host retirements, broker returns, conserved historical usage, normal Pause and human preservation pass. Unchanged native credential/cancellation and terminal evidence is reused only at its demonstrated scope; TestOnly enrollment is not normal managed enrollment. |
-| V03 | Matching installed qualification remains C11.V/R04. V02 now permits the fresh matching producer/install run; prepared disks, private credentials and retained builder artifacts can be reused. Normal Meta device-account approval remains an external enrollment gate. |
+| V03 | Fresh matching5408a220/F1e development candidate build/check/install, installed provenance/schema40, clean/maintenance enrollment, public preparation/funding, key isolation and automatic six-run original closure/dependent pickup now pass. Matching human workflows, full matrix and same-disk reboot recovery remain open under C11.V/R04; TestOnly admission does not close normal Meta device-account approval. |
 
 Implementation authority comes from the existing chat, not this chapter.
 Three workers own A/B/C; D is the integration lead and sole shared SDK/schema/
