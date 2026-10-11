@@ -30,9 +30,11 @@ provider picker in onboarding.
 The proposed interaction sequence develops the intent-first product contract:
 
 1. New Project opens a sparse description page: **What do you want to build?**
-2. Explore alternatives and review material product ideas and assumptions.
+2. System One compares alternatives and challenges assumptions; consolidate one
+   understandable walkthrough, asking only necessary assumption questions.
 3. Associate the reviewed direction with an authorized native repository.
-4. Explicitly accept the revision and request native work generation.
+4. Request native work under the exact effective revision and existing authority;
+   no separate blanket approval of every idea or technical plan.
 5. Configure/create or reuse the Project; explicitly Join for human terminal use.
 6. Follow Factory work or develop manually in the working Workspace.
 
@@ -59,9 +61,9 @@ The recommended path is:
 flowchart TD
     W[Workspace: New Project] --> D[Describe and save a draft]
     D --> E[Explore product alternatives]
-    E --> R[Review material ideas and assumptions]
+    E --> R[Consolidated walkthrough; challenge unresolved assumptions]
     R --> N[Choose native repository]
-    N --> A[Accept this plan and create work]
+    N --> A[Create work under effective intent]
     A --> O[Saved work overview]
     O --> F[Factory readiness and funded execution]
     O --> P[Select existing or explicitly create Project]
@@ -133,10 +135,10 @@ Browser navigation keeps the one retained Workspace/terminal owner.
 | New Project | Centered objective textarea, optional Department, quiet planning allowance, saved state | Explore ideas, Save and leave; no opening repository picker or automatic provisioning |
 | New department dialog | Name, description and private-context explanation | Save/select or Cancel; preserves the objective and grants no access |
 | Exploring | The retained objective and the bounded operation being performed | Leave safely; stop a pending request only if its cancellation contract exists; no fake ETA |
-| Product alternatives | A small set of meaningfully different ways to meet the outcome, supported tradeoffs and unknowns | Choose or correct a product direction; technical decomposition stays secondary |
-| Product review | Plain-language user walkthrough, meaningful branches, illustrative example, material choices and unresolved questions | Change a step, accept/decline/edit a material choice, update the same proposal; Continue when coherent |
+| Product alternatives | System One's supplied comparisons, consolidated recommendation and consequential unknowns | Inspect or correct if useful; no required vote on each alternative |
+| Product review | Plain-language user walkthrough, meaningful branches, illustrative example and necessary assumption challenges | Optional Change something; answer only an unresolved consequential assumption requiring human intent or authority |
 | Repository selection | Eligible native repositories, ownership/visibility, existing Project and native Create repository link | Choose context; Back preserves review; native repository creation returns to the saved request |
-| Acceptance summary | Exact repository, reviewed outcomes, approach, visible native effects and finite planning allowance | Accept this plan and create work, with plain-language effects; this is the commitment action, not a generic Continue |
+| Work commitment/status summary | Exact repository, effective outcomes, approach, visible native effects and finite planning allowance | Progress automatically under existing explicit authorization; Create work only when initiating that effect, with no extra blanket review approval |
 | Generation/status | Acceptance saved; atomic native graph result, authority-linking progress and original request identity | Open created issues or inspect the original pending/refused result; never blind duplicate submission |
 | Work overview | Accepted direction, evidenced work-item counts, attention, dependencies and native issue/PR links | Inspect work, readiness and plans; change direction through a reviewed revision |
 | Project setup | Existing environment or immutable installed OS profile, authority/readiness and exact target | Explicit Create Project or reuse/start existing root; no distro switch for an existing Project |
@@ -196,7 +198,10 @@ them. Do not invent research or show generated rationale as a quotation from Jev
 When only a conservative baseline is supported, label it honestly and show the
 consequential unknowns.
 
-The review starts with **Here's how it would work**, showing the experience in
+System One's comparisons, assumption challenges and consolidation feed one
+proposal. The [judgment contract](../product/overview.md#planning-and-priority-judgments)
+owns the opportunities and resource boundaries; they do not each need a human
+screen. The review starts with **Here's how it would work**, showing the experience in
 ordinary people's terms. The [nontechnical review composition](#review-for-nontechnical-people)
 below connects a walkthrough to the material choices. Keep the technical task
 breakdown expandable and informative; twenty generated issues do not produce
@@ -204,10 +209,13 @@ twenty acceptance prompts.
 
 Corrections change the proposal. Mark the previous proposal out of date, preserve
 the person's decisions, and show the affected differences when exploration returns.
-Changing the delivery approach must retain the accepted outcomes and explain when
-usable parts would arrive; a milestone is not automatically a scope reduction.
+The system chooses the delivery approach within effective outcomes; the person
+can correct it. Show when usable parts would arrive; a milestone is not
+automatically a scope reduction. A routine approach change does not require
+another approval when outcomes and authority remain the same.
 Declining the whole direction preserves the request history and supports revising
-the objective. Do not continue to generation with an unresolved material choice.
+the objective. Do not perform work dependent on an unresolved consequential
+assumption; independent authorized work need not wait for an unrelated answer.
 
 ### Review for nontechnical people
 
@@ -217,6 +225,13 @@ providers, architecture or implementation stages. Plain copy alone is not enough
 lead with a short walkthrough of the future product. This audience requirement
 is the owner's explicit correction; the composition and labels below are design
 recommendations.
+
+Default to minimum interaction. The system does the comparison and consolidation;
+the walkthrough can be inspected and corrected without becoming a mandatory tour
+or an approval checklist. A single **Change something** entry lets the person
+correct the proposed behavior in their own words. Reveal per-step editing only
+when useful. Do not ask the person to choose every alternative or certify each
+assumption just because it appears in the proposal.
 
 Recommended reading order:
 
@@ -228,8 +243,25 @@ Recommended reading order:
 4. **Try an example:** a concrete, explicitly illustrative scenario using the
    same proposed behavior. A diagram or click-through helps where it adds clarity;
    a numbered text walkthrough remains available.
-5. **Choices that change the experience:** assumptions and alternatives beside
-   the affected step, with included, left out and unanswered outcomes summarized.
+5. **What we assumed:** brief consequential assumptions beside the affected step,
+   with optional corrections and only the unanswered questions that need human intent.
+
+Use the [intent contract](../product/overview.md#intent-review-and-derived-work)
+to distinguish inputs:
+
+| Basis | Interaction |
+| --- | --- |
+| The person explicitly requested it | Preserve it; do not ask them to approve it again |
+| Relevant evidence supports the choice | Apply it within scope; retain evidence and allow correction |
+| A harmless reversible assumption within scope | Choose autonomously and make it easy to change |
+| A consequential unsupported assumption | Seek evidence and assess alternatives first; challenge it only if human intent or authority is still required |
+
+Low confidence alone is not a reason to interrupt. Ask what would happen if the
+assumption is wrong and whether a safe within-scope choice or available evidence
+resolves it. More model calls cannot invent missing human intent. Sensitive
+visibility, new obligations, spending, access or difficult-to-reverse effects are
+possible consequences of a wrong assumption; existing grants remain usable for
+the effects they actually cover.
 
 This flow describes the people using the requested product, not Factory's own
 planning/coding/review/merge pipeline. Use roles and familiar verbs instead of
@@ -253,50 +285,63 @@ not details the preview should silently invent. State who sees a request and
 what happens if there is no decision yet. Distinguish a proposed behavior from
 a fact the person supplied and from a question that still needs an answer.
 
-Use a decision card near the relevant step:
+Only when necessary, use a focused assumption challenge near the affected step:
 
 ```text
-How should the employee hear the decision?
+We assumed everyone on the team could see each request.
+Your description does not establish that, and it exposes individual dates.
+We recommend limiting visibility to the employee and their manager.
 
-In the website
-    They check their request to see the result.
-
-In the website and by email
-    They can also receive the result without checking the website.
-    This needs an email service; any additional access or cost must be agreed.
-
-Keep this choice · Change it · Leave it out
+Use employee and manager only · Share with the team · Explain a correction
 ```
 
-An assumption reads **We're assuming…**, followed by its real consequence and
-Accept, Change and Reject. An unresolved question reads **We need your answer
-about…**, with understandable options and a free-text correction. A person's
-rejection must not automatically pick the opposite behavior if several
-alternatives exist. Ask the affected product question when needed.
+A necessary question names what the system assumed, why it could be wrong,
+the consequence and a recommended resolution. Combine independent necessary
+challenges in one concise interaction. Preserve the person's corrections instead
+of asking again downstream. A rejection must not automatically choose an opposite
+behavior where several alternatives remain. Silence or a timeout is never approval;
+hold dependent work and continue independent progress.
 
 **Change this step** opens a short correction field in everyday language. After
 the change, identify affected steps and show a concise before/after explanation.
 The updated flow and any illustrative screens change with it; mark an older
 proposal as out of date. Do not ask the person to edit a diagram's syntax or
-approve generated engineering tasks. Extra review is for a material new or
-changed product decision, not an equivalent technical implementation choice.
+approve generated engineering tasks. Further interruption is only for a
+consequential unsupported assumption introduced or revealed by the change.
+Explicit corrections are not returned for another approval.
 
-Before acceptance show **Included**, **Not included** and **Still needs an answer**.
-Only material unresolved questions prevent acceptance. Keep all essential scope,
-access and spending consequences visible; optional technical detail is secondary.
-The primary acceptance copy becomes **Accept this plan and create work**, with
-an adjacent explanation:
+The overview can show **Included**, **Not included** and **Still needs an answer**
+without requiring approval of each entry. Keep essential scope, access and
+spending consequences visible. Selecting a repository or initiating native work
+is a direct effect action, not an additional vote on an already authorized plan.
+Use **Create work**, with an adjacent explanation:
 
-> This saves your chosen direction and creates tracked work in **[repository]**.
+> This saves your direction and creates tracked work in **[repository]**.
 > Factory can carry it out automatically when the required Project, access and
 > funding are ready. You can follow progress and intervene.
 
-The actual commitment still names the exact reviewed revision, repository and
-applicable finite allowance. Show whether work can already proceed under existing
-authority or which setup is missing. Product review before repository selection
+If the initiating request already authorizes native work for the exact repository
+within current grants and limits, advance without another **Create work**
+confirmation. Keep direct effect controls where the person is actually initiating
+an action, rather than adding approvals after that action is already authorized.
+
+The actual commitment names the exact effective revision, repository and
+applicable finite allowance, distinguishing requested facts, evidence-supported
+choices, autonomous decisions and human corrections. Do not record a model's
+selection as something the person explicitly approved. Show whether work can
+proceed under existing authority or which setup is missing; do not ask for that
+same authority again. Product review before repository selection
 uses **Continue to choose a repository**; it does not imply acceptance or native
 effects yet. Rejecting a draft leaves the recorded request available for revision;
 it does not delete previously accepted native work.
+
+This target requires a real intent-contract change: current `reviewReady` requires
+every idea to leave `pending`, and `IntentRevision.Validate` rejects pending ideas
+in an accepted revision. Hiding controls or automatically marking every idea as
+human-approved would leave or falsify that gate. Implementation must represent
+the decision basis and block only consequential unanswered assumptions, with
+backend enforcement and exact durable authority. This design round does not
+claim that behavior is implemented.
 
 On narrow screens the flow stacks in reading order. Use text labels for roles,
 arrows and branch outcomes, a keyboard-accessible ordered-text equivalent,
@@ -322,10 +367,12 @@ page is a suggestion until explicitly selected.
 Before committing, summarize included outcomes, consequential assumptions,
 delivery approach, exact repository and finite planning allowance. Explain that
 generated issues become visible according to the repository's native permissions.
-The primary button is **Accept this plan and create work**, using the plain-language
+The primary button is **Create work**, using the plain-language
 effect summary above. Acceptance records one exact revision; native generation
 has its own visible status.
 The server must still enforce the current actor's write authority.
+An existing explicit authorization is carried forward rather than reconfirmed;
+unresolved consequential assumptions remain the only product-review interruption.
 
 Project setup and Factory execution are distinct next actions on the overview.
 Reuse an existing environment whenever the contract permits it. Human setup
@@ -603,6 +650,11 @@ Affected acceptance scenarios should demonstrate:
   no native issue, Project or account effect caused by navigation.
 - Corrected ideas, conflicting assumptions, changed approach and stale revision
   refusal; acceptance names exact scope/repository/effects and binds one revision.
+- Evidence-supported choices and harmless defaults progress without individual
+  questions or repeated authorization. Only necessary consequential-assumption
+  challenges interrupt dependent work; requested facts, autonomous choices and
+  human corrections retain distinct provenance. Relevant changes refresh affected
+  judgments while matching unchanged inputs reuse recorded results.
 - Confirmed, adoption-incomplete and uncertain generation recovery with one
   original request; Project failure cannot lose acceptance or duplicate native work.
 - Branching prerequisites, provisional plans, actual-output refresh, separate

@@ -145,12 +145,21 @@ Customization rules: [Forgejo customization](../reference/forgejo.md).
 New Project opens with **What do you want to build?**, a centered description
 field and basic department and finite planning controls. Department creation asks
 for a name and description and stores private organizational context only.
-Product exploration presents a conservative proposed baseline and consequential
-assumptions for accept, decline or correction. Human review is for nontechnical
+Product exploration uses substantial System One comparison, assumption analysis
+and consolidation to present one coherent proposed experience. Human review
+challenges consequential unsupported assumptions the system has made; it must
+not require approval of every idea, design alternative or routine implementation
+choice. Reuse existing intent and authority within their scope. The
+[intent and judgment contract](overview.md#intent-review-and-derived-work) owns
+decision provenance and bounded model use. Human review is for nontechnical
 people: show the proposed experience through who uses it, what they do, what
 happens next and what result they receive. Explain meaningful branches, access
 and product consequences in everyday language, with an accessible text equivalent
-to the visual flow. Corrections must update the same proposal being accepted.
+to the visual flow. Offer optional corrections; only consequential unresolved
+assumptions requiring human intent or authority interrupt progression. Seek
+evidence first, combine necessary questions and show the assumed behavior,
+consequence and recommended resolution. Corrections update the same effective
+proposal, with their actual origin retained.
 Engineering decomposition is optional detail, not the primary review surface.
 Concrete examples or simulated screens must be labeled illustrative; they do not
 establish requirements or prove that the product already exists. The
@@ -158,12 +167,14 @@ establish requirements or prove that the product already exists. The
 walkthrough and decision presentation.
 
 The proposed native task graph is returned by the backend, never manufactured
-in browser state. The initial
-baseline is not researched domain requirements or a claim that Jev generated
+in browser state. The initial baseline is not researched domain requirements
+or a claim that Jev generated
 product prose; Jev evaluates supplied alternatives. Review compares a complete
 first workflow with verified incremental milestones and explains their delivery
-consequences. A changed approach requires an updated proposal before acceptance;
-both retain the same reviewed product outcomes. Corrected accepted assumptions
+consequences. The system selects an approach within the requested outcomes;
+the person may correct it without a mandatory strategy selection. A changed
+approach updates the effective proposal; both retain the same product outcomes.
+Corrected accepted assumptions
 enter native requirements, while rejected assumptions cannot impose their old
 constraints. Consequential contradictions require clarification before generation.
 

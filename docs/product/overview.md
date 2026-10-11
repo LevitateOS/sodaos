@@ -553,16 +553,28 @@ Departments are private creator-owned names and descriptions for context; they
 confer no repository, Project, account or spending authority. Shared department
 visibility and administration require a separate product decision.
 
-Product review records consequential ideas and assumptions with accept, decline
-or corrected wording and explains each consequence. An accepted intent revision
-binds its human owner, exact repository, choices, finite issue count and planning
-call allowance. Derived tasks name the accepted choices they implement and form
-an explicit acyclic dependency graph; independent roots remain independent.
-Unresolved or declined choices cannot authorize child tasks. Revisions preserve
-history and compare the expected predecessor. A changed product direction needs
-fresh review; routine engineering decomposition within the accepted direction
-does not require separate approval of every issue. Current native evidence and
-independent execution, account, preparation and funding grants remain required.
+System One helps compare, challenge and consolidate product designs before
+presenting one understandable proposed experience. Human review is an opportunity
+to correct the system's assumptions, not a required decision on every idea.
+Preserve the person's explicit outcomes and constraints. Apply evidence-backed
+defaults and harmless reversible choices within that direction autonomously.
+Seek evidence and compare alternatives before interrupting over a consequential
+unsupported assumption. Only an assumption still requiring the person's intent
+or authority warrants a focused challenge explaining what was assumed, its
+consequence and a recommended resolution. Combine independent questions and
+continue work that does not depend on the answer. Silence is not acceptance.
+
+An effective intent revision binds its human owner, exact repository, requested
+outcomes, attributable choices, finite issue count and planning call allowance.
+Distinguish explicit human instructions/corrections from evidence-supported or
+autonomous choices; never label model advice as human approval. Derived tasks
+name the effective outcomes they implement and form an explicit acyclic native
+dependency graph; independent roots remain independent. Unresolved consequential
+assumptions and explicitly declined outcomes cannot authorize dependent tasks.
+Revisions preserve history and compare the expected predecessor. Routine choices
+within existing direction and authority do not require repeated human acceptance.
+Current native evidence and independent execution, account, preparation and
+funding grants remain required; model advice cannot expand them.
 Code-defined delivery alternatives compare a complete first workflow with
 separately verified milestones without inventing domain features. Jev advises;
 the person can change the approach and review the resulting proposal. Accepted
@@ -570,6 +582,28 @@ assumption corrections enter native requirements, rejected assumptions are
 excluded, and a consequential contradiction requires clarification.
 
 ## Planning and priority judgments
+
+Use substantial System One judgment across the design process, with complete
+relevant evidence and alternatives supplied by the planning owner:
+
+| Judgment | Useful comparison |
+| --- | --- |
+| Product approaches | Ways to deliver the requested user workflow and their consequences |
+| Assumptions and contradictions | Requested facts versus unsupported guesses; whether evidence resolves a consequential uncertainty |
+| Consolidation | A coherent proposal that preserves requested outcomes and removes redundant or conflicting ideas |
+| Work decomposition | Split/combine choices and prerequisite outcomes within effective scope |
+| Planning timing and freshness | Stable facts, provisional details, relevant new outputs and need for reassessment |
+| Next eligible work | The complete deterministically eligible candidate set when it contains several issues |
+| Proposal consistency | Whether the plain walkthrough and material changes reflect the same effective intent |
+
+Batch independent questions over the same state. Record relevant evidence,
+alternatives, uncertainty and exact input snapshots; reuse results while those
+semantic inputs remain valid. Fresh material facts or corrections trigger the
+affected judgments, not a complete repeated approval tour. Do not substitute
+more calls or model agreement for missing evidence. Judgments are bounded and
+funded; code remains responsible for authority, accounting and actual native
+effects. The human sees the consolidated experience and necessary assumption
+challenges, rather than a screen for every internal judgment.
 
 Code admits planning against current accepted scope, Project preparation and
 independent finite consultation funding. Visible unfinished prerequisite outcomes
