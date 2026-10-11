@@ -10,6 +10,25 @@ import {
 } from './fixtures/workspace-driver';
 setupWorkspaceDriver();
 
+test('repository context selects by exact native ID despite colliding display names', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {
+    window.workspaceFixture.api.dispose();
+    const f = window.createWorkspaceFixture('page', false, '', '8');
+    window.workspaceFixture = f;
+    for (const space of f.spaces) space.environment.repository = 'shared/display-name';
+    await f.api.refresh();
+  });
+  const selected = page.locator('.soda-project-select[aria-pressed="true"]');
+  await selected.waitFor();
+  assert.equal(await selected.locator('..').getAttribute('data-environment-id'), 'p' + '2'.repeat(24));
+  assert.equal(await selected.count(), 1);
+  assert.equal(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length),
+    0
+  );
+});
+
 test('repository Workspace selects its native observed Project without commands', async (t) => {
   const page = await fixture(t);
   await page.goto(new URL('/alice/Beta/workspace', page.url()).href);

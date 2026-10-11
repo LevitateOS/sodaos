@@ -18,10 +18,20 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
   const prefix = nativeAppSubUrl(context);
   const host = root.closest<HTMLElement>('[data-extension-workspace]');
   const frame = host?.querySelector<HTMLIFrameElement>('[data-extension-workspace-frame]');
+  const section = root.closest<HTMLElement>('.extension-workspace-panel');
+  const aside = section?.closest<HTMLElement>('.extension-workspace-panels');
+  const present = (visible: boolean) => {
+    if (!section || !aside) return;
+    section.hidden = !visible;
+    aside.hidden = !Array.from(aside.querySelectorAll<HTMLElement>('.extension-workspace-panel')).some(
+      (panel) => !panel.hidden
+    );
+  };
   let workspace: ReturnType<typeof mountSodaspaces> | undefined;
   const retire = () => {
     workspace?.dispose();
     workspace = undefined;
+    present(false);
   };
   const sync = () => {
     // The full Spaces page restores the same actor layout. It must be the sole
@@ -33,6 +43,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
     if (page) {
       retire();
     } else if (!workspace) {
+      present(true);
       workspace = mountSodaspaces(root, {
         kind: 'native',
         transport,
@@ -44,6 +55,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
   };
   host?.addEventListener('soda-spaces-opening', retire);
   frame?.addEventListener('load', sync);
+  present(false);
   sync();
   return {
     dispose() {
