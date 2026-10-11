@@ -645,10 +645,21 @@ fn list_native_hooks(
 }
 
 fn exact_intake_hook(hook: &ForgejoHookView) -> bool {
+    // Fountain expands the requested "issues" group into these native events.
+    let events = [
+        "issues",
+        "issue_assign",
+        "issue_label",
+        "issue_milestone",
+        "issue_comment",
+    ];
     hook.hook_type == "forgejo"
         && hook.url == NATIVE_INTAKE_URL
         && hook.content_type == "json"
-        && hook.events == ["issues"]
+        && hook.events.len() == events.len()
+        && events
+            .iter()
+            .all(|expected| hook.events.iter().any(|event| event == expected))
         && hook.active
 }
 
@@ -1728,6 +1739,13 @@ mod tests {
             if config.contains("request = \"POST\"") || config.contains("request = \"PATCH\"") {
                 assert!(config.contains("fixture-hook-token"));
                 assert!(config.contains("intake secret"));
+                let body = config
+                    .lines()
+                    .find_map(|line| line.strip_prefix("data = "))
+                    .map(|line| serde_json::from_str::<String>(line).unwrap())
+                    .unwrap();
+                let body: serde_json::Value = serde_json::from_str(&body).unwrap();
+                assert_eq!(body["events"], serde_json::json!(["issues"]));
                 if config.contains("request = \"PATCH\"") {
                     self.hook_patched.set(self.hook_patched.get() + 1);
                     if self.fail_hook_patch.get() {
@@ -1765,7 +1783,7 @@ mod tests {
                         "type": "forgejo",
                         "url": NATIVE_INTAKE_URL,
                         "content_type": "json",
-                        "events": ["issues"],
+                        "events": ["issues", "issue_assign", "issue_label", "issue_milestone", "issue_comment"],
                         "active": true,
                     })
                 })
@@ -1783,6 +1801,30 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
         root
+    }
+
+    #[test]
+    fn native_issue_hook_readback_matches_exact_expanded_event_set() {
+        let mut hook: ForgejoHookView = serde_json::from_value(serde_json::json!({
+            "id": 2,
+            "type": "forgejo",
+            "url": NATIVE_INTAKE_URL,
+            "content_type": "json",
+            "events": ["issues", "issue_assign", "issue_label", "issue_milestone", "issue_comment"],
+            "active": true,
+        }))
+        .unwrap();
+        assert!(exact_intake_hook(&hook));
+        hook.events.reverse();
+        assert!(exact_intake_hook(&hook));
+        let expected = hook.events.clone();
+        hook.events[0] = hook.events[1].clone();
+        assert!(!exact_intake_hook(&hook));
+        hook.events = expected;
+        hook.events.push("push".to_string());
+        assert!(!exact_intake_hook(&hook));
+        hook.events = vec!["issues".to_string()];
+        assert!(!exact_intake_hook(&hook));
     }
 
     #[test]
@@ -2115,6 +2157,7 @@ mod tests {
         assert_eq!(native.bindings.borrow().len(), 1);
         assert_eq!(native.hook_patched.get(), 1);
         assert_eq!(native.hook_created.get(), true);
+        assert_eq!(native.hook_create_count.get(), 1);
         let receipt_file = dashboard_path.with_file_name("hooks.json");
         let receipt: NativeHookReceipt =
             serde_json::from_slice(&fs::read(&receipt_file).unwrap()).unwrap();
