@@ -3,6 +3,7 @@ import type {Department, IntentRevision, ProductIdea} from './sodaspaces-intent-
 
 export interface IntentView {
   objective: string;
+  saveNote: string;
   department: string;
   departments: Department[];
   revision: IntentRevision | undefined;
@@ -20,6 +21,8 @@ export interface IntentView {
   decide(id: string, decision: ProductIdea['decision'], correction?: string): void;
   chooseApproach(approach: 'complete_first' | 'incremental'): void;
   describe(): void;
+  saveDraft(): void;
+  saveAndLeave(): void;
   revise(): void;
   decline(): void;
   continue(): void;
@@ -55,6 +58,14 @@ function bounds(view: IntentView) {
     <p>Work still needs its own access and funded execution limits.</p>
   </details>`;
 }
+function entryActions(view: IntentView) {
+  const locked = view.busy || view.blocked || !view.objective.trim();
+  return html`<div class="actions">
+    <button ?disabled=${locked} @click=${view.saveDraft}>Save draft</button
+    ><button ?disabled=${locked} @click=${view.saveAndLeave}>Save and leave</button
+    ><button class="primary" ?disabled=${locked} @click=${view.describe}>Explore ideas</button>
+  </div>`;
+}
 export function describeIntent(view: IntentView) {
   return html`<section class="intent-entry">
     <h2 tabindex="-1">What do you want to build?</h2>
@@ -72,12 +83,13 @@ export function describeIntent(view: IntentView) {
     <div class="context">
       <label
         >Department<select
-          .value=${view.department}
           ?disabled=${view.busy || view.blocked}
           @change=${(event: Event) => view.set('department', input(event))}
         >
-          <option value="">No department</option>
-          ${view.departments.map((item) => html`<option value=${item.id}>${item.name}</option>`)}
+          <option value="" ?selected=${!view.department}>No department</option>
+          ${view.departments.map(
+            (item) => html`<option value=${item.id} ?selected=${view.department === item.id}>${item.name}</option>`
+          )}
         </select></label
       ><button
         class="open-department"
@@ -88,13 +100,9 @@ export function describeIntent(view: IntentView) {
         New department
       </button>
     </div>
-    ${bounds(view)}<button
-      class="primary"
-      ?disabled=${view.busy || view.blocked || !view.objective.trim()}
-      @click=${view.describe}
-    >
-      Explore ideas
-    </button>
+    ${bounds(view)} ${entryActions(view)}
+    <p>${view.saveNote}</p>
+    <p>Only saved drafts can be resumed after reload. Unsaved edits stay in this view.</p>
   </section>`;
 }
 function productIdea(view: IntentView, idea: ProductIdea) {
@@ -198,11 +206,14 @@ export function departmentDialog(view: IntentView) {
     role="dialog"
     aria-modal="true"
     aria-label="New department"
+    aria-describedby="department-private-note"
     class="department-dialog"
     @keydown=${view.dialogKey}
   >
     <h2>New department</h2>
-    <p>Private context for your ideas. It grants no access.</p>
+    <p id="department-private-note">
+      Name and description are required. Private context for your ideas. It grants no access.
+    </p>
     <label
       >Name<input
         maxlength="120"
