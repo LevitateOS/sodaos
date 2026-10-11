@@ -143,27 +143,37 @@ function mergeCopy(detail: FactoryIssueDetail): string {
   return `Merge ${detail.merge.stage}${commit}: ${detail.merge.resolution}`;
 }
 
+function failedCheckContexts(detail: FactoryIssueDetail): readonly string[] {
+  return (detail.checks?.results ?? []).filter((result) => !result.passed).map((result) => result.context);
+}
+function detailCandidate(detail: FactoryIssueDetail): string {
+  if (!detail.checks) return 'No reviewed candidate recorded.';
+  return `PR #${detail.checks.pr_number} head ${detail.checks.head_oid.slice(0, 12)} over base ${detail.checks.base_oid.slice(0, 12)}`;
+}
+function detailPullLink(detail: FactoryIssueDetail, repositoryPath: string): string | undefined {
+  const prNumber = detail.checks?.pr_number ?? detail.merge?.pr_number;
+  if (prNumber === undefined) return undefined;
+  return nativePullLink(repositoryPath, prNumber);
+}
 // describeIssueDetail projects one issue's recorded facts to display
 // state. Delivery needs both merge and closure evidence; every other
 // state names the recorded verdict behind it.
 export function describeIssueDetail(detail: FactoryIssueDetail, repositoryPath: string): WorkDetailModel {
   const acceptance = acceptanceCopy(detail);
-  const prNumber = detail.checks?.pr_number ?? detail.merge?.pr_number;
+  const delivery = deliveryState(detail);
   return {
-    delivery: deliveryState(detail),
-    deliveryText: deliveryCopy[deliveryState(detail)],
+    delivery,
+    deliveryText: deliveryCopy[delivery],
     acceptanceText: acceptance.text,
     acceptanceInvalid: acceptance.invalid,
     readinessText: readinessCopy(detail),
     checksText: checksCopy(detail),
     mergeText: mergeCopy(detail),
-    failedChecks: (detail.checks?.results ?? []).filter((result) => !result.passed).map((result) => result.context),
+    failedChecks: failedCheckContexts(detail),
     blockers: (detail.readiness?.blockers ?? []).map(describeBlocker),
-    candidate: detail.checks
-      ? `PR #${detail.checks.pr_number} head ${detail.checks.head_oid.slice(0, 12)} over base ${detail.checks.base_oid.slice(0, 12)}`
-      : 'No reviewed candidate recorded.',
+    candidate: detailCandidate(detail),
     issueLink: nativeIssueLink(repositoryPath, detail.issue),
-    pullLink: prNumber === undefined ? undefined : nativePullLink(repositoryPath, prNumber),
+    pullLink: detailPullLink(detail, repositoryPath),
   };
 }
 
