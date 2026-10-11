@@ -240,24 +240,26 @@ hunk editing of a shared file as a substitute for ownership.
   Actual installed/native/provider/media qualification remains R04.
   - [x] **R02.inventory** Duty/body coverage retains the `519b76bd` snapshot
     with `58a99730` root/assets closure. Path navigation is reconciled through
-    `c8a53fdb`: all 2,600 current tracked paths appear once, including later
+    `c9de3b26`: all 2,609 current tracked paths appear once, including later
     package guides, four Factory/Forgejo tests and the D06 payload. The prior
     twelve prompt/preparation/expiry additions retain their owner maps.
-    Earlier addition/retirement receipts retain their scope. Keep selective
+    The shutdown unit and fresh Retry preparation retain their native/build
+    callers; authority reopening reuses existing F06/F07/F08 owners. Earlier
+    addition/retirement receipts retain their scope. Keep selective
     deltas current; this does not renew historical body reviews.
   - [x] **R02.tasks** Current findings are reconciled from `04286c48` into the
     existing tasks/lanes with named owner/scope/prerequisites/acceptance, explicit
     completed/withdrawn/held dispositions and superseded pending directions.
   - [x] **R02.targets** Current defining destinations, library adapters and
     evidenced retirements are reconciled in the tree, ownership, ports, slice
-    navigation and decomposition. All 2,600 tracked leaves are mapped, including
+    navigation and decomposition. All 2,609 tracked leaves are mapped, including
     the implemented D06 Rust payload and its exact caller/producer chain. Current account/helper/test owner
     selectors are corrected; generated/data/license and live wire/fixture
     duties remain assigned. This is target/owner mapping, not renewed validity.
   - [x] **R02.joins** Accepted current source crosswalk maps caller/import/
     manifest/test/compiler/payload/installed selectors without an unresolved
     implemented-target collision. The stale pops wiring is retired and release
-    schema emission now matches both schema owners at 36, with its existing
+    schema emission now matches both schema owners at 39, with its existing
     regression proven red then green. Reused receipts keep their identities;
     source selectors do not establish installed/native qualification.
 - [x] **R03 — Integrated source verification.** Implemented source at
