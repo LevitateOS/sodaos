@@ -77,10 +77,16 @@ forgejo extensions bindings --installation INSTALLATION_UUID
 ```
 
 Use the owner-selected actor and token IDs for each exact operation; these
-commands do not mint accounts or choose billing. Mixed native snapshot reads
-need both `read:issue` and `read:repository` on the selected PAT. Publisher,
-creator, reviewer and merger operation scopes remain separate from those read
-scopes. Install the repository-scoped issue-open hook before creating tasks:
+commands do not mint accounts or choose billing. The configured publisher,
+reviewer and merger PATs each need `read:user`: Soda resolves their native owners
+through `/api/v1/user` before background reads or operations. Factory enrollment
+checks each owner against the selected operation bindings before changing
+configuration or services. Forgejo permits `read:user` only on tokens with all
+repository resources; native extension operations still require the selected
+repository, token, actor and operation binding. Mixed native snapshot reads need
+both `read:issue` and `read:repository`. Publisher, creator, reviewer and merger
+operation scopes remain separate from those read scopes. Install the
+repository-scoped issue-open hook before creating tasks:
 Fountain retains original creation facts for seven days, so missing hooks,
 expired events and deleted task records cannot support historical recovery.
 

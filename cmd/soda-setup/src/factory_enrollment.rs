@@ -78,6 +78,11 @@ struct ForgejoRepositoryView {
     id: i64,
 }
 
+#[derive(Deserialize)]
+struct ForgejoActorView {
+    id: i64,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(deny_unknown_fields)]
 struct NativeHookReceipt {
@@ -578,6 +583,65 @@ fn native_hook_api(
         .parse::<u16>()
         .map_err(|_| "native hook API response status was invalid".to_string())?;
     Ok((status, body.trim().to_string()))
+}
+
+fn preflight_factory_actors(
+    native: &dyn NativeBindingCommand,
+    manifest: &EnrollmentManifest,
+) -> Result<(), String> {
+    let url = format!(
+        "{}/api/v1/user",
+        manifest.target.forgejo_internal_url.trim_end_matches('/'),
+    );
+    for (role, path, kinds) in [
+        (
+            "publisher",
+            &manifest.dashboard.forgejo_background_credential_file,
+            &["git.ref.publish", "pull_request.create"][..],
+        ),
+        (
+            "reviewer",
+            &manifest.dashboard.forgejo_review_credential_file,
+            &["pull_request.review.submit"][..],
+        ),
+        (
+            "merger",
+            &manifest.dashboard.forgejo_merge_credential_file,
+            &["pull_request.merge"][..],
+        ),
+    ] {
+        let mut bindings = manifest
+            .bindings
+            .operations
+            .iter()
+            .filter(|binding| kinds.contains(&binding.kind.as_str()));
+        let actor = bindings
+            .next()
+            .ok_or_else(|| format!("{role} credential has no selected native operation binding"))?
+            .actor_id;
+        if bindings.any(|binding| binding.actor_id != actor) {
+            return Err(format!(
+                "{role} credential operation bindings select different native actors"
+            ));
+        }
+        let token = private_hook_token(path, false)
+            .map_err(|_| format!("{role} credential must contain a valid restricted PAT"))?;
+        let (status, body) = native_hook_api(native, &token, "GET", &url, None)
+            .map_err(|_| format!("{role} native credential identity could not be confirmed"))?;
+        if status != 200 {
+            return Err(format!(
+                "{role} native credential identity was refused; read:user is required"
+            ));
+        }
+        let actual: ForgejoActorView = serde_json::from_str(&body)
+            .map_err(|_| format!("{role} native credential identity response is invalid"))?;
+        if actual.id != actor {
+            return Err(format!(
+                "{role} credential owner differs from its selected native operation actor"
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn hook_list_url(origin: &str, repository: &NativeHookRepository, page: usize) -> String {
@@ -1118,6 +1182,7 @@ fn apply_at(
     if !identity_exists && !maintenance && !hook_receipt.hooks.is_empty() {
         return Err("an incomplete native enrollment has a hook receipt; pass --maintenance to resume the exact selected target".to_string());
     }
+    preflight_factory_actors(native, &manifest)?;
     let dashboard_before = Snapshot::capture(dashboard_path)?;
     let identity_before = Snapshot::capture(identity_path)?;
     let existing_bindings = inspect_native_bindings(native, &manifest.bindings.installation_id)?;
@@ -1638,6 +1703,8 @@ mod tests {
         hook_ids: RefCell<Vec<(i64, i64)>>,
         hook_create_count: std::cell::Cell<usize>,
         fail_hook_create_at: std::cell::Cell<Option<usize>>,
+        identity_refusal: RefCell<Option<String>>,
+        identity_actor_override: RefCell<Option<(String, i64)>>,
     }
 
     impl TestNativeBindings {
@@ -1658,6 +1725,8 @@ mod tests {
                 hook_ids: RefCell::new(Vec::new()),
                 hook_create_count: std::cell::Cell::new(0),
                 fail_hook_create_at: std::cell::Cell::new(None),
+                identity_refusal: RefCell::new(None),
+                identity_actor_override: RefCell::new(None),
             }
         }
     }
@@ -1736,6 +1805,27 @@ mod tests {
             } else {
                 42
             };
+            if request_url.ends_with("/api/v1/user") {
+                assert!(_args.is_empty());
+                assert!(config.contains("request = \"GET\""));
+                if self
+                    .identity_refusal
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|token| config.contains(token))
+                {
+                    return Ok(
+                        "{\"message\":\"token lacks read:user\"}\nSODA_STATUS:403\n".to_string()
+                    );
+                }
+                let actor = self
+                    .identity_actor_override
+                    .borrow()
+                    .as_ref()
+                    .filter(|(token, _)| config.contains(token))
+                    .map_or(17, |(_, actor)| *actor);
+                return Ok(format!("{{\"id\":{actor}}}\nSODA_STATUS:200\n"));
+            }
             if config.contains("request = \"POST\"") || config.contains("request = \"PATCH\"") {
                 assert!(config.contains("fixture-hook-token"));
                 assert!(config.contains("intake secret"));
@@ -2029,12 +2119,20 @@ mod tests {
             format: FORMAT.to_string(),
             bindings: NativeBindings {
                 installation_id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
-                operations: vec![NativeOperationBinding {
-                    token_id: 23,
+                operations: [
+                    (23, "git.ref.publish"),
+                    (23, "pull_request.create"),
+                    (24, "pull_request.review.submit"),
+                    (25, "pull_request.merge"),
+                ]
+                .into_iter()
+                .map(|(token_id, kind)| NativeOperationBinding {
+                    token_id,
                     actor_id: 17,
                     repository_id: 42,
-                    kind: "git.ref.publish".to_string(),
-                }],
+                    kind: kind.to_string(),
+                })
+                .collect(),
             },
             hooks: NativeHooks {
                 token_file: inputs[6].display().to_string(),
@@ -2085,6 +2183,76 @@ mod tests {
             callback_source: socket_path.to_str().unwrap(),
             fixed_factory_paths: false,
         };
+        for (role, token) in [
+            ("publisher", "publisher PAT"),
+            ("reviewer", "reviewer PAT"),
+            ("merger", "merger PAT"),
+        ] {
+            for wrong_actor in [false, true] {
+                let refused = TestNativeBindings::new(
+                    manifest.bindings.installation_id.clone(),
+                    Vec::new(),
+                    None,
+                );
+                if wrong_actor {
+                    *refused.identity_actor_override.borrow_mut() = Some((token.to_string(), 18));
+                } else {
+                    *refused.identity_refusal.borrow_mut() = Some(token.to_string());
+                }
+                let no_services = TestServices {
+                    calls: RefCell::new(Vec::new()),
+                    fail_at: None,
+                };
+                let error = apply_at(manifest.clone(), false, &no_services, &refused, policy)
+                    .expect_err(
+                        "an identity-refused credential must not activate factory enrollment",
+                    );
+                assert!(error.contains(role));
+                assert!(error.contains(if wrong_actor {
+                    "owner differs"
+                } else {
+                    "read:user"
+                }));
+                assert!(no_services.calls.borrow().is_empty());
+                assert_eq!(refused.bind_count.get(), 0);
+                assert_eq!(refused.hook_create_count.get(), 0);
+                assert!(!identity_path.exists());
+                assert_eq!(fs::read(&dashboard_path).unwrap(), original_dashboard_bytes);
+                assert!(!error.contains(token));
+            }
+        }
+        for ambiguous_publisher in [false, true] {
+            let mut invalid_manifest = manifest.clone();
+            if ambiguous_publisher {
+                invalid_manifest.bindings.operations[1].actor_id = 18;
+            } else {
+                invalid_manifest
+                    .bindings
+                    .operations
+                    .retain(|binding| binding.kind != "pull_request.review.submit");
+            }
+            let native = TestNativeBindings::new(
+                manifest.bindings.installation_id.clone(),
+                Vec::new(),
+                None,
+            );
+            let no_services = TestServices {
+                calls: RefCell::new(Vec::new()),
+                fail_at: None,
+            };
+            let error =
+                apply_at(invalid_manifest, false, &no_services, &native, policy).unwrap_err();
+            assert!(error.contains(if ambiguous_publisher {
+                "different native actors"
+            } else {
+                "no selected native operation binding"
+            }));
+            assert!(no_services.calls.borrow().is_empty());
+            assert_eq!(native.bind_count.get(), 0);
+            assert_eq!(native.hook_create_count.get(), 0);
+            assert!(!identity_path.exists());
+            assert_eq!(fs::read(&dashboard_path).unwrap(), original_dashboard_bytes);
+        }
         let missing_token = TestNativeBindings::new(
             manifest.bindings.installation_id.clone(),
             Vec::new(),
@@ -2118,7 +2286,7 @@ mod tests {
             report,
             BindingEnrollmentReport {
                 already_present: 0,
-                added: 1
+                added: 4
             }
         );
         assert_eq!(fs::metadata(&dashboard_path).unwrap().uid(), uid);
@@ -2139,9 +2307,34 @@ mod tests {
             .borrow()
             .iter()
             .any(|args| args.get(1).is_some_and(|arg| arg == "bind")));
-        assert_eq!(native.bindings.borrow().len(), 1);
+        assert_eq!(native.bindings.borrow().len(), 4);
         let enrolled_dashboard = fs::read(&dashboard_path).unwrap();
         let enrolled_identity = fs::read(&identity_path).unwrap();
+
+        let refused_maintenance = TestNativeBindings::new(
+            manifest.bindings.installation_id.clone(),
+            native.bindings.borrow().clone(),
+            None,
+        );
+        *refused_maintenance.identity_refusal.borrow_mut() = Some("reviewer PAT".to_string());
+        let no_services = TestServices {
+            calls: RefCell::new(Vec::new()),
+            fail_at: None,
+        };
+        assert!(apply_at(
+            manifest.clone(),
+            true,
+            &no_services,
+            &refused_maintenance,
+            policy
+        )
+        .unwrap_err()
+        .contains("read:user"));
+        assert!(no_services.calls.borrow().is_empty());
+        assert_eq!(refused_maintenance.bind_count.get(), 0);
+        assert_eq!(refused_maintenance.hook_patched.get(), 0);
+        assert_eq!(fs::read(&dashboard_path).unwrap(), enrolled_dashboard);
+        assert_eq!(fs::read(&identity_path).unwrap(), enrolled_identity);
 
         // The private receipt proves that this exact hook ID belongs to this
         // enrollment. Maintenance reapplies its secret through PATCH; GET
@@ -2154,7 +2347,7 @@ mod tests {
         assert_eq!(repeat_services.calls.borrow().len(), 3);
         assert_eq!(fs::read(&dashboard_path).unwrap(), enrolled_dashboard);
         assert_eq!(fs::read(&identity_path).unwrap(), enrolled_identity);
-        assert_eq!(native.bindings.borrow().len(), 1);
+        assert_eq!(native.bindings.borrow().len(), 4);
         assert_eq!(native.hook_patched.get(), 1);
         assert_eq!(native.hook_created.get(), true);
         assert_eq!(native.hook_create_count.get(), 1);
@@ -2242,7 +2435,7 @@ mod tests {
         assert_eq!(fs::read(&dashboard_path).unwrap(), enrolled_dashboard);
         assert_eq!(fs::read(&identity_path).unwrap(), enrolled_identity);
         assert_eq!(recovery_services.calls.borrow().len(), 5);
-        assert!(failing_native.bindings.borrow().len() == 1);
+        assert!(failing_native.bindings.borrow().len() == 4);
         let old_dashboard = fs::read(&dashboard_path).unwrap();
         let old_identity = fs::read(&identity_path).unwrap();
         let failed = TestServices {
