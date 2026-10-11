@@ -29,12 +29,13 @@ type preparationItemView struct {
 }
 
 type environmentPreparationView struct {
-	Project      string                `json:"project"`
-	Hold         bool                  `json:"hold"`
-	HoldRevision int64                 `json:"hold_revision"`
-	Requirements string                `json:"requirements,omitempty"`
-	Approval     string                `json:"approval,omitempty"`
-	Preparations []preparationItemView `json:"preparations"`
+	Project         string                     `json:"project"`
+	Hold            bool                       `json:"hold"`
+	HoldRevision    int64                      `json:"hold_revision"`
+	Requirements    string                     `json:"requirements,omitempty"`
+	Approval        string                     `json:"approval,omitempty"`
+	Preparations    []preparationItemView      `json:"preparations"`
+	DecisionPreview preparationDecisionPreview `json:"decision_preview"`
 }
 
 func preparationItemDTO(p project.StoredPreparation) preparationItemView {
@@ -86,6 +87,7 @@ func (s *API) apiPreparation(w http.ResponseWriter, r *http.Request, v store.Ses
 		auth.JSONError(w, 503, "store_unavailable", "Could not read privileged-effect approval.")
 		return
 	}
+	view.DecisionPreview = s.preparationDecisionPreview(r.Context(), p, view.Requirements, view.Approval)
 	auth.JSONResponse(w, 200, view)
 }
 

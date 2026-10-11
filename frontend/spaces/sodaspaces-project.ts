@@ -1,4 +1,5 @@
 import './soda-identity.js';
+import './sodaspaces-factory-settings.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
@@ -13,6 +14,7 @@ import type {JourneyViewInput} from './sodaspaces-project-journey-view.js';
 import {
   renderAccessView,
   renderEnvironmentView,
+  renderFactoryView,
   renderNetworkView,
   renderRepositoryContext,
   renderViewTabs,
@@ -385,7 +387,7 @@ export class SodaProjectControls extends LitElement {
     >
       ${renderRepositoryContext(this.settingsViewInput())} ${renderViewTabs(this.settingsViewInput())}
       ${renderEnvironmentView(this.settingsViewInput())} ${renderAccessView(this.settingsViewInput())}
-      ${renderNetworkView(this.settingsViewInput())}
+      ${renderNetworkView(this.settingsViewInput())} ${renderFactoryView(this.settingsViewInput())}
       ${renderProjectStatus(this.repository, this.sessionCaption(), this.projectAccountCaption(), this.status, this.outcome)}
       ${this.renderIdentity()}
     </section>`;
@@ -412,6 +414,7 @@ export class SodaProjectControls extends LitElement {
       readBindingSettings: () => !!this.binding?.settings,
       readBindingPage: () => !!this.binding?.page,
       readBindingRepository: () => this.binding?.repositoryId || '',
+      readFactoryTransport: () => this.binding?.transport,
       readRepository: () => this.repository,
       readRepositoryURL: () => this.repositoryURL,
       readSelected: () => this.selected,

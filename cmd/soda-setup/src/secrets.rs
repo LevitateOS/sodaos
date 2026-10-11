@@ -26,6 +26,14 @@ pub(crate) fn base64_encode(raw: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(raw)
 }
 
+pub(crate) fn decode_base64(raw: &[u8]) -> Result<Vec<u8>, String> {
+    let text =
+        std::str::from_utf8(raw).map_err(|_| "identity encryption key is malformed".to_string())?;
+    base64::engine::general_purpose::STANDARD
+        .decode(text.trim())
+        .map_err(|_| "identity encryption key is malformed".to_string())
+}
+
 fn write_secret_file(path: &Path, value: &str) -> Result<(), String> {
     let mut file = OpenOptions::new()
         .write(true)

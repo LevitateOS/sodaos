@@ -2,6 +2,7 @@
 
 mod cli;
 mod config;
+mod factory_enrollment;
 mod forgejo;
 mod json;
 mod origin;

@@ -46,6 +46,44 @@ join or issue label does not admit work. Follow the
 [first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) for explicit
 admission, verification and human merge.
 
+## Explicit factory enrollment
+
+Basic browser activation does not enable factory work. After choosing and
+reviewing the provider pins, native actors, credentials and recovery inputs,
+write a mode-0600 `soda-factory-enrollment/v1` manifest and run
+`sudo /usr/bin/soda-setup --factory-enrollment-file /etc/soda/factory-enrollment.json`.
+The manifest must bind to the current `/etc/soda/dashboard.json` operator ID and
+Forgejo origins. It references restricted secret files; it never contains
+credential bytes. If `/etc/soda/identity.json` already exists, review the
+replacement and add `--maintenance`. The command validates all inputs before
+writing, enables the two broker sockets, starts/restarts the broker, and restarts
+the dashboard. Check the resulting service state before enabling factory policy.
+
+The explicit `soda-setup --factory-enrollment-file` operation obtains the
+stable Soda extension installation UUID through Forgejo's native CLI, applies
+each owner-selected token/actor/repository tuple with `extensions bind`, and
+checks the resulting IDs-only inventory with `extensions bindings`. The private
+manifest contains token IDs, actor IDs, repository IDs and operation kinds;
+PAT contents remain in their restricted files. To inspect or reconcile one
+tuple manually, the native commands are:
+
+```sh
+forgejo extensions installation soda
+forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind git.ref.publish
+forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind pull_request.create
+forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind pull_request.review.submit
+forgejo extensions bind --installation INSTALLATION_UUID --token-id TOKEN_ID --actor-id ACTOR_ID --repository-id REPOSITORY_ID --kind pull_request.merge
+forgejo extensions bindings --installation INSTALLATION_UUID
+```
+
+Use the owner-selected actor and token IDs for each exact operation; these
+commands do not mint accounts or choose billing. Mixed native snapshot reads
+need both `read:issue` and `read:repository` on the selected PAT. Publisher,
+creator, reviewer and merger operation scopes remain separate from those read
+scopes. Install the repository-scoped issue-open hook before creating tasks:
+Fountain retains original creation facts for seven days, so missing hooks,
+expired events and deleted task records cannot support historical recovery.
+
 ## Offline native-mutation recovery
 
 When an interrupted conditional or ordinary native mutation leaves its

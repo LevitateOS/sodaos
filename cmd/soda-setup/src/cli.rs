@@ -1,6 +1,7 @@
 use std::io::{self, Write};
 use std::path::Path;
 
+use crate::factory_enrollment::{apply as apply_factory_enrollment, read_manifest};
 use crate::secrets::provision_postgres_secrets;
 use crate::setup::setup;
 use crate::system::{euid, POSTGRES_SECRET_DIR};
@@ -16,11 +17,40 @@ pub(crate) fn run() -> i32 {
         Err(ParseOutcome::Help) => return 0,
         Err(ParseOutcome::Error) => return 2,
     };
+    if (opts.maintenance && opts.factory_enrollment_file.is_empty())
+        || (!opts.factory_enrollment_file.is_empty()
+            && (opts.provision_db_only
+                || !opts.forgejo_url.is_empty()
+                || opts.forgejo_internal_url != "http://127.0.0.1:3000"
+                || !opts.token_file.is_empty()
+                || opts.out != "/etc/soda/dashboard.json"))
+    {
+        eprintln!("factory enrollment flags cannot be combined with initial setup options");
+        return 2;
+    }
     let mut out = io::stdout();
     if opts.provision_db_only {
         match provision_postgres_secrets(Path::new(POSTGRES_SECRET_DIR)) {
             Ok((_, dsn_path)) => {
                 println!("Database credentials ready: {}", dsn_path.display());
+                0
+            }
+            Err(err) => {
+                eprintln!("{err}");
+                1
+            }
+        }
+    } else if !opts.factory_enrollment_file.is_empty() {
+        let manifest = match read_manifest(Path::new(&opts.factory_enrollment_file)) {
+            Ok(manifest) => manifest,
+            Err(err) => {
+                eprintln!("{err}");
+                return 1;
+            }
+        };
+        match apply_factory_enrollment(manifest, opts.maintenance) {
+            Ok(report) => {
+                println!("Factory callback and identity configuration installed; native operation bindings and intake-hook fields verified ({} bindings already present, {} added); identity sockets and services restarted.", report.already_present, report.added);
                 0
             }
             Err(err) => {
@@ -53,6 +83,8 @@ pub(crate) struct SetupOpts {
     token_file: String,
     out: String,
     pub(crate) provision_db_only: bool,
+    pub(crate) factory_enrollment_file: String,
+    pub(crate) maintenance: bool,
 }
 
 #[derive(Debug)]
@@ -63,7 +95,7 @@ pub(crate) enum ParseOutcome {
 
 fn print_setup_usage() {
     eprint!(
-        "Usage of soda-setup:\n  -forgejo-internal-url string\n    \tnative Forgejo origin\n  -forgejo-url string\n    \tForgejo HTTPS origin\n  -out string\n    \tnew dashboard configuration\n  -provision-db-only\n    \tgenerate database credentials without operator binding\n  -token-file string\n    \toperator Forgejo access token file\n"
+        "Usage of soda-setup:\n  -forgejo-internal-url string\n    \tnative Forgejo origin\n  -forgejo-url string\n    \tForgejo HTTPS origin\n  -out string\n    \tnew dashboard configuration\n  -provision-db-only\n    \tgenerate database credentials without operator binding\n  -token-file string\n    \toperator Forgejo access token file\n  -factory-enrollment-file string\n    \tprivate versioned factory enrollment manifest\n  -maintenance\n    \texplicitly replace an existing identity configuration\n"
     );
 }
 
@@ -112,6 +144,8 @@ pub(crate) fn parse_args(args: &[String]) -> Result<SetupOpts, ParseOutcome> {
         token_file: String::new(),
         out: "/etc/soda/dashboard.json".to_string(),
         provision_db_only: false,
+        factory_enrollment_file: String::new(),
+        maintenance: false,
     };
     let mut i = 0;
     while i < args.len() {
@@ -137,7 +171,14 @@ pub(crate) fn parse_args(args: &[String]) -> Result<SetupOpts, ParseOutcome> {
             "provision-db-only" => {
                 opts.provision_db_only = parse_bool_flag(name, inline, args, &mut i)?;
             }
-            "forgejo-url" | "forgejo-internal-url" | "token-file" | "out" => {
+            "maintenance" => {
+                opts.maintenance = parse_bool_flag(name, inline, args, &mut i)?;
+            }
+            "forgejo-url"
+            | "forgejo-internal-url"
+            | "token-file"
+            | "out"
+            | "factory-enrollment-file" => {
                 let value = match inline {
                     Some(v) => v.to_string(),
                     None => {
@@ -155,6 +196,7 @@ pub(crate) fn parse_args(args: &[String]) -> Result<SetupOpts, ParseOutcome> {
                     "forgejo-url" => opts.forgejo_url = value,
                     "forgejo-internal-url" => opts.forgejo_internal_url = value,
                     "token-file" => opts.token_file = value,
+                    "factory-enrollment-file" => opts.factory_enrollment_file = value,
                     _ => opts.out = value,
                 }
             }

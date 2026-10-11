@@ -6,8 +6,9 @@ import {renderNetwork, renderNetworkSelection} from './sodaspaces-network.js';
 import type {CreationProfile, Detail, Environment, OSObservation} from './sodaspaces-project-response.js';
 import type {KeyPreview, ProfileKeys, SavedKey} from './sodaspaces-keys-response.js';
 import type {ProjectNetwork, ProjectOptions} from '../tailnet/soda-tailnet-response.js';
+import type {PreparedExtensionMount} from './soda-extension.js';
 
-export const views = ['environment', 'access', 'network'] as const;
+export const views = ['environment', 'access', 'network', 'factory'] as const;
 export type View = (typeof views)[number];
 export type Lifecycle = {
   running: boolean;
@@ -67,6 +68,7 @@ export interface SettingsViewInput {
   readBindingSettings: () => boolean;
   readBindingPage: () => boolean;
   readBindingRepository: () => string;
+  readFactoryTransport: () => PreparedExtensionMount | undefined;
   readRepository: () => string;
   readRepositoryURL: () => string;
   readSelected: () => View;
@@ -328,5 +330,26 @@ export function renderNetworkView(input: SettingsViewInput) {
       (event, action) => input.changeProjectNetwork(event, action)
     )}
     ${renderTailnetSSH(input)}
+  </section>`;
+}
+
+export function renderFactoryView(input: SettingsViewInput) {
+  const transport = input.readFactoryTransport();
+  if (!input.readBindingSettings() || !transport) return html``;
+  return html`<section
+    id=${'soda-project-' + input.readBindingRepository() + '-factory'}
+    class="soda-spaces-view"
+    role="tabpanel"
+    aria-label="Factory"
+    ?hidden=${input.readSelected() !== 'factory'}
+  >
+    <soda-factory-settings
+      .context=${{
+        transport,
+        repository: input.readBindingRepository(),
+        environment: input.readEnvironment()?.id || '',
+        profile: input.readProfiles().find((profile) => profile.id === input.readSelectedProfile()),
+      }}
+    ></soda-factory-settings>
   </section>`;
 }

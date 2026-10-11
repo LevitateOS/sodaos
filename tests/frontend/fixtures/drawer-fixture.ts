@@ -123,6 +123,20 @@ function createFixture(extra: Partial<State> = {}) {
         default: state.tailnetAvailable && state.tailnetDefault,
       };
     else if (url.endsWith('/tailnet')) body = network();
+    else if (url.endsWith('/api/repositories/7/factory'))
+      body = {
+        repository: '7',
+        policy: null,
+        operator_grant: null,
+        capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+        sponsorships: [],
+        environment_grant: null,
+        preparation: {project: environmentID, requirements: '', approval: '', ready: false},
+        queue: {queued: 1, active: 0},
+        effective: {effective: false, dispatch_open: false, missing: ['policy_missing'], authority: {}},
+      };
+    else if (url.endsWith(`/api/environments/${environmentID}/preparation`))
+      body = {project: environmentID, hold: false, hold_revision: 3, preparations: []};
     else if (url.endsWith('/api/repositories/7/profiles')) body = {items: [fixtureProfile]};
     else if (url.includes('/api/environments?'))
       body = {
@@ -182,7 +196,7 @@ function createFixture(extra: Partial<State> = {}) {
     },
     dispose() {},
   };
-  const api = mountProjectControls(root, {expectedUserId: '1', repositoryId: '7', transport});
+  const api = mountProjectControls(root, {expectedUserId: '1', repositoryId: '7', settings: true, transport});
   const button = (text: string) => {
     const b = [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === text);
     if (!b) throw Error('Missing button: ' + text);

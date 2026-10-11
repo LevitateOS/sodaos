@@ -58,11 +58,9 @@ fn forgejo_user_decode_matches_client_rules() {
 #[test]
 fn config_strings_keep_go_html_and_line_separator_escapes() {
     let encoded = encode_dashboard_config("<>&\u{2028}\u{2029}", "", "", "", "", "", 0);
-    assert!(
-        String::from_utf8(encoded)
-            .unwrap()
-            .starts_with(r#"{"listen":"\u003c\u003e\u0026\u2028\u2029","forgejo_url":"""#)
-    );
+    assert!(String::from_utf8(encoded)
+        .unwrap()
+        .starts_with(r#"{"listen":"\u003c\u003e\u0026\u2028\u2029","forgejo_url":"""#));
 }
 
 #[test]

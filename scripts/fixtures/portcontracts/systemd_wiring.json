@@ -56,6 +56,22 @@
       "lines": [
         "ExecStart=/usr/bin/soda-setup --provision-db-only"
       ]
+    },
+    {
+      "file": "system/host/services/soda-dashboard.container",
+      "lines": [
+        "User=2000:2000",
+        "Volume=/etc/soda/factory:/etc/soda/factory:ro,Z",
+        "Volume=/run/soda/extension:/ipc:z"
+      ]
+    },
+    {
+      "file": "system/host/config/soda.tmpfiles",
+      "lines": [
+        "d /etc/soda/factory 0700 soda soda -",
+        "d /etc/soda/enrollment 0700 root root -",
+        "d /var/lib/soda/dashboard/publication 0700 soda soda -"
+      ]
     }
   ]
 }
