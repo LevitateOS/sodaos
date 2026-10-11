@@ -179,9 +179,11 @@ func revisionIdeaDiff(old, current []factory.ProductIdea) revisionIdeaDiffView {
 			diff.Added = append(diff.Added, idea)
 			continue
 		}
-		change := revisionIdeaChangeView{ID: idea.ID, FromDecision: before.Decision, ToDecision: idea.Decision,
+		change := revisionIdeaChangeView{
+			ID: idea.ID, FromDecision: before.Decision, ToDecision: idea.Decision,
 			CorrectionChanged: before.Correction != idea.Correction,
-			ContentChanged:    before.Description != idea.Description || before.Consequence != idea.Consequence}
+			ContentChanged:    before.Description != idea.Description || before.Consequence != idea.Consequence,
+		}
 		if change.FromDecision != change.ToDecision || change.CorrectionChanged || change.ContentChanged {
 			diff.Changed = append(diff.Changed, change)
 		}
