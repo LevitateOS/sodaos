@@ -50,7 +50,7 @@ routes or read interfaces exist. It covers the requested intent, review, graph,
 planning, execution, lifecycle customization and everyday Workspace experience.
 The [product contract](../product/spaces.md#intent-first-creation) remains
 authoritative; implementation and verification belong to the
-[Factory implementation plan](../development/factory-implementation-plan.md).
+[UX implementation tasks and parallel lanes](../development/factory-implementation-plan.md#end-to-end-ux-implementation-tasks).
 New choices below are recommendations, not approved product requirements.
 
 ### One journey, distinct effects

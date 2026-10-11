@@ -121,8 +121,8 @@ This is the executable backlog for the latest
 It contains **68 tasks in nine logical lanes**. The `UX-` task prefix keeps
 this backlog distinct from similarly numbered ideal-filetree assignments. All are
 future work; this planning edit implements no runtime behavior and runs no
-deployment. Product and trust
-rules remain in their owning guides. Task-local contract changes update those
+deployment. Product and trust rules remain in their owning guides. Task-local
+contract changes update those
 owners rather than introducing another requirements document.
 
 The inspected source pair is Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
