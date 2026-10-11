@@ -41,12 +41,16 @@ the observed repository for display; they do not create, join or start a Project
 The native handler and its permission checks execute at the requested address.
 Repository product tabs precede native unit tabs so Workspace is discoverable
 before the trailing menu items overflow. Project selection uses the observed
-native repository ID, never its display name. While a full Workspace page owns
-the terminal layout, its persistent panel section is concealed; the host aside
-is concealed only when no other panel section remains visible.
-Successful browser document GETs compose the persistent panel at that same
-canonical URL; iframe GETs render the page normally. Pathname, query and fragment
-remain ordinary forge addresses, including history and copied links. Credential
+native repository ID, never its display name.
+
+Global and repository Workspace render directly through Fountain's shared
+native head, navigation, repository header and footer templates. Soda supplies
+content in one retained panel root, displayed as full-page content on Workspace.
+The host swaps native content without disconnecting that root. Ordinary native
+pages retain the browsing iframe so their native frontend initialization remains
+intact. Workspace itself is never framed. Native history, pathname, query,
+fragment and appSubUrl stay canonical. Reload renders the shared native template
+and creates a fresh browser mount through normal session admission. Credential
 and account-state pages, mutations, partial responses, downloads and errors retain
 their normal handling. Native flash notices remain visible.
 

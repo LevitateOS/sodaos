@@ -20,6 +20,15 @@ below; shared duties route through their physical writer in the lane schedule.
 
 ## Current task state (2026-10-11)
 
+- [x] **FX09 native shell correction:** Render global and repository Workspace
+  directly inside Fountain's shared native layout. Fountain owns the page shell;
+  Soda supplies Workspace content without recreating application navigation.
+  Remove the Workspace iframe-wrapper arrangement while preserving native
+  authority, session revocation, single-owner mounting and terminal lifetime.
+  Source and native/Chromium fixture scope is complete; installed behavior and
+  human processes are not qualified. Evidence and limits are recorded in the
+  [implementation plan](../factory-implementation-plan.md#fountain-native-shell-correction).
+
 The later owner-authorized FX01–FX10 source extension is reconciled in the
 [Factory implementation plan](../factory-implementation-plan.md#intent-first-experience-extension-2026-10-11).
 It retains the Go domain/coordinator/Store/client owners and Fountain's native

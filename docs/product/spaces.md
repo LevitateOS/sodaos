@@ -19,6 +19,14 @@ change, and account, enrollment/consent, installation and external-navigation fl
 remain under the host's normal handling. The host contract lives in the
 [Forgejo integration reference](../reference/forgejo.md).
 
+Fountain owns the shared native page shell: navigation, page chrome, account
+controls and repository context. Global and repository Workspace must render
+directly in that shared layout. Soda supplies Workspace content and its local
+controls, without recreating application-level navigation or a parallel shell.
+An iframe wrapper around the full Workspace page does not satisfy this contract.
+The [native integration contract](../reference/forgejo.md) defines this shared
+layout and persistent content owner.
+
 Users open Workspace at `/workspace` or `/OWNER/REPO/workspace`; Tailnet uses
 `/tailnet`. Product navigation does not expose package or extension concepts.
 Repository Workspace links select that repository for display without creating,
@@ -30,10 +38,11 @@ and shell attachment in the persistent panel. A page or displayed repository
 change never retargets a terminal. A new target requires explicit terminal
 selection.
 
-When the native frame opens the full Spaces page, the panel releases its browser
-workspace and the page restores the saved layout. Returning to repository browsing
-restores the panel. This keeps one workspace owner from competing with another
-for the same terminal; native execution continues through the handoff.
+Opening Workspace changes the existing content owner to its full-page presentation.
+Returning to repository browsing changes that same owner to its panel presentation.
+The terminal elements remain connected throughout; no owner handoff or remount
+is required. Reload creates a new browser owner and restores saved attachments
+through the existing admission path.
 
 The host rechecks the signed-in account when returning from cached pages before
 showing private state or resuming operations. An expired flow cannot continue as a

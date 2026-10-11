@@ -53,6 +53,26 @@ Normal managed Muse Meta account approval remains the external V03/R04 gate;
 TestOnly admission does not close it. Production signing and public distribution
 remain unestablished. Broader legacy source failures are not relabeled green.
 
+### Fountain native shell correction
+
+Source implementation is complete in Fountain `4306b09b33` and Soda `5eb22d44`,
+with verification refinements in Fountain `519aa18bec` and Soda `16e9545d`. Global and
+repository Workspace use the shared native templates, account controls and
+repository header. One retained Soda owner changes presentation without
+replacing terminal elements or sockets. Ordinary native browsing retains its
+existing iframe initialization; Workspace itself renders directly.
+
+Three fresh JEV consultations advised this bounded approach. Actual native
+SQLite integration fixtures pass shared-template rendering and authentication,
+login/logout and session checks. Chromium fixtures using Fountain's actual host
+module pass prefixed global/repository navigation, query/fragment, title,
+back/forward and single-owner terminal retention. The existing Chromium persistence
+check restores the exact saved terminal ID after reload without a product write.
+These are source and fixture checks; no installation, deployment or human-process continuity is established.
+Reload uses the native server rendering and existing saved-attachment admission
+path, creating a fresh browser renderer/socket. The previous FX09 evidence
+retains its original scope. See the [integration contract](../reference/forgejo.md).
+
 ### Historical planning input
 
 Recorded on September 30, 2026, before this planning edit:
