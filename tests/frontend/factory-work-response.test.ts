@@ -6,8 +6,10 @@ import {
   factoryRepositorySummary,
   pauseReceipt,
   pendingRuns,
+  projectStopResult,
   resumeReceipt,
   retryDecision,
+  sodaErrorDetail,
   stopReceipt,
   takeoverRecord,
 } from '../../frontend/spaces/sodaspaces-factory-work-response';
@@ -227,6 +229,54 @@ test('run intervention outcomes bind the exact run and command', () => {
       run
     )
   );
+});
+
+test('project stop binds running state, hold sync and run outcomes', () => {
+  const project = 'p0123456789abcdef01234567';
+  const parsed = projectStopResult(
+    {
+      environment: {id: project, ip: '10.0.0.2', running: false},
+      boot_enabled: true,
+      control: {
+        withdrawal: {repository: '7', revision: 9, cause: 'project_stop', closed_by: 'os-uid:1000'},
+        runs: [{id: run, confirmed: true, uncertain: false, outcome: 'cancelled'}],
+        hold: true,
+        hold_synced: true,
+      },
+    },
+    project
+  );
+  assert.equal(parsed.running, false);
+  assert.equal(parsed.hold_synced, true);
+  assert.equal(parsed.runs.length, 1);
+  assert.throws(() =>
+    projectStopResult(
+      {
+        environment: {id: project, running: 'no'},
+        control: {hold: true, hold_synced: true, withdrawal: {revision: 0}, runs: []},
+      },
+      project
+    )
+  );
+  assert.throws(() =>
+    projectStopResult(
+      {
+        environment: {id: 'pffffffffffffffffffffffff', running: false},
+        control: {hold: true, hold_synced: true, withdrawal: {revision: 0}, runs: []},
+      },
+      project
+    )
+  );
+});
+
+test('error envelopes yield detail or nothing, never a guess', () => {
+  assert.deepEqual(sodaErrorDetail({error: {code: 'membership_required', message: 'Join first.'}}), {
+    code: 'membership_required',
+    message: 'Join first.',
+  });
+  assert.deepEqual(sodaErrorDetail({error: 'pending_runs'}), {});
+  assert.deepEqual(sodaErrorDetail(undefined), {});
+  assert.deepEqual(sodaErrorDetail({error: {code: '', message: ''}}), {});
 });
 
 test('command read-back and pending-runs refusals stay attributable', () => {
