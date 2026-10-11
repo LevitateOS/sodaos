@@ -46,6 +46,7 @@ import {
   describeRecordedChoice,
   describeRecordedPlan,
   describeRequestOverview,
+  describeRevisionHistory,
   describeWhyNext,
   describeWorkOverview,
   intentGeneration,
@@ -56,6 +57,7 @@ import {
   renderPlanningReference,
   renderRecordedPlan,
   renderRequestOverview,
+  renderRevisionHistory,
   renderWorkOverview,
   renderWorkPlan,
 } from './sodaspaces-factory-progress-view.js';
@@ -77,12 +79,14 @@ import {
   lifecycleEffectConfig,
   planningAllowance,
   requestOverview,
+  revisionHistory,
 } from './sodaspaces-factory-progress-response.js';
 import type {
   FactoryAccess,
   LifecycleEffectAction,
   LifecycleEffectConfig,
   PlanningAllowanceView,
+  RevisionHistory,
 } from './sodaspaces-factory-progress-response.js';
 
 // Mountable Factory work-progress elements for V01–V07. Each element
@@ -522,6 +526,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
     allowanceState: {state: true},
     access: {state: true},
     accessState: {state: true},
+    history: {state: true},
+    historyState: {state: true},
     message: {state: true},
     busy: {state: true},
     saving: {state: true},
@@ -532,6 +538,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
   declare private allowanceState: SourceState;
   declare private access: FactoryAccess | undefined;
   declare private accessState: SourceState;
+  declare private history: RevisionHistory | undefined;
+  declare private historyState: SourceState;
   declare private message: string;
   declare private busy: boolean;
   declare private saving: boolean;
@@ -545,6 +553,7 @@ export class SodaFactoryDirectionRevision extends LitElement {
     this.state = 'missing';
     this.allowanceState = 'missing';
     this.accessState = 'missing';
+    this.historyState = 'missing';
     this.message = '';
     this.busy = false;
     this.saving = false;
@@ -559,6 +568,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
     this.allowanceState = 'missing';
     this.access = undefined;
     this.accessState = 'missing';
+    this.history = undefined;
+    this.historyState = 'missing';
     this.message = '';
     this.busy = false;
     this.saving = false;
@@ -589,6 +600,7 @@ export class SodaFactoryDirectionRevision extends LitElement {
     const revision = await readDirectionRevision(context);
     const allowance = await readPlanningAllowance(context);
     const access = await readRevisionAccess(context, revision.revision);
+    const history = await readRevisionHistory(context);
     if (serial === this.serial) {
       this.revision = revision.revision;
       this.state = revision.state;
@@ -596,6 +608,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
       this.allowanceState = allowance.state;
       this.access = access.access;
       this.accessState = access.state;
+      this.history = history.history;
+      this.historyState = history.state;
       this.message = '';
     }
   }
@@ -665,6 +679,7 @@ export class SodaFactoryDirectionRevision extends LitElement {
       >${renderDirectionRevision(describeDirectionRevision(this.revision, this.state))}
       ${renderAllowance(describeAllowance(this.allowance, this.allowanceState))}
       ${renderPlanningReference(describePlanningReference(this.access, this.accessState, this.current?.intentID ?? ''))}
+      ${renderRevisionHistory(describeRevisionHistory(this.history, this.historyState))}
       <form @submit=${this.adjust}>
         <label>New amount (0–100 planning calls) <input name="amount" inputmode="numeric" required /></label>
         <label>Effect note, optional <input name="effect" maxlength="4000" /></label>
@@ -732,6 +747,21 @@ async function readRevisionAccess(
 ): Promise<{access?: FactoryAccess; state: SourceState}> {
   if (!revision) return {state: 'missing'};
   return readFactoryAccess(context.transport, revision.repository);
+}
+
+async function readRevisionHistory(
+  context: DirectionRevisionContext
+): Promise<{history?: RevisionHistory; state: SourceState}> {
+  try {
+    const history = revisionHistory(
+      await getJSON(context.transport, `factory/intents/${context.intentID}/revisions?limit=2`),
+      context.intentID
+    );
+    return {history, state: 'ready'};
+  } catch (error) {
+    const input = failureInput(error);
+    return {state: input.status === 404 ? 'missing' : 'unavailable'};
+  }
 }
 
 export interface LifecycleEffectsContext {
