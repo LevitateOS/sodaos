@@ -56,6 +56,7 @@ type PriorityCall struct {
 
 type PriorityReceipt struct {
 	Snapshot    string              `json:"snapshot"`
+	Purpose     JudgmentPurpose     `json:"purpose,omitempty"`
 	Candidates  []PriorityCandidate `json:"candidates"`
 	Calls       []PriorityCall      `json:"calls"`
 	Selected    string              `json:"selected,omitempty"`
