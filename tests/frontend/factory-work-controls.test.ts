@@ -233,7 +233,7 @@ const historyEntry = {
   state: 'accepted',
   repository: '7',
   created_unix: 1728670000,
-  generation: {state: 'committed'},
+  generation: {state: 'committed', submitted_keys: [TASK_A, TASK_B]},
   comparison: {
     tasks: {added: [], removed: [], changed: [], reused: [TASK_A, TASK_B], unchanged_count: 2},
     ideas: {added: [], removed: [], changed: []},
@@ -267,7 +267,12 @@ test('work overview renders direction, dependencies and summary on a real engine
       method: 'GET',
       path: `factory/intents/${INTENT}/generation`,
       status: 200,
-      json: {intent_id: INTENT, revision_id: REVISION, state: 'pending'},
+      json: {
+        intent_id: INTENT,
+        revision_id: REVISION,
+        state: 'completed',
+        task_issue_ids: {[TASK_A]: 12, [TASK_B]: 13},
+      },
     },
     {
       method: 'GET',
@@ -279,10 +284,13 @@ test('work overview renders direction, dependencies and summary on a real engine
         effective: {effective: true, dispatch_open: true, missing: []},
       },
     },
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
   ]);
   const overview = page.locator('soda-factory-work-overview');
   await overview.getByText('Let a team track demo work.').waitFor();
   await overview.getByText('Build demo detail.').waitFor();
+  const open = overview.getByRole('link', {name: 'Open issue #13'});
+  assert.equal(await open.getAttribute('href'), '/soda-tester/demo/issues/13');
 });
 
 test('work detail renders evidence links and runs all six interventions', async (t) => {
@@ -420,6 +428,7 @@ test('direction revision shows allowance reference and history, then adjusts all
   const direction = page.locator('soda-factory-direction-revision');
   await direction.getByText(/23 available/).waitFor();
   await direction.getByText('2 revisions shown, newest first.').waitFor();
+  await direction.getByText('Submitted graph: 2 submitted keys.').waitFor();
   await direction.locator('input[name="amount"]').fill('60');
   await direction.locator('input[name="effect"]').fill('cover review queue');
   await direction.getByRole('button', {name: 'Adjust allowance'}).click();

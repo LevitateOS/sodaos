@@ -510,7 +510,7 @@ const historyCurrent = {
   state: 'accepted',
   repository: '7',
   created_unix: 1728670000,
-  generation: {state: 'committed'},
+  generation: {state: 'committed', submitted_keys: [task, taskB]},
   comparison: {
     tasks: {
       added: [],
@@ -571,7 +571,9 @@ test('revision history binds before/after and affected work to its intent', () =
   assert.equal(parsed.truncated, false);
   const current = parsed.revisions[0];
   assert.equal(current?.state, 'accepted');
-  assert.equal(current?.generation, 'committed');
+  assert.equal(current?.generation.state, 'committed');
+  assert.deepEqual(current?.generation.submitted_keys, [task, taskB]);
+  assert.equal(current?.generation.submitted_differs, false);
   assert.equal(current?.comparison.tasks.changed[0]?.old_objective, 'Track work.');
   assert.equal(current?.comparison.ideas.changed[0]?.to_decision, 'accept');
   assert.deepEqual(current?.comparison.effective_added, [idea]);
@@ -622,4 +624,18 @@ test('revision history rejects wrong scope, bad pages and unpaired texts', () =>
   assert.throws(() => revisionHistory({...historyFixture, revisions: [badCount]}, intent));
   const edgedFirst = {...historyFirst, comparison: {...historyFirst.comparison, edges_changed: true}};
   assert.throws(() => revisionHistory({...historyFixture, revisions: [edgedFirst]}, intent));
+  const keyedAbsent = {...historyFirst, generation: {state: 'not_requested', submitted_keys: [task]}};
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [keyedAbsent]}, intent));
+  const differsAbsent = {...historyFirst, generation: {state: 'not_requested', submitted_differs: true}};
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [differsAbsent]}, intent));
+  const emptyRecord = {...historyCurrent, generation: {state: 'committed'}};
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [emptyRecord]}, intent));
+  const bareDiffers = {
+    ...historyCurrent,
+    generation: {state: 'committed', submitted_keys: [task], submitted_differs: true},
+  };
+  assert.equal(
+    revisionHistory({...historyFixture, revisions: [bareDiffers]}, intent).revisions[0]?.generation.submitted_differs,
+    true
+  );
 });
