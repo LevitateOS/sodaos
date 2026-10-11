@@ -25,7 +25,7 @@ now supplements this plan. Its four exclusive writer lanes retain completed
 packets and their demonstrated scope. The native issue14 correction/merge
 receipt closes B04.C; it does not establish the newly required long-run,
 missed-creation, lifecycle-occurrence, dependent-pickup or enrollment contracts.
-The current committed correction pair is Soda `f163b044` and Fountain
+The current behavioral correction pair is Soda `4a51990b` and Fountain
 `1e6970300e`. Seventeen of the nineteen supplemental tasks are complete at
 their stated source/fixture scopes; V02 and V03 remain open. The actual serving coordinator now completes the fixture correction,
 fresh delayed CI, verified merge and dependent pickup without manually driven
@@ -33,22 +33,36 @@ stages; current recovery, retry deadlines and capacity release also pass. Initia
 Project preparation now passes its normal public native-source preview, distinct
 maintainer/admin decisions, durable role admission and serving observation. The
 selective maps contain all 2,629 current leaves; affected producer/service/schema
-joins and eleven rendered control tests pass after independent review. Fresh native and installed qualification
+joins and 23 current rendered control tests pass after independent review. Fresh native and installed qualification
 remain separate under C11.V/R04. The host restarted during the later `e5bb7dce` P8 media assembly:
 P1–P7 passed, but that interrupted media attempt is incomplete. Retained disks
 and failed-attempt artifacts remain development evidence at their recorded scope.
 
 The current native continuation passes fifteen credential-family/restriction/
-creation reads and five cancellation/restriction operations, normal owned-hook
-maintenance with broker tmpfs, fresh native checkout/delayed CI, normal source
-preview/requirement acceptance, and retained Project creation reconciliation
-through authenticated GET. The public acceptance-preview is covered by actual
-PostgreSQL proxy race checks in `abe6f363`; the native expanded hook-event matcher
-is repaired and checked in `f163b044`. This appliance uses explicitly identified
-development payloads from `9a184b7f`/`abe6f363`/`f163b044`. The current real
-serving/provider/dependent, terminal/intervention, normal provider enrollment
-and matching installed-candidate gates remain open; none follows from those
-individual receipts or the earlier issue14 result.
+creation reads, five pre-submit cancellation/restriction operations, and the
+committed-merge Get → Cancel → Get boundary (`too_late`, conserved effect).
+The enrolled publisher and merger read their repository; the same publisher
+is refused on an unenrolled repository. Normal owned-hook maintenance, exact
+source selection, distinct maintainer/admin decisions, initial preparation,
+funded controls and rendered Factory settings pass. `365b0013` repairs all
+three credential identity preflights before writes; `93d62726` repairs concurrent
+standing READY adoption with 39 passing PostgreSQL race cases.
+
+The actual serving dashboard drove six real Muse executions through blocking
+independent review, correction, fresh delayed native CI, two verified native
+merges and automatic dependent pickup. All six native Host retirements and
+broker returns reconciled; no active runs, leases or held reservations remained.
+One normal terminal and human-file hash survived all Factory work; exact
+Attach/End passed. Pause API/readback closed the gate; the original helper's
+empty-capture assertion failed, and separate read-only reconciliation verified
+the six captured registrations were settled. These are development receipts. Original
+issues stayed open, so that journey fails the complete V02 requirement.
+`4a51990b` repairs native closing references and persists the exact original
+closing occurrence before completion. Current PostgreSQL and actual serving-loop
+checks pass, including reopen/equal-time re-close refusal; the corrected native
+journey remains pending. The current subscription connection is TestOnly-seeded,
+despite real provider execution and custody: normal Meta device-account approval
+and matching installed-candidate qualification remain open under V03/C11.V/R04.
 
 The active finishing goal repaired the native P8 Assembler metadata decoder
 in `0a845477` and aligned release schema emission with the then-current

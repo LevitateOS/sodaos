@@ -24,21 +24,41 @@ No code changes, tests, builds or live-provider journeys were performed by this 
 Implementation continues under the owner's direct authorizations in the ongoing
 finishing goal. The preparation baseline above remains historical. Current
 committed inputs are Fountain `1e6970300e` and Soda
-`f163b044`. Seventeen of nineteen tasks are complete at their stated source or
+`4a51990b`. Seventeen of nineteen tasks are complete at their stated source or
 fixture scope. V02 and V03 remain open; native and installed qualification do
 not follow from those source checks.
-Native DEVELOPMENT continuation has passed fifteen current credential-family,
-public-only, resource-bound and retained-creation reads; five current cancellation/
+Native DEVELOPMENT continuation has passed fifteen credential-family,
+public-only, resource-bound and retained-creation reads; five cancellation/
 restriction operations prove the durable pre-submit tombstone and absent ref.
-Normal factory maintenance owns hook3 and passes with the current broker tmpfs
-runtime. A fresh native runner completed real checkout and delayed checks. Normal
-native-source preview and maintainer requirement acceptance pass; a failed new
-Project creation reconciles through the normal authenticated GET without replay.
-These subjects do not close V02: the new serving/provider/dependent journey,
-terminal/intervention and final custody proof remain unperformed. Dashboard and
-extension binaries are compiled from `abe6f363`, setup/maintenance from `f163b044`,
-and the unchanged Host/Project payloads from `9a184b7f`; this mixed development
-appliance is not a matching installed candidate.
+The later committed-merge Get → Cancel → Get returns `too_late` and preserves
+the effect; enrolled publisher/merger reads pass and an unenrolled repository
+is refused. Normal factory maintenance owns hook3. `365b0013` repairs credential
+identity preflight before enrollment writes; seven owning Rust checks and normal
+native maintenance pass. Normal source selection, distinct maintainer/admin
+decisions, standing preparation, funded controls and rendered Factory settings
+pass. The settings composition repair `17a95142` has 23 passing browser checks;
+concurrent standing READY adoption `93d62726` has 39 PostgreSQL race cases.
+
+The actual serving dashboard drove six real Muse executions: coder, blocking
+independent review, correction, fresh approval, verified native PR4 merge,
+then dependent coder/review and verified native PR5 merge. Both exact candidates
+passed real delayed native CI. All six Host retirements, broker returns and
+reservations reconciled, with zero active runs, leases or held reservations.
+One normal terminal survived navigation/reload and all Factory work; exact
+Attach/End and the retained human-file hash passed afterward. Pause API/readback
+closed the gate. The original helper's empty-capture assertion failed; a separate
+read-only reconciliation verified all six captured historical registrations were
+settled, with their native retirement and custody evidence intact.
+
+That journey exposed original issues remaining open despite merged PRs. It
+therefore does not close V02. `4a51990b` adds native closing references, requires
+and stores the exact original-issue closing occurrence, and prevents reopening
+or re-closing from releasing a dependent through an old completion. Current
+serving-loop, prerequisite, wire and PostgreSQL checks pass; the corrected native
+journey remains pending. Provider execution used an explicitly TestOnly-seeded
+subscription connection: normal managed enrollment still requires the actual
+Meta device-account approval. This mixed development appliance is not a matching
+installed candidate; V03/C11.V/R04 remain open.
 The existing plan's B04.C is complete at its bounded native DEVELOPMENT scope:
 issue14 progressed through real coder, independent blocking reviewer, correction,
 fresh CI/approval and verified merge on one finite root. Prior usage and all four
@@ -61,13 +81,13 @@ P1–P7 and was interrupted in P8; it is not a completed installed candidate.
 | FN02 | Committed Fountain `06139c75cd`: lifecycle snapshots expose exact decimal native comment occurrence IDs, including equal-time changes/reversions and close/reopen/reclose. Body content version remains separate; malformed required history marks the family incomplete. Affected native race checks pass. |
 | EV01 | Committed Fountain `f490d3dc8f`: repository/credential-bound retained issue-event task reads expose original creation facts and bounded cursor/retention/provenance limits. Real normal native creation followed by HTTP503 recovers through enrolled authority; a repeated native Deliver performs no retry. Selected PostgreSQL race checks (8.056s) and affected native/route/webhook race checks pass. Soda consumption follows SO02/SO03; absent or expired tasks are not inferred from current text. |
 | SO02 | Committed `2dd418e6`: original native creation tuples, durable admission retries and partial-hint enrichment preserve later human heads. The serving owner recovers missed delivery, transient admission and restart without redelivery. Current incomplete same-delivery recovery also passes PostgreSQL race checking (1.226s). Retained recovery provenance and cursor limits remain explicit. |
-| SO04 | Committed `2dd418e6`: Soda consumes exact original/decimal native title and closing occurrences; reversion and close/reopen/reclose cannot reuse a count or content digest. Affected PostgreSQL race checks and the composed correction/merge/dependent test pass; native qualification remains V02/V03. |
-| IN01 | Committed `ec7c0a83`, with Fountain secret-update fix `0f736a35f2`: strict private enrollment/maintenance inputs, native actor bindings, broker-only key/DSN, restricted factory credential mount and ownership-scoped webhook maintenance. Twenty-nine Rust checks, actual native API hook integration (1.144s), service wiring and production asset checks pass. The actual native expanded issue-event set exposed a matcher refusal; `f163b044` repairs it (RED then seven GREEN checks), and normal current native maintenance owns hook3 with active broker sockets. Installed clean/maintenance qualification remains V03. |
-| IN02 | Complete at source/fixture scope: prepared-Project controls are committed in `ec7c0a83`; initial native exact-source preview, distinct maintainer acceptance/admin observation, durable standing-role admission, serving observation and browser controls are committed in `a7fe376c`, `fb0d5994`, `7b072b72` and `9a184b7f`. The normal outer proxy starts from empty preparation state (10 actual PostgreSQL race cases, 3.380s); serving standing-role observation passes 38 race cases without replaying setup. Eleven rendered controls tests and TypeScript/format/lint/complexity checks pass after independent review. `abe6f363` adds the bounded authenticated acceptance-preview for exact dependent decisions; its actual PostgreSQL proxy race checks pass (2.852s). Current native source preview and requirement acceptance pass; administrator preparation and funded controls still await their native journey. Installed normal controls remain V02/V03. |
+| SO04 | Committed `2dd418e6`, completed by `4a51990b`: exact original/decimal title and closing occurrences are consumed and native PR bodies close the original issue. Merge completion stores the original closing occurrence; an open original waits without resubmitting, and reopening/equal-time re-closing cannot reuse a completed prerequisite. Wire, domain, actual PostgreSQL persistence/prerequisite and serving-loop checks pass. The native workflow that exposed open originals remains failed at that requirement; corrected native qualification remains V02/V03. |
+| IN01 | Committed `ec7c0a83`, with Fountain secret-update fix `0f736a35f2`: strict private enrollment/maintenance inputs, native actor bindings, broker-only key/DSN, restricted factory credential mount and ownership-scoped webhook maintenance. Twenty-nine Rust checks, actual native API hook integration (1.144s), service wiring and production asset checks pass. `f163b044` repairs the expanded hook matcher; `365b0013` checks all three credential identities before writes. Both have causal failures and seven owning passing checks. Normal native maintenance owns hook3 with active broker sockets. Installed clean/maintenance qualification and normal managed subscription enrollment remain V03. |
+| IN02 | Complete at source/fixture scope: prepared-Project controls are committed in `ec7c0a83`; initial exact-source selection, distinct maintainer/admin decisions, durable standing-role admission and observation are committed in `a7fe376c`, `fb0d5994`, `7b072b72` and `9a184b7f`. The normal outer proxy starts from empty preparation state (10 PostgreSQL race cases, 3.380s); serving standing observation passes 38 race cases. `93d62726` repairs identical concurrent READY adoption (39 race cases). `abe6f363` adds exact dependent acceptance-preview (PostgreSQL proxy race, 2.852s). `17a95142` repairs native settings composition (23 browser checks). Current normal native source/requirement/admin/standing/funded controls and rendered settings writes pass. The corrected complete workflow and matching installed controls remain V02/V03. |
 | SO03 | Committed `2dd418e6`: the existing serving owner drives retained creation recovery and all due progression. Fresh protected preparation follows only a confirmed merged source with the exact settled current coder run; changed approved inputs or authority refuse. Affected race checks and independent review pass. `1ebd5003` proves future backoff and queued pickup after actual native failure releases capacity. |
 | DS01 | D retains the documented strict singleton contract; unrelated-repository contention is a known tradeoff, not a demonstrated regression. No narrower-domain redesign or uncertain-owner release is selected. |
 | G02 | Complete at source/consumer scope on the identified pair: affected architecture, service wiring, strict Go formatting, browser and schema-emission checks pass. Independent review accepts 2,629 exact current leaves across the selective tree, inventory and ownership maps; historical body-review pins and unrelated dirty placement/reviews are preserved. The Fountain component is compiled natively with pinned Go1.26.7 and retained compiler provenance; this is artifact preparation, not a full candidate or installed qualification. |
-| V01 | Complete at serving-fixture scope: actual Coordinator.Start drives original creation → coder → independent blocking review → correction → fresh delayed CI → verified merge → dependent pickup (PostgreSQL race, 41.290s). Seven current serving regressions cover long/lost launch, expiry, readiness and delayed checks; two added timer/backoff/capacity checks pass (41.526s). Current incomplete-delivery recovery passes. Initial normal proxy and serving standing-preparation checks close the IN02/G02 join. Drivers supply boundary facts and call no settlement/publication/check/merge stages. This is fixture evidence; V02/V03 remain separate. |
+| V01 | Complete at serving-fixture scope: actual Coordinator.Start drives original creation → coder → independent blocking review → correction → fresh delayed CI → verified merge → original-issue closure → dependent pickup. `4a51990b` additionally proves reopening and equal-time re-closing block dependent pickup (actual PostgreSQL race, 74.073s for the focused closure packet), preserving existing timer, expiry, capacity and recovery receipts. Drivers supply boundary facts and call no settlement/publication/check/merge stages. This is fixture evidence; V02/V03 remain separate. |
 | V02 | Reuse unchanged native/provider receipts only at their exact scope. New authority, cancellation, dependent and recovery boundaries require matching native binaries after composed V01. |
 | V03 | Matching installed qualification remains C11.V/R04. Resource-heavy production/install work is held until V02; prepared disks, private credentials and retained builder artifacts can be reused. |
 
