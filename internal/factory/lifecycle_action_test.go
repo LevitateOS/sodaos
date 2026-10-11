@@ -36,6 +36,27 @@ func TestLifecycleActionValidate(t *testing.T) {
 	}
 }
 
+func TestLifecycleConfigValidate(t *testing.T) {
+	ok := LifecycleConfig{Event: LifecycleEventPRCreated, Revision: 1, Enabled: true, ActorID: 7, RepositoryID: 9, ReviewerIDs: []int64{15}}
+	if err := ok.Validate(); err != nil {
+		t.Fatalf("valid config rejected: %v", err)
+	}
+	disabled := LifecycleConfig{Event: LifecycleEventIssueCreated, Revision: 0, ActorID: 7, RepositoryID: 9}
+	if err := disabled.Validate(); err != nil {
+		t.Fatalf("disabled config rejected: %v", err)
+	}
+	empty := ok
+	empty.ReviewerIDs = nil
+	mixed := ok
+	mixed.Note = "x"
+	if err := empty.Validate(); err == nil {
+		t.Fatal("enabled review config without reviewers accepted")
+	}
+	if err := mixed.Validate(); err == nil {
+		t.Fatal("review config with note accepted")
+	}
+}
+
 func TestLifecycleActionAttempts(t *testing.T) {
 	a := testIssueAction()
 	if !a.Applicable() {

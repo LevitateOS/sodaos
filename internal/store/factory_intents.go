@@ -104,6 +104,19 @@ func (s *Store) SaveIntentRevision(ctx context.Context, r factory.IntentRevision
 	if head != r.Predecessor {
 		return ErrStaleRevision
 	}
+	if head != "" {
+		var headRaw []byte
+		var headRev factory.IntentRevision
+		if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1`, head).Scan(&headRaw); err != nil {
+			return err
+		}
+		if err = json.Unmarshal(headRaw, &headRev); err != nil {
+			return err
+		}
+		if headRev.State == "accepted" && r.Repository != headRev.Repository {
+			return errors.New("repository change needs a separate build request")
+		}
+	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_revisions(id,intent,data) VALUES($1,$2,$3)`, r.ID, r.Intent, string(raw)); err != nil {
 		return err
 	}
@@ -121,6 +134,92 @@ func (s *Store) IntentRevision(ctx context.Context, intent string, owner int64) 
 		err = json.Unmarshal(raw, &r)
 	}
 	return r, err
+}
+
+// ListIntentRevisions returns bounded owner-private resume summaries with a
+// stable intent-ID cursor. It lists only the caller's current heads; another
+// actor's drafts and inaccessible private details never appear. Empty returns
+// an empty slice, never a null; database failures return an error for 503.
+func (s *Store) ListIntentRevisions(ctx context.Context, owner int64, f factory.IntentListFilter) ([]factory.IntentSummary, string, error) {
+	if owner <= 0 {
+		return nil, "", errors.New("invalid intent owner")
+	}
+	if f.Limit == 0 {
+		f.Limit = 20
+	}
+	if err := f.Validate(); err != nil {
+		return nil, "", err
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT h.id, r.data FROM factory_intent_heads h JOIN factory_intent_revisions r ON r.id=h.revision WHERE h.owner_id=$1 AND h.id>$2 AND ($3='' OR r.data->>'state'=$3) AND ($4<=0 OR (r.data->>'repository')::bigint=$4) AND ($5='' OR r.data->>'department'=$5) ORDER BY h.id LIMIT $6`, owner, f.Cursor, f.State, f.Repository, f.Department, f.Limit+1)
+	if err != nil {
+		return nil, "", err
+	}
+	defer rows.Close()
+	result := []factory.IntentSummary{}
+	for rows.Next() {
+		var id string
+		var raw []byte
+		var r factory.IntentRevision
+		if err = rows.Scan(&id, &raw); err != nil {
+			return nil, "", err
+		}
+		if err = json.Unmarshal(raw, &r); err != nil {
+			return nil, "", err
+		}
+		if err = r.Validate(); err != nil {
+			return nil, "", err
+		}
+		result = append(result, r.Summary())
+	}
+	if err = rows.Err(); err != nil {
+		return nil, "", err
+	}
+	next := ""
+	if len(result) > f.Limit {
+		next = result[f.Limit-1].Intent
+		result = result[:f.Limit]
+	}
+	return result, next, nil
+}
+
+// IntentHistory returns immutable revisions for one owner-private request,
+// newest first, bounded to 50 entries. It follows the head backwards through
+// recorded predecessors; a repository change after commitment creates a
+// separate intent identity and never appears here.
+func (s *Store) IntentHistory(ctx context.Context, intent string, owner int64, limit int) ([]factory.IntentRevision, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit < 1 || limit > 50 {
+		return nil, errors.New("invalid history limit")
+	}
+	head, err := s.IntentRevision(ctx, intent, owner)
+	if err != nil {
+		return nil, err
+	}
+	result := []factory.IntentRevision{}
+	cursor := head.ID
+	seen := map[string]bool{}
+	for cursor != "" && len(result) < limit {
+		if seen[cursor] || len(seen) > 256 {
+			return nil, errors.New("invalid intent revision history")
+		}
+		seen[cursor] = true
+		var raw []byte
+		var r factory.IntentRevision
+		if err = s.db.QueryRowContext(ctx, `SELECT data FROM factory_intent_revisions WHERE id=$1 AND intent=$2`, cursor, intent).Scan(&raw); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(raw, &r); err != nil {
+			return nil, err
+		}
+		if r.Owner != owner {
+			return nil, ErrNotFound
+		}
+		result = append(result, r)
+		cursor = r.Predecessor
+	}
+	return result, nil
 }
 
 // ReservePriorityJudgment consumes the maximum possible call count before any

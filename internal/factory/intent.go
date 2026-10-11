@@ -26,7 +26,14 @@ func (d Department) Validate() error {
 	return nil
 }
 
-// ProductIdea describes a material product choice and its consequence.
+// ProductIdea describes a requested fact, supported/autonomous choice or
+// assumption with its consequence and attributable decision basis.
+// Source distinguishes requested facts from evidence-supported choices,
+// reversible autonomous choices and assumptions. Provenance distinguishes
+// explicit human decisions from autonomous ones; human provenance must bind
+// Actor to the revision owner. Material marks consequential assumptions that
+// block dependent native work while unresolved. Empty Source/Provenance is a
+// legacy review input and infers supported/human for accepted choices.
 type ProductIdea struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
@@ -34,6 +41,11 @@ type ProductIdea struct {
 	Assumption  bool   `json:"assumption"`
 	Decision    string `json:"decision"`
 	Correction  string `json:"correction,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Provenance  string `json:"provenance,omitempty"`
+	Actor       int64  `json:"actor,string,omitempty"`
+	Evidence    string `json:"evidence,omitempty"`
+	Material    bool   `json:"material,omitempty"`
 }
 
 type IntentTask struct {
@@ -47,21 +59,26 @@ type IntentTask struct {
 // IntentRevision is immutable review input or accepted product authority. An
 // acceptance covers this exact product direction and bounded derived graph;
 // execution still requires current independent grants and native evidence.
+// EffectiveOutcomes names the explicit authorized idea subset for native work.
+// Unrelated authorized outcomes can progress while an unresolved consequential
+// branch stays pending; tasks must only reference effective authorized ideas.
+// Rejected and abandoned are terminal private draft states preserving history.
 type IntentRevision struct {
-	ID            string        `json:"id"`
-	Intent        string        `json:"intent"`
-	Predecessor   string        `json:"predecessor,omitempty"`
-	Owner         int64         `json:"owner,string"`
-	Repository    int64         `json:"repository,string"`
-	Department    string        `json:"department,omitempty"`
-	Objective     string        `json:"objective"`
-	Approach      string        `json:"approach,omitempty"`
-	Ideas         []ProductIdea `json:"ideas"`
-	Tasks         []IntentTask  `json:"tasks"`
-	State         string        `json:"state"`
-	MaxIssues     int           `json:"max_issues"`
-	PlanningCalls int           `json:"planning_calls"`
-	CreatedUnix   int64         `json:"created_unix"`
+	ID                string        `json:"id"`
+	Intent            string        `json:"intent"`
+	Predecessor       string        `json:"predecessor,omitempty"`
+	Owner             int64         `json:"owner,string"`
+	Repository        int64         `json:"repository,string"`
+	Department        string        `json:"department,omitempty"`
+	Objective         string        `json:"objective"`
+	Approach          string        `json:"approach,omitempty"`
+	Ideas             []ProductIdea `json:"ideas"`
+	Tasks             []IntentTask  `json:"tasks"`
+	State             string        `json:"state"`
+	MaxIssues         int           `json:"max_issues"`
+	PlanningCalls     int           `json:"planning_calls"`
+	CreatedUnix       int64         `json:"created_unix"`
+	EffectiveOutcomes []string      `json:"effective_outcomes,omitempty"`
 }
 
 func intentText(s string, limit int) bool {
@@ -78,19 +95,22 @@ func (r IntentRevision) Validate() error {
 	if r.Approach != "" && r.Approach != "incremental" && r.Approach != "complete_first" {
 		return errors.New("invalid implementation approach")
 	}
-	if r.State != "draft" && r.State != "accepted" && r.State != "declined" {
+	if r.State != "draft" && r.State != "accepted" && r.State != "declined" && r.State != "rejected" && r.State != "abandoned" {
 		return errors.New("invalid intent state")
 	}
-	if r.Repository < 0 || r.MaxIssues < 1 || r.MaxIssues > 64 || r.PlanningCalls < 0 || r.PlanningCalls > 100 || len(r.Ideas) > 50 || len(r.Tasks) > r.MaxIssues {
+	if r.Repository < 0 || r.MaxIssues < 1 || r.MaxIssues > 64 || r.PlanningCalls < 0 || r.PlanningCalls > 100 || len(r.Ideas) > 50 || len(r.Tasks) > r.MaxIssues || len(r.EffectiveOutcomes) > 50 {
 		return errors.New("invalid intent bounds")
 	}
 	if r.State == "accepted" && (r.Repository == 0 || len(r.Tasks) == 0) {
 		return errors.New("accepted intent needs repository and work")
 	}
-	ideas := map[string]bool{}
+	ideas := map[string]ProductIdea{}
 	for _, idea := range r.Ideas {
-		if !project.ValidDecisionID(idea.ID) || ideas[idea.ID] || !intentText(idea.Description, 4000) || !intentText(idea.Consequence, 4000) {
+		if !project.ValidDecisionID(idea.ID) || !intentText(idea.Description, 4000) || !intentText(idea.Consequence, 4000) {
 			return errors.New("invalid product idea")
+		}
+		if _, exists := ideas[idea.ID]; exists {
+			return errors.New("duplicate product idea")
 		}
 		if idea.Decision != "pending" && idea.Decision != "accept" && idea.Decision != "decline" && idea.Decision != "edit" {
 			return errors.New("invalid product decision")
@@ -98,10 +118,58 @@ func (r IntentRevision) Validate() error {
 		if idea.Decision == "edit" && !intentText(idea.Correction, 4000) {
 			return errors.New("edited idea needs correction")
 		}
-		if r.State == "accepted" && idea.Decision == "pending" {
-			return errors.New("material product decision unresolved")
+		if idea.Source != "" && idea.Source != "requested" && idea.Source != "supported" && idea.Source != "autonomous" && idea.Source != "assumption" {
+			return errors.New("invalid product choice source")
 		}
-		ideas[idea.ID] = idea.Decision == "accept" || idea.Decision == "edit"
+		if idea.Provenance != "" && idea.Provenance != "human" && idea.Provenance != "autonomous" {
+			return errors.New("invalid product choice provenance")
+		}
+		if idea.Source == "assumption" && !idea.Assumption {
+			return errors.New("assumption source needs assumption flag")
+		}
+		if idea.Assumption && idea.Source != "" && idea.Source != "assumption" {
+			return errors.New("assumption needs assumption source")
+		}
+		if idea.Provenance == "human" {
+			if idea.Actor != r.Owner || idea.Actor <= 0 || idea.Decision == "pending" {
+				return errors.New("forged human attribution")
+			}
+		}
+		if idea.Provenance == "autonomous" {
+			if idea.Actor != 0 {
+				return errors.New("autonomous choice cannot carry human actor")
+			}
+			if idea.Decision == "edit" {
+				return errors.New("corrections are explicit human decisions")
+			}
+		}
+		if idea.Actor != 0 && (idea.Provenance != "human" || idea.Actor != r.Owner) {
+			return errors.New("forged human attribution")
+		}
+		if idea.Source == "requested" && (idea.Provenance == "autonomous" || idea.Decision == "pending") {
+			return errors.New("requested facts are explicit human decisions")
+		}
+		if idea.Source == "requested" && idea.Provenance == "" && idea.Decision != "accept" && idea.Decision != "edit" && idea.Decision != "decline" {
+			return errors.New("requested facts are explicit human decisions")
+		}
+		if idea.Source == "supported" && (idea.Decision == "accept" || idea.Decision == "edit") && !intentText(idea.Evidence, 4000) {
+			return errors.New("supported choices need evidence")
+		}
+		if idea.Evidence != "" && !intentText(idea.Evidence, 4000) {
+			return errors.New("invalid choice evidence")
+		}
+		ideas[idea.ID] = idea
+	}
+	effective := map[string]bool{}
+	for _, id := range r.EffectiveOutcomes {
+		if !project.ValidDecisionID(id) || effective[id] {
+			return errors.New("invalid effective outcome")
+		}
+		idea, exists := ideas[id]
+		if !exists || idea.Decision == "decline" || idea.Decision == "pending" {
+			return errors.New("effective outcomes must be authorized choices")
+		}
+		effective[id] = true
 	}
 	tasks := map[string]IntentTask{}
 	for _, task := range r.Tasks {
@@ -117,8 +185,29 @@ func (r IntentRevision) Validate() error {
 			}
 		}
 		for _, id := range task.IdeaIDs {
-			if accepted, exists := ideas[id]; !exists || r.State == "accepted" && !accepted {
-				return errors.New("task exceeds accepted product choices")
+			idea, exists := ideas[id]
+			if !exists {
+				return errors.New("task references unknown product choice")
+			}
+			if idea.Decision == "decline" {
+				return errors.New("task references declined outcome")
+			}
+			if r.State == "accepted" {
+				if idea.Decision == "pending" {
+					if idea.Source == "" && idea.Provenance == "" {
+						return errors.New("task references unresolved scope")
+					}
+					if idea.Material || idea.Source == "assumption" || idea.Source == "requested" {
+						return errors.New("task references unresolved consequential scope")
+					}
+					return errors.New("task references unresolved scope")
+				}
+				if len(effective) > 0 && !effective[id] {
+					return errors.New("task exceeds effective authorized outcomes")
+				}
+				if len(effective) == 0 && idea.Decision != "accept" && idea.Decision != "edit" {
+					return errors.New("task exceeds accepted product choices")
+				}
 			}
 		}
 		tasks[task.Key] = task
@@ -163,4 +252,60 @@ func (r IntentRevision) Digest() string {
 	raw, _ := json.Marshal(r)
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
+}
+
+// IntentSummary is a bounded owner-private list/resume entry. It carries
+// stable identities and current state without exposing another actor's drafts
+// or inaccessible private details. Full revision content stays behind the
+// private current-revision read.
+type IntentSummary struct {
+	Intent         string   `json:"intent"`
+	Revision       string   `json:"revision"`
+	State          string   `json:"state"`
+	Objective      string   `json:"objective"`
+	Repository     int64    `json:"repository,string"`
+	Department     string   `json:"department,omitempty"`
+	CreatedUnix    int64    `json:"created_unix"`
+	EffectiveCount int      `json:"effective_count"`
+	TaskCount      int      `json:"task_count"`
+	Outcomes       []string `json:"effective_outcomes,omitempty"`
+}
+
+// Summary derives a list entry from a validated current revision.
+func (r IntentRevision) Summary() IntentSummary {
+	objective := r.Objective
+	if len(objective) > 280 {
+		objective = objective[:280]
+	}
+	return IntentSummary{
+		Intent: r.Intent, Revision: r.ID, State: r.State, Objective: objective,
+		Repository: r.Repository, Department: r.Department, CreatedUnix: r.CreatedUnix,
+		EffectiveCount: len(r.EffectiveOutcomes), TaskCount: len(r.Tasks), Outcomes: r.EffectiveOutcomes,
+	}
+}
+
+// IntentListFilter bounds an owner-private request listing. Cursor is the last
+// seen intent ID; empty starts from the beginning. Limit is 1..50.
+type IntentListFilter struct {
+	Cursor     string
+	State      string
+	Repository int64
+	Department string
+	Limit      int
+}
+
+func (f IntentListFilter) Validate() error {
+	if f.Cursor != "" && !project.ValidDecisionID(f.Cursor) {
+		return errors.New("invalid list cursor")
+	}
+	if f.State != "" && f.State != "draft" && f.State != "accepted" && f.State != "declined" && f.State != "rejected" && f.State != "abandoned" {
+		return errors.New("invalid list state")
+	}
+	if f.Repository < 0 || f.Department != "" && !project.ValidDecisionID(f.Department) {
+		return errors.New("invalid list context")
+	}
+	if f.Limit < 1 || f.Limit > 50 {
+		return errors.New("invalid list limit")
+	}
+	return nil
 }
