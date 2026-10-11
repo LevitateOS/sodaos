@@ -38,11 +38,14 @@ type revisionTaskChangeView struct {
 // two durable revisions: reused and changed keys in old task order,
 // added bodies in new order. Task keys are the stable identity; bodies
 // come from the compared revisions, never a speculative graph.
+// UnchangedCount always equals len(Reused); it stays because the
+// integrated V09 consumer parses it.
 type revisionTaskDiffView struct {
-	Added   []factory.IntentTask     `json:"added"`
-	Removed []factory.IntentTask     `json:"removed"`
-	Changed []revisionTaskChangeView `json:"changed"`
-	Reused  []string                 `json:"reused"`
+	Added          []factory.IntentTask     `json:"added"`
+	Removed        []factory.IntentTask     `json:"removed"`
+	Changed        []revisionTaskChangeView `json:"changed"`
+	Reused         []string                 `json:"reused"`
+	UnchangedCount int                      `json:"unchanged_count"`
 }
 
 func revisionTaskChangedFields(old, current factory.IntentTask) []string {
@@ -101,6 +104,7 @@ func revisionTaskDiff(old, current []factory.IntentTask) revisionTaskDiffView {
 		fields := revisionTaskChangedFields(task, next)
 		if len(fields) == 0 {
 			diff.Reused = append(diff.Reused, task.Key)
+			diff.UnchangedCount++
 			continue
 		}
 		change := revisionTaskChangeView{ChangedFields: fields, Key: task.Key}
