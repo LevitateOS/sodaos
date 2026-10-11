@@ -8,9 +8,38 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
+
+// boundActivitySection cuts one kind's appended items to the feed bound
+// and folds its truncation into the feed flag. Queries read one row past
+// the bound, so a full page means older entries may exist even when some
+// rows fail validation.
+func boundActivitySection(items []factory.ActivityItem, before, scanned int, truncated bool) ([]factory.ActivityItem, bool) {
+	if len(items)-before > factory.ActivityItemBound {
+		items = items[:before+factory.ActivityItemBound]
+		truncated = true
+	}
+	return items, truncated || scanned > factory.ActivityItemBound
+}
+
+// boundActivityFeed sorts the merged feed newest-first with stable ID
+// order and cuts it to the feed bound, reporting whether entries were
+// dropped.
+func boundActivityFeed(items []factory.ActivityItem) ([]factory.ActivityItem, bool) {
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedUnix != items[j].CreatedUnix {
+			return items[i].CreatedUnix > items[j].CreatedUnix
+		}
+		return items[i].ID < items[j].ID
+	})
+	if len(items) > factory.ActivityItemBound {
+		return items[:factory.ActivityItemBound], true
+	}
+	return items, false
+}
 
 func (s *Store) ActivitySettings(ctx context.Context, repository int64) (factory.ActivitySettings, int64, error) {
 	settings := factory.DefaultActivitySettings()
@@ -57,7 +86,7 @@ func (s *Store) SetActivitySettings(ctx context.Context, repository, actor, expe
 // committed merges still awaiting original issue closure never become events.
 func (s *Store) RepositoryActivity(ctx context.Context, repository int64, path string) (factory.RepositoryActivity, error) {
 	settings, revision, err := s.ActivitySettings(ctx, repository)
-	out := factory.RepositoryActivity{Repository: strconv.FormatInt(repository, 10), RepositoryPath: path, Revision: revision, Settings: settings, Items: []factory.ActivityItem{}}
+	out := factory.RepositoryActivity{Repository: strconv.FormatInt(repository, 10), RepositoryPath: path, Revision: revision, Settings: settings, Items: []factory.ActivityItem{}, ObservedUnix: time.Now().Unix()}
 	if err != nil {
 		return out, err
 	}
@@ -79,11 +108,14 @@ func (s *Store) RepositoryActivity(ctx context.Context, repository int64, path s
 		out.Items = append(out.Items, factory.ActivityItem{ID: id, Kind: kind, Issue: strconv.FormatInt(issue, 10), PR: p, CreatedUnix: t, Summary: summary, URL: url})
 	}
 	if settings.IssueCreated {
-		rows, e := s.db.QueryContext(ctx, `SELECT data FROM (SELECT DISTINCT ON (t.data->>'issue_id') t.data FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_generations g ON g.revision=t.revision WHERE r.data->>'repository'=$1 AND g.data->>'state'='completed' ORDER BY t.data->>'issue_id',t.revision) facts ORDER BY COALESCE((data->>'created_unix')::bigint,0) DESC,data->>'issue_id' LIMIT 60`, strconv.FormatInt(repository, 10))
+		before := len(out.Items)
+		rows, e := s.db.QueryContext(ctx, `SELECT data FROM (SELECT DISTINCT ON (t.data->>'issue_id') t.data FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_generations g ON g.revision=t.revision WHERE r.data->>'repository'=$1 AND g.data->>'state'='completed' ORDER BY t.data->>'issue_id',t.revision) facts ORDER BY COALESCE((data->>'created_unix')::bigint,0) DESC,data->>'issue_id' LIMIT 61`, strconv.FormatInt(repository, 10))
 		if e != nil {
 			return out, e
 		}
+		scanned := 0
 		for rows.Next() {
+			scanned++
 			var raw []byte
 			if e = rows.Scan(&raw); e != nil {
 				break
@@ -100,14 +132,18 @@ func (s *Store) RepositoryActivity(ctx context.Context, repository int64, path s
 		if e != nil {
 			return out, e
 		}
+		out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
 	}
 	if settings.PRCreated {
-		rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_publications WHERE repository=$1 AND stage='published' ORDER BY seq DESC LIMIT 60`, repository)
+		before := len(out.Items)
+		rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_publications WHERE repository=$1 AND stage='published' ORDER BY seq DESC LIMIT 61`, repository)
 		if e != nil {
 			return out, e
 		}
 		seen := map[int64]bool{}
+		scanned := 0
 		for rows.Next() {
+			scanned++
 			var raw []byte
 			if e = rows.Scan(&raw); e != nil {
 				break
@@ -126,13 +162,17 @@ func (s *Store) RepositoryActivity(ctx context.Context, repository int64, path s
 		if e != nil {
 			return out, e
 		}
+		out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
 	}
 	if settings.VerifiedMerge {
-		rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_merges WHERE repository=$1 AND stage='merged' ORDER BY seq DESC LIMIT 60`, repository)
+		before := len(out.Items)
+		rows, e := s.db.QueryContext(ctx, `SELECT data FROM factory_merges WHERE repository=$1 AND stage='merged' ORDER BY seq DESC LIMIT 61`, repository)
 		if e != nil {
 			return out, e
 		}
+		scanned := 0
 		for rows.Next() {
+			scanned++
 			var raw []byte
 			if e = rows.Scan(&raw); e != nil {
 				break
@@ -151,15 +191,9 @@ func (s *Store) RepositoryActivity(ctx context.Context, repository int64, path s
 		if e != nil {
 			return out, e
 		}
+		out.Items, out.Truncated = boundActivitySection(out.Items, before, scanned, out.Truncated)
 	}
-	sort.Slice(out.Items, func(i, j int) bool {
-		if out.Items[i].CreatedUnix != out.Items[j].CreatedUnix {
-			return out.Items[i].CreatedUnix > out.Items[j].CreatedUnix
-		}
-		return out.Items[i].ID < out.Items[j].ID
-	})
-	if len(out.Items) > 60 {
-		out.Items = out.Items[:60]
-	}
+	bounded, dropped := boundActivityFeed(out.Items)
+	out.Items, out.Truncated = bounded, out.Truncated || dropped
 	return out, nil
 }

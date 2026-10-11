@@ -52,6 +52,65 @@ func TestActivitySettingsIndependentAtomicRevision(t *testing.T) {
 	}
 }
 
+func TestBoundActivityFeedOrdersAndCuts(t *testing.T) {
+	items := []factory.ActivityItem{}
+	for i := 65; i >= 1; i-- {
+		items = append(items, factory.ActivityItem{ID: fmt.Sprintf("item-%02d", i), CreatedUnix: int64(i)})
+	}
+	items = append(items, factory.ActivityItem{ID: "tie-b", CreatedUnix: 65}, factory.ActivityItem{ID: "tie-a", CreatedUnix: 65})
+	bounded, truncated := boundActivityFeed(items)
+	if !truncated || len(bounded) != factory.ActivityItemBound {
+		t.Fatalf("bounded: %d truncated=%v", len(bounded), truncated)
+	}
+	if bounded[0].ID != "item-65" || bounded[1].ID != "tie-a" || bounded[2].ID != "tie-b" {
+		t.Fatalf("order: %+v %+v %+v", bounded[0], bounded[1], bounded[2])
+	}
+	if bounded[len(bounded)-1].CreatedUnix != 8 {
+		t.Fatalf("tail: %+v", bounded[len(bounded)-1])
+	}
+	short, truncated := boundActivityFeed([]factory.ActivityItem{{ID: "only", CreatedUnix: 1}})
+	if truncated || len(short) != 1 {
+		t.Fatalf("short: %+v truncated=%v", short, truncated)
+	}
+}
+
+func TestBoundActivitySection(t *testing.T) {
+	items := make([]factory.ActivityItem, 0, 62)
+	for i := 0; i < 61; i++ {
+		items = append(items, factory.ActivityItem{ID: fmt.Sprintf("item-%02d", i)})
+	}
+	bounded, truncated := boundActivitySection(items, 0, 61, false)
+	if !truncated || len(bounded) != factory.ActivityItemBound {
+		t.Fatalf("bounded: %d truncated=%v", len(bounded), truncated)
+	}
+	if _, truncated := boundActivitySection(nil, 0, 61, false); !truncated {
+		t.Fatal("full page without valid items hides truncation")
+	}
+	if _, truncated := boundActivitySection(items[:60], 0, 60, false); truncated {
+		t.Fatal("exact page reports truncation")
+	}
+	if _, truncated := boundActivitySection(nil, 0, 0, true); !truncated {
+		t.Fatal("prior truncation lost")
+	}
+}
+
+func TestRepositoryActivityCarriesObservation(t *testing.T) {
+	body, err := json.Marshal(factory.RepositoryActivity{Repository: "7", ObservedUnix: 42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded["observed_unix"] != float64(42) {
+		t.Fatalf("observation: %v", decoded)
+	}
+	if _, ok := decoded["truncated"]; ok {
+		t.Fatalf("empty truncation rendered: %v", decoded)
+	}
+}
+
 func TestActivityReportsOnlyCommittedPublishedAndConfirmedClosure(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()
@@ -87,6 +146,9 @@ func TestActivityReportsOnlyCommittedPublishedAndConfirmedClosure(t *testing.T) 
 	out, err := s.RepositoryActivity(ctx, 7, "/current-owner/renamed")
 	if err != nil || len(out.Items) != 2 {
 		t.Fatal(out, err)
+	}
+	if out.ObservedUnix <= 0 || out.Truncated {
+		t.Fatal("untruncated feed lacks observation", out.ObservedUnix, out.Truncated)
 	}
 	if out.Items[0].Kind != "verified_merge" || out.Items[0].URL != "/current-owner/renamed/issues/3" || out.Items[1].Kind != "pr_created" || out.Items[1].URL != "/current-owner/renamed/pulls/4" {
 		t.Fatal(out.Items)
@@ -128,6 +190,9 @@ func TestActivityCreatedIssuesDeduplicateAndKeepNewestSixty(t *testing.T) {
 	out, err := s.RepositoryActivity(ctx, 7, "/owner/repo")
 	if err != nil || len(out.Items) != 60 {
 		t.Fatal(len(out.Items), err)
+	}
+	if out.ObservedUnix <= 0 || !out.Truncated {
+		t.Fatal("capped feed hides its observation", out.ObservedUnix, out.Truncated)
 	}
 	if out.Items[0].Issue != "65" || out.Items[59].Issue != "6" {
 		t.Fatal(out.Items[0], out.Items[59])

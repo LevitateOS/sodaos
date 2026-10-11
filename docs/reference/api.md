@@ -30,14 +30,16 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/repositories` | Native repository picker (`q`, `cursor`) |
 | GET | `/api/repositories/{repositoryID}/profiles` | Supported creation profiles |
 | GET | `/api/repositories/{repositoryID}/factory` | Factory policy, effective grants and missing authority |
-| GET, PUT | `/api/repositories/{repositoryID}/factory/activity` | Local lifecycle facts and independent owner/admin activity settings |
+| GET, PUT | `/api/repositories/{repositoryID}/factory/activity` | Local lifecycle facts with observation time/truncation and independent owner/admin activity settings |
 | PUT | `/api/repositories/{repositoryID}/factory/policy` | Owner/admin repository factory policy (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/operator-grant` | Operator repository permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/environment-grant` | Owner environment setup permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
 | GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
 | POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
+| GET | `/api/factory/intents` | Owner-private bounded request listing with stable cursor |
 | GET | `/api/factory/intents/{intentID}` | Current actor’s current intent revision |
+| GET | `/api/factory/intents/{intentID}/history` | Owner-private immutable revision history, newest first |
 | POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation/consistency judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `recommendation`, `consistency`) |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
@@ -47,7 +49,7 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/factory/runs/{runID}` | Code-write run status: recorded facts, display binding, observed host state |
 | GET | `/api/factory/runs/{runID}/output` | Code-write read-only run output WebSocket (status/output/closed frames; input rejected) |
 | GET | `/api/factory/commands/{commandID}` | Durable command outcome read-back |
-| GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}` | Current issue acceptance, validity, readiness and check assessment |
+| GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}` | Work detail: acceptance, validity, readiness, attempt, publication/review/correction, checks, merge, closure, links, capabilities, queued requests and observation time |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptance-preview` | Current revision-bound acceptance facts (optional repeated `comment_id`; metadata only) |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances` | Code-write exact-inputs acceptance (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (command envelope) |
