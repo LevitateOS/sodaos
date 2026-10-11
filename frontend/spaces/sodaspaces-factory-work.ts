@@ -40,15 +40,29 @@ import {
   describeDirectionRevision,
   describeOptionalEffects,
   describePrerequisites,
+  describeRecordedChoice,
+  describeRecordedPlan,
+  describeRequestOverview,
   describeWhyNext,
   describeWorkOverview,
   intentGeneration,
   renderDirectionRevision,
   renderOptionalEffects,
+  renderRecordedPlan,
+  renderRequestOverview,
   renderWorkOverview,
   renderWorkPlan,
 } from './sodaspaces-factory-progress-view.js';
-import type {IntentGeneration, OptionalEffectKind, SourceState} from './sodaspaces-factory-progress-view.js';
+import type {
+  IntentGeneration,
+  OptionalEffectKind,
+  RecordedChoiceModel,
+  RecordedPlanModel,
+  RequestOverviewModel,
+  SourceState,
+  WorkOverviewModel,
+} from './sodaspaces-factory-progress-view.js';
+import {issuePlan, requestOverview} from './sodaspaces-factory-progress-response.js';
 
 // Mountable Factory work-progress elements for V01–V07. Each element
 // reads only its own contracts and renders its own model; composition,
@@ -121,8 +135,9 @@ function sameOverview(a: WorkOverviewContext | undefined, b: WorkOverviewContext
 }
 
 export class SodaFactoryWorkOverview extends LitElement {
-  static properties = {model: {state: true}, message: {state: true}, busy: {state: true}};
-  declare private model: ReturnType<typeof describeWorkOverview> | undefined;
+  static properties = {model: {state: true}, request: {state: true}, message: {state: true}, busy: {state: true}};
+  declare private model: WorkOverviewModel | undefined;
+  declare private request: RequestOverviewModel | undefined;
   declare private message: string;
   declare private busy: boolean;
   private current: WorkOverviewContext | undefined;
@@ -140,6 +155,7 @@ export class SodaFactoryWorkOverview extends LitElement {
     this.current = context;
     this.serial++;
     this.model = undefined;
+    this.request = undefined;
     this.message = '';
     this.busy = false;
     if (context) void this.load();
@@ -158,9 +174,15 @@ export class SodaFactoryWorkOverview extends LitElement {
     const serial = this.serial;
     this.busy = true;
     try {
-      const model = await readOverview(context);
-      if (serial === this.serial) {
-        this.model = model;
+      const request = await readRequestOverview(context);
+      if (serial !== this.serial) return;
+      if (request) {
+        this.request = request;
+        this.model = undefined;
+        this.message = '';
+      } else {
+        this.request = undefined;
+        this.model = await readOverview(context);
         this.message = '';
       }
     } catch (error) {
@@ -175,7 +197,15 @@ export class SodaFactoryWorkOverview extends LitElement {
       <p data-work-message aria-live="polite">${this.message}</p>
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>
         Refresh overview</button
-      >${this.model ? renderWorkOverview(this.model) : this.busy ? html`<p>Loading work overview…</p>` : ''}
+      >${
+        this.request
+          ? renderRequestOverview(this.request)
+          : this.model
+            ? renderWorkOverview(this.model)
+            : this.busy
+              ? html`<p>Loading work overview…</p>`
+              : ''
+      }
     </section>`;
   }
 }
@@ -254,6 +284,22 @@ async function readOverviewIssues(
   return {issues, unread};
 }
 
+// readRequestOverview prefers the H-R request overview. Any failure
+// falls back to the composed per-source reads so ordinary progress
+// views keep moving while the overview route rolls out.
+async function readRequestOverview(context: WorkOverviewContext): Promise<RequestOverviewModel | undefined> {
+  if (!context.intentID) return undefined;
+  try {
+    const view = requestOverview(
+      await getJSON(context.transport, `factory/intents/${context.intentID}/overview`),
+      context.intentID
+    );
+    return describeRequestOverview(view, context.repositoryPath);
+  } catch {
+    return undefined;
+  }
+}
+
 async function readOverview(context: WorkOverviewContext) {
   const {revision, state: intentState} = await readOverviewRevision(context);
   const {generation, state: generationState} = await readOverviewGeneration(context, revision);
@@ -287,9 +333,22 @@ function samePlan(a: WorkPlanContext | undefined, b: WorkPlanContext | undefined
   return planSignature(a) === planSignature(b);
 }
 
+interface RecordedPlanEntry {
+  readonly issue: string;
+  readonly plan: RecordedPlanModel;
+  readonly choice: RecordedChoiceModel;
+}
+
 export class SodaFactoryWorkPlan extends LitElement {
-  static properties = {details: {state: true}, unread: {state: true}, message: {state: true}, busy: {state: true}};
+  static properties = {
+    details: {state: true},
+    recorded: {state: true},
+    unread: {state: true},
+    message: {state: true},
+    busy: {state: true},
+  };
   declare private details: FactoryIssueDetail[];
+  declare private recorded: RecordedPlanEntry[];
   declare private unread: string[];
   declare private message: string;
   declare private busy: boolean;
@@ -301,6 +360,7 @@ export class SodaFactoryWorkPlan extends LitElement {
   constructor() {
     super();
     this.details = [];
+    this.recorded = [];
     this.unread = [];
     this.message = '';
     this.busy = false;
@@ -310,6 +370,7 @@ export class SodaFactoryWorkPlan extends LitElement {
     this.current = context;
     this.serial++;
     this.details = [];
+    this.recorded = [];
     this.unread = [];
     this.message = '';
     this.busy = false;
@@ -330,8 +391,10 @@ export class SodaFactoryWorkPlan extends LitElement {
     this.busy = true;
     try {
       const details = await readPlanIssues(context);
+      const recorded = await readRecordedPlans(context);
       if (serial === this.serial) {
         this.details = details.issues;
+        this.recorded = recorded;
         this.unread = details.unread;
         this.message = '';
       }
@@ -341,6 +404,10 @@ export class SodaFactoryWorkPlan extends LitElement {
       if (serial === this.serial) this.busy = false;
     }
   }
+  private fallbackDetails(): FactoryIssueDetail[] {
+    const recorded = new Set(this.recorded.map((entry) => entry.issue));
+    return this.details.filter((detail) => !recorded.has(detail.issue));
+  }
   protected render() {
     const context = this.current;
     if (!context) return html``;
@@ -348,14 +415,42 @@ export class SodaFactoryWorkPlan extends LitElement {
       <p data-work-message aria-live="polite">${this.message}</p>
       ${this.unread.length > 0 ? html`<p>${this.unread.length} work item${this.unread.length === 1 ? '' : 's'} could not be read.</p>` : ''}
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>Refresh plan</button>
+      ${this.recorded.map((entry) => renderRecordedPlan(entry.plan, entry.choice))}
       ${renderWorkPlan(
         describeWhyNext(this.details, context.repositoryPath, Math.floor(Date.now() / 1000)),
-        describePrerequisites(this.details, context.repositoryPath)
+        describePrerequisites(this.fallbackDetails(), context.repositoryPath)
       )}
     </section>`;
   }
 }
 customElements.define('soda-factory-work-plan', SodaFactoryWorkPlan);
+
+// readRecordedPlans reads each issue's H-R plan independently. A
+// missing route or unreadable plan leaves that issue to the
+// readiness-based fallback; it never blocks the other issues.
+async function readRecordedPlans(context: WorkPlanContext): Promise<RecordedPlanEntry[]> {
+  const settled = await Promise.allSettled(
+    context.issues.map((issue) =>
+      getJSON(context.transport, `repositories/${context.repository}/factory/issues/${issue}/plan?limit=5`)
+    )
+  );
+  const entries: RecordedPlanEntry[] = [];
+  settled.forEach((result, index) => {
+    const issue = context.issues[index] ?? '';
+    if (result.status !== 'fulfilled' || issue === '') return;
+    try {
+      const plan = issuePlan(result.value, context.repository, issue);
+      entries.push({
+        issue,
+        plan: describeRecordedPlan(plan.plan, plan.freshness),
+        choice: describeRecordedChoice(plan, context.repositoryPath),
+      });
+    } catch {
+      return;
+    }
+  });
+  return entries;
+}
 
 async function readPlanIssues(context: WorkPlanContext): Promise<{issues: FactoryIssueDetail[]; unread: string[]}> {
   const issues: FactoryIssueDetail[] = [];
