@@ -69,8 +69,15 @@ func intentTaskBody(r factory.IntentRevision, t factory.IntentTask) string {
 	for _, id := range t.IdeaIDs {
 		selected[id] = true
 	}
+	effective := map[string]bool{}
+	for _, id := range r.EffectiveOutcomes {
+		effective[id] = true
+	}
 	for _, idea := range r.Ideas {
 		if !selected[idea.ID] && !idea.Assumption {
+			continue
+		}
+		if len(effective) > 0 && !effective[idea.ID] {
 			continue
 		}
 		if idea.Decision != "accept" && idea.Decision != "edit" {
@@ -79,6 +86,18 @@ func intentTaskBody(r factory.IntentRevision, t factory.IntentTask) string {
 		label := "Accepted product choice"
 		if idea.Assumption {
 			label = "Accepted assumption"
+		}
+		if idea.Source != "" || idea.Provenance != "" {
+			provenance := idea.Source
+			if idea.Provenance != "" {
+				if provenance != "" {
+					provenance += ", "
+				}
+				provenance += idea.Provenance
+			}
+			if provenance != "" {
+				label += " (" + provenance + ")"
+			}
 		}
 		fmt.Fprintf(&b, "\n%s (%s):\n", label, idea.ID)
 		if idea.Decision == "edit" {
@@ -105,6 +124,9 @@ func intentTaskBody(r factory.IntentRevision, t factory.IntentTask) string {
 			}
 		}
 		fmt.Fprintf(&b, "Consequence: %s\n", idea.Consequence)
+		if idea.Evidence != "" {
+			fmt.Fprintf(&b, "Evidence: %s\n", idea.Evidence)
+		}
 	}
 	fmt.Fprintf(&b, "\nAccepted product intent: %s\nAccepted revision: %s\nIntent digest: %s\nTask: %s\n", r.Intent, r.ID, r.Digest(), t.Key)
 	raw, _ := json.Marshal(t)

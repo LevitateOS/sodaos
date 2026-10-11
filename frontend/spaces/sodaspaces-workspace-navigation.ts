@@ -45,6 +45,40 @@ export function attentionRows(reading: NavReading, spaces: Space[], entries: Lay
       }))
   );
 }
+export interface DiscoveryEmptyInput {
+  available: boolean;
+  busy: boolean;
+  attentionOnly: boolean;
+  search: string;
+  thisPage: boolean;
+}
+/** Empty discovery reads differently while loading, when unavailable, when filtered and when truly empty. */
+export function discoveryEmptyMessage(input: DiscoveryEmptyInput): string {
+  if (input.busy) return 'Loading your projects and terminals…';
+  if (!input.available) return 'Status unavailable.';
+  if (input.attentionOnly) return 'No matching sessions need attention.';
+  if (input.search || input.thisPage) return 'No matches.';
+  return 'No authorized projects available.';
+}
+/** Stable row keys ordered by last observation; ties keep key order so the list is deterministic. */
+export function recentRowKeys(shown: Row[], slots: Slot[], limit: number): string[] {
+  if (limit <= 0) return [];
+  const observed = new Map(slots.map((slot) => [slot.key, slot.observedAt]));
+  return [...new Set(shown.map((row) => row.key))]
+    .sort((a, b) => (observed.get(b) || 0) - (observed.get(a) || 0) || (a < b ? -1 : 1))
+    .slice(0, limit);
+}
+/** Split already-filtered rows so sessions needing attention can head their own group. */
+export function splitAttentionRows(
+  reading: NavReading,
+  space: Space,
+  shown: Row[]
+): {attention: Row[]; sessions: Row[]} {
+  const attention: Row[] = [],
+    sessions: Row[] = [];
+  for (const row of shown) (rowAttention(reading, space, row) ? attention : sessions).push(row);
+  return {attention, sessions};
+}
 export interface FilteredSpacesInput {
   reading: NavReading;
   spaces: Space[];

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strings"
 )
 
 // PriorityCandidate contains observed evidence only. Empty impact, risk and
@@ -113,4 +114,62 @@ func (a PriorityAnswer) Validate(request PriorityRequest) error {
 		}
 	}
 	return nil
+}
+
+// JudgmentPurpose names one of the seven bounded System One purposes owned by
+// the product planning-and-priority-judgments contract. Every purpose is a
+// Choice judgment over caller-supplied evidence and explicit options.
+type JudgmentPurpose string
+
+const (
+	JudgmentProductApproaches JudgmentPurpose = "product-approaches"
+	JudgmentAssumptions       JudgmentPurpose = "assumptions"
+	JudgmentConsolidation     JudgmentPurpose = "consolidation"
+	JudgmentDecomposition     JudgmentPurpose = "decomposition"
+	JudgmentPlanningFreshness JudgmentPurpose = "planning-freshness"
+	JudgmentNextWork          JudgmentPurpose = "next-work"
+	JudgmentConsistency       JudgmentPurpose = "consistency"
+)
+
+// JudgmentPurposes lists the seven purposes in owning-doc order.
+func JudgmentPurposes() []JudgmentPurpose {
+	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency}
+}
+
+func (p JudgmentPurpose) valid() bool {
+	for _, known := range JudgmentPurposes() {
+		if known == p {
+			return true
+		}
+	}
+	return false
+}
+
+// JudgmentFingerprint binds a purpose to its exact semantic inputs. Identical
+// state under different purposes or questions yields different fingerprints,
+// so a result is reusable only while its purpose and inputs still match.
+func JudgmentFingerprint(purpose JudgmentPurpose, state any, question string, options map[string]any) (string, error) {
+	if !purpose.valid() || strings.TrimSpace(question) == "" || len(question) > 16000 || strings.ContainsRune(question, 0) {
+		return "", errors.New("invalid judgment purpose or question")
+	}
+	if len(options) < 2 || len(options) > 255 {
+		return "", errors.New("invalid judgment option size")
+	}
+	for key := range options {
+		if strings.TrimSpace(key) == "" || len(key) > 200 || strings.ContainsRune(key, 0) {
+			return "", errors.New("invalid judgment option identity")
+		}
+	}
+	data, err := json.Marshal(struct {
+		Kind     string
+		Purpose  JudgmentPurpose
+		State    any
+		Question string
+		Options  map[string]any
+	}{"judgment-v1", purpose, state, question, options})
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
 }
