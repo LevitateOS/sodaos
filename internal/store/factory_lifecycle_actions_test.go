@@ -99,8 +99,14 @@ func TestSaveConfigGatesOnCapability(t *testing.T) {
 	if _, err := s.SaveConfig(ctx, disabled); err != nil {
 		t.Fatalf("disabled save failed: %v", err)
 	}
-	if err := s.RecordCapability(ctx, c.Event, "cap-rev-1"); err != nil {
-		t.Fatalf("capability record failed: %v", err)
+	if replaced, err := s.RegisterCapability(ctx, c.Event, "cap-rev-1", "inst-1"); err != nil || !replaced {
+		t.Fatalf("capability register failed: %v %v", replaced, err)
+	}
+	if replaced, err := s.RegisterCapability(ctx, c.Event, "cap-rev-1", "inst-1"); err != nil || replaced {
+		t.Fatalf("identical replay replaced: %v %v", replaced, err)
+	}
+	if replaced, err := s.RegisterCapability(ctx, c.Event, "cap-rev-2", "inst-1"); err != nil || !replaced {
+		t.Fatalf("generation supersede failed: %v %v", replaced, err)
 	}
 	proved, err := s.CapabilityProved(ctx, c.Event)
 	if err != nil || !proved {
@@ -117,5 +123,20 @@ func TestSaveConfigGatesOnCapability(t *testing.T) {
 	got, err := s.LifecycleConfig(ctx, c.Event)
 	if err != nil || !got.Enabled || got.Revision != 1 {
 		t.Fatalf("config get %+v err=%v", got, err)
+	}
+	if err := s.DeleteCapability(ctx, c.Event); err != nil {
+		t.Fatalf("capability delete failed: %v", err)
+	}
+	if ok, err := s.CapabilityProved(ctx, c.Event); err != nil || ok {
+		t.Fatalf("deleted marker proved: %v %v", ok, err)
+	}
+	if _, err := s.RegisterCapability(ctx, factory.LifecycleEventPRCreated, "gen-1", "inst-9"); err != nil {
+		t.Fatalf("foreign register failed: %v", err)
+	}
+	if err := s.DeleteForeignCapabilities(ctx, "inst-1"); err != nil {
+		t.Fatalf("foreign delete failed: %v", err)
+	}
+	if ok, err := s.CapabilityProved(ctx, factory.LifecycleEventPRCreated); err != nil || ok {
+		t.Fatalf("foreign marker retained: %v %v", ok, err)
 	}
 }
