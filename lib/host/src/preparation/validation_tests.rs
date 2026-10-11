@@ -24,6 +24,7 @@ fn requirements() -> RequirementAcceptance {
         approver: 1,
         source_commit: COMMIT.to_string(),
         digest: EFFECTS.to_string(),
+        source_inputs: Default::default(),
     }
 }
 
@@ -314,4 +315,31 @@ fn candidate_validation_branches() {
         c.validate().unwrap_err(),
         "candidate source bundle exceeds preparation bounds"
     );
+}
+
+#[test]
+fn requirement_source_inputs_bind_exact_canonical_paths() {
+    let mut accepted = requirements();
+    accepted
+        .source_inputs
+        .insert("config/build.toml".into(), DIGEST.into());
+    assert!(accepted.validate().is_ok());
+    for name in [
+        "../config",
+        "/config",
+        "a//b",
+        "a/./b",
+        ".git/config",
+        "a/.soda-home/token",
+        "a\\b",
+        "a\0b",
+        "a\nb",
+    ] {
+        let mut bad = requirements();
+        bad.source_inputs.insert(name.into(), DIGEST.into());
+        assert!(bad.validate().is_err(), "invalid path accepted: {name:?}");
+    }
+    let mut bad = requirements();
+    bad.source_inputs.insert("Cargo.lock".into(), "bad".into());
+    assert!(bad.validate().is_err());
 }

@@ -3,6 +3,7 @@ use super::{valid_commit, valid_decision_id, valid_digest};
 use crate::json::SignedInteger;
 use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -12,6 +13,7 @@ pub struct RequirementAcceptance {
     pub approver: i64,
     pub source_commit: String,
     pub digest: String,
+    pub source_inputs: HashMap<String, String>,
 }
 
 impl RequirementAcceptance {
@@ -23,6 +25,21 @@ impl RequirementAcceptance {
             || !valid_digest(&self.digest)
         {
             return Err("invalid requirement acceptance reference".to_string());
+        }
+        if self.source_inputs.len() > 64 {
+            return Err("approved source inputs exceed bounds".into());
+        }
+        for (name, digest) in &self.source_inputs {
+            if name.is_empty()
+                || name.len() > 256
+                || name.contains(['\\', '\0', '\r', '\n'])
+                || name
+                    .split('/')
+                    .any(|part| matches!(part, "" | "." | ".." | ".git" | ".soda-home"))
+                || !valid_digest(digest)
+            {
+                return Err("invalid approved source input".into());
+            }
         }
         Ok(())
     }
@@ -79,7 +96,7 @@ macro_rules! typed_decision {
 }
 
 typed_decision!(RequirementAcceptance, "a requirement acceptance object", {
-    id: String, revision: SignedInteger, approver: SignedInteger, source_commit: String, digest: String
+    id: String, revision: SignedInteger, approver: SignedInteger, source_commit: String, digest: String, source_inputs: HashMap<String, String>
 });
 typed_decision!(AdminApproval, "an admin approval object", {
     id: String, revision: SignedInteger, approver: SignedInteger, effects_digest: String

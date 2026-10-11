@@ -320,7 +320,7 @@ func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publ
 	stored := storedRecord.Preparation
 	if stored.Preparation.ID != prep.ID || stored.Preparation.Role != prep.Role ||
 		stored.Preparation.Project != prep.Project || stored.Preparation.SourceCommit != prep.SourceCommit ||
-		stored.Preparation.Requirements != prep.Requirements || stored.Preparation.Approval != prep.Approval ||
+		!stored.Preparation.Requirements.Equal(prep.Requirements) || stored.Preparation.Approval != prep.Approval ||
 		stored.Preparation.SetupDigest != prep.SetupDigest || stored.Preparation.Credential != prep.Credential ||
 		!slices.Equal(stored.Preparation.Tools, prep.Tools) {
 		c.fenceChildPublication(ctx, p, report)

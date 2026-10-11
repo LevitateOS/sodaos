@@ -336,6 +336,7 @@ pub(in crate::factory) fn sample_preparation() -> Preparation {
             approver: 7,
             source_commit: "e".repeat(40),
             digest: "0".repeat(64),
+            source_inputs: Default::default(),
         },
         approval: preparation::AdminApproval {
             id: format!("d{}", "c".repeat(24)),

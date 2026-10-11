@@ -52,6 +52,36 @@ func TestRequirementDecisionValidation(t *testing.T) {
 	}
 }
 
+func TestRequirementSourceInputsAreBoundedAndCopied(t *testing.T) {
+	d := RequirementDecision{ID: testDecisionA, Project: testProjectID, Approver: 7, SourceCommit: testCommit, SetupDigest: testDigest, InputsDigest: testDigest, SourceInputs: map[string]string{"config/build.toml": testDigest}}
+	if err := d.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	ref := d.Ref(1)
+	if !ref.Equal(d.Ref(1)) {
+		t.Fatal("unchanged selection differs")
+	}
+	d.SourceInputs["config/build.toml"] = strings.Repeat("f", 64)
+	if ref.SourceInputs["config/build.toml"] != testDigest || ref.Equal(d.Ref(1)) {
+		t.Fatal("immutable reference selection changed")
+	}
+	for _, name := range []string{"../config", "/config", "a//b", "a/./b", ".git/config", "a/.soda-home/token", "a\\b", "a\x00b", "a\nb", strings.Repeat("x", 257)} {
+		if ValidateSourceInputs(map[string]string{name: testDigest}) == nil {
+			t.Errorf("invalid source input accepted: %q", name)
+		}
+	}
+	if ValidateSourceInputs(map[string]string{"Cargo.lock": "bad"}) == nil {
+		t.Fatal("invalid digest accepted")
+	}
+	tooMany := make(map[string]string)
+	for i := 0; i <= MaxSourceInputs; i++ {
+		tooMany[strings.Repeat("x", i+1)] = testDigest
+	}
+	if ValidateSourceInputs(tooMany) == nil {
+		t.Fatal("oversized selection accepted")
+	}
+}
+
 func TestApprovalDecisionValidation(t *testing.T) {
 	digest := strings.Repeat("d", 64)
 	good := ApprovalDecision{

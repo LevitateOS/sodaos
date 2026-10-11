@@ -9,9 +9,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -120,16 +122,43 @@ func ValidToolName(name string) bool { return toolName.MatchString(name) }
 // RequirementAcceptance is the code-write maintainer's exact-inputs acceptance
 // reference. It specifies the desired environment, never root execution.
 type RequirementAcceptance struct {
-	ID           string `json:"id"`
-	Revision     int64  `json:"revision"`
-	Approver     int64  `json:"approver"`
-	SourceCommit string `json:"source_commit"`
-	Digest       string `json:"digest"`
+	ID           string            `json:"id"`
+	Revision     int64             `json:"revision"`
+	Approver     int64             `json:"approver"`
+	SourceCommit string            `json:"source_commit"`
+	Digest       string            `json:"digest"`
+	SourceInputs map[string]string `json:"source_inputs,omitempty"`
 }
 
 func (a RequirementAcceptance) Validate() error {
 	if !ValidDecisionID(a.ID) || a.Revision < 0 || a.Approver <= 0 || !ValidCommit(a.SourceCommit) || !ValidDigest(a.Digest) {
 		return errors.New("invalid requirement acceptance reference")
+	}
+	return ValidateSourceInputs(a.SourceInputs)
+}
+
+// Equal includes the exact human-selected effective repository inputs.
+func (a RequirementAcceptance) Equal(b RequirementAcceptance) bool {
+	return a.ID == b.ID && a.Revision == b.Revision && a.Approver == b.Approver && a.SourceCommit == b.SourceCommit && a.Digest == b.Digest && maps.Equal(a.SourceInputs, b.SourceInputs)
+}
+
+const MaxSourceInputs = 64
+
+// ValidateSourceInputs bounds the complete selection declared by a maintainer.
+// Absence permits the exact approved source only; it cannot authorize refresh.
+func ValidateSourceInputs(inputs map[string]string) error {
+	if len(inputs) > MaxSourceInputs {
+		return errors.New("approved source inputs exceed bounds")
+	}
+	for name, digest := range inputs {
+		if !validFactoryContextPath(name) || !utf8.ValidString(name) || strings.ContainsAny(name, "\x00\r\n") || !ValidDigest(digest) {
+			return errors.New("invalid approved source input")
+		}
+		for _, component := range strings.Split(name, "/") {
+			if component == ".git" || component == ".soda-home" {
+				return errors.New("private path is not an approved source input")
+			}
+		}
 	}
 	return nil
 }

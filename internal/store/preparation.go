@@ -119,7 +119,7 @@ func (s *Store) AdmitPreparation(ctx context.Context, p project.StoredPreparatio
 	if err != nil {
 		return project.StoredPreparation{}, false, err
 	}
-	if existing.Preparation.Requirements != prep.Requirements || existing.Preparation.Approval != prep.Approval ||
+	if !existing.Preparation.Requirements.Equal(prep.Requirements) || existing.Preparation.Approval != prep.Approval ||
 		existing.Preparation.SourceCommit != prep.SourceCommit || existing.Preparation.SetupDigest != prep.SetupDigest {
 		return project.StoredPreparation{}, false, errors.New("preparation identity already carries different approved inputs")
 	}
@@ -206,7 +206,17 @@ func (s *Store) Preparation(ctx context.Context, id string) (project.StoredPrepa
 
 // ProjectPreparations lists the durable preparation records for one project.
 func (s *Store) ProjectPreparations(ctx context.Context, projectID string) ([]project.StoredPreparation, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM project_preparations WHERE project_id=$1 ORDER BY id LIMIT 129`, projectID)
+	return s.projectPreparations(ctx, projectID, false)
+}
+
+// StandingProjectPreparations excludes private candidate custody: one issue's
+// consumed checkout cannot become another issue's approved source template.
+func (s *Store) StandingProjectPreparations(ctx context.Context, projectID string) ([]project.StoredPreparation, error) {
+	return s.projectPreparations(ctx, projectID, true)
+}
+
+func (s *Store) projectPreparations(ctx context.Context, projectID string, standing bool) ([]project.StoredPreparation, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM project_preparations WHERE project_id=$1 AND (NOT $2 OR NOT (data ? 'factory_admission')) ORDER BY id LIMIT 129`, projectID, standing)
 	if err != nil {
 		return nil, err
 	}

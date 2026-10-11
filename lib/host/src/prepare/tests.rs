@@ -101,6 +101,7 @@ pub(super) fn preparation() -> Preparation {
             approver: 1,
             source_commit: COMMIT.to_string(),
             digest: EFFECTS.to_string(),
+            source_inputs: Default::default(),
         },
         approval: preparation::AdminApproval {
             id: format!("d{:024x}", 2),

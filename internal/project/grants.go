@@ -5,7 +5,10 @@
 // validation: no I/O, no SQL, no privilege.
 package project
 
-import "errors"
+import (
+	"errors"
+	"maps"
+)
 
 // EnvironmentGrant is the current repository owner's standing permission to
 // create and start the Project environment automatically. It creates no
@@ -36,13 +39,14 @@ func (g EnvironmentGrant) Validate() error {
 // Project; only the head authorizes new preparation. It grants neither
 // Project root nor host execution.
 type RequirementDecision struct {
-	ID           string `json:"id"`
-	Predecessor  string `json:"predecessor,omitempty"`
-	Project      string `json:"project"`
-	SourceCommit string `json:"source_commit"`
-	SetupDigest  string `json:"setup_digest"`
-	InputsDigest string `json:"inputs_digest"`
-	Approver     int64  `json:"approver"`
+	ID           string            `json:"id"`
+	Predecessor  string            `json:"predecessor,omitempty"`
+	Project      string            `json:"project"`
+	SourceCommit string            `json:"source_commit"`
+	SetupDigest  string            `json:"setup_digest"`
+	InputsDigest string            `json:"inputs_digest"`
+	Approver     int64             `json:"approver"`
+	SourceInputs map[string]string `json:"source_inputs,omitempty"`
 }
 
 func (d RequirementDecision) Validate() error {
@@ -52,13 +56,13 @@ func (d RequirementDecision) Validate() error {
 	if !ValidID(d.Project) || d.Approver <= 0 || !ValidCommit(d.SourceCommit) || !ValidDigest(d.SetupDigest) || !ValidDigest(d.InputsDigest) {
 		return errors.New("invalid requirement decision inputs")
 	}
-	return nil
+	return ValidateSourceInputs(d.SourceInputs)
 }
 
 // Ref converts the decision to the preparation requirement reference ST01
 // records. The revision counts chain depth from the stored head.
 func (d RequirementDecision) Ref(depth int64) RequirementAcceptance {
-	return RequirementAcceptance{ID: d.ID, Revision: depth, Approver: d.Approver, SourceCommit: d.SourceCommit, Digest: d.InputsDigest}
+	return RequirementAcceptance{ID: d.ID, Revision: depth, Approver: d.Approver, SourceCommit: d.SourceCommit, Digest: d.InputsDigest, SourceInputs: maps.Clone(d.SourceInputs)}
 }
 
 // ApprovalDecision is the native Project administrator's immutable approval

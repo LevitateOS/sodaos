@@ -11,12 +11,13 @@ import (
 )
 
 type preparationAcceptanceRequest struct {
-	CommandID    string `json:"command_id"`
-	DecisionID   string `json:"decision_id"`
-	Predecessor  string `json:"predecessor,omitempty"`
-	SourceCommit string `json:"source_commit"`
-	SetupDigest  string `json:"setup_digest"`
-	InputsDigest string `json:"inputs_digest"`
+	CommandID    string            `json:"command_id"`
+	DecisionID   string            `json:"decision_id"`
+	Predecessor  string            `json:"predecessor,omitempty"`
+	SourceCommit string            `json:"source_commit"`
+	SetupDigest  string            `json:"setup_digest"`
+	InputsDigest string            `json:"inputs_digest"`
+	SourceInputs map[string]string `json:"source_inputs,omitempty"`
 }
 
 // apiPreparationAcceptances records the maintainer's exact-inputs acceptance
@@ -41,6 +42,7 @@ func (s *API) apiPreparationAcceptances(w http.ResponseWriter, r *http.Request, 
 	decision := project.RequirementDecision{
 		ID: in.DecisionID, Predecessor: in.Predecessor, Project: p.ID,
 		Approver: v.User.ID, SourceCommit: in.SourceCommit, SetupDigest: in.SetupDigest, InputsDigest: in.InputsDigest,
+		SourceInputs: in.SourceInputs,
 	}
 	if decision.Validate() != nil {
 		auth.JSONError(w, 400, "invalid_acceptance", "Requirement acceptance must name its exact approved inputs.")
