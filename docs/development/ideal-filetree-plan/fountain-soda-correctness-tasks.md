@@ -23,8 +23,9 @@ No code changes, tests, builds or live-provider journeys were performed by this 
 
 Implementation continues under the owner's direct authorizations in the ongoing
 finishing goal. The preparation baseline above remains historical. Current
-committed inputs are Fountain `1e6970300e` and Soda
-`4a51990b`. Eighteen of nineteen tasks are complete at their stated source,
+shipping inputs are Fountain `1e6970300e` and Soda
+`4a51990b`; the later acceptance-companion repair is `b29bb21f`.
+Eighteen of nineteen tasks are complete at their stated source,
 fixture or native DEVELOPMENT scope. V03 remains open; matching installed
 qualification does not follow from development checks.
 The fresh native x86_64 candidate from Soda `5408a220` (the same shipping
@@ -61,11 +62,42 @@ These matching installed receipts are under
 logs and `human-marker-after-factory-01.log`. Independent review accepts their
 exact scopes. Observer failures remain retained: initial preparation409 followed
 by Ready readback, expired dependent-create guard before POST, relative-path/CDP
-failures and the corrected Attach-only terminal observation. Matching-image
-human workflows, complete terminal matrix and same-disk reboot recovery are still
-being checked. Provider execution uses explicitly TestOnly admission; normal
-managed Muse device-account approval remains a separate external enrollment gate.
-V03/C11.V/R04 remain open until their required remaining gates pass.
+failures and the corrected Attach-only terminal observation.
+
+Matching-image human workflows now pass: normal second-Project creation and
+member access, twelve distinct terminal sessions across two actors/two Projects,
+split/layout/reload and exact End/native cleanup, including the separate retained
+first-use terminal. Shared root-owned Node24.20.0 and shared-file inode visibility,
+member write denial and second-Project isolation pass. Both users' encrypted
+Project-local Git keys pass normal public registration, clone/commit/push/native
+ref readback and independent collaborator fetch.
+
+Two normal same-disk reboots preserve the original Project containers and image
+identities. The selected installed files/images/schema/runtime joins pass again;
+the human marker, shared tools/file and clean Git checkouts persist. Nested
+workloads truthfully stop during orderly shutdown; normal `compose start` restores
+the same database/files container IDs and named-volume creation identity. The
+retained SQL marker, HTTP readiness and Bob/developer port access pass afterward;
+external TCP5432 reachability is not represented as authenticated SQL. The normal
+owner's six GETs activate the broker through its active socket, returning the same
+Ready generation1 connection, grant, budget20 and closed dispatch gate. Six
+settled runs/usage6 and zero custody remain after reboot, without stage replay.
+
+The earlier live-agent unlock refusal left temporary files, causing the next
+unlock to fail before key loading. Those failed receipts remain retained. The
+acceptance-only repair `b29bb21f` checks cleanup of invocation-owned temporary
+credentials on every return while preserving prior key/agent state. Three focused
+Rust checks, offline companion build and independent review pass. Its actual
+native live-agent refusal removes both temporary files; after the second normal
+boot both original keys unlock and authenticate through pinned Git SSH. No
+shipping image changed for this driver repair. Additional receipts include
+`r04-matrix-result-02.json`, `installed-workloads-check-after-reboot-02.log`,
+`installed-personal-git-repaired-unlock-after-reboot-01.log`,
+`installed-runtime-joins-after-activation-02.log` and
+`factory-watch-after-reboot-02.log` under the same final fixture root.
+C11.V is complete at its selected driver/native-binding scope. Provider execution
+uses explicitly TestOnly admission; normal managed Muse device-account approval
+remains an external enrollment gate, leaving V03/R04 open.
 
 Native DEVELOPMENT continuation has passed fifteen credential-family,
 public-only, resource-bound and retained-creation reads; five cancellation/
@@ -147,7 +179,7 @@ P1–P7 and was interrupted in P8; it is not a completed installed candidate.
 | G02 | Complete at source/consumer scope on the identified pair: affected architecture, service wiring, strict Go formatting, browser and schema-emission checks pass. Independent review accepts 2,629 exact current leaves across the selective tree, inventory and ownership maps; historical body-review pins and unrelated dirty placement/reviews are preserved. The Fountain component is compiled natively with pinned Go1.26.7 and retained compiler provenance; this is artifact preparation, not a full candidate or installed qualification. |
 | V01 | Complete at serving-fixture scope: actual Coordinator.Start drives original creation → coder → independent blocking review → correction → fresh delayed CI → verified merge → original-issue closure → dependent pickup. `4a51990b` additionally proves reopening and equal-time re-closing block dependent pickup (actual PostgreSQL race, 74.073s for the focused closure packet), preserving existing timer, expiry, capacity and recovery receipts. Drivers supply boundary facts and call no settlement/publication/check/merge stages. This is fixture evidence; V02/V03 remain separate. |
 | V02 | Complete at native DEVELOPMENT scope on Soda `4a51990b` and Fountain `1e6970300e`: sole serving recovery, six real Muse runs, blocking finding/correction/fresh approval, exact-head delayed CI, PRs #8 and #9 merges, original closures 49 and 54 and automatic dependent source pickup pass. Six exact Host retirements, broker returns, conserved historical usage, normal Pause and human preservation pass. Unchanged native credential/cancellation and terminal evidence is reused only at its demonstrated scope; TestOnly enrollment is not normal managed enrollment. |
-| V03 | Fresh matching5408a220/F1e development candidate build/check/install, installed provenance/schema40, clean/maintenance enrollment, public preparation/funding, key isolation and automatic six-run original closure/dependent pickup now pass. Matching human workflows, full matrix and same-disk reboot recovery remain open under C11.V/R04; TestOnly admission does not close normal Meta device-account approval. |
+| V03 | Fresh matching5408a220/F1e development candidate build/check/install, installed provenance/schema40, clean/maintenance enrollment, public preparation/funding, key isolation, automatic six-run original closure/dependent pickup, matching human workflows/full matrix and same-disk reboot/persistence pass. C11.V closes the selected driver/native-binding subjects, including the independently reviewed b29bb21f acceptance-only cleanup repair. Normal managed Muse Meta device-account approval remains unproved; TestOnly admission does not close that V03/R04 gate. |
 
 Implementation authority comes from the existing chat, not this chapter.
 Three workers own A/B/C; D is the integration lead and sole shared SDK/schema/
