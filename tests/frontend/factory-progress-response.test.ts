@@ -7,6 +7,7 @@ import {
   lifecycleEffectConfig,
   planningAllowance,
   requestOverview,
+  revisionHistory,
 } from '../../frontend/spaces/sodaspaces-factory-progress-response';
 
 const intent = 'd' + 'e'.repeat(24);
@@ -491,4 +492,112 @@ test('repository access rejects wrong scope, overlong listings and inconsistent 
   assert.throws(() => factoryAccess({...accessFixture, planning: [{...accessEntry, available: 24}]}, '7'));
   assert.throws(() => factoryAccess({...accessFixture, planning: [{...accessEntry, consumed: 35, available: 0}]}, '7'));
   assert.throws(() => factoryAccess({...accessFixture, viewer: {...accessFixture.viewer, member: 'yes'}}, '7'));
+});
+
+const revisionPrior = 'd' + '1'.repeat(24);
+
+const historyCurrent = {
+  revision,
+  state: 'accepted',
+  repository: '7',
+  created_unix: 1728670000,
+  generation: {state: 'committed'},
+  comparison: {
+    tasks: {
+      added: [],
+      removed: [],
+      changed: [
+        {
+          key: task,
+          changed_fields: ['objective'],
+          old_objective: 'Track work.',
+          new_objective: 'Track demo work.',
+        },
+      ],
+      unchanged_count: 1,
+    },
+    ideas: {
+      added: [],
+      removed: [],
+      changed: [
+        {
+          id: idea,
+          from_decision: 'pending',
+          to_decision: 'accept',
+          correction_changed: false,
+          content_changed: true,
+        },
+      ],
+    },
+    effective_outcomes: {added: [idea], removed: []},
+    state_change: {from: 'draft', to: 'accepted'},
+  },
+  work: [{task_key: task, issue_index: '12', state: 'working', authority: 'current'}],
+};
+
+const historyFirst = {
+  revision: revisionPrior,
+  state: 'draft',
+  repository: '7',
+  created_unix: 1728660000,
+  generation: {state: 'not_requested'},
+  comparison: {
+    tasks: {added: [], removed: [], changed: [], unchanged_count: 0},
+    ideas: {added: [], removed: [], changed: []},
+    effective_outcomes: {added: [], removed: []},
+    initial: true,
+  },
+  work: [],
+};
+
+const historyFixture = {intent, observed_unix: 1728670000, revisions: [historyCurrent, historyFirst]};
+
+test('revision history binds before/after and affected work to its intent', () => {
+  const parsed = revisionHistory(historyFixture, intent);
+  assert.equal(parsed.intent, intent);
+  assert.equal(parsed.revisions.length, 2);
+  assert.equal(parsed.truncated, false);
+  const current = parsed.revisions[0];
+  assert.equal(current?.state, 'accepted');
+  assert.equal(current?.generation, 'committed');
+  assert.equal(current?.comparison.tasks.changed[0]?.old_objective, 'Track work.');
+  assert.equal(current?.comparison.ideas.changed[0]?.to_decision, 'accept');
+  assert.deepEqual(current?.comparison.effective_added, [idea]);
+  assert.equal(current?.comparison.state_change?.to, 'accepted');
+  assert.equal(current?.work[0]?.issue_index, '12');
+  assert.equal(parsed.revisions[1]?.comparison.initial, true);
+  const cut = revisionHistory({...historyFixture, truncated: true}, intent);
+  assert.equal(cut.truncated, true);
+});
+
+test('revision history rejects wrong scope, bad pages and unpaired texts', () => {
+  assert.throws(() => revisionHistory(historyFixture, task));
+  assert.throws(() => revisionHistory({...historyFixture, revisions: []}, intent));
+  const many = Array.from({length: 6}, () => historyFirst);
+  assert.throws(() => revisionHistory({...historyFixture, revisions: many}, intent));
+  const dirtyFirst = {
+    ...historyFirst,
+    comparison: {...historyFirst.comparison, effective_outcomes: {added: [idea], removed: []}},
+  };
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [dirtyFirst]}, intent));
+  const strayText = {
+    ...historyCurrent,
+    comparison: {
+      ...historyCurrent.comparison,
+      tasks: {
+        added: [],
+        removed: [],
+        changed: [{key: task, changed_fields: ['depends_on'], old_objective: 'Track work.'}],
+        unchanged_count: 1,
+      },
+    },
+  };
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [strayText]}, intent));
+  const badWork = {
+    ...historyCurrent,
+    work: [{task_key: task, issue_index: '12', state: 'shipped', authority: 'current'}],
+  };
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [badWork]}, intent));
+  const badGeneration = {...historyCurrent, generation: {state: 'dreamed'}};
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [badGeneration]}, intent));
 });
