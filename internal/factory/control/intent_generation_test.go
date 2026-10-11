@@ -392,3 +392,52 @@ func TestIntentGraphStaleDurablePacketCancelsBeforeNativeEffects(t *testing.T) {
 		t.Fatal("definite pre-send cancellation not retained", stored.State, err, f.submissions)
 	}
 }
+
+func TestIntentGraphLongProposalRetainsAcceptedSemanticsWithinPacket(t *testing.T) {
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: strings.Repeat("x", 16000), State: "draft", MaxIssues: 10, CreatedUnix: 1}
+	ids := make([]string, 104)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("d%024x", 1000+i)
+	}
+	r = factory.ProposeIntent(r, ids)
+	if err := r.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	r.State = "accepted"
+	for i := range r.Ideas {
+		r.Ideas[i].Decision = "accept"
+	}
+	payload, err := IntentGraphPayload(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(payload)
+	if len(raw) > sdk.MaxIssueGraphPayloadBytes {
+		t.Fatal("long baseline exceeds native packet")
+	}
+	for _, issue := range payload.Creates {
+		if strings.Count(issue.Body, r.Objective) != 1 {
+			t.Fatal("native issue dropped or duplicated full accepted objective")
+		}
+		if !strings.Contains(issue.Body, r.Ideas[1].Description) || !strings.Contains(issue.Body, r.Ideas[1].Consequence) {
+			t.Fatal("accepted access assumption absent from native requirements")
+		}
+	}
+}
+
+func TestIntentGraphBodyIncludesReviewedChoicesAndCorrections(t *testing.T) {
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Track team requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Ask for full address", Decision: "edit", Correction: "Ask only for a work email", Consequence: "Avoid collecting unnecessary personal data"}, {ID: "d444444444444444444444444", Description: "Stay within existing access", Assumption: true, Decision: "edit", Correction: "Permit only current project members", Consequence: "No new account enrollment"}}, Tasks: []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Ask only for a work email", Outcomes: []string{"Accept member request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	payload, err := IntentGraphPayload(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := payload.Creates[0].Body
+	for _, text := range []string{r.Objective, r.Ideas[0].Description, r.Ideas[0].Correction, r.Ideas[0].Consequence, r.Ideas[1].Correction, r.Ideas[1].Consequence} {
+		if !strings.Contains(body, text) {
+			t.Fatalf("native requirements lost %q", text)
+		}
+	}
+	if strings.Count(body, r.Tasks[0].Objective) != 1 {
+		t.Fatal("task and identical correction duplicated")
+	}
+}

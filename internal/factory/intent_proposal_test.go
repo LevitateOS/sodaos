@@ -1,6 +1,10 @@
 package factory
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 func TestProposalUsesReviewedCorrectionsAndRealDependencies(t *testing.T) {
 	r := validIntent()
@@ -20,5 +24,30 @@ func TestProposalUsesReviewedCorrectionsAndRealDependencies(t *testing.T) {
 	r.Ideas[0].Decision = "decline"
 	if len(ProposeIntent(r, ids).Tasks) != 0 {
 		t.Fatal("declined product generated work")
+	}
+}
+
+func TestProposalPreservesLongObjectiveAndBoundsReviewLabels(t *testing.T) {
+	for _, length := range []int{3990, 4000, 16000} {
+		r := validIntent()
+		r.State = "draft"
+		r.Objective = strings.Repeat("x", length)
+		r.Ideas = nil
+		ids := make([]string, 104)
+		for i := range ids {
+			ids[i] = fmt.Sprintf("d%024x", 1000+i)
+		}
+		proposal := ProposeIntent(r, ids)
+		if err := proposal.Validate(); err != nil {
+			t.Fatalf("objective length %d: %v", length, err)
+		}
+		if proposal.Objective != r.Objective {
+			t.Fatal("review shortened original objective")
+		}
+		for _, task := range proposal.Tasks {
+			if len(task.Objective) > 4000 {
+				t.Fatal("review task exceeds bounded objective")
+			}
+		}
 	}
 }
