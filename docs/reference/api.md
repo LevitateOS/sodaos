@@ -45,7 +45,7 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/factory/intents/{intentID}/history` | Owner-private immutable revision history, newest first |
 | GET | `/api/factory/intents/{intentID}/allowance` | Current planning allowance head with available balance |
 | POST | `/api/factory/intent-allowances` | Save allowance revision with head CAS (body-carried intent) |
-| POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `recommendation`) |
+| POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation/consistency judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `recommendation`, `consistency`) |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |

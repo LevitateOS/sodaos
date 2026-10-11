@@ -29,6 +29,7 @@ type exploreData struct {
 	Content        factory.ProposalContent       `json:"content"`
 	Challenges     []factory.AssumptionChallenge `json:"challenges"`
 	Recommendation *factory.ConsolidatedProposal `json:"recommendation,omitempty"`
+	Consistency    *factory.ConsistencyReport    `json:"consistency,omitempty"`
 }
 
 type exploreResponse struct {
@@ -36,11 +37,11 @@ type exploreResponse struct {
 	Exploration exploreData `json:"exploration"`
 }
 
-func attachExploration(proposal factory.IntentRevision, content factory.ProposalContent, challenges []factory.AssumptionChallenge, recommendation *factory.ConsolidatedProposal) exploreResponse {
+func attachExploration(proposal factory.IntentRevision, content factory.ProposalContent, challenges []factory.AssumptionChallenge, recommendation *factory.ConsolidatedProposal, consistency *factory.ConsistencyReport) exploreResponse {
 	if challenges == nil {
 		challenges = []factory.AssumptionChallenge{}
 	}
-	return exploreResponse{IntentRevision: proposal, Exploration: exploreData{Content: content, Challenges: challenges, Recommendation: recommendation}}
+	return exploreResponse{IntentRevision: proposal, Exploration: exploreData{Content: content, Challenges: challenges, Recommendation: recommendation, Consistency: consistency}}
 }
 
 const designRubric = "Using the full supplied objective and reviewed choices, choose a bounded implementation approach. Respect an explicitly selected approach; choose clarify if a declined or corrected assumption contradicts the objective or material outcomes remain unresolved. Do not impose declined assumptions or invent product capabilities. This advice grants no acceptance, repository authority or spending permission."
@@ -145,6 +146,19 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		}
 		recommendation = &consolidated
 	}
+	var consistency *factory.ConsistencyReport
+	if recommendation != nil {
+		verified, err := coord.JudgeConsistency(r.Context(), current, content, *recommendation)
+		if err != nil {
+			if errors.Is(err, control.ErrPriorityUnavailable) {
+				auth.JSONError(w, 503, "planning_unavailable", "Consistency review failed; the consumed allowance is retained.")
+				return
+			}
+			factoryCommandError(w, err)
+			return
+		}
+		consistency = &verified
+	}
 	if err = proposal.Validate(); err != nil {
 		auth.JSONError(w, 400, "invalid_proposal", err.Error())
 		return
@@ -153,7 +167,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 201, attachExploration(proposal, content, challenges, recommendation))
+	auth.JSONResponse(w, 201, attachExploration(proposal, content, challenges, recommendation, consistency))
 }
 
 func intentDesignCriteria() map[string]any {

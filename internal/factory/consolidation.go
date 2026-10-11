@@ -50,13 +50,18 @@ func ConsolidateContent(content ProposalContent, recommended, advice string) (Co
 	if alternative == nil {
 		return ConsolidatedProposal{}, errors.New("unknown recommended alternative")
 	}
+	owned := *alternative
+	owned.Steps = append([]WalkthroughStep(nil), alternative.Steps...)
+	for i := range owned.Steps {
+		owned.Steps[i].Branches = append([]WalkthroughBranch(nil), alternative.Steps[i].Branches...)
+	}
 	proposal := ConsolidatedProposal{
 		Producer:    AuthoredProducer,
 		Intent:      content.Intent,
 		Revision:    content.Revision,
 		Objective:   content.Objective,
 		Recommended: recommended,
-		Alternative: *alternative,
+		Alternative: owned,
 		Outcomes:    append([]string(nil), alternative.Outcomes...),
 		Excluded:    append([]string(nil), content.Excluded...),
 		Advice:      advice,
