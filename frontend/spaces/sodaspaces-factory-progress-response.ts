@@ -820,12 +820,17 @@ export interface RevisionWork {
   readonly authority: string;
   readonly content_version: number;
 }
+export interface RevisionGeneration {
+  readonly state: string;
+  readonly submitted_keys: readonly string[];
+  readonly submitted_differs: boolean;
+}
 export interface RevisionEntry {
   readonly revision: string;
   readonly state: string;
   readonly repository: string;
   readonly created_unix: number;
-  readonly generation: string;
+  readonly generation: RevisionGeneration;
   readonly comparison: RevisionComparison;
   readonly work: readonly RevisionWork[];
   readonly generated_from?: string;
@@ -1020,12 +1025,24 @@ function revisionWork(value: unknown): RevisionWork {
     content_version: counter(raw.content_version),
   };
 }
+function entryGeneration(value: unknown): RevisionGeneration {
+  const raw = object(value);
+  check(revisionGeneration.includes(raw.state));
+  const keys = raw.submitted_keys === undefined ? [] : revisionIDList(raw.submitted_keys, 64);
+  const differs = raw.submitted_differs === undefined ? false : raw.submitted_differs;
+  check(typeof differs === 'boolean');
+  const state = raw.state as string;
+  if (state === 'not_requested') check(keys.length === 0 && !differs);
+  else check(keys.length >= 1);
+  if (differs) check(keys.length >= 1);
+  return {state, submitted_keys: keys, submitted_differs: differs};
+}
 function revisionEntry(value: unknown): RevisionEntry {
   const raw = object(value);
   check(decisionID(raw.revision) && decimalID(raw.repository));
   check(revisionStates.includes(raw.state));
   check(typeof raw.created_unix === 'number' && Number.isSafeInteger(raw.created_unix) && raw.created_unix > 0);
-  check(revisionGeneration.includes(object(raw.generation).state));
+  const generation = entryGeneration(raw.generation);
   check(Array.isArray(raw.work) && raw.work.length <= 64);
   const from = raw.generated_from === undefined || raw.generated_from === '' ? undefined : raw.generated_from;
   if (from !== undefined) check(decisionID(from));
@@ -1034,7 +1051,7 @@ function revisionEntry(value: unknown): RevisionEntry {
     state: raw.state as string,
     repository: raw.repository,
     created_unix: raw.created_unix,
-    generation: object(raw.generation).state as string,
+    generation,
     comparison: revisionComparison(raw.comparison),
     work: raw.work.map(revisionWork),
     ...(from === undefined ? {} : {generated_from: from}),
@@ -1043,7 +1060,10 @@ function revisionEntry(value: unknown): RevisionEntry {
 // revisionHistory binds one request's scope-revision page to its
 // exact intent: newest-first revisions with structural before/after
 // and affected work. The first revision renders initial with empty
-// task diffs; old/new texts travel only with their changed field.
+// diffs; old/new texts travel only with their changed field. The
+// confirmed submitted graph stays distinct from accepted direction:
+// keys travel only with a generation record, and a differs flag
+// requires submitted keys.
 export function revisionHistory(value: unknown, intent: string): RevisionHistory {
   const data = object(value);
   check(data.intent === intent && decisionID(intent));

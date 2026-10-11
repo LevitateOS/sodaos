@@ -30,6 +30,28 @@ func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGener
 		}
 		seen[task.Key] = true
 	}
+	for key, ref := range g.Delivered {
+		if !seen[key] || g.TaskIssueIDs[key] != 0 || ref.IssueID <= 0 || ref.IssueIndex <= 0 || ref.ContentVersion < 0 {
+			return errors.New("invalid delivered reuse")
+		}
+	}
+	if len(g.Delivered) > 0 {
+		var payload struct {
+			Edits []struct {
+				IssueID int64 `json:"issue_id"`
+			} `json:"edits"`
+		}
+		if err := json.Unmarshal(g.Payload, &payload); err != nil {
+			return errors.New("invalid intent generation")
+		}
+		for _, edit := range payload.Edits {
+			for _, ref := range g.Delivered {
+				if edit.IssueID == ref.IssueID {
+					return errors.New("delivered history unexpectedly mutated")
+				}
+			}
+		}
+	}
 	raw, err := json.Marshal(g)
 	if err != nil {
 		return err
@@ -56,6 +78,35 @@ func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGener
 	}
 	if r.State != "accepted" || r.Digest() != g.IntentDigest {
 		return ErrStaleRevision
+	}
+	for key, ref := range g.Delivered {
+		rows, err := tx.QueryContext(ctx, `SELECT data FROM factory_intent_tasks WHERE task=$1 AND revision IN (SELECT id FROM factory_intent_revisions WHERE intent=$2 AND id<>$3)`, key, g.IntentID, g.RevisionID)
+		if err != nil {
+			return err
+		}
+		chained := false
+		for rows.Next() {
+			var rawBinding []byte
+			var b factory.IntentTaskBinding
+			if err = rows.Scan(&rawBinding); err != nil {
+				rows.Close()
+				return err
+			}
+			if err = json.Unmarshal(rawBinding, &b); err != nil {
+				rows.Close()
+				return err
+			}
+			if b.IssueID == ref.IssueID && b.IssueIndex == ref.IssueIndex && b.ContentVersion == ref.ContentVersion {
+				chained = true
+			}
+		}
+		rows.Close()
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+		if !chained {
+			return errors.New("invalid delivered reuse")
+		}
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO factory_intent_generations(revision,data) VALUES($1,$2) ON CONFLICT(revision) DO NOTHING`, g.RevisionID, string(raw))
 	if err != nil {
@@ -105,6 +156,23 @@ func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGene
 	}
 	if g.State != "pending" && g.State != "committed" && g.State != "refused" && g.State != "completed" {
 		return errors.New("invalid generation outcome")
+	}
+	if len(g.Receipt) > 0 && len(g.Delivered) > 0 {
+		var receipt struct {
+			Issues []struct {
+				IssueID int64 `json:"issue_id"`
+			} `json:"issues"`
+		}
+		if err := json.Unmarshal(g.Receipt, &receipt); err != nil {
+			return errors.New("invalid generation receipt")
+		}
+		for _, entry := range receipt.Issues {
+			for _, ref := range g.Delivered {
+				if entry.IssueID == ref.IssueID {
+					return errors.New("delivered history unexpectedly mutated")
+				}
+			}
+		}
 	}
 	if old.State == "completed" && g.State != "completed" || old.State == "refused" && g.State != "refused" || old.State == "committed" && g.State == "pending" {
 		return ErrCommandConflict
