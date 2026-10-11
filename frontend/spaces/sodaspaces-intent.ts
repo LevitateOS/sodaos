@@ -222,6 +222,7 @@ export class SodaIntent extends LitElement {
       state,
       max_issues: this.maxIssues,
       planning_calls: this.planningCalls,
+      ...(current?.approach ? {approach: current.approach} : {}),
     };
   }
   private currentProposal() {
@@ -360,6 +361,11 @@ export class SodaIntent extends LitElement {
         this[field] = value;
       },
       decide: this.decide,
+      chooseApproach: (approach) => {
+        if (!this.revision) return;
+        this.revision = {...this.revision, approach};
+        this.dirty = true;
+      },
       describe: this.describe,
       revise: this.revise,
       decline: this.decline,

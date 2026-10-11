@@ -25,6 +25,10 @@ test('intent-first entry stores department and corrected product review before r
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
   assert(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled());
+  await page.getByLabel('Choose how to deliver the accepted workflow', {exact: true}).selectOption('complete_first');
+  await page
+    .getByText('Implement and verify the complete accepted workflow before first delivery', {exact: true})
+    .waitFor();
   await page.getByRole('combobox', {name: /^Choice:/}).selectOption('edit');
   await page
     .getByLabel('What should change?', {exact: true})
@@ -44,6 +48,7 @@ test('intent-first entry stores department and corrected product review before r
   assert.equal(accepted.body.repository, '7');
   assert.equal(accepted.body.max_issues, 20);
   assert.equal(accepted.body.planning_calls, 8);
+  assert.equal(accepted.body.approach, 'complete_first');
   assert.equal(typeof accepted.body.department, 'string');
   assert.equal(calls.filter((call) => call.method !== 'GET' && !call.path.includes('/api/factory/')).length, 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);

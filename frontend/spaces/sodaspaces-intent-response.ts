@@ -32,6 +32,7 @@ export interface IntentRevision {
   state: 'draft' | 'accepted' | 'declined';
   max_issues: number;
   planning_calls: number;
+  approach?: 'complete_first' | 'incremental';
 }
 export const decisionID = (value: unknown): value is string =>
   typeof value === 'string' && /^d[0-9a-f]{24}$/.test(value);
@@ -80,6 +81,7 @@ function task(value: unknown): IntentTask {
 }
 export function intentRevision(value: unknown): IntentRevision {
   const raw = object(value);
+  check(raw.approach === undefined || raw.approach === 'complete_first' || raw.approach === 'incremental');
   check(decisionID(raw.id) && decisionID(raw.intent) && (raw.repository === '0' || id(raw.repository)));
   check(raw.state === 'draft' || raw.state === 'accepted' || raw.state === 'declined');
   const ideas = array(raw.ideas, 50).map(idea);
@@ -93,6 +95,7 @@ export function intentRevision(value: unknown): IntentRevision {
     state: raw.state,
     max_issues: maxIssues,
     planning_calls: bound(raw.planning_calls, 0, 100),
+    ...(raw.approach !== undefined ? {approach: raw.approach} : {}),
     ideas,
     tasks,
     ...references(raw),

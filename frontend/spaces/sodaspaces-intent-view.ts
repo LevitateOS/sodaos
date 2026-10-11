@@ -18,6 +18,7 @@ export interface IntentView {
   set(field: 'objective' | 'department' | 'departmentName' | 'departmentDescription', value: string): void;
   setBound(field: 'maxIssues' | 'planningCalls', value: number): void;
   decide(id: string, decision: ProductIdea['decision'], correction?: string): void;
+  chooseApproach(approach: 'complete_first' | 'incremental'): void;
   describe(): void;
   revise(): void;
   decline(): void;
@@ -131,6 +132,28 @@ export function reviewReady(view: IntentView) {
     )
   );
 }
+function deliveryApproach(view: IntentView, revision: IntentRevision) {
+  return html` <fieldset>
+    <legend>Delivery approach</legend>
+    <label
+      >Choose how to deliver the accepted workflow<select
+        aria-label="Choose how to deliver the accepted workflow"
+        .value=${revision.approach || 'incremental'}
+        ?disabled=${view.busy || view.blocked}
+        @change=${(event: Event) => {
+          const approach = input(event);
+          if (approach === 'complete_first' || approach === 'incremental') view.chooseApproach(approach);
+        }}
+      >
+        <option value="complete_first">Complete first workflow</option>
+        <option value="incremental">Verified milestones</option>
+      </select></label
+    >
+    <p>
+      ${revision.approach === 'complete_first' ? 'Implement and verify the complete accepted workflow before first delivery' : 'Implement and check accepted outcomes in separate dependent work items; incomplete milestones do not claim complete delivery'}
+    </p>
+  </fieldset>`;
+}
 export function reviewIntent(view: IntentView) {
   const revision = view.revision;
   if (!revision) return '';
@@ -146,6 +169,7 @@ export function reviewIntent(view: IntentView) {
       ></textarea>
     </label>
     <p>Choose the ideas and assumptions that match what you want. Changes update the proposal before you continue.</p>
+    ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}
     ${revision.ideas.map((idea) => productIdea(view, idea))}
     <button ?disabled=${view.busy || view.blocked || !view.dirty} @click=${view.revise}>Update proposal</button>
