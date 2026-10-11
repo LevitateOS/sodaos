@@ -3,7 +3,12 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
 import {factoryCommandId} from './sodaspaces-factory-response.js';
 import {factoryAccessResponse} from './sodaspaces-factory-access-response.js';
-import type {FactoryAccess, FactoryAccessEditable, FactoryAccessUsage} from './sodaspaces-factory-access-response.js';
+import type {
+  FactoryAccess,
+  FactoryAccessEditable,
+  FactoryAccessPlanning,
+  FactoryAccessUsage,
+} from './sodaspaces-factory-access-response.js';
 import './sodaspaces-factory-activity.js';
 
 type FactoryContext = {
@@ -903,7 +908,7 @@ export class SodaFactorySettings extends LitElement {
       <soda-factory-activity .context=${context}></soda-factory-activity>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
-      ${this.renderProviderControls()} ${this.renderExecutionUsage()}`;
+      ${this.renderProviderControls()} ${this.renderPlanningCalls()} ${this.renderExecutionUsage()}`;
   }
 
   private renderSummary(status: Record<string, unknown>) {
@@ -1305,6 +1310,36 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
       ${this.numberInput('Rolling minutes', 'rolling_minutes', safeNumber(budget?.rolling_minutes, 360))}
       ${this.submitButton('Save connection budget')}
     </form>`;
+  }
+
+  private renderPlanningCalls() {
+    const access = this.view.access;
+    if (!access)
+      return html`<fieldset>
+        <legend>Planning calls</legend>
+        <p>Planning calls are unavailable. Refresh current authority to retry.</p>
+      </fieldset>`;
+    if (!access.planning.length)
+      return html`<fieldset>
+        <legend>Planning calls</legend>
+        <p>No planning allowances are bound to this repository.</p>
+      </fieldset>`;
+    return html`<fieldset>
+      <legend>Planning calls</legend>
+      <p>Planning calls only, in real call units. Execution minutes stay separate below.</p>
+      ${access.planning.map((row) => this.renderPlanningRow(row))}
+      ${access.planning_truncated ? html`<p>More bound allowances exist beyond these 20.</p>` : ''}
+    </fieldset>`;
+  }
+
+  private renderPlanningRow(row: FactoryAccessPlanning) {
+    const state = row.status === 'exhausted' ? 'exhausted' : 'ok';
+    const permission = row.editable.editable ? 'Editable.' : `Read-only: ${accessReasonText(row.editable.reason)}.`;
+    return html`<p>
+      <span title=${row.intent}>Request ${row.intent.slice(0, 8)}</span>: ${row.available} of ${row.amount} planning
+      calls available (${row.reserved} reserved, ${row.consumed} consumed, ceiling ${row.ceiling}).
+      ${row.effect ? html`Effect: ${row.effect}. ` : ''}Status: ${state}. ${permission}
+    </p>`;
   }
 
   private renderExecutionUsage() {
