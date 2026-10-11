@@ -14,7 +14,7 @@ type Activity = {
 type Context = {transport: PreparedExtensionMount; repository: string};
 const labels: Record<Kind, string> = {
   issue_created: 'Issues created',
-  pr_created: 'Pull requests awaiting review',
+  pr_created: 'Pull requests created',
   verified_merge: 'Verified merges and original issue closure',
 };
 
