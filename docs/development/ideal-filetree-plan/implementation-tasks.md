@@ -48,7 +48,16 @@ Source repair `81bcdea0` gives an accepted explicit Retry a fresh coder checkout
 from the protected original source bundle. Real PostgreSQL race checks cover
 lost-reply adoption, fixed deadlines, authority invalidation, temporary read
 failures and conserved prior allowances; native Rust bundle/clone regressions
-pass. Installed continuation of the already accepted Retry remains open.
+pass. Source repair `c9de3b26` visits accepted authority-blocked work through
+the same bounded dispatch page and refreshes readiness when Store authority
+changes, even without a new Forgejo revision. Actual native continuation of
+the same accepted Retry produced fresh coder and exact-candidate reviewer
+preparations, two successful reconciled provider runs, passing Actions checks
+and fixture PR 3 merged by its configured publisher. The fresh root settled
+after 75 seconds; the old closed root retained its 1,188-second usage and PR 2.
+No new intake, Retry or manual dispatch was used after the repair. This proves
+the approval/merge path on the development appliance; native correction and
+fresh matching-candidate qualification remain open.
 
 The lifecycle proxy repair `e7deb91f` removes its observed ten-second response
 cutoff; the actual Unix-socket regression passes beyond that cutoff. Source
@@ -66,7 +75,7 @@ are prepared for an unlaunched fresh-disk fixture. Authenticated media,
 installation, personal-Git and matching-candidate R04 checks remain open.
 
 Implementation is active under the owner's “go”, “commit early and often” and
-subsequent all-tasks goal. Current path reconciliation uses source `81bcdea0`;
+subsequent all-tasks goal. Current path reconciliation uses source `c9de3b26`;
 `04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
 first twelve selected packets are committed, followed by readiness/artifact
 identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and
@@ -74,7 +83,7 @@ selective caller simplifications.
 Completed checks are source/development evidence; no installed, provider or
 native-worker qualification is inferred. Seven pre-existing dirty guidance
 files remain untouched. The current tree and tracked-file inventories account for all 2,609 tracked
-paths at `81bcdea0`, including the implemented D06 Rust personal-Git payload,
+paths at `c9de3b26`, including the implemented D06 Rust personal-Git payload,
 Coordinator progress owners/tests, Retry refusal test, socket policy inputs
 and native panel-ownership regression.
 Historical path comparisons retain their original
@@ -107,7 +116,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 
 | Remaining work | Current disposition and exact next boundary | Owner / task |
 | --- | --- | --- |
-| Current inventory / target and source joins | All 2,609 current leaves are mapped at `81bcdea0`; selective additions include package guides, four Factory/Forgejo test files and the implemented D06 payload with its caller/producer chain. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
+| Current inventory / target and source joins | All 2,609 current leaves are mapped at `c9de3b26`; selective additions include package guides, Factory/Forgejo tests, fresh Retry preparation and the implemented D06 payload with its caller/producer chain. The authority-reopening delta reuses current F06/F07/F08 owners without new paths or processes. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
 | Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Completed in `7334f36b`; candidate count/bytes are admitted before retained variants, with per-file staging and escaped-pattern admission separately bounded. | C / L16.G complete |
 | Host provider HTTP | Source scope complete: `9cea539f` retains mature curl through the owned Executor (11 actual checks: 5 executor, 6 provider; host daemon compiled; independent review passed), and `8026d9ac` declares curl in the generated host package inputs (two existing package-profile tests passed). No ureq cutover. Shipped-binary/RPM inventory, TLS and live provider qualification remain open; no installed-provider claim. | C / L10.N4 source complete; R04 qualification open |

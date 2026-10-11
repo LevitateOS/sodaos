@@ -31,7 +31,7 @@ Selective current source delta at `81bcdea0` (2026-10-11); historical body selec
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| Whole current file; consumedCoderRetry and actual Retry regression subjects | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Real PostgreSQL dispatch regressions cover consumed checkout replacement, lost native reply adoption, rejected packet retirement, early planning invalidation, current sponsorship authority and custody retention across temporary Store/context failures. Native Rust source-bundle checks remain at their Rust owner; installed continuation is separate. |
+| Whole current file; consumedCoderRetry and actual Retry regression subjects | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Real PostgreSQL dispatch regressions cover consumed checkout replacement, lost native reply adoption, rejected packet retirement, early planning invalidation, current sponsorship authority and custody retention across temporary Store/context failures. At `c9de3b26`, TestHoldReleaseWakesExistingRetryAfterProjectStop proves normal Stop/Start and hold release resume the same accepted Retry without a native revision change; unchanged authority performs no native observation. Native Rust source-bundle checks remain at their Rust owner; installed continuation is separate. |
 
 <a id="coverage-bd92c58c05f9"></a>
 <a id="internalfactorycontrolacceptancego-1"></a>
@@ -830,18 +830,18 @@ exact-blob current maintained map; full spans retained
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–61; TestDispatchPassReachesRunnableBehindWaitingPrefix | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Actual dispatch queue continuation beyond a waiting prefix. The corrected retirement selector passes; per-fixture source headers are removed only through the fixture SQL connection because queue rotation, not source admission, is under test. |
+| TestDispatchPassReachesRunnableBehindWaitingPrefix | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | At `c9de3b26`, actual dispatch continuation reaches runnable work after both queued and accepted authority-blocked waiting prefixes. The corrected retirement selector passes; per-fixture source headers are removed only through the fixture SQL connection because queue rotation, not source admission, is under test. |
 
 <a id="current-progress-owner"></a>
 
 ## [internal/factory/control/progress.go](../../../../../internal/factory/control/progress.go)
 
-Selective current source at `0ace2383` (2026-10-11); historical body selectors above retain their original pins.
+Selective current source at `c9de3b26` (2026-10-11); historical body selectors above retain their original pins.
 
 | Current named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | progressPass; startProgress; runProgress; progressInterval; progressPassKey | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Same Coordinator serialization, owner-lock lifetime and cancellation/join; no second service. |
-| refreshReadiness | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Authoritative native revision refresh uses the existing assessment and bounded evidence budget. |
+| refreshReadiness | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Authoritative native revision refresh uses the existing assessment and bounded evidence budget. Accepted authority-blocked controls compare the current Store authority fingerprint; a changed fingerprint refreshes assessment despite an unchanged native revision, while an unchanged fingerprint consumes no native RPC. |
 | advanceProgress | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Bounded unsettled-run inspection/settlement, ordinary Dispatch and owned readiness drain; immutable attempt allowance remains at the Store. |
 
 <a id="current-progress-tests"></a>
