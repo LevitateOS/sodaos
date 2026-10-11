@@ -697,6 +697,38 @@ test('saved inventory lists states and separates empty from unavailable', async 
   await page.getByText('Another draft', {exact: true}).waitFor();
 });
 
+test('saved inventory names each resume action and publishes list updates', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.evaluate(() => {
+    (window as unknown as {inventories: unknown[]}).inventories = [];
+    document.addEventListener('intent-inventory', (event) =>
+      (window as unknown as {inventories: unknown[]}).inventories.push((event as CustomEvent).detail)
+    );
+    (window as unknown as {intentStore: IntentStore}).intentStore.seed([
+      {
+        intent: 'd111111111111111111111111',
+        id: 'd111111111111111111111112',
+        state: 'draft',
+        objective: 'Seeded tracker',
+        repository: '0',
+        tasks: [],
+      },
+    ]);
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByRole('button', {name: 'Resume Seeded tracker', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Resume Fresh draft', exact: true}).waitFor();
+  const inventories = await page.evaluate(
+    () => (window as unknown as {inventories: {intents: {objective: string}[]}[]}).inventories
+  );
+  assert(inventories.length >= 1);
+  const latest = inventories.at(-1);
+  assert.deepEqual((latest?.intents || []).map((item) => item.objective).sort(), ['Fresh draft', 'Seeded tracker']);
+});
+
 test('review leads with the recommended walkthrough, illustration and text equivalent', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await installIntentStore(page);
