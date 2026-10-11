@@ -38,7 +38,7 @@ paths are private service routes, not public URLs to call directly:
 | GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
 | POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
 | GET | `/api/factory/intents/{intentID}` | Current actor’s current intent revision |
-| POST | `/api/factory/intents/{intentID}/explore` | Bounded typed design consultation for a current draft |
+| POST | `/api/factory/intents/{intentID}/explore` | Bounded approach/assumption/consolidation judgments for a current draft; revision fields stay flat with one added `exploration` object (`content`, `challenges`, `recommendation`) |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
