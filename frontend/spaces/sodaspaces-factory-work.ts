@@ -27,6 +27,8 @@ import type {
   SodaErrorDetail,
 } from './sodaspaces-factory-work-response.js';
 import {
+  capabilityGate,
+  capabilityReasonText,
   describeIntervention,
   describeIssueDetail,
   interventionResultText,
@@ -611,10 +613,19 @@ export class SodaFactoryWorkDetail extends LitElement {
     this.setMark(kind, 'idle', 'Click again to confirm stopping the project for everyone.');
     return true;
   }
+  private backendGate(kind: InterventionKind): {available: boolean; reasonText: string} {
+    if (!this.detail) return {available: true, reasonText: ''};
+    return capabilityGate(this.detail.capabilities, kind);
+  }
   private async runIntervention(kind: InterventionKind) {
     const context = this.current;
     if (!context || this.acting) return;
     if (!context.capabilities[kind] || this.armStop(kind)) return;
+    const gate = this.backendGate(kind);
+    if (!gate.available) {
+      this.setMark(kind, 'failed', `Unavailable: ${gate.reasonText}`);
+      return;
+    }
     const serial = this.serial;
     const commandID = factoryCommandId();
     this.acting = kind;
@@ -672,31 +683,44 @@ export class SodaFactoryWorkDetail extends LitElement {
       })
     );
   }
+  private interventionMarks(kind: InterventionKind) {
+    const context = this.current;
+    const gate = this.backendGate(kind);
+    const mark = this.marks[kind] ?? {result: 'idle' as InterventionResult, text: 'Not requested.'};
+    return describeIntervention({
+      kind,
+      enabled: (context?.capabilities[kind] ?? false) && gate.available && this.acting === undefined,
+      result: mark.result,
+      resultText: !gate.available && mark.result === 'idle' ? `Unavailable: ${gate.reasonText}` : mark.text,
+      target: interventionTarget(context, kind),
+    });
+  }
+  private watchNote(): string {
+    const watch = this.detail?.capabilities.watch;
+    if (!watch || watch.available) return '';
+    return `Watch unavailable: ${capabilityReasonText(watch.reason)}`;
+  }
   protected render() {
     const context = this.current;
     if (!context) return html``;
+    const watchable = this.detail?.capabilities.watch.available ?? true;
     return html`<section aria-label="Factory work detail">
       <p data-work-message aria-live="polite">${this.message}</p>
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>Refresh detail</button>
       ${this.detail ? renderWorkDetail(describeIssueDetail(this.detail, context.repositoryPath)) : this.busy ? html`<p>Loading work detail…</p>` : ''}
+      ${this.watchNote() ? html`<p>${this.watchNote()}</p>` : ''}
       <ul>
         ${this.runs.map(
           (entry) => html`<li>
             ${runRowText(entry)}
-            <button type="button" class="ui button" @click=${() => this.requestWatch(entry.id)}>Watch output</button>
+            <button type="button" class="ui button" ?disabled=${!watchable} @click=${() => this.requestWatch(entry.id)}>
+              Watch output
+            </button>
           </li>`
         )}
       </ul>
       ${renderInterventions(
-        (Object.keys(this.marks) as InterventionKind[]).map((kind) =>
-          describeIntervention({
-            kind,
-            enabled: context.capabilities[kind] && this.acting === undefined,
-            result: this.marks[kind]?.result ?? 'idle',
-            resultText: this.marks[kind]?.text ?? 'Not requested.',
-            target: interventionTarget(context, kind),
-          })
-        ),
+        (Object.keys(this.marks) as InterventionKind[]).map((kind) => this.interventionMarks(kind)),
         {act: this.act}
       )}
     </section>`;
@@ -708,7 +732,8 @@ function refreshesDetail(kind: InterventionKind): boolean {
   return kind === 'pause' || kind === 'resume' || kind === 'stop' || kind === 'project_stop';
 }
 
-function interventionTarget(context: WorkDetailContext, kind: InterventionKind): string {
+function interventionTarget(context: WorkDetailContext | undefined, kind: InterventionKind): string {
+  if (!context) return 'this work';
   if (kind === 'pause' || kind === 'resume') return `repository ${context.repository}`;
   if (kind === 'project_stop') return context.projectID ? `project ${context.projectID}` : 'this project';
   return context.runID ? `run ${context.runID.slice(0, 8)}` : 'no run selected';
