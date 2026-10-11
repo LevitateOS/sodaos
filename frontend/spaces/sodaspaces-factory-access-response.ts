@@ -1,6 +1,6 @@
 import {check, object} from './sodaspaces-api.js';
 
-/** H-R permission/usage DTO v1 (revision f06-20261011-p1). Planning allowance follows H-A. */
+/** H-R permission/usage DTO v2 (revision f06-20261011). Planning calls ride H-A units. */
 export interface FactoryAccessViewer {
   code_write: boolean;
   owner_or_admin: boolean;
@@ -28,6 +28,19 @@ export interface FactoryAccessUsage {
   budget_minutes?: number;
   used_minutes?: number;
 }
+export interface FactoryAccessPlanning {
+  intent: string;
+  id: string;
+  unit: string;
+  amount: number;
+  reserved: number;
+  consumed: number;
+  available: number;
+  ceiling: number;
+  effect?: string;
+  status: string;
+  editable: FactoryAccessEditable;
+}
 export interface FactoryAccess {
   viewer: FactoryAccessViewer;
   editable: {
@@ -43,6 +56,8 @@ export interface FactoryAccess {
   required_actions: FactoryAccessRequiredAction[];
   preparation: {project?: string; ready?: boolean; requirements?: unknown; approval?: unknown} | null;
   usage: FactoryAccessUsage[];
+  planning: FactoryAccessPlanning[];
+  planning_truncated: boolean;
   observed_unix: number;
   repository: string;
 }
@@ -95,6 +110,36 @@ function requiredAction(value: unknown): FactoryAccessRequiredAction {
   );
   return {code: row.code, resolve_by: row.resolve_by, setting: row.setting};
 }
+function calls(value: unknown): number {
+  check(typeof value === 'number' && Number.isInteger(value) && value >= 0);
+  return value;
+}
+function planningEntry(value: unknown): FactoryAccessPlanning {
+  const row = object(value);
+  check(
+    typeof row.intent === 'string' &&
+      row.intent.length > 0 &&
+      typeof row.id === 'string' &&
+      row.id.length > 0 &&
+      row.unit === 'planning_calls'
+  );
+  const status = reason(row.status);
+  check(status !== undefined);
+  check(row.effect === undefined || (typeof row.effect === 'string' && row.effect.length <= 4000));
+  return {
+    intent: row.intent,
+    id: row.id,
+    unit: 'planning_calls',
+    amount: calls(row.amount),
+    reserved: calls(row.reserved),
+    consumed: calls(row.consumed),
+    available: calls(row.available),
+    ceiling: calls(row.ceiling),
+    ...(typeof row.effect === 'string' ? {effect: row.effect} : {}),
+    status,
+    editable: editable(row.editable),
+  };
+}
 function preparation(value: unknown): FactoryAccess['preparation'] {
   if (value === null) return null;
   const row = object(value);
@@ -115,6 +160,8 @@ export function factoryAccessResponse(value: unknown): FactoryAccess {
   const edit = object(data.editable);
   check(Array.isArray(edit.sponsorships) && Array.isArray(edit.usage_budgets));
   check(Array.isArray(data.required_actions) && Array.isArray(data.usage));
+  check(Array.isArray(data.planning) && data.planning.length <= 20);
+  check(data.planning_truncated === undefined || typeof data.planning_truncated === 'boolean');
   check(typeof data.observed_unix === 'number' && Number.isFinite(data.observed_unix));
   check(typeof data.repository === 'string' && data.repository.length > 0);
   return {
@@ -139,6 +186,8 @@ export function factoryAccessResponse(value: unknown): FactoryAccess {
     required_actions: (data.required_actions as unknown[]).map(requiredAction),
     preparation: preparation(data.preparation),
     usage: (data.usage as unknown[]).map(usageEntry),
+    planning: (data.planning as unknown[]).map(planningEntry),
+    planning_truncated: data.planning_truncated === true,
     observed_unix: data.observed_unix,
     repository: data.repository,
   };
