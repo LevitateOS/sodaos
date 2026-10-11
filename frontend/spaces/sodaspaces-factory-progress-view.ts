@@ -8,6 +8,8 @@ import type {FactoryIssueDetail, FactoryRepositorySummary} from './sodaspaces-fa
 import {describeIssueDetail, nativeIssueLink} from './sodaspaces-factory-work-view.js';
 import type {DeliveryState} from './sodaspaces-factory-work-view.js';
 import type {
+  AccessPlanningEntry,
+  FactoryAccess,
   IssuePlan,
   LifecycleEffectAction,
   LifecycleEffectConfig,
@@ -837,6 +839,131 @@ export function renderRecordedPlan(plan: RecordedPlanModel, choice: RecordedChoi
           </li>`
         )}
       </ul>
+    </section>
+  `;
+}
+
+export interface PlanningReferenceModel {
+  readonly found: boolean;
+  readonly referenceText: string;
+  readonly truncatedNote: string;
+}
+
+function planningEntryText(entry: AccessPlanningEntry): string {
+  const editable = entry.editable.editable
+    ? 'You may adjust it.'
+    : `Adjustment refused: ${entry.editable.reason ?? 'no reason given'}.`;
+  const effect = entry.effect === undefined ? '' : ` Effect: ${entry.effect}.`;
+  return (
+    `Repository allowance reference: ${entry.amount} planning calls, ` +
+    `${entry.reserved} reserved, ${entry.consumed} consumed, ${entry.available} available ` +
+    `(ceiling ${entry.ceiling}). Status ${entry.status}.${effect} ${editable}`
+  );
+}
+
+// describePlanningReference finds this request's entry in the
+// repository allowance listing. A truncated listing may hide the
+// entry; that stays a stated gap, never a no-allowance verdict.
+export function describePlanningReference(
+  access: FactoryAccess | undefined,
+  state: SourceState,
+  intent: string
+): PlanningReferenceModel {
+  const truncatedNote = access?.planning_truncated ? 'The listing shows only the first 20 allowances.' : '';
+  if (state !== 'ready' || !access)
+    return {
+      found: false,
+      referenceText:
+        state === 'unavailable'
+          ? 'Repository allowance listing could not be read.'
+          : 'No allowance listing recorded for this repository.',
+      truncatedNote: '',
+    };
+  const entry = access.planning.find((candidate) => candidate.intent === intent);
+  if (!entry)
+    return {
+      found: false,
+      referenceText: access.planning_truncated
+        ? 'This request is not among the first 20 allowances shown.'
+        : 'No bound allowance for this request in this repository.',
+      truncatedNote,
+    };
+  return {found: true, referenceText: planningEntryText(entry), truncatedNote};
+}
+
+export function renderPlanningReference(model: PlanningReferenceModel): TemplateResult {
+  return html`
+    <section aria-label="Repository allowance reference">
+      <p role="status">${model.referenceText}</p>
+      ${model.truncatedNote ? html`<p>${model.truncatedNote}</p>` : ''}
+    </section>
+  `;
+}
+
+export interface AccessStandingModel {
+  readonly powersText: string;
+  readonly verdictText: string;
+  readonly actionsText: readonly string[];
+}
+
+function standingPowers(access: FactoryAccess): string {
+  const held: string[] = [];
+  if (access.viewer.code_write) held.push('code write');
+  if (access.viewer.owner_or_admin) held.push('owner or admin');
+  if (access.viewer.environment_owner) held.push('environment owner');
+  if (access.viewer.operator) held.push('appliance operator');
+  if (access.viewer.member) held.push('project member');
+  const session = access.viewer.session_current
+    ? 'Session current.'
+    : 'Session changed; saves are refused until it is current.';
+  return held.length === 0 ? `You hold no repository powers. ${session}` : `You hold: ${held.join(', ')}. ${session}`;
+}
+
+function standingVerdict(access: FactoryAccess): string {
+  if (access.effective.effective && access.effective.dispatch_open) return 'Factory dispatch is effective and open.';
+  if (access.effective.effective) return 'Authority is effective but dispatch is closed.';
+  const missing = access.effective.missing.length === 0 ? 'no reason given' : access.effective.missing.join(', ');
+  return `Factory authority is not effective: ${missing}.`;
+}
+
+function standingAction(code: string, resolveBy: string, setting: string): string {
+  const resolver = resolveBy === '' ? 'unassigned' : resolveBy;
+  const section = setting === '' ? 'no setting named' : setting;
+  return `${code}: resolve by ${resolver} via ${section}.`;
+}
+
+// describeAccessStanding states the viewer's exact powers and the
+// authority verdict behind permission-gated controls. Unknown
+// resolvers stay visible as unassigned, never guessed.
+export function describeAccessStanding(access: FactoryAccess | undefined, state: SourceState): AccessStandingModel {
+  if (state !== 'ready' || !access)
+    return {
+      powersText:
+        state === 'unavailable' ? 'Your permissions could not be read.' : 'No permission record for this repository.',
+      verdictText: 'Factory authority is unknown.',
+      actionsText: [],
+    };
+  return {
+    powersText: standingPowers(access),
+    verdictText: standingVerdict(access),
+    actionsText: access.required_actions.map((action) =>
+      standingAction(action.code, action.resolve_by, action.setting)
+    ),
+  };
+}
+
+export function renderAccessStanding(model: AccessStandingModel): TemplateResult {
+  return html`
+    <section aria-label="Access standing">
+      <p>${model.powersText}</p>
+      <p role="status">${model.verdictText}</p>
+      ${
+        model.actionsText.length === 0
+          ? ''
+          : html`<ul>
+              ${model.actionsText.map((line) => html`<li>${line}</li>`)}
+            </ul>`
+      }
     </section>
   `;
 }

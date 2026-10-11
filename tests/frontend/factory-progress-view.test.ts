@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  describeAccessStanding,
   describeAllowance,
   describeDirectionRevision,
   describeLifecycleEffect,
+  describePlanningReference,
   describePrerequisites,
   describeRecordedChoice,
   describeRecordedPlan,
@@ -13,6 +15,7 @@ import {
   intentGeneration,
 } from '../../frontend/spaces/sodaspaces-factory-progress-view';
 import {
+  factoryAccess,
   issuePlan,
   planningAllowance,
   requestOverview,
@@ -556,4 +559,82 @@ test('each optional effect gates on its own native checkpoint', () => {
     describeLifecycleEffect('issue_created', {...effect, capable: false}, 'ready', []).stateText,
     /checkpoint has not passed/
   );
+});
+
+const accessViewer = {
+  code_write: true,
+  owner_or_admin: true,
+  environment_owner: false,
+  operator: false,
+  member: true,
+  session_current: true,
+};
+
+function accessWith(planning: unknown[], overrides: Record<string, unknown> = {}) {
+  return factoryAccess(
+    {
+      repository: '7',
+      observed_unix: 1728670000,
+      viewer: accessViewer,
+      effective: {effective: true, dispatch_open: true, missing: []},
+      required_actions: [],
+      planning,
+      ...overrides,
+    },
+    '7'
+  );
+}
+
+const planningEntry = {
+  intent: intentId,
+  id: 'd' + 'b'.repeat(24),
+  unit: 'planning_calls',
+  status: 'ok',
+  amount: 40,
+  reserved: 5,
+  consumed: 12,
+  available: 23,
+  ceiling: 100,
+  editable: {editable: true},
+};
+
+test('planning reference finds this request or states the listing gap', () => {
+  const access = accessWith([planningEntry]);
+  const found = describePlanningReference(access, 'ready', intentId);
+  assert.equal(found.found, true);
+  assert.match(found.referenceText, /23 available/);
+  assert.match(found.referenceText, /You may adjust it/);
+  const missing = describePlanningReference(access, 'ready', 'd' + 'f'.repeat(24));
+  assert.equal(missing.found, false);
+  assert.match(missing.referenceText, /No bound allowance/);
+  const truncated = describePlanningReference(
+    accessWith([planningEntry], {planning_truncated: true}),
+    'ready',
+    'd' + 'f'.repeat(24)
+  );
+  assert.match(truncated.referenceText, /first 20 allowances shown/);
+  assert.match(truncated.truncatedNote, /first 20 allowances/);
+  assert.match(describePlanningReference(undefined, 'unavailable', intentId).referenceText, /could not be read/);
+});
+
+test('access standing states powers, verdict and unassigned resolvers', () => {
+  const open = describeAccessStanding(accessWith([planningEntry]), 'ready');
+  assert.match(open.powersText, /owner or admin/);
+  assert.match(open.powersText, /Session current/);
+  assert.match(open.verdictText, /effective and open/);
+  assert.equal(open.actionsText.length, 0);
+  const blocked = describeAccessStanding(
+    accessWith([], {
+      effective: {effective: false, dispatch_open: false, missing: ['policy_missing']},
+      required_actions: [
+        {code: 'policy_missing', resolve_by: 'owner_or_admin', setting: 'policy'},
+        {code: 'mystery_code', resolve_by: '', setting: ''},
+      ],
+    }),
+    'ready'
+  );
+  assert.match(blocked.verdictText, /not effective: policy_missing/);
+  assert.match(blocked.actionsText[0] ?? '', /owner_or_admin via policy/);
+  assert.match(blocked.actionsText[1] ?? '', /unassigned/);
+  assert.match(describeAccessStanding(undefined, 'missing').powersText, /No permission record/);
 });

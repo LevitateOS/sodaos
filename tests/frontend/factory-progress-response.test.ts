@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  factoryAccess,
   issuePlan,
   lifecycleEffectActions,
   lifecycleEffectConfig,
@@ -435,4 +436,59 @@ test('masked foreign choices stay visible without enumeration', () => {
   assert.equal(parsed.comparisons[0]?.selected, undefined);
   assert.equal(parsed.comparisons[0]?.selected_visible, false);
   assert.equal(parsed.comparisons[0]?.other_count, 3);
+});
+
+const accessEntry = {
+  intent,
+  id: 'd' + 'b'.repeat(24),
+  unit: 'planning_calls',
+  status: 'ok',
+  amount: 40,
+  reserved: 5,
+  consumed: 12,
+  available: 23,
+  ceiling: 100,
+  editable: {editable: true},
+  effect: 'cover review queue',
+};
+
+const accessFixture = {
+  repository: '7',
+  observed_unix: 1728670000,
+  viewer: {
+    code_write: true,
+    owner_or_admin: true,
+    environment_owner: false,
+    operator: false,
+    member: true,
+    session_current: true,
+  },
+  effective: {effective: true, dispatch_open: true, missing: []},
+  required_actions: [],
+  planning: [accessEntry],
+};
+
+test('repository access binds standing, verdict and bounded planning listing', () => {
+  const parsed = factoryAccess(accessFixture, '7');
+  assert.equal(parsed.repository, '7');
+  assert.equal(parsed.viewer.owner_or_admin, true);
+  assert.equal(parsed.viewer.session_current, true);
+  assert.equal(parsed.effective.effective, true);
+  assert.equal(parsed.effective.dispatch_open, true);
+  assert.equal(parsed.planning.length, 1);
+  assert.equal(parsed.planning[0]?.available, 23);
+  assert.equal(parsed.planning[0]?.effect, 'cover review queue');
+  assert.equal(parsed.planning_truncated, false);
+  const shown = factoryAccess({...accessFixture, planning_truncated: true}, '7');
+  assert.equal(shown.planning_truncated, true);
+});
+
+test('repository access rejects wrong scope, overlong listings and inconsistent entries', () => {
+  assert.throws(() => factoryAccess(accessFixture, '8'));
+  assert.throws(() => factoryAccess({...accessFixture, repository: '8'}, '7'));
+  const many = Array.from({length: 21}, () => accessEntry);
+  assert.throws(() => factoryAccess({...accessFixture, planning: many}, '7'));
+  assert.throws(() => factoryAccess({...accessFixture, planning: [{...accessEntry, available: 24}]}, '7'));
+  assert.throws(() => factoryAccess({...accessFixture, planning: [{...accessEntry, consumed: 35, available: 0}]}, '7'));
+  assert.throws(() => factoryAccess({...accessFixture, viewer: {...accessFixture.viewer, member: 'yes'}}, '7'));
 });
