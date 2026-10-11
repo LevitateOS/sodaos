@@ -8,6 +8,8 @@ const payload = {
   repository,
   repository_path: '/soda-tester/demo',
   revision: 3,
+  observed_unix: 1720000300,
+  truncated: true,
   settings,
   items: [
     {
@@ -42,6 +44,8 @@ test('factory activity keeps repository binding, stamps and safe links', () => {
   const parsed = parseFactoryActivity(payload, repository);
   assert.equal(parsed.repository, repository);
   assert.equal(parsed.revision, 3);
+  assert.equal(parsed.observed_unix, 1720000300);
+  assert.equal(parsed.truncated, true);
   assert.deepEqual(parsed.settings, settings);
   assert.equal(parsed.items.length, 3);
   assert.equal(parsed.items[0]?.created_unix, 1720000000);
@@ -53,6 +57,8 @@ test('factory activity keeps repository binding, stamps and safe links', () => {
     {repository_path: 'soda-tester/demo'},
     {revision: -1},
     {revision: 1.5},
+    {observed_unix: -1},
+    {truncated: 'yes'},
     {settings: {...settings, issue_created: 'yes'}},
     {settings: {issue_created: true, pr_created: true}},
     {items: Array.from({length: 61}, () => payload.items[0])},

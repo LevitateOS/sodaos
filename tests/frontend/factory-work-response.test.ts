@@ -6,8 +6,10 @@ import {
   factoryRepositorySummary,
   pauseReceipt,
   pendingRuns,
+  projectStopResult,
   resumeReceipt,
   retryDecision,
+  sodaErrorDetail,
   stopReceipt,
   takeoverRecord,
 } from '../../frontend/spaces/sodaspaces-factory-work-response';
@@ -19,10 +21,22 @@ const base = 'b'.repeat(40);
 const command = 'c'.repeat(32);
 const run = 'd'.repeat(32);
 
+const capabilities = {
+  watch: {available: true},
+  stop: {available: false, reason: 'no_run'},
+  retry: {available: false, reason: 'no_run'},
+  takeover: {available: false, reason: 'membership_required'},
+  pause: {available: true},
+  resume: {available: false, reason: 'dispatch_open'},
+};
+const attemptId = 'e'.repeat(32);
 const detail = {
   repository,
   issue,
   status: {valid: true, revision: 4, reasons: []},
+  closure: {state: 'none'},
+  capabilities,
+  observed_unix: 1720000300,
   readiness: {
     readiness: 'blocked',
     reason: 'prereq_code_pending',
@@ -72,15 +86,33 @@ test('issue detail binds acceptance, readiness, checks and merge to the exact is
   assert.equal(parsed.checks?.verdict, 'pending');
   assert.equal(parsed.checks?.head_oid, head);
   assert.equal(parsed.merge?.stage, 'open');
-  const minimal = factoryIssueDetail({repository, issue, status: {valid: false, revision: 0}}, repository, issue);
+  const minimal = factoryIssueDetail(
+    {
+      repository,
+      issue,
+      status: {valid: false, revision: 0},
+      closure: {state: 'none'},
+      capabilities,
+      observed_unix: 0,
+    },
+    repository,
+    issue
+  );
   assert.equal(minimal.readiness, undefined);
   assert.equal(minimal.checks, undefined);
   assert.equal(minimal.merge, undefined);
+  assert.equal(minimal.attempt, undefined);
+  assert.equal(minimal.observed_unix, 0);
   for (const delta of [
     {repository: '8'},
     {issue: '13'},
     {status: {valid: 'yes', revision: 0}},
     {status: {valid: true, revision: -1}},
+    {closure: {state: 'closing'}},
+    {closure: {state: 'confirmed'}},
+    {capabilities: {...capabilities, stop: {available: false, reason: 'invented_reason'}}},
+    {capabilities: {...capabilities, pause: {available: 'yes'}}},
+    {observed_unix: -1},
     {readiness: {...detail.readiness, readiness: 'launching'}},
     {readiness: {...detail.readiness, blockers: [{code: '', resolution: 'x'}]}},
     {readiness: {...detail.readiness, blockers: [{code: 'x', resolution: 'x', detail: 'bad\u0007'}]}},
@@ -90,6 +122,70 @@ test('issue detail binds acceptance, readiness, checks and merge to the exact is
     {merge: {...detail.merge, stage: 'merging'}},
     {merge: {...detail.merge, reason: 'invented_reason'}},
     {merge: {...detail.merge, merged_commit: 'short'}},
+  ])
+    assert.throws(() => factoryIssueDetail({...detail, ...delta}, repository, issue));
+});
+
+test('issue detail binds attempt, publication, review, closure and links', () => {
+  const parsed = factoryIssueDetail(
+    {
+      ...detail,
+      closure: {state: 'pending'},
+      attempt: {id: attemptId, role: 'coder', stage: 'assigned', run, attempts: 1, created_unix: 1720000000},
+      publication: {
+        candidate: head,
+        base_sha: base,
+        target_branch: 'main',
+        id: 'f'.repeat(32),
+        run,
+        publish_effect: 'committed',
+        pr_create_effect: 'committed',
+        stage: 'published',
+        pr_number: '34',
+        pr_id: '56',
+        corrections_total: 1,
+        reviews_total: 2,
+        created_unix: 1720000010,
+        corrections: [{candidate: head, effect: 'committed', completion: 'complete', updated_unix: 1720000020}],
+        reviews: [
+          {run, head_oid: head, event: 'REQUEST_CHANGES', effect: 'committed', completion: 'complete'},
+          {run: '', head_oid: head, event: 'APPROVED'},
+        ],
+      },
+      requested: {retry: {command_id: command, reason: 'run_failed', prior_run: run, queued: true}},
+      links: {issue_url: '/soda-tester/demo/issues/12', pull_url: '/soda-tester/demo/pulls/34'},
+    },
+    repository,
+    issue
+  );
+  assert.equal(parsed.attempt?.role, 'coder');
+  assert.equal(parsed.publication?.reviews_total, 2);
+  assert.equal(parsed.publication?.reviews[1]?.event, 'APPROVED');
+  assert.equal(parsed.publication?.corrections[0]?.candidate, head);
+  assert.equal(parsed.closure.state, 'pending');
+  assert.equal(parsed.requested_retry?.prior_run, run);
+  assert.equal(parsed.links?.pull_url, '/soda-tester/demo/pulls/34');
+  assert.equal(parsed.capabilities.pause.available, true);
+  const bare = {
+    candidate: head,
+    base_sha: base,
+    target_branch: 'main',
+    id: 'f'.repeat(32),
+    run,
+    publish_effect: 'committed',
+    pr_create_effect: 'committed',
+    stage: 'published',
+    corrections_total: 0,
+    reviews_total: 0,
+    created_unix: 1,
+  };
+  for (const delta of [
+    {attempt: {id: attemptId, role: 'Coder', stage: 'assigned', run, attempts: 1, created_unix: 1}},
+    {attempt: {id: attemptId, role: 'coder', stage: 'started', run, attempts: 1, created_unix: 1}},
+    {publication: {...bare, candidate: 'short'}},
+    {publication: {...bare, reviews: [{run, head_oid: head, event: 'APPROVED', effect: 'invented'}]}},
+    {requested: {retry: {command_id: 'short', reason: 'run_failed', prior_run: run, queued: true}}},
+    {links: {issue_url: '/soda-tester/../demo/issues/12'}},
   ])
     assert.throws(() => factoryIssueDetail({...detail, ...delta}, repository, issue));
 });
@@ -227,6 +323,54 @@ test('run intervention outcomes bind the exact run and command', () => {
       run
     )
   );
+});
+
+test('project stop binds running state, hold sync and run outcomes', () => {
+  const project = 'p0123456789abcdef01234567';
+  const parsed = projectStopResult(
+    {
+      environment: {id: project, ip: '10.0.0.2', running: false},
+      boot_enabled: true,
+      control: {
+        withdrawal: {repository: '7', revision: 9, cause: 'project_stop', closed_by: 'os-uid:1000'},
+        runs: [{id: run, confirmed: true, uncertain: false, outcome: 'cancelled'}],
+        hold: true,
+        hold_synced: true,
+      },
+    },
+    project
+  );
+  assert.equal(parsed.running, false);
+  assert.equal(parsed.hold_synced, true);
+  assert.equal(parsed.runs.length, 1);
+  assert.throws(() =>
+    projectStopResult(
+      {
+        environment: {id: project, running: 'no'},
+        control: {hold: true, hold_synced: true, withdrawal: {revision: 0}, runs: []},
+      },
+      project
+    )
+  );
+  assert.throws(() =>
+    projectStopResult(
+      {
+        environment: {id: 'pffffffffffffffffffffffff', running: false},
+        control: {hold: true, hold_synced: true, withdrawal: {revision: 0}, runs: []},
+      },
+      project
+    )
+  );
+});
+
+test('error envelopes yield detail or nothing, never a guess', () => {
+  assert.deepEqual(sodaErrorDetail({error: {code: 'membership_required', message: 'Join first.'}}), {
+    code: 'membership_required',
+    message: 'Join first.',
+  });
+  assert.deepEqual(sodaErrorDetail({error: 'pending_runs'}), {});
+  assert.deepEqual(sodaErrorDetail(undefined), {});
+  assert.deepEqual(sodaErrorDetail({error: {code: '', message: ''}}), {});
 });
 
 test('command read-back and pending-runs refusals stay attributable', () => {
