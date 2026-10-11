@@ -62,6 +62,94 @@ test('Factory settings expose stale authority without replaying a capacity comma
   assert.equal(sent.filter((call) => call.url.endsWith('/api/factory/capacity')).length, 1);
 });
 
+test('repository policy preserves canonical role selections and submits only actor and token IDs', async (t) => {
+  const page = await fixture(t);
+  const roles = {
+    'soda-coder': {harness: 'muse', harness_version: '1.4.0-R4161.1', model: 'fixture-coder'},
+    'soda-reviewer': {harness: 'codex', harness_version: '0.101.0', model: 'fixture-reviewer'},
+  };
+  const actors = {
+    publish_actor: {actor_id: '41', token_id: '51'},
+    create_actor: {actor_id: '42', token_id: '52'},
+    review_actor: {actor_id: '43', token_id: '53'},
+    merge_actor: {actor_id: '44', token_id: '54'},
+  };
+  await page.evaluate(
+    ({roles, actors}) => {
+      window.drawerFixture.setReply(async (call) =>
+        call.url.endsWith('/api/repositories/7/factory') && call.method === 'GET'
+          ? Response.json({
+              repository: '7',
+              appliance: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+              policy: {
+                revision: 6,
+                enabled: true,
+                paused: true,
+                target_branch: 'refs/heads/main',
+                required_checks: ['native-check', 'review-check'],
+                roles,
+                publish_actor: {...actors.publish_actor, kind: 'git.ref.publish'},
+                create_actor: {...actors.create_actor, kind: 'pull_request.create'},
+                review_actor: {...actors.review_actor, kind: 'pull_request.review.submit'},
+                merge_actor: {...actors.merge_actor, kind: 'pull_request.merge'},
+                attempt_limits: {active_minutes: 10, correction_cycles: 1},
+                max_concurrent: 1,
+              },
+            })
+          : null
+      );
+      window.drawerFixture.api.setPresentation('settings');
+    },
+    {roles, actors}
+  );
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const form = page.locator('soda-factory-settings form[data-action="policy"]');
+  const rendered: Record<string, string> = {};
+  const selected = {
+    coder_harness: roles['soda-coder'].harness,
+    coder_harness_version: roles['soda-coder'].harness_version,
+    coder_model: roles['soda-coder'].model,
+    reviewer_harness: roles['soda-reviewer'].harness,
+    reviewer_harness_version: roles['soda-reviewer'].harness_version,
+    reviewer_model: roles['soda-reviewer'].model,
+  };
+  for (const [name, value] of Object.entries(selected)) {
+    const input = form.locator(`input[name="${name}"]`);
+    rendered[name] = await input.inputValue();
+    await input.fill(value);
+  }
+  await form.getByRole('button', {name: 'Save repository policy', exact: true}).click();
+  await page.getByRole('status').filter({hasText: 'Change confirmed by the current API.'}).waitFor();
+  const sent = (await writes(page)).filter((call) => call.url.endsWith('/api/repositories/7/factory/policy'));
+  assert.equal(sent.length, 1);
+  const call = sent[0];
+  assert(call);
+  assert.equal(call.method, 'PUT');
+  assert.equal(call.headers['x-extension-session-generation'], 'fixture-generation');
+  const payload = JSON.parse(call.body || '{}') as Record<string, unknown>;
+  assert.match(String(payload.command_id), /^[a-f0-9]{32}$/);
+  assert.deepEqual(
+    {rendered, submitted: {...payload, command_id: '<generated>'}},
+    {
+      rendered: selected,
+      submitted: {
+        command_id: '<generated>',
+        expected_revision: 6,
+        enabled: true,
+        paused: true,
+        target_branch: 'refs/heads/main',
+        merge_method: 'fast-forward-only',
+        required_checks: ['native-check', 'review-check'],
+        roles,
+        ...actors,
+        attempt_limits: {active_minutes: 10, correction_cycles: 1},
+        max_concurrent: 1,
+      },
+    }
+  );
+});
+
 test('preparation controls render API evidence and stay closed without server-derived decision inputs', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() =>

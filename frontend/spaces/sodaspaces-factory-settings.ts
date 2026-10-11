@@ -775,12 +775,12 @@ export class SodaFactorySettings extends LitElement {
     const review = asObject(policy.review_actor || {});
     const merge = asObject(policy.merge_actor || {});
     const roles = {
-      coder: {
+      'soda-coder': {
         harness: inputValue(form, 'coder_harness'),
         harness_version: inputValue(form, 'coder_harness_version'),
         model: inputValue(form, 'coder_model'),
       },
-      reviewer: {
+      'soda-reviewer': {
         harness: inputValue(form, 'reviewer_harness'),
         harness_version: inputValue(form, 'reviewer_harness_version'),
         model: inputValue(form, 'reviewer_model'),
@@ -799,10 +799,10 @@ export class SodaFactorySettings extends LitElement {
       merge_method: 'fast-forward-only',
       required_checks: checks,
       roles,
-      publish_actor: publish,
-      create_actor: create,
-      review_actor: review,
-      merge_actor: merge,
+      publish_actor: {actor_id: publish.actor_id, token_id: publish.token_id},
+      create_actor: {actor_id: create.actor_id, token_id: create.token_id},
+      review_actor: {actor_id: review.actor_id, token_id: review.token_id},
+      merge_actor: {actor_id: merge.actor_id, token_id: merge.token_id},
       attempt_limits: {
         active_minutes: integer(form, 'active_minutes', 1),
         correction_cycles: integer(form, 'correction_cycles'),
@@ -1155,8 +1155,8 @@ ${selection?.required_tools.join('\n') || ''}</textarea>
   private renderPolicy(status: Record<string, unknown>) {
     const policy = asObject(status.policy || {});
     const roles = asObject(policy.roles || {});
-    const coder = asObject(roles.coder || {});
-    const reviewer = asObject(roles.reviewer || {});
+    const coder = asObject(roles['soda-coder'] || {});
+    const reviewer = asObject(roles['soda-reviewer'] || {});
     const limits = asObject(policy.attempt_limits || {});
     return html`<fieldset>
       <legend>Repository policy</legend>
