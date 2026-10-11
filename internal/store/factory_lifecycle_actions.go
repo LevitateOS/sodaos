@@ -159,7 +159,7 @@ func (s *Store) RegisterCapability(ctx context.Context, event, revision, install
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var storedRevision, storedInstallation string
 	err = tx.QueryRowContext(ctx, `SELECT revision,installation FROM factory_lifecycle_capabilities WHERE event=$1 FOR UPDATE`, event).Scan(&storedRevision, &storedInstallation)
 	switch {
@@ -211,6 +211,16 @@ func (s *Store) DeleteForeignCapabilities(ctx context.Context, installation stri
 	return nil
 }
 
+// ClearLifecycleCapabilities removes every marker. The registrar calls
+// this when the current handshake fails or answers unattributably, so
+// no stale proof stays usable for new enables or new effects.
+func (s *Store) ClearLifecycleCapabilities(ctx context.Context) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM factory_lifecycle_capabilities`); err != nil {
+		return fmt.Errorf("lifecycle capability clear failed: %w", err)
+	}
+	return nil
+}
+
 // CapabilityProved reports whether event has a recorded capability proof.
 func (s *Store) CapabilityProved(ctx context.Context, event string) (bool, error) {
 	var revision string
@@ -238,7 +248,7 @@ func (s *Store) SaveConfig(ctx context.Context, c factory.LifecycleConfig) (fact
 	if err != nil {
 		return factory.LifecycleConfig{}, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var storedRevision int64
 	var storedEnabled bool
 	err = tx.QueryRowContext(ctx, `SELECT revision,enabled FROM factory_lifecycle_configs WHERE event=$1`, c.Event).Scan(&storedRevision, &storedEnabled)
