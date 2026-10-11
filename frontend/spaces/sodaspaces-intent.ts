@@ -308,6 +308,13 @@ export class SodaIntent extends LitElement {
         this.savedNext = page.next_cursor;
         this.savedLoaded = true;
         this.savedError = '';
+        this.dispatchEvent(
+          new CustomEvent('intent-inventory', {
+            detail: {intents: [...this.savedRequests]},
+            bubbles: true,
+            composed: true,
+          })
+        );
       } catch {
         if (!signal.aborted) this.savedError = 'Could not load saved requests. Your edits are kept; try again.';
       }

@@ -116,7 +116,13 @@ function savedRequestItem(view: IntentView, item: SavedRequest) {
   return html`<li>
     <p>${item.objective}</p>
     <p>${requestState(item.state)}${work}</p>
-    <button ?disabled=${view.busy || view.blocked} @click=${() => view.resumeRequest(item.intent)}>Resume</button>
+    <button
+      aria-label=${'Resume ' + item.objective}
+      ?disabled=${view.busy || view.blocked}
+      @click=${() => view.resumeRequest(item.intent)}
+    >
+      Resume
+    </button>
   </li>`;
 }
 function savedRequests(view: IntentView) {
