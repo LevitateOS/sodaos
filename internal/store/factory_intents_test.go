@@ -3,8 +3,9 @@ package store
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/factory"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 func TestIntentRevisionCASAndPrivacy(t *testing.T) {
@@ -43,6 +44,7 @@ func TestIntentRevisionCASAndPrivacy(t *testing.T) {
 		t.Fatal("other owner department accepted")
 	}
 }
+
 func TestPriorityBudgetReservesBeforeCalls(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()

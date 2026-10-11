@@ -38,6 +38,7 @@ func (s *API) apiDepartments(w http.ResponseWriter, r *http.Request, v store.Ses
 	}
 	auth.JSONResponse(w, 201, d)
 }
+
 func (s *API) apiIntent(w http.ResponseWriter, r *http.Request, v store.Session) {
 	result, err := s.Store.IntentRevision(r.Context(), r.PathValue("intentID"), v.User.ID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -50,6 +51,7 @@ func (s *API) apiIntent(w http.ResponseWriter, r *http.Request, v store.Session)
 	}
 	auth.JSONResponse(w, 200, result)
 }
+
 func (s *API) apiIntentRevision(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.checkLifecycleSession(w, r, v) {
 		return

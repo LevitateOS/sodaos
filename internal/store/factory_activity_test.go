@@ -51,6 +51,7 @@ func TestActivitySettingsIndependentAtomicRevision(t *testing.T) {
 		t.Fatal("activity altered execution policy", count, err)
 	}
 }
+
 func TestActivityReportsOnlyCommittedPublishedAndConfirmedClosure(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()

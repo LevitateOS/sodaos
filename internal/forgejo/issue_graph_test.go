@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	sdk "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	sdk "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 type graphClientFixture struct {
@@ -32,12 +33,14 @@ func (f *graphClientFixture) ReadNativeRevision(context.Context) (sdk.NativeRevi
 	}
 	return sdk.NativeRevisionObservation{Revision: r, Idle: true}, nil
 }
+
 func (f *graphClientFixture) ReadSnapshot(_ context.Context, _ sdk.CredentialFile, req sdk.SnapshotRequest) (sdk.NativeSnapshot, error) {
 	if req.ActorID != "91" || len(req.Families) != 1 || req.Families[0] != sdk.SnapshotFamilyRepositoryWriters {
 		return sdk.NativeSnapshot{}, errors.New("unexpected snapshot")
 	}
 	return sdk.NativeSnapshot{RepositoryID: req.RepositoryID, Writers: map[string]bool{req.WriterIDs[0]: f.allowed}}, nil
 }
+
 func (f *graphClientFixture) SubmitOperation(_ context.Context, _ sdk.CredentialFile, i sdk.OperationIntent) (sdk.OperationRecord, error) {
 	f.submits++
 	if i.Kind != sdk.OperationKindIssueGraph {
@@ -45,9 +48,11 @@ func (f *graphClientFixture) SubmitOperation(_ context.Context, _ sdk.Credential
 	}
 	return f.record, f.submitError
 }
+
 func (f *graphClientFixture) GetOperation(_ context.Context, id string) (sdk.OperationLookup, error) {
 	return sdk.OperationLookup{OperationID: id, Status: f.record.EffectState, Record: &f.record}, nil
 }
+
 func graphWriterFixture(t *testing.T, f *graphClientFixture) *IssueGraphWriter {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +69,7 @@ func graphWriterFixture(t *testing.T, f *graphClientFixture) *IssueGraphWriter {
 	}
 	return NewIssueGraphWriter(f, New(server.URL), path)
 }
+
 func TestIssueGraphWriterChecksCurrentOwnerAtStableRevision(t *testing.T) {
 	f := &graphClientFixture{revision: 8, allowed: true}
 	w := graphWriterFixture(t, f)
@@ -83,6 +89,7 @@ func TestIssueGraphWriterChecksCurrentOwnerAtStableRevision(t *testing.T) {
 		t.Fatal("revoked human authority accepted")
 	}
 }
+
 func TestIssueGraphWriterReconcilesExactOperationAfterLostResponse(t *testing.T) {
 	payload, _ := json.Marshal(sdk.IssueGraphPayload{Creates: []sdk.IssueGraphCreate{{Key: "task", Title: "Objective", Body: "Outcome"}}})
 	g := factory.IntentGeneration{OperationID: "intent-operation", ActorID: 91, NativeRev: 8, NotAfter: 2000000000, AuthRevision: "accepted-product-direction", Payload: payload}

@@ -1,9 +1,10 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
-	"net/http"
 )
 
 func (s *API) apiIntentGenerate(w http.ResponseWriter, r *http.Request, v store.Session) {

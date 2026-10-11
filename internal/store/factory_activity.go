@@ -26,6 +26,7 @@ func (s *Store) ActivitySettings(ctx context.Context, repository int64) (factory
 	err = json.Unmarshal(raw, &settings)
 	return settings, revision, err
 }
+
 func (s *Store) SetActivitySettings(ctx context.Context, repository, actor, expected int64, settings factory.ActivitySettings) error {
 	if repository <= 0 || actor <= 0 || expected < 0 || expected == math.MaxInt64 {
 		return errors.New("invalid activity settings revision")

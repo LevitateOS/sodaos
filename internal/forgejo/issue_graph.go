@@ -24,6 +24,7 @@ type IssueGraphWriter struct {
 func NewIssueGraphWriter(background sdk.BackgroundClient, rest *Client, tokenFile string) *IssueGraphWriter {
 	return &IssueGraphWriter{background: background, rest: rest, tokenFile: tokenFile}
 }
+
 func (w *IssueGraphWriter) checkActor(ctx context.Context, actor int64) error {
 	if w == nil || w.background == nil || w.rest == nil || w.tokenFile == "" || actor <= 0 {
 		return ErrUnavailable
@@ -122,6 +123,7 @@ func (w *IssueGraphWriter) SubmitGraph(ctx context.Context, g factory.IntentGene
 	}
 	return record, nil
 }
+
 func (w *IssueGraphWriter) LookupGraph(ctx context.Context, g factory.IntentGeneration, repository int64) (sdk.OperationLookup, error) {
 	if w == nil || w.background == nil {
 		return sdk.OperationLookup{}, ErrUnavailable
@@ -140,12 +142,14 @@ func (w *IssueGraphWriter) LookupGraph(ctx context.Context, g factory.IntentGene
 	}
 	return lookup, nil
 }
+
 func (w *IssueGraphWriter) CancelGraph(ctx context.Context, operationID string) (sdk.OperationRecord, error) {
 	if w == nil || w.background == nil {
 		return sdk.OperationRecord{}, ErrUnavailable
 	}
 	return w.background.CancelOperation(ctx, operationID)
 }
+
 func validateGraphRecord(g factory.IntentGeneration, repository int64, r sdk.OperationRecord) error {
 	if r.OperationID != g.OperationID {
 		return ErrInvalidResponse

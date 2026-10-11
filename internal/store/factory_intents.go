@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-
 	"encoding/json"
 	"errors"
 
@@ -30,6 +29,7 @@ func (s *Store) CreateDepartment(ctx context.Context, d factory.Department) erro
 	}
 	return nil
 }
+
 func (s *Store) Departments(ctx context.Context, owner int64) ([]factory.Department, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_departments WHERE owner_id=$1 ORDER BY id LIMIT 101`, owner)
 	if err != nil {
@@ -112,6 +112,7 @@ func (s *Store) SaveIntentRevision(ctx context.Context, r factory.IntentRevision
 	}
 	return tx.Commit()
 }
+
 func (s *Store) IntentRevision(ctx context.Context, intent string, owner int64) (factory.IntentRevision, error) {
 	var r factory.IntentRevision
 	var raw []byte
@@ -152,6 +153,7 @@ func (s *Store) ReservePriorityJudgment(ctx context.Context, snapshot string, ma
 	}
 	return true, tx.Commit()
 }
+
 func (s *Store) RecordPriorityJudgment(ctx context.Context, r factory.PriorityReceipt) error {
 	if !factory.ValidDigest(r.Snapshot) || r.CreatedUnix <= 0 {
 		return errors.New("invalid priority receipt")
@@ -230,6 +232,7 @@ func (s *Store) PriorityJudgment(ctx context.Context, snapshot string) (factory.
 	}
 	return r, err
 }
+
 func (s *Store) ReserveIssuePlanning(ctx context.Context, acceptance, snapshot string) (bool, error) {
 	var raw []byte
 	err := s.db.QueryRowContext(ctx, `SELECT r.data FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_heads h ON h.id=r.intent AND h.revision=r.id WHERE t.data->>'acceptance_id'=$1 AND r.data->>'state'='accepted' LIMIT 1`, acceptance).Scan(&raw)

@@ -22,6 +22,7 @@ func intentID() (string, error) {
 	}
 	return "d" + hex.EncodeToString(raw[:]), nil
 }
+
 func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.checkLifecycleSession(w, r, v) {
 		return
@@ -126,6 +127,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 func intentDesignCriteria() map[string]any {
 	return map[string]any{"complete_first": "One task per reviewed product choice combines implementation and verification outcomes", "incremental": "Two tasks per reviewed product choice separate implementation and dependent verification", "clarify": "No work graph until consequential scope contradictions or missing product outcomes are reviewed"}
 }
+
 func intentDesignCandidates(r factory.IntentRevision) []factory.PriorityCandidate {
 	result := []factory.PriorityCandidate{}
 	for _, approach := range []string{"complete_first", "incremental"} {
@@ -136,6 +138,7 @@ func intentDesignCandidates(r factory.IntentRevision) []factory.PriorityCandidat
 	}
 	return append(result, factory.PriorityCandidate{ID: "clarify", Objective: r.Objective, Risk: intentDesignCriteria()["clarify"].(string)})
 }
+
 func applyIntentDesign(current factory.IntentRevision, ids []string, proposal factory.IntentRevision, answer factory.PriorityAnswer) factory.IntentRevision {
 	if answer.Confidence < .25 || answer.Selected == "clarify" {
 		return proposal

@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/factory"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
@@ -56,6 +57,7 @@ func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
 		t.Fatal("stale generation accepted")
 	}
 }
+
 func TestIntentPlanningHasTwoIndependentAllowances(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	s.PriorityCallBudget = 3

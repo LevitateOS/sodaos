@@ -2,8 +2,9 @@ package api
 
 import (
 	"fmt"
-	"github.com/levitateos/sodaos/internal/factory"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/factory"
 )
 
 func TestIntentDesignRespectsExplicitApproachAndChangesGraph(t *testing.T) {

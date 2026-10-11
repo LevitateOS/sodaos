@@ -1,9 +1,10 @@
 package api
 
 import (
-	extensions "forgejo.org/extension-sdk"
 	"net/http/httptest"
 	"testing"
+
+	extensions "forgejo.org/extension-sdk"
 )
 
 func TestIntentRoutesUseOnlyAdmittedProductMethods(t *testing.T) {
@@ -11,10 +12,16 @@ func TestIntentRoutesUseOnlyAdmittedProductMethods(t *testing.T) {
 		method, path string
 		want         bool
 	}{
-		{"GET", "/factory/departments", true}, {"POST", "/factory/departments", true}, {"DELETE", "/factory/departments", false},
-		{"POST", "/factory/intents", true}, {"GET", "/factory/intents", false}, {"GET", "/factory/intents/d111111111111111111111111", true},
-		{"POST", "/factory/intents/d111111111111111111111111/explore", true}, {"POST", "/factory/intents/d111111111111111111111111/generate", true},
-		{"GET", "/factory/intents/d111111111111111111111111/generation", true}, {"POST", "/factory/intents/d111111111111111111111/generation", false},
+		{"GET", "/factory/departments", true},
+		{"POST", "/factory/departments", true},
+		{"DELETE", "/factory/departments", false},
+		{"POST", "/factory/intents", true},
+		{"GET", "/factory/intents", false},
+		{"GET", "/factory/intents/d111111111111111111111111", true},
+		{"POST", "/factory/intents/d111111111111111111111111/explore", true},
+		{"POST", "/factory/intents/d111111111111111111111111/generate", true},
+		{"GET", "/factory/intents/d111111111111111111111111/generation", true},
+		{"POST", "/factory/intents/d111111111111111111111/generation", false},
 		{"POST", "/factory/intents/d111111111111111111111111/execute", false},
 	} {
 		r := httptest.NewRequest(tc.method, tc.path, nil)

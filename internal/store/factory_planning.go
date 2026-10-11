@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
@@ -16,6 +17,7 @@ func (s *Store) PlanningRecord(ctx context.Context, repository, issue int64) (fa
 	}
 	return r, err
 }
+
 func (s *Store) SavePlanningRecord(ctx context.Context, r factory.PlanningRecord) error {
 	if err := r.Validate(); err != nil {
 		return err
@@ -27,6 +29,7 @@ func (s *Store) SavePlanningRecord(ctx context.Context, r factory.PlanningRecord
 	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_planning(repository,issue,snapshot,data) VALUES($1,$2,$3,$4) ON CONFLICT(repository,issue) DO UPDATE SET snapshot=excluded.snapshot,data=excluded.data`, r.Input.Candidate.Control.Repository, r.Input.Candidate.Control.Issue, r.Snapshot, string(raw))
 	return err
 }
+
 func (s *Store) PlanningControlsAfter(ctx context.Context, limit int, seen, repository, issue int64, hasCursor bool) ([]factory.IssueControl, error) {
 	if limit < 1 || limit > 2048 {
 		return nil, errors.New("invalid planning inventory limit")

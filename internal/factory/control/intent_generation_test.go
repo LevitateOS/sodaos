@@ -5,10 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	sdk "forgejo.org/extension-sdk"
-	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/forgejo"
-	"github.com/levitateos/sodaos/internal/store"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,6 +12,11 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	sdk "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type generatedGraphFixture struct {
@@ -37,6 +38,7 @@ func (f *generatedGraphFixture) CheckIntentOwner(context.Context, int64, int64, 
 	}
 	return f.revision, nil
 }
+
 func (f *generatedGraphFixture) SubmitGraph(ctx context.Context, g factory.IntentGeneration, repo int64) (sdk.OperationRecord, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -116,6 +118,7 @@ func (f *generatedGraphFixture) SubmitGraph(ctx context.Context, g factory.Inten
 	f.records[g.OperationID] = record
 	return record, nil
 }
+
 func (f *generatedGraphFixture) LookupGraph(_ context.Context, g factory.IntentGeneration, _ int64) (sdk.OperationLookup, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -125,9 +128,11 @@ func (f *generatedGraphFixture) LookupGraph(_ context.Context, g factory.IntentG
 	}
 	return sdk.OperationLookup{OperationID: g.OperationID, Status: r.EffectState, Record: &r}, nil
 }
+
 func (f *generatedGraphFixture) CancelGraph(_ context.Context, id string) (sdk.OperationRecord, error) {
 	return sdk.OperationRecord{OperationID: id, EffectState: sdk.EffectNotCommitted, CancellationStatus: sdk.CancellationCancelled}, nil
 }
+
 func (f *generatedGraphFixture) ReadGeneratedIssue(_ context.Context, _, index, _ int64) (sdk.NativeSnapshot, int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -137,6 +142,7 @@ func (f *generatedGraphFixture) ReadGeneratedIssue(_ context.Context, _, index, 
 	}
 	return s, f.revision, nil
 }
+
 func (f *generatedGraphFixture) ReadAcceptanceEvidence(_ context.Context, _, index string, _ []string) (AcceptanceEvidence, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -148,6 +154,7 @@ func (f *generatedGraphFixture) ReadAcceptanceEvidence(_ context.Context, _, ind
 	i := s.Issue
 	return AcceptanceEvidence{Revision: f.revision, Issue: AcceptanceIssueView{ID: i.ID, Index: i.Index, TitleDigest: i.TitleDigest, ContentDigest: i.ContentDigest, ContentVer: i.ContentVersion, TitleOccurrence: generatedTitleOccurrence(i), Visible: true, PosterID: i.Provenance.PosterID}, Dependencies: generatedEdges(s.Dependencies)}, nil
 }
+
 func acceptedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixture, factory.IntentRevision) {
 	t.Helper()
 	c := coordinatorFixture(t, nil, nil)
@@ -176,6 +183,7 @@ func acceptedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixtu
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: generatedGraphChooser{}}
 	return c, f, r
 }
+
 func TestIntentGraphPayloadBindsProductDirection(t *testing.T) {
 	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Tracker", State: "accepted", MaxIssues: 5, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track", Consequence: "Visibility", Decision: "accept"}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	p, err := IntentGraphPayload(r)
@@ -198,6 +206,7 @@ func TestIntentGraphPayloadBindsProductDirection(t *testing.T) {
 		t.Fatal("unaccepted direction generated")
 	}
 }
+
 func TestIntentGraphGeneratesAndAdoptsOnceWithNativeProvenance(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
@@ -237,6 +246,7 @@ func TestIntentGraphGeneratesAndAdoptsOnceWithNativeProvenance(t *testing.T) {
 		t.Fatal("revoked owner retained generation authority")
 	}
 }
+
 func TestIntentGraphServingOwnerRecoversDurableAcceptedDirection(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
@@ -252,6 +262,7 @@ func TestIntentGraphServingOwnerRecoversDurableAcceptedDirection(t *testing.T) {
 		t.Fatal("serving recovery did not send exactly one graph")
 	}
 }
+
 func TestIntentGraphInterruptedNativeResponseReusesStoredOperation(t *testing.T) {
 	c, f, r := acceptedGenerationFixture(t)
 	ctx := context.Background()
