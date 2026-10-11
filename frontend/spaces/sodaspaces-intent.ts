@@ -17,6 +17,7 @@ export class SodaIntent extends LitElement {
     departments: {state: true},
     revision: {state: true},
     busy: {state: true},
+    busyNote: {state: true},
     dirty: {state: true},
     error: {state: true},
     departmentDialog: {state: true},
@@ -143,6 +144,7 @@ export class SodaIntent extends LitElement {
   declare departments: Department[];
   declare revision: IntentRevision | undefined;
   declare busy: boolean;
+  declare busyNote: string;
   declare dirty: boolean;
   declare error: string;
   declare departmentDialog: boolean;
@@ -161,6 +163,7 @@ export class SodaIntent extends LitElement {
     this.department = '';
     this.departments = [];
     this.busy = this.dirty = this.departmentDialog = false;
+    this.busyNote = '';
     this.error = this.departmentName = this.departmentDescription = '';
     this.maxIssues = 20;
     this.planningCalls = 8;
@@ -180,11 +183,12 @@ export class SodaIntent extends LitElement {
     this.dirty = false;
     this.error = '';
   }
-  private async perform(operation: (signal: AbortSignal) => Promise<void>) {
+  private async perform(operation: (signal: AbortSignal) => Promise<void>, note = 'Saving and planning…') {
     if (this.busy || this.blocked || !this.api) return false;
     const request = new AbortController();
     this.request = request;
     this.busy = true;
+    this.busyNote = note;
     this.error = '';
     try {
       await operation(request.signal);
@@ -255,6 +259,27 @@ export class SodaIntent extends LitElement {
   private describe = () => {
     if (this.objective.trim()) void this.perform((signal) => this.explore(signal));
   };
+  private saveCurrent = async (signal: AbortSignal) => {
+    const saved = await this.save('draft', this.revision?.repository || '0', signal);
+    this.dirty = false;
+    this.dispatchEvent(
+      new CustomEvent('intent-saved', {
+        detail: {intent: saved.intent, revision: saved.id, state: saved.state},
+        bubbles: true,
+        composed: true,
+      })
+    );
+  };
+  private saveDraft = () => {
+    if (this.objective.trim()) void this.perform(this.saveCurrent, 'Saving…');
+  };
+  private saveAndLeave = () => {
+    if (!this.objective.trim()) return;
+    void this.perform(async (signal) => {
+      await this.saveCurrent(signal);
+      this.dispatchEvent(new CustomEvent('intent-leave', {bubbles: true, composed: true}));
+    }, 'Saving…');
+  };
   private revise = () => {
     void this.perform((signal) => this.explore(signal));
   };
@@ -309,7 +334,8 @@ export class SodaIntent extends LitElement {
       );
       this.departments = [...this.departments, value];
       this.department = value.id;
-      this.toggleDepartment(false);
+    }).then((ok) => {
+      if (ok) this.toggleDepartment(false);
     });
   };
   private toggleDepartment = (open: boolean) => {
@@ -338,9 +364,15 @@ export class SodaIntent extends LitElement {
     event.preventDefault();
     (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
   }
+  private saveNote(): string {
+    if (!this.objective.trim() && !this.dirty) return '';
+    if (this.revision && !this.dirty && this.objective.trim() === this.revision.objective) return 'Saved';
+    return 'Unsaved changes';
+  }
   private view(): IntentView {
     return {
       objective: this.objective,
+      saveNote: this.saveNote(),
       department: this.department,
       departments: this.departments,
       revision: this.revision,
@@ -355,10 +387,11 @@ export class SodaIntent extends LitElement {
       planningCalls: this.planningCalls,
       set: (field, value) => {
         this[field] = value;
-        if (field === 'objective' && this.revision) this.dirty = true;
+        if ((field === 'objective' || field === 'department') && this.revision) this.dirty = true;
       },
       setBound: (field, value) => {
         this[field] = value;
+        if (this.revision) this.dirty = true;
       },
       decide: this.decide,
       chooseApproach: (approach) => {
@@ -367,6 +400,8 @@ export class SodaIntent extends LitElement {
         this.dirty = true;
       },
       describe: this.describe,
+      saveDraft: this.saveDraft,
+      saveAndLeave: this.saveAndLeave,
       revise: this.revise,
       decline: this.decline,
       continue: this.continue,
@@ -380,7 +415,7 @@ export class SodaIntent extends LitElement {
     return html`<div .inert=${this.departmentDialog}>
         ${this.revision?.ideas.length ? reviewIntent(view) : describeIntent(view)}
       </div>
-      <p role="status">${this.busy ? 'Saving and planning…' : this.error}</p>
+      <p role="status">${this.busy ? this.busyNote : this.error}</p>
       ${departmentDialog(view)}`;
   }
 }
