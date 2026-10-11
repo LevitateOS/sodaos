@@ -2,9 +2,11 @@
 
 ## Current package and path mapping
 
-Source `c8a53fdb` (2026-10-10): 2,600 tracked paths and 28 tracked Cargo
-packages (`cmd`: 14, `lib`: 8, `tools`: 6). These are source/package counts,
-separate from the historical audit and runtime evidence below.
+Current Soda source `9a184b7f` and paired Fountain source `1e6970300e`
+(2026-10-11): 2,629 tracked Soda paths and 28 tracked Cargo packages (`cmd`:
+14, `lib`: 8, `tools`: 6). The external Fountain fork is not part of these
+counts. These are source/package counts, separate from the historical audit
+and runtime evidence below.
 
 | Current root | Tracked paths |
 | --- | ---: |
@@ -12,14 +14,14 @@ separate from the historical audit and runtime evidence below.
 | .agents | 1 |
 | .githooks | 1 |
 | assets | 175 |
-| cmd | 353 |
-| docs | 318 |
-| frontend | 345 |
-| internal | 477 |
+| cmd | 354 |
+| docs | 319 |
+| frontend | 346 |
+| internal | 498 |
 | lib | 428 |
 | scripts | 81 |
-| system | 65 |
-| tests | 139 |
+| system | 68 |
+| tests | 141 |
 | tools | 197 |
 
 Current crate, binary, module and caller selectors govern the target tree.
@@ -27,10 +29,11 @@ The Project-terminal package uses `src/main.rs` and its two `src/bin` helpers;
 there is no selected `src/lib.rs`. `lib/host/Cargo.toml` keeps `src/main.rs`
 as the daemon entrypoint. Current Tailnet enrollment/Project methods remain
 at their explicit defining owners; optional directory changes are superseded.
-The D06 Rust personal-Git payload is implemented in `c8a53fdb`, with the Go
-orchestrator, adjacent tools producer and ephemeral SSH dispatch joined.
-Its real key/agent proof uses locally emulated SSH; installed behavior remains open. Historical root/port counts below are preserved
-as earlier observations, rather than current source facts.
+The D06 Rust personal-Git payload is implemented in the retained source
+history, with the Go orchestrator, adjacent tools producer and ephemeral SSH
+dispatch joined. Its real key/agent proof uses locally emulated SSH; installed
+behavior remains open. Historical root/port counts below are preserved as
+earlier observations, rather than current source facts.
 
 ## Source coverage
 

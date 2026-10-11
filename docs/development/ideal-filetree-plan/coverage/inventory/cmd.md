@@ -2,7 +2,7 @@
 
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
-Current path navigation reconciled at `45ebf4c4` (2026-10-09); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
+Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
 
 Current path accounting at `519b76bd` (2026-10-07).
 A file may contain several duties; each named duty has one defining owner and disposition.
@@ -348,6 +348,7 @@ Generated/third-party status and runtime use are separate from disposition.
 | [cmd/soda-setup/README.md](../../../../../cmd/soda-setup/README.md) | package guide | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | Package guide for this retained owner: current entrypoints, responsibilities and contract guidance. Selective path addition at `c8a53fdb`; historical body and native receipts retain their scope. |
 | [cmd/soda-setup/src/cli.rs](../../../../../cmd/soda-setup/src/cli.rs) | program source | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | [current units](../maps/soda-setup.md#coverage-62bde0c1dda9) |
 | [cmd/soda-setup/src/config.rs](../../../../../cmd/soda-setup/src/config.rs) | program source | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | [current units](../maps/soda-setup.md#coverage-f6899bb14730) |
+| [cmd/soda-setup/src/factory_enrollment.rs](../../../../../cmd/soda-setup/src/factory_enrollment.rs) | program source | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | [current units](../maps/soda-setup.md#coverage-55de8158374d) — Explicit native Factory enrollment/configuration; separate from ordinary activation. |
 | [cmd/soda-setup/src/forgejo.rs](../../../../../cmd/soda-setup/src/forgejo.rs) | program source | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | [current units](../maps/soda-setup.md#coverage-a775768ce0ee) |
 | [cmd/soda-setup/src/json.rs](../../../../../cmd/soda-setup/src/json.rs) | program source | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained | [current units](../maps/soda-setup.md#coverage-736833f76716) |
 | [cmd/soda-setup/src/main.rs](../../../../../cmd/soda-setup/src/main.rs) | program source | [O01](../../slices/operator-administration.md#o01-first-boot-database-provisioning) / retained, [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) / retained, [O02](../../slices/operator-administration.md#o02-operator-identity-bootstrap) / retained | [current units](../maps/soda-setup.md#coverage-55de8158374d) |

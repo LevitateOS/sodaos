@@ -2,8 +2,9 @@
 
 ## Complete proposed tree
 
-Current target mapping: source `63ace9cd` (2026-10-11). The complete tree
-contains all 2,609 tracked leaves, including the implemented D06 Rust remote
+Current target mapping: Soda source `9a184b7f` and paired Fountain source
+`1e6970300e` (2026-10-11). The complete Soda tree contains all 2,629 tracked
+leaves, including the implemented D06 Rust remote
 payload, `tools/acceptance/src/personal_git.rs`. Current package/module/binary
 names are retained where their application owners are already defined. The
 old Muse, Project, Codex and Tailnet filename plans are superseded by their
@@ -728,6 +729,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   │   └── setup.rs
 │   │   │   ├── cli.rs
 │   │   │   ├── config.rs
+│   │   │   ├── factory_enrollment.rs
 │   │   │   ├── forgejo.rs
 │   │   │   ├── json.rs
 │   │   │   ├── main.rs
@@ -985,6 +987,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── execution-findings.md
 │   │   │   ├── file-and-process-custody.md
 │   │   │   ├── ideal-filetree-plan.md
+│   │   │   ├── fountain-soda-correctness-tasks.md
 │   │   │   ├── implementation-lanes.md
 │   │   │   ├── implementation-tasks.md
 │   │   │   ├── independent-conclusions.md
@@ -1425,6 +1428,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── sodaspaces-factory-request.ts
 │   │   ├── sodaspaces-factory-response.ts
 │   │   ├── sodaspaces-factory-screen.ts
+│   │   ├── sodaspaces-factory-settings.ts
 │   │   ├── sodaspaces-factory-stream-response.ts
 │   │   ├── sodaspaces-factory-view.ts
 │   │   ├── sodaspaces-factory.ts
@@ -1526,7 +1530,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── background_test.go
 │   │   ├── config.go
 │   │   ├── config_test.go
-│   │   ├── grant_key_test.go
 │   │   ├── intake_test.go
 │   │   ├── load_test.go
 │   │   └── review_credential_test.go
@@ -1557,9 +1560,14 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── dispatch_concurrency_test.go
 │   │   │   ├── dispatch_context.go
 │   │   │   ├── dispatch_expiry_test.go
+│   │   │   ├── creation_recovery.go
+│   │   │   ├── creation_recovery_test.go
 │   │   │   ├── dispatch_fixture_test.go
 │   │   │   ├── dispatch_inputs.go
+│   │   │   ├── dispatch_inputs_test.go
 │   │   │   ├── dispatch_launch.go
+│   │   │   ├── dispatch_lifetime_test.go
+│   │   │   ├── dispatch_source_preparation_test.go
 │   │   │   ├── dispatch_occupancy.go
 │   │   │   ├── dispatch_preparation.go
 │   │   │   ├── dispatch_preparation_test.go
@@ -1600,6 +1608,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── postgres_fixture_external_test.go
 │   │   │   ├── postgres_fixture_test.go
 │   │   │   ├── preparation_decisions.go
+│   │   │   ├── preparation_start.go
+│   │   │   ├── preparation_start_test.go
 │   │   │   ├── prerequisites.go
 │   │   │   ├── progress.go
 │   │   │   ├── progress_test.go
@@ -1631,6 +1641,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── review_native_primitive_test.go
 │   │   │   ├── settle.go
 │   │   │   ├── settle_test.go
+│   │   │   ├── serving_completion_test.go
+│   │   │   ├── serving_due_work_test.go
 │   │   │   ├── st15_demo_accept_test.go
 │   │   │   ├── st15_demo_broker_test.go
 │   │   │   ├── st15_demo_coding_test.go
@@ -1720,6 +1732,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── checks_test.go
 │   │   ├── client.go
 │   │   ├── client_test.go
+│   │   ├── creation_recovery.go
 │   │   ├── errors.go
 │   │   ├── errors_test.go
 │   │   ├── merge.go
@@ -1816,6 +1829,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── factory_attempt_allowances_test.go
 │   │   ├── factory_attempt_expiry_test.go
 │   │   ├── factory_candidate_preparations.go
+│   │   ├── factory_source_preparations.go
 │   │   ├── factory_checks.go
 │   │   ├── factory_checks_test.go
 │   │   ├── factory_dispatch_authority_test.go
@@ -1860,6 +1874,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── project_grants.go
 │   │   ├── project_grants_test.go
 │   │   ├── project_profile_test.go
+│   │   ├── readiness_creations.go
+│   │   ├── readiness_creations_test.go
 │   │   ├── readiness_work.go
 │   │   ├── readiness_work_test.go
 │   │   ├── schema.go
@@ -1923,7 +1939,9 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       │   ├── issue_acceptances_test.go
 │       │   ├── lifecycle.go
 │       │   ├── operator.go
+│       │   ├── preparation_decision_preview.go
 │       │   ├── preparation_decisions.go
+│       │   ├── preparation_source.go
 │       │   ├── project_profiles.go
 │       │   ├── provisioning.go
 │       │   ├── repositories.go
@@ -1977,6 +1995,8 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │       ├── lifecycle_access_keys_test.go
 │       ├── mutation_admission_test.go
 │       ├── postgres_fixture_test.go
+│       ├── preparation_preview_test.go
+│       ├── preparation_source_test.go
 │       ├── preparation_test.go
 │       ├── project_profiles_test.go
 │       ├── provisioning_lifetime_test.go
@@ -2784,6 +2804,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── workspace-measurement-probe.ts
 │   │   │   └── workspace-model.ts
 │   │   ├── drawer-controls.test.ts
+│   │   ├── factory-settings-controls.test.ts
 │   │   ├── factory-view.test.ts
 │   │   ├── identity.test.ts
 │   │   ├── journey-input.test.ts

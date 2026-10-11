@@ -2,15 +2,15 @@
 
 ## Complete source-to-slice coverage
 
-Current path navigation is reconciled at `63ace9cd` (2026-10-11): all 2,609
-tracked paths appear once in the inventories, with no missing or duplicate
-current path rows. Twelve later Factory prompt, preparation and expiry paths
-are linked to their current responsibility maps; the earlier addition and
-retirement receipts retain their original scope. The desired tree contains
-these paths and the implemented D06 Rust personal-Git payload. Later package
-guides and four Factory/Forgejo test files are selectively mapped. The detailed duty/body
-snapshot below remains historical at `519b76bd`; current path membership and
-repaired navigation do not requalify its source or runtime conclusions.
+Current Soda path navigation is reconciled at `9a184b7f` alongside the paired
+Fountain source pin `1e6970300e` (2026-10-11): all 2,629 tracked Soda paths
+appear once in the inventories, with no missing or duplicate
+current path rows. The 21 path additions and one removal since `63ace9cd` are
+selectively mapped to their existing owners; historical addition and retirement
+receipts retain their original scope. The desired tree contains these paths and
+the implemented D06 Rust personal-Git payload. Detailed duty/body selectors
+remain pinned to `519b76bd`; current path membership and repaired navigation do
+not requalify its source or runtime conclusions.
 
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded

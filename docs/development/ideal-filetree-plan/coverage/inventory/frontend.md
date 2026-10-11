@@ -2,6 +2,8 @@
 
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
+Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
+
 Current path accounting at `519b76bd` (2026-10-07).
 A file may contain several duties; each named duty has one defining owner and disposition.
 Generated/third-party status and runtime use are separate from disposition.
@@ -292,6 +294,7 @@ Generated/third-party status and runtime use are separate from disposition.
 | [frontend/spaces/sodaspaces-factory-request.ts](../../../../../frontend/spaces/sodaspaces-factory-request.ts) | program source | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / retained | [current units](../maps/browser-spaces.md#coverage-64f01def96fa) |
 | [frontend/spaces/sodaspaces-factory-response.ts](../../../../../frontend/spaces/sodaspaces-factory-response.ts) | program source | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / retained | [current units](../maps/browser-spaces.md#coverage-9665c08139f3) |
 | [frontend/spaces/sodaspaces-factory-screen.ts](../../../../../frontend/spaces/sodaspaces-factory-screen.ts) | program source | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / retained | [current units](../maps/browser-spaces.md#coverage-ddc6cbac8535) |
+| [frontend/spaces/sodaspaces-factory-settings.ts](../../../../../frontend/spaces/sodaspaces-factory-settings.ts) | program source | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / retained, [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / retained, [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) / retained, [P09](../../slices/projects.md#p09-privileged-preparation-approval) / retained | Current Factory settings controls; renders native source/decision reviews and sends explicit acceptance, approval, preparation and policy actions. |
 | [frontend/spaces/sodaspaces-factory-stream-response.ts](../../../../../frontend/spaces/sodaspaces-factory-stream-response.ts) | program source | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / retained | [current units](../maps/browser-spaces.md#coverage-9870e3e4fbf7) |
 | [frontend/spaces/sodaspaces-factory-view.ts](../../../../../frontend/spaces/sodaspaces-factory-view.ts) | program source | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / retained | [current units](../maps/browser-spaces.md#coverage-1741f8be517e) |
 | [frontend/spaces/sodaspaces-factory.ts](../../../../../frontend/spaces/sodaspaces-factory.ts) | program source | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) / retained, [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / retained | [current units](../maps/browser-spaces.md#coverage-f42521383923) |
