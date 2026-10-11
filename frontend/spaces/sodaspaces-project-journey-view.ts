@@ -157,7 +157,7 @@ function joinRefreshAction(input: JourneyViewInput) {
 
 function joinHelper(input: JourneyViewInput) {
   return html`Joining as ${input.readJoinCaption()}. Factory work uses its own authority and does not wait for your
-    Join. Then you can open your first browser terminal.`;
+  Join. Then you can open your first browser terminal.`;
 }
 
 function renderJourneyJoin(input: JourneyViewInput) {
