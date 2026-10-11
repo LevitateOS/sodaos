@@ -342,3 +342,14 @@ test('setup cancel falls back to the first project only when the return target i
     0
   );
 });
+test('setup: join states its account, authority and factory independence', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  const journey = page.locator('.soda-project-journey');
+  assert.match(await journey.innerText(), /Joining as Forgejo account/);
+  assert.match(await journey.innerText(), /repository write access confirmed/);
+  assert.match(await journey.innerText(), /Factory work uses its own authority/);
+});
