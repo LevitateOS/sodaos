@@ -3,12 +3,12 @@
 // drift test below re-extracts the Go literals at test time and
 // fails on any difference, so a Go schema change forces a
 // regeneration of this file in the same patch.
-pub const SCHEMA_VERSION: i64 = 43;
+pub const SCHEMA_VERSION: i64 = 45;
 
 pub const STATEMENTS: &[&str] = &[
     r#"CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)"#,
     r#"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"#,
-    r#"INSERT INTO schema_version(version) VALUES(43)"#,
+    r#"INSERT INTO schema_version(version) VALUES(45)"#,
     r#"CREATE TABLE factory_departments(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_intent_heads(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), revision TEXT NOT NULL)"#,
     r#"CREATE TABLE factory_intent_revisions(id TEXT PRIMARY KEY, intent TEXT NOT NULL REFERENCES factory_intent_heads(id), data JSONB NOT NULL)"#,
@@ -19,6 +19,8 @@ pub const STATEMENTS: &[&str] = &[
     r#"CREATE TABLE factory_intent_generations(revision TEXT PRIMARY KEY REFERENCES factory_intent_revisions(id), data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_intent_tasks(revision TEXT NOT NULL REFERENCES factory_intent_revisions(id), task TEXT NOT NULL, data JSONB NOT NULL, PRIMARY KEY(revision,task))"#,
     r#"CREATE TABLE factory_intent_planning_calls(intent TEXT NOT NULL REFERENCES factory_intent_heads(id), snapshot TEXT PRIMARY KEY REFERENCES factory_priority_judgments(snapshot))"#,
+    r#"CREATE TABLE factory_intent_allowance_heads(intent TEXT PRIMARY KEY REFERENCES factory_intent_heads(id), owner_id BIGINT NOT NULL CHECK(owner_id>0), revision TEXT NOT NULL)"#,
+    r#"CREATE TABLE factory_intent_allowances(id TEXT PRIMARY KEY, intent TEXT NOT NULL REFERENCES factory_intent_allowance_heads(intent), data JSONB NOT NULL)"#,
     r#"CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')"#,
     r#"CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))"#,
     r#"CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))"#,
@@ -45,6 +47,10 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')"#,
     r#"CREATE TABLE factory_dispatch_regs(seq BIGINT GENERATED ALWAYS AS IDENTITY, id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), revision INTEGER NOT NULL, data JSONB NOT NULL)"#,
     r#"CREATE INDEX factory_dispatch_regs_repository ON factory_dispatch_regs(repository)"#,
     r#"CREATE TABLE factory_takeovers(run TEXT NOT NULL, member TEXT NOT NULL, project TEXT NOT NULL REFERENCES projects(id), data JSONB NOT NULL, PRIMARY KEY(run,member))"#,
+    r#"CREATE TABLE factory_lifecycle_actions(id TEXT PRIMARY KEY, event TEXT NOT NULL, action TEXT NOT NULL, repository BIGINT NOT NULL CHECK(repository>0), issue BIGINT NOT NULL CHECK(issue>0), attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts>=0), revoked BOOLEAN NOT NULL DEFAULT FALSE, data JSONB NOT NULL)"#,
+    r#"CREATE INDEX factory_lifecycle_actions_target ON factory_lifecycle_actions(repository,issue,event)"#,
+    r#"CREATE TABLE factory_lifecycle_capabilities(event TEXT PRIMARY KEY, revision TEXT NOT NULL)"#,
+    r#"CREATE TABLE factory_lifecycle_configs(event TEXT PRIMARY KEY, revision BIGINT NOT NULL CHECK(revision>=0), enabled BOOLEAN NOT NULL, data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_run_views(seq BIGINT GENERATED ALWAYS AS IDENTITY, run TEXT PRIMARY KEY REFERENCES factory_runs(id), repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL DEFAULT 0 CHECK(issue>=0), attempt TEXT NOT NULL DEFAULT '' CHECK(char_length(attempt)<=64))"#,
     r#"CREATE TABLE factory_assignments(seq BIGINT GENERATED ALWAYS AS IDENTITY, id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), run TEXT NOT NULL, stage TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_attempt_allowances(repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), root_assignment TEXT PRIMARY KEY REFERENCES factory_assignments(id), revision BIGINT NOT NULL CHECK(revision>=0), data JSONB NOT NULL)"#,
@@ -209,6 +215,11 @@ pub const VERIFY_QUERIES: &[&str] = &[
     r#"SELECT seq,assignment,repository,connection,state,data FROM factory_reservations LIMIT 0"#,
     r#"SELECT run,repository,connection,minutes,started_at,ended_at,data FROM factory_usage LIMIT 0"#,
     r#"SELECT run,member,project,data FROM factory_takeovers LIMIT 0"#,
+    r#"SELECT id,event,action,repository,issue,attempts,revoked,data FROM factory_lifecycle_actions LIMIT 0"#,
+    r#"SELECT event,revision FROM factory_lifecycle_capabilities LIMIT 0"#,
+    r#"SELECT event,revision,enabled,data FROM factory_lifecycle_configs LIMIT 0"#,
+    r#"SELECT intent,owner_id,revision FROM factory_intent_allowance_heads LIMIT 0"#,
+    r#"SELECT id,intent,data FROM factory_intent_allowances LIMIT 0"#,
     r#"SELECT id,repository,issue,predecessor,data FROM issue_acceptance_decisions LIMIT 0"#,
     r#"SELECT repository,issue,decision FROM issue_acceptance_heads LIMIT 0"#,
     r#"SELECT repository,issue,decision,withdrawer FROM issue_acceptance_withdrawals LIMIT 0"#,
