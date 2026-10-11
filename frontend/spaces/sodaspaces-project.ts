@@ -331,6 +331,7 @@ export class SodaProjectControls extends LitElement {
       readStatus: () => this.status,
       readRepositoryName: () => this.repositoryName,
       readBindingRepository: () => this.binding?.repositoryId || '',
+      readJoinCaption: () => this.joinCaption(),
       hasLifecycle: () => !!this.lifecycle,
       readProfiles: () => this.profiles,
       readSelectedProfile: () => this.selectedProfile,
@@ -369,6 +370,13 @@ export class SodaProjectControls extends LitElement {
   private projectAccountCaption() {
     if (!this.connection) return '';
     return 'Project account: ' + this.detail?.login;
+  }
+  private joinCaption() {
+    const authority = this.detail?.execution_allowed
+      ? 'repository write access confirmed'
+      : 'repository write access missing';
+    const session = this.sessionCaption();
+    return session ? `${session} · ${authority}` : authority;
   }
   private boundRepositoryId() {
     return this.binding?.repositoryId || '';
