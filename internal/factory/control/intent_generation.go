@@ -309,7 +309,11 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 		}
 		// Interrupted adoption may have recorded acceptance before its binding.
 		// Reuse only that exact deterministic decision, never a similar issue.
-		binding := factory.IntentTaskBinding{RevisionID: r.ID, TaskKey: key, IssueID: entry.IssueID, IssueIndex: entry.IssueIndex, ContentVersion: entry.ContentVersion, AcceptanceID: decision.ID}
+		createdUnix := issue.CreatedUnix
+		if createdUnix <= 0 {
+			createdUnix = issue.Provenance.CreatedUnix
+		}
+		binding := factory.IntentTaskBinding{RevisionID: r.ID, TaskKey: key, IssueID: entry.IssueID, IssueIndex: entry.IssueIndex, ContentVersion: entry.ContentVersion, AcceptanceID: decision.ID, CreatedUnix: createdUnix}
 		// Persist authority provenance before acceptance can make the issue
 		// eligible to any independently running coordinator pass.
 		if err = c.Store.BindIntentTaskAcceptance(ctx, binding); err != nil {
