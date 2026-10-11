@@ -652,7 +652,7 @@ const historyNow = {
   state: 'accepted',
   repository: '7',
   created_unix: 1728670000,
-  generation: {state: 'committed'},
+  generation: {state: 'committed', submitted_keys: [taskA, taskB], submitted_differs: true},
   comparison: {
     tasks: {
       added: [{key: taskB, objective: 'Ship demo.', outcomes: ['demo scope'], idea_ids: [historyIdea]}],
@@ -685,7 +685,11 @@ const historyNow = {
     state_change: {from: 'draft', to: 'accepted'},
     edges_changed: true,
   },
-  work: [{task_key: taskA, issue_index: '12', state: 'working', authority: 'current', content_version: 3}],
+  work: [
+    {task_key: taskA, issue_index: '12', state: 'working', authority: 'current', content_version: 3},
+    {task_key: taskB, issue_index: '13', state: 'delivered', authority: 'superseded', content_version: 1},
+    {task_key: taskA, issue_index: '14', state: 'waiting', authority: 'unknown', content_version: 0},
+  ],
 };
 
 const historyOld = {
@@ -718,6 +722,14 @@ test('revision history composes before/after and affected work per revision', ()
   assert.match(current?.scopeLines[1] ?? '', /State draft → accepted/);
   assert.match(current?.scopeLines[2] ?? '', /Dependency edges changed/);
   assert.match(current?.workLines[0] ?? '', /working \(current\), content version 3/);
+  assert.match(current?.workLines[1] ?? '', /delivered \(superseded\), content version 1/);
+  assert.match(current?.workLines[2] ?? '', /waiting \(unknown\), content version 0/);
+  assert.match(
+    current?.lineageText ?? '',
+    /Generation committed\. Submitted graph: 2 submitted keys\. Differs from accepted direction\./
+  );
+  assert.match(current?.lineageText ?? '', /Repository 7, recorded /);
+  assert.doesNotMatch(current?.lineageText ?? '', /\[object Object\]/);
   assert.match(model.entries[1]?.lineageText ?? '', /First revision/);
   const cut = describeRevisionHistory(historyWith([historyNow], {truncated: true}), 'ready');
   assert.match(cut.truncatedNote, /beyond this page/);
