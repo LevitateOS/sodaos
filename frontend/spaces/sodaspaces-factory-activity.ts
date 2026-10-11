@@ -19,7 +19,7 @@ const labels: Record<Kind, string> = {
   verified_merge: 'Verified merges and original issue closure',
 };
 
-function nativePath(value: unknown): value is string {
+export function nativePath(value: unknown): value is string {
   return (
     typeof value === 'string' &&
     /^\/(?:[^/\\?#\s%]+\/)*[^/\\?#\s%]+$/u.test(value) &&
