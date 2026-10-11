@@ -360,7 +360,9 @@ export interface FactoryCommandRecord {
   target?: string;
   outcome?: string;
 }
-function pauseRunOutcome(value: unknown): PauseRunOutcome {
+// runStopOutcome admits one recorded run-stop outcome from a pause or
+// Project-stop receipt. Confirmed and uncertain stay distinct.
+export function runStopOutcome(value: unknown): PauseRunOutcome {
   const raw = object(value);
   check(commandId(raw.id) && typeof raw.confirmed === 'boolean' && typeof raw.uncertain === 'boolean');
   if (raw.outcome !== undefined) check(raw.outcome === '' || runOutcomes.includes(raw.outcome as string));
@@ -387,7 +389,7 @@ export function pauseReceipt(value: unknown, commandID: string, repository: stri
     revision: counter(withdrawal.revision),
     cause: text(withdrawal.cause, 256),
     closed_by: text(withdrawal.closed_by, 128),
-    runs: data.runs.map(pauseRunOutcome),
+    runs: data.runs.map(runStopOutcome),
   };
 }
 // resumeReceipt binds one resume outcome to its exact command.
@@ -448,6 +450,57 @@ export function factoryCommandRecord(value: unknown, commandID: string): Factory
     digest: data.digest as string,
     ...(data.target === undefined ? {} : {target: text(data.target, 256)}),
     ...(data.outcome === undefined ? {} : {outcome: text(data.outcome, 1024)}),
+  };
+}
+export interface ProjectStopResult {
+  project: string;
+  running: boolean;
+  hold: boolean;
+  hold_synced: boolean;
+  withdrawal_revision: number;
+  runs: PauseRunOutcome[];
+}
+// projectStopResult binds one explicit Project-stop outcome to its exact
+// project: the observed running state, maintenance-hold sync and every
+// outstanding run's stop outcome.
+export function projectStopResult(value: unknown, projectID: string): ProjectStopResult {
+  const data = object(value);
+  const environment = object(data.environment);
+  check(environment.id === projectID && typeof environment.running === 'boolean');
+  const control = object(data.control);
+  check(typeof control.hold === 'boolean' && typeof control.hold_synced === 'boolean');
+  const withdrawal = object(control.withdrawal);
+  check(Array.isArray(control.runs) && control.runs.length <= 64);
+  return {
+    project: projectID,
+    running: environment.running,
+    hold: control.hold,
+    hold_synced: control.hold_synced,
+    withdrawal_revision: counter(withdrawal.revision),
+    runs: control.runs.map(runStopOutcome),
+  };
+}
+export interface SodaErrorDetail {
+  code?: string;
+  message?: string;
+}
+function errorRecord(value: unknown): Record<string, unknown> | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+function errorText(value: unknown, limit: number): string | undefined {
+  if (typeof value !== 'string' || value === '') return undefined;
+  return value.slice(0, limit);
+}
+// sodaErrorDetail reads the shared `{error: {code, message}}` refusal
+// envelope. Unknown shapes yield no detail, never a guessed reason.
+export function sodaErrorDetail(value: unknown): SodaErrorDetail {
+  const error = errorRecord(errorRecord(value)?.error);
+  const code = errorText(error?.code, 128);
+  const message = errorText(error?.message, 1024);
+  return {
+    ...(code === undefined ? {} : {code}),
+    ...(message === undefined ? {} : {message}),
   };
 }
 export interface PendingRuns {

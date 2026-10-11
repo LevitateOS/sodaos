@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   describeIntervention,
   describeIssueDetail,
+  interventionResultText,
   nativeIssueLink,
   nativePullLink,
 } from '../../frontend/spaces/sodaspaces-factory-work-view';
@@ -134,6 +135,70 @@ test('detail models carry evidence, links and attributable blockers', () => {
   assert.equal(nativeIssueLink('/bad/../path', '12'), undefined);
   assert.equal(nativeIssueLink(path, '0'), undefined);
   assert.equal(nativePullLink(path, 'nope'), undefined);
+});
+
+test('intervention outcomes separate confirmed, pending, uncertain and failed', () => {
+  const run = 'd'.repeat(32);
+  const command = 'c'.repeat(32);
+  const paused = interventionResultText({
+    kind: 'pause',
+    receipt: {
+      command_id: command,
+      paused: true,
+      repository: '7',
+      revision: 1,
+      cause: 'control_paused',
+      closed_by: 'os-uid:1000',
+      runs: [
+        {id: run, confirmed: true, uncertain: false, outcome: 'cancelled'},
+        {id: 'e'.repeat(32), confirmed: false, uncertain: true},
+      ],
+    },
+  });
+  assert.equal(paused.result, 'confirmed');
+  assert.match(paused.text, /1 run stays fenced, not cancelled/);
+  assert.equal(
+    interventionResultText({kind: 'stop', receipt: {run_id: run, confirmed: true, uncertain: false}}).result,
+    'confirmed'
+  );
+  assert.equal(
+    interventionResultText({kind: 'stop', receipt: {run_id: run, confirmed: false, uncertain: true}}).result,
+    'uncertain'
+  );
+  assert.equal(
+    interventionResultText({kind: 'stop', receipt: {run_id: run, confirmed: false, uncertain: false}}).result,
+    'pending'
+  );
+  assert.equal(
+    interventionResultText({
+      kind: 'retry',
+      receipt: {prior_run: run, command_id: command, reason: 'run_failed', queued: true},
+    }).result,
+    'confirmed'
+  );
+  const stopped = interventionResultText({
+    kind: 'project_stop',
+    receipt: {
+      project: 'p0123456789abcdef01234567',
+      running: false,
+      hold: true,
+      hold_synced: false,
+      withdrawal_revision: 2,
+      runs: [],
+    },
+  });
+  assert.equal(stopped.result, 'confirmed');
+  assert.match(stopped.text, /did not sync/);
+  assert.equal(interventionResultText({kind: 'pending_runs', pending: {runs: [run], message: 'x'}}).result, 'failed');
+  assert.equal(
+    interventionResultText({
+      kind: 'command',
+      record: {id: command, type: 'stop', principal: 'os-uid:1000', digest: 'f'.repeat(64)},
+    }).result,
+    'pending'
+  );
+  assert.equal(interventionResultText({kind: 'refused', status: 403, message: 'Denied.'}).result, 'failed');
+  assert.equal(interventionResultText({kind: 'unconfirmed', commandID: command}).result, 'pending');
 });
 
 test('interventions pair scope, impact and pending-versus-confirmed results', () => {

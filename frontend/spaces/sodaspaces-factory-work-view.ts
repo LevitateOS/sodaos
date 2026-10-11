@@ -2,7 +2,17 @@ import {html} from 'lit';
 import type {TemplateResult} from 'lit';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import {id} from './sodaspaces-api.js';
-import type {FactoryIssueDetail} from './sodaspaces-factory-work-response.js';
+import type {
+  FactoryCommandRecord,
+  FactoryIssueDetail,
+  PauseReceipt,
+  PendingRuns,
+  ProjectStopResult,
+  ResumeReceipt,
+  RetryDecision,
+  StopReceipt,
+  TakeoverRecord,
+} from './sodaspaces-factory-work-response.js';
 
 // Pure work-detail and intervention presentation for V03/V04. Model
 // builders turn one issue's recorded facts into display state; render
@@ -269,6 +279,105 @@ export function describeIntervention(input: InterventionInput): InterventionMode
     result: input.result,
     resultText: input.resultText,
   };
+}
+
+export type InterventionOutcome =
+  | {kind: 'pause'; receipt: PauseReceipt}
+  | {kind: 'resume'; receipt: ResumeReceipt}
+  | {kind: 'stop'; receipt: StopReceipt}
+  | {kind: 'retry'; receipt: RetryDecision}
+  | {kind: 'takeover'; receipt: TakeoverRecord}
+  | {kind: 'project_stop'; receipt: ProjectStopResult}
+  | {kind: 'pending_runs'; pending: PendingRuns}
+  | {kind: 'command'; record: FactoryCommandRecord}
+  | {kind: 'refused'; status: number; message: string}
+  | {kind: 'unconfirmed'; commandID: string};
+
+function settledRunCount(runs: readonly {confirmed: boolean; uncertain: boolean}[]): {
+  settled: number;
+  uncertain: number;
+} {
+  return {
+    settled: runs.filter((run) => run.confirmed && !run.uncertain).length,
+    uncertain: runs.filter((run) => run.uncertain).length,
+  };
+}
+function pauseOutcomeText(receipt: PauseReceipt): {result: InterventionResult; text: string} {
+  const {settled, uncertain} = settledRunCount(receipt.runs);
+  const fence = uncertain > 0 ? ` ${uncertain} run${uncertain === 1 ? ' stays' : 's stay'} fenced, not cancelled.` : '';
+  return {
+    result: 'confirmed',
+    text: `Pause confirmed. Dispatch closed; ${settled} run${settled === 1 ? '' : 's'} stopped.${fence}`,
+  };
+}
+function stopOutcomeText(receipt: StopReceipt): {result: InterventionResult; text: string} {
+  if (receipt.uncertain)
+    return {
+      result: 'uncertain',
+      text: 'Stop uncertain: the run effect is not confirmed. Inspect the run before retrying.',
+    };
+  if (!receipt.confirmed)
+    return {result: 'pending', text: 'Stop recorded but not confirmed. Read the command back before acting again.'};
+  return {result: 'confirmed', text: `Stop confirmed${receipt.outcome ? `: ${receipt.outcome}` : ''}.`};
+}
+function projectStopOutcomeText(receipt: ProjectStopResult): {result: InterventionResult; text: string} {
+  const {settled, uncertain} = settledRunCount(receipt.runs);
+  const hold = receipt.hold_synced
+    ? 'Maintenance hold synced.'
+    : 'Maintenance hold did not sync; the stop still proceeded.';
+  const fence = uncertain > 0 ? ` ${uncertain} run${uncertain === 1 ? ' stays' : 's stay'} fenced.` : '';
+  const running = receipt.running
+    ? 'The project still reports running; ask the operator to inspect.'
+    : 'The project is stopped.';
+  return {
+    result: 'confirmed',
+    text: `Project stop confirmed. ${settled} run${settled === 1 ? '' : 's'} stopped.${fence} ${hold} ${running}`,
+  };
+}
+type RunOutcome = Exclude<InterventionOutcome, {kind: 'pause' | 'resume' | 'stop' | 'retry' | 'takeover'}>;
+function runOutcomeText(outcome: RunOutcome): {result: InterventionResult; text: string} {
+  switch (outcome.kind) {
+    case 'project_stop':
+      return projectStopOutcomeText(outcome.receipt);
+    case 'pending_runs':
+      return {
+        result: 'failed',
+        text: `Refused: ${outcome.pending.runs.length} recorded run${outcome.pending.runs.length === 1 ? ' is' : 's are'} not settled. Stop or reconcile them first.`,
+      };
+    case 'command':
+      return {
+        result: 'pending',
+        text: `Command recorded (${outcome.record.type}). ${outcome.record.outcome ? `Outcome: ${outcome.record.outcome}.` : 'Outcome not yet recorded; refresh before acting again.'}`,
+      };
+    case 'refused':
+      return {result: 'failed', text: `Refused: ${outcome.message}`};
+    case 'unconfirmed':
+      return {
+        result: 'pending',
+        text: 'No reply was confirmed. The command may still apply; read it back before retrying.',
+      };
+  }
+}
+// interventionResultText turns one parsed intervention outcome into a
+// pending-versus-confirmed result. Requested actions never read as
+// confirmed effects; uncertain runs stay fenced, never cancelled.
+export function interventionResultText(outcome: InterventionOutcome): {result: InterventionResult; text: string} {
+  switch (outcome.kind) {
+    case 'pause':
+      return pauseOutcomeText(outcome.receipt);
+    case 'resume':
+      return outcome.receipt.reopened
+        ? {result: 'confirmed', text: 'Resume confirmed. Dispatch reopened.'}
+        : {result: 'confirmed', text: 'Resume recorded. Dispatch did not reopen; runs may still be unsettled.'};
+    case 'stop':
+      return stopOutcomeText(outcome.receipt);
+    case 'retry':
+      return {result: 'confirmed', text: 'Retry queued. The prior run stays settled; no other attempt was created.'};
+    case 'takeover':
+      return {result: 'confirmed', text: `Takeover confirmed into ${outcome.receipt.destination}.`};
+    default:
+      return runOutcomeText(outcome);
+  }
 }
 
 export interface InterventionCommands {
