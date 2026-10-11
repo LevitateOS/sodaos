@@ -63,11 +63,14 @@ func TestServingAcceptedIntentCreatesPlansExecutesReviewsMergesAndUnblocks(t *te
 	chooser := &journeyChooser{}
 	var coordinator *Coordinator
 	var graph *journeyGraph
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 7, Objective: "Build a request tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Capture requests and show them in a list", Consequence: "Requests can be recorded and found", Decision: "accept"}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "objective 31; inspect README.md", Outcomes: []string{"Capture a request"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "objective 32; inspect README.md", Outcomes: []string{"Show captured requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{"d444444444444444444444444"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 7, Objective: "Build a request tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Capture requests and show them in a list", Consequence: "Requests can be recorded and found", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "objective 31; inspect README.md", Outcomes: []string{"Capture a request"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "objective 32; inspect README.md", Outcomes: []string{"Show captured requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{"d444444444444444444444444"}}}}
 	servingCorrectionAndDependent(t, "", func(c *Coordinator) {
 		coordinator = c
 		c.Store.PriorityCallBudget = 32
 		if err := c.Store.SaveIntentRevision(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.Store.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: r.Intent, Owner: r.Owner, Amount: 64, Unit: factory.PlanningAllowanceUnit, Ceiling: 64, CreatedUnix: 1}); err != nil {
 			t.Fatal(err)
 		}
 		fixture := &generatedGraphFixture{revision: 41, actor: 91, owner: true, records: map[string]sdk.OperationRecord{}, issues: map[int64]sdk.NativeSnapshot{}}

@@ -46,6 +46,7 @@ func TestDecompositionCandidatesPreserveScopeAndBounds(t *testing.T) {
 
 func TestDecompositionCandidatesCombineDuplicatedWork(t *testing.T) {
 	r := validIntent()
+	r.Ideas = []ProductIdea{{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept", Source: "requested", Provenance: "human", Actor: r.Owner}}
 	r.Tasks = []IntentTask{
 		{Key: "d444444444444444444444444", Objective: "Capture requests", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}},
 		{Key: "d555555555555555555555555", Objective: "Capture requests again", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}},

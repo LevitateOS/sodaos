@@ -45,6 +45,9 @@ func TestJudgeConsolidationRefusesUnsupportedContent(t *testing.T) {
 	if err := c.Store.SaveIntentRevision(context.Background(), r); err != nil {
 		t.Fatal(err)
 	}
+	if err := c.Store.SavePlanningAllowance(context.Background(), factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: r.Intent, Owner: r.Owner, Amount: 5, Unit: factory.PlanningAllowanceUnit, Ceiling: 5, CreatedUnix: 1}); err != nil {
+		t.Fatal(err)
+	}
 	c.Store.PriorityCallBudget = 10
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: &assumptionChooser{selected: "shared_review", confidence: 1}}
 	content, err := factory.ComposeProposalContent(r)
