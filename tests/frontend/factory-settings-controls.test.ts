@@ -12,6 +12,7 @@ test('Factory activity preserves exact native links and saves only local display
             repository: '7',
             repository_path: '/fixture/repository',
             revision: 3,
+            observed_unix: 4,
             settings: {issue_created: true, pr_created: true, verified_merge: true},
             items: [
               {
@@ -76,6 +77,7 @@ test('Factory activity rejects foreign repository links instead of displaying th
             repository: '7',
             repository_path: '/fixture/repository',
             revision: 0,
+            observed_unix: 2,
             settings: {issue_created: true, pr_created: true, verified_merge: true},
             items: [
               {
