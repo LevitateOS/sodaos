@@ -489,6 +489,7 @@ export class SodaProjectControls extends LitElement {
   private runtimeInput(): RuntimeInput {
     return {
       readEnvironment: () => this.environment,
+      isEnvironmentAdmin: () => !!this.detail?.environment_administrator,
       isBlocked: () => this.blocked,
       readEpoch: () => this.epoch,
       isActive: (generation) => this.active(generation),

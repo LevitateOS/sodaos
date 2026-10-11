@@ -26,12 +26,25 @@ function viewTabLabel(view: View, presentation: string): string {
 function renderLifecycle(
   lifecycle: Lifecycle | undefined,
   blocked: boolean,
+  administrator: boolean,
+  running: boolean,
+  hasEnvironment: boolean,
   confirmed: boolean,
   start: (event: MouseEvent) => void,
   stop: (event: MouseEvent) => void,
   confirm: (checked: boolean) => void
 ): TemplateResult {
   const stopped = !lifecycle?.running && !lifecycle?.boot;
+  if (!administrator) {
+    if (!hasEnvironment) return html``;
+    return html`
+      <fieldset>
+        <legend>Shared environment</legend>
+        <p>Running: ${running ? 'yes' : 'no'}.</p>
+        <p>Starting or stopping this shared project needs a project administrator.</p>
+      </fieldset>
+    `;
+  }
   return html`
     <fieldset ?hidden=${!lifecycle}>
       <legend>Shared environment</legend>
@@ -236,6 +249,9 @@ export function renderEnvironmentView(input: SettingsViewInput) {
       renderLifecycle(
         input.readLifecycle(),
         input.isBlocked(),
+        input.readEnvironmentAdmin(),
+        input.isRunning(),
+        !!input.readEnvironment(),
         input.readStopConfirmed(),
         (event) => input.requestStart(event),
         (event) => input.requestStop(event),
