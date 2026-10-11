@@ -146,8 +146,19 @@ New Project opens with **What do you want to build?**, a centered description
 field and basic department and finite planning controls. Department creation asks
 for a name and description and stores private organizational context only.
 Product exploration presents a conservative proposed baseline and consequential
-assumptions for accept, decline or correction. Its proposed native task graph is
-returned by the backend, never manufactured in browser state. The initial
+assumptions for accept, decline or correction. Human review is for nontechnical
+people: show the proposed experience through who uses it, what they do, what
+happens next and what result they receive. Explain meaningful branches, access
+and product consequences in everyday language, with an accessible text equivalent
+to the visual flow. Corrections must update the same proposal being accepted.
+Engineering decomposition is optional detail, not the primary review surface.
+Concrete examples or simulated screens must be labeled illustrative; they do not
+establish requirements or prove that the product already exists. The
+[UX guide](../design/spaces-ux.md#review-for-nontechnical-people) develops the
+walkthrough and decision presentation.
+
+The proposed native task graph is returned by the backend, never manufactured
+in browser state. The initial
 baseline is not researched domain requirements or a claim that Jev generated
 product prose; Jev evaluates supplied alternatives. Review compares a complete
 first workflow with verified incremental milestones and explains their delivery

@@ -61,7 +61,7 @@ flowchart TD
     D --> E[Explore product alternatives]
     E --> R[Review material ideas and assumptions]
     R --> N[Choose native repository]
-    N --> A[Accept direction and create work items]
+    N --> A[Accept this plan and create work]
     A --> O[Saved work overview]
     O --> F[Factory readiness and funded execution]
     O --> P[Select existing or explicitly create Project]
@@ -134,9 +134,9 @@ Browser navigation keeps the one retained Workspace/terminal owner.
 | New department dialog | Name, description and private-context explanation | Save/select or Cancel; preserves the objective and grants no access |
 | Exploring | The retained objective and the bounded operation being performed | Leave safely; stop a pending request only if its cancellation contract exists; no fake ETA |
 | Product alternatives | A small set of meaningfully different ways to meet the outcome, supported tradeoffs and unknowns | Choose or correct a product direction; technical decomposition stays secondary |
-| Product review | Consolidated outcomes, material ideas, assumptions, consequences and unresolved questions | Accept, decline or edit each material choice; update proposal; Continue when coherent |
+| Product review | Plain-language user walkthrough, meaningful branches, illustrative example, material choices and unresolved questions | Change a step, accept/decline/edit a material choice, update the same proposal; Continue when coherent |
 | Repository selection | Eligible native repositories, ownership/visibility, existing Project and native Create repository link | Choose context; Back preserves review; native repository creation returns to the saved request |
-| Acceptance summary | Exact repository, reviewed outcomes, approach, visible native effects and finite planning allowance | Accept direction and create work items; this is the commitment action, not a generic Continue |
+| Acceptance summary | Exact repository, reviewed outcomes, approach, visible native effects and finite planning allowance | Accept this plan and create work, with plain-language effects; this is the commitment action, not a generic Continue |
 | Generation/status | Acceptance saved; atomic native graph result, authority-linking progress and original request identity | Open created issues or inspect the original pending/refused result; never blind duplicate submission |
 | Work overview | Accepted direction, evidenced work-item counts, attention, dependencies and native issue/PR links | Inspect work, readiness and plans; change direction through a reviewed revision |
 | Project setup | Existing environment or immutable installed OS profile, authority/readiness and exact target | Explicit Create Project or reuse/start existing root; no distro switch for an existing Project |
@@ -196,12 +196,11 @@ them. Do not invent research or show generated rationale as a quotation from Jev
 When only a conservative baseline is supported, label it honestly and show the
 consequential unknowns.
 
-The review presents an understandable proposed product, followed by material
-choices. A card answers: **What is proposed? Why does it matter? What changes if
-I decline or edit it?** Use plain HTML controls with visible decision state.
-Show unresolved contradictions as specific questions near the affected outcome.
-Keep the technical task breakdown expandable and informative; twenty generated
-issues do not produce twenty acceptance prompts.
+The review starts with **Here's how it would work**, showing the experience in
+ordinary people's terms. The [nontechnical review composition](#review-for-nontechnical-people)
+below connects a walkthrough to the material choices. Keep the technical task
+breakdown expandable and informative; twenty generated issues do not produce
+twenty acceptance prompts.
 
 Corrections change the proposal. Mark the previous proposal out of date, preserve
 the person's decisions, and show the affected differences when exploration returns.
@@ -209,6 +208,107 @@ Changing the delivery approach must retain the accepted outcomes and explain whe
 usable parts would arrive; a milestone is not automatically a scope reduction.
 Declining the whole direction preserves the request history and supports revising
 the objective. Do not continue to generation with an unresolved material choice.
+
+### Review for nontechnical people
+
+The person should be able to explain the proposed experience in their own words
+and spot a wrong outcome without understanding issues, dependency graphs,
+providers, architecture or implementation stages. Plain copy alone is not enough:
+lead with a short walkthrough of the future product. This audience requirement
+is the owner's explicit correction; the composition and labels below are design
+recommendations.
+
+Recommended reading order:
+
+1. **What this helps you do:** one sentence about the desired outcome.
+2. **Who will use it:** the people involved and who can see or change what.
+3. **Here's how it would work:** roughly three to six steps, each naming the
+   person, action and visible result. Show meaningful branches where the outcome
+   differs, such as approval versus a request for changes.
+4. **Try an example:** a concrete, explicitly illustrative scenario using the
+   same proposed behavior. A diagram or click-through helps where it adds clarity;
+   a numbered text walkthrough remains available.
+5. **Choices that change the experience:** assumptions and alternatives beside
+   the affected step, with included, left out and unanswered outcomes summarized.
+
+This flow describes the people using the requested product, not Factory's own
+planning/coding/review/merge pipeline. Use roles and familiar verbs instead of
+internal component names. Some products have parallel paths or different roles;
+show those relationships without forcing every experience into one linear chain.
+Changes in the example, flow and summary must reflect the same reviewed proposal.
+A preview with behavior that differs from the accepted requirements is misleading.
+
+For a time-off request, an illustrative walkthrough could be:
+
+```text
+Employee chooses dates and submits a request
+    → Manager sees the request and makes a decision
+        → Approved: employee sees confirmation
+        → Declined: employee sees the reason and can revise the request
+```
+
+This is an illustration, not required HR functionality. Whether a calendar
+updates, an email is sent, or a different person approves are material choices,
+not details the preview should silently invent. State who sees a request and
+what happens if there is no decision yet. Distinguish a proposed behavior from
+a fact the person supplied and from a question that still needs an answer.
+
+Use a decision card near the relevant step:
+
+```text
+How should the employee hear the decision?
+
+In the website
+    They check their request to see the result.
+
+In the website and by email
+    They can also receive the result without checking the website.
+    This needs an email service; any additional access or cost must be agreed.
+
+Keep this choice · Change it · Leave it out
+```
+
+An assumption reads **We're assuming…**, followed by its real consequence and
+Accept, Change and Reject. An unresolved question reads **We need your answer
+about…**, with understandable options and a free-text correction. A person's
+rejection must not automatically pick the opposite behavior if several
+alternatives exist. Ask the affected product question when needed.
+
+**Change this step** opens a short correction field in everyday language. After
+the change, identify affected steps and show a concise before/after explanation.
+The updated flow and any illustrative screens change with it; mark an older
+proposal as out of date. Do not ask the person to edit a diagram's syntax or
+approve generated engineering tasks. Extra review is for a material new or
+changed product decision, not an equivalent technical implementation choice.
+
+Before acceptance show **Included**, **Not included** and **Still needs an answer**.
+Only material unresolved questions prevent acceptance. Keep all essential scope,
+access and spending consequences visible; optional technical detail is secondary.
+The primary acceptance copy becomes **Accept this plan and create work**, with
+an adjacent explanation:
+
+> This saves your chosen direction and creates tracked work in **[repository]**.
+> Factory can carry it out automatically when the required Project, access and
+> funding are ready. You can follow progress and intervene.
+
+The actual commitment still names the exact reviewed revision, repository and
+applicable finite allowance. Show whether work can already proceed under existing
+authority or which setup is missing. Product review before repository selection
+uses **Continue to choose a repository**; it does not imply acceptance or native
+effects yet. Rejecting a draft leaves the recorded request available for revision;
+it does not delete previously accepted native work.
+
+On narrow screens the flow stacks in reading order. Use text labels for roles,
+arrows and branch outcomes, a keyboard-accessible ordered-text equivalent,
+visible controls and explicit focus after edits. Color, icons, animation or
+hover must not be the only way to understand the behavior. Avoid mandatory
+animation or a long click-through before a person can inspect the whole flow.
+
+Later usability verification should ask a nontechnical reviewer to explain who
+uses the product, what happens on each meaningful branch, who can see the result,
+how to correct a wrong assumption and what acceptance will do. Their answers and
+ability to make a correction are stronger usability evidence than approval of
+the wording by agents or Jev. No such human test is claimed in this design round.
 
 ### Repository, acceptance and environment setup
 
@@ -222,8 +322,9 @@ page is a suggestion until explicitly selected.
 Before committing, summarize included outcomes, consequential assumptions,
 delivery approach, exact repository and finite planning allowance. Explain that
 generated issues become visible according to the repository's native permissions.
-The primary button is **Accept direction and create work items**. Acceptance
-records one exact revision; native generation has its own visible status.
+The primary button is **Accept this plan and create work**, using the plain-language
+effect summary above. Acceptance records one exact revision; native generation
+has its own visible status.
 The server must still enforce the current actor's write authority.
 
 Project setup and Factory execution are distinct next actions on the overview.
