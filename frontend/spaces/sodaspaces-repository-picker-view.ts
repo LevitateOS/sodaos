@@ -1,6 +1,10 @@
 import {html} from 'lit';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
 
+export type RepositoryAuthorization = {
+  ideas: number;
+  tasks: number;
+};
 type RepositoryPickerView = {
   query: string;
   result: RepositoryChoices | undefined;
@@ -9,6 +13,8 @@ type RepositoryPickerView = {
   error: string;
   blocked: boolean;
   createURL: string;
+  suggested?: string;
+  authorization?: RepositoryAuthorization;
 };
 type RepositoryPickerActions = {
   query: (value: string) => void;
@@ -79,12 +85,32 @@ function repositoryPages(view: RepositoryPickerView, search: (page: number) => v
   </nav>`;
 }
 
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+function authorizationNote(view: RepositoryPickerView) {
+  const auth = view.authorization;
+  if (!auth) return '';
+  return html`<p>
+    Saving ${plural(auth.ideas, 'authorized idea', 'authorized ideas')} and
+    ${plural(auth.tasks, 'work item', 'work items')} to the chosen repository.
+  </p>`;
+}
+function suggestedNote(view: RepositoryPickerView) {
+  if (!view.suggested) return '';
+  if (!view.result) return '';
+  const found = view.result.items.some((item) => item.id === view.suggested);
+  if (found) return html`<p>Showing the suggested repository for this request.</p>`;
+  return html`<p>The suggested repository is not eligible. Choose from the list or create one.</p>`;
+}
+
 export function renderRepositoryPicker(view: RepositoryPickerView, actions: RepositoryPickerActions) {
   const choice = view.result?.items.find((item) => item.id === view.selected);
   return html`<header class="soda-setup-step-heading">
       <p class="soda-setup-eyebrow">New project</p>
       <h2 tabindex="-1">Choose a repository</h2>
       <p>Choose a repository you own on this Forgejo.</p>
+      ${authorizationNote(view)} ${suggestedNote(view)}
     </header>
     <form class="soda-repository-search" @submit=${(event: SubmitEvent) => onRepositorySearch(event, actions.search)}>
       <label
