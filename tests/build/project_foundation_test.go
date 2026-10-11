@@ -39,6 +39,9 @@ func TestFoundationRecipeStagesCompiledProjectHelpers(t *testing.T) {
 	Check(t, strings.Contains(recipe,
 		"chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account /usr/libexec/soda/project-factory-roles"),
 		"helper mode line missing")
+	Check(t, strings.Contains(recipe, "chown root:root /usr /usr/libexec /usr/libexec/soda") &&
+		strings.Contains(recipe, "chmod 0755 /usr /usr/libexec /usr/libexec/soda"),
+		"privileged helper ancestor chain must be root-owned and non-writable by group/world")
 }
 
 func TestFoundationInstalledProbeRequiresScopeBeforeWrites(t *testing.T) {
