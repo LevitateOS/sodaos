@@ -2,7 +2,7 @@
 
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
-Current path navigation reconciled at `d9c13531` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
+Current path navigation reconciled at `33090ed1` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
 
 Current path accounting at `519b76bd` (2026-10-07).
 A file may contain several duties; each named duty has one defining owner and disposition.
@@ -10,7 +10,7 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
-| [system/containers/dashboard/Containerfile](../../../../../system/containers/dashboard/Containerfile) | configuration / service / selector | [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained | Current artifact-or-source scope; split declarations retain the path's release/install/qualification duty. At `33090ed1`, the existing source-context image build directly copies the retained avatar dependency notice beside the dashboard binary's notices; rebuilt byte verification remains separate. |
+| [system/containers/dashboard/Containerfile](../../../../../system/containers/dashboard/Containerfile) | configuration / service / selector | [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained | Current artifact-or-source scope; split declarations retain the path's release/install/qualification duty. At `33090ed1`, the existing source-context image build directly copies the retained avatar dependency notice beside the dashboard binary's notices. Fresh native DEVELOPMENT P1–P6, the compiled archive checker and exact final host/dashboard notice bytes/mode pass; C09.C records the reviewed scope. |
 | [system/containers/extension/Containerfile](../../../../../system/containers/extension/Containerfile) | configuration / service / selector | [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained | Current artifact-or-source scope; split declarations retain the path's release/install/qualification duty. |
 | [system/containers/extension/extension.json](../../../../../system/containers/extension/extension.json) | configuration / service / selector | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / retained, [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) / retained, [N03](../../slices/networking.md#n03-host-tailnet-control) / retained | [current units](../maps/appliance-definitions.md#coverage-13a20fd79ea1) |
 | [system/containers/extension/run](../../../../../system/containers/extension/run) | configuration / artifact input | [H01](../../slices/shared-supporting-slices.md#h01-private-ipc-and-service-lifetime) / retained | Current artifact-or-source scope; split declarations retain the path's release/install/qualification duty. |

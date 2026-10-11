@@ -368,10 +368,12 @@ release architecture/discovery corrections. These task-list records do not
 qualify native transport pumping, provider/native behavior, systemd/progress
 output, or any wider workflow.
 [C01.C](implementation-tasks.md#c01-parser-and-filesystem-primitives) is
-partial (H03-F1 panic correction only), and
+partial (H03-F1 panic correction only).
 [C09.C](implementation-tasks.md#c09-inputs-authenticated-media-assets-and-attribution)
-is partial (D02-F1 byte-safe HTTPS predicate only; Q7 remains open); neither is
-a fully closed correction packet. No broader validity claim is added here.
+is complete for the selected DEVELOPMENT authenticated-version/media and
+host/dashboard notice-delivery subjects, with fresh native archive evidence
+at `33090ed1`. C01.C's earlier partial-source record retains its scope;
+R04 workflows and unselected public-release operations remain separate.
 
 L00 workers own only isolated proof/inventory artifacts. Production source,
 manifests and locks remain unchanged during preparation. The coordinator alone
