@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -17,6 +18,7 @@ func (s *Store) IntentGeneration(ctx context.Context, revision string) (factory.
 	}
 	return g, err
 }
+
 func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
 	if !project.ValidDecisionID(g.RevisionID) || !project.ValidDecisionID(g.IntentID) || g.OperationID == "" || g.ActorID <= 0 || g.NativeRev < 1 || g.NotAfter <= 0 || !factory.ValidDigest(g.IntentDigest) || !json.Valid(g.Payload) || g.State != "pending" || len(g.Receipt) > 0 {
 		return errors.New("invalid intent generation")
@@ -65,6 +67,7 @@ func (s *Store) BeginIntentGeneration(ctx context.Context, g factory.IntentGener
 	}
 	return tx.Commit()
 }
+
 func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGeneration) error {
 	old, err := s.IntentGeneration(ctx, g.RevisionID)
 	if err != nil {
@@ -73,8 +76,14 @@ func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGene
 	compare := g
 	compare.State = old.State
 	compare.Receipt = old.Receipt
-	a, _ := json.Marshal(compare)
-	b, _ := json.Marshal(old)
+	a, err := json.Marshal(compare)
+	if err != nil {
+		return err
+	}
+	b, err := json.Marshal(old)
+	if err != nil {
+		return err
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -110,8 +119,9 @@ func (s *Store) RecordIntentGeneration(ctx context.Context, g factory.IntentGene
 	}
 	return tx.Commit()
 }
+
 func (s *Store) BindIntentTaskAcceptance(ctx context.Context, b factory.IntentTaskBinding) error {
-	if !project.ValidDecisionID(b.RevisionID) || !project.ValidDecisionID(b.TaskKey) || !project.ValidDecisionID(b.AcceptanceID) || b.IssueID <= 0 || b.IssueIndex <= 0 || b.ContentVersion < 0 {
+	if !project.ValidDecisionID(b.RevisionID) || !project.ValidDecisionID(b.TaskKey) || !project.ValidDecisionID(b.AcceptanceID) || b.IssueID <= 0 || b.IssueIndex <= 0 || b.ContentVersion < 0 || b.CreatedUnix < 0 {
 		return errors.New("invalid generated task binding")
 	}
 	raw, err := json.Marshal(b)
@@ -151,6 +161,7 @@ func (s *Store) BindIntentTaskAcceptance(ctx context.Context, b factory.IntentTa
 	}
 	return tx.Commit()
 }
+
 func (s *Store) IntentTaskBindings(ctx context.Context, revision string) ([]factory.IntentTaskBinding, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_intent_tasks WHERE revision=$1 ORDER BY task`, revision)
 	if err != nil {

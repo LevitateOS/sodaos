@@ -25,4 +25,5 @@ type IntentTaskBinding struct {
 	IssueIndex     int64  `json:"issue_index,string"`
 	ContentVersion int    `json:"content_version"`
 	AcceptanceID   string `json:"acceptance_id"`
+	CreatedUnix    int64  `json:"created_unix,omitempty"`
 }
