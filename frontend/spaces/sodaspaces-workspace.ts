@@ -388,6 +388,20 @@ export class SodaSpaces extends LitElement {
       void this.refresh();
     });
   }
+  present(kind: 'page' | 'native', repositoryId?: string) {
+    if (!this.binding || this.disposed || (repositoryId !== undefined && !id(repositoryId))) return;
+    // Transport/account and each terminal's locator remain unchanged. Only the
+    // current content presentation and observed repository preference change.
+    const base = {
+      transport: this.binding.transport,
+      forgejoPrefix: this.binding.forgejoPrefix || '',
+      ...(repositoryId ? {repositoryId} : {}),
+    };
+    this.binding =
+      kind === 'page' ? {...base, kind} : {...base, kind, ...(repositoryId ? {pageRepositoryId: repositoryId} : {})};
+    if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
+    this.requestUpdate();
+  }
   private pollAttention() {
     if (this.stale || this.disposed) return;
     this.now = Date.now();
@@ -1683,6 +1697,7 @@ export function mountSodaspaces(
     },
     markViewed: () => box.markViewed(),
     setVisible: (visible: boolean) => box.setVisible(visible),
+    present: (kind: 'page' | 'native', repositoryId?: string) => box.present(kind, repositoryId),
     refresh: () => box.refresh(),
     invalidate: () => box.invalidate(),
     get ready() {

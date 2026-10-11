@@ -5,6 +5,17 @@ import {nativeAppSubUrl} from './soda-native-paths.js';
 
 export function mount(root: HTMLElement, context: ExtensionMountContext) {
   if (context.pageId !== 'spaces') throw Error('Invalid Spaces page');
+  // Workspace navigation is handled by the enclosing native host. Do not start
+  // a temporary second content owner in its ordinary-page browsing frame.
+  if (window.frameElement?.hasAttribute('data-extension-workspace-frame')) return {dispose() {}};
+  // The native host retains the single panel/content owner on direct Workspace
+  // pages. This page mount supplies the native content slot, not another owner.
+  if (
+    root
+      .closest('[data-workspace-direct]')
+      ?.querySelector('[data-extension-panel-id="workspace"][data-extension-id="soda"]')
+  )
+    return {dispose() {}};
   const transport = prepareExtensionMount(root, context);
   const styles = ['components.css', 'sodaspaces.css', 'sodaspaces-page.css', 'sodaspaces-terminal.css'].map((name) => {
     const link = document.createElement('link');
@@ -13,8 +24,6 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
     return link;
   });
   root.append(...styles);
-  // Retire the native panel before this page can restore the shared layout.
-  window.frameElement?.closest('[data-extension-workspace]')?.dispatchEvent(new Event('soda-spaces-opening'));
   const page = mountSpacesPage(root, transport, nativeAppSubUrl(context), context.repositoryId);
   return {
     dispose() {
