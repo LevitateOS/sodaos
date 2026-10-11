@@ -50,14 +50,61 @@ func IntentGraphPayload(r factory.IntentRevision) (sdk.IssueGraphPayload, error)
 	}
 	return p, nil
 }
+
 func intentTaskBody(r factory.IntentRevision, t factory.IntentTask) string {
 	var b strings.Builder
-	b.WriteString(t.Objective)
+	b.WriteString("Accepted product objective:\n")
+	b.WriteString(r.Objective)
+	if t.Objective != r.Objective {
+		b.WriteString("\n\nTask objective:\n")
+		b.WriteString(t.Objective)
+	}
 	b.WriteString("\n\nAcceptance outcomes:\n")
 	for _, outcome := range t.Outcomes {
 		b.WriteString("- ")
 		b.WriteString(outcome)
 		b.WriteByte('\n')
+	}
+	selected := map[string]bool{}
+	for _, id := range t.IdeaIDs {
+		selected[id] = true
+	}
+	for _, idea := range r.Ideas {
+		if !selected[idea.ID] && !idea.Assumption {
+			continue
+		}
+		if idea.Decision != "accept" && idea.Decision != "edit" {
+			continue
+		}
+		label := "Accepted product choice"
+		if idea.Assumption {
+			label = "Accepted assumption"
+		}
+		fmt.Fprintf(&b, "\n%s (%s):\n", label, idea.ID)
+		if idea.Decision == "edit" {
+			if idea.Description != r.Objective && idea.Description != t.Objective {
+				fmt.Fprintf(&b, "Reviewed proposal: %s\n", idea.Description)
+			}
+			if idea.Correction != r.Objective && idea.Correction != t.Objective {
+				fmt.Fprintf(&b, "Accepted correction: %s\n", idea.Correction)
+			} else {
+				if idea.Correction == r.Objective {
+					b.WriteString("Accepted correction: the accepted product objective stated above\n")
+				} else {
+					b.WriteString("Accepted correction: the task objective stated above\n")
+				}
+			}
+		} else if idea.Description != r.Objective && idea.Description != t.Objective {
+			b.WriteString(idea.Description)
+			b.WriteByte('\n')
+		} else {
+			if idea.Description == r.Objective {
+				b.WriteString("The accepted product objective stated above\n")
+			} else {
+				b.WriteString("The task objective stated above\n")
+			}
+		}
+		fmt.Fprintf(&b, "Consequence: %s\n", idea.Consequence)
 	}
 	fmt.Fprintf(&b, "\nAccepted product intent: %s\nAccepted revision: %s\nIntent digest: %s\nTask: %s\n", r.Intent, r.ID, r.Digest(), t.Key)
 	raw, _ := json.Marshal(t)
@@ -65,6 +112,7 @@ func intentTaskBody(r factory.IntentRevision, t factory.IntentTask) string {
 	fmt.Fprintf(&b, "Task digest: %s\nProduct choices: %s\n", hex.EncodeToString(digest[:]), strings.Join(t.IdeaIDs, ", "))
 	return b.String()
 }
+
 func generatedDecisionID(prefix, revision, key string) string {
 	sum := sha256.Sum256([]byte(prefix + "\x00" + revision + "\x00" + key))
 	if prefix == "command" {
@@ -202,6 +250,7 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 	}
 	return g, nil
 }
+
 func (c *Coordinator) currentAcceptedIntent(ctx context.Context, r factory.IntentRevision) error {
 	head, err := c.Store.IntentRevision(ctx, r.Intent, r.Owner)
 	if err != nil {
@@ -345,6 +394,7 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 	}
 	return nil
 }
+
 func generatedEdges(page *sdk.SnapshotDependencyPage) []AcceptanceEdge {
 	edges := []AcceptanceEdge{}
 	for _, edge := range page.Items {
