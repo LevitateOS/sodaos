@@ -1,8 +1,18 @@
 import {mountSodaspaces} from './sodaspaces-workspace.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 
-export function mountSpacesPage(root: HTMLElement, transport: PreparedExtensionMount, forgejoPrefix = '') {
-  const workspace = mountSodaspaces(root, {kind: 'page', transport, forgejoPrefix});
+export function mountSpacesPage(
+  root: HTMLElement,
+  transport: PreparedExtensionMount,
+  forgejoPrefix = '',
+  repositoryId?: string
+) {
+  const workspace = mountSodaspaces(root, {
+    kind: 'page',
+    transport,
+    forgejoPrefix,
+    ...(repositoryId ? {repositoryId} : {}),
+  });
   let disposed = false;
   const measure = () => {
     if (disposed || !root.isConnected) return;

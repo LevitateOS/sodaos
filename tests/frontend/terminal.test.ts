@@ -44,7 +44,7 @@ test('server locator is published before Create; native generation and bounded U
   await page.evaluate(() => window.terminalFixture.ready());
   assert.equal(
     await page.evaluate(() => window.terminalFixture.socket().url),
-    server.url.origin.replace('http:', 'ws:') + `/-/extensions/panels/soda/workspace/api/environments/${env}/terminal`
+    server.url.origin.replace('http:', 'ws:') + `/-/native/panels/soda/workspace/api/environments/${env}/terminal`
   );
   assert.deepEqual((await inputFrames(page))[0], {
     action: 'create',
@@ -86,12 +86,12 @@ test('sub-URL deployments prefix API and socket URLs', async (t) => {
   await opening(page);
   const reserved = await page.evaluate(() => window.terminalFixture.writes());
   assert.equal(reserved.length, 1);
-  assert(reserved[0]?.url.startsWith('/forgejo.test/-/extensions/panels/soda/workspace/api/environments/'));
+  assert(reserved[0]?.url.startsWith('/forgejo.test/-/native/panels/soda/workspace/api/environments/'));
   assert(reserved[0]?.url.endsWith('/terminal-sessions'));
   assert.equal(
     await page.evaluate(() => window.terminalFixture.socket().url),
     server.url.origin.replace('http:', 'ws:') +
-      `/forgejo.test/-/extensions/panels/soda/workspace/api/environments/${env}/terminal`
+      `/forgejo.test/-/native/panels/soda/workspace/api/environments/${env}/terminal`
   );
 });
 for (const state of ['ended', undefined])

@@ -24,7 +24,7 @@ test('local fixture supports the full journey, simulated IO, persistent reload a
     })
   );
   page.on('request', (req) => {
-    if (req.method() === 'POST' && new URL(req.url()).pathname.startsWith('/-/extensions/pages/soda/spaces/api/'))
+    if (req.method() === 'POST' && new URL(req.url()).pathname.startsWith('/-/native/pages/soda/spaces/api/'))
       writes.push(new URL(req.url()).pathname);
   });
   await page.goto(server.url.href);

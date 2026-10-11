@@ -21,7 +21,7 @@ template hooks; use targeted overrides only when necessary.
 ## Native extension presentation
 
 Fountain owns the native page and persistent-panel host. Soda declares the Spaces
-page, operator-only Runners and Tailnet pages, and preferred Workspace panel in its
+page at `/workspace`, the operator Tailnet page at `/tailnet`, and Workspace panel in its
 extension manifest. Fountain supplies each contribution's mount context and keeps
 the workspace panel mounted while native Forgejo pages change. Forgejo continues to
 own browser navigation, session and page lifecycle; the extension uses the live
@@ -35,8 +35,21 @@ image-owned branding/templates, not a second public copy of extension UI assets.
 Installing or replacing Soda therefore does not rebuild Fountain or update the
 host image.
 
-Add product UI through the declared native page or panel contribution, and retain
-normal Forgejo navigation and form behavior.
+Public navigation presents product pages directly, without package names or an
+Extensions menu. Repository Workspace links use `/OWNER/REPO/workspace` and choose
+the observed repository for display; they do not create, join or start a Project.
+The native handler and its permission checks execute at the requested address.
+Successful browser document GETs compose the persistent panel at that same
+canonical URL; iframe GETs render the page normally. Pathname, query and fragment
+remain ordinary forge addresses, including history and copied links. Credential
+and account-state pages, mutations, partial responses, downloads and errors retain
+their normal handling. Native flash notices remain visible.
+
+Add product UI through declared native page or panel contributions. Public routes
+are host-owned slots; manifest scope and permissions remain authoritative. A
+missing page route contributes only an API. Duplicate routes and existing
+`workspace` or `tailnet` accounts refuse startup rather than shadowing human work.
+New accounts cannot use those reserved native route names.
 
 ## Namespace and cookies
 
@@ -44,8 +57,12 @@ normal Forgejo navigation and form behavior.
 - The browser reaches Soda product operations through the native extension
   service. The public Soda namespace serves avatars; it has no broker login
   callback. See [API](api.md).
-- Product requests use the extension's supplied API base and same-origin browser
-  credentials. Soda does not issue a separate browser login or cookie.
+- Product requests use the host's supplied API base and same-origin browser
+  credentials. Private APIs use the scoped `/-/native/pages/.../api/` or
+  `/-/native/panels/.../api/` web handlers; assets use `/-/native/assets/...`.
+  Mounts receive explicit `appSubUrl` and observed repository metadata instead of
+  deriving navigation from internal API URLs. Soda does not issue a separate
+  browser login or cookie.
 - Native Forgejo session and extension authority are validated by Fountain and the
   live SDK callback. A direct `/api/...` fetch targets Forgejo, not Soda.
 - No permissive CORS or broad `/-/` proxy is used.

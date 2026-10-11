@@ -101,7 +101,7 @@ test(
       async fetch(request) {
         const url = new URL(request.url);
         if (url.pathname === '/widget.js') return new Response(script, {headers: {'Content-Type': 'text/javascript'}});
-        if (url.pathname.startsWith('/-/extensions/pages/soda/spaces/api/')) {
+        if (url.pathname.startsWith('/-/native/pages/soda/spaces/api/')) {
           requests.push(url.pathname);
           assert.equal(request.headers.get('X-Extension-Session-Generation'), 'fixture');
           if (request.method === 'POST') {
@@ -135,7 +135,7 @@ test(
         generation: 'fixture',
         assetBase: '/assets/',
         request: (path: string, init: RequestInit = {}) =>
-          fetch('/-/extensions/pages/soda/spaces/api/' + path, {
+          fetch('/-/native/pages/soda/spaces/api/' + path, {
             ...init,
             headers: {...init.headers, 'X-Extension-Session-Generation': 'fixture'},
           }),

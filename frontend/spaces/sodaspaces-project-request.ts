@@ -82,7 +82,7 @@ export async function api(
   signal?: AbortSignal
 ): Promise<unknown> {
   const binding = input.readBinding();
-  if (!binding) throw Error('Missing native extension');
+  if (!binding) throw Error('Workspace unavailable');
   const response = await binding.transport.request(
     path.slice('/api/'.length),
     sodaFetchInit(method, requestHeaders(method), body, signal)

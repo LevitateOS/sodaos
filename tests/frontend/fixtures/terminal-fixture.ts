@@ -210,7 +210,7 @@ function createFixture(options: TerminalFixtureOptions = {}) {
       if (!options.slow) done?.();
     }
   }
-  const apiBase = (options.subURL || '') + '/-/extensions/panels/soda/workspace/api/';
+  const apiBase = (options.subURL || '') + '/-/native/panels/soda/workspace/api/';
   const transport = {
     root,
     generation: 'fixture-generation',

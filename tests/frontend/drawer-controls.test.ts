@@ -10,7 +10,7 @@ test('project control mount is inert; refresh only reads and never owns a termin
   await refresh(page);
   assert(
     await page.evaluate(() =>
-      window.drawerFixture.calls.every((c) => c.url.startsWith('/-/extensions/pages/soda/spaces/api/'))
+      window.drawerFixture.calls.every((c) => c.url.startsWith('/-/native/pages/soda/spaces/api/'))
     )
   );
   assert.deepEqual(await writes(page), []);
@@ -51,7 +51,7 @@ test('compact-surface inert project controls cannot dispatch through a synthetic
   const page = await fixture(t);
   await refresh(page);
   await click(page, 'Access');
-  await page.locator('textarea').fill('ssh-ed25519 YWJj');
+  await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).fill('ssh-ed25519 YWJj');
   const changed = await page.evaluate(async () => {
     const f = window.drawerFixture,
       button = await window.drawerFixture.showButton('Save public key');
@@ -145,7 +145,7 @@ test('unknown key-save response cannot claim a confirmed key', async (t) => {
   const page = await fixture(t);
   await refresh(page);
   await click(page, 'Access');
-  await page.locator('textarea').fill('ssh-ed25519 YWJj');
+  await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).fill('ssh-ed25519 YWJj');
   await click(page, 'Save public key');
   assert.match(
     await page.locator('[data-control=result]').innerText(),
@@ -178,7 +178,7 @@ test('reactive project view/Hide updates preserve draft identity and selection',
   const page = await fixture(t);
   await refresh(page);
   await click(page, 'Access');
-  await page.locator('textarea').fill('unsent public key');
+  await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).fill('unsent public key');
   assert.deepEqual(
     await page.evaluate(async () => {
       const f = window.drawerFixture,

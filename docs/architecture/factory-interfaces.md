@@ -78,7 +78,7 @@ records their scope and source revisions.
 ## Soda API and UI commands
 
 The following are logical routes beneath Soda's existing authenticated extension
-API. The extension namespace supplies the public prefix; do not expose a second
+API. The host supplies the private native-web API prefix; do not expose a second
 unauthenticated backend entrypoint. `R` is native repository ID, `I` native issue
 ID, `P` Project ID, `A` attempt ID, `X` run ID and `C` command ID.
 

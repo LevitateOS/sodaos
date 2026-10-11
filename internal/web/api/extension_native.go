@@ -93,7 +93,7 @@ func errorString(err error) string {
 func extensionGenerationCurrent(w http.ResponseWriter, r *http.Request, authority extensions.Authority) bool {
 	generations := r.Header.Values(extensions.SessionGenerationHeader)
 	if len(generations) != 1 || generations[0] != authority.SessionGeneration {
-		auth.JSONError(w, http.StatusConflict, "extension_session_changed", "The native extension page is no longer current.")
+		auth.JSONError(w, http.StatusConflict, "extension_session_changed", "The workspace page is no longer current.")
 		return false
 	}
 	return true

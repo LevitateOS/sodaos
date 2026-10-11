@@ -17,7 +17,13 @@ page and panel share one Lit workspace owner. Forgejo keeps its native navigatio
 forms, sessions and route lifecycle. The panel stays mounted while native pages
 change, and account, enrollment/consent, installation and external-navigation flows
 remain under the host's normal handling. The host contract lives in the
-[Forgejo extension reference](../reference/forgejo.md).
+[Forgejo integration reference](../reference/forgejo.md).
+
+Users open Workspace at `/workspace` or `/OWNER/REPO/workspace`; Tailnet uses
+`/tailnet`. Product navigation does not expose package or extension concepts.
+Repository Workspace links select that repository for display without creating,
+joining or starting a Project. Native page URLs remain canonical in the address
+bar, copied links and browser history.
 
 Normal Forgejo links preserve the same terminal element, xterm renderer, WebSocket
 and shell attachment in the persistent panel. A page or displayed repository

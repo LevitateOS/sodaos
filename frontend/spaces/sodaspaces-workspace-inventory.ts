@@ -164,7 +164,7 @@ export function applySpacesCollection(input: InventoryInput, collection: SpacesC
   input.setNextAfter(collection.nextAfter);
   input.setAvailable(true);
   if (!input.readSetup() && !input.readSelectedSpace() && collection.complete)
-    input.setProject(input.readSpaces()[0]?.environment.repository_id || '');
+    input.setProject(input.binding?.repositoryId || input.readSpaces()[0]?.environment.repository_id || '');
   input.stampNow();
   input.setStatus(collectionStatus(collection.complete, collection.factoryIncomplete));
 }
@@ -253,6 +253,10 @@ export function refreshJourneyManagement(input: InventoryInput) {
 }
 
 export function syncPageJourney(input: InventoryInput) {
+  if (missingRepositoryProject(input)) {
+    if (input.readView() === 'terminal') void input.showManagement(input.readProject(), 'journey');
+    return;
+  }
   if (!pageJourneyActive(input)) return;
   const space = input.readSelectedSpace()!;
   if (input.projectRunnable(space)) {
@@ -261,6 +265,17 @@ export function syncPageJourney(input: InventoryInput) {
   }
   if (input.readView() === 'terminal') void input.showManagement(input.readProject(), 'journey');
   else refreshJourneyManagement(input);
+}
+
+function missingRepositoryProject(input: InventoryInput) {
+  return (
+    input.binding?.kind === 'page' &&
+    !!input.binding.repositoryId &&
+    input.readProject() === input.binding.repositoryId &&
+    !input.readSetup() &&
+    input.readComplete() &&
+    !input.readSelectedSpace()
+  );
 }
 
 export function refreshFailed(input: InventoryInput, n: number) {

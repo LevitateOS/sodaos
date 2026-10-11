@@ -12,7 +12,6 @@ test('native panel yields saved terminal restoration to the full Spaces page', a
     f.api.dispose();
     const host = document.createElement('div');
     host.dataset.extensionWorkspace = '';
-    host.dataset.workspacePath = '/-/extensions/pages/soda/spaces';
     const frame = document.createElement('iframe');
     frame.dataset.extensionWorkspaceFrame = '';
     f.root.before(host);
@@ -20,7 +19,8 @@ test('native panel yields saved terminal restoration to the full Spaces page', a
     window.mountWorkspacePanel(f.root, {
       extensionId: 'soda',
       panelId: 'workspace',
-      apiBase: location.origin + '/-/extensions/panels/soda/workspace/api/',
+      appSubUrl: '',
+      apiBase: location.origin + '/-/native/panels/soda/workspace/api/',
       assetBase: location.origin + '/assets/',
       sessionGeneration: f.generation,
     });
@@ -28,7 +28,7 @@ test('native panel yields saved terminal restoration to the full Spaces page', a
       host.dataset.panelAtPageStart = String(f.root.querySelectorAll('soda-spaces').length);
     });
   });
-  // A complete browser rendering turn lets the entry refresh and restore.
+  // Wait for the actual native page identity before restoring any owner.
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   assert.equal(await page.locator('soda-spaces').count(), 0, 'full Spaces must have only its page workspace owner');
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1, 'panel must not attach');
@@ -53,7 +53,7 @@ test('native panel yields saved terminal restoration to the full Spaces page', a
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 2);
 
   await page.locator('iframe').evaluate((frame: HTMLIFrameElement) => {
-    frame.src = '/-/extensions/pages/soda/spaces';
+    frame.src = '/alice/Beta/workspace';
   });
   await page.waitForFunction(() => !document.querySelector('soda-spaces'));
   await page.frameLocator('iframe').locator('soda-spaces .is-connected').waitFor({state: 'attached'});

@@ -7,7 +7,7 @@ const originalFetch = window.fetch.bind(window);
 Object.defineProperty(window, 'fetch', {
   configurable: true,
   value: (input: RequestInfo | URL, init?: RequestInit) =>
-    String(input).includes('/-/extensions/panels/soda/workspace/api/')
+    String(input).includes('/-/native/panels/soda/workspace/api/')
       ? model.request(
           String(input),
           init?.method || 'GET',
@@ -21,7 +21,8 @@ if (!root) throw Error('Missing native panel');
 const panel = mount(root, {
   extensionId: 'soda',
   panelId: 'workspace',
-  apiBase: '/-/extensions/panels/soda/workspace/api/',
+  appSubUrl: '',
+  apiBase: '/-/native/panels/soda/workspace/api/',
   assetBase: '/assets/',
   sessionGeneration: model.generation,
 });

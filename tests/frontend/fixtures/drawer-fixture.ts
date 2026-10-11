@@ -184,7 +184,7 @@ function createFixture(extra: Partial<State> = {}) {
     generation: 'fixture-generation',
     assetBase: '/assets/',
     request: (path: string, init: RequestInit = {}) =>
-      fetchFixture('/-/extensions/pages/soda/spaces/api/' + path, {
+      fetchFixture('/-/native/pages/soda/spaces/api/' + path, {
         ...init,
         headers: new Headers({
           ...Object.fromEntries(new Headers(init.headers)),

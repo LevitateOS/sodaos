@@ -17,7 +17,7 @@ export function installWorkspaceModel(
   Object.defineProperty(window, 'fetch', {
     configurable: true,
     value: async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (!String(input).includes('/-/extensions/')) return nativeFetch(input, init);
+      if (!String(input).includes('/-/native/')) return nativeFetch(input, init);
       return model.request(
         String(input),
         init?.method || 'GET',
@@ -29,10 +29,15 @@ export function installWorkspaceModel(
   return {root, ...model};
 }
 
-function createWorkspaceFixture(mode: 'native' | 'page' = 'page', firstUse = false, subpath = '') {
+function createWorkspaceFixture(
+  mode: 'native' | 'page' = 'page',
+  firstUse = false,
+  subpath = '',
+  repositoryId?: string
+) {
   const model = installWorkspaceModel('1', undefined, firstUse);
   const apiBase =
-    subpath + (mode === 'page' ? '/-/extensions/pages/soda/spaces/api/' : '/-/extensions/panels/soda/workspace/api/');
+    subpath + (mode === 'page' ? '/-/native/pages/soda/spaces/api/' : '/-/native/panels/soda/workspace/api/');
   const transport = {
     root: model.root,
     generation: model.generation,
@@ -56,7 +61,7 @@ function createWorkspaceFixture(mode: 'native' | 'page' = 'page', firstUse = fal
   };
   const context =
     mode === 'page'
-      ? {kind: 'page' as const, transport, forgejoPrefix: subpath}
+      ? {kind: 'page' as const, transport, forgejoPrefix: subpath, ...(repositoryId ? {repositoryId} : {})}
       : {kind: 'native' as const, transport, forgejoPrefix: subpath, repositoryId: '7', pageRepositoryId: '7'};
   let api = mountSodaspaces(model.root, context);
   return {
@@ -77,16 +82,27 @@ declare global {
     createWorkspaceFixture: typeof createWorkspaceFixture;
     mountWorkspacePanel: typeof mountWorkspacePanel;
     workspaceFixture: ReturnType<typeof createWorkspaceFixture>;
+    workspacePageModel: ReturnType<typeof installWorkspaceModel>;
   }
 }
 window.createWorkspaceFixture = createWorkspaceFixture;
 window.mountWorkspacePanel = mountWorkspacePanel;
-if (location.pathname === '/-/extensions/pages/soda/spaces') {
+const pageRepository = new Map([
+  ['/alice/Beta/workspace', '8'],
+  ['/alice/Missing/workspace', '9'],
+]);
+if (location.pathname === '/workspace' || pageRepository.has(location.pathname)) {
   const model = installWorkspaceModel();
+  window.workspacePageModel = model;
+  model.root.dataset.extensionPage = '';
+  model.root.dataset.extensionId = 'soda';
+  model.root.dataset.extensionPageId = 'spaces';
   mountSpacesEntry(model.root, {
     extensionId: 'soda',
     pageId: 'spaces',
-    apiBase: location.origin + '/-/extensions/pages/soda/spaces/api/',
+    appSubUrl: '',
+    ...(pageRepository.has(location.pathname) ? {repositoryId: pageRepository.get(location.pathname)!} : {}),
+    apiBase: location.origin + '/-/native/pages/soda/spaces/api/',
     assetBase: location.origin + '/assets/',
     sessionGeneration: model.generation,
   });

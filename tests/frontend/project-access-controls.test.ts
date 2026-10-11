@@ -90,19 +90,24 @@ test('own Forgejo key selection is explicit and does not install or silently sav
   assert.deepEqual(await writes(page), []);
   assert.equal(await page.locator('soda-project-controls script').count(), 0);
   await click(page, 'Select for review');
-  assert.equal(await page.locator('textarea').inputValue(), 'ssh-ed25519 YWJj\n');
+  assert.equal(
+    await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).inputValue(),
+    'ssh-ed25519 YWJj\n'
+  );
   assert.deepEqual(await writes(page), []);
   await click(page, 'Save public key');
   const sent = await writes(page);
   assert.equal(sent.length, 1);
-  assert.equal(sent[0]?.url, '/-/extensions/pages/soda/spaces/api/me/development-keys');
+  assert.equal(sent[0]?.url, '/-/native/pages/soda/spaces/api/me/development-keys');
   assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {public_key: 'ssh-ed25519 YWJj'});
 });
 test('private-key paste is refused before request dispatch', async (t) => {
   const page = await fixture(t);
   await refresh(page);
   await click(page, 'Access');
-  await page.locator('textarea').fill('-----BEGIN OPENSSH ' + 'PRIVATE KEY-----');
+  await page
+    .getByRole('textbox', {name: 'Public SSH key', exact: true})
+    .fill('-----BEGIN OPENSSH ' + 'PRIVATE KEY-----');
   await click(page, 'Save public key');
   assert.deepEqual(await writes(page), []);
   assert.match(await page.locator('[data-control=result]').innerText(), /Never upload a private key/);

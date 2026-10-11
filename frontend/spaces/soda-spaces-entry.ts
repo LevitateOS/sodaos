@@ -1,7 +1,7 @@
 import {prepareExtensionMount} from './soda-extension.js';
 import type {ExtensionMountContext} from './soda-extension.js';
 import {mountSpacesPage} from './sodaspaces-page.js';
-import {forgejoPrefix} from './soda-native-paths.js';
+import {nativeAppSubUrl} from './soda-native-paths.js';
 
 export function mount(root: HTMLElement, context: ExtensionMountContext) {
   if (context.pageId !== 'spaces') throw Error('Invalid Spaces page');
@@ -15,7 +15,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
   root.append(...styles);
   // Retire the native panel before this page can restore the shared layout.
   window.frameElement?.closest('[data-extension-workspace]')?.dispatchEvent(new Event('soda-spaces-opening'));
-  const page = mountSpacesPage(root, transport, forgejoPrefix(context));
+  const page = mountSpacesPage(root, transport, nativeAppSubUrl(context), context.repositoryId);
   return {
     dispose() {
       transport.dispose();

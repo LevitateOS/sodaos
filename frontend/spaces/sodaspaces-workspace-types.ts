@@ -14,6 +14,7 @@ export type WorkspaceContext = {transport: PreparedExtensionMount; forgejoPrefix
     }
   | {
       kind: 'page';
+      repositoryId?: string;
     }
 );
 export interface Slot {

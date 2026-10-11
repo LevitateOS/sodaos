@@ -93,7 +93,7 @@ test('Create dispatches once with native generation and does not join or start',
   await page.locator('[data-project-controls][aria-busy=false]').waitFor();
   const sent = await writes(page);
   assert.equal(sent.length, 1);
-  assert.equal(sent[0]?.url, '/-/extensions/pages/soda/spaces/api/environments');
+  assert.equal(sent[0]?.url, '/-/native/pages/soda/spaces/api/environments');
   assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {
     repository_id: '7',
     profile_id: 'rocky-headless',
@@ -171,7 +171,9 @@ test('private key input is rejected before a native request', async (t) => {
   const page = await fixture(t);
   await refresh(page);
   await click(page, 'Access');
-  await page.locator('textarea').fill(['-----BEGIN OPENSSH', ' PRIVATE KEY-----'].join(''));
+  await page
+    .getByRole('textbox', {name: 'Public SSH key', exact: true})
+    .fill(['-----BEGIN OPENSSH', ' PRIVATE KEY-----'].join(''));
   await click(page, 'Save public key');
   assert.deepEqual(await writes(page), []);
   assert.match(await page.locator('[data-control=result]').innerText(), /Never upload a private key/);
@@ -241,7 +243,10 @@ test('Forgejo public-key selection stays a read until explicit profile save', as
   assert.deepEqual(await writes(page), []);
   assert.equal(await page.locator('soda-project-controls script').count(), 0);
   await click(page, 'Select for review');
-  assert.equal(await page.locator('textarea').inputValue(), 'ssh-ed25519 YWJj\n');
+  assert.equal(
+    await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).inputValue(),
+    'ssh-ed25519 YWJj\n'
+  );
   assert.deepEqual(await writes(page), []);
   await click(page, 'Save public key');
   const sent = await writes(page);

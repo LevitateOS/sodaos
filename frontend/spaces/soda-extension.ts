@@ -1,9 +1,14 @@
+import {nativeAppSubUrl} from './soda-native-paths.js';
+import {id} from './sodaspaces-api.js';
+
 // Native host inputs for the existing Lit page/workspace adapters. No actor or
 // repository displayed by the browser is accepted as operation authority.
 export interface ExtensionMountContext {
   extensionId: string;
   pageId?: string;
   panelId?: string;
+  appSubUrl: string;
+  repositoryId?: string;
   apiBase: string;
   assetBase: string;
   sessionGeneration: string;
@@ -19,7 +24,7 @@ function nativeBase(value: string, origin: string): URL {
     base.hash ||
     !base.pathname.endsWith('/')
   ) {
-    throw Error('Invalid native extension URL');
+    throw Error('Invalid native app URL');
   }
   return base;
 }
@@ -34,8 +39,10 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
       (context.panelId === 'workspace' && !context.pageId)
     )
   ) {
-    throw Error('Invalid Soda mount context');
+    throw Error('Invalid workspace mount context');
   }
+  nativeAppSubUrl(context);
+  validateRepository(context.repositoryId);
   const apiBase = nativeBase(context.apiBase, location.origin);
   const assetBase = nativeBase(context.assetBase, location.origin);
   const lifetime = new AbortController();
@@ -46,7 +53,7 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
     generation,
     assetBase: assetBase.href,
     async request(relativePath: string, init: RequestInit = {}): Promise<Response> {
-      if (disposed) throw Error('Soda mount is disposed');
+      if (disposed) throw Error('Native app mount is disposed');
       const url = extensionURL(apiBase, relativePath, true);
       const headers = new Headers(init.headers);
       headers.set('X-Extension-Session-Generation', generation);
@@ -60,7 +67,7 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
       });
     },
     websocket(relativePath: string): WebSocket {
-      if (disposed) throw Error('Soda mount is disposed');
+      if (disposed) throw Error('Native app mount is disposed');
       const url = extensionURL(apiBase, relativePath, false);
       if (url.search) throw Error('Invalid Soda terminal path');
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -71,6 +78,10 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
       lifetime.abort();
     },
   };
+}
+
+function validateRepository(repositoryId: string | undefined) {
+  if (repositoryId !== undefined && !id(repositoryId)) throw Error('Invalid native repository');
 }
 
 function extensionURL(apiBase: URL, relativePath: string, allowQuery: boolean): URL {

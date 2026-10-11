@@ -10,6 +10,37 @@ import {
 } from './fixtures/workspace-driver';
 setupWorkspaceDriver();
 
+test('repository Workspace selects its native observed Project without commands', async (t) => {
+  const page = await fixture(t);
+  await page.goto(new URL('/alice/Beta/workspace', page.url()).href);
+  await page.locator('.soda-project-select[aria-pressed="true"]').waitFor();
+  assert.equal(
+    await page.locator('.soda-project-select[aria-pressed="true"]').getAttribute('aria-label'),
+    'alice/Beta'
+  );
+  assert.equal(await page.locator('.soda-selected-project h1').innerText(), 'alice/Beta');
+  assert.equal(
+    await page.evaluate(() => window.workspacePageModel.calls.filter((call) => call.method !== 'GET').length),
+    0
+  );
+});
+
+test('repository Workspace with no Project opens only its observed configuration without first-Project fallback', async (t) => {
+  const page = await fixture(t);
+  await page.goto(new URL('/alice/Missing/workspace', page.url()).href);
+  await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  assert.equal(await page.locator('.soda-project-select[aria-pressed="true"]').count(), 0);
+  assert.equal(await page.locator('[data-project-controls]').getAttribute('data-repository-id'), '9');
+  assert.equal(
+    await page.locator('[data-project-controls]').getByRole('button', {name: 'Create project', exact: true}).count(),
+    1
+  );
+  assert.equal(
+    await page.evaluate(() => window.workspacePageModel.calls.filter((call) => call.method !== 'GET').length),
+    0
+  );
+});
+
 for (const firstUse of [false, true])
   test(`Project settings mount Factory controls through the workspace${firstUse ? ' after first use' : ''}`, async (t) => {
     const page = await fixture(t, 'page', undefined, firstUse);

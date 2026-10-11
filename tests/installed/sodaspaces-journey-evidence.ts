@@ -2,19 +2,18 @@ import assert from 'node:assert/strict';
 import type {FrameLocator, Page} from 'playwright';
 import type {MatrixProject} from './sodaspaces-matrix-input';
 
-export const spacesPage = '/-/extensions/pages/soda/spaces';
-export const spacesAPI = spacesPage + '/api';
-const workspacePage = '/-/extensions/workspace';
+export const spacesPage = '/workspace';
+export const spacesAPI = '/-/native/pages/soda/spaces/api';
+const workspacePage = '/workspace';
 const workspaceMount = '[data-extension-workspace]';
 const workspaceFrame = '[data-extension-workspace-frame]';
 const spacesMount = '[data-extension-page][data-extension-id="soda"][data-extension-page-id="spaces"]';
 
 export async function nativeSpacesMount(page: Page): Promise<string> {
   const url = new URL(page.url());
-  assert.equal(url.pathname, workspacePage, 'Native extension workspace required');
+  assert.equal(url.pathname, workspacePage, 'Native workspace required');
   assert.equal(url.hash, '', 'Native workspace hash is not allowed');
-  assert.deepEqual(Array.from(url.searchParams.keys()), ['path'], 'Native workspace path authority required');
-  assert.deepEqual(url.searchParams.getAll('path'), [spacesPage], 'Native Spaces path required');
+  assert.equal(url.search, '', 'Native Workspace URL must be canonical');
 
   const workspace = page.locator(workspaceMount);
   await workspace.waitFor();

@@ -155,11 +155,11 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
         }
         return json({error: 'Unknown fixture control'}, 400);
       }
-      if (url.pathname.startsWith('/-/extensions/pages/soda/spaces/api/')) {
+      if (url.pathname.startsWith('/-/native/pages/soda/spaces/api/')) {
         if (req.headers.get('upgrade') === 'websocket') {
           if (req.headers.get('origin') !== origin || review.fault === 'expired' || review.fault === 'offline')
             return json({error: 'Fixture socket unavailable'}, 403);
-          if (!/^\/-\/extensions\/pages\/soda\/spaces\/api\/environments\/p[0-9a-f]{24}\/terminal$/.test(url.pathname))
+          if (!/^\/-\/native\/pages\/soda\/spaces\/api\/environments\/p[0-9a-f]{24}\/terminal$/.test(url.pathname))
             return json({error: 'Unknown fixture socket'}, 404);
           return server.upgrade(req, {data: {review, url: url.href, line: ''}})
             ? undefined

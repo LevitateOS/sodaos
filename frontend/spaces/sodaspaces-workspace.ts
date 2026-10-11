@@ -266,7 +266,7 @@ export class SodaSpaces extends LitElement {
     return this.spaces.find((s) => s.environment.repository_id === this.project);
   }
   private get setupScreen() {
-    return this.binding?.kind === 'page' && (!!this.setup || !this.spaces.length);
+    return this.binding?.kind === 'page' && (!!this.setup || (!this.spaces.length && !this.binding.repositoryId));
   }
   private get welcomeScreen() {
     return this.setupScreen && !this.setup && this.available && this.complete;
@@ -344,6 +344,7 @@ export class SodaSpaces extends LitElement {
     this.binding = {
       ...context,
     };
+    if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
     this.factory = factory;
     this.storageKey = '';
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
@@ -1645,18 +1646,20 @@ export class SodaSpaces extends LitElement {
   }
 }
 customElements.define('soda-spaces', SodaSpaces);
+function workspaceContextValid(context: WorkspaceContext) {
+  if (context.kind === 'page') return context.repositoryId === undefined || id(context.repositoryId);
+  return (
+    context.kind === 'native' &&
+    (context.repositoryId === undefined || id(context.repositoryId)) &&
+    (context.pageRepositoryId === undefined || id(context.pageRepositoryId))
+  );
+}
 export function mountSodaspaces(
   root: HTMLElement,
   context: WorkspaceContext,
   factory: TerminalFactory = mountTerminal
 ) {
-  check(
-    root.ownerDocument === document &&
-      (context.kind === 'native'
-        ? (context.repositoryId === undefined || id(context.repositoryId)) &&
-          (context.pageRepositoryId === undefined || id(context.pageRepositoryId))
-        : context.kind === 'page')
-  );
+  check(root.ownerDocument === document && workspaceContextValid(context));
   if (context.kind === 'page') root.classList.add('soda-spaces-page-mount');
   const box = new SodaSpaces();
   box.configure(context, factory);

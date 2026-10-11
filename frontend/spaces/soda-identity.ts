@@ -87,7 +87,7 @@ export class SodaIdentity extends LitElement {
     return this.busy || this.retired;
   }
   private requestInit(body?: unknown): RequestInit {
-    if (!this.transport || this.retired) throw Error('Native extension unavailable');
+    if (!this.transport || this.retired) throw Error('Account connections unavailable');
     const headers: Record<string, string> = {};
     if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
@@ -101,7 +101,7 @@ export class SodaIdentity extends LitElement {
   }
   private async request(path: string, body?: unknown): Promise<unknown> {
     const serial = this.contextSerial;
-    if (!this.transport) throw Error('Native extension unavailable');
+    if (!this.transport) throw Error('Account connections unavailable');
     const response = await this.transport.request(path.slice(1), this.requestInit(body));
     const result = await readSodaJSON(response);
     if (serial !== this.contextSerial || this.retired) throw Error('Soda context changed');

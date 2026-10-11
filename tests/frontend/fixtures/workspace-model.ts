@@ -180,6 +180,13 @@ export function createWorkspaceModel(
       if (path.endsWith('/api/me/development-keys')) return new Response(null, {status: 503});
     }
     if (path.endsWith('/api/me/development-keys')) return Response.json({items: []});
+    const missingRepository = new URL(path, origin);
+    if (
+      missingRepository.pathname.endsWith('/api/environments') &&
+      missingRepository.searchParams.get('repository_id') === '9'
+    )
+      return Response.json({items: [], repository: {id: '9', owner: 'alice', name: 'Missing'}, can_create: true});
+    if (missingRepository.pathname.endsWith('/api/repositories/9/profiles')) return Response.json({items: [profile]});
     const space = spaces.find(
       (p) => path.includes(p.environment.id) || path.endsWith('repository_id=' + p.environment.repository_id)
     );

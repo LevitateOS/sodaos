@@ -68,7 +68,10 @@ export function setupWorkspaceDriver() {
                     : 'application/octet-stream',
             },
           });
-        if (url.pathname !== '/' && url.pathname !== '/-/extensions/pages/soda/spaces')
+        if (
+          url.pathname !== '/' &&
+          !['/workspace', '/alice/Beta/workspace', '/alice/Missing/workspace'].includes(url.pathname)
+        )
           return new Response(null, {status: 404});
         return new Response(
           '<!doctype html><style>.ui.button{display:inline-flex;justify-content:center;text-align:center}</style><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>',

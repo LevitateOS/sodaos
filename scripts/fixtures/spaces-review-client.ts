@@ -10,7 +10,7 @@ class FixtureWebSocket extends NativeWebSocket {
     const target = new URL(input);
     if (
       target.host !== location.host ||
-      !target.pathname.startsWith('/-/extensions/pages/soda/spaces/api/environments/')
+      !target.pathname.startsWith('/-/native/pages/soda/spaces/api/environments/')
     )
       throw Error('Fixture socket must stay local');
     target.protocol = location.protocol === 'http:' ? 'ws:' : 'wss:';
@@ -52,14 +52,14 @@ async function mount(reset = false) {
     generation: 'fixture-generation',
     assetBase: '/assets/',
     request: (path: string, init: RequestInit = {}) =>
-      fetch('/-/extensions/pages/soda/spaces/api/' + path, {
+      fetch('/-/native/pages/soda/spaces/api/' + path, {
         ...init,
         headers: new Headers({
           ...Object.fromEntries(new Headers(init.headers)),
           'X-Extension-Session-Generation': 'fixture-generation',
         }),
       }),
-    websocket: (path: string) => new WebSocket(new URL('/-/extensions/pages/soda/spaces/api/' + path, location.href)),
+    websocket: (path: string) => new WebSocket(new URL('/-/native/pages/soda/spaces/api/' + path, location.href)),
     dispose() {},
   } satisfies PreparedExtensionMount;
   mounted = mountSpacesPage(ui.root, transport);

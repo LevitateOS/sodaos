@@ -5,8 +5,8 @@
   "version": "0.1.0",
   "executable": "run",
   "pages": [
-    {"id": "spaces", "title": "Spaces", "scope": "global", "entry": "soda-spaces-entry.js"},
-    {"id": "tailnet", "title": "Tailnet", "scope": "global", "entry": "soda-tailnet-entry.js"}
+    {"id": "spaces", "route": "workspace", "title": "Workspace", "scope": "global", "entry": "soda-spaces-entry.js"},
+    {"id": "tailnet", "route": "tailnet", "title": "Tailnet", "scope": "global", "entry": "soda-tailnet-entry.js"}
   ],
   "panels": [
     {"id": "workspace", "title": "Workspace", "entry": "soda-workspace-panel-entry.js"}
