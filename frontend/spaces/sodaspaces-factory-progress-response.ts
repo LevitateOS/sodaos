@@ -3,9 +3,11 @@ import {decisionID} from './sodaspaces-intent-response.js';
 import {issueBlocker} from './sodaspaces-factory-work-response.js';
 import type {IssueBlocker} from './sodaspaces-factory-work-response.js';
 
-// Parsers for the H-R request-overview (F01) and issue-plan (F03)
-// reads. Each parser binds its exact intent or issue identity; absent
-// records leave the view without a verdict, never a guessed state.
+// Parsers for the H-R request-overview (F01), issue-plan (F03) and
+// repository-access (F06) reads plus H-A allowance and L06 lifecycle
+// shapes. Each parser binds its exact intent, issue or repository
+// identity; absent records leave the view without a verdict, never a
+// guessed state.
 
 const decimalID = (value: unknown): value is string =>
   typeof value === 'string' && /^(0|[1-9][0-9]{0,18})$/.test(value) && BigInt(value) <= 9223372036854775807n;
@@ -630,5 +632,130 @@ export function issuePlan(value: unknown, repository: string, issue: string): Is
     observed_unix: counter(data.observed_unix),
     ...(plan === undefined ? {} : {plan}),
     ...planCursor(data),
+  };
+}
+
+export interface AccessViewer {
+  readonly code_write: boolean;
+  readonly owner_or_admin: boolean;
+  readonly environment_owner: boolean;
+  readonly operator: boolean;
+  readonly member: boolean;
+  readonly session_current: boolean;
+}
+export interface AccessEntry {
+  readonly editable: boolean;
+  readonly reason?: string;
+}
+export interface AccessRequiredAction {
+  readonly code: string;
+  readonly resolve_by: string;
+  readonly setting: string;
+}
+export interface AccessEffective {
+  readonly effective: boolean;
+  readonly dispatch_open: boolean;
+  readonly missing: readonly string[];
+}
+export interface AccessPlanningEntry {
+  readonly intent: string;
+  readonly id: string;
+  readonly unit: 'planning_calls';
+  readonly status: 'ok' | 'exhausted';
+  readonly amount: number;
+  readonly reserved: number;
+  readonly consumed: number;
+  readonly available: number;
+  readonly ceiling: number;
+  readonly editable: AccessEntry;
+  readonly effect?: string;
+}
+export interface FactoryAccess {
+  readonly repository: string;
+  readonly observed_unix: number;
+  readonly viewer: AccessViewer;
+  readonly effective: AccessEffective;
+  readonly required_actions: readonly AccessRequiredAction[];
+  readonly planning: readonly AccessPlanningEntry[];
+  readonly planning_truncated: boolean;
+}
+
+function accessViewer(value: unknown): AccessViewer {
+  const raw = object(value);
+  for (const key of ['code_write', 'owner_or_admin', 'environment_owner', 'operator', 'member', 'session_current'])
+    check(typeof raw[key] === 'boolean');
+  return {
+    code_write: raw.code_write as boolean,
+    owner_or_admin: raw.owner_or_admin as boolean,
+    environment_owner: raw.environment_owner as boolean,
+    operator: raw.operator as boolean,
+    member: raw.member as boolean,
+    session_current: raw.session_current as boolean,
+  };
+}
+function accessEntry(value: unknown): AccessEntry {
+  const raw = object(value);
+  check(typeof raw.editable === 'boolean');
+  const reason = raw.reason === undefined || raw.reason === '' ? undefined : text(raw.reason, 64);
+  return {editable: raw.editable, ...(reason === undefined ? {} : {reason})};
+}
+function accessRequiredAction(value: unknown): AccessRequiredAction {
+  const raw = object(value);
+  check(typeof raw.code === 'string' && raw.code.length >= 1 && raw.code.length <= 128);
+  check(typeof raw.resolve_by === 'string' && raw.resolve_by.length <= 128);
+  check(typeof raw.setting === 'string' && raw.setting.length <= 128);
+  return {code: raw.code, resolve_by: raw.resolve_by, setting: raw.setting};
+}
+function accessEffective(value: unknown): AccessEffective {
+  const raw = object(value);
+  check(typeof raw.effective === 'boolean' && typeof raw.dispatch_open === 'boolean');
+  check(Array.isArray(raw.missing) && raw.missing.length <= 32);
+  for (const code of raw.missing) check(typeof code === 'string' && code.length >= 1 && code.length <= 128);
+  return {effective: raw.effective, dispatch_open: raw.dispatch_open, missing: raw.missing as string[]};
+}
+function accessPlanningEntry(value: unknown): AccessPlanningEntry {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.id));
+  check(raw.unit === 'planning_calls');
+  const bounds = allowanceBounds(raw);
+  check(typeof raw.available === 'number' && Number.isSafeInteger(raw.available) && raw.available >= 0);
+  const available = Math.max(0, bounds.amount - bounds.reserved - bounds.consumed);
+  check(raw.available === available);
+  check(raw.status === 'ok' || raw.status === 'exhausted');
+  check(raw.status === (available <= 0 ? 'exhausted' : 'ok'));
+  const effect = allowanceEffect(raw.effect);
+  return {
+    intent: raw.intent,
+    id: raw.id,
+    unit: 'planning_calls',
+    status: raw.status,
+    amount: bounds.amount,
+    reserved: bounds.reserved,
+    consumed: bounds.consumed,
+    available,
+    ceiling: bounds.ceiling,
+    editable: accessEntry(raw.editable),
+    ...(effect === undefined ? {} : {effect}),
+  };
+}
+// factoryAccess binds one repository's permission, authority and
+// planning-allowance listing to its exact repository. Only the
+// sections V consumes are validated: viewer standing, the effective
+// verdict with required actions, and the bounded planning listing.
+export function factoryAccess(value: unknown, repository: string): FactoryAccess {
+  const data = object(value);
+  check(data.repository === repository && decimalID(repository));
+  check(Array.isArray(data.required_actions) && data.required_actions.length <= 32);
+  check(Array.isArray(data.planning) && data.planning.length <= 20);
+  const truncated = data.planning_truncated === undefined ? false : data.planning_truncated;
+  check(typeof truncated === 'boolean');
+  return {
+    repository,
+    observed_unix: counter(data.observed_unix),
+    viewer: accessViewer(data.viewer),
+    effective: accessEffective(data.effective),
+    required_actions: data.required_actions.map(accessRequiredAction),
+    planning: data.planning.map(accessPlanningEntry),
+    planning_truncated: truncated,
   };
 }
