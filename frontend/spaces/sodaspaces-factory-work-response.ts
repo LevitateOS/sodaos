@@ -1,4 +1,5 @@
 import {check, id, object, projectId} from './sodaspaces-api.js';
+import {nativePath} from './sodaspaces-factory-activity.js';
 
 // Parsers for the Factory work-progress reads V01/V03/V04 consume
 // independently: one issue's acceptance/readiness/check/merge facts, one
@@ -66,6 +67,7 @@ export interface IssueCheckResult {
   passed: boolean;
   state?: string;
 }
+
 export interface IssueChecks {
   verdict: string;
   reason: string;
@@ -78,6 +80,7 @@ export interface IssueChecks {
   native_revision: number;
   revision: number;
   assessed_unix: number;
+  stale: boolean;
   results: IssueCheckResult[];
 }
 export interface IssueMerge {
@@ -88,19 +91,120 @@ export interface IssueMerge {
   pr_number: string;
   pr_id: string;
   revision: number;
+  stale: boolean;
   reason?: string;
   merged_commit?: string;
   finished_unix?: number;
+}
+export interface WorkAttempt {
+  id: string;
+  role: string;
+  stage: string;
+  run: string;
+  attempts: number;
+  created_unix: number;
+  outcome?: string;
+  reason?: string;
+  finished_unix?: number;
+}
+export interface WorkCorrection {
+  updated_unix: number;
+  candidate?: string;
+  effect?: string;
+  completion?: string;
+  reason?: string;
+}
+export interface WorkReview {
+  run: string;
+  head_oid: string;
+  event: string;
+  effect?: string;
+  completion?: string;
+  reason?: string;
+}
+export interface WorkPublication {
+  candidate: string;
+  base_sha: string;
+  target_branch: string;
+  id: string;
+  run: string;
+  publish_effect: string;
+  pr_create_effect: string;
+  stage: string;
+  corrections_total: number;
+  reviews_total: number;
+  created_unix: number;
+  pr_number?: string;
+  pr_id?: string;
+  reason?: string;
+  finished_unix?: number;
+  corrections: WorkCorrection[];
+  reviews: WorkReview[];
+}
+export interface WorkClosure {
+  state: string;
+  occurrence?: string;
+  closed_unix?: number;
+}
+export interface WorkCapability {
+  available: boolean;
+  reason?: string;
+}
+export interface WorkCapabilities {
+  watch: WorkCapability;
+  stop: WorkCapability;
+  retry: WorkCapability;
+  takeover: WorkCapability;
+  pause: WorkCapability;
+  resume: WorkCapability;
+}
+export interface RequestedRetry {
+  command_id: string;
+  reason: string;
+  prior_run: string;
+  queued: boolean;
+}
+export interface WorkLinks {
+  issue_url: string;
+  pull_url?: string;
 }
 export interface FactoryIssueDetail {
   repository: string;
   issue: string;
   status: IssueAcceptanceStatus;
+  closure: WorkClosure;
+  capabilities: WorkCapabilities;
+  observed_unix: number;
   readiness?: IssueReadiness;
   checks?: IssueChecks;
   merge?: IssueMerge;
+  attempt?: WorkAttempt;
+  publication?: WorkPublication;
+  requested_retry?: RequestedRetry;
+  links?: WorkLinks;
 }
 
+const assignmentStages = ['assigned', 'finished'];
+const publicationStages = ['open', 'published', 'failed', 'withdrawn', 'fenced'];
+const opEffects = ['pending', 'committed', 'not_committed', 'indeterminate'];
+const opCompletions = ['pending', 'complete', 'needs_intervention'];
+const closureStates = ['none', 'pending', 'confirmed'];
+const capabilityReasons = [
+  'repository_write_required',
+  'repository_not_visible',
+  'native_authority_unavailable',
+  'session_changed',
+  'no_run',
+  'run_unsettled',
+  'run_settled',
+  'retry_queued',
+  'membership_required',
+  'dispatch_open',
+  'dispatch_closed',
+];
+const roleName = (value: unknown): value is string => typeof value === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(value);
+const runRef = (value: unknown): value is string =>
+  typeof value === 'string' && (value === '' || /^[a-f0-9]{32}$/.test(value));
 const readinessStates = [
   'not_authorized',
   'blocked',
@@ -137,7 +241,9 @@ function endpoint(value: unknown): string {
   check(id(value));
   return value;
 }
-function issueBlocker(value: unknown): IssueBlocker {
+// issueBlocker admits one stable prerequisite blocker shared by the
+// readiness and plan reads.
+export function issueBlocker(value: unknown): IssueBlocker {
   const raw = object(value);
   check(typeof raw.code === 'string' && raw.code.length > 0 && raw.code.length <= 64);
   return {
@@ -171,6 +277,10 @@ function checkResult(value: unknown): IssueCheckResult {
     ...(raw.state === undefined ? {} : {state: text(raw.state, 64)}),
   };
 }
+function staleFlag(value: unknown): boolean {
+  check(value === undefined || typeof value === 'boolean');
+  return value === true;
+}
 function issueChecks(value: unknown): IssueChecks {
   const raw = object(value);
   check(Array.isArray(raw.results) && raw.results.length <= 64);
@@ -187,6 +297,7 @@ function issueChecks(value: unknown): IssueChecks {
     native_revision: counter(raw.native_revision),
     revision: counter(raw.revision),
     assessed_unix: counter(raw.assessed_unix),
+    stale: staleFlag(raw.stale),
     results: raw.results.map(checkResult),
   };
 }
@@ -222,6 +333,7 @@ function issueMerge(value: unknown): IssueMerge {
     pr_number: raw.pr_number,
     pr_id: raw.pr_id,
     revision: counter(raw.revision),
+    stale: staleFlag(raw.stale),
     ...(reason === undefined ? {} : {reason}),
     ...(mergedCommit === undefined ? {} : {merged_commit: mergedCommit}),
     ...(finished === undefined ? {} : {finished_unix: finished}),
@@ -251,18 +363,197 @@ function acceptanceStatus(value: unknown): IssueAcceptanceStatus {
     ...(raw.acceptance === undefined ? {} : {acceptance: acceptanceRef(raw.acceptance)}),
   };
 }
+function nonEmpty(value: unknown): string | undefined {
+  if (value === undefined || value === '') return undefined;
+  check(typeof value === 'string');
+  return value;
+}
+function workOutcome(value: unknown): string | undefined {
+  const outcome = nonEmpty(value);
+  if (outcome === undefined) return undefined;
+  check(runOutcomes.includes(outcome));
+  return outcome;
+}
+function opEffect(value: unknown): string | undefined {
+  const effect = nonEmpty(value);
+  if (effect === undefined) return undefined;
+  check(opEffects.includes(effect));
+  return effect;
+}
+function opCompletion(value: unknown): string | undefined {
+  const completion = nonEmpty(value);
+  if (completion === undefined) return undefined;
+  check(opCompletions.includes(completion));
+  return completion;
+}
+function workAttempt(value: unknown): WorkAttempt {
+  const raw = object(value);
+  check(commandId(raw.id) && roleName(raw.role) && commandId(raw.run));
+  check(typeof raw.attempts === 'number' && Number.isSafeInteger(raw.attempts) && raw.attempts >= 0);
+  const outcome = workOutcome(raw.outcome);
+  return {
+    id: raw.id,
+    role: raw.role,
+    stage: closedSet(raw.stage, assignmentStages),
+    run: raw.run,
+    attempts: raw.attempts,
+    created_unix: counter(raw.created_unix),
+    ...(outcome === undefined ? {} : {outcome}),
+    ...(nonEmpty(raw.reason) === undefined ? {} : {reason: text(raw.reason, 256)}),
+    ...(typeof raw.finished_unix === 'number' ? {finished_unix: counter(raw.finished_unix)} : {}),
+  };
+}
+function workCorrection(value: unknown): WorkCorrection {
+  const raw = object(value);
+  const candidate = nonEmpty(raw.candidate);
+  if (candidate !== undefined) check(commitId(candidate));
+  const effect = opEffect(raw.effect);
+  const completion = opCompletion(raw.completion);
+  return {
+    updated_unix: counter(raw.updated_unix),
+    ...(candidate === undefined ? {} : {candidate}),
+    ...(effect === undefined ? {} : {effect}),
+    ...(completion === undefined ? {} : {completion}),
+    ...(nonEmpty(raw.reason) === undefined ? {} : {reason: text(raw.reason, 256)}),
+  };
+}
+function workReview(value: unknown): WorkReview {
+  const raw = object(value);
+  check(runRef(raw.run) && commitId(raw.head_oid));
+  const effect = opEffect(raw.effect);
+  const completion = opCompletion(raw.completion);
+  return {
+    run: raw.run,
+    head_oid: raw.head_oid,
+    event: text(raw.event, 64),
+    ...(effect === undefined ? {} : {effect}),
+    ...(completion === undefined ? {} : {completion}),
+    ...(nonEmpty(raw.reason) === undefined ? {} : {reason: text(raw.reason, 256)}),
+  };
+}
+function publicationIdentity(raw: Record<string, unknown>) {
+  check(commitId(raw.candidate));
+  check(commitId(raw.base_sha));
+  check(commandId(raw.id));
+  check(runRef(raw.run));
+  check(opEffects.includes(raw.publish_effect as string));
+  check(opEffects.includes(raw.pr_create_effect as string));
+  return {
+    candidate: raw.candidate as string,
+    base_sha: raw.base_sha as string,
+    id: raw.id as string,
+    run: raw.run as string,
+    publish_effect: raw.publish_effect as string,
+    pr_create_effect: raw.pr_create_effect as string,
+  };
+}
+function historyEntries(value: unknown, limit: number): unknown[] {
+  if (value === undefined) return [];
+  check(Array.isArray(value) && value.length <= limit);
+  return value;
+}
+function publicationHistories(raw: Record<string, unknown>) {
+  return {
+    corrections: historyEntries(raw.corrections, 20).map(workCorrection),
+    reviews: historyEntries(raw.reviews, 20).map(workReview),
+  };
+}
+function workPublication(value: unknown): WorkPublication {
+  const raw = object(value);
+  const identity = publicationIdentity(raw);
+  const histories = publicationHistories(raw);
+  if (raw.pr_number !== undefined) check(id(raw.pr_number));
+  if (raw.pr_id !== undefined) check(id(raw.pr_id));
+  return {
+    ...identity,
+    target_branch: text(raw.target_branch, 256),
+    stage: closedSet(raw.stage, publicationStages),
+    corrections_total: counter(raw.corrections_total),
+    reviews_total: counter(raw.reviews_total),
+    created_unix: counter(raw.created_unix),
+    ...(raw.pr_number === undefined ? {} : {pr_number: raw.pr_number as string}),
+    ...(raw.pr_id === undefined ? {} : {pr_id: raw.pr_id as string}),
+    ...(nonEmpty(raw.reason) === undefined ? {} : {reason: text(raw.reason, 256)}),
+    ...(typeof raw.finished_unix === 'number' ? {finished_unix: counter(raw.finished_unix)} : {}),
+    corrections: histories.corrections,
+    reviews: histories.reviews,
+  };
+}
+function workClosure(value: unknown): WorkClosure {
+  const raw = object(value);
+  const state = closedSet(raw.state, closureStates);
+  if (state === 'confirmed') check(id(raw.occurrence) && typeof raw.closed_unix === 'number' && raw.closed_unix > 0);
+  if (raw.occurrence !== undefined) check(id(raw.occurrence));
+  return {
+    state,
+    ...(raw.occurrence === undefined ? {} : {occurrence: raw.occurrence as string}),
+    ...(typeof raw.closed_unix === 'number' ? {closed_unix: counter(raw.closed_unix)} : {}),
+  };
+}
+function workCapability(value: unknown): WorkCapability {
+  const raw = object(value);
+  check(typeof raw.available === 'boolean');
+  const reason = nonEmpty(raw.reason);
+  if (reason !== undefined) check(capabilityReasons.includes(reason));
+  return {available: raw.available, ...(reason === undefined ? {} : {reason})};
+}
+function workCapabilities(value: unknown): WorkCapabilities {
+  const raw = object(value);
+  return {
+    watch: workCapability(raw.watch),
+    stop: workCapability(raw.stop),
+    retry: workCapability(raw.retry),
+    takeover: workCapability(raw.takeover),
+    pause: workCapability(raw.pause),
+    resume: workCapability(raw.resume),
+  };
+}
+function requestedRetry(value: unknown): RequestedRetry | undefined {
+  if (value === undefined) return undefined;
+  const raw = object(value);
+  if (raw.retry === undefined) return undefined;
+  const retry = object(raw.retry);
+  check(commandId(retry.command_id) && commandId(retry.prior_run) && typeof retry.queued === 'boolean');
+  return {
+    command_id: retry.command_id,
+    reason: text(retry.reason, 256),
+    prior_run: retry.prior_run,
+    queued: retry.queued,
+  };
+}
+function workLinks(value: unknown): WorkLinks | undefined {
+  if (value === undefined) return undefined;
+  const raw = object(value);
+  check(nativePath(raw.issue_url));
+  if (raw.pull_url !== undefined) check(nativePath(raw.pull_url));
+  return {
+    issue_url: raw.issue_url as string,
+    ...(raw.pull_url === undefined ? {} : {pull_url: raw.pull_url as string}),
+  };
+}
 // factoryIssueDetail binds one native issue's recorded acceptance,
-// readiness, check and merge facts to its exact repository and issue.
+// readiness, attempt, publication, review, check, merge and closure
+// facts plus the viewer's current capabilities to its exact repository
+// and issue.
 export function factoryIssueDetail(value: unknown, repository: string, issue: string): FactoryIssueDetail {
   const data = object(value);
   check(data.repository === repository && data.issue === issue);
+  const requested = requestedRetry(data.requested);
+  const links = workLinks(data.links);
   return {
     repository,
     issue,
     status: acceptanceStatus(data.status),
+    closure: workClosure(data.closure),
+    capabilities: workCapabilities(data.capabilities),
+    observed_unix: counter(data.observed_unix),
     ...(data.readiness === undefined ? {} : {readiness: issueReadiness(data.readiness)}),
     ...(data.checks === undefined ? {} : {checks: issueChecks(data.checks)}),
     ...(data.merge === undefined ? {} : {merge: issueMerge(data.merge)}),
+    ...(data.attempt === undefined ? {} : {attempt: workAttempt(data.attempt)}),
+    ...(data.publication === undefined ? {} : {publication: workPublication(data.publication)}),
+    ...(requested === undefined ? {} : {requested_retry: requested}),
+    ...(links === undefined ? {} : {links}),
   };
 }
 
@@ -360,7 +651,9 @@ export interface FactoryCommandRecord {
   target?: string;
   outcome?: string;
 }
-function pauseRunOutcome(value: unknown): PauseRunOutcome {
+// runStopOutcome admits one recorded run-stop outcome from a pause or
+// Project-stop receipt. Confirmed and uncertain stay distinct.
+export function runStopOutcome(value: unknown): PauseRunOutcome {
   const raw = object(value);
   check(commandId(raw.id) && typeof raw.confirmed === 'boolean' && typeof raw.uncertain === 'boolean');
   if (raw.outcome !== undefined) check(raw.outcome === '' || runOutcomes.includes(raw.outcome as string));
@@ -387,7 +680,7 @@ export function pauseReceipt(value: unknown, commandID: string, repository: stri
     revision: counter(withdrawal.revision),
     cause: text(withdrawal.cause, 256),
     closed_by: text(withdrawal.closed_by, 128),
-    runs: data.runs.map(pauseRunOutcome),
+    runs: data.runs.map(runStopOutcome),
   };
 }
 // resumeReceipt binds one resume outcome to its exact command.
@@ -448,6 +741,57 @@ export function factoryCommandRecord(value: unknown, commandID: string): Factory
     digest: data.digest as string,
     ...(data.target === undefined ? {} : {target: text(data.target, 256)}),
     ...(data.outcome === undefined ? {} : {outcome: text(data.outcome, 1024)}),
+  };
+}
+export interface ProjectStopResult {
+  project: string;
+  running: boolean;
+  hold: boolean;
+  hold_synced: boolean;
+  withdrawal_revision: number;
+  runs: PauseRunOutcome[];
+}
+// projectStopResult binds one explicit Project-stop outcome to its exact
+// project: the observed running state, maintenance-hold sync and every
+// outstanding run's stop outcome.
+export function projectStopResult(value: unknown, projectID: string): ProjectStopResult {
+  const data = object(value);
+  const environment = object(data.environment);
+  check(environment.id === projectID && typeof environment.running === 'boolean');
+  const control = object(data.control);
+  check(typeof control.hold === 'boolean' && typeof control.hold_synced === 'boolean');
+  const withdrawal = object(control.withdrawal);
+  check(Array.isArray(control.runs) && control.runs.length <= 64);
+  return {
+    project: projectID,
+    running: environment.running,
+    hold: control.hold,
+    hold_synced: control.hold_synced,
+    withdrawal_revision: counter(withdrawal.revision),
+    runs: control.runs.map(runStopOutcome),
+  };
+}
+export interface SodaErrorDetail {
+  code?: string;
+  message?: string;
+}
+function errorRecord(value: unknown): Record<string, unknown> | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+function errorText(value: unknown, limit: number): string | undefined {
+  if (typeof value !== 'string' || value === '') return undefined;
+  return value.slice(0, limit);
+}
+// sodaErrorDetail reads the shared `{error: {code, message}}` refusal
+// envelope. Unknown shapes yield no detail, never a guessed reason.
+export function sodaErrorDetail(value: unknown): SodaErrorDetail {
+  const error = errorRecord(errorRecord(value)?.error);
+  const code = errorText(error?.code, 128);
+  const message = errorText(error?.message, 1024);
+  return {
+    ...(code === undefined ? {} : {code}),
+    ...(message === undefined ? {} : {message}),
   };
 }
 export interface PendingRuns {

@@ -3,9 +3,21 @@ import type {TemplateResult} from 'lit';
 import {check, object} from './sodaspaces-api.js';
 import {decisionID} from './sodaspaces-intent-response.js';
 import type {IntentRevision} from './sodaspaces-intent-response.js';
+import {activityTimestamp} from './sodaspaces-factory-activity.js';
 import type {FactoryIssueDetail, FactoryRepositorySummary} from './sodaspaces-factory-work-response.js';
 import {describeIssueDetail, nativeIssueLink} from './sodaspaces-factory-work-view.js';
 import type {DeliveryState} from './sodaspaces-factory-work-view.js';
+import type {
+  IssuePlan,
+  LifecycleEffectAction,
+  LifecycleEffectConfig,
+  PlanningAllowanceView,
+  PriorityComparison,
+  RecordedPlan,
+  RequestAttention,
+  RequestOverview,
+} from './sodaspaces-factory-progress-response.js';
+import type {PlanFreshness} from './sodaspaces-factory-progress-response.js';
 
 // Pure accepted-request overview, planning/why-next, direction-revision
 // and optional-effect models for V01/V02/V05/V07. Each model composes
@@ -367,9 +379,44 @@ export function describeDirectionRevision(
       ...(idea.correction === undefined ? {} : {correction: idea.correction}),
     })),
     taskCount: revision.tasks.length,
-    allowanceText: `Planning allowance: ${revision.planning_calls} calls accepted. Consumption record unavailable.`,
+    allowanceText: `Accepted planning calls on this revision: ${revision.planning_calls}. Live allowance reads separately.`,
     deltaText: 'Revision comparison unavailable.',
   };
+}
+
+export interface AllowanceModel {
+  readonly summaryText: string;
+  readonly attributionText: string;
+  readonly effectText: string;
+}
+// describeAllowance projects one planning allowance: the bounded
+// amount in real planning-call units with reserved, consumed and
+// remaining consumption plus its attribution chain.
+export function describeAllowance(allowance: PlanningAllowanceView | undefined, state: SourceState): AllowanceModel {
+  if (state === 'unavailable')
+    return {summaryText: 'Planning allowance could not be read.', attributionText: '', effectText: ''};
+  if (state === 'missing' || !allowance)
+    return {summaryText: 'No planning allowance recorded.', attributionText: '', effectText: ''};
+  const remaining = Math.max(0, allowance.amount - allowance.reserved - allowance.consumed);
+  return {
+    summaryText:
+      `Planning allowance: ${allowance.amount} planning calls; ` +
+      `${allowance.reserved} reserved, ${allowance.consumed} consumed, ${remaining} remaining (ceiling ${allowance.ceiling}).`,
+    attributionText:
+      `Allowance ${allowance.id.slice(0, 9)}, set by owner ${allowance.owner}` +
+      `${allowance.predecessor ? `, adjusts ${allowance.predecessor.slice(0, 9)}` : ''}.`,
+    effectText: allowance.effect ? `Recorded effect: ${allowance.effect}` : '',
+  };
+}
+
+export function renderAllowance(model: AllowanceModel): TemplateResult {
+  return html`
+    <section aria-label="Planning allowance">
+      <p role="status">${model.summaryText}</p>
+      ${model.attributionText ? html`<p>${model.attributionText}</p>` : ''}
+      ${model.effectText ? html`<p>${model.effectText}</p>` : ''}
+    </section>
+  `;
 }
 
 export function renderDirectionRevision(model: DirectionRevisionModel): TemplateResult {
@@ -391,42 +438,339 @@ export function renderDirectionRevision(model: DirectionRevisionModel): Template
   `;
 }
 
-export type OptionalEffectKind = 'issue_label' | 'review_request' | 'completion_note';
-export interface OptionalEffectModel {
-  readonly kind: OptionalEffectKind;
-  readonly title: string;
-  readonly proposal: string;
-  readonly stateText: string;
+export interface RequestMappingRow {
+  readonly task: string;
+  readonly issue: string;
+  readonly effective: boolean;
+  readonly issueLink: string | undefined;
 }
-const effectCopy: Record<OptionalEffectKind, {title: string; proposal: string}> = {
-  issue_label: {
-    title: 'Generated issue label or assignee',
-    proposal: 'Proposed: apply one fixed label and one eligible assignee to each generated issue.',
-  },
-  review_request: {
-    title: 'Pull request human review',
-    proposal: 'Proposed: request up to three selected eligible human reviewers on each generated PR.',
-  },
-  completion_note: {
-    title: 'Original-issue completion note',
-    proposal: 'Proposed: post one bounded completion comment after verified merge and original closure.',
-  },
-};
-// describeOptionalEffects gates each effect on its own native
-// checkpoint. Unpassed effects stay unavailable; no configuration is
-// shown without its checkpoint, and none enrolls credentials.
-export function describeOptionalEffects(checkpoints: Record<OptionalEffectKind, boolean>): OptionalEffectModel[] {
-  return (Object.keys(effectCopy) as OptionalEffectKind[]).map((kind) => ({
-    kind,
-    title: effectCopy[kind]?.title ?? kind,
-    proposal: effectCopy[kind]?.proposal ?? '',
-    stateText: checkpoints[kind]
-      ? 'Native capability checkpoint passed; configuration is not yet exposed.'
-      : 'Unavailable: its native capability checkpoint has not passed.',
-  }));
+export interface RequestOverviewModel {
+  readonly direction: string;
+  readonly stateText: string;
+  readonly counts: OverviewCounts;
+  readonly countsText: string;
+  readonly attention: readonly AttentionItem[];
+  readonly mappings: readonly RequestMappingRow[];
+  readonly setupText: string;
+  readonly generationText: string;
+  readonly outcomeNote: string;
+  readonly observedText: string;
 }
 
-export function renderOptionalEffects(models: readonly OptionalEffectModel[]): TemplateResult {
+function requestAttentionItem(item: RequestAttention, repositoryPath: string): AttentionItem {
+  if (item.code === 'work_attention' && item.issue !== undefined)
+    return {
+      issue: item.issue,
+      text: `Issue #${item.issue} needs attention.`,
+      link: nativeIssueLink(repositoryPath, item.issue),
+    };
+  if (item.code === 'unresolved_assumption')
+    return {issue: '', text: 'One consequential assumption still needs your decision.', link: undefined};
+  return {issue: '', text: 'Native work generation was refused.', link: undefined};
+}
+function requestSetupText(state: string): string {
+  if (state === 'repository_unassigned') return 'No repository assigned to this request.';
+  if (state === 'project_missing') return 'Project setup missing: no project prepared.';
+  if (state === 'preparing') return 'Project setup preparing.';
+  return 'Project setup ready.';
+}
+function requestGenerationText(state: string): string {
+  if (state === 'refused') return 'Native work generation was refused.';
+  if (state === 'pending') return 'Native work generation pending.';
+  if (state === 'committed' || state === 'completed') return 'Native work generated.';
+  if (state === 'not_requested') return 'Native work not requested yet.';
+  return `Generation state: ${state}.`;
+}
+function requestDirectionText(view: RequestOverview): string {
+  if (view.state === 'accepted') return view.direction.objective;
+  return `Request is ${view.state}: ${view.direction.objective}`;
+}
+// describeRequestOverview projects the H-R request overview: the exact
+// direction, evidenced work-item counts, attention, native mappings and
+// setup. Outcome evidence counts render as counts, never percentages.
+export function describeRequestOverview(view: RequestOverview, repositoryPath: string): RequestOverviewModel {
+  const counted =
+    view.work_items.delivered + view.work_items.working + view.work_items.waiting + view.work_items.attention;
+  const counts: OverviewCounts = {
+    delivered: view.work_items.delivered,
+    working: view.work_items.working,
+    waiting: view.work_items.waiting,
+    attention: view.work_items.attention,
+    other: Math.max(0, view.work_items.total - counted),
+  };
+  const observed = activityTimestamp(view.observed_unix);
+  return {
+    direction: requestDirectionText(view),
+    stateText:
+      view.state === 'accepted'
+        ? `${view.direction.tasks_total} work items planned, ${view.direction.unresolved_assumptions} unresolved assumptions.`
+        : `Revision ${view.revision.slice(0, 9)}.`,
+    counts,
+    countsText: countsText(counts),
+    attention: view.attention.map((item) => requestAttentionItem(item, repositoryPath)),
+    mappings: view.mappings.map((mapping) => ({
+      task: mapping.task_key.slice(0, 9),
+      issue: mapping.issue_index,
+      effective: mapping.effective,
+      issueLink: nativeIssueLink(repositoryPath, mapping.issue_index),
+    })),
+    setupText: requestSetupText(view.setup.state),
+    generationText: requestGenerationText(view.generation),
+    outcomeNote:
+      view.work_items.outcomes_total === 0
+        ? 'No accepted product outcomes recorded.'
+        : `${view.work_items.outcomes_evidenced} of ${view.work_items.outcomes_total} accepted product outcomes evidenced.`,
+    observedText: observed ? `Observed ${observed.text}.` : 'Observation time unknown.',
+  };
+}
+
+export function renderRequestOverview(model: RequestOverviewModel): TemplateResult {
+  return html`
+    <section aria-label="Request overview">
+      <p>${model.direction}</p>
+      <p>${model.stateText}</p>
+      <p role="status">${model.countsText}</p>
+      ${
+        model.attention.length > 0
+          ? html`<ul>
+              ${model.attention.map(
+                (item) => html`<li>${item.text} ${item.link ? html`<a href=${item.link}>Open issue</a>` : ''}</li>`
+              )}
+            </ul>`
+          : ''
+      }
+      <p>${model.setupText}</p>
+      <p>${model.generationText}</p>
+      <p>${model.outcomeNote}</p>
+      <p>${model.observedText}</p>
+      <ul>
+        ${model.mappings.map(
+          (row) => html`<li>
+            Task ${row.task} →
+            ${row.issueLink ? html`<a href=${row.issueLink}>issue #${row.issue}</a>` : `issue #${row.issue}`}
+            ${row.effective ? '' : '(outside the authorized subset)'}
+          </li>`
+        )}
+      </ul>
+    </section>
+  `;
+}
+
+export interface RecordedPlanModel {
+  readonly freshnessText: string;
+  readonly strategyText: string;
+  readonly steps: readonly string[];
+  readonly missingText: string;
+}
+const freshnessReasonText: Record<string, string> = {
+  current_readiness_missing: 'current readiness is missing',
+  acceptance_changed: 'acceptance changed',
+  inputs_changed: 'inputs changed',
+};
+function freshnessBase(freshness: PlanFreshness): string {
+  if (freshness.state === 'missing') return 'No recorded plan.';
+  if (freshness.state === 'stale')
+    return `Plan stale: ${freshness.reasons.map((reason) => freshnessReasonText[reason] ?? reason).join('; ') || 'recorded inputs moved'}.`;
+  if (freshness.state === 'provisional') return 'Provisional plan: conveys no permission to execute.';
+  return 'Current plan.';
+}
+// describeRecordedPlan projects one issue's recorded plan and
+// freshness. Stale reasons name the factual comparison behind them;
+// the provisional flag stays visible next to any state.
+export function describeRecordedPlan(plan: RecordedPlan | undefined, freshness: PlanFreshness): RecordedPlanModel {
+  const base = freshnessBase(freshness);
+  return {
+    freshnessText:
+      freshness.provisional && freshness.state !== 'provisional' && freshness.state !== 'missing'
+        ? `${base} Recorded as provisional.`
+        : base,
+    strategyText: plan ? `Strategy: ${plan.strategy}. Outcome: ${plan.outcome}.` : '',
+    steps: plan?.steps ?? [],
+    missingText:
+      plan && plan.missing.length > 0
+        ? `Missing prerequisites: ${plan.missing.map((blocker) => blocker.resolution).join(' ')}`
+        : 'No missing prerequisites recorded.',
+  };
+}
+
+export interface ChoiceCandidateRow {
+  readonly issue: string;
+  readonly ageText: string;
+  readonly estimatesText: string;
+  readonly link: string | undefined;
+}
+export interface RecordedChoiceModel {
+  readonly selection: string;
+  readonly judgmentText: string;
+  readonly candidates: readonly ChoiceCandidateRow[];
+  readonly moreText: string;
+}
+function durationText(seconds: number): string {
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'}`;
+  return `${Math.floor(hours / 24)} days`;
+}
+function estimatesText(impact: boolean, risk: boolean, effort: boolean): string {
+  const known = [...(impact ? ['impact'] : []), ...(risk ? ['risk'] : []), ...(effort ? ['effort'] : [])];
+  return known.length > 0 ? `${known.join(', ')} recorded` : 'no estimates recorded';
+}
+function choiceSelection(comparison: PriorityComparison): string {
+  if (comparison.selected !== undefined && comparison.selected_visible) {
+    const winner = comparison.candidates.find((candidate) => candidate.id === comparison.selected);
+    const probability = comparison.probabilities?.[comparison.selected];
+    const odds = probability === undefined ? '' : ` (recorded probability ${probability}).`;
+    if (winner) return `Recorded choice: issue #${winner.issue}.${odds}`;
+    return `Recorded choice: ${comparison.selected}.${odds}`;
+  }
+  if (!comparison.selected_visible) return "Another repository's work was selected.";
+  return 'No choice recorded in the latest comparison.';
+}
+function judgmentText(comparison: PriorityComparison): string {
+  const latest = comparison.calls[comparison.calls.length - 1];
+  if (!latest) return 'No judgment call recorded.';
+  if (latest.failure) return `Latest judgment call failed: ${latest.failure}.`;
+  const confidence = latest.confidence === undefined ? '' : ` Confidence ${latest.confidence}.`;
+  return `Latest judgment${latest.model ? ` by ${latest.model}` : ''}.${confidence}`;
+}
+// describeRecordedChoice explains the newest recorded next-work
+// comparison: the recorded choice with its uncertainty, the eligible
+// candidates with fairness inputs, and masked foreign winners.
+export function describeRecordedChoice(plan: IssuePlan, repositoryPath: string): RecordedChoiceModel {
+  const comparison = plan.comparisons[0];
+  if (!comparison)
+    return {
+      selection: 'No recorded priority comparison names this issue.',
+      judgmentText: '',
+      candidates: [],
+      moreText: '',
+    };
+  return {
+    selection: choiceSelection(comparison),
+    judgmentText: judgmentText(comparison),
+    candidates: comparison.candidates.map((candidate) => ({
+      issue: candidate.issue,
+      ageText: `waiting ${durationText(candidate.age_seconds)}`,
+      estimatesText: estimatesText(candidate.impact_known, candidate.risk_known, candidate.effort_known),
+      link: nativeIssueLink(repositoryPath, candidate.issue),
+    })),
+    moreText: plan.next_before_unix !== undefined ? 'Older comparisons exist beyond this page.' : '',
+  };
+}
+
+export type LifecycleEventKind = 'issue_created' | 'pr_created' | 'verified_merge';
+export interface LifecycleEffectModel {
+  readonly event: LifecycleEventKind;
+  readonly title: string;
+  readonly stateText: string;
+  readonly configText: string;
+  readonly resultsText: readonly string[];
+  readonly canConfigure: boolean;
+  readonly config: LifecycleEffectConfig | undefined;
+}
+const lifecycleTitles: Record<LifecycleEventKind, string> = {
+  issue_created: 'Generated issue label and assignee',
+  pr_created: 'Pull request human review',
+  verified_merge: 'Original-issue completion note',
+};
+function lifecycleTargets(event: LifecycleEventKind, config: LifecycleEffectConfig): string {
+  if (event === 'issue_created')
+    return `Label ${config.label_id ?? 'unset'}, assignee ${config.assignee_id ?? 'unset'}.`;
+  if (event === 'pr_created')
+    return config.reviewer_ids.length > 0 ? `Reviewers ${config.reviewer_ids.join(', ')}.` : 'No reviewers set.';
+  return config.note ? `Note: ${config.note}` : 'No note set.';
+}
+function lifecycleResultLine(action: LifecycleEffectAction): string {
+  const entries = Object.entries(action.results);
+  const outcomes =
+    entries.length > 0 ? entries.map(([target, result]) => `${target}: ${result}`).join('; ') : 'no results recorded';
+  const revoked = action.revoked ? ', revoked' : '';
+  const settled = action.settled ? ', settled' : '';
+  return `Action ${action.id.slice(0, 8)} on issue #${action.issue_id}: ${action.attempts}/${action.max_attempts} attempts${revoked}${settled}. ${outcomes}.`;
+}
+// describeLifecycleEffect gates one optional effect on its own native
+// capability proof. Unproved effects stay unavailable with no
+// configuration shown; configured effects name their exact actor,
+// targets and per-target results.
+export function describeLifecycleEffect(
+  event: LifecycleEventKind,
+  config: LifecycleEffectConfig | undefined,
+  configState: SourceState,
+  actions: readonly LifecycleEffectAction[]
+): LifecycleEffectModel {
+  if (configState === 'unavailable' || !config)
+    return {
+      event,
+      title: lifecycleTitles[event],
+      stateText: configState === 'unavailable' ? 'Configuration could not be read.' : 'No configuration recorded.',
+      configText: '',
+      resultsText: actions.map(lifecycleResultLine),
+      canConfigure: false,
+      config: undefined,
+    };
+  if (!config.capable)
+    return {
+      event,
+      title: lifecycleTitles[event],
+      stateText: 'Unavailable: its native capability checkpoint has not passed.',
+      configText: '',
+      resultsText: actions.map(lifecycleResultLine),
+      canConfigure: false,
+      config,
+    };
+  return {
+    event,
+    title: lifecycleTitles[event],
+    stateText: config.revision === '0' ? 'Not configured yet.' : config.enabled ? 'Active.' : 'Disabled.',
+    configText: `Actor ${config.actor_id || 'unset'}, revision ${config.revision}. ${lifecycleTargets(event, config)}`,
+    resultsText: actions.map(lifecycleResultLine),
+    canConfigure: true,
+    config,
+  };
+}
+
+export interface LifecycleEffectInput {
+  readonly enabled: boolean;
+  readonly label_id: string;
+  readonly assignee_id: string;
+  readonly reviewer_ids: string;
+  readonly note: string;
+}
+export interface LifecycleEffectCommands {
+  readonly save: (event: LifecycleEventKind, input: LifecycleEffectInput) => void;
+}
+
+function renderIssueCreatedFields(model: LifecycleEffectModel): TemplateResult {
+  const label = model.config?.label_id ?? '';
+  const assignee = model.config?.assignee_id ?? '';
+  return html`<label>Label ID <input name="label_id" inputmode="numeric" .value=${label} /></label>
+    <label>Assignee ID <input name="assignee_id" inputmode="numeric" .value=${assignee} /></label>`;
+}
+
+function renderPrCreatedFields(model: LifecycleEffectModel): TemplateResult {
+  const reviewers = (model.config?.reviewer_ids ?? []).join(', ');
+  return html`<label
+    >Reviewer IDs, comma separated <input name="reviewer_ids" inputmode="text" .value=${reviewers}
+  /></label>`;
+}
+
+function renderVerifiedMergeFields(model: LifecycleEffectModel): TemplateResult {
+  const note = model.config?.note ?? '';
+  return html`<label>Completion note <input name="note" maxlength="1000" .value=${note} /></label>`;
+}
+
+function renderEffectFields(model: LifecycleEffectModel): TemplateResult {
+  if (model.event === 'issue_created') return renderIssueCreatedFields(model);
+  if (model.event === 'pr_created') return renderPrCreatedFields(model);
+  return renderVerifiedMergeFields(model);
+}
+
+export function renderLifecycleEffects(
+  models: readonly LifecycleEffectModel[],
+  commands: LifecycleEffectCommands
+): TemplateResult {
   return html`
     <section aria-label="Optional effects">
       <p>
@@ -436,8 +780,60 @@ export function renderOptionalEffects(models: readonly OptionalEffectModel[]): T
         ${models.map(
           (model) => html`<li>
             <p>${model.title}</p>
-            <p>${model.proposal}</p>
             <p role="status">${model.stateText}</p>
+            ${model.configText ? html`<p>${model.configText}</p>` : ''}
+            <ul>
+              ${model.resultsText.map((line) => html`<li>${line}</li>`)}
+            </ul>
+            ${
+              model.canConfigure
+                ? html`<form
+                    @submit=${(submit: SubmitEvent) => {
+                      submit.preventDefault();
+                      const form = submit.target;
+                      if (!(form instanceof HTMLFormElement)) return;
+                      const data = new FormData(form);
+                      commands.save(model.event, {
+                        enabled: data.get('enabled') === 'on',
+                        label_id: String(data.get('label_id') ?? ''),
+                        assignee_id: String(data.get('assignee_id') ?? ''),
+                        reviewer_ids: String(data.get('reviewer_ids') ?? ''),
+                        note: String(data.get('note') ?? ''),
+                      });
+                    }}
+                  >
+                    <label
+                      ><input type="checkbox" name="enabled" .checked=${model.config?.enabled ?? false} />Enabled</label
+                    >
+                    ${renderEffectFields(model)}
+                    <button class="ui button" type="submit">Save effect configuration</button>
+                  </form>`
+                : ''
+            }
+          </li>`
+        )}
+      </ul>
+    </section>
+  `;
+}
+
+export function renderRecordedPlan(plan: RecordedPlanModel, choice: RecordedChoiceModel): TemplateResult {
+  return html`
+    <section aria-label="Recorded plan">
+      <p role="status">${plan.freshnessText}</p>
+      ${plan.strategyText ? html`<p>${plan.strategyText}</p>` : ''}
+      <p>${plan.missingText}</p>
+      <ul>
+        ${plan.steps.map((step) => html`<li>${step}</li>`)}
+      </ul>
+      <p>${choice.selection}</p>
+      ${choice.judgmentText ? html`<p>${choice.judgmentText}</p>` : ''}
+      ${choice.moreText ? html`<p>${choice.moreText}</p>` : ''}
+      <ul>
+        ${choice.candidates.map(
+          (row) => html`<li>
+            ${row.link ? html`<a href=${row.link}>Issue #${row.issue}</a>` : `Issue #${row.issue}`}: ${row.ageText},
+            ${row.estimatesText}.
           </li>`
         )}
       </ul>
