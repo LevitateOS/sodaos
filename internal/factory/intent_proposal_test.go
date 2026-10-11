@@ -52,6 +52,30 @@ func TestProposalPreservesLongObjectiveAndBoundsReviewLabels(t *testing.T) {
 	}
 }
 
+func TestProposalBaselineCarriesAutonomousBasis(t *testing.T) {
+	r := validIntent()
+	r.State = "draft"
+	r.Ideas = nil
+	ids := make([]string, 104)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("d%024x", 1000+i)
+	}
+	proposal := ProposeIntent(r, ids)
+	if err := proposal.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if len(proposal.Ideas) != 2 {
+		t.Fatalf("ideas=%+v", proposal.Ideas)
+	}
+	first, second := proposal.Ideas[0], proposal.Ideas[1]
+	if first.Source != "autonomous" || first.Provenance != "autonomous" || first.Actor != 0 {
+		t.Fatalf("baseline suggestion basis=%+v", first)
+	}
+	if !second.Assumption || second.Source != "assumption" || second.Provenance != "autonomous" || !second.Material || second.Actor != 0 {
+		t.Fatalf("baseline assumption basis=%+v", second)
+	}
+}
+
 func TestProposalApproachesKeepExactReviewedScope(t *testing.T) {
 	r := validIntent()
 	ids := make([]string, 104)
