@@ -8,8 +8,8 @@ func ProposeIntent(r IntentRevision, ids []string) IntentRevision {
 	r.State = "draft"
 	if len(r.Ideas) == 0 {
 		r.Ideas = []ProductIdea{
-			{ID: ids[0], Description: proposalObjective(r.Objective), Consequence: "Build the smallest complete workflow for this objective. Additional capabilities need a new product decision.", Decision: "pending"},
-			{ID: ids[1], Description: "Keep the first version within the existing repository and Project access", Consequence: "No new external integrations, account enrollment, paid services or shared department permissions are included.", Assumption: true, Decision: "pending"},
+			{ID: ids[0], Description: proposalObjective(r.Objective), Consequence: "Build the smallest complete workflow for this objective. Additional capabilities need a new product decision.", Decision: "pending", Source: "autonomous", Provenance: "autonomous"},
+			{ID: ids[1], Description: "Keep the first version within the existing repository and Project access", Consequence: "No new external integrations, account enrollment, paid services or shared department permissions are included.", Assumption: true, Decision: "pending", Source: "assumption", Provenance: "autonomous", Material: true},
 		}
 	}
 	r.Tasks = []IntentTask{}

@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -154,55 +153,70 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	reserved, err := c.Planning.Journal.ReserveIssuePlanning(ctx, control.Acceptance, snapshot)
+	provisional := len(input.Missing) > 0
+	choices := planningChoices(provisional)
+	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
+		Purpose:    factory.JudgmentPlanningFreshness,
+		State:      input,
+		Question:   planningRubric,
+		Options:    choices,
+		Outcome:    "planning",
+		Candidates: []factory.PriorityCandidate{input.Candidate},
+		Reserve: func(ctx context.Context, fingerprint string) (bool, error) {
+			return c.Planning.Journal.ReserveIssuePlanning(ctx, control.Acceptance, fingerprint)
+		},
+	})
+	record := factory.PlanningRecord{Snapshot: snapshot, Input: input, Provisional: provisional, CreatedUnix: time.Now().Unix()}
 	if err != nil {
-		return err
-	}
-	if !reserved {
-		return nil
-	}
-	record := factory.PlanningRecord{Snapshot: snapshot, Input: input, Provisional: len(input.Missing) > 0, CreatedUnix: time.Now().Unix()}
-	choices := planningChoices(record.Provisional)
-	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
-	answer, callErr := c.Planning.Chooser.Select(bounded, input, planningRubric, choices)
-	cancel()
-	record.Judgment = answer
-	request := factory.PriorityRequest{Snapshot: snapshot, Rubric: planningRubric}
-	request.State, _ = json.Marshal(input)
-	request.Criteria = choices
-	for id := range choices {
-		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: id})
-	}
-	if callErr == nil {
-		callErr = answer.Validate(request)
-	}
-	call := factory.PriorityCall{Request: request, Answer: answer}
-	if callErr != nil {
+		if !errors.Is(err, ErrPriorityUnavailable) {
+			return err
+		}
+		failed, lookupErr := planningCallFailed(ctx, c.Planning.Funding, input, choices)
+		if lookupErr != nil {
+			return lookupErr
+		}
+		if !failed {
+			return nil
+		}
 		record.Outcome = "unavailable"
-		call.Failure = "consultation_failed"
-	} else {
-		record.Strategy = answer.Selected
-		if answer.Confidence < 0.5 {
-			if record.Provisional {
-				record.Strategy = "wait_for_outputs"
-			} else {
-				record.Strategy = "incremental_acceptance"
-			}
-		}
-		record.Outcome = "planned"
-		if record.Strategy == "wait_for_outputs" {
-			record.Outcome = "waiting"
+		return c.Planning.Journal.SavePlanningRecord(ctx, record)
+	}
+	record.Judgment = answer
+	record.Strategy = answer.Selected
+	if answer.Confidence < 0.5 {
+		if record.Provisional {
+			record.Strategy = "wait_for_outputs"
 		} else {
-			record.Steps = planningSteps(record.Strategy)
+			record.Strategy = "incremental_acceptance"
 		}
 	}
-	receipt := factory.PriorityReceipt{Snapshot: snapshot, Candidates: []factory.PriorityCandidate{input.Candidate}, Calls: []factory.PriorityCall{call}, Selected: record.Strategy, Outcome: record.Outcome, CreatedUnix: record.CreatedUnix}
-	if err := c.Planning.Funding.RecordPriorityJudgment(ctx, receipt); err != nil {
-		return err
+	record.Outcome = "planned"
+	if record.Strategy == "wait_for_outputs" {
+		record.Outcome = "waiting"
+	} else {
+		record.Steps = planningSteps(record.Strategy)
 	}
 	// Persist a stale outcome for attribution, but no stale plan can pass the
 	// execution check. A later pass rebuilds against the new relevant inputs.
 	return c.Planning.Journal.SavePlanningRecord(ctx, record)
+}
+
+// planningCallFailed distinguishes a recorded consultation failure, which
+// persists an unavailable plan, from a refused reservation, which leaves the
+// previous record untouched for a later pass.
+func planningCallFailed(ctx context.Context, funding PriorityJournal, input factory.PlanningInput, choices map[string]any) (bool, error) {
+	fingerprint, err := factory.JudgmentFingerprint(factory.JudgmentPlanningFreshness, input, planningRubric, choices)
+	if err != nil {
+		return false, err
+	}
+	receipt, err := funding.PriorityJudgment(ctx, fingerprint)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return len(receipt.Calls) == 1 && receipt.Calls[0].Failure != "", nil
 }
 
 func planningSteps(strategy string) []string {

@@ -122,7 +122,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	proposal = applyIntentDesign(current, ids, proposal, answer)
 	if answer.Selected == "clarify" || answer.Confidence < 0.25 {
 		proposal.Tasks = []factory.IntentTask{}
-		proposal.Ideas = append(proposal.Ideas, factory.ProductIdea{ID: ids[103], Description: "Describe the first user action and the result that should count as success", Consequence: "Implementation waits until this material product question is resolved.", Assumption: true, Decision: "pending"})
+		proposal.Ideas = append(proposal.Ideas, clarifyIdea(ids[103]))
 	}
 	challenges, err := coord.JudgeAssumptions(r.Context(), current, content)
 	if err != nil {
@@ -168,6 +168,12 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		return
 	}
 	auth.JSONResponse(w, 201, attachExploration(proposal, content, challenges, recommendation, consistency))
+}
+
+// clarifyIdea asks the one material product question blocking implementation.
+// It carries autonomous assumption basis, never human approval.
+func clarifyIdea(id string) factory.ProductIdea {
+	return factory.ProductIdea{ID: id, Description: "Describe the first user action and the result that should count as success", Consequence: "Implementation waits until this material product question is resolved.", Assumption: true, Decision: "pending", Source: "assumption", Provenance: "autonomous", Material: true}
 }
 
 func intentDesignCriteria() map[string]any {
