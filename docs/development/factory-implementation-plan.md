@@ -73,6 +73,22 @@ Reload uses the native server rendering and existing saved-attachment admission
 path, creating a fresh browser renderer/socket. The previous FX09 evidence
 retains its original scope. See the [integration contract](../reference/forgejo.md).
 
+The subsequent owner-authorized existing-VM update installed Soda `4ab9b9fd`
+and corrected Fountain `e4b58254a0`. Installed trusted-HTTPS checks pass direct
+Workspace entry and repository navigation, native account controls/context,
+query/fragment, title, back/forward, ordinary native browsing/return and reload
+with one Workspace owner. Native browser fetch presentation needed the `e4b58254a0`
+correction; the earlier synthetic fixture did not expose that defect.
+The additive Store 40-to-43 update was tested on a private restored copy before
+transactional application, preserving existing row digests. A matching identity
+broker was installed. The original Project, terminal PID/start time, HOME marker,
+boot and installation identity remained intact. The fresh installed verification
+browser had no attached terminal, so renderer/socket preservation remains source
+fixture evidence. The corrected Fountain component was source/archive/version
+verified from an attempt whose unrelated host packaging failed for disk space;
+that complete candidate remains failed, not release-qualified. Private receipts
+are under `.artifacts/native-shell-deploy-20261011/`.
+
 ### Historical planning input
 
 Recorded on September 30, 2026, before this planning edit:

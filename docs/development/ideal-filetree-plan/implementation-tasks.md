@@ -25,8 +25,9 @@ below; shared duties route through their physical writer in the lane schedule.
   Soda supplies Workspace content without recreating application navigation.
   Remove the Workspace iframe-wrapper arrangement while preserving native
   authority, session revocation, single-owner mounting and terminal lifetime.
-  Source and native/Chromium fixture scope is complete; installed behavior and
-  human processes are not qualified. Evidence and limits are recorded in the
+  Source and native/Chromium fixture scope is complete. The retained development
+  VM passes installed navigation and preservation of the original terminal process;
+  installed renderer/socket retention remains unobserved. Evidence and limits are in the
   [implementation plan](../factory-implementation-plan.md#fountain-native-shell-correction).
 
 The later owner-authorized FX01–FX10 source extension is reconciled in the
