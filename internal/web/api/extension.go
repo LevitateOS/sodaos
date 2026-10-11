@@ -165,6 +165,18 @@ func extensionProductRoute(r *http.Request) bool {
 	case "repositories":
 		return extensionRepositoryRoute(parts, r.Method)
 	case "factory":
+		if len(parts) == 2 && parts[1] == "departments" {
+			return r.Method == http.MethodGet || r.Method == http.MethodPost
+		}
+		if len(parts) == 2 && parts[1] == "intents" {
+			return r.Method == http.MethodPost
+		}
+		if len(parts) == 3 && parts[1] == "intents" && parts[2] != "" {
+			return r.Method == http.MethodGet
+		}
+		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "explore" {
+			return r.Method == http.MethodPost
+		}
 		return extensionFactoryRoute(parts, r.Method)
 	case "spaces":
 		return len(parts) == 1 && r.Method == http.MethodGet

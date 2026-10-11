@@ -48,6 +48,8 @@ func New(c config.Config, db *store.Store) *Server {
 	s.API.Identity = broker
 	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
 	s.API.Coordinator = s.Coordinator
+	db.PriorityCallBudget = c.FactoryJudgmentCallBudget
+	s.Coordinator.Priority = &control.PriorityJudgments{Journal: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}, MaxCalls: 16}
 	if c.BackgroundServiceConfigured() {
 		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
 		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,

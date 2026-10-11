@@ -174,6 +174,11 @@ func extensionAuthorityCurrent(current, initial extensions.Authority) bool {
 
 func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	protect := s.extensionProtected
+	mux.HandleFunc("GET /api/factory/departments", protect(s.apiDepartments, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/departments", protect(s.apiDepartments, http.MethodPost))
+	mux.HandleFunc("POST /api/factory/intents", protect(s.apiIntentRevision, http.MethodPost))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}", protect(s.apiIntent, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/intents/{intentID}/explore", protect(s.apiIntentExplore, http.MethodPost))
 	mux.HandleFunc("GET /api/repositories", protect(s.apiRepositories, http.MethodGet))
 	mux.HandleFunc("GET /api/repositories/{repositoryID}/profiles", protect(s.apiProjectProfiles, http.MethodGet))
 	mux.HandleFunc("GET /api/repositories/{repositoryID}/tailnet-options", protect(s.apiTailnetOptions, http.MethodGet))

@@ -77,7 +77,7 @@ func (r IntentRevision) Validate() error {
 	if r.State != "draft" && r.State != "accepted" && r.State != "declined" {
 		return errors.New("invalid intent state")
 	}
-	if r.Repository < 0 || r.MaxIssues < 1 || r.MaxIssues > 100 || r.PlanningCalls < 0 || r.PlanningCalls > 100 || len(r.Ideas) > 50 || len(r.Tasks) > r.MaxIssues {
+	if r.Repository < 0 || r.MaxIssues < 1 || r.MaxIssues > 64 || r.PlanningCalls < 0 || r.PlanningCalls > 100 || len(r.Ideas) > 50 || len(r.Tasks) > r.MaxIssues {
 		return errors.New("invalid intent bounds")
 	}
 	if r.State == "accepted" && (r.Repository == 0 || len(r.Tasks) == 0) {

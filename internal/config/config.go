@@ -20,6 +20,10 @@ import (
 const SodaPath = "/-/soda"
 
 type Config struct {
+	TypeSafeAPIKeyFile        string `json:"typesafe_api_key_file"`
+	TypeSafeModel             string `json:"typesafe_model"`
+	FactoryJudgmentCallBudget int    `json:"factory_judgment_call_budget"`
+
 	Listen             string `json:"listen"`
 	ForgejoURL         string `json:"forgejo_url"`
 	ForgejoInternalURL string `json:"forgejo_internal_url"`
