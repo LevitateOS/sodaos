@@ -11,6 +11,11 @@ func TestFactoryCandidateRequiresFreshBoundedPreparation(t *testing.T) {
 	if err := in.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	coder := in
+	coder.Preparation.Role, coder.Bundle = RoleCoder, nil
+	if err := coder.Validate(); err != nil {
+		t.Fatalf("protected-source coder Retry refused: %v", err)
+	}
 	for name, mutate := range map[string]func(*FactoryCandidate){
 		"coder checkout":   func(v *FactoryCandidate) { v.Preparation.Role = RoleCoder },
 		"same checkout":    func(v *FactoryCandidate) { v.SourcePreparation = v.Preparation.ID },

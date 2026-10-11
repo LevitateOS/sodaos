@@ -39,8 +39,8 @@ type attemptPlan struct {
 }
 
 // dispatchOne dispatches one queued issue or reports exactly why it
-// waited. Checks run in fixed order so the same state always reports the
-// same reason; waits hold nothing and release nothing.
+// waited. Checks run in fixed order so the same state reports the same reason.
+// An explicit Retry can retain bounded private preparation custody while waiting.
 func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, report *DispatchReport) {
 	repository, issue := control.Repository, control.Issue
 	latest, err := deps.Store.LatestIssueAssignment(ctx, repository, issue)
@@ -98,7 +98,7 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 			return
 		}
 	}
-	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control, retry != nil)
+	plan, wait, failed := planAttempt(ctx, deps, occupancy, repository, issue, head, control, retry)
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: failed.Reason, Detail: failed.Detail})
 		return
@@ -158,17 +158,21 @@ func refreshOccupancy(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 	*occupancy = fresh
 }
 
-// planAttempt verifies one dispatch end to end without recording
-// anything. Every check that fails reports its wait or failure; a full
-// plan hands its exact bound inputs to the executor.
-func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool) (*attemptPlan, *planWait, *planWait) {
-	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, freshAttempt, project.RoleCoder, "", false)
+// planAttempt verifies one dispatch end to end. Explicit Retry first records
+// custody for its fresh preparation; run admission waits for confirmed readiness.
+// Every failed check reports its wait or failure.
+func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, retry *factory.RetryDecision) (*attemptPlan, *planWait, *planWait) {
+	id := ""
+	if retry != nil {
+		id = retry.CommandID
+	}
+	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, retry != nil, project.RoleCoder, "", false, id)
 }
 
 // planAttemptForRole shares the mutable dispatch checks between initial coder
 // work and retries. A recorded child supplies its own role and exact approved
 // preparation; callers keep its prompt bytes instead of rebuilding a new plan.
-func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool) (*attemptPlan, *planWait, *planWait) {
+func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool, retryID string) (*attemptPlan, *planWait, *planWait) {
 	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
 		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
 	}
@@ -229,6 +233,18 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 	}
 	if plan.inputs.Revision != control.NativeRev {
 		return nil, waitFor(WaitInputsChanged, "readiness observation changed before dispatch"), nil
+	}
+	if retryID != "" {
+		if deps.PrepareRetry == nil {
+			return nil, waitFor(WaitPreparation, "fresh retry preparation is unavailable"), nil
+		}
+		ready, err := deps.PrepareRetry(ctx, plan, retryID)
+		if err != nil {
+			return nil, waitFor(WaitPreparation, "fresh retry preparation is not confirmed"), nil
+		}
+		if !ready {
+			return nil, waitFor(WaitPreparation, "fresh retry preparation is running"), nil
+		}
 	}
 	selection := policy.Roles[role]
 	if recordedPrompt {

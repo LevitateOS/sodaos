@@ -173,13 +173,15 @@ const (
 // carries fair-rotation progress across passes; a nil queue visits from
 // the beginning without advancing.
 type DispatchDeps struct {
-	Store     *store.Store
-	Host      DispatchHost
-	Broker    DispatchBroker
-	Reads     DispatchReads
-	Authority func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
-	Refresh   func(context.Context, factory.IssueControl) (factory.IssueControl, error)
-	Queue     *DispatchQueueCursor
+	Store        *store.Store
+	Host         DispatchHost
+	Broker       DispatchBroker
+	Reads        DispatchReads
+	Authority    func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
+	Refresh      func(context.Context, factory.IssueControl) (factory.IssueControl, error)
+	PrepareRetry func(context.Context, *attemptPlan, string) (bool, error)
+	RetireRetry  func(context.Context, *attemptPlan) error
+	Queue        *DispatchQueueCursor
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -255,8 +257,8 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 	return DispatchDeps{
 		Store: c.Store, Host: c.Host, Broker: c.Broker,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
-		Refresh: c.refreshReadiness,
-		Queue:   &c.queue,
+		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, RetireRetry: c.retireRetryCoder,
+		Queue: &c.queue,
 	}
 }
 
@@ -272,7 +274,11 @@ func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
 	ctx = context.WithValue(ctx, activeDispatchKey{}, c)
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
+	preparationErr := c.reconcileRetryPreparations(ctx)
 	report := DispatchPass(ctx, c.dispatchDeps())
+	if preparationErr != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrHost, Detail: "retry preparation retirement is unconfirmed"})
+	}
 	c.publishAfterDispatch(ctx, report)
 	if ownsPass {
 		drain, err := c.drainReadinessWork(ctx, "")

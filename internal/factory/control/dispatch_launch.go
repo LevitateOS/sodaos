@@ -65,6 +65,15 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		packetErr = deps.Store.RecordExplicitRetryPacket(ctx, *retry, registration, plan.control, assignment, reservation, run, view)
 	}
 	if err := packetErr; err != nil {
+		if retry != nil && deps.RetireRetry != nil && retryPreparationInvalidated(err) {
+			// A lost commit reply may still have admitted the packet. Retire
+			// only after the Store confirms that no assignment owns it.
+			if _, readErr := deps.Store.Assignment(ctx, assignmentID); errors.Is(readErr, store.ErrNotFound) {
+				if retireErr := deps.RetireRetry(ctx, plan); retireErr != nil {
+					report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrHost, Detail: "rejected retry preparation retirement is unconfirmed"})
+				}
+			}
+		}
 		if errors.Is(err, store.ErrDispatchControlStale) {
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during dispatch"})
 			return
@@ -150,7 +159,7 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 	if child {
 		role, exactPreparation = a.Role, a.Preparation
 	}
-	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control, false, role, exactPreparation, child)
+	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, a.Repository, a.Issue, a.Acceptance, control, false, role, exactPreparation, child, "")
 	if failed != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
 		return

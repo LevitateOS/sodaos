@@ -261,8 +261,11 @@ fn candidate_validation_branches() {
     };
     assert_eq!(
         c.validate().unwrap_err(),
-        "only review receives a fresh candidate preparation"
+        "coder retry source must come from the protected preparation"
     );
+    let mut coder = c.clone();
+    coder.bundle.clear();
+    assert!(coder.validate().is_ok());
     let mut prep = preparation();
     prep.role = ROLE_REVIEWER.to_string();
     let id = prep.id.clone();

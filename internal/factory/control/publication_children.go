@@ -173,7 +173,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	if role == project.RoleCoder {
 		exactPreparation = owner.Preparation
 	}
-	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true)
+	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true, "")
 	if failed != nil {
 		publicationWait(report, p.ID, failed.Reason)
 		return
@@ -411,7 +411,7 @@ func candidatePreparationStateMatches(state project.PrepareState, prep project.P
 }
 
 func candidatePreparationIdentityMatches(state project.PrepareState, prep project.Preparation) bool {
-	return state.ID == prep.ID && state.Project == prep.Project && state.Role == project.RoleReviewer &&
+	return state.ID == prep.ID && state.Project == prep.Project && state.Role == prep.Role &&
 		state.SourceCommit == prep.SourceCommit && state.SetupDigest == prep.SetupDigest
 }
 

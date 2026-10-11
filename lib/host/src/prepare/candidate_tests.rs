@@ -2,8 +2,8 @@
 //! rejection.
 
 use super::tests::{
-    approve_response, container_payload, deadline, observation, pid, preparation, test_config,
-    Mock, COMMIT, DIGEST,
+    COMMIT, DIGEST, Mock, approve_response, container_payload, deadline, observation, pid,
+    preparation, test_config,
 };
 use super::*;
 use crate::preparation::FactoryCandidate;
@@ -109,6 +109,117 @@ fn candidate_reuses_ready_source() {
         "candidate source preparation is not ready for this role and setup"
     );
     assert_eq!(mock.calls.borrow().len(), 2);
+}
+
+#[test]
+fn coder_retry_clones_only_the_protected_original_bundle() {
+    let source = format!("f{}", "c".repeat(24));
+    let prep = preparation();
+    let input = FactoryCandidate {
+        preparation: prep.clone(),
+        source_preparation: source.clone(),
+        bundle: Vec::new(),
+        deadline: "2099-01-01T00:00:00Z".into(),
+    };
+    let snapshot = || {
+        vec![
+            Ok(container_payload(&pid())),
+            Ok(observation("ready", "soda-coder", true, false)),
+            Ok(b"0:0:755\n0:0:755\n0:0:755\n0:0:755\n".to_vec()),
+            Ok(b"0:0:644:1:regular file\n".to_vec()),
+            Ok(format!("{{\"id\":{source:?},\"role\":\"soda-coder\",\"setup_digest\":{DIGEST:?},\"source_commit\":{COMMIT:?},\"credential\":\"\"}}").into_bytes()),
+            Ok(b"check.sh\nsetup.sh\nsource.bundle\n".to_vec()),
+            Ok(b"0:0:644:1:regular file\n".to_vec()),
+            Ok(b"#!/bin/sh\n".to_vec()),
+            Ok(b"0:0:644:1:regular file\n".to_vec()),
+            Ok(b"#!/bin/sh\n".to_vec()),
+        ]
+    };
+    let mut responses = snapshot();
+    responses.extend(vec![
+        Ok(b"0:0:644:1:regular file\n".to_vec()), // protected bundle stat
+        Ok(b"BUNDLE".to_vec()),                   // original bundle read
+        Ok(container_payload(&pid())),
+        Ok(b"{}".to_vec()),
+        Ok(approve_response(&prep.id)),
+        Ok(observation("approved", "soda-coder", false, false)),
+        Err("exit status 1".into()), // new checkout has no .git
+        Ok(b"".to_vec()),            // no partial effects
+        Ok(b"".to_vec()),            // clone into the new identity
+        Ok(format!("{COMMIT}\n").into_bytes()),
+        Ok(b"".to_vec()),
+        Ok(b"1001\n".to_vec()),
+        Ok(b"soda-coder\n".to_vec()),
+        Ok(b"soda-coder\n".to_vec()),
+        Ok(b"".to_vec()),
+        Err("exit status 1".into()),
+        Err("exit status 1".into()),
+        Err("exit status 1".into()),
+        Err("exit status 1".into()),
+        Err("exit status 1".into()),
+        Ok(b"".to_vec()),
+        Ok(b"{}".to_vec()),
+        Ok(b"{}".to_vec()),
+        Ok(observation("running", "soda-coder", false, false)),
+    ]);
+    let mock = Mock::new(responses);
+    let rt = Runtime {
+        exec: &mock,
+        config: test_config(),
+    };
+    assert_eq!(
+        rt.prepare_candidate(&input, deadline()).unwrap().phase,
+        "running"
+    );
+    let calls = mock.calls.borrow();
+    assert_eq!(
+        calls[11].2.last().unwrap(),
+        &super::paths::preparation_paths("soda-coder", &source).2
+    );
+    assert!(
+        String::from_utf8(calls[14].0.clone())
+            .unwrap()
+            .contains("\"bundle\":\"QlVORExF\"")
+    );
+    let clone = &calls[18].2;
+    assert!(clone.iter().any(|arg| arg == "clone"));
+    assert_eq!(
+        clone.last().unwrap(),
+        &format!("/home/soda-coder/checkouts/{}", prep.id)
+    );
+    assert!(!calls.iter().any(|call| {
+        call.2
+            .iter()
+            .any(|arg| arg.contains(&format!("checkouts/{source}")) || arg == "reset")
+    }));
+    drop(calls);
+
+    let mut changed = input.clone();
+    changed.preparation.source_commit = "a".repeat(40);
+    changed.preparation.requirements.source_commit = "a".repeat(40);
+    let mock = Mock::new(snapshot());
+    let rt = Runtime {
+        exec: &mock,
+        config: test_config(),
+    };
+    assert_eq!(
+        rt.prepare_candidate(&changed, deadline()).unwrap_err(),
+        "coder retry must retain its exact approved source"
+    );
+    assert_eq!(mock.calls.borrow().len(), 10);
+
+    let mut responses = snapshot();
+    responses.push(Ok(b"0:0:600:1:regular file\n".to_vec()));
+    let mock = Mock::new(responses);
+    let rt = Runtime {
+        exec: &mock,
+        config: test_config(),
+    };
+    assert_eq!(
+        rt.prepare_candidate(&input, deadline()).unwrap_err(),
+        "candidate approved file is not protected"
+    );
+    assert_eq!(mock.calls.borrow().len(), 11);
 }
 
 #[test]

@@ -6,8 +6,8 @@ use super::paths::path_join;
 use crate::json;
 use crate::preparation::{self, FactoryCandidate, Prepare, PrepareState};
 use crate::project::{Executor, Runtime};
-use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
+use serde::de::{self, MapAccess, Visitor};
 use std::fmt;
 
 #[derive(Default)]
@@ -71,8 +71,8 @@ impl<'de> Deserialize<'de> for SavedRequest {
 }
 
 impl<E: Executor> Runtime<E> {
-    /// `PrepareCandidate`: fresh reviewer preparation reusing a ready
-    /// preparation's protected approved setup.
+    /// Fresh role preparation reusing a ready preparation's protected setup.
+    /// A coder Retry can copy only its protected original source bundle.
     pub fn prepare_candidate(
         &self,
         input: &FactoryCandidate,
@@ -101,13 +101,24 @@ impl<E: Executor> Runtime<E> {
         }
         let files =
             self.candidate_approved_files(&container, input, &source.source_commit, deadline)?;
+        let bundle = if input.preparation.role == preparation::ROLE_CODER {
+            if input.preparation.source_commit != source.source_commit {
+                return Err("coder retry must retain its exact approved source".into());
+            }
+            let (_, _, bundle, _) = super::paths::preparation_paths(&source.role, &source.id);
+            self.candidate_protected_file(
+                &container,
+                &bundle,
+                preparation::MAX_SOURCE_BUNDLE,
+                deadline,
+            )?
+        } else {
+            input.bundle.clone()
+        };
         self.prepare_inner(
             &Prepare {
                 preparation: input.preparation.clone(),
-                setup: preparation::ApprovedSetup {
-                    files,
-                    bundle: input.bundle.clone(),
-                },
+                setup: preparation::ApprovedSetup { files, bundle },
             },
             deadline,
             Some(&input.deadline),

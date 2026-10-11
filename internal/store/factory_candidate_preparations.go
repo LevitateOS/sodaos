@@ -14,7 +14,7 @@ import (
 )
 
 // CandidatePreparationRegistration is the Store admission request for one
-// reviewer checkout. The authorization, owner, control and deadline are
+// reviewer checkout or an accepted explicit coder Retry. The owner and deadline are
 // recorded beside the ordinary preparation record before the host is called.
 type CandidatePreparationRegistration struct {
 	Repository        int64
@@ -40,6 +40,51 @@ type CandidatePreparationRecord struct {
 	NotAfter    int64
 	Stopped     bool
 	Retirement  string
+}
+
+// CandidatePreparation reads the exact custody owner, including retirement.
+func (s *Store) CandidatePreparation(ctx context.Context, id string) (CandidatePreparationRecord, error) {
+	var raw []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM project_preparations WHERE id=$1`, id).Scan(&raw); err != nil {
+		return CandidatePreparationRecord{}, err
+	}
+	p, meta, err := unmarshalCandidatePreparation(raw)
+	if err != nil || meta == nil {
+		return CandidatePreparationRecord{}, errors.New("candidate preparation admission is missing")
+	}
+	return CandidatePreparationRecord{Preparation: p, Admission: registrationFromMeta(*meta), NotAfter: meta.NotAfter, Stopped: meta.Stopped, Retirement: meta.Retirement}, nil
+}
+
+// PendingRetryPreparations includes only setup not yet transferred to a run.
+// Earliest deadlines lead the bounded page so expired custody is retired first.
+func (s *Store) PendingRetryPreparations(ctx context.Context, limit int) ([]CandidatePreparationRecord, error) {
+	if limit <= 0 || limit > 256 {
+		return nil, errors.New("invalid retry preparation limit")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT p.data FROM project_preparations p
+		WHERE p.role=$1 AND p.data ? 'factory_admission'
+		AND p.data#>>'{factory_admission,publication_id}'=''
+		AND NOT (COALESCE((p.data#>>'{factory_admission,stopped}')::boolean,FALSE)
+			AND COALESCE(p.data#>>'{factory_admission,retirement}'='confirmed',FALSE))
+		AND NOT EXISTS(SELECT 1 FROM factory_assignments a WHERE a.id=p.data#>>'{factory_admission,owner_assignment}')
+		ORDER BY (p.data#>>'{factory_admission,not_after_unix}')::bigint,p.id LIMIT $2`, project.RoleCoder, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []CandidatePreparationRecord
+	for rows.Next() {
+		var raw []byte
+		if err = rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		p, meta, decodeErr := unmarshalCandidatePreparation(raw)
+		if decodeErr != nil || meta == nil {
+			return nil, errors.New("retry preparation admission is missing")
+		}
+		out = append(out, CandidatePreparationRecord{Preparation: p, Admission: registrationFromMeta(*meta), NotAfter: meta.NotAfter, Stopped: meta.Stopped, Retirement: meta.Retirement})
+	}
+	return out, rows.Err()
 }
 
 type candidatePreparationEnvelope struct {
@@ -90,23 +135,20 @@ func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation proje
 	if err != nil {
 		return empty, false, err
 	}
-	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, registration.Repository, registration.Issue, registration.AttemptRoot)
-	if err != nil {
-		return empty, false, err
-	}
 	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID); err != nil {
 		return empty, false, err
 	}
-	if allowance.Closed {
-		return empty, false, factory.ErrAttemptClosed
-	}
-	if !allowance.Active {
-		return empty, false, factory.ErrAttemptTimeExhausted
-	}
 	now := time.Now()
-	deadline, err := attemptDeadlineUnix(allowance, now)
-	if err != nil {
-		return empty, false, err
+	deadline := now.Add(10 * time.Minute).Unix()
+	if registration.PublicationID != "" {
+		allowance, lockErr := lockAttemptAllowanceRootTx(ctx, tx, registration.Repository, registration.Issue, registration.AttemptRoot)
+		if lockErr != nil {
+			return empty, false, lockErr
+		}
+		deadline, err = attemptDeadlineUnix(allowance, now)
+		if err != nil {
+			return empty, false, err
+		}
 	}
 	if registration.RequestedNotAfter < deadline {
 		deadline = registration.RequestedNotAfter
@@ -194,10 +236,6 @@ func (s *Store) AuthorizeCandidatePreparation(ctx context.Context, id string) (i
 	if err != nil {
 		return 0, err
 	}
-	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, registration.Repository, registration.Issue, registration.AttemptRoot)
-	if err != nil {
-		return 0, err
-	}
 	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID); err != nil {
 		return 0, err
 	}
@@ -212,15 +250,16 @@ func (s *Store) AuthorizeCandidatePreparation(ctx context.Context, id string) (i
 	}
 	meta = currentMeta
 	preparation = currentPreparation
-	if allowance.Closed {
-		return 0, factory.ErrAttemptClosed
-	}
-	if !allowance.Active {
-		return 0, factory.ErrAttemptTimeExhausted
-	}
-	deadline, err := attemptDeadlineUnix(allowance, time.Now())
-	if err != nil {
-		return 0, err
+	deadline := meta.NotAfter
+	if registration.PublicationID != "" {
+		allowance, lockErr := lockAttemptAllowanceRootTx(ctx, tx, registration.Repository, registration.Issue, registration.AttemptRoot)
+		if lockErr != nil {
+			return 0, lockErr
+		}
+		deadline, err = attemptDeadlineUnix(allowance, time.Now())
+		if err != nil {
+			return 0, err
+		}
 	}
 	now := time.Now().Unix()
 	if meta.Stopped || meta.Retirement == "confirmed" {
@@ -350,11 +389,13 @@ func (s *Store) RecordCandidatePreparationStop(ctx context.Context, id string, s
 func validateCandidatePreparationRegistration(preparation project.StoredPreparation, r CandidatePreparationRegistration) error {
 	if r.Repository <= 0 || r.Issue <= 0 || r.ActorID <= 0 || !project.ValidID(r.Project) || r.Project != preparation.Preparation.Project ||
 		!factory.ValidID(r.OwnerAssignment) || !factory.ValidID(r.ChildAssignment) || !factory.ValidID(r.AttemptRoot) ||
-		!factory.ValidID(r.PublicationID) || r.Connection == "" || r.GateRevision < 0 || r.RequestedNotAfter <= 0 ||
+		(r.PublicationID != "" && !factory.ValidID(r.PublicationID)) || r.Connection == "" || r.GateRevision < 0 || r.RequestedNotAfter <= 0 ||
 		r.Control.Validate() != nil || r.Control.Repository != r.Repository || r.Control.Issue != r.Issue ||
 		r.Control.Readiness != factory.ReadinessQueued || r.Authority.RequirementsID != preparation.Preparation.Requirements.ID ||
 		r.Authority.ApprovalID != preparation.Preparation.Approval.ID || r.Authority.SponsorshipConnection != r.Connection ||
-		preparation.Preparation.Role != project.RoleReviewer {
+		(r.PublicationID != "" && preparation.Preparation.Role != project.RoleReviewer) ||
+		(r.PublicationID == "" && (preparation.Preparation.Role != project.RoleCoder ||
+			r.OwnerAssignment != r.ChildAssignment || r.AttemptRoot != r.OwnerAssignment)) {
 		return errors.New("invalid candidate preparation registration")
 	}
 	return nil
@@ -378,7 +419,7 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 	assignment := factory.Assignment{
 		Authority: r.Authority, ID: r.ChildAssignment, AttemptRoot: r.AttemptRoot,
 		PublicationAssignment: r.OwnerAssignment, ProjectID: r.Project,
-		ActorID: r.ActorID, Role: project.RoleReviewer, Repository: r.Repository, Issue: r.Issue,
+		ActorID: r.ActorID, Role: preparation.Preparation.Role, Repository: r.Repository, Issue: r.Issue,
 		NativeRev: r.Control.NativeRev, Acceptance: r.Control.Acceptance,
 		Preparation: preparation.Preparation.ID, Connection: r.Connection,
 		SourceCommit: preparation.Preparation.SourceCommit,
@@ -386,17 +427,19 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 	if err = validateAttemptPacketTx(ctx, tx, assignment, false); err != nil {
 		return empty, err
 	}
-	var publicationData []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1`, r.OwnerAssignment).Scan(&publicationData); err != nil {
-		return empty, err
-	}
-	var publication factory.Publication
-	if err = json.Unmarshal(publicationData, &publication); err != nil {
-		return empty, err
-	}
-	if publication.ID != r.PublicationID || publication.Candidate != preparation.Preparation.SourceCommit ||
-		publication.ProjectID != r.Project || publication.Stage != factory.PublicationPublished || publication.WithdrawRequested {
-		return empty, ErrAttemptRootMismatch
+	if r.PublicationID != "" {
+		var publicationData []byte
+		if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_publications WHERE assignment=$1`, r.OwnerAssignment).Scan(&publicationData); err != nil {
+			return empty, err
+		}
+		var publication factory.Publication
+		if err = json.Unmarshal(publicationData, &publication); err != nil {
+			return empty, err
+		}
+		if publication.ID != r.PublicationID || publication.Candidate != preparation.Preparation.SourceCommit ||
+			publication.ProjectID != r.Project || publication.Stage != factory.PublicationPublished || publication.WithdrawRequested {
+			return empty, ErrAttemptRootMismatch
+		}
 	}
 	grants, err := loadAdmissionGrantsTx(ctx, tx, r.Repository, r.Connection)
 	if err != nil {
@@ -412,6 +455,9 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 }
 
 func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparation project.StoredPreparation, r CandidatePreparationRegistration, actorID int64) error {
+	if r.PublicationID == "" {
+		return checkRetryPreparationOwnerTx(ctx, tx, r)
+	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, r.Repository, r.Issue, r.AttemptRoot)
 	if err != nil {
 		return err
@@ -433,6 +479,34 @@ func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparati
 		return ErrAttemptRootMismatch
 	}
 	return nil
+}
+
+// A pending explicit Retry owns private setup before its dispatch packet and
+// fresh allowance exist. Recheck the same normal Retry facts; setup cannot
+// consume an old root, invent a run, or outlive its first native deadline.
+func checkRetryPreparationOwnerTx(ctx context.Context, tx *sql.Tx, r CandidatePreparationRegistration) error {
+	var typ, target, payload, outcome, finished string
+	if err := tx.QueryRowContext(ctx, `SELECT type,target,payload,outcome,finished FROM factory_commands WHERE id=$1 FOR UPDATE`, r.OwnerAssignment).Scan(&typ, &target, &payload, &outcome, &finished); err != nil {
+		return err
+	}
+	var decision factory.RetryDecision
+	var prior struct {
+		Run     string `json:"prior_run"`
+		Outcome string `json:"prior_outcome"`
+	}
+	if typ != factory.CommandRetry || finished == "" || json.Unmarshal([]byte(outcome), &decision) != nil ||
+		decision.Validate() != nil || decision.CommandID != r.OwnerAssignment || !decision.Queued ||
+		json.Unmarshal([]byte(payload), &prior) != nil || prior.Run != decision.Prior || target != "run/"+prior.Run {
+		return ErrExplicitRetryIneligible
+	}
+	selected, err := pendingExplicitRetry(ctx, tx, r.Repository, r.Issue, r.Control.Acceptance)
+	if err != nil {
+		return err
+	}
+	if selected != decision {
+		return ErrExplicitRetryIneligible
+	}
+	return validateExplicitRetryFactsTx(ctx, tx, prior.Run, r.Repository, r.Issue, r.Control.Acceptance, prior.Outcome)
 }
 
 func marshalCandidatePreparation(p project.StoredPreparation, meta candidatePreparationRegistration) ([]byte, error) {

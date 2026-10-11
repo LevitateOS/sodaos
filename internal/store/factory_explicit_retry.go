@@ -97,8 +97,16 @@ func (s *Store) RecordExplicitRetryCommand(ctx context.Context, cmd factory.Comm
 // finished assignment on the issue's unchanged acceptance. Its command ID
 // becomes the fresh assignment identity, so a recorded packet consumes it.
 func (s *Store) PendingExplicitRetry(ctx context.Context, repository, issue int64, acceptance string) (factory.RetryDecision, error) {
+	return pendingExplicitRetry(ctx, s.db, repository, issue, acceptance)
+}
+
+type explicitRetryQuerier interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func pendingExplicitRetry(ctx context.Context, q explicitRetryQuerier, repository, issue int64, acceptance string) (factory.RetryDecision, error) {
 	var id, outcome string
-	err := s.db.QueryRowContext(ctx, `SELECT c.id,c.outcome FROM factory_assignments owner
+	err := q.QueryRowContext(ctx, `SELECT c.id,c.outcome FROM factory_assignments owner
 		JOIN factory_commands c ON c.type=$1 AND c.finished<>''
 		JOIN factory_runs prior ON c.target='run/'||prior.id
 		JOIN factory_run_views v ON v.run=prior.id

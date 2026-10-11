@@ -1,8 +1,8 @@
-// Fresh review candidate preparation.
-use super::{valid_preparation_id, Preparation, MAX_SOURCE_BUNDLE, ROLE_REVIEWER};
+// Fresh candidate preparation from protected role setup and source.
+use super::{MAX_SOURCE_BUNDLE, Preparation, ROLE_CODER, ROLE_REVIEWER, valid_preparation_id};
 use crate::json;
-use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
+use serde::de::{self, MapAccess, Visitor};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -16,15 +16,17 @@ pub struct FactoryCandidate {
 impl FactoryCandidate {
     pub fn validate(&self) -> Result<(), String> {
         self.preparation.validate()?;
-        if self.preparation.role != ROLE_REVIEWER {
-            return Err("only review receives a fresh candidate preparation".to_string());
-        }
         if !valid_preparation_id(&self.source_preparation)
             || self.source_preparation == self.preparation.id
         {
             return Err("candidate preparation requires a fresh identity".to_string());
         }
-        if self.bundle.is_empty() || self.bundle.len() > MAX_SOURCE_BUNDLE {
+        if self.preparation.role == ROLE_CODER && !self.bundle.is_empty() {
+            return Err("coder retry source must come from the protected preparation".into());
+        }
+        if self.preparation.role == ROLE_REVIEWER
+            && (self.bundle.is_empty() || self.bundle.len() > MAX_SOURCE_BUNDLE)
+        {
             return Err("candidate source bundle exceeds preparation bounds".to_string());
         }
         if soda_wire_time::parse_nanos(&self.deadline).is_none() {

@@ -39,13 +39,18 @@ func fixturePreparationContext(in project.FactoryPreparationContextRequest, role
 }
 
 type fakeDispatchHost struct {
-	launch          func(project.FactoryLaunch) (project.FactoryState, error)
-	inspect         func(project.FactoryInspect) (project.FactoryState, error)
-	harness         func(string) (project.FactoryHarnessPin, error)
-	families        []string
-	launches        []project.FactoryLaunch
-	contextRequests []project.FactoryPreparationContextRequest
-	contextRoles    []string
+	launch             func(project.FactoryLaunch) (project.FactoryState, error)
+	inspect            func(project.FactoryInspect) (project.FactoryState, error)
+	harness            func(string) (project.FactoryHarnessPin, error)
+	families           []string
+	launches           []project.FactoryLaunch
+	contextRequests    []project.FactoryPreparationContextRequest
+	contextRoles       []string
+	contextRead        func(project.FactoryPreparationContextRequest, string) (project.FactoryPreparationContext, error)
+	prepare            func(project.FactoryCandidate) (project.PrepareState, error)
+	inspectPreparation func(project.PrepareInspect) (project.PrepareState, error)
+	stopPreparation    func(project.PrepareStop) (project.PrepareState, error)
+	preparations       []project.FactoryCandidate
 }
 
 func (f *fakeDispatchHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
@@ -68,6 +73,9 @@ func (f *fakeDispatchHost) FactoryHarness(ctx context.Context, family string) (p
 func (f *fakeDispatchHost) ReadPreparationContext(_ context.Context, in project.FactoryPreparationContextRequest, role string) (project.FactoryPreparationContext, error) {
 	f.contextRequests = append(f.contextRequests, in)
 	f.contextRoles = append(f.contextRoles, role)
+	if f.contextRead != nil {
+		return f.contextRead(in, role)
+	}
 	return fixturePreparationContext(in, role), nil
 }
 
@@ -83,16 +91,26 @@ func (f *fakeDispatchHost) FactoryExport(ctx context.Context, in project.Factory
 	return project.FactoryExportState{}, errors.New("unexpected host export")
 }
 
-func (*fakeDispatchHost) PrepareCandidate(context.Context, project.FactoryCandidate) (project.PrepareState, error) {
-	return project.PrepareState{}, errors.New("candidate preparation unavailable in dispatch fixture")
+func (f *fakeDispatchHost) PrepareCandidate(_ context.Context, in project.FactoryCandidate) (project.PrepareState, error) {
+	f.preparations = append(f.preparations, in)
+	if f.prepare != nil {
+		return f.prepare(in)
+	}
+	return project.PrepareState{ID: in.Preparation.ID, Project: in.Preparation.Project, Role: in.Preparation.Role, SourceCommit: in.Preparation.SourceCommit, SetupDigest: in.Preparation.SetupDigest, Container: strings.Repeat("c", 64), Phase: project.PrepareReady, Ready: true}, nil
 }
 
-func (*fakeDispatchHost) InspectPreparation(context.Context, project.PrepareInspect) (project.PrepareState, error) {
-	return project.PrepareState{}, errors.New("preparation inspection unavailable in dispatch fixture")
+func (f *fakeDispatchHost) InspectPreparation(_ context.Context, in project.PrepareInspect) (project.PrepareState, error) {
+	if f.inspectPreparation != nil {
+		return f.inspectPreparation(in)
+	}
+	return project.PrepareState{}, project.ErrPreparationNotFound
 }
 
-func (*fakeDispatchHost) StopPreparation(context.Context, project.PrepareStop) (project.PrepareState, error) {
-	return project.PrepareState{}, errors.New("preparation stop unavailable in dispatch fixture")
+func (f *fakeDispatchHost) StopPreparation(_ context.Context, in project.PrepareStop) (project.PrepareState, error) {
+	if f.stopPreparation != nil {
+		return f.stopPreparation(in)
+	}
+	return project.PrepareState{ID: in.ID, Project: in.Project, Stopped: true, Retirement: "confirmed"}, nil
 }
 
 type fakeDispatchBroker struct {
@@ -297,12 +315,12 @@ func dispatchControlForAssignment(t *testing.T, db *store.Store, a factory.Assig
 }
 
 func (fx *dispatchFixture) deps() DispatchDeps {
-	coord := &Coordinator{Store: fx.db}
+	coord := &Coordinator{Store: fx.db, Host: fx.host}
 	var reads DispatchReads
 	if fx.reads != nil {
 		reads = fx.reads
 	}
-	return DispatchDeps{Store: fx.db, Host: fx.host, Broker: fx.broker, Reads: reads, Authority: coord.EffectiveAuthority}
+	return DispatchDeps{Store: fx.db, Host: fx.host, Broker: fx.broker, Reads: reads, Authority: coord.EffectiveAuthority, PrepareRetry: coord.prepareRetryCoder, RetireRetry: coord.retireRetryCoder}
 }
 
 func waitReason(report DispatchReport, issue int64) string {

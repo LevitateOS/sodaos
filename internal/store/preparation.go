@@ -146,7 +146,7 @@ func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparat
 	}
 	defer func() { _ = tx.Rollback() }()
 	var allowance factory.AttemptAllowance
-	if meta != nil {
+	if meta != nil && meta.PublicationID != "" {
 		allowance, err = lockAttemptAllowanceRootTx(ctx, tx, meta.Repository, meta.Issue, meta.AttemptRoot)
 		if err != nil {
 			return err
@@ -185,7 +185,7 @@ func (s *Store) ObservePreparation(ctx context.Context, p project.StoredPreparat
 		current.Preparation.Revision, string(data), p.Preparation.ID, revision); err != nil {
 		return fmt.Errorf("preparation observation failed: %w", err)
 	}
-	if meta != nil && allowance.Closed {
+	if meta != nil && meta.PublicationID != "" && allowance.Closed {
 		if err = transitionLockedAttemptRootTx(ctx, tx, allowance, true, time.Now()); err != nil {
 			return err
 		}

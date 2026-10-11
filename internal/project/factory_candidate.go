@@ -9,7 +9,8 @@ import (
 // reusing only a ready preparation's protected approved setup. The coordinator
 // binds the current requirement/admin decisions before requesting preparation.
 // Neither role Git configuration nor its private home crosses this boundary.
-// Coder corrections continue in their original checkout.
+// An explicit coder Retry instead copies the protected original source bundle:
+// its caller supplies no bundle. Corrections retain their original checkout.
 type FactoryCandidate struct {
 	Preparation       Preparation `json:"preparation"`
 	SourcePreparation string      `json:"source_preparation"`
@@ -21,13 +22,13 @@ func (p FactoryCandidate) Validate() error {
 	if err := p.Preparation.Validate(); err != nil {
 		return err
 	}
-	if p.Preparation.Role != RoleReviewer {
-		return errors.New("only review receives a fresh candidate preparation")
-	}
 	if !ValidPreparationID(p.SourcePreparation) || p.SourcePreparation == p.Preparation.ID {
 		return errors.New("candidate preparation requires a fresh identity")
 	}
-	if len(p.Bundle) == 0 || len(p.Bundle) > MaxSourceBundle {
+	if p.Preparation.Role == RoleCoder && len(p.Bundle) != 0 {
+		return errors.New("coder retry source must come from the protected preparation")
+	}
+	if p.Preparation.Role == RoleReviewer && (len(p.Bundle) == 0 || len(p.Bundle) > MaxSourceBundle) {
 		return errors.New("candidate source bundle exceeds preparation bounds")
 	}
 	if p.Deadline.IsZero() {
