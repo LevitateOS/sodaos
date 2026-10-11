@@ -2,7 +2,9 @@ package api
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -62,6 +64,16 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	// Product exploration uses explicitly bounded consultation credit, distinct
 	// from execution funding. Failure remains visible and creates no acceptance.
 	candidates := []factory.PriorityCandidate{{ID: "incremental", Objective: current.Objective, Impact: "Deliver the smallest complete reviewed workflow; defer additional scope"}, {ID: "clarify", Objective: current.Objective, Risk: "Ask for missing material product outcomes before choosing implementation detail"}}
+	design := current
+	design.ID = ""
+	design.Predecessor = ""
+	design.CreatedUnix = 0
+	design.Tasks = nil
+	rawDesign, _ := json.Marshal(design)
+	sum := sha256.Sum256(rawDesign)
+	for i := range candidates {
+		candidates[i].Source = hex.EncodeToString(sum[:])
+	}
 	snapshot, err := factory.PrioritySnapshot(candidates)
 	if err != nil {
 		factoryCommandError(w, err)
@@ -71,7 +83,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
 		return
 	}
-	reserved, err := s.Store.ReservePriorityJudgment(r.Context(), snapshot, 1)
+	reserved, err := s.Store.ReserveIntentJudgment(r.Context(), current, snapshot)
 	if err != nil {
 		factoryCommandError(w, err)
 		return

@@ -66,6 +66,12 @@ func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, is
 		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	}
 	status := AcceptanceValidity{Acceptance: &decision}
+	if current, generated, err := c.Store.GeneratedIntentCurrent(bounded, head); err != nil {
+		return AcceptanceValidity{}, AcceptanceEvidence{}, err
+	} else if generated && !current {
+		status.Reasons = []string{"accepted_intent_changed"}
+		return status, AcceptanceEvidence{}, nil
+	}
 	if withdrawn, _, err := c.Store.AcceptanceWithdrawn(bounded, repository, index, head); err != nil {
 		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	} else if withdrawn {

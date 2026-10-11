@@ -115,6 +115,12 @@ func validateConfigURLs(c *Config) error {
 }
 
 func validateConfigPaths(c Config) error {
+	if c.FactoryJudgmentCallBudget < 0 || c.FactoryJudgmentCallBudget > 100000 {
+		return errors.New("factory_judgment_call_budget must be a finite nonnegative allowance")
+	}
+	if c.TypeSafeAPIKeyFile != "" && !filepath.IsAbs(c.TypeSafeAPIKeyFile) {
+		return errors.New("typesafe_api_key_file must be absolute")
+	}
 	if c.IdentitySocket != "" && !filepath.IsAbs(c.IdentitySocket) {
 		return errors.New("identity_socket must be an absolute path")
 	}
