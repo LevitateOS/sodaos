@@ -22,6 +22,8 @@ type preparationItemView struct {
 	Stopped      bool                   `json:"stopped"`
 	SourceCommit string                 `json:"source_commit"`
 	SetupDigest  string                 `json:"setup_digest"`
+	Requirements string                 `json:"requirements"`
+	Approval     string                 `json:"approval"`
 	Missing      string                 `json:"missing,omitempty"`
 	SetupExit    *int                   `json:"setup_exit,omitempty"`
 	CheckExit    *int                   `json:"check_exit,omitempty"`
@@ -29,13 +31,14 @@ type preparationItemView struct {
 }
 
 type environmentPreparationView struct {
-	Project         string                     `json:"project"`
-	Hold            bool                       `json:"hold"`
-	HoldRevision    int64                      `json:"hold_revision"`
-	Requirements    string                     `json:"requirements,omitempty"`
-	Approval        string                     `json:"approval,omitempty"`
-	Preparations    []preparationItemView      `json:"preparations"`
-	DecisionPreview preparationDecisionPreview `json:"decision_preview"`
+	Project             string                     `json:"project"`
+	Hold                bool                       `json:"hold"`
+	HoldRevision        int64                      `json:"hold_revision"`
+	Requirements        string                     `json:"requirements,omitempty"`
+	Approval            string                     `json:"approval,omitempty"`
+	ApprovalRequirement string                     `json:"approval_requirement,omitempty"`
+	Preparations        []preparationItemView      `json:"preparations"`
+	DecisionPreview     preparationDecisionPreview `json:"decision_preview"`
 }
 
 func preparationItemDTO(p project.StoredPreparation) preparationItemView {
@@ -43,6 +46,7 @@ func preparationItemDTO(p project.StoredPreparation) preparationItemView {
 		ID: p.Preparation.ID, Role: p.Preparation.Role,
 		Phase: p.State.Phase, Ready: p.State.Ready, Stopped: p.State.Stopped,
 		SourceCommit: p.Preparation.SourceCommit, SetupDigest: p.Preparation.SetupDigest,
+		Requirements: p.Preparation.Requirements.ID, Approval: p.Preparation.Approval.ID,
 		Missing: p.State.Missing, SetupExit: p.State.SetupExit, CheckExit: p.State.CheckExit,
 		Tools: p.State.Tools,
 	}
@@ -83,6 +87,12 @@ func (s *API) apiPreparation(w http.ResponseWriter, r *http.Request, v store.Ses
 	}
 	if head, err := s.Store.ApprovalHead(r.Context(), p.ID); err == nil {
 		view.Approval = head
+		decision, readErr := s.Store.ApprovalDecision(r.Context(), head)
+		if readErr != nil || decision.Project != p.ID {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read privileged-effect approval binding.")
+			return
+		}
+		view.ApprovalRequirement = decision.Requirement
 	} else if !errors.Is(err, store.ErrNotFound) {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read privileged-effect approval.")
 		return

@@ -108,6 +108,14 @@ SHA-256 digests in `source_inputs`. Native source refresh compares those exact
 Git objects and regular-file modes at the accepted and proposed commits before
 running setup. An absent selection permits only the accepted source commit.
 
+Project settings can preview the approved source and the maintainer's complete
+file selection directly from the native repository. Acceptance remains explicit.
+The Project administrator separately records their inspection of installed
+prerequisites, assigned services/resources and readiness before starting coding
+and review preparation. Those observations do not claim role setup succeeded;
+the native preparation result supplies that evidence. An unconfirmed request
+retains its preparation identities for inspection and retry.
+
 The accepted inputs identify required tools and versions, setup entry points and
 working directories, allowed writable resources, service requirements and readiness
 checks. Bind the effective referenced configuration, not just a top-level filename.

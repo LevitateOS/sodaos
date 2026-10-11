@@ -57,14 +57,23 @@ func (s *API) apiPreparationAcceptances(w http.ResponseWriter, r *http.Request, 
 }
 
 type preparationActionRequest struct {
-	CommandID       string `json:"command_id,omitempty"`
-	Action          string `json:"action"`
-	DecisionID      string `json:"decision_id,omitempty"`
-	Predecessor     string `json:"predecessor,omitempty"`
-	Requirement     string `json:"requirement,omitempty"`
-	EffectsDigest   string `json:"effects_digest,omitempty"`
-	ReadinessDigest string `json:"readiness_digest,omitempty"`
-	Verified        bool   `json:"verified,omitempty"`
+	CommandID         string   `json:"command_id,omitempty"`
+	Action            string   `json:"action"`
+	DecisionID        string   `json:"decision_id,omitempty"`
+	Predecessor       string   `json:"predecessor,omitempty"`
+	Requirement       string   `json:"requirement,omitempty"`
+	EffectsDigest     string   `json:"effects_digest,omitempty"`
+	ReadinessDigest   string   `json:"readiness_digest,omitempty"`
+	Verified          bool     `json:"verified,omitempty"`
+	SourceCommit      string   `json:"source_commit,omitempty"`
+	SourcePaths       []string `json:"source_paths,omitempty"`
+	SetupFiles        []string `json:"setup_files,omitempty"`
+	RequiredTools     []string `json:"required_tools,omitempty"`
+	EffectsEvidence   string   `json:"effects_evidence,omitempty"`
+	ReadinessEvidence string   `json:"readiness_evidence,omitempty"`
+	Approval          string   `json:"approval,omitempty"`
+	CoderID           string   `json:"coder_id,omitempty"`
+	ReviewerID        string   `json:"reviewer_id,omitempty"`
 }
 
 type preparationInspectView struct {
@@ -88,6 +97,12 @@ func (s *API) apiPreparationActions(w http.ResponseWriter, r *http.Request, v st
 		return
 	}
 	switch in.Action {
+	case "source-preview":
+		s.apiPreparationSourcePreview(w, r, v, p, in)
+	case "approve-initial":
+		s.apiPreparationInitialApproval(w, r, v, p, in)
+	case "prepare":
+		s.apiPreparationStart(w, r, v, p, in)
 	case "hold":
 		s.apiPreparationActionHold(w, r, v, p)
 	case "inspect":
