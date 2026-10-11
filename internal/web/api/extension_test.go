@@ -193,6 +193,8 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		{http.MethodPost, "/repositories/12/factory/issues/3", false},
 		{http.MethodPost, "/repositories/12/factory/issues/3/acceptances", true},
 		{http.MethodGet, "/repositories/12/factory/issues/3/acceptances", false},
+		{http.MethodGet, "/repositories/12/factory/issues/3/acceptance-preview", true},
+		{http.MethodPost, "/repositories/12/factory/issues/3/acceptance-preview", false},
 		{http.MethodPost, "/repositories/12/factory/issues/3/withdrawal", true},
 		{http.MethodGet, "/repositories/12/factory/issues/3/withdrawal", false},
 		{http.MethodGet, "/repositories/12/factory/issues/3/assignment", true},

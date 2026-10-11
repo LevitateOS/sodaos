@@ -41,6 +41,7 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/factory/runs/{runID}/output` | Code-write read-only run output WebSocket (status/output/closed frames; input rejected) |
 | GET | `/api/factory/commands/{commandID}` | Durable command outcome read-back |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}` | Current issue acceptance, validity, readiness and check assessment |
+| GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptance-preview` | Current revision-bound acceptance facts (optional repeated `comment_id`; metadata only) |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances` | Code-write exact-inputs acceptance (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (command envelope) |
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/assignment` | Current dispatch assignment: exact bound inputs, staged prompt, recorded result, publication operation IDs, effects, completion and cancellation |

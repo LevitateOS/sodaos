@@ -147,7 +147,10 @@ func extensionQueryRoute(route string) bool {
 	case "/repositories", "/environments", "/me/forgejo-keys":
 		return true
 	default:
-		return false
+		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
+		return len(parts) == 6 && parts[0] == "repositories" && extensionProductID(parts[1]) &&
+			parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) &&
+			parts[5] == "acceptance-preview"
 	}
 }
 
@@ -209,6 +212,7 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 	}
 	if len(parts) == 6 && parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
 		return parts[5] == "acceptances" && method == http.MethodPost ||
+			parts[5] == "acceptance-preview" && method == http.MethodGet ||
 			parts[5] == "assignment" && method == http.MethodGet ||
 			parts[5] == "withdrawal" && method == http.MethodPost
 	}

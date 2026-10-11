@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
@@ -18,6 +21,211 @@ type factoryIssueView struct {
 	Readiness  *readinessView             `json:"readiness,omitempty"`
 	Checks     *checksView                `json:"checks,omitempty"`
 	Merge      *mergeView                 `json:"merge,omitempty"`
+}
+
+// acceptancePreview exposes only the revision-bound public facts needed to
+// construct an explicit human acceptance. Native issue text is never returned.
+type acceptancePreview struct {
+	Repository   string                        `json:"repository"`
+	Issue        string                        `json:"issue"`
+	TitleDigest  string                        `json:"title_digest"`
+	TitleEvent   string                        `json:"title_occurrence"`
+	BodyDigest   string                        `json:"body_digest"`
+	ContentVer   int                           `json:"content_version"`
+	NativeRev    int64                         `json:"native_revision"`
+	Comments     []acceptancePreviewComment    `json:"comments"`
+	Dependencies []acceptancePreviewDependency `json:"dependencies"`
+}
+
+type acceptancePreviewComment struct {
+	ID         string `json:"id"`
+	Digest     string `json:"digest"`
+	ContentVer int    `json:"content_version"`
+}
+
+type acceptancePreviewDependency struct {
+	Occurrence string `json:"occurrence"`
+	DependsOn  string `json:"depends_on"`
+}
+
+// apiIssueAcceptancePreview is a bounded read for the native evidence that a
+// code writer must review before submitting an explicit acceptance decision.
+func (s *API) apiIssueAcceptancePreview(w http.ResponseWriter, r *http.Request, v store.Session) {
+	repository, issue, commentIDs, ok := acceptancePreviewRequest(w, r, s, v)
+	if !ok {
+		return
+	}
+	if s.Coordinator == nil || s.Coordinator.AcceptanceReads == nil {
+		auth.JSONError(w, 503, "native_evidence_unavailable", "Current native acceptance evidence is unavailable.")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	evidence, err := s.Coordinator.AcceptanceReads.ReadAcceptanceEvidence(ctx, strconv.FormatInt(repository, 10), issue, commentIDs)
+	if err != nil {
+		acceptancePreviewReadError(w, err)
+		return
+	}
+	view, refusal := buildAcceptancePreview(repository, issue, commentIDs, evidence)
+	if refusal != nil {
+		acceptanceRefusalError(w, refusal)
+		return
+	}
+	auth.JSONResponse(w, http.StatusOK, view)
+}
+
+func acceptancePreviewRequest(w http.ResponseWriter, r *http.Request, s *API, v store.Session) (int64, string, []string, bool) {
+	if r.URL.ForceQuery {
+		auth.JSONError(w, 400, "invalid_request", "Malformed acceptance preview query.")
+		return 0, "", nil, false
+	}
+	commentIDs, valid := parseAcceptancePreviewCommentIDs(r.URL.RawQuery)
+	if !valid {
+		auth.JSONError(w, 400, "invalid_request", "Use at most 50 distinct positive comment_id values.")
+		return 0, "", nil, false
+	}
+	repository, issue, ok := s.factoryIssue(w, r, v)
+	if !ok {
+		return 0, "", nil, false
+	}
+	if _, err := s.executionRepository(r, v, repository); err != nil {
+		reportExecutionAuthorityError(w, err)
+		return 0, "", nil, false
+	}
+	return repository, issue, commentIDs, true
+}
+
+func acceptancePreviewReadError(w http.ResponseWriter, err error) {
+	var refusal *control.AcceptanceRefusal
+	if errors.As(err, &refusal) {
+		acceptanceRefusalError(w, refusal)
+		return
+	}
+	auth.JSONError(w, 503, "native_evidence_unavailable", "Current native acceptance evidence is unavailable.")
+}
+
+func buildAcceptancePreview(repository int64, issue string, commentIDs []string, evidence control.AcceptanceEvidence) (acceptancePreview, *control.AcceptanceRefusal) {
+	if refusal := validateAcceptancePreviewIssue(issue, evidence); refusal != nil {
+		return acceptancePreview{}, refusal
+	}
+	view := acceptancePreview{
+		Repository: strconv.FormatInt(repository, 10), Issue: issue,
+		TitleDigest: evidence.Issue.TitleDigest, TitleEvent: evidence.Issue.TitleOccurrence,
+		BodyDigest: evidence.Issue.ContentDigest, ContentVer: evidence.Issue.ContentVer,
+		NativeRev:    evidence.Revision,
+		Comments:     make([]acceptancePreviewComment, 0, len(commentIDs)),
+		Dependencies: make([]acceptancePreviewDependency, 0, len(evidence.Dependencies)),
+	}
+	comments, refusal := acceptancePreviewComments(commentIDs, evidence.Comments)
+	if refusal != nil {
+		return acceptancePreview{}, refusal
+	}
+	dependencies, refusal := acceptancePreviewDependencies(evidence.Dependencies)
+	if refusal != nil {
+		return acceptancePreview{}, refusal
+	}
+	view.Comments, view.Dependencies = comments, dependencies
+	return view, nil
+}
+
+func validateAcceptancePreviewIssue(issue string, evidence control.AcceptanceEvidence) *control.AcceptanceRefusal {
+	if !evidence.Issue.Visible {
+		return &control.AcceptanceRefusal{Reason: control.RefusalIssueHidden}
+	}
+	valid := evidence.Issue.Index == issue && evidence.Revision > 0 &&
+		factory.ValidDigest(evidence.Issue.TitleDigest) && factory.ValidDigest(evidence.Issue.ContentDigest) &&
+		factory.ValidTitleOccurrence(evidence.Issue.TitleOccurrence) && evidence.Issue.ContentVer >= 0
+	if !valid {
+		return &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
+	}
+	return nil
+}
+
+func acceptancePreviewComments(commentIDs []string, evidence []control.AcceptanceComment) ([]acceptancePreviewComment, *control.AcceptanceRefusal) {
+	if len(evidence) != len(commentIDs) {
+		return nil, &control.AcceptanceRefusal{Reason: control.RefusalSourceMissing}
+	}
+	wanted := make(map[string]bool, len(commentIDs))
+	for _, id := range commentIDs {
+		wanted[id] = true
+	}
+	comments := make([]acceptancePreviewComment, 0, len(commentIDs))
+	for _, comment := range evidence {
+		reason := acceptancePreviewCommentReason(comment, wanted)
+		if reason != "" {
+			return nil, &control.AcceptanceRefusal{Reason: reason}
+		}
+		delete(wanted, comment.ID)
+		comments = append(comments, acceptancePreviewComment{ID: comment.ID, Digest: comment.Digest, ContentVer: comment.ContentVer})
+	}
+	if len(wanted) != 0 {
+		return nil, &control.AcceptanceRefusal{Reason: control.RefusalSourceMissing}
+	}
+	return comments, nil
+}
+
+func acceptancePreviewCommentReason(comment control.AcceptanceComment, wanted map[string]bool) string {
+	if !comment.Visible {
+		return control.RefusalSourceHidden
+	}
+	id, valid := auth.PositiveID(comment.ID)
+	valid = valid && strconv.FormatInt(id, 10) == comment.ID && wanted[comment.ID] && factory.ValidDigest(comment.Digest) && comment.ContentVer >= 0
+	if !valid {
+		return control.RefusalIncompleteEvidence
+	}
+	return ""
+}
+
+func acceptancePreviewDependencies(evidence []control.AcceptanceEdge) ([]acceptancePreviewDependency, *control.AcceptanceRefusal) {
+	dependencies := make([]acceptancePreviewDependency, 0, len(evidence))
+	for _, edge := range evidence {
+		if !edge.Visible {
+			return nil, &control.AcceptanceRefusal{Reason: control.RefusalEdgeHidden}
+		}
+		occurrence, valid := auth.PositiveID(edge.Occurrence)
+		if !valid || strconv.FormatInt(occurrence, 10) != edge.Occurrence {
+			return nil, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
+		}
+		dependsOn, valid := auth.PositiveID(edge.DependsOn)
+		if !valid || strconv.FormatInt(dependsOn, 10) != edge.DependsOn {
+			return nil, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
+		}
+		dependencies = append(dependencies, acceptancePreviewDependency{Occurrence: edge.Occurrence, DependsOn: edge.DependsOn})
+	}
+	return dependencies, nil
+}
+
+func parseAcceptancePreviewCommentIDs(raw string) ([]string, bool) {
+	if len(raw) > 8192 {
+		return nil, false
+	}
+	values, err := url.ParseQuery(raw)
+	if err != nil {
+		return nil, false
+	}
+	for key := range values {
+		if key != "comment_id" {
+			return nil, false
+		}
+	}
+	ids := values["comment_id"]
+	if len(ids) > factory.MaxAcceptedSources {
+		return nil, false
+	}
+	seen := make(map[string]struct{}, len(ids))
+	for i, value := range ids {
+		id, ok := auth.PositiveID(value)
+		if !ok {
+			return nil, false
+		}
+		canonical := strconv.FormatInt(id, 10)
+		if _, exists := seen[canonical]; exists {
+			return nil, false
+		}
+		seen[canonical] = struct{}{}
+		ids[i] = canonical
+	}
+	return ids, true
 }
 
 // readinessView is the durable readiness verdict for one native issue:
