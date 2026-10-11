@@ -1,15 +1,16 @@
 import {LitElement, html, css} from 'lit';
 import type {PropertyValues} from 'lit';
-import {object, check, SodaRequestError} from './sodaspaces-api.js';
+import {object, check, id, SodaRequestError} from './sodaspaces-api.js';
 import {
   decisionID,
   department,
   departments,
+  exploration as parseExploration,
   intentList,
   intentRevision,
   newDecisionID,
 } from './sodaspaces-intent-response.js';
-import type {Department, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
+import type {Department, Exploration, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
 import {describeIntent, reviewIntent, departmentDialog, reviewReady} from './sodaspaces-intent-view.js';
 import type {IntentView} from './sodaspaces-intent-view.js';
 
@@ -19,7 +20,9 @@ export class SodaIntent extends LitElement {
     api: {attribute: false},
     blocked: {type: Boolean},
     active: {type: Boolean},
+    actor: {type: String},
     request: {type: String},
+    exploration: {state: true},
     objective: {state: true},
     savedRequests: {state: true},
     savedLoaded: {state: true},
@@ -35,6 +38,8 @@ export class SodaIntent extends LitElement {
     departmentDialog: {state: true},
     departmentName: {state: true},
     departmentDescription: {state: true},
+    changeOpen: {state: true},
+    changeText: {state: true},
     maxIssues: {state: true},
     planningCalls: {state: true},
   };
@@ -151,7 +156,9 @@ export class SodaIntent extends LitElement {
   declare api: IntentAPI | undefined;
   declare blocked: boolean;
   declare active: boolean;
+  declare actor: string;
   declare request: string;
+  declare exploration: Exploration | undefined;
   declare savedRequests: SavedRequest[];
   declare savedLoaded: boolean;
   declare savedError: string;
@@ -167,6 +174,8 @@ export class SodaIntent extends LitElement {
   declare departmentDialog: boolean;
   declare departmentName: string;
   declare departmentDescription: string;
+  declare changeOpen: boolean;
+  declare changeText: string;
   declare maxIssues: number;
   declare planningCalls: number;
   private operation: AbortController | undefined;
@@ -179,7 +188,9 @@ export class SodaIntent extends LitElement {
     super();
     this.blocked = false;
     this.active = false;
+    this.actor = '';
     this.request = '';
+    this.exploration = undefined;
     this.savedRequests = [];
     this.savedLoaded = false;
     this.savedError = '';
@@ -189,7 +200,8 @@ export class SodaIntent extends LitElement {
     this.departments = [];
     this.busy = this.dirty = this.departmentDialog = false;
     this.busyNote = '';
-    this.error = this.departmentName = this.departmentDescription = '';
+    this.error = this.departmentName = this.departmentDescription = this.changeText = '';
+    this.changeOpen = false;
     this.maxIssues = 20;
     this.planningCalls = 8;
   }
@@ -221,9 +233,12 @@ export class SodaIntent extends LitElement {
     this.request = '';
     this.loadedRequest = '';
     this.revision = undefined;
+    this.exploration = undefined;
     this.objective = '';
     this.dirty = false;
     this.error = '';
+    this.changeOpen = false;
+    this.changeText = '';
   }
   private async perform(operation: (signal: AbortSignal) => Promise<void>, note = 'Saving and planning…') {
     if (this.busy || this.blocked || !this.api) return false;
@@ -332,11 +347,24 @@ export class SodaIntent extends LitElement {
   }
   private applyRevision(saved: IntentRevision) {
     this.revision = saved;
+    this.exploration = undefined;
     this.objective = saved.objective;
     this.department = saved.department || '';
     this.maxIssues = saved.max_issues;
     this.planningCalls = saved.planning_calls;
     this.dirty = false;
+    this.changeOpen = false;
+    this.changeText = '';
+  }
+  private explorationStale(): boolean {
+    const exploration = this.exploration;
+    const revision = this.revision;
+    if (!exploration || !revision) return false;
+    if (this.dirty) return true;
+    const content = exploration.content;
+    if (content.intent !== undefined && content.intent !== revision.intent) return true;
+    if (content.revision !== undefined && content.revision !== revision.id) return true;
+    return false;
   }
   private nextRevision(state: IntentRevision['state'], repository = '0'): IntentRevision {
     const current = this.revision;
@@ -380,13 +408,32 @@ export class SodaIntent extends LitElement {
   }
   private async explore(signal: AbortSignal) {
     const saved = await this.save('draft', '0', signal);
-    const proposal = intentRevision(
-      await this.call('/api/factory/intents/' + saved.intent + '/explore', {revision: saved.id}, signal)
-    );
-    if (proposal.intent !== saved.intent || proposal.predecessor !== saved.id || proposal.state !== 'draft')
-      throw Error('Mismatched proposal');
-    this.revision = proposal;
-    this.dirty = false;
+    try {
+      const response = await this.call(
+        '/api/factory/intents/' + saved.intent + '/explore',
+        {revision: saved.id},
+        signal
+      );
+      const proposal = intentRevision(response);
+      if (proposal.intent !== saved.intent || proposal.predecessor !== saved.id || proposal.state !== 'draft')
+        throw Error('Mismatched proposal');
+      this.exploration = readExploration(response, proposal);
+      this.revision = proposal;
+      this.changeOpen = false;
+      this.changeText = '';
+      this.dirty = false;
+    } catch (error) {
+      if (!signal.aborted) this.exploreFailed(error);
+    }
+  }
+  private exploreFailed(error: unknown) {
+    if (error instanceof SodaRequestError && error.code === 'planning_unavailable')
+      this.error =
+        'Exploration exhausted the planning allowance. Your description is saved; raise the allowance or try again.';
+    else if (error instanceof SodaRequestError && error.code === 'planning_funding_required')
+      this.error =
+        'Exploration needs a planning allowance. Your description is saved; set the planning allowance and try again.';
+    else this.error = 'Exploration could not run. Your description is saved; try again.';
   }
   private describe = () => {
     if (this.objective.trim()) void this.perform((signal) => this.explore(signal));
@@ -419,7 +466,10 @@ export class SodaIntent extends LitElement {
     void this.perform(async (signal) => {
       await this.save('declined', '0', signal);
       this.revision = undefined;
+      this.exploration = undefined;
       this.dirty = false;
+      this.changeOpen = false;
+      this.changeText = '';
     });
   };
   async acceptRepository(repository: string): Promise<boolean> {
@@ -445,15 +495,52 @@ export class SodaIntent extends LitElement {
     if (reviewReady(this.view()))
       this.dispatchEvent(new CustomEvent('intent-reviewed', {bubbles: true, composed: true}));
   };
+  private actorValid(): boolean {
+    return this.actor !== '' && id(this.actor);
+  }
+  private decidedIdea(idea: ProductIdea, decision: ProductIdea['decision'], correction?: string): ProductIdea {
+    const next: ProductIdea = {...idea, decision};
+    if (correction !== undefined) next.correction = correction;
+    else if (decision !== 'edit') delete next.correction;
+    if (decision === 'pending' || !this.actorValid()) {
+      delete next.provenance;
+      delete next.actor;
+    } else {
+      next.provenance = 'human';
+      next.actor = this.actor;
+    }
+    return next;
+  }
   private decide = (id: string, decision: ProductIdea['decision'], correction?: string) => {
     if (!this.revision || this.busy || this.blocked) return;
     this.revision = {
       ...this.revision,
-      ideas: this.revision.ideas.map((idea) =>
-        idea.id === id ? {...idea, decision, ...(correction !== undefined ? {correction} : {})} : idea
-      ),
+      ideas: this.revision.ideas.map((idea) => (idea.id === id ? this.decidedIdea(idea, decision, correction) : idea)),
     };
     this.dirty = true;
+  };
+  private correctProposal = (text: string) => {
+    const correction = text.trim().slice(0, 4000);
+    if (!correction || !this.revision || this.busy || this.blocked) return;
+    const idea: ProductIdea = {
+      id: newDecisionID(),
+      description: correction,
+      consequence: 'The proposal is updated to match the requested change.',
+      assumption: false,
+      decision: 'edit',
+      correction,
+      source: 'requested',
+      ...(this.actorValid() ? {provenance: 'human' as const, actor: this.actor} : {}),
+    };
+    this.revision = {...this.revision, ideas: [...this.revision.ideas, idea]};
+    this.revise();
+  };
+  private toggleChange = (open: boolean) => {
+    this.changeOpen = open;
+    if (open)
+      void this.updateComplete.then(() => {
+        this.shadowRoot?.querySelector<HTMLElement>('.change-field textarea')?.focus();
+      });
   };
   private createDepartment = () => {
     void this.perform(async (signal) => {
@@ -512,6 +599,10 @@ export class SodaIntent extends LitElement {
       department: this.department,
       departments: this.departments,
       revision: this.revision,
+      exploration: this.exploration,
+      explorationStale: this.explorationStale(),
+      changeOpen: this.changeOpen,
+      changeText: this.changeText,
       busy: this.busy,
       blocked: this.blocked,
       dirty: this.dirty,
@@ -530,6 +621,8 @@ export class SodaIntent extends LitElement {
         if (this.revision) this.dirty = true;
       },
       decide: this.decide,
+      toggleChange: this.toggleChange,
+      correctProposal: this.correctProposal,
       chooseApproach: (approach) => {
         if (!this.revision) return;
         this.revision = {...this.revision, approach};
@@ -567,6 +660,18 @@ export class SodaIntent extends LitElement {
   }
 }
 customElements.define('soda-intent', SodaIntent);
+
+function readExploration(response: unknown, proposal: IntentRevision): Exploration | undefined {
+  const raw = object(response);
+  if (raw.exploration === undefined) return undefined;
+  try {
+    const exploration = parseExploration(raw.exploration);
+    if (exploration.content.intent !== undefined && exploration.content.intent !== proposal.intent) return undefined;
+    return exploration;
+  } catch {
+    return undefined;
+  }
+}
 
 function generationMessage(state: unknown): string {
   if (state === 'completed') return 'Factory work is created. Execution still needs its own access and finite funding.';
