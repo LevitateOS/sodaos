@@ -12,6 +12,11 @@ export interface ProductIdea {
   assumption: boolean;
   decision: 'pending' | 'accept' | 'decline' | 'edit';
   correction?: string;
+  source?: 'requested' | 'supported' | 'autonomous' | 'assumption';
+  provenance?: 'human' | 'autonomous';
+  actor?: string;
+  evidence?: string;
+  material?: boolean;
 }
 export interface IntentTask {
   key: string;
@@ -29,10 +34,23 @@ export interface IntentRevision {
   objective: string;
   ideas: ProductIdea[];
   tasks: IntentTask[];
-  state: 'draft' | 'accepted' | 'declined';
+  state: 'draft' | 'accepted' | 'declined' | 'rejected' | 'abandoned';
   max_issues: number;
   planning_calls: number;
   approach?: 'complete_first' | 'incremental';
+  effective_outcomes?: string[];
+}
+export interface SavedRequest {
+  intent: string;
+  revision: string;
+  state: IntentRevision['state'];
+  objective: string;
+  repository: string;
+  department?: string;
+  created_unix: number;
+  effective_count: number;
+  task_count: number;
+  effective_outcomes?: string[];
 }
 export const decisionID = (value: unknown): value is string =>
   typeof value === 'string' && /^d[0-9a-f]{24}$/.test(value);
@@ -62,7 +80,34 @@ function idea(value: unknown): ProductIdea {
     assumption: raw.assumption,
     decision: raw.decision,
     ...(raw.correction ? {correction: text(raw.correction, 4000)} : {}),
+    ...provenance(raw),
   };
+}
+const sourceKinds = ['requested', 'supported', 'autonomous', 'assumption'];
+function provenanceKind(raw: Record<string, unknown>, out: Partial<ProductIdea>) {
+  check(raw.source === undefined || (typeof raw.source === 'string' && sourceKinds.includes(raw.source)));
+  check(raw.provenance === undefined || raw.provenance === 'human' || raw.provenance === 'autonomous');
+  if (raw.source) out.source = raw.source as NonNullable<ProductIdea['source']>;
+  if (raw.provenance) out.provenance = raw.provenance as NonNullable<ProductIdea['provenance']>;
+}
+function provenanceDetail(raw: Record<string, unknown>, out: Partial<ProductIdea>) {
+  if (raw.actor !== undefined) check(id(raw.actor));
+  if (raw.material !== undefined) check(typeof raw.material === 'boolean');
+  if (raw.actor) out.actor = String(raw.actor);
+  if (raw.evidence) out.evidence = text(raw.evidence, 4000);
+  if (raw.material !== undefined) out.material = Boolean(raw.material);
+}
+function provenance(raw: Record<string, unknown>): Partial<ProductIdea> {
+  const out: Partial<ProductIdea> = {};
+  provenanceKind(raw, out);
+  provenanceDetail(raw, out);
+  return out;
+}
+function effectiveOutcomes(raw: Record<string, unknown>): Partial<IntentRevision> {
+  if (raw.effective_outcomes === undefined) return {};
+  const outcomes = array(raw.effective_outcomes, 50);
+  for (const outcome of outcomes) check(decisionID(outcome));
+  return {effective_outcomes: outcomes.map(String)};
 }
 function strings(value: unknown, limit: number): string[] {
   check(Array.isArray(value) && value.length <= 64);
@@ -79,11 +124,17 @@ function task(value: unknown): IntentTask {
     ...(raw.depends_on ? {depends_on: strings(raw.depends_on, 25)} : {}),
   };
 }
+export function intentState(value: unknown): IntentRevision['state'] {
+  check(
+    value === 'draft' || value === 'accepted' || value === 'declined' || value === 'rejected' || value === 'abandoned'
+  );
+  return value as IntentRevision['state'];
+}
 export function intentRevision(value: unknown): IntentRevision {
   const raw = object(value);
   check(raw.approach === undefined || raw.approach === 'complete_first' || raw.approach === 'incremental');
   check(decisionID(raw.id) && decisionID(raw.intent) && (raw.repository === '0' || id(raw.repository)));
-  check(raw.state === 'draft' || raw.state === 'accepted' || raw.state === 'declined');
+  const state = intentState(raw.state);
   const ideas = array(raw.ideas, 50).map(idea);
   const maxIssues = bound(raw.max_issues, 1, 64);
   const tasks = array(raw.tasks, maxIssues).map(task);
@@ -92,14 +143,42 @@ export function intentRevision(value: unknown): IntentRevision {
     intent: raw.intent,
     repository: raw.repository,
     objective: text(raw.objective, 16000),
-    state: raw.state,
+    state,
     max_issues: maxIssues,
     planning_calls: bound(raw.planning_calls, 0, 100),
     ...(raw.approach !== undefined ? {approach: raw.approach} : {}),
     ideas,
     tasks,
     ...references(raw),
+    ...effectiveOutcomes(raw),
   };
+}
+function count(value: unknown): number {
+  check(Number.isInteger(value) && Number(value) >= 0);
+  return Number(value);
+}
+function savedRequest(value: unknown): SavedRequest {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.revision) && (raw.repository === '0' || id(raw.repository)));
+  if (raw.department !== undefined) check(decisionID(raw.department));
+  return {
+    intent: raw.intent,
+    revision: raw.revision,
+    state: intentState(raw.state),
+    objective: text(raw.objective, 280),
+    repository: raw.repository,
+    ...(raw.department ? {department: String(raw.department)} : {}),
+    created_unix: count(raw.created_unix),
+    effective_count: count(raw.effective_count),
+    task_count: count(raw.task_count),
+    ...effectiveOutcomes(raw),
+  };
+}
+export function intentList(value: unknown): {intents: SavedRequest[]; next_cursor?: string} {
+  const raw = object(value);
+  const intents = array(raw.intents, 50).map(savedRequest);
+  if (raw.next_cursor !== undefined) check(decisionID(raw.next_cursor));
+  return {intents, ...(raw.next_cursor ? {next_cursor: String(raw.next_cursor)} : {})};
 }
 function references(raw: Record<string, unknown>) {
   if (raw.predecessor !== undefined) check(decisionID(raw.predecessor));
