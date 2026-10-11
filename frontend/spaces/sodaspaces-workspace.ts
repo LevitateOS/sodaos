@@ -202,7 +202,7 @@ export class SodaSpaces extends LitElement {
     }
   >();
   declare private project: string;
-  declare private setup: 'repositories' | 'configure' | null;
+  declare private setup: 'intent' | 'repositories' | 'configure' | null;
   declare private complete: boolean;
   declare private repositoryQuery: string;
   declare private repositoryResult: RepositoryChoices | undefined;
@@ -475,11 +475,11 @@ export class SodaSpaces extends LitElement {
   private readonly onBeginSetup = () => beginSetup(this.setupReading(), this.setupActions(), this);
   private readonly onShowSessions = () => this.showSessions();
   private readonly onNewTerminal = () => newTerminal(this.newTerminalInput(), this.layout.focused);
-  private readonly onCancelSetup = () => cancelSetup(this.setupReading(), this.setupActions());
+  private readonly onCancelSetup = () => cancelSetup(this.setupReading(), this.setupActions(), this);
   private readonly onSetupBack = () =>
     this.setup === 'configure'
       ? changeRepository(this.setupReading(), this.setupActions(), this)
-      : cancelSetup(this.setupReading(), this.setupActions());
+      : cancelSetup(this.setupReading(), this.setupActions(), this);
   private readonly onCapturePointer = (e: PointerEvent) => this.capture(e);
   private readonly onResizeSidebar = (e: PointerEvent) => resizeSidebar(this.layoutInput(), e);
   private readonly onReleasePointer = (e: PointerEvent) => this.releasePointer(e);
@@ -574,6 +574,7 @@ export class SodaSpaces extends LitElement {
     return html`<p>${this.emptyFilterMessage()}</p>`;
   }
   private renderWelcomeFooter() {
+    if (this.welcomeScreen || this.setup === 'intent') return '';
     if (!this.welcomeScreen && !this.setup) return '';
     const step = this.setup === 'configure' ? 2 : this.setup === 'repositories' ? 1 : undefined;
     return renderWelcomeSteps(step);
@@ -778,7 +779,7 @@ export class SodaSpaces extends LitElement {
     </div>`;
   }
   protected render() {
-    const heading = renderSetupHeading(this.setupScreen);
+    const heading = renderSetupHeading(this.setupScreen && !this.welcomeScreen && this.setup !== 'intent');
     const banners = renderStatusBanners(
       this.status,
       this.setupScreen,

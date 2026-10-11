@@ -1,5 +1,7 @@
 import {html} from 'lit';
-import {renderWelcome, renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
+import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
+import './sodaspaces-intent.js';
+import type {SodaIntent} from './sodaspaces-intent.js';
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
@@ -39,7 +41,7 @@ export function setupIntroHelper(busy: boolean) {
 export function searchAdmitted(
   stale: boolean,
   available: boolean,
-  setup: 'repositories' | 'configure' | null,
+  setup: 'intent' | 'repositories' | 'configure' | null,
   activeSurface: boolean
 ) {
   return !stale && available && setup === 'repositories' && activeSurface;
@@ -57,7 +59,7 @@ export interface SetupReturn {
 }
 
 export interface SetupReading {
-  setup: 'repositories' | 'configure' | null;
+  setup: 'intent' | 'repositories' | 'configure' | null;
   welcomeScreen: boolean;
   busy: boolean;
   reconnectRequired: boolean;
@@ -82,7 +84,7 @@ export interface SetupReading {
 }
 
 export interface SetupActions {
-  setSetup(setup: 'repositories' | 'configure' | null): void;
+  setSetup(setup: 'intent' | 'repositories' | 'configure' | null): void;
   setRepositoryQuery(query: string): void;
   setRepositoryChoice(choice: string): void;
   setRepositoryResult(result: RepositoryChoices | undefined): void;
@@ -138,12 +140,14 @@ export function renderSetupBody(
         select: (value) => {
           actions.setRepositoryChoice(value);
         },
-        back: () => cancelSetup(read(), actions),
-        continue: () => configureProject(read(), actions),
+        back: () => cancelSetup(read(), actions, host),
+        continue: () => {
+          void configureProject(read(), actions, host);
+        },
       }
     );
   }
-  if (reading.welcomeScreen) return renderWelcome(blocked, reading.onBegin);
+  if (reading.welcomeScreen || reading.setup === 'intent') return '';
   return renderWorkspaceIntro({
     kind: setupIntroKind(reading.busy),
     heading: setupIntroHeading(reading.busy, reading.reconnectRequired),
@@ -175,7 +179,15 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
   const blocked = reading.stale || !reading.canRestore;
   const formClass = reading.setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome';
   return html`<div class="soda-setup-panel" ?hidden=${reading.setup === 'configure'}>
-    <div class=${formClass}>${renderSetupBody(reading, actions, host, blocked, read)}</div>
+    <div class=${formClass}>
+      <soda-intent
+        .api=${actions.api}
+        .blocked=${blocked || !reading.activeSurface}
+        ?hidden=${!reading.welcomeScreen && reading.setup !== 'intent'}
+        @intent-reviewed=${() => chooseIntentRepository(read(), actions, host)}
+      ></soda-intent>
+      ${renderSetupBody(reading, actions, host, blocked, read)}
+    </div>
   </div>`;
 }
 
@@ -190,8 +202,14 @@ export function beginSetup(reading: SetupReading, actions: SetupActions, host: S
   if (reading.stale || !reading.available || !reading.canRestore || !reading.activeSurface) return;
   actions.rememberFocus();
   actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
-  actions.setSetup('repositories');
+  actions.setSetup('intent');
   actions.setRepositoryChoice('');
+  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+}
+
+function chooseIntentRepository(reading: SetupReading, actions: SetupActions, host: SetupHost) {
+  if (reading.stale || !reading.canRestore || !reading.activeSurface) return;
+  actions.setSetup('repositories');
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
   void searchRepositories({...reading, setup: 'repositories', repositoryChoice: ''}, actions, 1);
 }
@@ -202,8 +220,9 @@ export function changeRepository(reading: SetupReading, actions: SetupActions, h
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
 }
 
-export function cancelSetup(reading: SetupReading, actions: SetupActions) {
+export function cancelSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore) return;
+  host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.currentRepositoryRequest()?.abort();
   actions.admitRepositoryRequest(undefined);
   actions.setRepositoryBusy(false);
@@ -270,10 +289,24 @@ export async function searchRepositories(reading: SetupReading, actions: SetupAc
   }
 }
 
-export function configureProject(reading: SetupReading, actions: SetupActions) {
+export async function configureProject(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   const choice = reading.repositoryResult?.items.find((item) => item.id === reading.repositoryChoice);
-  if (!choice || reading.repositoryBusy || reading.stale || !reading.canRestore || reading.setup !== 'repositories')
+  if (!choice || !configureAdmitted(reading)) return;
+  const intent = host.querySelector<SodaIntent>('soda-intent');
+  if (!intent) return;
+  actions.setRepositoryBusy(true);
+  const accepted = await intent.acceptRepository(choice.id);
+  actions.setRepositoryBusy(false);
+  if (!accepted) {
+    actions.setRepositoryError(
+      'Could not save the accepted product direction. Your Project has not been created. Try again.'
+    );
     return;
+  }
+  if (actions.isStale() || !actions.isActiveSurface()) return;
   actions.setSetup('configure');
   void actions.showManagement(choice.id, 'journey');
+}
+function configureAdmitted(reading: SetupReading) {
+  return !reading.repositoryBusy && !reading.stale && reading.canRestore && reading.setup === 'repositories';
 }

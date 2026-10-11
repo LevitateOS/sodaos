@@ -15,7 +15,7 @@ export function workspaceClasses(
   compact: boolean,
   setupScreen: boolean,
   welcomeScreen: boolean,
-  setup: 'repositories' | 'configure' | null,
+  setup: 'intent' | 'repositories' | 'configure' | null,
   workspaceIntro: boolean
 ) {
   let cls = 'soda-workspace ' + (compact ? 'is-compact' : 'is-wide');
@@ -32,7 +32,7 @@ export function renderSetupHeading(setupScreen: boolean) {
     <p>Your projects and terminals, together.</p>
   </div>`;
 }
-function hideListStatus(status: string, setupScreen: boolean, setup: 'repositories' | 'configure' | null) {
+function hideListStatus(status: string, setupScreen: boolean, setup: 'intent' | 'repositories' | 'configure' | null) {
   return !status || (setupScreen && !setup);
 }
 function retryLoading(complete: boolean, stale: boolean, busy: boolean, onRefresh: () => void) {
@@ -43,7 +43,7 @@ function retryLoading(complete: boolean, stale: boolean, busy: boolean, onRefres
 export function renderStatusBanners(
   status: string,
   setupScreen: boolean,
-  setup: 'repositories' | 'configure' | null,
+  setup: 'intent' | 'repositories' | 'configure' | null,
   storageNotice: string,
   complete: boolean,
   stale: boolean,
@@ -67,7 +67,7 @@ function setupBackDisabled(stale: boolean, canRestore: boolean) {
   return stale || !canRestore;
 }
 export function renderSetupTopbar(
-  setup: 'repositories' | 'configure' | null,
+  setup: 'intent' | 'repositories' | 'configure' | null,
   stale: boolean,
   canRestore: boolean,
   onCancelSetup: () => void,
@@ -90,7 +90,7 @@ export function renderSetupTopbar(
     >${cancel}
   </div>`;
 }
-export function hideWorkspaceBody(setupScreen: boolean, setup: 'repositories' | 'configure' | null) {
+export function hideWorkspaceBody(setupScreen: boolean, setup: 'intent' | 'repositories' | 'configure' | null) {
   return setupScreen && setup !== 'configure';
 }
 export function workspaceBodyClass(view: 'terminal' | 'sessions' | 'project') {

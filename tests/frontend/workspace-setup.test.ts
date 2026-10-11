@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright';
-import {setupWorkspaceDriver, chooseFirstRepository, fixture} from './fixtures/workspace-driver';
+import {setupWorkspaceDriver, chooseFirstRepository, reviewFirstIntent, fixture} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
@@ -41,7 +41,12 @@ test('setup: pending creation keeps its selection and disables navigation withou
   await captureSpacesComponent(page, 'pending-creation');
   await page.evaluate(() => window.dispatchEvent(new Event('release-creation')));
   await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 1);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    1
+  );
 });
 for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const)
   test(`first use: ${outcome} creation is inspected, not replayed`, async (t) => {
@@ -63,14 +68,19 @@ for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const)
     if (outcome === 'uncertain') await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
     else if (outcome === 'incomplete') await page.getByRole('heading', {name: 'Project needs inspection'}).waitFor();
     else await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
-    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+      ),
+      1
+    );
     assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   });
 test('first use: keyboard selection, Back and Change retain the repository without writes', async (t) => {
   const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
   await page.evaluate(() => window.workspaceFixture.api.refresh());
-  await page.getByRole('button', {name: 'Create project', exact: true}).focus();
-  await page.keyboard.press('Enter');
+  await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
   assert(await page.getByRole('button', {name: 'Continue', exact: true}).isDisabled());
   assert.equal(
@@ -87,8 +97,13 @@ test('first use: keyboard selection, Back and Change retain the repository witho
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
-  await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    0
+  );
 });
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
@@ -116,7 +131,7 @@ test('first use: superseded search and retired actor cannot publish stale privat
     });
     return window.workspaceFixture.api.refresh();
   });
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
   const search = page.getByRole('searchbox', {name: 'Search repositories'});
   await search.fill('Alpha');
@@ -136,8 +151,13 @@ test('first use: superseded search and retired actor cannot publish stale privat
   });
   await page.getByRole('button', {name: 'Reload Spaces', exact: true}).waitFor();
   assert.equal(await page.getByRole('radio').count(), 0);
-  assert.equal(await page.getByRole('heading', {name: 'Create your first project'}).count(), 0);
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
+  assert.equal(await page.getByRole('heading', {name: 'What do you want to build?'}).count(), 0);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    0
+  );
 });
 for (const administrator of [true, false])
   test(`first use: stopped project Start is explicit and authorized (${administrator})`, async (t) => {
@@ -155,12 +175,21 @@ for (const administrator of [true, false])
       await f.api.refresh();
     }, administrator);
     await page.getByRole('heading', {name: 'Project not ready'}).waitFor();
-    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+      ),
+      1
+    );
     if (administrator) {
       await page.getByRole('button', {name: 'Start project', exact: true}).click();
       await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
       assert.equal(
-        await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length),
+        await page.evaluate(
+          () =>
+            window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+        ),
         2
       );
     } else assert.equal(await page.getByRole('button', {name: 'Start project', exact: true}).count(), 0);
@@ -178,9 +207,9 @@ test('first use: second-project setup cancellation preserves the live renderer, 
   const screen = await page.locator('.xterm').elementHandle();
   const before = await page.evaluate(() => ({
     layout: sessionStorage.getItem('soda-spaces:v3:1'),
-    writes: window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length,
+    writes: window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length,
   }));
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Beta/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
@@ -191,7 +220,8 @@ test('first use: second-project setup cancellation preserves the live renderer, 
   assert.deepEqual(
     await page.evaluate(() => ({
       layout: sessionStorage.getItem('soda-spaces:v3:1'),
-      writes: window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length,
+      writes: window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/'))
+        .length,
     })),
     before
   );
@@ -235,7 +265,7 @@ test('setup cancel restores the non-first return target instead of selecting the
   await page.getByRole('button', {name: 'Project settings'}).click();
   await page.getByRole('heading', {name: 'Project OS'}).waitFor();
   await page.getByRole('button', {name: 'Projects'}).click();
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
   await page.getByRole('radio', {name: /alice\/Gamma/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
@@ -245,7 +275,12 @@ test('setup cancel restores the non-first return target instead of selecting the
   await page.getByRole('button', {name: 'Projects'}).click();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).waitFor();
   assert.equal(await projectPressed(page), 'alice/Alpha=false,alice/Beta=true');
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    0
+  );
 });
 test('setup cancel falls back to the first project only when the return target is gone', async (t) => {
   const page = await fixture(t, 'page', undefined, false);
@@ -283,7 +318,7 @@ test('setup cancel falls back to the first project only when the return target i
   await page.getByRole('button', {name: 'Projects'}).click();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
   await page.getByRole('button', {name: 'Projects'}).click();
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
   await page.getByRole('radio', {name: /alice\/Gamma/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
@@ -300,5 +335,10 @@ test('setup cancel falls back to the first project only when the return target i
   await page.getByRole('button', {name: 'Projects'}).click();
   await page.getByRole('button', {name: 'alice/Alpha', exact: true}).waitFor();
   assert.equal(await projectPressed(page), 'alice/Alpha=true');
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    0
+  );
 });

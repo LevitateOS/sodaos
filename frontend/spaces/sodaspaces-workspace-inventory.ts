@@ -84,7 +84,7 @@ export interface InventoryInput {
   readSpaces: () => Space[];
   readComplete: () => boolean;
   readNextAfter: () => string;
-  readSetup: () => 'repositories' | 'configure' | null;
+  readSetup: () => 'intent' | 'repositories' | 'configure' | null;
   readSelectedSpace: () => Space | undefined;
   readProject: () => string;
   readObservedAt: () => number;
@@ -109,7 +109,7 @@ export interface InventoryInput {
   setRestored: (restored: boolean) => void;
   setActor: (actor: {id: string; login: string}) => void;
   setStorageKey: (storageKey: string) => void;
-  setSetup: (setup: 'repositories' | 'configure' | null) => void;
+  setSetup: (setup: 'intent' | 'repositories' | 'configure' | null) => void;
   clearSetupReturn: () => void;
   setView: (view: 'terminal' | 'sessions' | 'project') => void;
   setReconnectRequired: (required: boolean) => void;

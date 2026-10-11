@@ -148,7 +148,7 @@ export async function paneAction(page: Page, name: string) {
   await page.getByRole('button', {name, exact: true}).click();
 }
 export async function chooseFirstRepository(page: Page, capture?: string) {
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   if (capture) await captureSpacesComponent(page, 'picker-' + capture);
@@ -170,4 +170,17 @@ export async function chooseFirstRepository(page: Page, capture?: string) {
   await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
   await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
   return picker;
+}
+
+export async function reviewFirstIntent(page: Page) {
+  await page.locator('soda-intent:visible, .soda-create-another-project:visible').first().waitFor();
+  if (await page.locator('.soda-create-another-project:visible').count())
+    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  for (const choice of await page.getByRole('combobox', {name: /^Choice:/}).all()) await choice.selectOption('accept');
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
 }

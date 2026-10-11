@@ -68,19 +68,12 @@ for (const theme of ['light', 'dark'])
         document.documentElement.style.colorScheme = theme;
       }, theme);
       await page.evaluate(() => window.workspaceFixture.api.refresh());
-      await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+      await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
       const surface = page.locator('.soda-workspace');
-      assert.equal(await surface.getByRole('button').count(), 1, 'welcome must expose only Create project');
-      assert.equal(await surface.getByRole('button', {name: 'Create project', exact: true}).isEnabled(), true);
-      assert.equal(
-        await surface
-          .locator('input:visible, select:visible, summary:visible, [role=tab]:visible, [role=separator]:visible')
-          .count(),
-        0,
-        'workspace controls leaked into welcome'
-      );
-      assert.equal(await surface.getByRole('list', {name: 'Getting started'}).getByRole('listitem').count(), 3);
-      assert.equal(await surface.locator('.soda-welcome-illustration[aria-hidden=true]').count(), 1);
+      assert.equal(await surface.getByRole('button', {name: 'Explore ideas', exact: true}).isEnabled(), false);
+      assert.equal(await surface.getByRole('textbox', {name: 'Describe what you want to build'}).count(), 1);
+      assert.equal(await surface.getByRole('combobox', {name: 'Department', exact: true}).count(), 1);
+      assert.equal(await surface.getByRole('heading').count(), 1);
       assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), 0);
       assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);
       await page.evaluate(() => document.fonts.ready);
@@ -160,13 +153,19 @@ for (const theme of ['light', 'dark'])
       await captureSpacesComponent(page, `configure-${theme}-${width}`);
       assert.equal(await page.getByRole('checkbox').count(), 0, 'unavailable Tailnet must stay out of setup');
       assert.equal(
-        await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length),
+        await page.evaluate(
+          () =>
+            window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+        ),
         0
       );
       await page.getByRole('button', {name: 'Create project', exact: true}).click();
       await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
       assert.equal(
-        await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length),
+        await page.evaluate(
+          () =>
+            window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+        ),
         1
       );
       const joinedLayout = await workspaceIntroGeometry(page);
@@ -315,7 +314,7 @@ for (const theme of ['light', 'dark'])
         const f = window.workspaceFixture;
         return {
           id: f.spaces[0]?.terminals[0]?.id,
-          writes: f.calls.filter((c) => c.method !== 'GET'),
+          writes: f.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')),
           creates: f.sockets.flatMap((s) => s.sent).filter((c) => c.action === 'create').length,
         };
       });
@@ -329,7 +328,7 @@ for (const theme of ['light', 'dark'])
           const f = window.workspaceFixture;
           return {
             id: f.spaces[0]?.terminals[0]?.id,
-            writes: f.calls.filter((c) => c.method !== 'GET'),
+            writes: f.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')),
             creates: f.sockets.flatMap((s) => s.sent).filter((c) => c.action === 'create').length,
           };
         }),

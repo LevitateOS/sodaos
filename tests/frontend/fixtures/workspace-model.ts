@@ -1,5 +1,6 @@
 // Shared synthetic API/socket model for component tests and the local review server.
 import {object} from '../../../frontend/spaces/sodaspaces-api.js';
+import {createIntentModel} from './intent-model.js';
 import type {Space} from '../../../frontend/spaces/sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from '../../../frontend/spaces/sodaspaces-terminal-response.js';
 export const projectA = 'p' + '1'.repeat(24),
@@ -98,10 +99,13 @@ export function createWorkspaceModel(
     serial = 0;
   const reservations = new Set<string>();
   let pause: Promise<void> | undefined;
+  const intentRequest = createIntentModel();
   const request = async (path: string, method = 'GET', body: Record<string, unknown> | null = null) => {
     calls.push({path, method, body});
     await pause;
     if (status !== 200 || user !== actor) return new Response(null, {status: user !== actor ? 403 : status});
+    const intent = intentRequest(path, method, body);
+    if (intent) return intent;
     if (path.endsWith('/api/spaces'))
       return Response.json({
         actor: {id: user, login: 'soda-tester'},

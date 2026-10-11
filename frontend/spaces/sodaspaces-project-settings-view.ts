@@ -1,4 +1,5 @@
 import {html} from 'lit';
+import './sodaspaces-factory-settings.js';
 import type {TemplateResult} from 'lit';
 import {renderEnvironment, renderProjectOS, renderOSObservation} from './sodaspaces-environment-view.js';
 import {renderConnection, renderKeys, renderForgejoKeys} from './sodaspaces-project-view.js';
