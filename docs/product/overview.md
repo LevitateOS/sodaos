@@ -545,3 +545,21 @@ There is no standalone Soda web frontend. Fountain owns its maintained fork and
 extension SDK; Soda consumes that host contract. Missing native authentication or
 authorization capabilities must be resolved through generic Fountain contracts,
 as required by the [trust boundary](../architecture/trust.md#fountain-consumption-boundary).
+
+## Intent review and derived work
+
+A new build starts with the person's objective, before repository selection.
+Departments are private creator-owned names and descriptions for context; they
+confer no repository, Project, account or spending authority. Shared department
+visibility and administration require a separate product decision.
+
+Product review records consequential ideas and assumptions with accept, decline
+or corrected wording and explains each consequence. An accepted intent revision
+binds its human owner, exact repository, choices, finite issue count and planning
+call allowance. Derived tasks name the accepted choices they implement and form
+an explicit acyclic dependency graph; independent roots remain independent.
+Unresolved or declined choices cannot authorize child tasks. Revisions preserve
+history and compare the expected predecessor. A changed product direction needs
+fresh review; routine engineering decomposition within the accepted direction
+does not require separate approval of every issue. Current native evidence and
+independent execution, account, preparation and funding grants remain required.

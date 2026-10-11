@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 40
+const schemaFormatVersion = 41
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -16,7 +16,13 @@ const schemaFormatVersion = 40
 // instead of the SQLite rowid.
 var schemaStatements = []string{
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(40)`,
+	`INSERT INTO schema_version(version) VALUES(41)`,
+	`CREATE TABLE factory_departments(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), data JSONB NOT NULL)`,
+	`CREATE TABLE factory_intent_heads(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), revision TEXT NOT NULL)`,
+	`CREATE TABLE factory_intent_revisions(id TEXT PRIMARY KEY, intent TEXT NOT NULL REFERENCES factory_intent_heads(id), data JSONB NOT NULL)`,
+	`CREATE TABLE factory_judgment_budget(id INTEGER PRIMARY KEY CHECK(id=1), spent INTEGER NOT NULL CHECK(spent>=0))`,
+	`INSERT INTO factory_judgment_budget(id,spent) VALUES(1,0)`,
+	`CREATE TABLE factory_priority_judgments(snapshot TEXT PRIMARY KEY, max_calls INTEGER NOT NULL CHECK(max_calls BETWEEN 0 AND 16), data JSONB)`,
 	`CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')`,
 	`CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))`,
 	`CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))`,
