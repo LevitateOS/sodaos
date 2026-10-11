@@ -8,6 +8,8 @@ import type {FactoryIssueDetail, FactoryRepositorySummary} from './sodaspaces-fa
 import {describeIssueDetail, nativeIssueLink} from './sodaspaces-factory-work-view.js';
 import type {DeliveryState} from './sodaspaces-factory-work-view.js';
 import type {
+  AccessPlanningEntry,
+  FactoryAccess,
   IssuePlan,
   LifecycleEffectAction,
   LifecycleEffectConfig,
@@ -16,6 +18,10 @@ import type {
   RecordedPlan,
   RequestAttention,
   RequestOverview,
+  RevisionEntry,
+  RevisionHistory,
+  RevisionIdeaChange,
+  RevisionTaskChange,
 } from './sodaspaces-factory-progress-response.js';
 import type {PlanFreshness} from './sodaspaces-factory-progress-response.js';
 
@@ -837,6 +843,271 @@ export function renderRecordedPlan(plan: RecordedPlanModel, choice: RecordedChoi
           </li>`
         )}
       </ul>
+    </section>
+  `;
+}
+
+export interface PlanningReferenceModel {
+  readonly found: boolean;
+  readonly referenceText: string;
+  readonly truncatedNote: string;
+}
+
+function planningEntryText(entry: AccessPlanningEntry): string {
+  const editable = entry.editable.editable
+    ? 'You may adjust it.'
+    : `Adjustment refused: ${entry.editable.reason ?? 'no reason given'}.`;
+  const effect = entry.effect === undefined ? '' : ` Effect: ${entry.effect}.`;
+  return (
+    `Repository allowance reference: ${entry.amount} planning calls, ` +
+    `${entry.reserved} reserved, ${entry.consumed} consumed, ${entry.available} available ` +
+    `(ceiling ${entry.ceiling}). Status ${entry.status}.${effect} ${editable}`
+  );
+}
+
+// describePlanningReference finds this request's entry in the
+// repository allowance listing. A truncated listing may hide the
+// entry; that stays a stated gap, never a no-allowance verdict.
+export function describePlanningReference(
+  access: FactoryAccess | undefined,
+  state: SourceState,
+  intent: string
+): PlanningReferenceModel {
+  const truncatedNote = access?.planning_truncated ? 'The listing shows only the first 20 allowances.' : '';
+  if (state !== 'ready' || !access)
+    return {
+      found: false,
+      referenceText:
+        state === 'unavailable'
+          ? 'Repository allowance listing could not be read.'
+          : 'No allowance listing recorded for this repository.',
+      truncatedNote: '',
+    };
+  const entry = access.planning.find((candidate) => candidate.intent === intent);
+  if (!entry)
+    return {
+      found: false,
+      referenceText: access.planning_truncated
+        ? 'This request is not among the first 20 allowances shown.'
+        : 'No bound allowance for this request in this repository.',
+      truncatedNote,
+    };
+  return {found: true, referenceText: planningEntryText(entry), truncatedNote};
+}
+
+export function renderPlanningReference(model: PlanningReferenceModel): TemplateResult {
+  return html`
+    <section aria-label="Repository allowance reference">
+      <p role="status">${model.referenceText}</p>
+      ${model.truncatedNote ? html`<p>${model.truncatedNote}</p>` : ''}
+    </section>
+  `;
+}
+
+export interface AccessStandingModel {
+  readonly powersText: string;
+  readonly verdictText: string;
+  readonly actionsText: readonly string[];
+}
+
+function standingPowers(access: FactoryAccess): string {
+  const held: string[] = [];
+  if (access.viewer.code_write) held.push('code write');
+  if (access.viewer.owner_or_admin) held.push('owner or admin');
+  if (access.viewer.environment_owner) held.push('environment owner');
+  if (access.viewer.operator) held.push('appliance operator');
+  if (access.viewer.member) held.push('project member');
+  const session = access.viewer.session_current
+    ? 'Session current.'
+    : 'Session changed; saves are refused until it is current.';
+  return held.length === 0 ? `You hold no repository powers. ${session}` : `You hold: ${held.join(', ')}. ${session}`;
+}
+
+function standingVerdict(access: FactoryAccess): string {
+  if (access.effective.effective && access.effective.dispatch_open) return 'Factory dispatch is effective and open.';
+  if (access.effective.effective) return 'Authority is effective but dispatch is closed.';
+  const missing = access.effective.missing.length === 0 ? 'no reason given' : access.effective.missing.join(', ');
+  return `Factory authority is not effective: ${missing}.`;
+}
+
+function standingAction(code: string, resolveBy: string, setting: string): string {
+  const resolver = resolveBy === '' ? 'unassigned' : resolveBy;
+  const section = setting === '' ? 'no setting named' : setting;
+  return `${code}: resolve by ${resolver} via ${section}.`;
+}
+
+// describeAccessStanding states the viewer's exact powers and the
+// authority verdict behind permission-gated controls. Unknown
+// resolvers stay visible as unassigned, never guessed.
+export function describeAccessStanding(access: FactoryAccess | undefined, state: SourceState): AccessStandingModel {
+  if (state !== 'ready' || !access)
+    return {
+      powersText:
+        state === 'unavailable' ? 'Your permissions could not be read.' : 'No permission record for this repository.',
+      verdictText: 'Factory authority is unknown.',
+      actionsText: [],
+    };
+  return {
+    powersText: standingPowers(access),
+    verdictText: standingVerdict(access),
+    actionsText: access.required_actions.map((action) =>
+      standingAction(action.code, action.resolve_by, action.setting)
+    ),
+  };
+}
+
+export function renderAccessStanding(model: AccessStandingModel): TemplateResult {
+  return html`
+    <section aria-label="Access standing">
+      <p>${model.powersText}</p>
+      <p role="status">${model.verdictText}</p>
+      ${
+        model.actionsText.length === 0
+          ? ''
+          : html`<ul>
+              ${model.actionsText.map((line) => html`<li>${line}</li>`)}
+            </ul>`
+      }
+    </section>
+  `;
+}
+
+export interface RevisionEntryModel {
+  readonly headerText: string;
+  readonly lineageText: string;
+  readonly tasksText: string;
+  readonly taskLines: readonly string[];
+  readonly ideasText: string;
+  readonly ideaLines: readonly string[];
+  readonly scopeLines: readonly string[];
+  readonly workLines: readonly string[];
+}
+export interface RevisionHistoryModel {
+  readonly stateText: string;
+  readonly truncatedNote: string;
+  readonly entries: readonly RevisionEntryModel[];
+}
+
+function revisionTaskChangedLine(change: RevisionTaskChange): string {
+  const parts = [`${change.key} (${change.changed_fields.join(', ')})`];
+  if (change.old_objective !== undefined)
+    parts.push(`objective: ${change.old_objective} → ${change.new_objective ?? ''}`);
+  if (change.old_outcomes !== undefined)
+    parts.push(`outcomes: ${(change.old_outcomes ?? []).join('; ')} → ${(change.new_outcomes ?? []).join('; ')}`);
+  return parts.join('; ');
+}
+
+function revisionTaskLines(entry: RevisionEntry): string[] {
+  const lines = entry.comparison.tasks.added.map((task) => `+ ${task.key}: ${task.objective}`);
+  for (const task of entry.comparison.tasks.removed) lines.push(`- ${task.key}: ${task.objective}`);
+  for (const change of entry.comparison.tasks.changed) lines.push(`~ ${revisionTaskChangedLine(change)}`);
+  return lines;
+}
+
+function revisionIdeaChangedLine(change: RevisionIdeaChange): string {
+  const flags: string[] = [];
+  if (change.correction_changed) flags.push('correction changed');
+  if (change.content_changed) flags.push('content changed');
+  const note = flags.length === 0 ? 'decision only' : flags.join(', ');
+  return `${change.id}: ${change.from_decision} → ${change.to_decision} (${note})`;
+}
+
+function revisionIdeaLines(entry: RevisionEntry): string[] {
+  const lines = entry.comparison.ideas.added.map((idea) => `+ ${idea.id} (${idea.decision}): ${idea.description}`);
+  for (const idea of entry.comparison.ideas.removed) lines.push(`- ${idea.id} (${idea.decision}): ${idea.description}`);
+  for (const change of entry.comparison.ideas.changed) lines.push(`~ ${revisionIdeaChangedLine(change)}`);
+  return lines;
+}
+
+function revisionScopeLines(entry: RevisionEntry): string[] {
+  const lines: string[] = [];
+  if (entry.comparison.effective_added.length > 0)
+    lines.push(`Effective outcomes added: ${entry.comparison.effective_added.join(', ')}.`);
+  if (entry.comparison.effective_removed.length > 0)
+    lines.push(`Effective outcomes removed: ${entry.comparison.effective_removed.join(', ')}.`);
+  if (entry.comparison.repository_change)
+    lines.push(`Repository ${entry.comparison.repository_change.from} → ${entry.comparison.repository_change.to}.`);
+  if (entry.comparison.state_change)
+    lines.push(`State ${entry.comparison.state_change.from} → ${entry.comparison.state_change.to}.`);
+  return lines;
+}
+
+function revisionEntryLineage(entry: RevisionEntry): string {
+  const from = entry.generated_from === undefined ? '' : ` Generated from ${entry.generated_from}.`;
+  const first = entry.comparison.initial ? ' First revision.' : '';
+  return `Repository ${entry.repository}, recorded ${activityTimestamp(entry.created_unix)}.${from}${first} Generation ${entry.generation}.`;
+}
+
+function describeRevisionEntry(entry: RevisionEntry): RevisionEntryModel {
+  const tasks = entry.comparison.tasks;
+  const ideas = entry.comparison.ideas;
+  return {
+    headerText: `Revision ${entry.revision} (${entry.state})`,
+    lineageText: revisionEntryLineage(entry),
+    tasksText: `Tasks: ${tasks.added.length} added, ${tasks.removed.length} removed, ${tasks.changed.length} changed, ${tasks.unchanged_count} unchanged.`,
+    taskLines: revisionTaskLines(entry),
+    ideasText: `Ideas: ${ideas.added.length} added, ${ideas.removed.length} removed, ${ideas.changed.length} changed.`,
+    ideaLines: revisionIdeaLines(entry),
+    scopeLines: revisionScopeLines(entry),
+    workLines: entry.work.map((row) => `${row.task_key} → issue ${row.issue_index}: ${row.state} (${row.authority})`),
+  };
+}
+
+// describeRevisionHistory composes the before/after and affected
+// work of each shown scope revision. Structural comparison only:
+// authoritative I07 delta labels follow when published.
+export function describeRevisionHistory(
+  history: RevisionHistory | undefined,
+  state: SourceState
+): RevisionHistoryModel {
+  if (state !== 'ready' || !history)
+    return {
+      stateText: state === 'unavailable' ? 'Revision history could not be read.' : 'No revision history recorded yet.',
+      truncatedNote: '',
+      entries: [],
+    };
+  return {
+    stateText: `${history.revisions.length} revision${history.revisions.length === 1 ? '' : 's'} shown, newest first.`,
+    truncatedNote: history.truncated ? 'Older revisions exist beyond this page.' : '',
+    entries: history.revisions.map(describeRevisionEntry),
+  };
+}
+
+export function renderRevisionHistory(model: RevisionHistoryModel): TemplateResult {
+  return html`
+    <section aria-label="Revision history">
+      <p role="status">${model.stateText}</p>
+      ${model.truncatedNote ? html`<p>${model.truncatedNote}</p>` : ''}
+      ${model.entries.map(
+        (entry) => html`<article>
+          <h4>${entry.headerText}</h4>
+          <p>${entry.lineageText}</p>
+          <p>${entry.tasksText}</p>
+          ${
+            entry.taskLines.length === 0
+              ? ''
+              : html`<ul>
+                  ${entry.taskLines.map((line) => html`<li>${line}</li>`)}
+                </ul>`
+          }
+          <p>${entry.ideasText}</p>
+          ${
+            entry.ideaLines.length === 0
+              ? ''
+              : html`<ul>
+                  ${entry.ideaLines.map((line) => html`<li>${line}</li>`)}
+                </ul>`
+          }
+          ${entry.scopeLines.map((line) => html`<p>${line}</p>`)}
+          ${
+            entry.workLines.length === 0
+              ? html`<p>No mapped work for this revision.</p>`
+              : html`<ul>
+                  ${entry.workLines.map((line) => html`<li>${line}</li>`)}
+                </ul>`
+          }
+        </article>`
+      )}
     </section>
   `;
 }

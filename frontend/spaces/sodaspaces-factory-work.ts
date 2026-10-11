@@ -37,21 +37,27 @@ import {
 } from './sodaspaces-factory-work-view.js';
 import type {InterventionKind, InterventionResult} from './sodaspaces-factory-work-view.js';
 import {
+  describeAccessStanding,
   describeAllowance,
   describeDirectionRevision,
   describeLifecycleEffect,
+  describePlanningReference,
   describePrerequisites,
   describeRecordedChoice,
   describeRecordedPlan,
   describeRequestOverview,
+  describeRevisionHistory,
   describeWhyNext,
   describeWorkOverview,
   intentGeneration,
+  renderAccessStanding,
   renderAllowance,
   renderDirectionRevision,
   renderLifecycleEffects,
+  renderPlanningReference,
   renderRecordedPlan,
   renderRequestOverview,
+  renderRevisionHistory,
   renderWorkOverview,
   renderWorkPlan,
 } from './sodaspaces-factory-progress-view.js';
@@ -67,16 +73,20 @@ import type {
   WorkOverviewModel,
 } from './sodaspaces-factory-progress-view.js';
 import {
+  factoryAccess,
   issuePlan,
   lifecycleEffectActions,
   lifecycleEffectConfig,
   planningAllowance,
   requestOverview,
+  revisionHistory,
 } from './sodaspaces-factory-progress-response.js';
 import type {
+  FactoryAccess,
   LifecycleEffectAction,
   LifecycleEffectConfig,
   PlanningAllowanceView,
+  RevisionHistory,
 } from './sodaspaces-factory-progress-response.js';
 
 // Mountable Factory work-progress elements for V01–V07. Each element
@@ -514,6 +524,10 @@ export class SodaFactoryDirectionRevision extends LitElement {
     state: {state: true},
     allowance: {state: true},
     allowanceState: {state: true},
+    access: {state: true},
+    accessState: {state: true},
+    history: {state: true},
+    historyState: {state: true},
     message: {state: true},
     busy: {state: true},
     saving: {state: true},
@@ -522,6 +536,10 @@ export class SodaFactoryDirectionRevision extends LitElement {
   declare private state: SourceState;
   declare private allowance: PlanningAllowanceView | undefined;
   declare private allowanceState: SourceState;
+  declare private access: FactoryAccess | undefined;
+  declare private accessState: SourceState;
+  declare private history: RevisionHistory | undefined;
+  declare private historyState: SourceState;
   declare private message: string;
   declare private busy: boolean;
   declare private saving: boolean;
@@ -534,6 +552,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
     super();
     this.state = 'missing';
     this.allowanceState = 'missing';
+    this.accessState = 'missing';
+    this.historyState = 'missing';
     this.message = '';
     this.busy = false;
     this.saving = false;
@@ -546,6 +566,10 @@ export class SodaFactoryDirectionRevision extends LitElement {
     this.state = 'missing';
     this.allowance = undefined;
     this.allowanceState = 'missing';
+    this.access = undefined;
+    this.accessState = 'missing';
+    this.history = undefined;
+    this.historyState = 'missing';
     this.message = '';
     this.busy = false;
     this.saving = false;
@@ -565,19 +589,28 @@ export class SodaFactoryDirectionRevision extends LitElement {
     const serial = this.serial;
     this.busy = true;
     try {
-      const revision = await readDirectionRevision(context);
-      const allowance = await readPlanningAllowance(context);
-      if (serial === this.serial) {
-        this.revision = revision.revision;
-        this.state = revision.state;
-        this.allowance = allowance.allowance;
-        this.allowanceState = allowance.state;
-        this.message = '';
-      }
+      await this.loadReads(context, serial);
     } catch (error) {
       if (serial === this.serial) this.message = error instanceof Error ? error.message : 'Direction is unavailable.';
     } finally {
       if (serial === this.serial) this.busy = false;
+    }
+  }
+  private async loadReads(context: DirectionRevisionContext, serial: number) {
+    const revision = await readDirectionRevision(context);
+    const allowance = await readPlanningAllowance(context);
+    const access = await readRevisionAccess(context, revision.revision);
+    const history = await readRevisionHistory(context);
+    if (serial === this.serial) {
+      this.revision = revision.revision;
+      this.state = revision.state;
+      this.allowance = allowance.allowance;
+      this.allowanceState = allowance.state;
+      this.access = access.access;
+      this.accessState = access.state;
+      this.history = history.history;
+      this.historyState = history.state;
+      this.message = '';
     }
   }
   private async adjust(event: SubmitEvent) {
@@ -645,6 +678,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
         Refresh direction</button
       >${renderDirectionRevision(describeDirectionRevision(this.revision, this.state))}
       ${renderAllowance(describeAllowance(this.allowance, this.allowanceState))}
+      ${renderPlanningReference(describePlanningReference(this.access, this.accessState, this.current?.intentID ?? ''))}
+      ${renderRevisionHistory(describeRevisionHistory(this.history, this.historyState))}
       <form @submit=${this.adjust}>
         <label>New amount (0–100 planning calls) <input name="amount" inputmode="numeric" required /></label>
         <label>Effect note, optional <input name="effect" maxlength="4000" /></label>
@@ -693,6 +728,42 @@ async function readPlanningAllowance(
   }
 }
 
+async function readFactoryAccess(
+  transport: PreparedExtensionMount,
+  repository: string
+): Promise<{access?: FactoryAccess; state: SourceState}> {
+  try {
+    const access = factoryAccess(await getJSON(transport, `repositories/${repository}/factory/access`), repository);
+    return {access, state: 'ready'};
+  } catch (error) {
+    const input = failureInput(error);
+    return {state: input.status === 404 ? 'missing' : 'unavailable'};
+  }
+}
+
+async function readRevisionAccess(
+  context: DirectionRevisionContext,
+  revision: IntentRevision | undefined
+): Promise<{access?: FactoryAccess; state: SourceState}> {
+  if (!revision) return {state: 'missing'};
+  return readFactoryAccess(context.transport, revision.repository);
+}
+
+async function readRevisionHistory(
+  context: DirectionRevisionContext
+): Promise<{history?: RevisionHistory; state: SourceState}> {
+  try {
+    const history = revisionHistory(
+      await getJSON(context.transport, `factory/intents/${context.intentID}/revisions?limit=2`),
+      context.intentID
+    );
+    return {history, state: 'ready'};
+  } catch (error) {
+    const input = failureInput(error);
+    return {state: input.status === 404 ? 'missing' : 'unavailable'};
+  }
+}
+
 export interface LifecycleEffectsContext {
   transport: PreparedExtensionMount;
   repository: string;
@@ -700,12 +771,12 @@ export interface LifecycleEffectsContext {
 }
 
 const lifecycleEvents: LifecycleEventKind[] = ['issue_created', 'pr_created', 'verified_merge'];
-// Proposed L06 paths pending C canonical registration; the component
-// reports reads as unavailable until the registered routes answer.
+// Canonical L06 paths confirmed by C in main d955e23e: the existing
+// repository factory nesting, not the proposed factory-first variant.
 const lifecycleConfigPath = (repository: string, event: string) =>
-  `factory/repositories/${repository}/lifecycle/${event}`;
+  `repositories/${repository}/factory/lifecycle/${event}`;
 const lifecycleActionsPath = (repository: string, event: string, issue: string) =>
-  `factory/repositories/${repository}/lifecycle/${event}/actions?issue=${issue}`;
+  `repositories/${repository}/factory/lifecycle/${event}/actions?issue=${issue}`;
 
 interface EffectEntry {
   readonly config: LifecycleEffectConfig | undefined;
@@ -765,8 +836,17 @@ export function lifecycleSaveBody(
 }
 
 export class SodaFactoryOptionalEffects extends LitElement {
-  static properties = {entries: {state: true}, message: {state: true}, busy: {state: true}, saving: {state: true}};
+  static properties = {
+    entries: {state: true},
+    access: {state: true},
+    accessState: {state: true},
+    message: {state: true},
+    busy: {state: true},
+    saving: {state: true},
+  };
   declare private entries: Record<LifecycleEventKind, EffectEntry>;
+  declare private access: FactoryAccess | undefined;
+  declare private accessState: SourceState;
   declare private message: string;
   declare private busy: boolean;
   declare private saving: boolean;
@@ -778,6 +858,7 @@ export class SodaFactoryOptionalEffects extends LitElement {
   constructor() {
     super();
     this.entries = emptyEntries();
+    this.accessState = 'missing';
     this.message = '';
     this.busy = false;
     this.saving = false;
@@ -787,6 +868,8 @@ export class SodaFactoryOptionalEffects extends LitElement {
     this.current = context;
     this.serial++;
     this.entries = emptyEntries();
+    this.access = undefined;
+    this.accessState = 'missing';
     this.message = '';
     this.busy = false;
     this.saving = false;
@@ -807,8 +890,11 @@ export class SodaFactoryOptionalEffects extends LitElement {
     this.busy = true;
     try {
       const entries = await readEffectEntries(context);
+      const access = await readFactoryAccess(context.transport, context.repository);
       if (serial === this.serial) {
         this.entries = entries;
+        this.access = access.access;
+        this.accessState = access.state;
         this.message = '';
       }
     } catch (error) {
@@ -890,7 +976,8 @@ export class SodaFactoryOptionalEffects extends LitElement {
     return html`<section aria-label="Factory optional effects">
       <p data-work-message aria-live="polite">${this.message}</p>
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>Refresh effects</button
-      >${renderLifecycleEffects(this.models(), {save: this.saveEffect})}
+      >${renderAccessStanding(describeAccessStanding(this.access, this.accessState))}
+      ${renderLifecycleEffects(this.models(), {save: this.saveEffect})}
     </section>`;
   }
 }

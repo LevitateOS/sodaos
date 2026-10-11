@@ -1,21 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  describeAccessStanding,
   describeAllowance,
   describeDirectionRevision,
   describeLifecycleEffect,
+  describePlanningReference,
   describePrerequisites,
   describeRecordedChoice,
   describeRecordedPlan,
   describeRequestOverview,
+  describeRevisionHistory,
   describeWhyNext,
   describeWorkOverview,
   intentGeneration,
 } from '../../frontend/spaces/sodaspaces-factory-progress-view';
 import {
+  factoryAccess,
   issuePlan,
   planningAllowance,
   requestOverview,
+  revisionHistory,
 } from '../../frontend/spaces/sodaspaces-factory-progress-response';
 import type {FactoryIssueDetail} from '../../frontend/spaces/sodaspaces-factory-work-response';
 
@@ -556,4 +561,162 @@ test('each optional effect gates on its own native checkpoint', () => {
     describeLifecycleEffect('issue_created', {...effect, capable: false}, 'ready', []).stateText,
     /checkpoint has not passed/
   );
+});
+
+const accessViewer = {
+  code_write: true,
+  owner_or_admin: true,
+  environment_owner: false,
+  operator: false,
+  member: true,
+  session_current: true,
+};
+
+function accessWith(planning: unknown[], overrides: Record<string, unknown> = {}) {
+  return factoryAccess(
+    {
+      repository: '7',
+      observed_unix: 1728670000,
+      viewer: accessViewer,
+      effective: {effective: true, dispatch_open: true, missing: []},
+      required_actions: [],
+      planning,
+      ...overrides,
+    },
+    '7'
+  );
+}
+
+const planningEntry = {
+  intent: intentId,
+  id: 'd' + 'b'.repeat(24),
+  unit: 'planning_calls',
+  status: 'ok',
+  amount: 40,
+  reserved: 5,
+  consumed: 12,
+  available: 23,
+  ceiling: 100,
+  editable: {editable: true},
+};
+
+test('planning reference finds this request or states the listing gap', () => {
+  const access = accessWith([planningEntry]);
+  const found = describePlanningReference(access, 'ready', intentId);
+  assert.equal(found.found, true);
+  assert.match(found.referenceText, /23 available/);
+  assert.match(found.referenceText, /You may adjust it/);
+  const missing = describePlanningReference(access, 'ready', 'd' + 'f'.repeat(24));
+  assert.equal(missing.found, false);
+  assert.match(missing.referenceText, /No bound allowance/);
+  const truncated = describePlanningReference(
+    accessWith([planningEntry], {planning_truncated: true}),
+    'ready',
+    'd' + 'f'.repeat(24)
+  );
+  assert.match(truncated.referenceText, /first 20 allowances shown/);
+  assert.match(truncated.truncatedNote, /first 20 allowances/);
+  assert.match(describePlanningReference(undefined, 'unavailable', intentId).referenceText, /could not be read/);
+});
+
+test('access standing states powers, verdict and unassigned resolvers', () => {
+  const open = describeAccessStanding(accessWith([planningEntry]), 'ready');
+  assert.match(open.powersText, /owner or admin/);
+  assert.match(open.powersText, /Session current/);
+  assert.match(open.verdictText, /effective and open/);
+  assert.equal(open.actionsText.length, 0);
+  const blocked = describeAccessStanding(
+    accessWith([], {
+      effective: {effective: false, dispatch_open: false, missing: ['policy_missing']},
+      required_actions: [
+        {code: 'policy_missing', resolve_by: 'owner_or_admin', setting: 'policy'},
+        {code: 'mystery_code', resolve_by: '', setting: ''},
+      ],
+    }),
+    'ready'
+  );
+  assert.match(blocked.verdictText, /not effective: policy_missing/);
+  assert.match(blocked.actionsText[0] ?? '', /owner_or_admin via policy/);
+  assert.match(blocked.actionsText[1] ?? '', /unassigned/);
+  assert.match(describeAccessStanding(undefined, 'missing').powersText, /No permission record/);
+});
+
+const historyIdea = 'd' + '2'.repeat(24);
+
+function historyWith(entries: unknown[], overrides: Record<string, unknown> = {}) {
+  return revisionHistory({intent: intentId, observed_unix: 1728670000, revisions: entries, ...overrides}, intentId);
+}
+
+const historyNow = {
+  revision: revisionId,
+  state: 'accepted',
+  repository: '7',
+  created_unix: 1728670000,
+  generation: {state: 'committed'},
+  comparison: {
+    tasks: {
+      added: [{key: taskB, objective: 'Ship demo.', outcomes: ['demo scope'], idea_ids: [historyIdea]}],
+      removed: [],
+      changed: [
+        {
+          key: taskA,
+          changed_fields: ['objective'],
+          old_objective: 'Track work.',
+          new_objective: 'Track demo work.',
+        },
+      ],
+      unchanged_count: 1,
+    },
+    ideas: {
+      added: [],
+      removed: [],
+      changed: [
+        {
+          id: historyIdea,
+          from_decision: 'pending',
+          to_decision: 'accept',
+          correction_changed: false,
+          content_changed: false,
+        },
+      ],
+    },
+    effective_outcomes: {added: [historyIdea], removed: []},
+    state_change: {from: 'draft', to: 'accepted'},
+  },
+  work: [{task_key: taskA, issue_index: '12', state: 'working', authority: 'current'}],
+};
+
+const historyOld = {
+  revision: 'd' + '3'.repeat(24),
+  state: 'draft',
+  repository: '7',
+  created_unix: 1728660000,
+  generation: {state: 'not_requested'},
+  comparison: {
+    tasks: {added: [], removed: [], changed: [], unchanged_count: 0},
+    ideas: {added: [], removed: [], changed: []},
+    effective_outcomes: {added: [], removed: []},
+    initial: true,
+  },
+  work: [],
+};
+
+test('revision history composes before/after and affected work per revision', () => {
+  const model = describeRevisionHistory(historyWith([historyNow, historyOld]), 'ready');
+  assert.match(model.stateText, /2 revisions shown, newest first/);
+  assert.equal(model.truncatedNote, '');
+  const current = model.entries[0];
+  assert.match(current?.headerText ?? '', /accepted/);
+  assert.match(current?.tasksText ?? '', /1 added, 0 removed, 1 changed, 1 unchanged/);
+  assert.match(current?.taskLines[0] ?? '', new RegExp(`\\+ ${taskB}: Ship demo\\.`));
+  assert.match(current?.taskLines[1] ?? '', /objective: Track work\. → Track demo work\./);
+  assert.match(current?.ideaLines[0] ?? '', /pending → accept \(decision only\)/);
+  assert.match(current?.scopeLines[0] ?? '', new RegExp(`Effective outcomes added: ${historyIdea}`));
+  assert.match(current?.scopeLines[1] ?? '', /State draft → accepted/);
+  assert.match(current?.workLines[0] ?? '', /working \(current\)/);
+  assert.match(model.entries[1]?.lineageText ?? '', /First revision/);
+  const cut = describeRevisionHistory(historyWith([historyNow], {truncated: true}), 'ready');
+  assert.match(cut.truncatedNote, /beyond this page/);
+  assert.match(describeRevisionHistory(undefined, 'unavailable').stateText, /could not be read/);
+  assert.match(describeRevisionHistory(undefined, 'missing').stateText, /No revision history/);
 });
