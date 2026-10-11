@@ -5,11 +5,12 @@ import {object, readSodaJSON} from './sodaspaces-api.js';
 const kinds = ['issue_created', 'pr_created', 'verified_merge'] as const;
 type Kind = (typeof kinds)[number];
 type Settings = Record<Kind, boolean>;
+type ActivityItem = {id: string; kind: Kind; summary: string; url: string; created_unix: number};
 type Activity = {
   repository: string;
   revision: number;
   settings: Settings;
-  items: {id: string; kind: Kind; summary: string; url: string}[];
+  items: ActivityItem[];
 };
 type Context = {transport: PreparedExtensionMount; repository: string};
 const labels: Record<Kind, string> = {
@@ -18,7 +19,7 @@ const labels: Record<Kind, string> = {
   verified_merge: 'Verified merges and original issue closure',
 };
 
-function nativePath(value: unknown): value is string {
+export function nativePath(value: unknown): value is string {
   return (
     typeof value === 'string' &&
     /^\/(?:[^/\\?#\s%]+\/)*[^/\\?#\s%]+$/u.test(value) &&
@@ -77,7 +78,16 @@ function parseItem(value: unknown, repositoryPath: unknown) {
     throw Error('Invalid Factory activity item.');
   if (!boundedText(item.id, 256) || !boundedText(item.summary, 1024) || !timestamp(item.created_unix))
     throw Error('Invalid Factory activity item.');
-  return {id: item.id, kind, summary: item.summary, url};
+  return {id: item.id, kind, summary: item.summary, url, created_unix: item.created_unix};
+}
+
+// activityTimestamp renders a recorded event time honestly: a zero or
+// unrepresentable stamp stays unknown instead of becoming an invented date.
+export function activityTimestamp(createdUnix: number): {iso: string; text: string} | undefined {
+  if (!Number.isSafeInteger(createdUnix) || createdUnix <= 0) return undefined;
+  const date = new Date(createdUnix * 1000);
+  if (!Number.isFinite(date.getTime())) return undefined;
+  return {iso: date.toISOString(), text: date.toLocaleString()};
 }
 function responseError(status: number) {
   if (status === 409 || status === 412) return 'Activity settings changed. Refresh before saving again.';
@@ -102,6 +112,7 @@ export class SodaFactoryActivity extends LitElement {
   declare private message: string;
   declare private busy: boolean;
   private current: Context | undefined;
+  private confirmedUnix = 0;
   private serial = 0;
   protected createRenderRoot() {
     return this;
@@ -118,6 +129,7 @@ export class SodaFactoryActivity extends LitElement {
     this.activity = undefined;
     this.message = '';
     this.busy = false;
+    this.confirmedUnix = 0;
     if (context) void this.load();
   }
   disconnectedCallback() {
@@ -134,9 +146,12 @@ export class SodaFactoryActivity extends LitElement {
       const activity = await requestActivity(context, this.activity?.revision, settings);
       if (serial === this.serial) {
         this.activity = activity;
+        this.confirmedUnix = Math.floor(Date.now() / 1000);
         this.message = settings ? 'Activity display settings saved.' : '';
       }
     } catch (error) {
+      // A failed refresh keeps the last confirmed feed and says so; stale
+      // data is never presented as current or cleared into an empty result.
       if (serial === this.serial) this.message = failureMessage(error);
     } finally {
       if (serial === this.serial) this.busy = false;
@@ -154,33 +169,49 @@ export class SodaFactoryActivity extends LitElement {
   };
   protected render() {
     const activity = this.activity;
+    const confirmed = activityTimestamp(this.confirmedUnix);
     return html`<section aria-label="Factory activity">
       <h3>Factory activity</h3>
       <p data-activity-message aria-live="polite">${this.message}</p>
+      ${activity && confirmed ? html`<p>Last confirmed <time datetime=${confirmed.iso}>${confirmed.text}</time>.</p>` : ''}
       <button type="button" class="ui button" ?disabled=${this.busy} @click=${() => this.load()}>
         Refresh activity</button
-      >${
-        activity
-          ? html`<p>
-                Local activity shows recorded native work. Display settings do not change execution or send
-                notifications.
-              </p>
-              <ul>
-                ${activity.items.filter((item) => activity.settings[item.kind]).map((item) => html`<li><a href=${item.url}>${item.summary}</a></li>`)}
-              </ul>
-              ${activity.items.some((item) => activity.settings[item.kind]) ? '' : html`<p>No visible recorded activity.</p>`}
-              <form @submit=${this.save}>
-                ${kinds.map((kind) => html`<label><input type="checkbox" name=${kind} .checked=${activity.settings[kind]} ?disabled=${this.busy} />${labels[kind]}</label>`)}<button
-                  class="ui button"
-                  type="submit"
-                  ?disabled=${this.busy}
-                >
-                  Save activity display settings
-                </button>
-              </form>`
-          : ''
-      }
+      >${activity ? this.renderFeed(activity) : ''}
     </section>`;
   }
+  private renderFeed(activity: Activity) {
+    const visible = activity.items.filter((item) => activity.settings[item.kind]);
+    return html`<p>
+        Local activity shows recorded native work. Display settings do not change execution or send notifications.
+      </p>
+      <ul>
+        ${visible.map(
+          (item) => html`<li><a href=${item.url}>${item.summary}</a> ${renderItemTime(item.created_unix)}</li>`
+        )}
+      </ul>
+      ${activity.items.length === 0 ? html`<p>No recorded activity yet.</p>` : ''}
+      ${activity.items.length > 0 && visible.length === 0 ? html`<p>No visible recorded activity.</p>` : ''}
+      <form @submit=${this.save}>
+        <fieldset>
+          <legend>Activity visibility</legend>
+          ${kinds.map(
+            (kind) => html`<label
+              ><input
+                type="checkbox"
+                name=${kind}
+                .checked=${activity.settings[kind]}
+                ?disabled=${this.busy}
+              />${labels[kind]}</label
+            >`
+          )}
+        </fieldset>
+        <button class="ui button" type="submit" ?disabled=${this.busy}>Save activity display settings</button>
+      </form>`;
+  }
+}
+function renderItemTime(createdUnix: number) {
+  const stamp = activityTimestamp(createdUnix);
+  if (!stamp) return html`<span>time unknown</span>`;
+  return html`<time datetime=${stamp.iso}>${stamp.text}</time>`;
 }
 customElements.define('soda-factory-activity', SodaFactoryActivity);

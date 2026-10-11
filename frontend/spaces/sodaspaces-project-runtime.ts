@@ -6,6 +6,7 @@ import type {MutationsInput} from './sodaspaces-project-mutations.js';
 
 export interface RuntimeInput {
   readEnvironment: () => Environment | undefined;
+  isEnvironmentAdmin: () => boolean;
   isBlocked: () => boolean;
   readEpoch: () => number;
   isActive: (generation: number) => boolean;
@@ -72,6 +73,10 @@ export async function inspectOS(input: RuntimeInput) {
 export function changeLifecycle(input: RuntimeInput, stop: boolean) {
   const environment = input.readEnvironment();
   if (!environment) return;
+  if (!input.isEnvironmentAdmin()) {
+    input.setOutcome('Starting or stopping this shared project needs a project administrator.');
+    return;
+  }
   if (stop && !input.readStopConfirmed()) {
     input.setOutcome('Confirm the shared impact before Stop.');
     return;
