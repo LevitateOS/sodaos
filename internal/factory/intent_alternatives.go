@@ -155,7 +155,12 @@ func DescribeAlternatives(objective string) AlternativeSet {
 	family := alternativeFamilies[best]
 	set := AlternativeSet{Producer: AuthoredProducer, Supported: true, Pattern: family.pattern, Unknowns: append([]string(nil), authoredUnknowns[family.pattern]...)}
 	for _, key := range family.keys {
-		alternative := authoredAlternatives[key]
+		authored := authoredAlternatives[key]
+		alternative := authored
+		alternative.Steps = append([]WalkthroughStep(nil), authored.Steps...)
+		for i := range alternative.Steps {
+			alternative.Steps[i].Branches = append([]WalkthroughBranch(nil), authored.Steps[i].Branches...)
+		}
 		alternative.Outcomes = []string{proposalObjective(trimmed)}
 		set.Alternatives = append(set.Alternatives, alternative)
 	}
