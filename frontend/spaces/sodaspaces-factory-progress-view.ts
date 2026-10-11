@@ -9,6 +9,9 @@ import {describeIssueDetail, nativeIssueLink} from './sodaspaces-factory-work-vi
 import type {DeliveryState} from './sodaspaces-factory-work-view.js';
 import type {
   IssuePlan,
+  LifecycleEffectAction,
+  LifecycleEffectConfig,
+  PlanningAllowanceView,
   PriorityComparison,
   RecordedPlan,
   RequestAttention,
@@ -376,9 +379,44 @@ export function describeDirectionRevision(
       ...(idea.correction === undefined ? {} : {correction: idea.correction}),
     })),
     taskCount: revision.tasks.length,
-    allowanceText: `Planning allowance: ${revision.planning_calls} calls accepted. Consumption record unavailable.`,
+    allowanceText: `Accepted planning calls on this revision: ${revision.planning_calls}. Live allowance reads separately.`,
     deltaText: 'Revision comparison unavailable.',
   };
+}
+
+export interface AllowanceModel {
+  readonly summaryText: string;
+  readonly attributionText: string;
+  readonly effectText: string;
+}
+// describeAllowance projects one planning allowance: the bounded
+// amount in real planning-call units with reserved, consumed and
+// remaining consumption plus its attribution chain.
+export function describeAllowance(allowance: PlanningAllowanceView | undefined, state: SourceState): AllowanceModel {
+  if (state === 'unavailable')
+    return {summaryText: 'Planning allowance could not be read.', attributionText: '', effectText: ''};
+  if (state === 'missing' || !allowance)
+    return {summaryText: 'No planning allowance recorded.', attributionText: '', effectText: ''};
+  const remaining = Math.max(0, allowance.amount - allowance.reserved - allowance.consumed);
+  return {
+    summaryText:
+      `Planning allowance: ${allowance.amount} planning calls; ` +
+      `${allowance.reserved} reserved, ${allowance.consumed} consumed, ${remaining} remaining (ceiling ${allowance.ceiling}).`,
+    attributionText:
+      `Allowance ${allowance.id.slice(0, 9)}, set by owner ${allowance.owner}` +
+      `${allowance.predecessor ? `, adjusts ${allowance.predecessor.slice(0, 9)}` : ''}.`,
+    effectText: allowance.effect ? `Recorded effect: ${allowance.effect}` : '',
+  };
+}
+
+export function renderAllowance(model: AllowanceModel): TemplateResult {
+  return html`
+    <section aria-label="Planning allowance">
+      <p role="status">${model.summaryText}</p>
+      ${model.attributionText ? html`<p>${model.attributionText}</p>` : ''}
+      ${model.effectText ? html`<p>${model.effectText}</p>` : ''}
+    </section>
+  `;
 }
 
 export function renderDirectionRevision(model: DirectionRevisionModel): TemplateResult {
@@ -396,60 +434,6 @@ export function renderDirectionRevision(model: DirectionRevisionModel): Template
       <p>${model.taskCount} planned work items.</p>
       <p>${model.allowanceText}</p>
       <p>${model.deltaText}</p>
-    </section>
-  `;
-}
-
-export type OptionalEffectKind = 'issue_label' | 'review_request' | 'completion_note';
-export interface OptionalEffectModel {
-  readonly kind: OptionalEffectKind;
-  readonly title: string;
-  readonly proposal: string;
-  readonly stateText: string;
-}
-const effectCopy: Record<OptionalEffectKind, {title: string; proposal: string}> = {
-  issue_label: {
-    title: 'Generated issue label or assignee',
-    proposal: 'Proposed: apply one fixed label and one eligible assignee to each generated issue.',
-  },
-  review_request: {
-    title: 'Pull request human review',
-    proposal: 'Proposed: request up to three selected eligible human reviewers on each generated PR.',
-  },
-  completion_note: {
-    title: 'Original-issue completion note',
-    proposal: 'Proposed: post one bounded completion comment after verified merge and original closure.',
-  },
-};
-// describeOptionalEffects gates each effect on its own native
-// checkpoint. Unpassed effects stay unavailable; no configuration is
-// shown without its checkpoint, and none enrolls credentials.
-export function describeOptionalEffects(checkpoints: Record<OptionalEffectKind, boolean>): OptionalEffectModel[] {
-  return (Object.keys(effectCopy) as OptionalEffectKind[]).map((kind) => ({
-    kind,
-    title: effectCopy[kind]?.title ?? kind,
-    proposal: effectCopy[kind]?.proposal ?? '',
-    stateText: checkpoints[kind]
-      ? 'Native capability checkpoint passed; configuration is not yet exposed.'
-      : 'Unavailable: its native capability checkpoint has not passed.',
-  }));
-}
-
-export function renderOptionalEffects(models: readonly OptionalEffectModel[]): TemplateResult {
-  return html`
-    <section aria-label="Optional effects">
-      <p>
-        Optional effects stay off unless their own native capability is verified. They never replace mandatory review.
-      </p>
-      <ul>
-        ${models.map(
-          (model) => html`<li>
-            <p>${model.title}</p>
-            <p>${model.proposal}</p>
-            <p role="status">${model.stateText}</p>
-          </li>`
-        )}
-      </ul>
     </section>
   `;
 }
@@ -674,6 +658,163 @@ export function describeRecordedChoice(plan: IssuePlan, repositoryPath: string):
     })),
     moreText: plan.next_before_unix !== undefined ? 'Older comparisons exist beyond this page.' : '',
   };
+}
+
+export type LifecycleEventKind = 'issue_created' | 'pr_created' | 'verified_merge';
+export interface LifecycleEffectModel {
+  readonly event: LifecycleEventKind;
+  readonly title: string;
+  readonly stateText: string;
+  readonly configText: string;
+  readonly resultsText: readonly string[];
+  readonly canConfigure: boolean;
+  readonly config: LifecycleEffectConfig | undefined;
+}
+const lifecycleTitles: Record<LifecycleEventKind, string> = {
+  issue_created: 'Generated issue label and assignee',
+  pr_created: 'Pull request human review',
+  verified_merge: 'Original-issue completion note',
+};
+function lifecycleTargets(event: LifecycleEventKind, config: LifecycleEffectConfig): string {
+  if (event === 'issue_created')
+    return `Label ${config.label_id ?? 'unset'}, assignee ${config.assignee_id ?? 'unset'}.`;
+  if (event === 'pr_created')
+    return config.reviewer_ids.length > 0 ? `Reviewers ${config.reviewer_ids.join(', ')}.` : 'No reviewers set.';
+  return config.note ? `Note: ${config.note}` : 'No note set.';
+}
+function lifecycleResultLine(action: LifecycleEffectAction): string {
+  const entries = Object.entries(action.results);
+  const outcomes =
+    entries.length > 0 ? entries.map(([target, result]) => `${target}: ${result}`).join('; ') : 'no results recorded';
+  const revoked = action.revoked ? ', revoked' : '';
+  const settled = action.settled ? ', settled' : '';
+  return `Action ${action.id.slice(0, 8)} on issue #${action.issue_id}: ${action.attempts}/${action.max_attempts} attempts${revoked}${settled}. ${outcomes}.`;
+}
+// describeLifecycleEffect gates one optional effect on its own native
+// capability proof. Unproved effects stay unavailable with no
+// configuration shown; configured effects name their exact actor,
+// targets and per-target results.
+export function describeLifecycleEffect(
+  event: LifecycleEventKind,
+  config: LifecycleEffectConfig | undefined,
+  configState: SourceState,
+  actions: readonly LifecycleEffectAction[]
+): LifecycleEffectModel {
+  if (configState === 'unavailable' || !config)
+    return {
+      event,
+      title: lifecycleTitles[event],
+      stateText: configState === 'unavailable' ? 'Configuration could not be read.' : 'No configuration recorded.',
+      configText: '',
+      resultsText: actions.map(lifecycleResultLine),
+      canConfigure: false,
+      config: undefined,
+    };
+  if (!config.capable)
+    return {
+      event,
+      title: lifecycleTitles[event],
+      stateText: 'Unavailable: its native capability checkpoint has not passed.',
+      configText: '',
+      resultsText: actions.map(lifecycleResultLine),
+      canConfigure: false,
+      config,
+    };
+  return {
+    event,
+    title: lifecycleTitles[event],
+    stateText: config.revision === '0' ? 'Not configured yet.' : config.enabled ? 'Active.' : 'Disabled.',
+    configText: `Actor ${config.actor_id || 'unset'}, revision ${config.revision}. ${lifecycleTargets(event, config)}`,
+    resultsText: actions.map(lifecycleResultLine),
+    canConfigure: true,
+    config,
+  };
+}
+
+export interface LifecycleEffectInput {
+  readonly enabled: boolean;
+  readonly label_id: string;
+  readonly assignee_id: string;
+  readonly reviewer_ids: string;
+  readonly note: string;
+}
+export interface LifecycleEffectCommands {
+  readonly save: (event: LifecycleEventKind, input: LifecycleEffectInput) => void;
+}
+
+function renderIssueCreatedFields(model: LifecycleEffectModel): TemplateResult {
+  const label = model.config?.label_id ?? '';
+  const assignee = model.config?.assignee_id ?? '';
+  return html`<label>Label ID <input name="label_id" inputmode="numeric" .value=${label} /></label>
+    <label>Assignee ID <input name="assignee_id" inputmode="numeric" .value=${assignee} /></label>`;
+}
+
+function renderPrCreatedFields(model: LifecycleEffectModel): TemplateResult {
+  const reviewers = (model.config?.reviewer_ids ?? []).join(', ');
+  return html`<label
+    >Reviewer IDs, comma separated <input name="reviewer_ids" inputmode="text" .value=${reviewers}
+  /></label>`;
+}
+
+function renderVerifiedMergeFields(model: LifecycleEffectModel): TemplateResult {
+  const note = model.config?.note ?? '';
+  return html`<label>Completion note <input name="note" maxlength="1000" .value=${note} /></label>`;
+}
+
+function renderEffectFields(model: LifecycleEffectModel): TemplateResult {
+  if (model.event === 'issue_created') return renderIssueCreatedFields(model);
+  if (model.event === 'pr_created') return renderPrCreatedFields(model);
+  return renderVerifiedMergeFields(model);
+}
+
+export function renderLifecycleEffects(
+  models: readonly LifecycleEffectModel[],
+  commands: LifecycleEffectCommands
+): TemplateResult {
+  return html`
+    <section aria-label="Optional effects">
+      <p>
+        Optional effects stay off unless their own native capability is verified. They never replace mandatory review.
+      </p>
+      <ul>
+        ${models.map(
+          (model) => html`<li>
+            <p>${model.title}</p>
+            <p role="status">${model.stateText}</p>
+            ${model.configText ? html`<p>${model.configText}</p>` : ''}
+            <ul>
+              ${model.resultsText.map((line) => html`<li>${line}</li>`)}
+            </ul>
+            ${
+              model.canConfigure
+                ? html`<form
+                    @submit=${(submit: SubmitEvent) => {
+                      submit.preventDefault();
+                      const form = submit.target;
+                      if (!(form instanceof HTMLFormElement)) return;
+                      const data = new FormData(form);
+                      commands.save(model.event, {
+                        enabled: data.get('enabled') === 'on',
+                        label_id: String(data.get('label_id') ?? ''),
+                        assignee_id: String(data.get('assignee_id') ?? ''),
+                        reviewer_ids: String(data.get('reviewer_ids') ?? ''),
+                        note: String(data.get('note') ?? ''),
+                      });
+                    }}
+                  >
+                    <label
+                      ><input type="checkbox" name="enabled" .checked=${model.config?.enabled ?? false} />Enabled</label
+                    >
+                    ${renderEffectFields(model)}
+                    <button class="ui button" type="submit">Save effect configuration</button>
+                  </form>`
+                : ''
+            }
+          </li>`
+        )}
+      </ul>
+    </section>
+  `;
 }
 
 export function renderRecordedPlan(plan: RecordedPlanModel, choice: RecordedChoiceModel): TemplateResult {

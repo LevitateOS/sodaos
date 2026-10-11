@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {issuePlan, requestOverview} from '../../frontend/spaces/sodaspaces-factory-progress-response';
+import {
+  issuePlan,
+  lifecycleEffectActions,
+  lifecycleEffectConfig,
+  planningAllowance,
+  requestOverview,
+} from '../../frontend/spaces/sodaspaces-factory-progress-response';
 
 const intent = 'd' + 'e'.repeat(24);
 const revision = 'd' + 'c'.repeat(24);
@@ -203,6 +209,202 @@ test('issue plan binds freshness, plan and comparisons', () => {
         '12'
       )
     );
+});
+
+test('planning allowance binds bounded units and consumption', () => {
+  const allowanceId = 'd' + 'b'.repeat(24);
+  const parsed = planningAllowance(
+    {
+      id: allowanceId,
+      intent,
+      predecessor: 'd' + 'a'.repeat(24),
+      owner: '1001',
+      amount: 12,
+      unit: 'planning_calls',
+      reserved: 3,
+      consumed: 4,
+      ceiling: 20,
+      effect: 'Extra comparison round.',
+      created_unix: 1720000000,
+    },
+    intent
+  );
+  assert.equal(parsed.amount, 12);
+  assert.equal(parsed.unit, 'planning_calls');
+  assert.equal(parsed.owner, '1001');
+  for (const delta of [
+    {intent: 'd' + '0'.repeat(24)},
+    {id: 'short'},
+    {unit: 'minutes'},
+    {amount: 101},
+    {amount: 21, ceiling: 20},
+    {reserved: 9, consumed: 4},
+    {reserved: -1},
+    {owner: '0'},
+    {effect: '  '},
+    {created_unix: 0},
+  ])
+    assert.throws(() =>
+      planningAllowance(
+        {
+          id: allowanceId,
+          intent,
+          owner: '1001',
+          amount: 12,
+          unit: 'planning_calls',
+          reserved: 3,
+          consumed: 4,
+          ceiling: 20,
+          created_unix: 1,
+          ...delta,
+        },
+        intent
+      )
+    );
+});
+
+test('lifecycle configs bind enablement, proof, actor and targets', () => {
+  const parsed = lifecycleEffectConfig(
+    {
+      event: 'pr_created',
+      revision: '4',
+      enabled: true,
+      capable: true,
+      actor_id: '1001',
+      repository_id: '7',
+      reviewer_ids: ['11', '12'],
+    },
+    'pr_created',
+    '7'
+  );
+  assert.equal(parsed.enabled, true);
+  assert.deepEqual(parsed.reviewer_ids, ['11', '12']);
+  const fresh = lifecycleEffectConfig(
+    {event: 'issue_created', revision: '0', enabled: false, capable: false, actor_id: '', repository_id: '7'},
+    'issue_created',
+    '7'
+  );
+  assert.equal(fresh.enabled, false);
+  assert.equal(fresh.capable, false);
+  for (const delta of [
+    {event: 'issue_deleted'},
+    {revision: 'x'},
+    {enabled: 'yes'},
+    {repository_id: '8'},
+    {reviewer_ids: ['11', '12', '13', '14']},
+    {reviewer_ids: ['0']},
+    {note: 'x'.repeat(1001)},
+  ])
+    assert.throws(() =>
+      lifecycleEffectConfig(
+        {
+          event: 'pr_created',
+          revision: '4',
+          enabled: true,
+          capable: true,
+          actor_id: '1001',
+          repository_id: '7',
+          ...delta,
+        },
+        'pr_created',
+        '7'
+      )
+    );
+});
+
+test('lifecycle actions bind attempts, revocation and per-target results', () => {
+  const parsed = lifecycleEffectActions(
+    {
+      actions: [
+        {
+          id: 'op-1',
+          event: 'verified_merge',
+          action: 'original_completion_note',
+          actor_id: '1001',
+          issue_id: '12',
+          attempts: 1,
+          max_attempts: 2,
+          revoked: false,
+          settled: true,
+          results: {'issue-12': 'delivered'},
+        },
+      ],
+    },
+    '12',
+    'verified_merge'
+  );
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0]?.results['issue-12'], 'delivered');
+  for (const action of [
+    {
+      id: '',
+      event: 'verified_merge',
+      action: 'original_completion_note',
+      actor_id: '1001',
+      issue_id: '12',
+      attempts: 0,
+      max_attempts: 2,
+      revoked: false,
+      settled: false,
+    },
+    {
+      id: 'op-1',
+      event: 'pr_created',
+      action: 'original_completion_note',
+      actor_id: '1001',
+      issue_id: '12',
+      attempts: 0,
+      max_attempts: 2,
+      revoked: false,
+      settled: false,
+    },
+    {
+      id: 'op-1',
+      event: 'verified_merge',
+      action: 'pr_reviewer_request',
+      actor_id: '1001',
+      issue_id: '12',
+      attempts: 0,
+      max_attempts: 2,
+      revoked: false,
+      settled: false,
+    },
+    {
+      id: 'op-1',
+      event: 'verified_merge',
+      action: 'original_completion_note',
+      actor_id: '1001',
+      issue_id: '13',
+      attempts: 0,
+      max_attempts: 2,
+      revoked: false,
+      settled: false,
+    },
+    {
+      id: 'op-1',
+      event: 'verified_merge',
+      action: 'original_completion_note',
+      actor_id: '1001',
+      issue_id: '12',
+      attempts: 3,
+      max_attempts: 2,
+      revoked: false,
+      settled: false,
+    },
+    {
+      id: 'op-1',
+      event: 'verified_merge',
+      action: 'original_completion_note',
+      actor_id: '1001',
+      issue_id: '12',
+      attempts: 0,
+      max_attempts: 2,
+      revoked: false,
+      settled: false,
+      results: {'issue-12': 'invented'},
+    },
+  ])
+    assert.throws(() => lifecycleEffectActions({actions: [action]}, '12', 'verified_merge'));
 });
 
 test('masked foreign choices stay visible without enumeration', () => {
