@@ -202,3 +202,13 @@ test('stopped environment has explicit Start only, and no terminal', async (t) =
   assert.deepEqual(JSON.parse((await writes(page))[0]?.body || '{}'), {action: 'start'});
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
 });
+test('non-administrator sees read-only shared-environment state without lifecycle controls', async (t) => {
+  const page = await fixture(t, {admin: false});
+  await refresh(page);
+  const controls = page.locator('[data-project-controls]');
+  assert.match(await controls.innerText(), /Running: yes/);
+  assert.match(await controls.innerText(), /needs a project administrator/);
+  assert.equal(await page.getByRole('button', {name: 'Start', exact: true}).count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Stop', exact: true}).count(), 0);
+  assert.deepEqual(await writes(page), []);
+});
