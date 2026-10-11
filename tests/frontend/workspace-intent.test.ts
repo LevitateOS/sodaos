@@ -5,7 +5,7 @@ import {setupWorkspaceDriver, fixture, reviewFirstIntent} from './fixtures/works
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
-type ExplorationMode = 'supported' | 'unsupported' | 'challenges';
+type ExplorationMode = 'supported' | 'unsupported' | 'challenges' | 'votes' | 'settled';
 interface IntentStore {
   arm(id: string): void;
   release(id: string): void;
@@ -13,6 +13,7 @@ interface IntentStore {
   forbid: boolean;
   sessionLost: boolean;
   exploration: ExplorationMode | undefined;
+  generation: {state: string; staleAuth?: boolean; fail?: boolean} | undefined;
 }
 // Test-local private intent peer: records saved revisions, serves the declared
 // current-revision read and owner-private list, and gates/refuses loads on
@@ -36,7 +37,7 @@ async function installIntentStore(page: Page) {
     ];
     const buildExploration = (
       mode: ExplorationMode,
-      json: {id: string; intent: string; objective: string; ideas: {id: string}[]}
+      json: {id: string; intent: string; objective: string; ideas: {id: string; decision?: string}[]}
     ) => {
       const shared = {
         key: 'shared_review',
@@ -106,6 +107,7 @@ async function installIntentStore(page: Page) {
           mode === 'challenges'
             ? json.ideas.slice(0, 2).map((idea, index) => ({idea: idea.id, ...challengeTexts[index]}))
             : [],
+        settled: [] as string[],
         ...(mode === 'unsupported'
           ? {recommendation: null, consistency: null}
           : {
@@ -139,6 +141,7 @@ async function installIntentStore(page: Page) {
       forbid: false,
       sessionLost: false,
       exploration: undefined as ExplorationMode | undefined,
+      generation: undefined as {state: string; staleAuth?: boolean; fail?: boolean} | undefined,
       arm(id: string) {
         gates.set(id, () => {});
       },
@@ -186,6 +189,26 @@ async function installIntentStore(page: Page) {
           }));
           return Response.json({intents});
         }
+        if (url.includes('/api/factory/intents/') && url.endsWith('/generation') && method === 'GET') {
+          if (!store.generation) return original(input, init);
+          if (store.generation.fail) return new Response(null, {status: 503});
+          const intent = url.split('/').at(-2) || '';
+          const record = records.get(intent);
+          const revision = String(record?.id || 'd000000000000000000000000');
+          return Response.json({
+            state: store.generation.state,
+            revision_id: revision,
+            intent_id: intent,
+            operation_id: 'op-1',
+            actor_id: '1',
+            native_revision: 3,
+            authorization_revision: store.generation.staleAuth ? 'd999999999999999999999999' : revision,
+            not_after: 9,
+            payload: {},
+            intent_digest: 'd',
+            task_issue_ids: store.generation.state === 'pending' ? {} : {k1: '1'},
+          });
+        }
         if (url.endsWith('/explore') && method === 'POST') {
           const response = await original(input, init);
           if (!response.ok || !store.exploration) return response;
@@ -193,8 +216,37 @@ async function installIntentStore(page: Page) {
             id: string;
             intent: string;
             objective: string;
-            ideas: {id: string}[];
+            ideas: {id: string; decision?: string}[];
           };
+          if (store.exploration === 'settled') {
+            const settled: string[] = [];
+            const ideas = json.ideas.map((idea) => {
+              if (idea.decision !== 'pending') return idea;
+              settled.push(idea.id);
+              return {...idea, decision: 'accept', source: 'autonomous', provenance: 'autonomous'};
+            });
+            const exploration = buildExploration('supported', {...json, ideas});
+            exploration.settled = settled;
+            return Response.json({...json, ideas, exploration});
+          }
+          if (store.exploration === 'votes') {
+            const extra = {
+              id: 'daaaaaaaaaaaaaaaaaaaaaaaa',
+              description: 'Suggested nightly summary',
+              consequence: 'A summary is sent every night.',
+              assumption: false,
+              decision: 'pending',
+              source: 'autonomous',
+              provenance: 'autonomous',
+            };
+            const ideas = json.ideas.some((idea) => idea.id === extra.id) ? json.ideas : [...json.ideas, extra];
+            const exploration = buildExploration('supported', {...json, ideas});
+            exploration.challenges = [
+              {idea: json.ideas[0]?.id || '', ...challengeTexts[0]},
+              {idea: extra.id, ...challengeTexts[1]},
+            ];
+            return Response.json({...json, ideas, exploration});
+          }
           return Response.json({...json, exploration: buildExploration(store.exploration, json)});
         }
         if (url.endsWith('/api/factory/intents') && method === 'POST') {
@@ -218,7 +270,9 @@ async function resetIntent(page: Page) {
 }
 async function resumeIntent(page: Page, id: string) {
   await page.evaluate((intent: string) => {
-    (document.querySelector('soda-intent') as unknown as {request: string}).request = intent;
+    const target = document.querySelector('soda-intent') as unknown as {request: string; active: boolean};
+    target.active = true;
+    target.request = intent;
   }, id);
 }
 async function intentObjective(page: Page): Promise<string> {
@@ -655,6 +709,38 @@ test('saved inventory lists states and separates empty from unavailable', async 
   await page.getByText('Another draft', {exact: true}).waitFor();
 });
 
+test('saved inventory names each resume action and publishes list updates', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.evaluate(() => {
+    (window as unknown as {inventories: unknown[]}).inventories = [];
+    document.addEventListener('intent-inventory', (event) =>
+      (window as unknown as {inventories: unknown[]}).inventories.push((event as CustomEvent).detail)
+    );
+    (window as unknown as {intentStore: IntentStore}).intentStore.seed([
+      {
+        intent: 'd111111111111111111111111',
+        id: 'd111111111111111111111112',
+        state: 'draft',
+        objective: 'Seeded tracker',
+        repository: '0',
+        tasks: [],
+      },
+    ]);
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByRole('button', {name: 'Resume Seeded tracker', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Resume Fresh draft', exact: true}).waitFor();
+  const inventories = await page.evaluate(
+    () => (window as unknown as {inventories: {intents: {objective: string}[]}[]}).inventories
+  );
+  assert(inventories.length >= 1);
+  const latest = inventories.at(-1);
+  assert.deepEqual((latest?.intents || []).map((item) => item.objective).sort(), ['Fresh draft', 'Seeded tracker']);
+});
+
 test('review leads with the recommended walkthrough, illustration and text equivalent', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await installIntentStore(page);
@@ -740,10 +826,19 @@ test('assumption challenges batch recommendations with retained answers', async 
     .waitFor();
   assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), true);
   const first = questions.locator('article').first();
-  await first.getByLabel('Explain a correction').fill('Only the manager sees dates');
-  assert.equal(await first.getByLabel('Explain a correction').inputValue(), 'Only the manager sees dates');
+  await first
+    .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+    .fill('Only the manager sees dates');
+  assert.equal(
+    await first
+      .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+      .inputValue(),
+    'Only the manager sees dates'
+  );
   const second = questions.locator('article').nth(1);
-  await second.getByRole('button', {name: 'Use recommended resolution', exact: true}).click();
+  await second
+    .getByRole('button', {name: 'Use recommended resolution for Undecided requests wait silently.', exact: true})
+    .click();
   await second.getByText('Answered: using the recommended resolution.', {exact: true}).waitFor();
   await page
     .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
@@ -845,4 +940,175 @@ test('human decisions record attributable provenance when the actor is known', a
   assert.equal(reset?.decision, 'pending');
   assert.equal(reset?.provenance, undefined);
   assert.equal(reset?.actor, undefined);
+});
+
+test('idea cards keep votes only where a decision is required', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'votes');
+  await setActor(page, '1');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const cards = page.locator('section.intent-review > article');
+  assert.equal(await cards.count(), 2);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  assert.equal(await cards.nth(1).getByRole('combobox').count(), 0);
+  await cards.nth(1).getByText('Suggested', {exact: true}).waitFor();
+  const questions = page.locator('section[aria-label="Questions needing your answer"]');
+  assert.equal(await questions.locator('article').count(), 2);
+  await page.getByRole('button', {name: 'Change something', exact: true}).click();
+  await page.getByLabel('What should change?', {exact: true}).fill('Track overtime too');
+  await page.getByRole('button', {name: 'Submit change', exact: true}).click();
+  await page.waitForFunction(() => {
+    const host = document.querySelector('soda-intent') as unknown as {shadowRoot: ShadowRoot; busy: boolean};
+    return !host.busy && host.shadowRoot?.querySelectorAll('section.intent-review > article').length === 3;
+  });
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  assert.equal(await cards.nth(1).getByRole('combobox').count(), 0);
+  assert.equal(await cards.nth(2).getByRole('combobox').count(), 1);
+  await cards.nth(2).getByText('You requested', {exact: true}).waitFor();
+  await questions
+    .locator('article')
+    .nth(0)
+    .getByLabel('Explain a correction to Everyone on the team can see each request.', {exact: true})
+    .fill('Only the manager sees dates');
+  await questions
+    .locator('article')
+    .nth(1)
+    .getByLabel('Explain a correction to Undecided requests wait silently.', {exact: true})
+    .fill('Send the summary to the person');
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor();
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page
+    .getByText('The walkthrough below is out of date. Update the proposal to refresh it.', {exact: true})
+    .waitFor({state: 'detached'});
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  const draft = await lastPostedBody(page, 'draft');
+  const ideas = (draft.ideas || []) as {
+    description: string;
+    decision: string;
+    correction?: string;
+    source?: string;
+    provenance?: string;
+    actor?: string;
+  }[];
+  const corrected = ideas.find((idea) => idea.description === 'Suggested nightly summary');
+  assert.equal(corrected?.decision, 'edit');
+  assert.equal(corrected?.correction, 'Send the summary to the person');
+  assert.equal(corrected?.source, 'autonomous');
+  assert.equal(corrected?.provenance, 'human');
+  assert.equal(corrected?.actor, '1');
+});
+
+test('accepted review shows authorization, generation progress and unsaved loss', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.evaluate(() => {
+    (window as unknown as {reviewed: unknown}).reviewed = null;
+    document.addEventListener('intent-reviewed', (event) => {
+      (window as unknown as {reviewed: unknown}).reviewed = (event as CustomEvent).detail;
+    });
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
+  await page.getByLabel('Choose how to deliver the accepted workflow', {exact: true}).selectOption('complete_first');
+  await updateProposal(page);
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
+  await page.waitForFunction(() => (window as unknown as {reviewed: unknown}).reviewed !== null);
+  const reviewed = await page.evaluate(() => (window as unknown as {reviewed: Record<string, unknown>}).reviewed);
+  assert.equal(reviewed.approach, 'complete_first');
+  assert.equal(reviewed.authorizedIdeas, 1);
+  assert.equal(reviewed.tasks, 1);
+  assert.equal(((reviewed.decisions || []) as {decision: string}[]).length, 1);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  await page.waitForFunction(() => window.workspaceFixture.calls.some((call) => call.body?.state === 'accepted'));
+  const accepted = await lastPostedBody(page, 'accepted');
+  const intent = String(accepted.intent);
+  assert(/^d[0-9a-f]{24}$/.test(intent));
+  await page.close();
+  const fresh = await fixture(t, 'page', undefined, true);
+  await installIntentStore(fresh);
+  await fresh.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await fresh.evaluate((record: Record<string, unknown>) => {
+    const store = (window as unknown as {intentStore: IntentStore}).intentStore;
+    store.seed([record]);
+    store.generation = {state: 'pending'};
+  }, accepted);
+  await resumeIntent(fresh, intent);
+  await fresh.getByText('Authorized: 1 idea and 1 work item from your accepted direction.', {exact: true}).waitFor();
+  await fresh.getByText('Factory has not created work yet.', {exact: true}).waitFor();
+  await fresh.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.generation = {state: 'completed'};
+  });
+  await fresh.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await fresh
+    .getByText('Factory work is created. Execution still needs its own access and finite funding.', {exact: true})
+    .waitFor();
+  await fresh.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.generation = {state: 'completed', staleAuth: true};
+  });
+  await fresh.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await fresh
+    .getByText('Factory work references an older accepted direction. Refresh the status after updating.', {exact: true})
+    .waitFor();
+  await fresh.getByLabel('Desired outcome', {exact: true}).fill('Build a leave tracker for everyone');
+  await fresh
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('decline');
+  await fresh
+    .getByText(
+      '2 unsaved edits are kept in this view: outcome text, 1 idea decision. ' +
+        'Update proposal saves them; the walkthrough, Factory status and repository choice stay on the saved version until then.',
+      {exact: true}
+    )
+    .waitFor();
+});
+
+test('settled autonomous baseline advances without per-card votes or questions', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'settled');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const cards = page.locator('section.intent-review > article');
+  assert.equal(await cards.count(), 1);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  await cards.nth(0).getByText('Decided automatically', {exact: true}).waitFor();
+  assert.equal(await page.locator('section[aria-label="Questions needing your answer"]').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  await setActor(page, '1');
+  const field = 'Correct the automatic choice: Build a leave tracker';
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('Track overtime too');
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('');
+  await updateProposal(page);
+  const restored = await lastPostedBody(page, 'draft');
+  const kept = ((restored.ideas || []) as {decision: string; provenance?: string; actor?: number}[])[0];
+  assert.equal(kept?.decision, 'accept');
+  assert.equal(kept?.provenance, 'autonomous');
+  assert.equal(kept?.actor, undefined);
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Choose repository', exact: true}).isDisabled(), false);
+  await cards.nth(0).getByLabel(field, {exact: true}).fill('Track leave without external integrations');
+  await updateProposal(page);
+  const changed = await lastPostedBody(page, 'draft');
+  const edited = ((changed.ideas || []) as {decision: string; correction?: string; provenance?: string}[])[0];
+  assert.equal(edited?.decision, 'edit');
+  assert.equal(edited?.correction, 'Track leave without external integrations');
+  assert.equal(edited?.provenance, 'human');
+  assert.equal(await cards.nth(0).getByRole('combobox').count(), 1);
 });

@@ -129,7 +129,10 @@ for (const theme of ['light', 'dark'])
         0,
         'ready configuration should not show routine recovery controls'
       );
-      assert.equal((await page.locator('[aria-current=step]').innerText()).replace(/\s+/g, ' '), '02 Create a project');
+      assert.equal(
+        (await page.locator('[aria-current=step]').innerText()).replace(/\s+/g, ' '),
+        '03 Create the project'
+      );
       assert(
         configureBounds && configureBounds.x === setupBounds.x && configureBounds.width === setupBounds.width,
         'configuration changed the outer frame'

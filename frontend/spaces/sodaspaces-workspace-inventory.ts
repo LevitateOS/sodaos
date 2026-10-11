@@ -287,11 +287,16 @@ function missingRepositoryProject(input: InventoryInput) {
   );
 }
 
+function refreshFailedStatus(): string {
+  if (typeof navigator !== 'undefined' && !navigator.onLine)
+    return 'You appear to be offline. Reconnect and retry; the information shown may be out of date.';
+  return 'We couldn’t refresh your projects and terminals. The information shown may be out of date.';
+}
 export function refreshFailed(input: InventoryInput, n: number) {
   if (!live(reading(input), n)) return;
   input.setAvailable(false);
   input.setComplete(false);
-  input.setStatus('We couldn’t refresh your projects and terminals. The information shown may be out of date.');
+  input.setStatus(refreshFailedStatus());
 }
 
 export async function finishRefreshSuccess(input: InventoryInput, n: number, signal: AbortSignal) {

@@ -110,6 +110,7 @@ export interface ConsistencyReport {
 export interface Exploration {
   content: ProposalContent;
   challenges: AssumptionChallenge[];
+  settled: string[];
   recommendation?: ConsolidatedProposal;
   consistency?: ConsistencyReport;
 }
@@ -246,6 +247,36 @@ function savedRequest(value: unknown): SavedRequest {
     task_count: count(raw.task_count),
     ...effectiveOutcomes(raw),
   };
+}
+export interface IntentGenerationStatus {
+  state: string;
+  revision: string;
+  tasks: number;
+  authorization?: string;
+  native?: number;
+}
+export function intentGeneration(value: unknown): IntentGenerationStatus {
+  const raw = object(value);
+  check(decisionID(raw.revision_id));
+  let tasks = 0;
+  if (raw.task_issue_ids !== undefined) {
+    const bindings = object(raw.task_issue_ids);
+    const keys = Object.keys(bindings);
+    check(keys.length <= 100);
+    tasks = keys.length;
+  }
+  const out: IntentGenerationStatus = {
+    state: text(raw.state, 64),
+    revision: raw.revision_id,
+    tasks,
+  };
+  if (raw.authorization_revision !== undefined) check(decisionID(raw.authorization_revision));
+  if (raw.authorization_revision) out.authorization = String(raw.authorization_revision);
+  if (raw.native_revision !== undefined) {
+    check(Number.isInteger(raw.native_revision) && Number(raw.native_revision) >= 0);
+    out.native = Number(raw.native_revision);
+  }
+  return out;
 }
 export function intentList(value: unknown): {intents: SavedRequest[]; next_cursor?: string} {
   const raw = object(value);
@@ -389,9 +420,12 @@ function consistency(value: unknown): ConsistencyReport {
 }
 export function exploration(value: unknown): Exploration {
   const raw = object(value);
+  const settled = array(raw.settled ?? [], 50);
+  for (const id of settled) check(decisionID(id));
   const out: Exploration = {
     content: proposalContent(raw.content),
     challenges: array(raw.challenges, 50).map(challenge),
+    settled: settled.map(String),
   };
   if (raw.recommendation !== undefined && raw.recommendation !== null)
     out.recommendation = recommendation(raw.recommendation);
