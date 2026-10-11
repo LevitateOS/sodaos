@@ -30,6 +30,17 @@ func TestIntentDesignRespectsExplicitApproachAndChangesGraph(t *testing.T) {
 	}
 }
 
+func TestClarifyIdeaCarriesAssumptionBasis(t *testing.T) {
+	idea := clarifyIdea("d111111111111111111111111")
+	if !idea.Assumption || idea.Decision != "pending" || idea.Source != "assumption" || idea.Provenance != "autonomous" || !idea.Material || idea.Actor != 0 {
+		t.Fatalf("clarify basis=%+v", idea)
+	}
+	r := factory.IntentRevision{ID: "d222222222222222222222222", Intent: "d333333333333333333333333", Owner: 7, Objective: "Build a tracker", State: "draft", MaxIssues: 10, PlanningCalls: 3, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}}
+	if err := r.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
 	proposal := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", State: "draft"}
 	content := factory.DescribeAlternatives("Time-off requests my manager can approve")
