@@ -32,6 +32,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/control/merge_evidence.go](../../../../../internal/factory/control/merge_evidence.go)
 
+Selective source delta at `63ace9cd`: an exact-head native `changes_requested` refusal waits before merge intent registration or submission, preserving the shared root for normal correction. Other permanent refusals remain terminal; independent approval, fresh checks and recorded-effect reconciliation retain their existing gates and custody.
+
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
@@ -80,11 +82,14 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [internal/factory/control/merge_test.go](../../../../../internal/factory/control/merge_test.go)
 
+Selective source delta at `63ace9cd`: `TestMergePassWaitsForRequestedChangesThenCorrectedHead` proves the blocking-review wait, unchanged live allowance, normal corrected publication, fresh checks and the same merge row completing against the corrected head. `TestMergePassRefusesWrongCandidateIdentity` retains the permanent native-identity refusal boundary, replacing the obsolete terminal changes-request assertion. Actual PostgreSQL17/Go1.26.7 race and independent review pass; native continuation remains B04.C.
+
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–263; file scaffold; TestMergePassMergesOneExactPR; TestMergePassSkipsRowWithoutCurrentPass; TestMergePassWaitsForStaleCheckEvidence; TestMergePassRefusesFailedCheckEvidence; TestMergePassWaitsForPendingChecks; TestMergePassRefusesRegressedChecks; TestMergePassWaitsForApproval; TestMergePassRefusesChangeRequest; TestMergePassRequiresCurrentAuthority | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 10 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| At `63ace9cd`: TestMergePassWaitsForRequestedChangesThenCorrectedHead; TestMergePassRefusesWrongCandidateIdentity | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Blocking review preserves the live root with zero merge intent/submits, then the same undriven row follows the corrected head and fresh approved evidence. Wrong native candidate identity remains terminal; this replaces the historical TestMergePassRefusesChangeRequest assertion above. |
 
 <a id="coverage-31f3fa2e3a45"></a>
 

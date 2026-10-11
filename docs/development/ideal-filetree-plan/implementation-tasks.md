@@ -66,6 +66,21 @@ after repair. Full domain and focused race checks pass with Go 1.26.7.
 Report transport and the strict parser remain unchanged; the failed native
 attempt remains failed, and actual correction continuation is still open.
 
+Native issue10 reached a genuine distinct reviewer’s blocking finding and a
+successful correction run on the same finite root. A premature merge assessment
+then treated `changes_requested` as terminal and closed that root before the
+corrected candidate was published; the failed attempt remains closed. Source
+repair `63ace9cd` makes only that blocking-review refusal wait before intent
+registration or submission, preserving normal correction and every permanent
+identity refusal. The real PostgreSQL17/Go1.26.7 regression is red before the
+repair and green through corrected publication, fresh checks and the same merge
+row’s completion. Twenty-five affected top-level race tests (27 including
+subcases), the permanent-refusal race check, strict native-observer unit check, dashboard
+compilation and independent review pass. Source/build logs are retained under
+`.artifacts/goal-finish-plan-20261010/native-appliance-832dfa16-01/merge-blocking-review-wait-01/`;
+the RED is tool-observed without a saved log. B04.C remains open for the full
+native correction, fresh review and merge continuation.
+
 The lifecycle proxy repair `e7deb91f` removes its observed ten-second response
 cutoff; the actual Unix-socket regression passes beyond that cutoff. Source
 repair `d9c13531` stops native nested workloads before final Project shutdown.
@@ -94,7 +109,7 @@ closing C09.C. Personal-Git and matching-workflow R04 checks remain open.
 Formal release signing, public distribution and publication are not selected.
 
 Implementation is active under the owner's “go”, “commit early and often” and
-subsequent all-tasks goal. Current path reconciliation uses source `610a2df2`;
+subsequent all-tasks goal. Current path reconciliation uses source `63ace9cd`;
 `04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
 first twelve selected packets are committed, followed by readiness/artifact
 identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and
@@ -102,7 +117,7 @@ selective caller simplifications.
 Earlier source/development receipts retain their original scopes; actual
 installed/provider/native subjects are recorded explicitly by their owning tasks. Seven pre-existing dirty guidance
 files remain untouched. The current tree and tracked-file inventories account for all 2,609 tracked
-paths at `610a2df2`, including the implemented D06 Rust personal-Git payload,
+paths at `63ace9cd`, including the implemented D06 Rust personal-Git payload,
 Coordinator progress owners/tests, Retry refusal test, socket policy inputs
 and native panel-ownership regression.
 Historical path comparisons retain their original
@@ -135,7 +150,7 @@ Application/lifecycle corrections and their Q gates remain separate.
 
 | Remaining work | Current disposition and exact next boundary | Owner / task |
 | --- | --- | --- |
-| Current inventory / target and source joins | All 2,609 current leaves are mapped at `610a2df2`; selective additions include package guides, Factory/Forgejo tests, fresh Retry preparation and the implemented D06 payload with its caller/producer chain. Authority reopening and the explicit reviewer report example reuse current F06/F07/F08/F10 owners without new paths or processes. Retryable candidate-preparation admission now preserves the current root at `610a2df2`; its exact owner wake and immutable-conflict guards retain those same owners. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
+| Current inventory / target and source joins | All 2,609 current leaves are mapped at `63ace9cd`; selective additions include package guides, Factory/Forgejo tests, fresh Retry preparation and the implemented D06 payload with its caller/producer chain. Authority reopening and the explicit reviewer report example reuse current F06/F07/F08/F10 owners without new paths or processes. Retryable candidate-preparation admission preserves the current root at `610a2df2`; its exact owner wake and immutable-conflict guards retain those owners. Blocking merge reviews now wait for correction at `63ace9cd`, retaining F12 and its existing evidence gates. Historical body/validity records and accepted R02 joins retain their source pins. Refresh affected mappings with later changes. | Coordinator / R02 source-mapping scope complete; R04 qualification open |
 | Operator request bound | Completed in `a1fec662`: cap+one/read-error refusal before strict decoding, with focused production endpoint checks. Remaining B03 authority findings retain Q8. | B / B03.C partial |
 | Aggregate secret inputs | Completed in `7334f36b`; candidate count/bytes are admitted before retained variants, with per-file staging and escaped-pattern admission separately bounded. | C / L16.G complete |
 | Host provider HTTP | Source scope complete: `9cea539f` retains mature curl through the owned Executor (11 actual checks: 5 executor, 6 provider; host daemon compiled; independent review passed), and `8026d9ac` declares curl in the generated host package inputs (two existing package-profile tests passed). No ureq cutover. Shipped-binary/RPM inventory, TLS and live provider qualification remain open; no installed-provider claim. | C / L10.N4 source complete; R04 qualification open |
