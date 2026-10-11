@@ -225,8 +225,11 @@ function ideaCorrectionField(view: IntentView, idea: ProductIdea) {
     ></textarea>
   </label>`;
 }
+function ideaSettled(idea: ProductIdea): boolean {
+  return idea.decision === 'accept' && idea.provenance === 'autonomous';
+}
 function productIdea(view: IntentView, idea: ProductIdea, challenged: Set<string>, referenced: Set<string>) {
-  const vote = !challenged.has(idea.id) && referenced.has(idea.id);
+  const vote = !ideaSettled(idea) && !challenged.has(idea.id) && referenced.has(idea.id);
   const basis = ideaBasis(idea);
   return html`<article>
     <h3>${idea.assumption ? 'Assumption' : 'Idea'}</h3>
