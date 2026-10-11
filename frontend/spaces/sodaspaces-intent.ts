@@ -1,4 +1,6 @@
 import {LitElement, html, css} from 'lit';
+import type {PropertyValues} from 'lit';
+import {object, check, SodaRequestError} from './sodaspaces-api.js';
 import {department, departments, intentRevision, newDecisionID} from './sodaspaces-intent-response.js';
 import type {Department, IntentRevision, ProductIdea} from './sodaspaces-intent-response.js';
 import {describeIntent, reviewIntent, departmentDialog, reviewReady} from './sodaspaces-intent-view.js';
@@ -9,6 +11,7 @@ export class SodaIntent extends LitElement {
   static properties = {
     api: {attribute: false},
     blocked: {type: Boolean},
+    active: {type: Boolean},
     objective: {state: true},
     department: {state: true},
     departments: {state: true},
@@ -35,6 +38,9 @@ export class SodaIntent extends LitElement {
     section {
       max-width: 720px;
       margin: auto;
+    }
+    .intent-review {
+      text-align: left;
     }
     .intent-entry {
       padding-block: clamp(1rem, 8vh, 6rem);
@@ -131,6 +137,7 @@ export class SodaIntent extends LitElement {
   `;
   declare api: IntentAPI | undefined;
   declare blocked: boolean;
+  declare active: boolean;
   declare objective: string;
   declare department: string;
   declare departments: Department[];
@@ -144,19 +151,23 @@ export class SodaIntent extends LitElement {
   declare maxIssues: number;
   declare planningCalls: number;
   private request: AbortController | undefined;
+  private departmentsLoaded = false;
+  generationNotice = '';
   constructor() {
     super();
     this.blocked = false;
+    this.active = false;
     this.objective = '';
     this.department = '';
     this.departments = [];
     this.busy = this.dirty = this.departmentDialog = false;
     this.error = this.departmentName = this.departmentDescription = '';
     this.maxIssues = 20;
-    this.planningCalls = 3;
+    this.planningCalls = 8;
   }
-  protected firstUpdated() {
-    void this.loadDepartments();
+  protected updated(changed: PropertyValues<this>) {
+    if (!changed.has('active') && !changed.has('blocked')) return;
+    if (this.active && !this.blocked && !this.departmentsLoaded) void this.loadDepartments();
   }
   disconnectedCallback() {
     this.request?.abort();
@@ -195,6 +206,7 @@ export class SodaIntent extends LitElement {
   private async loadDepartments() {
     await this.perform(async (signal) => {
       this.departments = departments(await this.call('/api/factory/departments', undefined, signal));
+      this.departmentsLoaded = true;
     });
   }
   private nextRevision(state: IntentRevision['state'], repository = '0'): IntentRevision {
@@ -213,6 +225,7 @@ export class SodaIntent extends LitElement {
     };
   }
   private currentProposal() {
+    if (this.objective.trim() !== this.revision?.objective) return {ideas: [], tasks: []};
     return {ideas: this.revision?.ideas || [], tasks: this.revision?.tasks || []};
   }
   private async save(state: IntentRevision['state'], repository: string, signal: AbortSignal) {
@@ -252,11 +265,23 @@ export class SodaIntent extends LitElement {
     });
   };
   async acceptRepository(repository: string): Promise<boolean> {
-    if (this.revision?.state === 'accepted' && this.revision.repository === repository) return true;
     if (!reviewReady(this.view())) return false;
     return this.perform(async (signal) => {
-      await this.save('accepted', repository, signal);
+      if (this.revision?.state !== 'accepted' || this.revision.repository !== repository)
+        await this.save('accepted', repository, signal);
+      await this.generate(signal);
     });
+  }
+  private async generate(signal: AbortSignal) {
+    const accepted = this.revision;
+    if (!accepted || accepted.state !== 'accepted') throw Error('Product direction not accepted');
+    try {
+      const generation = object(await this.call('/api/factory/intents/' + accepted.intent + '/generate', {}, signal));
+      check(generation.intent_id === accepted.intent && generation.revision_id === accepted.id);
+      this.generationNotice = generationMessage(generation.state);
+    } catch (error) {
+      this.generationNotice = generationFailure(error);
+    }
   }
   private continue = () => {
     if (reviewReady(this.view()))
@@ -329,6 +354,7 @@ export class SodaIntent extends LitElement {
       planningCalls: this.planningCalls,
       set: (field, value) => {
         this[field] = value;
+        if (field === 'objective' && this.revision) this.dirty = true;
       },
       setBound: (field, value) => {
         this[field] = value;
@@ -353,3 +379,16 @@ export class SodaIntent extends LitElement {
   }
 }
 customElements.define('soda-intent', SodaIntent);
+
+function generationMessage(state: unknown): string {
+  if (state === 'completed') return 'Factory work is created. Execution still needs its own access and finite funding.';
+  if (state === 'pending' || state === 'committed')
+    return 'Your product direction is saved. Factory is waiting for confirmation of the native work.';
+  check(state === 'refused');
+  return 'Your product direction is saved. Factory could not create the native work; an administrator must inspect the refusal.';
+}
+function generationFailure(error: unknown): string {
+  if (error instanceof SodaRequestError && error.code === 'native_graph_unavailable')
+    return 'Your product direction is saved. An administrator must enable native work creation before Factory can proceed.';
+  return 'Your product direction is saved. Native work creation could not be confirmed. Factory will inspect the original request before retrying.';
+}

@@ -1,5 +1,5 @@
 import {html} from 'lit';
-import {check, readSodaJSON} from './sodaspaces-api.js';
+import {check, object, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
 import {spacesResponse} from './sodaspaces-inventory-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
@@ -46,7 +46,16 @@ export async function readSpacesResponse(input: ReadSpacesInput, response: Respo
     input.invalidate();
     input.setReconnectRequired(response.status === 401);
   }
-  throw Error('Spaces request refused');
+  throw new SodaRequestError(response.status, await errorCode(response));
+}
+async function errorCode(response: Response): Promise<string | undefined> {
+  try {
+    const error = object(object(await readSodaJSON(response)).error);
+    if (typeof error.code === 'string' && /^[a-z_]{1,64}$/.test(error.code)) return error.code;
+  } catch {
+    // Empty, non-JSON and malformed failures retain only their HTTP status.
+  }
+  return undefined;
 }
 
 export interface ApiInput {

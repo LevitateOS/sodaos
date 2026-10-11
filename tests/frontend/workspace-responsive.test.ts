@@ -12,44 +12,28 @@ for (const viewport of [
     const page = await fixture(t, 'page', undefined, true);
     await page.setViewportSize(viewport);
     await page.evaluate(() => window.workspaceFixture.api.refresh());
-    await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
-    await page.evaluate(() => document.fonts.ready);
+    await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
     const surface = page.locator('.soda-workspace');
-    assert(await surface.evaluate((node) => node.scrollWidth <= node.clientWidth), 'welcome overflows horizontally');
-    await page.getByRole('heading', {name: 'Create your first project'}).focus();
+    assert(await surface.evaluate((node) => node.scrollWidth <= node.clientWidth), 'intent overflows horizontally');
+    await page.getByRole('heading', {name: 'What do you want to build?'}).focus();
     await page.keyboard.press('Tab');
-    assert.equal(
-      await page
-        .getByRole('button', {name: 'Create project', exact: true})
-        .evaluate((node) => node === document.activeElement),
-      true
-    );
-    await page.keyboard.press('Tab');
-    assert.equal(
-      await page
-        .getByRole('link', {name: /How human projects work/})
-        .evaluate((node) => node === document.activeElement),
-      true,
-      'hidden controls entered the tab order'
-    );
-    const footer = page.getByRole('list', {name: 'Getting started'});
-    await footer.scrollIntoViewIfNeeded();
-    const footerBox = await footer.boundingBox(),
-      surfaceBox = await surface.boundingBox();
-    assert(
-      footerBox &&
-        surfaceBox &&
-        footerBox.y >= surfaceBox.y &&
-        footerBox.y + footerBox.height <= surfaceBox.y + surfaceBox.height + 1,
-      'orientation footer cannot be reached'
-    );
-    await page.keyboard.press('Shift+Tab');
+    const description = page.getByLabel('Describe what you want to build', {exact: true});
+    assert(await description.evaluate((node) => node.matches(':focus')), 'description is the first keyboard action');
+    await description.fill('Build a leave tracker');
+    const action = page.getByRole('button', {name: 'Explore ideas', exact: true});
+    await action.scrollIntoViewIfNeeded();
+    const box = await action.boundingBox();
+    assert(box && box.y >= 0 && box.y + box.height <= viewport.height, 'planning action cannot be reached');
+    await action.focus();
     await page.keyboard.press('Enter');
-    await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+    await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
     assert.equal(
-      await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length),
-      0,
-      'welcome action created a resource'
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter((call) => call.method !== 'GET' && !call.path.includes('/api/factory/'))
+            .length
+      ),
+      0
     );
   });
 for (const viewport of [

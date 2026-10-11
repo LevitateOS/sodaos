@@ -50,6 +50,14 @@ export function createIntentModel() {
       revisions.set(revision.id, revision);
       return Response.json({...revision, owner: '1', created_unix: 1});
     }
+    if (path.includes('/api/factory/intents/') && path.endsWith('/generate') && body) {
+      const intentID = path.split('/').at(-2);
+      const accepted = [...revisions.values()]
+        .reverse()
+        .find((revision) => revision.intent === intentID && revision.state === 'accepted');
+      if (!accepted) return new Response(null, {status: 409});
+      return Response.json({intent_id: accepted.intent, revision_id: accepted.id, state: 'completed'});
+    }
     return undefined;
   };
 }

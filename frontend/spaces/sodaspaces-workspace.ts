@@ -115,6 +115,7 @@ const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u
 export class SodaSpaces extends LitElement {
   static properties = {
     setup: {state: true},
+    intentNotice: {state: true},
     project: {state: true},
     complete: {state: true},
     repositoryQuery: {state: true},
@@ -203,6 +204,7 @@ export class SodaSpaces extends LitElement {
   >();
   declare private project: string;
   declare private setup: 'intent' | 'repositories' | 'configure' | null;
+  declare private intentNotice: string;
   declare private complete: boolean;
   declare private repositoryQuery: string;
   declare private repositoryResult: RepositoryChoices | undefined;
@@ -244,7 +246,13 @@ export class SodaSpaces extends LitElement {
   constructor() {
     super();
     this.spaces = [];
-    this.project = this.repositoryQuery = this.repositoryChoice = this.repositoryError = this.nextAfter = '';
+    this.project =
+      this.repositoryQuery =
+      this.repositoryChoice =
+      this.repositoryError =
+      this.nextAfter =
+      this.intentNotice =
+        '';
     this.setup = null;
     this.complete = this.repositoryBusy = false;
     this.repositoryResult = undefined;
@@ -751,32 +759,33 @@ export class SodaSpaces extends LitElement {
     const bodyClass = workspaceBodyClass(this.view);
     const bodyStyle = workspaceBodyStyle(this.setupScreen, this.compact, this.layout.sidebar, this.view);
     return html`<div class="soda-workspace-frame">
-      ${topbar}
-      ${this.setupScreen ? renderSetup(this.setupReading(), this.setupActions(), this, () => this.setupReading()) : ''}
-      <div ?hidden=${bodyHidden} class=${bodyClass} style=${bodyStyle}>
-        ${this.renderNavigation()}
-        <div
-          class="soda-sidebar-divider"
-          role="separator"
-          tabindex="0"
-          aria-label="Resize project sidebar"
-          aria-orientation="vertical"
-          aria-valuemin="220"
-          aria-valuemax="360"
-          aria-valuenow=${this.layout.sidebar || 256}
-          ?hidden=${hideSidebarDivider(this.setupScreen, this.compact, this.view, this.layout.sidebar)}
-          @pointerdown=${this.onCapturePointer}
-          @pointermove=${this.onResizeSidebar}
-          @pointerup=${this.onReleasePointer}
-          @keydown=${this.onSidebarKey}
-        ></div>
-        <div class="soda-workspace-work">
-          ${this.renderPageToolbar()} ${this.renderCanvas()}
-          <div class="soda-workspace-management" ?hidden=${hideManagement(this.view, this.stale)}></div>
+        ${topbar}
+        ${this.setupScreen ? renderSetup(this.setupReading(), this.setupActions(), this, () => this.setupReading()) : ''}
+        <div ?hidden=${bodyHidden} class=${bodyClass} style=${bodyStyle}>
+          ${this.renderNavigation()}
+          <div
+            class="soda-sidebar-divider"
+            role="separator"
+            tabindex="0"
+            aria-label="Resize project sidebar"
+            aria-orientation="vertical"
+            aria-valuemin="220"
+            aria-valuemax="360"
+            aria-valuenow=${this.layout.sidebar || 256}
+            ?hidden=${hideSidebarDivider(this.setupScreen, this.compact, this.view, this.layout.sidebar)}
+            @pointerdown=${this.onCapturePointer}
+            @pointermove=${this.onResizeSidebar}
+            @pointerup=${this.onReleasePointer}
+            @keydown=${this.onSidebarKey}
+          ></div>
+          <div class="soda-workspace-work">
+            ${this.renderPageToolbar()} ${this.renderCanvas()}
+            <div class="soda-workspace-management" ?hidden=${hideManagement(this.view, this.stale)}></div>
+          </div>
         </div>
+        ${this.renderWelcomeFooter()}
       </div>
-      ${this.renderWelcomeFooter()}
-    </div>`;
+      ${this.setupScreen && this.intentNotice ? html`<p class="soda-feedback" role="status">${this.intentNotice}</p>` : ''}`;
   }
   protected render() {
     const heading = renderSetupHeading(this.setupScreen && !this.welcomeScreen && this.setup !== 'intent');
@@ -949,6 +958,9 @@ export class SodaSpaces extends LitElement {
       restoreFocus: () => this.restoreFocus(),
       showManagement: (repositoryId, mode) => {
         void this.showManagement(repositoryId, mode);
+      },
+      notifyFactory: (message) => {
+        this.intentNotice = message;
       },
       api: (path, body, signal) => this.api(path, body, signal),
     };

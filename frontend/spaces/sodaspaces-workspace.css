@@ -118,15 +118,8 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-setup-panel p, .soda-project-journey p { margin: 0 0 var(--soda-space-4); color: var(--soda-page-muted); }
 /* Selected welcome composition: one quiet illustration, one strong action. */
 .soda-workspace.is-welcome .soda-setup-welcome { display: flex; flex-direction: column; align-items: center; }
-.soda-welcome-illustration { display: block; width: clamp(64px, 7vw, 96px); height: auto; flex: 0 0 auto; margin-bottom: var(--soda-space-8); color: var(--soda-page-text); }
 .soda-welcome-outline { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
 .soda-welcome-accent { fill: var(--soda-button-primary-bg); }
-.soda-workspace .soda-setup-welcome .soda-welcome-copy { margin: 0; text-wrap: pretty; }
-.soda-welcome-copy span { display: block; }
-.soda-workspace .soda-setup-welcome > .ui.primary.button { display: inline-flex; align-items: center; justify-content: center; gap: var(--soda-space-3); min-width: 224px; max-width: 100%; min-height: calc(var(--soda-control-height) + var(--soda-space-2)) !important; margin-block: var(--soda-space-8) var(--soda-space-6); }
-.soda-workspace .soda-setup-welcome .soda-welcome-help { margin: 0; font: var(--soda-font-meta); }
-.soda-workspace .soda-welcome-help a { color: var(--soda-page-muted); text-underline-offset: .2em; }
-.soda-workspace .soda-welcome-help a:is(:hover, :focus-visible) { color: var(--soda-page-text); }
 .soda-workspace.is-setup .soda-welcome-steps { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--soda-space-6) var(--soda-space-8); list-style: none; margin-inline: var(--soda-spaces-panel-inset); padding-inline: 0; font: var(--soda-font-button); }
 .soda-welcome-steps li { display: flex; align-items: baseline; gap: var(--soda-space-3); }
 .soda-welcome-steps li > span { color: var(--soda-page-muted); }

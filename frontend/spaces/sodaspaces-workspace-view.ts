@@ -1,31 +1,6 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
 
-/** Welcome artwork is decorative, theme-bound vector geometry, not a control. */
-export function renderWelcome(blocked: boolean, create: () => void) {
-  return html` <svg class="soda-welcome-illustration" viewBox="0 0 112 112" aria-hidden="true" focusable="false">
-      <path class="soda-welcome-accent" d="M79 19 102 32 79 45 56 32Z"></path>
-      <path class="soda-welcome-outline" d="M56 6 102 32V80L56 106 10 80V32ZM10 32 56 58 102 32M56 58V106"></path>
-    </svg>
-    <h2 tabindex="-1">Create your first project</h2>
-    <p class="soda-welcome-copy">
-      <span>A persistent human project, connected to your repository.</span
-      ><span>Develop, debug and intervene alongside factory work using browser terminals or SSH.</span>
-    </p>
-    <button class="ui primary button" ?disabled=${blocked} @click=${create}>
-      <span aria-hidden="true">＋</span> Create project
-    </button>
-    <p class="soda-welcome-help">
-      <a
-        href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md"
-        target="_blank"
-        rel="noopener noreferrer"
-        >How human projects work <span aria-hidden="true">↗</span
-        ><span class="soda-visually-hidden"> (opens in a new tab)</span></a
-      >
-    </p>`;
-}
-
 /** The two post-creation prompts share one composition and illustration area. */
 export function renderWorkspaceIntro(view: {
   kind: 'project' | 'terminal' | 'unavailable' | 'stopped' | 'loading';

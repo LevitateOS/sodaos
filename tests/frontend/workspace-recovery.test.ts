@@ -26,7 +26,13 @@ for (const state of ['missing-observation', 'native-unavailable', 'authority-una
     assert.equal(await page.locator('.soda-project-state').innerText(), 'Status unavailable');
     assert.equal(await page.locator('.soda-project-status').innerText(), 'Status unavailable');
     assert.equal(await page.getByRole('heading', {name: 'Open your first terminal'}).count(), 0);
-    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+      ),
+      1
+    );
   });
 for (const [code, message] of [
   ['account_incomplete', 'Ask your Soda administrator to check the account setup'],
@@ -57,7 +63,10 @@ for (const [code, message] of [
       await page.getByRole('button', {name: 'Check join status', exact: true}).click();
       await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
       assert.equal(
-        await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length),
+        await page.evaluate(
+          () =>
+            window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+        ),
         2
       );
       assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
@@ -65,12 +74,24 @@ for (const [code, message] of [
     }
     await page.getByRole('button', {name: 'Check join status', exact: true}).click();
     await page.getByText('You haven’t joined this project yet.').waitFor();
-    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 2);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+      ),
+      2
+    );
     await page.evaluate(() => window.workspaceFixture.setJoinFailure(false));
     await page.getByRole('button', {name: 'Try joining again', exact: true}).click();
     await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
     assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
-    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 3);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+      ),
+      3
+    );
   });
 test('first use: incomplete and failed inventories never render guessed welcome', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
@@ -78,13 +99,13 @@ test('first use: incomplete and failed inventories never render guessed welcome'
     window.workspaceFixture.setComplete(false);
     await window.workspaceFixture.api.refresh();
   });
-  assert.equal(await page.getByRole('heading', {name: 'Create your first project'}).count(), 0);
+  assert.equal(await page.getByRole('heading', {name: 'What do you want to build?'}).count(), 0);
   await page.getByRole('heading', {name: 'Could not load projects'}).waitFor();
   await page.evaluate(async () => {
     window.workspaceFixture.setStatus(503);
     await window.workspaceFixture.api.refresh();
   });
-  assert.equal(await page.getByRole('heading', {name: 'Create your first project'}).count(), 0);
+  assert.equal(await page.getByRole('heading', {name: 'What do you want to build?'}).count(), 0);
 });
 test('departure during authorization cannot dispatch a late collection read', async (t) => {
   const page = await fixture(t);
@@ -138,22 +159,7 @@ for (const theme of ['light', 'dark'])
       assert.equal(await page.locator('.soda-workspace').getByRole('button').count(), 0);
       await captureSpacesComponent(page, `loading-${theme}-${width}`);
       await page.evaluate(() => window.dispatchEvent(new Event('release-inventory')));
-      await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
-      const primary = page.getByRole('button', {name: 'Create project', exact: true});
-      await primary.hover();
-      assert(
-        await primary.evaluate((node) => {
-          const probe = document.createElement('span');
-          probe.style.color = 'var(--soda-button-primary-hover)';
-          node.append(probe);
-          const match = getComputedStyle(node).backgroundColor === getComputedStyle(probe).color;
-          probe.remove();
-          return match;
-        })
-      );
-      await primary.click();
-      await page.getByRole('button', {name: 'Back', exact: true}).click();
-      await page.waitForFunction(() => document.activeElement?.textContent?.includes('Create project'));
+      await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
       await chooseFirstRepository(page);
       await page.getByRole('button', {name: 'Create project', exact: true}).click();
       await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
@@ -181,7 +187,10 @@ for (const theme of ['light', 'dark'])
       await page.getByRole('heading', {name: 'Couldn’t join project'}).waitFor();
       await captureSpacesComponent(page, `join-error-${theme}-${width}`);
       assert.equal(
-        await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length),
+        await page.evaluate(
+          () =>
+            window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+        ),
         2
       );
       assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
@@ -199,7 +208,13 @@ for (const status of [401, 403])
     await page.getByRole('heading', {name: 'Project access changed'}).waitFor();
     assert.equal(await page.getByRole('heading', {name: 'Configure project', exact: true}).count(), 0);
     assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).isEnabled(), true);
-    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+      ),
+      1
+    );
     await captureSpacesComponent(page, status === 401 ? 'project-reconnect' : 'project-access-changed');
   });
 test('terminal handshake with a mismatched native generation is refused without attaching', async (t) => {
@@ -263,5 +278,10 @@ test('partial project list explains missing items and retries reads without repl
   await page.locator('#sodaspaces-status').waitFor({state: 'hidden'});
   assert(await terminal?.evaluate((node) => node.isConnected));
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((c) => c.method !== 'GET' && !c.path.includes('/api/factory/')).length
+    ),
+    0
+  );
 });

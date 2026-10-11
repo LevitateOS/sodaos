@@ -34,7 +34,7 @@ function input(event: Event): string {
 }
 function bounds(view: IntentView) {
   return html`<details class="bounds">
-    <summary>Planning limits</summary>
+    <summary>Planning limits: ${view.planningCalls} calls</summary>
     <label
       >Maximum work items<input
         type="number"
@@ -136,7 +136,15 @@ export function reviewIntent(view: IntentView) {
   if (!revision) return '';
   return html`<section class="intent-review">
     <h2 tabindex="-1">Review your product direction</h2>
-    <p>${revision.objective}</p>
+    <label
+      >Desired outcome<textarea
+        rows="3"
+        maxlength="16000"
+        .value=${view.objective}
+        ?disabled=${view.busy || view.blocked}
+        @input=${(event: Event) => view.set('objective', input(event))}
+      ></textarea>
+    </label>
     <p>Choose the ideas and assumptions that match what you want. Changes update the proposal before you continue.</p>
     ${revision.ideas.map((idea) => productIdea(view, idea))}
     <button ?disabled=${view.busy || view.blocked || !view.dirty} @click=${view.revise}>Update proposal</button>

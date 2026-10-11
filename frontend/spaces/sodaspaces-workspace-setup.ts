@@ -106,6 +106,7 @@ export interface SetupActions {
   rememberFocus(): void;
   restoreFocus(): void;
   showManagement(repositoryId: string, mode: 'standard' | 'journey' | 'settings'): void;
+  notifyFactory(message: string): void;
   api(path: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
 }
 
@@ -182,7 +183,8 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
     <div class=${formClass}>
       <soda-intent
         .api=${actions.api}
-        .blocked=${blocked || !reading.activeSurface}
+        .blocked=${blocked || !reading.activeSurface || !reading.available}
+        .active=${reading.welcomeScreen || reading.setup === 'intent'}
         ?hidden=${!reading.welcomeScreen && reading.setup !== 'intent'}
         @intent-reviewed=${() => chooseIntentRepository(read(), actions, host)}
       ></soda-intent>
@@ -200,6 +202,7 @@ export function focusSetupPanel(host: SetupHost, isStale: () => boolean, isActiv
 
 export function beginSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.available || !reading.canRestore || !reading.activeSurface) return;
+  actions.notifyFactory('');
   actions.rememberFocus();
   actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
   actions.setSetup('intent');
@@ -222,6 +225,7 @@ export function changeRepository(reading: SetupReading, actions: SetupActions, h
 
 export function cancelSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore) return;
+  actions.notifyFactory('');
   host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.currentRepositoryRequest()?.abort();
   actions.admitRepositoryRequest(undefined);
@@ -304,6 +308,7 @@ export async function configureProject(reading: SetupReading, actions: SetupActi
     return;
   }
   if (actions.isStale() || !actions.isActiveSurface()) return;
+  actions.notifyFactory(intent.generationNotice);
   actions.setSetup('configure');
   void actions.showManagement(choice.id, 'journey');
 }
