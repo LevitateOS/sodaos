@@ -17,6 +17,10 @@ func TestIntentGenerationPinsParentBeforeEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "graph-op-1", ActorID: 9, NativeRev: 1, AuthRevision: r.ID, NotAfter: 10, Payload: json.RawMessage(`{"creates":[]}`), IntentDigest: r.Digest(), State: "pending"}
+	if s.BeginIntentGeneration(ctx, g) == nil {
+		t.Fatal("generation without submitted tasks accepted")
+	}
+	g.SubmittedTasks = append([]factory.IntentTask(nil), r.Tasks...)
 	if err := s.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}

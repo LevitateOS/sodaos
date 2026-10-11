@@ -271,7 +271,7 @@ func TestIntentGraphInterruptedNativeResponseReusesStoredOperation(t *testing.T)
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(p)
-	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 10, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, IntentDigest: r.Digest(), State: "pending"}
+	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 10, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, SubmittedTasks: append([]factory.IntentTask(nil), r.Tasks...), IntentDigest: r.Digest(), State: "pending"}
 	if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +390,7 @@ func TestIntentGraphStaleDurablePacketCancelsBeforeNativeEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(p)
-	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 9, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, IntentDigest: r.Digest(), State: "pending"}
+	g := factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: 91, NativeRev: 9, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(time.Minute).Unix(), Payload: raw, SubmittedTasks: append([]factory.IntentTask(nil), r.Tasks...), IntentDigest: r.Digest(), State: "pending"}
 	if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 		t.Fatal(err)
 	}

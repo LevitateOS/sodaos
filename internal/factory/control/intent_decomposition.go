@@ -16,32 +16,41 @@ import (
 // prepareIntentGraph expresses a reviewed decomposition change through the
 // existing native issue owner. Reused keys retain issue IDs and history;
 // retired tasks receive a visible supersession note without closing them.
-func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRevision, revision int64) (sdk.IssueGraphPayload, map[string]int64, error) {
+// It returns the submitted task graph alongside the payload; callers persist
+// it on the generation record so adoption and later deltas bind submitted
+// truth rather than re-deriving it.
+func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRevision, revision int64) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, error) {
 	previous, err := c.Store.PreviousGeneratedIntent(ctx, r.Intent, r.ID)
 	if errors.Is(err, store.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
 		if e := c.AdviseIntentDecomposition(ctx, r, nil); e != nil {
-			return sdk.IssueGraphPayload{}, nil, e
+			return sdk.IssueGraphPayload{}, nil, nil, e
 		}
 		p, e := IntentGraphPayload(r)
-		return p, nil, e
+		if e != nil {
+			return sdk.IssueGraphPayload{}, nil, nil, e
+		}
+		return p, nil, append([]factory.IntentTask(nil), r.Tasks...), nil
 	}
 	if err != nil {
-		return sdk.IssueGraphPayload{}, nil, err
+		return sdk.IssueGraphPayload{}, nil, nil, err
 	}
 	if err = c.AdviseIntentDecomposition(ctx, r, &previous); err != nil {
-		return sdk.IssueGraphPayload{}, nil, err
+		return sdk.IssueGraphPayload{}, nil, nil, err
 	}
 	generation, err := c.Store.IntentGeneration(ctx, previous.ID)
 	if err != nil {
-		return sdk.IssueGraphPayload{}, nil, err
+		return sdk.IssueGraphPayload{}, nil, nil, err
+	}
+	if len(generation.SubmittedTasks) == 0 {
+		return sdk.IssueGraphPayload{}, nil, nil, errors.New("previous generation predates submitted-task records")
 	}
 	var receipt sdk.IssueGraphReceipt
 	if json.Unmarshal(generation.Receipt, &receipt) != nil || receipt.ActorID != generation.ActorID || receipt.RepositoryID != r.Repository {
-		return sdk.IssueGraphPayload{}, nil, errors.New("previous graph receipt is unavailable")
+		return sdk.IssueGraphPayload{}, nil, nil, errors.New("previous graph receipt is unavailable")
 	}
-	oldIssues, err := intentReceiptIssues(previous, generation, receipt)
+	oldIssues, err := intentReceiptIssues(generation.SubmittedTasks, generation, receipt)
 	if err != nil {
-		return sdk.IssueGraphPayload{}, nil, err
+		return sdk.IssueGraphPayload{}, nil, nil, err
 	}
 	current := map[string]factory.IntentTask{}
 	for _, task := range r.Tasks {
@@ -61,18 +70,18 @@ func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRe
 	}
 	type edge struct{ a, b int64 }
 	oldEdges := map[edge]bool{}
-	for _, task := range previous.Tasks {
+	for _, task := range generation.SubmittedTasks {
 		entry := oldIssues[task.Key]
 		native, nativeRev, e := c.Graph.ReadGeneratedIssue(ctx, r.Repository, entry.IssueIndex, generation.ActorID)
 		if e != nil {
-			return p, nil, e
+			return p, nil, nil, e
 		}
 		if nativeRev != revision {
-			return p, nil, refuseAcceptance(RefusalStaleEvidence)
+			return p, nil, nil, refuseAcceptance(RefusalStaleEvidence)
 		}
 		issue := native.Issue
 		if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsClosed || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) || issue.Content != intentTaskBody(previous, task) || issue.Title != intentTaskTitle(task) || issue.ContentVersion != entry.ContentVersion {
-			return p, nil, refuseAcceptance(RefusalObjectiveChanged)
+			return p, nil, nil, refuseAcceptance(RefusalObjectiveChanged)
 		}
 		title, body := issue.Title, issue.Content+"\nSuperseded by accepted product revision: "+r.ID+"\nThis task is retained as history and grants no current generated-work authority.\n"
 		if next, ok := current[task.Key]; ok {
@@ -81,7 +90,7 @@ func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRe
 		}
 		p.Edits = append(p.Edits, sdk.IssueGraphEdit{IssueID: entry.IssueID, ExpectedTitle: issue.Title, ExpectedBody: issue.Content, ExpectedContentVersion: issue.ContentVersion, Title: title, Body: body})
 		if native.Dependencies == nil || !native.Dependencies.Complete || len(native.Dependencies.Items) != len(task.DependsOn) {
-			return p, nil, refuseAcceptance(RefusalEdgeChanged)
+			return p, nil, nil, refuseAcceptance(RefusalEdgeChanged)
 		}
 		expected := map[int64]bool{}
 		for _, dep := range task.DependsOn {
@@ -90,13 +99,13 @@ func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRe
 		for _, d := range native.Dependencies.Items {
 			dep, e := strconv.ParseInt(d.DependencyID, 10, 64)
 			if e != nil || !d.Visible || !d.Complete || !expected[dep] {
-				return p, nil, refuseAcceptance(RefusalEdgeChanged)
+				return p, nil, nil, refuseAcceptance(RefusalEdgeChanged)
 			}
 			delete(expected, dep)
 			oldEdges[edge{entry.IssueID, dep}] = true
 		}
 		if len(expected) > 0 {
-			return p, nil, refuseAcceptance(RefusalEdgeChanged)
+			return p, nil, nil, refuseAcceptance(RefusalEdgeChanged)
 		}
 	}
 	retained := map[edge]bool{}
@@ -113,7 +122,7 @@ func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRe
 	}
 	// Stable order follows the previous task/dependency order; the immutable
 	// packet is deterministic even though membership checks use maps.
-	for _, task := range previous.Tasks {
+	for _, task := range generation.SubmittedTasks {
 		for _, dep := range task.DependsOn {
 			key := edge{oldIssues[task.Key].IssueID, oldIssues[dep].IssueID}
 			if !retained[key] {
@@ -122,12 +131,12 @@ func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRe
 		}
 	}
 	if err = sdk.ValidateIssueGraphPayload(p); err != nil {
-		return p, nil, fmt.Errorf("accepted decomposition exceeds native packet bounds: %w", err)
+		return p, nil, nil, fmt.Errorf("accepted decomposition exceeds native packet bounds: %w", err)
 	}
-	return p, ids, nil
+	return p, ids, append([]factory.IntentTask(nil), r.Tasks...), nil
 }
 
-func intentReceiptIssues(r factory.IntentRevision, g factory.IntentGeneration, receipt sdk.IssueGraphReceipt) (map[string]sdk.IssueGraphIssueReceipt, error) {
+func intentReceiptIssues(tasks []factory.IntentTask, g factory.IntentGeneration, receipt sdk.IssueGraphReceipt) (map[string]sdk.IssueGraphIssueReceipt, error) {
 	issues := map[string]sdk.IssueGraphIssueReceipt{}
 	byID := map[int64]sdk.IssueGraphIssueReceipt{}
 	for _, entry := range receipt.Issues {
@@ -149,12 +158,12 @@ func intentReceiptIssues(r factory.IntentRevision, g factory.IntentGeneration, r
 		}
 		issues[key] = entry
 	}
-	if len(issues) != len(r.Tasks) {
-		return nil, errors.New("native graph receipt does not bind accepted tasks")
+	if len(issues) != len(tasks) {
+		return nil, errors.New("native graph receipt does not bind submitted tasks")
 	}
-	for _, task := range r.Tasks {
+	for _, task := range tasks {
 		if issues[task.Key].IssueID == 0 {
-			return nil, errors.New("native graph receipt missing accepted task")
+			return nil, errors.New("native graph receipt missing submitted task")
 		}
 	}
 	return issues, nil
