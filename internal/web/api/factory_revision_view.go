@@ -35,13 +35,14 @@ type revisionTaskChangeView struct {
 }
 
 // revisionTaskDiffView renders the structural task difference between
-// two durable revisions. Task keys are the stable identity; bodies
+// two durable revisions: reused and changed keys in old task order,
+// added bodies in new order. Task keys are the stable identity; bodies
 // come from the compared revisions, never a speculative graph.
 type revisionTaskDiffView struct {
-	Added          []factory.IntentTask     `json:"added"`
-	Removed        []factory.IntentTask     `json:"removed"`
-	Changed        []revisionTaskChangeView `json:"changed"`
-	UnchangedCount int                      `json:"unchanged_count"`
+	Added   []factory.IntentTask     `json:"added"`
+	Removed []factory.IntentTask     `json:"removed"`
+	Changed []revisionTaskChangeView `json:"changed"`
+	Reused  []string                 `json:"reused"`
 }
 
 func revisionTaskChangedFields(old, current factory.IntentTask) []string {
@@ -79,39 +80,66 @@ func sameRevisionIDs(old, current []string) bool {
 }
 
 func revisionTaskDiff(old, current []factory.IntentTask) revisionTaskDiffView {
-	diff := revisionTaskDiffView{Added: []factory.IntentTask{}, Removed: []factory.IntentTask{}, Changed: []revisionTaskChangeView{}}
+	diff := revisionTaskDiffView{Added: []factory.IntentTask{}, Removed: []factory.IntentTask{}, Changed: []revisionTaskChangeView{}, Reused: []string{}}
 	previous := make(map[string]factory.IntentTask, len(old))
 	for _, task := range old {
 		previous[task.Key] = task
 	}
-	seen := make(map[string]bool, len(current))
+	now := make(map[string]factory.IntentTask, len(current))
 	for _, task := range current {
-		seen[task.Key] = true
-		before, ok := previous[task.Key]
-		if !ok {
+		now[task.Key] = task
+		if _, ok := previous[task.Key]; !ok {
 			diff.Added = append(diff.Added, task)
+		}
+	}
+	for _, task := range old {
+		next, ok := now[task.Key]
+		if !ok {
+			diff.Removed = append(diff.Removed, task)
 			continue
 		}
-		fields := revisionTaskChangedFields(before, task)
+		fields := revisionTaskChangedFields(task, next)
 		if len(fields) == 0 {
-			diff.UnchangedCount++
+			diff.Reused = append(diff.Reused, task.Key)
 			continue
 		}
 		change := revisionTaskChangeView{ChangedFields: fields, Key: task.Key}
 		if slices.Contains(fields, "objective") {
-			change.OldObjective, change.NewObjective = before.Objective, task.Objective
+			change.OldObjective, change.NewObjective = task.Objective, next.Objective
 		}
 		if slices.Contains(fields, "outcomes") {
-			change.OldOutcomes, change.NewOutcomes = before.Outcomes, task.Outcomes
+			change.OldOutcomes, change.NewOutcomes = task.Outcomes, next.Outcomes
 		}
 		diff.Changed = append(diff.Changed, change)
 	}
+	return diff
+}
+
+// revisionEdgesChanged reports whether the task dependency edge set
+// differs between two durable revisions: a shared task's dependency
+// set changed, or an added/removed task carried incident edges.
+func revisionEdgesChanged(old, current []factory.IntentTask) bool {
+	previous := make(map[string]factory.IntentTask, len(old))
 	for _, task := range old {
-		if !seen[task.Key] {
-			diff.Removed = append(diff.Removed, task)
+		previous[task.Key] = task
+	}
+	now := make(map[string]factory.IntentTask, len(current))
+	for _, task := range current {
+		now[task.Key] = task
+		if before, ok := previous[task.Key]; !ok {
+			if len(task.DependsOn) > 0 {
+				return true
+			}
+		} else if !sameRevisionIDs(before.DependsOn, task.DependsOn) {
+			return true
 		}
 	}
-	return diff
+	for _, task := range old {
+		if _, ok := now[task.Key]; !ok && len(task.DependsOn) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // revisionIdeaChangeView renders one idea's decision transition between
@@ -200,18 +228,20 @@ type revisionScalarChangeView struct {
 // outcomes and bound context. The first revision renders initial with
 // empty diffs instead of comparing against nothing.
 type revisionComparisonView struct {
-	Tasks      revisionTaskDiffView      `json:"tasks"`
-	Ideas      revisionIdeaDiffView      `json:"ideas"`
-	Effective  revisionIDDiffView        `json:"effective_outcomes"`
-	Repository *revisionScalarChangeView `json:"repository_change,omitempty"`
-	State      *revisionScalarChangeView `json:"state_change,omitempty"`
-	Initial    bool                      `json:"initial,omitempty"`
+	Tasks        revisionTaskDiffView      `json:"tasks"`
+	Ideas        revisionIdeaDiffView      `json:"ideas"`
+	Effective    revisionIDDiffView        `json:"effective_outcomes"`
+	Repository   *revisionScalarChangeView `json:"repository_change,omitempty"`
+	State        *revisionScalarChangeView `json:"state_change,omitempty"`
+	Initial      bool                      `json:"initial,omitempty"`
+	EdgesChanged bool                      `json:"edges_changed"`
 }
 
 func revisionComparisonDTO(old, current factory.IntentRevision) revisionComparisonView {
 	diff := revisionComparisonView{
 		Tasks: revisionTaskDiff(old.Tasks, current.Tasks), Ideas: revisionIdeaDiff(old.Ideas, current.Ideas),
-		Effective: revisionIDDiff(old.EffectiveOutcomes, current.EffectiveOutcomes),
+		Effective:    revisionIDDiff(old.EffectiveOutcomes, current.EffectiveOutcomes),
+		EdgesChanged: revisionEdgesChanged(old.Tasks, current.Tasks),
 	}
 	if old.Repository != current.Repository {
 		diff.Repository = &revisionScalarChangeView{From: strconv.FormatInt(old.Repository, 10), To: strconv.FormatInt(current.Repository, 10)}
@@ -239,14 +269,15 @@ const (
 )
 
 // revisionWorkView renders one revision's mapped work item with its
-// current evidenced state and authority freshness. States reuse the
-// request-overview vocabulary; canceled or fenced work reports
-// attention, never delivered.
+// content version, current evidenced state and authority freshness.
+// States reuse the request-overview vocabulary; canceled or fenced work
+// reports attention, never delivered.
 type revisionWorkView struct {
-	TaskKey   string `json:"task_key"`
-	Issue     string `json:"issue_index"`
-	State     string `json:"state"`
-	Authority string `json:"authority"`
+	TaskKey        string `json:"task_key"`
+	Issue          string `json:"issue_index"`
+	State          string `json:"state"`
+	Authority      string `json:"authority"`
+	ContentVersion int    `json:"content_version"`
 }
 
 // revisionEntryView renders one scope revision: its identity, lineage,
@@ -388,7 +419,7 @@ func (s *API) revisionEntryWork(w http.ResponseWriter, r *http.Request, entry *r
 		}
 		entry.Work = append(entry.Work, revisionWorkView{
 			TaskKey: binding.TaskKey, Issue: strconv.FormatInt(binding.IssueIndex, 10),
-			State: state, Authority: authority,
+			State: state, Authority: authority, ContentVersion: binding.ContentVersion,
 		})
 	}
 	return true
