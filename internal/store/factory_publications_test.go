@@ -45,7 +45,7 @@ func publicationStoreFixture(t *testing.T) *Store {
 	if err := db.AdmitApprovalDecision(ctx, project.ApprovalDecision{ID: approvalID, Project: projectID, Requirement: requirementID, Approver: 7, EffectsDigest: strings.Repeat("a", 64), ReadinessDigest: strings.Repeat("b", 64), Verified: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AdmitAcceptanceDecision(ctx, factory.Acceptance{ID: "d" + strings.Repeat("a", 24), Repository: 7, IssueIndex: "3", Approver: 7, NativeRev: 9, TitleDigest: strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64)}); err != nil {
+	if err := db.AdmitAcceptanceDecision(ctx, factory.Acceptance{ID: "d" + strings.Repeat("a", 24), Repository: 7, IssueIndex: "3", Approver: 7, NativeRev: 9, TitleDigest: strings.Repeat("a", 64), TitleOccurrence: "original", ContentDigest: strings.Repeat("b", 64)}); err != nil {
 		t.Fatal(err)
 	}
 	return db

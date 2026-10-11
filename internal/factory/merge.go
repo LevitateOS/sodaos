@@ -93,37 +93,39 @@ func MergeResolution(reason string) string {
 // confirmed completion once native bookkeeping proves the outcome.
 // Finished work is terminal and keeps its receipts for inspection.
 type Merge struct {
-	WithdrawRequested bool           `json:"withdraw_requested,omitempty"`
-	Operation         MergeOperation `json:"operation"`
-	Authority         AuthorityRef   `json:"authority"`
-	ID                string         `json:"id"`
-	PublicationID     string         `json:"publication_id"`
-	AssignmentID      string         `json:"assignment_id"`
-	ProjectID         string         `json:"project_id"`
-	Role              string         `json:"role"`
-	Acceptance        string         `json:"acceptance"`
-	HeadRef           string         `json:"head_ref"`
-	BaseRef           string         `json:"base_ref"`
-	HeadOID           string         `json:"head_oid"`
-	BaseOID           string         `json:"base_oid"`
-	MergedCommit      string         `json:"merged_commit,omitempty"`
-	Stage             string         `json:"stage"`
-	Outcome           Outcome        `json:"outcome,omitempty"`
-	Reason            string         `json:"reason,omitempty"`
-	Repository        int64          `json:"repository,string"`
-	Issue             int64          `json:"issue,string"`
-	PRNumber          int64          `json:"pr_number"`
-	PRID              int64          `json:"pr_id"`
-	IssueID           int64          `json:"issue_id"`
-	PRAuthorID        int64          `json:"pr_author_id"`
-	ReviewerID        int64          `json:"reviewer_id"`
-	Revision          int64          `json:"revision"`
-	NativeRev         int64          `json:"native_revision"`
-	CreatedUnix       int64          `json:"created_unix"`
-	ObservedUnix      int64          `json:"observed_unix,omitempty"`
-	FinishedUnix      int64          `json:"finished_unix,omitempty"`
-	MergedUnix        int64          `json:"merged_unix,omitempty"`
-	ClosedUnix        int64          `json:"closed_unix,omitempty"`
+	WithdrawRequested         bool           `json:"withdraw_requested,omitempty"`
+	Operation                 MergeOperation `json:"operation"`
+	Authority                 AuthorityRef   `json:"authority"`
+	ID                        string         `json:"id"`
+	PublicationID             string         `json:"publication_id"`
+	AssignmentID              string         `json:"assignment_id"`
+	ProjectID                 string         `json:"project_id"`
+	Role                      string         `json:"role"`
+	Acceptance                string         `json:"acceptance"`
+	HeadRef                   string         `json:"head_ref"`
+	BaseRef                   string         `json:"base_ref"`
+	HeadOID                   string         `json:"head_oid"`
+	BaseOID                   string         `json:"base_oid"`
+	MergedCommit              string         `json:"merged_commit,omitempty"`
+	Stage                     string         `json:"stage"`
+	Outcome                   Outcome        `json:"outcome,omitempty"`
+	Reason                    string         `json:"reason,omitempty"`
+	Repository                int64          `json:"repository,string"`
+	Issue                     int64          `json:"issue,string"`
+	PRNumber                  int64          `json:"pr_number"`
+	PRID                      int64          `json:"pr_id"`
+	IssueID                   int64          `json:"issue_id"`
+	PRAuthorID                int64          `json:"pr_author_id"`
+	ReviewerID                int64          `json:"reviewer_id"`
+	Revision                  int64          `json:"revision"`
+	NativeRev                 int64          `json:"native_revision"`
+	CreatedUnix               int64          `json:"created_unix"`
+	ObservedUnix              int64          `json:"observed_unix,omitempty"`
+	FinishedUnix              int64          `json:"finished_unix,omitempty"`
+	MergedUnix                int64          `json:"merged_unix,omitempty"`
+	ClosedUnix                int64          `json:"closed_unix,omitempty"`
+	OriginalClosingOccurrence string         `json:"original_closing_occurrence,omitempty"`
+	OriginalClosedUnix        int64          `json:"original_closed_unix,omitempty"`
 }
 
 // Validate rejects malformed merges. Open work carries no outcome;
@@ -158,7 +160,7 @@ func (m Merge) Validate() error {
 	if m.NativeRev < 0 || (m.NativeRev == 0) != (m.ObservedUnix == 0) {
 		return errors.New("invalid merge observation binding")
 	}
-	if m.ObservedUnix < 0 || m.CreatedUnix <= 0 || m.MergedUnix < 0 || m.ClosedUnix < 0 {
+	if m.ObservedUnix < 0 || m.CreatedUnix <= 0 || m.MergedUnix < 0 || m.ClosedUnix < 0 || m.OriginalClosedUnix < 0 {
 		return errors.New("invalid merge time")
 	}
 	if err := m.Operation.Validate(); err != nil {
@@ -175,7 +177,7 @@ func (m Merge) Validate() error {
 	}
 	switch m.Stage {
 	case MergeOpen:
-		if m.Outcome != "" || m.Reason != "" || m.FinishedUnix != 0 || m.MergedCommit != "" || m.MergedUnix != 0 || m.ClosedUnix != 0 {
+		if m.Outcome != "" || m.Reason != "" || m.FinishedUnix != 0 || m.MergedCommit != "" || m.MergedUnix != 0 || m.ClosedUnix != 0 || m.OriginalClosingOccurrence != "" || m.OriginalClosedUnix != 0 {
 			return errors.New("open merge carries no outcome")
 		}
 	case MergeMerged:
@@ -187,6 +189,9 @@ func (m Merge) Validate() error {
 		}
 		if m.Operation.MergedCommit != m.HeadOID || m.MergedCommit != m.HeadOID || m.MergedUnix <= 0 || m.ClosedUnix <= 0 {
 			return errors.New("merged merge lacks its confirmed completion")
+		}
+		if !ValidNativeOccurrence(m.OriginalClosingOccurrence) || m.OriginalClosedUnix <= 0 {
+			return errors.New("merged merge lacks its original issue closure")
 		}
 		if m.Operation.PRNumber != m.PRNumber || m.Operation.PRID != m.PRID || m.Operation.IssueID != m.IssueID {
 			return errors.New("merged PR is not the recorded merge effect")

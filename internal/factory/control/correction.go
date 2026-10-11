@@ -183,7 +183,7 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 		// The PR title/body stay the linked PR's own: a correction moves
 		// the branch, never the recorded PR description.
 		PRTitle:    factory.PRTitleFor(a.Issue),
-		PRBody:     factory.PRBodyFor(a.ID, a.Acceptance, a.Run, p.Candidate, a.SourceCommit),
+		PRBody:     factory.PRBodyFor(a.Issue, a.ID, a.Acceptance, a.Run, p.Candidate, a.SourceCommit),
 		Repository: p.Repository, Issue: p.Issue, ActorID: policy.Publish.ActorID,
 		CorrectionNumber: p.PRNumber, CorrectionAuthor: p.PRCreate.Work.ActorID,
 	}

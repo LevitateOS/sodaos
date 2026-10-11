@@ -161,9 +161,13 @@ func PRTitleFor(issue int64) string {
 
 // PRBodyFor derives the deterministic attributable PR body: the exact
 // bound references behind the candidate.
-func PRBodyFor(assignmentID, acceptance, runID, candidate, source string) string {
+func PRBodyFor(issue int64, assignmentID, acceptance, runID, candidate, source string) string {
+	if issue <= 0 {
+		return ""
+	}
 	var b strings.Builder
 	b.WriteString("Automated factory publication.\n\n")
+	b.WriteString(fmt.Sprintf("Closes #%d\n\n", issue))
 	b.WriteString("Assignment: " + assignmentID + "\n")
 	b.WriteString("Acceptance: " + acceptance + "\n")
 	b.WriteString("Run: " + runID + "\n")

@@ -82,17 +82,24 @@ type completionReviewer struct {
 
 type completionInputs struct {
 	progressInputs
-	mu     sync.Mutex
-	closed atomic.Int64
+	mu        sync.Mutex
+	merged    atomic.Bool
+	closed    atomic.Int64
+	closing   atomic.Int64
+	lifecycle atomic.Int64
 }
 
 func (r *completionInputs) ReadAcceptanceEvidence(ctx context.Context, repository, issue string, comments []string) (AcceptanceEvidence, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	evidence, err := r.progressInputs.ReadAcceptanceEvidence(ctx, repository, issue, comments)
-	if issue == "31" && r.closed.Load() > 0 {
-		evidence.Issue.Closed, evidence.Issue.ClosedUnix = true, r.closed.Load()
-		evidence.Issue.ClosingOccurrence, evidence.Issue.LifecycleOccurrence = "501", "501"
+	if issue == "31" && r.lifecycle.Load() > 0 {
+		evidence.Issue.Closed, evidence.Issue.ClosedUnix = r.closed.Load() > 0, r.closed.Load()
+		evidence.Issue.ClosingOccurrence = ""
+		if r.closing.Load() > 0 {
+			evidence.Issue.ClosingOccurrence = strconv.FormatInt(r.closing.Load(), 10)
+		}
+		evidence.Issue.LifecycleOccurrence = strconv.FormatInt(r.lifecycle.Load(), 10)
 	}
 	return evidence, err
 }
@@ -101,12 +108,16 @@ func (r *completionInputs) ReadDispatchInputs(ctx context.Context, repository, i
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	inputs, err := r.progressInputs.ReadDispatchInputs(ctx, repository, issue, comments, target)
-	if r.closed.Load() > 0 {
+	if r.merged.Load() {
 		inputs.Tip = strings.Repeat("3", 40)
 	}
-	if issue == "31" && r.closed.Load() > 0 {
-		inputs.Issue.Closed, inputs.Issue.ClosedUnix = true, r.closed.Load()
-		inputs.Issue.ClosingOccurrence, inputs.Issue.LifecycleOccurrence = "501", "501"
+	if issue == "31" && r.lifecycle.Load() > 0 {
+		inputs.Issue.Closed, inputs.Issue.ClosedUnix = r.closed.Load() > 0, r.closed.Load()
+		inputs.Issue.ClosingOccurrence = ""
+		if r.closing.Load() > 0 {
+			inputs.Issue.ClosingOccurrence = strconv.FormatInt(r.closing.Load(), 10)
+		}
+		inputs.Issue.LifecycleOccurrence = strconv.FormatInt(r.lifecycle.Load(), 10)
 	}
 	return inputs, err
 }
@@ -137,6 +148,20 @@ func (*completionReviewer) AdoptReview(work factory.ReviewWork, outcome factory.
 }
 
 func TestServingCoordinatorCompletesCorrectionAndPicksUpDependent(t *testing.T) {
+	servingCorrectionAndDependent(t, "")
+}
+
+func TestServingCoordinatorDoesNotReuseOriginalClosureAfterReopen(t *testing.T) {
+	for _, lifecycle := range []string{"reopened", "reclosed"} {
+		t.Run(lifecycle, func(t *testing.T) {
+			t.Parallel()
+			servingCorrectionAndDependent(t, lifecycle)
+		})
+	}
+}
+
+func servingCorrectionAndDependent(t *testing.T, laterLifecycle string) {
+	t.Helper()
 	ctx := context.Background()
 	fx := publishSeed(t, map[string]string{"README.md": dispatchDigest("synthetic selected source: README.md")}) // substrate and standing operator/project authority only
 	policy, err := fx.db.RepositoryPolicy(ctx, fx.seed.repo)
@@ -189,7 +214,7 @@ func TestServingCoordinatorCompletesCorrectionAndPicksUpDependent(t *testing.T) 
 		return observed, err
 	}}
 	merger := happyMerger()
-	mergeObserve, mergeConfirm := merger.observe, merger.confirm
+	mergeObserve, mergeSubmit, mergeConfirm := merger.observe, merger.submit, merger.confirm
 	merger.observe = func(work factory.MergeWork) (factory.MergeObservation, error) {
 		if reviewer.events[work.HeadOID] != "APPROVED" {
 			return factory.MergeObservation{}, errors.New("native fixture has no current independent approval")
@@ -198,11 +223,45 @@ func TestServingCoordinatorCompletesCorrectionAndPicksUpDependent(t *testing.T) 
 		observation.NativeRev, observation.Checks.NativeRev = revision.Load(), revision.Load()
 		return observation, err
 	}
+	merger.submit = func(work factory.MergeWork) (factory.OperationOutcome, error) {
+		if work.Issue != 31 || len(publisher.creates) != 1 || !strings.Contains(publisher.creates[0].PRBody, "\nCloses #31\n") {
+			return factory.OperationOutcome{}, errors.New("native fixture has no exact original issue closing reference")
+		}
+		outcome, err := mergeSubmit(work)
+		if err == nil {
+			// Native merge bookkeeping closes the original issue named by
+			// the PR, before any coordinator completion is recorded.
+			inputs.mu.Lock()
+			inputs.merged.Store(true)
+			inputs.closed.Store(time.Now().Unix())
+			inputs.closing.Store(501)
+			inputs.lifecycle.Store(501)
+			inputs.mu.Unlock()
+		}
+		return outcome, err
+	}
 	merger.confirm = func(work factory.MergeWork) (factory.MergeConfirmation, error) {
 		confirmation, err := mergeConfirm(work)
 		confirmation.NativeRev = revision.Load()
 		if err == nil {
-			inputs.closed.Store(confirmation.ClosedUnix)
+			inputs.mu.Lock()
+			confirmation.OriginalClosed = inputs.closed.Load() > 0
+			confirmation.OriginalClosedUnix = inputs.closed.Load()
+			confirmation.OriginalClosingOccurrence = strconv.FormatInt(inputs.closing.Load(), 10)
+			// Supply a later native lifecycle after this exact completion
+			// snapshot, before the serving owner reassesses dependants.
+			if laterLifecycle == "reopened" {
+				inputs.closed.Store(0)
+				inputs.closing.Store(0)
+				inputs.lifecycle.Store(502)
+				revision.Add(1)
+			} else if laterLifecycle == "reclosed" {
+				// Equal timestamps cannot substitute for occurrence identity.
+				inputs.closing.Store(503)
+				inputs.lifecycle.Store(503)
+				revision.Add(1)
+			}
+			inputs.mu.Unlock()
 		}
 		return confirmation, err
 	}
@@ -271,11 +330,15 @@ func TestServingCoordinatorCompletesCorrectionAndPicksUpDependent(t *testing.T) 
 				t.Fatal(readErr)
 			}
 			if owner.Issue == 32 {
+				if laterLifecycle != "" {
+					diagnose()
+					t.Fatalf("dependent launched after original issue was %s", laterLifecycle)
+				}
 				if err = fx.coord.Close(); err != nil {
 					t.Fatal(err)
 				}
 				completion, readErr := fx.db.IssueMergeCompletion(ctx, 7, 31)
-				if readErr != nil || completion.MergedCommit != strings.Repeat("3", 40) {
+				if readErr != nil || completion.MergedCommit != strings.Repeat("3", 40) || completion.OriginalClosingOccurrence != "501" || completion.OriginalClosedUnix <= 0 {
 					t.Fatalf("dependent ran without exact confirmed corrected merge: %+v %v", completion, readErr)
 				}
 				if len(host.launches) != 5 || len(publisher.pushes) != 2 || len(publisher.creates) != 1 || len(reviewer.submitted) != 2 || len(merger.submits) != 1 || len(merger.confirms) != 1 {
@@ -287,6 +350,32 @@ func TestServingCoordinatorCompletesCorrectionAndPicksUpDependent(t *testing.T) 
 				return
 			}
 		default:
+		}
+		if laterLifecycle != "" {
+			// Join an ordinary owner pass that recorded completion and
+			// assessed the newer native endpoint. No manual pass wakes it.
+			c := fx.coord
+			c.progressMu.Lock()
+			completion, completionErr := fx.db.IssueMergeCompletion(ctx, 7, 31)
+			control, controlErr := fx.db.IssueControl(ctx, 7, 32)
+			latest, assignmentErr := fx.db.LatestIssueAssignment(ctx, 7, 32)
+			blocked := completionErr == nil && controlErr == nil && control.NativeRev == revision.Load() && control.Readiness == factory.ReadinessBlocked && control.Reason == factory.BlockerCodePending
+			c.progressMu.Unlock()
+			if blocked {
+				if completion.OriginalClosingOccurrence != "501" || completion.OriginalClosedUnix <= 0 {
+					t.Fatalf("recorded completion lost its native closing occurrence: %+v", completion)
+				}
+				if !errors.Is(assignmentErr, store.ErrNotFound) {
+					t.Fatalf("blocked dependent acquired assignment: %+v %v", latest, assignmentErr)
+				}
+				if err = fx.coord.Close(); err != nil {
+					t.Fatal(err)
+				}
+				if len(host.launches) != 4 || len(merger.submits) != 1 || len(merger.confirms) != 1 {
+					t.Fatalf("original lifecycle change caused duplicate serving effects: runs=%d merges=%d confirmations=%d", len(host.launches), len(merger.submits), len(merger.confirms))
+				}
+				return
+			}
 		}
 		if time.Now().After(deadline) {
 			diagnose()

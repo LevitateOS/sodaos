@@ -216,15 +216,19 @@ func TestMergerMatchTarget(t *testing.T) {
 func TestMergerMatchConfirmation(t *testing.T) {
 	w := mergeTestWork()
 	issue, snapshot := mergeTestSnapshots(w)
+	original := NativeSnapshot{Issue: &IssueEvidence{
+		ID: "31", Index: strconv.FormatInt(w.Issue, 10), Visible: true, Complete: true, IsClosed: true, ClosedUnix: 1300,
+		Lifecycle: []LifecycleEvent{{OccurrenceID: "41", Kind: "closed", AtUnix: 1300}},
+	}}
 	issue.Issue.IsClosed, issue.Issue.ClosedUnix = true, 1200
 	snapshot.Pull.HasMerged, snapshot.Pull.MergedCommit = true, w.HeadOID
 	snapshot.Pull.MergerID, snapshot.Pull.MergedUnix = strconv.FormatInt(w.ActorID, 10), 1190
 	snapshot.Refs[1].OID = w.HeadOID
-	confirmation, err := matchMergeConfirmation(w, issue, snapshot)
+	confirmation, err := matchMergeConfirmation(w, issue, original, snapshot)
 	if err != nil {
 		t.Fatalf("exact completion refused: %v", err)
 	}
-	if confirmation.MergedCommit != w.HeadOID || !confirmation.IssueClosed || confirmation.MergedUnix != 1190 || confirmation.ClosedUnix != 1200 {
+	if confirmation.MergedCommit != w.HeadOID || !confirmation.IssueClosed || confirmation.MergedUnix != 1190 || confirmation.ClosedUnix != 1200 || !confirmation.OriginalClosed || confirmation.OriginalClosingOccurrence != "41" || confirmation.OriginalClosedUnix != 1300 {
 		t.Fatalf("confirmation differs: %+v", confirmation)
 	}
 	refusals := map[string]func(NativeSnapshot, NativeSnapshot){
@@ -241,10 +245,63 @@ func TestMergerMatchConfirmation(t *testing.T) {
 		snapshot.Pull.MergerID, snapshot.Pull.MergedUnix = strconv.FormatInt(w.ActorID, 10), 1190
 		snapshot.Refs[1].OID = w.HeadOID
 		mutate(issue, snapshot)
-		if _, err := matchMergeConfirmation(w, issue, snapshot); err == nil {
+		if _, err := matchMergeConfirmation(w, issue, original, snapshot); err == nil {
 			t.Errorf("case %s accepted", name)
 		}
 	}
+	for name, mutate := range map[string]func(*IssueEvidence){
+		"wrong original index": func(i *IssueEvidence) { i.Index = "4" },
+		"original is pull":     func(i *IssueEvidence) { i.IsPull = true },
+		"original hidden":      func(i *IssueEvidence) { i.Visible = false },
+	} {
+		t.Run(name, func(t *testing.T) {
+			badOriginal := original
+			cloned := *original.Issue
+			badOriginal.Issue = &cloned
+			mutate(badOriginal.Issue)
+			issue, snapshot := mergeTestSnapshots(w)
+			issue.Issue.IsClosed, issue.Issue.ClosedUnix = true, 1200
+			snapshot.Pull.HasMerged, snapshot.Pull.MergedCommit = true, w.HeadOID
+			snapshot.Pull.MergerID, snapshot.Pull.MergedUnix = strconv.FormatInt(w.ActorID, 10), 1190
+			snapshot.Refs[1].OID = w.HeadOID
+			if _, err := matchMergeConfirmation(w, issue, badOriginal, snapshot); err == nil {
+				t.Fatalf("invalid original issue accepted")
+			}
+		})
+	}
+	t.Run("original issue closure remains pending", func(t *testing.T) {
+		openOriginal := original
+		cloned := *original.Issue
+		cloned.IsClosed = false
+		openOriginal.Issue = &cloned
+		issue, snapshot := mergeTestSnapshots(w)
+		issue.Issue.IsClosed, issue.Issue.ClosedUnix = true, 1200
+		snapshot.Pull.HasMerged, snapshot.Pull.MergedCommit = true, w.HeadOID
+		snapshot.Pull.MergerID, snapshot.Pull.MergedUnix = strconv.FormatInt(w.ActorID, 10), 1190
+		snapshot.Refs[1].OID = w.HeadOID
+		_, err := matchMergeConfirmation(w, issue, openOriginal, snapshot)
+		var wait *factory.PublicationWait
+		if !errors.As(err, &wait) || wait.Reason != "original_issue_closure_pending" {
+			t.Fatalf("open original issue did not remain pending: %v", err)
+		}
+	})
+	t.Run("invalid PR completion remains a refusal before original closure wait", func(t *testing.T) {
+		openOriginal := original
+		cloned := *original.Issue
+		cloned.IsClosed = false
+		openOriginal.Issue = &cloned
+		issue, snapshot := mergeTestSnapshots(w)
+		issue.Issue.IsClosed, issue.Issue.ClosedUnix = true, 1200
+		snapshot.Pull.HasMerged = false
+		snapshot.Pull.MergedCommit = strings.Repeat("c", 40)
+		snapshot.Pull.MergerID, snapshot.Pull.MergedUnix = strconv.FormatInt(w.ActorID, 10), 1190
+		snapshot.Refs[1].OID = w.HeadOID
+		_, err := matchMergeConfirmation(w, issue, openOriginal, snapshot)
+		var refused *factory.PublicationRefusal
+		if !errors.As(err, &refused) || refused.Reason != "completion_unconfirmed" {
+			t.Fatalf("invalid PR completion was masked by original-closure wait: %v", err)
+		}
+	})
 }
 
 func TestMergerLookupAfterCredentialLoss(t *testing.T) {

@@ -440,7 +440,7 @@ func (fx *nativeFixture) work(t *testing.T, a factory.Assignment, n nativeCandid
 	t.Helper()
 	run, err := fx.db.FactoryRun(context.Background(), a.Run)
 	nativeMust(t, err)
-	return factory.PublicationWork{Bundle: n.bundle, AssignmentID: a.ID, Publication: publicationID, RunID: a.Run, Run: run, Candidate: n.head, BaseSHA: n.base, TargetBranch: fx.cfg.BaseBranch, OperationID: factory.PublicationOperationID(publicationID, factory.OpRefPublish, 1), AuthRevision: factory.AuthRevisionFor(a.ID, publicationID, 0), ExpectedOld: "absent", ComparisonRef: fx.cfg.BaseBranch, PRTitle: factory.PRTitleFor(a.Issue), PRBody: factory.PRBodyFor(a.ID, a.Acceptance, a.Run, n.head, n.base), Repository: a.Repository, Issue: a.Issue, ActorID: fx.cfg.ActorID}
+	return factory.PublicationWork{Bundle: n.bundle, AssignmentID: a.ID, Publication: publicationID, RunID: a.Run, Run: run, Candidate: n.head, BaseSHA: n.base, TargetBranch: fx.cfg.BaseBranch, OperationID: factory.PublicationOperationID(publicationID, factory.OpRefPublish, 1), AuthRevision: factory.AuthRevisionFor(a.ID, publicationID, 0), ExpectedOld: "absent", ComparisonRef: fx.cfg.BaseBranch, PRTitle: factory.PRTitleFor(a.Issue), PRBody: factory.PRBodyFor(a.Issue, a.ID, a.Acceptance, a.Run, n.head, n.base), Repository: a.Repository, Issue: a.Issue, ActorID: fx.cfg.ActorID}
 }
 
 func (fx *nativeFixture) observe(t *testing.T, w factory.PublicationWork) factory.PublicationWork {

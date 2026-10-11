@@ -155,6 +155,7 @@ func testMergedMerge() Merge {
 	m.NativeRev, m.ObservedUnix = 12, now
 	m.Stage, m.Outcome, m.Reason = MergeMerged, Succeeded, MergeReasonMerged
 	m.MergedCommit, m.MergedUnix, m.ClosedUnix, m.FinishedUnix = m.HeadOID, now, now, now
+	m.OriginalClosingOccurrence, m.OriginalClosedUnix = "901", now
 	return m
 }
 
@@ -164,12 +165,15 @@ func TestMergeMergedRequiresConfirmedCompletion(t *testing.T) {
 	}
 	// A committed ref without finished bookkeeping never finishes.
 	cases := map[string]func(*Merge){
-		"completion": func(m *Merge) { m.Operation.Completion = OpCompletionPending },
-		"stamps":     func(m *Merge) { m.MergedUnix, m.ClosedUnix = 0, 0 },
-		"commit":     func(m *Merge) { m.MergedCommit = "" },
-		"links":      func(m *Merge) { m.Operation.PRID = 12 },
-		"outcome":    func(m *Merge) { m.Outcome = Failed },
-		"reason":     func(m *Merge) { m.Reason = MergeReasonRefused },
+		"completion":              func(m *Merge) { m.Operation.Completion = OpCompletionPending },
+		"stamps":                  func(m *Merge) { m.MergedUnix, m.ClosedUnix = 0, 0 },
+		"commit":                  func(m *Merge) { m.MergedCommit = "" },
+		"links":                   func(m *Merge) { m.Operation.PRID = 12 },
+		"outcome":                 func(m *Merge) { m.Outcome = Failed },
+		"reason":                  func(m *Merge) { m.Reason = MergeReasonRefused },
+		"original-occurrence":     func(m *Merge) { m.OriginalClosingOccurrence = "" },
+		"original-revision-count": func(m *Merge) { m.OriginalClosingOccurrence = "original" },
+		"original-closure-time":   func(m *Merge) { m.OriginalClosedUnix = 0 },
 	}
 	for name, mutate := range cases {
 		m := testMergedMerge()

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -17,7 +18,8 @@ func TestMergeCompletionPersistenceFailureDoesNotReenterDispatch(t *testing.T) {
 	ctx := context.Background()
 	dependant := factory.Acceptance{
 		ID: "d" + strings.Repeat("f", 24), Repository: p.Repository, IssueIndex: "4", Approver: 5, NativeRev: 41,
-		TitleDigest: strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
+		TitleOccurrence: factory.OriginalOccurrence,
+		TitleDigest:     strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
 		Sources: []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: strings.Repeat("c", 64)}},
 		Prerequisites: []factory.AcceptedPrerequisite{{
 			Occurrence: "21", DependsOn: "9", EndpointRepo: p.Repository, EndpointIssue: p.Issue,
@@ -31,6 +33,7 @@ func TestMergeCompletionPersistenceFailureDoesNotReenterDispatch(t *testing.T) {
 		Revision: 9,
 		Issue: AcceptanceIssueView{
 			Index: "4", TitleDigest: dependant.TitleDigest, ContentDigest: dependant.ContentDigest,
+			TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence,
 			ContentVer: dependant.ContentVersion, Visible: true,
 		},
 		Comments:     []AcceptanceComment{{ID: "11", Digest: dependant.Sources[0].Digest, ContentVer: 0, Visible: true}},
@@ -209,7 +212,12 @@ func completedOpenMerge(t *testing.T) (*mergeFixture, factory.Publication, *fake
 	t.Helper()
 	fx, p := mergeSeed(t, 3)
 	exec := happyMerger()
-	exec.submit = func(factory.MergeWork) (factory.OperationOutcome, error) {
+	exec.submit = func(work factory.MergeWork) (factory.OperationOutcome, error) {
+		key := fmt.Sprintf("%d/%d", work.Repository, work.Issue)
+		evidence := fx.publish.reads.evidence[key]
+		evidence.Issue.Closed, evidence.Issue.ClosedUnix = true, time.Now().Unix()
+		evidence.Issue.ClosingOccurrence, evidence.Issue.LifecycleOccurrence = "501", "501"
+		fx.publish.reads.evidence[key] = evidence
 		return factory.OperationOutcome{
 			Effect: factory.OpEffectCommitted, Cancellation: factory.OpCancelNone,
 			Completion: factory.OpCompletionPending, Receipt: []byte(`{"pr_number":9}`),

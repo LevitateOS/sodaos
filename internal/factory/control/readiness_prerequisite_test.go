@@ -8,6 +8,84 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+func TestCodePrereqRequiresAttributableOriginalClosure(t *testing.T) {
+	fx, p := mergeSeed(t, 9)
+	exec := happyMerger()
+	confirm := exec.confirm
+	exec.confirm = func(work factory.MergeWork) (factory.MergeConfirmation, error) {
+		confirmation, err := confirm(work)
+		confirmation.OriginalClosed = true
+		confirmation.OriginalClosingOccurrence = "901"
+		confirmation.OriginalClosedUnix = 400
+		return confirmation, err
+	}
+	fx.wire(exec)
+	if report := fx.pass(t); len(report.Merged) != 1 {
+		t.Fatalf("native completion did not record: %+v", report)
+	}
+	ctx := context.Background()
+	endpoint, err := fx.publish.db.AcceptanceDecision(ctx, p.Acceptance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := fx.publish.coord.readAcceptanceEvidence(ctx, endpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prereq := factory.AcceptedPrerequisite{
+		Occurrence: "21", DependsOn: "8", EndpointRepo: p.Repository, EndpointIssue: p.Issue,
+		Outcome: factory.PrereqCode, PrereqAcceptance: p.Acceptance,
+	}
+	a := issueAssessor{coordinator: fx.publish.coord}
+	cases := []struct {
+		name      string
+		closed    bool
+		closing   string
+		lifecycle string
+		staleHead bool
+		satisfied bool
+	}{
+		{name: "original still open", lifecycle: factory.OriginalOccurrence},
+		{name: "confirmed original close", closed: true, closing: "901", lifecycle: "901", satisfied: true},
+		{name: "reopened", closing: "901", lifecycle: "902"},
+		{name: "reclosed at same timestamp", closed: true, closing: "903", lifecycle: "903"},
+		{name: "missing native close", closed: true},
+		{name: "changed acceptance head", closed: true, closing: "901", lifecycle: "901", staleHead: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			current := evidence
+			current.Issue.Closed, current.Issue.ClosedUnix = tc.closed, 400
+			current.Issue.ClosingOccurrence, current.Issue.LifecycleOccurrence = tc.closing, tc.lifecycle
+			head := p.Acceptance
+			currentEndpoint := endpoint
+			if tc.staleHead {
+				currentEndpoint.ID = "d" + strings.Repeat("f", 24)
+				currentEndpoint.Predecessor = p.Acceptance
+				if err := fx.publish.db.AdmitAcceptanceDecision(ctx, currentEndpoint); err != nil {
+					t.Fatal(err)
+				}
+				var err error
+				head, err = fx.publish.db.AcceptanceHead(ctx, p.Repository, p.Issue)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			assessed := prereqAssessment{}
+			fingerprint := factory.FingerprintInput{}
+			if err := a.assessCodePrereq(ctx, prereq, head, &currentEndpoint, current, &assessed, &fingerprint); err != nil {
+				t.Fatal(err)
+			}
+			if len(fingerprint.Prereqs) != 1 || fingerprint.Prereqs[0].Satisfied != tc.satisfied {
+				t.Fatalf("wrong attributable closure satisfaction: %+v", fingerprint.Prereqs)
+			}
+			if fingerprint.Prereqs[0].Closed != tc.closed || fingerprint.Prereqs[0].ClosingOccurrence != tc.closing {
+				t.Fatalf("native closure missing from readiness fingerprint: %+v", fingerprint.Prereqs)
+			}
+		})
+	}
+}
+
 func TestClosureAloneCannotSatisfyCodeOutcome(t *testing.T) {
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 	c := readinessCoordinator(t, source, &fakeObserver{revision: 12, idle: true})
@@ -21,11 +99,11 @@ func TestClosureAloneCannotSatisfyCodeOutcome(t *testing.T) {
 	closed.Closed, closed.ClosedUnix = true, 400
 	closed.ClosingOccurrence, closed.LifecycleOccurrence = "901", "901"
 	source.evidence["42/9"] = readinessEvidence(13, closed, nil, nil)
-	// Closure alone must neither satisfy the code outcome nor retrigger
-	// assessment: the blocker inputs are unchanged.
+	// Closure changes native inputs, but without an attributable merge
+	// it must still leave the code outcome blocked.
 	again, changed, err := c.ObserveIssueEvent(context.Background(), readinessHint("delivery-2", 42, 3))
-	if err != nil || changed {
-		t.Fatal("endpoint closure retriggered code assessment:", again, changed, err)
+	if err != nil || !changed {
+		t.Fatal("endpoint closure was not reassessed:", again, changed, err)
 	}
 	if again.Readiness != factory.ReadinessBlocked ||
 		findBlocker(again.Blockers, factory.BlockerCodePending) == nil {

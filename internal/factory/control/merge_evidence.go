@@ -169,6 +169,11 @@ func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, repor
 	work := op.Work.Apply(c.mergeWork(*m, factory.RepositoryPolicy{}))
 	confirmation, err := c.Merges.ObserveCompletion(ctx, work)
 	if err != nil {
+		var wait *factory.PublicationWait
+		if errors.As(err, &wait) {
+			mergeWait(report, m.ID, wait.Reason)
+			return
+		}
 		var refused *factory.PublicationRefusal
 		if errors.As(err, &refused) {
 			c.finishMerge(ctx, *m, factory.MergeFenced, factory.NeedsHuman, factory.MergeReasonUnattributed, report)
@@ -181,7 +186,12 @@ func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, repor
 		c.finishMerge(ctx, *m, factory.MergeFenced, factory.NeedsHuman, factory.MergeReasonUnattributed, report)
 		return
 	}
+	if !confirmation.OriginalClosed || !factory.ValidNativeOccurrence(confirmation.OriginalClosingOccurrence) || confirmation.OriginalClosedUnix <= 0 {
+		mergeWait(report, m.ID, "original_issue_closure_pending")
+		return
+	}
 	m.MergedCommit, m.MergedUnix, m.ClosedUnix = confirmation.MergedCommit, confirmation.MergedUnix, confirmation.ClosedUnix
+	m.OriginalClosingOccurrence, m.OriginalClosedUnix = confirmation.OriginalClosingOccurrence, confirmation.OriginalClosedUnix
 	if !c.finishMerge(ctx, *m, factory.MergeMerged, factory.Succeeded, factory.MergeReasonMerged, report) {
 		return
 	}

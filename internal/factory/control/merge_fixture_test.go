@@ -103,7 +103,7 @@ func happyMerger() *fakeMerger {
 		},
 		confirm: func(w factory.MergeWork) (factory.MergeConfirmation, error) {
 			now := time.Now().Unix()
-			return factory.MergeConfirmation{MergedCommit: w.HeadOID, BaseTip: w.HeadOID, MergerID: w.ActorID, MergedUnix: now, ClosedUnix: now, NativeRev: 9, ObservedUnix: now, IssueClosed: true}, nil
+			return factory.MergeConfirmation{MergedCommit: w.HeadOID, BaseTip: w.HeadOID, MergerID: w.ActorID, MergedUnix: now, ClosedUnix: now, NativeRev: 9, ObservedUnix: now, IssueClosed: true, OriginalClosed: true, OriginalClosingOccurrence: "501", OriginalClosedUnix: now}, nil
 		},
 	}
 }

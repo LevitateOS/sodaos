@@ -175,6 +175,7 @@ func prepareMergedTestUpdate(t *testing.T, db *Store) factory.Merge {
 	m.Revision++
 	m.Stage, m.Outcome, m.Reason = factory.MergeMerged, factory.Succeeded, factory.MergeReasonMerged
 	m.FinishedUnix, m.MergedUnix, m.ClosedUnix = now, now, now
+	m.OriginalClosingOccurrence, m.OriginalClosedUnix = "901", now
 	m.MergedCommit = m.HeadOID
 	m.Operation.Effect = factory.OpEffectCommitted
 	m.Operation.Completion = factory.OpCompletionComplete
@@ -193,6 +194,10 @@ func TestNewlyMergedCompletionEnqueuesReadinessRootAtomically(t *testing.T) {
 		before := readinessGeneration(t, db)
 		if err := db.UpdateMerge(ctx, m); err != nil {
 			t.Fatal("finish merge:", err)
+		}
+		completion, readErr := db.IssueMergeCompletion(ctx, m.Repository, m.Issue)
+		if readErr != nil || completion.OriginalClosingOccurrence != "901" || completion.OriginalClosedUnix != m.OriginalClosedUnix {
+			t.Fatal("confirmed original closing occurrence did not survive completion:", completion, readErr)
 		}
 		work, err := db.ReadinessWork(ctx, "root:7/3")
 		if err != nil || work.Root != (factory.DependenceRef{Repository: 7, Issue: 3}) || work.Generation != before || readinessGeneration(t, db) != before+1 {

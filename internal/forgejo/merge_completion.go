@@ -72,11 +72,16 @@ func (m *Merger) ObserveCompletion(ctx context.Context, w factory.MergeWork) (fa
 	if err != nil {
 		return empty, mergeReadError(err)
 	}
+	originalNumber := strconv.FormatInt(w.Issue, 10)
+	original, err := BracketedRead(ctx, reader, credential, SnapshotRequest{RepositoryID: repo, IssueIndex: originalNumber, Families: []SnapshotFamily{FamilyIssue}})
+	if err != nil {
+		return empty, mergeReadError(err)
+	}
 	snapshot, err := BracketedRead(ctx, reader, credential, SnapshotRequest{RepositoryID: repo, PullNumber: number, Families: []SnapshotFamily{FamilyPull, FamilyRefs}, Refs: []string{w.HeadRef, w.BaseRef}})
 	if err != nil {
 		return empty, mergeReadError(err)
 	}
-	if snapshot.Revision != issue.Revision {
+	if snapshot.Revision != issue.Revision || original.Revision != issue.Revision {
 		return empty, &factory.PublicationWait{Reason: "revision_moved"}
 	}
 	baseTip, err := mergeCompletionBaseTip(w, snapshot)
@@ -102,7 +107,7 @@ func (m *Merger) ObserveCompletion(ctx context.Context, w factory.MergeWork) (fa
 		}
 		snapshot.Ancestry = proof.Ancestry
 	}
-	return matchMergeConfirmation(w, issue, snapshot)
+	return matchMergeConfirmation(w, issue, original, snapshot)
 }
 
 func mergeCompletionBaseTip(w factory.MergeWork, snapshot NativeSnapshot) (string, error) {
@@ -121,7 +126,7 @@ func mergeCompletionBaseTip(w factory.MergeWork, snapshot NativeSnapshot) (strin
 	return baseTip, nil
 }
 
-func matchMergeConfirmation(w factory.MergeWork, issue, snapshot NativeSnapshot) (factory.MergeConfirmation, error) {
+func matchMergeConfirmation(w factory.MergeWork, issue, original, snapshot NativeSnapshot) (factory.MergeConfirmation, error) {
 	var empty factory.MergeConfirmation
 	i, p := issue.Issue, snapshot.Pull
 	if i == nil || p == nil || !i.Visible || !p.Visible || !i.IsPull ||
@@ -129,6 +134,10 @@ func matchMergeConfirmation(w factory.MergeWork, issue, snapshot NativeSnapshot)
 		p.ID != strconv.FormatInt(w.PRID, 10) || p.IssueID != i.ID || p.HeadRepoID != strconv.FormatInt(w.Repository, 10) ||
 		p.HeadBranch != factory.RefHead(w.HeadRef) || p.BaseBranch != factory.RefHead(w.BaseRef) {
 		return empty, &factory.PublicationRefusal{Reason: "pr_mismatch"}
+	}
+	if original.Issue == nil || !original.Issue.Visible || original.Issue.IsPull ||
+		original.Issue.Index != strconv.FormatInt(w.Issue, 10) {
+		return empty, &factory.PublicationRefusal{Reason: "issue_mismatch"}
 	}
 	if !p.HasMerged || p.MergedCommit != w.HeadOID {
 		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
@@ -152,5 +161,42 @@ func matchMergeConfirmation(w factory.MergeWork, issue, snapshot NativeSnapshot)
 	if !i.IsClosed || i.ClosedUnix <= 0 {
 		return empty, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
 	}
-	return factory.MergeConfirmation{MergedCommit: w.HeadOID, BaseTip: baseTip, BaseContainsMergedCommit: baseContainsMergedCommit, MergerID: merger, MergedUnix: p.MergedUnix, ClosedUnix: i.ClosedUnix, NativeRev: snapshot.Revision, ObservedUnix: time.Now().Unix(), IssueClosed: true}, nil
+	closingOccurrence, originalClosedUnix, closed := originalIssueClosure(original.Issue)
+	if !closed {
+		return empty, &factory.PublicationWait{Reason: "original_issue_closure_pending"}
+	}
+	return factory.MergeConfirmation{
+		MergedCommit: w.HeadOID, BaseTip: baseTip, BaseContainsMergedCommit: baseContainsMergedCommit,
+		MergerID: merger, MergedUnix: p.MergedUnix, ClosedUnix: i.ClosedUnix,
+		OriginalClosed: true, OriginalClosingOccurrence: closingOccurrence, OriginalClosedUnix: originalClosedUnix,
+		NativeRev: snapshot.Revision, ObservedUnix: time.Now().Unix(), IssueClosed: true,
+	}, nil
+}
+
+func originalIssueClosure(issue *IssueEvidence) (string, int64, bool) {
+	if issue == nil || !issue.Visible || issue.IsPull || !issue.IsClosed || issue.ClosedUnix <= 0 || !issue.Complete {
+		return "", 0, false
+	}
+	lastLifecycle := ""
+	closingOccurrence := ""
+	for _, event := range issue.Lifecycle {
+		switch event.Kind {
+		case "closed", "reopened":
+			if !factory.ValidNativeOccurrence(event.OccurrenceID) || event.AtUnix <= 0 {
+				return "", 0, false
+			}
+			lastLifecycle = event.Kind
+			if event.Kind == "closed" {
+				closingOccurrence = event.OccurrenceID
+			} else {
+				closingOccurrence = ""
+			}
+		default:
+			continue
+		}
+	}
+	if lastLifecycle != "closed" || !factory.ValidNativeOccurrence(closingOccurrence) {
+		return "", 0, false
+	}
+	return closingOccurrence, issue.ClosedUnix, true
 }

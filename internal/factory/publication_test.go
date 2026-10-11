@@ -386,7 +386,7 @@ func TestPublicationWorkValidates(t *testing.T) {
 		ComparisonRef: "refs/heads/main",
 		ComparisonOID: strings.Repeat("1", 40),
 		PRTitle:       PRTitleFor(3),
-		PRBody:        PRBodyFor("0123456789abcdef0123456789abcdef", "d"+strings.Repeat("a", 24), "0123456789abcdef0123456789abcdef", strings.Repeat("2", 40), strings.Repeat("1", 40)),
+		PRBody:        PRBodyFor(3, "0123456789abcdef0123456789abcdef", "d"+strings.Repeat("a", 24), "0123456789abcdef0123456789abcdef", strings.Repeat("2", 40), strings.Repeat("1", 40)),
 		Repository:    7,
 		Issue:         3,
 		ActorID:       5,
@@ -402,6 +402,18 @@ func TestPublicationWorkValidates(t *testing.T) {
 	work.Bundle = nil
 	if err := work.Validate(); err == nil {
 		t.Fatal("empty bundle accepted")
+	}
+}
+
+func TestPublicationBodyClosesOriginalIssue(t *testing.T) {
+	body := PRBodyFor(3, "0123456789abcdef0123456789abcdef", "d"+strings.Repeat("a", 24), "0123456789abcdef0123456789abcdef", strings.Repeat("2", 40), strings.Repeat("1", 40))
+	if strings.Count(body, "Closes #3\n") != 1 || !strings.Contains(body, "\nCloses #3\n") {
+		t.Fatalf("publication omitted its original issue closure: %q", body)
+	}
+	for _, issue := range []int64{0, -1} {
+		if body := PRBodyFor(issue, "assignment", "acceptance", "run", "candidate", "source"); body != "" {
+			t.Fatalf("invalid original issue emitted closure: %q", body)
+		}
 	}
 }
 

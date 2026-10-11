@@ -64,7 +64,7 @@ func (c *Coordinator) publicationWork(a factory.Assignment, p factory.Publicatio
 		Candidate: p.Candidate, BaseSHA: p.BaseSHA, TargetBranch: p.TargetBranch,
 		OperationID: factory.PublicationOperationID(p.ID, kind, 1), AuthRevision: factory.AuthRevisionFor(a.ID, p.ID, p.Revision),
 		ExpectedOld: old, ComparisonRef: p.TargetBranch, PRTitle: factory.PRTitleFor(a.Issue),
-		PRBody:     factory.PRBodyFor(a.ID, a.Acceptance, a.Run, p.Candidate, a.SourceCommit),
+		PRBody:     factory.PRBodyFor(a.Issue, a.ID, a.Acceptance, a.Run, p.Candidate, a.SourceCommit),
 		Repository: p.Repository, Issue: p.Issue, ActorID: actor,
 	}
 }

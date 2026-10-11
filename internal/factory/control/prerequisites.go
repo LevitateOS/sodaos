@@ -132,10 +132,12 @@ func (a *issueAssessor) endpointEvidence(ctx context.Context, prereq factory.Acc
 // endpoint acceptance must still exist, head the endpoint and stay valid,
 // or the dependent relation needs readoption. Satisfaction itself waits
 // for attributable factory completion: a confirmed merge on the bound
-// acceptance. A current route without one still pends.
+// acceptance and its still-current original issue closing occurrence.
+// A current route without both still pends.
 func (a *issueAssessor) assessCodePrereq(ctx context.Context, prereq factory.AcceptedPrerequisite, endpointHead string, endpointDecision *factory.Acceptance, evidence AcceptanceEvidence, assessed *prereqAssessment, fingerprint *factory.FingerprintInput) error {
 	input := factory.FingerprintPrereq{
 		Occurrence: prereq.Occurrence, Outcome: prereq.Outcome, EndpointHead: endpointHead,
+		Closed: evidence.Issue.Closed, ClosingOccurrence: evidence.Issue.ClosingOccurrence,
 	}
 	invalid := func(detail string) {
 		input.Blocker, input.Detail = factory.BlockerAcceptanceInvalid, detail
@@ -164,7 +166,7 @@ func (a *issueAssessor) assessCodePrereq(ctx context.Context, prereq factory.Acc
 			if !valid {
 				invalid(factory.DetailPrereqAcceptanceInvalid)
 			} else {
-				satisfied, err := a.codePrereqCompleted(ctx, prereq)
+				satisfied, err := a.codePrereqCompleted(ctx, prereq, evidence.Issue)
 				if err != nil {
 					return err
 				}
@@ -187,8 +189,12 @@ func (a *issueAssessor) assessCodePrereq(ctx context.Context, prereq factory.Acc
 
 // codePrereqCompleted reports whether attributable factory completion
 // delivered the endpoint's accepted route: a confirmed merge whose
-// acceptance is still the prerequisite's bound head.
-func (a *issueAssessor) codePrereqCompleted(ctx context.Context, prereq factory.AcceptedPrerequisite) (bool, error) {
+// acceptance is still the prerequisite's bound head and whose original
+// closing occurrence still closes the endpoint. Reclosing cannot revive it.
+func (a *issueAssessor) codePrereqCompleted(ctx context.Context, prereq factory.AcceptedPrerequisite, issue AcceptanceIssueView) (bool, error) {
+	if !issue.Closed || issue.ClosedUnix <= 0 || !factory.ValidNativeOccurrence(issue.ClosingOccurrence) {
+		return false, nil
+	}
 	completed, err := a.coordinator.Store.IssueMergeCompletion(ctx, prereq.EndpointRepo, prereq.EndpointIssue)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -196,7 +202,8 @@ func (a *issueAssessor) codePrereqCompleted(ctx context.Context, prereq factory.
 		}
 		return false, err
 	}
-	return completed.Acceptance == prereq.PrereqAcceptance, nil
+	return completed.Acceptance == prereq.PrereqAcceptance && completed.OriginalClosedUnix > 0 &&
+		factory.ValidNativeOccurrence(completed.OriginalClosingOccurrence) && completed.OriginalClosingOccurrence == issue.ClosingOccurrence, nil
 }
 
 // assessResultPrereq evaluates one result prerequisite: the endpoint must

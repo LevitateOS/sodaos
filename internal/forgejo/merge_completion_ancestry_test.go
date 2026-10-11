@@ -43,8 +43,12 @@ func TestMergerObserveCompletionUsesExactAncestrySnapshot(t *testing.T) {
 			t.Fatalf("exact transitive witness refused: %v", err)
 		}
 		if confirmation.MergedCommit != w.HeadOID || confirmation.BaseTip != laterTip || !confirmation.BaseContainsMergedCommit ||
-			confirmation.MergerID != w.ActorID || confirmation.MergedUnix <= 0 || confirmation.ClosedUnix <= 0 || !confirmation.IssueClosed {
+			confirmation.MergerID != w.ActorID || confirmation.MergedUnix <= 0 || confirmation.ClosedUnix <= 0 || !confirmation.IssueClosed ||
+			!confirmation.OriginalClosed || confirmation.OriginalClosingOccurrence != "41" || confirmation.OriginalClosedUnix != 1300 {
 			t.Fatalf("completion attribution changed: %+v", confirmation)
+		}
+		if len(*requests) < 3 || (*requests)[1].IssueIndex != strconv.FormatInt(w.Issue, 10) || (*requests)[1].IssueIndex == strconv.FormatInt(w.PRNumber, 10) {
+			t.Fatalf("original issue was not read by its distinct index: %+v", *requests)
 		}
 		if got := ancestryRequests(*requests); len(got) != 1 || got[0].Ancestry == nil || got[0].Ancestry.AncestorOID != w.HeadOID || got[0].Ancestry.DescendantOID != laterTip {
 			t.Fatalf("missing exact ancestry request: %+v", got)
@@ -100,11 +104,19 @@ func completionWireSnapshot(w factory.MergeWork, req extensions.SnapshotRequest,
 	for _, family := range req.Families {
 		switch SnapshotFamily(family) {
 		case FamilyIssue:
+			issueID, issueIndex, isPull := strconv.FormatInt(w.IssueID, 10), strconv.FormatInt(w.PRNumber, 10), true
+			if req.IssueIndex == strconv.FormatInt(w.Issue, 10) {
+				issueID, issueIndex, isPull = "31", strconv.FormatInt(w.Issue, 10), false
+			}
 			answer.Issue = &extensions.SnapshotIssue{
-				ID: strconv.FormatInt(w.IssueID, 10), Index: strconv.FormatInt(w.PRNumber, 10),
+				ID: issueID, Index: issueIndex,
 				Title: "merge objective", Content: "body", TitleDigest: ContentDigest("merge objective"), ContentDigest: ContentDigest("body"),
-				Visible: true, Complete: true, IsPull: true,
+				Visible: true, Complete: true, IsPull: isPull,
 				Provenance: extensions.SnapshotCreationProvenance{PosterID: strconv.FormatInt(w.PRAuthorID, 10)},
+			}
+			if !isPull {
+				answer.Issue.IsClosed, answer.Issue.ClosedUnix = true, 1300
+				answer.Issue.Lifecycle = []extensions.SnapshotLifecycleEvent{{OccurrenceID: "41", Kind: "closed", AtUnix: 1300}}
 			}
 		case FamilyPull:
 			answer.Pull = &extensions.SnapshotPull{
@@ -127,11 +139,36 @@ func completionWireSnapshot(w factory.MergeWork, req extensions.SnapshotRequest,
 			}
 		}
 	}
-	if answer.Issue != nil {
+	if answer.Issue != nil && answer.Issue.IsPull {
 		answer.Issue.IsClosed = true
 		answer.Issue.ClosedUnix = 1200
 	}
 	return answer
+}
+
+func TestOriginalIssueClosureNeedsCurrentNativeCloseOccurrence(t *testing.T) {
+	closed := &IssueEvidence{Visible: true, Complete: true, IsClosed: true, ClosedUnix: 1300, Lifecycle: []LifecycleEvent{{OccurrenceID: "41", Kind: "closed", AtUnix: 1300}}}
+	if occurrence, closedUnix, ok := originalIssueClosure(closed); !ok || occurrence != "41" || closedUnix != 1300 {
+		t.Fatalf("valid original closure refused: %q %d %v", occurrence, closedUnix, ok)
+	}
+	for name, mutate := range map[string]func(*IssueEvidence){
+		"open":                       func(issue *IssueEvidence) { issue.IsClosed = false },
+		"no close event":             func(issue *IssueEvidence) { issue.Lifecycle = nil },
+		"malformed close occurrence": func(issue *IssueEvidence) { issue.Lifecycle[0].OccurrenceID = "041" },
+		"reopened after close": func(issue *IssueEvidence) {
+			issue.Lifecycle = append(issue.Lifecycle, LifecycleEvent{OccurrenceID: "42", Kind: "reopened", AtUnix: 1400})
+		},
+		"incomplete lifecycle": func(issue *IssueEvidence) { issue.Complete = false },
+	} {
+		t.Run(name, func(t *testing.T) {
+			issue := *closed
+			issue.Lifecycle = append([]LifecycleEvent(nil), closed.Lifecycle...)
+			mutate(&issue)
+			if occurrence, _, ok := originalIssueClosure(&issue); ok || occurrence != "" {
+				t.Fatalf("invalid original closure accepted: %q", occurrence)
+			}
+		})
+	}
 }
 
 func containsSnapshotFamily(families []string, want SnapshotFamily) bool {

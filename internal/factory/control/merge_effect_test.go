@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -178,6 +179,47 @@ func TestMergePassWaitsForNativeCompletion(t *testing.T) {
 	}
 }
 
+func TestMergePassWaitsForOriginalIssueClosure(t *testing.T) {
+	for _, missing := range []string{"open", "occurrence", "timestamp"} {
+		t.Run(missing, func(t *testing.T) {
+			fx, p := mergeSeed(t, 3)
+			exec := happyMerger()
+			confirm := exec.confirm
+			confirmed := false
+			exec.confirm = func(w factory.MergeWork) (factory.MergeConfirmation, error) {
+				out, err := confirm(w)
+				if !confirmed {
+					switch missing {
+					case "open":
+						out.OriginalClosed = false
+					case "occurrence":
+						out.OriginalClosingOccurrence = ""
+					case "timestamp":
+						out.OriginalClosedUnix = 0
+					}
+				}
+				return out, err
+			}
+			fx.wire(exec)
+			first := fx.pass(t)
+			m := fx.merge(t, p)
+			if m.Stage != factory.MergeOpen || m.Operation.Effect != factory.OpEffectCommitted || m.Operation.Completion != factory.OpCompletionComplete || len(first.Waits) != 1 || first.Waits[0].Reason != "original_issue_closure_pending" {
+				t.Fatalf("missing original %s settled a committed merge: %+v %+v", missing, first, m)
+			}
+			if _, err := fx.publish.db.IssueMergeCompletion(context.Background(), p.Repository, p.Issue); !errors.Is(err, store.ErrNotFound) {
+				t.Fatalf("missing original closure acquired completion: %v", err)
+			}
+			intent := *m.Operation.Work
+			confirmed = true
+			second := fx.pass(t)
+			m = fx.merge(t, p)
+			if m.Stage != factory.MergeMerged || m.OriginalClosingOccurrence != "501" || m.OriginalClosedUnix <= 0 || len(second.Merged) != 1 || len(exec.submits) != 1 || *m.Operation.Work != intent {
+				t.Fatalf("later original closure did not adopt the existing merge: %+v %+v", second, m)
+			}
+		})
+	}
+}
+
 func TestMergePassFencesUnconfirmedCompletion(t *testing.T) {
 	fx, p := mergeSeed(t, 3)
 	exec := happyMerger()
@@ -210,6 +252,7 @@ func TestMergeCompletionRequiresExactAncestryWitness(t *testing.T) {
 					MergedCommit: w.HeadOID, BaseTip: baseTip, BaseContainsMergedCommit: tc.contains,
 					MergerID: w.ActorID, MergedUnix: now, ClosedUnix: now, NativeRev: 9,
 					ObservedUnix: now, IssueClosed: true,
+					OriginalClosed: true, OriginalClosingOccurrence: "501", OriginalClosedUnix: now,
 				}, nil
 			}
 			fx.wire(exec)
@@ -300,7 +343,8 @@ func TestMergeCompletionReleasesCodeDependant(t *testing.T) {
 	endpoint := fx.publish.seed.decision[p.Issue]
 	dependant := factory.Acceptance{
 		ID: "d" + strings.Repeat("f", 24), Repository: p.Repository, IssueIndex: "4", Approver: 5, NativeRev: 41,
-		TitleDigest: strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
+		TitleOccurrence: factory.OriginalOccurrence,
+		TitleDigest:     strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
 		Sources: []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: strings.Repeat("c", 64)}},
 		Prerequisites: []factory.AcceptedPrerequisite{{
 			Occurrence: "21", DependsOn: "9", EndpointRepo: p.Repository, EndpointIssue: p.Issue,
@@ -313,7 +357,7 @@ func TestMergeCompletionReleasesCodeDependant(t *testing.T) {
 	}
 	fx.publish.reads.evidence["7/4"] = AcceptanceEvidence{
 		Revision:     9,
-		Issue:        AcceptanceIssueView{Index: "4", TitleDigest: dependant.TitleDigest, ContentDigest: dependant.ContentDigest, ContentVer: 2, Visible: true},
+		Issue:        AcceptanceIssueView{Index: "4", TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence, TitleDigest: dependant.TitleDigest, ContentDigest: dependant.ContentDigest, ContentVer: 2, Visible: true},
 		Comments:     []AcceptanceComment{{ID: "11", Digest: dependant.Sources[0].Digest, ContentVer: 0, Visible: true}},
 		Dependencies: []AcceptanceEdge{{Occurrence: "21", DependsOn: "9", Visible: true}},
 	}
@@ -324,7 +368,20 @@ func TestMergeCompletionReleasesCodeDependant(t *testing.T) {
 	if before.control.Readiness != factory.ReadinessBlocked {
 		t.Fatalf("dependant runnable before completion: %+v", before.control)
 	}
-	fx.wire(happyMerger())
+	exec := happyMerger()
+	submit := exec.submit
+	exec.submit = func(work factory.MergeWork) (factory.OperationOutcome, error) {
+		outcome, err := submit(work)
+		if err == nil {
+			key := "7/" + strconv.FormatInt(work.Issue, 10)
+			evidence := fx.publish.reads.evidence[key]
+			evidence.Issue.Closed, evidence.Issue.ClosedUnix = true, time.Now().Unix()
+			evidence.Issue.ClosingOccurrence, evidence.Issue.LifecycleOccurrence = "501", "501"
+			fx.publish.reads.evidence[key] = evidence
+		}
+		return outcome, err
+	}
+	fx.wire(exec)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeMerged {
