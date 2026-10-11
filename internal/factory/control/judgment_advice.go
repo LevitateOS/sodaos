@@ -12,7 +12,9 @@ import (
 
 // PurposeAdvice is one bounded typed judgment call. Reserve must consume
 // finite allowance for the fingerprint before any external request; cached
-// completed results reuse without a new reservation.
+// completed results reuse without a new reservation. Answers validate
+// against the option identities; Candidates only enriches the receipt audit
+// trail and defaults to those identities.
 type PurposeAdvice struct {
 	Purpose    factory.JudgmentPurpose
 	State      any
@@ -41,16 +43,12 @@ func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (
 		return factory.PriorityAnswer{}, false, err
 	}
 	request := factory.PriorityRequest{Snapshot: fingerprint, Rubric: advice.Question, State: stateBytes, Criteria: advice.Options}
-	if len(advice.Candidates) > 0 {
-		request.Candidates = advice.Candidates
-	} else {
-		for id := range advice.Options {
-			request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: id})
-		}
+	for id := range advice.Options {
+		request.Candidates = append(request.Candidates, factory.PriorityCandidate{ID: id})
 	}
 	prior, err := c.Store.PriorityJudgment(ctx, fingerprint)
 	if err == nil {
-		if prior.Outcome != advice.Outcome || len(prior.Calls) != 1 || prior.Calls[0].Failure != "" || prior.Calls[0].Answer.Validate(request) != nil {
+		if prior.Purpose != advice.Purpose || prior.Outcome != advice.Outcome || len(prior.Calls) != 1 || prior.Calls[0].Failure != "" || prior.Calls[0].Answer.Validate(request) != nil {
 			return factory.PriorityAnswer{}, false, ErrPriorityUnavailable
 		}
 		return prior.Calls[0].Answer, true, nil
@@ -72,7 +70,11 @@ func (c *Coordinator) AdvisePurpose(ctx context.Context, advice PurposeAdvice) (
 		callErr = answer.Validate(request)
 	}
 	call := factory.PriorityCall{Request: request, Answer: answer}
-	receipt := factory.PriorityReceipt{Snapshot: fingerprint, Candidates: request.Candidates, Calls: []factory.PriorityCall{call}, Selected: answer.Selected, Outcome: advice.Outcome, CreatedUnix: time.Now().Unix()}
+	candidates := request.Candidates
+	if len(advice.Candidates) > 0 {
+		candidates = advice.Candidates
+	}
+	receipt := factory.PriorityReceipt{Snapshot: fingerprint, Purpose: advice.Purpose, Candidates: candidates, Calls: []factory.PriorityCall{call}, Selected: answer.Selected, Outcome: advice.Outcome, CreatedUnix: time.Now().Unix()}
 	if callErr != nil {
 		receipt.Calls[0].Failure = "consultation_failed"
 		receipt.Outcome = "unavailable"
