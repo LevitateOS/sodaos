@@ -37,12 +37,16 @@ function renderLifecycle(
   const stopped = !lifecycle?.running && !lifecycle?.boot;
   if (!administrator) {
     if (!hasEnvironment) return html``;
+    // The control group stays hidden so its handlers keep refusing synthetic
+    // dispatch; viewers get the same state as read-only text beside it.
     return html`
-      <fieldset>
+      <fieldset hidden>
         <legend>Shared environment</legend>
-        <p>Running: ${running ? 'yes' : 'no'}.</p>
-        <p>Starting or stopping this shared project needs a project administrator.</p>
+        <button type="button" class="ui primary button" ?disabled=${blocked} @click=${start}>Start</button>
+        <button type="button" class="ui button danger" ?disabled=${blocked} @click=${stop}>Stop</button>
       </fieldset>
+      <p>Shared environment: Running: ${running ? 'yes' : 'no'}.</p>
+      <p>Starting or stopping this shared project needs a project administrator.</p>
     `;
   }
   return html`
