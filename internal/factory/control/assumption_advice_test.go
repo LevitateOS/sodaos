@@ -36,6 +36,9 @@ func draftAssumptionFixture(t *testing.T, ideas []factory.ProductIdea, calls int
 	if err := c.Store.SaveIntentRevision(context.Background(), r); err != nil {
 		t.Fatal(err)
 	}
+	if err := c.Store.SavePlanningAllowance(context.Background(), factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: r.Intent, Owner: r.Owner, Amount: calls, Unit: factory.PlanningAllowanceUnit, Ceiling: calls, CreatedUnix: 1}); err != nil {
+		t.Fatal(err)
+	}
 	c.Store.PriorityCallBudget = 10
 	return c, r
 }
