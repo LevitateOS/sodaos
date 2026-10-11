@@ -37,7 +37,9 @@ paths are private service routes, not public URLs to call directly:
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
 | GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
 | POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
+| GET | `/api/factory/intents` | Owner-private bounded request listing with stable cursor |
 | GET | `/api/factory/intents/{intentID}` | Current actor’s current intent revision |
+| GET | `/api/factory/intents/{intentID}/history` | Owner-private immutable revision history, newest first |
 | POST | `/api/factory/intents/{intentID}/explore` | Bounded typed design consultation for a current draft |
 | POST | `/api/factory/intents/{intentID}/generate` | Native issue graph creation from accepted current scope |
 | GET | `/api/factory/intents/{intentID}/generation` | Durable generation outcome for the current revision |
