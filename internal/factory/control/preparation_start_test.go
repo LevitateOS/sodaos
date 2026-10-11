@@ -3,13 +3,17 @@ package control
 import (
 	"context"
 	"errors"
+	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type standingHost struct {
@@ -387,5 +391,148 @@ func TestStandingPreparationReplayPreservesAbsentSourceSelection(t *testing.T) {
 	stored, created, err := c.Store.AdmitPreparation(t.Context(), project.StoredPreparation{Preparation: in.Preparation})
 	if err != nil || created || len(stored.Preparation.Requirements.SourceInputs) != 0 {
 		t.Fatalf("empty selection did not replay after JSON persistence: %+v %t %v", stored, created, err)
+	}
+}
+
+func TestServingObservesStandingPreparationCompletionWithoutSetupReplay(t *testing.T) {
+	t.Parallel()
+	c, in, host := standingFixture(t)
+	var known, ready atomic.Bool
+	var prepares atomic.Int32
+	host.inspect = func(context.Context, project.PrepareInspect) (project.PrepareState, error) {
+		if !known.Load() {
+			return project.PrepareState{}, project.ErrPreparationNotFound
+		}
+		phase := project.PrepareRunning
+		if ready.Load() {
+			phase = project.PrepareReady
+		}
+		return standingState(in, phase), nil
+	}
+	host.prepare = func(context.Context, project.Prepare) (project.PrepareState, error) {
+		prepares.Add(1)
+		known.Store(true)
+		return standingState(in, project.PrepareRunning), nil
+	}
+	admitted, err := c.StartPreparation(t.Context(), in, standingAllow)
+	if err != nil || admitted.State.Phase != project.PrepareRunning {
+		t.Fatalf("normal initial preparation did not start: %+v %v", admitted, err)
+	}
+	c.Broker = &stubBroker{}
+	if err := c.Start(t.Context(), filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	// The worker completes independently. No request, setup replay, manual
+	// observation or test-driven factory stage advances after Start.
+	ready.Store(true)
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		observed, err := c.Store.Preparation(t.Context(), in.Preparation.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if observed.State.Ready {
+			if !reflect.DeepEqual(observed.Preparation.Requirements, admitted.Preparation.Requirements) || observed.Preparation.Approval != admitted.Preparation.Approval ||
+				observed.State.Phase != project.PrepareReady || observed.State.SourceCommit != in.Preparation.SourceCommit {
+				t.Fatalf("native completion changed admitted authority: %+v", observed)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("serving owner did not observe standing completion")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if prepares.Load() != 1 {
+		t.Fatal("standing observation replayed setup")
+	}
+	runs, err := c.Store.FactoryRuns(t.Context(), 10)
+	if err != nil || len(runs) != 0 {
+		t.Fatalf("standing observation acquired provider execution: %+v %v", runs, err)
+	}
+}
+
+func TestServingStandingObservationRotatesPastMissingProjectPrefix(t *testing.T) {
+	t.Parallel()
+	c, in, host := standingFixture(t)
+	for i := 0; i < maxStandingPreparationObservations; i++ {
+		p := in.Preparation
+		p.ID = fmt.Sprintf("f%024x", i)
+		if _, _, err := c.Store.AdmitStandingPreparation(t.Context(), p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	later := in
+	later.Preparation.ID = fmt.Sprintf("f%024x", maxStandingPreparationObservations)
+	later.Preparation.Project = "p" + strings.Repeat("b", 24)
+	if err := c.Store.CreateProject(t.Context(), store.Project{ID: later.Preparation.Project, Name: "later", RepositoryID: 43, OwnerID: 7, Repository: "soda-tester/later"}); err != nil {
+		t.Fatal(err)
+	}
+	requirement, err := c.Store.RequirementDecision(t.Context(), in.Preparation.Requirements.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirement.ID, requirement.Project = "d"+strings.Repeat("3", 24), later.Preparation.Project
+	if _, err := c.AdmitRequirement(t.Context(), factory.NewID(), "native:7", requirement); err != nil {
+		t.Fatal(err)
+	}
+	approval, err := c.Store.ApprovalDecision(t.Context(), in.Preparation.Approval.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approval.ID, approval.Project, approval.Requirement = "d"+strings.Repeat("4", 24), later.Preparation.Project, requirement.ID
+	if _, err := c.AdmitApproval(t.Context(), factory.NewID(), "native:9", approval); err != nil {
+		t.Fatal(err)
+	}
+	later.Preparation.Requirements, later.Preparation.Approval = requirement.Ref(1), approval.Ref(1)
+	if _, _, err := c.Store.AdmitStandingPreparation(t.Context(), later.Preparation); err != nil {
+		t.Fatal(err)
+	}
+	var missing atomic.Int32
+	host.inspect = func(_ context.Context, request project.PrepareInspect) (project.PrepareState, error) {
+		if request.ID != later.Preparation.ID {
+			missing.Add(1)
+			return project.PrepareState{}, project.ErrPreparationNotFound
+		}
+		return standingState(later, project.PrepareReady), nil
+	}
+	host.prepare = func(context.Context, project.Prepare) (project.PrepareState, error) {
+		t.Error("serving owner tried to replay missing native setup")
+		return project.PrepareState{}, errors.New("setup replay prohibited")
+	}
+	c.Broker = &stubBroker{}
+	if err := c.Start(t.Context(), filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	deadline := time.Now().Add(25 * time.Second)
+	for {
+		observed, err := c.Store.Preparation(t.Context(), later.Preparation.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if observed.State.Ready {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("missing identities starved another Project's completed preparation")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if missing.Load() < maxStandingPreparationObservations {
+		t.Fatal("fairness fixture did not visit the missing prefix")
+	}
+	for i := 0; i < maxStandingPreparationObservations; i++ {
+		unconfirmed, err := c.Store.Preparation(t.Context(), fmt.Sprintf("f%024x", i))
+		if err != nil || unconfirmed.State.ID != "" {
+			t.Fatalf("unconfirmed identity was fabricated or lost: %+v %v", unconfirmed, err)
+		}
 	}
 }

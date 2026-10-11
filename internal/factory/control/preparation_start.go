@@ -118,3 +118,36 @@ func (c *Coordinator) adoptStandingPreparation(ctx context.Context, stored proje
 func preparationNeedsIntervention(state project.PrepareState) bool {
 	return state.Stopped || state.Phase == project.PrepareFailed || state.Phase == project.PrepareStopped || state.Phase == project.PrepareInterrupted
 }
+
+const maxStandingPreparationObservations = 4
+
+// Observe only: the serving owner never replays an administrator's setup.
+// Missing or unavailable native identities retain their admitted row, while
+// the fair cursor keeps a waiting Project from hiding another Project's result.
+func (c *Coordinator) observeStandingPreparations(ctx context.Context, cursor *string) {
+	if c.Host == nil {
+		return
+	}
+	if cursor == nil {
+		local := ""
+		cursor = &local
+	}
+	records, err := c.Store.PendingStandingPreparations(ctx, *cursor, maxStandingPreparationObservations)
+	if err != nil {
+		return
+	}
+	budget := readinessBudgetFrom(ctx)
+	for _, record := range records {
+		if ctx.Err() != nil || budget != nil && !budget.reserveNativeRPC(1) {
+			return
+		}
+		inspectCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		state, err := c.Host.InspectPreparation(inspectCtx, project.PrepareInspect{Project: record.Preparation.Project, ID: record.Preparation.ID})
+		cancel()
+		*cursor = record.Preparation.ID
+		if err != nil {
+			continue
+		}
+		_, _ = c.adoptStandingPreparation(ctx, record, state)
+	}
+}

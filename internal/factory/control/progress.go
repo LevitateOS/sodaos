@@ -84,6 +84,7 @@ func (c *Coordinator) runProgress(ctx context.Context, done chan struct{}) {
 	defer close(done)
 	ticker := time.NewTicker(progressInterval)
 	defer ticker.Stop()
+	standingPreparationCursor := ""
 	for {
 		select {
 		case <-ctx.Done():
@@ -91,7 +92,7 @@ func (c *Coordinator) runProgress(ctx context.Context, done chan struct{}) {
 		case <-ticker.C:
 			c.requestGate.RLock()
 			if !c.closing.Load() && ctx.Err() == nil {
-				c.advanceProgress(ctx)
+				c.advanceProgressPage(ctx, &standingPreparationCursor)
 			}
 			c.requestGate.RUnlock()
 		}
@@ -99,6 +100,10 @@ func (c *Coordinator) runProgress(ctx context.Context, done chan struct{}) {
 }
 
 func (c *Coordinator) advanceProgress(ctx context.Context) {
+	c.advanceProgressPage(ctx, nil)
+}
+
+func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparationCursor *string) {
 	ctx, unlock := c.progressPass(ctx)
 	defer unlock()
 	ctx, ownsPass, cancelPass := c.readinessPass(ctx)
@@ -137,6 +142,7 @@ func (c *Coordinator) advanceProgress(ctx context.Context) {
 			c.settleRun(ctx, run)
 		}
 	}
+	c.observeStandingPreparations(ctx, standingPreparationCursor)
 	_ = c.recoverCreations(ctx)
 	c.Dispatch(ctx)
 	if ownsPass {

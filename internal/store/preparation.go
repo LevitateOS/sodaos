@@ -336,6 +336,37 @@ func (s *Store) StandingProjectPreparations(ctx context.Context, projectID strin
 	return s.projectPreparations(ctx, projectID, true)
 }
 
+// PendingStandingPreparations rotates a bounded observation page across
+// Projects. Private candidate preparation keeps its existing custody owner.
+func (s *Store) PendingStandingPreparations(ctx context.Context, after string, limit int) ([]project.StoredPreparation, error) {
+	if limit < 1 || limit > 16 || after != "" && !project.ValidPreparationID(after) {
+		return nil, errors.New("invalid standing preparation observation page")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM project_preparations
+		WHERE NOT (data ? 'factory_admission')
+		AND COALESCE(data#>>'{state,phase}','') IN ('',$1,$2,$3)
+		AND NOT COALESCE((data#>>'{state,ready}')::boolean,FALSE)
+		AND NOT COALESCE((data#>>'{state,stopped}')::boolean,FALSE)
+		ORDER BY (id>$4) DESC,id LIMIT $5`, project.PrepareApproved, project.PrepareWaiting, project.PrepareRunning, after, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var records []project.StoredPreparation
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var record project.StoredPreparation
+		if err := json.Unmarshal(raw, &record); err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	return records, rows.Err()
+}
+
 func (s *Store) projectPreparations(ctx context.Context, projectID string, standing bool) ([]project.StoredPreparation, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT data FROM project_preparations WHERE project_id=$1 AND (NOT $2 OR NOT (data ? 'factory_admission')) ORDER BY id LIMIT 129`, projectID, standing)
 	if err != nil {
