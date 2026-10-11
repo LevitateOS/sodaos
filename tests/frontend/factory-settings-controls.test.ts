@@ -3,6 +3,103 @@ import assert from 'node:assert/strict';
 import {setupProjectControlsDriver, fixture, refresh, writes} from './fixtures/project-controls-driver';
 setupProjectControlsDriver();
 
+test('Factory activity preserves exact native links and saves only local display preferences', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.setReply(async (call) =>
+      call.url.endsWith('/api/repositories/7/factory/activity')
+        ? Response.json({
+            repository: '7',
+            repository_path: '/fixture/repository',
+            revision: 3,
+            settings: {issue_created: true, pr_created: true, verified_merge: true},
+            items: [
+              {
+                id: 'issue',
+                kind: 'issue_created',
+                issue: '11',
+                created_unix: 1,
+                summary: 'Original accepted issue created',
+                url: '/fixture/repository/issues/11',
+              },
+              {
+                id: 'pr',
+                kind: 'pr_created',
+                issue: '11',
+                pr: '12',
+                created_unix: 2,
+                summary: 'Pull request awaiting review',
+                url: '/fixture/repository/pulls/12',
+              },
+              {
+                id: 'merge',
+                kind: 'verified_merge',
+                issue: '11',
+                pr: '12',
+                created_unix: 3,
+                summary: 'Verified merge and original issue closed',
+                url: '/fixture/repository/issues/11',
+              },
+            ],
+          })
+        : null
+    );
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const activity = page.locator('soda-factory-activity');
+  await activity.getByRole('button', {name: 'Refresh activity', exact: true}).click();
+  await activity.getByRole('link', {name: 'Original accepted issue created'}).waitFor();
+  assert.equal(
+    await activity.getByRole('link', {name: 'Pull request awaiting review'}).getAttribute('href'),
+    '/fixture/repository/pulls/12'
+  );
+  await activity.locator('input[name="pr_created"]').uncheck();
+  await activity.getByRole('button', {name: 'Save activity display settings'}).click();
+  await activity.locator('[data-activity-message]').filter({hasText: 'Activity display settings saved.'}).waitFor();
+  const calls = (await writes(page)).filter((call) => call.url.endsWith('/factory/activity'));
+  assert.equal(calls.length, 1);
+  assert.deepEqual(JSON.parse(calls[0]?.body || '{}'), {
+    expected_revision: 3,
+    settings: {issue_created: true, pr_created: false, verified_merge: true},
+  });
+  assert.equal((await writes(page)).filter((call) => !call.url.endsWith('/factory/activity')).length, 0);
+});
+
+test('Factory activity rejects foreign repository links instead of displaying them', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.setReply(async (call) =>
+      call.url.endsWith('/factory/activity')
+        ? Response.json({
+            repository: '7',
+            repository_path: '/fixture/repository',
+            revision: 0,
+            settings: {issue_created: true, pr_created: true, verified_merge: true},
+            items: [
+              {
+                id: 'bad',
+                kind: 'issue_created',
+                issue: '11',
+                created_unix: 1,
+                summary: 'Foreign issue',
+                url: 'https://other.example/issues/11',
+              },
+            ],
+          })
+        : null
+    );
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const activity = page.locator('soda-factory-activity');
+  await activity.getByRole('button', {name: 'Refresh activity', exact: true}).click();
+  await activity.locator('[data-activity-message]').filter({hasText: 'Invalid Factory activity item.'}).waitFor();
+  assert.equal(await activity.getByRole('link').count(), 0);
+});
+
 test('Factory settings render current authority and submit capacity through the native session mount', async (t) => {
   const page = await fixture(t);
   await page.evaluate(async () => {

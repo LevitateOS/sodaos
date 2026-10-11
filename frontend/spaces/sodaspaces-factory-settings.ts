@@ -2,6 +2,7 @@ import {LitElement, html, nothing} from 'lit';
 import type {PreparedExtensionMount} from './soda-extension.js';
 import {object, readSodaJSON} from './sodaspaces-api.js';
 import {factoryCommandId} from './sodaspaces-factory-response.js';
+import './sodaspaces-factory-activity.js';
 
 type FactoryContext = {
   transport: PreparedExtensionMount;
@@ -833,9 +834,10 @@ export class SodaFactorySettings extends LitElement {
     if (!context) return html`<p>Factory authority requires an active project binding.</p>`;
     const status = this.view.status || {};
     return html`${this.renderSummary(status)}
-    ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
-    ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
-    ${this.renderProviderControls()}`;
+      <soda-factory-activity .context=${context}></soda-factory-activity>
+      ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
+      ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
+      ${this.renderProviderControls()}`;
   }
 
   private renderSummary(status: Record<string, unknown>) {
