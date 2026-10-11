@@ -165,7 +165,7 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 	}
 	g, err := c.Store.IntentGeneration(ctx, r.ID)
 	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, store.ErrNotFound) {
-		payload, reused, submitted, e := c.prepareIntentGraph(ctx, r, revision)
+		payload, reused, submitted, delivered, e := c.prepareIntentGraph(ctx, r, revision)
 		if e != nil {
 			return factory.IntentGeneration{}, e
 		}
@@ -184,7 +184,7 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 		if e != nil {
 			return factory.IntentGeneration{}, e
 		}
-		g = factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: c.GraphActorID, NativeRev: revision, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: raw, TaskIssueIDs: reused, SubmittedTasks: submitted, IntentDigest: r.Digest(), State: "pending"}
+		g = factory.IntentGeneration{RevisionID: r.ID, IntentID: r.Intent, OperationID: "intent-" + r.ID, ActorID: c.GraphActorID, NativeRev: revision, AuthRevision: r.ID + ":" + r.Digest(), NotAfter: time.Now().Add(5 * time.Minute).Unix(), Payload: raw, TaskIssueIDs: reused, SubmittedTasks: submitted, Delivered: delivered, IntentDigest: r.Digest(), State: "pending"}
 		if err = c.Store.BeginIntentGeneration(ctx, g); err != nil {
 			// Concurrent callers must converge on the winner's exact native
 			// revision and deadline rather than invent a second operation.
@@ -300,6 +300,45 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 	if err != nil {
 		return err
 	}
+	// Delivered natives are immutable history: verify them against the
+	// previous acceptance pins, never the new scoped body.
+	var prevWork *factory.IntentRevision
+	priorTasks := map[string]factory.IntentTask{}
+	var priorBindings []factory.IntentTaskBinding
+	if len(g.Delivered) > 0 {
+		if err := c.currentAcceptedIntent(ctx, r); err != nil {
+			return err
+		}
+		history, err := c.Store.IntentHistory(ctx, r.Intent, r.Owner, 2)
+		if err != nil {
+			return err
+		}
+		if len(history) < 2 || history[0].ID != r.ID || history[1].ID != r.Predecessor {
+			return errors.New("previous revision is unavailable")
+		}
+		priorGeneration, err := c.Store.IntentGeneration(ctx, history[1].ID)
+		if err != nil {
+			return err
+		}
+		if len(priorGeneration.SubmittedTasks) == 0 {
+			return errors.New("previous generation predates submitted-task records")
+		}
+		pw := history[1]
+		pw.Tasks = priorGeneration.SubmittedTasks
+		prevWork = &pw
+		for _, task := range pw.Tasks {
+			priorTasks[task.Key] = task
+		}
+		for key := range g.Delivered {
+			if _, ok := priorTasks[key]; !ok {
+				return errors.New("delivered history unexpectedly mutated")
+			}
+		}
+		priorBindings, err = c.Store.IntentTaskBindings(ctx, history[1].ID)
+		if err != nil {
+			return err
+		}
+	}
 	tasks := map[string]factory.IntentTask{}
 	for _, task := range g.SubmittedTasks {
 		tasks[task.Key] = task
@@ -356,9 +395,28 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 			return refuseAcceptance(RefusalStaleEvidence)
 		}
 		issue := native.Issue
-		// Closed records adopt like open ones: native edits never reopen, so
-		// delivery survives the delta while bindings and acceptances chain on.
-		if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) || issue.Index != strconv.FormatInt(entry.IssueIndex, 10) || issue.Provenance.PosterID != strconv.FormatInt(g.ActorID, 10) || issue.Title != intentTaskTitle(task) || issue.Content != intentTaskBody(scoped, task) || issue.ContentVersion != entry.ContentVersion {
+		if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) || issue.Index != strconv.FormatInt(entry.IssueIndex, 10) || issue.Provenance.PosterID != strconv.FormatInt(g.ActorID, 10) {
+			return refuseAcceptance(RefusalObjectiveChanged)
+		}
+		// Delivered records adopt without mutation: the native stays closed
+		// with its pinned content while bindings and acceptances chain on.
+		// A reopened or rewritten record refuses rather than rebinding
+		// history it no longer matches.
+		if ref, delivered := g.Delivered[key]; delivered {
+			if entry.IssueID != ref.IssueID || entry.IssueIndex != ref.IssueIndex || entry.ContentVersion != ref.ContentVersion {
+				return errors.New("delivered history unexpectedly mutated")
+			}
+			if !issue.IsClosed {
+				return refuseAcceptance(RefusalObjectiveChanged)
+			}
+			stable, err := c.deliveredStable(ctx, priorBindings, priorTasks[key], entry, issue, *prevWork)
+			if err != nil {
+				return err
+			}
+			if !stable {
+				return refuseAcceptance(RefusalObjectiveChanged)
+			}
+		} else if issue.Title != intentTaskTitle(task) || issue.Content != intentTaskBody(scoped, task) || issue.ContentVersion != entry.ContentVersion {
 			return refuseAcceptance(RefusalObjectiveChanged)
 		}
 		if native.Dependencies == nil || !native.Dependencies.Complete || native.Dependencies.IssueID != issue.ID || len(native.Dependencies.Items) != len(task.DependsOn) {
