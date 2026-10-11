@@ -113,7 +113,7 @@ const intentStates = ['draft', 'accepted', 'declined', 'rejected', 'abandoned'];
 const attentionCodes = ['generation_refused', 'work_attention', 'unresolved_assumption'];
 const setupStates = ['repository_unassigned', 'project_missing', 'preparing', 'ready'];
 const decisionKinds = ['pending', 'accept', 'decline', 'edit'];
-const sourceKinds = ['requested', 'supported', 'autonomous', 'assumption', 'legacy'];
+const sourceKinds = ['requested', 'supported', 'autonomous', 'assumption', 'unclassified'];
 
 function requestDirection(value: unknown): RequestDirection {
   const raw = object(value);
@@ -779,6 +779,7 @@ export interface RevisionTaskDiff {
   readonly added: readonly RevisionTask[];
   readonly removed: readonly RevisionTask[];
   readonly changed: readonly RevisionTaskChange[];
+  readonly reused: readonly string[];
   readonly unchanged_count: number;
 }
 export interface RevisionIdeaBody {
@@ -810,12 +811,14 @@ export interface RevisionComparison {
   readonly repository_change?: RevisionScalarChange;
   readonly state_change?: RevisionScalarChange;
   readonly initial: boolean;
+  readonly edges_changed: boolean;
 }
 export interface RevisionWork {
   readonly task_key: string;
   readonly issue_index: string;
   readonly state: string;
   readonly authority: string;
+  readonly content_version: number;
 }
 export interface RevisionEntry {
   readonly revision: string;
@@ -907,11 +910,15 @@ function revisionTaskList(value: unknown): RevisionTask[] {
 function revisionTaskDiff(value: unknown): RevisionTaskDiff {
   const raw = object(value);
   check(Array.isArray(raw.changed) && raw.changed.length <= 64);
+  const reused = revisionIDList(raw.reused, 64);
+  const unchanged = counter(raw.unchanged_count);
+  check(unchanged === reused.length);
   return {
     added: revisionTaskList(raw.added),
     removed: revisionTaskList(raw.removed),
     changed: raw.changed.map(revisionTaskChange),
-    unchanged_count: counter(raw.unchanged_count),
+    reused,
+    unchanged_count: unchanged,
   };
 }
 function revisionIdeaBody(value: unknown): RevisionIdeaBody {
@@ -964,29 +971,32 @@ function revisionEffectiveDiff(value: unknown): {added: string[]; removed: strin
 function checkEmptyInitial(
   tasks: RevisionTaskDiff,
   ideas: RevisionIdeaDiff,
-  effective: {added: string[]; removed: string[]}
+  effective: {added: string[]; removed: string[]},
+  edgesChanged: boolean
 ) {
   check(
-    tasks.added.length === 0 &&
-      tasks.removed.length === 0 &&
-      tasks.changed.length === 0 &&
-      ideas.added.length === 0 &&
+    tasks.added.length === 0 && tasks.removed.length === 0 && tasks.changed.length === 0 && tasks.reused.length === 0
+  );
+  check(
+    ideas.added.length === 0 &&
       ideas.removed.length === 0 &&
       ideas.changed.length === 0 &&
       effective.added.length === 0 &&
-      effective.removed.length === 0
+      effective.removed.length === 0 &&
+      !edgesChanged
   );
 }
 function revisionComparison(value: unknown): RevisionComparison {
   const raw = object(value);
   const initial = raw.initial === undefined ? false : raw.initial;
   check(typeof initial === 'boolean');
+  check(typeof raw.edges_changed === 'boolean');
   const tasks = revisionTaskDiff(raw.tasks);
   const ideas = revisionIdeaDiff(raw.ideas);
   const effective = revisionEffectiveDiff(raw.effective_outcomes);
   const repository = revisionScalarChange(raw.repository_change, [], true);
   const state = revisionScalarChange(raw.state_change, revisionStates, false);
-  if (initial) checkEmptyInitial(tasks, ideas, effective);
+  if (initial) checkEmptyInitial(tasks, ideas, effective, raw.edges_changed);
   return {
     tasks,
     ideas,
@@ -995,6 +1005,7 @@ function revisionComparison(value: unknown): RevisionComparison {
     ...(repository === undefined ? {} : {repository_change: repository}),
     ...(state === undefined ? {} : {state_change: state}),
     initial,
+    edges_changed: raw.edges_changed,
   };
 }
 function revisionWork(value: unknown): RevisionWork {
@@ -1006,6 +1017,7 @@ function revisionWork(value: unknown): RevisionWork {
     issue_index: raw.issue_index,
     state: raw.state as string,
     authority: raw.authority as string,
+    content_version: counter(raw.content_version),
   };
 }
 function revisionEntry(value: unknown): RevisionEntry {

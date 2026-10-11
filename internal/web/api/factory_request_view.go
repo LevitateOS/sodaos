@@ -41,7 +41,9 @@ func requestDirectionDTO(r factory.IntentRevision) requestDirectionView {
 		view.IdeasByDecision[idea.Decision]++
 		source := idea.Source
 		if source == "" {
-			source = "legacy"
+			// H-I v2: empty source is unclassified unfinished draft
+			// input and infers no authorship.
+			source = "unclassified"
 		}
 		view.IdeasBySource[source]++
 	}
@@ -75,19 +77,20 @@ type requestContextView struct {
 // native issue and its acceptance. IDs only; native content stays
 // behind native authorization.
 type requestMappingView struct {
-	TaskKey      string `json:"task_key"`
-	IssueID      string `json:"issue_id"`
-	IssueIndex   string `json:"issue_index"`
-	AcceptanceID string `json:"acceptance_id"`
-	CreatedUnix  int64  `json:"created_unix"`
-	Effective    bool   `json:"effective"`
+	TaskKey        string `json:"task_key"`
+	IssueID        string `json:"issue_id"`
+	IssueIndex     string `json:"issue_index"`
+	AcceptanceID   string `json:"acceptance_id"`
+	CreatedUnix    int64  `json:"created_unix"`
+	ContentVersion int    `json:"content_version"`
+	Effective      bool   `json:"effective"`
 }
 
 func requestMappingDTO(b factory.IntentTaskBinding, tasks map[string]factory.IntentTask, effective map[string]bool) requestMappingView {
 	view := requestMappingView{
 		TaskKey: b.TaskKey,
 		IssueID: strconv.FormatInt(b.IssueID, 10), IssueIndex: strconv.FormatInt(b.IssueIndex, 10),
-		AcceptanceID: b.AcceptanceID, CreatedUnix: b.CreatedUnix,
+		AcceptanceID: b.AcceptanceID, CreatedUnix: b.CreatedUnix, ContentVersion: b.ContentVersion,
 		Effective: requestMappingEffective(tasks[b.TaskKey], effective),
 	}
 	return view

@@ -1,5 +1,6 @@
 import {html} from 'lit';
 import type {Space} from './sodaspaces-inventory-response.js';
+import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {factoryAuthorityText, factoryControlText} from './sodaspaces-factory-response.js';
 import {attentionReason} from './sodaspaces-attention.js';
 import type {LayoutEntry, PaneTree} from './sodaspaces-layout.js';
@@ -79,28 +80,17 @@ export function splitAttentionRows(
   for (const row of shown) (rowAttention(reading, space, row) ? attention : sessions).push(row);
   return {attention, sessions};
 }
-/** H-I saved-request list entry shape (UX-I03). List supply stays with U03 request state. */
-export interface SavedRequestSummary {
-  intent: string;
-  revision: string;
-  state: 'draft' | 'accepted' | 'declined' | 'rejected' | 'abandoned';
-  objective: string;
-  repository: string;
-  department?: string;
-  created_unix: number;
-  effective_count: number;
-  task_count: number;
-}
+/** H-I saved-request list entries (UX-I03/U03). List supply and parsing stay with U request state. */
 export interface RequestGroups {
-  drafts: SavedRequestSummary[];
-  accepted: SavedRequestSummary[];
-  closed: SavedRequestSummary[];
+  drafts: SavedRequest[];
+  accepted: SavedRequest[];
+  closed: SavedRequest[];
 }
-function byRecency(a: SavedRequestSummary, b: SavedRequestSummary) {
+function byRecency(a: SavedRequest, b: SavedRequest) {
   return b.created_unix - a.created_unix || (a.intent < b.intent ? -1 : 1);
 }
 /** Group saved requests by lifecycle state; recent first, stable intent identity breaks ties. */
-export function groupSavedRequests(summaries: SavedRequestSummary[]): RequestGroups {
+export function groupSavedRequests(summaries: SavedRequest[]): RequestGroups {
   const groups: RequestGroups = {drafts: [], accepted: [], closed: []};
   for (const summary of [...summaries].sort(byRecency)) {
     if (summary.state === 'accepted') groups.accepted.push(summary);

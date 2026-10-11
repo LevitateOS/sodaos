@@ -66,6 +66,14 @@ test('request overview binds direction, counts, mappings and attention', () => {
   assert.equal(parsed.attention.length, 2);
   assert.equal(parsed.generation, 'completed');
   assert.equal(parsed.setup.state, 'ready');
+  const relabeled = requestOverview(
+    {...overview, direction: {...overview.direction, ideas_by_source: {requested: 1, unclassified: 2}}},
+    intent
+  );
+  assert.equal(relabeled.direction.ideas_by_source.unclassified, 2);
+  assert.throws(() =>
+    requestOverview({...overview, direction: {...overview.direction, ideas_by_source: {legacy: 1}}}, intent)
+  );
   const draft = requestOverview(
     {
       ...overview,
@@ -495,6 +503,7 @@ test('repository access rejects wrong scope, overlong listings and inconsistent 
 });
 
 const revisionPrior = 'd' + '1'.repeat(24);
+const taskB = 'd' + 'b'.repeat(24);
 
 const historyCurrent = {
   revision,
@@ -514,6 +523,7 @@ const historyCurrent = {
           new_objective: 'Track demo work.',
         },
       ],
+      reused: [taskB],
       unchanged_count: 1,
     },
     ideas: {
@@ -531,8 +541,9 @@ const historyCurrent = {
     },
     effective_outcomes: {added: [idea], removed: []},
     state_change: {from: 'draft', to: 'accepted'},
+    edges_changed: false,
   },
-  work: [{task_key: task, issue_index: '12', state: 'working', authority: 'current'}],
+  work: [{task_key: task, issue_index: '12', state: 'working', authority: 'current', content_version: 2}],
 };
 
 const historyFirst = {
@@ -542,10 +553,11 @@ const historyFirst = {
   created_unix: 1728660000,
   generation: {state: 'not_requested'},
   comparison: {
-    tasks: {added: [], removed: [], changed: [], unchanged_count: 0},
+    tasks: {added: [], removed: [], changed: [], reused: [], unchanged_count: 0},
     ideas: {added: [], removed: [], changed: []},
     effective_outcomes: {added: [], removed: []},
     initial: true,
+    edges_changed: false,
   },
   work: [],
 };
@@ -564,7 +576,10 @@ test('revision history binds before/after and affected work to its intent', () =
   assert.equal(current?.comparison.ideas.changed[0]?.to_decision, 'accept');
   assert.deepEqual(current?.comparison.effective_added, [idea]);
   assert.equal(current?.comparison.state_change?.to, 'accepted');
+  assert.deepEqual(current?.comparison.tasks.reused, [taskB]);
+  assert.equal(current?.comparison.edges_changed, false);
   assert.equal(current?.work[0]?.issue_index, '12');
+  assert.equal(current?.work[0]?.content_version, 2);
   assert.equal(parsed.revisions[1]?.comparison.initial, true);
   const cut = revisionHistory({...historyFixture, truncated: true}, intent);
   assert.equal(cut.truncated, true);
@@ -600,4 +615,11 @@ test('revision history rejects wrong scope, bad pages and unpaired texts', () =>
   assert.throws(() => revisionHistory({...historyFixture, revisions: [badWork]}, intent));
   const badGeneration = {...historyCurrent, generation: {state: 'dreamed'}};
   assert.throws(() => revisionHistory({...historyFixture, revisions: [badGeneration]}, intent));
+  const badCount = {
+    ...historyCurrent,
+    comparison: {...historyCurrent.comparison, tasks: {...historyCurrent.comparison.tasks, unchanged_count: 2}},
+  };
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [badCount]}, intent));
+  const edgedFirst = {...historyFirst, comparison: {...historyFirst.comparison, edges_changed: true}};
+  assert.throws(() => revisionHistory({...historyFixture, revisions: [edgedFirst]}, intent));
 });

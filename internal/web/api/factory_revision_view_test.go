@@ -20,8 +20,8 @@ func TestRevisionTaskDiff(t *testing.T) {
 		{Key: "new", Objective: "added", Outcomes: []string{"n"}},
 	}
 	diff := revisionTaskDiff(old, current)
-	if diff.UnchangedCount != 1 {
-		t.Fatalf("unchanged: %+v", diff)
+	if len(diff.Reused) != 1 || diff.Reused[0] != "keep" || diff.UnchangedCount != len(diff.Reused) {
+		t.Fatalf("reused: %+v", diff)
 	}
 	if len(diff.Added) != 1 || diff.Added[0].Key != "new" {
 		t.Fatalf("added: %+v", diff.Added)
@@ -71,6 +71,37 @@ func TestRevisionIdeaDiff(t *testing.T) {
 	}
 }
 
+func TestRevisionTaskDiffOrdersChangedByOld(t *testing.T) {
+	old := []factory.IntentTask{{Key: "b", Objective: "1"}, {Key: "a", Objective: "1"}}
+	current := []factory.IntentTask{{Key: "a", Objective: "2"}, {Key: "b", Objective: "2"}}
+	diff := revisionTaskDiff(old, current)
+	if len(diff.Changed) != 2 || diff.Changed[0].Key != "b" || diff.Changed[1].Key != "a" {
+		t.Fatalf("changed order: %+v", diff.Changed)
+	}
+}
+
+func TestRevisionEdgesChanged(t *testing.T) {
+	if revisionEdgesChanged(nil, nil) {
+		t.Fatal("empty edges changed")
+	}
+	same := []factory.IntentTask{{Key: "a", DependsOn: []string{"x"}}}
+	if revisionEdgesChanged(same, []factory.IntentTask{{Key: "a", DependsOn: []string{"x"}, Objective: "new"}}) {
+		t.Fatal("content edit flagged edges")
+	}
+	if !revisionEdgesChanged(same, []factory.IntentTask{{Key: "a", DependsOn: []string{"y"}}}) {
+		t.Fatal("dependency swap missed")
+	}
+	if !revisionEdgesChanged(same, append(append([]factory.IntentTask{}, same...), factory.IntentTask{Key: "b", DependsOn: []string{"a"}})) {
+		t.Fatal("added edge missed")
+	}
+	if revisionEdgesChanged(same, append(append([]factory.IntentTask{}, same...), factory.IntentTask{Key: "b"})) {
+		t.Fatal("edgeless addition flagged")
+	}
+	if !revisionEdgesChanged(append(append([]factory.IntentTask{}, same...), factory.IntentTask{Key: "b", DependsOn: []string{"a"}}), same) {
+		t.Fatal("removed edge missed")
+	}
+}
+
 func TestRevisionIDDiff(t *testing.T) {
 	diff := revisionIDDiff([]string{"a", "b"}, []string{"b", "c"})
 	if len(diff.Added) != 1 || diff.Added[0] != "c" {
@@ -89,10 +120,10 @@ func TestRevisionComparisonDTO(t *testing.T) {
 	old := factory.IntentRevision{Repository: 7, State: "accepted", Tasks: []factory.IntentTask{{Key: "a"}}, EffectiveOutcomes: []string{"d1"}}
 	current := factory.IntentRevision{Repository: 7, State: "accepted", Tasks: []factory.IntentTask{{Key: "a"}, {Key: "b"}}, EffectiveOutcomes: []string{"d2"}}
 	diff := revisionComparisonDTO(old, current)
-	if diff.Initial || diff.Repository != nil || diff.State != nil {
+	if diff.Initial || diff.Repository != nil || diff.State != nil || diff.EdgesChanged {
 		t.Fatalf("context: %+v", diff)
 	}
-	if len(diff.Tasks.Added) != 1 || diff.Tasks.UnchangedCount != 1 {
+	if len(diff.Tasks.Added) != 1 || len(diff.Tasks.Reused) != 1 || diff.Tasks.Reused[0] != "a" {
 		t.Fatalf("tasks: %+v", diff.Tasks)
 	}
 	if len(diff.Effective.Added) != 1 || len(diff.Effective.Removed) != 1 {
@@ -141,7 +172,7 @@ func TestRevisionEntryRendersArrays(t *testing.T) {
 		t.Fatalf("work: %v", entry["work"])
 	}
 	tasks := entry["comparison"].(map[string]any)["tasks"].(map[string]any)
-	for _, key := range []string{"added", "removed", "changed"} {
+	for _, key := range []string{"added", "removed", "changed", "reused"} {
 		if items, ok := tasks[key].([]any); !ok || len(items) != 0 {
 			t.Fatalf("%s: %v", key, tasks[key])
 		}
