@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 39
+const schemaFormatVersion = 40
 
 // schemaStatements creates the current PostgreSQL schema in dependency
 // order: tables, indexes, guard functions, then triggers. JSON payloads
@@ -16,7 +16,7 @@ const schemaFormatVersion = 39
 // instead of the SQLite rowid.
 var schemaStatements = []string{
 	`CREATE TABLE schema_version(version INTEGER PRIMARY KEY)`,
-	`INSERT INTO schema_version(version) VALUES(39)`,
+	`INSERT INTO schema_version(version) VALUES(40)`,
 	`CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '')`,
 	`CREATE TABLE keys(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint))`,
 	`CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready BOOLEAN NOT NULL DEFAULT FALSE, creation_profile JSONB CHECK(creation_profile IS NULL OR octet_length(creation_profile::text)<=1024))`,
@@ -69,8 +69,15 @@ created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '')`,
 id TEXT PRIMARY KEY CHECK(octet_length(id) BETWEEN 1 AND 160),
 delivery TEXT NOT NULL DEFAULT '' CHECK(octet_length(delivery)<=128),
 repository BIGINT NOT NULL CHECK(repository>0), issue BIGINT NOT NULL CHECK(issue>0),
+creation_verified BOOLEAN NOT NULL DEFAULT FALSE,
+creator_id BIGINT NOT NULL DEFAULT 0 CHECK(creator_id>=0), creator_write BOOLEAN NOT NULL DEFAULT FALSE,
+native_issue_id BIGINT NOT NULL DEFAULT 0 CHECK(native_issue_id>=0), created_unix BIGINT NOT NULL DEFAULT 0 CHECK(created_unix>=0),
+title_digest TEXT NOT NULL DEFAULT '' CHECK(octet_length(title_digest) IN (0,64)),
+content_digest TEXT NOT NULL DEFAULT '' CHECK(octet_length(content_digest) IN (0,64)),
 generation BIGINT NOT NULL DEFAULT 0 CHECK(generation>=0), turn BIGINT NOT NULL CHECK(turn>0),
-retry_at TIMESTAMPTZ NOT NULL DEFAULT 'epoch', attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6))`,
+retry_at TIMESTAMPTZ NOT NULL DEFAULT 'epoch', attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 6),
+CHECK(NOT creation_verified OR (creator_id>0 AND native_issue_id>0 AND created_unix>0 AND octet_length(title_digest)=64 AND octet_length(content_digest)=64)))`,
+	`CREATE TABLE factory_creation_cursors(repository BIGINT PRIMARY KEY CHECK(repository>0), task_id BIGINT NOT NULL CHECK(task_id>=0))`,
 	`CREATE TABLE factory_readiness_nodes(
 source TEXT NOT NULL REFERENCES factory_readiness_sources(id) ON DELETE CASCADE,
 repository BIGINT NOT NULL CHECK(repository>0), issue BIGINT NOT NULL CHECK(issue>0),
@@ -247,7 +254,8 @@ func verifyRequiredColumns(ctx context.Context, t *sql.Tx) error {
 		`SELECT seq,assignment,repository,issue,run,stage,revision,data FROM factory_publications LIMIT 0`,
 		`SELECT seq,publication,repository,issue,pr,stage,revision,data FROM factory_merges LIMIT 0`,
 		`SELECT id,generation,next_turn FROM factory_readiness_budget LIMIT 0`,
-		`SELECT id,delivery,repository,issue,generation,turn,retry_at,attempts FROM factory_readiness_sources LIMIT 0`,
+		`SELECT id,delivery,repository,issue,creation_verified,creator_id,creator_write,native_issue_id,created_unix,title_digest,content_digest,generation,turn,retry_at,attempts FROM factory_readiness_sources LIMIT 0`,
+		`SELECT repository,task_id FROM factory_creation_cursors LIMIT 0`,
 		`SELECT source,repository,issue,state,cursor_repository,cursor_issue FROM factory_readiness_nodes LIMIT 0`,
 	} {
 		rows, err := t.QueryContext(ctx, query)
