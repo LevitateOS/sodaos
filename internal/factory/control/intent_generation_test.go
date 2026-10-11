@@ -158,7 +158,7 @@ func (f *generatedGraphFixture) ReadAcceptanceEvidence(_ context.Context, _, ind
 func acceptedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixture, factory.IntentRevision) {
 	t.Helper()
 	c := coordinatorFixture(t, nil, nil)
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Build a tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track requests", Consequence: "Clear ownership", Decision: "accept"}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Request entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "Request list", Outcomes: []string{"Show requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{"d444444444444444444444444"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Build a tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track requests", Consequence: "Clear ownership", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Request entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "Request list", Outcomes: []string{"Show requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{"d444444444444444444444444"}}}}
 	if err := c.Store.SaveIntentRevision(context.Background(), r); err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func acceptedGenerationFixture(t *testing.T) (*Coordinator, *generatedGraphFixtu
 }
 
 func TestIntentGraphPayloadBindsProductDirection(t *testing.T) {
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Tracker", State: "accepted", MaxIssues: 5, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track", Consequence: "Visibility", Decision: "accept"}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Tracker", State: "accepted", MaxIssues: 5, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Track", Consequence: "Visibility", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "Entry", Outcomes: []string{"Capture requests"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	p, err := IntentGraphPayload(r)
 	if err != nil {
 		t.Fatal(err)
@@ -417,6 +417,13 @@ func TestIntentGraphLongProposalRetainsAcceptedSemanticsWithinPacket(t *testing.
 	r.State = "accepted"
 	for i := range r.Ideas {
 		r.Ideas[i].Decision = "accept"
+		r.Ideas[i].Provenance = "human"
+		r.Ideas[i].Actor = 7
+		if r.Ideas[i].Assumption {
+			r.Ideas[i].Source = "assumption"
+		} else {
+			r.Ideas[i].Source = "requested"
+		}
 	}
 	payload, err := IntentGraphPayload(r)
 	if err != nil {
@@ -437,7 +444,7 @@ func TestIntentGraphLongProposalRetainsAcceptedSemanticsWithinPacket(t *testing.
 }
 
 func TestIntentGraphBodyIncludesReviewedChoicesAndCorrections(t *testing.T) {
-	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Track team requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Ask for full address", Decision: "edit", Correction: "Ask only for a work email", Consequence: "Avoid collecting unnecessary personal data"}, {ID: "d444444444444444444444444", Description: "Stay within existing access", Assumption: true, Decision: "edit", Correction: "Permit only current project members", Consequence: "No new account enrollment"}}, Tasks: []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Ask only for a work email", Outcomes: []string{"Accept member request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
+	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 42, Objective: "Track team requests", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Ask for full address", Decision: "edit", Correction: "Ask only for a work email", Consequence: "Avoid collecting unnecessary personal data", Source: "requested", Provenance: "human", Actor: 7}, {ID: "d444444444444444444444444", Description: "Stay within existing access", Assumption: true, Decision: "edit", Correction: "Permit only current project members", Consequence: "No new account enrollment", Source: "assumption", Provenance: "human", Actor: 7, Material: true}}, Tasks: []factory.IntentTask{{Key: "d555555555555555555555555", Objective: "Ask only for a work email", Outcomes: []string{"Accept member request"}, IdeaIDs: []string{"d333333333333333333333333"}}}}
 	payload, err := IntentGraphPayload(r)
 	if err != nil {
 		t.Fatal(err)
