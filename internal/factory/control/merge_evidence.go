@@ -14,14 +14,16 @@ import (
 // submit: the independent approval on the exact head, the persisted
 // ST11 pass under the current adopted definitions, and a fresh
 // check verdict on the merge bracket so regressed checks cannot ride
-// an older pass. Missing evidence waits for a later pass; rejected or
-// misidentified candidates fail. The bound intent is persisted before
-// any submit.
+// an older pass. Missing evidence and blocking reviews wait for a later
+// pass; permanently refused or misidentified candidates fail. The bound
+// intent is persisted before any submit.
 func (c *Coordinator) observeMergeEvidence(ctx context.Context, m *factory.Merge, work factory.MergeWork, policy factory.RepositoryPolicy, revision int64, report *MergeReport) bool {
 	observation, err := c.Merges.ObserveMerge(ctx, work)
 	if err != nil {
 		var refused *factory.PublicationRefusal
-		if errors.As(err, &refused) {
+		// A blocking independent review leaves the shared attempt open
+		// for its normal correction; no merge intent has been recorded.
+		if errors.As(err, &refused) && refused.Reason != "changes_requested" {
 			c.finishMerge(ctx, *m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
 		} else {
 			c.mergeCallError(report, m.ID, err)

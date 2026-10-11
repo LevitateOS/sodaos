@@ -36,6 +36,52 @@ func TestMergePassMergesOneExactPR(t *testing.T) {
 	}
 }
 
+func TestMergePassWaitsForRequestedChangesThenCorrectedHead(t *testing.T) {
+	ctx := context.Background()
+	fx, p := mergeSeed(t, 3)
+	owner, err := fx.publish.db.Assignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prior, err := fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec := happyMerger()
+	exec.observe = func(factory.MergeWork) (factory.MergeObservation, error) {
+		return factory.MergeObservation{}, &factory.PublicationRefusal{Reason: "changes_requested"}
+	}
+	fx.wire(exec)
+	first := fx.pass(t)
+	m := fx.merge(t, p)
+	after, err := fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
+	if m.Stage != factory.MergeOpen || m.Operation.Attempts != 0 || m.Operation.Work != nil ||
+		len(first.Waits) != 1 || first.Waits[0].Reason != "changes_requested" ||
+		len(exec.submits) != 0 || err != nil || after.Closed || !after.Active || after.Revision != prior.Revision {
+		t.Fatalf("blocking review closed its correction root: merge=%+v allowance=%+v report=%+v err=%v", m, after, first, err)
+	}
+	newHead := strings.Repeat("d", 40)
+	run := correctionRun(t, fx.publish, owner, newHead)
+	corrected := fx.publish.coord.PublishCorrection(ctx, run.ID)
+	if len(corrected.Corrected) != 1 || len(corrected.Errors) != 0 || len(corrected.Waits) != 0 {
+		t.Fatalf("waiting merge prevented correction publication: %+v", corrected)
+	}
+	fx.publish.coord.Checks = happyCheckObserver()
+	assessment := fx.publish.coord.AssessPublicationChecks(ctx, fx.publish.coord.Checks, 7, owner.ID)
+	if len(assessment.Assessed) != 1 || assessment.Assessed[0].Verdict != factory.CheckPass {
+		t.Fatalf("corrected head did not receive a fresh check: %+v", assessment)
+	}
+	fx.wire(happyMerger())
+	second := fx.pass(t)
+	completed := fx.merge(t, p)
+	after, err = fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
+	if len(second.Merged) != 1 || completed.ID != m.ID || completed.Stage != factory.MergeMerged ||
+		completed.HeadOID != newHead || completed.Operation.Work == nil || completed.Operation.Work.HeadOID != newHead ||
+		len(fx.exec.submits) != 1 || err != nil || !after.Closed || after.Active || after.Limits != prior.Limits {
+		t.Fatalf("corrected approved head did not settle the same bounded root: merge=%+v allowance=%+v report=%+v err=%v", completed, after, second, err)
+	}
+}
+
 func TestAttemptSlotRemainsActiveUntilConfirmedMerge(t *testing.T) {
 	ctx := context.Background()
 	fx, p := mergeSeed(t, 3)
@@ -246,11 +292,11 @@ func TestMergePassWaitsForApproval(t *testing.T) {
 	}
 }
 
-func TestMergePassRefusesChangeRequest(t *testing.T) {
+func TestMergePassRefusesWrongCandidateIdentity(t *testing.T) {
 	fx, p := mergeSeed(t, 3)
 	exec := happyMerger()
 	exec.observe = func(w factory.MergeWork) (factory.MergeObservation, error) {
-		return factory.MergeObservation{}, &factory.PublicationRefusal{Reason: "changes_requested"}
+		return factory.MergeObservation{}, &factory.PublicationRefusal{Reason: "pr_mismatch"}
 	}
 	fx.wire(exec)
 	fx.pass(t)
