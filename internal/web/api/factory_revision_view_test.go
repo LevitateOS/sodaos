@@ -20,7 +20,7 @@ func TestRevisionTaskDiff(t *testing.T) {
 		{Key: "new", Objective: "added", Outcomes: []string{"n"}},
 	}
 	diff := revisionTaskDiff(old, current)
-	if len(diff.Reused) != 1 || diff.Reused[0] != "keep" {
+	if len(diff.Reused) != 1 || diff.Reused[0] != "keep" || diff.UnchangedCount != len(diff.Reused) {
 		t.Fatalf("reused: %+v", diff)
 	}
 	if len(diff.Added) != 1 || diff.Added[0].Key != "new" {
