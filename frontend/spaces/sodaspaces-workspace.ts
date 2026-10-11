@@ -392,13 +392,7 @@ export class SodaSpaces extends LitElement {
     if (!this.binding || this.disposed || (repositoryId !== undefined && !id(repositoryId))) return;
     // Transport/account and each terminal's locator remain unchanged. Only the
     // current content presentation and observed repository preference change.
-    const base = {
-      transport: this.binding.transport,
-      forgejoPrefix: this.binding.forgejoPrefix || '',
-      ...(repositoryId ? {repositoryId} : {}),
-    };
-    this.binding =
-      kind === 'page' ? {...base, kind} : {...base, kind, ...(repositoryId ? {pageRepositoryId: repositoryId} : {})};
+    this.binding = workspacePresentation(this.binding, kind, repositoryId);
     if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
     this.requestUpdate();
   }
@@ -1673,6 +1667,18 @@ export class SodaSpaces extends LitElement {
   }
 }
 customElements.define('soda-spaces', SodaSpaces);
+function workspacePresentation(
+  context: WorkspaceContext,
+  kind: 'page' | 'native',
+  repositoryId?: string
+): WorkspaceContext {
+  const base = {
+    transport: context.transport,
+    forgejoPrefix: context.forgejoPrefix || '',
+    ...(repositoryId ? {repositoryId} : {}),
+  };
+  return kind === 'page' ? {...base, kind} : {...base, kind, ...(repositoryId ? {pageRepositoryId: repositoryId} : {})};
+}
 function workspaceContextValid(context: WorkspaceContext) {
   if (context.kind === 'page') return context.repositoryId === undefined || id(context.repositoryId);
   return (
