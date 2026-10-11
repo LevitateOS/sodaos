@@ -109,7 +109,7 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		return
 	}
 	if answer.Selected == "clarify" || answer.Confidence < 0.25 {
-		proposal.Tasks = nil
+		proposal.Tasks = []factory.IntentTask{}
 		proposal.Ideas = append(proposal.Ideas, factory.ProductIdea{ID: ids[103], Description: "Describe the first user action and the result that should count as success", Consequence: "Implementation waits until this material product question is resolved.", Assumption: true, Decision: "pending"})
 	}
 	if err = s.Store.SaveIntentRevision(r.Context(), proposal); err != nil {

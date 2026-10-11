@@ -12,7 +12,7 @@ func ProposeIntent(r IntentRevision, ids []string) IntentRevision {
 			{ID: ids[1], Description: "Keep the first version within the existing repository and Project access", Consequence: "No new external integrations, account enrollment, paid services or shared department permissions are included.", Assumption: true, Decision: "pending"},
 		}
 	}
-	r.Tasks = nil
+	r.Tasks = []IntentTask{}
 	for i, idea := range r.Ideas {
 		if idea.Decision == "decline" || idea.Assumption {
 			continue

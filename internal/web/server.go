@@ -58,6 +58,10 @@ func New(c config.Config, db *store.Store) *Server {
 		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
 			c.ForgejoBackgroundCredentialFile, client)
 		observer.ShareBackground(background)
+		if c.ForgejoGraphCredentialFile != "" && c.ForgejoGraphActorID > 0 {
+			s.Coordinator.Graph = forgejo.NewIssueGraphWriter(background, client, c.ForgejoGraphCredentialFile)
+			s.Coordinator.GraphActorID = c.ForgejoGraphActorID
+		}
 		source := api.NewServiceReadinessSource(observer)
 		s.Coordinator.AcceptanceReads = source
 		s.Coordinator.Readiness = source

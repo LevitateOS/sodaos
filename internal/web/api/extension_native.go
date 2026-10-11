@@ -178,6 +178,8 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/factory/departments", protect(s.apiDepartments, http.MethodPost))
 	mux.HandleFunc("POST /api/factory/intents", protect(s.apiIntentRevision, http.MethodPost))
 	mux.HandleFunc("GET /api/factory/intents/{intentID}", protect(s.apiIntent, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/generation", protect(s.apiIntentGeneration, http.MethodGet))
+	mux.HandleFunc("POST /api/factory/intents/{intentID}/generate", protect(s.apiIntentGenerate, http.MethodPost))
 	mux.HandleFunc("POST /api/factory/intents/{intentID}/explore", protect(s.apiIntentExplore, http.MethodPost))
 	mux.HandleFunc("GET /api/repositories", protect(s.apiRepositories, http.MethodGet))
 	mux.HandleFunc("GET /api/repositories/{repositoryID}/profiles", protect(s.apiProjectProfiles, http.MethodGet))

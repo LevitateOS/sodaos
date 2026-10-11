@@ -143,6 +143,7 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 		}
 	}
 	c.observeStandingPreparations(ctx, standingPreparationCursor)
+	_ = c.RecoverIntentGraphs(ctx)
 	_ = c.recoverCreations(ctx)
 	c.Dispatch(ctx)
 	if ownsPass {

@@ -20,9 +20,11 @@ import (
 const SodaPath = "/-/soda"
 
 type Config struct {
-	TypeSafeAPIKeyFile        string `json:"typesafe_api_key_file"`
-	TypeSafeModel             string `json:"typesafe_model"`
-	FactoryJudgmentCallBudget int    `json:"factory_judgment_call_budget"`
+	ForgejoGraphCredentialFile string `json:"forgejo_graph_credential_file"`
+	ForgejoGraphActorID        int64  `json:"forgejo_graph_actor_id"`
+	TypeSafeAPIKeyFile         string `json:"typesafe_api_key_file"`
+	TypeSafeModel              string `json:"typesafe_model"`
+	FactoryJudgmentCallBudget  int    `json:"factory_judgment_call_budget"`
 
 	Listen             string `json:"listen"`
 	ForgejoURL         string `json:"forgejo_url"`
@@ -115,6 +117,12 @@ func validateConfigURLs(c *Config) error {
 }
 
 func validateConfigPaths(c Config) error {
+	if (c.ForgejoGraphCredentialFile != "") != (c.ForgejoGraphActorID > 0) {
+		return errors.New("graph actor and credential must be configured together")
+	}
+	if c.ForgejoGraphCredentialFile != "" && !filepath.IsAbs(c.ForgejoGraphCredentialFile) {
+		return errors.New("forgejo_graph_credential_file must be absolute")
+	}
 	if c.FactoryJudgmentCallBudget < 0 || c.FactoryJudgmentCallBudget > 100000 {
 		return errors.New("factory_judgment_call_budget must be a finite nonnegative allowance")
 	}

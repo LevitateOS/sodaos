@@ -563,3 +563,45 @@ history and compare the expected predecessor. A changed product direction needs
 fresh review; routine engineering decomposition within the accepted direction
 does not require separate approval of every issue. Current native evidence and
 independent execution, account, preparation and funding grants remain required.
+
+## Planning and priority judgments
+
+Code admits planning against current accepted scope, Project preparation and
+independent finite consultation funding. Visible unfinished prerequisite outcomes
+can support a provisional acceptance-based outline. Missing or inaccessible
+requirements, authority and cyclic dependencies cannot. The record retains
+inputs, explicit missing outputs, strategy and steps. Unchanged semantic inputs
+reuse the record; completion of prerequisites, accepted-input edits or changed
+source/setup invalidate it. Generated work needs a current nonprovisional plan
+before coding. Planning confers no execution permission.
+
+The operator configures a finite cumulative consultation ceiling and a restricted
+server-side TypeSafe key file. A person's intent separately limits its planning
+calls; failed or interrupted requests retain reserved allowance. Increasing a
+ceiling requires an explicit configuration or revised human intent decision.
+Keys never enter Projects or browser inputs.
+
+For multiple deterministically eligible issues, Jev receives every candidate and
+observed relevant state. Bounded groups of at most 255 compete through a complete
+tournament; sets exceeding the configured maximum consultation count wait rather
+than dropping candidates. Uncertain valid advice uses the oldest candidate in
+its group. After consultation, a candidate waiting at least one day receives the
+recorded fairness preference. Cached advice is reusable for unchanged semantic
+inputs, but dispatch rechecks the complete exact current candidate inventory and
+all admission gates. One eligible candidate requires no priority call.
+
+## Bounded lifecycle actions
+
+The default workflow retains three concrete actions: issue creation records the
+accepted-intent origin in native issue text and the durable task binding; PR
+creation records its exact native link and candidate in Factory publication
+state; verified merge records its native completion, waits for confirmed original
+issue closure, and reconsiders dependents. The serving Soda coordinator owns
+progression; Fountain owns native effects and their permission-checked receipts.
+These actions use existing operation IDs, grants and finite attempt allowances.
+An uncertain outcome is reconciled under the original ID, and a refusal remains
+visible instead of creating a replacement effect. They require no generic hooks
+engine and cannot disable acceptance, accounting, independent review, exact
+candidate verification or original-issue closure. Optional outbound notifications
+or additional lifecycle effects need concrete recipient, authority, spending and
+failure decisions before configuration is added.

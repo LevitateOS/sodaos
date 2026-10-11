@@ -75,6 +75,8 @@ type Coordinator struct {
 	Store           *store.Store
 	Host            HostFactory
 	Broker          BrokerExecution
+	Graph           IssueGraphExecutor
+	GraphActorID    int64
 	AcceptanceReads AcceptanceSource
 	Readiness       ReadinessObservation
 	Creations       CreationRecoverySource
@@ -99,6 +101,7 @@ type Coordinator struct {
 	publicationChildCursor string
 	// progressMu protects the fair retained-creation repository cursor.
 	creationRepositoryCursor int64
+	intentGenerationCursor   string
 }
 
 func NewCoordinator(db *store.Store, host HostFactory, broker BrokerExecution) *Coordinator {
@@ -167,6 +170,7 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	if c.Merges != nil {
 		c.MergePass(ctx)
 	}
+	_ = c.RecoverIntentGraphs(ctx)
 	_ = c.recoverCreations(ctx)
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")

@@ -68,7 +68,8 @@ proceed under the standing policy without per-issue administrator approval.
 
 Soda records the [accepted native inputs](../product/overview.md#accepted-requirements-and-native-records)
 through a deliberate acceptance action authenticated by Fountain's current native
-browser admission, or the narrowly defined verified initial-creation path. Require
+browser admission, the narrowly defined verified initial-creation path, or
+[revision-bound generated work](#accepted-intent-and-generated-native-work). Require
 current **code-unit write** permission; native issue-edit permission is insufficient.
 The human identity is host-derived, never supplied by a comment or actor field.
 Native comment posters, dependency creators, labels and command-like prose do not
@@ -963,3 +964,22 @@ service boundaries independent of this maintenance obligation.
 Project provisioning, privileged host operations and terminal supervision have
 their own Soda and host ownership. The Forgejo process and its trusted extensions
 do not gain the Soda database, broker secrets or privileged helper sockets.
+
+## Accepted intent and generated native work
+
+A human's accepted product revision authorizes bounded derived work in its exact
+repository. It names accepted choices, material corrections and assumptions,
+task outcomes, graph edges and finite planning allowance. Department labels
+remain private creator-owned metadata and grant no access. Native generated
+issues are authored by the enrolled service actor; the human product approver
+and native effect actor remain distinct.
+
+The graph operation is recorded before submission, fenced by the native revision,
+and attributed through Fountain's conditional mutation receipt. Soda persists
+parent/task provenance before exposing derived issue acceptance to dispatch and
+adopts prerequisites in dependency order. Every later acceptance check requires
+the parent revision to remain the current accepted head and its human to retain
+native code-write authority. Revisions invalidate superseded work even if native
+issue text is unchanged. Exact native title/body/history/dependency evidence,
+independent Project/account grants and finite execution funding still apply.
+No classifier result supplies authority, native completion or verified correctness.

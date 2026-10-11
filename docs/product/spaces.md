@@ -130,3 +130,21 @@ Missing host capabilities follow the
 [Fountain consumption boundary](../architecture/trust.md#fountain-consumption-boundary).
 
 Customization rules: [Forgejo customization](../reference/forgejo.md).
+
+## Intent-first creation
+
+New Project opens with **What do you want to build?**, a centered description
+field and basic department and finite planning controls. Department creation asks
+for a name and description and stores private organizational context only.
+Product exploration presents a conservative proposed baseline and consequential
+assumptions for accept, decline or correction. Its proposed native task graph is
+returned by the backend, never manufactured in browser state. The initial
+baseline is not researched domain requirements or a claim that Jev generated
+product prose; Jev evaluates supplied alternatives.
+
+Repository selection follows product review. The accepted revision binds that
+repository before generated work is admitted. Creating the persistent Project
+remains an explicit action with existing owner/profile/network checks. Navigation,
+review entry and department selection cannot provision a Project, enroll an
+account or grant access. Failure after acceptance preserves the durable request
+and displays pending native generation rather than pretending issues exist.

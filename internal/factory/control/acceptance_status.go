@@ -71,6 +71,15 @@ func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, is
 	} else if generated && !current {
 		status.Reasons = []string{"accepted_intent_changed"}
 		return status, AcceptanceEvidence{}, nil
+	} else if generated {
+		if c.Graph == nil || c.GraphActorID <= 0 {
+			status.Reasons = []string{"accepted_intent_authority_unavailable"}
+			return status, AcceptanceEvidence{}, nil
+		}
+		if _, err := c.Graph.CheckIntentOwner(bounded, repository, decision.Approver, c.GraphActorID); err != nil {
+			status.Reasons = []string{"accepted_intent_authority_unavailable"}
+			return status, AcceptanceEvidence{}, nil
+		}
 	}
 	if withdrawn, _, err := c.Store.AcceptanceWithdrawn(bounded, repository, index, head); err != nil {
 		return AcceptanceValidity{}, AcceptanceEvidence{}, err
