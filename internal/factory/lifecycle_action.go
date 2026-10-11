@@ -89,6 +89,46 @@ func EventAction(event string) string {
 	}
 }
 
+// Lifecycle native operation kinds, one per admitted event. These strings
+// must equal the extension SDK's OperationKindLifecycleIssue/Review/Note;
+// the SDK is the canonical owner.
+const (
+	LifecycleKindIssue  = "issue.lifecycle.apply"
+	LifecycleKindReview = "pull_request.review.request"
+	LifecycleKindNote   = "issue.comment.publish"
+)
+
+// LifecycleEventKind maps each admitted event to its native operation
+// kind. Unknown events map to "".
+func LifecycleEventKind(event string) string {
+	switch event {
+	case LifecycleEventIssueCreated:
+		return LifecycleKindIssue
+	case LifecycleEventPRCreated:
+		return LifecycleKindReview
+	case LifecycleEventVerifiedMerge:
+		return LifecycleKindNote
+	default:
+		return ""
+	}
+}
+
+// LifecycleHandshake is one authenticated native capability answer: the
+// current installation, a stable native operations generation, and the
+// supported operation kinds. Unknown kinds are ignored by the registrar;
+// only the three lifecycle kinds can register markers.
+type LifecycleHandshake struct {
+	Installation string   `json:"installation"`
+	Generation   string   `json:"generation"`
+	Kinds        []string `json:"kinds"`
+}
+
+// ValidHandshake reports whether h carries an attributable answer. Empty
+// kinds are valid and mean no lifecycle operation is available.
+func ValidHandshake(h LifecycleHandshake) bool {
+	return h.Installation != "" && h.Generation != ""
+}
+
 // Validate checks identity, event/action pairing, bounds and targets.
 func (a LifecycleAction) Validate() error {
 	if a.ID == "" || !ValidLifecycleEvent(a.Event) || EventAction(a.Event) != a.Action {

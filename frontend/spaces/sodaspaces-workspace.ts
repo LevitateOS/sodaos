@@ -46,6 +46,7 @@ import {
   sessionsButtonLabel,
 } from './sodaspaces-workspace-toolbar-view.js';
 import {beginSetup, cancelSetup, changeRepository, focusSetupPanel, renderSetup} from './sodaspaces-workspace-setup.js';
+import {newRouteFor, requestIdFromLocation, requestIDPattern, requestRouteFor} from './sodaspaces-workspace-setup.js';
 import type {SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
 import {attentionRows, filteredSpaces, projectRows, rows} from './sodaspaces-workspace-navigation.js';
 import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
@@ -274,7 +275,12 @@ export class SodaSpaces extends LitElement {
     return this.spaces.find((s) => s.environment.repository_id === this.project);
   }
   private get setupScreen() {
-    return this.binding?.kind === 'page' && (!!this.setup || (!this.spaces.length && !this.binding.repositoryId));
+    return (
+      this.binding?.kind === 'page' &&
+      (!!this.setup ||
+        (!this.spaces.length && !this.binding.repositoryId) ||
+        requestIdFromLocation(window.location.pathname) !== '')
+    );
   }
   private get welcomeScreen() {
     return this.setupScreen && !this.setup && this.available && this.complete;
@@ -357,6 +363,9 @@ export class SodaSpaces extends LitElement {
     this.storageKey = '';
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
+      signal: this.lifetime.signal,
+    });
+    window.addEventListener('popstate', () => this.requestUpdate(), {
       signal: this.lifetime.signal,
     });
     window.addEventListener(
@@ -913,6 +922,8 @@ export class SodaSpaces extends LitElement {
       managementMode: this.managementMode,
       setupReturn: this.setupReturn,
       firstSpace: this.spaces[0],
+      actorId: this.actor?.id || '',
+      requestId: requestIdFromLocation(window.location.pathname),
       onBegin: this.onBeginSetup,
       onRefresh: this.onRefreshClick,
     };
@@ -971,7 +982,21 @@ export class SodaSpaces extends LitElement {
         this.intentNotice = message;
       },
       api: (path, body, signal) => this.api(path, body, signal),
+      syncIntentRoute: (intent) => {
+        this.syncIntentRoute(intent);
+      },
     };
+  }
+  private syncIntentRoute(intent: string | null) {
+    if (intent !== null && !requestIDPattern.test(intent)) return;
+    const target =
+      intent === null ? newRouteFor(window.location.pathname) : requestRouteFor(window.location.pathname, intent);
+    if (target !== window.location.pathname) {
+      const url = target + window.location.search + window.location.hash;
+      if (intent === null) window.history.pushState(null, '', url);
+      else window.history.replaceState(null, '', url);
+    }
+    this.requestUpdate();
   }
   private selectProject(space: Space) {
     if (this.stale || !this.available || !this.canRestore) return;
