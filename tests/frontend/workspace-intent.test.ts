@@ -1,8 +1,112 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import type {Page} from 'playwright';
 import {setupWorkspaceDriver, fixture, reviewFirstIntent} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
+
+interface IntentStore {
+  arm(id: string): void;
+  release(id: string): void;
+  seed(entries: Record<string, unknown>[]): void;
+  forbid: boolean;
+  sessionLost: boolean;
+}
+// Test-local private intent peer: records saved revisions, serves the declared
+// current-revision read and owner-private list, and gates/refuses loads on
+// demand. Shared fixtures stay untouched.
+async function installIntentStore(page: Page) {
+  await page.evaluate(() => {
+    const records = new Map<string, Record<string, unknown>>();
+    const gates = new Map<string, () => void>();
+    const single = (url: string) => url.match(/\/api\/factory\/intents\/([^/?#]+)$/)?.[1] || '';
+    const store = {
+      forbid: false,
+      sessionLost: false,
+      arm(id: string) {
+        gates.set(id, () => {});
+      },
+      release(id: string) {
+        const resolve = gates.get(id);
+        gates.delete(id);
+        resolve?.();
+      },
+      seed(entries: Record<string, unknown>[]) {
+        for (const entry of entries) records.set(String(entry.intent), entry);
+      },
+    };
+    (window as unknown as {intentStore: typeof store}).intentStore = store;
+    (window as unknown as {resumed: unknown[]}).resumed = [];
+    document.addEventListener('intent-resumed', (event) =>
+      (window as unknown as {resumed: unknown[]}).resumed.push((event as CustomEvent).detail)
+    );
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || 'GET';
+        const id = single(url);
+        if (id && method === 'GET') {
+          if (store.sessionLost) return new Response(null, {status: 403});
+          if (store.forbid) return new Response(null, {status: 404});
+          if (gates.has(id)) await new Promise<void>((resolve) => gates.set(id, resolve));
+          const record = records.get(id);
+          if (!record) return new Response(null, {status: 404});
+          return Response.json({...record, owner: '1', created_unix: 1});
+        }
+        if (url.includes('/api/factory/intents?') && method === 'GET') {
+          if (store.sessionLost) return new Response(null, {status: 403});
+          if (store.forbid) return new Response(null, {status: 404});
+          const intents = [...records.values()].map((record) => ({
+            intent: record.intent,
+            revision: record.id,
+            state: record.state,
+            objective: String(record.objective).slice(0, 280),
+            repository: record.repository,
+            created_unix: 1,
+            effective_count: 0,
+            task_count: Array.isArray(record.tasks) ? record.tasks.length : 0,
+          }));
+          return Response.json({intents});
+        }
+        if (url.endsWith('/api/factory/intents') && method === 'POST') {
+          const response = await original(input, init);
+          if (response.ok && typeof init?.body === 'string') {
+            const body = JSON.parse(init.body) as Record<string, unknown>;
+            records.set(String(body.intent), {...body});
+          }
+          return response;
+        }
+        return original(input, init);
+      },
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+}
+async function resetIntent(page: Page) {
+  await page.evaluate(() => {
+    (document.querySelector('soda-intent') as unknown as {reset(): void}).reset();
+  });
+}
+async function resumeIntent(page: Page, id: string) {
+  await page.evaluate((intent: string) => {
+    (document.querySelector('soda-intent') as unknown as {request: string}).request = intent;
+  }, id);
+}
+async function intentObjective(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement ? area.value : 'missing';
+  });
+}
+async function lastPostedBody(page: Page, state: string): Promise<Record<string, unknown>> {
+  return page.evaluate((wanted: string) => {
+    const calls = window.workspaceFixture.calls;
+    const found = [...calls].reverse().find((call) => call.body?.state === wanted);
+    return (found?.body || {}) as Record<string, unknown>;
+  }, state);
+}
 
 test('intent-first entry stores department and corrected product review before repository association', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
@@ -227,4 +331,180 @@ test('an unavailable proposal keeps the objective editable and permits a bounded
     await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.body?.state === 'accepted').length),
     0
   );
+});
+
+test('saved draft resumes by request id while superseded and refused loads keep safe context', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByText('No saved requests yet.', {exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('First draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Saved', {exact: true}).waitFor();
+  const first = await lastPostedBody(page, 'draft');
+  const id1 = String(first.intent);
+  assert(/^d[0-9a-f]{24}$/.test(id1));
+  await page.getByText('First draft', {exact: true}).waitFor();
+  const callsBefore = await page.evaluate(() => window.workspaceFixture.calls.length);
+  await resetIntent(page);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === '';
+  });
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), callsBefore);
+  await resumeIntent(page, id1);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'First draft';
+  });
+  await page.getByText('Saved', {exact: true}).waitFor();
+  const resumed = await page.evaluate(() => (window as unknown as {resumed: {intent: string}[]}).resumed);
+  assert.deepEqual(
+    resumed.map((entry) => entry.intent),
+    [id1]
+  );
+  await resetIntent(page);
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Second draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Second draft', {exact: true}).waitFor();
+  const second = await lastPostedBody(page, 'draft');
+  const id2 = String(second.intent);
+  assert.notEqual(id2, id1);
+  await resetIntent(page);
+  await page.evaluate((id: string) => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.arm(id);
+  }, id1);
+  await resumeIntent(page, id1);
+  await resumeIntent(page, id2);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Second draft';
+  });
+  await page.evaluate((id: string) => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.release(id);
+  }, id1);
+  await page.waitForTimeout(200);
+  assert.equal(await intentObjective(page), 'Second draft');
+  const later = await page.evaluate(() => (window as unknown as {resumed: {intent: string}[]}).resumed);
+  assert(later.length >= 2);
+  assert(later.slice(1).every((entry) => entry.intent === id2));
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = true;
+  });
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Local unsaved edits');
+  await resumeIntent(page, id1);
+  await page
+    .getByText('This saved request is unavailable to the current account. Your current edits are kept.', {exact: true})
+    .waitFor();
+  assert.equal(await intentObjective(page), 'Local unsaved edits');
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = false;
+  });
+  const resumedBeforeSwitch = await page.evaluate(() => (window as unknown as {resumed: unknown[]}).resumed.length);
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.sessionLost = true;
+    window.workspaceFixture.setUser('2');
+  });
+  await resetIntent(page);
+  await resumeIntent(page, id1);
+  await page.waitForTimeout(300);
+  assert.equal(await intentObjective(page), '');
+  assert.equal(
+    await page.evaluate(() => (window as unknown as {resumed: unknown[]}).resumed.length),
+    resumedBeforeSwitch
+  );
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.sessionLost = false;
+    window.workspaceFixture.setUser('1');
+  });
+  assert.equal(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method === 'DELETE').length),
+    0
+  );
+});
+
+test('declined direction resumes for revision and re-explores as a new draft', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page.getByRole('button', {name: 'Decline proposal', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  const declined = await lastPostedBody(page, 'declined');
+  assert(/^d[0-9a-f]{24}$/.test(String(declined.intent)));
+  await page.getByText('Declined', {exact: false}).first().waitFor();
+  await resumeIntent(page, String(declined.intent));
+  await page
+    .getByText('This direction was declined. Revise the outcome and explore again for a new draft.', {exact: true})
+    .waitFor();
+  assert.equal(await intentObjective(page), 'Build a leave tracker');
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker for staff');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const successor = await lastPostedBody(page, 'draft');
+  assert.equal(successor.predecessor, declined.id);
+  assert.deepEqual(successor.ideas, []);
+});
+
+test('saved inventory lists states and separates empty from unavailable', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByText('No saved requests yet.', {exact: true}).waitFor();
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.seed([
+      {
+        intent: 'd111111111111111111111111',
+        id: 'd111111111111111111111112',
+        state: 'accepted',
+        objective: 'Accepted tracker',
+        repository: '7',
+        tasks: [{key: 'd111111111111111111111113'}],
+      },
+      {
+        intent: 'd222222222222222222222222',
+        id: 'd222222222222222222222223',
+        state: 'rejected',
+        objective: 'Rejected planner',
+        repository: '0',
+        tasks: [],
+      },
+      {
+        intent: 'd333333333333333333333333',
+        id: 'd333333333333333333333334',
+        state: 'abandoned',
+        objective: 'Abandoned board',
+        repository: '0',
+        tasks: [],
+      },
+    ]);
+  });
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Accepted tracker', {exact: true}).waitFor();
+  await page.getByText('Accepted', {exact: false}).first().waitFor();
+  await page.getByText('Rejected planner', {exact: true}).waitFor();
+  await page.getByText('Rejected', {exact: false}).first().waitFor();
+  await page.getByText('Abandoned board', {exact: true}).waitFor();
+  await page.getByText('Abandoned', {exact: false}).first().waitFor();
+  await page.getByText('Fresh draft', {exact: true}).waitFor();
+  await resetIntent(page);
+  await page.locator('li', {hasText: 'Fresh draft'}).getByRole('button', {name: 'Resume'}).click();
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Fresh draft';
+  });
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = true;
+  });
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Another draft');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Could not load saved requests. Your edits are kept; try again.', {exact: true}).waitFor();
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.forbid = false;
+  });
+  await page.getByRole('button', {name: 'Retry', exact: true}).click();
+  await page.getByText('Another draft', {exact: true}).waitFor();
 });
