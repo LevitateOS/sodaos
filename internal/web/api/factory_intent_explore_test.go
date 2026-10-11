@@ -34,7 +34,7 @@ func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
 	proposal := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", State: "draft"}
 	content := factory.DescribeAlternatives("Time-off requests my manager can approve")
 	challenges := []factory.AssumptionChallenge{{Idea: "d333333333333333333333333", Assumption: "Everyone can see each request", Consequence: "Dates are exposed", Recommendation: "Confirm it"}}
-	raw, err := json.Marshal(attachExploration(proposal, factory.ProposalContent{Producer: content.Producer, Supported: content.Supported, Unknowns: content.Unknowns}, challenges, nil))
+	raw, err := json.Marshal(attachExploration(proposal, factory.ProposalContent{Producer: content.Producer, Supported: content.Supported, Unknowns: content.Unknowns}, challenges, nil, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
