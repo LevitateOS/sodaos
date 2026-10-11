@@ -1,7 +1,50 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {setupWorkspaceDriver, fixture, openSession, action, create} from './fixtures/workspace-driver';
+import {
+  setupWorkspaceDriver,
+  fixture,
+  openSession,
+  action,
+  create,
+  chooseFirstRepository,
+} from './fixtures/workspace-driver';
 setupWorkspaceDriver();
+
+for (const firstUse of [false, true])
+  test(`Project settings mount Factory controls through the workspace${firstUse ? ' after first use' : ''}`, async (t) => {
+    const page = await fixture(t, 'page', undefined, firstUse);
+    await page.evaluate(() => window.workspaceFixture.api.refresh());
+    if (firstUse) {
+      await chooseFirstRepository(page);
+      assert.equal(
+        await page.locator('soda-factory-settings').count(),
+        0,
+        'setup must keep Factory out of the journey'
+      );
+      await page.getByRole('button', {name: 'Create project', exact: true}).click();
+      await page.getByRole('button', {name: 'Join project', exact: true}).click();
+      await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+    }
+    const existingOwner = firstUse ? await page.locator('soda-project-controls').elementHandle() : undefined;
+    const writesBeforeSettings = await page.evaluate(
+      () => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length
+    );
+    await page.getByRole('button', {name: 'Project settings', exact: true}).click();
+    await page.getByRole('tab', {name: 'Factory', exact: true}).click();
+    assert.equal(await page.locator('[data-view="factory"]').getAttribute('aria-selected'), 'true');
+    const settings = page.locator('soda-factory-settings');
+    await settings.waitFor({state: 'visible'});
+    assert.equal(await settings.count(), 1);
+    assert(await settings.locator('form[data-action="policy"]').isVisible());
+    assert(await settings.getByRole('button', {name: 'Save repository policy', exact: true}).isVisible());
+    if (firstUse)
+      assert(await existingOwner?.evaluate((node) => node.isConnected), 'settings must reuse the journey owner');
+    assert.equal(
+      await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET').length),
+      writesBeforeSettings,
+      'opening settings must not submit a command'
+    );
+  });
 
 test('direct New reserves one default-named locator before creating; Rename is separate', async (t) => {
   const page = await fixture(t);
@@ -100,13 +143,16 @@ test('project drafts and independent terminal owners survive detail switching', 
   await action(page, 'Project settings');
   await page.locator('soda-project-controls [aria-busy=false]').waitFor();
   await page.getByRole('tab', {name: 'Access', exact: true}).click();
-  await page.locator('soda-project-controls textarea').fill('unsent public key draft');
+  await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).fill('unsent public key draft');
   await page.locator('.soda-project-select').filter({hasText: 'alice/Beta'}).click();
   await page.getByRole('button', {name: 'Project settings', exact: true}).click();
   await page.locator('soda-project-controls:visible [aria-busy=false]').waitFor();
   await page.locator('.soda-project-select').filter({hasText: 'alice/Alpha'}).click();
   await page.getByRole('button', {name: 'Project settings', exact: true}).click();
-  assert.equal(await page.locator('soda-project-controls:visible textarea').inputValue(), 'unsent public key draft');
+  assert.equal(
+    await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).inputValue(),
+    'unsent public key draft'
+  );
   assert.equal(await page.locator('.xterm').count(), 1);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets[0]?.closed), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);

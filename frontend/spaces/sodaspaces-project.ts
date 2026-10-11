@@ -411,7 +411,7 @@ export class SodaProjectControls extends LitElement {
   }
   private settingsViewInput(): SettingsViewInput {
     return {
-      readBindingSettings: () => !!this.binding?.settings,
+      readBindingSettings: () => !!this.binding?.settings || this.presentation === 'settings',
       readBindingPage: () => !!this.binding?.page,
       readBindingRepository: () => this.binding?.repositoryId || '',
       readFactoryTransport: () => this.binding?.transport,
