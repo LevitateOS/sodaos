@@ -145,30 +145,68 @@ func (s *Store) ListActions(ctx context.Context, repository, issue int64, event 
 	return out, rows.Err()
 }
 
-// RecordCapability stores one event's native capability proof marker.
-// Each event is proved independently; replaying the same revision
-// returns it, while a changed revision conflicts.
-func (s *Store) RecordCapability(ctx context.Context, event, revision string) error {
-	if !factory.ValidLifecycleEvent(event) || revision == "" {
+// RegisterCapability stores one event's native capability proof marker
+// bound to its installation and native generation. Each event registers
+// independently; replaying the identical marker is a no-op returning
+// replaced=false, while a verified changed marker supersedes the stored
+// one and returns replaced=true. Only the capability registrar calls
+// this, never tests-as-seed and never owner configuration.
+func (s *Store) RegisterCapability(ctx context.Context, event, revision, installation string) (bool, error) {
+	if !factory.ValidLifecycleEvent(event) || revision == "" || installation == "" {
+		return false, factory.ErrLifecycleAction
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	var storedRevision, storedInstallation string
+	err = tx.QueryRowContext(ctx, `SELECT revision,installation FROM factory_lifecycle_capabilities WHERE event=$1 FOR UPDATE`, event).Scan(&storedRevision, &storedInstallation)
+	switch {
+	case err == nil:
+		if storedRevision == revision && storedInstallation == installation {
+			if err := tx.Commit(); err != nil {
+				return false, err
+			}
+			return false, nil
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE factory_lifecycle_capabilities SET revision=$2,installation=$3 WHERE event=$1`, event, revision, installation); err != nil {
+			return false, fmt.Errorf("lifecycle capability replace failed: %w", err)
+		}
+	case errors.Is(err, ErrNotFound):
+		if _, err := tx.ExecContext(ctx, `INSERT INTO factory_lifecycle_capabilities(event,revision,installation) VALUES($1,$2,$3)`, event, revision, installation); err != nil {
+			return false, fmt.Errorf("lifecycle capability record failed: %w", err)
+		}
+	default:
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// DeleteCapability removes one event's marker, returning to unavailable.
+// Capability loss and unsupported events invalidate this way; in-flight
+// actions keep their own revalidation and fail safely natively.
+func (s *Store) DeleteCapability(ctx context.Context, event string) error {
+	if !factory.ValidLifecycleEvent(event) {
 		return factory.ErrLifecycleAction
 	}
-	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_lifecycle_capabilities(event,revision) VALUES($1,$2) ON CONFLICT(event) DO NOTHING`, event, revision)
-	if err != nil {
-		return fmt.Errorf("lifecycle capability record failed: %w", err)
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM factory_lifecycle_capabilities WHERE event=$1`, event); err != nil {
+		return fmt.Errorf("lifecycle capability delete failed: %w", err)
 	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
+	return nil
+}
+
+// DeleteForeignCapabilities removes every marker bound to another
+// installation. A changed installation never retains availability.
+func (s *Store) DeleteForeignCapabilities(ctx context.Context, installation string) error {
+	if installation == "" {
+		return factory.ErrLifecycleAction
 	}
-	if n == 1 {
-		return nil
-	}
-	var stored string
-	if err := s.db.QueryRowContext(ctx, `SELECT revision FROM factory_lifecycle_capabilities WHERE event=$1`, event).Scan(&stored); err != nil {
-		return err
-	}
-	if stored != revision {
-		return ErrLifecycleActionConflict
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM factory_lifecycle_capabilities WHERE installation<>$1`, installation); err != nil {
+		return fmt.Errorf("lifecycle capability invalidate failed: %w", err)
 	}
 	return nil
 }
