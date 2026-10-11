@@ -25,6 +25,38 @@ export interface IntentTask {
   idea_ids: string[];
   depends_on?: string[];
 }
+export interface ProposalBranch {
+  outcome: string;
+  result: string;
+}
+export interface ProposalStep {
+  actor: string;
+  action: string;
+  result: string;
+  branches?: ProposalBranch[];
+}
+export interface ProposalAlternative {
+  key: string;
+  name: string;
+  audience?: string;
+  summary?: string;
+  steps: ProposalStep[];
+  visibility?: string;
+  consequences?: string;
+  evidence?: string;
+  outcomes: string[];
+}
+export interface ProposalContent {
+  producer: string;
+  supported: boolean;
+  intent?: string;
+  revision?: string;
+  objective?: string;
+  facts?: string[];
+  alternatives?: ProposalAlternative[];
+  excluded?: string[];
+  unknowns: string[];
+}
 export interface IntentRevision {
   id: string;
   intent: string;
@@ -39,6 +71,47 @@ export interface IntentRevision {
   planning_calls: number;
   approach?: 'complete_first' | 'incremental';
   effective_outcomes?: string[];
+}
+export interface AssumptionChallenge {
+  idea: string;
+  assumption: string;
+  consequence: string;
+  recommendation: string;
+}
+export interface Milestone {
+  name: string;
+  result: string;
+}
+export interface ConsolidatedProposal {
+  producer: string;
+  intent: string;
+  revision: string;
+  objective: string;
+  recommended: string;
+  alternative: ProposalAlternative;
+  outcomes: string[];
+  constraints: string[];
+  excluded?: string[];
+  milestones: Milestone[];
+  advice: string;
+}
+export interface ConsistencyMismatch {
+  class: 'effect_added' | 'outcome_gap' | 'summary_drift' | 'unverified';
+  detail: string;
+}
+export interface ConsistencyReport {
+  producer: string;
+  intent: string;
+  revision: string;
+  mismatches: ConsistencyMismatch[];
+  confidence: number;
+  advice: string;
+}
+export interface Exploration {
+  content: ProposalContent;
+  challenges: AssumptionChallenge[];
+  recommendation?: ConsolidatedProposal;
+  consistency?: ConsistencyReport;
 }
 export interface SavedRequest {
   intent: string;
@@ -179,6 +252,151 @@ export function intentList(value: unknown): {intents: SavedRequest[]; next_curso
   const intents = array(raw.intents, 50).map(savedRequest);
   if (raw.next_cursor !== undefined) check(decisionID(raw.next_cursor));
   return {intents, ...(raw.next_cursor ? {next_cursor: String(raw.next_cursor)} : {})};
+}
+function branch(value: unknown): ProposalBranch {
+  const raw = object(value);
+  return {outcome: text(raw.outcome, 4000), result: text(raw.result, 4000)};
+}
+function step(value: unknown): ProposalStep {
+  const raw = object(value);
+  const branches = raw.branches === undefined ? [] : array(raw.branches, 4).map(branch);
+  return {
+    actor: text(raw.actor, 4000),
+    action: text(raw.action, 4000),
+    result: text(raw.result, 4000),
+    ...(branches.length ? {branches} : {}),
+  };
+}
+function alternative(value: unknown): ProposalAlternative {
+  const raw = object(value);
+  const steps = array(raw.steps, 8).map(step);
+  check(steps.length >= 1);
+  const out: ProposalAlternative = {
+    key: text(raw.key, 64),
+    name: text(raw.name, 4000),
+    steps,
+    outcomes: array(raw.outcomes, 20).map((outcome) => text(outcome, 4000)),
+  };
+  if (raw.audience) out.audience = text(raw.audience, 4000);
+  if (raw.summary) out.summary = text(raw.summary, 4000);
+  if (raw.visibility) out.visibility = text(raw.visibility, 4000);
+  if (raw.consequences) out.consequences = text(raw.consequences, 4000);
+  if (raw.evidence) out.evidence = text(raw.evidence, 4000);
+  return out;
+}
+function proposalAlternatives(raw: Record<string, unknown>, supported: boolean): ProposalAlternative[] | undefined {
+  if (!supported) {
+    check(raw.alternatives === undefined);
+    return undefined;
+  }
+  const alternatives = array(raw.alternatives, 2).map(alternative);
+  check(alternatives.length === 2);
+  return alternatives;
+}
+function proposalBinding(raw: Record<string, unknown>, out: ProposalContent) {
+  if (raw.intent !== undefined) check(decisionID(raw.intent));
+  if (raw.revision !== undefined) check(decisionID(raw.revision));
+  if (raw.intent) out.intent = String(raw.intent);
+  if (raw.revision) out.revision = String(raw.revision);
+  if (raw.objective) out.objective = text(raw.objective, 16000);
+  if (raw.facts !== undefined) {
+    const facts = array(raw.facts, 51).map((fact) => text(fact, 16000));
+    check(facts.length >= 1);
+    out.facts = facts;
+  }
+}
+export function proposalContent(value: unknown): ProposalContent {
+  const raw = object(value);
+  check(typeof raw.supported === 'boolean');
+  const unknowns = array(raw.unknowns, 8).map((unknown) => text(unknown, 4000));
+  check(unknowns.length >= 1);
+  const out: ProposalContent = {
+    producer: text(raw.producer, 200),
+    supported: raw.supported,
+    unknowns,
+  };
+  proposalBinding(raw, out);
+  const alternatives = proposalAlternatives(raw, raw.supported);
+  if (alternatives) out.alternatives = alternatives;
+  if (raw.excluded !== undefined) out.excluded = excludedIDs(raw);
+  return out;
+}
+function challenge(value: unknown): AssumptionChallenge {
+  const raw = object(value);
+  check(decisionID(raw.idea));
+  return {
+    idea: raw.idea,
+    assumption: text(raw.assumption, 4000),
+    consequence: text(raw.consequence, 4000),
+    recommendation: text(raw.recommendation, 4000),
+  };
+}
+function milestone(value: unknown): Milestone {
+  const raw = object(value);
+  return {name: text(raw.name, 4000), result: text(raw.result, 4000)};
+}
+function recommendation(value: unknown): ConsolidatedProposal {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.revision));
+  const other = alternative(raw.alternative);
+  check(raw.recommended === other.key);
+  const outcomes = array(raw.outcomes, 20).map((outcome) => text(outcome, 4000));
+  check(outcomes.length >= 1);
+  const milestones = array(raw.milestones, 40).map(milestone);
+  check(milestones.length >= 1);
+  return {
+    producer: text(raw.producer, 200),
+    intent: raw.intent,
+    revision: raw.revision,
+    objective: text(raw.objective, 16000),
+    recommended: other.key,
+    alternative: other,
+    outcomes,
+    constraints: array(raw.constraints, 50).map((constraint) => text(constraint, 4000)),
+    ...(raw.excluded !== undefined ? {excluded: excludedIDs(raw)} : {}),
+    milestones,
+    advice: text(raw.advice, 200),
+  };
+}
+function excludedIDs(raw: Record<string, unknown>): string[] {
+  const excluded = array(raw.excluded, 50);
+  for (const id of excluded) check(decisionID(id));
+  return excluded.map(String);
+}
+function mismatch(value: unknown): ConsistencyMismatch {
+  const raw = object(value);
+  check(
+    raw.class === 'effect_added' ||
+      raw.class === 'outcome_gap' ||
+      raw.class === 'summary_drift' ||
+      raw.class === 'unverified'
+  );
+  return {class: raw.class as ConsistencyMismatch['class'], detail: text(raw.detail, 4000)};
+}
+function consistency(value: unknown): ConsistencyReport {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.revision));
+  check(typeof raw.confidence === 'number' && Number.isFinite(raw.confidence));
+  check(Number(raw.confidence) >= 0 && Number(raw.confidence) <= 1);
+  return {
+    producer: text(raw.producer, 200),
+    intent: raw.intent,
+    revision: raw.revision,
+    mismatches: array(raw.mismatches, 16).map(mismatch),
+    confidence: Number(raw.confidence),
+    advice: text(raw.advice, 200),
+  };
+}
+export function exploration(value: unknown): Exploration {
+  const raw = object(value);
+  const out: Exploration = {
+    content: proposalContent(raw.content),
+    challenges: array(raw.challenges, 50).map(challenge),
+  };
+  if (raw.recommendation !== undefined && raw.recommendation !== null)
+    out.recommendation = recommendation(raw.recommendation);
+  if (raw.consistency !== undefined && raw.consistency !== null) out.consistency = consistency(raw.consistency);
+  return out;
 }
 function references(raw: Record<string, unknown>) {
   if (raw.predecessor !== undefined) check(decisionID(raw.predecessor));

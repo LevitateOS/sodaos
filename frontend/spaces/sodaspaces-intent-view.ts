@@ -1,9 +1,14 @@
 import {html} from 'lit';
-import type {Department, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
+import type {Department, Exploration, IntentRevision, ProductIdea, SavedRequest} from './sodaspaces-intent-response.js';
+import {explorationReview} from './sodaspaces-intent-walkthrough.js';
 
 export interface IntentView {
   objective: string;
   saveNote: string;
+  exploration: Exploration | undefined;
+  explorationStale: boolean;
+  changeOpen: boolean;
+  changeText: string;
   savedRequests: SavedRequest[];
   savedLoaded: boolean;
   savedError: string;
@@ -20,9 +25,14 @@ export interface IntentView {
   departmentDescription: string;
   maxIssues: number;
   planningCalls: number;
-  set(field: 'objective' | 'department' | 'departmentName' | 'departmentDescription', value: string): void;
+  set(
+    field: 'objective' | 'department' | 'departmentName' | 'departmentDescription' | 'changeText',
+    value: string
+  ): void;
   setBound(field: 'maxIssues' | 'planningCalls', value: number): void;
   decide(id: string, decision: ProductIdea['decision'], correction?: string): void;
+  toggleChange(open: boolean): void;
+  correctProposal(text: string): void;
   chooseApproach(approach: 'complete_first' | 'incremental'): void;
   describe(): void;
   saveDraft(): void;
@@ -184,15 +194,35 @@ function productIdea(view: IntentView, idea: ProductIdea) {
     ${idea.decision === 'edit' ? html`<label>What should change?<textarea rows="3" maxlength="4000" .value=${idea.correction || ''} @input=${(event: Event) => view.decide(idea.id, 'edit', input(event))} ?disabled=${view.busy || view.blocked}></textarea></label>` : ''}
   </article>`;
 }
+function ideaDecided(idea: ProductIdea | undefined, allowDecline: boolean): boolean {
+  if (!idea || idea.decision === 'pending') return false;
+  if (idea.decision === 'decline') return allowDecline;
+  return idea.decision !== 'edit' || !!idea.correction?.trim();
+}
+function tasksDecided(revision: IntentRevision, ideas: Map<string, ProductIdea>): boolean {
+  for (const task of revision.tasks)
+    for (const id of task.idea_ids) if (!ideaDecided(ideas.get(id), false)) return false;
+  return true;
+}
+function challengesAnswered(view: IntentView, ideas: Map<string, ProductIdea>): boolean {
+  for (const challenge of view.exploration?.challenges || [])
+    if (!ideaDecided(ideas.get(challenge.idea), true)) return false;
+  return true;
+}
 export function reviewReady(view: IntentView) {
   const revision = view.revision;
   if (!revision || view.dirty || view.busy || view.blocked || !revision.tasks.length) return false;
-  return (
-    revision.ideas.length > 0 &&
-    revision.ideas.every(
-      (idea) => idea.decision !== 'pending' && (idea.decision !== 'edit' || !!idea.correction?.trim())
-    )
-  );
+  const ideas = new Map(revision.ideas.map((idea) => [idea.id, idea]));
+  return tasksDecided(revision, ideas) && challengesAnswered(view, ideas);
+}
+function refreshExploration(view: IntentView) {
+  if (view.revision?.state !== 'draft') return '';
+  return html`<button ?disabled=${view.busy || view.blocked} @click=${view.revise}>Refresh walkthrough</button>`;
+}
+function reviewLead(view: IntentView) {
+  if (!view.exploration) return refreshExploration(view);
+  return html`${explorationReview(view, view.exploration)}
+  ${view.explorationStale && !view.dirty ? refreshExploration(view) : ''}`;
 }
 function deliveryApproach(view: IntentView, revision: IntentRevision) {
   return html` <fieldset>
@@ -230,7 +260,8 @@ export function reviewIntent(view: IntentView) {
         @input=${(event: Event) => view.set('objective', input(event))}
       ></textarea>
     </label>
-    <p>Choose the ideas and assumptions that match what you want. Changes update the proposal before you continue.</p>
+    ${reviewLead(view)}
+    <p>Only asked questions and work-linked choices are required. Changes update the proposal before you continue.</p>
     ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}
     ${revision.ideas.map((idea) => productIdea(view, idea))}
