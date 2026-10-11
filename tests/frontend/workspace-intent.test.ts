@@ -867,7 +867,7 @@ test('unsupported objectives show unknowns without fabricated alternatives', asy
   assert.equal(await page.locator('section[aria-label="Questions needing your answer"]').count(), 0);
 });
 
-test('planning allowance failures preserve the draft and identify the allowance', async (t) => {
+test('planning and judgment failures preserve the draft and identify the actual cause', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
     const original = window.fetch;
@@ -892,7 +892,7 @@ test('planning allowance failures preserve the draft and identify the allowance'
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   await page
     .getByText(
-      'Exploration exhausted the planning allowance. Your description is saved; raise the allowance or try again.',
+      'The TypeSafe System One judgment service could not complete exploration. Your description is saved; try again.',
       {exact: true}
     )
     .waitFor();
