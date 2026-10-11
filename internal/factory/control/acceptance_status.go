@@ -116,7 +116,10 @@ func assessAcceptance(decision factory.Acceptance, evidence AcceptanceEvidence) 
 	if !issue.Visible {
 		return []string{RefusalIssueHidden}
 	}
-	if issue.TitleDigest != decision.TitleDigest || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
+	if !factory.ValidTitleOccurrence(issue.TitleOccurrence) {
+		return []string{RefusalIncompleteEvidence}
+	}
+	if issue.TitleDigest != decision.TitleDigest || issue.TitleOccurrence != decision.TitleOccurrence || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
 		reasons = append(reasons, RefusalObjectiveChanged)
 	}
 	comments := make(map[string]AcceptanceComment, len(evidence.Comments))

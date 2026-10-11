@@ -158,6 +158,18 @@ impl<E: project::Executor> Ops<E> {
         Ok(self.runtime().prepare_candidate(&req.0, deadline)?.encode())
     }
 
+    pub(crate) fn prepare_candidate_from_run(
+        &self,
+        req: &PrepareCandidateReq,
+        bundle: &[u8],
+        deadline: Instant,
+    ) -> Result<String, String> {
+        Ok(self
+            .runtime()
+            .prepare_candidate_from_run(&req.0, bundle, deadline)?
+            .encode())
+    }
+
     /// `/prepare-context`: read bounded exact-object prompt material. The
     /// request's absolute deadline caps every native operation.
     pub fn prepare_context(

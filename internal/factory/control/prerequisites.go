@@ -207,10 +207,9 @@ func (a *issueAssessor) codePrereqCompleted(ctx context.Context, prereq factory.
 func (a *issueAssessor) assessResultPrereq(prereq factory.AcceptedPrerequisite, endpointHead string, evidence AcceptanceEvidence, hasResolutions bool, assessed *prereqAssessment, fingerprint *factory.FingerprintInput) {
 	input := factory.FingerprintPrereq{
 		Occurrence: prereq.Occurrence, Outcome: prereq.Outcome,
-		EndpointHead: endpointHead,
-		Closed:       evidence.Issue.Closed,
-		Lifecycle:    evidence.Issue.Lifecycle,
-		ClosedUnix:   evidence.Issue.ClosedUnix,
+		EndpointHead:      endpointHead,
+		Closed:            evidence.Issue.Closed,
+		ClosingOccurrence: evidence.Issue.ClosingOccurrence,
 	}
 	pending := func(detail string) {
 		input.Blocker, input.Detail = factory.BlockerResultPending, detail
@@ -221,20 +220,27 @@ func (a *issueAssessor) assessResultPrereq(prereq factory.AcceptedPrerequisite, 
 		})
 	}
 	switch {
+	case evidence.Issue.Closed && !factory.ValidNativeOccurrence(evidence.Issue.ClosingOccurrence):
+		input.Blocker = factory.BlockerEvidenceIncomplete
+		assessed.blockers = append(assessed.blockers, factory.Blocker{
+			Code:         factory.BlockerEvidenceIncomplete,
+			EndpointRepo: prereq.EndpointRepo, EndpointIssue: prereq.EndpointIssue,
+			Resolution: factory.BlockerResolution(factory.BlockerEvidenceIncomplete),
+		})
 	case !hasResolutions:
 		pending(factory.ResultDetailNoResolution)
 	case !evidence.Issue.Closed:
 		pending(factory.ResultDetailAwaitingClosure)
 	default:
 		recorded, ok := assessed.satisfied[prereq.Occurrence]
-		if ok && (recorded.ClosedUnix != evidence.Issue.ClosedUnix || recorded.Lifecycle != evidence.Issue.Lifecycle) {
+		if ok && recorded.ClosingOccurrence != evidence.Issue.ClosingOccurrence {
 			pending(factory.ResultDetailReopened)
 			break
 		}
 		input.Satisfied = true
 		assessed.satisfied[prereq.Occurrence] = factory.PrereqSatisfaction{
-			Lifecycle: evidence.Issue.Lifecycle, ClosedUnix: evidence.Issue.ClosedUnix,
-			Acceptance: a.head,
+			ClosingOccurrence: evidence.Issue.ClosingOccurrence,
+			Acceptance:        a.head,
 		}
 	}
 	fingerprint.Prereqs = append(fingerprint.Prereqs, input)

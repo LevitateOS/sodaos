@@ -23,10 +23,16 @@ var (
 )
 
 type ReadinessWork struct {
-	ID, Delivery string
-	Root         factory.DependenceRef
-	Generation   int64
+	ID, Delivery                          string
+	Root                                  factory.DependenceRef
+	Generation                            int64
+	CreationVerified                      bool
+	CreatorID, NativeIssueID, CreatedUnix int64
+	CreatorWrite                          bool
+	TitleDigest, ContentDigest            string
 }
+
+const readinessWorkColumns = `id,delivery,repository,issue,generation,creation_verified,creator_id,creator_write,native_issue_id,created_unix,title_digest,content_digest`
 
 type ReadinessWorkNode struct {
 	Ref, Cursor factory.DependenceRef
@@ -104,7 +110,7 @@ func (s *Store) NextReadinessWork(ctx context.Context, now time.Time) (Readiness
 	if err = tx.QueryRowContext(ctx, `SELECT id FROM factory_readiness_budget WHERE id=1 FOR UPDATE`).Scan(&locked); err != nil {
 		return ReadinessWork{}, err
 	}
-	work, err := readReadinessWork(ctx, tx, `SELECT id,delivery,repository,issue,generation FROM factory_readiness_sources WHERE retry_at<=$1 ORDER BY turn,id LIMIT 1 FOR UPDATE`, now)
+	work, err := readReadinessWork(ctx, tx, `SELECT `+readinessWorkColumns+` FROM factory_readiness_sources WHERE retry_at<=$1 ORDER BY turn,id LIMIT 1 FOR UPDATE`, now)
 	if err != nil {
 		return ReadinessWork{}, err
 	}
@@ -136,7 +142,7 @@ func (s *Store) BeginReadinessWork(ctx context.Context, id string, now time.Time
 	if err = tx.QueryRowContext(ctx, `SELECT id FROM factory_readiness_budget WHERE id=1 FOR UPDATE`).Scan(&locked); err != nil {
 		return ReadinessWork{}, err
 	}
-	work, err := readReadinessWork(ctx, tx, `SELECT id,delivery,repository,issue,generation FROM factory_readiness_sources WHERE id=$1 AND retry_at<=$2 FOR UPDATE`, id, now)
+	work, err := readReadinessWork(ctx, tx, `SELECT `+readinessWorkColumns+` FROM factory_readiness_sources WHERE id=$1 AND retry_at<=$2 FOR UPDATE`, id, now)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ReadinessWork{}, ErrReadinessPending
@@ -184,7 +190,8 @@ func readReadinessWork(ctx context.Context, q interface {
 }, query string, args ...any,
 ) (ReadinessWork, error) {
 	var work ReadinessWork
-	err := q.QueryRowContext(ctx, query, args...).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation)
+	err := q.QueryRowContext(ctx, query, args...).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation,
+		&work.CreationVerified, &work.CreatorID, &work.CreatorWrite, &work.NativeIssueID, &work.CreatedUnix, &work.TitleDigest, &work.ContentDigest)
 	return work, err
 }
 
@@ -375,9 +382,7 @@ func (s *Store) DeferReadinessWork(ctx context.Context, id string, now time.Time
 
 // ReadinessWork returns one source header; absent IDs report ErrNotFound.
 func (s *Store) ReadinessWork(ctx context.Context, id string) (ReadinessWork, error) {
-	var work ReadinessWork
-	err := s.db.QueryRowContext(ctx, `SELECT id,delivery,repository,issue,generation FROM factory_readiness_sources WHERE id=$1`, id).Scan(&work.ID, &work.Delivery, &work.Root.Repository, &work.Root.Issue, &work.Generation)
-	return work, err
+	return readReadinessWork(ctx, s.db, `SELECT `+readinessWorkColumns+` FROM factory_readiness_sources WHERE id=$1`, id)
 }
 
 // enqueueReadinessRootEventTx invalidates prior progress and coalesces a
@@ -392,6 +397,16 @@ func enqueueReadinessRootEventTx(ctx context.Context, tx *sql.Tx, repository, is
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE factory_readiness_budget SET generation=generation+1 WHERE id=1`); err != nil {
 		return err
+	}
+	// Pending creation already owns a critical durable root. Restart its
+	// graph under the new head instead of requiring a second queue slot;
+	// otherwise a full creation queue could prevent every initial admission.
+	var creationPending bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_readiness_sources WHERE repository=$1 AND issue=$2 AND creator_id>0 AND delivery<>'')`, repository, issue).Scan(&creationPending); err != nil {
+		return err
+	}
+	if creationPending {
+		return nil
 	}
 	return enqueueReadinessWorkTx(ctx, tx, fmt.Sprintf("root:%d/%d", repository, issue), "", factory.DependenceRef{Repository: repository, Issue: issue})
 }

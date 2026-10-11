@@ -85,6 +85,20 @@ func TestBlockerResolutionsCoverEveryCode(t *testing.T) {
 	}
 }
 
+func TestPrereqSatisfactionRequiresNativeClosingOccurrence(t *testing.T) {
+	valid := PrereqSatisfaction{ClosingOccurrence: "901", Acceptance: "d" + strings.Repeat("a", 24)}
+	if err := valid.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"", OriginalOccurrence, "0", "01", "+1", "9223372036854775808"} {
+		invalid := valid
+		invalid.ClosingOccurrence = id
+		if err := invalid.Validate(); err == nil {
+			t.Errorf("invalid native close accepted: %q", id)
+		}
+	}
+}
+
 func fingerprintFixture() FingerprintInput {
 	return FingerprintInput{
 		Acceptance: "d" + strings.Repeat("c", 24),
@@ -92,7 +106,7 @@ func fingerprintFixture() FingerprintInput {
 		Validity:   []string{},
 		Prereqs: []FingerprintPrereq{{
 			Occurrence: "11", Outcome: PrereqResult, EndpointHead: "d" + strings.Repeat("d", 24),
-			Closed: true, Lifecycle: 5, ClosedUnix: 300, Satisfied: true,
+			Closed: true, ClosingOccurrence: "901", Satisfied: true,
 		}},
 	}
 }
@@ -124,16 +138,15 @@ func TestFingerprintStableOverOrdering(t *testing.T) {
 func TestFingerprintChangesOnSemanticInputs(t *testing.T) {
 	base := fingerprintFixture().Fingerprint()
 	mutations := map[string]func(*FingerprintInput){
-		"acceptance":   func(in *FingerprintInput) { in.Acceptance = "d" + strings.Repeat("e", 24) },
-		"authority":    func(in *FingerprintInput) { in.Authority = strings.Repeat("f", 64) },
-		"validity":     func(in *FingerprintInput) { in.Validity = []string{"objective_changed"} },
-		"cycle":        func(in *FingerprintInput) { in.Cycle = "7/3 -> 7/3" },
-		"satisfied":    func(in *FingerprintInput) { in.Prereqs[0].Satisfied = false },
-		"blocker":      func(in *FingerprintInput) { in.Prereqs[0].Blocker = BlockerResultPending },
-		"endpointHead": func(in *FingerprintInput) { in.Prereqs[0].EndpointHead = "" },
-		"closed":       func(in *FingerprintInput) { in.Prereqs[0].Closed = false },
-		"closedUnix":   func(in *FingerprintInput) { in.Prereqs[0].ClosedUnix++ },
-		"lifecycle":    func(in *FingerprintInput) { in.Prereqs[0].Lifecycle++ },
+		"acceptance":        func(in *FingerprintInput) { in.Acceptance = "d" + strings.Repeat("e", 24) },
+		"authority":         func(in *FingerprintInput) { in.Authority = strings.Repeat("f", 64) },
+		"validity":          func(in *FingerprintInput) { in.Validity = []string{"objective_changed"} },
+		"cycle":             func(in *FingerprintInput) { in.Cycle = "7/3 -> 7/3" },
+		"satisfied":         func(in *FingerprintInput) { in.Prereqs[0].Satisfied = false },
+		"blocker":           func(in *FingerprintInput) { in.Prereqs[0].Blocker = BlockerResultPending },
+		"endpointHead":      func(in *FingerprintInput) { in.Prereqs[0].EndpointHead = "" },
+		"closed":            func(in *FingerprintInput) { in.Prereqs[0].Closed = false },
+		"closingOccurrence": func(in *FingerprintInput) { in.Prereqs[0].ClosingOccurrence = "903" },
 	}
 	for name, mutate := range mutations {
 		in := fingerprintFixture()

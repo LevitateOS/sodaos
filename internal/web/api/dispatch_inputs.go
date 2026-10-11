@@ -49,21 +49,27 @@ func (s DispatchSnapshotSource) ReadDispatchInputs(ctx context.Context, reposito
 	if len(commentIDs) != 0 && snapshot.Comments == nil {
 		return control.DispatchInputs{}, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
 	}
+	occurrences, err := issueOccurrences(snapshot.Issue)
+	if err != nil {
+		return control.DispatchInputs{}, err
+	}
 	inputs := control.DispatchInputs{
 		Revision: snapshot.Revision,
 		TipRef:   targetRef,
 		Issue: control.DispatchIssue{
-			Title:         snapshot.Issue.Title,
-			Body:          snapshot.Issue.Content,
-			TitleDigest:   snapshot.Issue.TitleDigest,
-			ContentDigest: snapshot.Issue.ContentDigest,
-			ContentVer:    snapshot.Issue.ContentVersion,
-			Lifecycle:     len(snapshot.Issue.Lifecycle),
-			ClosedUnix:    snapshot.Issue.ClosedUnix,
-			Visible:       snapshot.Issue.Visible,
-			Closed:        snapshot.Issue.IsClosed,
-			Locked:        snapshot.Issue.IsLocked,
-			IsPull:        snapshot.Issue.IsPull,
+			Title:               snapshot.Issue.Title,
+			Body:                snapshot.Issue.Content,
+			TitleDigest:         snapshot.Issue.TitleDigest,
+			ContentDigest:       snapshot.Issue.ContentDigest,
+			ContentVer:          snapshot.Issue.ContentVersion,
+			TitleOccurrence:     occurrences.title,
+			ClosingOccurrence:   occurrences.closing,
+			LifecycleOccurrence: occurrences.latest,
+			ClosedUnix:          snapshot.Issue.ClosedUnix,
+			Visible:             snapshot.Issue.Visible,
+			Closed:              snapshot.Issue.IsClosed,
+			Locked:              snapshot.Issue.IsLocked,
+			IsPull:              snapshot.Issue.IsPull,
 		},
 	}
 	if snapshot.Comments != nil {

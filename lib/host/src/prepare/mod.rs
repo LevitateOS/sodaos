@@ -11,8 +11,8 @@ use crate::preparation::{
     self, HoldState, Prepare, PrepareHold, PrepareInspect, PrepareState, PrepareStop,
 };
 use crate::project::{Executor, Runtime};
-use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
+use serde::de::{self, MapAccess, Visitor};
 use std::fmt;
 
 mod candidate;
@@ -25,7 +25,7 @@ mod tools;
 pub use self::paths::{
     path_join, preparation_paths, prepare_id_map, single_line, valid_resolved_tool_path,
 };
-pub use self::state::{map_preparation_state, LauncherEvidence, PreparationObservationError};
+pub use self::state::{LauncherEvidence, PreparationObservationError, map_preparation_state};
 
 #[derive(Default)]
 struct StopResponse {
@@ -140,7 +140,7 @@ impl<E: Executor> Runtime<E> {
 
     /// `Prepare`: approve, clone, verify, resolve tools, record, start.
     pub fn prepare(&self, input: &Prepare, deadline: Instant) -> Result<PrepareState, String> {
-        self.prepare_inner(input, deadline, None)
+        self.prepare_inner(input, deadline, None, None)
     }
 
     fn prepare_inner(
@@ -148,6 +148,7 @@ impl<E: Executor> Runtime<E> {
         input: &Prepare,
         deadline: Instant,
         worker_deadline: Option<&str>,
+        unchanged_source: Option<&str>,
     ) -> Result<PrepareState, String> {
         input.validate()?;
         let prep = &input.preparation;
@@ -180,6 +181,15 @@ impl<E: Executor> Runtime<E> {
             return Ok(state);
         }
         self.clone_preparation_source(prep, deadline)?;
+        if let Some(source) = unchanged_source {
+            self.confirm_unchanged_setup_inputs(
+                prep,
+                source,
+                &input.setup.files,
+                &container,
+                deadline,
+            )?;
+        }
         let verified = self.verify_launcher_environment(prep, deadline)?;
         let (tools, missing) = self.resolve_preparation_tools(prep, deadline)?;
         self.record_preparation_tools(prep, &tools, &missing, &verified, deadline)?;

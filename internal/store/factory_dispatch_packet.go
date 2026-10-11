@@ -123,6 +123,9 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if err = checkAssignmentAuthorityTx(ctx, tx, a.Authority, a, grants); err != nil {
 		return err
 	}
+	if err = checkCoderPreparationCustodyTx(ctx, tx, a); err != nil {
+		return err
+	}
 	run.Admission = &factory.RunAdmission{Authority: a.Authority, Policy: grants.policy, Profile: *grants.environment.Profile}
 	if err = run.Validate(); err != nil {
 		return err

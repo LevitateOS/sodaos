@@ -215,7 +215,7 @@ func TestReadinessWorkPageCursorDedupAndCapacityRollback(t *testing.T) {
 	root := factory.DependenceRef{Repository: 7, Issue: 9}
 	decision := factory.Acceptance{
 		ID: "d" + fmt.Sprintf("%024d", 1), Repository: 7, IssueIndex: "3", Approver: 5,
-		NativeRev: 9, TitleDigest: strings.Repeat("d", 64), ContentDigest: strings.Repeat("d", 64),
+		NativeRev: 9, TitleDigest: strings.Repeat("d", 64), TitleOccurrence: factory.OriginalOccurrence, ContentDigest: strings.Repeat("d", 64),
 		Prerequisites: []factory.AcceptedPrerequisite{{Occurrence: "21", DependsOn: "8", EndpointRepo: 7, EndpointIssue: 9, Outcome: factory.PrereqResult}},
 	}
 	if err := s.AdmitAcceptanceDecision(ctx, decision); err != nil {

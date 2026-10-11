@@ -25,6 +25,7 @@ type attemptPlan struct {
 	inputs               DispatchInputs
 	projectID            string
 	attemptRoot          string
+	preparationOwner     string
 	prompt               []byte
 	promptSHA            string
 	deadline             time.Time
@@ -244,6 +245,14 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 		}
 		if !ready {
 			return nil, waitFor(WaitPreparation, "fresh retry preparation is running"), nil
+		}
+	} else if role == project.RoleCoder && !recordedPrompt && plan.prep.Preparation.SourceCommit != plan.inputs.Tip {
+		if deps.PrepareSource == nil {
+			return nil, waitFor(WaitPreparation, "current source preparation is unavailable"), nil
+		}
+		ready, err := deps.PrepareSource(ctx, plan)
+		if err != nil || !ready {
+			return nil, waitFor(WaitPreparation, "current source preparation is not confirmed"), nil
 		}
 	}
 	selection := policy.Roles[role]

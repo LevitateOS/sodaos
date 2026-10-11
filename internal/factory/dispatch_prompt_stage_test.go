@@ -65,6 +65,23 @@ func stageCorrectionInputs() PromptInputs {
 	return in
 }
 
+func TestBuildDispatchPromptCarriesExactNativeClosingOccurrence(t *testing.T) {
+	in := stagePromptInputs(project.RoleCoder)
+	in.Prerequisites = []AcceptedPrerequisite{{Occurrence: "21", DependsOn: "9", EndpointRepo: 7, EndpointIssue: 9, Outcome: PrereqResult}}
+	in.Control = validControl()
+	in.Control.Acceptance, in.Control.NativeRev = in.AcceptanceID, in.NativeRev
+	in.Control.EndpointHeads = map[string]string{"21": ""}
+	in.Control.Satisfied = map[string]PrereqSatisfaction{"21": {ClosingOccurrence: "901", Acceptance: in.AcceptanceID}}
+	prompt, err := BuildDispatchPrompt(in)
+	if err != nil || !strings.Contains(string(prompt), "native closing occurrence 901 under acceptance "+in.AcceptanceID) {
+		t.Fatalf("native closure missing from prompt: %v", err)
+	}
+	in.Control.Satisfied["21"] = PrereqSatisfaction{Acceptance: in.AcceptanceID}
+	if _, err := BuildDispatchPrompt(in); err == nil {
+		t.Fatal("prompt admitted result satisfaction without native closing identity")
+	}
+}
+
 func TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview(t *testing.T) {
 	in := stagePromptInputs(project.RoleReviewer)
 	in.PublicationAssignment = NewID()

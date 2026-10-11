@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
@@ -97,7 +98,7 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			attrs = append(attrs, "native_status", status.Status, "native_body", status.Body)
 		}
 		slog.Warn("factory intake assessment unavailable", attrs...)
-		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Readiness assessment is unavailable; the native side retries.")
+		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Readiness assessment is pending; serving reconciliation resumes retained creation work.")
 		return
 	}
 	if assessed.Readiness == "" {
@@ -142,7 +143,12 @@ type intakeSender struct {
 }
 
 type intakeIssue struct {
-	Index int64 `json:"number"`
+	Index     int64         `json:"number"`
+	ID        int64         `json:"id"`
+	User      *intakeSender `json:"user"`
+	Title     *string       `json:"title"`
+	Body      *string       `json:"body"`
+	CreatedAt string        `json:"created_at"`
 }
 
 type intakeIssueEvent struct {
@@ -196,6 +202,16 @@ func parseIntakeHint(w http.ResponseWriter, event, delivery string, body []byte)
 			hint.Creator = payload.Sender.ID
 			if payload.Repository.Permissions != nil {
 				hint.CreatorWrite = payload.Repository.Permissions.Push || payload.Repository.Permissions.Admin
+			}
+			if issue := payload.Issue; issue != nil && issue.ID > 0 && issue.User != nil && issue.User.ID == hint.Creator {
+				hint.NativeIssueID = issue.ID
+				created, err := time.Parse(time.RFC3339, issue.CreatedAt)
+				if err == nil && created.Unix() > 0 && issue.Title != nil && issue.Body != nil && payload.Repository.Permissions != nil {
+					hint.CreatedUnix = created.Unix()
+					title, body := sha256.Sum256([]byte(*issue.Title)), sha256.Sum256([]byte(*issue.Body))
+					hint.TitleDigest, hint.ContentDigest = hex.EncodeToString(title[:]), hex.EncodeToString(body[:])
+					hint.CreationVerified = true
+				}
 			}
 		}
 		return hint, false, true

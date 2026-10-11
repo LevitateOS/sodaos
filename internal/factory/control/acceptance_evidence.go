@@ -53,7 +53,10 @@ func (c *Coordinator) verifyAcceptance(ctx context.Context, decision factory.Acc
 	if !issue.Visible {
 		return refuseAcceptance(RefusalIssueHidden)
 	}
-	if issue.TitleDigest != decision.TitleDigest || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
+	if !factory.ValidTitleOccurrence(issue.TitleOccurrence) {
+		return refuseAcceptance(RefusalIncompleteEvidence)
+	}
+	if issue.TitleDigest != decision.TitleDigest || issue.TitleOccurrence != decision.TitleOccurrence || issue.ContentDigest != decision.ContentDigest || issue.ContentVer != decision.ContentVersion {
 		return refuseAcceptance(RefusalObjectiveChanged)
 	}
 	comments := make(map[string]AcceptanceComment, len(evidence.Comments))

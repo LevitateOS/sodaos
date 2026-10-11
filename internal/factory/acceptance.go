@@ -27,6 +27,10 @@ const (
 // MaxAcceptedSources bounds each selected section to one native page.
 const MaxAcceptedSources = 50
 
+// OriginalOccurrence is explicit native absence in complete visible history.
+// Empty occurrence evidence is unknown, never original input authority.
+const OriginalOccurrence = "original"
+
 // SelectedSource binds one exact native comment revision by its native ID,
 // content version and body digest. Poster and timestamps are context, never
 // revision evidence.
@@ -86,19 +90,20 @@ func (p AcceptedPrerequisite) Validate() error {
 // predecessor chain per repository/issue; only the head can authorize new
 // work. Initial acceptances bind the verified original title/body only.
 type Acceptance struct {
-	ID             string                 `json:"id"`
-	Predecessor    string                 `json:"predecessor,omitempty"`
-	IssueIndex     string                 `json:"issue_index"`
-	TitleDigest    string                 `json:"title_digest"`
-	ContentDigest  string                 `json:"content_digest"`
-	Sources        []SelectedSource       `json:"sources,omitempty"`
-	Prerequisites  []AcceptedPrerequisite `json:"prerequisites,omitempty"`
-	Resolutions    []SelectedSource       `json:"resolutions,omitempty"`
-	Repository     int64                  `json:"repository,string"`
-	Approver       int64                  `json:"approver,string"`
-	NativeRev      int64                  `json:"native_revision"`
-	ContentVersion int                    `json:"content_version"`
-	Initial        bool                   `json:"initial,omitempty"`
+	ID              string                 `json:"id"`
+	Predecessor     string                 `json:"predecessor,omitempty"`
+	IssueIndex      string                 `json:"issue_index"`
+	TitleDigest     string                 `json:"title_digest"`
+	TitleOccurrence string                 `json:"title_occurrence"`
+	ContentDigest   string                 `json:"content_digest"`
+	Sources         []SelectedSource       `json:"sources,omitempty"`
+	Prerequisites   []AcceptedPrerequisite `json:"prerequisites,omitempty"`
+	Resolutions     []SelectedSource       `json:"resolutions,omitempty"`
+	Repository      int64                  `json:"repository,string"`
+	Approver        int64                  `json:"approver,string"`
+	NativeRev       int64                  `json:"native_revision"`
+	ContentVersion  int                    `json:"content_version"`
+	Initial         bool                   `json:"initial,omitempty"`
 }
 
 func decimalNativeID(id string) bool {
@@ -106,7 +111,16 @@ func decimalNativeID(id string) bool {
 		return false
 	}
 	value, err := strconv.ParseInt(id, 10, 64)
-	return err == nil && value > 0
+	return err == nil && value > 0 && strconv.FormatInt(value, 10) == id
+}
+
+// ValidNativeOccurrence requires an immutable native record ID.
+func ValidNativeOccurrence(id string) bool { return decimalNativeID(id) }
+
+// ValidTitleOccurrence distinguishes an explicit original title from a
+// later native title change. Empty evidence is never original evidence.
+func ValidTitleOccurrence(id string) bool {
+	return id == OriginalOccurrence || decimalNativeID(id)
 }
 
 func validSourceList(sources []SelectedSource) error {
@@ -137,6 +151,9 @@ func (a Acceptance) Validate() error {
 	}
 	if !ValidDigest(a.TitleDigest) || !ValidDigest(a.ContentDigest) || a.ContentVersion < 0 {
 		return errors.New("invalid acceptance objective")
+	}
+	if !ValidTitleOccurrence(a.TitleOccurrence) {
+		return errors.New("invalid accepted title occurrence")
 	}
 	if err := validSourceList(a.Sources); err != nil {
 		return err

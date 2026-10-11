@@ -155,17 +155,16 @@ func (b Blocker) Validate() error {
 }
 
 // PrereqSatisfaction binds one satisfied result prerequisite to the exact
-// closure occurrence that satisfied it: the endpoint's closed stamp and
-// lifecycle length under one dependent acceptance head. A reopen ends the
+// closure occurrence that satisfied it: the endpoint's native close event
+// under one dependent acceptance head. A reopen ends the
 // occurrence; closing again cannot revive it without a new acceptance head.
 type PrereqSatisfaction struct {
-	Lifecycle  int    `json:"lifecycle"`
-	ClosedUnix int64  `json:"closed_unix"`
-	Acceptance string `json:"acceptance"`
+	ClosingOccurrence string `json:"closing_occurrence"`
+	Acceptance        string `json:"acceptance"`
 }
 
 func (s PrereqSatisfaction) Validate() error {
-	if s.Lifecycle < 0 || s.ClosedUnix <= 0 || !project.ValidDecisionID(s.Acceptance) {
+	if !decimalNativeID(s.ClosingOccurrence) || !project.ValidDecisionID(s.Acceptance) {
 		return errors.New("invalid prerequisite satisfaction occurrence")
 	}
 	return nil
@@ -255,15 +254,14 @@ type DependenceRef struct {
 // prerequisites exclude closure evidence: closure alone cannot satisfy a
 // code outcome, so it must not retrigger assessment either.
 type FingerprintPrereq struct {
-	Occurrence   string
-	Outcome      string
-	EndpointHead string
-	Blocker      string
-	Detail       string
-	Lifecycle    int
-	ClosedUnix   int64
-	Closed       bool
-	Satisfied    bool
+	ClosingOccurrence string
+	Occurrence        string
+	Outcome           string
+	EndpointHead      string
+	Blocker           string
+	Detail            string
+	Closed            bool
+	Satisfied         bool
 }
 
 // FingerprintInput gathers every semantic input behind one verdict. The
@@ -312,9 +310,7 @@ func (in FingerprintInput) Fingerprint() string {
 		b.WriteString("\x00")
 		b.WriteString(strconv.FormatBool(prereq.Closed))
 		b.WriteString("\x00")
-		b.WriteString(strconv.Itoa(prereq.Lifecycle))
-		b.WriteString("\x00")
-		b.WriteString(strconv.FormatInt(prereq.ClosedUnix, 10))
+		b.WriteString(prereq.ClosingOccurrence)
 	}
 	sum := sha256.Sum256([]byte(b.String()))
 	return hex.EncodeToString(sum[:])

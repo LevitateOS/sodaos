@@ -8,6 +8,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 )
@@ -60,11 +61,33 @@ func TestDispatchSnapshotSourceMapsInputs(t *testing.T) {
 	if inputs.Revision != 41 || inputs.Issue.Title != "title" || inputs.Issue.Body != "body" {
 		t.Fatalf("issue = %+v", inputs.Issue)
 	}
+	if inputs.Issue.TitleOccurrence != factory.OriginalOccurrence || inputs.Issue.LifecycleOccurrence != factory.OriginalOccurrence {
+		t.Fatalf("explicit original occurrences: %+v", inputs.Issue)
+	}
 	if len(inputs.Comments) != 1 || inputs.Comments[0].ID != "11" || inputs.Comments[0].Content != "answer" {
 		t.Fatalf("comments = %+v", inputs.Comments)
 	}
 	if inputs.Tip != strings.Repeat("e", 40) || inputs.TipRef != "refs/heads/main" {
 		t.Fatalf("tip = %q ref = %q", inputs.Tip, inputs.TipRef)
+	}
+}
+
+func TestDispatchSnapshotSourceRetainsTitleReversionIdentity(t *testing.T) {
+	snapshot := dispatchTestSnapshot()
+	snapshot.Issue.Lifecycle = []forgejo.LifecycleEvent{
+		{OccurrenceID: "901", Kind: "retitled", AtUnix: 42},
+		{OccurrenceID: "902", Kind: "retitled", AtUnix: 42},
+	}
+	source := DispatchSnapshotSource{Reader: &dispatchReaderFake{snapshot: snapshot, revision: 41, idle: true}}
+	inputs, err := source.ReadDispatchInputs(context.Background(), "7", "3", nil, "refs/heads/main")
+	if err != nil || inputs.Issue.TitleOccurrence != "902" || inputs.Issue.LifecycleOccurrence != "902" {
+		t.Fatalf("title reversion: %+v %v", inputs.Issue, err)
+	}
+	snapshot.Issue.Lifecycle[0].OccurrenceID = ""
+	_, err = source.ReadDispatchInputs(context.Background(), "7", "3", nil, "refs/heads/main")
+	var refusal *control.AcceptanceRefusal
+	if !errors.As(err, &refusal) || refusal.Reason != control.RefusalIncompleteEvidence {
+		t.Fatalf("missing title history admitted: %v", err)
 	}
 }
 

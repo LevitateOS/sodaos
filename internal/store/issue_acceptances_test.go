@@ -12,7 +12,7 @@ import (
 func acceptanceFixture(id, predecessor string) factory.Acceptance {
 	return factory.Acceptance{
 		ID: id, Predecessor: predecessor, Repository: 7, IssueIndex: "3", Approver: 5, NativeRev: 41,
-		TitleDigest: strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
+		TitleDigest: strings.Repeat("a", 64), TitleOccurrence: factory.OriginalOccurrence, ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
 		Sources: []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: strings.Repeat("c", 64)}},
 	}
 }

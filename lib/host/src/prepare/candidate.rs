@@ -78,6 +78,38 @@ impl<E: Executor> Runtime<E> {
         input: &FactoryCandidate,
         deadline: Instant,
     ) -> Result<PrepareState, String> {
+        if input.source_run.is_some() {
+            return Err("candidate source run requires protected native export".into());
+        }
+        self.prepare_candidate_inner(input, None, deadline)
+    }
+
+    /// Only the daemon's settled native export enters this path; request
+    /// validation still forbids caller-provided coder bundle bytes.
+    pub(crate) fn prepare_candidate_from_run(
+        &self,
+        input: &FactoryCandidate,
+        bundle: &[u8],
+        deadline: Instant,
+    ) -> Result<PrepareState, String> {
+        if input.source_run.is_none()
+            || bundle.is_empty()
+            || bundle.len() > preparation::MAX_SOURCE_BUNDLE
+        {
+            return Err("candidate source run export exceeds preparation bounds".into());
+        }
+        if input.preparation.requirements.source_inputs.is_empty() {
+            return Err("accepted effective source input selection is unavailable".into());
+        }
+        self.prepare_candidate_inner(input, Some(bundle), deadline)
+    }
+
+    fn prepare_candidate_inner(
+        &self,
+        input: &FactoryCandidate,
+        source_bundle: Option<&[u8]>,
+        deadline: Instant,
+    ) -> Result<PrepareState, String> {
         input.validate()?;
         let deadline = Self::cap_by_wire_deadline(deadline, &input.deadline)?;
         let container = self.prepare_container(&input.preparation.project, true, deadline)?;
@@ -101,7 +133,9 @@ impl<E: Executor> Runtime<E> {
         }
         let files =
             self.candidate_approved_files(&container, input, &source.source_commit, deadline)?;
-        let bundle = if input.preparation.role == preparation::ROLE_CODER {
+        let bundle = if let Some(bundle) = source_bundle {
+            bundle.to_vec()
+        } else if input.preparation.role == preparation::ROLE_CODER {
             if input.preparation.source_commit != source.source_commit {
                 return Err("coder retry must retain its exact approved source".into());
             }
@@ -122,10 +156,119 @@ impl<E: Executor> Runtime<E> {
             },
             deadline,
             Some(&input.deadline),
+            source_bundle.map(|_| source.source_commit.as_str()),
         )
     }
 
-    pub(super) fn cap_by_wire_deadline(
+    /// Verify the human-declared complete effective repository inputs at both
+    /// exact commits before setup. No script or manifest discovery can broaden
+    /// this selection. Protected setup bytes are checked independently.
+    pub(super) fn confirm_unchanged_setup_inputs(
+        &self,
+        preparation: &preparation::Preparation,
+        source: &str,
+        files: &HashMap<String, Vec<u8>>,
+        container: &str,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let (checkout, _, _, home) =
+            super::paths::preparation_paths(&preparation.role, &preparation.id);
+        self.context_git(
+            container,
+            &preparation.role,
+            &checkout,
+            &home,
+            &[
+                "merge-base",
+                "--is-ancestor",
+                source,
+                &preparation.source_commit,
+            ],
+            1,
+            deadline,
+        )?;
+        let mut args = vec![
+            "diff".to_string(),
+            "--no-ext-diff".to_string(),
+            "--no-textconv".to_string(),
+            "--no-renames".to_string(),
+            "--name-only".to_string(),
+            "-z".to_string(),
+            source.to_string(),
+            preparation.source_commit.clone(),
+            "--".to_string(),
+        ];
+        let mut selected: Vec<_> = files.keys().collect();
+        selected.sort();
+        args.extend(selected.into_iter().map(|name| format!(":(literal){name}")));
+        let refs: Vec<_> = args.iter().map(String::as_str).collect();
+        let changed = self.context_git(
+            container,
+            &preparation.role,
+            &checkout,
+            &home,
+            &refs,
+            1024,
+            deadline,
+        )?;
+        if !changed.is_empty() {
+            return Err("candidate changed selected approved setup inputs".into());
+        }
+        let mut selected: Vec<_> = preparation.requirements.source_inputs.iter().collect();
+        selected.sort_by(|left, right| left.0.cmp(right.0));
+        let mut approved_modes = HashMap::new();
+        for commit in [
+            &preparation.requirements.source_commit,
+            &preparation.source_commit,
+        ] {
+            for (path, expected) in &selected {
+                let literal = format!(":(literal){path}");
+                let entry = self.context_git(
+                    container,
+                    &preparation.role,
+                    &checkout,
+                    &home,
+                    &["ls-tree", "-z", commit, "--", &literal],
+                    1024,
+                    deadline,
+                )?;
+                let entry = std::str::from_utf8(&entry)
+                    .map_err(|_| "approved source input is not a regular file")?;
+                let (metadata, name) = entry
+                    .strip_suffix('\0')
+                    .and_then(|value| value.split_once('\t'))
+                    .ok_or("approved source input is not a regular file")?;
+                if name != *path
+                    || !(metadata.starts_with("100644 blob ")
+                        || metadata.starts_with("100755 blob "))
+                {
+                    return Err("approved source input is not a regular file".into());
+                }
+                let mode = metadata.split_whitespace().next().unwrap_or_default();
+                if commit == &preparation.requirements.source_commit {
+                    approved_modes.insert((*path).clone(), mode.to_string());
+                } else if approved_modes.get(*path).map(String::as_str) != Some(mode) {
+                    return Err("candidate changed accepted source input mode".into());
+                }
+                let object = format!("{commit}:{path}");
+                let bytes = self.context_git(
+                    container,
+                    &preparation.role,
+                    &checkout,
+                    &home,
+                    &["cat-file", "blob", &object],
+                    preparation::MAX_APPROVED_FILE_SIZE,
+                    deadline,
+                )?;
+                if crate::sha256::hex_lower(&crate::sha256::digest(&bytes)) != **expected {
+                    return Err("candidate changed accepted effective source inputs".into());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn cap_by_wire_deadline(
         operation_deadline: Instant,
         wire_deadline: &str,
     ) -> Result<Instant, String> {

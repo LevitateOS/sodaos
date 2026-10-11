@@ -23,6 +23,10 @@ func (f *fakeBackgroundClient) ReadNativeRevision(context.Context) (extensions.N
 	return f.revision, nil
 }
 
+func (*fakeBackgroundClient) ReadCreations(context.Context, extensions.CredentialFile, extensions.CreationRecoveryRequest) (extensions.CreationRecoveryPage, error) {
+	return extensions.CreationRecoveryPage{}, errors.New("not implemented")
+}
+
 func (f *fakeBackgroundClient) ReadSnapshot(_ context.Context, _ extensions.CredentialFile, req extensions.SnapshotRequest) (extensions.NativeSnapshot, error) {
 	f.lastRequest = req
 	if f.snapshotErr != nil {

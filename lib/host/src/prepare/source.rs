@@ -4,8 +4,8 @@ use std::time::Instant;
 
 use super::paths::preparation_paths;
 use crate::preparation::{
-    self, ContextFile, Preparation, PreparationContext, PrepareContextRead, MAX_CONTEXT_FILES,
-    MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_PATH_BYTES, MAX_CONTEXT_TOTAL_BYTES,
+    self, ContextFile, MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_FILES, MAX_CONTEXT_PATH_BYTES,
+    MAX_CONTEXT_TOTAL_BYTES, Preparation, PreparationContext, PrepareContextRead,
 };
 use crate::project::{Executor, Runtime};
 
@@ -382,7 +382,7 @@ impl<E: Executor> Runtime<E> {
         })
     }
 
-    fn context_git(
+    pub(super) fn context_git(
         &self,
         container: &str,
         role: &str,

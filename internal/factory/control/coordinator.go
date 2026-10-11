@@ -77,6 +77,7 @@ type Coordinator struct {
 	Broker          BrokerExecution
 	AcceptanceReads AcceptanceSource
 	Readiness       ReadinessObservation
+	Creations       CreationRecoverySource
 	DispatchReads   DispatchReads
 	Publication     PublicationExecutor
 	Reviews         ReviewExecutor
@@ -93,6 +94,8 @@ type Coordinator struct {
 	progressDone    chan struct{}
 	// ownerMu also protects the bounded child-result recovery cursor.
 	publicationChildCursor string
+	// progressMu protects the fair retained-creation repository cursor.
+	creationRepositoryCursor int64
 }
 
 func NewCoordinator(db *store.Store, host HostFactory, broker BrokerExecution) *Coordinator {
@@ -161,6 +164,7 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	if c.Merges != nil {
 		c.MergePass(ctx)
 	}
+	_ = c.recoverCreations(ctx)
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")
 	}

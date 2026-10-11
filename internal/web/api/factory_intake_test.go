@@ -190,3 +190,33 @@ func TestServiceReadinessSourceNilGuards(t *testing.T) {
 		t.Fatal("observerless source read evidence")
 	}
 }
+
+func TestFactoryIntakeOriginalNativeTupleBindsPosterAndInputs(t *testing.T) {
+	for _, tc := range []struct {
+		name, poster, permissions string
+		verified                  bool
+	}{
+		{"original", "5", `,"permissions":{"push":true}`, true},
+		{"different-poster", "6", `,"permissions":{"push":true}`, false},
+		{"missing-captured-authority", "5", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			coordinator := &stubIntakeCoordinator{}
+			handler := IntakeHandler{Coordinator: coordinator, Secret: []byte("intake-secret")}
+			body := `{"action":"opened","number":3,"issue":{"id":103,"number":3,"user":{"id":` + tc.poster + `},"title":"Native title","body":"","created_at":"2023-11-14T22:13:20Z"},"repository":{"id":7` + tc.permissions + `},"sender":{"id":5}}`
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, intakeRequest(t, "issues", "original-native", body))
+			if w.Code != http.StatusOK || coordinator.hint.CreationVerified != tc.verified {
+				t.Fatal(w.Code, coordinator.hint)
+			}
+			if tc.verified {
+				title, content := sha256.Sum256([]byte("Native title")), sha256.Sum256(nil)
+				if coordinator.hint.NativeIssueID != 103 || coordinator.hint.CreatedUnix != 1700000000 || coordinator.hint.TitleDigest != hex.EncodeToString(title[:]) || coordinator.hint.ContentDigest != hex.EncodeToString(content[:]) {
+					t.Fatal("original creation tuple differs:", coordinator.hint)
+				}
+			} else if coordinator.hint.CreatedUnix != 0 || coordinator.hint.TitleDigest != "" || coordinator.hint.ContentDigest != "" {
+				t.Fatal("unverified partial hint became complete:", coordinator.hint)
+			}
+		})
+	}
+}

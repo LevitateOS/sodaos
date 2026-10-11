@@ -600,7 +600,8 @@ func TestReportedAssignmentReadinessRootDrainsOnDispatch(t *testing.T) {
 	// The substituted native snapshot now reports the selected resolution and
 	// endpoint closure needed by PrereqResult; assignment success alone does not
 	// satisfy that prerequisite.
-	rootEvidence.Issue.Closed, rootEvidence.Issue.Lifecycle, rootEvidence.Issue.ClosedUnix = true, 1, time.Now().Unix()
+	rootEvidence.Issue.Closed, rootEvidence.Issue.ClosedUnix = true, time.Now().Unix()
+	rootEvidence.Issue.ClosingOccurrence, rootEvidence.Issue.LifecycleOccurrence = "93", "93"
 	rootEvidence.Revision = 42
 	evidence.evidence["7/3"] = rootEvidence
 
@@ -694,13 +695,13 @@ func TestAssessedResultPrerequisiteAppearsInRecordedDispatchPrompt(t *testing.T)
 	fx.reads.inputs["7/5"] = dependentInput
 	endpointIssue := AcceptanceIssueView{
 		Index: "3", TitleDigest: endpoint.TitleDigest, ContentDigest: endpoint.ContentDigest,
-		ContentVer: endpoint.ContentVersion, Lifecycle: 4, ClosedUnix: 1_800_000_000,
+		ContentVer: endpoint.ContentVersion, ClosingOccurrence: "94", LifecycleOccurrence: "94", ClosedUnix: 1_800_000_000,
 		Closed: true, Visible: true,
 	}
 	// The same idle native revision must report the endpoint closed in both
 	// acceptance and dispatch reads; only the dependent remains runnable.
 	endpointInput := fx.reads.inputs["7/3"]
-	endpointInput.Issue.Closed, endpointInput.Issue.Lifecycle, endpointInput.Issue.ClosedUnix = true, endpointIssue.Lifecycle, endpointIssue.ClosedUnix
+	endpointInput.Issue.Closed, endpointInput.Issue.LifecycleOccurrence, endpointInput.Issue.ClosingOccurrence, endpointInput.Issue.ClosedUnix = true, "94", "94", endpointIssue.ClosedUnix
 	fx.reads.inputs["7/3"] = endpointInput
 	source := &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
 		"7/3": {

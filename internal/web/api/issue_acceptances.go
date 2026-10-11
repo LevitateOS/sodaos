@@ -42,16 +42,17 @@ type acceptancePrerequisiteRequest struct {
 }
 
 type issueAcceptanceRequest struct {
-	CommandID      string                          `json:"command_id"`
-	DecisionID     string                          `json:"decision_id"`
-	Predecessor    string                          `json:"predecessor,omitempty"`
-	TitleDigest    string                          `json:"title_digest"`
-	ContentDigest  string                          `json:"content_digest"`
-	Sources        []acceptanceSourceRequest       `json:"sources,omitempty"`
-	Prerequisites  []acceptancePrerequisiteRequest `json:"prerequisites,omitempty"`
-	Resolutions    []acceptanceSourceRequest       `json:"resolutions,omitempty"`
-	NativeRevision int64                           `json:"native_revision"`
-	ContentVersion int                             `json:"content_version"`
+	CommandID       string                          `json:"command_id"`
+	DecisionID      string                          `json:"decision_id"`
+	Predecessor     string                          `json:"predecessor,omitempty"`
+	TitleDigest     string                          `json:"title_digest"`
+	TitleOccurrence string                          `json:"title_occurrence"`
+	ContentDigest   string                          `json:"content_digest"`
+	Sources         []acceptanceSourceRequest       `json:"sources,omitempty"`
+	Prerequisites   []acceptancePrerequisiteRequest `json:"prerequisites,omitempty"`
+	Resolutions     []acceptanceSourceRequest       `json:"resolutions,omitempty"`
+	NativeRevision  int64                           `json:"native_revision"`
+	ContentVersion  int                             `json:"content_version"`
 }
 
 // apiIssueAcceptances records a maintainer's exact-inputs acceptance for
@@ -115,7 +116,7 @@ func acceptanceDecision(w http.ResponseWriter, repository int64, issue string, a
 	decision := factory.Acceptance{
 		ID: in.DecisionID, Predecessor: in.Predecessor, Repository: repository, IssueIndex: issue,
 		Approver: approver, NativeRev: in.NativeRevision,
-		TitleDigest: in.TitleDigest, ContentDigest: in.ContentDigest, ContentVersion: in.ContentVersion,
+		TitleDigest: in.TitleDigest, TitleOccurrence: in.TitleOccurrence, ContentDigest: in.ContentDigest, ContentVersion: in.ContentVersion,
 		Sources: sources, Prerequisites: prerequisites, Resolutions: resolutions,
 	}
 	if decision.Validate() != nil {

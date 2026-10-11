@@ -14,8 +14,10 @@ func creationEvidence() AcceptanceEvidence {
 	title, body, _, _ := acceptanceDigests()
 	return AcceptanceEvidence{
 		Revision: 41,
-		Issue: AcceptanceIssueView{Index: "3", TitleDigest: title, ContentDigest: body, ContentVer: 0,
-			Lifecycle: 0, PosterID: "5", Verified: true, FirstCreated: true, Visible: true},
+		Issue: AcceptanceIssueView{
+			ID: "103", CreatedUnix: 1700000000, Index: "3", TitleDigest: title, ContentDigest: body, ContentVer: 0,
+			LifecycleOccurrence: factory.OriginalOccurrence, TitleOccurrence: factory.OriginalOccurrence, PosterID: "5", Verified: true, FirstCreated: true, Visible: true,
+		},
 	}
 }
 
@@ -30,19 +32,20 @@ func creationHarness(t *testing.T, evidence AcceptanceEvidence) *Coordinator {
 
 func TestAdmitInitialAcceptanceVerifiesCreation(t *testing.T) {
 	c := creationHarness(t, creationEvidence())
-	got, err := c.AdmitInitialAcceptance(context.Background(), 42, "3", "5", true)
+	got, err := c.AdmitInitialAcceptance(context.Background(), creationHint("delivery-1"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Initial || got.Approver != 5 || got.NativeRev != 41 || got.ID != factory.InitialAcceptanceID(42, "3") {
+	if !got.Initial || got.Approver != 5 || got.NativeRev != 41 || got.ID != factory.InitialAcceptanceID(42, "103") {
 		t.Fatalf("decision: %+v", got)
 	}
 	head, err := c.Store.AcceptanceHead(context.Background(), 42, 3)
 	if err != nil || head != got.ID {
 		t.Fatalf("head: %q %v", head, err)
 	}
-	// A duplicate creation observation replays the one decision.
-	again, err := c.AdmitInitialAcceptance(context.Background(), 42, "3", "5", true)
+	// A replay after unrelated native activity returns the original decision.
+	c.AcceptanceReads.(*stubAcceptanceSource).evidence.Revision++
+	again, err := c.AdmitInitialAcceptance(context.Background(), creationHint("delivery-1"))
 	if err != nil || !reflect.DeepEqual(again, got) {
 		t.Fatalf("replay: %+v %v", again, err)
 	}
@@ -61,7 +64,7 @@ func TestAdmitInitialAcceptanceRefusesIneligible(t *testing.T) {
 		"poster":    {creator: "6", authorize: true, policy: true, reason: RefusalCreationUnverified},
 		"hidden":    {mutate: func(e *AcceptanceEvidence) { e.Issue.Visible = false }, creator: "5", authorize: true, policy: true, reason: RefusalIssueHidden},
 		"edited":    {mutate: func(e *AcceptanceEvidence) { e.Issue.ContentVer = 1 }, creator: "5", authorize: true, policy: true, reason: RefusalCreationEdited},
-		"retitled":  {mutate: func(e *AcceptanceEvidence) { e.Issue.Lifecycle = 1 }, creator: "5", authorize: true, policy: true, reason: RefusalCreationEdited},
+		"retitled":  {mutate: func(e *AcceptanceEvidence) { e.Issue.LifecycleOccurrence = "91" }, creator: "5", authorize: true, policy: true, reason: RefusalCreationEdited},
 		"edges": {mutate: func(e *AcceptanceEvidence) {
 			e.Dependencies = []AcceptanceEdge{{Occurrence: "21", DependsOn: "9", Visible: true}}
 		}, creator: "5", authorize: true, policy: true, reason: RefusalCreationBlocked},
@@ -85,7 +88,18 @@ func TestAdmitInitialAcceptanceRefusesIneligible(t *testing.T) {
 			} else {
 				c, _ = acceptanceHarness(t, evidence, nil)
 			}
-			_, err := c.AdmitInitialAcceptance(context.Background(), 42, "3", tc.creator, tc.authorize)
+			hint := creationHint("delivery-1")
+			if tc.creator == "6" {
+				hint.Creator = 6
+			}
+			if tc.creator == "12" {
+				hint.Creator = 12
+			}
+			hint.CreatorWrite = tc.authorize
+			if name == "imported" || name == "recreated" {
+				hint.CreationVerified = false
+			}
+			_, err := c.AdmitInitialAcceptance(context.Background(), hint)
 			want := tc.reason
 			if name == "factory" {
 				want = RefusalCreationFactory
@@ -105,14 +119,32 @@ func TestAdmitInitialAcceptanceCannotOverwrite(t *testing.T) {
 	explicit := acceptanceDecision()
 	explicit.NativeRev = 41
 	explicit.Sources, explicit.Prerequisites, explicit.Resolutions = nil, nil, nil
-	explicit.TitleDigest, explicit.ContentDigest, explicit.ContentVersion =
-		creationEvidence().Issue.TitleDigest, creationEvidence().Issue.ContentDigest, 0
+	explicit.TitleDigest, explicit.ContentDigest, explicit.ContentVersion = creationEvidence().Issue.TitleDigest, creationEvidence().Issue.ContentDigest, 0
 	source := c.AcceptanceReads.(*stubAcceptanceSource)
 	source.evidence = creationEvidence()
 	if _, err := c.AdmitAcceptance(context.Background(), factory.NewID(), "native:7", explicit); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.AdmitInitialAcceptance(context.Background(), 42, "3", "5", true); !errors.Is(err, store.ErrStaleRevision) {
+	if _, err := c.AdmitInitialAcceptance(context.Background(), creationHint("delivery-1")); !errors.Is(err, store.ErrStaleRevision) {
 		t.Fatalf("overwrite: %v", err)
+	}
+}
+
+func TestAdmitInitialAcceptanceNormalNativeCreationHasNoFirstHistory(t *testing.T) {
+	evidence := creationEvidence()
+	evidence.Issue.ID, evidence.Issue.CreatedUnix = "103", 1700000000
+	evidence.Issue.Verified, evidence.Issue.FirstCreated = false, false
+	c := creationHarness(t, evidence)
+	decision, err := c.AdmitInitialAcceptance(context.Background(), creationHint("delivery-1"))
+	if err != nil || decision.ID != factory.InitialAcceptanceID(42, "103") {
+		t.Fatalf("original native creation must admit without a fabricated history row: %+v %v", decision, err)
+	}
+}
+
+func creationHint(delivery string) IntakeHint {
+	e := creationEvidence().Issue
+	return IntakeHint{
+		Delivery: delivery, Repository: 42, Issue: 3, Created: true, Creator: 5, CreatorWrite: true,
+		CreationVerified: true, NativeIssueID: 103, CreatedUnix: e.CreatedUnix, TitleDigest: e.TitleDigest, ContentDigest: e.ContentDigest,
 	}
 }

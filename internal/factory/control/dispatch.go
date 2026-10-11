@@ -45,17 +45,19 @@ type DispatchComment struct {
 // body at one idle native revision plus the lifecycle state dispatch
 // must respect.
 type DispatchIssue struct {
-	Title         string
-	Body          string
-	TitleDigest   string
-	ContentDigest string
-	ContentVer    int
-	Lifecycle     int
-	ClosedUnix    int64
-	Visible       bool
-	Closed        bool
-	Locked        bool
-	IsPull        bool
+	Title               string
+	Body                string
+	TitleDigest         string
+	ContentDigest       string
+	ContentVer          int
+	TitleOccurrence     string
+	ClosingOccurrence   string
+	LifecycleOccurrence string
+	ClosedUnix          int64
+	Visible             bool
+	Closed              bool
+	Locked              bool
+	IsPull              bool
 }
 
 // DispatchInputs is one revision-bound accepted-input read: the verified
@@ -175,15 +177,16 @@ const (
 // carries fair-rotation progress across passes; a nil queue visits from
 // the beginning without advancing.
 type DispatchDeps struct {
-	Store        *store.Store
-	Host         DispatchHost
-	Broker       DispatchBroker
-	Reads        DispatchReads
-	Authority    func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
-	Refresh      func(context.Context, factory.IssueControl) (factory.IssueControl, error)
-	PrepareRetry func(context.Context, *attemptPlan, string) (bool, error)
-	RetireRetry  func(context.Context, *attemptPlan) error
-	Queue        *DispatchQueueCursor
+	Store         *store.Store
+	Host          DispatchHost
+	Broker        DispatchBroker
+	Reads         DispatchReads
+	Authority     func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
+	Refresh       func(context.Context, factory.IssueControl) (factory.IssueControl, error)
+	PrepareRetry  func(context.Context, *attemptPlan, string) (bool, error)
+	PrepareSource func(context.Context, *attemptPlan) (bool, error)
+	RetireRetry   func(context.Context, *attemptPlan) error
+	Queue         *DispatchQueueCursor
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -259,7 +262,7 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 	return DispatchDeps{
 		Store: c.Store, Host: c.Host, Broker: c.Broker,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
-		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, RetireRetry: c.retireRetryCoder,
+		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, PrepareSource: c.prepareSourceCoder, RetireRetry: c.retireRetryCoder,
 		Queue: &c.queue,
 	}
 }

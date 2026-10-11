@@ -10,21 +10,27 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// AdmitInitialAcceptance records the narrowly verified original-creation
-// path: a visible issue whose creation provenance is verified and
-// first-created, posted by the named creator, with creation content
-// version, no lifecycle events and no prerequisites. Factory-posted,
-// imported, edited or prerequisite-bearing issues require explicit human
-// adoption, as do creations without standing policy or a currently
-// code-write-authorized creator. The decision ID is deterministic, so a
-// duplicate creation observation replays one decision; it can neither
-// admit another nor overwrite a later decision. Coordinator-internal:
-// intake calls this on authenticated creation observations.
-func (c *Coordinator) AdmitInitialAcceptance(ctx context.Context, repository int64, issue, creatorID string, creatorWriteAuthorized bool) (factory.Acceptance, error) {
+// AdmitInitialAcceptance admits only original authenticated native creation
+// facts corroborated by the current exact issue identity and unchanged inputs.
+// Normal native creation has no synthesized first-history row. The native
+// issue ID determines replay identity; a later human head remains authoritative.
+func (c *Coordinator) AdmitInitialAcceptance(ctx context.Context, hint IntakeHint) (factory.Acceptance, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
-	if repository <= 0 || issue == "" || creatorID == "" {
+	if err := hint.Validate(); err != nil || !hint.Created || hint.NativeIssueID <= 0 {
 		return factory.Acceptance{}, errors.New("invalid initial acceptance scope")
+	}
+	repository := hint.Repository
+	issue := strconv.FormatInt(hint.Issue, 10)
+	creatorID := strconv.FormatInt(hint.Creator, 10)
+	decisionID := factory.InitialAcceptanceID(repository, strconv.FormatInt(hint.NativeIssueID, 10))
+	if head, err := c.Store.AcceptanceHead(bounded, repository, hint.Issue); err == nil {
+		if head != decisionID {
+			return factory.Acceptance{}, store.ErrStaleRevision
+		}
+		return c.Store.AcceptanceDecision(bounded, head)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return factory.Acceptance{}, err
 	}
 	if c.AcceptanceReads == nil {
 		return factory.Acceptance{}, refuseAcceptance(RefusalSnapshotUnavailable)
@@ -44,10 +50,12 @@ func (c *Coordinator) AdmitInitialAcceptance(ctx context.Context, repository int
 	if !view.Visible {
 		return factory.Acceptance{}, refuseAcceptance(RefusalIssueHidden)
 	}
-	if !view.Verified || !view.FirstCreated || view.PosterID != creatorID {
+	if !hint.CreationVerified || view.ID != strconv.FormatInt(hint.NativeIssueID, 10) ||
+		view.PosterID != creatorID || view.CreatedUnix != hint.CreatedUnix ||
+		view.TitleDigest != hint.TitleDigest || view.ContentDigest != hint.ContentDigest {
 		return factory.Acceptance{}, refuseAcceptance(RefusalCreationUnverified)
 	}
-	if view.ContentVer != 0 || view.Lifecycle != 0 {
+	if view.ContentVer != 0 || view.LifecycleOccurrence != factory.OriginalOccurrence {
 		return factory.Acceptance{}, refuseAcceptance(RefusalCreationEdited)
 	}
 	if len(evidence.Dependencies) != 0 {
@@ -69,13 +77,13 @@ func (c *Coordinator) AdmitInitialAcceptance(ctx context.Context, repository int
 			return factory.Acceptance{}, refuseAcceptance(RefusalCreationFactory)
 		}
 	}
-	if !creatorWriteAuthorized {
+	if !hint.CreatorWrite {
 		return factory.Acceptance{}, refuseAcceptance(RefusalCreationUnauthorized)
 	}
 	decision := factory.Acceptance{
-		ID: factory.InitialAcceptanceID(repository, issue), Repository: repository, IssueIndex: issue,
+		ID: decisionID, Repository: repository, IssueIndex: issue,
 		Approver: creator, NativeRev: evidence.Revision, Initial: true,
-		TitleDigest: view.TitleDigest, ContentDigest: view.ContentDigest, ContentVersion: view.ContentVer,
+		TitleDigest: view.TitleDigest, TitleOccurrence: view.TitleOccurrence, ContentDigest: view.ContentDigest, ContentVersion: view.ContentVer,
 	}
 	if err := decision.Validate(); err != nil {
 		return factory.Acceptance{}, err

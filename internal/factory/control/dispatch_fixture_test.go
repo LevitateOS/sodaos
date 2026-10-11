@@ -181,7 +181,7 @@ func dispatchTestDB(t *testing.T) (*store.Store, string) {
 	return db, dsn
 }
 
-func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
+func dispatchSeed(t *testing.T, db *store.Store, sourceInputs ...map[string]string) dispatchFixture {
 	t.Helper()
 	ctx := context.Background()
 	fx := dispatchFixture{db: db, repo: 7, proj: "p765432109876543210987654", tip: strings.Repeat("c", 40), harness: "1.2.3", decision: map[int64]factory.Acceptance{}}
@@ -234,8 +234,13 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 	}
 	reqID, apprID := "d111111111111111111111111", "d222222222222222222222222"
 	commit, digest := fx.tip, strings.Repeat("d", 64)
+	var selected map[string]string
+	if len(sourceInputs) > 0 {
+		selected = sourceInputs[0]
+	}
 	if err := db.AdmitRequirementDecision(ctx, project.RequirementDecision{
 		ID: reqID, Project: fx.proj, Approver: 7, SourceCommit: commit, SetupDigest: digest, InputsDigest: digest,
+		SourceInputs: selected,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +253,7 @@ func dispatchSeed(t *testing.T, db *store.Store) dispatchFixture {
 	forrole := func(role, id string) {
 		prep := project.StoredPreparation{Preparation: project.Preparation{
 			ID: id, Project: fx.proj, Role: role,
-			Requirements: project.RequirementAcceptance{ID: reqID, Revision: 1, Approver: 7, SourceCommit: commit, Digest: digest},
+			Requirements: project.RequirementAcceptance{ID: reqID, Revision: 1, Approver: 7, SourceCommit: commit, Digest: digest, SourceInputs: selected},
 			Approval:     project.AdminApproval{ID: apprID, Revision: 1, Approver: 7, EffectsDigest: digest},
 			SourceCommit: commit, SetupDigest: digest, Tools: []string{"python3"},
 		}}
@@ -279,7 +284,7 @@ func (fx *dispatchFixture) accept(t *testing.T, issue int64, id string, bodyOver
 		body = bodyOverride[0]
 	}
 	decision := factory.Acceptance{
-		ID: id, Repository: fx.repo, IssueIndex: fmt.Sprintf("%d", issue), Approver: 5, NativeRev: 41,
+		ID: id, Repository: fx.repo, IssueIndex: fmt.Sprintf("%d", issue), Approver: 5, NativeRev: 41, TitleOccurrence: factory.OriginalOccurrence,
 		TitleDigest: dispatchDigest(title), ContentDigest: dispatchDigest(body), ContentVersion: 2,
 		Sources: []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: dispatchDigest(answer)}},
 	}
@@ -289,6 +294,7 @@ func (fx *dispatchFixture) accept(t *testing.T, issue int64, id string, bodyOver
 	fx.decision[issue] = decision
 	fx.reads.inputs[fmt.Sprintf("%d/%d", fx.repo, issue)] = DispatchInputs{
 		Issue: DispatchIssue{
+			TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence,
 			Title: title, Body: body, TitleDigest: decision.TitleDigest,
 			ContentDigest: decision.ContentDigest, ContentVer: 2, Visible: true,
 		},

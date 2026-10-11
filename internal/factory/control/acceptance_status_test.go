@@ -11,6 +11,36 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
+func TestAcceptanceBindsNativeTitleOccurrenceAfterReversion(t *testing.T) {
+	decision := acceptanceDecision()
+	decision.Sources, decision.Resolutions, decision.Prerequisites = nil, nil, nil
+	evidence := acceptanceEvidence()
+	evidence.Comments, evidence.Dependencies = nil, nil
+	// Native A→B→A preserves the original digest and body version, but
+	// the restored title belongs to the later native retitle comment.
+	evidence.Issue.TitleOccurrence = "902"
+	if err := (&Coordinator{}).verifyAcceptance(context.Background(), decision, evidence); err == nil {
+		t.Fatal("restored digest admitted the earlier native title occurrence")
+	}
+	if reasons := assessAcceptance(decision, evidence); !reflect.DeepEqual(reasons, []string{RefusalObjectiveChanged}) {
+		t.Fatalf("restored digest reactivated acceptance: %v", reasons)
+	}
+}
+
+func TestAcceptanceUnknownTitleOccurrenceIsNotOriginal(t *testing.T) {
+	decision := acceptanceDecision()
+	decision.Sources, decision.Resolutions, decision.Prerequisites = nil, nil, nil
+	evidence := acceptanceEvidence()
+	evidence.Comments, evidence.Dependencies = nil, nil
+	evidence.Issue.TitleOccurrence = ""
+	if err := (&Coordinator{}).verifyAcceptance(context.Background(), decision, evidence); err == nil {
+		t.Fatal("missing title history admitted as explicit original absence")
+	}
+	if reasons := assessAcceptance(decision, evidence); !reflect.DeepEqual(reasons, []string{RefusalIncompleteEvidence}) {
+		t.Fatalf("unknown occurrence became original: %v", reasons)
+	}
+}
+
 func TestAcceptanceStatusAssessesValidity(t *testing.T) {
 	admit := func(t *testing.T, c *Coordinator) {
 		t.Helper()
@@ -60,16 +90,26 @@ func TestAcceptanceStatusAssessesValidity(t *testing.T) {
 		mutate  func(*AcceptanceEvidence)
 		reasons []string
 	}{
-		"objective": {mutate: func(e *AcceptanceEvidence) { e.Issue.ContentDigest = strings.Repeat("f", 64) },
-			reasons: []string{RefusalObjectiveChanged}},
-		"source": {mutate: func(e *AcceptanceEvidence) { e.Comments[1].Digest = strings.Repeat("e", 64) },
-			reasons: []string{RefusalSourceChanged}},
-		"source-gone": {mutate: func(e *AcceptanceEvidence) { e.Comments = e.Comments[:1] },
-			reasons: []string{RefusalSourceMissing}},
-		"edge-replaced": {mutate: func(e *AcceptanceEvidence) { e.Dependencies[0].Occurrence = "29" },
-			reasons: []string{RefusalEdgeChanged}},
-		"edge-removed": {mutate: func(e *AcceptanceEvidence) { e.Dependencies = nil },
-			reasons: []string{RefusalEdgeChanged}},
+		"objective": {
+			mutate:  func(e *AcceptanceEvidence) { e.Issue.ContentDigest = strings.Repeat("f", 64) },
+			reasons: []string{RefusalObjectiveChanged},
+		},
+		"source": {
+			mutate:  func(e *AcceptanceEvidence) { e.Comments[1].Digest = strings.Repeat("e", 64) },
+			reasons: []string{RefusalSourceChanged},
+		},
+		"source-gone": {
+			mutate:  func(e *AcceptanceEvidence) { e.Comments = e.Comments[:1] },
+			reasons: []string{RefusalSourceMissing},
+		},
+		"edge-replaced": {
+			mutate:  func(e *AcceptanceEvidence) { e.Dependencies[0].Occurrence = "29" },
+			reasons: []string{RefusalEdgeChanged},
+		},
+		"edge-removed": {
+			mutate:  func(e *AcceptanceEvidence) { e.Dependencies = nil },
+			reasons: []string{RefusalEdgeChanged},
+		},
 		"hidden": {mutate: func(e *AcceptanceEvidence) { e.Issue.Visible = false }, reasons: []string{RefusalIssueHidden}},
 	}
 	for name, tc := range changes {
@@ -96,8 +136,10 @@ func TestAcceptanceStatusAssessesValidity(t *testing.T) {
 	}
 	t.Run("prereq", func(t *testing.T) {
 		c, _ := acceptanceHarness(t, acceptanceEvidence(), nil)
-		prereq := factory.Acceptance{ID: "d111111111111111111111111", Repository: 42, IssueIndex: "2", Approver: 7, NativeRev: 40,
-			TitleDigest: strings.Repeat("e", 64), ContentDigest: strings.Repeat("f", 64)}
+		prereq := factory.Acceptance{
+			ID: "d111111111111111111111111", Repository: 42, IssueIndex: "2", Approver: 7, NativeRev: 40,
+			TitleDigest: strings.Repeat("e", 64), TitleOccurrence: factory.OriginalOccurrence, ContentDigest: strings.Repeat("f", 64),
+		}
 		if err := c.Store.AdmitAcceptanceDecision(context.Background(), prereq); err != nil {
 			t.Fatal(err)
 		}

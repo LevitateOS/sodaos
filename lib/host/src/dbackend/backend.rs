@@ -1,6 +1,6 @@
 use std::os::unix::net::UnixStream;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
 use crate::{domain, factory, json, project, terminal};
@@ -8,7 +8,7 @@ use crate::{domain, factory, json, project, terminal};
 use super::tailnet::{decode_tailnet_empty, map_tailnet_err};
 use super::websocket;
 use super::{
-    decode_empty, internal, map_factory_err, native_deadline, tailnet_deadline, DaemonBackend,
+    DaemonBackend, decode_empty, internal, map_factory_err, native_deadline, tailnet_deadline,
 };
 
 #[cfg(test)]
@@ -143,8 +143,33 @@ impl ExecBackend for DaemonBackend {
 
     fn prepare_candidate(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let req = crate::pops::PrepareCandidateReq::decode(body).map_err(internal)?;
+        req.0.validate().map_err(internal)?;
+        let deadline = crate::project::Runtime::<crate::project::Native>::cap_by_wire_deadline(
+            native_deadline(),
+            &req.0.deadline,
+        )
+        .map_err(internal)?;
+        if let Some(source) = &req.0.source_run {
+            let exported = self
+                .factory()?
+                .export(source, deadline)
+                .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
+            if exported.phase != factory::FACTORY_COMPLETED
+                || exported.id != source.id
+                || exported.project != source.project
+                || exported.candidate != source.candidate
+            {
+                return Err(BackendError::ExportCandidate);
+            }
+            let bundle = crate::ssh::b64_decode(&exported.bundle).map_err(internal)?;
+            return self
+                .pops
+                .prepare_candidate_from_run(&req, &bundle, deadline)
+                .map(String::into_bytes)
+                .map_err(internal);
+        }
         self.pops
-            .prepare_candidate(&req, native_deadline())
+            .prepare_candidate(&req, deadline)
             .map(String::into_bytes)
             .map_err(internal)
     }

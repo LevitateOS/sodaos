@@ -9,6 +9,137 @@ use super::*;
 use crate::preparation::FactoryCandidate;
 
 #[test]
+fn source_refresh_checks_complete_selected_inputs_at_both_exact_commits() {
+    let original = b"locked configuration\n";
+    let path = "config/nested/dependencies.lock";
+    let digest = crate::sha256::hex_lower(&crate::sha256::digest(original));
+    for (name, old_bytes, new_bytes, old_mode, new_mode, succeeds) in [
+        (
+            "unchanged",
+            original.as_slice(),
+            original.as_slice(),
+            "100644",
+            "100644",
+            true,
+        ),
+        (
+            "changed-deep-input",
+            original.as_slice(),
+            b"changed configuration\n".as_slice(),
+            "100644",
+            "100644",
+            false,
+        ),
+        (
+            "false-original-binding",
+            b"different original\n".as_slice(),
+            original.as_slice(),
+            "100644",
+            "100644",
+            false,
+        ),
+        (
+            "symlink",
+            original.as_slice(),
+            original.as_slice(),
+            "120000",
+            "120000",
+            false,
+        ),
+        (
+            "execute-bit-change",
+            original.as_slice(),
+            original.as_slice(),
+            "100644",
+            "100755",
+            false,
+        ),
+    ] {
+        let mut prep = preparation();
+        prep.source_commit = "d".repeat(40);
+        prep.requirements
+            .source_inputs
+            .insert(path.into(), digest.clone());
+        let old_tree = format!("{old_mode} blob {}\t{path}\0", "a".repeat(40)).into_bytes();
+        let new_tree = format!("{new_mode} blob {}\t{path}\0", "a".repeat(40)).into_bytes();
+        let mock = Mock::new(vec![
+            Ok(Vec::new()), // approved source is an ancestor
+            Ok(Vec::new()), // protected top-level setup bytes unchanged
+            Ok(old_tree),
+            Ok(old_bytes.to_vec()),
+            Ok(new_tree),
+            Ok(new_bytes.to_vec()),
+        ]);
+        let rt = Runtime {
+            exec: &mock,
+            config: test_config(),
+        };
+        let result = rt.confirm_unchanged_setup_inputs(
+            &prep,
+            COMMIT,
+            &Default::default(),
+            &"f".repeat(64),
+            deadline(),
+        );
+        assert_eq!(result.is_ok(), succeeds, "{name}: {result:?}");
+        let calls = mock.calls.borrow();
+        assert!(
+            calls
+                .iter()
+                .all(|call| !String::from_utf8_lossy(&call.0).contains("\"op\":\"start\""))
+        );
+        if succeeds {
+            assert!(
+                calls[3]
+                    .2
+                    .iter()
+                    .any(|arg| arg == &format!("{COMMIT}:{path}"))
+            );
+            assert!(
+                calls[5]
+                    .2
+                    .iter()
+                    .any(|arg| arg == &format!("{}:{path}", prep.source_commit))
+            );
+        }
+    }
+}
+
+#[test]
+fn source_refresh_requires_explicit_selection_and_native_export() {
+    let mut prep = preparation();
+    prep.source_commit = "d".repeat(40);
+    let input = FactoryCandidate {
+        source_preparation: format!("f{}", "c".repeat(24)),
+        source_run: Some(crate::factory::FactoryExport {
+            project: prep.project.clone(),
+            id: "a".repeat(32),
+            role: "soda-coder".into(),
+            preparation: format!("f{}", "e".repeat(24)),
+            candidate: prep.source_commit.clone(),
+        }),
+        preparation: prep,
+        bundle: Vec::new(),
+        deadline: "2099-01-01T00:00:00Z".into(),
+    };
+    let mock = Mock::new(Vec::new());
+    let rt = Runtime {
+        exec: &mock,
+        config: test_config(),
+    };
+    assert_eq!(
+        rt.prepare_candidate(&input, deadline()).unwrap_err(),
+        "candidate source run requires protected native export"
+    );
+    assert_eq!(
+        rt.prepare_candidate_from_run(&input, b"BUNDLE", deadline())
+            .unwrap_err(),
+        "accepted effective source input selection is unavailable"
+    );
+    assert!(mock.calls.borrow().is_empty());
+}
+
+#[test]
 fn candidate_reuses_ready_source() {
     let id = pid();
     let source = format!("f{}", "c".repeat(24));
@@ -61,6 +192,7 @@ fn candidate_reuses_ready_source() {
     };
     let input = FactoryCandidate {
         preparation: prep,
+        source_run: None,
         source_preparation: source.clone(),
         bundle: b"BUNDLE".to_vec(),
         deadline: "2099-01-01T00:00:00Z".to_string(),
@@ -100,6 +232,7 @@ fn candidate_reuses_ready_source() {
     prep.role = "soda-reviewer".to_string();
     let input = FactoryCandidate {
         preparation: prep,
+        source_run: None,
         source_preparation: source.clone(),
         bundle: b"BUNDLE".to_vec(),
         deadline: "2099-01-01T00:00:00Z".to_string(),
@@ -117,6 +250,7 @@ fn coder_retry_clones_only_the_protected_original_bundle() {
     let prep = preparation();
     let input = FactoryCandidate {
         preparation: prep.clone(),
+        source_run: None,
         source_preparation: source.clone(),
         bundle: Vec::new(),
         deadline: "2099-01-01T00:00:00Z".into(),
@@ -228,6 +362,7 @@ fn candidate_expired_deadline_refuses_before_native_io() {
     prep.role = "soda-reviewer".to_string();
     let input = FactoryCandidate {
         preparation: prep,
+        source_run: None,
         source_preparation: format!("f{}", "c".repeat(24)),
         bundle: b"BUNDLE".to_vec(),
         deadline: "2000-01-01T00:00:00Z".to_string(),
@@ -252,6 +387,7 @@ fn candidate_rejects_bad_snapshots() {
     prep.role = "soda-reviewer".to_string();
     let input = || FactoryCandidate {
         preparation: prep.clone(),
+        source_run: None,
         source_preparation: source.clone(),
         bundle: b"BUNDLE".to_vec(),
         deadline: "2099-01-01T00:00:00Z".to_string(),

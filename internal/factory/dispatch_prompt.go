@@ -241,7 +241,7 @@ func writePromptPrerequisites(b *strings.Builder, prerequisites []AcceptedPrereq
 			"; satisfied as of queued readiness revision " + strconv.FormatInt(control.Revision, 10) + " (fingerprint " + control.Fingerprint + ")")
 		if prerequisite.Outcome == PrereqResult {
 			satisfied := control.Satisfied[prerequisite.Occurrence]
-			b.WriteString("; lifecycle " + strconv.Itoa(satisfied.Lifecycle) + " closed at " + strconv.FormatInt(satisfied.ClosedUnix, 10) + " under acceptance " + satisfied.Acceptance)
+			b.WriteString("; native closing occurrence " + satisfied.ClosingOccurrence + " under acceptance " + satisfied.Acceptance)
 		}
 		b.WriteByte('\n')
 	}

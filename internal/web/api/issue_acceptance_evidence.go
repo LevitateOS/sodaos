@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	extensions "forgejo.org/extension-sdk"
 
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 )
@@ -47,21 +49,29 @@ func (s AcceptanceSnapshotSource) ReadAcceptanceEvidence(ctx context.Context, re
 	if len(commentIDs) != 0 && snapshot.Comments == nil {
 		return control.AcceptanceEvidence{}, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
 	}
+	occurrences, err := issueOccurrences(snapshot.Issue)
+	if err != nil {
+		return control.AcceptanceEvidence{}, err
+	}
 	evidence := control.AcceptanceEvidence{
 		Revision: snapshot.Revision,
 		Issue: control.AcceptanceIssueView{
-			Index:         snapshot.Issue.Index,
-			TitleDigest:   snapshot.Issue.TitleDigest,
-			ContentDigest: snapshot.Issue.ContentDigest,
-			PosterID:      snapshot.Issue.Provenance.PosterID,
-			ContentVer:    snapshot.Issue.ContentVersion,
-			Lifecycle:     len(snapshot.Issue.Lifecycle),
-			ClosedUnix:    snapshot.Issue.ClosedUnix,
-			Verified:      snapshot.Issue.Provenance.Verified,
-			FirstCreated:  snapshot.Issue.Provenance.FirstCreated,
-			Visible:       snapshot.Issue.Visible,
-			Closed:        snapshot.Issue.IsClosed,
-			IsPull:        snapshot.Issue.IsPull,
+			ID:                  snapshot.Issue.ID,
+			Index:               snapshot.Issue.Index,
+			TitleDigest:         snapshot.Issue.TitleDigest,
+			ContentDigest:       snapshot.Issue.ContentDigest,
+			PosterID:            snapshot.Issue.Provenance.PosterID,
+			ContentVer:          snapshot.Issue.ContentVersion,
+			TitleOccurrence:     occurrences.title,
+			ClosingOccurrence:   occurrences.closing,
+			LifecycleOccurrence: occurrences.latest,
+			ClosedUnix:          snapshot.Issue.ClosedUnix,
+			CreatedUnix:         snapshot.Issue.CreatedUnix,
+			Verified:            snapshot.Issue.Provenance.Verified,
+			FirstCreated:        snapshot.Issue.Provenance.FirstCreated,
+			Visible:             snapshot.Issue.Visible,
+			Closed:              snapshot.Issue.IsClosed,
+			IsPull:              snapshot.Issue.IsPull,
 		},
 	}
 	if snapshot.Comments != nil {
@@ -84,6 +94,47 @@ func (s AcceptanceSnapshotSource) ReadAcceptanceEvidence(ctx context.Context, re
 		})
 	}
 	return evidence, nil
+}
+
+type nativeIssueOccurrences struct {
+	title, closing, latest string
+}
+
+// issueOccurrences retains native comment identities. A complete visible
+// history with no title change explicitly identifies the original title;
+// missing or redacted history never supplies that assertion.
+func issueOccurrences(issue *forgejo.IssueEvidence) (nativeIssueOccurrences, error) {
+	if !issue.Visible {
+		return nativeIssueOccurrences{}, nil
+	}
+	if !issue.Complete {
+		return nativeIssueOccurrences{}, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
+	}
+	result := nativeIssueOccurrences{title: factory.OriginalOccurrence, latest: factory.OriginalOccurrence}
+	var previous int64
+	closed := false
+	for _, event := range issue.Lifecycle {
+		id, err := strconv.ParseInt(event.OccurrenceID, 10, 64)
+		if err != nil || id <= previous || strconv.FormatInt(id, 10) != event.OccurrenceID {
+			return nativeIssueOccurrences{}, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
+		}
+		previous = id
+		result.latest = event.OccurrenceID
+		switch event.Kind {
+		case "retitled":
+			result.title = event.OccurrenceID
+		case "closed":
+			result.closing, closed = event.OccurrenceID, true
+		case "reopened":
+			closed = false
+		default:
+			return nativeIssueOccurrences{}, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
+		}
+	}
+	if issue.IsClosed != closed {
+		return nativeIssueOccurrences{}, &control.AcceptanceRefusal{Reason: control.RefusalIncompleteEvidence}
+	}
+	return result, nil
 }
 
 // mapAcceptanceSnapshotError converts bracket failures to acceptance

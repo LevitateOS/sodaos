@@ -180,10 +180,10 @@ type publishFixture struct {
 	coord *Coordinator
 }
 
-func publishSeed(t *testing.T) *publishFixture {
+func publishSeed(t *testing.T, sourceInputs ...map[string]string) *publishFixture {
 	t.Helper()
 	db, dsn := publicationTestDB(t)
-	fx := dispatchSeed(t, db)
+	fx := dispatchSeed(t, db, sourceInputs...)
 	fh := &fakePublishHost{bundle: []byte("bundle-bytes")}
 	coord := NewCoordinator(db, fh, &fakeDispatchBroker{})
 	reads := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
@@ -234,7 +234,7 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 	}
 	fx.reads.evidence[strconv.FormatInt(a.Repository, 10)+"/"+strconv.FormatInt(issue, 10)] = AcceptanceEvidence{
 		Revision: 9,
-		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
+		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleDigest: decision.TitleDigest, TitleOccurrence: decision.TitleOccurrence, LifecycleOccurrence: factory.OriginalOccurrence, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{{ID: decision.Sources[0].ID, Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
 	}
 	a.RunHistory = []string{a.Run}

@@ -30,7 +30,7 @@ func acceptanceDecision() factory.Acceptance {
 	title, body, source, resolution := acceptanceDigests()
 	return factory.Acceptance{
 		ID: "d0123456789abcdef01234567", Repository: 42, IssueIndex: "3", Approver: 7, NativeRev: 41,
-		TitleDigest: title, ContentDigest: body, ContentVersion: 2,
+		TitleDigest: title, TitleOccurrence: factory.OriginalOccurrence, ContentDigest: body, ContentVersion: 2,
 		Sources:       []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: source}},
 		Prerequisites: []factory.AcceptedPrerequisite{{Occurrence: "21", DependsOn: "9", EndpointRepo: 42, EndpointIssue: 2, Outcome: factory.PrereqResult}},
 		Resolutions:   []factory.SelectedSource{{ID: "12", ContentVersion: 1, Digest: resolution}},
@@ -41,8 +41,11 @@ func acceptanceEvidence() AcceptanceEvidence {
 	title, body, source, resolution := acceptanceDigests()
 	return AcceptanceEvidence{
 		Revision: 41,
-		Issue: AcceptanceIssueView{Index: "3", TitleDigest: title, ContentDigest: body, ContentVer: 2,
-			PosterID: "7", Verified: true, FirstCreated: true, Visible: true},
+		Issue: AcceptanceIssueView{
+			Index: "3", TitleDigest: title, ContentDigest: body, ContentVer: 2,
+			TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence,
+			PosterID: "7", Verified: true, FirstCreated: true, Visible: true,
+		},
 		Comments: []AcceptanceComment{
 			{ID: "11", Digest: source, ContentVer: 0, Visible: true},
 			{ID: "12", Digest: resolution, ContentVer: 1, Visible: true},
@@ -229,8 +232,10 @@ func TestAdmitAcceptanceGuardsCodeRoutes(t *testing.T) {
 	})
 	t.Run("stale", func(t *testing.T) {
 		c := setup(t)
-		prereq := factory.Acceptance{ID: "d111111111111111111111111", Repository: 42, IssueIndex: "2", Approver: 7, NativeRev: 40,
-			TitleDigest: strings.Repeat("e", 64), ContentDigest: strings.Repeat("f", 64)}
+		prereq := factory.Acceptance{
+			ID: "d111111111111111111111111", Repository: 42, IssueIndex: "2", Approver: 7, NativeRev: 40,
+			TitleDigest: strings.Repeat("e", 64), TitleOccurrence: factory.OriginalOccurrence, ContentDigest: strings.Repeat("f", 64),
+		}
 		if err := c.Store.AdmitAcceptanceDecision(context.Background(), prereq); err != nil {
 			t.Fatal(err)
 		}

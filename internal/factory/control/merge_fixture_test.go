@@ -131,9 +131,9 @@ type mergeFixture struct {
 	exec    *fakeMerger
 }
 
-func mergeSeed(t *testing.T, issue int64) (*mergeFixture, factory.Publication) {
+func mergeSeed(t *testing.T, issue int64, sourceInputs ...map[string]string) (*mergeFixture, factory.Publication) {
 	t.Helper()
-	fx := publishSeed(t)
+	fx := publishSeed(t, sourceInputs...)
 	ctx := context.Background()
 	policy, err := fx.db.RepositoryPolicy(ctx, fx.seed.repo)
 	if err != nil {

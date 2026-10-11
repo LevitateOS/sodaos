@@ -103,6 +103,11 @@ Record each attempt's actual source commit. Changed selected requirements need
 fresh acceptance, and withdrawal of the approval or its required human authority
 invalidates affected preparation under the existing factory withdrawal rules.
 
+The acceptance records the complete selected relative repository paths and their
+SHA-256 digests in `source_inputs`. Native source refresh compares those exact
+Git objects and regular-file modes at the accepted and proposed commits before
+running setup. An absent selection permits only the accepted source commit.
+
 The accepted inputs identify required tools and versions, setup entry points and
 working directories, allowed writable resources, service requirements and readiness
 checks. Bind the effective referenced configuration, not just a top-level filename.

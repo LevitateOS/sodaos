@@ -137,6 +137,7 @@ func (c *Coordinator) advanceProgress(ctx context.Context) {
 			c.settleRun(ctx, run)
 		}
 	}
+	_ = c.recoverCreations(ctx)
 	c.Dispatch(ctx)
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")

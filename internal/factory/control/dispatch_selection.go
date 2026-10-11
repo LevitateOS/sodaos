@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -171,7 +172,12 @@ func selectPreparationFor(ctx context.Context, deps DispatchDeps, plan *attemptP
 		}
 		return nil, waitFor(DispatchErrStore, "approval head unreadable")
 	}
-	preparations, err := deps.Store.ProjectPreparations(ctx, plan.projectID)
+	var preparations []project.StoredPreparation
+	if exactID == "" {
+		preparations, err = deps.Store.StandingProjectPreparations(ctx, plan.projectID)
+	} else {
+		preparations, err = deps.Store.ProjectPreparations(ctx, plan.projectID)
+	}
 	if err != nil {
 		return nil, waitFor(DispatchErrStore, "preparations unreadable")
 	}

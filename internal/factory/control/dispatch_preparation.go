@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -55,13 +56,47 @@ func retryPreparationInvalidated(err error) bool {
 // Explicit Retry starts a new private checkout. The preceding run's checkout
 // and protected source snapshot remain inspectable; neither is reset in place.
 func (c *Coordinator) prepareRetryCoder(ctx context.Context, plan *attemptPlan, command string) (bool, error) {
-	source := plan.prep.Preparation
-	if source.SourceCommit != plan.inputs.Tip {
-		return false, errors.New("retry target differs from the approved source")
+	return c.prepareCoder(ctx, plan, command, nil)
+}
+
+// A confirmed native merge can advance a dependent's source while its exact
+// accepted setup remains current. The export and the private setup retain
+// separate identities; no caller provides source bundle bytes.
+func (c *Coordinator) prepareSourceCoder(ctx context.Context, plan *attemptPlan) (bool, error) {
+	open, revision, _, err := c.Store.DispatchState(ctx, plan.control.Repository)
+	if err != nil || !open {
+		return false, store.ErrDispatchClosed
 	}
-	sum := sha256.Sum256([]byte("retry-coder\x00" + command + "\x00" + source.SourceCommit))
+	identity, err := json.Marshal(struct {
+		Repository, Issue  int64
+		Acceptance, Source string
+		Authority          factory.AuthorityRef
+		Gate               int64
+	}{plan.control.Repository, plan.control.Issue, plan.control.Acceptance, plan.inputs.Tip, plan.effective.Authority, revision})
+	if err != nil {
+		return false, err
+	}
+	sum := sha256.Sum256(append([]byte("source-coder\x00"), identity...))
+	return c.prepareCoder(ctx, plan, hex.EncodeToString(sum[:16]), &revision)
+}
+
+func (c *Coordinator) prepareCoder(ctx context.Context, plan *attemptPlan, command string, expectedGate *int64) (bool, error) {
+	source := plan.prep.Preparation
+	var sourceRun *project.FactoryExport
+	if source.SourceCommit != plan.inputs.Tip {
+		if len(source.Requirements.SourceInputs) == 0 {
+			return false, errors.New("accepted effective source input selection is unavailable")
+		}
+		bound, err := c.Store.MergedPreparationSource(ctx, plan.control.Repository, plan.projectID, plan.policy.TargetBranch, plan.inputs.Tip)
+		if err != nil {
+			return false, err
+		}
+		sourceRun = &bound
+	}
+	sum := sha256.Sum256([]byte("fresh-coder\x00" + command + "\x00" + plan.inputs.Tip))
 	prep := source
 	prep.ID, prep.Revision = "f"+hex.EncodeToString(sum[:12]), 0
+	prep.SourceCommit = plan.inputs.Tip
 	requested := time.Now().Add(10 * time.Minute).Unix()
 	if plan.deadline.Unix() < requested {
 		requested = plan.deadline.Unix()
@@ -71,12 +106,16 @@ func (c *Coordinator) prepareRetryCoder(ctx context.Context, plan *attemptPlan, 
 		Project: plan.projectID, OwnerAssignment: command, ChildAssignment: command, AttemptRoot: command,
 		Connection: plan.sponsorship.Connection, Authority: plan.effective.Authority,
 		GateRevision: plan.gateRev, Control: plan.control, RequestedNotAfter: requested,
+		SourceRun: sourceRun,
 	}
 	// The gate is read before preparation admission, rather than after prompt
 	// construction, so setup is fenced by the same revision as dispatch.
 	open, revision, _, err := c.Store.DispatchState(ctx, plan.control.Repository)
 	if err != nil || !open {
 		return false, errors.New("retry dispatch gate is unavailable or closed")
+	}
+	if expectedGate != nil && revision != *expectedGate {
+		return false, store.ErrStaleRevision
 	}
 	registration.GateRevision = revision
 	record, created, err := c.Store.AdmitCandidatePreparation(ctx, project.StoredPreparation{Preparation: prep}, registration)
@@ -91,6 +130,7 @@ func (c *Coordinator) prepareRetryCoder(ctx context.Context, plan *attemptPlan, 
 		return false, err
 	}
 	stored := record.Preparation
+	plan.preparationOwner = command
 	if record.Stopped || record.Retirement == "confirmed" {
 		return false, errors.New("retry preparation was retired")
 	}
@@ -142,6 +182,7 @@ func (c *Coordinator) prepareRetryCoder(ctx context.Context, plan *attemptPlan, 
 	}
 	state, err := c.Host.PrepareCandidate(ctx, project.FactoryCandidate{
 		Preparation: prep, SourcePreparation: source.ID, Deadline: time.Unix(notAfter, 0),
+		SourceRun: sourceRun,
 	})
 	if err != nil {
 		return false, err

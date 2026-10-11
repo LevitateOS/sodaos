@@ -56,6 +56,7 @@ func New(c config.Config, db *store.Store) *Server {
 		source := api.NewServiceReadinessSource(observer)
 		s.Coordinator.AcceptanceReads = source
 		s.Coordinator.Readiness = source
+		s.Coordinator.Creations = observer
 		s.Coordinator.DispatchReads = source
 		s.Coordinator.Publication = forgejo.NewPublisher(background, client, c.ForgejoInternalURL,
 			publicationRoot(c), c.ForgejoBackgroundCredentialFile)

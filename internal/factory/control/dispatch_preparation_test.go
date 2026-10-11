@@ -330,7 +330,7 @@ func TestHoldReleaseWakesExistingRetryAfterProjectStop(t *testing.T) {
 	head := fx.decision[3]
 	c.AcceptanceReads = &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
 		"7/3": {Revision: 41, Issue: AcceptanceIssueView{
-			Index: "3", Visible: true, TitleDigest: head.TitleDigest, ContentDigest: head.ContentDigest, ContentVer: 2,
+			Index: "3", Visible: true, TitleDigest: head.TitleDigest, TitleOccurrence: head.TitleOccurrence, LifecycleOccurrence: factory.OriginalOccurrence, ContentDigest: head.ContentDigest, ContentVer: 2,
 		}, Comments: []AcceptanceComment{{ID: "11", Visible: true, Digest: head.Sources[0].Digest}}},
 	}}
 	c.Readiness = &fakeObserver{revision: 41, idle: true}

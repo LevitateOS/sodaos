@@ -44,21 +44,25 @@ func (e *AcceptanceRefusal) Error() string { return "issue acceptance refused: "
 func refuseAcceptance(reason string) *AcceptanceRefusal { return &AcceptanceRefusal{Reason: reason} }
 
 // AcceptanceIssueView is the bracketed native objective: exact digests,
-// content version, lifecycle count and creation provenance at one idle
+// body version, native title/lifecycle occurrences and creation provenance at one idle
 // native revision.
 type AcceptanceIssueView struct {
-	Index         string
-	TitleDigest   string
-	ContentDigest string
-	PosterID      string
-	ContentVer    int
-	Lifecycle     int
-	ClosedUnix    int64
-	Verified      bool
-	FirstCreated  bool
-	Visible       bool
-	Closed        bool
-	IsPull        bool
+	ID                  string
+	Index               string
+	TitleDigest         string
+	TitleOccurrence     string
+	ClosingOccurrence   string
+	LifecycleOccurrence string
+	ContentDigest       string
+	PosterID            string
+	ContentVer          int
+	ClosedUnix          int64
+	CreatedUnix         int64
+	Verified            bool
+	FirstCreated        bool
+	Visible             bool
+	Closed              bool
+	IsPull              bool
 }
 
 // AcceptanceComment is one bracketed native comment revision.

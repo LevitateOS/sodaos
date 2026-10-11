@@ -30,6 +30,7 @@ type CandidatePreparationRegistration struct {
 	GateRevision      int64
 	Control           factory.IssueControl
 	RequestedNotAfter int64
+	SourceRun         *project.FactoryExport
 }
 
 // CandidatePreparationRecord joins the public preparation view with its
@@ -93,21 +94,22 @@ type candidatePreparationEnvelope struct {
 }
 
 type candidatePreparationRegistration struct {
-	Repository      int64                `json:"repository"`
-	Issue           int64                `json:"issue"`
-	ActorID         int64                `json:"actor_id,string"`
-	Project         string               `json:"project"`
-	OwnerAssignment string               `json:"owner_assignment"`
-	ChildAssignment string               `json:"child_assignment"`
-	AttemptRoot     string               `json:"attempt_root"`
-	PublicationID   string               `json:"publication_id"`
-	Connection      string               `json:"connection"`
-	Authority       factory.AuthorityRef `json:"authority"`
-	GateRevision    int64                `json:"gate_revision"`
-	Control         factory.IssueControl `json:"control"`
-	NotAfter        int64                `json:"not_after_unix"`
-	Stopped         bool                 `json:"stopped,omitempty"`
-	Retirement      string               `json:"retirement,omitempty"`
+	Repository      int64                  `json:"repository"`
+	Issue           int64                  `json:"issue"`
+	ActorID         int64                  `json:"actor_id,string"`
+	Project         string                 `json:"project"`
+	OwnerAssignment string                 `json:"owner_assignment"`
+	ChildAssignment string                 `json:"child_assignment"`
+	AttemptRoot     string                 `json:"attempt_root"`
+	PublicationID   string                 `json:"publication_id"`
+	Connection      string                 `json:"connection"`
+	Authority       factory.AuthorityRef   `json:"authority"`
+	GateRevision    int64                  `json:"gate_revision"`
+	Control         factory.IssueControl   `json:"control"`
+	SourceRun       *project.FactoryExport `json:"source_run,omitempty"`
+	NotAfter        int64                  `json:"not_after_unix"`
+	Stopped         bool                   `json:"stopped,omitempty"`
+	Retirement      string                 `json:"retirement,omitempty"`
 }
 
 var (
@@ -138,7 +140,7 @@ func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation proje
 	if err != nil {
 		return empty, false, err
 	}
-	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID); err != nil {
+	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID, grants.policy.TargetBranch); err != nil {
 		return empty, false, err
 	}
 	now := time.Now()
@@ -164,7 +166,7 @@ func (s *Store) AdmitCandidatePreparation(ctx context.Context, preparation proje
 		OwnerAssignment: registration.OwnerAssignment, ChildAssignment: registration.ChildAssignment,
 		AttemptRoot: registration.AttemptRoot, PublicationID: registration.PublicationID,
 		Connection: registration.Connection, Authority: registration.Authority,
-		GateRevision: registration.GateRevision, Control: registration.Control, NotAfter: deadline,
+		GateRevision: registration.GateRevision, Control: registration.Control, NotAfter: deadline, SourceRun: registration.SourceRun,
 	}
 	data, err := marshalCandidatePreparation(preparation, meta)
 	if err != nil {
@@ -239,7 +241,7 @@ func (s *Store) AuthorizeCandidatePreparation(ctx context.Context, id string) (i
 	if err != nil {
 		return 0, err
 	}
-	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID); err != nil {
+	if err = checkCandidatePreparationOwnerTx(ctx, tx, preparation, registration, grants.sponsorship.ActorID, grants.policy.TargetBranch); err != nil {
 		return 0, err
 	}
 	var currentData []byte
@@ -401,6 +403,14 @@ func validateCandidatePreparationRegistration(preparation project.StoredPreparat
 			r.OwnerAssignment != r.ChildAssignment || r.AttemptRoot != r.OwnerAssignment)) {
 		return errors.New("invalid candidate preparation registration")
 	}
+	if r.SourceRun != nil {
+		input := project.FactoryCandidate{Preparation: preparation.Preparation, SourcePreparation: r.SourceRun.Preparation, SourceRun: r.SourceRun, Deadline: time.Unix(r.RequestedNotAfter, 0)}
+		// Source setup can share an export preparation; request freshness is
+		// checked separately against its actual protected setup by the host.
+		if input.SourcePreparation == input.Preparation.ID || input.Validate() != nil {
+			return errors.New("invalid preparation source export")
+		}
+	}
 	return nil
 }
 
@@ -454,11 +464,47 @@ func authorizeCandidatePreparationTx(ctx context.Context, tx *sql.Tx, preparatio
 	if err = checkAssignmentAuthorityTx(ctx, tx, r.Authority, assignment, grants); err != nil {
 		return empty, err
 	}
+	if err = checkCandidatePreparationSetupTx(ctx, tx, preparation.Preparation); err != nil {
+		return empty, err
+	}
 	return grants, nil
 }
 
-func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparation project.StoredPreparation, r CandidatePreparationRegistration, actorID int64) error {
+// IDs alone cannot authorize a caller-selected effective input map. Match
+// both complete immutable references against the current human decisions.
+func checkCandidatePreparationSetupTx(ctx context.Context, tx *sql.Tx, p project.Preparation) error {
+	var requirementData, approvalData []byte
+	var requirementDepth, approvalDepth int64
+	if err := tx.QueryRowContext(ctx, `SELECT data,(SELECT count(*) FROM project_requirement_decisions WHERE project_id=$2) FROM project_requirement_decisions WHERE id=$1`, p.Requirements.ID, p.Project).Scan(&requirementData, &requirementDepth); err != nil {
+		return err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT data,(SELECT count(*) FROM project_approval_decisions WHERE project_id=$2) FROM project_approval_decisions WHERE id=$1`, p.Approval.ID, p.Project).Scan(&approvalData, &approvalDepth); err != nil {
+		return err
+	}
+	var requirement project.RequirementDecision
+	var approval project.ApprovalDecision
+	if err := json.Unmarshal(requirementData, &requirement); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(approvalData, &approval); err != nil {
+		return err
+	}
+	if requirement.Validate() != nil || approval.Validate() != nil || !requirement.Ref(requirementDepth).Equal(p.Requirements) ||
+		approval.Ref(approvalDepth) != p.Approval || requirement.Project != p.Project || approval.Project != p.Project ||
+		requirement.SetupDigest != p.SetupDigest || approval.Requirement != requirement.ID || !approval.Verified {
+		return ErrCandidatePreparationConflict
+	}
+	return nil
+}
+
+func checkCandidatePreparationOwnerTx(ctx context.Context, tx *sql.Tx, preparation project.StoredPreparation, r CandidatePreparationRegistration, actorID int64, target string) error {
 	if r.PublicationID == "" {
+		if r.SourceRun != nil {
+			if err := checkMergedPreparationSourceTx(ctx, tx, r, preparation.Preparation.SourceCommit, target); err != nil {
+				return err
+			}
+			return checkQueuedPreparationOwnerTx(ctx, tx, r)
+		}
 		return checkRetryPreparationOwnerTx(ctx, tx, r)
 	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, r.Repository, r.Issue, r.AttemptRoot)
@@ -547,7 +593,7 @@ func registrationFromMeta(m candidatePreparationRegistration) CandidatePreparati
 		Repository: m.Repository, Issue: m.Issue, ActorID: m.ActorID, Project: m.Project, OwnerAssignment: m.OwnerAssignment,
 		ChildAssignment: m.ChildAssignment, AttemptRoot: m.AttemptRoot, PublicationID: m.PublicationID,
 		Connection: m.Connection, Authority: m.Authority, GateRevision: m.GateRevision,
-		Control: m.Control, RequestedNotAfter: m.NotAfter,
+		Control: m.Control, RequestedNotAfter: m.NotAfter, SourceRun: m.SourceRun,
 	}
 }
 

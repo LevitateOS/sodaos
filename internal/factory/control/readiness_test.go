@@ -35,13 +35,15 @@ func TestIntakeHintValidate(t *testing.T) {
 func TestObserveIssueEventCreationQueues(t *testing.T) {
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 	view := readinessView("3")
-	view.ContentVer, view.Lifecycle = 0, 0
+	view.ContentVer, view.LifecycleOccurrence = 0, factory.OriginalOccurrence
 	view.Verified, view.FirstCreated = true, true
+	view.ID, view.CreatedUnix = "103", 1700000000
 	source.evidence["42/3"] = readinessEvidence(12, view, nil, nil)
 	c := readinessCoordinator(t, source, &fakeObserver{revision: 12, idle: true})
 	grantFullAuthority(t, c)
 	assessed, changed, err := c.ObserveIssueEvent(context.Background(), IntakeHint{
 		Delivery: "delivery-1", Repository: 42, Issue: 3, Created: true, Creator: 5, CreatorWrite: true,
+		CreationVerified: true, NativeIssueID: 103, CreatedUnix: 1700000000, TitleDigest: view.TitleDigest, ContentDigest: view.ContentDigest,
 	})
 	if err != nil || !changed {
 		t.Fatal("creation intake failed:", assessed, changed, err)
@@ -50,7 +52,7 @@ func TestObserveIssueEventCreationQueues(t *testing.T) {
 		t.Fatal("created issue not queued:", assessed)
 	}
 	head, err := c.Store.AcceptanceHead(context.Background(), 42, 3)
-	if err != nil || head != factory.InitialAcceptanceID(42, "3") {
+	if err != nil || head != factory.InitialAcceptanceID(42, "103") {
 		t.Fatal("initial acceptance not recorded:", head, err)
 	}
 	if assessed.Acceptance != head || assessed.Revision != 1 {
@@ -225,11 +227,13 @@ func TestCreationWithoutAuthorityWaitsForAdoption(t *testing.T) {
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 	view := readinessView("3")
 	view.Verified, view.FirstCreated = true, true
+	view.ID, view.CreatedUnix = "103", 1700000000
 	source.evidence["42/3"] = readinessEvidence(12, view, nil, nil)
 	c := readinessCoordinator(t, source, &fakeObserver{revision: 12, idle: true})
 	grantFullAuthority(t, c)
 	assessed, changed, err := c.ObserveIssueEvent(context.Background(), IntakeHint{
 		Delivery: "delivery-1", Repository: 42, Issue: 3, Created: true, Creator: 5,
+		CreationVerified: true, NativeIssueID: 103, CreatedUnix: 1700000000, TitleDigest: view.TitleDigest, ContentDigest: view.ContentDigest,
 	})
 	if err != nil || !changed {
 		t.Fatal("outsider creation intake failed:", assessed, changed, err)
@@ -249,11 +253,13 @@ func TestEditedCreationNeedsExplicitAdoption(t *testing.T) {
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{}}
 	view := readinessView("3")
 	view.Verified, view.FirstCreated, view.ContentVer = true, true, 1
+	view.ID, view.CreatedUnix = "103", 1700000000
 	source.evidence["42/3"] = readinessEvidence(12, view, nil, nil)
 	c := readinessCoordinator(t, source, &fakeObserver{revision: 12, idle: true})
 	grantFullAuthority(t, c)
 	assessed, _, err := c.ObserveIssueEvent(context.Background(), IntakeHint{
 		Delivery: "delivery-1", Repository: 42, Issue: 3, Created: true, Creator: 5, CreatorWrite: true,
+		CreationVerified: true, NativeIssueID: 103, CreatedUnix: 1700000000, TitleDigest: view.TitleDigest, ContentDigest: view.ContentDigest,
 	})
 	if err != nil {
 		t.Fatal(err)

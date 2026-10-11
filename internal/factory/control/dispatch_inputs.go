@@ -60,7 +60,10 @@ func readAttemptInputs(ctx context.Context, deps DispatchDeps, plan *attemptPlan
 		return waitFor(WaitIssueLocked, "issue is locked"), nil
 	}
 	decision := plan.acceptance
-	if inputs.Issue.TitleDigest != decision.TitleDigest || inputs.Issue.ContentDigest != decision.ContentDigest ||
+	if !factory.ValidTitleOccurrence(inputs.Issue.TitleOccurrence) {
+		return waitFor(WaitInputsIncomplete, "native title history is incomplete"), nil
+	}
+	if inputs.Issue.TitleDigest != decision.TitleDigest || inputs.Issue.TitleOccurrence != decision.TitleOccurrence || inputs.Issue.ContentDigest != decision.ContentDigest ||
 		inputs.Issue.ContentVer != decision.ContentVersion || inputs.Revision < 1 {
 		return waitFor(WaitInputsChanged, "accepted objective changed"), nil
 	}

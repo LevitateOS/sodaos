@@ -20,6 +20,9 @@ import (
 func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, repository, issue int64, report *DispatchReport, retry *factory.RetryDecision) {
 	now := time.Now()
 	assignmentID, runID := factory.NewID(), factory.NewID()
+	if plan.preparationOwner != "" {
+		assignmentID = plan.preparationOwner
+	}
 	if retry != nil {
 		assignmentID = retry.CommandID
 	}
@@ -65,7 +68,7 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		packetErr = deps.Store.RecordExplicitRetryPacket(ctx, *retry, registration, plan.control, assignment, reservation, run, view)
 	}
 	if err := packetErr; err != nil {
-		if retry != nil && deps.RetireRetry != nil && retryPreparationInvalidated(err) {
+		if plan.preparationOwner != "" && deps.RetireRetry != nil && retryPreparationInvalidated(err) {
 			// A lost commit reply may still have admitted the packet. Retire
 			// only after the Store confirms that no assignment owns it.
 			if _, readErr := deps.Store.Assignment(ctx, assignmentID); errors.Is(readErr, store.ErrNotFound) {

@@ -59,7 +59,7 @@ func (f *fakeObserver) ObserveNativeRevision(context.Context) (int64, bool, erro
 
 func readinessView(issue string) AcceptanceIssueView {
 	return AcceptanceIssueView{
-		Index: issue, TitleDigest: readinessTitleDigest, ContentDigest: readinessContentDigest,
+		Index: issue, TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence, TitleDigest: readinessTitleDigest, ContentDigest: readinessContentDigest,
 		PosterID: "5", Visible: true,
 	}
 }
@@ -71,7 +71,7 @@ func readinessEvidence(revision int64, view AcceptanceIssueView, comments []Acce
 func readinessDecision(id string, repository int64, issue string, revision int64) factory.Acceptance {
 	return factory.Acceptance{
 		ID: id, Repository: repository, IssueIndex: issue,
-		Approver: 5, NativeRev: revision,
+		Approver: 5, NativeRev: revision, TitleOccurrence: factory.OriginalOccurrence,
 		TitleDigest: readinessTitleDigest, ContentDigest: readinessContentDigest,
 	}
 }

@@ -30,7 +30,7 @@ func TestCandidatePreparationOwnerPreservesReadFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer func() { _ = tx.Rollback() }()
-		return checkCandidatePreparationOwnerTx(ctx, tx, project.StoredPreparation{}, registration, a.ActorID)
+		return checkCandidatePreparationOwnerTx(ctx, tx, project.StoredPreparation{}, registration, a.ActorID, "main")
 	}
 	if _, err := db.db.ExecContext(ctx, `UPDATE factory_assignments SET data=data || '{"actor_id":"not-an-integer"}'::jsonb WHERE id=$1`, a.ID); err != nil {
 		t.Fatal(err)

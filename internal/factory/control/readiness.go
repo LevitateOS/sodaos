@@ -25,12 +25,17 @@ type ReadinessObservation interface {
 // build time. Hints never carry evidence; assessment always re-reads
 // authoritative native state before recording anything.
 type IntakeHint struct {
-	Delivery     string
-	Repository   int64
-	Issue        int64
-	Creator      int64
-	Created      bool
-	CreatorWrite bool
+	Delivery         string
+	Repository       int64
+	Issue            int64
+	Creator          int64
+	Created          bool
+	CreatorWrite     bool
+	CreationVerified bool
+	NativeIssueID    int64
+	CreatedUnix      int64
+	TitleDigest      string
+	ContentDigest    string
 }
 
 // Validate rejects malformed hints. Delivery IDs are native task UUIDs;
@@ -53,6 +58,15 @@ func (h IntakeHint) Validate() error {
 	if !h.Created && (h.Creator != 0 || h.CreatorWrite) {
 		return errors.New("creator authority rides creation observations only")
 	}
+	if h.NativeIssueID < 0 || h.CreatedUnix < 0 || !intakeCreationDigest(h.TitleDigest) || !intakeCreationDigest(h.ContentDigest) {
+		return errors.New("invalid native creation facts")
+	}
+	if !h.Created && (h.CreationVerified || h.NativeIssueID != 0 || h.CreatedUnix != 0 || h.TitleDigest != "" || h.ContentDigest != "") {
+		return errors.New("creation facts ride creation observations only")
+	}
+	if h.CreationVerified && (h.NativeIssueID <= 0 || h.CreatedUnix <= 0 || h.TitleDigest == "" || h.ContentDigest == "") {
+		return errors.New("incomplete verified creation facts")
+	}
 	return nil
 }
 
@@ -67,12 +81,9 @@ type assessOutcome struct {
 	authorityHash string
 }
 
-// ObserveIssueEvent consumes one authenticated native event hint: it
-// suppresses duplicate deliveries, attempts verified initial adoption for
-// creations, and assesses the issue plus persisted dependant work. Assessment is
-// idempotent: duplicate or unchanged observations record nothing new.
-// Transient observation failures report an error so the native side
-// retries; the delivery is logged only after a successful assessment.
+// ObserveIssueEvent durably retains an authenticated native event before
+// attempting admission or assessment. Serving reconciliation resumes transient
+// failures; duplicate deliveries cannot overwrite a later human decision.
 func (c *Coordinator) ObserveIssueEvent(ctx context.Context, hint IntakeHint) (factory.IssueControl, bool, error) {
 	workCtx, _, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
@@ -91,15 +102,14 @@ func (c *Coordinator) ObserveIssueEvent(ctx context.Context, hint IntakeHint) (f
 		}
 		return control, false, err
 	}
-	deliveryID := readinessDeliverySourceID(hint.Delivery)
-	if err = c.Store.EnqueueReadinessWork(workCtx, deliveryID, hint.Delivery, factory.DependenceRef{Repository: hint.Repository, Issue: hint.Issue}); err != nil {
-		return factory.IssueControl{}, false, err
-	}
+	work := readinessCreationWork(hint)
 	if hint.Created {
-		if budget := readinessBudgetFrom(workCtx); budget != nil && budget.reserveEvidence(1) {
-			_, _ = c.AdmitInitialAcceptance(workCtx, hint.Repository, strconv.FormatInt(hint.Issue, 10),
-				strconv.FormatInt(hint.Creator, 10), hint.CreatorWrite)
-		}
+		err = c.Store.EnqueueReadinessCreation(workCtx, work)
+	} else {
+		err = c.Store.EnqueueReadinessWork(workCtx, work.ID, work.Delivery, work.Root)
+	}
+	if err != nil {
+		return factory.IssueControl{}, false, err
 	}
 	drain, err := c.drainReadinessWork(workCtx, hint.Delivery)
 	if !drain.targetDone {
@@ -365,4 +375,21 @@ func carrySatisfaction(satisfied map[string]factory.PrereqSatisfaction, head str
 		}
 	}
 	return carried
+}
+
+func intakeCreationDigest(value string) bool {
+	if value == "" {
+		return true
+	}
+	decoded, err := hex.DecodeString(value)
+	return err == nil && len(decoded) == sha256.Size
+}
+
+func readinessCreationWork(hint IntakeHint) store.ReadinessWork {
+	return store.ReadinessWork{
+		ID: readinessDeliverySourceID(hint.Delivery), Delivery: hint.Delivery,
+		Root:             factory.DependenceRef{Repository: hint.Repository, Issue: hint.Issue},
+		CreationVerified: hint.CreationVerified, CreatorID: hint.Creator, CreatorWrite: hint.CreatorWrite,
+		NativeIssueID: hint.NativeIssueID, CreatedUnix: hint.CreatedUnix, TitleDigest: hint.TitleDigest, ContentDigest: hint.ContentDigest,
+	}
 }

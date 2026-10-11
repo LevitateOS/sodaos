@@ -84,7 +84,8 @@ func TestLongerCycleBlocks(t *testing.T) {
 		decision.Resolutions = []factory.SelectedSource{{ID: "3" + issue, Digest: readinessCommentDigest}}
 		mustAdmit(t, c, decision)
 		view := readinessView(issue)
-		view.Closed, view.ClosedUnix, view.Lifecycle = true, 400, 5
+		view.Closed, view.ClosedUnix = true, 400
+		view.ClosingOccurrence, view.LifecycleOccurrence = "94", "94"
 		edge := []AcceptanceEdge{{Occurrence: "2" + issue, DependsOn: "8", Visible: true}}
 		comment := []AcceptanceComment{{ID: "3" + issue, Digest: readinessCommentDigest, Visible: true}}
 		source.evidence["42/"+issue] = readinessEvidence(12, view, comment, edge)

@@ -237,6 +237,18 @@ func readinessCleanupContext(ctx context.Context, deadline time.Time) (context.C
 }
 
 func (c *Coordinator) processReadinessSource(ctx context.Context, work store.ReadinessWork) (bool, bool, error) {
+	if work.CreatorID > 0 {
+		if err := c.admitReadinessCreation(ctx, work); err != nil {
+			return false, false, err
+		}
+		// Admission mutates the readiness generation; restart this source's
+		// graph under the current head before checkpointing any assessment.
+		var err error
+		work, err = c.Store.BeginReadinessWork(ctx, work.ID, time.Now())
+		if err != nil {
+			return false, false, err
+		}
+	}
 	budget := readinessBudgetFrom(ctx)
 	rootChanged := false
 	for {
@@ -325,4 +337,37 @@ func (c *Coordinator) reuseReadinessAssessment(ctx context.Context, generation i
 	// The originating assessment already recorded the issue control. Reuse
 	// only its classification for this same-generation graph checkpoint.
 	return cached.outcome, true, nil
+}
+
+func (c *Coordinator) admitReadinessCreation(ctx context.Context, work store.ReadinessWork) error {
+	if _, err := c.Store.AcceptanceHead(ctx, work.Root.Repository, work.Root.Issue); err == nil {
+		return nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return err
+	}
+	// Partial hints remain pending until retained native provenance or a
+	// deliberate human adoption supplies authority. They are never acknowledged
+	// merely because an acceptance-missing assessment succeeded.
+	if work.NativeIssueID == 0 || work.CreatedUnix == 0 || work.TitleDigest == "" || work.ContentDigest == "" {
+		return store.ErrReadinessPending
+	}
+	if !readinessBudgetFrom(ctx).reserveEvidence(1) {
+		return ErrReadinessPassPending
+	}
+	_, err := c.AdmitInitialAcceptance(ctx, IntakeHint{
+		Delivery: work.Delivery, Repository: work.Root.Repository, Issue: work.Root.Issue,
+		Created: true, Creator: work.CreatorID, CreatorWrite: work.CreatorWrite, CreationVerified: work.CreationVerified,
+		NativeIssueID: work.NativeIssueID, CreatedUnix: work.CreatedUnix, TitleDigest: work.TitleDigest, ContentDigest: work.ContentDigest,
+	})
+	var refusal *AcceptanceRefusal
+	if errors.As(err, &refusal) {
+		switch refusal.Reason {
+		case RefusalCreationUnverified, RefusalCreationEdited, RefusalCreationBlocked, RefusalCreationFactory, RefusalCreationUnauthorized, RefusalIssueHidden:
+			return nil
+		}
+	}
+	if errors.Is(err, store.ErrStaleRevision) {
+		return nil
+	}
+	return err
 }
