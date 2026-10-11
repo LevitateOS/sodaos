@@ -20,6 +20,16 @@ below; shared duties route through their physical writer in the lane schedule.
 
 ## Current task state (2026-10-11)
 
+The owner-directed [19-task Fountain/Soda correction queue](fountain-soda-correctness-tasks.md#current-source-reconciliation-2026-10-11)
+now supplements this plan. Its four exclusive writer lanes retain completed
+packets and their demonstrated scope. The native issue14 correction/merge
+receipt closes B04.C; it does not establish the newly required long-run,
+missed-creation, lifecycle-occurrence, dependent-pickup or enrollment contracts.
+Those corrections precede fresh native and installed qualification under
+C11.V/R04. The host restarted during the later `e5bb7dce` P8 media assembly:
+P1–P7 passed, but that interrupted media attempt is incomplete. Retained disks
+and failed-attempt artifacts remain development evidence at their recorded scope.
+
 The active finishing goal repaired the native P8 Assembler metadata decoder
 in `0a845477` and aligned release schema emission with the two schema-39
 owners. The scoped parser regression, all 91 release-image checks, build-entrypoint

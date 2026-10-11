@@ -1,5 +1,13 @@
 # Parallel implementation schedule
 
+The active [Fountain/Soda correction queue](fountain-soda-correctness-tasks.md#current-source-reconciliation-2026-10-11)
+uses three workers and the integration lead under its four exclusive writer
+reservations. It adds correctness requirements to the existing packet recipients;
+completed source and bounded native receipts keep their recorded scope. Shared
+SDK, schema, startup and shipping joins have one integration writer. Fresh
+C11.V/R04 qualification follows the composed serving-coordinator and native
+boundaries rather than the interrupted `e5bb7dce` media attempt.
+
 This remains the execution schedule for the existing task list and 80-slice
 audit. The [task list](implementation-tasks.md) retains its 27 primary packets
 and A00, with L00–L18 adoption subpackets defined in the

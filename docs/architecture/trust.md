@@ -614,6 +614,15 @@ release the reservation; no SQL transaction spans Git execution. The
 [mechanism comparison](../research/factory-capability-map.md#conditional-operation-mechanism-comparison)
 records why resource-scoped reservations and an inherited OS lock are deferred.
 
+The 2026-10-11 correctness reconciliation retains this strict single-host
+contract. It serializes unrelated repositories and keeps ordinary writers fenced
+even when Soda's extension is unavailable; neither cost is an observed performance
+regression. Narrowing the domain would require proof that native authority,
+dependency inputs, callbacks and offline recovery use the same complete resource
+set. No such replacement is established. An interrupted or uncertain owner still
+requires whole-domain quiescence and attributable offline reconciliation; disabling
+the extension cannot release it.
+
 All participating native mutations serialize through this reservation, including
 ordinary human/API operations. Participation covers source/base refs, native
 actor/token/repository/org/team authority, protections, PR/review/check state and
