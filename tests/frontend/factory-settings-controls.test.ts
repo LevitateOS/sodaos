@@ -1178,3 +1178,46 @@ test('Factory execution usage stays honestly unavailable without the access read
   const settings = page.locator('[data-factory-settings]');
   await settings.getByText('Execution usage is unavailable.').waitFor();
 });
+test('Factory settings reload after a tab flap during load instead of sticking busy', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    const stalled = window.drawerFixture as unknown as {
+      gate?: Promise<unknown>;
+      release?: (body: unknown) => void;
+    };
+    stalled.gate = new Promise<unknown>((resolve) => {
+      stalled.release = resolve;
+    });
+    window.drawerFixture.setReply(async (call) => {
+      if (!call.url.endsWith('/api/repositories/7/factory')) return null;
+      return Response.json(await stalled.gate);
+    });
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector('soda-factory-settings p[role="status"]')
+      ?.textContent?.includes('Refreshing current authority')
+  );
+  await page.getByRole('tab', {name: 'Overview'}).click();
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  await page.evaluate(() => {
+    const stalled = window.drawerFixture as unknown as {release?: (body: unknown) => void};
+    stalled.release?.({
+      repository: '7',
+      policy: null,
+      operator_grant: null,
+      capacity: {revision: 4, max_concurrent_runs: 2, max_queued: 8},
+      sponsorships: [],
+      environment_grant: null,
+      preparation: {project: 'p0123456789abcdef01234567', requirements: '', approval: '', ready: false},
+      queue: {queued: 1, active: 0},
+      effective: {effective: false, dispatch_open: false, missing: ['policy_missing'], authority: {}},
+    });
+  });
+  await page.locator('[data-factory-settings]').filter({hasText: 'Capacity: 2 concurrent runs, 8 queued'}).waitFor();
+  const refreshButton = page.locator('soda-factory-settings').getByRole('button', {name: 'Refresh current authority'});
+  assert.equal(await refreshButton.isDisabled(), false);
+});
