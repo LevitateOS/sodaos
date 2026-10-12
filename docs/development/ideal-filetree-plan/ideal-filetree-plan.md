@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `0c759a2506031401ab03cf6a3b819cd20f9385a0` and paired Fountain source
-`ad7828e7980e2620870117add6c327931b7e7b2d` for the native frontend correction. This delta
+`5f3b9797bbd10e1455415f8e9def0f90467b1432` for the native frontend correction. This delta
 adds sixteen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -29,10 +29,14 @@ Fountain now defines its page-feature registry/config replacement in
 `web_src/js/native-lifecycle.js`, with the admin user-list search control as its
 first consumer. Its radio/reset GETs now emit cancelable native submit events
 through `requestSubmit()`, preserving validation and the host navigation seam.
-The generic host owns these native duties. Ten focused lifecycle/control cases pass; the navigation regression still includes
-two explicit expected failures, and the corrected live-terminal fixture has only been vetted.
-These source changes release implementation of the native transition; they do
-not establish native browser composition, terminal preservation or deployment.
+The shared native footer now owns the retained contribution home, while ordinary
+native content uses the existing page region. Both parallel Workspace templates
+are removed. Native-first page-only entry, successful HTML render selection,
+session concealment and incoming version refusal have focused checks. Fifty-one
+browser mount/navigation/lifecycle/admin cases, the affected native router/context
+unit packages and the SDK module pass. The generic example uses an admitted
+stream through the public helper. Expanded natural navigation and final native
+composition remain open; these checks do not qualify installed terminal lifetime.
 Native document listeners and surviving navbar/language controls now register
 as single global features. Fresh-node enhancement is scoped by root instead of
 querying the full document. Twelve focused registry/admin/common cases pass;
@@ -45,9 +49,11 @@ mount/update/suspend/resume/retire and admitted scoped transport. Hidden shelter
 suspend/resume preserves roots and resources; visible navigation uses update.
 The declaration still precedes final contract distribution. Thirteen mount
 cases and browser type/lint checks pass, including failed and late mount cleanup.
-A must join the host invalidation signal. Canonical distribution and production
-owner/route wiring remain gated by actual native persistence proof; this prototype
-does not release consumer migration or close revalidation/transport cancellation.
+The host invalidation signal is joined. Mount datasets derive their current
+browser version from the SDK constant; missing/skewed incoming versions retire
+rather than adopt an old owner. Canonical distribution and declared shared-owner/
+subroute wiring remain gated by the expanded native persistence proof. Consumer
+migration and HTTP cancellation qualification remain open.
 
 The emitted stylesheet builder restores native `light-dark()` calls and removes
 consumer document-token declarations; its three emitted graph/token checks pass.
