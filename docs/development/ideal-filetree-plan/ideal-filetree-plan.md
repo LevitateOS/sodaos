@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` and paired Fountain source
-`8da30c5a32ad067ec6dabeb8ed24949dfc9ac30d` for the native frontend correction. This delta
+`ebbd6655553cc0fd66321a888ef82e542267199b` for the native frontend correction. This delta
 adds seventeen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -40,10 +40,13 @@ Back must restore; its 30 navigation cases pass. Prior native router/context
 unit and SDK checks retain their unchanged source scopes. The generic example uses an admitted
 stream through the public helper. Expanded natural navigation and final native
 composition remain open; these checks do not qualify installed terminal lifetime.
-Native document listeners and surviving navbar/language controls now register
-as single global features. Fresh-node enhancement is scoped by root instead of
-querying the full document. Twelve focused registry/admin/common cases pass;
-transplant invocation, async retirement and remaining native classes stay open.
+Native document listeners and surviving navbar/language controls register
+as single global features. Page entry enhances new native nodes; retirement
+removes their dropdown, tooltip and table-sort state. All three contribution-root
+shapes are excluded from native enhancement/sort binding/tooltip retirement,
+using one selector. Twenty-eight registry/admin/common/sort cases and affected
+lint checks pass. The host navigator hook is available; actual native route joins,
+HTMX retirement and the remaining native classes stay open.
 No source or process responsibility moves to Soda.
 
 Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
