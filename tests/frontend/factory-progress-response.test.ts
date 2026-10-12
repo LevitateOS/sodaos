@@ -462,6 +462,78 @@ test('lifecycle actions admit unclaimed rows and require a claimed actor', () =>
   );
 });
 
+test('lifecycle actions bind unequal identities and a distinct native target', () => {
+  const parsed = lifecycleEffectActions(
+    {
+      actions: [
+        {
+          id: 'op-2',
+          event: 'pr_created',
+          action: 'pr_reviewer_request',
+          actor_id: '1001',
+          issue_id: '12',
+          target_id: '34',
+          config_owner: '1002',
+          target_link: '/soda/progress/pulls/3',
+          attempts: 1,
+          max_attempts: 2,
+          revoked: false,
+          settled: false,
+          results: {'11': 'pending'},
+        },
+        {
+          id: 'op-3',
+          event: 'pr_created',
+          action: 'pr_reviewer_request',
+          actor_id: '0',
+          issue_id: '12',
+          target_id: '0',
+          config_owner: '0',
+          attempts: 0,
+          max_attempts: 2,
+          revoked: false,
+          settled: false,
+        },
+      ],
+    },
+    '12',
+    'pr_created'
+  );
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0]?.actor_id, '1001');
+  assert.equal(parsed[0]?.config_owner, '1002');
+  assert.equal(parsed[0]?.target_id, '34');
+  assert.equal(parsed[0]?.target_link, '/soda/progress/pulls/3');
+  assert.equal(parsed[1]?.actor_id, '0');
+  assert.equal(parsed[1]?.config_owner, undefined);
+  assert.equal(parsed[1]?.target_id, undefined);
+  assert.equal(parsed[1]?.target_link, undefined);
+  for (const bad of [{target_id: 'x'}, {config_owner: '-1'}, {target_link: 'https://forgejo.test/x'}]) {
+    assert.throws(() =>
+      lifecycleEffectActions(
+        {
+          actions: [
+            {
+              id: 'op-2',
+              event: 'pr_created',
+              action: 'pr_reviewer_request',
+              actor_id: '1001',
+              issue_id: '12',
+              attempts: 1,
+              max_attempts: 2,
+              revoked: false,
+              settled: false,
+              ...bad,
+            },
+          ],
+        },
+        '12',
+        'pr_created'
+      )
+    );
+  }
+});
+
 test('masked foreign choices stay visible without enumeration', () => {
   const parsed = issuePlan(
     {
