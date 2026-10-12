@@ -443,6 +443,50 @@ test('native generation failure retains acceptance and explains the remaining en
   );
 });
 
+test('review refusal retains acceptance and asks for reconsideration without retry', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+      configurable: true,
+      value: (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/generate'))
+          return Promise.resolve(Response.json({error: {code: 'intent_review_required'}}, {status: 409}));
+        return original(input, init);
+      },
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  await reviewFirstIntent(page);
+  const draft = await lastPostedBody(page, 'draft');
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project', exact: true}).waitFor();
+  await page
+    .getByText(
+      'Your product direction is saved. The proposed work needs reconsideration before native work can be created.',
+      {
+        exact: true,
+      }
+    )
+    .waitFor();
+  const accepted = await lastPostedBody(page, 'accepted');
+  assert.equal(accepted.intent, draft.intent);
+  assert.equal(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.body?.state === 'accepted').length),
+    1
+  );
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.workspaceFixture.calls.filter((call) => call.method !== 'GET' && !call.path.includes('/api/factory/'))
+          .length
+    ),
+    0
+  );
+});
+
 test('save draft reports saved state and save-and-leave signals return without losing text', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {

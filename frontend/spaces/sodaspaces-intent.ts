@@ -1000,5 +1000,7 @@ function generationMessage(state: unknown): string {
 function generationFailure(error: unknown): string {
   if (error instanceof SodaRequestError && error.code === 'native_graph_unavailable')
     return 'Your product direction is saved. An administrator must enable native work creation before Factory can proceed.';
+  if (error instanceof SodaRequestError && error.code === 'intent_review_required')
+    return 'Your product direction is saved. The proposed work needs reconsideration before native work can be created.';
   return 'Your product direction is saved. Native work creation could not be confirmed. Factory will inspect the original request before retrying.';
 }
