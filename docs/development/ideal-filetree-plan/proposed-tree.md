@@ -1,5 +1,12 @@
 # Complete desired repository tree
 
+## Native correction target delta
+
+Source `082beb863a1108b11765ee106852ed56600007bc` adds only the two local settings fixture/test
+leaves shown below. Their existing S05/H06 owners are retained; the historical
+complete-tree baseline/count below is not a new full census. The emitted asset
+builder remains D03/H05 and local settings CSS remains S05.
+
 ## Complete proposed tree
 
 Current target mapping: Soda source `9a184b7f` and paired Fountain source
@@ -2802,6 +2809,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── drawer-fixture.ts
 │   │   │   ├── persistent-panel-fixture.ts
 │   │   │   ├── project-controls-driver.ts
+│   │   │   ├── settings-geometry-driver.ts
 │   │   │   ├── terminal-driver.ts
 │   │   │   ├── terminal-fixture.ts
 │   │   │   ├── workspace-driver.ts
@@ -2810,6 +2818,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   └── workspace-model.ts
 │   │   ├── drawer-controls.test.ts
 │   │   ├── factory-settings-controls.test.ts
+│   │   ├── settings-geometry.test.ts
 │   │   ├── factory-view.test.ts
 │   │   ├── identity.test.ts
 │   │   ├── journey-input.test.ts

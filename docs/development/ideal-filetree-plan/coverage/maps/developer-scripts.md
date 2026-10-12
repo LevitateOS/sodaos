@@ -11,6 +11,8 @@ Disposition concerns the duty, not source validity or installed qualification.
 
 ## [scripts/build-soda-extension.ts](../../../../../scripts/build-soda-extension.ts)
 
+Scoped inspection at `082beb863a1108b11765ee106852ed56600007bc`: Scheme-call restoration and document-token removal remain emitted builder/branding responsibilities (D03/H05); no consumer theme selector is allocated.
+
 Changed current body; prior ownership not reused as exact selectors
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
