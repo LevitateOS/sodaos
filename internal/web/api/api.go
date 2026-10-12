@@ -24,6 +24,9 @@ type API struct {
 	Auth        *auth.Service
 	Identity    IdentityClient
 	Coordinator *control.Coordinator
+	// IntentExploreChooser overrides the TypeSafe judgment service for
+	// intent exploration when set. Production leaves it nil.
+	IntentExploreChooser control.ProductJudgment
 
 	terminalMu       sync.Mutex
 	SpacesSlots      chan struct{}

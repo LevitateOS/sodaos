@@ -296,8 +296,8 @@ func (s *Store) RecordPriorityJudgment(ctx context.Context, r factory.PriorityRe
 // ReserveIntentJudgment admits one planning consultation against the current
 // independent allowance for this owner-private intent, plus the operator's
 // global consultation ceiling, under one transaction. The embedded revision
-// PlanningCalls field no longer funds anything: a missing allowance, a
-// non-current scope/actor binding, or an exhausted amount refuses without
+// PlanningCalls field no longer funds anything: a missing allowance or an
+// exhausted amount refuses with ErrPlanningAllowanceExhausted, without
 // fallback and without inventing funding.
 func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevision, snapshot string) (bool, error) {
 	if !factory.ValidDigest(snapshot) {
@@ -318,7 +318,7 @@ func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevis
 	var allowanceRevision string
 	if err = tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_allowance_heads WHERE intent=$1 AND owner_id=$2 FOR UPDATE`, r.Intent, r.Owner).Scan(&allowanceRevision); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
+			return false, ErrPlanningAllowanceExhausted
 		}
 		return false, err
 	}
@@ -343,7 +343,10 @@ func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevis
 	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, snapshot).Scan(&existing); err != nil {
 		return false, err
 	}
-	if existing > 0 || used >= allowance.Amount || spent >= s.PriorityCallBudget {
+	if used >= allowance.Amount {
+		return false, ErrPlanningAllowanceExhausted
+	}
+	if existing > 0 || spent >= s.PriorityCallBudget {
 		return false, nil
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, snapshot); err != nil {

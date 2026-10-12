@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -111,12 +112,11 @@ func TestConcurrentPlanningReservationsCannotOverspend(t *testing.T) {
 				snapshot += string(rune('a' + (i+j)%6))
 			}
 			ok, err := s.ReserveIntentJudgment(ctx, r, snapshot)
-			if err != nil {
-				t.Error(err)
-				return
-			}
 			if ok {
 				admitted.Add(1)
+			} else if !errors.Is(err, ErrPlanningAllowanceExhausted) {
+				t.Error(err)
+				return
 			}
 		}(i)
 	}
