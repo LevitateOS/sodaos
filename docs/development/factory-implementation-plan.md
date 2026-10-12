@@ -142,6 +142,11 @@ Workspace after a settled interaction. These findings reopen the affected native
 composition/navigation, creation layout, settings/responsive and composed-check
 requirements in UX-C02/UX-C03/UX-C06/UX-C07, UX-U01, UX-W05/UX-W07 and UX-Q03/UX-Q08.
 Do not replace missing installed acceptance with the previous aggregate count.
+The [full frontend investigation](../research/fountain-frontend-integration-investigation.md)
+adds the emitted-theme failure, Tailnet contribution-scope mismatch, saved-review
+restoration gap and native-document/terminal-lifetime decision. Its correction
+boundaries and acceptance cases guide the reopened work; it changes no product
+requirement by itself.
 
 The original implementation input was Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
 and Fountain `e4b58254a0b5a6ac0bc60445860a02c2a6df6ed2`. Soda also contains seven
