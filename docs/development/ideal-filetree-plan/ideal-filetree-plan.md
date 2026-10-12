@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` and paired Fountain source
-`1cc3d9c157a9246b15114c6c2d2ab4def5fe68b6` for the native frontend correction. This delta
+`c81b933dcb05c196ca542a185f27360d63332ed4` for the native frontend correction. This delta
 adds seventeen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -36,7 +36,11 @@ session concealment and incoming version refusal have focused checks. Native
 null page configuration now clears stale keys with an empty object, while a
 missing envelope keeps the unknown-document path. Outgoing scroll is captured
 before native content replacement so layout clamping cannot lose the position
-Back must restore; its 30 navigation cases pass. Prior native router/context
+Back must restore; its 31 navigation cases pass. Exact `/admin` Dashboard
+admission is a development spike; `/admin/orgs` remains held. Terminal
+invalidation conceals live content before retiring native features and still
+emits consumer invalidation when native cleanup throws. These repairs add no
+path, package or process boundary. Prior native router/context
 unit and SDK checks retain their unchanged source scopes. The generic example uses an admitted
 stream through the public helper. Expanded natural navigation and final native
 composition remain open; these checks do not qualify installed terminal lifetime.
@@ -63,7 +67,7 @@ cases and browser type/lint checks pass, including failed and late mount cleanup
 Owner retirement, disposal and invalidation cancel admitted in-flight requests and
 body reads; pre-aborted callers send nothing. Native signal composition preserves
 caller cancellation without per-request forwarding listeners. Update, suspend and
-resume preserve requests. All 53 joined mount/navigation cases pass.
+resume preserve requests. All 54 joined mount/navigation cases pass.
 The host invalidation signal is joined. Mount datasets derive their current
 browser version from the SDK constant; missing/skewed incoming versions retire
 rather than adopt an old owner. Canonical distribution and declared shared-owner/
