@@ -19,6 +19,10 @@ func (f *loopFakeBackground) ReadNativeRevision(context.Context) (extensions.Nat
 	return extensions.NativeRevisionObservation{Revision: 1, Idle: true}, nil
 }
 
+func (f *loopFakeBackground) ReadOperations(context.Context) (extensions.OperationsHandshake, error) {
+	return extensions.OperationsHandshake{}, errors.New("unused")
+}
+
 func (f *loopFakeBackground) ReadSnapshot(context.Context, extensions.CredentialFile, extensions.SnapshotRequest) (extensions.NativeSnapshot, error) {
 	return extensions.NativeSnapshot{}, errors.New("unused")
 }
