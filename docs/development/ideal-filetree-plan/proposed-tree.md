@@ -2,7 +2,7 @@
 
 ## Native correction target delta
 
-Source `0c759a2506031401ab03cf6a3b819cd20f9385a0` adds sixteen paths across settings, saved-review,
+Source `7275ad33e4f5941b7356fdafc000721d39a6fa47` adds sixteen paths across settings, saved-review,
 emitted-color, browser contract and local focus corrections. Each follows the existing defining owner; this
 scoped allocation does not advance the historical complete-tree census.
 

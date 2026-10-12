@@ -16,8 +16,8 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `0c759a2506031401ab03cf6a3b819cd20f9385a0` and paired Fountain source
-`de0f8de9f76a94889f2fb36372b6c8c24727fc94` for the native frontend correction. This delta
+Reviewed Soda source `7275ad33e4f5941b7356fdafc000721d39a6fa47` and paired Fountain source
+`93c8d8a0f617d545a0b9b650539588b5af7449e6` for the native frontend correction. This delta
 adds sixteen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -49,13 +49,17 @@ Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.t
 its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
 mount/update/suspend/resume/retire and admitted scoped transport. Hidden shelter
 suspend/resume preserves roots and resources; visible navigation uses update.
-The declaration still precedes final contract distribution. Thirteen mount
+The declaration still precedes final contract distribution. Twenty-three mount
 cases and browser type/lint checks pass, including failed and late mount cleanup.
+Owner retirement, disposal and invalidation cancel admitted in-flight requests and
+body reads; pre-aborted callers send nothing. Native signal composition preserves
+caller cancellation without per-request forwarding listeners. Update, suspend and
+resume preserve requests. All 52 joined mount/navigation cases pass.
 The host invalidation signal is joined. Mount datasets derive their current
 browser version from the SDK constant; missing/skewed incoming versions retire
 rather than adopt an old owner. Canonical distribution and declared shared-owner/
 subroute wiring remain gated by the expanded native persistence proof. Consumer
-migration and HTTP cancellation qualification remain open.
+migration and native/installed transport qualification remain open.
 
 The emitted stylesheet builder restores native `light-dark()` calls and removes
 consumer document-token declarations; its three emitted graph/token checks pass.
@@ -101,7 +105,8 @@ join fails on missing/malformed capture files; ordinary component checks remain
 independent. Native composition and installed content remain I04/I08 evidence.
 
 Soda's type-only browser contract mirror now matches the canonical Fountain
-`df41bd73d8` declaration exactly, with a pinned body hash. It remains preparation;
+`93c8d8a0f6` declaration exactly, retaining its `e8aa420d3e` body pin and hash.
+Version binding and owner-bound cancellation are in that mirror. It remains preparation;
 production callers still await the callable contract. Formatting excludes only
 that byte-pinned mirror. The existing local focus owner restores terminal dialogs
 to the persistent actions-menu summary instead of its hidden item. Five focused
