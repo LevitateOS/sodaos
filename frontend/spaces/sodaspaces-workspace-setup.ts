@@ -14,6 +14,7 @@ import {
   revisionContextFromScope,
 } from './sodaspaces-factory-progress-view.js';
 import type {DetailScopeRuns, OverviewScope, OverviewScopeIssue} from './sodaspaces-factory-progress-view.js';
+import type {FactoryRun} from './sodaspaces-factory-response.js';
 import type {WorkCapabilities} from './sodaspaces-factory-work-response.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
@@ -289,6 +290,7 @@ export interface SetupActions {
   syncIntentRoute(intent: string | null): void;
   setSavedRequests(intents: SavedRequest[]): void;
   setOverviewScope(scope: OverviewScope | undefined): void;
+  requestFactoryWatch(request: FactoryWatchRequest): void;
 }
 
 export interface SetupHost {
@@ -385,12 +387,69 @@ export function childScopeFromReading(reading: SetupReading, context: WorkOvervi
   return {scope, transport: context.transport, repository: context.repository, repositoryPath: context.repositoryPath};
 }
 
-function detailRunsForIssue(space: Space | undefined, issue: string): DetailScopeRuns {
+/**
+ * Runs one issue detail may show and act on. runID selects the live
+ * (unreconciled) run iff exactly one exists, so stop/retry/takeover
+ * never guess among ambiguous rows; projectID is the owning space's
+ * environment id, the same project id the backend lists these runs under.
+ */
+export function detailRunsForIssue(space: Space | undefined, issue: string): DetailScopeRuns {
   const runs = space?.factory_runs.filter((run) => run.issue === issue) ?? [];
+  const live = runs.filter((run) => !run.reconciled);
   return {
     runIDs: runs.map((run) => run.id),
-    ...(space === undefined ? {} : {environmentID: space.environment.id}),
+    ...(live.length === 1 && live[0] ? {runID: live[0].id} : {}),
+    ...(space === undefined ? {} : {projectID: space.environment.id, environmentID: space.environment.id}),
   };
+}
+
+/** Watch target carried by soda-factory-watch-request; environment narrows the owning space. */
+export interface FactoryWatchRequest {
+  readonly run: string;
+  readonly repository: string;
+  readonly environment?: string;
+}
+
+function watchRequestRecord(event: Event): Record<string, unknown> | undefined {
+  const detail = (event as CustomEvent).detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return undefined;
+  return detail as Record<string, unknown>;
+}
+
+function nonEmptyRequestPart(value: unknown): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+/** Read a detail watch request; malformed payloads yield undefined (ignore). */
+export function factoryWatchRequestDetail(event: Event): FactoryWatchRequest | undefined {
+  const record = watchRequestRecord(event);
+  if (!record) return undefined;
+  const run = nonEmptyRequestPart(record.run),
+    repository = nonEmptyRequestPart(record.repository);
+  if (!run || !repository) return undefined;
+  if (record.environment === undefined) return {run, repository};
+  const environment = nonEmptyRequestPart(record.environment);
+  return environment ? {run, repository, environment} : undefined;
+}
+
+/** Resolve a watch request to its space run; undefined when the binding is not exact. */
+export function resolveWatchTarget(
+  spaces: readonly Space[],
+  request: FactoryWatchRequest
+): {space: Space; run: FactoryRun} | undefined {
+  const space =
+    request.environment === undefined
+      ? spaces.find((entry) => entry.factory_runs.some((run) => run.id === request.run))
+      : spaces.find((entry) => entry.environment.id === request.environment);
+  if (!space || space.environment.repository_id !== request.repository) return undefined;
+  const run = space.factory_runs.find((entry) => entry.id === request.run);
+  if (!run) return undefined;
+  return {space, run};
+}
+
+export function applyWatchRequest(event: Event, actions: SetupActions): void {
+  const request = factoryWatchRequestDetail(event);
+  if (request) actions.requestFactoryWatch(request);
 }
 
 function renderWorkDetail(children: WorkChildScope, space: Space | undefined, issue: string): TemplateResult {
@@ -498,6 +557,7 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
     class="soda-setup-panel"
     ?hidden=${reading.setup === 'configure'}
     @soda-factory-overview-scope=${(event: Event) => applyOverviewScope(event, read, actions)}
+    @soda-factory-watch-request=${(event: Event) => applyWatchRequest(event, actions)}
   >
     <div class=${formClass}>
       <soda-intent

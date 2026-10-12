@@ -54,8 +54,8 @@ import {
   renderSetup,
 } from './sodaspaces-workspace-setup.js';
 import {newRouteFor, requestIdFromLocation, requestIDPattern, requestRouteFor} from './sodaspaces-workspace-setup.js';
-import {resumeSetup} from './sodaspaces-workspace-setup.js';
-import type {SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
+import {resolveWatchTarget, resumeSetup} from './sodaspaces-workspace-setup.js';
+import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
 import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {
@@ -66,7 +66,7 @@ import {
   renderRequestGroups,
   rows,
 } from './sodaspaces-workspace-navigation.js';
-import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
+import {displayFactoryWatches, factorySection, watchRun} from './sodaspaces-workspace-factory.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
 import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
 import {
@@ -240,7 +240,7 @@ export class SodaSpaces extends LitElement {
   private reviewAuthorization: {ideas: number; tasks: number} | undefined;
   private reviewedIntent: string | undefined;
   private setupCommitted = false;
-  private overviewScope: OverviewScope | undefined;
+  declare private overviewScope: OverviewScope | undefined;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
   private renaming = new Set<string>();
@@ -280,6 +280,7 @@ export class SodaSpaces extends LitElement {
       this.intentNotice =
         '';
     this.setup = null;
+    this.overviewScope = undefined;
     this.complete = this.repositoryBusy = false;
     this.repositoryResult = undefined;
     this.status = 'Loading projects…';
@@ -1048,7 +1049,27 @@ export class SodaSpaces extends LitElement {
       setOverviewScope: (scope) => {
         this.overviewScope = scope;
       },
+      requestFactoryWatch: (request) => this.requestFactoryWatch(request),
     };
+  }
+  private requestFactoryWatch(request: FactoryWatchRequest): void {
+    const target = resolveWatchTarget(this.spaces, request);
+    if (!target) return;
+    watchRun(
+      {
+        readWatches: () => this.watches,
+        isStale: () => this.stale,
+        pushWatch: (watch) => {
+          this.watches.push(watch);
+        },
+        replaceWatches: (watches) => {
+          this.watches = watches;
+        },
+        updated: () => this.requestUpdate(),
+      },
+      target.space,
+      target.run
+    );
   }
   private syncIntentRoute(intent: string | null) {
     if (intent !== null && !requestIDPattern.test(intent)) return;

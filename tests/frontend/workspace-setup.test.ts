@@ -306,6 +306,69 @@ test('first use: committed inspection mounts plan, detail and revision from the 
   assert.equal(await page.locator('soda-factory-work-detail').count(), 0);
   assert.equal(await page.locator('soda-factory-direction-revision').count(), 0);
 });
+test('setup: detail Watch binds the live run target into an observe-only watch', {timeout: 30000}, async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+  await page.evaluate(() => {
+    window.workspaceFixture.enableFactoryRun('5');
+    const [space] = window.workspaceFixture.spaces;
+    space?.factory_runs.push({
+      id: 'd'.repeat(32),
+      role: 'soda-coder',
+      issue: '5',
+      attempt: 'attempt-1',
+      reconciled: false,
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+  const resumed = page.locator('soda-factory-work-overview');
+  await resumed.getByText('Build a small project tracker').waitFor();
+  await resumed.getByText('Native work generated.').waitFor();
+  await page.locator('soda-factory-work-detail').waitFor();
+  const detail = page.locator('soda-factory-work-detail');
+  await detail.getByRole('button', {name: 'Watch output', exact: true}).waitFor();
+  assert.equal(await detail.getByText('no run selected').count(), 0);
+  await detail.getByText('run dddddddd').first().waitFor();
+  const environment = await page.evaluate(() => window.workspaceFixture.spaces[0]?.environment.id ?? '');
+  assert.match(environment, /^p[0-9a-f]{24}$/);
+  await detail.getByText(`project ${environment}`).waitFor();
+  const calls = await page.evaluate(() => window.workspaceFixture.calls.length);
+  const statusCalls = await page.evaluate(
+    () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
+  );
+  await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
+  await page.waitForFunction(() => document.querySelector('.soda-factory.is-connected') !== null);
+  const title = await page.evaluate(
+    () => document.querySelector('.soda-factory .soda-terminal-context span')?.textContent ?? ''
+  );
+  assert.equal(title, 'soda-coder · issue #5');
+  // Dedup: a second Watch click reuses the single watch without a second status read.
+  await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
+    ),
+    statusCalls + 1
+  );
+  // The setup surface stays hidden, so the live socket/output path (covered from the
+  // visible surface by the navigation watch test) never opens here; watching adds no writes.
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  const writes = await page.evaluate(
+    (before) => window.workspaceFixture.calls.slice(before).filter((call) => call.method !== 'GET'),
+    calls
+  );
+  assert.deepEqual(writes, []);
+});
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {

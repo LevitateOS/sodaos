@@ -2,15 +2,19 @@ import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {
   childScopeFromReading,
+  detailRunsForIssue,
+  factoryWatchRequestDetail,
   intentIdentity,
   inventoryIntents,
   newRouteFor,
   overviewScopeDetail,
   requestIdFromLocation,
   requestRouteFor,
+  resolveWatchTarget,
   sameScope,
 } from '../../frontend/spaces/sodaspaces-workspace-setup';
 import type {SetupReading} from '../../frontend/spaces/sodaspaces-workspace-setup';
+import type {Space} from '../../frontend/spaces/sodaspaces-inventory-response';
 import type {PreparedExtensionMount} from '../../frontend/spaces/soda-extension';
 import type {WorkOverviewContext} from '../../frontend/spaces/sodaspaces-factory-work';
 import type {OverviewScope} from '../../frontend/spaces/sodaspaces-factory-progress-view';
@@ -184,4 +188,83 @@ test('work children derive only from a live scope matching the retained identity
   ]) {
     assert.equal(childScopeFromReading(reading, context), undefined);
   }
+});
+
+const watchProjectA = 'p' + '1'.repeat(24),
+  watchProjectB = 'p' + '2'.repeat(24);
+
+function watchEvent(detail: unknown): Event {
+  return new CustomEvent('soda-factory-watch-request', {detail});
+}
+
+function watchSpace(environment: string, repository: string, runs: unknown[]): Space {
+  return {environment: {id: environment, repository_id: repository}, factory_runs: runs} as unknown as Space;
+}
+
+test('watch requests resolve to the exact live space run or stay unresolved', () => {
+  const live = {id: 'run-live', role: 'soda-coder', issue: '5', reconciled: false},
+    settled = {id: 'run-old', role: 'soda-coder', issue: '5', reconciled: true};
+  const spaces = [watchSpace(watchProjectA, '7', [live, settled]), watchSpace(watchProjectB, '8', [])];
+  assert.equal(
+    resolveWatchTarget(spaces, {run: 'run-live', repository: '7', environment: watchProjectA})?.run.id,
+    'run-live'
+  );
+  assert.equal(resolveWatchTarget(spaces, {run: 'run-live', repository: '7'})?.space.environment.id, watchProjectA);
+  for (const request of [
+    {run: 'run-live', repository: '8', environment: watchProjectA},
+    {run: 'run-live', repository: '7', environment: watchProjectB},
+    {run: 'run-live', repository: '8', environment: watchProjectB},
+    {run: 'run-missing', repository: '7'},
+    {run: 'run-missing', repository: '7', environment: watchProjectA},
+  ]) {
+    assert.equal(resolveWatchTarget(spaces, request), undefined);
+  }
+});
+
+test('watch request payloads admit exact bindings and ignore malformed events', () => {
+  assert.deepEqual(
+    factoryWatchRequestDetail(watchEvent({run: 'run-live', repository: '7', environment: watchProjectA})),
+    {run: 'run-live', repository: '7', environment: watchProjectA}
+  );
+  assert.deepEqual(factoryWatchRequestDetail(watchEvent({run: 'run-live', repository: '7'})), {
+    run: 'run-live',
+    repository: '7',
+  });
+  for (const detail of [
+    undefined,
+    null,
+    'run-live',
+    [],
+    {},
+    {run: ''},
+    {run: 'run-live'},
+    {repository: '7'},
+    {run: 'run-live', repository: ''},
+    {run: 'run-live', repository: '7', environment: ''},
+    {run: 'run-live', repository: '7', environment: 7},
+  ]) {
+    assert.equal(factoryWatchRequestDetail(watchEvent(detail)), undefined);
+  }
+});
+
+test('detail runs select the single live run and bind its owning project', () => {
+  const live = {id: 'run-live', role: 'soda-coder', issue: '5', reconciled: false},
+    other = {id: 'run-other', role: 'soda-coder', issue: '9', reconciled: false};
+  assert.deepEqual(detailRunsForIssue(watchSpace(watchProjectA, '7', [live, other]), '5'), {
+    runIDs: ['run-live'],
+    runID: 'run-live',
+    projectID: watchProjectA,
+    environmentID: watchProjectA,
+  });
+  assert.deepEqual(detailRunsForIssue(watchSpace(watchProjectA, '7', [live, {...live, id: 'run-live-2'}]), '5'), {
+    runIDs: ['run-live', 'run-live-2'],
+    projectID: watchProjectA,
+    environmentID: watchProjectA,
+  });
+  assert.deepEqual(detailRunsForIssue(watchSpace(watchProjectA, '7', [{...live, reconciled: true}]), '5'), {
+    runIDs: ['run-live'],
+    projectID: watchProjectA,
+    environmentID: watchProjectA,
+  });
+  assert.deepEqual(detailRunsForIssue(undefined, '5'), {runIDs: []});
 });
