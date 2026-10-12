@@ -316,6 +316,8 @@ export class SodaFactorySettings extends LitElement {
   static properties = {view: {state: true}};
   declare private view: View;
   private contextValue: FactoryContext | undefined;
+  private activeValue = true;
+  private needsLoad = true;
   private serial = 0;
   private pendingPreparation?: PendingPreparation;
 
@@ -340,7 +342,22 @@ export class SodaFactorySettings extends LitElement {
     this.contextValue = value;
     this.serial++;
     this.view = {connections: [], grants: [], selectedConnection: '', message: '', busy: false};
-    void this.refresh();
+    this.needsLoad = true;
+  }
+
+  get active() {
+    return this.activeValue;
+  }
+
+  set active(value: boolean) {
+    if (value === this.activeValue) return;
+    this.activeValue = value;
+    if (!value) this.serial++;
+    this.requestUpdate();
+  }
+
+  protected updated() {
+    if (this.needsLoad && this.activeValue && this.contextValue) void this.refresh();
   }
 
   disconnectedCallback() {
@@ -383,7 +400,8 @@ export class SodaFactorySettings extends LitElement {
 
   private async refresh() {
     const context = this.contextValue;
-    if (!context) return;
+    if (!context || !this.activeValue) return;
+    this.needsLoad = false;
     const serial = this.serial;
     const retained = {sourceSelection: this.view.sourceSelection, sourcePreview: this.view.sourcePreview};
     this.view = {...this.view, busy: true, message: ''};
@@ -905,7 +923,7 @@ export class SodaFactorySettings extends LitElement {
     if (!context) return html`<p>Factory authority requires an active project binding.</p>`;
     const status = this.view.status || {};
     return html`${this.renderSummary(status)}
-      <soda-factory-activity .context=${context}></soda-factory-activity>
+      <soda-factory-activity .context=${this.activeValue ? context : undefined}></soda-factory-activity>
       ${context.environment ? this.renderPreparation() : html`<p>No Project exists for this repository, so preparation controls are unavailable.</p>`}
       ${this.renderCapacity(status)} ${this.renderProjectGrants(status)} ${this.renderPolicy(status)}
       ${this.renderProviderControls()} ${this.renderPlanningCalls()} ${this.renderExecutionUsage()}`;
