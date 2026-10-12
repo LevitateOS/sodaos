@@ -36,6 +36,34 @@ func TestCheckProposalEffectsCatchesSilentAdditions(t *testing.T) {
 	}
 }
 
+func TestCheckProposalEffectsFlagsDeclinedOverlap(t *testing.T) {
+	r := draftRevision()
+	r.Objective = "Time-off requests my manager can approve"
+	r.Ideas = []ProductIdea{
+		{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept"},
+		{ID: "d666666666666666666666666", Description: "The reviewer decides every request", Consequence: "Reviewer time on every submission", Decision: "decline"},
+	}
+	content, err := ComposeProposalContent(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := ConsolidateContent(content, "shared_review", strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mismatches := CheckProposalEffects(content, proposal)
+	if len(mismatches) != 1 || mismatches[0].Class != MismatchEffectAdded {
+		t.Fatalf("mismatches=%+v", mismatches)
+	}
+	if !strings.Contains(mismatches[0].Detail, "d666666666666666666666666") || !strings.Contains(mismatches[0].Detail, "The reviewer decides every request") {
+		t.Fatalf("detail=%q", mismatches[0].Detail)
+	}
+	report := ConsistencyReport{Producer: AuthoredProducer, Intent: r.Intent, Revision: r.ID, Mismatches: mismatches, Advice: strings.Repeat("b", 64)}
+	if err := report.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestConsistencyReportBindsRevisionAndClasses(t *testing.T) {
 	report := ConsistencyReport{Producer: AuthoredProducer, Intent: "d222222222222222222222222", Revision: "d111111111111111111111111", Confidence: 0.9, Advice: strings.Repeat("b", 64)}
 	if err := report.Validate(); err != nil {
