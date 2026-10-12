@@ -274,6 +274,12 @@ export interface IntentGenerationStatus {
   authorization?: string;
   native?: number;
 }
+function authorizationReference(value: unknown): string {
+  const raw = text(value, 90);
+  const separator = raw.indexOf(':');
+  check(separator > 0 && decisionID(raw.slice(0, separator)) && /^[0-9a-f]{64}$/.test(raw.slice(separator + 1)));
+  return raw.slice(0, separator);
+}
 export function intentGeneration(value: unknown): IntentGenerationStatus {
   const raw = object(value);
   check(decisionID(raw.revision_id));
@@ -289,8 +295,7 @@ export function intentGeneration(value: unknown): IntentGenerationStatus {
     revision: raw.revision_id,
     tasks,
   };
-  if (raw.authorization_revision !== undefined) check(decisionID(raw.authorization_revision));
-  if (raw.authorization_revision) out.authorization = String(raw.authorization_revision);
+  if (raw.authorization_revision !== undefined) out.authorization = authorizationReference(raw.authorization_revision);
   if (raw.native_revision !== undefined) {
     check(Number.isInteger(raw.native_revision) && Number(raw.native_revision) >= 0);
     out.native = Number(raw.native_revision);
