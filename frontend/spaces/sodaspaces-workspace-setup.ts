@@ -4,6 +4,10 @@ import './sodaspaces-intent.js';
 import type {SodaIntent} from './sodaspaces-intent.js';
 import {intentList} from './sodaspaces-intent-response.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
+import './sodaspaces-factory-work.js';
+import type {WorkOverviewContext} from './sodaspaces-factory-work.js';
+import {nativePath} from './sodaspaces-factory-activity.js';
+import type {PreparedExtensionMount} from './soda-extension.js';
 
 /** Native opaque request id shape shared with the host alias routes. */
 export const requestIDPattern = /^d[0-9a-f]{24}$/;
@@ -55,6 +59,14 @@ export function reviewedAuthorization(event: Event): {ideas: number; tasks: numb
   if (!Number.isInteger(record.authorizedIdeas) || (record.authorizedIdeas as number) < 0) return undefined;
   if (!Number.isInteger(record.tasks) || (record.tasks as number) < 0) return undefined;
   return {ideas: record.authorizedIdeas as number, tasks: record.tasks as number};
+}
+
+/** Reviewed intent identity carried by intent-reviewed; malformed payloads yield undefined. */
+export function reviewedIntent(event: Event): string | undefined {
+  const detail = (event as CustomEvent).detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return undefined;
+  const intent = (detail as Record<string, unknown>).intent;
+  return typeof intent === 'string' && requestIDPattern.test(intent) ? intent : undefined;
 }
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
@@ -136,6 +148,9 @@ export interface SetupReading {
   actorId: string;
   requestId: string;
   reviewAuthorization: {ideas: number; tasks: number} | undefined;
+  reviewedIntent: string | undefined;
+  setupCommitted: boolean;
+  transport: PreparedExtensionMount | undefined;
   suggestedRepository: string | undefined;
   onBegin: () => void;
   onRefresh: () => void;
@@ -151,6 +166,8 @@ export interface SetupActions {
   setRepositoryBusy(busy: boolean): void;
   setSetupReturn(target: SetupReturn | undefined): void;
   setReviewAuthorization(auth: {ideas: number; tasks: number} | undefined): void;
+  setReviewedIntent(intent: string | undefined): void;
+  setSetupCommitted(committed: boolean): void;
   setProject(project: string): void;
   setView(view: 'terminal' | 'sessions' | 'project'): void;
   setManagementMode(mode: 'standard' | 'journey' | 'settings'): void;
@@ -174,6 +191,16 @@ export interface SetupActions {
 export interface SetupHost {
   updateComplete: Promise<unknown>;
   querySelector<E extends Element>(selectors: string): E | null;
+}
+
+/** Committed-request overview context from retained setup state; undefined until every part is exact. */
+export function setupOverviewContext(reading: SetupReading): WorkOverviewContext | undefined {
+  if (!reading.setupCommitted || !reading.transport || !reading.reviewedIntent) return undefined;
+  const choice = reading.repositoryResult?.items.find((item) => item.id === reading.repositoryChoice);
+  if (!choice) return undefined;
+  const repositoryPath = `${reading.forgejoPrefix}/${choice.owner}/${choice.name}`;
+  if (!nativePath(repositoryPath)) return undefined;
+  return {transport: reading.transport, repository: choice.id, repositoryPath, intentID: reading.reviewedIntent};
 }
 
 export function renderSetupBody(
@@ -211,7 +238,11 @@ export function renderSetupBody(
       }
     );
   }
-  if (reading.welcomeScreen || reading.setup === 'intent') return '';
+  if (reading.welcomeScreen) return '';
+  if (reading.setup === 'intent') {
+    const context = setupOverviewContext(reading);
+    return context ? html`<soda-factory-work-overview .context=${context}></soda-factory-work-overview>` : '';
+  }
   return renderWorkspaceIntro({
     kind: setupIntroKind(reading.busy),
     heading: setupIntroHeading(reading.busy, reading.reconnectRequired),
@@ -277,6 +308,8 @@ export function beginSetup(reading: SetupReading, actions: SetupActions, host: S
   actions.setSetup('intent');
   actions.setRepositoryChoice('');
   actions.setReviewAuthorization(undefined);
+  actions.setReviewedIntent(undefined);
+  actions.setSetupCommitted(false);
   if (reading.requestId !== '') host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.syncIntentRoute(null);
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
@@ -291,6 +324,8 @@ export function resumeSetup(intent: string, reading: SetupReading, actions: Setu
   actions.setSetup('intent');
   actions.setRepositoryChoice('');
   actions.setReviewAuthorization(undefined);
+  actions.setReviewedIntent(undefined);
+  actions.setSetupCommitted(false);
   host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.syncIntentRoute(intent);
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
@@ -299,6 +334,7 @@ export function resumeSetup(intent: string, reading: SetupReading, actions: Setu
 function chooseIntentRepository(event: Event, reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore || !reading.activeSurface) return;
   actions.setReviewAuthorization(reviewedAuthorization(event));
+  actions.setReviewedIntent(reviewedIntent(event));
   actions.setSetup('repositories');
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
   void searchRepositories({...reading, setup: 'repositories', repositoryChoice: ''}, actions, 1);
@@ -332,6 +368,8 @@ export function cancelSetup(reading: SetupReading, actions: SetupActions, host: 
   actions.admitRepositoryRequest(undefined);
   actions.setRepositoryBusy(false);
   actions.setReviewAuthorization(undefined);
+  actions.setReviewedIntent(undefined);
+  actions.setSetupCommitted(false);
   actions.setSetup(null);
   if (reading.requestId !== '') actions.syncIntentRoute(null);
   if (reading.setupReturn) {
@@ -413,6 +451,7 @@ export async function configureProject(reading: SetupReading, actions: SetupActi
   if (actions.isStale() || !actions.isActiveSurface()) return;
   actions.notifyFactory(intent.generationNotice);
   actions.setSetup('configure');
+  actions.setSetupCommitted(true);
   void actions.showManagement(choice.id, 'journey');
 }
 function configureAdmitted(reading: SetupReading) {

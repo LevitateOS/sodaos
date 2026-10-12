@@ -44,6 +44,50 @@ export function createIntentModel() {
         if (!stored) return new Response(null, {status: 404});
         return Response.json(stored);
       }
+      const overview = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/overview$/);
+      if (overview) {
+        const key = overview[1] || '';
+        const head = key ? [...revisions.values()].reverse().find((revision) => revision.intent === key) : undefined;
+        if (!head || !/^(0|[1-9][0-9]{0,18})$/.test(head.repository)) return new Response(null, {status: 404});
+        const ideas = head.ideas ?? [];
+        const tasks = head.tasks ?? [];
+        const byDecision: Record<string, number> = {};
+        for (const idea of ideas) byDecision[idea.decision] = (byDecision[idea.decision] ?? 0) + 1;
+        return Response.json({
+          intent: head.intent,
+          revision: head.id,
+          state: head.state,
+          direction: {
+            objective: head.objective,
+            ideas_by_decision: byDecision,
+            ideas_by_source: {},
+            effective_outcomes: (head.effective_outcomes ?? []).filter((outcome) => /^d[0-9a-f]{24}$/.test(outcome)),
+            ideas_total: ideas.length,
+            tasks_total: tasks.length,
+            unresolved_assumptions: ideas.filter((idea) => idea.assumption && idea.decision === 'pending').length,
+            ...(head.approach === undefined ? {} : {approach: head.approach}),
+          },
+          context: {repository: head.repository},
+          generation: 'completed',
+          setup: {state: 'ready'},
+          work_items: {
+            by_state: {delivered: 0, working: 0, waiting: tasks.length, attention: 0},
+            total: tasks.length,
+            outcomes_total: 0,
+            outcomes_evidenced: 0,
+          },
+          mappings: tasks.map((task, index) => ({
+            task_key: task.key,
+            issue_id: String(5 + index),
+            issue_index: String(5 + index),
+            acceptance_id: task.outcomes[0] || 'Demonstrate the selected outcome',
+            created_unix: 1728670000,
+            effective: true,
+          })),
+          attention: [],
+          observed_unix: 1728670000,
+        });
+      }
     }
     if (path.endsWith('/api/factory/intent-allowances') && method === 'POST' && body) {
       const intent = String(body.intent || '');
@@ -61,9 +105,7 @@ export function createIntentModel() {
     }
     const single = method === 'GET' ? path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})$/) : null;
     if (single) {
-      const stored = [...revisions.values()]
-        .reverse()
-        .find((revision) => revision.intent === single[1]);
+      const stored = [...revisions.values()].reverse().find((revision) => revision.intent === single[1]);
       if (!stored) return new Response(null, {status: 404});
       return Response.json(stored);
     }
