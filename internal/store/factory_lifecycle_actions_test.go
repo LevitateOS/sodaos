@@ -139,4 +139,13 @@ func TestSaveConfigGatesOnCapability(t *testing.T) {
 	if ok, err := s.CapabilityProved(ctx, factory.LifecycleEventPRCreated); err != nil || ok {
 		t.Fatalf("foreign marker retained: %v %v", ok, err)
 	}
+	if _, err := s.RegisterCapability(ctx, factory.LifecycleEventVerifiedMerge, "gen-1", "inst-1"); err != nil {
+		t.Fatalf("clear-setup register failed: %v", err)
+	}
+	if err := s.ClearLifecycleCapabilities(ctx); err != nil {
+		t.Fatalf("clear failed: %v", err)
+	}
+	if ok, err := s.CapabilityProved(ctx, factory.LifecycleEventVerifiedMerge); err != nil || ok {
+		t.Fatalf("cleared marker proved: %v %v", ok, err)
+	}
 }
