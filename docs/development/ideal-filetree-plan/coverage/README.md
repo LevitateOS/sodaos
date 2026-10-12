@@ -58,6 +58,16 @@ duties, with L484 self-bind descriptions superseded in place and kept as
 history. Structural/body/full-review pins and the integrated packet stand
 unchanged.
 
+Final interface correction at `8fbed0a7` (2026-10-12), incremental from
+`a835c02d`: 0 added, 4 modified, 0 deleted outside this plan. Records the
+C30c/8fbe Watch-reveal duties (connected getter, detached-view drop,
+navigation extraction, reveal with filter-clear/cancel/navigation-restore)
+and the extended plus new phase-regression tests; superseded dispatch-only
+and hidden-surface descriptions stay as history. Connected-view retention
+vs same-run recreation is recorded without claiming a continuous renderer
+or socket across filter DOM removal. Structural/body/full-review pins and
+the integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
