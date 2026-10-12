@@ -158,6 +158,11 @@ func TestForgejoRepositoryHeaderRendersWorkspaceOnceAndKeepsAdminSettings(t *tes
 	if strings.Contains(body, "Repository settings contribution") || strings.Contains(body, `href="/native-owner/native-workspace/settings/workspace"`) {
 		t.Fatal("admin-only native contribution appeared as a repository header tab")
 	}
+	workspaceTab := strings.Index(body, `href="/native-owner/native-workspace/workspace"`)
+	firstNativeTab := strings.Index(body, "repo.code")
+	if workspaceTab < 0 || firstNativeTab < 0 || workspaceTab > firstNativeTab {
+		t.Fatalf("extension tab at %d, first native tab content at %d, want extension first", workspaceTab, firstNativeTab)
+	}
 	if !strings.Contains(body, `href="/native-owner/native-workspace/settings"`) {
 		t.Fatal("repository admin lost the existing settings entry point")
 	}
