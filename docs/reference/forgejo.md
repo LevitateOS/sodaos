@@ -38,6 +38,9 @@ host image.
 Public navigation presents product pages directly, without package names or an
 Extensions menu. Repository Workspace links use `/OWNER/REPO/workspace` and choose
 the observed repository for display; they do not create, join or start a Project.
+Saved-request navigation is URL-driven under one Workspace owner: `/workspace/new`
+starts a request and `/workspace/requests/{request}` (decision ID) resumes exactly
+one private request with a server reload, including Back-button return.
 The native handler and its permission checks execute at the requested address.
 Repository product tabs precede native unit tabs so Workspace is discoverable
 before the trailing menu items overflow. Project selection uses the observed
