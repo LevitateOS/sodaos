@@ -1,6 +1,6 @@
 // Fountain canonical browser contract mirror (NFX-C03/H-N prep).
-// Source: Fountain sdk/browser/extension-contract.d.ts at 5e812ba9.
-// sha256(body): 96bc12f2f3dc7b5234feec337b05efc76ceef18c7fce8bff7d0e469ef941dd9d
+// Source: Fountain sdk/browser/extension-contract.d.ts at e8aa420d3e.
+// sha256(body): 3e5c679a87f19706ddcae7b05646c7759a8fff4c0fd09a47a8bbca1a087fcab2
 // contractMajor: 1, manifestProtocol: 1.
 // Do not hand-edit; re-sync from Fountain (lane C re-pins per change).
 // --- contract body begins ---
@@ -113,7 +113,9 @@ export interface MountContext {
   /**
    * Scoped fetch bound to apiBase and the mount's session generation.
    * Rejects cross-origin, credentialed, or encoded-separator targets
-   * without sending them.
+   * without sending them. In-flight requests abort when the owner
+   * retires, disposes, or is invalidated; late responses after
+   * terminal teardown are refused.
    */
   request: (relativePath: string, options?: ContributionRequestOptions) => Promise<Response>;
   /**
