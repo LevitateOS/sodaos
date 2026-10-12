@@ -64,7 +64,7 @@ func TestLifecycleCallbackPR(t *testing.T) {
 		t.Fatalf("submits: %+v", ex.submits)
 	}
 	visible, err := fx.db.ListActions(ctx, 7, 3, factory.LifecycleEventPRCreated, 64)
-	if err != nil || len(visible) != 1 || !visible[0].Settled() || visible[0].TargetID != ex.submits[0].IssueID {
+	if err != nil || len(visible) != 1 || !visible[0].Settled() || visible[0].TargetID != ex.submits[0].IssueID || visible[0].PRNumber != 9 {
 		t.Fatalf("journal: %+v %v", visible, err)
 	}
 	fx.pass(t)

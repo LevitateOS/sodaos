@@ -66,6 +66,7 @@ type LifecycleAction struct {
 	RepositoryID int64             `json:"repository_id"`
 	IssueID      int64             `json:"issue_id"`
 	TargetID     int64             `json:"target_id"`
+	PRNumber     int64             `json:"pr_number,omitempty"`
 	ConfigOwner  int64             `json:"config_owner,omitempty"`
 	LabelID      int64             `json:"label_id,omitempty"`
 	AssigneeID   int64             `json:"assignee_id,omitempty"`
