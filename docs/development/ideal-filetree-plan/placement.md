@@ -76,6 +76,14 @@ directories are excluded from this current census.
 | `tools/soda-avatars` | tools/soda-avatars | `internal/avatar` |
 | `tools/soda-installed-probes` | tools/soda-installed-probes | `internal/acceptance` |
 
+The table above remains the `f7e9cf9d` census. Scoped reconciliation on
+2026-10-07 confirms B07.M's publisher move and concern/test leaves in
+`33682cfc`, plus the merge-completion leaf in `6cb54cf9`; current callers and
+architecture assertions use `internal/forgejo/publish`. The rootfs server
+command/tests and service references moved to `tools/soda-rootfs-server` in
+`d89f4563`. These completed placements are not pending moves; this update does
+not claim a fresh full Go package/import census or installed qualification.
+
 Retain architecture tests for surviving owners and update their actual path and
 import assertions. Remove tests belonging solely to retired Go implementations;
 move surviving wire/input behavior coverage with its live owner. The Go worker
@@ -132,7 +140,7 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 
 | Current path | Proposed path |
 | --- | --- |
-| `internal/host/publish/` | `internal/forgejo/publish/` |
+| Historical `internal/host/publish/` | Completed: `internal/forgejo/publish/` (`33682cfc`); retain current owner |
 | `internal/testoci/` | Retire with Go release tests at cutover |
 | `appliance/forgejo/templates/` | `frontend/forgejo/templates/`; retain the intentional Soda design overrides across all pages, per [GUIDANCE-08](review-assignments.md#guidance-conflicts-and-controlling-decisions) and [G08](reviews/G08.md). Relocation does not reduce override scope. |
 | `appliance/forgejo/i18n/` | `frontend/forgejo/locales/` |
@@ -147,7 +155,7 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | `appliance/soda-extension/` | `system/containers/extension/` |
 | `project-os/` | `system/project/` |
 | `factory-os/` | Retire unselected alternate image recipe; no active target |
-| `cmd/soda-rootfs-server/` | `tools/soda-rootfs-server/` |
+| Historical `cmd/soda-rootfs-server/` | Completed: `tools/soda-rootfs-server/` (`d89f4563`); retain current owner |
 | `scripts/selinux/` | `system/host/selinux/` |
 | `scripts/ops/` | `tools/soda-rootfs-server/` |
 | `appliance/host.Containerfile` | `system/host/Containerfile` |
