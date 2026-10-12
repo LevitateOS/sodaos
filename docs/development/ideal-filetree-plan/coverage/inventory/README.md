@@ -6,9 +6,10 @@ Source snapshot, reuse and limits: [coverage index](../README.md).
 
 Current tracked path count at `9a184b7f`: **2,629**. Root counts below describe the current tracked tree; detailed named-duty/body selectors remain pinned to `519b76bd`.
 
-Delta navigation at `93fb3513` (2026-10-12): **2,771** tracked paths. The
+Delta navigation at `deb79186` (2026-10-12): **2,772** tracked paths. The
 `299e3d20..93fb3513` feature delta (93 added, 80 modified, 0 deleted outside
-this plan) is fully inventoried with current responsibility rows; 16 tracked
+this plan) plus the incremental `93fb3513..deb79186` upkeep (1 added, 24
+modified) are fully inventoried with current responsibility rows; 16 tracked
 paths added between `9a184b7f` and `299e3d20` and untouched by the delta still
 await rows and are named in the [coverage index](../README.md). The structural
 tree pin, body-census pin and review pins below retain their recorded scope.
@@ -31,7 +32,7 @@ current inventory. No former-root rows count twice.
 | `lib` | 428 | [native-packages.md](native-packages.md) |
 | `scripts` | 81 | [scripts.md](scripts.md) |
 | `system` | 68 | [appliance.md](appliance.md) |
-| `tests` | 155 | [tests.md](tests.md) |
+| `tests` | 156 | [tests.md](tests.md) |
 | `tools` | 197 | [tools.md](tools.md) |
 
 Generated/captured/third-party artifacts have producer/consumer dispositions;

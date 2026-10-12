@@ -88,7 +88,7 @@ removed predecessor records, with no obsolete bodies counted as current source.
 | [Soda test vm](soda-test-vm.md) | 11 |
 | [Tests build](tests-build.md) | 28 |
 | [Tests forgejo](tests-forgejo.md) | 14 |
-| [Tests frontend](tests-frontend.md) | 31 |
+| [Tests frontend](tests-frontend.md) | 32 |
 | [Tests installed](tests-installed.md) | 13 |
 
 Former families with no current mapped paths retain their historical anchors: [Acceptance execution and evidence](acceptance-execution-and-evidence.md), [Installation operator enrollment](installation-operator-enrollment.md).

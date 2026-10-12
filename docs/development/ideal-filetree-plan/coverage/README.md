@@ -43,6 +43,14 @@ and untouched by this delta still await rows:
 `internal/web/factory_activity_test.go`,
 `tests/frontend/workspace-native-shell.test.ts`.
 
+Final upkeep at `deb79186` (2026-10-12), incremental from `93fb3513`: 1
+added, 24 modified, 0 deleted outside this plan. New duties only are
+recorded (scope feed/builders, committed resume, correction wait,
+worker self-bind, 13 new tests); the integrated 173-path packet stands
+unchanged and historical structural/body/full-review pins are untouched.
+C Watch/actions wiring was still underway at this pin, so only committed
+duties are recorded; its callnames join a later delta when published.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
