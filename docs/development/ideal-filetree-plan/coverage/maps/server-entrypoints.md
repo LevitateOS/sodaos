@@ -123,6 +123,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [cmd/soda-extension/main.go](../../../../../cmd/soda-extension/main.go)
 
+Scoped source inspection at `668f551c0334954ee5d7a48dc23c5d80170c86da`: `allowedContribution` retains G01 admission ownership and aligns Tailnet with the global manifest scope while checking the configured operator. No new duty or target allocation. Prior whole-file byte identity below is historical.
+
 exact-blob current maintained map; full spans retained
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |

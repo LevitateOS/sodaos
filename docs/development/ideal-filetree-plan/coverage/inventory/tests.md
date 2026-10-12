@@ -1,5 +1,8 @@
 # Tracked files: tests
 
+Scoped native frontend delta at `668f551c0334954ee5d7a48dc23c5d80170c86da` (2026-10-12): `TestForgejoPayloadOperatorSettingsUseDeclaredTailnetRoute` replaces the old admin-scope assertion; other payload duties are unchanged. No added or deleted paths; historical rows retain their separate scope.
+Scoped E/F delta at `082beb863a1108b11765ee106852ed56600007bc` (2026-10-12): `settings-geometry.test.ts` and `fixtures/settings-geometry-driver.ts` are new S05/H06 local browser checks; no new acceptance framework.
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
@@ -11,6 +14,8 @@ Generated/third-party status and runtime use are separate from disposition.
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
 | [tests/build/README.md](../../../../../tests/build/README.md) | package guide | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Package guide for this retained owner: current entrypoints, responsibilities and contract guidance. Selective path addition at `c8a53fdb`; historical body and native receipts retain their scope. |
+| [tests/frontend/settings-geometry.test.ts](../../../../../tests/frontend/settings-geometry.test.ts) | test source | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / retained, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Wide/compact/short selected-tab allocation, focus and scrolling; native fonts/containers remain separate. |
+| [tests/frontend/fixtures/settings-geometry-driver.ts](../../../../../tests/frontend/fixtures/settings-geometry-driver.ts) | test source | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / retained, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Existing local browser fixture infrastructure, production Project control/CSS, synthetic state and bounded allocation. |
 | [tests/build/avatar_integration_test.go](../../../../../tests/build/avatar_integration_test.go) | test source | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained, [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / retained, [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) / retained | [current units](../maps/tests-build.md#coverage-0bc00438cba7) |
 | [tests/build/candidate_gate_test.go](../../../../../tests/build/candidate_gate_test.go) | test source | [D05](../../slices/release-and-installation.md#d05-artifact-verification) / retained, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/tests-build.md#coverage-8119412e1db7) |
 | [tests/build/complexity_scope_test.go](../../../../../tests/build/complexity_scope_test.go) | test source | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | [current units](../maps/tests-build.md#coverage-15900411bd9c) |

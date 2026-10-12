@@ -1,5 +1,7 @@
 # Tracked files: frontend
 
+Scoped E/F delta at `082beb863a1108b11765ee106852ed56600007bc` (2026-10-12): `sodaspaces-project.css` retains S05 local attachment/layout ownership; Identity bounds and selected-view floor add no shell duty.
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
