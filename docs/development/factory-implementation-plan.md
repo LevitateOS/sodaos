@@ -25,11 +25,11 @@ The sole appliance target is **x86_64**, under the
 [release platform contract](../architecture/release.md#architectures). ARM support
 and qualification are excluded; no ARM machine or evidence is a handoff prerequisite.
 
-For the remaining end-to-end experience, use the
-[UX implementation backlog](#end-to-end-ux-implementation-tasks) below. Its UX task
-IDs and completion rules apply to the latest design. The historical FT/ST/RT
-assignments retain their original scope; neither those assignments nor the earlier
-FX receipts establish that the newly designed experience is implemented.
+The completed [UX implementation tasks](#end-to-end-ux-implementation-tasks)
+below retain the acceptance conditions and ownership of the end-to-end experience.
+They are not a ready queue for new implementation. The historical FT/ST/RT
+assignments retain their original scope; their receipts and the earlier FX
+receipts do not replace the later UX source and installed evidence.
 
 ## Source baseline
 
@@ -113,24 +113,32 @@ versions remain in the selected source manifests and locks.
 
 ## End-to-end UX implementation tasks
 
-This is the executable backlog for the latest
+This is the completed implementation and acceptance reference for the
 [Spaces UX proposal](../design/spaces-ux.md#proposed-end-to-end-experience),
 [intent-first creation](../product/spaces.md#intent-first-creation),
 [intent review](../product/overview.md#intent-review-and-derived-work) and
 [System One design contract](../product/overview.md#planning-and-priority-judgments).
-It contains **68 tasks in nine logical lanes**. The `UX-` task prefix keeps
-this backlog distinct from similarly numbered ideal-filetree assignments. All are
-future work; this planning edit implements no runtime behavior and runs no
-deployment. Product and trust rules remain in their owning guides. Task-local
-contract changes update those
-owners rather than introducing another requirements document.
+It contains **68 completed tasks in nine logical lanes**. The `UX-` task prefix
+keeps these tasks distinct from similarly numbered ideal-filetree assignments.
+The task tables and dependency graph record the accepted implementation rather
+than outstanding worker assignments. Product and trust rules remain in their
+owning guides; task-local contract changes update those owners.
 
-The inspected source pair is Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
+The accepted source pair is Soda `518b13c3` and Fountain `17fbd56ab3`.
+The existing development VM runs the shipping Soda `31caf48a` and that Fountain
+revision; the later Soda commits change coverage documentation only. Source,
+native fixture and installed checks retain their individual scopes. Installed
+terminal evidence distinguishes retained elements/renderers/sockets during page
+transitions from a fresh browser connection to the same process after reload.
+Execution-provider qualification, production release qualification and a separate
+nontechnical usability study are not established by this task completion.
+
+The original implementation input was Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
 and Fountain `e4b58254a0b5a6ac0bc60445860a02c2a6df6ed2`. Soda also contains seven
 unrelated modified ideal-filetree documents and the untracked experience planning
 input. Preserve them; inspect relevant changes without staging them wholesale.
-Recheck heads and dirty work at implementation start. These are source inputs,
-not the existing VM's installed versions.
+Recheck heads and dirty work before any further changes. These historical inputs
+are not the existing VM's current installed versions.
 
 ### What is already available, and what must change
 
@@ -139,7 +147,7 @@ authorization/session guards, Project/terminal machinery, atomic native issue
 graph writer and working Factory coding/review/correction/check/merge/closure loop.
 Do not schedule their replacement as new infrastructure.
 
-The remaining changes are concrete:
+The completed task tables cover these changes:
 
 - A visible **New Project** entry leading to a real native content page; private
   saved requests, direct links, history, save/resume and recovery.
