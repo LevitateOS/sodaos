@@ -53,6 +53,11 @@ that shared environment, not another VM or a container created for every person.
 You join only the projects you need. The same person can have an account in
 several independent environments without having any Linux account on the host.
 
+A saved factory request is none of these: it is your private shaping draft
+(objective, ideas, review) kept before any issue or Project exists. See the
+[factory walkthrough](../30-Use-Soda/15-software-factory.md) for the everyday
+journey from request to repository work.
+
 Tools installed in the shared project toolchain are actual shared installations,
 not merely a shared download cache. Personal checkouts are not a shared writable
 working tree: collaborate with branches, commits and reviews. Shared files and

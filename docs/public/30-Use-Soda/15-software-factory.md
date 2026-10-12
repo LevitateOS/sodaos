@@ -6,6 +6,17 @@ interface inspects recorded runs, retires one run and settles outstanding
 work. Automatic intake remains unavailable: nothing admits issues, launches
 runs or publishes results on its own.
 
+## The everyday journey
+
+Open New Project and answer **What do you want to build?** with a plain
+description. Explore ideas turns it into a direction you review (**Review your
+product direction**), accepting each choice or asking for changes. Supported,
+reversible details settle on their own; only consequential assumptions wait
+for you. Then authorize a finite planning allowance, choose a repository, and
+let generation turn the accepted direction into real native issues you can
+follow, review and merge in Forgejo. Saved requests stay private to you;
+resume any of them later from your list.
+
 ## Inspect recorded runs
 
 Use the private operator command against the dashboard backend's operator

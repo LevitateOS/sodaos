@@ -45,7 +45,14 @@ import {
   sessionsButtonHidden,
   sessionsButtonLabel,
 } from './sodaspaces-workspace-toolbar-view.js';
-import {beginSetup, cancelSetup, changeRepository, focusSetupPanel, renderSetup} from './sodaspaces-workspace-setup.js';
+import {
+  backToReview,
+  beginSetup,
+  cancelSetup,
+  focusSetupPanel,
+  inspectCommittedRequest,
+  renderSetup,
+} from './sodaspaces-workspace-setup.js';
 import {newRouteFor, requestIdFromLocation, requestIDPattern, requestRouteFor} from './sodaspaces-workspace-setup.js';
 import {resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
@@ -228,6 +235,9 @@ export class SodaSpaces extends LitElement {
   private setupReturn:
     | {project: string; view: 'terminal' | 'sessions' | 'project'; mode: 'standard' | 'journey' | 'settings'}
     | undefined;
+  private reviewAuthorization: {ideas: number; tasks: number} | undefined;
+  private reviewedIntent: string | undefined;
+  private setupCommitted = false;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
   private renaming = new Set<string>();
@@ -443,7 +453,7 @@ export class SodaSpaces extends LitElement {
     if (!this.disposed && this.projectEventFromHost(e)) this.requestUpdate();
   }
   private onProjectChangeRepository(e: Event) {
-    if (this.projectEventFromHost(e)) changeRepository(this.setupReading(), this.setupActions(), this);
+    if (this.projectEventFromHost(e)) inspectCommittedRequest(this.setupReading(), this.setupActions(), this);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -522,10 +532,11 @@ export class SodaSpaces extends LitElement {
   private readonly onShowSessions = () => this.showSessions();
   private readonly onNewTerminal = () => newTerminal(this.newTerminalInput(), this.layout.focused);
   private readonly onCancelSetup = () => cancelSetup(this.setupReading(), this.setupActions(), this);
-  private readonly onSetupBack = () =>
-    this.setup === 'configure'
-      ? changeRepository(this.setupReading(), this.setupActions(), this)
-      : cancelSetup(this.setupReading(), this.setupActions(), this);
+  private readonly onSetupBack = () => {
+    if (this.setup === 'configure') inspectCommittedRequest(this.setupReading(), this.setupActions(), this);
+    else if (this.setup === 'repositories') backToReview(this.setupReading(), this.setupActions(), this);
+    else cancelSetup(this.setupReading(), this.setupActions(), this);
+  };
   private readonly onCapturePointer = (e: PointerEvent) => this.capture(e);
   private readonly onResizeSidebar = (e: PointerEvent) => resizeSidebar(this.layoutInput(), e);
   private readonly onReleasePointer = (e: PointerEvent) => this.releasePointer(e);
@@ -946,9 +957,19 @@ export class SodaSpaces extends LitElement {
       firstSpace: this.spaces[0],
       actorId: this.actor?.id || '',
       requestId: requestIdFromLocation(window.location.pathname),
+      reviewAuthorization: this.reviewAuthorization,
+      reviewedIntent: this.reviewedIntent,
+      setupCommitted: this.setupCommitted,
+      transport: this.binding?.transport,
+      suggestedRepository: this.suggestedSetupRepository(),
       onBegin: this.onBeginSetup,
       onRefresh: this.onRefreshClick,
     };
+  }
+  private suggestedSetupRepository(): string | undefined {
+    const requestId = requestIdFromLocation(window.location.pathname);
+    if (!requestId) return undefined;
+    return this.savedRequests?.find((saved) => saved.intent === requestId)?.repository;
   }
   private setupActions(): SetupActions {
     return {
@@ -975,6 +996,15 @@ export class SodaSpaces extends LitElement {
       },
       setSetupReturn: (target) => {
         this.setupReturn = target;
+      },
+      setReviewAuthorization: (auth) => {
+        this.reviewAuthorization = auth;
+      },
+      setReviewedIntent: (intent) => {
+        this.reviewedIntent = intent;
+      },
+      setSetupCommitted: (committed) => {
+        this.setupCommitted = committed;
       },
       setProject: (project) => {
         this.project = project;

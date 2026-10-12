@@ -620,7 +620,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
     const {amount, effect} = allowanceFormInput(form);
-    const invalid = allowanceAmountError(amount);
+    const usage = allowanceUsage(this.allowance);
+    const invalid = allowanceAmountError(amount, usage.reserved, usage.consumed);
     if (invalid !== undefined) {
       this.message = invalid;
       return;
@@ -645,13 +646,18 @@ export class SodaFactoryDirectionRevision extends LitElement {
     this.applyAllowanceSave(context, posted);
   }
   private allowanceBody(context: DirectionRevisionContext, amount: number, effect: string) {
+    const current = this.allowance;
+    const increase = allowanceIncreaseEffect(current, amount, effect);
     return {
       id: newDecisionID(),
       intent: context.intentID,
-      ...(this.allowance === undefined ? {} : {predecessor: this.allowance.id}),
+      ...(current === undefined ? {} : {predecessor: current.id}),
       amount,
+      ceiling: amount,
       unit: 'planning_calls',
-      ...(effect === '' ? {} : {effect}),
+      reserved: current?.reserved ?? 0,
+      consumed: current?.consumed ?? 0,
+      ...(increase === undefined ? {} : {effect: increase}),
     };
   }
   private applyAllowanceSave(context: DirectionRevisionContext, posted: Posted) {
@@ -695,9 +701,26 @@ function allowanceFormInput(form: HTMLFormElement): {amount: number; effect: str
   return {amount: Number(data.get('amount')), effect: String(data.get('effect') ?? '').trim()};
 }
 
-function allowanceAmountError(amount: number): string | undefined {
+function allowanceUsage(current: PlanningAllowanceView | undefined): {reserved: number; consumed: number} {
+  return {reserved: current?.reserved ?? 0, consumed: current?.consumed ?? 0};
+}
+
+function allowanceAmountError(amount: number, reserved: number, consumed: number): string | undefined {
   if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100)
     return 'Allowance amount must be a whole number from 0 to 100.';
+  if (amount < reserved + consumed)
+    return `Allowance amount must cover ${reserved + consumed} reserved and consumed planning calls.`;
+  return undefined;
+}
+
+function allowanceIncreaseEffect(
+  current: PlanningAllowanceView | undefined,
+  amount: number,
+  effect: string
+): string | undefined {
+  if (effect !== '') return effect;
+  if (current !== undefined && amount > current.amount)
+    return `Authorize ${amount - current.amount} additional planning calls (${amount} total).`;
   return undefined;
 }
 

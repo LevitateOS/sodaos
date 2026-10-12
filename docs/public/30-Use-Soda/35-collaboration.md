@@ -8,10 +8,12 @@ branches and reviews also support manual development.
 
 ## Issues and notifications
 
-Open the repository's issues to report a problem or propose a task. Supply a
-clear title, expected result and relevant non-secret context; use labels,
-milestones and assignees within your repository permissions. Comments and
-notifications belong to Forgejo, not a second Soda discussion database.
+Open the repository's issues to report a problem or propose a task. A saved
+factory request is separate: shape it privately first in the [factory
+walkthrough](15-software-factory.md), then continue into repository issues.
+Supply a clear title, expected result and relevant non-secret context; use
+labels, milestones and assignees within your repository permissions. Comments
+and notifications belong to Forgejo, not a second Soda discussion database.
 
 Use My work, search and notifications to find assigned issues and requested
 reviews. A result is limited by your repository access. Do not paste tokens,
