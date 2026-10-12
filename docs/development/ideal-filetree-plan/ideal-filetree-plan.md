@@ -16,7 +16,7 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `8fd38912bf3bed4287387d482e96f7e0fb0e4776` and paired Fountain source
+Reviewed Soda source `1469fb13ea4595024b2eb9ca8ecc4b8ba1a4cb8a` and paired Fountain source
 `64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
 adds ten focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
@@ -50,6 +50,11 @@ The emitted-color Chrome fixture now checks dialog surface/border/text and
 action/link colors in both native-selected schemes. Font imports are excluded
 from color evidence. The desired responsibility split is
 unchanged; neither this delta nor its fixtures qualify final native behavior.
+
+The retained Soda repository header now places admitted extension tabs in the
+upstream-first position; its native rendering/order test passes. No guards,
+payload leaves, native initialization or shell ownership changed. Remaining
+branded composition checks retain their native/installed gates.
 
 Saved-review domain/wire validity remains F05 in `internal/factory`, exact
 private persistence remains in `internal/store`, and the existing web API owns
@@ -98,7 +103,7 @@ The non-normative
 [investigation](../../research/library-reuse-investigation.md) supports the
 selected direction; product/trust owners remain authoritative.
 
-Last maintained: **2026-10-08**. This scoped currentness pass also accounts for
+Last maintained: **2026-10-12** (native correction scopes above; historical audit pins remain separate). This scoped currentness pass also accounts for
 the later source receipts noted above; it does not refresh historical path or
 line counts. The task refresh also accounts for already-landed
 B07 publication/merge placement, C06 stdin-delivery and C07 enrollment corrections,
