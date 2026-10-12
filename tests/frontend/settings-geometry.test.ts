@@ -69,3 +69,31 @@ for (const viewport of viewports)
       });
       assert(scrolls, `${tab} ${viewport.name} panel overflow does not scroll`);
     });
+
+test('settings tabs: arrow keys wrap and Home/End jump with selection following focus', async (t) => {
+  const page = await settingsFixture(t);
+  const selected = () => page.locator('[role=tab][aria-selected=true]').innerText();
+  const focused = () => page.evaluate(() => document.activeElement?.textContent?.trim());
+  await page.getByRole('tab', {name: 'Overview', exact: true}).click();
+  await page.keyboard.press('End');
+  assert.equal(await selected(), 'Factory');
+  assert.equal(await focused(), 'Factory');
+  await page.keyboard.press('Home');
+  assert.equal(await selected(), 'Overview');
+  assert.equal(await focused(), 'Overview');
+  await page.keyboard.press('ArrowLeft');
+  assert.equal(await selected(), 'Factory');
+  assert.equal(await focused(), 'Factory');
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await selected(), 'Overview');
+  assert.equal(await focused(), 'Overview');
+  assert.equal(
+    await page.evaluate(() => window.drawerFixture.calls.filter((call) => call.method !== 'GET').length),
+    0,
+    'keyboard tab selection must not write'
+  );
+});
+
+// Viewport coverage note: the compact (320x568) and short (720x422) matrix
+// viewports verify the settings composition across small allocations. This
+// is viewport coverage only, pending actual 200% zoom qualification.
