@@ -16,7 +16,7 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `6f30b3396b729278fe3a0040ffdc4b6de18b3d3f` and paired Fountain source
+Reviewed Soda source `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2` and paired Fountain source
 `64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
 adds twelve focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
@@ -72,13 +72,16 @@ review table; Open refuses protected existing schema 46 until a tested preservin
 operator transition is applied. No VM activation is claimed. Current source maps
 record these added duties without advancing historical full-body audit pins.
 
-Guarded restoration stays in the existing F05 Lit intent owner, with one new
-component test file. Twelve restoration cases, four parser cases and full
-TypeScript/Lit checks pass on this source. Actual API-produced review bytes are
-now being joined to that component: this exposed optional collection values
-that the canonical browser fixture missed. Wire compatibility and actual
-restoration therefore remain open pending that correction; these guards and
-fixtures do not close G05–G07 or establish installed behavior.
+Guarded restoration stays in the existing F05 Lit intent owner. The actual
+API-produced bytes exposed optional Go nil collections; browser handling now
+matches those fields while required identity, provenance and content bounds
+remain strict. Two PostgreSQL/API recovery/capture cases pass with injected
+judgments. The resulting exact JSON reaches the production Lit component:
+13 restoration and 5 parser cases pass with no skips, including ordered flow,
+recommendation/verdict restoration, failures, superseded loads and actor switches.
+GET restoration consumes no new judgments or effects. An explicitly requested
+join fails on missing/malformed capture files; ordinary component checks remain
+independent. Native composition and installed content remain I04/I08 evidence.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
