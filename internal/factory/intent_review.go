@@ -31,9 +31,12 @@ func ClassifyReview(headRevision, resultRevision string, found bool) string {
 // SavedReview is the immutable owner-private presentation of one Explore
 // round. BasisRevision is the draft head Explore composed from; ResultRevision
 // is the newly saved revision carrying the settled proposal. Content,
-// Challenges, Recommendation and Consistency all describe the basis input,
-// never the result. A saved review grants no acceptance, repository authority
-// or spending permission, and it changes no authorization digest.
+// Recommendation and Consistency describe the basis input and bind its
+// revision. Challenges and Settled instead target result ideas, including
+// newly generated ones absent from the basis, evaluated using basis
+// evidence; consumers resolve those IDs against the result revision. A
+// saved review grants no acceptance, repository authority or spending
+// permission, and it changes no authorization digest.
 type SavedReview struct {
 	Intent         string                `json:"intent"`
 	BasisRevision  string                `json:"basis_revision"`
@@ -46,8 +49,9 @@ type SavedReview struct {
 	SavedUnix      int64                 `json:"saved_unix"`
 }
 
-// Validate checks basis/result identity, basis binding of every review
-// payload, advice provenance and review bounds.
+// Validate checks basis/result identity, basis binding of the content
+// payloads, verdict bounds and advice provenance. Verdict idea IDs target
+// the result revision and are checked for shape, not resolved here.
 func (r SavedReview) Validate() error {
 	if !project.ValidDecisionID(r.Intent) || !project.ValidDecisionID(r.BasisRevision) || !project.ValidDecisionID(r.ResultRevision) {
 		return errors.New("invalid saved review identity")

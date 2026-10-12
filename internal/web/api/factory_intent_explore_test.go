@@ -211,6 +211,60 @@ func TestExplorePersistsAgreedReview(t *testing.T) {
 	}
 }
 
+// TestExploreVerdictsTargetGeneratedResultIdeas proves verdict provenance:
+// with empty basis ideas, Explore generates result-only ideas and every
+// stored challenge/settlement targets those result ideas, evaluated using
+// basis evidence. Content still binds the basis revision.
+func TestExploreVerdictsTargetGeneratedResultIdeas(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
+	const draftID = "d5e5e5e5e5e5e5e5e5e5e5e5e"
+	const intentID = "d6e6e6e6e6e6e6e6e6e6e6e6e"
+	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,"ideas":[]}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	allowance := `{"id":"d8e8e8e8e8e8e8e8e8e8e8e8e","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
+	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
+		t.Fatalf("allowance save status=%d body=%s", code, body)
+	}
+	product.IntentExploreChooser = &exploreFixtureChooser{}
+	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`)
+	if code != http.StatusCreated {
+		t.Fatalf("explore status=%d body=%s", code, body)
+	}
+	var responded exploreResponse
+	if err := json.Unmarshal(body, &responded); err != nil {
+		t.Fatal(err)
+	}
+	if len(responded.Ideas) == 0 {
+		t.Fatal("empty basis produced no result ideas")
+	}
+	stored, err := s.IntentReview(context.Background(), responded.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Content.Revision != draftID || stored.BasisRevision != draftID || stored.ResultRevision != responded.ID {
+		t.Fatalf("content left the basis: %+v", stored)
+	}
+	if len(stored.Challenges)+len(stored.Settled) == 0 {
+		t.Fatal("no verdict targets the generated result ideas")
+	}
+	proposal := map[string]bool{}
+	for _, idea := range responded.Ideas {
+		proposal[idea.ID] = true
+	}
+	for _, challenge := range stored.Challenges {
+		if !proposal[challenge.Idea] {
+			t.Fatalf("challenge outside the result: %+v", challenge)
+		}
+	}
+	for _, id := range stored.Settled {
+		if !proposal[id] {
+			t.Fatalf("settlement outside the result: %s", id)
+		}
+	}
+}
+
 // TestExploreMidRoundExhaustionNeedsFunding proves the U04 budget
 // distinction on the real explore path: finite allowance exhaustion
 // mid-round reports 409 planning_funding_required (never 503), while
