@@ -1,5 +1,7 @@
 # Tests frontend
 
+Scoped local dialog check at `0c759a2506031401ab03cf6a3b819cd20f9385a0` (2026-10-12): `dialog-geometry.test.ts` owns emitted-style fixture setup/geometry assertions (H06) and rename/creation/department local focus and dismissal checks (S04). Existing settings geometry adds keyboard wrap/Home/End and no-write selection. Six dialog and thirteen settings cases pass; default color scheme only, no zoom/native/installed claim.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
