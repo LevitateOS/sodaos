@@ -2,6 +2,7 @@ import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {
   intentIdentity,
+  inventoryIntents,
   newRouteFor,
   requestIdFromLocation,
   requestRouteFor,
@@ -48,4 +49,29 @@ test('intent identity reads the saved/resumed detail only', () => {
   assert.equal(intentIdentity(new CustomEvent('intent-saved', {detail: null})), '');
   assert.equal(intentIdentity(new CustomEvent('intent-saved', {detail: {intent: 7}})), '');
   assert.equal(intentIdentity(new CustomEvent('intent-saved')), '');
+});
+
+const savedEntry = {
+  intent: id,
+  revision: 'dffffffffffffffffffffffff',
+  state: 'draft',
+  objective: 'Build a tracker',
+  repository: '0',
+  created_unix: 7,
+  effective_count: 0,
+  task_count: 0,
+};
+
+test('inventory intents parse the saved list and reject malformed payloads', () => {
+  const parsed = inventoryIntents(new CustomEvent('intent-inventory', {detail: {intents: [savedEntry]}}));
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0]?.intent, id);
+  assert.equal(parsed[0]?.objective, 'Build a tracker');
+  assert.deepEqual(inventoryIntents(new CustomEvent('intent-inventory', {detail: {intents: []}})), []);
+  assert.deepEqual(inventoryIntents(new CustomEvent('intent-inventory', {detail: null})), []);
+  assert.deepEqual(inventoryIntents(new CustomEvent('intent-inventory')), []);
+  assert.deepEqual(
+    inventoryIntents(new CustomEvent('intent-inventory', {detail: {intents: [{...savedEntry, intent: 'bad'}]}})),
+    []
+  );
 });

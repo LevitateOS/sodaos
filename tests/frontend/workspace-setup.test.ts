@@ -519,3 +519,55 @@ test('setup: new entry canonicalizes the route and leave returns', async (t) => 
   await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor({state: 'hidden'});
 });
+
+test('setup: discovery groups saved drafts from inventory and resumes them', {timeout: 20000}, async (t) => {
+  const page = await fixture(t, 'page', undefined, false);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  const heading = page.getByRole('heading', {name: 'What do you want to build?', exact: true});
+  await page.locator('.soda-create-another-project:visible').waitFor();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await heading.waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build discovery beta');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.getByText('Saved', {exact: true}).waitFor();
+  const saved = await page.evaluate(() => window.location.pathname);
+  const beta = saved.split('/').at(-1) || '';
+  assert.match(beta, /^d[0-9a-f]{24}$/);
+  // The composer's own inventory fetch is covered by the intent suite; here a
+  // contract-shaped event stands in for it while resume below runs for real.
+  // It must fire while the composer is mounted, as production events do.
+  await page.evaluate((intent: string) => {
+    const entry = (id: string, objective: string) => ({
+      intent: id,
+      revision: 'd' + 'f'.repeat(24),
+      state: 'draft',
+      objective,
+      repository: '0',
+      created_unix: 7,
+      effective_count: 0,
+      task_count: 0,
+    });
+    document.querySelector('soda-intent')?.dispatchEvent(
+      new CustomEvent('intent-inventory', {
+        detail: {
+          intents: [entry('d' + 'a'.repeat(24), 'Build discovery alpha'), entry(intent, 'Build discovery beta')],
+        },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }, beta);
+  await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
+  await heading.waitFor({state: 'hidden'});
+  await page.getByText('Drafts (2)', {exact: true}).waitFor();
+  await page.getByText('Build discovery alpha', {exact: false}).waitFor();
+  await page.getByText('No repository yet', {exact: false}).first().waitFor();
+  await page.getByRole('button', {name: 'Resume Build discovery beta', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  assert.equal(await page.evaluate(() => window.location.pathname), saved);
+  await heading.waitFor();
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Build discovery beta';
+  });
+});
