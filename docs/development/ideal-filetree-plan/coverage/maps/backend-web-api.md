@@ -40,6 +40,7 @@ exact-blob current maintained map; full spans retained
 | 28, 31–35, 37–42; API.terminalMu; API.TerminalPeers, API.TerminalStopping, API.terminalClosed, API.terminalWG; TerminalPeer | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Human terminal registry mutex; declarations/fields: `API.terminalMu`; Human terminal lifetime/cancellation registry; declarations/fields: `API.TerminalPeers`, `API.TerminalStopping`, `API.terminalClosed`, `API.terminalWG`; Tracked native terminal operation/stream lifetime and cancellation; declarations/fields: `TerminalPeer` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 29, 47; API.SpacesSlots | [S01](../../slices/spaces-and-terminals.md#s01-authorized-inventory) | retained | Bounded concurrent authorized inventory observations; declarations/fields: `API.SpacesSlots`; Spaces and repository lookup admission slots share constructor expression; declarations/fields: `API.SpacesSlots` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 30, 47; API.RepositorySlots | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Bounded concurrent repository-choice observations; declarations/fields: `API.RepositorySlots`; Repository lookup admission slot in shared constructor; declarations/fields: `API.RepositorySlots` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 27–29; API.IntentExploreChooser | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `39d9ad6a` (I91/91d3): injected explore chooser seam overriding the judgment service. Prior rows retain their pinned scope. |
 
 <a id="coverage-bfff581c5c93"></a>
 
@@ -308,6 +309,8 @@ Delta duty inspection at `93fb3513`. Intent exploration handler (U04/S03): autho
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–224; file scaffold; intentID; exploreData; exploreResponse; attachExploration; settledIDs; designRubric; apiIntentExplore; clarifyIdea; intentDesignCriteria; intentDesignCandidates; applyIntentDesign | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 11 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 149, 210–247; clarifyDescription; clarifyConsequence; isClarification; appendClarifyOnce | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `39d9ad6a` (S13/13a6): pinned material-question texts with stable-identity clarify reuse; answered preserved, ordinary human ideas never match. Prior rows retain their pinned scope. |
+| 103, 119–121, 135–136, 153–154, 169–170, 186–187; IntentExploreChooser seam; planning_funding_required 409s | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `39d9ad6a` (I91/91d3): injected explore chooser with availability plus four mid-round exhaustion branches mapping ErrPlanningAllowanceExhausted to 409 funding. Prior rows retain their pinned scope. |
 
 <a id="coverage-72915357b770"></a>
 
@@ -318,6 +321,8 @@ Delta duty inspection at `93fb3513`. Design-approach, assumption-basis and flat-
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–72; file scaffold; TestIntentDesignRespectsExplicitApproachAndChangesGraph; TestClarifyIdeaCarriesAssumptionBasis; TestExploreResponseKeepsRevisionFlatWithExploration | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 3 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 51–109; TestAppendClarifyOnceReusesStableIdentity; TestAppendClarifyOncePreservesAnsweredClarification; TestAppendClarifyOnceIgnoresOrdinaryIdeas | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `39d9ad6a` (S13/13a6): stable-identity reuse, answered preservation, ordinary-idea exclusion — Current source block and named test consumer inspected in internal/web/api/factory_intent_explore_test.go. |
+| 172–298; TestExploreMidRoundExhaustionNeedsFunding | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `39d9ad6a` (I91/91d3): mid-round exhaustion needs funding — Current source block and named test consumer inspected in internal/web/api/factory_intent_explore_test.go. |
 
 <a id="coverage-7ec1000fd6da"></a>
 
