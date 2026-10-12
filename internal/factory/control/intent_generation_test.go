@@ -57,6 +57,14 @@ func (f *generatedGraphFixture) SubmitGraph(ctx context.Context, g factory.Inten
 	if err := sdk.ValidateIssueGraphPayload(p); err != nil {
 		return sdk.OperationRecord{}, err
 	}
+	// Mirror the native writer: every edit anchor is validated before
+	// anything is created, so a refused packet commits nothing.
+	for _, edit := range p.Edits {
+		issue := f.issues[edit.IssueID-100].Issue
+		if issue == nil || issue.IsClosed || issue.Title != edit.ExpectedTitle || issue.Content != edit.ExpectedBody || issue.ContentVersion != edit.ExpectedContentVersion {
+			return sdk.OperationRecord{}, errors.New("invalid operation intent")
+		}
+	}
 	f.submissions++
 	f.revision++
 	receipt := sdk.IssueGraphReceipt{ActorID: g.ActorID, RepositoryID: repo}
