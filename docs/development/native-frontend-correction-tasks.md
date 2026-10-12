@@ -82,6 +82,14 @@ transition and installed screenshots/terminal observations remain delivery work.
 
 ## Scheduling and completion rules
 
+**Muse allocation:** The owner's current ceiling is two live Muse CLI sessions
+in total, including the coordinator. The nine lane letters describe ownership
+and queued tasks. Use one coordinator with native subagents/workflows, adding at
+most one scoped peer for independent ready work. Initially allow at most two
+active native subagents across both sessions; workflows share that worker budget
+and queue the remaining tasks. Use the canonical checkouts with acknowledged
+file leases. A larger CLI allocation requires a new explicit owner instruction.
+
 **Start** names the smallest input needed to begin that task's implementation.
 **Finish** names the behavior and evidence required to close it. A callable handoff
 can release consumers before its producer lane finishes. A proposed signature or
