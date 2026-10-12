@@ -3,6 +3,8 @@
 Scoped native frontend delta at `668f551c0334954ee5d7a48dc23c5d80170c86da` (2026-10-12): `TestSodaNavigationComesFromForgejoExtensionManifest`: Tailnet is the declared global route without an admin permission. No added or deleted paths; historical rows retain their separate scope.
 Scoped E/F delta at `082beb863a1108b11765ee106852ed56600007bc` (2026-10-12): `build-soda-extension.ts` and its existing test retain D03 builder and H05 branding duties; emitted native scheme calls and token inheritance are now checked.
 
+Scoped native header delta at `1469fb13ea4595024b2eb9ca8ecc4b8ba1a4cb8a` (2026-10-12): forgejo_repository_test.go adds native-rendered tab order assertions to its existing coverage; H06 test ownership is unchanged.
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path accounting at `519b76bd` (2026-10-07).
