@@ -144,7 +144,7 @@ func extensionDevelopmentKeyRoute(parts []string, method string) bool {
 
 func extensionQueryRoute(route string) bool {
 	switch route {
-	case "/repositories", "/environments", "/me/forgejo-keys":
+	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents":
 		return true
 	default:
 		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
