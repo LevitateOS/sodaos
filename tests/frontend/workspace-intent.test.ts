@@ -16,6 +16,7 @@ interface IntentStore {
   generation: {state: string; staleAuth?: boolean; fail?: boolean} | undefined;
   allowanceStale: number;
   allowanceRefuse: boolean;
+  exploreFundingRequired: boolean;
   allowanceCalls: {method: string; path: string; body: Record<string, unknown> | null}[];
   seedAllowance(entry: Record<string, unknown>): void;
 }
@@ -149,6 +150,7 @@ async function installIntentStore(page: Page) {
       generation: undefined as {state: string; staleAuth?: boolean; fail?: boolean} | undefined,
       allowanceStale: 0,
       allowanceRefuse: false,
+      exploreFundingRequired: false,
       allowanceCalls: [] as {method: string; path: string; body: Record<string, unknown> | null}[],
       seedAllowance(entry: Record<string, unknown>) {
         allowances.set(String(entry.intent), entry);
@@ -249,6 +251,8 @@ async function installIntentStore(page: Page) {
           return Response.json(saved, {status: 201});
         }
         if (url.endsWith('/explore') && method === 'POST') {
+          if (store.exploreFundingRequired)
+            return Response.json({error: {code: 'planning_funding_required'}}, {status: 409});
           const response = await original(input, init);
           if (!response.ok || !store.exploration) return response;
           const json = (await response.json()) as {
@@ -946,7 +950,7 @@ test('planning and judgment failures preserve the draft and identify the actual 
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   await page
     .getByText(
-      'Exploration needs a planning allowance. Your description is saved; set the planning allowance and try again.',
+      'Exploration needs a planning allowance. Your description is saved; raise the planning allowance and try again.',
       {exact: true}
     )
     .waitFor();
@@ -1193,9 +1197,10 @@ test('explore initializes the independent allowance before the first funded expl
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
   const log = await allowanceLog(page);
-  assert.equal(log.length, 2);
+  assert.equal(log.length, 3);
   assert.equal(log[0]?.method, 'GET');
   assert.equal(log[1]?.method, 'POST');
+  assert.equal(log[2]?.method, 'GET');
   const body = (log[1]?.body || {}) as Record<string, unknown>;
   assert.equal(body.amount, 8);
   assert.equal(body.ceiling, 8);
@@ -1443,4 +1448,110 @@ test('resumed accepted request exports its durable repository on intent-resumed'
     state: 'accepted',
     repository: '7',
   });
+});
+
+test('review top-up funds an exhausted allowance without touching the draft', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'supported');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  const head = (await allowanceLog(page)).find((call) => call.method === 'POST')?.body || {};
+  const intent = String(head.intent);
+  // Server side consumes the whole head mid-round; the next attempt is refused.
+  await seedAllowance(page, {
+    id: String(head.id),
+    intent,
+    amount: 8,
+    reserved: 0,
+    consumed: 8,
+    unit: 'planning_calls',
+  });
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.exploreFundingRequired = true;
+  });
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page
+    .getByText(
+      'Exploration needs a planning allowance. Your description is saved; raise the planning allowance and try again.',
+      {exact: true}
+    )
+    .waitFor();
+  assert.equal(await intentObjective(page), 'Build a leave tracker');
+  assert.equal(
+    await page
+      .getByRole('combobox', {name: /^Choice:/})
+      .first()
+      .inputValue(),
+    'accept'
+  );
+  await page.getByText('Planning allowance: 8 of 8 calls used.', {exact: true}).waitFor();
+  const revisions = await revisionPostCount(page);
+  await page.getByLabel('Raise to', {exact: true}).fill('24');
+  await page.getByRole('button', {name: 'Raise allowance', exact: true}).click();
+  await page
+    .getByText(
+      'Planning allowance is now 24 calls (8 used). Use Update proposal or Refresh walkthrough to try again.',
+      {
+        exact: true,
+      }
+    )
+    .waitFor();
+  const posts = (await allowanceLog(page)).filter((call) => call.method === 'POST');
+  assert.equal(posts.length, 2);
+  const topup = (posts[1]?.body || {}) as Record<string, unknown>;
+  assert.equal(topup.predecessor, head.id);
+  assert.equal(topup.amount, 24);
+  assert.equal(topup.ceiling, 24);
+  assert.equal(topup.reserved, 0);
+  assert.equal(topup.consumed, 8);
+  assert.equal(topup.effect, 'Authorize 16 additional planning calls (24 total).');
+  assert.equal(await revisionPostCount(page), revisions);
+  assert.equal(await intentObjective(page), 'Build a leave tracker');
+  assert.equal(
+    await page
+      .getByRole('combobox', {name: /^Choice:/})
+      .first()
+      .inputValue(),
+    'accept'
+  );
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.exploreFundingRequired = false;
+  });
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  assert.equal(
+    await page
+      .getByText(
+        'Exploration needs a planning allowance. Your description is saved; raise the planning allowance and try again.',
+        {
+          exact: true,
+        }
+      )
+      .count(),
+    0
+  );
+  assert.equal((await allowanceLog(page)).filter((call) => call.method === 'POST').length, 2);
+});
+
+test('unchanged raise posts nothing and asks nothing again', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'supported');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page.getByText('Planning allowance: 0 of 8 calls used.', {exact: true}).waitFor();
+  await page.getByLabel('Raise to', {exact: true}).fill('8');
+  await page.getByRole('button', {name: 'Raise allowance', exact: true}).click();
+  await page.getByText('Planning allowance is unchanged at 8 calls.', {exact: true}).waitFor();
+  const posts = (await allowanceLog(page)).filter((call) => call.method === 'POST');
+  assert.equal(posts.length, 1);
 });
