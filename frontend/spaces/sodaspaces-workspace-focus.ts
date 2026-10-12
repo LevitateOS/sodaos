@@ -60,7 +60,11 @@ export interface RememberFocusInput {
 }
 
 export function rememberFocus(input: RememberFocusInput) {
-  input.setInvoker(document.activeElement instanceof HTMLElement ? document.activeElement : undefined);
+  const active = document.activeElement;
+  const item = active instanceof HTMLElement && active !== document.body ? active : undefined;
+  // A dialog launched from a menu item must return to the menu's persistent
+  // control: closing the menu hides the item, leaving it unrestorable.
+  input.setInvoker(item?.closest('.soda-menu')?.querySelector<HTMLElement>('summary') ?? item);
   closeMenus(input.root);
 }
 
