@@ -162,6 +162,18 @@ test('parser rejects substituted identities', () => {
       }),
     ],
     [
+      'recommendation from another producer',
+      mutate((doc) => {
+        (review(doc).recommendation as Record<string, unknown>).producer = 'third-party-draft';
+      }),
+    ],
+    [
+      'consistency from another producer',
+      mutate((doc) => {
+        (review(doc).consistency as Record<string, unknown>).producer = 'third-party-draft';
+      }),
+    ],
+    [
       'facts not leading with the objective',
       mutate((doc) => {
         (review(doc).content as Record<string, unknown>).facts = ['A different opening claim'];

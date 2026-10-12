@@ -507,10 +507,12 @@ export interface SavedReviewRead {
 function reviewBindings(raw: Record<string, unknown>, payload: Exploration) {
   check(payload.content.intent === raw.intent && payload.content.revision === raw.basis_revision);
   if (payload.recommendation) {
+    check(payload.recommendation.producer === authoredProducer);
     check(payload.recommendation.intent === raw.intent && payload.recommendation.revision === raw.basis_revision);
     check(digest(payload.recommendation.advice));
   }
   if (payload.consistency) {
+    check(payload.consistency.producer === authoredProducer);
     check(payload.consistency.intent === raw.intent && payload.consistency.revision === raw.basis_revision);
     check(digest(payload.consistency.advice));
   }
