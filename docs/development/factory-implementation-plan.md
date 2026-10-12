@@ -179,6 +179,12 @@ The [full parallel correction task list](native-frontend-correction-tasks.md)
 decomposes this work into 57 tasks in nine logical lanes, with single file writers,
 partial handoffs, a dependency graph and scoped finish conditions. It owns the
 detailed correction schedule; the NF packets below retain their milestone role.
+Its reconciled snapshot has **23 accepted tasks and 34 remaining**. The native
+persistence proof is accepted; the contract packet remains checked but
+uncommitted, and shared-owner/route registration, broader native feature cutover,
+Soda migration and installed acceptance remain open. Use its remaining queues and
+progressive handoffs rather than redispatching completed source work. Execution
+remains paused after the owner's stop; this schedule update does not resume it.
 
 Soda must stop inspecting host ancestors, hiding generic panels, detecting a
 competing page/panel mount, measuring native navbar/footer space, and using native
@@ -191,7 +197,7 @@ review restoration remain Soda defects.
 
 | Correction packet | Owner, outcome and existing task coverage | Start / acceptance dependency |
 | --- | --- | --- |
-| NF-01: native capability proof | Fountain, UX-C02/UX-Q03: actual native templates/assets/config/initializers plus the existing generic notes example and an added/reused admitted test stream. Both native → contribution → native and contribution → native → contribution retain one node/resource/socket; native controls, context, URL/history/focus/scroll and invalidation work. No Soda payload or host-DOM logic in the example. | Start now from the inspected source/evidence. A critical-boundary failure requires reassessment before broad conversion. |
+| NF-01: native capability proof | Fountain, UX-C02/UX-Q03: actual native templates/assets/config/initializers plus the generic notes example's admitted stream. Both entry orders retain exact document/root/socket; real controls, context, history/scroll/fragment traversal and invalidation pass without Soda or host-DOM logic in the example. | Accepted scoped NFX-A03/H-P proof: 124 native browser checks at Fountain `c81b933d`. Broader route, xterm/process and installed acceptance remain separate. |
 | NF-02: reusable host contract | Fountain, UX-C02/UX-C06: canonical manifest/browser definitions for linked page/panel ownership, content routes, current presentation/context, suspend/revalidate/resume/retire and scoped transport. Native layout supplies usable space and native UI/theme semantics. | NF-01 establishes the mechanism; publish the callable host handoff H-N with real examples. |
 | NF-03: native cutover | Fountain, UX-C02/UX-C07: replace alternate-body wrapping, iframe/history router, selective full-document copying and wrapper-only chrome hiding. Integrate repeatable lifecycle into actual native feature owners; retain handlers/guards/admission/stream revocation and qualify affected native feature classes. | NF-01/NF-02; one route proof does not qualify every native feature. |
 | NF-04: consumer simplification | Soda, UX-C03/UX-C04/UX-C05/UX-C06: consume the host contract; remove obsolete page/panel shell adapters, duplicate transport/lifecycle rules and native template overrides that implement host mechanics, with their callers/fixtures. Keep one Lit owner, actual xterm resources and product state. Retain legitimate scoped content and appliance branding. | Implementation can start at callable H-N; composed acceptance requires NF-03 and actual Soda assets/templates. |
@@ -210,8 +216,8 @@ the third retains 0.11 insufficient probability. Independent review confirms
 equivalent facts/alternatives and newly worded prose. An earlier set was retained
 and superseded after wording corrections. Requests, responses and audit remain
 ignored under `.artifacts/fountain-frontend-boundary-20261012/`. Agreement advises
-the ownership direction; native feasibility still needs NF-01, and no judgment
-changes the product contract.
+the ownership direction; the later scoped NF-01 native proof supplies behavioral
+evidence independently of those judgments. No judgment changes the product contract.
 
 The original implementation input was Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
 and Fountain `e4b58254a0b5a6ac0bc60445860a02c2a6df6ed2`. Soda also contains seven

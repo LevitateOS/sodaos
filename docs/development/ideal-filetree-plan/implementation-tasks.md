@@ -27,8 +27,10 @@ below; shared duties route through their physical writer in the lane schedule.
   terminal lifetime. The October 12 responsibility correction remains incomplete:
   reusable host contracts, native feature entry/retirement, consumer cutover and
   current native/installed qualification follow the
-  [57-task correction list](../native-frontend-correction-tasks.md). Earlier source,
-  fixture and VM observations retain their original revision-bound scope; they
+  [57-task correction list](../native-frontend-correction-tasks.md), now organized
+  as 23 accepted tasks and 34 remaining with H-P released at its generic native
+  proof scope. Implementation remains paused; the remaining schedule is planning.
+  Earlier source, fixture and VM observations retain their original revision-bound scope; they
   do not close this correction. Evidence and limits are in the
   [implementation plan](../factory-implementation-plan.md#fountain-native-shell-correction).
 

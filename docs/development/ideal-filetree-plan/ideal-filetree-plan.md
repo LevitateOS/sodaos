@@ -42,8 +42,10 @@ invalidation conceals live content before retiring native features and still
 emits consumer invalidation when native cleanup throws. These repairs add no
 path, package or process boundary. Prior native router/context
 unit and SDK checks retain their unchanged source scopes. The generic example uses an admitted
-stream through the public helper. Expanded natural navigation and final native
-composition remain open; these checks do not qualify installed terminal lifetime.
+stream through the public helper. The scoped generic native proof now passes 124
+browser checks across natural navigation, exact roots/socket, admin controls,
+repository/account context, history/scroll/fragment traversal and invalidation.
+Final native composition and installed terminal lifetime remain open.
 Native document listeners and surviving navbar/language controls register
 as single global features. Page entry enhances new native nodes; retirement
 removes their dropdown, tooltip and table-sort state. All three contribution-root
@@ -53,7 +55,8 @@ lint checks pass. Automatic tooltip setup also preserves those roots while
 explicit tooltip APIs remain usable; ten DOM/observer cases pass. Native HTMX
 entry/retirement uses the pinned library process/swap APIs, cleans polling queues
 before aborting native XHRs, and excludes contribution roots. Four mocked-library
-join cases pass; actual polling/morph browser proof remains open. The host
+join cases pass; actual native polling/retirement also passes. Detailed morph
+and in-flight XHR cases remain separate open checks. The host
 navigator hook is available; actual route joins and remaining native classes
 stay open.
 No source or process responsibility moves to Soda.
@@ -70,9 +73,12 @@ caller cancellation without per-request forwarding listeners. Update, suspend an
 resume preserve requests. All 54 joined mount/navigation cases pass.
 The host invalidation signal is joined. Mount datasets derive their current
 browser version from the SDK constant; missing/skewed incoming versions retire
-rather than adopt an old owner. Canonical distribution and declared shared-owner/
-subroute wiring remain gated by the expanded native persistence proof. Consumer
-migration and native/installed transport qualification remain open.
+rather than adopt an old owner. The expanded native persistence proof releases
+contract finalization. Its seven-file checked C03 packet remains uncommitted,
+without Soda re-pin or updated-example native qualification. Declared shared-owner/
+subroute wiring, consumer migration and final native/installed transport
+qualification remain open. The [remaining schedule](../native-frontend-correction-tasks.md)
+preserves 34 open tasks, ready partial handoffs and the explicit implementation pause.
 
 The emitted stylesheet builder restores native `light-dark()` calls and removes
 consumer document-token declarations; its three emitted graph/token checks pass.
