@@ -1,6 +1,6 @@
 // Fountain canonical browser contract mirror (NFX-C03/H-N prep).
-// Source: Fountain sdk/browser/extension-contract.d.ts at 64afd5050a.
-// sha256(body): 2d8f680a0581251691a4192e54c21ca3400ca080d745865873f92fd142aa2ff3
+// Source: Fountain sdk/browser/extension-contract.d.ts at df41bd73d8.
+// sha256(body): 54eb17593dae064a754926676cf075d54affad3be728357677da77370c607ab7
 // contractMajor: 1, manifestProtocol: 1.
 // Do not hand-edit; re-sync from Fountain (lane C re-pins per change).
 // --- contract body begins ---
@@ -18,8 +18,10 @@
 //
 // Guaranteed lifetimes: update() and suspend()/resume() always preserve the
 // root and all retained resources (renderer/socket where used). Only retire()
-// — authority loss or removal — closes contribution streams. Ordinary native
-// navigation arrives as update(), never as suspend() or retire().
+// — authority loss or removal — closes contribution streams. The visible
+// retained owner receives update() across ordinary navigation, never
+// retire(); an owner sheltered while non-visible suspends and resumes with
+// full retention.
 
 /** Where the contribution is mounted: a native page slot or a retained panel. */
 export type ContributionMode = 'page' | 'panel';
@@ -132,13 +134,14 @@ export interface MountHandle {
    */
   update?: (presentation: ContributionPresentation) => void;
   /**
-   * Authority concealment: hide private state and pause visible work while
-   * the host revalidates the session. The root and all retained resources
-   * (renderer/socket where used) stay connected; only retire() closes them.
+   * Concealment: hide private state and pause visible work while the owner
+   * is sheltered non-visible across navigation or the host revalidates the
+   * session. The root and all retained resources (renderer/socket where
+   * used) stay connected; only retire() closes them.
    */
   suspend?: () => void;
   /**
-   * Rebind visible work after the host revalidates the session.
+   * Rebind visible work after shelter or session revalidation.
    * Suspend/resume never drops the socket.
    */
   resume?: (validation: ResumeValidation) => void;
