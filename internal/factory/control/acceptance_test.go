@@ -81,14 +81,13 @@ func TestAdmitAcceptanceVerifiesAndRecords(t *testing.T) {
 	if receipt.DecisionID != decision.ID || receipt.Head != decision.ID || receipt.Depth != 1 {
 		t.Fatalf("receipt: %+v", receipt)
 	}
-	if len(source.requests) != 1 {
-		t.Fatalf("requests: %d", len(source.requests))
-	}
-	// Only the objective, selected IDs and the edge set are read:
-	// unselected discussion never enters the bracket.
-	got := source.requests[0]
-	if len(got) != 4 || got[0] != "42" || got[1] != "3" || got[2] != "11" || got[3] != "12" {
-		t.Fatalf("request: %v", got)
+	// Admission brackets once; the post-admission readiness drain then
+	// re-brackets the head for validity and brackets the prerequisite
+	// endpoint bare (no head, no comments). Every bracket stays minimal:
+	// unselected discussion never enters any of them.
+	want := [][]string{{"42", "3", "11", "12"}, {"42", "3", "11", "12"}, {"42", "2"}}
+	if !reflect.DeepEqual(source.requests, want) {
+		t.Fatalf("requests: %v", source.requests)
 	}
 	stored, err := c.Store.AcceptanceDecision(context.Background(), decision.ID)
 	if err != nil || stored.Approver != 7 || stored.NativeRev != 41 || len(stored.Prerequisites) != 1 {

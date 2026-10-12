@@ -149,7 +149,7 @@ func TestAcceptanceDependants(t *testing.T) {
 	digest := strings.Repeat("d", 64)
 	dependent := factory.Acceptance{
 		ID: "d" + strings.Repeat("1", 24), Repository: 7, IssueIndex: "3",
-		Approver: 5, NativeRev: 9, TitleDigest: digest, ContentDigest: digest,
+		Approver: 5, NativeRev: 9, TitleDigest: digest, TitleOccurrence: factory.OriginalOccurrence, ContentDigest: digest,
 		Prerequisites: []factory.AcceptedPrerequisite{{
 			Occurrence: "21", DependsOn: "8", EndpointRepo: 7, EndpointIssue: 9,
 			Outcome: factory.PrereqResult,
@@ -181,7 +181,7 @@ func TestAcceptanceDependantsPagesAndPropagatesLateFailure(t *testing.T) {
 	for issue := int64(1); issue <= acceptanceDependantsPageSize+1; issue++ {
 		decision := factory.Acceptance{
 			ID: "d" + fmt.Sprintf("%024d", issue), Repository: 7, IssueIndex: strconv.FormatInt(issue, 10),
-			Approver: 5, NativeRev: 9, TitleDigest: digest, ContentDigest: digest,
+			Approver: 5, NativeRev: 9, TitleDigest: digest, TitleOccurrence: factory.OriginalOccurrence, ContentDigest: digest,
 		}
 		if issue == 1 || issue == acceptanceDependantsPageSize+1 {
 			decision.Prerequisites = append(decision.Prerequisites, factory.AcceptedPrerequisite{

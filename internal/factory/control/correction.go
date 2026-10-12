@@ -143,8 +143,11 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 			return report
 		}
 	}
+	// An unchanged head is not a correction and fences nothing: the run
+	// reported no newer candidate, so correction waits without mutating
+	// the publication. Fencing stays for genuinely invalid observations.
 	if reported.Candidate == p.Candidate || reported.Candidate == p.BaseSHA {
-		c.fenceCorrection(ctx, &report, &p, factory.PublishReasonInvalid)
+		correctionWait(&report, p.ID, "candidate_invalid")
 		return report
 	}
 	if err := recordConfirmedUsage(ctx, c.Store, assignment, run, time.Now()); err != nil {
