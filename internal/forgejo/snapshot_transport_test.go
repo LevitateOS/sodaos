@@ -16,6 +16,10 @@ type fakeBackgroundClient struct {
 	lastRequest extensions.SnapshotRequest
 }
 
+func (*fakeBackgroundClient) ReadOperations(context.Context) (extensions.OperationsHandshake, error) {
+	return extensions.OperationsHandshake{}, errors.New("not implemented")
+}
+
 func (f *fakeBackgroundClient) ReadNativeRevision(context.Context) (extensions.NativeRevisionObservation, error) {
 	if f.revisionErr != nil {
 		return extensions.NativeRevisionObservation{}, f.revisionErr
