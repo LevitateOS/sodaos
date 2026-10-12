@@ -16,9 +16,9 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2` and paired Fountain source
+Reviewed Soda source `32305c05ab5dde6ca65752bbd2135d9e997a2516` and paired Fountain source
 `442a42f24a8eefe46e187b550ec9db22b2660949` for the native frontend correction. This delta
-adds twelve focused domain, Store, API and browser source/test paths and changes no package, language
+adds fifteen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
@@ -29,7 +29,8 @@ Fountain now defines its page-feature registry/config replacement in
 `web_src/js/native-lifecycle.js`, with the admin user-list search control as its
 first consumer. Its radio/reset GETs now emit cancelable native submit events
 through `requestSubmit()`, preserving validation and the host navigation seam.
-The generic host owns these native duties. Ten focused lifecycle/control cases pass; the navigation regression still includes two explicit
+The generic host owns these native duties. Ten focused lifecycle/control cases pass; the navigation regression still includes
+two explicit
 expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
@@ -82,6 +83,14 @@ remain strict. Two PostgreSQL/API recovery/capture cases pass with injected
 judgments. The resulting exact JSON reaches the production Lit component:
 13 restoration and 5 parser cases pass with no skips, including ordered flow,
 recommendation/verdict restoration, failures, superseded loads and actor switches.
+Soda's type-only browser contract mirror now matches the canonical Fountain
+`df41bd73d8` declaration exactly, with a pinned body hash. It remains preparation;
+production callers still await the callable contract. Formatting excludes only
+that byte-pinned mirror. The existing local focus owner restores terminal dialogs
+to the persistent actions-menu summary instead of its hidden item. Five focused
+mirror/focus cases pass. The three added paths retain G01/S04/H06 ownership;
+no native host adapter, runtime package or process is added.
+
 GET restoration consumes no new judgments or effects. An explicitly requested
 join fails on missing/malformed capture files; ordinary component checks remain
 independent. Native composition and installed content remain I04/I08 evidence.
