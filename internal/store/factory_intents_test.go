@@ -3,10 +3,99 @@ package store
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
+
+func TestIntentRepositoryBindingSurvivesNonAcceptedHeads(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	idea := factory.ProductIdea{ID: "d888888888888888888888888", Description: "Track", Consequence: "Visibility", Decision: "accept", Source: "requested", Provenance: "human", Actor: 1}
+	task := factory.IntentTask{Key: "d999999999999999999999999", Objective: "Entry", Outcomes: []string{"Capture"}, IdeaIDs: []string{idea.ID}}
+	committed := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d000000000000000000000000", Owner: 1, Repository: 42, Objective: "Tracker", State: "accepted", MaxIssues: 10, CreatedUnix: 1, Ideas: []factory.ProductIdea{idea}, Tasks: []factory.IntentTask{task}}
+	if err := s.SaveIntentRevision(ctx, committed); err != nil {
+		t.Fatal(err)
+	}
+	refused := func(r factory.IntentRevision) {
+		t.Helper()
+		if err := s.SaveIntentRevision(ctx, r); err == nil || !strings.Contains(err.Error(), "repository change needs a separate build request") {
+			t.Fatalf("repository retarget accepted: %v", err)
+		}
+	}
+	draft := committed
+	draft.ID = "d222222222222222222222222"
+	draft.Predecessor = committed.ID
+	draft.State = "draft"
+	if err := s.SaveIntentRevision(ctx, draft); err != nil {
+		t.Fatal(err)
+	}
+	retarget := draft
+	retarget.ID = "d333333333333333333333333"
+	retarget.Predecessor = draft.ID
+	retarget.Repository = 43
+	refused(retarget)
+	head, err := s.IntentRevision(ctx, committed.Intent, 1)
+	if err != nil || head.ID != draft.ID {
+		t.Fatalf("refused save moved the head: %+v %v", head, err)
+	}
+	next := draft
+	next.ID = "d444444444444444444444444"
+	next.Predecessor = draft.ID
+	if err := s.SaveIntentRevision(ctx, next); err != nil {
+		t.Fatal(err)
+	}
+	rejected := next
+	rejected.ID = "d555555555555555555555555"
+	rejected.Predecessor = next.ID
+	rejected.State = "rejected"
+	if err := s.SaveIntentRevision(ctx, rejected); err != nil {
+		t.Fatal(err)
+	}
+	afterRejected := rejected
+	afterRejected.ID = "d666666666666666666666666"
+	afterRejected.Predecessor = rejected.ID
+	afterRejected.State = "draft"
+	afterRejected.Repository = 43
+	refused(afterRejected)
+	if err := s.SaveIntentRevision(ctx, rejected); err != nil {
+		t.Fatal("exact replay of pinned head refused")
+	}
+	same := rejected
+	same.ID = "d777777777777777777777777"
+	same.Predecessor = rejected.ID
+	same.State = "accepted"
+	if err := s.SaveIntentRevision(ctx, same); err != nil {
+		t.Fatal(err)
+	}
+	free := factory.IntentRevision{ID: "d000000000000000000000001", Intent: "dffffffffffffffffffffffff", Owner: 1, Repository: 7, Objective: "Tracker", State: "draft", MaxIssues: 10, CreatedUnix: 1}
+	if err := s.SaveIntentRevision(ctx, free); err != nil {
+		t.Fatal(err)
+	}
+	choice := free
+	choice.ID = "d000000000000000000000002"
+	choice.Predecessor = free.ID
+	choice.Repository = 8
+	if err := s.SaveIntentRevision(ctx, choice); err != nil {
+		t.Fatal("uncommitted repository choice refused")
+	}
+	first := choice
+	first.ID = "d000000000000000000000003"
+	first.Predecessor = choice.ID
+	first.State = "accepted"
+	first.Ideas = []factory.ProductIdea{idea}
+	first.Tasks = []factory.IntentTask{task}
+	if err := s.SaveIntentRevision(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	late := first
+	late.ID = "d000000000000000000000004"
+	late.Predecessor = first.ID
+	late.State = "draft"
+	late.Repository = 7
+	refused(late)
+}
 
 func TestIntentRevisionCASAndPrivacy(t *testing.T) {
 	s, _ := postgresFixture(t, nil)

@@ -969,11 +969,15 @@ do not gain the Soda database, broker secrets or privileged helper sockets.
 ## Accepted intent and generated native work
 
 A human's accepted product revision authorizes bounded derived work in its exact
-repository. It names accepted choices, material corrections and assumptions,
-task outcomes, graph edges and finite planning allowance. Department labels
-remain private creator-owned metadata and grant no access. Native generated
-issues are authored by the enrolled service actor; the human product approver
-and native effect actor remain distinct.
+repository. It names requested accepted choices (each marked requested/human
+or autonomous/settled), material corrections and assumptions, task outcomes
+and graph edges. Consultation funding is separate: each planning call spends
+one reservation from the intent's independent allowance head, authorized
+through the allowance routes; the revision's embedded planning-calls number
+funds nothing. Department labels remain private creator-owned metadata and
+grant no access. Native generated issues are authored by the enrolled
+service actor; the human product approver and native effect actor remain
+distinct.
 
 The graph operation is recorded before submission, fenced by the native revision,
 and attributed through Fountain's conditional mutation receipt. Soda persists

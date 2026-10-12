@@ -37,9 +37,39 @@ type ConsistencyReport struct {
 
 var effectPattern = regexp.MustCompile(`(?i)\b(email|calendar|payment|sms|access)\b`)
 
+// shortQuote bounds a declined description inside a mismatch detail so the
+// finding always fits its limit while naming the specific contradiction.
+func shortQuote(text string) string {
+	const limit = 160
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	return string(runes[:limit]) + "..."
+}
+
+// exclusionNamingEffect returns the first exclusion whose description or
+// consequence names the concrete effect word. Shared incidental vocabulary
+// proves nothing; only the identical effect on both sides is direct
+// identity. Semantic resemblance stays with the typed judgment, which sees
+// the complete exclusion meanings.
+func exclusionNamingEffect(exclusions []Exclusion, effect string) (Exclusion, bool) {
+	for _, exclusion := range exclusions {
+		for _, found := range effectPattern.FindAllString(strings.ToLower(exclusion.Description+" "+exclusion.Consequence), -1) {
+			if strings.ToLower(found) == effect {
+				return exclusion, true
+			}
+		}
+	}
+	return Exclusion{}, false
+}
+
 // CheckProposalEffects scans the recommended walkthrough for effect words
 // with no sourced basis in the person's facts. Person-sourced effects in
 // facts are allowed; silent authored additions are specific mismatches.
+// When the added effect is the identical concrete effect a decline names,
+// the finding cites that decline instead of the generic wording, without
+// asking for renewed approval of the rejection.
 func CheckProposalEffects(content ProposalContent, proposal ConsolidatedProposal) []Mismatch {
 	var mismatches []Mismatch
 	if len(proposal.Outcomes) == 0 || proposal.Outcomes[0] != proposalObjective(content.Objective) {
@@ -63,6 +93,10 @@ func CheckProposalEffects(content ProposalContent, proposal ConsolidatedProposal
 			continue
 		}
 		seen[word] = true
+		if exclusion, ok := exclusionNamingEffect(content.Exclusions, word); ok {
+			mismatches = append(mismatches, Mismatch{Class: MismatchEffectAdded, Detail: "The walkthrough reintroduces declined '" + shortQuote(exclusion.Description) + "' (idea " + exclusion.Idea + "); recompose without it."})
+			continue
+		}
 		mismatches = append(mismatches, Mismatch{Class: MismatchEffectAdded, Detail: "The walkthrough adds " + word + " without a sourced basis in the request."})
 	}
 	return mismatches

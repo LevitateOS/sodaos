@@ -7,13 +7,14 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-const consolidationRubric = "Compare the supplied product alternatives against the requested objective, facts and unknowns. Choose the one coherent alternative whose walkthrough best delivers the requested outcomes within stated constraints. Preserve the full objective; declining one alternative approves nothing else. Judge only supplied facts; grant no authority, access or spending."
+const consolidationRubric = "Compare the supplied product alternatives against the requested objective, facts and unknowns. Choose the one coherent alternative whose walkthrough best delivers the requested outcomes within stated constraints. Preserve the full objective; declining one alternative approves nothing else. Honor the supplied exclusions: never select a walkthrough that reintroduces declined behavior. Judge only supplied facts; grant no authority, access or spending."
 
 type consolidationEvidence struct {
 	Objective    string                       `json:"objective"`
 	Facts        []string                     `json:"facts"`
 	Unknowns     []string                     `json:"unknowns"`
 	Alternatives []factory.ProductAlternative `json:"alternatives"`
+	Exclusions   []factory.Exclusion          `json:"exclusions,omitempty"`
 }
 
 // JudgeConsolidation compares the content's actual alternatives and returns
@@ -35,7 +36,7 @@ func (c *Coordinator) JudgeConsolidation(ctx context.Context, r factory.IntentRe
 	if !content.Supported {
 		return factory.ConsolidatedProposal{}, errors.New("no alternatives to consolidate")
 	}
-	state := consolidationEvidence{Objective: r.Objective, Facts: content.Facts, Unknowns: content.Unknowns, Alternatives: content.Alternatives}
+	state := consolidationEvidence{Objective: r.Objective, Facts: content.Facts, Unknowns: content.Unknowns, Alternatives: content.Alternatives, Exclusions: content.Exclusions}
 	options := make(map[string]any, len(content.Alternatives))
 	for _, alternative := range content.Alternatives {
 		options[alternative.Key] = alternative.Name + ": " + alternative.Summary
