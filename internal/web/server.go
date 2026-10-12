@@ -88,6 +88,9 @@ func New(c config.Config, db *store.Store) *Server {
 			s.Coordinator.Merges = forgejo.NewMerger(background, client, c.ForgejoMergeCredentialFile)
 			s.Coordinator.Checks = forgejo.NewCheckAssessor(background, client, c.ForgejoMergeCredentialFile)
 		}
+		if c.ForgejoLifecycleCredentialFile != "" {
+			s.Coordinator.Lifecycle = forgejo.NewLifecycleExecutor(background, client, c.ForgejoLifecycleCredentialFile)
+		}
 	}
 	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
 		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),
