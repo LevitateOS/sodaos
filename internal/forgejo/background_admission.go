@@ -134,7 +134,11 @@ func (b *ServiceBackground) bootstrap(ctx context.Context, force bool, rejected 
 	call.admission, call.err = admission, err
 	b.bootstrapCall = nil
 	close(call.done)
+	hook := b.OnBootstrap
 	b.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	return admission, err
 }
 
