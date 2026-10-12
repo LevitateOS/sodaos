@@ -822,3 +822,34 @@ preparation record only; it accepts none of H03–H05.
   `update`/`suspend`/`resume`/`retire` waits for the C/D re-pin (H-N)
   and D05's transport/lifecycle migration; do not layer it onto the
   un-migrated `prepareExtensionMount` adapter from H alone.
+
+## Wave-2 H03/H05 slices (independent of A04/H-C)
+
+Rechecked against Soda `6a931fca` and Fountain `70f3f656c6` (C03 contract
+v1, C04 owner/subroutes, B03–B06 native lifetimes merged).
+
+- **Restored discoverability.** Fountain renders approved extension pages
+  in five native templates; Soda overrides three of them. The repository
+  header already rendered non-admin repository tabs first, but the branded
+  `repo/settings/navbar` dropped the admin extension tabs and
+  `user/settings/navbar` dropped the user extension tabs that Fountain
+  renders. Both navbars now render those pages again (admin-only in
+  repository settings, mirroring Fountain; all user pages in account
+  settings), with the native current-page semantics expressed as
+  `aria-current`. The global account navbar and admin navbar are not
+  overridden, so their native controls and tabs stay Fountain-owned.
+  Source composition in `scripts/forgejo_branding_composition_test.go`
+  covers both header entry orders (native page current, extension page
+  current), the switcher, the settings tabs and the native-history guard.
+- **Still blocked on A04/H-C.** No further template or script removal is
+  callable: the remaining 264-destination census entries carry live
+  branding structure/classes or Soda product behaviour, and their
+  simplification needs the native placement/container handoff, not
+  C03/C04/B03. The five scripts stay: B03 explicitly leaves `custom`
+  dropdowns to their feature owner (the switcher), and the other four
+  implement Soda product behaviour with no native replacement.
+- **E-owned needs (listed, not edited here).** If a future H-C container
+  lets a settings extension link live outside the grouped menus, E should
+  confirm `.soda-settings-nav-link` spacing in
+  `assets/branding/forgejo/components-settings.css`; no `components.css`
+  brand-section change is needed for the restored tabs.
