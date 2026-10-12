@@ -189,7 +189,7 @@ export function renderSetupBody(
         select: (value) => {
           actions.setRepositoryChoice(value);
         },
-        back: () => cancelSetup(read(), actions, host),
+        back: () => backToReview(read(), actions, host),
         continue: () => {
           void configureProject(read(), actions, host);
         },
@@ -286,9 +286,15 @@ function chooseIntentRepository(reading: SetupReading, actions: SetupActions, ho
   void searchRepositories({...reading, setup: 'repositories', repositoryChoice: ''}, actions, 1);
 }
 
-export function changeRepository(reading: SetupReading, actions: SetupActions, host: SetupHost) {
+export function backToReview(reading: SetupReading, actions: SetupActions, host: SetupHost) {
+  if (reading.stale || !reading.canRestore || reading.setup !== 'repositories' || !reading.activeSurface) return;
+  actions.setSetup('intent');
+  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+}
+
+export function inspectCommittedRequest(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore || reading.setup !== 'configure' || !reading.activeSurface) return;
-  actions.setSetup('repositories');
+  actions.setSetup('intent');
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
 }
 
