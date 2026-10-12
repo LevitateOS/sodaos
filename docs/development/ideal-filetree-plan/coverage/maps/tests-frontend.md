@@ -1,8 +1,15 @@
 # Tests frontend
 
-Scoped local dialog check at `0c759a2506031401ab03cf6a3b819cd20f9385a0` (2026-10-12): `dialog-geometry.test.ts` owns emitted-style fixture setup/geometry assertions (H06) and rename/creation/department local focus and dismissal checks (S04). Existing settings geometry adds keyboard wrap/Home/End and no-write selection. Six dialog and thirteen settings cases pass; default color scheme only, no zoom/native/installed claim.
+Scoped local geometry check at `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` (2026-10-12): existing settings/setup/dialog fixtures preserve local S05/S04 duties and H06 measurement/focus assertions. Fifteen settings, three setup, nine dialog and three empty-pane cases pass; reduced CSS viewport/allocation proxy and default colors only, with actual browser zoom/native/installed qualification open.
 
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
+
+## [tests/frontend/empty-pane-geometry.test.ts](../../../../../tests/frontend/empty-pane-geometry.test.ts)
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–15; existing workspace fixture setup and viewport matrix | H06 | retained | Reuses the existing browser harness; no parallel test framework. |
+| 16–88; empty-pane callback, pane/action/message containment and reachable-focus assertions | S05 | retained | Whole added body inspected at `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6`; three real local-browser cases pass, without native shell, actual browser zoom or installed claims. |
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
 One slice owns each named duty; disjoint complete symbols may share an owner.

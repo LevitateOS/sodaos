@@ -2,7 +2,7 @@
 
 ## Native correction target delta
 
-Source `7275ad33e4f5941b7356fdafc000721d39a6fa47` adds sixteen paths across settings, saved-review,
+Source `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` adds seventeen paths across settings, saved-review,
 emitted-color, browser contract and local focus corrections. Each follows the existing defining owner; this
 scoped allocation does not advance the historical complete-tree census.
 
@@ -24,6 +24,7 @@ scoped allocation does not advance the historical complete-tree census.
 | `tests/frontend/host-contract-pin.test.ts` | G01/H06 exact declaration hash/type check; retained browser test path |
 | `tests/frontend/workspace-focus.test.ts` | S04/H06 local terminal dialog focus check; retained browser test path |
 | `tests/frontend/dialog-geometry.test.ts` | S04/H06 local emitted-style dialog geometry/focus check; retained browser test path |
+| `tests/frontend/empty-pane-geometry.test.ts` | S05/H06 local terminal-selection geometry/focus check; retained browser test path |
 
 ## Complete proposed tree
 
@@ -2835,6 +2836,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   │   ├── workspace-measurement-probe.ts
 │   │   │   └── workspace-model.ts
 │   │   ├── drawer-controls.test.ts
+│   │   ├── empty-pane-geometry.test.ts
 │   │   ├── factory-settings-controls.test.ts
 │   │   ├── settings-geometry.test.ts
 │   │   ├── setup-geometry.test.ts

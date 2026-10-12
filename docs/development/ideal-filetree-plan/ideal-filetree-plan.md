@@ -16,9 +16,9 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `7275ad33e4f5941b7356fdafc000721d39a6fa47` and paired Fountain source
-`93c8d8a0f617d545a0b9b650539588b5af7449e6` for the native frontend correction. This delta
-adds sixteen focused domain, Store, API and browser source/test paths and changes no package, language
+Reviewed Soda source `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` and paired Fountain source
+`8da30c5a32ad067ec6dabeb8ed24949dfc9ac30d` for the native frontend correction. This delta
+adds seventeen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
@@ -34,9 +34,10 @@ native content uses the existing page region. Both parallel Workspace templates
 are removed. Native-first page-only entry, successful HTML render selection,
 session concealment and incoming version refusal have focused checks. Native
 null page configuration now clears stale keys with an empty object, while a
-missing envelope keeps the unknown-document path; its 29 navigation cases pass. Fifty-one
-browser mount/navigation/lifecycle/admin cases, the affected native router/context
-unit packages and the SDK module pass. The generic example uses an admitted
+missing envelope keeps the unknown-document path. Outgoing scroll is captured
+before native content replacement so layout clamping cannot lose the position
+Back must restore; its 30 navigation cases pass. Prior native router/context
+unit and SDK checks retain their unchanged source scopes. The generic example uses an admitted
 stream through the public helper. Expanded natural navigation and final native
 composition remain open; these checks do not qualify installed terminal lifetime.
 Native document listeners and surviving navbar/language controls now register
@@ -54,7 +55,7 @@ cases and browser type/lint checks pass, including failed and late mount cleanup
 Owner retirement, disposal and invalidation cancel admitted in-flight requests and
 body reads; pre-aborted callers send nothing. Native signal composition preserves
 caller cancellation without per-request forwarding listeners. Update, suspend and
-resume preserve requests. All 52 joined mount/navigation cases pass.
+resume preserve requests. All 53 joined mount/navigation cases pass.
 The host invalidation signal is joined. Mount datasets derive their current
 browser version from the SDK constant; missing/skewed incoming versions retire
 rather than adopt an old owner. Canonical distribution and declared shared-owner/
@@ -63,8 +64,9 @@ migration and native/installed transport qualification remain open.
 
 The emitted stylesheet builder restores native `light-dark()` calls and removes
 consumer document-token declarations; its three emitted graph/token checks pass.
-Local Project settings CSS bounds Identity and protects selected-panel space;
-all twelve wide/compact/short browser fixture cases pass using fallback fonts.
+Local Project settings CSS gives Identity a 64px floor, bounds repository context
+and protects selected-panel space. Fifteen settings cases pass using fallback
+fonts, including keyboard behavior, reduced CSS allocation and actual empty keys.
 The two new test paths are allocated to S05/H06 in the inventory and target tree.
 Native fonts/containers and terminal identity remain separate composition/installed evidence.
 The emitted-color Chrome fixture now checks dialog surface/border/text and
@@ -78,8 +80,9 @@ payload leaves, native initialization or shell ownership changed. Remaining
 branded composition checks retain their native/installed gates.
 
 The existing creation flow has measured reachable repository context and
-Back/Change repository/Cancel/Create actions at 320×568 and 720×422; the two
-browser fixture cases pass without a new product layout patch. Native-container
+Back/Change repository/Cancel/Create actions at 320×568, 720×422 and a 720×500
+reduced CSS viewport/allocation proxy; three browser fixture cases pass without a
+new product layout patch. Native-container
 and obsolete-gutter joins remain with F06/D cutover, not this local check.
 
 Saved-review domain/wire validity remains F05 in `internal/factory`, exact
@@ -114,13 +117,15 @@ mirror/focus cases pass. The three added paths retain G01/S04/H06 ownership;
 no native host adapter, runtime package or process is added.
 
 The local dialog fixture uses emitted extension styles and native document tokens.
-All six compact/short rename, creation and department cases pass, covering bounds,
-default-scheme opacity, initial focus, dismissal and restored focus. The thirteen
-settings cases include keyboard wrap/Home/End and no-write selection. These checks
-remain local composition; browser zoom and final native geometry remain open.
-The new dialog test retains S04/H06 ownership without a product layout change.
+Nine compact/short/reduced-viewport rename, creation and department cases pass,
+covering bounds, default-scheme opacity, initial focus, dismissal and restored
+focus. Three empty-pane cases measure message/actions containment and local focus.
+Together with the fifteen settings and three setup cases, all 30 checks pass.
+These checks remain local composition; actual browser zoom and final native
+geometry remain open. The new empty-pane test retains S05/H06 ownership without
+a parallel layout or test framework.
 
-The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
+The [current task state](implementation-tasks.md#current-task-state-2026-10-11)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
 on **2026-10-07**; those pins remain historical snapshots.
 The selected [library adoption](library-adoption.md) is complete at its recorded

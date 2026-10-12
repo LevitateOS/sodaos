@@ -61,12 +61,19 @@ remain unestablished. Broader legacy source failures are not relabeled green.
 
 ### Fountain native shell correction
 
-Source implementation is complete in Fountain `4306b09b33` and Soda `5eb22d44`,
-with verification refinements in Fountain `519aa18bec` and Soda `16e9545d`. Global and
-repository Workspace use the shared native templates, account controls and
-repository header. One retained Soda owner changes presentation without
-replacing terminal elements or sockets. Ordinary native browsing retains its
-existing iframe initialization; Workspace itself renders directly.
+The current native frontend responsibility correction is incomplete. Its
+[57-task list](native-frontend-correction-tasks.md) owns the required native feature
+lifecycle, reusable host contract, consumer cutover and current installed proof.
+The source, fixture and VM evidence below remains bound to its earlier revisions
+and does not qualify the new retained native region or complete this correction.
+
+Earlier source implementation was recorded in Fountain `4306b09b33` and Soda
+`5eb22d44`, with verification refinements in Fountain `519aa18bec` and Soda
+`16e9545d`. At that checkpoint, global and repository Workspace used the shared
+native templates, account controls and repository header. One retained Soda owner
+changed presentation without replacing terminal elements or sockets. Ordinary
+native browsing retained its iframe initialization; Workspace itself rendered
+directly.
 
 Three fresh JEV consultations advised this bounded approach. Actual native
 SQLite integration fixtures pass shared-template rendering and authentication,

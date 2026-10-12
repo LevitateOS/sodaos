@@ -211,8 +211,8 @@ content and content-specific controls; it must not recreate application-level
 navigation or supply a parallel page shell.
 
 The native URL and duplicate-bar fixes do not complete this requirement. The
-composition template still embeds native content in an iframe. Replace that
-arrangement for Workspace with direct rendering in the shared native layout,
+earlier composition template embedded native content in an iframe. Workspace
+must render directly in the shared native content region,
 retaining authoritative handlers, account/repository checks, session revalidation
 and exactly one Workspace owner. Preserve terminal renderer/socket lifetime
 through the existing owned mounting boundaries. Authentication, installation and
@@ -223,9 +223,11 @@ Acceptance requires shared-template rendering evidence and browser checks for
 global and repository Workspace, native navigation, direct entry, reload,
 back/forward, query/fragment, account controls, repository context and terminal
 preservation. Visual similarity alone does not establish shared ownership.
-The additional source correction and native/Chromium fixture checks are complete
-as recorded in the [implementation plan](factory-implementation-plan.md#fountain-native-shell-correction).
-Installed behavior and human-process continuity remain outside this evidence.
+The earlier source and native/Chromium checks retain their revision-bound scope
+in the [implementation plan](factory-implementation-plan.md#fountain-native-shell-correction).
+The current responsibility correction remains incomplete; native feature
+lifecycle, reusable host contracts, consumer cutover and installed qualification
+follow the [57-task correction list](native-frontend-correction-tasks.md).
 The original FX09 discovery, menu and empty-aside evidence retains its scope.
 
 ## Implementation work to prepare
