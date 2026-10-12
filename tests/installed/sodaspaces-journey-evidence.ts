@@ -60,6 +60,16 @@ export async function nativeSpacesMount(page: Page): Promise<string> {
   return generation;
 }
 
+/** Validated mount facts callers need for exact request paths. */
+export async function mountedSpacesFacts(page: Page): Promise<{subURL: string; apiBase: string}> {
+  const workspace = page.locator('[data-extension-workspace]');
+  const subURL = (await workspace.getAttribute('data-app-sub-url')) ?? '';
+  const base = await page.locator(spacesMount).getAttribute('data-extension-api-base');
+  assert(base, 'Spaces mount has no API base');
+  const api = new URL(base, new URL(page.url()).origin);
+  return {subURL, apiBase: api.pathname.replace(/\/$/, '')};
+}
+
 export async function spacesContent(page: Page): Promise<Page> {
   // The source-only workspace fixture deliberately mounts Spaces at `/` without
   // Forgejo's extension router. Keep this exact fixture opt-in local to tests.
@@ -73,6 +83,11 @@ export interface FirstUseEvidence {
   session?: MatrixSession;
   facts?: MatrixFacts;
   writes: string[];
+  intent?: string;
+  explore_status?: number;
+  decisions?: string[];
+  factory?: string[];
+  generation?: string;
   create_status?: number;
   join_status?: number;
   attached?: boolean;
