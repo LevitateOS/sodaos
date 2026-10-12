@@ -16,9 +16,10 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `668f551c0334954ee5d7a48dc23c5d80170c86da` and paired Fountain source
-`b1603d3f90535d4abf4c80c8619ff2f76e8e146e` for the native frontend correction. This delta
-adds no Soda paths and changes no package, language or process ownership.
+Reviewed Soda source `8fd38912bf3bed4287387d482e96f7e0fb0e4776` and paired Fountain source
+`64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
+adds ten focused domain, Store, API and browser source/test paths and changes no package, language
+or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
 follow that same route. The affected inventory and symbol maps below preserve
@@ -31,7 +32,35 @@ and control checks pass; the navigation regression still includes two explicit
 expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
-The desired responsibility split and remaining correction tasks are unchanged.
+Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
+its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
+mount/update/suspend/resume/retire and admitted scoped transport. Thirteen mount
+cases and browser type/lint checks pass, including failed and late mount cleanup.
+A must join the host invalidation signal. Canonical distribution and production
+owner/route wiring remain gated by actual native persistence proof; this prototype
+does not release consumer migration or close revalidation/transport cancellation.
+
+The emitted stylesheet builder restores native `light-dark()` calls and removes
+consumer document-token declarations; its three emitted graph/token checks pass.
+Local Project settings CSS bounds Identity and protects selected-panel space;
+all twelve wide/compact/short browser fixture cases pass using fallback fonts.
+The two new test paths are allocated to S05/H06 in the inventory and target tree.
+Native fonts/containers and terminal identity remain separate composition/installed evidence.
+The emitted-color Chrome fixture now checks dialog surface/border/text and
+action/link colors in both native-selected schemes. Font imports are excluded
+from color evidence. The desired responsibility split is
+unchanged; neither this delta nor its fixtures qualify final native behavior.
+
+Saved-review domain/wire validity remains F05 in `internal/factory`, exact
+private persistence remains in `internal/store`, and the existing web API owns
+Explore saving plus exact owner-private reads. Browser parsing stays in the
+existing F05 response module. The seven new source/test paths follow those
+owners. PostgreSQL save/replay/CAS/privacy/forced-rollback cases pass (7 executed,
+0 skipped); joined schema drift checks, six domain cases, browser parser and
+TypeScript/Lit checks pass against `cb8492909eef64718103940f733a13bcfe5b9b97`. Schema 47 adds one
+review table; Open refuses protected existing schema 46 until a tested preserving
+operator transition is applied. No VM activation is claimed. Current source maps
+record these added duties without advancing historical full-body audit pins.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,

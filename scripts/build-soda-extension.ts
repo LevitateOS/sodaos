@@ -10,7 +10,7 @@ const entries = {
   'soda-workspace-panel-entry.js': 'frontend/spaces/soda-workspace-panel-entry.ts',
   'soda-tailnet-entry.js': 'frontend/tailnet/soda-tailnet-entry.ts',
 } as const;
-const styles = {
+export const styles = {
   'components.css': 'assets/branding/forgejo/components.css',
   'sodaspaces.css': 'frontend/spaces/sodaspaces.css',
   'sodaspaces-page.css': 'frontend/spaces/sodaspaces-workspace.css',
@@ -74,7 +74,103 @@ async function buildScripts(assets: string) {
   assert.deepEqual(output.sort(), Object.keys(entries).sort(), 'Manifest entries lack built browser modules');
 }
 
-async function buildStyles(assets: string) {
+function closingParen(css: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === '(') depth++;
+    else if (css[i] === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  throw new Error('Unbalanced parentheses in emitted stylesheet');
+}
+
+// Pinned Bun 1.4.2 lowers light-dark() to guard-variable fragments but emits
+// the selection guards only alongside in-graph color-scheme rules. Native
+// scheme selection lives outside this compilation graph, so restore the native
+// call and let the browser resolve it against the external selection.
+function restoreNativeSchemeCalls(css: string): string {
+  const lightMarker = 'var(--buncss-light,';
+  const darkMarker = 'var(--buncss-dark,';
+  let output = '';
+  let rest = css;
+  for (;;) {
+    const light = rest.indexOf(lightMarker);
+    if (light < 0) {
+      assert(!rest.includes('--buncss-'), 'Unpaired lowered scheme fragment in emitted stylesheet');
+      return output + rest;
+    }
+    const lightEnd = closingParen(rest, light + 3);
+    let dark = lightEnd + 1;
+    while (rest[dark] === ' ' || rest[dark] === '\n' || rest[dark] === '\t' || rest[dark] === '\r') dark++;
+    if (!rest.startsWith(darkMarker, dark)) throw new Error('Unpaired lowered scheme fragment in emitted stylesheet');
+    const darkEnd = closingParen(rest, dark + 3);
+    output += `${rest.slice(0, light)}light-dark(${rest.slice(light + lightMarker.length, lightEnd)},${rest.slice(dark + darkMarker.length, darkEnd)})`;
+    rest = rest.slice(darkEnd + 1);
+  }
+}
+
+function matchBrace(css: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === '{') depth++;
+    else if (css[i] === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  throw new Error('Unbalanced braces in emitted stylesheet');
+}
+
+// H owns document-level native branding: the extension copy must never
+// redeclare :root. Strip top-level :root rules from emitted extension
+// stylesheets so the single document value source governs via inheritance.
+function stripDocumentTokens(css: string): string {
+  const kept: string[] = [];
+  let i = 0;
+  while (i < css.length) {
+    let j = i;
+    let parens = 0;
+    let closer = -1;
+    let isRule = false;
+    while (j < css.length) {
+      const char = css[j];
+      if (char === '(') parens++;
+      else if (char === ')') parens--;
+      else if (parens === 0 && char === '{') {
+        closer = j;
+        isRule = true;
+        break;
+      } else if (parens === 0 && char === ';') {
+        closer = j;
+        break;
+      }
+      j++;
+    }
+    if (closer < 0) {
+      kept.push(css.slice(i));
+      break;
+    }
+    if (!isRule) {
+      kept.push(css.slice(i, closer + 1));
+      i = closer + 1;
+      continue;
+    }
+    const selector = css.slice(i, closer).trim();
+    const end = matchBrace(css, closer);
+    if (selector === ':root') {
+      i = end + 1;
+      continue;
+    }
+    if (selector.includes(':root')) throw new Error(`Grouped :root selector needs explicit scoping: ${selector}`);
+    kept.push(css.slice(i, end + 1));
+    i = end + 1;
+  }
+  return kept.join('');
+}
+
+export async function buildExtensionStylesheets(assets: string): Promise<void> {
   for (const [name, path] of Object.entries(styles)) {
     const result = await Bun.build({
       entrypoints: [source(path)],
@@ -98,6 +194,8 @@ async function buildStyles(assets: string) {
       result.outputs.map((file) => basename(file.path)),
       [name]
     );
+    const emitted = resolve(assets, name);
+    await writeFile(emitted, stripDocumentTokens(restoreNativeSchemeCalls(await readFile(emitted, 'utf8'))));
   }
   const terminal = resolve(assets, 'sodaspaces-terminal.css');
   await writeFile(terminal, `@import url("./soda-terminal/xterm.css");\n${await readFile(terminal, 'utf8')}`);
@@ -163,7 +261,7 @@ export async function buildSodaExtensionAssets(out: string, terminal: string) {
   const assets = resolve(out, 'assets');
   await mkdir(assets, {recursive: true});
   await buildScripts(assets);
-  await buildStyles(assets);
+  await buildExtensionStylesheets(assets);
   await copyLockedTerminal(assets, terminal);
   await copyNotices(assets);
   const files = (await filesUnder(assets)).sort();

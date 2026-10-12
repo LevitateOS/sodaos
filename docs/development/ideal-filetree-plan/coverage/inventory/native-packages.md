@@ -1,5 +1,7 @@
 # Tracked files: lib
 
+Scoped saved-review delta at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): Release-image schema version tracks47; D05 metadata ownership is unchanged.
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `45ebf4c4` (2026-10-09); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.

@@ -2,6 +2,8 @@
 
 Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
 
+Scoped saved-review source at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): F05 apiIntentExplore stores the actual returned review atomically. apiIntentReview performs exact current/stale/missing reads with no model calls/effects; the central native route keeps existing session/contribution guards. New focused tests remain with the API.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).

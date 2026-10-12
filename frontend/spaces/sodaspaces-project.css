@@ -3,7 +3,8 @@
 .soda-spaces-tabs { display: flex; flex-shrink: 0; gap: var(--soda-space-1); overflow-x: auto; width: calc(100% - 80px); box-sizing: border-box; padding: var(--soda-space-1) var(--soda-space-2); border-bottom: 1px solid var(--soda-page-edge); }
 .soda-spaces-tabs button { flex-shrink: 0; }
 .soda-spaces-tabs [aria-selected=true] { box-shadow: inset 0 -2px var(--soda-page-link); }
-.soda-spaces-view { flex: 1; min-height: 0; min-width: 0; overflow: auto; padding: var(--soda-panel-inset); }
+.soda-spaces-view { flex: 1; min-height: 30%; min-width: 0; overflow: auto; padding: var(--soda-panel-inset); }
+.soda-spaces-controls > soda-identity { flex: 0 1 auto; min-height: 0; max-height: 40%; overflow: auto; }
 .soda-spaces-summary { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: var(--soda-space-half) var(--soda-space-3); padding: var(--soda-space-1) var(--soda-space-3); border-top: 1px solid var(--soda-page-edge); font: var(--soda-font-caption); max-height: 25%; overflow: auto; }
 .soda-spaces-summary [data-control=result] { flex-basis: 100%; }
 .soda-spaces-view > a { display: inline-block; margin-block: var(--soda-space-2); }
