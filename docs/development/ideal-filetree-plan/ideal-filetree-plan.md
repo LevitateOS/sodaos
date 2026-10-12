@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `082beb863a1108b11765ee106852ed56600007bc` and paired Fountain source
-`b1603d3f90535d4abf4c80c8619ff2f76e8e146e` for the native frontend correction. This delta
+`64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
 adds two focused settings fixture/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -32,6 +32,14 @@ and control checks pass; the navigation regression still includes two explicit
 expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
+Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
+its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
+mount/update/suspend/resume/retire and admitted scoped transport. Thirteen mount
+cases and browser type/lint checks pass, including failed and late mount cleanup.
+A must join the host invalidation signal. Canonical distribution and production
+owner/route wiring remain gated by actual native persistence proof; this prototype
+does not release consumer migration or close revalidation/transport cancellation.
+
 The emitted stylesheet builder restores native `light-dark()` calls and removes
 consumer document-token declarations; its three emitted graph/token checks pass.
 Local Project settings CSS bounds Identity and protects selected-panel space;
