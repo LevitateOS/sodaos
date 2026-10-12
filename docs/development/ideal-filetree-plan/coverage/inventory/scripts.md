@@ -1,5 +1,7 @@
 # Tracked files: scripts
 
+
+Scoped native frontend delta at `668f551c0334954ee5d7a48dc23c5d80170c86da` (2026-10-12): `TestSodaNavigationComesFromForgejoExtensionManifest`: Tailnet is the declared global route without an admin permission. No added or deleted paths; historical rows retain their separate scope.
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path accounting at `519b76bd` (2026-10-07).

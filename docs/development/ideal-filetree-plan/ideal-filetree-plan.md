@@ -14,6 +14,25 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
+## Scoped native frontend maintenance (2026-10-12)
+
+Reviewed Soda source `668f551c0334954ee5d7a48dc23c5d80170c86da` and paired Fountain source
+`b1603d3f90535d4abf4c80c8619ff2f76e8e146e` for the native frontend correction. This delta
+adds no Soda paths and changes no package, language or process ownership.
+Soda's existing `allowedContribution` now admits the manifest's global Tailnet
+route only for the configured operator; the three declaration/policy test files
+follow that same route. The affected inventory and symbol maps below preserve
+all unrelated historical body, catalog and structural review pins.
+
+Fountain now defines its page-feature registry/config replacement in
+`web_src/js/native-lifecycle.js`, with the admin user-list search control as its
+first consumer. The generic host owns these native duties. Its focused lifecycle
+and control checks pass; the navigation regression still includes two explicit
+expected failures, and the corrected live-terminal fixture has only been vetted.
+These source changes release implementation of the native transition; they do
+not establish native browser composition, terminal preservation or deployment.
+The desired responsibility split and remaining correction tasks are unchanged.
+
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
 on **2026-10-07**; those pins remain historical snapshots.

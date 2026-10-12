@@ -111,13 +111,14 @@ func TestForgejoPayloadExtensionPagesDeclaredInNativePackage(t *testing.T) {
 	Check(t, len(ids) == 2 && ids["spaces"] && ids["tailnet"], "page ids = %v", ids)
 }
 
-func TestForgejoPayloadOperatorSettingsUseSeparatePackage(t *testing.T) {
-	ids := map[string]bool{}
+func TestForgejoPayloadOperatorSettingsUseDeclaredTailnetRoute(t *testing.T) {
+	declared := map[string]bool{}
 	for _, entry := range extensionPages(t) {
 		page := entry.(map[string]any)
-		if page["scope"] == "admin" {
-			ids[page["id"].(string)] = true
+		if page["id"] == "tailnet" && page["scope"] == "global" && page["route"] == "tailnet" {
+			_, hasPermission := page["permission"]
+			declared["tailnet"] = !hasPermission
 		}
 	}
-	Check(t, len(ids) == 1 && ids["tailnet"], "admin page ids = %v", ids)
+	Check(t, len(declared) == 1 && declared["tailnet"], "tailnet page declaration = %v", declared)
 }
