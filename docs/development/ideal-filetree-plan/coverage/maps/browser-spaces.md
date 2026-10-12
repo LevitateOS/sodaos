@@ -6,6 +6,8 @@ Scoped guarded restoration at `6f30b3396b729278fe3a0040ffdc4b6de18b3d3f`: `SodaI
 
 Scoped size/concern review at `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2`: intent-review-restore.test.ts now exceeds 400 lines; its production component fixture and failure/account/actual-wire cases share F05/H06 ownership. Generated capture bytes remain ignored, and ordinary component tests do not require them.
 
+Scoped contract/focus delta at `32305c05ab5dde6ca65752bbd2135d9e997a2516`: `frontend/spaces/fountain-browser-contract.d.ts` mirrors all canonical host declarations without defining consumer runtime behavior (G01); `rememberFocus` in `sodaspaces-workspace-focus.ts` resolves the persistent `.soda-menu summary` before closing the menu (S04). Its callers and signatures retain their previous duties. Exact mirror bytes and three focused local focus cases pass; host migration and native composition remain open.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
