@@ -243,7 +243,7 @@ test('first use: resumed accepted request restores its overview with native link
   assert.equal(await page.locator('soda-factory-work-overview').count(), 0);
   const settledCalls = await page.evaluate(() => window.workspaceFixture.calls.length);
   await page.evaluate((id) => {
-    window.history.pushState({}, '', `/workspace/requests/${id}`);
+    window.history.pushState({}, '', `/forgejo.test/workspace/requests/${id}`);
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, intent);
   const overview = page.locator('soda-factory-work-overview');
@@ -256,6 +256,55 @@ test('first use: resumed accepted request restores its overview with native link
     settledCalls
   );
   assert.equal(writes, 0);
+});
+test('first use: committed inspection mounts plan, detail and revision from the overview scope', async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  const intent = await page.evaluate(() => {
+    const calls = window.workspaceFixture.calls as {body?: Record<string, unknown>}[];
+    const accepted = calls.find((call) => (call.body as Record<string, unknown> | undefined)?.state === 'accepted');
+    return String((accepted?.body as Record<string, unknown> | undefined)?.intent || '');
+  });
+  assert.match(intent, /^d[0-9a-f]{24}$/);
+  await page.getByRole('button', {name: 'Change repository', exact: true}).click();
+  const overview = page.locator('soda-factory-work-overview');
+  await overview.getByText('Build a small project tracker').waitFor();
+  await page.locator('soda-factory-work-plan').waitFor();
+  await page.locator('soda-factory-work-detail').waitFor();
+  await page.locator('soda-factory-direction-revision').waitFor();
+  assert.equal(await page.locator('soda-factory-work-detail').count(), 1);
+  await page.waitForFunction(() =>
+    window.workspaceFixture.calls.some((call) =>
+      call.path.endsWith('/api/repositories/7/factory/issues/5/plan?limit=5')
+    )
+  );
+  await page.waitForFunction(() =>
+    window.workspaceFixture.calls.some((call) => call.path.endsWith('/api/repositories/7/factory/issues/5'))
+  );
+  await page.waitForFunction(
+    (id) =>
+      window.workspaceFixture.calls.some((call) => call.path.endsWith(`/api/factory/intents/${id}/revisions?limit=2`)),
+    intent
+  );
+  await page.waitForFunction(() => {
+    const el = document.querySelector('soda-intent');
+    const h2 = Array.from(el?.shadowRoot?.querySelectorAll('h2') || []).find(
+      (h) => h.textContent?.trim() === 'Review your product direction'
+    );
+    if (!h2) return false;
+    const r = h2.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  assert.equal(await page.locator('soda-factory-work-overview').count(), 0);
+  assert.equal(await page.locator('soda-factory-work-plan').count(), 0);
+  assert.equal(await page.locator('soda-factory-work-detail').count(), 0);
+  assert.equal(await page.locator('soda-factory-direction-revision').count(), 0);
 });
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);

@@ -1,44 +1,94 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {
+  childScopeFromReading,
   intentIdentity,
   inventoryIntents,
   newRouteFor,
+  overviewScopeDetail,
   requestIdFromLocation,
   requestRouteFor,
+  sameScope,
 } from '../../frontend/spaces/sodaspaces-workspace-setup';
+import type {SetupReading} from '../../frontend/spaces/sodaspaces-workspace-setup';
+import type {PreparedExtensionMount} from '../../frontend/spaces/soda-extension';
+import type {WorkOverviewContext} from '../../frontend/spaces/sodaspaces-factory-work';
+import type {OverviewScope} from '../../frontend/spaces/sodaspaces-factory-progress-view';
 
 const id = 'd0123456789abcdef01234567';
+const transport = {} as unknown as PreparedExtensionMount;
+const capabilities = {
+  watch: {available: true},
+  stop: {available: true},
+  retry: {available: false},
+  takeover: {available: true},
+  pause: {available: true},
+  resume: {available: true},
+};
+const scope: OverviewScope = {repository: '7', intentID: id, issues: [{issue: '5', capabilities}]};
+const context: WorkOverviewContext = {
+  transport,
+  repository: '7',
+  repositoryPath: '/forgejo.test/alice/Alpha',
+  intentID: id,
+};
+
+function setupReadingWith(overrides: Partial<SetupReading>): SetupReading {
+  return {
+    setup: 'intent',
+    stale: false,
+    canRestore: true,
+    activeSurface: true,
+    setupCommitted: true,
+    reviewedIntent: id,
+    repositoryChoice: '7',
+    transport,
+    overviewScope: scope,
+    ...overrides,
+  } as SetupReading;
+}
+
+function scopeEvent(detail: unknown): Event {
+  return new CustomEvent('soda-factory-overview-scope', {detail});
+}
 
 test('request id reads only from app-root request routes', () => {
-  assert.equal(requestIdFromLocation('/workspace/requests/' + id), id);
-  assert.equal(requestIdFromLocation('/forge/workspace/requests/' + id), id);
-  for (const path of [
-    '/workspace',
-    '/workspace/new',
-    '/workspace/requests',
-    '/workspace/requests/',
-    '/workspace/requests/bad',
-    '/workspace/requests/d0123456789abcdef0123456',
-    '/workspace/requests/d0123456789ABCDEF01234567',
-    '/workspace/requests/' + id + '/extra',
-    '/user2/repo1/workspace/requests/' + id,
-    '/a/b/workspace/requests/' + id,
-    '/issues',
-    '/',
-  ]) {
-    assert.equal(requestIdFromLocation(path), '', path);
+  assert.equal(requestIdFromLocation('/workspace/requests/' + id, ''), id);
+  assert.equal(requestIdFromLocation('/forge/workspace/requests/' + id, '/forge'), id);
+  assert.equal(requestIdFromLocation('/team/tools/workspace/requests/' + id, '/team/tools'), id);
+  assert.equal(requestIdFromLocation('/workspace-tools/forge/workspace/requests/' + id, '/workspace-tools/forge'), id);
+  const negatives: [string, string][] = [
+    ['/workspace', ''],
+    ['/workspace/new', ''],
+    ['/workspace/requests', ''],
+    ['/workspace/requests/', ''],
+    ['/workspace/requests/bad', ''],
+    ['/workspace/requests/d0123456789abcdef0123456', ''],
+    ['/workspace/requests/d0123456789ABCDEF01234567', ''],
+    ['/workspace/requests/' + id + '/extra', ''],
+    ['/user2/repo1/workspace/requests/' + id, ''],
+    ['/a/b/workspace/requests/' + id, ''],
+    ['/team/tools/workspace/requests/' + id, ''],
+    ['/team/tools/workspace/requests/' + id, '/team'],
+    ['/forgeX/workspace/requests/' + id, '/forge'],
+    ['/workspace/requests/' + id, '/forge'],
+    ['/issues', ''],
+    ['/', ''],
+  ];
+  for (const [path, prefix] of negatives) {
+    assert.equal(requestIdFromLocation(path, prefix), '', `${prefix} ${path}`);
   }
 });
 
 test('request and new routes preserve the sub-path prefix', () => {
-  assert.equal(requestRouteFor('/workspace/new', id), '/workspace/requests/' + id);
-  assert.equal(requestRouteFor('/forge/workspace/new', id), '/forge/workspace/requests/' + id);
-  assert.equal(requestRouteFor('/workspace/requests/' + id, id), '/workspace/requests/' + id);
-  assert.equal(requestRouteFor('/', id), '/workspace/requests/' + id);
-  assert.equal(newRouteFor('/workspace/requests/' + id), '/workspace/new');
-  assert.equal(newRouteFor('/forge/workspace/requests/' + id), '/forge/workspace/new');
-  assert.equal(newRouteFor('/'), '/workspace/new');
+  assert.equal(requestRouteFor('', id), '/workspace/requests/' + id);
+  assert.equal(requestRouteFor('/forge', id), '/forge/workspace/requests/' + id);
+  assert.equal(requestRouteFor('/team/tools', id), '/team/tools/workspace/requests/' + id);
+  assert.equal(requestRouteFor('/workspace-tools/forge', id), '/workspace-tools/forge/workspace/requests/' + id);
+  assert.equal(newRouteFor(''), '/workspace/new');
+  assert.equal(newRouteFor('/forge'), '/forge/workspace/new');
+  assert.equal(newRouteFor('/team/tools'), '/team/tools/workspace/new');
+  assert.equal(newRouteFor('/workspace-tools/forge'), '/workspace-tools/forge/workspace/new');
 });
 
 test('intent identity reads the saved/resumed detail only', () => {
@@ -74,4 +124,64 @@ test('inventory intents parse the saved list and reject malformed payloads', () 
     inventoryIntents(new CustomEvent('intent-inventory', {detail: {intents: [{...savedEntry, intent: 'bad'}]}})),
     []
   );
+});
+
+test('overview scope feed keeps valid entries and retires on malformed payloads', () => {
+  assert.deepEqual(
+    overviewScopeDetail(scopeEvent({repository: '7', intentID: id, issues: [{issue: '5', capabilities}]})),
+    scope
+  );
+  assert.deepEqual(overviewScopeDetail(scopeEvent({repository: '', issues: []})), {repository: '', issues: []});
+  assert.deepEqual(
+    overviewScopeDetail(scopeEvent({repository: '7', issues: [{issue: ''}, {issue: '5'}, 'nope', null]})),
+    {repository: '7', issues: [{issue: '5'}]}
+  );
+  assert.deepEqual(
+    overviewScopeDetail(
+      scopeEvent({repository: '7', issues: [{issue: '5', capabilities: {pause: {available: 'yes'}}}]})
+    ),
+    {repository: '7', issues: [{issue: '5'}]}
+  );
+  for (const detail of [
+    null,
+    undefined,
+    {},
+    {repository: 7, issues: []},
+    {repository: '7'},
+    {repository: '7', issues: {}},
+  ]) {
+    assert.equal(overviewScopeDetail(scopeEvent(detail)), undefined);
+  }
+  assert.equal(overviewScopeDetail(scopeEvent({repository: '7', intentID: 7, issues: []})), undefined);
+});
+
+test('scope equality compares values so refresh re-dispatch does not churn the root', () => {
+  assert.equal(sameScope(undefined, undefined), true);
+  assert.equal(sameScope(scope, scope), true);
+  assert.equal(sameScope(scope, {repository: '7', intentID: id, issues: [{issue: '5', capabilities}]}), true);
+  assert.equal(sameScope(scope, undefined), false);
+  assert.equal(sameScope(scope, {repository: '', issues: []}), false);
+  assert.equal(sameScope(scope, {repository: '7', intentID: 'dffffffffffffffffffffffff', issues: []}), false);
+  assert.equal(sameScope(scope, {repository: '7', intentID: id, issues: [{issue: '6'}]}), false);
+});
+
+test('work children derive only from a live scope matching the retained identity', () => {
+  const children = childScopeFromReading(setupReadingWith({}), context);
+  assert.deepEqual(children, {scope, transport, repository: '7', repositoryPath: '/forgejo.test/alice/Alpha'});
+  assert.deepEqual(
+    childScopeFromReading(setupReadingWith({overviewScope: {repository: '7', issues: [{issue: '5'}]}}), context)?.scope,
+    {repository: '7', issues: [{issue: '5'}]}
+  );
+  for (const reading of [
+    setupReadingWith({overviewScope: undefined}),
+    setupReadingWith({overviewScope: {repository: '', issues: []}}),
+    setupReadingWith({overviewScope: {repository: '8', intentID: id, issues: [{issue: '5'}]}}),
+    setupReadingWith({
+      overviewScope: {repository: '7', intentID: 'dffffffffffffffffffffffff', issues: [{issue: '5'}]},
+    }),
+    setupReadingWith({stale: true}),
+    setupReadingWith({setup: 'repositories'}),
+  ]) {
+    assert.equal(childScopeFromReading(reading, context), undefined);
+  }
 });

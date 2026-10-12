@@ -56,6 +56,7 @@ import {
 import {newRouteFor, requestIdFromLocation, requestIDPattern, requestRouteFor} from './sodaspaces-workspace-setup.js';
 import {resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
+import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {
   attentionRows,
@@ -141,6 +142,7 @@ export class SodaSpaces extends LitElement {
     repositoryChoice: {state: true},
     repositoryBusy: {state: true},
     repositoryError: {state: true},
+    overviewScope: {state: true},
     spaces: {
       state: true,
     },
@@ -238,6 +240,7 @@ export class SodaSpaces extends LitElement {
   private reviewAuthorization: {ideas: number; tasks: number} | undefined;
   private reviewedIntent: string | undefined;
   private setupCommitted = false;
+  private overviewScope: OverviewScope | undefined;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
   private renaming = new Set<string>();
@@ -301,7 +304,7 @@ export class SodaSpaces extends LitElement {
       this.binding?.kind === 'page' &&
       (!!this.setup ||
         (!this.spaces.length && !this.binding.repositoryId) ||
-        requestIdFromLocation(window.location.pathname) !== '')
+        requestIdFromLocation(window.location.pathname, this.repositoryPrefix()) !== '')
     );
   }
   private get welcomeScreen() {
@@ -956,18 +959,20 @@ export class SodaSpaces extends LitElement {
       setupReturn: this.setupReturn,
       firstSpace: this.spaces[0],
       actorId: this.actor?.id || '',
-      requestId: requestIdFromLocation(window.location.pathname),
+      requestId: requestIdFromLocation(window.location.pathname, this.repositoryPrefix()),
       reviewAuthorization: this.reviewAuthorization,
       reviewedIntent: this.reviewedIntent,
       setupCommitted: this.setupCommitted,
       transport: this.binding?.transport,
       suggestedRepository: this.suggestedSetupRepository(),
+      overviewScope: this.overviewScope,
+      committedSpace: this.spaces.find((space) => space.environment.repository_id === this.repositoryChoice),
       onBegin: this.onBeginSetup,
       onRefresh: this.onRefreshClick,
     };
   }
   private suggestedSetupRepository(): string | undefined {
-    const requestId = requestIdFromLocation(window.location.pathname);
+    const requestId = requestIdFromLocation(window.location.pathname, this.repositoryPrefix());
     if (!requestId) return undefined;
     return this.savedRequests?.find((saved) => saved.intent === requestId)?.repository;
   }
@@ -1040,12 +1045,15 @@ export class SodaSpaces extends LitElement {
       setSavedRequests: (intents) => {
         this.savedRequests = intents;
       },
+      setOverviewScope: (scope) => {
+        this.overviewScope = scope;
+      },
     };
   }
   private syncIntentRoute(intent: string | null) {
     if (intent !== null && !requestIDPattern.test(intent)) return;
     const target =
-      intent === null ? newRouteFor(window.location.pathname) : requestRouteFor(window.location.pathname, intent);
+      intent === null ? newRouteFor(this.repositoryPrefix()) : requestRouteFor(this.repositoryPrefix(), intent);
     if (target !== window.location.pathname) {
       const url = target + window.location.search + window.location.hash;
       if (intent === null) window.history.pushState(null, '', url);
