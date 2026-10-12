@@ -19,6 +19,20 @@ export function createIntentModel() {
       revisions.set(revision.id, revision);
       return Response.json({...body, owner: '1', created_unix: 1}, {status: 201});
     }
+    if (method === 'GET' && /\/api\/factory\/intents(\?.*)?$/.test(path)) {
+      const limit = Number(new URL(path, 'http://fixture').searchParams.get('limit') ?? '20');
+      const all = [...revisions.values()].map((revision) => ({
+        intent: revision.intent,
+        revision: revision.id,
+        state: revision.state,
+        objective: revision.objective,
+        repository: '0',
+        created_unix: 1,
+        effective_count: 0,
+        task_count: revision.tasks.length,
+      }));
+      return Response.json({intents: Number.isFinite(limit) ? all.slice(0, Math.max(0, limit)) : all});
+    }
     const single = method === 'GET' ? path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})$/) : null;
     if (single) {
       const stored = [...revisions.values()].find((revision) => revision.intent === single[1]);
