@@ -2,6 +2,50 @@ import {html} from 'lit';
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import './sodaspaces-intent.js';
 import type {SodaIntent} from './sodaspaces-intent.js';
+import {intentList} from './sodaspaces-intent-response.js';
+import type {SavedRequest} from './sodaspaces-intent-response.js';
+
+/** Native opaque request id shape shared with the host alias routes. */
+export const requestIDPattern = /^d[0-9a-f]{24}$/;
+
+/** Read the resume request id from a workspace route path; '' means fresh entry. */
+export function requestIdFromLocation(pathname: string): string {
+  const segments = pathname.split('/').filter((segment) => segment !== '');
+  const at = segments.lastIndexOf('workspace');
+  if (at < 0 || at > 1 || segments.length !== at + 3) return '';
+  if (segments[at + 1] !== 'requests') return '';
+  const id = segments[at + 2] || '';
+  return requestIDPattern.test(id) ? id : '';
+}
+
+/** Canonical request route preserving any application sub-path prefix. */
+export function requestRouteFor(pathname: string, intent: string): string {
+  const prefix = pathname.slice(0, Math.max(0, pathname.indexOf('/workspace')));
+  return `${prefix}/workspace/requests/${intent}`;
+}
+
+/** Fresh-entry route preserving any application sub-path prefix. */
+export function newRouteFor(pathname: string): string {
+  const prefix = pathname.slice(0, Math.max(0, pathname.indexOf('/workspace')));
+  return `${prefix}/workspace/new`;
+}
+
+/** Intent identity carried by intent-saved/intent-resumed; '' when absent. */
+export function intentIdentity(event: Event): string {
+  const detail = (event as CustomEvent).detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return '';
+  const intent = (detail as Record<string, unknown>).intent;
+  return typeof intent === 'string' ? intent : '';
+}
+
+/** Saved requests carried by intent-inventory; malformed payloads yield []. */
+export function inventoryIntents(event: Event): SavedRequest[] {
+  try {
+    return intentList((event as CustomEvent).detail).intents;
+  } catch {
+    return [];
+  }
+}
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
@@ -79,6 +123,8 @@ export interface SetupReading {
   managementMode: 'standard' | 'journey' | 'settings';
   setupReturn: SetupReturn | undefined;
   firstSpace: Space | undefined;
+  actorId: string;
+  requestId: string;
   onBegin: () => void;
   onRefresh: () => void;
 }
@@ -108,6 +154,8 @@ export interface SetupActions {
   showManagement(repositoryId: string, mode: 'standard' | 'journey' | 'settings'): void;
   notifyFactory(message: string): void;
   api(path: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
+  syncIntentRoute(intent: string | null): void;
+  setSavedRequests(intents: SavedRequest[]): void;
 }
 
 export interface SetupHost {
@@ -183,10 +231,16 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
     <div class=${formClass}>
       <soda-intent
         .api=${actions.api}
+        .actor=${reading.actorId}
+        .request=${reading.requestId}
         .blocked=${blocked || !reading.activeSurface || !reading.available}
         .active=${reading.welcomeScreen || reading.setup === 'intent'}
         ?hidden=${!reading.welcomeScreen && reading.setup !== 'intent'}
+        @intent-saved=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
+        @intent-resumed=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
+        @intent-inventory=${(event: Event) => actions.setSavedRequests(inventoryIntents(event))}
         @intent-reviewed=${() => chooseIntentRepository(read(), actions, host)}
+        @intent-leave=${() => leaveSetup(read(), actions, host)}
       ></soda-intent>
       ${renderSetupBody(reading, actions, host, blocked, read)}
     </div>
@@ -207,6 +261,21 @@ export function beginSetup(reading: SetupReading, actions: SetupActions, host: S
   actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
   actions.setSetup('intent');
   actions.setRepositoryChoice('');
+  if (reading.requestId !== '') host.querySelector<SodaIntent>('soda-intent')?.reset();
+  actions.syncIntentRoute(null);
+  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+}
+
+export function resumeSetup(intent: string, reading: SetupReading, actions: SetupActions, host: SetupHost) {
+  if (reading.stale || !reading.available || !reading.canRestore || !reading.activeSurface) return;
+  if (!requestIDPattern.test(intent)) return;
+  actions.notifyFactory('');
+  actions.rememberFocus();
+  actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
+  actions.setSetup('intent');
+  actions.setRepositoryChoice('');
+  host.querySelector<SodaIntent>('soda-intent')?.reset();
+  actions.syncIntentRoute(intent);
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
 }
 
@@ -223,6 +292,14 @@ export function changeRepository(reading: SetupReading, actions: SetupActions, h
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
 }
 
+export function leaveSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
+  if (reading.setupReturn) {
+    cancelSetup(reading, actions, host);
+    return;
+  }
+  if (reading.requestId !== '') actions.syncIntentRoute(null);
+}
+
 export function cancelSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore) return;
   actions.notifyFactory('');
@@ -231,6 +308,7 @@ export function cancelSetup(reading: SetupReading, actions: SetupActions, host: 
   actions.admitRepositoryRequest(undefined);
   actions.setRepositoryBusy(false);
   actions.setSetup(null);
+  if (reading.requestId !== '') actions.syncIntentRoute(null);
   if (reading.setupReturn) {
     actions.setProject(reading.setupReturn.project);
     actions.setView(reading.setupReturn.view);

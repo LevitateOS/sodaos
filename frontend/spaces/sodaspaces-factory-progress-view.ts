@@ -19,6 +19,7 @@ import type {
   RequestAttention,
   RequestOverview,
   RevisionEntry,
+  RevisionGeneration,
   RevisionHistory,
   RevisionIdeaChange,
   RevisionTaskChange,
@@ -223,7 +224,10 @@ export function renderWorkOverview(model: WorkOverviewModel): TemplateResult {
         model.attention.length > 0
           ? html`<ul>
               ${model.attention.map(
-                (item) => html`<li>${item.text} ${item.link ? html`<a href=${item.link}>Open issue</a>` : ''}</li>`
+                (item) =>
+                  html`<li>
+                    ${item.text} ${item.link ? html`<a href=${item.link}>Open issue #${item.issue}</a>` : ''}
+                  </li>`
               )}
             </ul>`
           : ''
@@ -540,7 +544,10 @@ export function renderRequestOverview(model: RequestOverviewModel): TemplateResu
         model.attention.length > 0
           ? html`<ul>
               ${model.attention.map(
-                (item) => html`<li>${item.text} ${item.link ? html`<a href=${item.link}>Open issue</a>` : ''}</li>`
+                (item) =>
+                  html`<li>
+                    ${item.text} ${item.link ? html`<a href=${item.link}>Open issue #${item.issue}</a>` : ''}
+                  </li>`
               )}
             </ul>`
           : ''
@@ -1029,13 +1036,23 @@ function revisionScopeLines(entry: RevisionEntry): string[] {
     lines.push(`Repository ${entry.comparison.repository_change.from} → ${entry.comparison.repository_change.to}.`);
   if (entry.comparison.state_change)
     lines.push(`State ${entry.comparison.state_change.from} → ${entry.comparison.state_change.to}.`);
+  if (entry.comparison.edges_changed) lines.push('Dependency edges changed.');
   return lines;
+}
+
+function revisionSubmittedNote(generation: RevisionGeneration): string {
+  if (generation.state === 'not_requested') return '';
+  const count = `${generation.submitted_keys.length} submitted key${generation.submitted_keys.length === 1 ? '' : 's'}`;
+  const differs = generation.submitted_differs ? ' Differs from accepted direction.' : '';
+  return ` Submitted graph: ${count}.${differs}`;
 }
 
 function revisionEntryLineage(entry: RevisionEntry): string {
   const from = entry.generated_from === undefined ? '' : ` Generated from ${entry.generated_from}.`;
   const first = entry.comparison.initial ? ' First revision.' : '';
-  return `Repository ${entry.repository}, recorded ${activityTimestamp(entry.created_unix)}.${from}${first} Generation ${entry.generation}.`;
+  const stamp = activityTimestamp(entry.created_unix);
+  const when = stamp === undefined ? 'time unknown' : stamp.text;
+  return `Repository ${entry.repository}, recorded ${when}.${from}${first} Generation ${entry.generation.state}.${revisionSubmittedNote(entry.generation)}`;
 }
 
 function describeRevisionEntry(entry: RevisionEntry): RevisionEntryModel {
@@ -1044,18 +1061,22 @@ function describeRevisionEntry(entry: RevisionEntry): RevisionEntryModel {
   return {
     headerText: `Revision ${entry.revision} (${entry.state})`,
     lineageText: revisionEntryLineage(entry),
-    tasksText: `Tasks: ${tasks.added.length} added, ${tasks.removed.length} removed, ${tasks.changed.length} changed, ${tasks.unchanged_count} unchanged.`,
+    tasksText: `Tasks: ${tasks.added.length} added, ${tasks.removed.length} removed, ${tasks.changed.length} changed, ${tasks.reused.length} reused, ${tasks.unchanged_count} unchanged.`,
     taskLines: revisionTaskLines(entry),
     ideasText: `Ideas: ${ideas.added.length} added, ${ideas.removed.length} removed, ${ideas.changed.length} changed.`,
     ideaLines: revisionIdeaLines(entry),
     scopeLines: revisionScopeLines(entry),
-    workLines: entry.work.map((row) => `${row.task_key} → issue ${row.issue_index}: ${row.state} (${row.authority})`),
+    workLines: entry.work.map(
+      (row) =>
+        `${row.task_key} → issue ${row.issue_index}: ${row.state} (${row.authority}), content version ${row.content_version}`
+    ),
   };
 }
 
 // describeRevisionHistory composes the before/after and affected
-// work of each shown scope revision. Structural comparison only:
-// authoritative I07 delta labels follow when published.
+// work of each shown scope revision from the authoritative v3
+// classification, keeping the submitted graph distinct from the
+// accepted direction it was generated against.
 export function describeRevisionHistory(
   history: RevisionHistory | undefined,
   state: SourceState

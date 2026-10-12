@@ -499,7 +499,7 @@ export class SodaIntent extends LitElement {
   private exploreFailed(error: unknown) {
     if (error instanceof SodaRequestError && error.code === 'planning_unavailable')
       this.error =
-        'Exploration exhausted the planning allowance. Your description is saved; raise the allowance or try again.';
+        'The TypeSafe System One judgment service could not complete exploration. Your description is saved; try again.';
     else if (error instanceof SodaRequestError && error.code === 'planning_funding_required')
       this.error =
         'Exploration needs a planning allowance. Your description is saved; set the planning allowance and try again.';

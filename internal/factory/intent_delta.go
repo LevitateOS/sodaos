@@ -7,9 +7,14 @@ import (
 
 // TaskDelta describes scope movement between two revisions of one intent.
 // Reused keys keep their native issue identities across the revision;
-// changed keys are edited in place; added keys create new native issues;
-// removed keys keep their retained native records with a visible supersession
-// note and grant no current authority.
+// changed keys are edited in place while open and recreated under the stable
+// key once delivered; added keys create new native issues; removed keys
+// keep their retained native records, with a visible supersession note while
+// open and silently once delivered, and grant no current authority. The
+// native writer refuses closed edits atomically, so delivered records never
+// appear in a delta packet. "Delivered" throughout this contract means
+// closed and preserved unmutated; it asserts nothing about verified merged
+// work, which only merge/publication evidence can prove.
 type TaskDelta struct {
 	OldRevision  string   `json:"old_revision"`
 	NewRevision  string   `json:"new_revision"`

@@ -19,7 +19,11 @@ func TestRevisionTaskDiff(t *testing.T) {
 		{Key: "edit", Objective: "after", Outcomes: []string{"a", "b"}, IdeaIDs: []string{"d2", "d1"}, DependsOn: []string{}},
 		{Key: "new", Objective: "added", Outcomes: []string{"n"}},
 	}
-	diff := revisionTaskDiff(old, current)
+	delta, err := factory.DiffIntentTasks(factory.IntentRevision{Intent: "d1", Tasks: old}, factory.IntentRevision{Intent: "d1", Tasks: current})
+	if err != nil {
+		t.Fatal(err)
+	}
+	diff := revisionTaskDiff(delta, old, current)
 	if len(diff.Reused) != 1 || diff.Reused[0] != "keep" || diff.UnchangedCount != len(diff.Reused) {
 		t.Fatalf("reused: %+v", diff)
 	}
@@ -74,31 +78,19 @@ func TestRevisionIdeaDiff(t *testing.T) {
 func TestRevisionTaskDiffOrdersChangedByOld(t *testing.T) {
 	old := []factory.IntentTask{{Key: "b", Objective: "1"}, {Key: "a", Objective: "1"}}
 	current := []factory.IntentTask{{Key: "a", Objective: "2"}, {Key: "b", Objective: "2"}}
-	diff := revisionTaskDiff(old, current)
+	delta, err := factory.DiffIntentTasks(factory.IntentRevision{Intent: "d1", Tasks: old}, factory.IntentRevision{Intent: "d1", Tasks: current})
+	if err != nil {
+		t.Fatal(err)
+	}
+	diff := revisionTaskDiff(delta, old, current)
 	if len(diff.Changed) != 2 || diff.Changed[0].Key != "b" || diff.Changed[1].Key != "a" {
 		t.Fatalf("changed order: %+v", diff.Changed)
 	}
 }
 
-func TestRevisionEdgesChanged(t *testing.T) {
-	if revisionEdgesChanged(nil, nil) {
-		t.Fatal("empty edges changed")
-	}
-	same := []factory.IntentTask{{Key: "a", DependsOn: []string{"x"}}}
-	if revisionEdgesChanged(same, []factory.IntentTask{{Key: "a", DependsOn: []string{"x"}, Objective: "new"}}) {
-		t.Fatal("content edit flagged edges")
-	}
-	if !revisionEdgesChanged(same, []factory.IntentTask{{Key: "a", DependsOn: []string{"y"}}}) {
-		t.Fatal("dependency swap missed")
-	}
-	if !revisionEdgesChanged(same, append(append([]factory.IntentTask{}, same...), factory.IntentTask{Key: "b", DependsOn: []string{"a"}})) {
-		t.Fatal("added edge missed")
-	}
-	if revisionEdgesChanged(same, append(append([]factory.IntentTask{}, same...), factory.IntentTask{Key: "b"})) {
-		t.Fatal("edgeless addition flagged")
-	}
-	if !revisionEdgesChanged(append(append([]factory.IntentTask{}, same...), factory.IntentTask{Key: "b", DependsOn: []string{"a"}}), same) {
-		t.Fatal("removed edge missed")
+func TestRevisionTaskDiffRejectsCrossIntent(t *testing.T) {
+	if _, err := factory.DiffIntentTasks(factory.IntentRevision{Intent: "d1"}, factory.IntentRevision{Intent: "d2"}); err == nil {
+		t.Fatal("cross-intent delta accepted")
 	}
 }
 
@@ -117,9 +109,13 @@ func TestRevisionIDDiff(t *testing.T) {
 }
 
 func TestRevisionComparisonDTO(t *testing.T) {
-	old := factory.IntentRevision{Repository: 7, State: "accepted", Tasks: []factory.IntentTask{{Key: "a"}}, EffectiveOutcomes: []string{"d1"}}
-	current := factory.IntentRevision{Repository: 7, State: "accepted", Tasks: []factory.IntentTask{{Key: "a"}, {Key: "b"}}, EffectiveOutcomes: []string{"d2"}}
-	diff := revisionComparisonDTO(old, current)
+	old := factory.IntentRevision{Intent: "d1", Repository: 7, State: "accepted", Tasks: []factory.IntentTask{{Key: "a"}}, EffectiveOutcomes: []string{"d1"}}
+	current := factory.IntentRevision{Intent: "d1", Repository: 7, State: "accepted", Tasks: []factory.IntentTask{{Key: "a"}, {Key: "b"}}, EffectiveOutcomes: []string{"d2"}}
+	delta, err := factory.DiffIntentTasks(old, current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diff := revisionComparisonDTO(delta, old, current)
 	if diff.Initial || diff.Repository != nil || diff.State != nil || diff.EdgesChanged {
 		t.Fatalf("context: %+v", diff)
 	}
@@ -131,7 +127,11 @@ func TestRevisionComparisonDTO(t *testing.T) {
 	}
 	moved := current
 	moved.Repository, moved.State = 8, "draft"
-	shifted := revisionComparisonDTO(old, moved)
+	movedDelta, err := factory.DiffIntentTasks(old, moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shifted := revisionComparisonDTO(movedDelta, old, moved)
 	if shifted.Repository == nil || shifted.Repository.From != "7" || shifted.Repository.To != "8" {
 		t.Fatalf("repository: %+v", shifted)
 	}
@@ -141,6 +141,61 @@ func TestRevisionComparisonDTO(t *testing.T) {
 	initial := initialRevisionComparison()
 	if !initial.Initial || initial.Tasks.Added == nil || initial.Ideas.Removed == nil || initial.Effective.Added == nil {
 		t.Fatalf("initial: %+v", initial)
+	}
+}
+
+func TestRevisionAuthorityState(t *testing.T) {
+	if got := revisionAuthorityState(true, true); got != revisionAuthorityCurrent {
+		t.Fatalf("current: %s", got)
+	}
+	if got := revisionAuthorityState(false, true); got != revisionAuthoritySuperseded {
+		t.Fatalf("superseded: %s", got)
+	}
+	if got := revisionAuthorityState(true, false); got != revisionAuthorityUnknown {
+		t.Fatalf("unrecorded: %s", got)
+	}
+	if got := revisionAuthorityState(false, false); got != revisionAuthorityUnknown {
+		t.Fatalf("unrecorded stale: %s", got)
+	}
+}
+
+func TestRevisionGenerationDTO(t *testing.T) {
+	revision := factory.IntentRevision{Tasks: []factory.IntentTask{{Key: "a"}, {Key: "b"}}}
+	matched := revisionGenerationDTO(factory.IntentGeneration{State: "completed", SubmittedTasks: []factory.IntentTask{{Key: "a"}, {Key: "b"}}}, revision)
+	if matched.State != "completed" || matched.SubmittedDiffers || len(matched.SubmittedKeys) != 2 {
+		t.Fatalf("matched: %+v", matched)
+	}
+	diverged := revisionGenerationDTO(factory.IntentGeneration{State: "completed", SubmittedTasks: []factory.IntentTask{{Key: "a"}}}, revision)
+	if !diverged.SubmittedDiffers || len(diverged.SubmittedKeys) != 1 {
+		t.Fatalf("diverged: %+v", diverged)
+	}
+	absent := revisionGenerationDTO(factory.IntentGeneration{State: "pending"}, revision)
+	if absent.State != "pending" || absent.SubmittedDiffers || absent.SubmittedKeys == nil {
+		t.Fatalf("absent: %+v", absent)
+	}
+}
+
+func TestRevisionGenerationDeliveredRefs(t *testing.T) {
+	revision := factory.IntentRevision{Tasks: []factory.IntentTask{{Key: "a"}}}
+	pinned := revisionGenerationDTO(factory.IntentGeneration{
+		State:          "completed",
+		SubmittedTasks: []factory.IntentTask{{Key: "a"}},
+		Delivered:      map[string]factory.DeliveredIssue{"k": {IssueID: 101, IssueIndex: 3, ContentVersion: 2}},
+	}, revision)
+	ref, ok := pinned.DeliveredRefs["k"]
+	if !ok || ref.IssueID != 101 || ref.IssueIndex != 3 || ref.ContentVersion != 2 {
+		t.Fatalf("delivered refs: %+v", pinned)
+	}
+	legacy := revisionGenerationDTO(factory.IntentGeneration{State: "completed"}, revision)
+	if legacy.DeliveredRefs != nil {
+		t.Fatalf("legacy delivered refs: %+v", legacy)
+	}
+	body, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "delivered_refs") {
+		t.Fatalf("empty refs rendered: %s", body)
 	}
 }
 

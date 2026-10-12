@@ -73,7 +73,7 @@ for (const theme of ['light', 'dark'])
       assert.equal(await surface.getByRole('button', {name: 'Explore ideas', exact: true}).isEnabled(), false);
       assert.equal(await surface.getByRole('textbox', {name: 'Describe what you want to build'}).count(), 1);
       assert.equal(await surface.getByRole('combobox', {name: 'Department', exact: true}).count(), 1);
-      assert.equal(await surface.getByRole('heading').count(), 1);
+      assert.equal(await surface.getByRole('heading', {name: 'What do you want to build?'}).count(), 1);
       assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), 0);
       assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);
       await page.evaluate(() => document.fonts.ready);

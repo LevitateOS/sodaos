@@ -28,9 +28,14 @@ test('local fixture supports the full journey, simulated IO, persistent reload a
       writes.push(new URL(req.url()).pathname);
   });
   await page.goto(server.url.href);
-  await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
   await captureSpacesComponent(page, 'dev-welcome');
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('textbox', {name: 'Describe what you want to build'}).fill('Ship a demo shop');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  for (const select of await page.getByLabel(/^Choice:/).all()) await select.selectOption('accept');
+  await page.getByRole('button', {name: 'Update proposal', exact: true}).click();
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
@@ -71,9 +76,9 @@ test('local fixture supports the full journey, simulated IO, persistent reload a
   await page.getByRole('button', {name: 'New terminal', exact: true}).waitFor();
   const second = await browser.newPage();
   await second.goto(server.url.href);
-  await second.getByRole('heading', {name: 'Create your first project'}).waitFor();
+  await second.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
   assert.equal(
-    await page.getByRole('heading', {name: 'Create your first project'}).count(),
+    await page.getByRole('heading', {name: 'What do you want to build?'}).count(),
     0,
     'another browser reset this fixture'
   );

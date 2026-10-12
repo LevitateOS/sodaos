@@ -7,7 +7,7 @@ import {
   requestRepositoryLabel,
   splitAttentionRows,
 } from '../../frontend/spaces/sodaspaces-workspace-navigation';
-import type {SavedRequestSummary} from '../../frontend/spaces/sodaspaces-workspace-navigation';
+import type {SavedRequest} from '../../frontend/spaces/sodaspaces-intent-response';
 import type {NavReading} from '../../frontend/spaces/sodaspaces-workspace-navigation';
 import type {Space} from '../../frontend/spaces/sodaspaces-inventory-response';
 import type {TerminalMetadata} from '../../frontend/spaces/sodaspaces-terminal-response';
@@ -73,7 +73,7 @@ test('attention split keeps ordinary sessions out of the attention group', () =>
   );
 });
 
-const summary = (intent: string, state: SavedRequestSummary['state'], created_unix: number): SavedRequestSummary => ({
+const summary = (intent: string, state: SavedRequest['state'], created_unix: number): SavedRequest => ({
   intent,
   revision: 'r' + intent,
   state,

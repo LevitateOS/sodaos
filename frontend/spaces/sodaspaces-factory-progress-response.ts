@@ -113,7 +113,7 @@ const intentStates = ['draft', 'accepted', 'declined', 'rejected', 'abandoned'];
 const attentionCodes = ['generation_refused', 'work_attention', 'unresolved_assumption'];
 const setupStates = ['repository_unassigned', 'project_missing', 'preparing', 'ready'];
 const decisionKinds = ['pending', 'accept', 'decline', 'edit'];
-const sourceKinds = ['requested', 'supported', 'autonomous', 'assumption', 'legacy'];
+const sourceKinds = ['requested', 'supported', 'autonomous', 'assumption', 'unclassified'];
 
 function requestDirection(value: unknown): RequestDirection {
   const raw = object(value);
@@ -779,6 +779,7 @@ export interface RevisionTaskDiff {
   readonly added: readonly RevisionTask[];
   readonly removed: readonly RevisionTask[];
   readonly changed: readonly RevisionTaskChange[];
+  readonly reused: readonly string[];
   readonly unchanged_count: number;
 }
 export interface RevisionIdeaBody {
@@ -810,19 +811,26 @@ export interface RevisionComparison {
   readonly repository_change?: RevisionScalarChange;
   readonly state_change?: RevisionScalarChange;
   readonly initial: boolean;
+  readonly edges_changed: boolean;
 }
 export interface RevisionWork {
   readonly task_key: string;
   readonly issue_index: string;
   readonly state: string;
   readonly authority: string;
+  readonly content_version: number;
+}
+export interface RevisionGeneration {
+  readonly state: string;
+  readonly submitted_keys: readonly string[];
+  readonly submitted_differs: boolean;
 }
 export interface RevisionEntry {
   readonly revision: string;
   readonly state: string;
   readonly repository: string;
   readonly created_unix: number;
-  readonly generation: string;
+  readonly generation: RevisionGeneration;
   readonly comparison: RevisionComparison;
   readonly work: readonly RevisionWork[];
   readonly generated_from?: string;
@@ -907,11 +915,15 @@ function revisionTaskList(value: unknown): RevisionTask[] {
 function revisionTaskDiff(value: unknown): RevisionTaskDiff {
   const raw = object(value);
   check(Array.isArray(raw.changed) && raw.changed.length <= 64);
+  const reused = revisionIDList(raw.reused, 64);
+  const unchanged = counter(raw.unchanged_count);
+  check(unchanged === reused.length);
   return {
     added: revisionTaskList(raw.added),
     removed: revisionTaskList(raw.removed),
     changed: raw.changed.map(revisionTaskChange),
-    unchanged_count: counter(raw.unchanged_count),
+    reused,
+    unchanged_count: unchanged,
   };
 }
 function revisionIdeaBody(value: unknown): RevisionIdeaBody {
@@ -964,29 +976,32 @@ function revisionEffectiveDiff(value: unknown): {added: string[]; removed: strin
 function checkEmptyInitial(
   tasks: RevisionTaskDiff,
   ideas: RevisionIdeaDiff,
-  effective: {added: string[]; removed: string[]}
+  effective: {added: string[]; removed: string[]},
+  edgesChanged: boolean
 ) {
   check(
-    tasks.added.length === 0 &&
-      tasks.removed.length === 0 &&
-      tasks.changed.length === 0 &&
-      ideas.added.length === 0 &&
+    tasks.added.length === 0 && tasks.removed.length === 0 && tasks.changed.length === 0 && tasks.reused.length === 0
+  );
+  check(
+    ideas.added.length === 0 &&
       ideas.removed.length === 0 &&
       ideas.changed.length === 0 &&
       effective.added.length === 0 &&
-      effective.removed.length === 0
+      effective.removed.length === 0 &&
+      !edgesChanged
   );
 }
 function revisionComparison(value: unknown): RevisionComparison {
   const raw = object(value);
   const initial = raw.initial === undefined ? false : raw.initial;
   check(typeof initial === 'boolean');
+  check(typeof raw.edges_changed === 'boolean');
   const tasks = revisionTaskDiff(raw.tasks);
   const ideas = revisionIdeaDiff(raw.ideas);
   const effective = revisionEffectiveDiff(raw.effective_outcomes);
   const repository = revisionScalarChange(raw.repository_change, [], true);
   const state = revisionScalarChange(raw.state_change, revisionStates, false);
-  if (initial) checkEmptyInitial(tasks, ideas, effective);
+  if (initial) checkEmptyInitial(tasks, ideas, effective, raw.edges_changed);
   return {
     tasks,
     ideas,
@@ -995,6 +1010,7 @@ function revisionComparison(value: unknown): RevisionComparison {
     ...(repository === undefined ? {} : {repository_change: repository}),
     ...(state === undefined ? {} : {state_change: state}),
     initial,
+    edges_changed: raw.edges_changed,
   };
 }
 function revisionWork(value: unknown): RevisionWork {
@@ -1006,14 +1022,27 @@ function revisionWork(value: unknown): RevisionWork {
     issue_index: raw.issue_index,
     state: raw.state as string,
     authority: raw.authority as string,
+    content_version: counter(raw.content_version),
   };
+}
+function entryGeneration(value: unknown): RevisionGeneration {
+  const raw = object(value);
+  check(revisionGeneration.includes(raw.state));
+  const keys = raw.submitted_keys === undefined ? [] : revisionIDList(raw.submitted_keys, 64);
+  const differs = raw.submitted_differs === undefined ? false : raw.submitted_differs;
+  check(typeof differs === 'boolean');
+  const state = raw.state as string;
+  if (state === 'not_requested') check(keys.length === 0 && !differs);
+  else check(keys.length >= 1);
+  if (differs) check(keys.length >= 1);
+  return {state, submitted_keys: keys, submitted_differs: differs};
 }
 function revisionEntry(value: unknown): RevisionEntry {
   const raw = object(value);
   check(decisionID(raw.revision) && decimalID(raw.repository));
   check(revisionStates.includes(raw.state));
   check(typeof raw.created_unix === 'number' && Number.isSafeInteger(raw.created_unix) && raw.created_unix > 0);
-  check(revisionGeneration.includes(object(raw.generation).state));
+  const generation = entryGeneration(raw.generation);
   check(Array.isArray(raw.work) && raw.work.length <= 64);
   const from = raw.generated_from === undefined || raw.generated_from === '' ? undefined : raw.generated_from;
   if (from !== undefined) check(decisionID(from));
@@ -1022,7 +1051,7 @@ function revisionEntry(value: unknown): RevisionEntry {
     state: raw.state as string,
     repository: raw.repository,
     created_unix: raw.created_unix,
-    generation: object(raw.generation).state as string,
+    generation,
     comparison: revisionComparison(raw.comparison),
     work: raw.work.map(revisionWork),
     ...(from === undefined ? {} : {generated_from: from}),
@@ -1031,7 +1060,10 @@ function revisionEntry(value: unknown): RevisionEntry {
 // revisionHistory binds one request's scope-revision page to its
 // exact intent: newest-first revisions with structural before/after
 // and affected work. The first revision renders initial with empty
-// task diffs; old/new texts travel only with their changed field.
+// diffs; old/new texts travel only with their changed field. The
+// confirmed submitted graph stays distinct from accepted direction:
+// keys travel only with a generation record, and a differs flag
+// requires submitted keys.
 export function revisionHistory(value: unknown, intent: string): RevisionHistory {
   const data = object(value);
   check(data.intent === intent && decisionID(intent));

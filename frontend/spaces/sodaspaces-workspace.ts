@@ -46,8 +46,18 @@ import {
   sessionsButtonLabel,
 } from './sodaspaces-workspace-toolbar-view.js';
 import {beginSetup, cancelSetup, changeRepository, focusSetupPanel, renderSetup} from './sodaspaces-workspace-setup.js';
+import {newRouteFor, requestIdFromLocation, requestIDPattern, requestRouteFor} from './sodaspaces-workspace-setup.js';
+import {resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
-import {attentionRows, filteredSpaces, projectRows, rows} from './sodaspaces-workspace-navigation.js';
+import type {SavedRequest} from './sodaspaces-intent-response.js';
+import {
+  attentionRows,
+  filteredSpaces,
+  groupSavedRequests,
+  projectRows,
+  renderRequestGroups,
+  rows,
+} from './sodaspaces-workspace-navigation.js';
 import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
 import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
@@ -116,6 +126,7 @@ export class SodaSpaces extends LitElement {
   static properties = {
     setup: {state: true},
     intentNotice: {state: true},
+    savedRequests: {state: true},
     project: {state: true},
     complete: {state: true},
     repositoryQuery: {state: true},
@@ -205,6 +216,7 @@ export class SodaSpaces extends LitElement {
   declare private project: string;
   declare private setup: 'intent' | 'repositories' | 'configure' | null;
   declare private intentNotice: string;
+  declare private savedRequests: SavedRequest[];
   declare private complete: boolean;
   declare private repositoryQuery: string;
   declare private repositoryResult: RepositoryChoices | undefined;
@@ -246,6 +258,7 @@ export class SodaSpaces extends LitElement {
   constructor() {
     super();
     this.spaces = [];
+    this.savedRequests = [];
     this.project =
       this.repositoryQuery =
       this.repositoryChoice =
@@ -274,7 +287,12 @@ export class SodaSpaces extends LitElement {
     return this.spaces.find((s) => s.environment.repository_id === this.project);
   }
   private get setupScreen() {
-    return this.binding?.kind === 'page' && (!!this.setup || (!this.spaces.length && !this.binding.repositoryId));
+    return (
+      this.binding?.kind === 'page' &&
+      (!!this.setup ||
+        (!this.spaces.length && !this.binding.repositoryId) ||
+        requestIdFromLocation(window.location.pathname) !== '')
+    );
   }
   private get welcomeScreen() {
     return this.setupScreen && !this.setup && this.available && this.complete;
@@ -357,6 +375,9 @@ export class SodaSpaces extends LitElement {
     this.storageKey = '';
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
+      signal: this.lifetime.signal,
+    });
+    window.addEventListener('popstate', () => this.requestUpdate(), {
       signal: this.lifetime.signal,
     });
     window.addEventListener(
@@ -489,6 +510,15 @@ export class SodaSpaces extends LitElement {
   };
   private readonly onRefreshClick = () => this.refresh();
   private readonly onBeginSetup = () => beginSetup(this.setupReading(), this.setupActions(), this);
+  private readonly onResumeRequest = (intent: string) =>
+    resumeSetup(intent, this.setupReading(), this.setupActions(), this);
+  private renderDiscoveryRequests() {
+    // Discovery groups exist only when navigation is visible: while setup is
+    // open the composer owns the saved list, and hidden duplicates would steal
+    // text matches from it.
+    if (hideNavigation(this.setupScreen, this.view, this.compact, this.layout.sidebar, this.stale)) return '';
+    return renderRequestGroups({groups: groupSavedRequests(this.savedRequests), resume: this.onResumeRequest});
+  }
   private readonly onShowSessions = () => this.showSessions();
   private readonly onNewTerminal = () => newTerminal(this.newTerminalInput(), this.layout.focused);
   private readonly onCancelSetup = () => cancelSetup(this.setupReading(), this.setupActions(), this);
@@ -723,7 +753,8 @@ export class SodaSpaces extends LitElement {
             selectProject: (target) => this.selectProject(target),
           })
       )}
-      ${renderMoreProjects(this.moreProjectsInput())} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
+      ${this.renderDiscoveryRequests()} ${renderMoreProjects(this.moreProjectsInput())}
+      ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
     </nav>`;
   }
   private renderCanvas() {
@@ -913,6 +944,8 @@ export class SodaSpaces extends LitElement {
       managementMode: this.managementMode,
       setupReturn: this.setupReturn,
       firstSpace: this.spaces[0],
+      actorId: this.actor?.id || '',
+      requestId: requestIdFromLocation(window.location.pathname),
       onBegin: this.onBeginSetup,
       onRefresh: this.onRefreshClick,
     };
@@ -971,7 +1004,24 @@ export class SodaSpaces extends LitElement {
         this.intentNotice = message;
       },
       api: (path, body, signal) => this.api(path, body, signal),
+      syncIntentRoute: (intent) => {
+        this.syncIntentRoute(intent);
+      },
+      setSavedRequests: (intents) => {
+        this.savedRequests = intents;
+      },
     };
+  }
+  private syncIntentRoute(intent: string | null) {
+    if (intent !== null && !requestIDPattern.test(intent)) return;
+    const target =
+      intent === null ? newRouteFor(window.location.pathname) : requestRouteFor(window.location.pathname, intent);
+    if (target !== window.location.pathname) {
+      const url = target + window.location.search + window.location.hash;
+      if (intent === null) window.history.pushState(null, '', url);
+      else window.history.replaceState(null, '', url);
+    }
+    this.requestUpdate();
   }
   private selectProject(space: Space) {
     if (this.stale || !this.available || !this.canRestore) return;
