@@ -323,7 +323,7 @@ function branch(value: unknown): ProposalBranch {
 }
 function step(value: unknown): ProposalStep {
   const raw = object(value);
-  const branches = raw.branches === undefined ? [] : array(raw.branches, 4).map(branch);
+  const branches = raw.branches === undefined || raw.branches === null ? [] : array(raw.branches, 4).map(branch);
   return {
     actor: text(raw.actor, 4000),
     action: text(raw.action, 4000),
@@ -335,11 +335,13 @@ function alternative(value: unknown): ProposalAlternative {
   const raw = object(value);
   const steps = array(raw.steps, 8).map(step);
   check(steps.length >= 1);
+  const outcomes = array(raw.outcomes, 20).map((outcome) => text(outcome, 4000));
+  check(outcomes.length >= 1);
   const out: ProposalAlternative = {
     key: text(raw.key, 64),
     name: text(raw.name, 4000),
     steps,
-    outcomes: array(raw.outcomes, 20).map((outcome) => text(outcome, 4000)),
+    outcomes,
   };
   if (raw.audience) out.audience = text(raw.audience, 4000);
   if (raw.summary) out.summary = text(raw.summary, 4000);
@@ -350,7 +352,7 @@ function alternative(value: unknown): ProposalAlternative {
 }
 function proposalAlternatives(raw: Record<string, unknown>, supported: boolean): ProposalAlternative[] | undefined {
   if (!supported) {
-    check(raw.alternatives === undefined);
+    check(raw.alternatives === undefined || raw.alternatives === null);
     return undefined;
   }
   const alternatives = array(raw.alternatives, 2).map(alternative);
@@ -403,7 +405,7 @@ function exclusion(value: unknown): Exclusion {
   return out;
 }
 function proposalExclusions(raw: Record<string, unknown>, excluded: string[] | undefined): Exclusion[] | undefined {
-  if (raw.exclusions === undefined) {
+  if (raw.exclusions === undefined || raw.exclusions === null) {
     check(excluded === undefined || excluded.length === 0);
     return undefined;
   }
@@ -443,14 +445,14 @@ function recommendation(value: unknown): ConsolidatedProposal {
     recommended: other.key,
     alternative: other,
     outcomes,
-    constraints: array(raw.constraints, 50).map((constraint) => text(constraint, 4000)),
+    constraints: optArray(raw.constraints, 50).map((constraint) => text(constraint, 4000)),
     ...(raw.excluded !== undefined ? {excluded: excludedIDs(raw)} : {}),
     milestones,
     advice: text(raw.advice, 200),
   };
 }
 function excludedIDs(raw: Record<string, unknown>): string[] {
-  const excluded = array(raw.excluded, 50);
+  const excluded = optArray(raw.excluded, 50);
   for (const id of excluded) check(decisionID(id));
   return excluded.map(String);
 }
@@ -473,7 +475,7 @@ function consistency(value: unknown): ConsistencyReport {
     producer: text(raw.producer, 200),
     intent: raw.intent,
     revision: raw.revision,
-    mismatches: array(raw.mismatches, 16).map(mismatch),
+    mismatches: optArray(raw.mismatches, 16).map(mismatch),
     confidence: Number(raw.confidence),
     advice: text(raw.advice, 200),
   };
@@ -484,7 +486,7 @@ export function exploration(value: unknown): Exploration {
   for (const id of settled) check(decisionID(id));
   const out: Exploration = {
     content: proposalContent(raw.content),
-    challenges: array(raw.challenges, 50).map(challenge),
+    challenges: optArray(raw.challenges, 50).map(challenge),
     settled: settled.map(String),
   };
   if (raw.recommendation !== undefined && raw.recommendation !== null)
@@ -581,6 +583,13 @@ function bound(value: unknown, minimum: number, maximum: number) {
 function array(value: unknown, maximum: number): unknown[] {
   check(Array.isArray(value) && value.length <= maximum);
   return value;
+}
+// optArray matches Go's validated nil semantics for optional collections:
+// a null wire value is an absent collection, never a broken payload.
+// Required arrays stay strict: null fails like any other non-array.
+function optArray(value: unknown, maximum: number): unknown[] {
+  if (value === null) return [];
+  return array(value, maximum);
 }
 export function newDecisionID(): string {
   return (

@@ -2,6 +2,10 @@
 
 Scoped saved-review source at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): F05 sodaspaces-intent-response.ts adds SavedReviewRead parsing and basis/result/producer/digest/verdict/exclusion validation; no restored UI or new shell is claimed.
 
+Scoped guarded restoration at `6f30b3396b729278fe3a0040ffdc4b6de18b3d3f`: `SodaIntent.loadRequest/loadReview/applyRevision`, `willUpdate`, `adoptReview` and `restoredStale` retain F05 local review state and failure/account guards. They do not initialize or route the native host. Actual producer-byte compatibility and guarded Lit restoration pass at `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2`; native composition remains separate.
+
+Scoped size/concern review at `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2`: intent-review-restore.test.ts now exceeds 400 lines; its production component fixture and failure/account/actual-wire cases share F05/H06 ownership. Generated capture bytes remain ignored, and ordinary component tests do not require them.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).

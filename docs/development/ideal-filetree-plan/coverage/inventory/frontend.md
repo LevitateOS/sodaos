@@ -4,6 +4,8 @@ Scoped E/F delta at `082beb863a1108b11765ee106852ed56600007bc` (2026-10-12): `so
 
 Scoped saved-review delta at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): Saved-review parsing retains F05 in sodaspaces-intent-response.ts; canonical bounds, producer/provenance, exclusion meanings and freshness are checked.
 
+Scoped native header delta at `1469fb13ea4595024b2eb9ca8ecc4b8ba1a4cb8a` (2026-10-12): repo/header.tmpl only moves the existing admitted ExtensionPages block to upstream-first position; G01 native contribution customization ownership is unchanged.
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.

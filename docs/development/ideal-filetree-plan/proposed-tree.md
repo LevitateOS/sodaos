@@ -2,7 +2,7 @@
 
 ## Native correction target delta
 
-Source `8fd38912bf3bed4287387d482e96f7e0fb0e4776` adds ten paths across the settings, saved-review
+Source `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2` adds twelve paths across the settings, saved-review
 and emitted-color corrections. Each follows the existing defining owner; this
 scoped allocation does not advance the historical complete-tree census.
 
@@ -18,6 +18,8 @@ scoped allocation does not advance the historical complete-tree census.
 | `tests/frontend/fixtures/settings-geometry-driver.ts` | S05/H06 local geometry check; retained at this existing package/path |
 | `tests/frontend/settings-geometry.test.ts` | S05/H06 local geometry check; retained at this existing package/path |
 | `tests/forgejo/emitted-colors-browser.test.ts` | H05/H06 emitted branding check; retained at this existing package/path |
+| `tests/frontend/setup-geometry.test.ts` | S05/H06 local creation geometry check; retained browser test path |
+| `tests/frontend/intent-review-restore.test.ts` | F05/H06 production component restoration check; retained browser test path |
 
 ## Complete proposed tree
 
@@ -2831,6 +2833,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── drawer-controls.test.ts
 │   │   ├── factory-settings-controls.test.ts
 │   │   ├── settings-geometry.test.ts
+│   │   ├── setup-geometry.test.ts
 │   │   ├── factory-view.test.ts
 │   │   ├── identity.test.ts
 │   │   ├── journey-input.test.ts
