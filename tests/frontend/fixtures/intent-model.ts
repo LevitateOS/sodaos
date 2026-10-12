@@ -19,21 +19,21 @@ export function createIntentModel() {
       revisions.set(revision.id, revision);
       return Response.json({...body, owner: '1', created_unix: 1}, {status: 201});
     }
-    if (method === 'GET' && path.split('?')[0]?.endsWith('/api/factory/intents')) {
+    if (method === 'GET' && /\/api\/factory\/intents(\?.*)?$/.test(path)) {
+      const limit = Number(new URL(path, 'http://fixture').searchParams.get('limit') ?? '20');
       const heads = new Map<string, IntentRevision>();
       for (const revision of revisions.values()) heads.set(revision.intent, revision);
-      return Response.json({
-        intents: [...heads.values()].map((revision, index) => ({
-          intent: revision.intent,
-          revision: revision.id,
-          state: revision.state,
-          objective: revision.objective,
-          repository: revision.repository,
-          created_unix: index + 1,
-          effective_count: revision.effective_outcomes?.length ?? 0,
-          task_count: revision.tasks?.length ?? 0,
-        })),
-      });
+      const all = [...heads.values()].map((revision, index) => ({
+        intent: revision.intent,
+        revision: revision.id,
+        state: revision.state,
+        objective: revision.objective,
+        repository: revision.repository,
+        created_unix: index + 1,
+        effective_count: revision.effective_outcomes?.length ?? 0,
+        task_count: revision.tasks?.length ?? 0,
+      }));
+      return Response.json({intents: Number.isFinite(limit) ? all.slice(0, Math.max(0, limit)) : all});
     }
     const single = method === 'GET' ? path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})$/) : null;
     if (single) {
