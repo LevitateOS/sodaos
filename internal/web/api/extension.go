@@ -144,13 +144,16 @@ func extensionDevelopmentKeyRoute(parts []string, method string) bool {
 
 func extensionQueryRoute(route string) bool {
 	switch route {
-	case "/repositories", "/environments", "/me/forgejo-keys":
+	case "/repositories", "/environments", "/me/forgejo-keys", "/factory/intents":
 		return true
 	default:
 		parts := strings.Split(strings.TrimPrefix(route, "/"), "/")
-		return len(parts) == 6 && parts[0] == "repositories" && extensionProductID(parts[1]) &&
-			parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) &&
-			parts[5] == "acceptance-preview"
+		if len(parts) == 6 && parts[0] == "repositories" && extensionProductID(parts[1]) &&
+			parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
+			return parts[5] == "acceptance-preview" || parts[5] == "plan"
+		}
+		return len(parts) == 4 && parts[0] == "factory" && parts[1] == "intents" &&
+			parts[2] != "" && parts[3] == "revisions"
 	}
 }
 

@@ -30,11 +30,55 @@ type decompositionEvidence struct {
 	Previous *factory.IntentRevision `json:"previous,omitempty"`
 }
 
+// effectiveDecompositionScope projects the revision to the scope the
+// decomposition gate authorizes, mirroring the native payload selector:
+// decided task-bound choices, accepted-or-corrected assumptions as global
+// constraints, and declined ideas as explicit rejection evidence. Tasks
+// stay whole; pending ideas are excluded so unsubmitted choices gain no
+// authority and cannot veto an independent subset. The projection feeds
+// judgment evidence only; the original revision stays authoritative for
+// CAS, reservations, authority, and native guard inputs.
+func effectiveDecompositionScope(r factory.IntentRevision) factory.IntentRevision {
+	bound := map[string]bool{}
+	for _, task := range r.Tasks {
+		for _, id := range task.IdeaIDs {
+			bound[id] = true
+		}
+	}
+	effective := map[string]bool{}
+	for _, id := range r.EffectiveOutcomes {
+		effective[id] = true
+	}
+	scoped := r
+	scoped.Ideas = nil
+	for _, idea := range r.Ideas {
+		if idea.Decision == "decline" {
+			scoped.Ideas = append(scoped.Ideas, idea)
+			continue
+		}
+		if idea.Decision != "accept" && idea.Decision != "edit" {
+			continue
+		}
+		if len(effective) > 0 && !effective[idea.ID] {
+			continue
+		}
+		if !idea.Assumption && !bound[idea.ID] {
+			continue
+		}
+		scoped.Ideas = append(scoped.Ideas, idea)
+	}
+	return scoped
+}
+
 func (c *Coordinator) judgeDecompositionTriplet(ctx context.Context, r factory.IntentRevision, previous *factory.IntentRevision) ([3]factory.PriorityAnswer, [3]string, error) {
 	var answers [3]factory.PriorityAnswer
 	var fingerprints [3]string
 	questions, choices := decompositionQuestions(), decompositionChoices()
-	state := decompositionEvidence{r, previous}
+	state := decompositionEvidence{Current: effectiveDecompositionScope(r)}
+	if previous != nil {
+		scoped := effectiveDecompositionScope(*previous)
+		state.Previous = &scoped
+	}
 	candidates := []factory.PriorityCandidate{{ID: "keep", Objective: r.Objective}, {ID: "revise", Objective: r.Objective}, {ID: "review", Objective: r.Objective}}
 	for i := range questions {
 		answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{Purpose: factory.JudgmentDecomposition, State: state, Question: questions[i], Options: choices[i], Outcome: "decomposition", Candidates: candidates, Reserve: func(ctx context.Context, snapshot string) (bool, error) {
@@ -114,7 +158,7 @@ func (c *Coordinator) RecomposeDecomposition(ctx context.Context, r factory.Inte
 		Current    factory.IntentRevision           `json:"current"`
 		Candidates []factory.DecompositionCandidate `json:"candidates"`
 	}
-	state := optionsEvidence{r, candidates}
+	state := optionsEvidence{effectiveDecompositionScope(r), candidates}
 	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
 		Purpose:  factory.JudgmentDecomposition,
 		State:    state,

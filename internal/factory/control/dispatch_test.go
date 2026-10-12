@@ -139,7 +139,9 @@ func TestDispatchRefusesTargetDifferentFromPreparedCoderSource(t *testing.T) {
 	fx.reads.inputs["7/3"] = inputs
 
 	report := DispatchPass(ctx, fx.deps())
-	if len(report.Launched) != 0 || len(report.Errors) != 0 || waitReason(report, 3) != WaitSource ||
+	// The moved tip has no ready preparation, so the preparation gate
+	// refuses before any source-context read; nothing launches.
+	if len(report.Launched) != 0 || len(report.Errors) != 0 || waitReason(report, 3) != WaitPreparation ||
 		len(fx.host.launches) != 0 || len(fx.host.contextRequests) != 0 {
 		t.Fatalf("mismatched prepared source launched or read context: %+v launches=%d reads=%+v", report, len(fx.host.launches), fx.host.contextRequests)
 	}

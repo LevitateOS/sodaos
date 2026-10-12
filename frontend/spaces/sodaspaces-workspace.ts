@@ -53,9 +53,17 @@ import {
   inspectCommittedRequest,
   renderSetup,
 } from './sodaspaces-workspace-setup.js';
-import {newRouteFor, requestIdFromLocation, requestIDPattern, requestRouteFor} from './sodaspaces-workspace-setup.js';
-import {resumeSetup} from './sodaspaces-workspace-setup.js';
-import type {SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
+import {
+  isNewRouteLocation,
+  newRouteFor,
+  requestIdFromLocation,
+  requestIDPattern,
+  requestRouteFor,
+} from './sodaspaces-workspace-setup.js';
+import {resolveWatchTarget, resumeSetup} from './sodaspaces-workspace-setup.js';
+import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
+import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
+import type {SodaIntent} from './sodaspaces-intent.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {
   attentionRows,
@@ -65,7 +73,7 @@ import {
   renderRequestGroups,
   rows,
 } from './sodaspaces-workspace-navigation.js';
-import {displayFactoryWatches, factorySection} from './sodaspaces-workspace-factory.js';
+import {displayFactoryWatches, factorySection, factoryWatching, watchRun} from './sodaspaces-workspace-factory.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
 import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
 import {
@@ -141,6 +149,7 @@ export class SodaSpaces extends LitElement {
     repositoryChoice: {state: true},
     repositoryBusy: {state: true},
     repositoryError: {state: true},
+    overviewScope: {state: true},
     spaces: {
       state: true,
     },
@@ -238,6 +247,7 @@ export class SodaSpaces extends LitElement {
   private reviewAuthorization: {ideas: number; tasks: number} | undefined;
   private reviewedIntent: string | undefined;
   private setupCommitted = false;
+  declare private overviewScope: OverviewScope | undefined;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
   private renaming = new Set<string>();
@@ -263,6 +273,7 @@ export class SodaSpaces extends LitElement {
   private maximized: string | undefined;
   private dragged: string | undefined;
   private choosingPane: string | undefined;
+  private pendingNewRoute = false;
   private invoker: HTMLElement | undefined;
   private lastMinimum = 0;
   constructor() {
@@ -277,6 +288,7 @@ export class SodaSpaces extends LitElement {
       this.intentNotice =
         '';
     this.setup = null;
+    this.overviewScope = undefined;
     this.complete = this.repositoryBusy = false;
     this.repositoryResult = undefined;
     this.status = 'Loading projects…';
@@ -301,7 +313,7 @@ export class SodaSpaces extends LitElement {
       this.binding?.kind === 'page' &&
       (!!this.setup ||
         (!this.spaces.length && !this.binding.repositoryId) ||
-        requestIdFromLocation(window.location.pathname) !== '')
+        requestIdFromLocation(window.location.pathname, this.repositoryPrefix()) !== '')
     );
   }
   private get welcomeScreen() {
@@ -383,13 +395,23 @@ export class SodaSpaces extends LitElement {
     if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
     this.factory = factory;
     this.storageKey = '';
+    if (context.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+      this.pendingNewRoute = true;
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal,
     });
-    window.addEventListener('popstate', () => this.requestUpdate(), {
-      signal: this.lifetime.signal,
-    });
+    window.addEventListener(
+      'popstate',
+      () => {
+        if (this.binding?.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+          this.pendingNewRoute = true;
+        this.requestUpdate();
+      },
+      {
+        signal: this.lifetime.signal,
+      }
+    );
     window.addEventListener(
       'pageshow',
       (e) => {
@@ -425,7 +447,13 @@ export class SodaSpaces extends LitElement {
     // current content presentation and observed repository preference change.
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
     if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
+    this.armNewRoute(kind);
     this.requestUpdate();
+  }
+  private armNewRoute(kind: 'page' | 'native') {
+    // Same guarded one-shot as configure/popstate for retained presentation.
+    if (kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+      this.pendingNewRoute = true;
   }
   private pollAttention() {
     if (this.stale || this.disposed) return;
@@ -460,7 +488,47 @@ export class SodaSpaces extends LitElement {
     this.dispose();
   }
   protected updated() {
+    this.activateNewRoute();
     this.display();
+  }
+  private activateNewRoute() {
+    // One-shot fresh entry for direct new-route load/traversal/forward in a
+    // populated workspace. The flag clears on any setup so Back/cancel never
+    // refires; /workspace/new stays the neutral post-leave route for
+    // rendering. The current route is rechecked so a stale flag left by
+    // native navigation can never activate.
+    if (this.setup) {
+      this.freshEntryFromSetup();
+      this.pendingNewRoute = false;
+      return;
+    }
+    if (!this.pendingNewRoute) return;
+    const armed = this.newRouteCurrent() && this.spaces.length > 0;
+    if (armed) beginSetup(this.setupReading(), this.setupActions(), this);
+    if (this.setup || !isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+      this.pendingNewRoute = false;
+  }
+  private newRouteCurrent() {
+    return this.binding?.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix());
+  }
+  private freshEntryFromSetup() {
+    // Genuine native New arrival while a setup is active: the location no
+    // longer names the reviewed request, so drop that loaded identity and
+    // show a blank entry. Fresh in-progress entries (no revision) and busy
+    // elements are left untouched; stale owners and in-flight project
+    // mutations keep the screen, exactly like Back/cancel. The setup return
+    // target is preserved for Back.
+    if (!this.pendingNewRoute) return;
+    if (this.stale || !this.canRestore || !this.newRouteCurrent()) return;
+    const intent = this.querySelector<SodaIntent>('soda-intent');
+    if (!intent || intent.busy || intent.revision === undefined) return;
+    intent.reset();
+    const actions = this.setupActions();
+    actions.setRepositoryChoice('');
+    actions.setReviewAuthorization(undefined);
+    actions.setReviewedIntent(undefined);
+    actions.setSetupCommitted(false);
+    actions.setSetup('intent');
   }
   private geometryChanged(width: number, height: number, cell: {width: number; height: number}) {
     if (this.workspaceWidth !== this.clientWidth) return true;
@@ -615,19 +683,7 @@ export class SodaSpaces extends LitElement {
     return 'No authorized projects available.';
   }
   private renderEmptySpaces() {
-    if (
-      filteredSpaces({
-        reading: this.navReading(),
-        spaces: this.spaces,
-        entries: this.layout.entries,
-        search: this.search,
-        attentionOnly: this.attentionOnly,
-        thisPage: this.thisPage,
-        binding: this.binding,
-        projectName: (space) => this.projectName(space),
-      }).length
-    )
-      return '';
+    if (this.navigationSpaces().length) return '';
     return html`<p>${this.emptyFilterMessage()}</p>`;
   }
   private renderWelcomeFooter() {
@@ -720,16 +776,7 @@ export class SodaSpaces extends LitElement {
         <button class="ui button" @click=${() => this.nextAttention()}>Next attention</button>
       </div>
       ${repeat(
-        filteredSpaces({
-          reading: this.navReading(),
-          spaces: this.spaces,
-          entries: this.layout.entries,
-          search: this.search,
-          attentionOnly: this.attentionOnly,
-          thisPage: this.thisPage,
-          binding: this.binding,
-          projectName: (space) => this.projectName(space),
-        }),
+        this.navigationSpaces(),
         (space) => space.environment.id,
         (space) =>
           projectRows({
@@ -956,18 +1003,20 @@ export class SodaSpaces extends LitElement {
       setupReturn: this.setupReturn,
       firstSpace: this.spaces[0],
       actorId: this.actor?.id || '',
-      requestId: requestIdFromLocation(window.location.pathname),
+      requestId: requestIdFromLocation(window.location.pathname, this.repositoryPrefix()),
       reviewAuthorization: this.reviewAuthorization,
       reviewedIntent: this.reviewedIntent,
       setupCommitted: this.setupCommitted,
       transport: this.binding?.transport,
       suggestedRepository: this.suggestedSetupRepository(),
+      overviewScope: this.overviewScope,
+      committedSpace: this.spaces.find((space) => space.environment.repository_id === this.repositoryChoice),
       onBegin: this.onBeginSetup,
       onRefresh: this.onRefreshClick,
     };
   }
   private suggestedSetupRepository(): string | undefined {
-    const requestId = requestIdFromLocation(window.location.pathname);
+    const requestId = requestIdFromLocation(window.location.pathname, this.repositoryPrefix());
     if (!requestId) return undefined;
     return this.savedRequests?.find((saved) => saved.intent === requestId)?.repository;
   }
@@ -1040,12 +1089,47 @@ export class SodaSpaces extends LitElement {
       setSavedRequests: (intents) => {
         this.savedRequests = intents;
       },
+      setOverviewScope: (scope) => {
+        this.overviewScope = scope;
+      },
+      requestFactoryWatch: (request) => this.requestFactoryWatch(request),
     };
+  }
+  private requestFactoryWatch(request: FactoryWatchRequest): void {
+    const target = resolveWatchTarget(this.spaces, request);
+    if (!target) return;
+    if (!factoryWatching(this.watches, target.run.id))
+      watchRun(
+        {
+          readWatches: () => this.watches,
+          isStale: () => this.stale,
+          pushWatch: (watch) => {
+            this.watches.push(watch);
+          },
+          replaceWatches: (watches) => {
+            this.watches = watches;
+          },
+          updated: () => this.requestUpdate(),
+        },
+        target.space,
+        target.run
+      );
+    const watch = this.watches.find((entry) => entry.run === target.run.id);
+    if (!watch) return;
+    watch.hidden = false;
+    if (!this.navigationShows(target.space)) {
+      this.search = '';
+      this.attentionOnly = false;
+      this.thisPage = false;
+    }
+    cancelSetup(this.setupReading(), this.setupActions(), this);
+    if (!this.stale && hideNavigation(this.setupScreen, this.view, this.compact, this.layout.sidebar, this.stale))
+      this.showSessions();
   }
   private syncIntentRoute(intent: string | null) {
     if (intent !== null && !requestIDPattern.test(intent)) return;
     const target =
-      intent === null ? newRouteFor(window.location.pathname) : requestRouteFor(window.location.pathname, intent);
+      intent === null ? newRouteFor(this.repositoryPrefix()) : requestRouteFor(this.repositoryPrefix(), intent);
     if (target !== window.location.pathname) {
       const url = target + window.location.search + window.location.hash;
       if (intent === null) window.history.pushState(null, '', url);
@@ -1086,6 +1170,21 @@ export class SodaSpaces extends LitElement {
       observedAt: this.observedAt,
       now: this.now,
     };
+  }
+  private navigationSpaces() {
+    return filteredSpaces({
+      reading: this.navReading(),
+      spaces: this.spaces,
+      entries: this.layout.entries,
+      search: this.search,
+      attentionOnly: this.attentionOnly,
+      thisPage: this.thisPage,
+      binding: this.binding,
+      projectName: (space) => this.projectName(space),
+    });
+  }
+  private navigationShows(space: Space) {
+    return this.navigationSpaces().some((entry) => entry.environment.id === space.environment.id);
   }
   private nextAttention() {
     if (!this.activeSurface || this.stale || !this.available) return;

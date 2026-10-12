@@ -273,6 +273,7 @@ Delta duty inspection at `93fb3513`. Independent allowance persistence (H-A/I04)
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–135; file scaffold; SavePlanningAllowance; PlanningAllowance; planningUsage; PlanningAllowanceAvailable | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 12–16; ErrPlanningAllowanceExhausted | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Delta at `39d9ad6a` (I91/91d3): definite missing/exhausted reservation-refusal sentinel; reserve/refusal sites and tests updated to propagate it. Prior rows retain their pinned scope. |
 
 <a id="coverage-70622d401737"></a>
 

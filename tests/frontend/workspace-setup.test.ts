@@ -243,7 +243,7 @@ test('first use: resumed accepted request restores its overview with native link
   assert.equal(await page.locator('soda-factory-work-overview').count(), 0);
   const settledCalls = await page.evaluate(() => window.workspaceFixture.calls.length);
   await page.evaluate((id) => {
-    window.history.pushState({}, '', `/workspace/requests/${id}`);
+    window.history.pushState({}, '', `/forgejo.test/workspace/requests/${id}`);
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, intent);
   const overview = page.locator('soda-factory-work-overview');
@@ -257,6 +257,233 @@ test('first use: resumed accepted request restores its overview with native link
   );
   assert.equal(writes, 0);
 });
+test('first use: committed inspection mounts plan, detail and revision from the overview scope', async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  const intent = await page.evaluate(() => {
+    const calls = window.workspaceFixture.calls as {body?: Record<string, unknown>}[];
+    const accepted = calls.find((call) => (call.body as Record<string, unknown> | undefined)?.state === 'accepted');
+    return String((accepted?.body as Record<string, unknown> | undefined)?.intent || '');
+  });
+  assert.match(intent, /^d[0-9a-f]{24}$/);
+  await page.getByRole('button', {name: 'Change repository', exact: true}).click();
+  const overview = page.locator('soda-factory-work-overview');
+  await overview.getByText('Build a small project tracker').waitFor();
+  await page.locator('soda-factory-work-plan').waitFor();
+  await page.locator('soda-factory-work-detail').waitFor();
+  await page.locator('soda-factory-direction-revision').waitFor();
+  assert.equal(await page.locator('soda-factory-work-detail').count(), 1);
+  await page.waitForFunction(() =>
+    window.workspaceFixture.calls.some((call) =>
+      call.path.endsWith('/api/repositories/7/factory/issues/5/plan?limit=5')
+    )
+  );
+  await page.waitForFunction(() =>
+    window.workspaceFixture.calls.some((call) => call.path.endsWith('/api/repositories/7/factory/issues/5'))
+  );
+  await page.waitForFunction(
+    (id) =>
+      window.workspaceFixture.calls.some((call) => call.path.endsWith(`/api/factory/intents/${id}/revisions?limit=2`)),
+    intent
+  );
+  await page.waitForFunction(() => {
+    const el = document.querySelector('soda-intent');
+    const h2 = Array.from(el?.shadowRoot?.querySelectorAll('h2') || []).find(
+      (h) => h.textContent?.trim() === 'Review your product direction'
+    );
+    if (!h2) return false;
+    const r = h2.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  assert.equal(await page.locator('soda-factory-work-overview').count(), 0);
+  assert.equal(await page.locator('soda-factory-work-plan').count(), 0);
+  assert.equal(await page.locator('soda-factory-work-detail').count(), 0);
+  assert.equal(await page.locator('soda-factory-direction-revision').count(), 0);
+});
+test('setup: detail Watch binds the live run target into an observe-only watch', {timeout: 30000}, async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+  await page.evaluate(() => {
+    window.workspaceFixture.enableFactoryRun('5');
+    const [space] = window.workspaceFixture.spaces;
+    space?.factory_runs.push({
+      id: 'd'.repeat(32),
+      role: 'soda-coder',
+      issue: '5',
+      attempt: 'attempt-1',
+      reconciled: false,
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+  const resumed = page.locator('soda-factory-work-overview');
+  await resumed.getByText('Build a small project tracker').waitFor();
+  await resumed.getByText('Native work generated.').waitFor();
+  await page.locator('soda-factory-work-detail').waitFor();
+  const detail = page.locator('soda-factory-work-detail');
+  await detail.getByRole('button', {name: 'Watch output', exact: true}).waitFor();
+  assert.equal(await detail.getByText('no run selected').count(), 0);
+  await detail.getByText('run dddddddd').first().waitFor();
+  const environment = await page.evaluate(() => window.workspaceFixture.spaces[0]?.environment.id ?? '');
+  assert.match(environment, /^p[0-9a-f]{24}$/);
+  await detail.getByText(`project ${environment}`).waitFor();
+  const calls = await page.evaluate(() => window.workspaceFixture.calls.length);
+  await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
+  // Reveal: the Watch click leaves setup for the existing visible watch surface.
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('.soda-factory .xterm-rows')?.textContent?.includes('Fixture factory output')
+  );
+  assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+  const title = await page.evaluate(
+    () => document.querySelector('.soda-factory .soda-terminal-context span')?.textContent ?? ''
+  );
+  assert.equal(title, 'soda-coder · issue #5');
+  assert.ok(
+    await page.evaluate(() =>
+      window.workspaceFixture.sockets.some((socket) => String(socket.url).includes('/factory/runs/dddddddd'))
+    )
+  );
+  const writes = await page.evaluate(
+    (before) => window.workspaceFixture.calls.slice(before).filter((call) => call.method !== 'GET'),
+    calls
+  );
+  assert.deepEqual(writes, []);
+  const leftRequest = await page.evaluate(() => window.location.pathname);
+  assert.ok(!leftRequest.includes('/workspace/requests/'));
+  // Return: the saved request resumes with its committed identity and targets intact.
+  await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+  await page.locator('soda-factory-work-detail').waitFor();
+  const returned = page.locator('soda-factory-work-detail');
+  assert.equal(await returned.getByText('no run selected').count(), 0);
+  await returned.getByText('run dddddddd').first().waitFor();
+  const backOnRequest = await page.evaluate(() => window.location.pathname);
+  assert.ok(backOnRequest.includes('/workspace/requests/'));
+  // Duplicate/preservation: watching again reveals the same live watch untouched.
+  const statusCalls = await page.evaluate(
+    () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
+  );
+  await returned.getByRole('button', {name: 'Watch output', exact: true}).click();
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
+    ),
+    statusCalls
+  );
+  assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+});
+test(
+  'setup: Watch reveal clears only obstructing filters, hidden watch and hidden navigation',
+  {timeout: 90000},
+  async (t) => {
+    const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+    await page.evaluate(() => window.workspaceFixture.api.refresh());
+    await reviewFirstIntent(page);
+    await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+    await page.getByRole('button', {name: 'Continue', exact: true}).click();
+    await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await page.getByRole('button', {name: 'Join project', exact: true}).click();
+    await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+    await page.evaluate(() => {
+      window.workspaceFixture.enableFactoryRun('5');
+      const [space] = window.workspaceFixture.spaces;
+      space?.factory_runs.push({
+        id: 'd'.repeat(32),
+        role: 'soda-coder',
+        issue: '5',
+        attempt: 'attempt-1',
+        reconciled: false,
+      });
+      return window.workspaceFixture.api.refresh();
+    });
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    const detail = page.locator('soda-factory-work-detail');
+    await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    // Phase 1: search + attention filters exclude the target space row while the
+    // unfiltered saved Resume stays available; Watch must clear the obstruction.
+    // The search control is hidden with a single project, so fill drives the real
+    // input handler; attentionOnly has no visible control in this state.
+    await page.locator('.soda-workspace-navigation input[type="search"]').fill('zzz-no-such-project', {force: true});
+    await page.evaluate(() => {
+      (document.querySelector('soda-spaces') as unknown as {attentionOnly: boolean}).attentionOnly = true;
+    });
+    await page.locator('.soda-factory').waitFor({state: 'hidden'});
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await page.locator('soda-factory-work-detail').waitFor();
+    await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+    assert.equal(await page.locator('.soda-workspace-navigation input[type="search"]').inputValue(), '');
+    assert.equal(
+      await page.evaluate(
+        () => (document.querySelector('soda-spaces') as unknown as {attentionOnly: boolean}).attentionOnly
+      ),
+      false
+    );
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.sockets.filter(
+            (socket) => !socket.closed && String(socket.url).includes('/factory/runs/dddddddd')
+          ).length
+      ),
+      1
+    );
+    // Phase 2: hiding the exact watch through the real factory command, then
+    // watching again, reveals the same live watch without a second connection.
+    await page.evaluate(() => {
+      document
+        .querySelector('[data-factory-owner]')
+        ?.dispatchEvent(new CustomEvent('soda-factory-command', {bubbles: true, detail: 'hide'}));
+    });
+    await page.locator('.soda-factory').waitFor({state: 'hidden'});
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await page.locator('soda-factory-work-detail').waitFor();
+    await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.sockets.filter(
+            (socket) => !socket.closed && String(socket.url).includes('/factory/runs/dddddddd')
+          ).length
+      ),
+      1
+    );
+    // Phase 3: compact layout hides navigation; Watch restores the sessions view.
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await page.locator('soda-factory-work-detail').waitFor();
+    await page.setViewportSize({width: 500, height: 800});
+    await page.waitForFunction(
+      () => (document.querySelector('soda-spaces') as unknown as {compact: boolean}).compact === true
+    );
+    await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+  }
+);
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
@@ -624,6 +851,303 @@ test('setup: saved draft resumes from its request route across history traversal
     return area instanceof HTMLTextAreaElement && area.value === 'Build a small project tracker';
   });
   await page.getByText('Saved', {exact: true}).waitFor();
+});
+
+test('setup: direct /workspace/new load activates fresh entry in populated workspace', {timeout: 60000}, async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  const mountNewRoute = () =>
+    page.evaluate(async () => {
+      window.workspaceFixture = window.createWorkspaceFixture('page', false, '');
+      await window.workspaceFixture.api.ready;
+      return window.workspaceFixture.api.refresh();
+    });
+  // Direct load at the admitted new route must show fresh intent entry.
+  await page.goto(new URL('/workspace/new', page.url()).href);
+  await page.waitForFunction(() => !!window.createWorkspaceFixture);
+  await mountNewRoute();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+  // Reload keeps the fresh entry without provisioning.
+  await page.reload();
+  await page.waitForFunction(() => !!window.createWorkspaceFixture);
+  await mountNewRoute();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+  // Back exits to the ordinary workspace with terminals/navigation preserved.
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+  // Traversal back into the new route reactivates the entry.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/');
+  });
+  await page.goBack();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+});
+
+test('setup: retained owner follows native forward to /workspace/new without remount', {timeout: 60000}, async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  // Native forward: Fountain pushState then panel-entry sync calls present()
+  // on the retained owner; no popstate fires and nothing remounts.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/workspace/new');
+    (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+});
+
+test('setup: native New while resuming starts a blank entry and saves a new identity', {timeout: 90000}, async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  const savedRoute = await page.evaluate(() => window.location.pathname);
+  await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname === '/workspace/new');
+  await page.getByRole('button', {name: 'Resume Build a small project tracker', exact: true}).click();
+  await page.waitForFunction((route) => window.location.pathname === route, savedRoute);
+  const resumedIntent = await page.evaluate(
+    () =>
+      (document.querySelector('soda-intent') as unknown as {revision?: {intent: string}} | null)?.revision?.intent ?? ''
+  );
+  assert.match(resumedIntent, /^d[0-9a-f]{24}$/);
+  // Same retained owner takes the native forward; the element must survive.
+  await page.evaluate(() => {
+    document.querySelector('soda-spaces')?.setAttribute('data-c03-probe', 'retained');
+    window.history.pushState({}, '', '/workspace/new');
+    (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.equal(await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(), '');
+  assert.equal(
+    await page.evaluate(
+      () => (document.querySelector('soda-intent') as unknown as {revision?: unknown} | null)?.revision
+    ),
+    undefined
+  );
+  assert.equal(await page.evaluate(() => window.location.pathname), '/workspace/new');
+  assert.equal(
+    await page.evaluate(() => document.querySelector('soda-spaces')?.getAttribute('data-c03-probe')),
+    'retained'
+  );
+  // Next save mints a new identity instead of extending the resumed one.
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a second tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(
+    (route) => window.location.pathname.startsWith('/workspace/requests/d') && window.location.pathname !== route,
+    savedRoute
+  );
+  const posts = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+  );
+  assert.equal(posts.length, 3);
+  const fresh = posts[posts.length - 1];
+  assert.equal(fresh?.body?.intent === resumedIntent, false);
+  assert.equal(fresh?.body?.predecessor, undefined);
+  const foreign = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter(
+      (call) => call.method !== 'GET' && !(call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+    )
+  );
+  assert.deepEqual(foreign, []);
+});
+
+test('setup: native New while viewing accepted starts blank and saves apart', {timeout: 120000}, async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  const prefix = '/forgejo.test';
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+  await page.evaluate(() => {
+    window.workspaceFixture.enableFactoryRun('5');
+    const [space] = window.workspaceFixture.spaces;
+    space?.factory_runs.push({
+      id: 'd'.repeat(32),
+      role: 'soda-coder',
+      issue: '5',
+      attempt: 'attempt-1',
+      reconciled: false,
+    });
+    return window.workspaceFixture.api.refresh();
+  });
+  const resumeName = /^Resume Build a small project tracker$/;
+  await page.getByRole('button', {name: resumeName}).click();
+  const resumed = page.locator('soda-factory-work-overview');
+  await resumed.getByText('Build a small project tracker').waitFor();
+  await resumed.getByText('Native work generated.').waitFor();
+  const acceptedRoute = await page.evaluate(() => window.location.pathname);
+  assert.match(acceptedRoute, /^\/forgejo\.test\/workspace\/requests\/d[0-9a-f]{24}$/);
+  assert.equal(
+    await page.evaluate(
+      () => (document.querySelector('soda-spaces') as unknown as {setupCommitted: boolean}).setupCommitted
+    ),
+    true
+  );
+  // Mount the live watch terminal, then return to the accepted review.
+  await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  await page.getByRole('button', {name: resumeName}).click();
+  await resumed.getByText('Native work generated.').waitFor();
+  const watchAlive = () =>
+    page.evaluate(
+      () =>
+        document.querySelectorAll('.soda-factory .xterm-rows').length > 0 &&
+        window.workspaceFixture.sockets.some(
+          (socket) => String(socket.url).includes('/factory/runs/dddddddd') && !socket.closed
+        )
+    );
+  assert.equal(await watchAlive(), true);
+  const provisionedBefore = await page.evaluate(
+    () =>
+      window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.includes('/api/environments'))
+        .length
+  );
+  // Same retained owner takes the explicit native New.
+  await page.evaluate((route) => {
+    document.querySelector('soda-spaces')?.setAttribute('data-c03-probe', 'retained');
+    window.history.pushState({}, '', route);
+    (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+  }, `${prefix}/workspace/new`);
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.equal(await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(), '');
+  assert.equal(
+    await page.evaluate(
+      () => (document.querySelector('soda-intent') as unknown as {revision?: unknown} | null)?.revision
+    ),
+    undefined
+  );
+  assert.equal(await page.locator('soda-factory-work-overview').count(), 0);
+  assert.equal(
+    await page.evaluate(
+      () => (document.querySelector('soda-spaces') as unknown as {setupCommitted: boolean}).setupCommitted
+    ),
+    false
+  );
+  assert.equal(await page.evaluate(() => window.location.pathname), `${prefix}/workspace/new`);
+  assert.equal(
+    await page.evaluate(() => document.querySelector('soda-spaces')?.getAttribute('data-c03-probe')),
+    'retained'
+  );
+  assert.equal(await watchAlive(), true);
+  // Next save mints a separate identity; nothing provisions.
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a second tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(
+    (route) =>
+      window.location.pathname.startsWith('/forgejo.test/workspace/requests/d') && window.location.pathname !== route,
+    acceptedRoute
+  );
+  const acceptedIntent = acceptedRoute.slice('/forgejo.test/workspace/requests/'.length);
+  const posts = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+  );
+  assert.ok(posts.length > 0);
+  const fresh = posts[posts.length - 1];
+  assert.equal(fresh?.body?.intent === acceptedIntent, false);
+  assert.equal(fresh?.body?.predecessor, undefined);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.workspaceFixture.calls.filter(
+          (call) => call.method === 'POST' && call.path.includes('/api/environments')
+        ).length
+    ),
+    provisionedBefore
+  );
+  // Back returns to the pre-resume target; the accepted work is intact.
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('button', {name: resumeName}).waitFor();
+  await page.getByRole('button', {name: resumeName}).click();
+  await page.waitForFunction((route) => window.location.pathname === route, acceptedRoute);
+  await resumed.getByText('Native work generated.').waitFor();
+});
+
+test('setup: native New on idle Configure starts blank and saves apart', {timeout: 90000}, async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  const prefix = '/forgejo.test';
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  const acceptedIntent = await page.evaluate(
+    () =>
+      (document.querySelector('soda-intent') as unknown as {revision?: {intent: string}} | null)?.revision?.intent ?? ''
+  );
+  assert.match(acceptedIntent, /^d[0-9a-f]{24}$/);
+  assert.equal(
+    await page.evaluate(() => (document.querySelector('soda-spaces') as unknown as {setup: string}).setup),
+    'configure'
+  );
+  // Explicit native New before any Create operation takes the same owner.
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+  }, `${prefix}/workspace/new`);
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.equal(await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(), '');
+  assert.equal(
+    await page.evaluate(
+      () => (document.querySelector('soda-intent') as unknown as {revision?: unknown} | null)?.revision
+    ),
+    undefined
+  );
+  assert.equal(
+    await page.evaluate(() => (document.querySelector('soda-spaces') as unknown as {setup: string}).setup),
+    'intent'
+  );
+  assert.equal(await page.evaluate(() => window.location.pathname), `${prefix}/workspace/new`);
+  // Next save mints a separate identity; the accepted request is preserved.
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a second tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(
+    (intent) =>
+      window.location.pathname.startsWith('/forgejo.test/workspace/requests/d') &&
+      !window.location.pathname.endsWith(intent),
+    acceptedIntent
+  );
+  const posts = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+  );
+  assert.ok(posts.length > 0);
+  const fresh = posts[posts.length - 1];
+  assert.equal(fresh?.body?.intent === acceptedIntent, false);
+  assert.equal(fresh?.body?.predecessor, undefined);
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  const resumeName = /^Resume Build a small project tracker$/;
+  await page.getByRole('button', {name: resumeName}).waitFor();
+  await page.getByRole('button', {name: resumeName}).click();
+  await page.waitForFunction(
+    (intent) => window.location.pathname === `/forgejo.test/workspace/requests/${intent}`,
+    acceptedIntent
+  );
+  await page.locator('soda-factory-work-overview').getByText('Build a small project tracker').waitFor();
 });
 
 test('setup: unknown request route reports unavailable without losing the entry', async (t) => {

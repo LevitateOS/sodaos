@@ -63,7 +63,7 @@ func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing
 	fx.seed.queue(t, 3, decision.ID)
 	fx.reads.evidence["7/3"] = AcceptanceEvidence{
 		Revision: 9,
-		Issue:    AcceptanceIssueView{Index: "3", TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
+		Issue:    AcceptanceIssueView{Index: "3", TitleDigest: decision.TitleDigest, TitleOccurrence: decision.TitleOccurrence, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{{ID: "11", Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
 	}
 	h := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, candidate: strings.Repeat("2", 40)}

@@ -43,6 +43,91 @@ and untouched by this delta still await rows:
 `internal/web/factory_activity_test.go`,
 `tests/frontend/workspace-native-shell.test.ts`.
 
+Final upkeep at `deb79186` (2026-10-12), incremental from `93fb3513`: 1
+added, 24 modified, 0 deleted outside this plan. New duties only are
+recorded (scope feed/builders, committed resume, correction wait,
+worker self-bind, 13 new tests); the integrated 173-path packet stands
+unchanged and historical structural/body/full-review pins are untouched.
+C Watch/actions wiring was still underway at this pin, so only committed
+duties are recorded; its callnames join a later delta when published.
+
+Settled duty delta at `a835c02d` (2026-10-12), incremental from
+`deb79186`: 0 added, 9 modified, 0 deleted outside this plan. Records the
+now-published C46ee Watch/target/reactive callnames and the L8ade remap
+duties, with L484 self-bind descriptions superseded in place and kept as
+history. Structural/body/full-review pins and the integrated packet stand
+unchanged.
+
+Final interface correction at `8fbed0a7` (2026-10-12), incremental from
+`a835c02d`: 0 added, 4 modified, 0 deleted outside this plan. Records the
+C30c/8fbe Watch-reveal duties (connected getter, detached-view drop,
+navigation extraction, reveal with filter-clear/cancel/navigation-restore)
+and the extended plus new phase-regression tests; superseded dispatch-only
+and hidden-surface descriptions stay as history. Connected-view retention
+vs same-run recreation is recorded without claiming a continuous renderer
+or socket across filter DOM removal. Structural/body/full-review pins and
+the integrated packet stand unchanged.
+
+Settled-duty upkeep at `59b18572` (2026-10-12), incremental from
+`8fbed0a7`: 0 added, 8 modified, 0 deleted outside this plan. Records
+the four settled canon pins only: C03 direct/forward fresh-entry duties
+(isNewRouteLocation, pendingNewRoute, armNewRoute, activateNewRoute, 3
+new tests), I03 /factory/intents query admission with allowlist rows,
+and Helper v2 native workspace shapes with subURL/prefix/canonical-path
+assertions (D06 retained, new installed-map section). The workspace-driver
+shell-route tweak stays under its generic inventory row (harness
+accommodation, no named duty). FirstUse caller duties follow as a second
+packet when the Q FirstUse checked packet lands. Structural/body/review
+pins and the integrated packet stand unchanged.
+
+Second duty packet at `2509c22c` (2026-10-12), incremental from
+`59b18572`: 0 added, 3 modified, 0 deleted outside this plan. Records
+the two settled canon pins only: L-5bfb scoped dashboard HTTPS/DNS
+egress for the fixed design client (self stream-socket subsuming the
+removed standalone listen, http name_connect, DNS resolve; no other
+duty changed) and Q-2d74 FirstUse real intent preamble with mounted
+API facts (new installed-map journey section, helper mountedSpacesFacts
+plus evidence fields; D06 retained, test-only, no shipping change).
+Structural/body/review pins and the integrated packet stand unchanged.
+
+Final-delta upkeep at `39d9ad6a` (2026-10-12), incremental from
+`2509c22c`: 0 added, 15 modified, 0 deleted outside this plan. Records
+merged duties only: S13 clarify dedup (pinned texts, stable-identity
+reuse, 3 tests), U06 review-only allowance top-up (fresh usage read,
+412 CAS retry, 2 tests), I91 exhaustion sentinel with chooser seam and
+409 funding branches, C native-New blank entry with its test, and Q07
+allowance POST+201 journey receipt. I0f4 and C/I routing fixes are not
+on this pin and are claimed by no row; they join a later packet when
+merged. New rows carry current spans; prior rows keep their pins.
+Structural/body/review pins and the integrated packet stand unchanged.
+
+Final routing delta at `71f79938` (2026-10-12), incremental from
+`39d9ad6a`: 0 added, 4 modified, 0 deleted outside this plan. Records
+the settled source only: I0f revisions/plan GET query admission with
+nine allowlist rows, and C accepted-overview plus idle-Configure native
+New routing (committed-flag clear, stale/canRestore guard, shared
+newRouteCurrent helper, 2 regressions). C source settled at this pin.
+Structural/body/review pins and the integrated packet stand unchanged.
+
+S07 duty packet at `46848018` (2026-10-12), incremental from
+`71f79938`: 0 added, 2 modified, 0 deleted outside this plan. Records
+the one canon pin only: effectiveDecompositionScope projection with
+triplet/options call sites and 2 regression tests. Structural/body/
+review pins and the integrated packet stand unchanged.
+
+I/U duty delta at `79b4a524` (2026-10-12), incremental from
+`46848018`: 0 added, 4 modified, 0 deleted outside this plan. Records
+the two canon pins only: I 409 review-refusal mapping with bridge
+test, and U decided-refusal wording with regression. Structural/body/
+review pins and the integrated packet stand unchanged.
+
+U decoder duty delta at `2f382509` (2026-10-12), incremental from
+`79b4a524`: 0 added, 2 modified, 0 deleted outside this plan. Records
+the one canon pin only: strict composite authorization decode with
+fixture shape and committed-state regression step. No durable identity
+or DTO change. Structural/body/review pins and the integrated packet
+stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their

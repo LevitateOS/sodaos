@@ -354,13 +354,13 @@ export function createWorkspaceModel(
     setCreateOutcome(value: typeof createOutcome) {
       createOutcome = value;
     },
-    enableFactoryRun() {
+    enableFactoryRun(issue = '42') {
       factoryRunEnabled = true;
       if (!alpha.factory_runs.some((run) => run.id === factoryRunId))
         alpha.factory_runs.push({
           id: factoryRunId,
           role: 'soda-coder',
-          issue: '42',
+          issue,
           attempt: 'attempt-1',
           reconciled: false,
         });

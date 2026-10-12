@@ -31,6 +31,22 @@ func (q05KeepChooser) Select(_ context.Context, _ any, _ string, choices map[str
 	return factory.PriorityAnswer{Selected: "keep", Confidence: 0.9, Probabilities: probabilities, Model: "q05-declared"}, nil
 }
 
+// q05ReviewChooser is the declared test-local decomposition refusal: the
+// reviewed decomposition needs reconsideration. No live model call.
+type q05ReviewChooser struct{}
+
+func (q05ReviewChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	probabilities := map[string]float64{}
+	for id := range choices {
+		probabilities[id] = 0
+	}
+	if _, ok := choices["review"]; !ok {
+		return factory.PriorityAnswer{}, errors.New("review is not an option")
+	}
+	probabilities["review"] = 1
+	return factory.PriorityAnswer{Selected: "review", Confidence: 0.9, Probabilities: probabilities, Model: "q05-declared"}, nil
+}
+
 // q05Graph is a test-local control.IssueGraphExecutor that returns declared
 // native facts faithfully from the exact submitted payload: receipts bind
 // every submitted key, and read-back echoes submitted titles/bodies.
@@ -108,9 +124,11 @@ func (f *q05Graph) ReadAcceptanceEvidence(_ context.Context, _ string, issue str
 		}
 		return control.AcceptanceEvidence{
 			Revision: f.rev,
-			Issue: control.AcceptanceIssueView{Index: issue, Visible: true,
+			Issue: control.AcceptanceIssueView{
+				Index: issue, Visible: true,
 				TitleDigest: forgejo.ContentDigest(create.Title), TitleOccurrence: factory.OriginalOccurrence,
-				ContentDigest: forgejo.ContentDigest(create.Body), ContentVer: 1},
+				ContentDigest: forgejo.ContentDigest(create.Body), ContentVer: 1,
+			},
 		}, nil
 	}
 	return control.AcceptanceEvidence{}, errors.New("unknown generated issue")
@@ -129,8 +147,10 @@ func (f *q05Graph) ReadAcceptanceEvidence(_ context.Context, _ string, issue str
 func TestAcceptGenerateCommitmentBridge(t *testing.T) {
 	product, s, call, errorCode := q05Mux(t, "")
 	fake := &q05Graph{t: t, store: s, rev: 7}
-	product.Coordinator = &control.Coordinator{Store: s, Graph: fake, GraphActorID: 21, AcceptanceReads: fake,
-		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: q05KeepChooser{}}}
+	product.Coordinator = &control.Coordinator{
+		Store: s, Graph: fake, GraphActorID: 21, AcceptanceReads: fake,
+		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: q05KeepChooser{}},
+	}
 
 	const draftID = "d111111111111111111111111"
 	const intentID = "d222222222222222222222222"
@@ -251,5 +271,66 @@ func TestAcceptGenerateCommitmentBridge(t *testing.T) {
 	}
 	if fake.submits != 1 {
 		t.Fatalf("repeat submitted a second graph: %d", fake.submits)
+	}
+}
+
+// TestGenerateDecompositionRefusalNeedsReview proves a deliberate
+// decomposition refusal reports 409 intent_review_required (never a
+// storage 503): the accepted direction is saved, but the proposed work
+// needs reconsideration before native work can be created. No graph is
+// submitted and the accepted head is retained.
+func TestGenerateDecompositionRefusalNeedsReview(t *testing.T) {
+	product, s, call, errorCode := q05Mux(t, "")
+	fake := &q05Graph{t: t, store: s, rev: 7}
+	product.Coordinator = &control.Coordinator{
+		Store: s, Graph: fake, GraphActorID: 21, AcceptanceReads: fake,
+		Planning: &control.PlanningJudgments{Journal: s, Funding: s, Chooser: q05ReviewChooser{}},
+	}
+
+	const draftID = "d111111111111111111111111"
+	const intentID = "d222222222222222222222222"
+	const ideaID = "d333333333333333333333333"
+	const taskKey = "d444444444444444444444444"
+	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","repository":"0","objective":"Time-off requests my manager can approve",` +
+		`"ideas":[],"tasks":[],"state":"draft","max_issues":20,"planning_calls":8}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	uShape := `{"id":"d555555555555555555555555","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
+	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", uShape); code != http.StatusCreated {
+		t.Fatalf("allowance status=%d body=%s", code, body)
+	}
+	const acceptID = "dbbbbbbbbbbbbbbbbbbbbbbbb"
+	accepted := `{"id":"` + acceptID + `","intent":"` + intentID + `","predecessor":"` + draftID + `","repository":"7",` +
+		`"objective":"Time-off requests my manager can approve",` +
+		`"ideas":[{"id":"` + ideaID + `","description":"Track leave requests","consequence":"Managers review requests",` +
+		`"decision":"accept","source":"requested","provenance":"human","actor":"1"}],` +
+		`"tasks":[{"key":"` + taskKey + `","objective":"Build the leave tracker","outcomes":["Requests list"],"idea_ids":["` + ideaID + `"]}],` +
+		`"state":"accepted","max_issues":20,"planning_calls":8}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", accepted); code != http.StatusCreated {
+		t.Fatalf("accept status=%d body=%s", code, body)
+	}
+	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/generate", `{}`)
+	if code != http.StatusConflict || errorCode(body) != "intent_review_required" {
+		t.Fatalf("refused generate status=%d body=%s", code, body)
+	}
+	if fake.submits != 0 {
+		t.Fatalf("refused decomposition submitted a graph: %d", fake.submits)
+	}
+	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID, ""); code != http.StatusOK {
+		t.Fatalf("intent read status=%d", code)
+	} else {
+		var head factory.IntentRevision
+		if err := json.Unmarshal(body, &head); err != nil || head.ID != acceptID || head.State != "accepted" {
+			t.Fatalf("accepted head moved body=%s", body)
+		}
+	}
+	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/generation", ""); code != http.StatusOK {
+		t.Fatalf("generation read status=%d", code)
+	} else {
+		var pending map[string]string
+		if err := json.Unmarshal(body, &pending); err != nil || pending["state"] != "pending" {
+			t.Fatalf("generation body=%s", body)
+		}
 	}
 }

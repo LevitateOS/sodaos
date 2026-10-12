@@ -2,10 +2,12 @@ package control
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 // TestFirstSaveAllowanceProducerExploreBoundary proves the Q05 funding
@@ -27,10 +29,7 @@ func TestFirstSaveAllowanceProducerExploreBoundary(t *testing.T) {
 	}
 	snapshot := strings.Repeat("a", 64)
 	funded, err := c.Store.ReserveIntentJudgment(ctx, r, snapshot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if funded {
+	if funded || !errors.Is(err, store.ErrPlanningAllowanceExhausted) {
 		t.Fatal("first exploration funded without an allowance head")
 	}
 	if err := c.Store.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d999999999999999999999999", Intent: r.Intent, Owner: r.Owner, Amount: 8, Unit: factory.PlanningAllowanceUnit, Ceiling: 8, CreatedUnix: 1}); err != nil {

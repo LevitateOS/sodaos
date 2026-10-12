@@ -425,7 +425,7 @@ func TestDispatchResumesPersistedReadinessFromIntakeEvent(t *testing.T) {
 	endpointHead := fx.accept(t, 3, "d333333333333333333333333")
 	dependent := factory.Acceptance{
 		ID: "d555555555555555555555555", Repository: fx.repo, IssueIndex: "5", Approver: 5, NativeRev: 41,
-		TitleDigest: dispatchDigest("dep title"), ContentDigest: dispatchDigest("dep body"), ContentVersion: 1,
+		TitleDigest: dispatchDigest("dep title"), TitleOccurrence: factory.OriginalOccurrence, ContentDigest: dispatchDigest("dep body"), ContentVersion: 1,
 		Prerequisites: []factory.AcceptedPrerequisite{{
 			Occurrence: "100", DependsOn: "200", PrereqAcceptance: endpointHead.ID,
 			EndpointRepo: fx.repo, EndpointIssue: 3, Outcome: factory.PrereqCode,
@@ -436,13 +436,13 @@ func TestDispatchResumesPersistedReadinessFromIntakeEvent(t *testing.T) {
 	}
 	source := &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
 		"7/5": {
-			Issue:        AcceptanceIssueView{Index: "5", TitleDigest: dependent.TitleDigest, ContentDigest: dependent.ContentDigest, ContentVer: 1, Visible: true},
+			Issue:        AcceptanceIssueView{Index: "5", TitleDigest: dependent.TitleDigest, TitleOccurrence: dependent.TitleOccurrence, ContentDigest: dependent.ContentDigest, ContentVer: 1, Visible: true},
 			Dependencies: []AcceptanceEdge{{Occurrence: "100", DependsOn: "200", Visible: true}},
 			Revision:     41,
 		},
 		"7/3": {
 			Issue: AcceptanceIssueView{
-				Index: "3", TitleDigest: endpointHead.TitleDigest, ContentDigest: endpointHead.ContentDigest,
+				Index: "3", TitleDigest: endpointHead.TitleDigest, TitleOccurrence: endpointHead.TitleOccurrence, ContentDigest: endpointHead.ContentDigest,
 				ContentVer: endpointHead.ContentVersion, Visible: true,
 			},
 			Comments: []AcceptanceComment{{ID: "11", Digest: endpointHead.Sources[0].Digest, ContentVer: 0, Visible: true}},
@@ -511,7 +511,7 @@ func TestReportedAssignmentReadinessRootDrainsOnDispatch(t *testing.T) {
 	root := seed.accept(t, 3, "d333333333333333333333333")
 	dependent := factory.Acceptance{
 		ID: "d" + strings.Repeat("5", 24), Repository: seed.repo, IssueIndex: "5", Approver: 5, NativeRev: 41,
-		TitleDigest: dispatchDigest("objective 5"), ContentDigest: dispatchDigest("body 5"), ContentVersion: 2,
+		TitleDigest: dispatchDigest("objective 5"), TitleOccurrence: factory.OriginalOccurrence, ContentDigest: dispatchDigest("body 5"), ContentVersion: 2,
 		Sources:     []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: dispatchDigest("answer 5")}},
 		Resolutions: []factory.SelectedSource{{ID: "31", ContentVersion: 0, Digest: dispatchDigest("resolution 5")}},
 		Prerequisites: []factory.AcceptedPrerequisite{{
@@ -524,12 +524,12 @@ func TestReportedAssignmentReadinessRootDrainsOnDispatch(t *testing.T) {
 	}
 	rootEvidence := AcceptanceEvidence{
 		Revision: 41,
-		Issue:    AcceptanceIssueView{Index: "3", TitleDigest: root.TitleDigest, ContentDigest: root.ContentDigest, ContentVer: root.ContentVersion, Visible: true},
+		Issue:    AcceptanceIssueView{Index: "3", TitleDigest: root.TitleDigest, TitleOccurrence: root.TitleOccurrence, ContentDigest: root.ContentDigest, ContentVer: root.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{{ID: root.Sources[0].ID, Digest: root.Sources[0].Digest, ContentVer: root.Sources[0].ContentVersion, Visible: true}},
 	}
 	dependentEvidence := AcceptanceEvidence{
 		Revision: 41,
-		Issue:    AcceptanceIssueView{Index: "5", TitleDigest: dependent.TitleDigest, ContentDigest: dependent.ContentDigest, ContentVer: dependent.ContentVersion, Visible: true},
+		Issue:    AcceptanceIssueView{Index: "5", TitleDigest: dependent.TitleDigest, TitleOccurrence: dependent.TitleOccurrence, ContentDigest: dependent.ContentDigest, ContentVer: dependent.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{
 			{ID: dependent.Sources[0].ID, Digest: dependent.Sources[0].Digest, ContentVer: dependent.Sources[0].ContentVersion, Visible: true},
 			{ID: dependent.Resolutions[0].ID, Digest: dependent.Resolutions[0].Digest, ContentVer: dependent.Resolutions[0].ContentVersion, Visible: true},
@@ -640,7 +640,7 @@ func TestIntakeTriggersAutomaticDispatch(t *testing.T) {
 	source := &fakeAcceptanceSource{evidence: map[string]AcceptanceEvidence{
 		"7/3": {
 			Issue: AcceptanceIssueView{
-				Index: "3", TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest,
+				Index: "3", TitleDigest: decision.TitleDigest, TitleOccurrence: decision.TitleOccurrence, ContentDigest: decision.ContentDigest,
 				ContentVer: decision.ContentVersion, Visible: true,
 			},
 			Comments: []AcceptanceComment{{
@@ -694,7 +694,7 @@ func TestAssessedResultPrerequisiteAppearsInRecordedDispatchPrompt(t *testing.T)
 	dependentInput.Comments = append(dependentInput.Comments, DispatchComment{ID: "31", Content: resolution, Digest: dispatchDigest(resolution), Visible: true})
 	fx.reads.inputs["7/5"] = dependentInput
 	endpointIssue := AcceptanceIssueView{
-		Index: "3", TitleDigest: endpoint.TitleDigest, ContentDigest: endpoint.ContentDigest,
+		Index: "3", TitleDigest: endpoint.TitleDigest, TitleOccurrence: endpoint.TitleOccurrence, ContentDigest: endpoint.ContentDigest,
 		ContentVer: endpoint.ContentVersion, ClosingOccurrence: "94", LifecycleOccurrence: "94", ClosedUnix: 1_800_000_000,
 		Closed: true, Visible: true,
 	}
@@ -711,7 +711,7 @@ func TestAssessedResultPrerequisiteAppearsInRecordedDispatchPrompt(t *testing.T)
 		},
 		"7/5": {
 			Issue: AcceptanceIssueView{
-				Index: "5", TitleDigest: dependent.TitleDigest, ContentDigest: dependent.ContentDigest,
+				Index: "5", TitleDigest: dependent.TitleDigest, TitleOccurrence: dependent.TitleOccurrence, ContentDigest: dependent.ContentDigest,
 				ContentVer: dependent.ContentVersion, Visible: true,
 			},
 			Comments: []AcceptanceComment{
@@ -740,7 +740,7 @@ func TestAssessedResultPrerequisiteAppearsInRecordedDispatchPrompt(t *testing.T)
 	for _, want := range []string{
 		"## Accepted prerequisites", "Occurrence 21: depends on issue 9 at repository 7, issue 3; outcome result",
 		"satisfied as of queued readiness revision " + fmt.Sprint(control.Revision),
-		"lifecycle 4 closed at 1800000000 under acceptance " + dependent.ID,
+		"native closing occurrence 94 under acceptance " + dependent.ID,
 	} {
 		if !strings.Contains(string(assignment.Prompt), want) {
 			t.Errorf("recorded dependent prompt lacks %q", want)

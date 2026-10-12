@@ -100,8 +100,11 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	proposal.CreatedUnix = time.Now().Unix()
 	// Product exploration uses explicitly bounded consultation credit, distinct
 	// from execution funding. Failure remains visible and creates no acceptance.
-	chooser := control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
-	coord := &control.Coordinator{Store: s.Store, Planning: &control.PlanningJudgments{Chooser: &chooser}}
+	judge := s.IntentExploreChooser
+	if judge == nil {
+		judge = &control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
+	}
+	coord := &control.Coordinator{Store: s.Store, Planning: &control.PlanningJudgments{Chooser: judge}}
 	candidates := intentDesignCandidates(current)
 	design := current
 	design.ID = ""
@@ -129,6 +132,10 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		},
 	})
 	if callErr != nil {
+		if errors.Is(callErr, store.ErrPlanningAllowanceExhausted) {
+			auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+			return
+		}
 		if errors.Is(callErr, control.ErrPriorityUnavailable) {
 			auth.JSONError(w, 503, "planning_unavailable", "Design consultation failed; the consumed allowance is retained.")
 			return
@@ -139,10 +146,14 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	proposal = applyIntentDesign(current, ids, proposal, answer)
 	if answer.Selected == "clarify" || answer.Confidence < 0.25 {
 		proposal.Tasks = []factory.IntentTask{}
-		proposal.Ideas = append(proposal.Ideas, clarifyIdea(ids[103]))
+		proposal = appendClarifyOnce(proposal, ids[103])
 	}
 	review, err := coord.JudgeAssumptions(r.Context(), current, content, proposal.Ideas)
 	if err != nil {
+		if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
+			auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+			return
+		}
 		if errors.Is(err, control.ErrPriorityUnavailable) {
 			auth.JSONError(w, 503, "planning_unavailable", "Assumption review failed; the consumed allowance is retained.")
 			return
@@ -155,6 +166,10 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if content.Supported {
 		consolidated, err := coord.JudgeConsolidation(r.Context(), current, content)
 		if err != nil {
+			if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
+				auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+				return
+			}
 			if errors.Is(err, control.ErrPriorityUnavailable) {
 				auth.JSONError(w, 503, "planning_unavailable", "Consolidation failed; the consumed allowance is retained.")
 				return
@@ -168,6 +183,10 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if recommendation != nil {
 		verified, err := coord.JudgeConsistency(r.Context(), current, content, *recommendation)
 		if err != nil {
+			if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
+				auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+				return
+			}
 			if errors.Is(err, control.ErrPriorityUnavailable) {
 				auth.JSONError(w, 503, "planning_unavailable", "Consistency review failed; the consumed allowance is retained.")
 				return
@@ -188,10 +207,43 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	auth.JSONResponse(w, 201, attachExploration(proposal, content, review.Challenges, settledIDs(review), recommendation, consistency))
 }
 
+// clarifyDescription and clarifyConsequence pin the one material product
+// question blocking implementation. Matching reuses these exact texts so
+// the carried-forward clarification keeps a stable identity and answers
+// can settle instead of spawning a duplicate each round.
+const (
+	clarifyDescription = "Describe the first user action and the result that should count as success"
+	clarifyConsequence = "Implementation waits until this material product question is resolved."
+)
+
 // clarifyIdea asks the one material product question blocking implementation.
 // It carries autonomous assumption basis, never human approval.
 func clarifyIdea(id string) factory.ProductIdea {
-	return factory.ProductIdea{ID: id, Description: "Describe the first user action and the result that should count as success", Consequence: "Implementation waits until this material product question is resolved.", Assumption: true, Decision: "pending", Source: "assumption", Provenance: "autonomous", Material: true}
+	return factory.ProductIdea{ID: id, Description: clarifyDescription, Consequence: clarifyConsequence, Assumption: true, Decision: "pending", Source: "assumption", Provenance: "autonomous", Material: true}
+}
+
+// isClarification reports whether idea is the producer-owned material
+// question, pending or already answered. It matches assumption-source
+// ideas carrying the exact pinned texts; ordinary human ideas never
+// match, so no human decision is coalesced or rewritten.
+func isClarification(idea factory.ProductIdea) bool {
+	return idea.Assumption && idea.Source == "assumption" && idea.Material &&
+		idea.Description == clarifyDescription && idea.Consequence == clarifyConsequence
+}
+
+// appendClarifyOnce reuses the carried-forward producer-owned
+// clarification for the unchanged material question. A pending one keeps
+// its stable identity so challenges and answers settle on it; an
+// answered one preserves the recorded answer. Either way no duplicate is
+// appended.
+func appendClarifyOnce(proposal factory.IntentRevision, id string) factory.IntentRevision {
+	for _, idea := range proposal.Ideas {
+		if isClarification(idea) {
+			return proposal
+		}
+	}
+	proposal.Ideas = append(proposal.Ideas, clarifyIdea(id))
+	return proposal
 }
 
 func intentDesignCriteria() map[string]any {

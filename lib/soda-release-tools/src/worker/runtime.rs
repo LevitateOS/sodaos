@@ -11,8 +11,8 @@ use crate::digest::hash_file;
 use crate::progress::BuildProgress;
 
 use super::config::{
-    worker_runtime_ids, Worker, WorkerConfig, PINNED_GO_ROOT, WORKER_FORGEJO, WORKER_HOME,
-    WORKER_RUNTIME, WORKER_SOURCE, WORKER_TOOLS,
+    worker_runtime_ids, Worker, WorkerConfig, PINNED_GO_ROOT, WORKER_CONTROLLER, WORKER_FORGEJO,
+    WORKER_HOME, WORKER_RUNTIME, WORKER_SOURCE, WORKER_TOOLS,
 };
 use super::execution::{run_worker, WorkerError, WorkerUnitCustody};
 
@@ -163,11 +163,19 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
         name,
         user: "soda-build-worker".to_owned(),
         executable: c.executable.clone(),
+        controller: WORKER_CONTROLLER.to_owned(),
         directory: WORKER_SOURCE.to_owned(),
         read_only: vec![
             format!("{}:{WORKER_SOURCE}", c.source),
             format!("{}:{WORKER_FORGEJO}", c.forgejo_source),
             format!("{}:{WORKER_TOOLS}", c.tools),
+            // ProtectHome=tmpfs masks /home, so the admitted host path
+            // cannot be the namespace invocation (203/EXEC), and a file
+            // self-bind cannot be staged under the masked tree (226).
+            // Remap exactly the one admitted file read-only to the
+            // stable /run destination; host trust and dispatcher-byte
+            // equality still check the configured host path.
+            format!("{}:{WORKER_CONTROLLER}", c.executable),
         ],
         writable: vec![
             format!(

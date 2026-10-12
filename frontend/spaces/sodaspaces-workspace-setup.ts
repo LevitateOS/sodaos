@@ -1,4 +1,5 @@
 import {html} from 'lit';
+import type {TemplateResult} from 'lit';
 import {id, object} from './sodaspaces-api.js';
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import './sodaspaces-intent.js';
@@ -6,33 +7,54 @@ import type {SodaIntent} from './sodaspaces-intent.js';
 import {intentList} from './sodaspaces-intent-response.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import './sodaspaces-factory-work.js';
-import type {WorkOverviewContext} from './sodaspaces-factory-work.js';
+import type {WorkDetailContext, WorkOverviewContext, WorkPlanContext} from './sodaspaces-factory-work.js';
+import {
+  detailContextFromScope,
+  planContextFromScope,
+  revisionContextFromScope,
+} from './sodaspaces-factory-progress-view.js';
+import type {DetailScopeRuns, OverviewScope, OverviewScopeIssue} from './sodaspaces-factory-progress-view.js';
+import type {FactoryRun} from './sodaspaces-factory-response.js';
+import type {WorkCapabilities} from './sodaspaces-factory-work-response.js';
 import {nativePath} from './sodaspaces-factory-activity.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 
 /** Native opaque request id shape shared with the host alias routes. */
 export const requestIDPattern = /^d[0-9a-f]{24}$/;
 
+/** Strip the admitted installation prefix at an exact segment boundary; undefined on mismatch. */
+function stripRoutePrefix(pathname: string, forgejoPrefix: string): string | undefined {
+  if (forgejoPrefix === '') return pathname;
+  if (!pathname.startsWith(forgejoPrefix)) return undefined;
+  const rest = pathname.slice(forgejoPrefix.length);
+  if (!rest.startsWith('/')) return undefined;
+  return rest;
+}
+
 /** Read the resume request id from a workspace route path; '' means fresh entry. */
-export function requestIdFromLocation(pathname: string): string {
-  const segments = pathname.split('/').filter((segment) => segment !== '');
-  const at = segments.lastIndexOf('workspace');
-  if (at < 0 || at > 1 || segments.length !== at + 3) return '';
-  if (segments[at + 1] !== 'requests') return '';
-  const id = segments[at + 2] || '';
+export function requestIdFromLocation(pathname: string, forgejoPrefix: string): string {
+  const rest = stripRoutePrefix(pathname, forgejoPrefix);
+  if (rest === undefined) return '';
+  const segments = rest.split('/').filter((segment) => segment !== '');
+  if (segments.length !== 3) return '';
+  if (segments[0] !== 'workspace' || segments[1] !== 'requests') return '';
+  const id = segments[2] || '';
   return requestIDPattern.test(id) ? id : '';
 }
 
-/** Canonical request route preserving any application sub-path prefix. */
-export function requestRouteFor(pathname: string, intent: string): string {
-  const prefix = pathname.slice(0, Math.max(0, pathname.indexOf('/workspace')));
-  return `${prefix}/workspace/requests/${intent}`;
+/** Canonical request route under the admitted installation prefix. */
+export function requestRouteFor(forgejoPrefix: string, intent: string): string {
+  return `${forgejoPrefix}/workspace/requests/${intent}`;
 }
 
-/** Fresh-entry route preserving any application sub-path prefix. */
-export function newRouteFor(pathname: string): string {
-  const prefix = pathname.slice(0, Math.max(0, pathname.indexOf('/workspace')));
-  return `${prefix}/workspace/new`;
+/** Fresh-entry route under the admitted installation prefix. */
+export function newRouteFor(forgejoPrefix: string): string {
+  return `${forgejoPrefix}/workspace/new`;
+}
+
+/** Exact fresh-entry route match under the admitted installation prefix. */
+export function isNewRouteLocation(pathname: string, forgejoPrefix: string): boolean {
+  return stripRoutePrefix(pathname, forgejoPrefix) === '/workspace/new';
 }
 
 /** Intent identity carried by intent-saved/intent-resumed; '' when absent. */
@@ -236,6 +258,8 @@ export interface SetupReading {
   setupCommitted: boolean;
   transport: PreparedExtensionMount | undefined;
   suggestedRepository: string | undefined;
+  overviewScope: OverviewScope | undefined;
+  committedSpace: Space | undefined;
   onBegin: () => void;
   onRefresh: () => void;
 }
@@ -270,6 +294,8 @@ export interface SetupActions {
   api(path: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
   syncIntentRoute(intent: string | null): void;
   setSavedRequests(intents: SavedRequest[]): void;
+  setOverviewScope(scope: OverviewScope | undefined): void;
+  requestFactoryWatch(request: FactoryWatchRequest): void;
 }
 
 export interface SetupHost {
@@ -285,6 +311,177 @@ export function setupOverviewContext(reading: SetupReading): WorkOverviewContext
   const repositoryPath = `${reading.forgejoPrefix}/${choice.owner}/${choice.name}`;
   if (!nativePath(repositoryPath)) return undefined;
   return {transport: reading.transport, repository: choice.id, repositoryPath, intentID: reading.reviewedIntent};
+}
+
+const scopeCapabilityKinds = ['watch', 'stop', 'retry', 'takeover', 'pause', 'resume'] as const;
+
+function scopeEntryCapabilities(value: unknown): WorkCapabilities | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  for (const kind of scopeCapabilityKinds) {
+    const entry = record[kind];
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return undefined;
+    if (typeof (entry as Record<string, unknown>).available !== 'boolean') return undefined;
+  }
+  return value as WorkCapabilities;
+}
+
+function scopeIssueEntry(value: unknown): OverviewScopeIssue | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  if (typeof record.issue !== 'string' || record.issue === '') return undefined;
+  const capabilities = record.capabilities === undefined ? undefined : scopeEntryCapabilities(record.capabilities);
+  return {issue: record.issue, ...(capabilities === undefined ? {} : {capabilities})};
+}
+
+function scopeIssueList(value: unknown): OverviewScopeIssue[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const issues: OverviewScopeIssue[] = [];
+  for (const raw of value) {
+    const entry = scopeIssueEntry(raw);
+    if (entry) issues.push(entry);
+  }
+  return issues;
+}
+
+/** Work scope carried by soda-factory-overview-scope; malformed payloads yield undefined (retire). */
+export function overviewScopeDetail(event: Event): OverviewScope | undefined {
+  const detail = (event as CustomEvent).detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return undefined;
+  const record = detail as Record<string, unknown>;
+  if (typeof record.repository !== 'string') return undefined;
+  if (record.intentID !== undefined && typeof record.intentID !== 'string') return undefined;
+  const issues = scopeIssueList(record.issues);
+  if (!issues) return undefined;
+  return {
+    repository: record.repository,
+    ...(record.intentID === undefined ? {} : {intentID: record.intentID as string}),
+    issues,
+  };
+}
+
+/** Value equality for scope publications; refresh re-dispatch must not churn the root. */
+export function sameScope(a: OverviewScope | undefined, b: OverviewScope | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.repository !== b.repository || a.intentID !== b.intentID) return false;
+  return JSON.stringify(a.issues) === JSON.stringify(b.issues);
+}
+
+export function applyOverviewScope(event: Event, read: () => SetupReading, actions: SetupActions): void {
+  const scope = overviewScopeDetail(event);
+  if (!sameScope(read().overviewScope, scope)) actions.setOverviewScope(scope);
+}
+
+export interface WorkChildScope {
+  readonly scope: OverviewScope;
+  readonly transport: PreparedExtensionMount;
+  readonly repository: string;
+  readonly repositoryPath: string;
+}
+
+/**
+ * Gated child-view feed: a non-retired scope whose keys match the
+ * retained committed identity, on the current intent surface only.
+ */
+export function childScopeFromReading(reading: SetupReading, context: WorkOverviewContext): WorkChildScope | undefined {
+  const scope = reading.overviewScope;
+  if (!scope || scope.repository === '') return undefined;
+  if (reading.setup !== 'intent' || reading.stale) return undefined;
+  if (scope.repository !== context.repository) return undefined;
+  if (scope.intentID !== undefined && scope.intentID !== context.intentID) return undefined;
+  return {scope, transport: context.transport, repository: context.repository, repositoryPath: context.repositoryPath};
+}
+
+/**
+ * Runs one issue detail may show and act on. runID selects the live
+ * (unreconciled) run iff exactly one exists, so stop/retry/takeover
+ * never guess among ambiguous rows; projectID is the owning space's
+ * environment id, the same project id the backend lists these runs under.
+ */
+export function detailRunsForIssue(space: Space | undefined, issue: string): DetailScopeRuns {
+  const runs = space?.factory_runs.filter((run) => run.issue === issue) ?? [];
+  const live = runs.filter((run) => !run.reconciled);
+  return {
+    runIDs: runs.map((run) => run.id),
+    ...(live.length === 1 && live[0] ? {runID: live[0].id} : {}),
+    ...(space === undefined ? {} : {projectID: space.environment.id, environmentID: space.environment.id}),
+  };
+}
+
+/** Watch target carried by soda-factory-watch-request; environment narrows the owning space. */
+export interface FactoryWatchRequest {
+  readonly run: string;
+  readonly repository: string;
+  readonly environment?: string;
+}
+
+function watchRequestRecord(event: Event): Record<string, unknown> | undefined {
+  const detail = (event as CustomEvent).detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return undefined;
+  return detail as Record<string, unknown>;
+}
+
+function nonEmptyRequestPart(value: unknown): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+/** Read a detail watch request; malformed payloads yield undefined (ignore). */
+export function factoryWatchRequestDetail(event: Event): FactoryWatchRequest | undefined {
+  const record = watchRequestRecord(event);
+  if (!record) return undefined;
+  const run = nonEmptyRequestPart(record.run),
+    repository = nonEmptyRequestPart(record.repository);
+  if (!run || !repository) return undefined;
+  if (record.environment === undefined) return {run, repository};
+  const environment = nonEmptyRequestPart(record.environment);
+  return environment ? {run, repository, environment} : undefined;
+}
+
+/** Resolve a watch request to its space run; undefined when the binding is not exact. */
+export function resolveWatchTarget(
+  spaces: readonly Space[],
+  request: FactoryWatchRequest
+): {space: Space; run: FactoryRun} | undefined {
+  const space =
+    request.environment === undefined
+      ? spaces.find((entry) => entry.factory_runs.some((run) => run.id === request.run))
+      : spaces.find((entry) => entry.environment.id === request.environment);
+  if (!space || space.environment.repository_id !== request.repository) return undefined;
+  const run = space.factory_runs.find((entry) => entry.id === request.run);
+  if (!run) return undefined;
+  return {space, run};
+}
+
+export function applyWatchRequest(event: Event, actions: SetupActions): void {
+  const request = factoryWatchRequestDetail(event);
+  if (request) actions.requestFactoryWatch(request);
+}
+
+function renderWorkDetail(children: WorkChildScope, space: Space | undefined, issue: string): TemplateResult {
+  const context: WorkDetailContext = detailContextFromScope(
+    children.transport,
+    children.repository,
+    children.repositoryPath,
+    children.scope,
+    issue,
+    detailRunsForIssue(space, issue)
+  );
+  return html`<soda-factory-work-detail .context=${context}></soda-factory-work-detail>`;
+}
+
+function renderWorkChildren(reading: SetupReading, context: WorkOverviewContext): TemplateResult {
+  const children = childScopeFromReading(reading, context);
+  if (!children) return html``;
+  const plan: WorkPlanContext = planContextFromScope(
+    children.transport,
+    children.repository,
+    children.repositoryPath,
+    children.scope
+  );
+  const revision = revisionContextFromScope(children.transport, children.scope);
+  return html`<soda-factory-work-plan .context=${plan}></soda-factory-work-plan>
+    ${children.scope.issues.map((entry) => renderWorkDetail(children, reading.committedSpace, entry.issue))}
+    ${revision ? html`<soda-factory-direction-revision .context=${revision}></soda-factory-direction-revision>` : ''}`;
 }
 
 export function renderSetupBody(
@@ -325,7 +522,11 @@ export function renderSetupBody(
   if (reading.welcomeScreen) return '';
   if (reading.setup === 'intent') {
     const context = setupOverviewContext(reading);
-    return context ? html`<soda-factory-work-overview .context=${context}></soda-factory-work-overview>` : '';
+    if (!context) return '';
+    return html`<soda-factory-work-overview .context=${context}></soda-factory-work-overview>${renderWorkChildren(
+        reading,
+        context
+      )}`;
   }
   return renderWorkspaceIntro({
     kind: setupIntroKind(reading.busy),
@@ -357,7 +558,12 @@ export function onRepositoryQuery(actions: SetupActions, value: string) {
 export function renderSetup(reading: SetupReading, actions: SetupActions, host: SetupHost, read: () => SetupReading) {
   const blocked = reading.stale || !reading.canRestore;
   const formClass = reading.setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome';
-  return html`<div class="soda-setup-panel" ?hidden=${reading.setup === 'configure'}>
+  return html`<div
+    class="soda-setup-panel"
+    ?hidden=${reading.setup === 'configure'}
+    @soda-factory-overview-scope=${(event: Event) => applyOverviewScope(event, read, actions)}
+    @soda-factory-watch-request=${(event: Event) => applyWatchRequest(event, actions)}
+  >
     <div class=${formClass}>
       <soda-intent
         .api=${actions.api}

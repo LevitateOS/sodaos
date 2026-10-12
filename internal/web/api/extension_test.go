@@ -229,6 +229,23 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		{http.MethodPost, "/environments/12/connection", false},
 		{http.MethodPost, "/admin/users", false},
 		{http.MethodGet, "/environments/12/identity/launch", false},
+		{http.MethodGet, "/factory/intents?limit=20", true},
+		{http.MethodGet, "/factory/intents?cursor=d111111111111111111111111&limit=20", true},
+		{http.MethodPost, "/factory/intents?limit=20", true},
+		{http.MethodGet, "/factory/intents/d111111111111111111111111?limit=20", false},
+		{http.MethodGet, "/factory/departments?limit=20", false},
+		{http.MethodPut, "/factory/intents?limit=20", false},
+		{http.MethodDelete, "/factory/intents?limit=20", false},
+		{http.MethodGet, "/factory/intents/../intents?limit=20", false},
+		{http.MethodGet, "/factory/intents/d111111111111111111111111/revisions?limit=2", true},
+		{http.MethodGet, "/repositories/12/factory/issues/3/plan?limit=5", true},
+		{http.MethodGet, "/factory/intents/d111111111111111111111111/history?limit=2", false},
+		{http.MethodGet, "/factory/intents/d111111111111111111111111/allowance?limit=2", false},
+		{http.MethodGet, "/repositories/12/factory/issues/3/assignment?limit=5", false},
+		{http.MethodPost, "/factory/intents/d111111111111111111111111/revisions?limit=2", false},
+		{http.MethodPost, "/repositories/12/factory/issues/3/plan?limit=5", false},
+		{http.MethodGet, "/factory/intents/../revisions?limit=2", false},
+		{http.MethodGet, "/repositories/../factory/issues/3/plan?limit=5", false},
 	} {
 		t.Run(test.method+" "+test.path, func(t *testing.T) {
 			r := httptest.NewRequest(test.method, test.path, nil)

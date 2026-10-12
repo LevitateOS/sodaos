@@ -154,10 +154,18 @@ export interface FactoryDisplayInput extends FactoryCommandInput {
   invalidate: () => void;
 }
 
+function dropDetachedWatchView(watch: FactoryWatch) {
+  if (watch.view && !watch.view.connected) {
+    watch.view.dispose();
+    delete watch.view;
+  }
+}
+
 export function displayFactoryWatch(input: FactoryDisplayInput, watch: FactoryWatch) {
   const space = input.spaces.find((entry) => entry.environment.id === watch.environmentId);
   const owner = input.findOwner(watch.run);
   if (!space || !owner?.isConnected) return;
+  dropDetachedWatchView(watch);
   if (!watch.view) {
     const context = factoryWatchContext({
       binding: input.binding,

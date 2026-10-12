@@ -4,6 +4,7 @@ import type {
   Exploration,
   IntentGenerationStatus,
   IntentRevision,
+  PlanningAllowance,
   ProductIdea,
   SavedRequest,
 } from './sodaspaces-intent-response.js';
@@ -36,11 +37,16 @@ export interface IntentView {
   departmentDescription: string;
   maxIssues: number;
   planningCalls: number;
+  allowance: PlanningAllowance | undefined;
+  raiseCalls: number;
+  fundingNote: string;
   set(
     field: 'objective' | 'department' | 'departmentName' | 'departmentDescription' | 'changeText',
     value: string
   ): void;
   setBound(field: 'maxIssues' | 'planningCalls', value: number): void;
+  setRaise(value: number): void;
+  raiseAllowance(): void;
   decide(id: string, decision: ProductIdea['decision'], correction?: string): void;
   toggleChange(open: boolean): void;
   correctProposal(text: string): void;
@@ -309,6 +315,25 @@ function reviewLead(view: IntentView) {
   return html`${explorationReview(view, view.exploration)}
   ${view.explorationStale && !view.dirty ? refreshExploration(view) : ''}`;
 }
+function fundingSection(view: IntentView) {
+  const allowance = view.allowance;
+  if (view.revision?.state !== 'draft' || !allowance) return '';
+  const used = allowance.reserved + allowance.consumed;
+  return html`<section aria-label="Planning allowance">
+    <p>Planning allowance: ${used} of ${allowance.amount} calls used.</p>
+    <label
+      >Raise to<input
+        type="number"
+        min="1"
+        max="100"
+        .value=${String(view.raiseCalls)}
+        ?disabled=${view.busy || view.blocked}
+        @input=${(event: Event) => view.setRaise(Number(input(event)))}
+    /></label>
+    <button ?disabled=${view.busy || view.blocked} @click=${view.raiseAllowance}>Raise allowance</button>
+    ${view.fundingNote ? html`<p>${view.fundingNote}</p>` : ''}
+  </section>`;
+}
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
@@ -391,7 +416,7 @@ export function reviewIntent(view: IntentView) {
         @input=${(event: Event) => view.set('objective', input(event))}
       ></textarea>
     </label>
-    ${reviewLead(view)} ${authorizationSection(view)}
+    ${reviewLead(view)} ${fundingSection(view)} ${authorizationSection(view)}
     <p>Only asked questions and work-linked choices are required. Changes update the proposal before you continue.</p>
     ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}

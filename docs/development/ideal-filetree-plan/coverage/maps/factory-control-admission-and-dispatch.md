@@ -518,6 +518,7 @@ Delta duty inspection at `93fb3513`. Decomposition advice (S07): triplet-questio
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–145; file scaffold; ErrIntentDecompositionReview; decompositionQuestions; decompositionChoices; decompositionEvidence; judgeDecompositionTriplet; AdviseIntentDecomposition; decompositionOptionsRubric; RecomposeDecomposition | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 8 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 33–71, 77, 79, 161; effectiveDecompositionScope | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `46848018` (S07/2f50): effective-scope projection restricts triplet/options evidence to decided task-bound choices, accepted-or-corrected global assumptions, declined rejection evidence and all tasks; pending excluded, original revision kept for CAS/authority/native guards, veto/floor/filter/budgets unchanged. Prior rows retain their pinned scope. |
 
 <a id="coverage-a9c657dda442"></a>
 
@@ -528,6 +529,8 @@ Delta duty inspection at `93fb3513`. Recompose scope-selection, ambiguity-challe
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–141; file scaffold; decompositionChooser; Select; recomposeChooser; Select; multiOutcomeAccepted; TestRecomposeDecompositionKeepsConfidentGraphs; TestRecomposeDecompositionSelectsScopedAlternative; TestRecomposeDecompositionChallengesProductAmbiguity; TestIntentDecompositionFreshTripletCachesAndDisagreementRefuses | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 123–176; TestEffectiveDecompositionScopeProjectsEvidence | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `46848018` (S07/2f50): pure projection regression — Current source block and named test consumer inspected in internal/factory/control/intent_decomposition_judgment_test.go. |
+| 177–236; TestRecomposeDecompositionJudgesEffectiveScope | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `46848018` (S07/2f50): recompose judges effective scope — Current source block and named test consumer inspected in internal/factory/control/intent_decomposition_judgment_test.go. |
 
 <a id="coverage-31eda1f08272"></a>
 

@@ -143,7 +143,7 @@ func TestIntentPlanningUsesIndependentAllowance(t *testing.T) {
 	}
 	a := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	b := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	if ok, err := s.ReserveIntentJudgment(ctx, r, a); err != nil || ok {
+	if ok, err := s.ReserveIntentJudgment(ctx, r, a); ok || !errors.Is(err, ErrPlanningAllowanceExhausted) {
 		t.Fatal("missing allowance funded from the embedded field")
 	}
 	if err := s.SavePlanningAllowance(ctx, factory.PlanningAllowance{ID: "d333333333333333333333333", Intent: r.Intent, Owner: r.Owner, Amount: 1, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, CreatedUnix: 1}); err != nil {
@@ -154,7 +154,7 @@ func TestIntentPlanningUsesIndependentAllowance(t *testing.T) {
 		t.Fatal(ok, err)
 	}
 	ok, err = s.ReserveIntentJudgment(ctx, r, b)
-	if err != nil || ok {
+	if ok || !errors.Is(err, ErrPlanningAllowanceExhausted) {
 		t.Fatal("exhausted allowance admitted")
 	}
 	raised := factory.PlanningAllowance{ID: "d444444444444444444444444", Intent: r.Intent, Predecessor: "d333333333333333333333333", Owner: r.Owner, Amount: 2, Unit: factory.PlanningAllowanceUnit, Ceiling: 4, Effect: "one more consultation for the same accepted scope", CreatedUnix: 1}

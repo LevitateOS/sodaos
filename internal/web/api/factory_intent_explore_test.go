@@ -1,10 +1,17 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sort"
+	"strings"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
@@ -41,6 +48,65 @@ func TestClarifyIdeaCarriesAssumptionBasis(t *testing.T) {
 	}
 }
 
+func TestAppendClarifyOnceReusesStableIdentity(t *testing.T) {
+	base := factory.IntentRevision{Ideas: []factory.ProductIdea{{ID: "d111111111111111111111111", Description: "Track leave requests", Decision: "accept"}}}
+	first := appendClarifyOnce(base, "d222222222222222222222222")
+	clarified := 0
+	for _, idea := range first.Ideas {
+		if idea.Description == "Describe the first user action and the result that should count as success" {
+			clarified++
+		}
+	}
+	if clarified != 1 {
+		t.Fatalf("round one clarifications=%d", clarified)
+	}
+	second := appendClarifyOnce(first, "d333333333333333333333333")
+	clarified = 0
+	for _, idea := range second.Ideas {
+		if idea.Description == "Describe the first user action and the result that should count as success" {
+			clarified++
+			if idea.ID != "d222222222222222222222222" || idea.Decision != "pending" {
+				t.Fatalf("stable clarification lost=%+v", idea)
+			}
+		}
+	}
+	if clarified != 1 {
+		t.Fatalf("round two clarifications=%d, want exactly one stable idea", clarified)
+	}
+}
+
+func TestAppendClarifyOncePreservesAnsweredClarification(t *testing.T) {
+	answered := clarifyIdea("d222222222222222222222222")
+	answered.Decision = "edit"
+	answered.Correction = "The first action is submitting the request form"
+	answered.Provenance = "human"
+	answered.Actor = 7
+	r := factory.IntentRevision{Ideas: []factory.ProductIdea{
+		{ID: "d111111111111111111111111", Description: "Track leave requests", Decision: "accept"},
+		answered,
+	}}
+	next := appendClarifyOnce(r, "d333333333333333333333333")
+	if len(next.Ideas) != 2 {
+		t.Fatalf("answered clarification duplicated: %+v", next.Ideas)
+	}
+	if next.Ideas[1].Correction != "The first action is submitting the request form" || next.Ideas[1].Provenance != "human" {
+		t.Fatalf("answer not preserved=%+v", next.Ideas[1])
+	}
+}
+
+func TestAppendClarifyOnceIgnoresOrdinaryIdeas(t *testing.T) {
+	r := factory.IntentRevision{Ideas: []factory.ProductIdea{
+		{ID: "d111111111111111111111111", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
+	}}
+	next := appendClarifyOnce(r, "d222222222222222222222222")
+	if len(next.Ideas) != 2 || next.Ideas[0].ID != "d111111111111111111111111" {
+		t.Fatalf("ordinary idea touched=%+v", next.Ideas)
+	}
+	if next.Ideas[1].ID != "d222222222222222222222222" || next.Ideas[1].Decision != "pending" {
+		t.Fatalf("clarification missing=%+v", next.Ideas)
+	}
+}
+
 func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
 	proposal := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", State: "draft"}
 	content := factory.DescribeAlternatives("Time-off requests my manager can approve")
@@ -68,5 +134,165 @@ func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
 	}
 	if list, ok := exploration["settled"].([]any); !ok || len(list) != 1 || list[0] != "d333333333333333333333333" {
 		t.Fatalf("settled=%v", exploration["settled"])
+	}
+}
+
+// exploreFixtureChooser is the declared external judgment for explore
+// boundary tests: deterministic valid answers without a provider. When fail
+// is set every consultation fails like a provider outage.
+type exploreFixtureChooser struct {
+	fail  bool
+	calls int
+}
+
+func (f *exploreFixtureChooser) Select(_ context.Context, _ any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	f.calls++
+	if f.fail {
+		return factory.PriorityAnswer{}, errors.New("fixture judgment failed")
+	}
+	ids := make([]string, 0, len(choices))
+	for id := range choices {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	probs := make(map[string]float64, len(ids))
+	for _, id := range ids {
+		probs[id] = 0
+	}
+	probs[ids[0]] = 1
+	return factory.PriorityAnswer{Selected: ids[0], Model: "fixture", Confidence: 0.9, Probabilities: probs}, nil
+}
+
+// TestExploreMidRoundExhaustionNeedsFunding proves the U04 budget
+// distinction on the real explore path: finite allowance exhaustion
+// mid-round reports 409 planning_funding_required (never 503), while
+// provider failure, operator ceiling, stale head and session change keep
+// their own codes. Charged calls stay charged and the saved correction
+// head is untouched by the failed round.
+func TestExploreMidRoundExhaustionNeedsFunding(t *testing.T) {
+	product, s, call, errorCode := q05Mux(t, "")
+	saveDraft := func(id, intent, predecessor, ideas string) {
+		t.Helper()
+		body := `{"id":"` + id + `","intent":"` + intent + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,"ideas":[` + ideas + `]}`
+		if predecessor != "" {
+			body = `{"id":"` + id + `","intent":"` + intent + `","predecessor":"` + predecessor + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,"ideas":[` + ideas + `]}`
+		}
+		if code, body := call(http.MethodPost, "/api/factory/intents", body); code != http.StatusCreated {
+			t.Fatalf("draft save status=%d body=%s", code, body)
+		}
+	}
+	saveAllowance := func(id, intent string, amount int) {
+		t.Helper()
+		shape := fmt.Sprintf(`{"id":"%s","intent":"%s","amount":%d,"ceiling":%d,"unit":"planning_calls"}`, id, intent, amount, amount)
+		if code, body := call(http.MethodPost, "/api/factory/intent-allowances", shape); code != http.StatusCreated {
+			t.Fatalf("allowance save status=%d body=%s", code, body)
+		}
+	}
+	allowanceUsage := func(intent string) (reserved, consumed int) {
+		t.Helper()
+		code, body := call(http.MethodGet, "/api/factory/intents/"+intent+"/allowance", "")
+		if code != http.StatusOK {
+			t.Fatalf("allowance read status=%d body=%s", code, body)
+		}
+		var a factory.PlanningAllowance
+		if err := json.Unmarshal(body, &a); err != nil {
+			t.Fatal(err)
+		}
+		return a.Reserved, a.Consumed
+	}
+	pendingIdea := func(id string) string {
+		return `{"id":"` + id + `","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true}`
+	}
+
+	// Operator ceiling first: the global budget is fresh, so the purpose
+	// call reserves and the assumptions leg refuses on the ceiling with
+	// 503, never the funding code.
+	const ceilingDraft = "d555555555555555555555555"
+	const ceilingIntent = "d666666666666666666666666"
+	saveDraft(ceilingDraft, ceilingIntent, "", pendingIdea("d777777777777777777777777"))
+	saveAllowance("d888888888888888888888888", ceilingIntent, 8)
+	s.PriorityCallBudget = 1
+	ceilingChooser := &exploreFixtureChooser{}
+	product.IntentExploreChooser = ceilingChooser
+	code, body := call(http.MethodPost, "/api/factory/intents/"+ceilingIntent+"/explore", `{"revision":"`+ceilingDraft+`"}`)
+	s.PriorityCallBudget = 32
+	if code != http.StatusServiceUnavailable || errorCode(body) != "planning_unavailable" || ceilingChooser.calls != 1 {
+		t.Fatalf("ceiling explore status=%d body=%s calls=%d", code, body, ceilingChooser.calls)
+	}
+
+	// Mid-round exhaustion: amount 1 funds the purpose call; the
+	// assumptions leg then refuses on the exhausted allowance with 409.
+	const firstID = "d111111111111111111111111"
+	const intentID = "d222222222222222222222222"
+	const headID = "d1a1a1a1a1a1a1a1a1a1a1a1a"
+	const correction = "Only direct managers approve; skip HR review"
+	saveDraft(firstID, intentID, "", pendingIdea("d333333333333333333333333"))
+	saveDraft(headID, intentID, firstID, `{"id":"d333333333333333333333333","description":"Track leave requests","consequence":"Managers review requests","decision":"edit","correction":"`+correction+`"},`+pendingIdea("d335333333333333333333333"))
+	saveAllowance("d444444444444444444444444", intentID, 1)
+	midChooser := &exploreFixtureChooser{}
+	product.IntentExploreChooser = midChooser
+	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+headID+`"}`)
+	if code != http.StatusConflict || errorCode(body) != "planning_funding_required" || midChooser.calls != 1 {
+		t.Fatalf("mid-round explore status=%d body=%s calls=%d", code, body, midChooser.calls)
+	}
+	if reserved, consumed := allowanceUsage(intentID); reserved != 0 || consumed != 1 {
+		t.Fatalf("charged call not retained: reserved=%d consumed=%d", reserved, consumed)
+	}
+	code, body = call(http.MethodGet, "/api/factory/intents/"+intentID, "")
+	if code != http.StatusOK {
+		t.Fatalf("intent read status=%d body=%s", code, body)
+	}
+	var head factory.IntentRevision
+	if err := json.Unmarshal(body, &head); err != nil {
+		t.Fatal(err)
+	}
+	if head.ID != headID || len(head.Ideas) != 2 || head.Ideas[0].Correction != correction {
+		t.Fatalf("saved correction moved: %+v", head)
+	}
+	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+headID+`"}`)
+	if code != http.StatusConflict || errorCode(body) != "planning_funding_required" {
+		t.Fatalf("repeat explore status=%d body=%s", code, body)
+	}
+
+	// Provider failure keeps 503 with the call charged, never the funding code.
+	const providerDraft = "d777777777777777777777778"
+	const providerIntent = "d888888888888888888888889"
+	saveDraft(providerDraft, providerIntent, "", pendingIdea("d999999999999999999999991"))
+	saveAllowance("d999999999999999999999992", providerIntent, 8)
+	product.IntentExploreChooser = &exploreFixtureChooser{fail: true}
+	code, body = call(http.MethodPost, "/api/factory/intents/"+providerIntent+"/explore", `{"revision":"`+providerDraft+`"}`)
+	if code != http.StatusServiceUnavailable || errorCode(body) != "planning_unavailable" {
+		t.Fatalf("provider explore status=%d body=%s", code, body)
+	}
+	if reserved, consumed := allowanceUsage(providerIntent); reserved != 0 || consumed != 1 {
+		t.Fatalf("failed call not charged: reserved=%d consumed=%d", reserved, consumed)
+	}
+
+	// Stale head keeps 412.
+	code, body = call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"d999999999999999999999999"}`)
+	if code != http.StatusPreconditionFailed || errorCode(body) != "stale_revision" {
+		t.Fatalf("stale explore status=%d body=%s", code, body)
+	}
+
+	// Changed session generation keeps its own authority code, not funding.
+	mux := http.NewServeMux()
+	product.registerExtensionProductRoutes(mux)
+	authority, err := json.Marshal(map[string]any{
+		"extension_id": "soda", "instance_id": "q05-test", "session_generation": "generation-1",
+		"contribution": map[string]any{"id": "spaces", "kind": "page", "scope": "global", "action": "post"},
+		"actor":        map[string]any{"id": "1", "username": "alice"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", strings.NewReader(`{"revision":"`+headID+`"}`))
+	r.Header.Set(extensions.ContextHeader, string(authority))
+	r.Header.Set(extensions.AdmissionHeader, "test-admission")
+	r.Header.Set(extensions.SessionGenerationHeader, "generation-9")
+	r.Header.Set("Origin", "https://soda.test")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	if w.Code != http.StatusConflict || errorCode(w.Body.Bytes()) != "extension_session_changed" {
+		t.Fatalf("session explore status=%d body=%s", w.Code, w.Body.String())
 	}
 }
