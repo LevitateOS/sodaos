@@ -16,9 +16,9 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `fc2318ee7caa472a348c788cd04f19a22cb6c99c` and paired Fountain source
+Reviewed Soda source `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2` and paired Fountain source
 `64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
-adds eleven focused domain, Store, API and browser source/test paths and changes no package, language
+adds twelve focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
@@ -71,6 +71,17 @@ TypeScript/Lit checks pass against `cb8492909eef64718103940f733a13bcfe5b9b97`. S
 review table; Open refuses protected existing schema 46 until a tested preserving
 operator transition is applied. No VM activation is claimed. Current source maps
 record these added duties without advancing historical full-body audit pins.
+
+Guarded restoration stays in the existing F05 Lit intent owner. The actual
+API-produced bytes exposed optional Go nil collections; browser handling now
+matches those fields while required identity, provenance and content bounds
+remain strict. Two PostgreSQL/API recovery/capture cases pass with injected
+judgments. The resulting exact JSON reaches the production Lit component:
+13 restoration and 5 parser cases pass with no skips, including ordered flow,
+recommendation/verdict restoration, failures, superseded loads and actor switches.
+GET restoration consumes no new judgments or effects. An explicitly requested
+join fails on missing/malformed capture files; ordinary component checks remain
+independent. Native composition and installed content remain I04/I08 evidence.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,

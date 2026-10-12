@@ -2,7 +2,7 @@
 
 ## Native correction target delta
 
-Source `fc2318ee7caa472a348c788cd04f19a22cb6c99c` adds eleven paths across the settings, saved-review
+Source `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2` adds twelve paths across the settings, saved-review
 and emitted-color corrections. Each follows the existing defining owner; this
 scoped allocation does not advance the historical complete-tree census.
 
@@ -19,6 +19,7 @@ scoped allocation does not advance the historical complete-tree census.
 | `tests/frontend/settings-geometry.test.ts` | S05/H06 local geometry check; retained at this existing package/path |
 | `tests/forgejo/emitted-colors-browser.test.ts` | H05/H06 emitted branding check; retained at this existing package/path |
 | `tests/frontend/setup-geometry.test.ts` | S05/H06 local creation geometry check; retained browser test path |
+| `tests/frontend/intent-review-restore.test.ts` | F05/H06 production component restoration check; retained browser test path |
 
 ## Complete proposed tree
 

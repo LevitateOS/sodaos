@@ -11,6 +11,7 @@ import {
   intentRevision,
   newDecisionID,
   planningAllowance,
+  savedReviewRead,
 } from './sodaspaces-intent-response.js';
 import type {
   Department,
@@ -20,6 +21,7 @@ import type {
   PlanningAllowance,
   ProductIdea,
   SavedRequest,
+  SavedReviewRead,
 } from './sodaspaces-intent-response.js';
 import {describeIntent, reviewIntent, departmentDialog, reviewReady} from './sodaspaces-intent-view.js';
 import type {IntentView} from './sodaspaces-intent-view.js';
@@ -194,6 +196,7 @@ export class SodaIntent extends LitElement {
   declare planningCalls: number;
   private operation: AbortController | undefined;
   private resumeController: AbortController | undefined;
+  private restoredReview: RestoredReviewIdentity | undefined;
   private resumeID = '';
   private loadedRequest = '';
   private generationIntent = '';
@@ -227,6 +230,20 @@ export class SodaIntent extends LitElement {
     this.savedSnapshot = undefined;
     this.maxIssues = 20;
     this.planningCalls = 8;
+  }
+  protected willUpdate(changed: PropertyValues<this>) {
+    if (changed.has('actor')) {
+      this.exploration = undefined;
+      this.restoredReview = undefined;
+      // Abort an in-flight resume, but do not clear its controller: the
+      // settling resume still owns busy cleanup. Mark the request handled
+      // so the busy cascade does not refetch the old request under the
+      // new actor; navigation still resumes.
+      if (this.resumeController) {
+        this.resumeController.abort();
+        this.loadedRequest = this.request;
+      }
+    }
   }
   protected updated(changed: PropertyValues<this>) {
     if (changed.has('active') || changed.has('blocked') || (changed.has('busy') && !this.busy)) this.activate();
@@ -268,6 +285,7 @@ export class SodaIntent extends LitElement {
     this.revision = undefined;
     this.savedSnapshot = undefined;
     this.exploration = undefined;
+    this.restoredReview = undefined;
     this.generation = undefined;
     this.generationError = '';
     this.generationIntent = '';
@@ -368,12 +386,18 @@ export class SodaIntent extends LitElement {
     this.error = '';
     void this.loadRequest(id, controller);
   }
+  private resumeCurrent(id: string, controller: AbortController): boolean {
+    return !controller.signal.aborted && this.resumeController === controller && this.request === id;
+  }
   private async loadRequest(id: string, controller: AbortController) {
     try {
       const saved = intentRevision(await this.call('/api/factory/intents/' + id, undefined, controller.signal));
-      if (controller.signal.aborted || this.resumeController !== controller || this.request !== id) return;
+      if (!this.resumeCurrent(id, controller)) return;
       if (saved.intent !== id) throw Error('Mismatched intent revision');
-      this.applyRevision(saved);
+      const read = await this.loadReview(id, controller.signal);
+      if (!this.resumeCurrent(id, controller)) return;
+      if (read && (read.intent !== id || read.head_revision !== saved.id)) throw Error('Mismatched review snapshot');
+      this.applyRevision(saved, read);
       this.loadedRequest = id;
       this.dispatchEvent(
         new CustomEvent('intent-resumed', {
@@ -432,7 +456,18 @@ export class SodaIntent extends LitElement {
       this.error = 'This saved request is unavailable to the current account. Your current edits are kept.';
     else this.error = 'Could not load the saved request. Your current edits are kept; try again.';
   }
-  private applyRevision(saved: IntentRevision) {
+  private async loadReview(id: string, signal: AbortSignal): Promise<SavedReviewRead | undefined> {
+    try {
+      return savedReviewRead(await this.call('/api/factory/intents/' + id + '/review', undefined, signal));
+    } catch (error) {
+      // Only an absent review degrades to no restored review. Network,
+      // parse and all other failures rethrow so the resume fails with
+      // unsaved edits kept instead of applying a bare revision.
+      if (error instanceof SodaRequestError && error.status === 404) return undefined;
+      throw error;
+    }
+  }
+  private applyRevision(saved: IntentRevision, read?: SavedReviewRead) {
     if (saved.intent !== this.revision?.intent) {
       this.allowance = undefined;
       this.userSetCalls = false;
@@ -441,7 +476,9 @@ export class SodaIntent extends LitElement {
     }
     this.revision = saved;
     this.savedSnapshot = structuredClone(saved);
-    this.exploration = undefined;
+    const adopted = adoptReview(read);
+    this.exploration = adopted.exploration;
+    this.restoredReview = adopted.restored;
     this.objective = saved.objective;
     this.department = saved.department || '';
     this.maxIssues = saved.max_issues;
@@ -454,6 +491,7 @@ export class SodaIntent extends LitElement {
     const exploration = this.exploration;
     const revision = this.revision;
     if (!exploration || !revision) return false;
+    if (this.restoredReview) return restoredStale(this.dirty, this.restoredReview.result, revision.id);
     if (this.dirty) return true;
     const content = exploration.content;
     if (content.intent !== undefined && content.intent !== revision.intent) return true;
@@ -656,6 +694,7 @@ export class SodaIntent extends LitElement {
       if (proposal.intent !== saved.intent || proposal.predecessor !== saved.id || proposal.state !== 'draft')
         throw Error('Mismatched proposal');
       this.exploration = readExploration(response, proposal);
+      this.restoredReview = this.exploration ? {basis: saved.id, result: proposal.id} : undefined;
       this.revision = proposal;
       this.savedSnapshot = structuredClone(proposal);
       this.changeOpen = false;
@@ -709,6 +748,7 @@ export class SodaIntent extends LitElement {
       this.revision = undefined;
       this.savedSnapshot = undefined;
       this.exploration = undefined;
+      this.restoredReview = undefined;
       this.generation = undefined;
       this.generationError = '';
       this.generationIntent = '';
@@ -977,6 +1017,36 @@ export class SodaIntent extends LitElement {
   }
 }
 customElements.define('soda-intent', SodaIntent);
+
+export interface RestoredReviewIdentity {
+  basis: string;
+  result: string;
+}
+export function adoptReview(read: SavedReviewRead | undefined): {
+  exploration: Exploration | undefined;
+  restored: RestoredReviewIdentity | undefined;
+} {
+  const review = read?.review;
+  if (!review) return {exploration: undefined, restored: undefined};
+  const {content, challenges, settled, recommendation, consistency} = review;
+  return {
+    exploration: {
+      content,
+      challenges,
+      settled,
+      ...(recommendation ? {recommendation} : {}),
+      ...(consistency ? {consistency} : {}),
+    },
+    restored: {basis: review.basis_revision, result: review.result_revision},
+  };
+}
+// restoredStale reports whether a basis/result-tracked exploration is out of
+// date: local edits always stale it, otherwise the stored result must still
+// be the head. Allowance and other non-head changes never stale it.
+export function restoredStale(dirty: boolean, result: string, revisionId: string): boolean {
+  if (dirty) return true;
+  return result !== revisionId;
+}
 
 function readExploration(response: unknown, proposal: IntentRevision): Exploration | undefined {
   const raw = object(response);
