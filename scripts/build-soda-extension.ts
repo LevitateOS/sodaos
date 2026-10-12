@@ -111,6 +111,65 @@ function restoreNativeSchemeCalls(css: string): string {
   }
 }
 
+function matchBrace(css: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === '{') depth++;
+    else if (css[i] === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  throw new Error('Unbalanced braces in emitted stylesheet');
+}
+
+// H owns document-level native branding: the extension copy must never
+// redeclare :root. Strip top-level :root rules from emitted extension
+// stylesheets so the single document value source governs via inheritance.
+function stripDocumentTokens(css: string): string {
+  const kept: string[] = [];
+  let i = 0;
+  while (i < css.length) {
+    let j = i;
+    let parens = 0;
+    let closer = -1;
+    let isRule = false;
+    while (j < css.length) {
+      const char = css[j];
+      if (char === '(') parens++;
+      else if (char === ')') parens--;
+      else if (parens === 0 && char === '{') {
+        closer = j;
+        isRule = true;
+        break;
+      } else if (parens === 0 && char === ';') {
+        closer = j;
+        break;
+      }
+      j++;
+    }
+    if (closer < 0) {
+      kept.push(css.slice(i));
+      break;
+    }
+    if (!isRule) {
+      kept.push(css.slice(i, closer + 1));
+      i = closer + 1;
+      continue;
+    }
+    const selector = css.slice(i, closer).trim();
+    const end = matchBrace(css, closer);
+    if (selector === ':root') {
+      i = end + 1;
+      continue;
+    }
+    if (selector.includes(':root')) throw new Error(`Grouped :root selector needs explicit scoping: ${selector}`);
+    kept.push(css.slice(i, end + 1));
+    i = end + 1;
+  }
+  return kept.join('');
+}
+
 export async function buildExtensionStylesheets(assets: string): Promise<void> {
   for (const [name, path] of Object.entries(styles)) {
     const result = await Bun.build({
@@ -136,7 +195,7 @@ export async function buildExtensionStylesheets(assets: string): Promise<void> {
       [name]
     );
     const emitted = resolve(assets, name);
-    await writeFile(emitted, restoreNativeSchemeCalls(await readFile(emitted, 'utf8')));
+    await writeFile(emitted, stripDocumentTokens(restoreNativeSchemeCalls(await readFile(emitted, 'utf8'))));
   }
   const terminal = resolve(assets, 'sodaspaces-terminal.css');
   await writeFile(terminal, `@import url("./soda-terminal/xterm.css");\n${await readFile(terminal, 'utf8')}`);

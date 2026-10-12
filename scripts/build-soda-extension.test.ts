@@ -1,7 +1,7 @@
 import {expect, test} from 'bun:test';
 import {mkdir, mkdtemp, readFile, rm, stat} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {buildExtensionStylesheets, buildSodaExtensionAssets} from './build-soda-extension.js';
+import {buildExtensionStylesheets, buildSodaExtensionAssets, styles} from './build-soda-extension.js';
 
 const root = resolve(import.meta.dir, '..');
 
@@ -178,13 +178,12 @@ function substituteVars(
 
 function resolveSchemeColor(declarations: Map<string, string>, token: string, scheme: 'light' | 'dark'): string {
   const raw = declarations.get(token);
-  if (raw === undefined) throw new Error(`Missing emitted token ${token}`);
+  if (raw === undefined) throw new Error(`Missing token ${token}`);
   const expanded = substituteVars(raw, scheme, declarations, 0).trim();
   const color = expanded.toLowerCase();
   if (/^[a-z]+$/.test(color)) {
     const mapped = namedColors[color];
-    if (mapped === undefined)
-      throw new Error(`Emitted ${token} resolves to unmapped named ${scheme} color: ${expanded}`);
+    if (mapped === undefined) throw new Error(`${token} resolves to unmapped named ${scheme} color: ${expanded}`);
     return mapped;
   }
   const short = /^#([0-9a-f]{3})$/.exec(color);
@@ -195,7 +194,7 @@ function resolveSchemeColor(declarations: Map<string, string>, token: string, sc
         .join('')}`
     : color;
   if (!/^#[0-9a-f]{6}$/.test(full) && !/^#[0-9a-f]{8}$/.test(full)) {
-    throw new Error(`Emitted ${token} resolves to invalid ${scheme} color: ${expanded}`);
+    throw new Error(`${token} resolves to invalid ${scheme} color: ${expanded}`);
   }
   return full;
 }
@@ -208,30 +207,133 @@ function schemeTokenNames(css: string): string[] {
   return [...names].sort();
 }
 
-test('emitted extension styles resolve one valid color per native scheme', async () => {
+async function documentCss(): Promise<string> {
+  const palette = await readFile(resolve(root, 'assets/branding/theme/palette.css'), 'utf8');
+  const components = await readFile(resolve(root, 'assets/branding/forgejo/components.css'), 'utf8');
+  return `${palette}\n${components}`;
+}
+
+function matchClosingBrace(text: string, open: number, what: string): number {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  throw new Error(`Unbalanced braces in ${what}`);
+}
+
+function ruleBody(css: string, selector: string): string {
+  const start = css.indexOf(`${selector}{`);
+  if (start < 0) throw new Error(`Missing emitted rule ${selector}`);
+  return css.slice(start + selector.length + 1, matchClosingBrace(css, start + selector.length, `rule ${selector}`));
+}
+
+function declarationValue(body: string, property: string, what: string): string {
+  for (const part of splitTopLevel(body, ';')) {
+    const [name, ...rest] = part.split(':');
+    if (name?.trim() === property) return rest.join(':').trim();
+  }
+  throw new Error(`Missing ${property} in ${what}`);
+}
+
+function resolveReferencedColors(
+  value: string,
+  scheme: 'light' | 'dark',
+  declarations: Map<string, string>,
+  what: string
+): void {
+  let found = false;
+  let rest = value;
+  for (;;) {
+    const index = rest.indexOf('var(');
+    if (index < 0) break;
+    found = true;
+    const end = matchClosingParen(rest, index + 3, value);
+    const ref = rest.slice(index, end + 1);
+    const resolved = substituteVars(ref, scheme, declarations, 0).trim().toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(resolved) && !/^#[0-9a-f]{8}$/.test(resolved) && namedColors[resolved] === undefined) {
+      throw new Error(`${what} references invalid ${scheme} color: ${ref} resolves to ${resolved}`);
+    }
+    rest = rest.slice(end + 1);
+  }
+  if (!found) throw new Error(`${what} references no document token: ${value}`);
+}
+
+test('document scheme source resolves one valid color per native scheme', async () => {
+  const doc = await documentCss();
+  expect(doc.includes('light-dark(')).toBe(true);
+  const declarations = collectDeclarations(doc);
+  for (const [token, expected] of Object.entries(schemeTokens)) {
+    for (const scheme of ['light', 'dark'] as const) {
+      expect(resolveSchemeColor(declarations, token, scheme)).toBe(expected[scheme]);
+    }
+  }
+  for (const token of schemeTokenNames(doc)) {
+    if (token in schemeTokens) continue;
+    for (const scheme of ['light', 'dark'] as const) {
+      resolveSchemeColor(declarations, token, scheme);
+    }
+  }
+});
+
+test('emitted extension stylesheets defer to document tokens', async () => {
   const artifactRoot = resolve(root, '.artifacts');
   await mkdir(artifactRoot, {recursive: true});
   const work = await mkdtemp(resolve(artifactRoot, 'soda-extension-styles-test-'));
   try {
     const assets = resolve(work, 'assets');
     await buildExtensionStylesheets(assets);
-    for (const name of ['components.css', 'sodaspaces.css', 'sodaspaces-page.css']) {
+    for (const name of Object.keys(styles)) {
       const body = await readFile(resolve(assets, name), 'utf8');
       expect(body.includes('--buncss-')).toBe(false);
+      expect(body.includes(':root')).toBe(false);
     }
-    const emitted = await readFile(resolve(assets, 'components.css'), 'utf8');
-    expect(emitted.includes('light-dark(')).toBe(true);
-    const declarations = collectDeclarations(emitted);
-    for (const [token, expected] of Object.entries(schemeTokens)) {
-      for (const scheme of ['light', 'dark'] as const) {
-        expect(resolveSchemeColor(declarations, token, scheme)).toBe(expected[scheme]);
-      }
-    }
-    for (const token of schemeTokenNames(emitted)) {
-      if (token in schemeTokens) continue;
-      for (const scheme of ['light', 'dark'] as const) {
-        resolveSchemeColor(declarations, token, scheme);
-      }
+    const declarations = collectDeclarations(await documentCss());
+    const dialog = ruleBody(await readFile(resolve(assets, 'sodaspaces-page.css'), 'utf8'), '.soda-workspace-dialog');
+    const confirm = ruleBody(
+      await readFile(resolve(assets, 'sodaspaces-terminal.css'), 'utf8'),
+      '.soda-terminal-confirm'
+    );
+    for (const scheme of ['light', 'dark'] as const) {
+      resolveReferencedColors(
+        declarationValue(dialog, 'background', 'workspace dialog'),
+        scheme,
+        declarations,
+        'workspace dialog background'
+      );
+      resolveReferencedColors(
+        declarationValue(dialog, 'border', 'workspace dialog'),
+        scheme,
+        declarations,
+        'workspace dialog border'
+      );
+      resolveReferencedColors(
+        declarationValue(dialog, 'color', 'workspace dialog'),
+        scheme,
+        declarations,
+        'workspace dialog text'
+      );
+      resolveReferencedColors(
+        declarationValue(confirm, 'background', 'terminal confirm'),
+        scheme,
+        declarations,
+        'terminal confirm background'
+      );
+      resolveReferencedColors(
+        declarationValue(confirm, 'border', 'terminal confirm'),
+        scheme,
+        declarations,
+        'terminal confirm border'
+      );
+      resolveReferencedColors(
+        declarationValue(confirm, 'color', 'terminal confirm'),
+        scheme,
+        declarations,
+        'terminal confirm text'
+      );
     }
   } finally {
     await rm(work, {recursive: true, force: true});
