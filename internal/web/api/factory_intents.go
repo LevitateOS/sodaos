@@ -1,8 +1,6 @@
 package api
 
 import (
-	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
@@ -143,70 +141,26 @@ func (s *API) apiIntentAllowanceSave(w http.ResponseWriter, r *http.Request, v s
 	}
 	in.Owner = v.User.ID
 	in.CreatedUnix = time.Now().Unix()
-	out, err := s.storeIntentAllowance(r.Context(), v.User.ID, in)
-	if err != nil {
-		var clientErr *allowanceWriteError
-		if errors.As(err, &clientErr) {
-			auth.JSONError(w, clientErr.code, clientErr.name, clientErr.message)
+	if _, err := s.Store.IntentRevision(r.Context(), in.Intent, v.User.ID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			auth.JSONError(w, 404, "not_found", "Build request not found.")
 			return
 		}
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 201, out)
-}
-
-type allowanceWriteError struct {
-	code    int
-	name    string
-	message string
-}
-
-func (e *allowanceWriteError) Error() string { return e.name + ": " + e.message }
-
-// storeIntentAllowance persists one allowance revision past the session
-// wall: intent binding, server-grounded defaults, validation, CAS save.
-// Browsers cannot source authoritative limits, so the server grounds them:
-// a ceiling below the amount rises to the operator budget (covering the
-// amount, capped at field bounds; explicit sufficient ceilings pass
-// through), and counters come from the live head, or zero on first save
-// where nothing could have been charged. Exact replays keep their bytes.
-// Status mapping matches the endpoint exactly; session/auth failures stay
-// in the handler.
-func (s *API) storeIntentAllowance(ctx context.Context, userID int64, in factory.PlanningAllowance) (factory.PlanningAllowance, error) {
-	if _, err := s.Store.IntentRevision(ctx, in.Intent, userID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return factory.PlanningAllowance{}, &allowanceWriteError{code: 404, name: "not_found", message: "Build request not found."}
-		}
-		return factory.PlanningAllowance{}, err
-	}
-	current, err := s.Store.PlanningAllowance(ctx, in.Intent, userID)
-	switch {
-	case err == nil && current.ID == in.ID:
+	if current, err := s.Store.PlanningAllowance(r.Context(), in.Intent, v.User.ID); err == nil && current.ID == in.ID {
 		in.CreatedUnix = current.CreatedUnix
-	case err == nil:
-		in.Reserved, in.Consumed = current.Reserved, current.Consumed
-	case errors.Is(err, sql.ErrNoRows):
-		in.Reserved, in.Consumed = 0, 0
-	}
-	if in.Ceiling < in.Amount {
-		if fill := s.Store.PriorityCallBudget; fill > in.Ceiling {
-			in.Ceiling = fill
-		}
-		if in.Ceiling < in.Amount {
-			in.Ceiling = in.Amount
-		}
-		if in.Ceiling > 100 {
-			in.Ceiling = 100
-		}
 	}
 	if err := in.Validate(); err != nil {
-		return factory.PlanningAllowance{}, &allowanceWriteError{code: 400, name: "invalid_allowance", message: err.Error()}
+		auth.JSONError(w, 400, "invalid_allowance", err.Error())
+		return
 	}
-	if err := s.Store.SavePlanningAllowance(ctx, in); err != nil {
-		return factory.PlanningAllowance{}, err
+	if err := s.Store.SavePlanningAllowance(r.Context(), in); err != nil {
+		factoryCommandError(w, err)
+		return
 	}
-	return in, nil
+	auth.JSONResponse(w, 201, in)
 }
 
 func (s *API) apiIntentRevision(w http.ResponseWriter, r *http.Request, v store.Session) {
