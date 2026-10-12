@@ -63,7 +63,7 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-workspace-tabs { display: flex; align-items: stretch; gap: var(--soda-space-half); flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
 .soda-workspace-tabs .ui.button { min-height: var(--soda-workspace-tab) !important; height: var(--soda-workspace-tab) !important; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .soda-workspace-tabs [aria-selected=true] { border-bottom: 3px solid var(--soda-page-link); }
-.soda-empty-pane { position: absolute; box-sizing: border-box; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: var(--soda-space-2); background: var(--soda-page-canvas); }
+.soda-empty-pane { position: absolute; box-sizing: border-box; display: flex; flex-wrap: wrap; align-content: safe center; justify-content: center; gap: var(--soda-space-2); overflow-y: auto; background: var(--soda-page-canvas); }
 .soda-empty-pane p { flex-basis: 100%; text-align: center; }
 .soda-pane-divider { position: absolute; pointer-events: auto; touch-action: none; background: var(--soda-page-edge); }
 .soda-pane-divider[aria-orientation=vertical] { cursor: col-resize; }
@@ -307,7 +307,17 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-workspace .soda-project-journey > .soda-feedback { flex-shrink: 0; max-height: 25dvh; overflow: auto; width: 100%; }
 .soda-workspace .soda-workspace-dialog { overflow-wrap: anywhere; }
 .soda-workspace-navigation, .soda-workspace-management, .soda-repository-results { overscroll-behavior: contain; }
+@media (max-width: 640px) {
+  /* Anchor the toolbar menu to the toolbar itself: right-aligning it to a
+     wrapped left-edge toggle pushes it off-screen at compact widths. */
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { position: relative; }
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar .soda-menu { position: static; }
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar .soda-menu > div { left: var(--soda-space-2); right: auto; top: 100%; z-index: 20; }
+}
 @media (max-height: 500px) {
+  /* A wrapped multi-row toolbar must not starve the canvas at short heights
+     (e.g. high browser zoom): cap it and scroll the toolbar itself. */
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { max-height: 34%; overflow-y: auto; overscroll-behavior: contain; }
   .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { min-height: 0; padding-block: var(--soda-space-2); }
   .soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin-block: var(--soda-space-2); }
   .soda-workspace.is-workspace-intro .soda-workspace-canvas { margin: 0; }

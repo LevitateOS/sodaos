@@ -143,6 +143,7 @@ export class SodaIntent extends LitElement {
       color: var(--soda-page-muted, #666);
     }
     .department-dialog {
+      box-sizing: border-box;
       position: fixed;
       z-index: 40;
       inset: 15% max(1rem, calc((100vw - 600px)/2)) auto;
