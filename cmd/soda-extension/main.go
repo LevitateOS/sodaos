@@ -85,7 +85,7 @@ func allowedContribution(request extensions.ContributionRequest, operatorID stri
 		case "spaces":
 			return contribution.Scope == "global"
 		case "tailnet":
-			return contribution.Scope == "admin" && request.ActorID == operatorID
+			return contribution.Scope == "global" && request.ActorID == operatorID
 		default:
 			return false
 		}

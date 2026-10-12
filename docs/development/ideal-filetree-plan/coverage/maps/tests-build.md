@@ -55,13 +55,15 @@ exact-blob current maintained map; full spans retained
 
 ## [tests/build/forgejo_payload_test.go](../../../../../tests/build/forgejo_payload_test.go)
 
+Scoped inspection at `668f551c0334954ee5d7a48dc23c5d80170c86da`: Tailnet declaration tests follow the existing global route without an admin permission; G01/H06/D03 test ownership and target placement are unchanged.
+
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–25, 97–105; file scaffold; payloadFiles; extensionPages | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Current scaffold duty: file scaffold; Current declaration duty: payloadFiles; Current declaration duty: extensionPages — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 26–96; TestForgejoPayloadExactSourcesTemplateClosureAndNotices | [D03](../../slices/release-and-installation.md#d03-candidate-production) | retained | Current declaration duty: TestForgejoPayloadExactSourcesTemplateClosureAndNotices — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 106–123; TestForgejoPayloadExtensionPagesDeclaredInNativePackage; TestForgejoPayloadOperatorSettingsUseSeparatePackage | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current declaration duty: TestForgejoPayloadExtensionPagesDeclaredInNativePackage; Current declaration duty: TestForgejoPayloadOperatorSettingsUseSeparatePackage — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 106–123; TestForgejoPayloadExtensionPagesDeclaredInNativePackage; TestForgejoPayloadOperatorSettingsUseDeclaredTailnetRoute | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Current declaration duty: TestForgejoPayloadExtensionPagesDeclaredInNativePackage; Current declaration duty: TestForgejoPayloadOperatorSettingsUseDeclaredTailnetRoute — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-494c395f5566"></a>
 
