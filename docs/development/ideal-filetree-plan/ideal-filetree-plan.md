@@ -16,9 +16,9 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `6f30b3396b729278fe3a0040ffdc4b6de18b3d3f` and paired Fountain source
-`64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
-adds twelve focused domain, Store, API and browser source/test paths and changes no package, language
+Reviewed Soda source `32305c05ab5dde6ca65752bbd2135d9e997a2516` and paired Fountain source
+`442a42f24a8eefe46e187b550ec9db22b2660949` for the native frontend correction. This delta
+adds fifteen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
@@ -27,14 +27,18 @@ all unrelated historical body, catalog and structural review pins.
 
 Fountain now defines its page-feature registry/config replacement in
 `web_src/js/native-lifecycle.js`, with the admin user-list search control as its
-first consumer. The generic host owns these native duties. Its focused lifecycle
-and control checks pass; the navigation regression still includes two explicit
+first consumer. Its radio/reset GETs now emit cancelable native submit events
+through `requestSubmit()`, preserving validation and the host navigation seam.
+The generic host owns these native duties. Ten focused lifecycle/control cases pass; the navigation regression still includes
+two explicit
 expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
 Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
 its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
-mount/update/suspend/resume/retire and admitted scoped transport. Thirteen mount
+mount/update/suspend/resume/retire and admitted scoped transport. Hidden shelter
+suspend/resume preserves roots and resources; visible navigation uses update.
+The declaration still precedes final contract distribution. Thirteen mount
 cases and browser type/lint checks pass, including failed and late mount cleanup.
 A must join the host invalidation signal. Canonical distribution and production
 owner/route wiring remain gated by actual native persistence proof; this prototype
@@ -72,13 +76,24 @@ review table; Open refuses protected existing schema 46 until a tested preservin
 operator transition is applied. No VM activation is claimed. Current source maps
 record these added duties without advancing historical full-body audit pins.
 
-Guarded restoration stays in the existing F05 Lit intent owner, with one new
-component test file. Twelve restoration cases, four parser cases and full
-TypeScript/Lit checks pass on this source. Actual API-produced review bytes are
-now being joined to that component: this exposed optional collection values
-that the canonical browser fixture missed. Wire compatibility and actual
-restoration therefore remain open pending that correction; these guards and
-fixtures do not close G05–G07 or establish installed behavior.
+Guarded restoration stays in the existing F05 Lit intent owner. The actual
+API-produced bytes exposed optional Go nil collections; browser handling now
+matches those fields while required identity, provenance and content bounds
+remain strict. Two PostgreSQL/API recovery/capture cases pass with injected
+judgments. The resulting exact JSON reaches the production Lit component:
+13 restoration and 5 parser cases pass with no skips, including ordered flow,
+recommendation/verdict restoration, failures, superseded loads and actor switches.
+Soda's type-only browser contract mirror now matches the canonical Fountain
+`df41bd73d8` declaration exactly, with a pinned body hash. It remains preparation;
+production callers still await the callable contract. Formatting excludes only
+that byte-pinned mirror. The existing local focus owner restores terminal dialogs
+to the persistent actions-menu summary instead of its hidden item. Five focused
+mirror/focus cases pass. The three added paths retain G01/S04/H06 ownership;
+no native host adapter, runtime package or process is added.
+
+GET restoration consumes no new judgments or effects. An explicitly requested
+join fails on missing/malformed capture files; ordinary component checks remain
+independent. Native composition and installed content remain I04/I08 evidence.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,

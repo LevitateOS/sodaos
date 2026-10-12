@@ -2,8 +2,8 @@
 
 ## Native correction target delta
 
-Source `6f30b3396b729278fe3a0040ffdc4b6de18b3d3f` adds twelve paths across the settings, saved-review
-and emitted-color corrections. Each follows the existing defining owner; this
+Source `32305c05ab5dde6ca65752bbd2135d9e997a2516` adds fifteen paths across settings, saved-review,
+emitted-color, browser contract and local focus corrections. Each follows the existing defining owner; this
 scoped allocation does not advance the historical complete-tree census.
 
 | Added target | Defining responsibility |
@@ -20,6 +20,9 @@ scoped allocation does not advance the historical complete-tree census.
 | `tests/forgejo/emitted-colors-browser.test.ts` | H05/H06 emitted branding check; retained at this existing package/path |
 | `tests/frontend/setup-geometry.test.ts` | S05/H06 local creation geometry check; retained browser test path |
 | `tests/frontend/intent-review-restore.test.ts` | F05/H06 production component restoration check; retained browser test path |
+| `frontend/spaces/fountain-browser-contract.d.ts` | G01 canonical external host declaration mirror; retained frontend path, no consumer runtime adapter |
+| `tests/frontend/host-contract-pin.test.ts` | G01/H06 exact declaration hash/type check; retained browser test path |
+| `tests/frontend/workspace-focus.test.ts` | S04/H06 local terminal dialog focus check; retained browser test path |
 
 ## Complete proposed tree
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -320,6 +321,61 @@ func TestSavedReviewJoinExploreSaveRead(t *testing.T) {
 	}
 	if _, err := s.IntentGeneration(ctx, head.ID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("read replayed generation: %v", err)
+	}
+}
+
+// TestSavedReviewJoinCaptureRound records one live Explore→save→read round as
+// ignored JSON for the production Lit restoration fixture. The files hold API
+// response bodies only: synthetic IDs, no requests, no auth material.
+func TestSavedReviewJoinCaptureRound(t *testing.T) {
+	product, _, call, _ := q05Mux(t, "")
+	const draftID = "d818181818181818181818181"
+	const intentID = "d828282828282828282828282"
+	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,"ideas":[` +
+		`{"id":"d838383838383838383838383","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true},` +
+		`{"id":"d848484848484848484848484","description":"Keep history visible","consequence":"Past requests stay listed","decision":"pending","source":"autonomous","provenance":"autonomous"}]}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	allowance := `{"id":"d858585858585858585858585","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
+	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowance); code != http.StatusCreated {
+		t.Fatalf("allowance save status=%d body=%s", code, body)
+	}
+	product.IntentExploreChooser = &exploreFixtureChooser{}
+	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`); code != http.StatusCreated {
+		t.Fatalf("explore status=%d body=%s", code, body)
+	}
+	get := func(path string) []byte {
+		t.Helper()
+		code, body := call(http.MethodGet, path, "")
+		if code != http.StatusOK {
+			t.Fatalf("capture read %s status=%d body=%s", path, code, body)
+		}
+		return body
+	}
+	revision := get("/api/factory/intents/" + intentID)
+	review := get("/api/factory/intents/" + intentID + "/review")
+	var read factory.SavedReviewRead
+	if err := json.Unmarshal(review, &read); err != nil {
+		t.Fatal(err)
+	}
+	if err := read.Validate(); err != nil {
+		t.Fatalf("captured read invalid: %v", err)
+	}
+	if read.Status != factory.ReviewCurrent || read.Review == nil || read.Review.Recommendation == nil ||
+		len(read.Review.Recommendation.Milestones) == 0 || len(read.Review.Recommendation.Alternative.Steps) == 0 ||
+		len(read.Review.Challenges)+len(read.Review.Settled) == 0 {
+		t.Fatalf("captured round has nothing to illustrate: %+v", read)
+	}
+	dir := "../../../.artifacts/g07-join"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "revision.json"), revision, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "review.json"), review, 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 

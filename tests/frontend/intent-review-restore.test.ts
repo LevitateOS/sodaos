@@ -1,5 +1,7 @@
 import test, {after} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {JSDOM} from 'jsdom';
 import {savedReviewRead} from '../../frontend/spaces/sodaspaces-intent-response.js';
 import {hflowCurrent} from './fixtures/saved-review';
@@ -146,6 +148,63 @@ test('fresh resume restores the illustrated flow without Explore', async () => {
   assert.ok(!calls.some((path) => path.endsWith('/explore')), 'resume explored instead of restoring');
   assert.ok(calls.includes('/api/factory/intents/d000000000000000000000000/review'));
 });
+
+// The G07 source join: TestSavedReviewJoinCaptureRound records one live
+// Explore→save→read round as revision.json/review.json (API response bodies
+// only). This case replays those exact bytes through the production
+// component, but only when explicitly requested: set SODA_G07_JOIN_DIR to
+// the capture directory (absolute or relative to the working directory).
+// Unrequested it stays skipped and is never joined evidence; requested,
+// missing or malformed files fail closed. Qualification sets the input and
+// executes all 13 cases with 0 skipped.
+const joinDir = process.env.SODA_G07_JOIN_DIR;
+test(
+  'live round restores the captured flow, recommendation and verdicts',
+  {skip: joinDir ? false : 'unrequested: set SODA_G07_JOIN_DIR to the capture directory'},
+  async () => {
+    assert.ok(joinDir);
+    let revision: unknown;
+    let rawRead: unknown;
+    try {
+      revision = JSON.parse(readFileSync(join(joinDir, 'revision.json'), 'utf8'));
+      rawRead = JSON.parse(readFileSync(join(joinDir, 'review.json'), 'utf8'));
+    } catch {
+      assert.fail(
+        `G07 join files missing or malformed under ${joinDir}: run TestSavedReviewJoinCaptureRound in internal/web/api to regenerate revision.json/review.json`
+      );
+    }
+    const read = savedReviewRead(rawRead);
+    const review = read.review;
+    assert.ok(review);
+    const recommendation = review.recommendation;
+    assert.ok(recommendation);
+    assert.ok(review.settled.length + review.challenges.length > 0);
+    const intent = read.intent;
+    const routes: Record<string, unknown> = {
+      '/api/factory/departments': [],
+      '/api/factory/intents?limit=20': {intents: []},
+      [`/api/factory/intents/${intent}`]: revision,
+      [`/api/factory/intents/${intent}/review`]: rawRead,
+    };
+    const calls: string[] = [];
+    const el = await mount(stubApi(routes, calls), intent);
+    const text = rendered(el);
+    assert.match(text, /Here is how it would work/);
+    let at = -1;
+    for (const milestone of recommendation.milestones) {
+      const next = text.indexOf(milestone.name, at + 1);
+      assert.ok(next > at, `milestone out of order: ${milestone.name}`);
+      at = next;
+    }
+    for (const step of recommendation.alternative.steps) {
+      assert.ok(text.includes(step.action), `step missing: ${step.action}`);
+    }
+    assert.deepEqual(el.exploration?.settled, review.settled);
+    assert.equal(el.exploration?.challenges.length, review.challenges.length);
+    assert.ok(!calls.some((path) => path.endsWith('/explore')), 'resume explored instead of restoring');
+    for (const path of calls) assert.ok(path in routes, `effect replay: ${path}`);
+  }
+);
 
 test('moved head keeps the review with an out-of-date notice', async () => {
   const moved = {...headRevision, id: 'd333333333333333333333333'};
