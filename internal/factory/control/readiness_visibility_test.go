@@ -2,11 +2,14 @@ package control
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestHiddenEndpointBlocksWithoutLeaking(t *testing.T) {
@@ -89,6 +92,24 @@ func TestLongerCycleBlocks(t *testing.T) {
 		edge := []AcceptanceEdge{{Occurrence: "2" + issue, DependsOn: "8", Visible: true}}
 		comment := []AcceptanceComment{{ID: "3" + issue, Digest: readinessCommentDigest, Visible: true}}
 		source.evidence["42/"+issue] = readinessEvidence(12, view, comment, edge)
+	}
+	// Setup admissions queued one root source each. Drain them across
+	// passes first, as serving reconciliation would: the bounded page
+	// budget cannot settle setup residue plus the exercise cascade in
+	// one pass, and the cycle verdict below must not depend on it.
+	drained := false
+	for pass := 0; pass < 10 && !drained; pass++ {
+		if _, err := c.drainReadinessWork(context.Background(), ""); err != nil && !errors.Is(err, ErrReadinessPassPending) {
+			t.Fatal("setup drain:", err)
+		}
+		if _, err := c.Store.NextReadinessWork(context.Background(), time.Now()); errors.Is(err, store.ErrNotFound) {
+			drained = true
+		} else if err != nil {
+			t.Fatal("setup work poll:", err)
+		}
+	}
+	if !drained {
+		t.Fatal("setup roots never drained")
 	}
 	assessed, _, err := c.ObserveIssueEvent(context.Background(), readinessHint("delivery-1", 42, 3))
 	if err != nil {
