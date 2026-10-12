@@ -53,7 +53,13 @@ import {
   inspectCommittedRequest,
   renderSetup,
 } from './sodaspaces-workspace-setup.js';
-import {newRouteFor, requestIdFromLocation, requestIDPattern, requestRouteFor} from './sodaspaces-workspace-setup.js';
+import {
+  isNewRouteLocation,
+  newRouteFor,
+  requestIdFromLocation,
+  requestIDPattern,
+  requestRouteFor,
+} from './sodaspaces-workspace-setup.js';
 import {resolveWatchTarget, resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
 import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
@@ -266,6 +272,7 @@ export class SodaSpaces extends LitElement {
   private maximized: string | undefined;
   private dragged: string | undefined;
   private choosingPane: string | undefined;
+  private pendingNewRoute = false;
   private invoker: HTMLElement | undefined;
   private lastMinimum = 0;
   constructor() {
@@ -387,13 +394,23 @@ export class SodaSpaces extends LitElement {
     if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
     this.factory = factory;
     this.storageKey = '';
+    if (context.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+      this.pendingNewRoute = true;
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal,
     });
-    window.addEventListener('popstate', () => this.requestUpdate(), {
-      signal: this.lifetime.signal,
-    });
+    window.addEventListener(
+      'popstate',
+      () => {
+        if (this.binding?.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+          this.pendingNewRoute = true;
+        this.requestUpdate();
+      },
+      {
+        signal: this.lifetime.signal,
+      }
+    );
     window.addEventListener(
       'pageshow',
       (e) => {
@@ -464,7 +481,18 @@ export class SodaSpaces extends LitElement {
     this.dispose();
   }
   protected updated() {
+    this.activateNewRoute();
     this.display();
+  }
+  private activateNewRoute() {
+    // One-shot fresh entry for direct new-route load/traversal in a populated
+    // workspace. The flag clears on any setup so Back/cancel never refires;
+    // /workspace/new stays the neutral post-leave route for rendering.
+    if (this.setup) this.pendingNewRoute = false;
+    else if (this.pendingNewRoute && this.spaces.length) {
+      beginSetup(this.setupReading(), this.setupActions(), this);
+      if (this.setup) this.pendingNewRoute = false;
+    }
   }
   private geometryChanged(width: number, height: number, cell: {width: number; height: number}) {
     if (this.workspaceWidth !== this.clientWidth) return true;

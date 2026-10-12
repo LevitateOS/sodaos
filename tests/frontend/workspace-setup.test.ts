@@ -853,6 +853,49 @@ test('setup: saved draft resumes from its request route across history traversal
   await page.getByText('Saved', {exact: true}).waitFor();
 });
 
+test('setup: direct /workspace/new load activates fresh entry in populated workspace', {timeout: 60000}, async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  const mountNewRoute = () =>
+    page.evaluate(async () => {
+      window.workspaceFixture = window.createWorkspaceFixture('page', false, '');
+      await window.workspaceFixture.api.ready;
+      return window.workspaceFixture.api.refresh();
+    });
+  // Direct load at the admitted new route must show fresh intent entry.
+  await page.goto(new URL('/workspace/new', page.url()).href);
+  await page.waitForFunction(() => !!window.createWorkspaceFixture);
+  await mountNewRoute();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+  // Reload keeps the fresh entry without provisioning.
+  await page.reload();
+  await page.waitForFunction(() => !!window.createWorkspaceFixture);
+  await mountNewRoute();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+  // Back exits to the ordinary workspace with terminals/navigation preserved.
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+  // Traversal back into the new route reactivates the entry.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/');
+  });
+  await page.goBack();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+});
+
 test('setup: unknown request route reports unavailable without losing the entry', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());

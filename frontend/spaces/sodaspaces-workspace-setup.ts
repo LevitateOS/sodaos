@@ -52,6 +52,11 @@ export function newRouteFor(forgejoPrefix: string): string {
   return `${forgejoPrefix}/workspace/new`;
 }
 
+/** Exact fresh-entry route match under the admitted installation prefix. */
+export function isNewRouteLocation(pathname: string, forgejoPrefix: string): boolean {
+  return stripRoutePrefix(pathname, forgejoPrefix) === '/workspace/new';
+}
+
 /** Intent identity carried by intent-saved/intent-resumed; '' when absent. */
 export function intentIdentity(event: Event): string {
   const detail = (event as CustomEvent).detail;

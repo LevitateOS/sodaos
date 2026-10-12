@@ -68,9 +68,11 @@ export function setupWorkspaceDriver() {
                     : 'application/octet-stream',
             },
           });
+        // The production host serves the page shell at the admitted new-project
+        // route; direct-load tests need the same shell here (exact path only).
         if (
           url.pathname !== '/' &&
-          !['/workspace', '/alice/Beta/workspace', '/alice/Missing/workspace'].includes(url.pathname)
+          !['/workspace', '/workspace/new', '/alice/Beta/workspace', '/alice/Missing/workspace'].includes(url.pathname)
         )
           return new Response(null, {status: 404});
         return new Response(

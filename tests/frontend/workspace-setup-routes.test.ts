@@ -5,6 +5,7 @@ import {
   detailRunsForIssue,
   factoryWatchRequestDetail,
   intentIdentity,
+  isNewRouteLocation,
   inventoryIntents,
   newRouteFor,
   overviewScopeDetail,
@@ -93,6 +94,30 @@ test('request and new routes preserve the sub-path prefix', () => {
   assert.equal(newRouteFor('/forge'), '/forge/workspace/new');
   assert.equal(newRouteFor('/team/tools'), '/team/tools/workspace/new');
   assert.equal(newRouteFor('/workspace-tools/forge'), '/workspace-tools/forge/workspace/new');
+});
+
+test('new route matches only the exact admitted fresh-entry path', () => {
+  assert.equal(isNewRouteLocation('/workspace/new', ''), true);
+  assert.equal(isNewRouteLocation('/forge/workspace/new', '/forge'), true);
+  assert.equal(isNewRouteLocation('/team/tools/workspace/new', '/team/tools'), true);
+  assert.equal(isNewRouteLocation('/workspace-tools/forge/workspace/new', '/workspace-tools/forge'), true);
+  const negatives: [string, string][] = [
+    ['/workspace', ''],
+    ['/workspace/new/', ''],
+    ['/workspace/new/extra', ''],
+    ['/workspace/newx', ''],
+    ['/workspace/requests/' + id, ''],
+    ['/team/tools', '/team/tools'],
+    ['/workspace-tools/forge', '/workspace-tools/forge'],
+    ['/team/tools/workspace/new', ''],
+    ['/team/tools/workspace/new', '/team'],
+    ['/forgeX/workspace/new', '/forge'],
+    ['/workspace/new', '/forge'],
+    ['/', ''],
+  ];
+  for (const [path, prefix] of negatives) {
+    assert.equal(isNewRouteLocation(path, prefix), false, `${prefix} ${path}`);
+  }
 });
 
 test('intent identity reads the saved/resumed detail only', () => {
