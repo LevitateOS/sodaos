@@ -49,7 +49,6 @@ import {
   describeRevisionHistory,
   describeWhyNext,
   describeWorkOverview,
-  intentGeneration,
   overviewScopeFromBound,
   overviewScopeFromMappings,
   retiredOverviewScope,
@@ -65,7 +64,6 @@ import {
   renderWorkPlan,
 } from './sodaspaces-factory-progress-view.js';
 import type {
-  IntentGeneration,
   LifecycleEffectInput,
   LifecycleEventKind,
   LifecycleEffectModel,
@@ -224,7 +222,7 @@ export class SodaFactoryWorkOverview extends LitElement {
     this.scope = scope;
     this.dispatchEvent(new CustomEvent('soda-factory-overview-scope', {bubbles: true, composed: true, detail: scope}));
   }
-  private async applyFallback(context: WorkOverviewContext, serial: number): Promise<void> {
+  private async applyRepositoryView(context: WorkOverviewContext, serial: number): Promise<void> {
     const overview = await readOverview(context);
     if (serial !== this.serial) return;
     this.request = undefined;
@@ -238,15 +236,16 @@ export class SodaFactoryWorkOverview extends LitElement {
     const serial = this.serial;
     this.busy = true;
     try {
-      const request = await readRequestOverview(context);
-      if (serial !== this.serial) return;
-      if (request) {
+      const intentID = context.intentID;
+      if (intentID) {
+        const request = await readRequestOverview(context, intentID);
+        if (serial !== this.serial) return;
         this.request = request;
         this.model = undefined;
         this.message = '';
         this.publishScope(overviewScopeFromMappings(request.mappings, context.repository, context.intentID));
       } else {
-        await this.applyFallback(context, serial);
+        await this.applyRepositoryView(context, serial);
       }
     } catch (error) {
       if (serial === this.serial) {
@@ -276,37 +275,6 @@ export class SodaFactoryWorkOverview extends LitElement {
 }
 customElements.define('soda-factory-work-overview', SodaFactoryWorkOverview);
 
-async function readOverviewRevision(
-  context: WorkOverviewContext
-): Promise<{revision?: IntentRevision; state: SourceState}> {
-  if (!context.intentID) return {state: 'missing'};
-  try {
-    const revision = intentRevision(await getJSON(context.transport, `factory/intents/${context.intentID}`));
-    return {revision, state: 'ready'};
-  } catch (error) {
-    const input = failureInput(error);
-    return {state: input.status === 404 ? 'missing' : 'unavailable'};
-  }
-}
-
-async function readOverviewGeneration(
-  context: WorkOverviewContext,
-  revision: IntentRevision | undefined
-): Promise<{generation?: IntentGeneration; state: SourceState}> {
-  if (!context.intentID || !revision) return {state: 'missing'};
-  try {
-    const generation = intentGeneration(
-      await getJSON(context.transport, `factory/intents/${context.intentID}/generation`),
-      context.intentID,
-      revision.id
-    );
-    return {generation, state: 'ready'};
-  } catch (error) {
-    const input = failureInput(error);
-    return {state: input.status === 404 ? 'missing' : 'unavailable'};
-  }
-}
-
 async function readOverviewSummary(
   context: WorkOverviewContext
 ): Promise<{summary?: FactoryRepositorySummary; state: SourceState}> {
@@ -322,67 +290,30 @@ async function readOverviewSummary(
   }
 }
 
-async function readOverviewIssues(
-  context: WorkOverviewContext,
-  generation: IntentGeneration | undefined
-): Promise<{issues: FactoryIssueDetail[]; unread: string[]}> {
-  const issues: FactoryIssueDetail[] = [];
-  const unread: string[] = [];
-  const bound = generation?.bindings ?? [];
-  const settled = await Promise.allSettled(
-    bound.map((binding) =>
-      getJSON(context.transport, `repositories/${context.repository}/factory/issues/${binding.issue}`)
-    )
-  );
-  settled.forEach((result, index) => {
-    const issue = bound[index]?.issue ?? '';
-    if (result.status === 'fulfilled' && issue !== '') {
-      try {
-        issues.push(factoryIssueDetail(result.value, context.repository, issue));
-      } catch {
-        unread.push(issue);
-      }
-    } else if (issue !== '') {
-      unread.push(issue);
-    }
-  });
-  return {issues, unread};
+// readRequestOverview reads the authoritative H-R request overview.
+// Endpoint and parser failures propagate to the honest unavailable
+// boundary; a failed intent read never falls back to composed reads.
+async function readRequestOverview(context: WorkOverviewContext, intent: string): Promise<RequestOverviewModel> {
+  const view = requestOverview(await getJSON(context.transport, `factory/intents/${intent}/overview`), intent);
+  return describeRequestOverview(view, context.repositoryPath);
 }
 
-// readRequestOverview prefers the H-R request overview. Any failure
-// falls back to the composed per-source reads so ordinary progress
-// views keep moving while the overview route rolls out.
-async function readRequestOverview(context: WorkOverviewContext): Promise<RequestOverviewModel | undefined> {
-  if (!context.intentID) return undefined;
-  try {
-    const view = requestOverview(
-      await getJSON(context.transport, `factory/intents/${context.intentID}/overview`),
-      context.intentID
-    );
-    return describeRequestOverview(view, context.repositoryPath);
-  } catch {
-    return undefined;
-  }
-}
-
+// readOverview reads the repository-only view: queue and setup
+// summary without intent scope. It serves contexts without an
+// intentID only; intent contexts read the H-R overview above.
 async function readOverview(context: WorkOverviewContext): Promise<{model: WorkOverviewModel; scope: OverviewScope}> {
-  const {revision, state: intentState} = await readOverviewRevision(context);
-  const {generation, state: generationState} = await readOverviewGeneration(context, revision);
   const {summary, state: summaryState} = await readOverviewSummary(context);
-  const {issues, unread} = await readOverviewIssues(context, generation);
   return {
     model: describeWorkOverview({
-      ...(revision === undefined ? {} : {revision}),
-      ...(generation === undefined ? {} : {generation}),
       ...(summary === undefined ? {} : {summary}),
-      issues,
-      unreadIssues: unread,
+      issues: [],
+      unreadIssues: [],
       repositoryPath: context.repositoryPath,
-      intentState,
-      generationState,
+      intentState: 'missing' as SourceState,
+      generationState: 'missing' as SourceState,
       summaryState,
     }),
-    scope: overviewScopeFromBound(issues, context.repository, context.intentID),
+    scope: overviewScopeFromBound([], context.repository, context.intentID),
   };
 }
 
