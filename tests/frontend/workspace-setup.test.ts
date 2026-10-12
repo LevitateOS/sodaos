@@ -22,6 +22,18 @@ async function projectPressed(page: Page) {
   });
 }
 
+async function focusedReviewHeading(page: Page) {
+  await page.waitForFunction(() => {
+    const root = document.querySelector('soda-intent')?.shadowRoot;
+    const target = root?.querySelector('section.intent-review h2');
+    return !!target && root?.activeElement === target;
+  });
+  return page.evaluate(
+    () =>
+      document.querySelector('soda-intent')?.shadowRoot?.querySelector('section.intent-review h2')?.textContent || ''
+  );
+}
+
 test('setup: pending creation keeps its selection and disables navigation without duplicate writes', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
@@ -111,6 +123,7 @@ test('first use: keyboard selection and post-commit Change inspects without writ
   });
   assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
   assert.equal(await page.evaluate(() => window.location.pathname), committed);
+  assert.equal(await focusedReviewHeading(page), 'Review your product direction');
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
   assert.equal(
@@ -155,6 +168,7 @@ test('first use: picker Back preserves the reviewed direction', async (t) => {
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
   assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
   assert(await page.getByRole('button', {name: 'Choose repository', exact: true}).isEnabled());
+  assert.equal(await focusedReviewHeading(page), 'Review your product direction');
 });
 test('first use: picker summarizes reviewed authorization and the create effect', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
