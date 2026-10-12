@@ -163,6 +163,54 @@ func (f *exploreFixtureChooser) Select(_ context.Context, _ any, _ string, choic
 	return factory.PriorityAnswer{Selected: ids[0], Model: "fixture", Confidence: 0.9, Probabilities: probs}, nil
 }
 
+// TestExplorePersistsAgreedReview proves the producer and its persisted
+// response agree: a successful injected-judgment round stores the actual
+// proposal, challenges, recommendation and consistency under the result
+// revision with exact basis/result provenance.
+func TestExplorePersistsAgreedReview(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
+	draftBody := `{"id":"d121212121212121212121212","intent":"d232323232323232323232323","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,"ideas":[{"id":"d343434343434343434343434","description":"Track leave requests","consequence":"Managers review requests","decision":"pending","assumption":true,"material":true}]}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", draftBody); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	allowanceBody := `{"id":"d454545454545454545454545","intent":"d232323232323232323232323","amount":8,"ceiling":8,"unit":"planning_calls"}`
+	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", allowanceBody); code != http.StatusCreated {
+		t.Fatalf("allowance save status=%d body=%s", code, body)
+	}
+	product.IntentExploreChooser = &exploreFixtureChooser{}
+	code, body := call(http.MethodPost, "/api/factory/intents/d232323232323232323232323/explore", `{"revision":"d121212121212121212121212"}`)
+	if code != http.StatusCreated {
+		t.Fatalf("explore status=%d body=%s", code, body)
+	}
+	var responded exploreResponse
+	if err := json.Unmarshal(body, &responded); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := s.IntentReview(context.Background(), responded.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Intent != "d232323232323232323232323" || stored.BasisRevision != "d121212121212121212121212" || stored.ResultRevision != responded.ID {
+		t.Fatalf("stored provenance wrong: %+v", stored)
+	}
+	agree := func(name string, want, got any) {
+		t.Helper()
+		wantRaw, _ := json.Marshal(want)
+		gotRaw, _ := json.Marshal(got)
+		if string(wantRaw) != string(gotRaw) {
+			t.Fatalf("%s disagrees: stored=%s response=%s", name, wantRaw, gotRaw)
+		}
+	}
+	agree("content", stored.Content, responded.Exploration.Content)
+	agree("challenges", stored.Challenges, responded.Exploration.Challenges)
+	agree("settled", stored.Settled, responded.Exploration.Settled)
+	agree("recommendation", stored.Recommendation, responded.Exploration.Recommendation)
+	agree("consistency", stored.Consistency, responded.Exploration.Consistency)
+	if stored.Recommendation == nil || stored.Consistency == nil {
+		t.Fatal("supported round lost its recommendation or consistency")
+	}
+}
+
 // TestExploreMidRoundExhaustionNeedsFunding proves the U04 budget
 // distinction on the real explore path: finite allowance exhaustion
 // mid-round reports 409 planning_funding_required (never 503), while

@@ -200,7 +200,17 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 400, "invalid_proposal", err.Error())
 		return
 	}
-	if err = s.Store.SaveIntentRevision(r.Context(), proposal); err != nil {
+	challenges := review.Challenges
+	if challenges == nil {
+		challenges = []factory.AssumptionChallenge{}
+	}
+	saved := factory.SavedReview{
+		Intent: current.Intent, BasisRevision: current.ID, ResultRevision: proposal.ID,
+		Content: content, Challenges: challenges, Settled: settledIDs(review),
+		Recommendation: recommendation, Consistency: consistency,
+		SavedUnix: time.Now().Unix(),
+	}
+	if err = s.Store.SaveIntentRevisionWithReview(r.Context(), proposal, saved); err != nil {
 		factoryCommandError(w, err)
 		return
 	}
