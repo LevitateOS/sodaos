@@ -1,6 +1,6 @@
 // Fountain canonical browser contract mirror (NFX-C03/H-N prep).
-// Source: Fountain sdk/browser/extension-contract.d.ts at df41bd73d8.
-// sha256(body): 54eb17593dae064a754926676cf075d54affad3be728357677da77370c607ab7
+// Source: Fountain sdk/browser/extension-contract.d.ts at 5e812ba9.
+// sha256(body): 96bc12f2f3dc7b5234feec337b05efc76ceef18c7fce8bff7d0e469ef941dd9d
 // contractMajor: 1, manifestProtocol: 1.
 // Do not hand-edit; re-sync from Fountain (lane C re-pins per change).
 // --- contract body begins ---
@@ -102,6 +102,12 @@ export interface MountContext {
   appSubUrl: string;
   /** Native session generation this mount was admitted under. */
   sessionGeneration: string;
+  /**
+   * Canonical browser contract version implemented by the host.
+   * The mount refuses any other value, binding the consumer build
+   * to a compatible host runtime.
+   */
+  contractVersion: 1;
   /** Observed repository ID (display only, never authority). */
   repositoryId?: string;
   /**
