@@ -95,5 +95,89 @@ test('settings tabs: arrow keys wrap and Home/End jump with selection following 
 });
 
 // Viewport coverage note: the compact (320x568) and short (720x422) matrix
-// viewports verify the settings composition across small allocations. This
-// is viewport coverage only, pending actual 200% zoom qualification.
+// viewports verify the settings composition across small allocations, and
+// the reduced-size test below derives its viewport/allocation from the
+// standard base as a reduced CSS viewport/allocation proxy. Final native
+// fonts/container/browser behavior (F06) remains open.
+
+test('settings tabs stay usable at reduced CSS viewport/allocation proxy', async (t) => {
+  // The proxy halves the CSS viewport and the measured allocation.
+  const base = {width: 1440, height: 1000, allocation: 600};
+  const viewport = {width: base.width / 2, height: base.height / 2, allocation: base.allocation / 2};
+  for (const tab of tabs) {
+    const page = await settingsFixture(t, {}, viewport);
+    await page.getByRole('tab', {name: tab, exact: true}).click();
+    const panel = page.locator('[role=tabpanel]:visible');
+    await panel.waitFor();
+    const geometry = await panel.evaluate((node) => {
+      const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      const column = node.parentElement;
+      const siblings: Record<string, number> = {};
+      for (const selector of [
+        '.soda-repository-context',
+        '.soda-spaces-tabs',
+        '.soda-spaces-summary',
+        'soda-identity',
+      ]) {
+        const sibling = column?.querySelector(selector);
+        siblings[selector] = sibling?.getBoundingClientRect().height ?? -1;
+      }
+      return {
+        content: box.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+        horizontal: node.scrollWidth - node.clientWidth,
+        siblings,
+      };
+    });
+    assert(
+      (geometry.siblings['soda-identity'] ?? 0) > 0,
+      `${tab} reduced-proxy Identity sibling crushed to zero ` + JSON.stringify(geometry.siblings)
+    );
+    // One control row (44px) stays visible even at the halved allocation.
+    assert(
+      geometry.content >= 44,
+      `${tab} reduced-proxy panel content squeezed to ${geometry.content}px ` + JSON.stringify(geometry.siblings)
+    );
+    assert(geometry.horizontal <= 1, `${tab} reduced-proxy panel overflows horizontally`);
+    const first = panel.locator('button:not([disabled]), [href], input:not([disabled]), select, textarea').first();
+    await first.scrollIntoViewIfNeeded();
+    assert(await first.isVisible(), `${tab} reduced-proxy first control unreachable`);
+    assert(await first.isEnabled(), `${tab} reduced-proxy first control disabled`);
+    const scrolls = await panel.evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+      return node.scrollTop > 0 || node.scrollHeight <= node.clientHeight;
+    });
+    assert(scrolls, `${tab} reduced-proxy panel overflow does not scroll`);
+    assert(
+      await panel.evaluate((node) => {
+        const column = node.parentElement;
+        return !!column && column.scrollHeight <= column.clientHeight + 1;
+      }),
+      `${tab} reduced-proxy column spills its allocation`
+    );
+  }
+});
+
+test('settings access with no saved keys keeps the add-key form reachable at compact width', async (t) => {
+  const page = await settingsFixture(t, {saved: [], installed: []}, {width: 320, height: 568, allocation: 568});
+  await page.getByRole('tab', {name: 'Access', exact: true}).click();
+  const panel = page.locator('[role=tabpanel]:visible');
+  await panel.waitFor();
+  // The subject is the actual empty key list, not the default saved fixture:
+  // the joined panel renders no saved-key entries and no remove actions.
+  await panel.locator('fieldset[data-control=keys]').waitFor();
+  assert.equal(
+    await panel.locator('fieldset[data-control=keys] ul li').count(),
+    0,
+    'empty state still lists a saved key'
+  );
+  assert.equal(await panel.getByRole('button', {name: 'Remove saved key', exact: true}).count(), 0);
+  const keyField = panel.getByLabel('Public SSH key');
+  await keyField.waitFor();
+  await keyField.scrollIntoViewIfNeeded();
+  assert(await keyField.isVisible(), 'empty access panel hides the key field');
+  assert(await keyField.isEnabled(), 'empty access panel disables the key field');
+  const save = panel.getByRole('button', {name: 'Save public key', exact: true});
+  await save.scrollIntoViewIfNeeded();
+  assert(await save.isVisible(), 'empty access panel hides the save action');
+});

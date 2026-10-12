@@ -9,6 +9,8 @@ setupWorkspaceDriver();
 for (const viewport of [
   {width: 320, height: 568},
   {width: 720, height: 422},
+  // Reduced CSS viewport/allocation proxy: half the 1440x1000 standard viewport.
+  {width: 1440 / 2, height: 1000 / 2},
 ])
   test(
     `setup configure ${viewport.width}x${viewport.height}: context and step actions stay reachable`,
