@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `0c759a2506031401ab03cf6a3b819cd20f9385a0` and paired Fountain source
-`442a42f24a8eefe46e187b550ec9db22b2660949` for the native frontend correction. This delta
+`ad7828e7980e2620870117add6c327931b7e7b2d` for the native frontend correction. This delta
 adds sixteen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -33,6 +33,12 @@ The generic host owns these native duties. Ten focused lifecycle/control cases p
 two explicit expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
+Native document listeners and surviving navbar/language controls now register
+as single global features. Fresh-node enhancement is scoped by root instead of
+querying the full document. Twelve focused registry/admin/common cases pass;
+transplant invocation, async retirement and remaining native classes stay open.
+No source or process responsibility moves to Soda.
+
 Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
 its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
 mount/update/suspend/resume/retire and admitted scoped transport. Hidden shelter
