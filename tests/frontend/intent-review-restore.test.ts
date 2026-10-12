@@ -211,6 +211,58 @@ test('failed review load preserves the prior revision and unsaved correction', a
   assert.equal(kept?.value, 'Only direct managers approve');
 });
 
+test('superseded resume never applies stale review data', async () => {
+  let releaseReview!: () => void;
+  const reviewGate = new Promise<void>((resolve) => {
+    releaseReview = resolve;
+  });
+  const reviewB = {
+    intent: 'd000000000000000000000001',
+    head_revision: 'd888888888888888888888888',
+    status: 'missing',
+  };
+  let reviewRequested = false;
+  const api = async (path: string): Promise<unknown> => {
+    if (path === '/api/factory/intents/d000000000000000000000000/review') {
+      reviewRequested = true;
+      await reviewGate;
+    }
+    const routes: Record<string, unknown> = {
+      '/api/factory/departments': [],
+      '/api/factory/intents?limit=20': {intents: []},
+      '/api/factory/intents/d000000000000000000000000': headRevision,
+      '/api/factory/intents/d000000000000000000000000/review': JSON.parse(hflowCurrent),
+      '/api/factory/intents/d000000000000000000000001': {
+        ...headRevision,
+        id: 'd888888888888888888888888',
+        intent: 'd000000000000000000000001',
+        ideas: [],
+      },
+      '/api/factory/intents/d000000000000000000000001/review': reviewB,
+    };
+    if (!(path in routes)) throw new Error('unstubbed ' + path);
+    return structuredClone(routes[path]);
+  };
+  const el = document.createElement('soda-intent') as SodaIntent;
+  el.api = api;
+  el.actor = '1';
+  el.request = 'd000000000000000000000000';
+  el.active = true;
+  document.body.appendChild(el);
+  for (let i = 0; i < 200 && !reviewRequested; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.ok(reviewRequested, 'supersede landed before the review fetch started');
+  el.request = 'd000000000000000000000001';
+  await settle(el);
+  releaseReview();
+  await settle(el);
+  assert.equal(el.revision?.intent, 'd000000000000000000000001');
+  assert.equal(el.exploration, undefined);
+  assert.equal(el.error, '');
+  assert.doesNotMatch(rendered(el), /Here is how it would work/);
+});
+
 test('account switch clears the restored review', async () => {
   const el = await mount(stubApi(baseRoutes(JSON.parse(hflowCurrent)), []), 'd000000000000000000000000');
   assert.match(rendered(el), /Here is how it would work/);
