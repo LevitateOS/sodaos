@@ -85,6 +85,7 @@ type Coordinator struct {
 	Reviews         ReviewExecutor
 	Checks          CheckObserver
 	Merges          MergeExecutor
+	Lifecycle       LifecycleExecutor
 	Priority        *PriorityJudgments
 	Planning        *PlanningJudgments
 	planningQueue   DispatchQueueCursor
