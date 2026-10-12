@@ -165,9 +165,9 @@ for (const viewport of [
   );
 }
 
-// Zoom note: browser zoom rescales the CSS viewport, and F-owned layout uses
-// px/%/vh/vw units (no rem-dependent geometry), so the compact/short matrix
-// viewports above already exercise zoom-equivalent allocations. The CSS `zoom`
-// property is deliberately not used: it keeps the viewport while scaling
-// rendering, which is not browser zoom and would assert non-production
-// overflow semantics.
+// Viewport coverage note: the compact/short matrix viewports above verify
+// the dialogs across small allocations. This is viewport coverage only,
+// pending actual 200% zoom qualification. The CSS `zoom` property is
+// deliberately not used: it keeps the viewport while scaling rendering,
+// which is not browser zoom and would assert non-production overflow
+// semantics.

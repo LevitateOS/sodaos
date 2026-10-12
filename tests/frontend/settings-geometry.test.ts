@@ -94,7 +94,6 @@ test('settings tabs: arrow keys wrap and Home/End jump with selection following 
   );
 });
 
-// Zoom note: browser zoom rescales the CSS viewport, and this settings
-// composition uses px/%/vh/vw units (no rem-dependent geometry), so the
-// compact (320x568) and short (720x422) matrix viewports already exercise
-// zoom-equivalent allocations, including 200% on a 1440-wide screen.
+// Viewport coverage note: the compact (320x568) and short (720x422) matrix
+// viewports verify the settings composition across small allocations. This
+// is viewport coverage only, pending actual 200% zoom qualification.
