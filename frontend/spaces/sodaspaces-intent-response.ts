@@ -114,6 +114,25 @@ export interface Exploration {
   recommendation?: ConsolidatedProposal;
   consistency?: ConsistencyReport;
 }
+export interface PlanningAllowance {
+  id: string;
+  intent: string;
+  amount: number;
+  reserved: number;
+  consumed: number;
+}
+export function planningAllowance(value: unknown, intent: string): PlanningAllowance {
+  const raw = object(value);
+  check(decisionID(raw.id) && raw.intent === intent);
+  check(raw.unit === 'planning_calls');
+  return {
+    id: String(raw.id),
+    intent: String(raw.intent),
+    amount: bound(raw.amount, 0, 100),
+    reserved: bound(raw.reserved, 0, 100),
+    consumed: bound(raw.consumed, 0, 100),
+  };
+}
 export interface SavedRequest {
   intent: string;
   revision: string;
