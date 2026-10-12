@@ -47,6 +47,10 @@ document allocated below. The current [library caller maps](library-integrations
 allocated below. These additions do not regenerate the historical
 target allocation or refresh R02 counts.
 
+The [native frontend correction task list](../native-frontend-correction-tasks.md)
+is an H06 documentation-upkeep addition to the desired tree. Its task/lane scope
+does not refresh the historical source inventory, structural or review counts.
+
 | Retained target family | Application responsibility after adoption |
 | --- | --- |
 | Host helper binary and host daemon entrypoint | The Tailnet helper remains at `cmd/soda-forgejo-tailnet/main.rs`, selected from `lib/host/Cargo.toml`. Retain `lib/host/src/main.rs` for `soda-host`; the optional `cmd/soda-host/main.rs` placement is superseded by the [current host ownership assessment](package-ownership.md#recommended-package-changes). |
@@ -1011,6 +1015,7 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── canlang-soda-os-implementation-plan.md
 │   │   ├── cockpit.md
 │   │   ├── factory-implementation-plan.md
+│   │   ├── native-frontend-correction-tasks.md
 │   │   ├── forgejo-extensions-plan.md
 │   │   ├── go-packages.md
 │   │   ├── go.md

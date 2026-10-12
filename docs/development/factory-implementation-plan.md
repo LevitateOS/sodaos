@@ -168,6 +168,10 @@ containers, native UI/theme mechanisms and session/request/stream authority.
 Consumers declare their content/routes/permissions/assets, render within the
 supplied area, manage local resources and product state, and enforce their domain
 policy. See the [consumer integration boundary](../reference/forgejo.md).
+The [full parallel correction task list](native-frontend-correction-tasks.md)
+decomposes this work into 57 tasks in nine logical lanes, with single file writers,
+partial handoffs, a dependency graph and scoped finish conditions. It owns the
+detailed correction schedule; the NF packets below retain their milestone role.
 
 Soda must stop inspecting host ancestors, hiding generic panels, detecting a
 competing page/panel mount, measuring native navbar/footer space, and using native
@@ -264,7 +268,7 @@ real completed capability. Never let a fixture authorize an actual effect.
 | Handoff | Producer and concrete contents | Immediate consumers |
 | --- | --- | --- |
 | B | Inspected current source, existing callable interfaces and scoped reusable evidence. | Any independent investigation or unchanged-contract work. |
-| H-N | NF-02/UX-C02: callable canonical Fountain manifest/browser contract for declared content routes, linked page/panel ownership, appSubUrl, presentation and observed context updates, suspend/revalidate/resume/retire, usable native containers and scoped transport. Real generic examples; no consumer host-DOM event adapter. | UX-C03, UX-C04, UX-C06 and native/consumer fixtures. |
+| H-N | NF-02/UX-C02 and NFX-C03: callable canonical browser mount/presentation/context/lifecycle/scoped transport contract with a separately built generic example. Shared-owner registration and generic routes release separately as H-OWNER/H-ROUTE (NFX-C04), and native composition as H-C (NFX-A04); each consumer starts on its needed part. Existing H-R remains the Factory read-model handoff. No host-DOM adapter. | UX-C03, UX-C04, UX-C06 and native/consumer fixtures. |
 | H-I | UX-I01/UX-I02: requested facts, supported/autonomous choices, corrections, unresolved assumptions, effective revision/repository and attributable authorization. | UX-S03–UX-S07, UX-U01/UX-U03–UX-U08, UX-F01/UX-F04 and generation fixtures. |
 | H-D | UX-S01/UX-S03: bounded authored alternatives, roles/actions/results/branches, evidence references, outcome mapping and authorship mechanism. | UX-S04–UX-S06 and UX-U04–UX-U06. UI composition can use examples before the proposer passes its capability proof. |
 | H-J | UX-S02: seven judgment purposes, semantic fingerprints, typed answers, uncertainty, reservation/cache/result records and refresh rules. | UX-S04–UX-S09 and UX-F03. |
