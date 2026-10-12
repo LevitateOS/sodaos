@@ -301,3 +301,84 @@ func itoa(n int64) string {
 	}
 	return string(buf[i:])
 }
+
+// Native denial reasons: outcomes that stop further attempts rather
+// than admitting the single retry. Authority loss covers withdrawn
+// permission and actor/credential mismatch; ordered cancellation
+// covers revocation races admitted before submit.
+const (
+	LifecycleReasonAuthorityLost         = "authority_lost"
+	LifecycleReasonCancelledBeforeSubmit = "cancelled_before_submit"
+	LifecycleReasonCancelledBeforeAdmit  = "cancelled_before_admission"
+)
+
+// LifecycleDenyReason reports whether a native reason code denies the
+// action instead of failing it.
+func LifecycleDenyReason(reason string) bool {
+	switch reason {
+	case LifecycleReasonAuthorityLost, LifecycleReasonCancelledBeforeSubmit, LifecycleReasonCancelledBeforeAdmit:
+		return true
+	default:
+		return false
+	}
+}
+
+// RecordActionAttempt returns the action with one attempt started across
+// every target under a single operation identity. One native operation
+// covers all targets of an attempt (label plus assignee, all reviewers,
+// one note), so the finite attempt budget counts submits, not targets.
+func (a LifecycleAction) RecordActionAttempt(operationID string) LifecycleAction {
+	if a.Results == nil {
+		a.Results = map[string]string{}
+	}
+	if a.Operations == nil {
+		a.Operations = map[string]string{}
+	}
+	a.Attempts++
+	for _, target := range a.Targets() {
+		a.Results[target] = LifecycleResultUncertain
+		a.Operations[target] = operationID
+	}
+	return a
+}
+
+// RecordActionResult returns the action with every target settled to a
+// terminal state. Uncertain outcomes stay uncertain until authoritative
+// lookup reconciles them; only delivered, failed or denied settle.
+func (a LifecycleAction) RecordActionResult(state string) LifecycleAction {
+	if a.Results == nil {
+		a.Results = map[string]string{}
+	}
+	for _, target := range a.Targets() {
+		switch state {
+		case LifecycleResultDelivered, LifecycleResultFailed, LifecycleResultDenied:
+			a.Results[target] = state
+		default:
+			a.Results[target] = LifecycleResultUncertain
+		}
+	}
+	return a
+}
+
+// LifecycleWork is one native lifecycle submit: the durable operation
+// identity, the enrolled actor, the exact target and the current
+// authorization facts. IssueIndex carries the original issue index for
+// completion notes only; the executor resolves and revalidates the
+// closed target before submit and every other event leaves it zero.
+type LifecycleWork struct {
+	OperationID  string
+	Event        string
+	ActorID      int64
+	RepositoryID int64
+	IssueID      int64
+	IssueIndex   int64
+	LabelID      int64
+	AssigneeID   int64
+	ReviewerIDs  []int64
+	Note         string
+	AuthRevision string
+	MergeRef     string
+	Closed       bool
+	NativeRev    int64
+	NotAfter     int64
+}

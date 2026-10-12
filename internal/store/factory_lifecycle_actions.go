@@ -296,6 +296,43 @@ func (s *Store) LifecycleConfig(ctx context.Context, event string) (factory.Life
 	return c, nil
 }
 
+// UnsettledLifecycleActions returns up to limit recorded actions that may
+// still need recovery: never attempted, or holding a target outside the
+// terminal states. Revoked actions never return. The predicate is
+// deliberately conservative: callers recheck Settled in Go before any
+// native call, so a false positive costs one row read and never a
+// submit. Limit is clamped to 1..64; stable identity order keeps drains
+// deterministic.
+func (s *Store) UnsettledLifecycleActions(ctx context.Context, limit int) ([]factory.LifecycleAction, error) {
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 64 {
+		limit = 64
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_lifecycle_actions WHERE revoked=FALSE AND (attempts=0 OR EXISTS (SELECT 1 FROM jsonb_each_text(data->'results') WHERE value NOT IN ('delivered','failed','denied'))) ORDER BY id LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []factory.LifecycleAction
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		var a factory.LifecycleAction
+		if err := json.Unmarshal([]byte(raw), &a); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func lifecycleActionEqual(a, b factory.LifecycleAction) bool {
 	aj, err := json.Marshal(a)
 	if err != nil {
