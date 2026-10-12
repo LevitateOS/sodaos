@@ -2,7 +2,7 @@
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use super::config::{euid, trusted_executable, Worker};
+use super::config::{euid, trusted_executable, Worker, WORKER_CONTROLLER};
 use super::runtime::valid_worker_name;
 
 // Isolated-worker execution boundary (Go `internal/acceptance`
@@ -27,7 +27,18 @@ fn valid_worker_identity(w: &Worker) -> Result<(), String> {
     {
         return Err("absolute worker directory required".to_owned());
     }
-    trusted_executable(&w.executable)
+    trusted_executable(&w.executable)?;
+    // Coupled host-vs-namespace check: the invocation must be the exact
+    // stable remap destination, and a read-only bind must map the
+    // admitted host file onto it. No other namespace path is invokable.
+    if w.controller != WORKER_CONTROLLER {
+        return Err("exact worker controller remap required".to_owned());
+    }
+    let remap = format!("{}:{}", w.executable, w.controller);
+    if !w.read_only.contains(&remap) {
+        return Err("worker controller must bind the admitted executable".to_owned());
+    }
+    Ok(())
 }
 
 fn append_bind_paths(
@@ -117,7 +128,7 @@ pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
     args = append_bind_paths(args, "BindPaths", &w.writable)?;
     args = append_worker_env(args, &w.environment)?;
     args.push("--".to_owned());
-    args.push(w.executable.clone());
+    args.push(w.controller.clone());
     args.extend(w.arguments.iter().cloned());
     Ok(args)
 }

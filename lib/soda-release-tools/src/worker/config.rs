@@ -13,6 +13,7 @@ pub const WORKER_HOME: &str = "/var/lib/soda-build-worker";
 pub const WORKER_RUNTIME: &str = "/run/soda-build-worker";
 pub const WORKER_TOOLS: &str = "/run/soda-build-tools";
 pub const WORKER_FORGEJO: &str = "/run/soda-build-forgejo-source";
+pub const WORKER_CONTROLLER: &str = "/run/soda-build-controller";
 pub const PINNED_GO_ROOT: &str = "/usr/local/lib/soda/pinned-go";
 
 #[derive(Debug, Clone, Default)]
@@ -33,6 +34,11 @@ pub struct Worker {
     pub name: String,
     pub user: String,
     pub executable: String,
+    /// Worker-namespace invocation path. Host admission
+    /// (`trusted_executable`, dispatcher-byte equality) always checks
+    /// `executable`; the namespace path must be the exact stable remap
+    /// destination bound to that admitted file.
+    pub controller: String,
     pub directory: String,
     pub read_only: Vec<String>,
     pub writable: Vec<String>,

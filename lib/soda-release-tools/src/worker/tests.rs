@@ -186,10 +186,12 @@ fn development_worker_inputs_and_completion() {
 }
 
 #[test]
-fn build_worker_self_binds_validated_executable_read_only() {
-    // Q-L-worker203: ProtectHome=tmpfs masks /home, so the configured
-    // controller path must be restored read-only in the worker namespace
-    // while the invocation keeps the exact admitted host path.
+fn build_worker_remaps_validated_executable_to_stable_destination() {
+    // Q-L-worker226: ProtectHome=tmpfs masks /home (203/EXEC on the host
+    // path) and cannot stage a file self-bind under the masked tree
+    // (226/NAMESPACE). The admitted file is remapped read-only to the
+    // stable /run destination; host admission still sees the exact host
+    // path and no containing-directory content is exposed.
     let c = WorkerConfig {
         executable: "/home/soda-build/soda-build".to_owned(),
         ..test_config()
@@ -203,16 +205,21 @@ fn build_worker_self_binds_validated_executable_read_only() {
     };
     let w = build_worker(&c, &r).unwrap();
     assert_eq!(w.executable, c.executable);
+    assert_eq!(w.controller, WORKER_CONTROLLER);
     assert!(w
+        .read_only
+        .contains(&format!("{}:{WORKER_CONTROLLER}", c.executable)));
+    assert!(!w
         .read_only
         .contains(&format!("{}:{}", c.executable, c.executable)));
     assert!(!w.writable.join(" ").contains(&c.executable));
 }
 
 #[test]
-fn build_worker_executable_bind_passes_argv_admission() {
+fn build_worker_executable_remap_passes_argv_admission() {
     // Joined description->argv check with a host-trusted executable:
-    // the emitted self-bind pair must survive worker_argv validation.
+    // the emitted remap pair must survive worker_argv validation and
+    // the invocation must be the stable namespace destination.
     let c = WorkerConfig {
         executable: argv_executable(),
         build_home: "/home/worker".to_owned(),
@@ -232,11 +239,13 @@ fn build_worker_executable_bind_passes_argv_admission() {
     w.name = "soda-build-manual-01".to_owned();
     let argv = worker_argv(&w).unwrap();
     assert!(argv.contains(&format!(
-        "--property=BindReadOnlyPaths={0}:{0}",
+        "--property=BindReadOnlyPaths={0}:{WORKER_CONTROLLER}",
         c.executable
     )));
     assert!(argv.contains(&"--property=ProtectHome=tmpfs".to_owned()));
     assert!(argv.contains(&"--property=ProtectSystem=strict".to_owned()));
+    let dash = argv.iter().position(|a| a == "--").unwrap();
+    assert_eq!(argv[dash + 1], WORKER_CONTROLLER);
 }
 
 #[test]
@@ -601,12 +610,17 @@ fn argv_executable() -> String {
 }
 
 fn argv_fixture() -> Worker {
+    let executable = argv_executable();
     Worker {
         name: "soda-build-manual-01".to_owned(),
         user: "soda-build-worker".to_owned(),
-        executable: argv_executable(),
+        executable: executable.clone(),
+        controller: WORKER_CONTROLLER.to_owned(),
         directory: "/run/soda-build-source".to_owned(),
-        read_only: vec!["/source:/run/soda-build-source".to_owned()],
+        read_only: vec![
+            "/source:/run/soda-build-source".to_owned(),
+            format!("{executable}:{WORKER_CONTROLLER}"),
+        ],
         writable: vec!["/out:/run/soda-build-source/.artifacts/releases/isolated".to_owned()],
         environment: vec!["HOME=/var/lib/soda-build-worker".to_owned()],
         arguments: vec!["--worker-build".to_owned()],
@@ -640,13 +654,20 @@ fn worker_argv_golden() {
         "--property=UMask=0077",
         "--property=InaccessiblePaths=-/var/lib/soda-release -/root",
         "--property=BindReadOnlyPaths=/source:/run/soda-build-source",
-        "--property=BindPaths=/out:/run/soda-build-source/.artifacts/releases/isolated",
-        "--setenv=HOME=/var/lib/soda-build-worker",
-        "--",
     ]
     .iter()
     .map(|s| s.to_string())
-    .chain([w.executable.clone(), "--worker-build".to_owned()])
+    .chain([
+        format!(
+            "--property=BindReadOnlyPaths={0}:{WORKER_CONTROLLER}",
+            w.executable
+        ),
+        "--property=BindPaths=/out:/run/soda-build-source/.artifacts/releases/isolated".to_owned(),
+        "--setenv=HOME=/var/lib/soda-build-worker".to_owned(),
+        "--".to_owned(),
+        w.controller.clone(),
+        "--worker-build".to_owned(),
+    ])
     .collect();
     assert_eq!(argv, expected);
 }
@@ -677,6 +698,19 @@ fn worker_argv_refuses_bad_identity() {
     assert_eq!(
         worker_argv(&bad).unwrap_err(),
         "absolute worker directory required"
+    );
+    let mut bad = w.clone();
+    bad.controller = "/run/soda-build-evil".to_owned();
+    assert_eq!(
+        worker_argv(&bad).unwrap_err(),
+        "exact worker controller remap required"
+    );
+    let mut bad = w.clone();
+    bad.read_only
+        .retain(|pair| !pair.ends_with(WORKER_CONTROLLER));
+    assert_eq!(
+        worker_argv(&bad).unwrap_err(),
+        "worker controller must bind the admitted executable"
     );
 }
 
