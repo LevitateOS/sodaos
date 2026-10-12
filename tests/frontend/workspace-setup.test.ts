@@ -341,33 +341,52 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
   assert.match(environment, /^p[0-9a-f]{24}$/);
   await detail.getByText(`project ${environment}`).waitFor();
   const calls = await page.evaluate(() => window.workspaceFixture.calls.length);
-  const statusCalls = await page.evaluate(
-    () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
-  );
   await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
-  await page.waitForFunction(() => document.querySelector('.soda-factory.is-connected') !== null);
+  // Reveal: the Watch click leaves setup for the existing visible watch surface.
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('.soda-factory .xterm-rows')?.textContent?.includes('Fixture factory output')
+  );
+  assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
   const title = await page.evaluate(
     () => document.querySelector('.soda-factory .soda-terminal-context span')?.textContent ?? ''
   );
   assert.equal(title, 'soda-coder · issue #5');
-  // Dedup: a second Watch click reuses the single watch without a second status read.
-  await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
-  await page.waitForTimeout(300);
-  assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
-  assert.equal(
-    await page.evaluate(
-      () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
-    ),
-    statusCalls + 1
+  assert.ok(
+    await page.evaluate(() =>
+      window.workspaceFixture.sockets.some((socket) => String(socket.url).includes('/factory/runs/dddddddd'))
+    )
   );
-  // The setup surface stays hidden, so the live socket/output path (covered from the
-  // visible surface by the navigation watch test) never opens here; watching adds no writes.
-  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   const writes = await page.evaluate(
     (before) => window.workspaceFixture.calls.slice(before).filter((call) => call.method !== 'GET'),
     calls
   );
   assert.deepEqual(writes, []);
+  const leftRequest = await page.evaluate(() => window.location.pathname);
+  assert.ok(!leftRequest.includes('/workspace/requests/'));
+  // Return: the saved request resumes with its committed identity and targets intact.
+  await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+  await page.locator('soda-factory-work-detail').waitFor();
+  const returned = page.locator('soda-factory-work-detail');
+  assert.equal(await returned.getByText('no run selected').count(), 0);
+  await returned.getByText('run dddddddd').first().waitFor();
+  const backOnRequest = await page.evaluate(() => window.location.pathname);
+  assert.ok(backOnRequest.includes('/workspace/requests/'));
+  // Duplicate/preservation: watching again reveals the same live watch untouched.
+  const statusCalls = await page.evaluate(
+    () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
+  );
+  await returned.getByRole('button', {name: 'Watch output', exact: true}).click();
+  await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+  assert.equal(
+    await page.evaluate(
+      () => window.workspaceFixture.calls.filter((call) => call.path.includes('/factory/runs/dddddddd')).length
+    ),
+    statusCalls
+  );
+  assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
 });
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);

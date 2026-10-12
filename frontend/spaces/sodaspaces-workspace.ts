@@ -66,7 +66,7 @@ import {
   renderRequestGroups,
   rows,
 } from './sodaspaces-workspace-navigation.js';
-import {displayFactoryWatches, factorySection, watchRun} from './sodaspaces-workspace-factory.js';
+import {displayFactoryWatches, factorySection, factoryWatching, watchRun} from './sodaspaces-workspace-factory.js';
 import {paneChrome} from './sodaspaces-workspace-pane-view.js';
 import type {PaneChromeInput} from './sodaspaces-workspace-pane-view.js';
 import {
@@ -1055,21 +1055,24 @@ export class SodaSpaces extends LitElement {
   private requestFactoryWatch(request: FactoryWatchRequest): void {
     const target = resolveWatchTarget(this.spaces, request);
     if (!target) return;
-    watchRun(
-      {
-        readWatches: () => this.watches,
-        isStale: () => this.stale,
-        pushWatch: (watch) => {
-          this.watches.push(watch);
+    if (!factoryWatching(this.watches, target.run.id))
+      watchRun(
+        {
+          readWatches: () => this.watches,
+          isStale: () => this.stale,
+          pushWatch: (watch) => {
+            this.watches.push(watch);
+          },
+          replaceWatches: (watches) => {
+            this.watches = watches;
+          },
+          updated: () => this.requestUpdate(),
         },
-        replaceWatches: (watches) => {
-          this.watches = watches;
-        },
-        updated: () => this.requestUpdate(),
-      },
-      target.space,
-      target.run
-    );
+        target.space,
+        target.run
+      );
+    if (!factoryWatching(this.watches, target.run.id)) return;
+    cancelSetup(this.setupReading(), this.setupActions(), this);
   }
   private syncIntentRoute(intent: string | null) {
     if (intent !== null && !requestIDPattern.test(intent)) return;
