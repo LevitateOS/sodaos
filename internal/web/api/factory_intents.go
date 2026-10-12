@@ -118,6 +118,54 @@ func (s *API) apiIntentHistory(w http.ResponseWriter, r *http.Request, v store.S
 	auth.JSONResponse(w, 200, map[string]any{"intent": intent, "revisions": result})
 }
 
+func (s *API) apiIntentReview(w http.ResponseWriter, r *http.Request, v store.Session) {
+	intent := r.PathValue("intentID")
+	if !project.ValidDecisionID(intent) {
+		auth.JSONError(w, 404, "not_found", "Build request not found.")
+		return
+	}
+	head, err := s.Store.IntentRevision(r.Context(), intent, v.User.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		auth.JSONError(w, 404, "not_found", "Build request not found.")
+		return
+	}
+	if err != nil {
+		factoryCommandError(w, err)
+		return
+	}
+	target := r.URL.Query().Get("revision")
+	if target == "" {
+		target = head.ID
+	}
+	if !project.ValidDecisionID(target) {
+		auth.JSONError(w, 400, "invalid_revision", "Invalid review revision.")
+		return
+	}
+	var read factory.SavedReviewRead
+	review, err := s.Store.IntentReview(r.Context(), target, v.User.ID)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		read = factory.SavedReviewRead{Intent: intent, HeadRevision: head.ID, Status: factory.ReviewMissing}
+	case err != nil:
+		factoryCommandError(w, err)
+		return
+	case review.Intent != intent:
+		auth.JSONError(w, 404, "not_found", "Build request not found.")
+		return
+	default:
+		if err := review.Validate(); err != nil {
+			factoryCommandError(w, err)
+			return
+		}
+		read = factory.SavedReviewRead{Intent: intent, HeadRevision: head.ID, Status: factory.ClassifyReview(head.ID, target, true), Review: &review}
+	}
+	if err := read.Validate(); err != nil {
+		factoryCommandError(w, err)
+		return
+	}
+	auth.JSONResponse(w, 200, read)
+}
+
 func (s *API) apiIntentAllowance(w http.ResponseWriter, r *http.Request, v store.Session) {
 	result, err := s.Store.PlanningAllowance(r.Context(), r.PathValue("intentID"), v.User.ID)
 	if errors.Is(err, store.ErrNotFound) {
