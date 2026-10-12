@@ -913,6 +913,66 @@ test('setup: retained owner follows native forward to /workspace/new without rem
   );
 });
 
+test('setup: native New while resuming starts a blank entry and saves a new identity', {timeout: 90000}, async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  const savedRoute = await page.evaluate(() => window.location.pathname);
+  await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname === '/workspace/new');
+  await page.getByRole('button', {name: 'Resume Build a small project tracker', exact: true}).click();
+  await page.waitForFunction((route) => window.location.pathname === route, savedRoute);
+  const resumedIntent = await page.evaluate(
+    () =>
+      (document.querySelector('soda-intent') as unknown as {revision?: {intent: string}} | null)?.revision?.intent ?? ''
+  );
+  assert.match(resumedIntent, /^d[0-9a-f]{24}$/);
+  // Same retained owner takes the native forward; the element must survive.
+  await page.evaluate(() => {
+    document.querySelector('soda-spaces')?.setAttribute('data-c03-probe', 'retained');
+    window.history.pushState({}, '', '/workspace/new');
+    (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.equal(await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(), '');
+  assert.equal(
+    await page.evaluate(
+      () => (document.querySelector('soda-intent') as unknown as {revision?: unknown} | null)?.revision
+    ),
+    undefined
+  );
+  assert.equal(await page.evaluate(() => window.location.pathname), '/workspace/new');
+  assert.equal(
+    await page.evaluate(() => document.querySelector('soda-spaces')?.getAttribute('data-c03-probe')),
+    'retained'
+  );
+  // Next save mints a new identity instead of extending the resumed one.
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a second tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(
+    (route) => window.location.pathname.startsWith('/workspace/requests/d') && window.location.pathname !== route,
+    savedRoute
+  );
+  const posts = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+  );
+  assert.equal(posts.length, 3);
+  const fresh = posts[posts.length - 1];
+  assert.equal(fresh?.body?.intent === resumedIntent, false);
+  assert.equal(fresh?.body?.predecessor, undefined);
+  const foreign = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter(
+      (call) => call.method !== 'GET' && !(call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+    )
+  );
+  assert.deepEqual(foreign, []);
+});
+
 test('setup: unknown request route reports unavailable without losing the entry', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());

@@ -63,6 +63,7 @@ import {
 import {resolveWatchTarget, resumeSetup} from './sodaspaces-workspace-setup.js';
 import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces-workspace-setup.js';
 import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
+import type {SodaIntent} from './sodaspaces-intent.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {
   attentionRows,
@@ -497,6 +498,7 @@ export class SodaSpaces extends LitElement {
     // rendering. The current route is rechecked so a stale flag left by
     // native navigation can never activate.
     if (this.setup) {
+      this.freshEntryFromSetup();
       this.pendingNewRoute = false;
       return;
     }
@@ -508,6 +510,28 @@ export class SodaSpaces extends LitElement {
     if (armed) beginSetup(this.setupReading(), this.setupActions(), this);
     if (this.setup || !isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
       this.pendingNewRoute = false;
+  }
+  private freshEntryFromSetup() {
+    // Genuine native New arrival while a setup is active: the location no
+    // longer names the reviewed request, so drop that loaded identity and
+    // show a blank entry. Fresh in-progress entries (no revision), busy
+    // elements and committed creations are left untouched, and the setup
+    // return target is preserved for Back.
+    if (!this.pendingNewRoute) return;
+    if (
+      this.setupCommitted ||
+      this.binding?.kind !== 'page' ||
+      !isNewRouteLocation(window.location.pathname, this.repositoryPrefix())
+    )
+      return;
+    const intent = this.querySelector<SodaIntent>('soda-intent');
+    if (!intent || intent.busy || intent.revision === undefined) return;
+    intent.reset();
+    const actions = this.setupActions();
+    actions.setRepositoryChoice('');
+    actions.setReviewAuthorization(undefined);
+    actions.setReviewedIntent(undefined);
+    actions.setSetup('intent');
   }
   private geometryChanged(width: number, height: number, cell: {width: number; height: number}) {
     if (this.workspaceWidth !== this.clientWidth) return true;
