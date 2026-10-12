@@ -456,6 +456,52 @@ export function exploration(value: unknown): Exploration {
   if (raw.consistency !== undefined && raw.consistency !== null) out.consistency = consistency(raw.consistency);
   return out;
 }
+export interface SavedReview extends Exploration {
+  intent: string;
+  basis_revision: string;
+  result_revision: string;
+  saved_unix: number;
+}
+export interface SavedReviewRead {
+  intent: string;
+  head_revision: string;
+  status: 'current' | 'stale' | 'missing';
+  review?: SavedReview;
+}
+export function savedReview(value: unknown): SavedReview {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.basis_revision) && decisionID(raw.result_revision));
+  check(raw.basis_revision !== raw.result_revision);
+  const payload = exploration(value);
+  check(payload.content.intent === raw.intent && payload.content.revision === raw.basis_revision);
+  if (payload.recommendation) check(payload.recommendation.revision === raw.basis_revision);
+  if (payload.consistency) check(payload.consistency.revision === raw.basis_revision);
+  const verdicts = new Set(payload.challenges.map((entry) => entry.idea));
+  for (const id of payload.settled) check(!verdicts.has(id));
+  const saved = count(raw.saved_unix);
+  check(saved > 0);
+  return {
+    intent: raw.intent,
+    basis_revision: raw.basis_revision,
+    result_revision: raw.result_revision,
+    saved_unix: saved,
+    ...payload,
+  };
+}
+export function savedReviewRead(value: unknown): SavedReviewRead {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.head_revision));
+  check(raw.status === 'current' || raw.status === 'stale' || raw.status === 'missing');
+  if (raw.status === 'missing') {
+    check(raw.review === undefined || raw.review === null);
+    return {intent: raw.intent, head_revision: raw.head_revision, status: 'missing'};
+  }
+  const review = savedReview(raw.review);
+  check(review.intent === raw.intent);
+  const status = raw.status as SavedReviewRead['status'];
+  check(status === (raw.head_revision === review.result_revision ? 'current' : 'stale'));
+  return {intent: raw.intent, head_revision: raw.head_revision, status, review};
+}
 function references(raw: Record<string, unknown>) {
   if (raw.predecessor !== undefined) check(decisionID(raw.predecessor));
   if (raw.department !== undefined) check(decisionID(raw.department));
