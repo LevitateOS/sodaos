@@ -1,4 +1,5 @@
 import {html} from 'lit';
+import {id, object} from './sodaspaces-api.js';
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import './sodaspaces-intent.js';
 import type {SodaIntent} from './sodaspaces-intent.js';
@@ -67,6 +68,89 @@ export function reviewedIntent(event: Event): string | undefined {
   if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return undefined;
   const intent = (detail as Record<string, unknown>).intent;
   return typeof intent === 'string' && requestIDPattern.test(intent) ? intent : undefined;
+}
+
+/** Committed resume identity carried by intent-resumed; undefined unless accepted with a bound repository. */
+export function resumedCommittedRequest(event: Event): {intent: string; repository: string} | undefined {
+  const detail = (event as CustomEvent).detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return undefined;
+  const record = detail as Record<string, unknown>;
+  const intent = record.intent;
+  if (typeof intent !== 'string' || !requestIDPattern.test(intent)) return undefined;
+  if (record.state !== 'accepted') return undefined;
+  const repository = record.repository;
+  if (typeof repository !== 'string' || !id(repository)) return undefined;
+  return {intent, repository};
+}
+
+function resumedRepositoryName(part: unknown): string | undefined {
+  if (typeof part !== 'string' || part === '' || part === '.' || part === '..') return undefined;
+  if (/[/\\\p{Cc}\p{Cf}]/u.test(part) || new TextEncoder().encode(part).length > 255) return undefined;
+  return part;
+}
+
+/** Exact visible owner/name for one repository id; undefined when inaccessible or malformed. */
+async function readResumedRepository(
+  api: SetupActions['api'],
+  repository: string
+): Promise<{owner: string; name: string} | undefined> {
+  try {
+    const data = object(await api('/api/environments?repository_id=' + repository));
+    const repo = object((data as Record<string, unknown>).repository);
+    if (repo.id !== repository) return undefined;
+    const owner = resumedRepositoryName(repo.owner);
+    const name = resumedRepositoryName(repo.name);
+    if (!owner || !name) return undefined;
+    return {owner, name};
+  } catch {
+    return undefined;
+  }
+}
+
+function resumeCommittedAdmitted(reading: SetupReading, resumed: {intent: string; repository: string}): boolean {
+  if (reading.stale || !reading.canRestore || !reading.activeSurface || !reading.transport) return false;
+  if (resumed.intent !== reading.requestId) return false;
+  if (
+    reading.setupCommitted &&
+    reading.reviewedIntent === resumed.intent &&
+    reading.repositoryChoice === resumed.repository
+  )
+    return false;
+  return true;
+}
+
+/**
+ * Restore committed overview context for an accepted resume. One
+ * authorized environments GET derives exact visible owner/name; the
+ * same existing overview mounts with the original identity. Never
+ * forces the creation picker; an inaccessible repository reports
+ * honest unavailability and leaves committed state untouched.
+ */
+export async function resumeCommittedOverview(
+  event: Event,
+  read: () => SetupReading,
+  actions: SetupActions
+): Promise<void> {
+  const resumed = resumedCommittedRequest(event);
+  if (!resumed || !resumeCommittedAdmitted(read(), resumed)) return;
+  const metadata = await readResumedRepository(actions.api, resumed.repository);
+  if (actions.isStale() || read().requestId !== resumed.intent) return;
+  if (!metadata) {
+    actions.notifyFactory(
+      `Saved repository ${resumed.repository} is unavailable; the request overview cannot be shown.`
+    );
+    return;
+  }
+  actions.setReviewedIntent(resumed.intent);
+  actions.setRepositoryChoice(resumed.repository);
+  actions.setRepositoryResult({
+    items: [{id: resumed.repository, owner: metadata.owner, name: metadata.name, canCreate: false, project: null}],
+    page: 1,
+    nextCursor: '',
+  });
+  actions.setSetupCommitted(true);
+  actions.setSetup('intent');
+  actions.notifyFactory('');
 }
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
@@ -283,7 +367,10 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
         .active=${reading.welcomeScreen || reading.setup === 'intent'}
         ?hidden=${!reading.welcomeScreen && reading.setup !== 'intent'}
         @intent-saved=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
-        @intent-resumed=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
+        @intent-resumed=${(event: Event) => {
+          actions.syncIntentRoute(intentIdentity(event));
+          void resumeCommittedOverview(event, read, actions);
+        }}
         @intent-inventory=${(event: Event) => actions.setSavedRequests(inventoryIntents(event))}
         @intent-reviewed=${(event: Event) => chooseIntentRepository(event, read(), actions, host)}
         @intent-leave=${() => leaveSetup(read(), actions, host)}
