@@ -4,12 +4,15 @@ package web
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/avatar"
 	"github.com/levitateos/sodaos/internal/config"
@@ -32,6 +35,9 @@ type Server struct {
 	API         *api.API
 	Coordinator *control.Coordinator
 	mux         *http.ServeMux
+
+	capabilities *forgejo.CapabilityHandshakeSource
+	refreshing   atomic.Bool
 }
 
 // New constructs auth and product APIs and registers all dashboard routes.
@@ -48,7 +54,9 @@ func New(c config.Config, db *store.Store) *Server {
 	s.API.Identity = broker
 	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
 	s.API.Coordinator = s.Coordinator
-	db.PriorityCallBudget = c.FactoryJudgmentCallBudget
+	if db != nil {
+		db.PriorityCallBudget = c.FactoryJudgmentCallBudget
+	}
 	if c.TypeSafeAPIKeyFile != "" && c.FactoryJudgmentCallBudget > 0 {
 		s.Coordinator.Planning = &control.PlanningJudgments{Journal: db, Funding: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}}
 	}
@@ -58,6 +66,10 @@ func New(c config.Config, db *store.Store) *Server {
 		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
 			c.ForgejoBackgroundCredentialFile, client)
 		observer.ShareBackground(background)
+		s.capabilities = forgejo.NewCapabilityHandshakeSource(background)
+		background.OnBootstrap = func() {
+			s.refreshLifecycleCapabilities(context.Background())
+		}
 		if c.ForgejoGraphCredentialFile != "" && c.ForgejoGraphActorID > 0 {
 			s.Coordinator.Graph = forgejo.NewIssueGraphWriter(background, client, c.ForgejoGraphCredentialFile)
 			s.Coordinator.GraphActorID = c.ForgejoGraphActorID
@@ -153,7 +165,32 @@ func (s *Server) StartCoordinator(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o700); err != nil {
 		return err
 	}
-	return s.Coordinator.Start(ctx, lockPath)
+	if err := s.Coordinator.Start(ctx, lockPath); err != nil {
+		return err
+	}
+	s.refreshLifecycleCapabilities(ctx)
+	return nil
+}
+
+// refreshLifecycleCapabilities reconciles lifecycle capability markers
+// from the current native handshake: at startup and after every native
+// admission (re)bootstrap. It never fails startup or serving: the
+// registrar clears markers when the current answer cannot be verified,
+// so row existence always means current proof. Refreshes never nest;
+// a refresh triggered inside its own bootstrap is skipped.
+func (s *Server) refreshLifecycleCapabilities(ctx context.Context) {
+	if s.capabilities == nil || !s.refreshing.CompareAndSwap(false, true) {
+		return
+	}
+	defer s.refreshing.Store(false)
+	refresh, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := control.ReconcileLifecycleCapabilities(refresh, s.Store, s.capabilities); err != nil {
+		slog.Error("lifecycle capability refresh failed", "error", err)
+		return
+	}
+	installation, generation, _, _ := s.capabilities.LastHandshake()
+	slog.Info("lifecycle capability refresh verified", "installation", installation, "generation", generation)
 }
 
 // CloseCoordinator releases factory-ledger ownership after admitted work ends.
