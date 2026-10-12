@@ -2,11 +2,13 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
 	"time"
 
+	sdk "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -354,6 +356,84 @@ func ConsumeLifecycleEvent(ctx context.Context, s *store.Store, ex LifecycleExec
 	}
 	_, err = lifecycleAttempt(ctx, s, ex, recorded, 1)
 	return err
+}
+
+// ConsumeGeneratedIssues fires the configured label/assignee effect for
+// every actually newly created native issue behind one adopted intent
+// generation. Reused and delivered bindings never fire. Call sites run
+// this after the default adoption persists; every key is attempted and
+// the first error returns.
+func ConsumeGeneratedIssues(ctx context.Context, s *store.Store, ex LifecycleExecutor, r factory.IntentRevision, g factory.IntentGeneration) error {
+	if s == nil || ex == nil {
+		return factory.ErrLifecycleAction
+	}
+	var receipt sdk.IssueGraphReceipt
+	if json.Unmarshal(g.Receipt, &receipt) != nil || receipt.ActorID != g.ActorID || receipt.RepositoryID != r.Repository {
+		return factory.ErrLifecycleAction
+	}
+	issues, err := intentReceiptIssues(g.SubmittedTasks, g, receipt)
+	if err != nil {
+		return err
+	}
+	keys := make([]string, 0, len(g.SubmittedTasks))
+	for _, task := range g.SubmittedTasks {
+		keys = append(keys, task.Key)
+	}
+	var first error
+	for _, key := range LifecycleNewIssueKeys(keys, g) {
+		entry := issues[key]
+		if entry.IssueID <= 0 {
+			if first == nil {
+				first = factory.ErrLifecycleAction
+			}
+			continue
+		}
+		in := LifecycleEventInput{
+			Event: factory.LifecycleEventIssueCreated, SourceID: r.ID + ":" + key,
+			RepositoryID: r.Repository, IssueID: entry.IssueID, AuthRevision: g.AuthRevision,
+		}
+		if err := ConsumeLifecycleEvent(ctx, s, ex, in); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
+// ConsumePublishedPR fires the configured reviewer-request effect for
+// one confirmed PR creation. The identity binds the publication plus
+// the exact PR receipt so refires reconcile instead of duplicating.
+func ConsumePublishedPR(ctx context.Context, s *store.Store, ex LifecycleExecutor, p factory.Publication) error {
+	if s == nil || ex == nil {
+		return factory.ErrLifecycleAction
+	}
+	if p.Stage != factory.PublicationPublished || p.PRNumber <= 0 || p.PRID <= 0 || p.PRCreate.IssueID <= 0 || p.PRCreate.Work == nil || p.PRCreate.Work.AuthRevision == "" {
+		return factory.ErrLifecycleAction
+	}
+	source := p.ID + ":pr-" + strconv.FormatInt(p.PRNumber, 10) + "-" + strconv.FormatInt(p.PRID, 10)
+	in := LifecycleEventInput{
+		Event: factory.LifecycleEventPRCreated, SourceID: source,
+		RepositoryID: p.Repository, IssueID: p.PRCreate.IssueID, AuthRevision: p.PRCreate.Work.AuthRevision,
+	}
+	return ConsumeLifecycleEvent(ctx, s, ex, in)
+}
+
+// ConsumeVerifiedMerge fires the configured completion-note effect for
+// one verified merge with confirmed original closure. The identity
+// binds the merge plus the exact merge and closure facts.
+func ConsumeVerifiedMerge(ctx context.Context, s *store.Store, ex LifecycleExecutor, m factory.Merge) error {
+	if s == nil || ex == nil {
+		return factory.ErrLifecycleAction
+	}
+	if m.Stage != factory.MergeMerged || m.Issue <= 0 || m.MergedCommit == "" || m.OriginalClosingOccurrence == "" || m.Operation.Work == nil || m.Operation.Work.AuthRevision == "" {
+		return factory.ErrLifecycleAction
+	}
+	source := m.ID + ":merge-" + m.MergedCommit + "-" + m.OriginalClosingOccurrence
+	in := LifecycleEventInput{
+		Event: factory.LifecycleEventVerifiedMerge, SourceID: source,
+		RepositoryID: m.Repository, IssueIndex: m.Issue, AuthRevision: m.Operation.Work.AuthRevision,
+		MergeRef: m.MergedCommit, Closed: true,
+	}
+	return ConsumeLifecycleEvent(ctx, s, ex, in)
 }
 
 // lifecycleDrainLimit bounds one recovery drain so a wedged native

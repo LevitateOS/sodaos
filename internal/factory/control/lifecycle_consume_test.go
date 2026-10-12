@@ -2,9 +2,11 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
+	sdk "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -243,6 +245,98 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 		}
 		if len(ex.submits) != 1 || ex.submits[0].IssueID != 77 || !ex.submits[0].Closed {
 			t.Fatalf("submit: %+v", ex.submits)
+		}
+	})
+}
+
+// TestConsumeOwnerHelpers proves the three completion-site helpers fire
+// one configured effect each from real owner structs, skip reused
+// bindings, and refuse incomplete receipts.
+func TestConsumeOwnerHelpers(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("generatedIssuesSkipReused", func(t *testing.T) {
+		s, _ := postgresFixture(t, nil)
+		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
+		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
+			return consumeOutcome(factory.OpEffectCommitted, ""), nil
+		}, lookup: func(string) (factory.OperationOutcome, error) {
+			return factory.OperationOutcome{}, errors.New("unused")
+		}}
+		receipt, err := json.Marshal(sdk.IssueGraphReceipt{ActorID: 21, RepositoryID: 9, Issues: []sdk.IssueGraphIssueReceipt{
+			{Key: "task-new", IssueID: 42, IssueIndex: 7, ContentVersion: 1},
+			{IssueID: 10, IssueIndex: 3, ContentVersion: 2},
+		}})
+		if err != nil {
+			t.Fatalf("receipt: %v", err)
+		}
+		r := factory.IntentRevision{ID: "rev-1", Repository: 9, Owner: 99}
+		g := factory.IntentGeneration{
+			ActorID: 21, AuthRevision: "rev-1:digest", Receipt: receipt,
+			SubmittedTasks: []factory.IntentTask{{Key: "task-new"}, {Key: "task-reused"}},
+			TaskIssueIDs:   map[string]int64{"task-reused": 10},
+		}
+		if err := ConsumeGeneratedIssues(ctx, s, ex, r, g); err != nil {
+			t.Fatalf("consume: %v", err)
+		}
+		if len(ex.submits) != 1 || ex.submits[0].IssueID != 42 || ex.submits[0].ActorID != 7 {
+			t.Fatalf("submits: %+v", ex.submits)
+		}
+		if _, err := s.LifecycleAction(ctx, "lifecycle:issue_created:rev-1:task-new"); err != nil {
+			t.Fatalf("journal: %v", err)
+		}
+		if _, err := s.LifecycleAction(ctx, "lifecycle:issue_created:rev-1:task-reused"); !errors.Is(err, store.ErrNotFound) {
+			t.Fatalf("reused journaled: %v", err)
+		}
+	})
+
+	t.Run("publishedPR", func(t *testing.T) {
+		s, _ := postgresFixture(t, nil)
+		enableConsumeConfig(t, s, factory.LifecycleEventPRCreated, nil)
+		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
+			return consumeOutcome(factory.OpEffectCommitted, ""), nil
+		}, lookup: func(string) (factory.OperationOutcome, error) {
+			return factory.OperationOutcome{}, errors.New("unused")
+		}}
+		p := factory.Publication{ID: "pub-1", Stage: factory.PublicationPublished, Repository: 9, PRNumber: 12, PRID: 34,
+			PRCreate: factory.PublicationOperation{IssueID: 88, Work: &factory.PublicationIntent{AuthRevision: "pubauth-1", OperationID: "pr-op-1"}}}
+		if err := ConsumePublishedPR(ctx, s, ex, p); err != nil {
+			t.Fatalf("consume: %v", err)
+		}
+		if len(ex.submits) != 1 || ex.submits[0].IssueID != 88 {
+			t.Fatalf("submits: %+v", ex.submits)
+		}
+		a, err := s.LifecycleAction(ctx, "lifecycle:pr_created:pub-1:pr-12-34")
+		if err != nil || !a.Settled() {
+			t.Fatalf("journal: %+v %v", a, err)
+		}
+		open := p
+		open.Stage = factory.PublicationOpen
+		if err := ConsumePublishedPR(ctx, s, ex, open); err == nil {
+			t.Fatal("open publication fired")
+		}
+	})
+
+	t.Run("verifiedMerge", func(t *testing.T) {
+		s, _ := postgresFixture(t, nil)
+		enableConsumeConfig(t, s, factory.LifecycleEventVerifiedMerge, nil)
+		ex := &consumeFakeExecutor{actor: 7, revision: 1, target: 55, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
+			return consumeOutcome(factory.OpEffectCommitted, ""), nil
+		}, lookup: func(string) (factory.OperationOutcome, error) {
+			return factory.OperationOutcome{}, errors.New("unused")
+		}}
+		m := factory.Merge{ID: "merge-1", Stage: factory.MergeMerged, Repository: 9, Issue: 5, MergedCommit: "abc123", OriginalClosingOccurrence: "99",
+			Operation: factory.MergeOperation{Work: &factory.MergeIntent{AuthRevision: "mergeauth-1", OperationID: "merge-op-1"}}}
+		if err := ConsumeVerifiedMerge(ctx, s, ex, m); err != nil {
+			t.Fatalf("consume: %v", err)
+		}
+		if len(ex.submits) != 1 || ex.submits[0].IssueID != 55 || ex.submits[0].MergeRef != "abc123" {
+			t.Fatalf("submits: %+v", ex.submits)
+		}
+		unclosed := m
+		unclosed.OriginalClosingOccurrence = ""
+		if err := ConsumeVerifiedMerge(ctx, s, ex, unclosed); err == nil {
+			t.Fatal("unclosed merge fired")
 		}
 	})
 }
