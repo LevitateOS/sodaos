@@ -2,21 +2,41 @@ package factory
 
 import "encoding/json"
 
+// DeliveredIssue pins a prior native issue that was already closed when a
+// scope delta was constructed. "Delivered" here means closed and preserved
+// without mutation: it records that Soda did not rewrite closed history,
+// never that the underlying work was verified as merged. A hand-closed
+// issue carries no merge proof. Delivered records receive no packet entry,
+// so they never appear in native receipts, and adoption binds them by these
+// persisted refs with chained acceptance.
+type DeliveredIssue struct {
+	IssueID        int64 `json:"issue_id,string"`
+	IssueIndex     int64 `json:"issue_index,string"`
+	ContentVersion int   `json:"content_version"`
+}
+
 // IntentGeneration records the immutable native mutation before submission.
 // Native receipts and exact task acceptances retain distinct provenance.
+// SubmittedTasks is the exact task graph rendered into Payload: the accepted
+// revision tasks, or the S07-selected scoped decomposition of them. Adoption
+// and later deltas bind this submitted graph, never a re-derived one.
+// Delivered carries the subset bound to closed native history without
+// mutation; those keys must stay absent from the native receipt.
 type IntentGeneration struct {
-	TaskIssueIDs map[string]int64 `json:"task_issue_ids,omitempty"`
-	RevisionID   string           `json:"revision_id"`
-	IntentID     string           `json:"intent_id"`
-	OperationID  string           `json:"operation_id"`
-	ActorID      int64            `json:"actor_id,string"`
-	NativeRev    int64            `json:"native_revision"`
-	AuthRevision string           `json:"authorization_revision"`
-	NotAfter     int64            `json:"not_after"`
-	Payload      json.RawMessage  `json:"payload"`
-	IntentDigest string           `json:"intent_digest"`
-	Receipt      json.RawMessage  `json:"receipt,omitempty"`
-	State        string           `json:"state"`
+	TaskIssueIDs   map[string]int64          `json:"task_issue_ids,omitempty"`
+	SubmittedTasks []IntentTask              `json:"submitted_tasks"`
+	Delivered      map[string]DeliveredIssue `json:"delivered,omitempty"`
+	RevisionID     string                    `json:"revision_id"`
+	IntentID       string                    `json:"intent_id"`
+	OperationID    string                    `json:"operation_id"`
+	ActorID        int64                     `json:"actor_id,string"`
+	NativeRev      int64                     `json:"native_revision"`
+	AuthRevision   string                    `json:"authorization_revision"`
+	NotAfter       int64                     `json:"not_after"`
+	Payload        json.RawMessage           `json:"payload"`
+	IntentDigest   string                    `json:"intent_digest"`
+	Receipt        json.RawMessage           `json:"receipt,omitempty"`
+	State          string                    `json:"state"`
 }
 type IntentTaskBinding struct {
 	RevisionID     string `json:"revision_id"`

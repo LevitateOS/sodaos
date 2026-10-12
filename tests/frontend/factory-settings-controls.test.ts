@@ -12,6 +12,7 @@ test('Factory activity preserves exact native links and saves only local display
             repository: '7',
             repository_path: '/fixture/repository',
             revision: 3,
+            observed_unix: 4,
             settings: {issue_created: true, pr_created: true, verified_merge: true},
             items: [
               {
@@ -76,6 +77,7 @@ test('Factory activity rejects foreign repository links instead of displaying th
             repository: '7',
             repository_path: '/fixture/repository',
             revision: 0,
+            observed_unix: 2,
             settings: {issue_created: true, pr_created: true, verified_merge: true},
             items: [
               {
@@ -1083,4 +1085,96 @@ test('late source-preview and acceptance replies cannot write into a newer Proje
   });
   assert.equal(retained.sourcePreview, undefined);
   assert.equal(retained.sourceSelection, undefined);
+});
+test('Factory execution usage reports exact minutes, editability and required actions', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.setReply(async (call) =>
+      call.url.endsWith('/api/repositories/7/factory/access')
+        ? Response.json({
+            viewer: {
+              code_write: true,
+              owner_or_admin: false,
+              environment_owner: false,
+              operator: false,
+              member: true,
+              session_current: true,
+            },
+            editable: {
+              policy: {editable: false, reason: 'owner_or_admin_required'},
+              activity_settings: {editable: true},
+              operator_grant: {editable: false, reason: 'operator_required'},
+              capacity: {editable: true},
+              environment_grant: {editable: false, reason: 'repository_owner_required'},
+              sponsorships: [{connection: 'c1', editable: true}],
+              usage_budgets: [{connection: 'c1', editable: false, reason: 'connection_owner_required'}],
+            },
+            effective: {missing: [], effective: true, dispatch_open: true},
+            required_actions: [
+              {code: 'usage_budget_missing', resolve_by: 'connection_owner', setting: 'usage_budgets'},
+            ],
+            preparation: null,
+            usage: [
+              {connection: 'c1', unit: 'minutes', budget_minutes: 360, used_minutes: 41},
+              {connection: 'c2', status: 'connection_owner_only'},
+            ],
+            planning: [
+              {
+                intent: 'd222222222222222222222222',
+                id: 'd333333333333333333333333',
+                unit: 'planning_calls',
+                amount: 12,
+                reserved: 2,
+                consumed: 3,
+                available: 7,
+                ceiling: 20,
+                effect: 'Explore checkout flow',
+                status: 'ok',
+                editable: {editable: true},
+              },
+              {
+                intent: 'd555555555555555555555555',
+                id: 'd666666666666666666666666',
+                unit: 'planning_calls',
+                amount: 4,
+                reserved: 0,
+                consumed: 4,
+                available: 0,
+                ceiling: 4,
+                status: 'exhausted',
+                editable: {editable: false, reason: 'session_changed'},
+              },
+            ],
+            planning_truncated: true,
+            observed_unix: 1780000000,
+            repository: '7',
+          })
+        : null
+    );
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const settings = page.locator('[data-factory-settings]');
+  await settings.getByText('c1: 360 minutes budget; 41 minutes used.').waitFor();
+  assert.match(await settings.innerText(), /7 of 12 planning calls available/);
+  assert.match(await settings.innerText(), /Status: exhausted/);
+  assert.match(await settings.innerText(), /More bound allowances exist beyond these 20/);
+  assert.match(await settings.innerText(), /c2: visible to its connection owner only/);
+  assert.match(await settings.innerText(), /Budget read-only: needs connection owner/);
+  assert.match(await settings.innerText(), /Policy: read-only \(needs repository owner or administrator\)/);
+  assert.match(await settings.innerText(), /Activity display: editable/);
+  assert.match(await settings.innerText(), /usage_budget_missing: resolve as connection owner in usage_budgets/);
+  assert.doesNotMatch(await settings.innerText(), /\$/);
+  assert.equal((await writes(page)).filter((call) => call.method !== 'GET').length, 0);
+});
+test('Factory execution usage stays honestly unavailable without the access read', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const settings = page.locator('[data-factory-settings]');
+  await settings.getByText('Execution usage is unavailable.').waitFor();
 });

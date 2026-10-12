@@ -1,8 +1,19 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
-import {nativePath} from './sodaspaces-factory-activity.js';
+import {activityTimestamp, nativePath} from './sodaspaces-factory-activity.js';
 import {id} from './sodaspaces-api.js';
-import type {FactoryIssueDetail} from './sodaspaces-factory-work-response.js';
+import type {
+  FactoryCommandRecord,
+  FactoryIssueDetail,
+  PauseReceipt,
+  PendingRuns,
+  ProjectStopResult,
+  ResumeReceipt,
+  RetryDecision,
+  StopReceipt,
+  TakeoverRecord,
+  WorkCapabilities,
+} from './sodaspaces-factory-work-response.js';
 
 // Pure work-detail and intervention presentation for V03/V04. Model
 // builders turn one issue's recorded facts into display state; render
@@ -40,8 +51,14 @@ export interface WorkDetailModel {
   readonly acceptanceText: string;
   readonly acceptanceInvalid: boolean;
   readonly readinessText: string;
+  readonly attemptText: string;
+  readonly publicationText: string;
+  readonly reviewText: string;
   readonly checksText: string;
   readonly mergeText: string;
+  readonly closureText: string;
+  readonly requestedText: string;
+  readonly observedText: string;
   readonly failedChecks: readonly string[];
   readonly blockers: readonly {code: string; resolution: string; endpoint?: string}[];
   readonly candidate: string;
@@ -66,7 +83,7 @@ function describeBlocker(blocker: {
 
 function mergeDelivery(detail: FactoryIssueDetail): DeliveryState | undefined {
   if (detail.merge?.stage !== 'merged') return undefined;
-  return detail.readiness?.readiness === 'completed' ? 'delivered' : 'merge_confirmed_closure_pending';
+  return detail.closure.state === 'confirmed' ? 'delivered' : 'merge_confirmed_closure_pending';
 }
 
 function checksDelivery(detail: FactoryIssueDetail): DeliveryState | undefined {
@@ -134,13 +151,75 @@ function readinessCopy(detail: FactoryIssueDetail): string {
 
 function checksCopy(detail: FactoryIssueDetail): string {
   if (!detail.checks) return 'No check assessment recorded.';
-  return `Checks ${detail.checks.verdict} on ${detail.checks.head_oid.slice(0, 12)} over base ${detail.checks.base_oid.slice(0, 12)}: ${detail.checks.resolution}`;
+  const stale = detail.checks.stale ? ' Stale: the head was superseded by a newer candidate.' : '';
+  return `Checks ${detail.checks.verdict} on ${detail.checks.head_oid.slice(0, 12)} over base ${detail.checks.base_oid.slice(0, 12)}: ${detail.checks.resolution}${stale}`;
 }
 
 function mergeCopy(detail: FactoryIssueDetail): string {
   if (!detail.merge) return 'No merge recorded.';
   const commit = detail.merge.merged_commit ? ` at ${detail.merge.merged_commit.slice(0, 12)}` : '';
-  return `Merge ${detail.merge.stage}${commit}: ${detail.merge.resolution}`;
+  const stale = detail.merge.stale ? ' Stale: the head was superseded by a newer candidate.' : '';
+  return `Merge ${detail.merge.stage}${commit}: ${detail.merge.resolution}${stale}`;
+}
+
+function attemptCopy(detail: FactoryIssueDetail): string {
+  if (!detail.attempt) return 'No attempt recorded.';
+  const outcome = detail.attempt.outcome ? `, ${detail.attempt.outcome}` : '';
+  return `Attempt ${detail.attempt.attempts}: ${detail.attempt.role} ${detail.attempt.stage}${outcome}.`;
+}
+
+function publicationCopy(detail: FactoryIssueDetail): string {
+  if (!detail.publication) return 'Nothing published yet.';
+  const pr = detail.publication.pr_number ? `PR #${detail.publication.pr_number}` : 'no pull request yet';
+  return (
+    `Publication ${detail.publication.stage}: candidate ${detail.publication.candidate.slice(0, 12)} on ` +
+    `${detail.publication.target_branch}, ${pr}. ${detail.publication.corrections_total} ` +
+    `correction${detail.publication.corrections_total === 1 ? '' : 's'}, ${detail.publication.reviews_total} ` +
+    `review${detail.publication.reviews_total === 1 ? '' : 's'}.`
+  );
+}
+
+function reviewCopy(detail: FactoryIssueDetail): string {
+  const publication = detail.publication;
+  if (!publication || publication.reviews_total === 0) return 'No independent review recorded.';
+  const latest = publication.reviews[publication.reviews.length - 1];
+  if (!latest) return `${publication.reviews_total} recorded reviews; latest entry unavailable.`;
+  const effect = latest.effect ? `, effect ${latest.effect}` : '';
+  return `Latest independent review: ${latest.event} on ${latest.head_oid.slice(0, 12)}${effect}.`;
+}
+
+function closureCopy(detail: FactoryIssueDetail): string {
+  if (detail.closure.state === 'confirmed') {
+    const stamp = activityTimestamp(detail.closure.closed_unix ?? 0);
+    return `Original-issue closure confirmed${stamp ? ` at ${stamp.text}` : ''}.`;
+  }
+  if (detail.closure.state === 'pending') return 'Original-issue closure pending.';
+  return 'Original issue not closed.';
+}
+
+function requestedCopy(detail: FactoryIssueDetail): string {
+  if (!detail.requested_retry) return '';
+  return (
+    `Retry requested for run ${detail.requested_retry.prior_run.slice(0, 8)}: ${detail.requested_retry.reason}. ` +
+    'This request is not a confirmed new attempt.'
+  );
+}
+
+function observedCopy(detail: FactoryIssueDetail): string {
+  const stamp = activityTimestamp(detail.observed_unix);
+  return stamp ? `Observed ${stamp.text}.` : 'Observation time unknown.';
+}
+
+function detailLinks(
+  detail: FactoryIssueDetail,
+  repositoryPath: string
+): {issueLink: string | undefined; pullLink: string | undefined} {
+  if (detail.links) return {issueLink: detail.links.issue_url, pullLink: detail.links.pull_url};
+  const prNumber = detail.checks?.pr_number ?? detail.merge?.pr_number ?? detail.publication?.pr_number;
+  return {
+    issueLink: nativeIssueLink(repositoryPath, detail.issue),
+    pullLink: prNumber === undefined ? undefined : nativePullLink(repositoryPath, prNumber),
+  };
 }
 
 function failedCheckContexts(detail: FactoryIssueDetail): readonly string[] {
@@ -150,30 +229,32 @@ function detailCandidate(detail: FactoryIssueDetail): string {
   if (!detail.checks) return 'No reviewed candidate recorded.';
   return `PR #${detail.checks.pr_number} head ${detail.checks.head_oid.slice(0, 12)} over base ${detail.checks.base_oid.slice(0, 12)}`;
 }
-function detailPullLink(detail: FactoryIssueDetail, repositoryPath: string): string | undefined {
-  const prNumber = detail.checks?.pr_number ?? detail.merge?.pr_number;
-  if (prNumber === undefined) return undefined;
-  return nativePullLink(repositoryPath, prNumber);
-}
 // describeIssueDetail projects one issue's recorded facts to display
 // state. Delivery needs both merge and closure evidence; every other
 // state names the recorded verdict behind it.
 export function describeIssueDetail(detail: FactoryIssueDetail, repositoryPath: string): WorkDetailModel {
   const acceptance = acceptanceCopy(detail);
   const delivery = deliveryState(detail);
+  const links = detailLinks(detail, repositoryPath);
   return {
     delivery,
     deliveryText: deliveryCopy[delivery],
     acceptanceText: acceptance.text,
     acceptanceInvalid: acceptance.invalid,
     readinessText: readinessCopy(detail),
+    attemptText: attemptCopy(detail),
+    publicationText: publicationCopy(detail),
+    reviewText: reviewCopy(detail),
     checksText: checksCopy(detail),
     mergeText: mergeCopy(detail),
+    closureText: closureCopy(detail),
+    requestedText: requestedCopy(detail),
+    observedText: observedCopy(detail),
     failedChecks: failedCheckContexts(detail),
     blockers: (detail.readiness?.blockers ?? []).map(describeBlocker),
     candidate: detailCandidate(detail),
-    issueLink: nativeIssueLink(repositoryPath, detail.issue),
-    pullLink: detailPullLink(detail, repositoryPath),
+    issueLink: links.issueLink,
+    pullLink: links.pullLink,
   };
 }
 
@@ -189,9 +270,15 @@ export function renderWorkDetail(model: WorkDetailModel): TemplateResult {
             html`<li>${blocker.code}: ${blocker.resolution}${blocker.endpoint ? ` (${blocker.endpoint})` : ''}</li>`
         )}
       </ul>
+      <p>${model.attemptText}</p>
+      <p>${model.publicationText}</p>
+      <p>${model.reviewText}</p>
       <p>${model.checksText}</p>
       ${model.failedChecks.length > 0 ? html`<p>Failed checks: ${model.failedChecks.join(', ')}.</p>` : ''}
       <p>${model.mergeText}</p>
+      <p>${model.closureText}</p>
+      ${model.requestedText ? html`<p>${model.requestedText}</p>` : ''}
+      <p>${model.observedText}</p>
       <p>Reviewed candidate: ${model.candidate}</p>
       <p>
         ${model.issueLink ? html`<a href=${model.issueLink}>Native issue</a>` : 'Native issue link unavailable.'}
@@ -199,6 +286,37 @@ export function renderWorkDetail(model: WorkDetailModel): TemplateResult {
       </p>
     </section>
   `;
+}
+
+const capabilityReasonCopy: Record<string, string> = {
+  repository_write_required: 'Needs repository write authority.',
+  repository_not_visible: 'Repository is not visible to you.',
+  native_authority_unavailable: 'Native authority is unavailable.',
+  session_changed: 'Session changed; reconnect before acting.',
+  no_run: 'No run recorded for this work.',
+  run_unsettled: 'The run is not settled.',
+  run_settled: 'The run is already settled.',
+  retry_queued: 'A retry is already queued.',
+  membership_required: 'Project membership is required.',
+  dispatch_open: 'Dispatch is already open.',
+  dispatch_closed: 'Dispatch is already closed.',
+};
+
+// capabilityReasonText renders one recorded capability refusal reason.
+export function capabilityReasonText(reason: string | undefined): string {
+  return capabilityReasonCopy[reason ?? ''] ?? 'Action unavailable.';
+}
+// capabilityGate reads one intervention's backend capability: whether
+// the viewer may act now and, when not, the recorded reason why. The
+// owning lifecycle APIs revalidate at act time.
+export function capabilityGate(
+  capabilities: WorkCapabilities,
+  kind: InterventionKind
+): {available: boolean; reasonText: string} {
+  if (kind === 'project_stop') return {available: true, reasonText: ''};
+  const entry = capabilities[kind];
+  if (entry.available) return {available: true, reasonText: ''};
+  return {available: false, reasonText: capabilityReasonText(entry.reason)};
 }
 
 export type InterventionKind = 'pause' | 'resume' | 'stop' | 'retry' | 'takeover' | 'project_stop';
@@ -269,6 +387,105 @@ export function describeIntervention(input: InterventionInput): InterventionMode
     result: input.result,
     resultText: input.resultText,
   };
+}
+
+export type InterventionOutcome =
+  | {kind: 'pause'; receipt: PauseReceipt}
+  | {kind: 'resume'; receipt: ResumeReceipt}
+  | {kind: 'stop'; receipt: StopReceipt}
+  | {kind: 'retry'; receipt: RetryDecision}
+  | {kind: 'takeover'; receipt: TakeoverRecord}
+  | {kind: 'project_stop'; receipt: ProjectStopResult}
+  | {kind: 'pending_runs'; pending: PendingRuns}
+  | {kind: 'command'; record: FactoryCommandRecord}
+  | {kind: 'refused'; status: number; message: string}
+  | {kind: 'unconfirmed'; commandID: string};
+
+function settledRunCount(runs: readonly {confirmed: boolean; uncertain: boolean}[]): {
+  settled: number;
+  uncertain: number;
+} {
+  return {
+    settled: runs.filter((run) => run.confirmed && !run.uncertain).length,
+    uncertain: runs.filter((run) => run.uncertain).length,
+  };
+}
+function pauseOutcomeText(receipt: PauseReceipt): {result: InterventionResult; text: string} {
+  const {settled, uncertain} = settledRunCount(receipt.runs);
+  const fence = uncertain > 0 ? ` ${uncertain} run${uncertain === 1 ? ' stays' : 's stay'} fenced, not cancelled.` : '';
+  return {
+    result: 'confirmed',
+    text: `Pause confirmed. Dispatch closed; ${settled} run${settled === 1 ? '' : 's'} stopped.${fence}`,
+  };
+}
+function stopOutcomeText(receipt: StopReceipt): {result: InterventionResult; text: string} {
+  if (receipt.uncertain)
+    return {
+      result: 'uncertain',
+      text: 'Stop uncertain: the run effect is not confirmed. Inspect the run before retrying.',
+    };
+  if (!receipt.confirmed)
+    return {result: 'pending', text: 'Stop recorded but not confirmed. Read the command back before acting again.'};
+  return {result: 'confirmed', text: `Stop confirmed${receipt.outcome ? `: ${receipt.outcome}` : ''}.`};
+}
+function projectStopOutcomeText(receipt: ProjectStopResult): {result: InterventionResult; text: string} {
+  const {settled, uncertain} = settledRunCount(receipt.runs);
+  const hold = receipt.hold_synced
+    ? 'Maintenance hold synced.'
+    : 'Maintenance hold did not sync; the stop still proceeded.';
+  const fence = uncertain > 0 ? ` ${uncertain} run${uncertain === 1 ? ' stays' : 's stay'} fenced.` : '';
+  const running = receipt.running
+    ? 'The project still reports running; ask the operator to inspect.'
+    : 'The project is stopped.';
+  return {
+    result: 'confirmed',
+    text: `Project stop confirmed. ${settled} run${settled === 1 ? '' : 's'} stopped.${fence} ${hold} ${running}`,
+  };
+}
+type RunOutcome = Exclude<InterventionOutcome, {kind: 'pause' | 'resume' | 'stop' | 'retry' | 'takeover'}>;
+function runOutcomeText(outcome: RunOutcome): {result: InterventionResult; text: string} {
+  switch (outcome.kind) {
+    case 'project_stop':
+      return projectStopOutcomeText(outcome.receipt);
+    case 'pending_runs':
+      return {
+        result: 'failed',
+        text: `Refused: ${outcome.pending.runs.length} recorded run${outcome.pending.runs.length === 1 ? ' is' : 's are'} not settled. Stop or reconcile them first.`,
+      };
+    case 'command':
+      return {
+        result: 'pending',
+        text: `Command recorded (${outcome.record.type}). ${outcome.record.outcome ? `Outcome: ${outcome.record.outcome}.` : 'Outcome not yet recorded; refresh before acting again.'}`,
+      };
+    case 'refused':
+      return {result: 'failed', text: `Refused: ${outcome.message}`};
+    case 'unconfirmed':
+      return {
+        result: 'pending',
+        text: 'No reply was confirmed. The command may still apply; read it back before retrying.',
+      };
+  }
+}
+// interventionResultText turns one parsed intervention outcome into a
+// pending-versus-confirmed result. Requested actions never read as
+// confirmed effects; uncertain runs stay fenced, never cancelled.
+export function interventionResultText(outcome: InterventionOutcome): {result: InterventionResult; text: string} {
+  switch (outcome.kind) {
+    case 'pause':
+      return pauseOutcomeText(outcome.receipt);
+    case 'resume':
+      return outcome.receipt.reopened
+        ? {result: 'confirmed', text: 'Resume confirmed. Dispatch reopened.'}
+        : {result: 'confirmed', text: 'Resume recorded. Dispatch did not reopen; runs may still be unsettled.'};
+    case 'stop':
+      return stopOutcomeText(outcome.receipt);
+    case 'retry':
+      return {result: 'confirmed', text: 'Retry queued. The prior run stays settled; no other attempt was created.'};
+    case 'takeover':
+      return {result: 'confirmed', text: `Takeover confirmed into ${outcome.receipt.destination}.`};
+    default:
+      return runOutcomeText(outcome);
+  }
 }
 
 export interface InterventionCommands {

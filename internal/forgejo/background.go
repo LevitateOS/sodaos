@@ -24,6 +24,11 @@ type ServiceBackground struct {
 	admission     string
 	pinned        string
 	bootstrapCall *backgroundBootstrap
+	// OnBootstrap, when set before serving, runs after every completed
+	// bootstrap attempt (success or failure) with no transport lock held.
+	// It must be fast, must swallow its own errors, and must tolerate
+	// re-entry: it fires inside the bootstrap its own work may trigger.
+	OnBootstrap func()
 }
 
 type backgroundBootstrap struct {

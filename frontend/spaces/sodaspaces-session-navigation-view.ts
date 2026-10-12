@@ -41,8 +41,8 @@ export function renderSessionTab(
     >
       <span class="soda-tab-icon" aria-hidden="true"></span
       ><span class="soda-tab-name">${tab.name}</span
-      >${tab.unread ? html`<span class="soda-unread" aria-label="Unread output"> •</span>` : ''}
-      ${tab.attention ? html`<span class="soda-attention" title=${tab.attention} aria-label=${tab.attention}> !</span>` : ''}
+      >${tab.unread ? html`<span class="soda-unread" role="img" aria-label="Unread output"> •</span>` : ''}
+      ${tab.attention ? html`<span class="soda-attention" role="img" title=${tab.attention} aria-label=${tab.attention}> !</span>` : ''}
     </button>
   `;
 }
@@ -107,7 +107,7 @@ export function renderProjectNavigation(
                 @click=${row.select}
               >
                 <span
-                  >${row.name}${row.unread ? html`<span class="soda-unread" aria-label="Unread output"> •</span>` : ''}</span
+                  >${row.name}${row.unread ? html`<span class="soda-unread" role="img" aria-label="Unread output"> •</span>` : ''}</span
                 >
                 <small>${row.description}</small>
                 ${row.attention ? html`<small class="soda-attention">${row.attention}</small>` : ''}

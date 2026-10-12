@@ -1,10 +1,10 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -22,6 +22,41 @@ func intentID() (string, error) {
 	}
 	return "d" + hex.EncodeToString(raw[:]), nil
 }
+
+// exploreData carries the one consolidated exploration beside the revision.
+// Older readers ignore it; the revision fields stay flat and unchanged.
+type exploreData struct {
+	Content        factory.ProposalContent       `json:"content"`
+	Challenges     []factory.AssumptionChallenge `json:"challenges"`
+	Settled        []string                      `json:"settled"`
+	Recommendation *factory.ConsolidatedProposal `json:"recommendation,omitempty"`
+	Consistency    *factory.ConsistencyReport    `json:"consistency,omitempty"`
+}
+
+type exploreResponse struct {
+	factory.IntentRevision
+	Exploration exploreData `json:"exploration"`
+}
+
+func attachExploration(proposal factory.IntentRevision, content factory.ProposalContent, challenges []factory.AssumptionChallenge, settled []string, recommendation *factory.ConsolidatedProposal, consistency *factory.ConsistencyReport) exploreResponse {
+	if challenges == nil {
+		challenges = []factory.AssumptionChallenge{}
+	}
+	if settled == nil {
+		settled = []string{}
+	}
+	return exploreResponse{IntentRevision: proposal, Exploration: exploreData{Content: content, Challenges: challenges, Settled: settled, Recommendation: recommendation, Consistency: consistency}}
+}
+
+func settledIDs(review factory.AssumptionReview) []string {
+	ids := make([]string, 0, len(review.Settled))
+	for _, settlement := range review.Settled {
+		ids = append(ids, settlement.Idea)
+	}
+	return ids
+}
+
+const designRubric = "Using the full supplied objective and reviewed choices, choose a bounded implementation approach. Respect an explicitly selected approach; choose clarify if a declined or corrected assumption contradicts the objective or material outcomes remain unresolved. Do not impose declined assumptions or invent product capabilities. This advice grants no acceptance, repository authority or spending permission."
 
 func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.checkLifecycleSession(w, r, v) {
@@ -42,6 +77,11 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		auth.JSONError(w, 412, "stale_revision", "Review inputs changed.")
 		return
 	}
+	content, err := factory.ComposeProposalContent(current)
+	if err != nil {
+		factoryCommandError(w, err)
+		return
+	}
 	ids := make([]string, 104)
 	for i := range ids {
 		ids[i], err = intentID()
@@ -60,58 +100,82 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	proposal.CreatedUnix = time.Now().Unix()
 	// Product exploration uses explicitly bounded consultation credit, distinct
 	// from execution funding. Failure remains visible and creates no acceptance.
+	chooser := control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
+	coord := &control.Coordinator{Store: s.Store, Planning: &control.PlanningJudgments{Chooser: &chooser}}
 	candidates := intentDesignCandidates(current)
 	design := current
 	design.ID = ""
 	design.Predecessor = ""
 	design.CreatedUnix = 0
 	design.Tasks = nil
-	rawDesign, _ := json.Marshal(design)
-	sum := sha256.Sum256(rawDesign)
-	for i := range candidates {
-		candidates[i].Source = hex.EncodeToString(sum[:])
-	}
-	snapshot, err := factory.PrioritySnapshot(candidates)
+	available, err := s.Store.PlanningAllowanceAvailable(r.Context(), current.Intent, v.User.ID)
 	if err != nil {
 		factoryCommandError(w, err)
 		return
 	}
-	if current.PlanningCalls < 1 {
+	if !available {
 		auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
 		return
 	}
-	reserved, err := s.Store.ReserveIntentJudgment(r.Context(), current, snapshot)
-	if err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	if !reserved {
-		auth.JSONError(w, 409, "planning_unavailable", "Planning credit is exhausted or these inputs have already been consulted.")
-		return
-	}
-	request := factory.PriorityRequest{Snapshot: snapshot, Candidates: candidates, State: rawDesign, Criteria: intentDesignCriteria(), Rubric: "Using the full supplied objective and reviewed choices, choose a bounded implementation approach. Respect an explicitly selected approach; choose clarify if a declined or corrected assumption contradicts the objective or material outcomes remain unresolved. Do not impose declined assumptions or invent product capabilities. This advice grants no acceptance, repository authority or spending permission."}
-	chooser := control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
-	answer, callErr := chooser.Choose(r.Context(), request)
-	if callErr == nil {
-		callErr = answer.Validate(request)
-	}
-	receipt := factory.PriorityReceipt{Snapshot: snapshot, Candidates: candidates, CreatedUnix: time.Now().Unix(), Outcome: "product_design", Selected: answer.Selected, Calls: []factory.PriorityCall{{Request: request, Answer: answer}}}
+	answer, _, callErr := coord.AdvisePurpose(r.Context(), control.PurposeAdvice{
+		Purpose:    factory.JudgmentProductApproaches,
+		State:      design,
+		Question:   designRubric,
+		Options:    intentDesignCriteria(),
+		Outcome:    "product_design",
+		Candidates: candidates,
+		Reserve: func(ctx context.Context, snapshot string) (bool, error) {
+			return s.Store.ReserveIntentJudgment(ctx, current, snapshot)
+		},
+	})
 	if callErr != nil {
-		receipt.Calls[0].Failure = "consultation_unavailable"
-		receipt.Outcome = "failed"
-	}
-	if err = s.Store.RecordPriorityJudgment(r.Context(), receipt); err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	if callErr != nil {
-		auth.JSONError(w, 503, "planning_unavailable", "Design consultation failed; the consumed allowance is retained.")
+		if errors.Is(callErr, control.ErrPriorityUnavailable) {
+			auth.JSONError(w, 503, "planning_unavailable", "Design consultation failed; the consumed allowance is retained.")
+			return
+		}
+		factoryCommandError(w, callErr)
 		return
 	}
 	proposal = applyIntentDesign(current, ids, proposal, answer)
 	if answer.Selected == "clarify" || answer.Confidence < 0.25 {
 		proposal.Tasks = []factory.IntentTask{}
-		proposal.Ideas = append(proposal.Ideas, factory.ProductIdea{ID: ids[103], Description: "Describe the first user action and the result that should count as success", Consequence: "Implementation waits until this material product question is resolved.", Assumption: true, Decision: "pending"})
+		proposal.Ideas = append(proposal.Ideas, clarifyIdea(ids[103]))
+	}
+	review, err := coord.JudgeAssumptions(r.Context(), current, content, proposal.Ideas)
+	if err != nil {
+		if errors.Is(err, control.ErrPriorityUnavailable) {
+			auth.JSONError(w, 503, "planning_unavailable", "Assumption review failed; the consumed allowance is retained.")
+			return
+		}
+		factoryCommandError(w, err)
+		return
+	}
+	proposal = factory.SettleAssumptions(proposal, review)
+	var recommendation *factory.ConsolidatedProposal
+	if content.Supported {
+		consolidated, err := coord.JudgeConsolidation(r.Context(), current, content)
+		if err != nil {
+			if errors.Is(err, control.ErrPriorityUnavailable) {
+				auth.JSONError(w, 503, "planning_unavailable", "Consolidation failed; the consumed allowance is retained.")
+				return
+			}
+			factoryCommandError(w, err)
+			return
+		}
+		recommendation = &consolidated
+	}
+	var consistency *factory.ConsistencyReport
+	if recommendation != nil {
+		verified, err := coord.JudgeConsistency(r.Context(), current, content, *recommendation)
+		if err != nil {
+			if errors.Is(err, control.ErrPriorityUnavailable) {
+				auth.JSONError(w, 503, "planning_unavailable", "Consistency review failed; the consumed allowance is retained.")
+				return
+			}
+			factoryCommandError(w, err)
+			return
+		}
+		consistency = &verified
 	}
 	if err = proposal.Validate(); err != nil {
 		auth.JSONError(w, 400, "invalid_proposal", err.Error())
@@ -121,7 +185,13 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		factoryCommandError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 201, proposal)
+	auth.JSONResponse(w, 201, attachExploration(proposal, content, review.Challenges, settledIDs(review), recommendation, consistency))
+}
+
+// clarifyIdea asks the one material product question blocking implementation.
+// It carries autonomous assumption basis, never human approval.
+func clarifyIdea(id string) factory.ProductIdea {
+	return factory.ProductIdea{ID: id, Description: "Describe the first user action and the result that should count as success", Consequence: "Implementation waits until this material product question is resolved.", Assumption: true, Decision: "pending", Source: "assumption", Provenance: "autonomous", Material: true}
 }
 
 func intentDesignCriteria() map[string]any {

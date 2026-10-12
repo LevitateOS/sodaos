@@ -37,12 +37,16 @@ function renderLifecycle(
   const stopped = !lifecycle?.running && !lifecycle?.boot;
   if (!administrator) {
     if (!hasEnvironment) return html``;
+    // The control group stays hidden so its handlers keep refusing synthetic
+    // dispatch; viewers get the same state as read-only text beside it.
     return html`
-      <fieldset>
+      <fieldset hidden>
         <legend>Shared environment</legend>
-        <p>Running: ${running ? 'yes' : 'no'}.</p>
-        <p>Starting or stopping this shared project needs a project administrator.</p>
+        <button type="button" class="ui primary button" ?disabled=${blocked} @click=${start}>Start</button>
+        <button type="button" class="ui button danger" ?disabled=${blocked} @click=${stop}>Stop</button>
       </fieldset>
+      <p>Shared environment: Running: ${running ? 'yes' : 'no'}.</p>
+      <p>Starting or stopping this shared project needs a project administrator.</p>
     `;
   }
   return html`
@@ -212,6 +216,36 @@ function renderObservedOS(input: SettingsViewInput) {
     input.requestInspectOS(event)
   );
 }
+function accessReadiness(input: SettingsViewInput): string {
+  if (input.readDetailLogin()) return `Joined as ${input.readDetailLogin()}`;
+  return input.readExecutionAllowed() ? 'Not joined' : 'Repository write access required';
+}
+function renderReadinessLinks(input: SettingsViewInput) {
+  if (!input.readEnvironment()) return html``;
+  const factory = input.readFactoryTransport();
+  return html`<nav class="soda-settings-readiness" aria-label="Settings readiness">
+    <ul>
+      <li>
+        Access: ${accessReadiness(input)}
+        <button type="button" class="ui basic button" @click=${() => input.selectView('access')}>Open Access</button>
+      </li>
+      <li>
+        Network: ${networkSummaryText(input)}
+        <button type="button" class="ui basic button" @click=${() => input.selectView('network')}>Open Network</button>
+      </li>
+      <li>
+        Factory: ${factory ? 'Policy and funding controls' : 'Unavailable in this context'}
+        ${
+          factory
+            ? html`<button type="button" class="ui basic button" @click=${() => input.selectView('factory')}>
+                Open Factory
+              </button>`
+            : ''
+        }
+      </li>
+    </ul>
+  </nav>`;
+}
 
 export function renderEnvironmentView(input: SettingsViewInput) {
   return html`<section
@@ -221,6 +255,7 @@ export function renderEnvironmentView(input: SettingsViewInput) {
     aria-label="Environment"
     ?hidden=${input.readSelected() !== 'environment'}
   >
+    ${renderReadinessLinks(input)}
     ${renderProjectOS(
       input.readProfiles(),
       input.readSelectedProfile(),

@@ -1,5 +1,6 @@
 import {html} from 'lit';
 import type {Space} from './sodaspaces-inventory-response.js';
+import type {SavedRequest} from './sodaspaces-intent-response.js';
 import {factoryAuthorityText, factoryControlText} from './sodaspaces-factory-response.js';
 import {attentionReason} from './sodaspaces-attention.js';
 import type {LayoutEntry, PaneTree} from './sodaspaces-layout.js';
@@ -78,6 +79,29 @@ export function splitAttentionRows(
     sessions: Row[] = [];
   for (const row of shown) (rowAttention(reading, space, row) ? attention : sessions).push(row);
   return {attention, sessions};
+}
+/** H-I saved-request list entries (UX-I03/U03). List supply and parsing stay with U request state. */
+export interface RequestGroups {
+  drafts: SavedRequest[];
+  accepted: SavedRequest[];
+  closed: SavedRequest[];
+}
+function byRecency(a: SavedRequest, b: SavedRequest) {
+  return b.created_unix - a.created_unix || (a.intent < b.intent ? -1 : 1);
+}
+/** Group saved requests by lifecycle state; recent first, stable intent identity breaks ties. */
+export function groupSavedRequests(summaries: SavedRequest[]): RequestGroups {
+  const groups: RequestGroups = {drafts: [], accepted: [], closed: []};
+  for (const summary of [...summaries].sort(byRecency)) {
+    if (summary.state === 'accepted') groups.accepted.push(summary);
+    else if (summary.state === 'draft') groups.drafts.push(summary);
+    else groups.closed.push(summary);
+  }
+  return groups;
+}
+/** Display label for a request's repository binding; "0" means not yet bound. */
+export function requestRepositoryLabel(repository: string): string {
+  return repository === '0' || !repository ? 'No repository yet' : repository;
 }
 export interface FilteredSpacesInput {
   reading: NavReading;

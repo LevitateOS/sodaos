@@ -23,6 +23,7 @@ export interface JourneyViewInput {
   readRepositoryName: () => string;
   readBindingRepository: () => string;
   readJoinCaption: () => string;
+  readAcceptedRequest: () => {intent: string; revision: string; objective: string} | undefined;
   hasLifecycle: () => boolean;
   readProfiles: () => CreationProfile[];
   readSelectedProfile: () => string;
@@ -155,9 +156,16 @@ function joinRefreshAction(input: JourneyViewInput) {
   </button>`;
 }
 
-function joinHelper(input: JourneyViewInput) {
-  return html`Joining as ${input.readJoinCaption()}. Factory work uses its own authority and does not wait for your
-  Join. Then you can open your first browser terminal.`;
+function joinHelper() {
+  return html`Then you can open your first browser terminal.`;
+}
+
+function renderJoinContext(input: JourneyViewInput) {
+  // Membership context lives below the vertically centered intro so the
+  // Join→terminal transition keeps its no-jump geometry (first-use matrix).
+  return html`<p>
+    Joining as ${input.readJoinCaption()}. Factory work uses its own authority and does not wait for your Join.
+  </p>`;
 }
 
 function renderJourneyJoin(input: JourneyViewInput) {
@@ -175,9 +183,10 @@ function renderJourneyJoin(input: JourneyViewInput) {
           >in this persistent human project.</span
         >`,
       action: joinAction(input),
-      helper: joinHelper(input),
+      helper: joinHelper(),
       feedback: joinFeedback(input),
     })}
+    ${renderJoinContext(input)}
   </section>`;
 }
 
@@ -288,8 +297,9 @@ function renderJourneyExisting(input: JourneyViewInput) {
       action: journeyExistingAction(input, flags.stopped),
       helper: journeyExistingHelper(input, flags.incomplete, flags.stopped),
       feedback: html`<div class="soda-intro-feedback soda-feedback" data-tone="warning" role="status">
-        ${input.needsOutcomeAttention() ? input.readOutcome() : ''}
-      </div>`,
+          ${input.needsOutcomeAttention() ? input.readOutcome() : ''}
+        </div>
+        ${renderAcceptedRequestNote(input)}`,
     })}
   </section>`;
 }
@@ -366,6 +376,16 @@ function renderConfigureFeedback(input: JourneyViewInput) {
     </button>`;
 }
 
+function renderAcceptedRequestNote(input: JourneyViewInput) {
+  const request = input.readAcceptedRequest();
+  if (!request) return html``;
+  return html`<p class="soda-accepted-request">
+    Accepted request preserved: ${request.objective}
+    <small title=${request.revision}>revision ${request.revision.slice(0, 8)}</small>. Setup problems never resubmit or
+    lose it.
+  </p>`;
+}
+
 function renderJourneyConfigure(input: JourneyViewInput) {
   return html`<section
     data-project-controls
@@ -407,6 +427,6 @@ function renderJourneyConfigure(input: JourneyViewInput) {
       ${renderConfigureNetwork(input)} ${renderNetworkReviewNotice(input)}
     </div>
     <div class="soda-setup-actions">${renderCreateAction(input)}</div>
-    ${renderConfigureFeedback(input)} ${renderStaleReloadNote(input)}
+    ${renderAcceptedRequestNote(input)} ${renderConfigureFeedback(input)} ${renderStaleReloadNote(input)}
   </section>`;
 }
