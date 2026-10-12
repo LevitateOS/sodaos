@@ -7,6 +7,7 @@ import {
   interventionResultText,
   nativeIssueLink,
   nativePullLink,
+  upfrontCapabilities,
 } from '../../frontend/spaces/sodaspaces-factory-work-view';
 import type {FactoryIssueDetail} from '../../frontend/spaces/sodaspaces-factory-work-response';
 
@@ -301,4 +302,38 @@ test('interventions pair scope, impact and pending-versus-confirmed results', ()
   });
   assert.equal(stopped.enabled, false);
   assert.match(stopped.impact, /explicit confirmation/);
+});
+
+test('upfront capabilities map known flags and stay permissive when unknown', () => {
+  assert.deepEqual(upfrontCapabilities(openCapabilities, true), {
+    pause: true,
+    resume: true,
+    stop: true,
+    retry: true,
+    takeover: true,
+    project_stop: true,
+  });
+  const gated = {
+    ...openCapabilities,
+    stop: {available: false, reason: 'repository_write_required'},
+    pause: {available: false, reason: 'dispatch_closed'},
+  };
+  assert.deepEqual(upfrontCapabilities(gated, true), {
+    pause: false,
+    resume: true,
+    stop: false,
+    retry: true,
+    takeover: true,
+    project_stop: true,
+  });
+  assert.deepEqual(upfrontCapabilities(undefined, true), {
+    pause: true,
+    resume: true,
+    stop: true,
+    retry: true,
+    takeover: true,
+    project_stop: true,
+  });
+  assert.deepEqual(upfrontCapabilities(undefined, false).project_stop, false);
+  assert.deepEqual(upfrontCapabilities(openCapabilities, false).project_stop, false);
 });

@@ -707,3 +707,137 @@ test('work plan renders recorded steps and the empty comparison note', async (t)
   await plan.getByText('Cover the empty state.').waitFor();
   await plan.getByText('No recorded priority comparison').waitFor();
 });
+
+test('overview scope feeds derived plan, detail and revision mounts, then retires', async (t) => {
+  const page = await openView(t, 'overview', [
+    {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
+    {
+      method: 'GET',
+      path: `factory/intents/${INTENT}/generation`,
+      status: 200,
+      json: {
+        intent_id: INTENT,
+        revision_id: REVISION,
+        state: 'completed',
+        task_issue_ids: {[TASK_A]: 12, [TASK_B]: 13},
+      },
+    },
+    {
+      method: 'GET',
+      path: 'repositories/7/factory',
+      status: 200,
+      json: {
+        repository: '7',
+        queue: {queued: 0, active: 0},
+        effective: {effective: true, dispatch_open: true, missing: []},
+      },
+    },
+    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/issues/12/plan?limit=5',
+      status: 200,
+      json: {
+        repository: '7',
+        issue: '12',
+        observed_unix: 1720000300,
+        freshness: {state: 'current', provisional: false},
+        plan: {
+          candidate: {id: 'plan-1', repository: '7', issue: '12', readiness: 'queued', first_seen_unix: 1720000000},
+          missing: [],
+          steps: ['Implement the list.'],
+          strategy: 'incremental_acceptance',
+          snapshot: SNAPSHOT,
+          outcome: 'planned',
+          created_unix: 1720000100,
+        },
+        comparisons: [],
+      },
+    },
+    {method: 'GET', path: `factory/intents/${INTENT}/allowance`, status: 200, json: allowance},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    {
+      method: 'GET',
+      path: `factory/intents/${INTENT}/revisions?limit=2`,
+      status: 200,
+      json: {intent: INTENT, observed_unix: 1728670000, revisions: [historyEntry, historyFirst]},
+    },
+  ]);
+  await page.waitForFunction(() => {
+    const el = document.querySelector('soda-factory-work-overview') as unknown as {
+      boundScope?: {issues: unknown[]};
+      busy?: boolean;
+    };
+    return (el?.boundScope?.issues.length ?? 0) > 0 && el?.busy === false;
+  });
+  const feed = (await page.evaluate(() => {
+    const el = document.querySelector('soda-factory-work-overview') as unknown as {
+      boundScope: {repository: string; intentID?: string; issues: {issue: string; capabilities?: unknown}[]};
+    };
+    return el.boundScope;
+  })) as {repository: string; intentID?: string; issues: {issue: string; capabilities?: unknown}[]};
+  assert.equal(feed.repository, '7');
+  assert.equal(feed.intentID, INTENT);
+  assert.deepEqual(
+    feed.issues.map((entry) => entry.issue),
+    ['12']
+  );
+  assert.ok(feed.issues[0]?.capabilities);
+
+  await page.evaluate(() => {
+    (window as unknown as {lastScope?: unknown}).lastScope = undefined;
+    document.querySelector('main')?.addEventListener('soda-factory-overview-scope', (event) => {
+      (window as unknown as {lastScope?: unknown}).lastScope = (event as CustomEvent).detail;
+    });
+    (document.querySelector('soda-factory-work-overview') as unknown as {refresh: () => void}).refresh();
+  });
+  await page.waitForFunction(() => (window as unknown as {lastScope?: unknown}).lastScope !== undefined);
+  const evented = (await page.evaluate(
+    () => (window as unknown as {lastScope: {repository: string; issues: {issue: string}[]}}).lastScope
+  )) as {repository: string; issues: {issue: string}[]};
+  assert.equal(evented.repository, '7');
+  assert.deepEqual(
+    evented.issues.map((entry) => entry.issue),
+    ['12']
+  );
+
+  const before = (await workCalls(page)).length;
+  await page.evaluate(() => {
+    window.factoryWork.mount('plan');
+    window.factoryWork.mount('detail');
+    window.factoryWork.mount('direction');
+  });
+  await page.locator('soda-factory-work-plan').getByText('Implement the list.').waitFor();
+  await page.locator('soda-factory-work-detail').getByRole('link', {name: 'Native issue'}).waitFor();
+  await page.locator('soda-factory-direction-revision').getByText('2 revisions shown, newest first.').waitFor();
+  const fresh = (await workCalls(page)).slice(before).filter((call) => call.method === 'GET');
+  const paths = fresh.map((call) => call.path);
+  assert.ok(paths.includes('repositories/7/factory/issues/12/plan?limit=5'));
+  assert.ok(paths.includes('repositories/7/factory/issues/12'));
+  assert.ok(paths.includes(`factory/intents/${INTENT}/allowance`));
+  assert.ok(paths.includes(`factory/intents/${INTENT}/revisions?limit=2`));
+
+  await page.evaluate(() => {
+    (window as unknown as {lastScope?: unknown}).lastScope = undefined;
+    (document.querySelector('soda-factory-work-overview') as unknown as {context: unknown}).context = undefined;
+    for (const tag of ['soda-factory-work-plan', 'soda-factory-work-detail', 'soda-factory-direction-revision'])
+      (document.querySelector(tag) as unknown as {context: unknown}).context = undefined;
+  });
+  await page.waitForFunction(() => (window as unknown as {lastScope?: unknown}).lastScope !== undefined);
+  const retired = (await page.evaluate(
+    () => (window as unknown as {lastScope: {repository: string; issues: unknown[]}}).lastScope
+  )) as {repository: string; issues: unknown[]};
+  assert.equal(retired.repository, '');
+  assert.deepEqual(retired.issues, []);
+  await page.waitForFunction(() => {
+    const text = (tag: string) => document.querySelector(tag)?.textContent ?? '';
+    return (
+      !text('soda-factory-work-overview').includes('Let a team track demo work.') &&
+      text('soda-factory-work-plan') === '' &&
+      text('soda-factory-work-detail') === '' &&
+      text('soda-factory-direction-revision').includes('No planning allowance recorded.')
+    );
+  });
+  assert.equal(await page.locator('soda-factory-work-plan').textContent(), '');
+  assert.equal(await page.locator('soda-factory-work-detail').textContent(), '');
+});

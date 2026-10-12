@@ -50,6 +50,9 @@ import {
   describeWhyNext,
   describeWorkOverview,
   intentGeneration,
+  overviewScopeFromBound,
+  overviewScopeFromMappings,
+  retiredOverviewScope,
   renderAccessStanding,
   renderAllowance,
   renderDirectionRevision,
@@ -66,6 +69,7 @@ import type {
   LifecycleEffectInput,
   LifecycleEventKind,
   LifecycleEffectModel,
+  OverviewScope,
   RecordedChoiceModel,
   RecordedPlanModel,
   RequestOverviewModel,
@@ -179,6 +183,7 @@ export class SodaFactoryWorkOverview extends LitElement {
   declare private message: string;
   declare private busy: boolean;
   private current: WorkOverviewContext | undefined;
+  private scope: OverviewScope;
   private serial = 0;
   protected createRenderRoot() {
     return this;
@@ -187,6 +192,14 @@ export class SodaFactoryWorkOverview extends LitElement {
     super();
     this.message = '';
     this.busy = false;
+    this.scope = retiredOverviewScope();
+  }
+  // boundScope is the last published child-view feed: the read keys
+  // in use plus the bound work items. Composers derive plan, detail
+  // and revision contexts from it; soda-factory-overview-scope
+  // notifies every publication, including retirement.
+  get boundScope(): OverviewScope {
+    return this.scope;
   }
   set context(context: WorkOverviewContext | undefined) {
     if (sameOverview(context, this.current)) return;
@@ -196,6 +209,7 @@ export class SodaFactoryWorkOverview extends LitElement {
     this.request = undefined;
     this.message = '';
     this.busy = false;
+    this.publishScope(retiredOverviewScope());
     if (context) void this.load();
   }
   disconnectedCallback() {
@@ -205,6 +219,18 @@ export class SodaFactoryWorkOverview extends LitElement {
   }
   refresh() {
     return this.load();
+  }
+  private publishScope(scope: OverviewScope) {
+    this.scope = scope;
+    this.dispatchEvent(new CustomEvent('soda-factory-overview-scope', {bubbles: true, composed: true, detail: scope}));
+  }
+  private async applyFallback(context: WorkOverviewContext, serial: number): Promise<void> {
+    const overview = await readOverview(context);
+    if (serial !== this.serial) return;
+    this.request = undefined;
+    this.model = overview.model;
+    this.message = '';
+    this.publishScope(overview.scope);
   }
   private async load() {
     const context = this.current;
@@ -218,14 +244,15 @@ export class SodaFactoryWorkOverview extends LitElement {
         this.request = request;
         this.model = undefined;
         this.message = '';
+        this.publishScope(overviewScopeFromMappings(request.mappings, context.repository, context.intentID));
       } else {
-        this.request = undefined;
-        this.model = await readOverview(context);
-        this.message = '';
+        await this.applyFallback(context, serial);
       }
     } catch (error) {
-      if (serial === this.serial)
+      if (serial === this.serial) {
         this.message = error instanceof Error ? error.message : 'Work overview is unavailable.';
+        this.publishScope(overviewScopeFromBound([], context.repository, context.intentID));
+      }
     } finally {
       if (serial === this.serial) this.busy = false;
     }
@@ -338,22 +365,25 @@ async function readRequestOverview(context: WorkOverviewContext): Promise<Reques
   }
 }
 
-async function readOverview(context: WorkOverviewContext) {
+async function readOverview(context: WorkOverviewContext): Promise<{model: WorkOverviewModel; scope: OverviewScope}> {
   const {revision, state: intentState} = await readOverviewRevision(context);
   const {generation, state: generationState} = await readOverviewGeneration(context, revision);
   const {summary, state: summaryState} = await readOverviewSummary(context);
   const {issues, unread} = await readOverviewIssues(context, generation);
-  return describeWorkOverview({
-    ...(revision === undefined ? {} : {revision}),
-    ...(generation === undefined ? {} : {generation}),
-    ...(summary === undefined ? {} : {summary}),
-    issues,
-    unreadIssues: unread,
-    repositoryPath: context.repositoryPath,
-    intentState,
-    generationState,
-    summaryState,
-  });
+  return {
+    model: describeWorkOverview({
+      ...(revision === undefined ? {} : {revision}),
+      ...(generation === undefined ? {} : {generation}),
+      ...(summary === undefined ? {} : {summary}),
+      issues,
+      unreadIssues: unread,
+      repositoryPath: context.repositoryPath,
+      intentState,
+      generationState,
+      summaryState,
+    }),
+    scope: overviewScopeFromBound(issues, context.repository, context.intentID),
+  };
 }
 
 export interface WorkPlanContext {

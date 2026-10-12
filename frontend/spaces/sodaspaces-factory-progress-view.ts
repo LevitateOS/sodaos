@@ -4,9 +4,20 @@ import {check, object} from './sodaspaces-api.js';
 import {decisionID} from './sodaspaces-intent-response.js';
 import type {IntentRevision} from './sodaspaces-intent-response.js';
 import {activityTimestamp} from './sodaspaces-factory-activity.js';
-import type {FactoryIssueDetail, FactoryRepositorySummary} from './sodaspaces-factory-work-response.js';
-import {describeIssueDetail, nativeIssueLink, nativePullLink} from './sodaspaces-factory-work-view.js';
+import type {
+  FactoryIssueDetail,
+  FactoryRepositorySummary,
+  WorkCapabilities,
+} from './sodaspaces-factory-work-response.js';
+import {
+  describeIssueDetail,
+  nativeIssueLink,
+  nativePullLink,
+  upfrontCapabilities,
+} from './sodaspaces-factory-work-view.js';
 import type {DeliveryState} from './sodaspaces-factory-work-view.js';
+import type {PreparedExtensionMount} from './soda-extension.js';
+import type {DirectionRevisionContext, WorkDetailContext, WorkPlanContext} from './sodaspaces-factory-work.js';
 import type {
   AccessPlanningEntry,
   FactoryAccess,
@@ -532,6 +543,101 @@ export function describeRequestOverview(view: RequestOverview, repositoryPath: s
         : `${view.work_items.outcomes_evidenced} of ${view.work_items.outcomes_total} accepted product outcomes evidenced.`,
     observedText: observed ? `Observed ${observed.text}.` : 'Observation time unknown.',
   };
+}
+
+// OverviewScope is the child-view feed the reached overview
+// publishes: the read keys it used plus the bound work items with
+// the capabilities from its own issue reads, when it read them.
+// A retired scope carries repository '' and no issues.
+export interface OverviewScopeIssue {
+  readonly issue: string;
+  readonly capabilities?: WorkCapabilities;
+}
+export interface OverviewScope {
+  readonly repository: string;
+  readonly intentID?: string;
+  readonly issues: readonly OverviewScopeIssue[];
+}
+// overviewScopeFromMappings feeds scope from H-R request mappings:
+// effective mappings only; capabilities stay unknown (the overview
+// route reads no per-issue capabilities).
+export function overviewScopeFromMappings(
+  mappings: readonly RequestMappingRow[],
+  repository: string,
+  intentID?: string
+): OverviewScope {
+  return {
+    repository,
+    ...(intentID === undefined ? {} : {intentID}),
+    issues: mappings.filter((row) => row.effective).map((row) => ({issue: row.issue})),
+  };
+}
+// overviewScopeFromBound feeds scope from composed fallback reads:
+// every issue the overview read, with the capabilities it saw.
+export function overviewScopeFromBound(
+  details: readonly FactoryIssueDetail[],
+  repository: string,
+  intentID?: string
+): OverviewScope {
+  return {
+    repository,
+    ...(intentID === undefined ? {} : {intentID}),
+    issues: details.map((detail) => ({issue: detail.issue, capabilities: detail.capabilities})),
+  };
+}
+export function retiredOverviewScope(): OverviewScope {
+  return {repository: '', issues: []};
+}
+// planContextFromScope builds the plan context over every scoped
+// issue. An empty scope yields an empty plan, never a guess.
+export function planContextFromScope(
+  transport: PreparedExtensionMount,
+  repository: string,
+  repositoryPath: string,
+  scope: OverviewScope
+): WorkPlanContext {
+  return {transport, repository, repositoryPath, issues: scope.issues.map((entry) => entry.issue)};
+}
+export interface DetailScopeRuns {
+  readonly runIDs: string[];
+  readonly runID?: string;
+  readonly projectID?: string;
+  readonly environmentID?: string;
+}
+// detailContextFromScope builds one issue's detail context. Issue
+// selection stays with the composer; capabilities come from the
+// scope when the overview read that issue, else stay permissive
+// until the detail's own read lands.
+export function detailContextFromScope(
+  transport: PreparedExtensionMount,
+  repository: string,
+  repositoryPath: string,
+  scope: OverviewScope,
+  issue: string,
+  runs: DetailScopeRuns
+): WorkDetailContext {
+  const known = scope.issues.find((entry) => entry.issue === issue)?.capabilities;
+  return {
+    transport,
+    repository,
+    repositoryPath,
+    issue,
+    runIDs: runs.runIDs,
+    capabilities: upfrontCapabilities(known, runs.environmentID !== undefined),
+    ...(runs.runID === undefined ? {} : {runID: runs.runID}),
+    ...(runs.projectID === undefined ? {} : {projectID: runs.projectID}),
+    ...(runs.environmentID === undefined ? {} : {environmentID: runs.environmentID}),
+  };
+}
+// revisionContextFromScope builds the direction-revision context.
+// Without an intent the revision has no read key: undefined means
+// do not mount.
+export function revisionContextFromScope(
+  transport: PreparedExtensionMount,
+  scope: OverviewScope
+): DirectionRevisionContext | undefined {
+  if (scope.intentID === undefined) return undefined;
+  return {transport, intentID: scope.intentID};
 }
 
 export function renderRequestOverview(model: RequestOverviewModel): TemplateResult {
