@@ -83,7 +83,7 @@ for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const)
     );
     assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   });
-test('first use: keyboard selection, Back and Change retain the repository without writes', async (t) => {
+test('first use: keyboard selection and post-commit Change inspects without writes', async (t) => {
   const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await reviewFirstIntent(page);
@@ -98,11 +98,20 @@ test('first use: keyboard selection, Back and Change retain the repository witho
   await page.getByRole('button', {name: 'Continue', exact: true}).focus();
   await page.keyboard.press('Enter');
   await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  const committed = await page.evaluate(() => window.location.pathname);
   await page.getByRole('button', {name: 'Change repository', exact: true}).click();
-  assert(await page.getByRole('radio', {name: /alice\/Alpha/}).isChecked());
-  await page.getByRole('button', {name: 'Continue', exact: true}).click();
-  await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
-  await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
+  await page.waitForFunction(() => {
+    const intent = document.querySelector('soda-intent');
+    const h2 = Array.from(intent?.shadowRoot?.querySelectorAll('h2') || []).find(
+      (h) => h.textContent?.trim() === 'Review your product direction'
+    );
+    if (!h2) return false;
+    const r = h2.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && getComputedStyle(h2).visibility === 'visible';
+  });
+  assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
+  assert.equal(await page.evaluate(() => window.location.pathname), committed);
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
   assert.equal(
     await page.evaluate(
@@ -110,6 +119,16 @@ test('first use: keyboard selection, Back and Change retain the repository witho
     ),
     0
   );
+});
+test('first use: picker Back preserves the reviewed direction', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  await page.locator('.soda-setup-actions').getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
+  assert(await page.getByRole('button', {name: 'Choose repository', exact: true}).isEnabled());
 });
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
