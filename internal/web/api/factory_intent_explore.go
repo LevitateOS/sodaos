@@ -100,8 +100,11 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	proposal.CreatedUnix = time.Now().Unix()
 	// Product exploration uses explicitly bounded consultation credit, distinct
 	// from execution funding. Failure remains visible and creates no acceptance.
-	chooser := control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
-	coord := &control.Coordinator{Store: s.Store, Planning: &control.PlanningJudgments{Chooser: &chooser}}
+	judge := s.IntentExploreChooser
+	if judge == nil {
+		judge = &control.TypeSafePriority{APIKeyFile: s.Config.TypeSafeAPIKeyFile, Model: s.Config.TypeSafeModel}
+	}
+	coord := &control.Coordinator{Store: s.Store, Planning: &control.PlanningJudgments{Chooser: judge}}
 	candidates := intentDesignCandidates(current)
 	design := current
 	design.ID = ""
@@ -129,6 +132,10 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 		},
 	})
 	if callErr != nil {
+		if errors.Is(callErr, store.ErrPlanningAllowanceExhausted) {
+			auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+			return
+		}
 		if errors.Is(callErr, control.ErrPriorityUnavailable) {
 			auth.JSONError(w, 503, "planning_unavailable", "Design consultation failed; the consumed allowance is retained.")
 			return
@@ -143,6 +150,10 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	}
 	review, err := coord.JudgeAssumptions(r.Context(), current, content, proposal.Ideas)
 	if err != nil {
+		if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
+			auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+			return
+		}
 		if errors.Is(err, control.ErrPriorityUnavailable) {
 			auth.JSONError(w, 503, "planning_unavailable", "Assumption review failed; the consumed allowance is retained.")
 			return
@@ -155,6 +166,10 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if content.Supported {
 		consolidated, err := coord.JudgeConsolidation(r.Context(), current, content)
 		if err != nil {
+			if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
+				auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+				return
+			}
 			if errors.Is(err, control.ErrPriorityUnavailable) {
 				auth.JSONError(w, 503, "planning_unavailable", "Consolidation failed; the consumed allowance is retained.")
 				return
@@ -168,6 +183,10 @@ func (s *API) apiIntentExplore(w http.ResponseWriter, r *http.Request, v store.S
 	if recommendation != nil {
 		verified, err := coord.JudgeConsistency(r.Context(), current, content, *recommendation)
 		if err != nil {
+			if errors.Is(err, store.ErrPlanningAllowanceExhausted) {
+				auth.JSONError(w, 409, "planning_funding_required", "Authorize a finite planning call allowance before exploration.")
+				return
+			}
 			if errors.Is(err, control.ErrPriorityUnavailable) {
 				auth.JSONError(w, 503, "planning_unavailable", "Consistency review failed; the consumed allowance is retained.")
 				return

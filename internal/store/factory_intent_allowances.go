@@ -9,6 +9,12 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+// ErrPlanningAllowanceExhausted reports a reservation refusal for missing or
+// fully consumed intent allowance funding. Duplicate snapshots and the
+// operator global ceiling still refuse as (false, nil); stale heads and
+// storage faults return their own errors.
+var ErrPlanningAllowanceExhausted = errors.New("planning allowance exhausted")
+
 // SavePlanningAllowance serializes independent allowance revisions with
 // current-head CAS. Intent, owner and unit are immutable; consumption is
 // cumulative and never decreases. Raising Amount alone preserves effective

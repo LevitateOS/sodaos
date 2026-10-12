@@ -168,7 +168,7 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 	})
 	record := factory.PlanningRecord{Snapshot: snapshot, Input: input, Provisional: provisional, CreatedUnix: time.Now().Unix()}
 	if err != nil {
-		if !errors.Is(err, ErrPriorityUnavailable) {
+		if !errors.Is(err, ErrPriorityUnavailable) && !errors.Is(err, store.ErrPlanningAllowanceExhausted) {
 			return err
 		}
 		failed, lookupErr := planningCallFailed(ctx, c.Planning.Funding, input, choices)
