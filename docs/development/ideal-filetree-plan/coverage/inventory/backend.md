@@ -1,5 +1,7 @@
 # Tracked files: internal
 
+Scoped saved-review delta at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): five added paths retain F05 domain/Store/API ownership. Existing mixed files add atomic head-save reuse, review table/version validation, Explore persistence and owner-private review reads. Historical body/selector rows remain separately pinned.
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
@@ -10,6 +12,11 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
+| [internal/factory/intent_review.go](../../../../../internal/factory/intent_review.go) | program source | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / retained | Saved-review basis/result validity, atomic private persistence or effect-free exact reads at the existing defining package; source review at `cb8492909eef64718103940f733a13bcfe5b9b97`. |
+| [internal/factory/intent_review_test.go](../../../../../internal/factory/intent_review_test.go) | test source | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / retained | Saved-review basis/result validity, atomic private persistence or effect-free exact reads at the existing defining package; source review at `cb8492909eef64718103940f733a13bcfe5b9b97`. |
+| [internal/store/factory_intent_reviews.go](../../../../../internal/store/factory_intent_reviews.go) | program source | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / retained | Saved-review basis/result validity, atomic private persistence or effect-free exact reads at the existing defining package; source review at `cb8492909eef64718103940f733a13bcfe5b9b97`. |
+| [internal/store/factory_intent_reviews_test.go](../../../../../internal/store/factory_intent_reviews_test.go) | test source | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / retained | Saved-review basis/result validity, atomic private persistence or effect-free exact reads at the existing defining package; source review at `cb8492909eef64718103940f733a13bcfe5b9b97`. |
+| [internal/web/api/factory_intent_review_test.go](../../../../../internal/web/api/factory_intent_review_test.go) | test source | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / retained | Saved-review basis/result validity, atomic private persistence or effect-free exact reads at the existing defining package; source review at `cb8492909eef64718103940f733a13bcfe5b9b97`. |
 | Former `internal/acceptance/command.go` |  | obsolete | Former path at 519b76bd; no current source coverage implied. |
 | [internal/acceptance/README.md](../../../../../internal/acceptance/README.md) | package guide | [D06](../../slices/release-and-installation.md#d06-installed-qualification) / retained | Package guide for this retained owner: current entrypoints, responsibilities and contract guidance. Selective path addition at `c8a53fdb`; historical body and native receipts retain their scope. |
 | [internal/acceptance/developer_access.go](../../../../../internal/acceptance/developer_access.go) | program source | [D06](../../slices/release-and-installation.md#d06-installed-qualification) / retained | [current units](../maps/backend-acceptance.md#coverage-20cae505bccf) |

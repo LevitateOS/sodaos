@@ -2,10 +2,22 @@
 
 ## Native correction target delta
 
-Source `082beb863a1108b11765ee106852ed56600007bc` adds only the two local settings fixture/test
-leaves shown below. Their existing S05/H06 owners are retained; the historical
-complete-tree baseline/count below is not a new full census. The emitted asset
-builder remains D03/H05 and local settings CSS remains S05.
+Source `8fd38912bf3bed4287387d482e96f7e0fb0e4776` adds ten paths across the settings, saved-review
+and emitted-color corrections. Each follows the existing defining owner; this
+scoped allocation does not advance the historical complete-tree census.
+
+| Added target | Defining responsibility |
+| --- | --- |
+| `internal/factory/intent_review.go` | F05 saved-review validity; retained Go domain package/path |
+| `internal/factory/intent_review_test.go` | F05 saved-review validity; retained Go domain package/path |
+| `internal/store/factory_intent_reviews.go` | F05 private atomic review rows; retained Go Store package/path |
+| `internal/store/factory_intent_reviews_test.go` | F05 private atomic review rows; retained Go Store package/path |
+| `internal/web/api/factory_intent_review_test.go` | F05 private review API check; retained Go API package/path |
+| `tests/frontend/fixtures/saved-review.ts` | F05 saved-review parser check; retained browser test path |
+| `tests/frontend/intent-review.test.ts` | F05 saved-review parser check; retained browser test path |
+| `tests/frontend/fixtures/settings-geometry-driver.ts` | S05/H06 local geometry check; retained at this existing package/path |
+| `tests/frontend/settings-geometry.test.ts` | S05/H06 local geometry check; retained at this existing package/path |
+| `tests/forgejo/emitted-colors-browser.test.ts` | H05/H06 emitted branding check; retained at this existing package/path |
 
 ## Complete proposed tree
 
