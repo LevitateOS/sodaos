@@ -583,14 +583,20 @@ function lifecycleAction(value: unknown, issue: string, event: string): Lifecycl
   check(typeof raw.id === 'string' && raw.id.length >= 1 && raw.id.length <= 128);
   check(raw.event === event && lifecycleEvents.includes(event));
   check(typeof raw.action === 'string' && raw.action === lifecycleActions[event]);
-  check(id(raw.actor_id) && raw.issue_id === issue);
+  check(raw.issue_id === issue);
   check(typeof raw.attempts === 'number' && Number.isSafeInteger(raw.attempts) && raw.attempts >= 0);
+  // Unclaimed rows (no attempt yet) carry actor_id "0": the drain
+  // claims the enrolled submitter before the first attempt. Claimed
+  // rows always carry the enrolled actor.
+  const actor = raw.actor_id;
+  if (raw.attempts === 0) check(decimalID(actor));
+  else check(id(actor));
   check(typeof raw.revoked === 'boolean' && typeof raw.settled === 'boolean');
   return {
     id: raw.id,
     event,
     action: raw.action,
-    actor_id: raw.actor_id,
+    actor_id: actor,
     issue_id: issue,
     attempts: raw.attempts,
     max_attempts: counter(raw.max_attempts),

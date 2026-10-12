@@ -417,6 +417,51 @@ test('lifecycle actions bind attempts, revocation and per-target results', () =>
     assert.throws(() => lifecycleEffectActions({actions: [action]}, '12', 'verified_merge'));
 });
 
+test('lifecycle actions admit unclaimed rows and require a claimed actor', () => {
+  const unclaimed = lifecycleEffectActions(
+    {
+      actions: [
+        {
+          id: 'op-9',
+          event: 'issue_created',
+          action: 'issue_label_assignee',
+          actor_id: '0',
+          issue_id: '12',
+          attempts: 0,
+          max_attempts: 2,
+          revoked: false,
+          settled: false,
+        },
+      ],
+    },
+    '12',
+    'issue_created'
+  );
+  assert.equal(unclaimed.length, 1);
+  assert.equal(unclaimed[0]?.actor_id, '0');
+  assert.throws(() =>
+    lifecycleEffectActions(
+      {
+        actions: [
+          {
+            id: 'op-9',
+            event: 'issue_created',
+            action: 'issue_label_assignee',
+            actor_id: '0',
+            issue_id: '12',
+            attempts: 1,
+            max_attempts: 2,
+            revoked: false,
+            settled: false,
+          },
+        ],
+      },
+      '12',
+      'issue_created'
+    )
+  );
+});
+
 test('masked foreign choices stay visible without enumeration', () => {
   const parsed = issuePlan(
     {

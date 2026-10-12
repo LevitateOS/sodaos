@@ -703,10 +703,10 @@ function lifecycleResultLine(action: LifecycleEffectAction): string {
   const settled = action.settled ? ', settled' : '';
   return `Action ${action.id.slice(0, 8)} on issue #${action.issue_id}: ${action.attempts}/${action.max_attempts} attempts${revoked}${settled}. ${outcomes}.`;
 }
-// describeLifecycleEffect gates one optional effect on its own native
-// capability proof. Unproved effects stay unavailable with no
-// configuration shown; configured effects name their exact actor,
-// targets and per-target results.
+// describeLifecycleEffect gates one optional effect on its own runnable
+// capability (native proof plus a configured executor). Unrunnable
+// effects stay unavailable with no configuration shown; configured
+// effects name their exact actor, targets and per-target results.
 export function describeLifecycleEffect(
   event: LifecycleEventKind,
   config: LifecycleEffectConfig | undefined,
@@ -727,7 +727,7 @@ export function describeLifecycleEffect(
     return {
       event,
       title: lifecycleTitles[event],
-      stateText: 'Unavailable: its native capability checkpoint has not passed.',
+      stateText: 'Unavailable: its native capability is not runnable yet.',
       configText: '',
       resultsText: actions.map(lifecycleResultLine),
       canConfigure: false,
