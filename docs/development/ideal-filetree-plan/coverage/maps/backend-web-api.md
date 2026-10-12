@@ -516,6 +516,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–16; file scaffold | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 17–74, 85–103; factoryPrincipal; factoryCommandError; factoryRepository; factoryOwner; settingsCommandID; actorRefRequest; resolve | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Current declaration duty: factoryPrincipal; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 31–32; factoryCommandError decomposition-refusal mapping | [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) | retained | Delta at `79b4a524` (I/1b8e): ErrIntentDecompositionReview maps to 409 intent_review_required with saved-but-reconsider wording. Prior rows retain their pinned scope. |
 | 75–84; factoryOperator | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current declaration duty: factoryOperator — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
 <a id="coverage-0736ad08057a"></a>
@@ -689,6 +690,7 @@ Delta duty inspection at `93fb3513`. Q05 accept/generate commitment bridge test:
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–255; file scaffold; q05KeepChooser; Select; q05Graph; CheckIntentOwner; SubmitGraph; LookupGraph; CancelGraph; ReadGeneratedIssue; ReadAcceptanceEvidence; TestAcceptGenerateCommitmentBridge | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 10 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 282–336; TestGenerateDecompositionRefusalNeedsReview | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `79b4a524` (I/1b8e): refused generate reports 409 through the real mux with no graph submit, accepted head retained and generation pending — Current source block and named test consumer inspected in internal/web/api/q05_accept_generate_commitment_test.go. |
 
 <a id="coverage-1700837915c5"></a>
 

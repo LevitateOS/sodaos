@@ -361,6 +361,7 @@ Delta duty inspection at `93fb3513`. Intent creation/review/resume element (U01�
 | 702–743; decidedIdea; correctProposal | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `93fb3513`: human-provenance stamp plus client-side edit ideas; mounter must supply the verified actor, server rejects forged attribution (OCR-11). |
 | 278, 749, 771, 784, 789; shadowRoot queries | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `93fb3513`: shadow-DOM element vs factory-work.ts light-DOM roots (OCR-9 consistency note). |
 | 202–203, 266–267, 439–440, 592–645; raiseCalls; fundingNote; refreshAllowance; allowanceUsed; postRaiseAllowance; raise | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `39d9ad6a` (U06/06e6): review-only allowance top-up with fresh usage read; 412 CAS retry posts fresh, unchanged raises post nothing. Prior rows retain their pinned scope. |
+| 1003–1004; generationFailure intent_review_required branch | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `79b4a524` (U/8682): decided-refusal wording names review refusal distinctly; no retry language, no clearing. Prior rows retain their pinned scope. |
 <a id="coverage-710172173a87"></a>
 
 ## [frontend/spaces/sodaspaces-inventory-response.ts](../../../../../frontend/spaces/sodaspaces-inventory-response.ts)

@@ -115,6 +115,12 @@ the one canon pin only: effectiveDecompositionScope projection with
 triplet/options call sites and 2 regression tests. Structural/body/
 review pins and the integrated packet stand unchanged.
 
+I/U duty delta at `79b4a524` (2026-10-12), incremental from
+`46848018`: 0 added, 4 modified, 0 deleted outside this plan. Records
+the two canon pins only: I 409 review-refusal mapping with bridge
+test, and U decided-refusal wording with regression. Structural/body/
+review pins and the integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
