@@ -51,6 +51,13 @@ unchanged and historical structural/body/full-review pins are untouched.
 C Watch/actions wiring was still underway at this pin, so only committed
 duties are recorded; its callnames join a later delta when published.
 
+Settled duty delta at `a835c02d` (2026-10-12), incremental from
+`deb79186`: 0 added, 9 modified, 0 deleted outside this plan. Records the
+now-published C46ee Watch/target/reactive callnames and the L8ade remap
+duties, with L484 self-bind descriptions superseded in place and kept as
+history. Structural/body/full-review pins and the integrated packet stand
+unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
