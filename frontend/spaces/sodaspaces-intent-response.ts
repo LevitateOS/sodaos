@@ -46,6 +46,12 @@ export interface ProposalAlternative {
   evidence?: string;
   outcomes: string[];
 }
+export interface Exclusion {
+  idea: string;
+  description: string;
+  consequence: string;
+  provenance?: 'human' | 'autonomous';
+}
 export interface ProposalContent {
   producer: string;
   supported: boolean;
@@ -55,6 +61,7 @@ export interface ProposalContent {
   facts?: string[];
   alternatives?: ProposalAlternative[];
   excluded?: string[];
+  exclusions?: Exclusion[];
   unknowns: string[];
 }
 export interface IntentRevision {
@@ -147,6 +154,8 @@ export interface SavedRequest {
 }
 export const decisionID = (value: unknown): value is string =>
   typeof value === 'string' && /^d[0-9a-f]{24}$/.test(value);
+const digest = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+const authoredProducer = 'soda-authored-v1';
 function text(value: unknown, limit: number): string {
   check(typeof value === 'string' && value.trim() && value.length <= limit && !value.includes('\0'));
   return value;
@@ -373,8 +382,35 @@ export function proposalContent(value: unknown): ProposalContent {
   proposalBinding(raw, out);
   const alternatives = proposalAlternatives(raw, raw.supported);
   if (alternatives) out.alternatives = alternatives;
-  if (raw.excluded !== undefined) out.excluded = excludedIDs(raw);
+  const excluded = raw.excluded !== undefined ? excludedIDs(raw) : undefined;
+  if (excluded) out.excluded = excluded;
+  const meanings = proposalExclusions(raw, excluded);
+  if (meanings) out.exclusions = meanings;
   return out;
+}
+function exclusion(value: unknown): Exclusion {
+  const raw = object(value);
+  check(decisionID(raw.idea));
+  const out: Exclusion = {
+    idea: raw.idea,
+    description: text(raw.description, 4000),
+    consequence: text(raw.consequence, 4000),
+  };
+  if (raw.provenance !== undefined) {
+    check(raw.provenance === 'human' || raw.provenance === 'autonomous');
+    out.provenance = raw.provenance as 'human' | 'autonomous';
+  }
+  return out;
+}
+function proposalExclusions(raw: Record<string, unknown>, excluded: string[] | undefined): Exclusion[] | undefined {
+  if (raw.exclusions === undefined) {
+    check(excluded === undefined || excluded.length === 0);
+    return undefined;
+  }
+  const meanings = array(raw.exclusions, 50).map(exclusion);
+  check(excluded !== undefined && meanings.length === excluded.length);
+  meanings.forEach((meaning, index) => check(meaning.idea === excluded[index]));
+  return meanings;
 }
 function challenge(value: unknown): AssumptionChallenge {
   const raw = object(value);
@@ -455,6 +491,80 @@ export function exploration(value: unknown): Exploration {
     out.recommendation = recommendation(raw.recommendation);
   if (raw.consistency !== undefined && raw.consistency !== null) out.consistency = consistency(raw.consistency);
   return out;
+}
+export interface SavedReview extends Exploration {
+  intent: string;
+  basis_revision: string;
+  result_revision: string;
+  saved_unix: number;
+}
+export interface SavedReviewRead {
+  intent: string;
+  head_revision: string;
+  status: 'current' | 'stale' | 'missing';
+  review?: SavedReview;
+}
+function reviewBindings(raw: Record<string, unknown>, payload: Exploration) {
+  check(payload.content.intent === raw.intent && payload.content.revision === raw.basis_revision);
+  if (payload.recommendation) {
+    check(payload.recommendation.producer === authoredProducer);
+    check(payload.recommendation.intent === raw.intent && payload.recommendation.revision === raw.basis_revision);
+    check(digest(payload.recommendation.advice));
+  }
+  if (payload.consistency) {
+    check(payload.consistency.producer === authoredProducer);
+    check(payload.consistency.intent === raw.intent && payload.consistency.revision === raw.basis_revision);
+    check(digest(payload.consistency.advice));
+  }
+}
+function reviewContentShape(payload: Exploration) {
+  check(payload.content.producer === authoredProducer);
+  const objective = payload.content.objective;
+  const facts = payload.content.facts;
+  check(objective !== undefined && facts !== undefined && facts.length > 0 && facts[0] === objective);
+}
+function reviewVerdicts(payload: Exploration) {
+  const verdicts = new Set<string>();
+  for (const entry of payload.challenges) {
+    check(!verdicts.has(entry.idea));
+    verdicts.add(entry.idea);
+  }
+  for (const id of payload.settled) {
+    check(!verdicts.has(id));
+    verdicts.add(id);
+  }
+}
+export function savedReview(value: unknown): SavedReview {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.basis_revision) && decisionID(raw.result_revision));
+  check(raw.basis_revision !== raw.result_revision);
+  const payload = exploration(value);
+  reviewBindings(raw, payload);
+  reviewContentShape(payload);
+  reviewVerdicts(payload);
+  const saved = count(raw.saved_unix);
+  check(saved > 0);
+  return {
+    intent: raw.intent,
+    basis_revision: raw.basis_revision,
+    result_revision: raw.result_revision,
+    saved_unix: saved,
+    ...payload,
+  };
+}
+export function savedReviewRead(value: unknown): SavedReviewRead {
+  const raw = object(value);
+  check(decisionID(raw.intent) && decisionID(raw.head_revision));
+  check(raw.status === 'current' || raw.status === 'stale' || raw.status === 'missing');
+  if (raw.status === 'missing') {
+    check(raw.review === undefined || raw.review === null);
+    return {intent: raw.intent, head_revision: raw.head_revision, status: 'missing'};
+  }
+  const review = savedReview(raw.review);
+  check(review.intent === raw.intent);
+  const status = raw.status as SavedReviewRead['status'];
+  check(status === (raw.head_revision === review.result_revision ? 'current' : 'stale'));
+  return {intent: raw.intent, head_revision: raw.head_revision, status, review};
 }
 function references(raw: Record<string, unknown>) {
   if (raw.predecessor !== undefined) check(decisionID(raw.predecessor));
