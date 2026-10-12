@@ -109,6 +109,12 @@ New routing (committed-flag clear, stale/canRestore guard, shared
 newRouteCurrent helper, 2 regressions). C source settled at this pin.
 Structural/body/review pins and the integrated packet stand unchanged.
 
+S07 duty packet at `46848018` (2026-10-12), incremental from
+`71f79938`: 0 added, 2 modified, 0 deleted outside this plan. Records
+the one canon pin only: effectiveDecompositionScope projection with
+triplet/options call sites and 2 regression tests. Structural/body/
+review pins and the integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
