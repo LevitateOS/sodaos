@@ -50,7 +50,7 @@ export function setupTerminalDriver() {
         if (css) return new Response(Bun.file(path.join(root, css)), {headers: {'Content-Type': 'text/css'}});
         if (pathname !== '/') return new Response(null, {status: 404});
         return new Response(
-          '<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><button id="native">Native</button><div id="mount" style="display:flex;height:500px;width:800px"></div><script type="module" src="/assets/terminal-fixture.js"></script>',
+          '<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><button id="native">Native</button><div id="mount" style="display:flex;position:fixed;inset:0"></div><script type="module" src="/assets/terminal-fixture.js"></script>',
           {headers: {'Content-Type': 'text/html'}}
         );
       },
@@ -90,6 +90,14 @@ export async function opening(page: Page) {
 export async function ready(page: Page) {
   await opening(page);
   await page.evaluate(() => window.terminalFixture.ready());
+  // Mandatory actual renderer/socket assertions (NFX-I02): a preservation
+  // claim requires a live renderer and socket object, never a nullable pass.
+  const counts = await page.evaluate(() => ({
+    terms: window.terminalFixture.terms.length,
+    sockets: window.terminalFixture.sockets.length,
+  }));
+  assert(counts.terms >= 1, 'terminal preservation requires an actual renderer');
+  assert(counts.sockets >= 1, 'terminal preservation requires an actual socket');
 }
 export async function end(page: Page) {
   await action(page, 'End terminal…');
