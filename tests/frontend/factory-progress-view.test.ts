@@ -507,6 +507,7 @@ test('lifecycle effects gate on proof and name actor, targets and results', () =
     enabled: true,
     capable: true,
     actor_id: '1001',
+    submitter_id: '',
     repository_id: '7',
     reviewer_ids: ['11', '12'],
   };
@@ -551,10 +552,12 @@ test('lifecycle results name submitter, authorizer and distinct native target', 
     enabled: true,
     capable: true,
     actor_id: '1002',
+    submitter_id: '1001',
+    executor_ready: true,
     repository_id: '7',
     reviewer_ids: ['11', '12'],
   };
-  const model = describeLifecycleEffect('pr_created', config, 'ready', [
+  const actions = [
     {
       id: 'op-2',
       event: 'pr_created',
@@ -563,7 +566,7 @@ test('lifecycle results name submitter, authorizer and distinct native target', 
       issue_id: '12',
       target_id: '34',
       config_owner: '1002',
-      target_link: '/soda/progress/pulls/3',
+      pr_number: '3',
       attempts: 1,
       max_attempts: 2,
       revoked: false,
@@ -582,14 +585,25 @@ test('lifecycle results name submitter, authorizer and distinct native target', 
       settled: false,
       results: {},
     },
-  ]);
+  ];
+  const model = describeLifecycleEffect('pr_created', config, 'ready', actions, '/soda/progress');
   assert.match(model.configText, /Authorized by 1002/);
+  assert.match(model.configText, /Submitter 1001, executor ready/);
   assert.match(model.resultsText[0] ?? '', /Submitted by 1001, authorized by 1002/);
   assert.match(model.resultsText[0] ?? '', /on issue #12/);
   assert.match(model.resultsText[0] ?? '', /Native target 34/);
   assert.deepEqual(model.resultsLinks, ['/soda/progress/pulls/3', undefined]);
   assert.match(model.resultsText[1] ?? '', /Submitter unclaimed/);
   assert.match(model.resultsText[1] ?? '', /Native target unresolved/);
+  const unlinked = describeLifecycleEffect('pr_created', config, 'ready', actions);
+  assert.deepEqual(unlinked.resultsLinks, [undefined, undefined]);
+  const unknown = describeLifecycleEffect(
+    'pr_created',
+    {...config, submitter_id: '', executor_ready: false},
+    'ready',
+    []
+  );
+  assert.match(unknown.configText, /Submitter Unknown, executor not ready/);
 });
 
 test('each optional effect gates on its own native checkpoint', () => {
@@ -599,6 +613,7 @@ test('each optional effect gates on its own native checkpoint', () => {
     enabled: true,
     capable: true,
     actor_id: '1001',
+    submitter_id: '',
     repository_id: '7',
     reviewer_ids: ['11', '12'],
   };
