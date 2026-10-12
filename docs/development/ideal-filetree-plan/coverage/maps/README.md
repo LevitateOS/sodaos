@@ -19,23 +19,23 @@ removed predecessor records, with no obsolete bodies counted as current source.
 | [Appliance definitions](appliance-definitions.md) | 12 |
 | [Asset presentation and provenance](assets.md) | 6 |
 | [Backend acceptance](backend-acceptance.md) | 28 |
-| [Backend config](backend-config.md) | 7 |
-| [Backend factory](backend-factory.md) | 39 |
-| [Backend forgejo](backend-forgejo.md) | 43 |
+| [Backend config](backend-config.md) | 8 |
+| [Backend factory](backend-factory.md) | 66 |
+| [Backend forgejo](backend-forgejo.md) | 49 |
 | [Backend host](backend-host.md) | 18 |
 | [Backend identity](backend-identity.md) | 13 |
 | [Backend project](backend-project.md) | 20 |
-| [Backend store](backend-store.md) | 50 |
+| [Backend store](backend-store.md) | 66 |
 | [Backend tailnet](backend-tailnet.md) | 16 |
-| [Backend web api](backend-web-api.md) | 50 |
-| [Backend web auth and composition](backend-web-auth-and-composition.md) | 54 |
-| [Browser spaces](browser-spaces.md) | 60 |
+| [Backend web api](backend-web-api.md) | 68 |
+| [Backend web auth and composition](backend-web-auth-and-composition.md) | 55 |
+| [Browser spaces](browser-spaces.md) | 72 |
 | [Browser tailnet](browser-tailnet.md) | 8 |
 | [Developer scripts](developer-scripts.md) | 56 |
 | [Developer tools](developer-tools.md) | 13 |
 | [Documentation contracts](documentation-contracts.md) | 13 |
 | [Documentation development and design](documentation-development-and-design.md) | 42 |
-| [Factory control admission and dispatch](factory-control-admission-and-dispatch.md) | 70 |
+| [Factory control admission and dispatch](factory-control-admission-and-dispatch.md) | 94 |
 | [Factory control native fixtures](factory-control-native-fixtures.md) | 14 |
 | [Factory control publication and review](factory-control-publication-and-review.md) | 17 |
 | [Host factory runs](host-factory-runs.md) | 35 |
@@ -88,7 +88,7 @@ removed predecessor records, with no obsolete bodies counted as current source.
 | [Soda test vm](soda-test-vm.md) | 11 |
 | [Tests build](tests-build.md) | 28 |
 | [Tests forgejo](tests-forgejo.md) | 14 |
-| [Tests frontend](tests-frontend.md) | 15 |
+| [Tests frontend](tests-frontend.md) | 31 |
 | [Tests installed](tests-installed.md) | 13 |
 
 Former families with no current mapped paths retain their historical anchors: [Acceptance execution and evidence](acceptance-execution-and-evidence.md), [Installation operator enrollment](installation-operator-enrollment.md).

@@ -27,6 +27,16 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–81; file scaffold; acceptanceFixture; TestAcceptanceValidateAcceptsFullDecision; TestAcceptanceValidateRejectsBadShape; TestInitialAcceptanceIDIsStable | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 5 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-932c466fc918"></a>
+
+## [internal/factory/activity.go](../../../../../internal/factory/activity.go)
+
+Delta duty inspection at `93fb3513`. Activity feed domain (F05): independent settings, bounded items with observation/unknown timestamps, and the repository feed record with truncation flags. Rendered by the spaces feed element.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–42; file scaffold; ActivitySettings; DefaultActivitySettings; ActivityItem; ActivityItemBound; RepositoryActivity | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
 <a id="coverage-5fc5c16d0f9b"></a>
 
 ## [internal/factory/allowance.go](../../../../../internal/factory/allowance.go)
@@ -92,6 +102,26 @@ exact-blob current maintained map; full spans retained
 | 1–218; whole file; testPrompt; testAssignment; TestAssignmentValidate; TestAssignmentFinishRequiresResult; TestAssignmentResultExtendsRetainedValidation; TestParseHarnessResult; TestBuildDispatchPrompt | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Package/import/build-tag/embed/comment scaffolding for this file’s primary responsibility; 8 named units assigned here; remaining selectors preserve each duty — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 219–236; TestReservationAndUsageValidate | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Reservation/usage record validation assertions; declarations/fields: `TestReservationAndUsageValidate` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
+<a id="coverage-37069e35f412"></a>
+
+## [internal/factory/assumption_challenge.go](../../../../../internal/factory/assumption_challenge.go)
+
+Delta duty inspection at `93fb3513`. Assumption-challenge completion shapes (H-D): sourced resolution recommendations plus pending-match settlement and review records. Consumed by the walkthrough/challenge UI and the assumption settlement path.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–105; file scaffold; AssumptionChallenge; RecommendAssumptionResolution; Validate; AssumptionSettlement; AssumptionReview; Validate; SettleAssumptions | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 7 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-dd352ff539de"></a>
+
+## [internal/factory/assumption_challenge_test.go](../../../../../internal/factory/assumption_challenge_test.go)
+
+Delta duty inspection at `93fb3513`. Sourced-resolution and pending-match settlement tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–56; file scaffold; TestAssumptionChallengeRecommendsSourcedResolution; TestSettleAssumptionsAcceptsOnlyPendingMatches | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
 <a id="coverage-c86c75410883"></a>
 <a id="internalfactorychecksgo-1"></a>
 
@@ -133,6 +163,66 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–253; file scaffold; checkTargetFixture; adoptedChecksFixture; checkPolicyFixture; observedChecksFixture; verifyCheckVerdict; TestVerifyChecksPass; TestVerifyChecksWaitOnPendingOrMissing; TestVerifyChecksFailClosed; TestVerifyChecksWorstStateWins; TestVerifyChecksRefusals; TestVerifyChecksRejectsMalformedInputs; TestChecksDigestIgnoresOrder; TestCheckAssessmentValidation | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+
+<a id="coverage-bbbabad56f82"></a>
+
+## [internal/factory/consistency.go](../../../../../internal/factory/consistency.go)
+
+Delta duty inspection at `93fb3513`. Typed consistency verdicts (S06): four revision-bound mismatch classes with exclusion-meaning input; `unverified` defers to judgment rather than passing. Consumed by `JudgeConsistency` in control/consistency_advice.go.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–124; file scaffold; MismatchEffectAdded; MismatchOutcomeGap; MismatchSummaryDrift; MismatchUnverified; Mismatch; ConsistencyReport; effectPattern; shortQuote; exclusionNamingEffect; CheckProposalEffects; Validate | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 11 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-c9b14ff80c72"></a>
+
+## [internal/factory/consistency_test.go](../../../../../internal/factory/consistency_test.go)
+
+Delta duty inspection at `93fb3513`. Silent-addition, incidental-vocabulary, semantic-overlap and revision-binding tests for the effect check.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–91; file scaffold; TestCheckProposalEffectsCatchesSilentAdditions; TestCheckProposalEffectsIgnoresIncidentalVocabulary; TestCheckProposalEffectsDefersSemanticOverlapToJudgment; TestConsistencyReportBindsRevisionAndClasses | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-28446bcf1df9"></a>
+
+## [internal/factory/consolidation.go](../../../../../internal/factory/consolidation.go)
+
+Delta duty inspection at `93fb3513`. One coherent recommendation (S05): compared alternatives compose into a single proposal with ordered milestones carrying no dates or estimates; durable judgment fingerprint retained as Advice.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–116; file scaffold; Milestone; ConsolidatedProposal; ConsolidateContent; Validate | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-ba18e7fce3a3"></a>
+
+## [internal/factory/consolidation_test.go](../../../../../internal/factory/consolidation_test.go)
+
+Delta duty inspection at `93fb3513`. Direction/milestone preservation and unknown-recommendation refusal tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–74; file scaffold; supportedContent; TestConsolidateContentPreservesDirectionAndMilestones; TestConsolidateContentRejectsUnknownRecommendation | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 3 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-62b6542e1079"></a>
+
+## [internal/factory/decomposition_options.go](../../../../../internal/factory/decomposition_options.go)
+
+Delta duty inspection at `93fb3513`. Scoped split/combine decomposition candidates (S07): every candidate preserves accepted outcomes, idea bindings and bounds; only task boundaries and prerequisite edges move. Validated for cycles, outcome coverage and bounds; consumed before native submission.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–272; file scaffold; DecompositionCandidate; ScopedDecomposition; derivedTaskKey; shortLabel; outcomeMultiset; sameOutcomes; validCandidateGraph; DecompositionCandidates; splitCandidate; combineCandidate; equalStrings; Validate | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 12 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-3beea791335f"></a>
+
+## [internal/factory/decomposition_options_test.go](../../../../../internal/factory/decomposition_options_test.go)
+
+Delta duty inspection at `93fb3513`. Scope/bound preservation, duplicate-combination, keep-only and broken-graph rejection tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–96; file scaffold; multiOutcomeRevision; TestDecompositionCandidatesPreserveScopeAndBounds; TestDecompositionCandidatesCombineDuplicatedWork; TestDecompositionCandidatesKeepOnlyWithoutVariants; TestScopedDecompositionRejectsBrokenGraphs | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 
 <a id="coverage-938acb4cc9c3"></a>
 
@@ -204,6 +294,155 @@ exact-blob current maintained map; full spans retained
 | 105–143; TestEvaluateAuthority | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Composite dispatch authority assertions; declarations/fields: `TestEvaluateAuthority` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 144–153; TestWithdrawalValidation | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Withdrawal identity capture assertions; declarations/fields: `TestWithdrawalValidation` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 
+<a id="coverage-465489a74d70"></a>
+
+## [internal/factory/intent.go](../../../../../internal/factory/intent.go)
+
+Delta duty inspection at `93fb3513`. Accepted-intent domain (I01/F05): departments, product ideas, tasks and revisions with digest/validation; bounded private summaries and list filters. Independent roots preserved; unresolved/declined ideas and cycles refused.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–312; file scaffold; Department; Validate; ProductIdea; IntentTask; IntentRevision; intentText; Validate; Digest; IntentSummary; Summary; IntentListFilter; Validate | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 12 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-754c6971261b"></a>
+
+## [internal/factory/intent_allowance.go](../../../../../internal/factory/intent_allowance.go)
+
+Delta duty inspection at `93fb3513`. Independently revisioned finite consultation budget per intent (H-A): own predecessor CAS chain separate from intent revisions; Reserved holds in-flight calls, Consumed is cumulative including failures, Available is Amount minus both. No billing-unit conversion; execution funding stays separate. Persisted by Store factory_intent_allowances.go.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–63; file scaffold; PlanningAllowanceUnit; PlanningAllowance; Available; Validate | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-5eb46a48a5c1"></a>
+
+## [internal/factory/intent_allowance_test.go](../../../../../internal/factory/intent_allowance_test.go)
+
+Delta duty inspection at `93fb3513`. Allowance bounds and availability tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–31; file scaffold; validAllowance; TestPlanningAllowanceBoundsAndAvailability | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-dbc354f01738"></a>
+
+## [internal/factory/intent_alternatives.go](../../../../../internal/factory/intent_alternatives.go)
+
+Delta duty inspection at `93fb3513`. Bounded authored alternative producer (soda-authored-v1, S01): walkthrough branches/steps per objective family with honest unsupported-objective unknowns; tamper-evident AlternativeSet validation. Partial H-D; no generative-service replacement.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–246; file scaffold; AuthoredProducer; WalkthroughBranch; WalkthroughStep; ProductAlternative; AlternativeSet; alternativeFamilies; authoredAlternatives; authoredUnknowns; DescribeAlternatives; signalHits; Validate; Validate | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 12 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-2125e6c57aca"></a>
+
+## [internal/factory/intent_alternatives_test.go](../../../../../internal/factory/intent_alternatives_test.go)
+
+Delta duty inspection at `93fb3513`. Representative-objective coverage, honest-unsupported and tamper-rejection tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–74; file scaffold; TestDescribeAlternativesCoversRepresentativeObjectives; TestDescribeAlternativesReportsUnsupportedObjectivesHonestly; TestAlternativeSetRejectsTamperedContent | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 3 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-9c3473d465bb"></a>
+
+## [internal/factory/intent_delta.go](../../../../../internal/factory/intent_delta.go)
+
+Delta duty inspection at `93fb3513`. Scope movement between two revisions (I07 contract): reused keys keep native identities; changed keys edit in place while open and recreate once delivered; added keys create; removed keys retain records without authority. `Delivered` means closed-preserved, never merge proof. Consumed by the revision read (F04) and generation adoption.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–114; file scaffold; TaskDelta; sortedCopy; sameTaskContent; DiffIntentTasks | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-12ad68ad6ce4"></a>
+
+## [internal/factory/intent_delta_test.go](../../../../../internal/factory/intent_delta_test.go)
+
+Delta duty inspection at `93fb3513`. Reused/changed/added/removed separation test.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–31; file scaffold; TestDiffIntentTasksSeparatesReusedChangedAddedRemoved | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 1 named unit assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-225682d81c31"></a>
+
+## [internal/factory/intent_generation.go](../../../../../internal/factory/intent_generation.go)
+
+Delta duty inspection at `93fb3513`. Generation records (I07): immutable native-mutation record with submitted tasks and delivered subset, plus task bindings carrying native issue identities. Delivered means closed-preserved without mutation, never merge proof.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–49; file scaffold; DeliveredIssue; IntentGeneration; IntentTaskBinding | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 3 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-901e19bea1d4"></a>
+
+## [internal/factory/intent_proposal.go](../../../../../internal/factory/intent_proposal.go)
+
+Delta duty inspection at `93fb3513`. Baseline proposal builder: reviewed corrections and real dependencies shape the objective proposal within bounds; long objectives and review labels preserved.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–46; file scaffold; ProposeIntent; proposalObjective | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-012ccaa148a9"></a>
+
+## [internal/factory/intent_proposal_content.go](../../../../../internal/factory/intent_proposal_content.go)
+
+Delta duty inspection at `93fb3513`. Revision-bound walkthrough proposal content (full H-D, S03): objective/corrections, branches/visibility/consequences/unknowns and typed Exclusions preserving decline meanings and provenance.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–137; file scaffold; Exclusion; Validate; ProposalContent; ComposeProposalContent; Validate | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-da9da96c3de4"></a>
+
+## [internal/factory/intent_proposal_content_test.go](../../../../../internal/factory/intent_proposal_content_test.go)
+
+Delta duty inspection at `93fb3513`. Fact/choice/unknown binding, decline-meaning preservation, unsupported-objective and refusal tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–124; file scaffold; draftRevision; TestComposeProposalContentBindsFactsChoicesAndUnknowns; TestComposeProposalContentPreservesDeclineMeanings; TestComposeProposalContentHonorsUnsupportedObjectives; TestComposeProposalContentRefusesNondraftAndInvalidRevisions | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-dc4bb1039fab"></a>
+
+## [internal/factory/intent_proposal_test.go](../../../../../internal/factory/intent_proposal_test.go)
+
+Delta duty inspection at `93fb3513`. Correction/scope/baseline proposal tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–101; file scaffold; TestProposalUsesReviewedCorrectionsAndRealDependencies; TestProposalPreservesLongObjectiveAndBoundsReviewLabels; TestProposalBaselineCarriesAutonomousBasis; TestProposalApproachesKeepExactReviewedScope | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-8059af5425c6"></a>
+
+## [internal/factory/intent_test.go](../../../../../internal/factory/intent_test.go)
+
+Delta duty inspection at `93fb3513`. Acceptance, attribution, authorization, draft-state and summary/list-filter tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–181; file scaffold; validIntent; TestAcceptedIntentPreservesIndependentRoots; TestAcceptedIntentRejectsUnresolvedAndDeclinedIdeas; TestAcceptedIntentRejectsCyclesAndUnknownDependencies; TestIntentEditsAndBounds; TestAcceptedIntentAllowsUnrelatedPendingBranch; TestIntentRejectsForgedHumanAttribution; TestIntentRequiresEvidenceAndEffectiveAuthorization; TestIntentTerminalDraftStates; TestAcceptedWorkRequiresExplicitDecisionBasis; TestIntentSummaryAndListFilter | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 11 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-3842d671f549"></a>
+
+## [internal/factory/judgment.go](../../../../../internal/factory/judgment.go)
+
+Delta duty inspection at `93fb3513`. Judgment domain (S02/S09): observed-evidence priority candidates with receipts/snapshots plus the seven typed JudgmentPurposes and their semantic fingerprint binding every purpose.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–176; file scaffold; PriorityCandidate; PriorityRubric; PriorityRequest; PriorityAnswer; PriorityCall; PriorityReceipt; PrioritySnapshot; Validate; JudgmentPurpose; JudgmentProductApproaches; JudgmentAssumptions; JudgmentConsolidation; JudgmentDecomposition; JudgmentPlanningFreshness; JudgmentNextWork; JudgmentConsistency; JudgmentPurposes; valid; JudgmentFingerprint | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 19 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-a20f274a43d5"></a>
+
+## [internal/factory/judgment_test.go](../../../../../internal/factory/judgment_test.go)
+
+Delta duty inspection at `93fb3513`. Priority-answer and seven-purpose fingerprint tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–78; file scaffold; TestPriorityAnswerRejectsOmittedAndFabricatedChoices; TestJudgmentFingerprintBindsSevenPurposes | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 <a id="coverage-ad9ecd63bd81"></a>
 
 ## [internal/factory/lifecycle.go](../../../../../internal/factory/lifecycle.go)
@@ -214,6 +453,36 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–186; file scaffold; ValidRepositoryAction; ValidRunAction; RunStopOutcome; PauseReceipt; Validate; ResumeReceipt; RetryDecision; TakeoverRecord; StartVerification | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-e494e9e2847b"></a>
+
+## [internal/factory/lifecycle_action.go](../../../../../internal/factory/lifecycle_action.go)
+
+Delta duty inspection at `93fb3513`. Pure domain policy for the three optional native effects (L02/L03/L04): event/action pairing, per-target results, one attempt plus one retry after definitive no-effect, revocation stops, and completion-note gating on verified merge AND original closure; actor/read-key/executor corrective fields. Default workflow independent. Persisted by Store factory_lifecycle_actions.go; submitted via forgejo LifecycleWriter.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–402; file scaffold; LifecycleEventIssueCreated; LifecycleEventPRCreated; LifecycleEventVerifiedMerge; LifecycleActionIssueLabelAssignee; LifecycleActionPRReviewerRequest; LifecycleActionCompletionNote; MaxLifecycleReviewers; MaxCompletionNoteChars; MaxLifecycleAttempts; LifecycleResultPending; LifecycleResultDelivered; LifecycleResultFailed; LifecycleResultUncertain; LifecycleResultDenied; ErrLifecycleAction; LifecycleAction; ValidLifecycleEvent; EventAction; LifecycleKindIssue; LifecycleKindReview; LifecycleKindNote; LifecycleEventKind; LifecycleHandshake; ValidHandshake; Validate; Targets; Applicable; CanAttempt; RecordAttempt; RecordResult; Settled; itoa; LifecycleReasonAuthorityLost; LifecycleReasonCancelledBeforeSubmit; LifecycleReasonCancelledBeforeAdmit; LifecycleDenyReason; RecordActionAttempt; RecordActionResult; LifecycleWork | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 40 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 52–69, 378–386; LifecycleAction.IssueID/TargetID; LifecycleWork.IssueID | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Delta at `93fb3513`: IssueID is the read-key index, TargetID/Work.IssueID the native payload target; same field name, different meaning — pin this boundary (OCR-2). |
+
+<a id="coverage-79d476a0b600"></a>
+
+## [internal/factory/lifecycle_action_config.go](../../../../../internal/factory/lifecycle_action_config.go)
+
+Delta duty inspection at `93fb3513`. Per-event optional-effect configuration: enablement gated by that event's own proved native capability; targets mirror the matching action bounds; disabled is the default. Capability gating enforced by the store.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–84; file scaffold; LifecycleConfig; Validate | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-9e61adb2d621"></a>
+
+## [internal/factory/lifecycle_action_test.go](../../../../../internal/factory/lifecycle_action_test.go)
+
+Delta duty inspection at `93fb3513`. Action/config validation, event-kind/handshake and attempt-budget tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–153; file scaffold; testIssueAction; TestLifecycleActionValidate; TestLifecycleConfigValidate; TestLifecycleEventKindAndHandshake; TestLifecycleActionAttempts; TestLifecycleActionAttemptBudget | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 6 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 <a id="coverage-1c46556ca423"></a>
 
 ## [internal/factory/lifecycle_test.go](../../../../../internal/factory/lifecycle_test.go)
