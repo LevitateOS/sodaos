@@ -41,3 +41,35 @@ test('native transport retains same-origin and observed repository identity vali
     else Reflect.deleteProperty(globalThis, 'location');
   }
 });
+
+test('host-scoped transport is preferred and unexpected contract versions refuse before effects', async () => {
+  const prior = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  Object.defineProperty(globalThis, 'location', {configurable: true, value: new URL(origin)});
+  try {
+    const root = {} as HTMLElement;
+    assert.throws(() => prepareExtensionMount(root, {...base, contractVersion: 2 as 1}));
+    const calls: string[] = [];
+    const socket = {close() {}} as unknown as WebSocket;
+    const transport = prepareExtensionMount(root, {
+      ...base,
+      contractVersion: 1,
+      request: async (path: string) => {
+        calls.push(path);
+        return new Response('{}', {status: 200});
+      },
+      stream: (path: string) => {
+        calls.push(path);
+        return {socket, close: () => socket.close()};
+      },
+    });
+    const response = await transport.request('projects', {method: 'GET'});
+    assert.equal(response.status, 200);
+    assert.equal(transport.websocket('environments/1/terminal'), socket);
+    assert.deepEqual(calls, ['projects', 'environments/1/terminal']);
+    transport.dispose();
+    await assert.rejects(() => transport.request('projects'));
+  } finally {
+    if (prior) Object.defineProperty(globalThis, 'location', prior);
+    else Reflect.deleteProperty(globalThis, 'location');
+  }
+});

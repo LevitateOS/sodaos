@@ -1,5 +1,6 @@
 import {nativeAppSubUrl} from './soda-native-paths.js';
 import {id} from './sodaspaces-api.js';
+import type {MountContext} from './fountain-browser-contract.js';
 
 // Native host inputs for the existing Lit page/workspace adapters. No actor or
 // repository displayed by the browser is accepted as operation authority.
@@ -12,6 +13,12 @@ export interface ExtensionMountContext {
   apiBase: string;
   assetBase: string;
   sessionGeneration: string;
+  /** Canonical host contract version; entries refuse any other value before effects. */
+  contractVersion?: number;
+  /** Host-scoped request helper (Fountain MountContext); preferred over the local fallback. */
+  request?: MountContext['request'];
+  /** Host-scoped stream helper (Fountain MountContext); preferred over the local fallback. */
+  stream?: MountContext['stream'];
 }
 
 function nativeBase(value: string, origin: string): URL {
@@ -31,6 +38,10 @@ function nativeBase(value: string, origin: string): URL {
 
 // Prepares the native request transport and lifetime for mounted pages.
 export function prepareExtensionMount(root: HTMLElement, context: ExtensionMountContext) {
+  // Refuse an unexpected canonical contract version before any effects.
+  if (context.contractVersion !== undefined && context.contractVersion !== 1) {
+    throw Error('Unsupported native contract version');
+  }
   if (
     context.extensionId !== 'soda' ||
     !context.sessionGeneration ||
@@ -48,12 +59,18 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
   const lifetime = new AbortController();
   const generation = context.sessionGeneration;
   let disposed = false;
+  const hostRequest = context.request;
+  const hostStream = context.stream;
   return {
     root,
     generation,
     assetBase: assetBase.href,
     async request(relativePath: string, init: RequestInit = {}): Promise<Response> {
       if (disposed) throw Error('Native app mount is disposed');
+      // Host-scoped transport (H-N): Fountain binds apiBase, session generation,
+      // credentials and lifetime; Soda keeps only its disposed guard here and
+      // all protocol/domain parsing in its callers.
+      if (hostRequest) return hostRequest(relativePath, init);
       const url = extensionURL(apiBase, relativePath, true);
       const headers = new Headers(init.headers);
       headers.set('X-Extension-Session-Generation', generation);
@@ -68,6 +85,9 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
     },
     websocket(relativePath: string): WebSocket {
       if (disposed) throw Error('Native app mount is disposed');
+      // Host-scoped stream: Fountain rejects query/hash targets and tracks the
+      // socket across update/suspend/resume, closing it only on retire.
+      if (hostStream) return hostStream(relativePath).socket;
       const url = extensionURL(apiBase, relativePath, false);
       if (url.search) throw Error('Invalid Soda terminal path');
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
