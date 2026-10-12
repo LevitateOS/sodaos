@@ -14,16 +14,23 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
-## Scoped native frontend maintenance (2026-10-12)
+## Scoped native frontend maintenance (2026-10-13)
 
-Reviewed Soda source `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` and paired Fountain source
-`c81b933dcb05c196ca542a185f27360d63332ed4` for the native frontend correction. This delta
+Reviewed Soda source `5d2817604b49a16c7fb0b4b85e7513328884cf4f` and paired Fountain source
+`6abafdb4092018de6eca3fb8994b2a88f08c2396` for the native frontend correction. This delta
 adds seventeen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
 follow that same route. The affected inventory and symbol maps below preserve
 all unrelated historical body, catalog and structural review pins.
+
+The worktree consolidation merges the existing repository-switcher ownership
+marker and private socket-path fixture correction. It adds no paths or ownership
+boundaries. Their focused header and two socket-refusal checks pass. Fountain's
+original organization experiment is retained in merged history while current
+route admission remains qualified only for Dashboard and Users. The additional
+Dashboard assertion does not qualify the organization feature lifecycle.
 
 Fountain now defines its page-feature registry/config replacement in
 `web_src/js/native-lifecycle.js`, with the admin user-list search control as its
@@ -36,7 +43,7 @@ session concealment and incoming version refusal have focused checks. Native
 null page configuration now clears stale keys with an empty object, while a
 missing envelope keeps the unknown-document path. Outgoing scroll is captured
 before native content replacement so layout clamping cannot lose the position
-Back must restore; its 31 navigation cases pass. Exact `/admin` Dashboard
+Back must restore; its 32 navigation cases pass. Exact `/admin` Dashboard
 admission is a development spike; `/admin/orgs` remains held. Terminal
 invalidation conceals live content before retiring native features and still
 emits consumer invalidation when native cleanup throws. These repairs add no
@@ -65,16 +72,16 @@ Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.t
 its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
 mount/update/suspend/resume/retire and admitted scoped transport. Hidden shelter
 suspend/resume preserves roots and resources; visible navigation uses update.
-The declaration still precedes final contract distribution. Twenty-three mount
+The declaration still precedes final contract distribution. Twenty-six mount
 cases and browser type/lint checks pass, including failed and late mount cleanup.
 Owner retirement, disposal and invalidation cancel admitted in-flight requests and
 body reads; pre-aborted callers send nothing. Native signal composition preserves
 caller cancellation without per-request forwarding listeners. Update, suspend and
-resume preserve requests. All 54 joined mount/navigation cases pass.
+resume preserve requests. All 58 joined mount/navigation cases pass.
 The host invalidation signal is joined. Mount datasets derive their current
 browser version from the SDK constant; missing/skewed incoming versions retire
 rather than adopt an old owner. The expanded native persistence proof releases
-contract finalization. Its seven-file checked C03 packet remains uncommitted,
+contract finalization. Its seven-file checked C03 packet is committed in `d240b821a4`,
 without Soda re-pin or updated-example native qualification. Declared shared-owner/
 subroute wiring, consumer migration and final native/installed transport
 qualification remain open. The [remaining schedule](../native-frontend-correction-tasks.md)

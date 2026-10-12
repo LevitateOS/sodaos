@@ -9,11 +9,15 @@ They refine NF-01–NF-05 and the reopened UX tasks rather than replacing the
 complete factory backlog. Original task IDs and finish conditions are retained;
 accepted tasks are summarized below instead of remaining in active queues.
 
-This reorganization uses the **2026-10-12 accepted-work snapshot**, inspected against Soda
-`3f36839cf782938342df7782b521cf06e2be0f39` and Fountain
-`c81b933dcb05c196ca542a185f27360d63332ed4`. Soda was clean; Fountain has seven
-uncommitted C03 files. Preserve that checked but unfinished packet: the browser
-declaration/config, notes page/panel entries, extension README and mount module/test.
+The **2026-10-12 accepted-work snapshot** remains unchanged. Source consolidation
+on 2026-10-13 is reconciled against Soda
+`5d2817604b49a16c7fb0b4b85e7513328884cf4f` and Fountain
+`6abafdb4092018de6eca3fb8994b2a88f08c2396`. The checked but unfinished C03
+packet is committed in Fountain `d240b821a4`: browser declaration/config, notes
+page/panel entries, extension README and mount module/test. The original
+organization-navigation experiment is retained in merged history at `cc59c5b72b`;
+current source keeps organization pages on the native document path until their
+feature lifecycle is qualified. Worktree consolidation does not accept another task.
 The original planning pair was Soda `8df756f1bc7f410b694004f2133af046fecc44f4`
 and Fountain `87ec92d4f0101071a734b2f790f3bb1fb1d3366e`; it is historical input,
 not the current source or installed revision. Recheck heads and dirty work before
@@ -62,8 +66,9 @@ its original condition; do not automatically count it, recreate obsolete broken
 code or make it a new prerequisite for already proved work. The count stays 23/57
 until that review actually accepts it.
 
-C03's seven-file packet has 57 focused mount/navigation checks, strict example
-typechecking and isolated consumer emit/syntax evidence. It is uncommitted; the
+C03's seven-file packet has strict example typechecking and isolated consumer
+emit/syntax evidence. The consolidated mount/navigation suite passes 58 cases.
+The packet is committed; the
 Soda mirror has not been re-pinned to its changed declaration, and the updated
 example has not received native browser qualification. Its callback tests pause
 work after updates/suspension; initial hidden native-first mount presentation is

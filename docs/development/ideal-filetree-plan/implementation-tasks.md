@@ -42,6 +42,13 @@ commit delta does not advance the historical whole-tree inventory, slice-review
 baselines or installed qualification below. No merge was performed; a separately
 authorized merge still requires the [full maintenance workflow](maintenance.md).
 
+The 2026-10-13 worktree consolidation is reconciled separately at Soda `5d281760`
+and Fountain `6abafdb409` in the [scoped maintenance record](ideal-filetree-plan.md#scoped-native-frontend-maintenance-2026-10-13).
+Existing paths and owners are unchanged. The C03 source packet is committed;
+consumer pin, native example qualification and the 34 remaining correction tasks
+stay open. Consolidation preserves unfinished experiments in history and does
+not resume implementation or establish installed behavior.
+
 The owner-directed [19-task Fountain/Soda correction queue](fountain-soda-correctness-tasks.md#current-source-reconciliation-2026-10-11)
 now supplements this plan. Its four exclusive writer lanes retain completed
 packets and their demonstrated scope. The native issue14 correction/merge

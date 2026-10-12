@@ -180,8 +180,9 @@ decomposes this work into 57 tasks in nine logical lanes, with single file write
 partial handoffs, a dependency graph and scoped finish conditions. It owns the
 detailed correction schedule; the NF packets below retain their milestone role.
 Its reconciled snapshot has **23 accepted tasks and 34 remaining**. The native
-persistence proof is accepted; the contract packet remains checked but
-uncommitted, and shared-owner/route registration, broader native feature cutover,
+persistence proof is accepted; the contract packet is committed and source-checked
+but still needs its consumer pin and updated native example qualification.
+Shared-owner/route registration, broader native feature cutover,
 Soda migration and installed acceptance remain open. Use its remaining queues and
 progressive handoffs rather than redispatching completed source work. Execution
 remains paused after the owner's stop; this schedule update does not resume it.
