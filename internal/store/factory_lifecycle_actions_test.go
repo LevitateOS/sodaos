@@ -37,6 +37,50 @@ func TestRecordActionReplaysIdentical(t *testing.T) {
 	}
 }
 
+func TestUnsettledLifecycleActions(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	issue := testLifecycleAction()
+	pending := issue
+	pending.ID = "act-unsettled-pending"
+	if _, err := s.RecordAction(ctx, pending); err != nil {
+		t.Fatalf("pending record: %v", err)
+	}
+	uncertain := issue.RecordActionAttempt("op-u1")
+	uncertain.ID = "act-unsettled-uncertain"
+	if _, err := s.RecordAction(ctx, uncertain); err != nil {
+		t.Fatalf("uncertain record: %v", err)
+	}
+	settled := issue.RecordActionAttempt("op-s1").RecordActionResult(factory.LifecycleResultDelivered)
+	settled.ID = "act-unsettled-settled"
+	if _, err := s.RecordAction(ctx, settled); err != nil {
+		t.Fatalf("settled record: %v", err)
+	}
+	revoked := issue
+	revoked.ID = "act-unsettled-revoked"
+	if _, err := s.RecordAction(ctx, revoked); err != nil {
+		t.Fatalf("revoked record: %v", err)
+	}
+	if _, err := s.RevokeAction(ctx, revoked.ID); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	got, err := s.UnsettledLifecycleActions(ctx, 64)
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	ids := map[string]bool{}
+	for _, a := range got {
+		ids[a.ID] = true
+	}
+	if !ids[pending.ID] || !ids[uncertain.ID] || ids[settled.ID] || ids[revoked.ID] {
+		t.Fatalf("unsettled: %v", ids)
+	}
+	one, err := s.UnsettledLifecycleActions(ctx, 1)
+	if err != nil || len(one) != 1 {
+		t.Fatalf("limit: %v %v", one, err)
+	}
+}
+
 func TestUpdateActionFencesAttempts(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()
