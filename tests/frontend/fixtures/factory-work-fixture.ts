@@ -95,7 +95,7 @@ function mount(view: WorkView): void {
   else if (view === 'plan')
     mountFactoryWorkPlan(root, {transport, repository: '7', repositoryPath: '/soda-tester/demo', issues: ['12']});
   else if (view === 'direction') mountFactoryDirectionRevision(root, {transport, intentID: INTENT});
-  else mountFactoryOptionalEffects(root, {transport, repository: '7', issue: '12'});
+  else mountFactoryOptionalEffects(root, {transport, repository: '7', repositoryPath: '/soda-tester/demo', issue: '12'});
 }
 
 declare global {

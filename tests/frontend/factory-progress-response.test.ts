@@ -281,6 +281,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
       enabled: true,
       capable: true,
       actor_id: '1001',
+      submitter_id: '1002',
+      executor_ready: true,
       repository_id: '7',
       reviewer_ids: ['11', '12'],
     },
@@ -289,6 +291,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
   );
   assert.equal(parsed.enabled, true);
   assert.deepEqual(parsed.reviewer_ids, ['11', '12']);
+  assert.equal(parsed.submitter_id, '1002');
+  assert.equal(parsed.executor_ready, true);
   const fresh = lifecycleEffectConfig(
     {event: 'issue_created', revision: '0', enabled: false, capable: false, actor_id: '', repository_id: '7'},
     'issue_created',
@@ -296,6 +300,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
   );
   assert.equal(fresh.enabled, false);
   assert.equal(fresh.capable, false);
+  assert.equal(fresh.submitter_id, '');
+  assert.equal(fresh.executor_ready, undefined);
   for (const delta of [
     {event: 'issue_deleted'},
     {revision: 'x'},
@@ -304,6 +310,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
     {reviewer_ids: ['11', '12', '13', '14']},
     {reviewer_ids: ['0']},
     {note: 'x'.repeat(1001)},
+    {submitter_id: 'x'},
+    {executor_ready: 'yes'},
   ])
     assert.throws(() =>
       lifecycleEffectConfig(
@@ -460,6 +468,78 @@ test('lifecycle actions admit unclaimed rows and require a claimed actor', () =>
       'issue_created'
     )
   );
+});
+
+test('lifecycle actions bind unequal identities and a distinct native target', () => {
+  const parsed = lifecycleEffectActions(
+    {
+      actions: [
+        {
+          id: 'op-2',
+          event: 'pr_created',
+          action: 'pr_reviewer_request',
+          actor_id: '1001',
+          issue_id: '12',
+          target_id: '34',
+          config_owner: '1002',
+          pr_number: '3',
+          attempts: 1,
+          max_attempts: 2,
+          revoked: false,
+          settled: false,
+          results: {'11': 'pending'},
+        },
+        {
+          id: 'op-3',
+          event: 'pr_created',
+          action: 'pr_reviewer_request',
+          actor_id: '0',
+          issue_id: '12',
+          target_id: '0',
+          config_owner: '0',
+          attempts: 0,
+          max_attempts: 2,
+          revoked: false,
+          settled: false,
+        },
+      ],
+    },
+    '12',
+    'pr_created'
+  );
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0]?.actor_id, '1001');
+  assert.equal(parsed[0]?.config_owner, '1002');
+  assert.equal(parsed[0]?.target_id, '34');
+  assert.equal(parsed[0]?.pr_number, '3');
+  assert.equal(parsed[1]?.actor_id, '0');
+  assert.equal(parsed[1]?.config_owner, undefined);
+  assert.equal(parsed[1]?.target_id, undefined);
+  assert.equal(parsed[1]?.pr_number, undefined);
+  for (const bad of [{target_id: 'x'}, {config_owner: '-1'}, {pr_number: 'x'}, {pr_number: '-1'}]) {
+    assert.throws(() =>
+      lifecycleEffectActions(
+        {
+          actions: [
+            {
+              id: 'op-2',
+              event: 'pr_created',
+              action: 'pr_reviewer_request',
+              actor_id: '1001',
+              issue_id: '12',
+              attempts: 1,
+              max_attempts: 2,
+              revoked: false,
+              settled: false,
+              ...bad,
+            },
+          ],
+        },
+        '12',
+        'pr_created'
+      )
+    );
+  }
 });
 
 test('masked foreign choices stay visible without enumeration', () => {

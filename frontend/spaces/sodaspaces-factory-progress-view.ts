@@ -5,7 +5,7 @@ import {decisionID} from './sodaspaces-intent-response.js';
 import type {IntentRevision} from './sodaspaces-intent-response.js';
 import {activityTimestamp} from './sodaspaces-factory-activity.js';
 import type {FactoryIssueDetail, FactoryRepositorySummary} from './sodaspaces-factory-work-response.js';
-import {describeIssueDetail, nativeIssueLink} from './sodaspaces-factory-work-view.js';
+import {describeIssueDetail, nativeIssueLink, nativePullLink} from './sodaspaces-factory-work-view.js';
 import type {DeliveryState} from './sodaspaces-factory-work-view.js';
 import type {
   AccessPlanningEntry,
@@ -680,6 +680,7 @@ export interface LifecycleEffectModel {
   readonly stateText: string;
   readonly configText: string;
   readonly resultsText: readonly string[];
+  readonly resultsLinks: readonly (string | undefined)[];
   readonly canConfigure: boolean;
   readonly config: LifecycleEffectConfig | undefined;
 }
@@ -695,24 +696,55 @@ function lifecycleTargets(event: LifecycleEventKind, config: LifecycleEffectConf
     return config.reviewer_ids.length > 0 ? `Reviewers ${config.reviewer_ids.join(', ')}.` : 'No reviewers set.';
   return config.note ? `Note: ${config.note}` : 'No note set.';
 }
+// lifecycleResultLink builds a pull link only for pr_created
+// actions carrying a journaled pull number, and only when the
+// native repository path is known. Work-issue indexes and native
+// target IDs never link as PRs.
+function lifecycleResultLink(
+  event: LifecycleEventKind,
+  action: LifecycleEffectAction,
+  repositoryPath: string
+): string | undefined {
+  if (event !== 'pr_created' || action.pr_number === undefined) return undefined;
+  return nativePullLink(repositoryPath, action.pr_number);
+}
 function lifecycleResultLine(action: LifecycleEffectAction): string {
   const entries = Object.entries(action.results);
   const outcomes =
     entries.length > 0 ? entries.map(([target, result]) => `${target}: ${result}`).join('; ') : 'no results recorded';
   const revoked = action.revoked ? ', revoked' : '';
   const settled = action.settled ? ', settled' : '';
-  return `Action ${action.id.slice(0, 8)} on issue #${action.issue_id}: ${action.attempts}/${action.max_attempts} attempts${revoked}${settled}. ${outcomes}.`;
+  const submitter = action.actor_id === '0' ? 'Submitter unclaimed' : `Submitted by ${action.actor_id}`;
+  const authorized = action.config_owner ? `, authorized by ${action.config_owner}` : '';
+  const target = action.target_id ? `Native target ${action.target_id}.` : 'Native target unresolved.';
+  return (
+    `Action ${action.id.slice(0, 8)} on issue #${action.issue_id}: ` +
+    `${action.attempts}/${action.max_attempts} attempts${revoked}${settled}. ` +
+    `${submitter}${authorized}. ${target} ${outcomes}.`
+  );
+}
+// lifecycleSubmitterText names the enrolled submitter that will act
+// ("Unknown" while the producer has not resolved one) and the
+// executor state when the producer reports it.
+function lifecycleSubmitterText(config: LifecycleEffectConfig): string {
+  const submitter = config.submitter_id === '' ? 'Unknown' : config.submitter_id;
+  if (config.executor_ready === undefined) return `Submitter ${submitter}.`;
+  return `Submitter ${submitter}, executor ${config.executor_ready ? 'ready' : 'not ready'}.`;
 }
 // describeLifecycleEffect gates one optional effect on its own runnable
 // capability (native proof plus a configured executor). Unrunnable
 // effects stay unavailable with no configuration shown; configured
-// effects name their exact actor, targets and per-target results.
+// effects name their exact authorizer, submitter, native target and
+// per-target results. PR rows link their journaled pull number when
+// the native repository path is known.
 export function describeLifecycleEffect(
   event: LifecycleEventKind,
   config: LifecycleEffectConfig | undefined,
   configState: SourceState,
-  actions: readonly LifecycleEffectAction[]
+  actions: readonly LifecycleEffectAction[],
+  repositoryPath = ''
 ): LifecycleEffectModel {
+  const resultsLinks = actions.map((action) => lifecycleResultLink(event, action, repositoryPath));
   if (configState === 'unavailable' || !config)
     return {
       event,
@@ -720,6 +752,7 @@ export function describeLifecycleEffect(
       stateText: configState === 'unavailable' ? 'Configuration could not be read.' : 'No configuration recorded.',
       configText: '',
       resultsText: actions.map(lifecycleResultLine),
+      resultsLinks,
       canConfigure: false,
       config: undefined,
     };
@@ -730,6 +763,7 @@ export function describeLifecycleEffect(
       stateText: 'Unavailable: its native capability is not runnable yet.',
       configText: '',
       resultsText: actions.map(lifecycleResultLine),
+      resultsLinks,
       canConfigure: false,
       config,
     };
@@ -737,8 +771,11 @@ export function describeLifecycleEffect(
     event,
     title: lifecycleTitles[event],
     stateText: config.revision === '0' ? 'Not configured yet.' : config.enabled ? 'Active.' : 'Disabled.',
-    configText: `Actor ${config.actor_id || 'unset'}, revision ${config.revision}. ${lifecycleTargets(event, config)}`,
+    configText:
+      `Authorized by ${config.actor_id || 'unset'}, revision ${config.revision}. ` +
+      `${lifecycleTargets(event, config)} ${lifecycleSubmitterText(config)}`,
     resultsText: actions.map(lifecycleResultLine),
+    resultsLinks,
     canConfigure: true,
     config,
   };
@@ -796,7 +833,11 @@ export function renderLifecycleEffects(
             <p role="status">${model.stateText}</p>
             ${model.configText ? html`<p>${model.configText}</p>` : ''}
             <ul>
-              ${model.resultsText.map((line) => html`<li>${line}</li>`)}
+              ${model.resultsText.map(
+                (line, index) => html`<li>
+                  ${line}${model.resultsLinks[index] ? html` <a href=${model.resultsLinks[index]}>Native target</a>` : ''}
+                </li>`
+              )}
             </ul>
             ${
               model.canConfigure

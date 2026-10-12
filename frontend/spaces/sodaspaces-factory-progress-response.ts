@@ -498,6 +498,8 @@ export interface LifecycleEffectConfig {
   readonly enabled: boolean;
   readonly capable: boolean;
   readonly actor_id: string;
+  readonly submitter_id: string;
+  readonly executor_ready?: boolean;
   readonly repository_id: string;
   readonly reviewer_ids: readonly string[];
   readonly label_id?: string;
@@ -515,6 +517,9 @@ export interface LifecycleEffectAction {
   readonly revoked: boolean;
   readonly settled: boolean;
   readonly results: Record<string, string>;
+  readonly target_id?: string;
+  readonly config_owner?: string;
+  readonly pr_number?: string;
 }
 
 const lifecycleEvents = ['issue_created', 'pr_created', 'verified_merge'];
@@ -540,6 +545,17 @@ function lifecycleReviewers(value: unknown): string[] {
   for (const reviewer of value) check(id(reviewer));
   return value as string[];
 }
+// lifecycleSubmitter binds the enrolled submitter identity (""
+// while the producer has not resolved one) with the reported
+// executor state. Pre-metadata servers omit both; malformed
+// present values refuse.
+function lifecycleSubmitter(data: Record<string, unknown>): {submitter_id: string; executor_ready?: boolean} {
+  if (data.executor_ready !== undefined) check(typeof data.executor_ready === 'boolean');
+  return {
+    submitter_id: data.submitter_id === undefined ? '' : lifecycleActor(data.submitter_id),
+    ...(data.executor_ready === undefined ? {} : {executor_ready: data.executor_ready as boolean}),
+  };
+}
 // lifecycleEffectConfig binds one event's optional-effect
 // configuration to its exact event and repository: enablement,
 // capability proof, actor, targets and revision.
@@ -552,12 +568,15 @@ export function lifecycleEffectConfig(value: unknown, event: string, repository:
   if (data.label_id !== undefined) check(id(data.label_id));
   if (data.assignee_id !== undefined) check(id(data.assignee_id));
   const note = lifecycleNote(data.note);
+  const submitter = lifecycleSubmitter(data);
   return {
     event,
     revision: data.revision,
     enabled: data.enabled,
     capable: data.capable,
     actor_id: lifecycleActor(data.actor_id),
+    submitter_id: submitter.submitter_id,
+    ...(submitter.executor_ready === undefined ? {} : {executor_ready: submitter.executor_ready}),
     repository_id: repository,
     reviewer_ids: lifecycleReviewers(data.reviewer_ids),
     ...(data.label_id === undefined ? {} : {label_id: data.label_id as string}),
@@ -578,31 +597,62 @@ function lifecycleResultsMap(value: unknown): Record<string, string> {
   }
   return out;
 }
+// lifecycleBoundID admits an absent or "0" journaled identity as
+// unbound: unclaimed native targets, unknown historical owners and
+// unjournaled pull numbers read distinctly from bound identities,
+// never as identity zero.
+function lifecycleBoundID(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  check(decimalID(value));
+  return value === '0' ? undefined : value;
+}
 function lifecycleAction(value: unknown, issue: string, event: string): LifecycleEffectAction {
   const raw = object(value);
   check(typeof raw.id === 'string' && raw.id.length >= 1 && raw.id.length <= 128);
   check(raw.event === event && lifecycleEvents.includes(event));
   check(typeof raw.action === 'string' && raw.action === lifecycleActions[event]);
   check(raw.issue_id === issue);
-  check(typeof raw.attempts === 'number' && Number.isSafeInteger(raw.attempts) && raw.attempts >= 0);
-  // Unclaimed rows (no attempt yet) carry actor_id "0": the drain
-  // claims the enrolled submitter before the first attempt. Claimed
-  // rows always carry the enrolled actor.
-  const actor = raw.actor_id;
-  if (raw.attempts === 0) check(decimalID(actor));
-  else check(id(actor));
+  const attempt = lifecycleActionAttempt(raw);
   check(typeof raw.revoked === 'boolean' && typeof raw.settled === 'boolean');
   return {
     id: raw.id,
     event,
     action: raw.action,
-    actor_id: actor,
+    actor_id: attempt.actor,
     issue_id: issue,
-    attempts: raw.attempts,
+    attempts: attempt.attempts,
     max_attempts: counter(raw.max_attempts),
     revoked: raw.revoked,
     settled: raw.settled,
     results: lifecycleResultsMap(raw.results),
+    ...(attempt.targetID === undefined ? {} : {target_id: attempt.targetID}),
+    ...(attempt.configOwner === undefined ? {} : {config_owner: attempt.configOwner}),
+    ...(attempt.prNumber === undefined ? {} : {pr_number: attempt.prNumber}),
+  };
+}
+// lifecycleActionAttempt binds one action row's attempt count with
+// its actor and bound identities. Unclaimed rows (no attempt yet)
+// carry actor_id "0": the drain claims the enrolled submitter
+// before the first attempt. Claimed rows always carry the enrolled
+// actor.
+function lifecycleActionAttempt(raw: Record<string, unknown>): {
+  actor: string;
+  attempts: number;
+  targetID: string | undefined;
+  configOwner: string | undefined;
+  prNumber: string | undefined;
+} {
+  const attempts = raw.attempts;
+  check(typeof attempts === 'number' && Number.isSafeInteger(attempts) && attempts >= 0);
+  const actor = raw.actor_id;
+  if (attempts === 0) check(decimalID(actor));
+  else check(id(actor));
+  return {
+    actor,
+    attempts,
+    targetID: lifecycleBoundID(raw.target_id),
+    configOwner: lifecycleBoundID(raw.config_owner),
+    prNumber: lifecycleBoundID(raw.pr_number),
   };
 }
 // lifecycleEffectActions binds one issue/event's durable action results

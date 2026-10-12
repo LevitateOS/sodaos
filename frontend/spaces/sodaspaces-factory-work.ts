@@ -790,6 +790,7 @@ async function readRevisionHistory(
 export interface LifecycleEffectsContext {
   transport: PreparedExtensionMount;
   repository: string;
+  repositoryPath?: string;
   issue?: string;
 }
 
@@ -989,9 +990,10 @@ export class SodaFactoryOptionalEffects extends LitElement {
     else this.message = detail.message ?? `Save refused (${posted.status}).`;
   }
   private models(): LifecycleEffectModel[] {
+    const repositoryPath = this.current?.repositoryPath ?? '';
     return lifecycleEvents.map((event) => {
       const entry = this.entries[event] ?? {config: undefined, state: 'missing' as SourceState, actions: []};
-      return describeLifecycleEffect(event, entry.config, entry.state, entry.actions);
+      return describeLifecycleEffect(event, entry.config, entry.state, entry.actions, repositoryPath);
     });
   }
   protected render() {
@@ -1015,9 +1017,13 @@ function sameEffectsContext(
   next: LifecycleEffectsContext | undefined,
   current: LifecycleEffectsContext | undefined
 ): boolean {
-  return (
-    next?.transport === current?.transport && next?.repository === current?.repository && next?.issue === current?.issue
-  );
+  if (next?.transport !== current?.transport) return false;
+  return effectsContextKey(next) === effectsContextKey(current);
+}
+
+function effectsContextKey(context: LifecycleEffectsContext | undefined): string {
+  if (!context) return '';
+  return [context.repository, context.repositoryPath ?? '', context.issue ?? ''].join('|');
 }
 
 function emptyEntries(): Record<LifecycleEventKind, EffectEntry> {

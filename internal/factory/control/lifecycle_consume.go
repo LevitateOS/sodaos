@@ -43,6 +43,7 @@ type LifecycleEventInput struct {
 	RepositoryID int64
 	IssueIndex   int64
 	TargetID     int64
+	PRNumber     int64
 	AuthRevision string
 	MergeRef     string
 	Closed       bool
@@ -369,8 +370,8 @@ func journalUnavailableExecutor(ctx context.Context, s *store.Store, cfg factory
 	a := factory.LifecycleAction{
 		ID: LifecycleActionID(in), Event: in.Event, Action: factory.EventAction(in.Event),
 		RepositoryID: in.RepositoryID, IssueID: in.IssueIndex, TargetID: in.TargetID,
-		ConfigOwner: cfg.ActorID,
-		LabelID:     cfg.LabelID, AssigneeID: cfg.AssigneeID, ReviewerIDs: append([]int64(nil), cfg.ReviewerIDs...),
+		PRNumber: in.PRNumber, ConfigOwner: cfg.ActorID,
+		LabelID: cfg.LabelID, AssigneeID: cfg.AssigneeID, ReviewerIDs: append([]int64(nil), cfg.ReviewerIDs...),
 		Note: cfg.Note, AuthRevision: in.AuthRevision, MergeRef: in.MergeRef, Closed: in.Closed,
 	}
 	if err := a.Validate(); err != nil {
@@ -442,8 +443,8 @@ func ConsumeLifecycleEvent(ctx context.Context, s *store.Store, ex LifecycleExec
 	a := factory.LifecycleAction{
 		ID: LifecycleActionID(in), Event: in.Event, Action: factory.EventAction(in.Event),
 		ActorID: enrolled, RepositoryID: in.RepositoryID, IssueID: in.IssueIndex, TargetID: target,
-		ConfigOwner: cfg.ActorID,
-		LabelID:     cfg.LabelID, AssigneeID: cfg.AssigneeID, ReviewerIDs: append([]int64(nil), cfg.ReviewerIDs...),
+		PRNumber: in.PRNumber, ConfigOwner: cfg.ActorID,
+		LabelID: cfg.LabelID, AssigneeID: cfg.AssigneeID, ReviewerIDs: append([]int64(nil), cfg.ReviewerIDs...),
 		Note: cfg.Note, AuthRevision: in.AuthRevision, MergeRef: in.MergeRef, Closed: in.Closed,
 	}
 	if err := a.Validate(); err != nil {
@@ -523,18 +524,24 @@ func ConsumePublishedPR(ctx context.Context, s *store.Store, ex LifecycleExecuto
 	in := LifecycleEventInput{
 		Event: factory.LifecycleEventPRCreated, SourceID: source,
 		RepositoryID: p.Repository, IssueIndex: p.Issue, TargetID: p.PRCreate.IssueID, AuthRevision: p.PRCreate.Work.AuthRevision,
+		PRNumber: p.PRNumber,
 	}
 	return ConsumeLifecycleEvent(ctx, s, ex, in)
 }
 
 // ConsumeVerifiedMerge fires the configured completion-note effect for
-// one verified merge with confirmed original closure. The identity
-// binds the merge plus the exact merge and closure facts.
+// one verified merge with confirmed original closure. Qualification
+// is by facts, not stage: the merged commit, both closure timestamps,
+// the original closing occurrence and the merge authorization. The
+// call site runs only after finishMerge persists MergeMerged (which
+// takes the merge by value, so the caller's copy still reads Open);
+// facts set exclusively on that path are the stable gate. The
+// identity binds the merge plus the exact merge and closure facts.
 func ConsumeVerifiedMerge(ctx context.Context, s *store.Store, ex LifecycleExecutor, m factory.Merge) error {
 	if s == nil || ex == nil {
 		return factory.ErrLifecycleAction
 	}
-	if m.Stage != factory.MergeMerged || m.Issue <= 0 || m.PRNumber <= 0 || m.MergedCommit == "" || m.OriginalClosingOccurrence == "" || m.Operation.Work == nil || m.Operation.Work.AuthRevision == "" {
+	if m.Issue <= 0 || m.PRNumber <= 0 || m.MergedCommit == "" || m.MergedUnix <= 0 || m.ClosedUnix <= 0 || m.OriginalClosingOccurrence == "" || m.OriginalClosedUnix <= 0 || m.Operation.Work == nil || m.Operation.Work.AuthRevision == "" {
 		return factory.ErrLifecycleAction
 	}
 	source := m.ID + ":merge-" + m.MergedCommit + "-" + m.OriginalClosingOccurrence
