@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "executable": "run",
   "pages": [
-    {"id": "spaces", "route": "workspace", "title": "Workspace", "scope": "global", "entry": "soda-spaces-entry.js"},
+    {"id": "spaces", "route": "workspace", "title": "Workspace", "scope": "global", "entry": "soda-spaces-entry.js", "subroutes": [{"pattern": "new", "title": "New Project"}, {"pattern": "requests/{request}", "title": "Build request"}]},
     {"id": "tailnet", "route": "tailnet", "title": "Tailnet", "scope": "global", "entry": "soda-tailnet-entry.js"}
   ],
   "panels": [

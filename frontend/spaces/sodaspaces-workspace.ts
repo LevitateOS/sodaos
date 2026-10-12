@@ -10,7 +10,14 @@ import type {WorkspaceLayout, LayoutEntry, Area} from './sodaspaces-layout.js';
 import {check, id, object, projectId} from './sodaspaces-api.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
-import type {Creation, FactoryWatch, Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
+import type {
+  Creation,
+  FactoryWatch,
+  Row,
+  Slot,
+  WorkspaceContext,
+  WorkspacePresentation,
+} from './sodaspaces-workspace-types.js';
 import {WorkspaceMeasurement} from './sodaspaces-workspace-measurement.js';
 import {
   busyAttr,
@@ -219,6 +226,7 @@ export class SodaSpaces extends LitElement {
   private now = Date.now();
   private attentionTimer: number | undefined;
   private binding: WorkspaceContext | undefined;
+  private routePathname = '';
   private factory: TerminalFactory = mountTerminal;
   private slots: Slot[] = [];
   private watches: FactoryWatch[] = [];
@@ -313,7 +321,7 @@ export class SodaSpaces extends LitElement {
       this.binding?.kind === 'page' &&
       (!!this.setup ||
         (!this.spaces.length && !this.binding.repositoryId) ||
-        requestIdFromLocation(window.location.pathname, this.repositoryPrefix()) !== '')
+        requestIdFromLocation(this.routePathname, this.repositoryPrefix()) !== '')
     );
   }
   private get welcomeScreen() {
@@ -395,7 +403,8 @@ export class SodaSpaces extends LitElement {
     if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
     this.factory = factory;
     this.storageKey = '';
-    if (context.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+    this.routePathname = window.location.pathname;
+    if (context.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix()))
       this.pendingNewRoute = true;
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
@@ -404,7 +413,8 @@ export class SodaSpaces extends LitElement {
     window.addEventListener(
       'popstate',
       () => {
-        if (this.binding?.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+        this.routePathname = window.location.pathname;
+        if (this.binding?.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix()))
           this.pendingNewRoute = true;
         this.requestUpdate();
       },
@@ -441,19 +451,24 @@ export class SodaSpaces extends LitElement {
       void this.refresh();
     });
   }
-  present(kind: 'page' | 'native', repositoryId?: string) {
+  present(kind: 'page' | 'native', repositoryId?: string, route?: string) {
     if (!this.binding || this.disposed || (repositoryId !== undefined && !id(repositoryId))) return;
     // Transport/account and each terminal's locator remain unchanged. Only the
     // current content presentation and observed repository preference change.
+    this.routePathname = route ? route.split(/[?#]/)[0] || this.routePathname : window.location.pathname;
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
     if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
     this.armNewRoute(kind);
     this.requestUpdate();
   }
+  applyPresentation(presentation: WorkspacePresentation) {
+    if (!this.binding || this.disposed) return;
+    this.present(presentation.mode === 'page' ? 'page' : 'native', presentation.repositoryId, presentation.route);
+    if (presentation.visible !== this.surfaceVisible) this.setVisible(presentation.visible);
+  }
   private armNewRoute(kind: 'page' | 'native') {
     // Same guarded one-shot as configure/popstate for retained presentation.
-    if (kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
-      this.pendingNewRoute = true;
+    if (kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix())) this.pendingNewRoute = true;
   }
   private pollAttention() {
     if (this.stale || this.disposed) return;
@@ -505,11 +520,10 @@ export class SodaSpaces extends LitElement {
     if (!this.pendingNewRoute) return;
     const armed = this.newRouteCurrent() && this.spaces.length > 0;
     if (armed) beginSetup(this.setupReading(), this.setupActions(), this);
-    if (this.setup || !isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
-      this.pendingNewRoute = false;
+    if (this.setup || !isNewRouteLocation(this.routePathname, this.repositoryPrefix())) this.pendingNewRoute = false;
   }
   private newRouteCurrent() {
-    return this.binding?.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix());
+    return this.binding?.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix());
   }
   private freshEntryFromSetup() {
     // Genuine native New arrival while a setup is active: the location no
@@ -1003,7 +1017,7 @@ export class SodaSpaces extends LitElement {
       setupReturn: this.setupReturn,
       firstSpace: this.spaces[0],
       actorId: this.actor?.id || '',
-      requestId: requestIdFromLocation(window.location.pathname, this.repositoryPrefix()),
+      requestId: requestIdFromLocation(this.routePathname, this.repositoryPrefix()),
       reviewAuthorization: this.reviewAuthorization,
       reviewedIntent: this.reviewedIntent,
       setupCommitted: this.setupCommitted,
@@ -1016,7 +1030,7 @@ export class SodaSpaces extends LitElement {
     };
   }
   private suggestedSetupRepository(): string | undefined {
-    const requestId = requestIdFromLocation(window.location.pathname, this.repositoryPrefix());
+    const requestId = requestIdFromLocation(this.routePathname, this.repositoryPrefix());
     if (!requestId) return undefined;
     return this.savedRequests?.find((saved) => saved.intent === requestId)?.repository;
   }
@@ -1130,10 +1144,11 @@ export class SodaSpaces extends LitElement {
     if (intent !== null && !requestIDPattern.test(intent)) return;
     const target =
       intent === null ? newRouteFor(this.repositoryPrefix()) : requestRouteFor(this.repositoryPrefix(), intent);
-    if (target !== window.location.pathname) {
+    if (target !== this.routePathname) {
       const url = target + window.location.search + window.location.hash;
       if (intent === null) window.history.pushState(null, '', url);
       else window.history.replaceState(null, '', url);
+      this.routePathname = target;
     }
     this.requestUpdate();
   }
@@ -1496,6 +1511,10 @@ export class SodaSpaces extends LitElement {
       api: (path, signal) => this.api(path, undefined, signal),
       persist: () => this.persist(),
       repositoryPrefix: () => this.repositoryPrefix(),
+      navigate: (path) => {
+        if (this.binding?.navigate) this.binding.navigate(path);
+        else window.location.assign(path);
+      },
     };
   }
   private terminalsInput(): TerminalsInput {
@@ -1854,6 +1873,7 @@ function workspacePresentation(
   const base = {
     transport: context.transport,
     forgejoPrefix: context.forgejoPrefix || '',
+    ...(context.navigate ? {navigate: context.navigate} : {}),
     ...(repositoryId ? {repositoryId} : {}),
   };
   return kind === 'page' ? {...base, kind} : {...base, kind, ...(repositoryId ? {pageRepositoryId: repositoryId} : {})};
@@ -1883,6 +1903,7 @@ export function mountSodaspaces(
     markViewed: () => box.markViewed(),
     setVisible: (visible: boolean) => box.setVisible(visible),
     present: (kind: 'page' | 'native', repositoryId?: string) => box.present(kind, repositoryId),
+    update: (presentation: WorkspacePresentation) => box.applyPresentation(presentation),
     refresh: () => box.refresh(),
     invalidate: () => box.invalidate(),
     get ready() {

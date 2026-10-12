@@ -6,7 +6,12 @@ import type {PreparedExtensionMount} from './soda-extension.js';
 import type {LayoutEntry, Minimum} from './sodaspaces-layout.js';
 import type {TerminalContext, mountTerminal} from './sodaspaces-terminal.js';
 
-export type WorkspaceContext = {transport: PreparedExtensionMount; forgejoPrefix?: string} & (
+export type WorkspaceContext = {
+  transport: PreparedExtensionMount;
+  forgejoPrefix?: string;
+  /** Host programmatic navigation (H-ROUTE); absent on hosts without it. */
+  navigate?: (path: string) => void;
+} & (
   | {
       kind: 'native';
       repositoryId?: string;
@@ -17,6 +22,13 @@ export type WorkspaceContext = {transport: PreparedExtensionMount; forgejoPrefix
       repositoryId?: string;
     }
 );
+/** Host-supplied presentation facts (H-ROUTE): display routing only, never authority. */
+export interface WorkspacePresentation {
+  mode: 'page' | 'panel';
+  route: string;
+  repositoryId?: string;
+  visible: boolean;
+}
 export interface Slot {
   key: string;
   binding: TerminalContext;

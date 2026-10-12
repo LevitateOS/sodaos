@@ -1,5 +1,6 @@
 import {prepareExtensionMount} from './soda-extension.js';
 import type {ExtensionMountContext} from './soda-extension.js';
+import type {ContributionPresentation} from './fountain-browser-contract.js';
 import {mountSodaspaces} from './sodaspaces-workspace.js';
 import {nativeAppSubUrl} from './soda-native-paths.js';
 
@@ -44,6 +45,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
         kind: full ? 'page' : 'native',
         transport,
         forgejoPrefix: prefix,
+        ...(context.navigate ? {navigate: context.navigate} : {}),
         ...(repositoryId ? {repositoryId} : {}),
       });
       void workspace.refresh();
@@ -66,6 +68,10 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
   window.addEventListener('resize', measure);
   sync();
   return {
+    update(presentation: ContributionPresentation) {
+      sync();
+      workspace?.update(presentation);
+    },
     dispose() {
       transport.dispose();
       host?.removeEventListener('extension-workspace-navigation', sync);

@@ -19,6 +19,7 @@ export interface DrawerInput {
   api: (path: string, signal: AbortSignal) => Promise<unknown>;
   persist: () => boolean;
   repositoryPrefix: () => string;
+  navigate: (path: string) => void;
 }
 
 export function drawerRepositoryPart(value: unknown): value is string {
@@ -57,8 +58,8 @@ export function drawerStillCurrent(input: DrawerInput, n: number, request: Abort
   return input.live(n) && !request.signal.aborted && input.readSelected() === entry.key;
 }
 
-export function assignDrawer(input: DrawerInput, owner: string, name: string) {
-  window.location.assign(input.repositoryPrefix() + '/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name));
+export function navigateDrawer(input: DrawerInput, owner: string, name: string) {
+  input.navigate(input.repositoryPrefix() + '/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name));
 }
 
 export async function openDrawerNavigation(
@@ -82,7 +83,7 @@ export async function openDrawerNavigation(
     input.setStatus('Save the workspace before opening it in the drawer; restoration is unavailable.');
     return;
   }
-  assignDrawer(input, repository.owner, repository.name);
+  navigateDrawer(input, repository.owner, repository.name);
 }
 
 export async function openInDrawer(input: DrawerInput) {

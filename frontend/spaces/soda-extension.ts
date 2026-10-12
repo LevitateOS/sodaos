@@ -8,6 +8,8 @@ export interface ExtensionMountContext {
   extensionId: string;
   pageId?: string;
   panelId?: string;
+  /** Canonical shared-owner identity (NFX-C04/H-OWNER) when page and panel are linked. */
+  ownerId?: string;
   appSubUrl: string;
   repositoryId?: string;
   apiBase: string;
@@ -19,6 +21,8 @@ export interface ExtensionMountContext {
   request?: MountContext['request'];
   /** Host-scoped stream helper (Fountain MountContext); preferred over the local fallback. */
   stream?: MountContext['stream'];
+  /** Host programmatic native navigation (NFX-C04/H-ROUTE); replaces window.location assignment. */
+  navigate?: MountContext['navigate'];
 }
 
 function nativeBase(value: string, origin: string): URL {
