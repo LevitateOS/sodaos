@@ -215,7 +215,7 @@ async function installIntentStore(page: Page) {
             operation_id: 'op-1',
             actor_id: '1',
             native_revision: 3,
-            authorization_revision: store.generation.staleAuth ? 'd999999999999999999999999' : revision,
+            authorization_revision: `${store.generation.staleAuth ? 'd999999999999999999999999' : revision}:${'f'.repeat(64)}`,
             not_after: 9,
             payload: {},
             intent_digest: 'd',
@@ -1152,6 +1152,11 @@ test('accepted review shows authorization, generation progress and unsaved loss'
   await fresh
     .getByText('Factory work is created. Execution still needs its own access and finite funding.', {exact: true})
     .waitFor();
+  await fresh.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.generation = {state: 'committed'};
+  });
+  await fresh.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  await fresh.getByText('Factory confirmed the native work.', {exact: true}).waitFor();
   await fresh.evaluate(() => {
     (window as unknown as {intentStore: IntentStore}).intentStore.generation = {state: 'completed', staleAuth: true};
   });
