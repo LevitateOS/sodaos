@@ -25,11 +25,11 @@ The sole appliance target is **x86_64**, under the
 [release platform contract](../architecture/release.md#architectures). ARM support
 and qualification are excluded; no ARM machine or evidence is a handoff prerequisite.
 
-The completed [UX implementation tasks](#end-to-end-ux-implementation-tasks)
-below retain the acceptance conditions and ownership of the end-to-end experience.
-They are not a ready queue for new implementation. The historical FT/ST/RT
-assignments retain their original scope; their receipts and the earlier FX
-receipts do not replace the later UX source and installed evidence.
+The [UX implementation tasks](#end-to-end-ux-implementation-tasks) below retain
+the acceptance conditions and ownership of the end-to-end experience. Installed
+visual and interaction review has reopened integration acceptance; the earlier
+claim that all tasks were complete is withdrawn. Historical FT/ST/RT and FX
+receipts retain their original scopes and do not replace that acceptance.
 
 ## Source baseline
 
@@ -113,25 +113,35 @@ versions remain in the selected source manifests and locks.
 
 ## End-to-end UX implementation tasks
 
-This is the completed implementation and acceptance reference for the
+This is the implementation and acceptance task list for the
 [Spaces UX proposal](../design/spaces-ux.md#proposed-end-to-end-experience),
 [intent-first creation](../product/spaces.md#intent-first-creation),
 [intent review](../product/overview.md#intent-review-and-derived-work) and
 [System One design contract](../product/overview.md#planning-and-priority-judgments).
-It contains **68 completed tasks in nine logical lanes**. The `UX-` task prefix
+It contains **68 tasks in nine logical lanes**. The `UX-` task prefix
 keeps these tasks distinct from similarly numbered ideal-filetree assignments.
-The task tables and dependency graph record the accepted implementation rather
-than outstanding worker assignments. Product and trust rules remain in their
-owning guides; task-local contract changes update those owners.
+The task tables and dependency graph retain their Finish conditions. Passing
+source checks and selected installed journeys do not establish that every
+composed page is usable. Product and trust rules remain in their owning guides;
+task-local contract changes update those owners.
 
-The accepted source pair is Soda `518b13c3` and Fountain `17fbd56ab3`.
+The inspected shipping source pair is Soda `31caf48a` and Fountain `17fbd56ab3`.
 The existing development VM runs the shipping Soda `31caf48a` and that Fountain
-revision; the later Soda commits change coverage documentation only. Source,
+revision; the later Soda commits change documentation only. Source,
 native fixture and installed checks retain their individual scopes. Installed
 terminal evidence distinguishes retained elements/renderers/sockets during page
 transitions from a fresh browser connection to the same process after reload.
 Execution-provider qualification, production release qualification and a separate
-nontechnical usability study are not established by this task completion.
+nontechnical usability study are not established by these scoped checks.
+
+Installed review found large unused content slots above Workspace, repository
+Workspace navigation hidden in overflow, clipped creation controls, and Project
+settings panels compressed to 32 pixels while their Identity connections sibling
+occupies 453 pixels. Native page → Workspace → Issues also leaves the browser on
+Workspace after a settled interaction. These findings reopen the affected native
+composition/navigation, creation layout, settings/responsive and composed-check
+requirements in UX-C02/UX-C03/UX-C06/UX-C07, UX-U01, UX-W05/UX-W07 and UX-Q03/UX-Q08.
+Do not replace missing installed acceptance with the previous aggregate count.
 
 The original implementation input was Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
 and Fountain `e4b58254a0b5a6ac0bc60445860a02c2a6df6ed2`. Soda also contains seven
@@ -147,7 +157,7 @@ authorization/session guards, Project/terminal machinery, atomic native issue
 graph writer and working Factory coding/review/correction/check/merge/closure loop.
 Do not schedule their replacement as new infrastructure.
 
-The completed task tables cover these changes:
+The task tables cover these changes:
 
 - A visible **New Project** entry leading to a real native content page; private
   saved requests, direct links, history, save/resume and recovery.
