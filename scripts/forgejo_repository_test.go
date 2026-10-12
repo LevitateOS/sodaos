@@ -16,6 +16,7 @@ func TestForgejoRepositoryHeaderKeepsNativeAuthority(t *testing.T) {
 		`data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
 		`class="repo-header"`,
 		`class="repo-buttons button-row"`,
+		`class="ui dropdown custom soda-repository-switcher"`,
 		`{{if $.RepoTransfer}}`,
 		`{{if not $.DisableStars}}`,
 		`{{if not $.DisableForks}}`,

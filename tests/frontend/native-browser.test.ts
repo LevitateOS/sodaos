@@ -26,7 +26,8 @@ test('native browser refuses long private socket paths before starting a process
 
 test('native browser refuses an occupied socket without removing its owner', async () => {
   await mkdir(path.join(root, '.artifacts'), {recursive: true});
-  const run = await mkdtemp(path.join(root, '.artifacts', 'soda-cdp-'));
+  // Keep the private socket path below the guard even in long worktree paths.
+  const run = await mkdtemp(path.join(root, '.artifacts', 'c-'));
   const socket = path.join(run, 'cdp.sock');
   const owner = Bun.serve({
     unix: socket,
