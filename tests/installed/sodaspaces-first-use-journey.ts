@@ -152,6 +152,17 @@ export async function exerciseFirstUse(
         (r) => r.url().endsWith(`/api/factory/intents/${intent}/explore`) && r.request().method() === 'POST',
         {timeout: 300000}
       );
+      const creating = page
+        .waitForRequest(
+          (request) => request.url().endsWith('/api/factory/intent-allowances') && request.method() === 'POST',
+          {timeout: 300000}
+        )
+        .catch(() => undefined);
+      const created = page
+        .waitForResponse((r) => r.url().endsWith('/api/factory/intent-allowances') && r.request().method() === 'POST', {
+          timeout: 300000,
+        })
+        .catch(() => undefined);
       await spaces.getByRole('button', {name: button}).click();
       const roundSaveRequest = await roundSaving,
         roundSaveBody = object(roundSaveRequest.postDataJSON());
@@ -174,7 +185,22 @@ export async function exerciseFirstUse(
         );
       } else {
         assert.equal(fundingReply.status(), 404);
-        evidence.factory?.push('allowance missing before explore; flow posts its creation');
+        const createRequest = await creating;
+        assert(createRequest, 'Missing allowance must be created before explore');
+        const createBody = object(createRequest.postDataJSON());
+        permit(new URL(createRequest.url()).pathname, createBody);
+        assert.match(String(createBody.id ?? ''), /^d[0-9a-f]{24}$/);
+        assert.equal(createBody.intent, intent);
+        assert(typeof createBody.amount === 'number' && createBody.amount > 0 && Number.isFinite(createBody.amount));
+        assert.equal(createBody.ceiling, createBody.amount);
+        assert.equal(createBody.unit, 'planning_calls');
+        const createResponse = await created;
+        assert(createResponse, 'Allowance creation must report its receipt');
+        assert.equal(createResponse.status(), 201);
+        const createdAllowance = object(await createResponse.json());
+        assert.equal(createdAllowance.intent, intent);
+        assert.equal(createdAllowance.amount, createBody.amount);
+        evidence.factory?.push(`allowance created amount=${String(createBody.amount)} unit=${String(createBody.unit)}`);
       }
       const exploreRequest = await consulting,
         exploreBody = object(exploreRequest.postDataJSON());
