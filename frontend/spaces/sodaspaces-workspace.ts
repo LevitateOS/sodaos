@@ -514,12 +514,12 @@ export class SodaSpaces extends LitElement {
   private freshEntryFromSetup() {
     // Genuine native New arrival while a setup is active: the location no
     // longer names the reviewed request, so drop that loaded identity and
-    // show a blank entry. Fresh in-progress entries (no revision), busy
-    // elements and committed creations are left untouched, and the setup
-    // return target is preserved for Back.
+    // show a blank entry. Fresh in-progress entries (no revision) and busy
+    // elements are left untouched; only the committed creation screen owns
+    // its view. The setup return target is preserved for Back.
     if (!this.pendingNewRoute) return;
     if (
-      this.setupCommitted ||
+      this.setup === 'configure' ||
       this.binding?.kind !== 'page' ||
       !isNewRouteLocation(window.location.pathname, this.repositoryPrefix())
     )
@@ -531,6 +531,7 @@ export class SodaSpaces extends LitElement {
     actions.setRepositoryChoice('');
     actions.setReviewAuthorization(undefined);
     actions.setReviewedIntent(undefined);
+    actions.setSetupCommitted(false);
     actions.setSetup('intent');
   }
   private geometryChanged(width: number, height: number, cell: {width: number; height: number}) {
