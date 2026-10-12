@@ -1,5 +1,7 @@
 # Browser spaces
 
+Scoped saved-review source at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): F05 sodaspaces-intent-response.ts adds SavedReviewRead parsing and basis/result/producer/digest/verdict/exclusion validation; no restored UI or new shell is claimed.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
