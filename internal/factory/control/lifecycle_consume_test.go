@@ -379,7 +379,8 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 			return factory.OperationOutcome{}, errors.New("unused")
 		}}
 		m := factory.Merge{
-			ID: "merge-1", Stage: factory.MergeMerged, Repository: 9, Issue: 5, PRNumber: 12, MergedCommit: "abc123", OriginalClosingOccurrence: "99",
+			ID: "merge-1", Stage: factory.MergeOpen, Repository: 9, Issue: 5, PRNumber: 12, MergedCommit: "abc123",
+			MergedUnix: 100, ClosedUnix: 101, OriginalClosingOccurrence: "99", OriginalClosedUnix: 102,
 			Operation: factory.MergeOperation{Work: &factory.MergeIntent{AuthRevision: "mergeauth-1", OperationID: "merge-op-1"}},
 		}
 		if err := ConsumeVerifiedMerge(ctx, s, ex, m); err != nil {
