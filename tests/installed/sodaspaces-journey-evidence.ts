@@ -8,6 +8,24 @@ const workspacePage = '/workspace';
 const workspaceMount = '[data-extension-workspace]';
 const spacesMount = '[data-extension-page][data-extension-id="soda"][data-extension-page-id="spaces"]';
 
+const workspaceRequestID = /^d[0-9a-f]{24}$/;
+const workspaceSubURL = /^(?:\/[A-Za-z0-9._~-]+)*$/;
+
+function admittedWorkspaceRest(rest: string): boolean {
+  if (rest === workspacePage || rest === `${workspacePage}/new`) return true;
+  const requests = `${workspacePage}/requests/`;
+  if (rest.startsWith(requests))
+    return rest.length === requests.length + 25 && workspaceRequestID.test(rest.slice(requests.length));
+  const segments = rest.split('/');
+  return (
+    segments.length === 4 &&
+    segments[0] === '' &&
+    segments[1] !== '' &&
+    segments[2] !== '' &&
+    segments[3] === 'workspace'
+  );
+}
+
 export async function nativeSpacesMount(page: Page): Promise<string> {
   const hashBefore = new URL(page.url()).hash;
   const workspace = page.locator(workspaceMount);
@@ -15,11 +33,14 @@ export async function nativeSpacesMount(page: Page): Promise<string> {
   assert.equal(await page.locator(workspaceMount).count(), 1, 'Exactly one native Workspace owner required');
   assert((await workspace.getAttribute('data-workspace-direct')) !== null, 'Direct native layout required');
   const subURL = (await workspace.getAttribute('data-app-sub-url')) ?? '';
+  assert(workspaceSubURL.test(subURL), 'Native sub-URL must be admitted');
   const url = new URL(page.url());
-  assert.equal(url.pathname, `${subURL}${workspacePage}`, 'Native workspace required');
+  assert(url.pathname.startsWith(subURL), 'Native workspace prefix mismatch');
+  const rest = subURL === '' ? url.pathname : url.pathname.slice(subURL.length);
+  assert(admittedWorkspaceRest(rest), 'Native workspace shape required');
   assert.equal(
     await workspace.getAttribute('data-workspace-path'),
-    `${subURL}${url.pathname}${url.search}`,
+    url.pathname + url.search,
     'Native Workspace URL must be canonical'
   );
   const workspaceGeneration = await workspace.getAttribute('data-workspace-session-generation');
@@ -29,7 +50,7 @@ export async function nativeSpacesMount(page: Page): Promise<string> {
   await mount.waitFor();
   const api = new URL((await mount.getAttribute('data-extension-api-base')) || '', url.origin);
   assert.equal(api.origin, url.origin, 'Spaces API must be same-origin');
-  assert.equal(api.pathname, spacesAPI + '/', 'Spaces mount API mismatch');
+  assert.equal(api.pathname, `${subURL}${spacesAPI}/`, 'Spaces mount API mismatch');
   assert.equal(api.search, '', 'Spaces API query is not allowed');
   assert.equal(api.hash, '', 'Spaces API hash is not allowed');
   const generation = await mount.getAttribute('data-extension-session-generation');
