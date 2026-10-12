@@ -4,6 +4,8 @@ Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol
 
 Scoped saved-review source at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): F05 SaveIntentRevision now delegates its existing CAS write to saveIntentRevisionTx. `factory_intent_reviews.go` joins review INSERT/replay validation to that transaction and performs exact owner-private reads. Schema47 adds its table and required-column verification; historical selectors below retain their scope.
 
+Size concern at `6f30b3396b729278fe3a0040ffdc4b6de18b3d3f`: `factory_intents.go` is now 404 lines (the changed concern adds `saveIntentRevisionTx`). The inspected CAS/revision/private-history and judgment reservation callers retain their existing typed Store owner and SQL locality; no package split, port or process is introduced. This concern review does not advance unrelated body/census pins.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).
