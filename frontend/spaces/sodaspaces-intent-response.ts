@@ -46,6 +46,12 @@ export interface ProposalAlternative {
   evidence?: string;
   outcomes: string[];
 }
+export interface Exclusion {
+  idea: string;
+  description: string;
+  consequence: string;
+  provenance?: 'human' | 'autonomous';
+}
 export interface ProposalContent {
   producer: string;
   supported: boolean;
@@ -55,6 +61,7 @@ export interface ProposalContent {
   facts?: string[];
   alternatives?: ProposalAlternative[];
   excluded?: string[];
+  exclusions?: Exclusion[];
   unknowns: string[];
 }
 export interface IntentRevision {
@@ -148,6 +155,7 @@ export interface SavedRequest {
 export const decisionID = (value: unknown): value is string =>
   typeof value === 'string' && /^d[0-9a-f]{24}$/.test(value);
 const digest = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+const authoredProducer = 'soda-authored-v1';
 function text(value: unknown, limit: number): string {
   check(typeof value === 'string' && value.trim() && value.length <= limit && !value.includes('\0'));
   return value;
@@ -374,8 +382,35 @@ export function proposalContent(value: unknown): ProposalContent {
   proposalBinding(raw, out);
   const alternatives = proposalAlternatives(raw, raw.supported);
   if (alternatives) out.alternatives = alternatives;
-  if (raw.excluded !== undefined) out.excluded = excludedIDs(raw);
+  const excluded = raw.excluded !== undefined ? excludedIDs(raw) : undefined;
+  if (excluded) out.excluded = excluded;
+  const meanings = proposalExclusions(raw, excluded);
+  if (meanings) out.exclusions = meanings;
   return out;
+}
+function exclusion(value: unknown): Exclusion {
+  const raw = object(value);
+  check(decisionID(raw.idea));
+  const out: Exclusion = {
+    idea: raw.idea,
+    description: text(raw.description, 4000),
+    consequence: text(raw.consequence, 4000),
+  };
+  if (raw.provenance !== undefined) {
+    check(raw.provenance === 'human' || raw.provenance === 'autonomous');
+    out.provenance = raw.provenance as 'human' | 'autonomous';
+  }
+  return out;
+}
+function proposalExclusions(raw: Record<string, unknown>, excluded: string[] | undefined): Exclusion[] | undefined {
+  if (raw.exclusions === undefined) {
+    check(excluded === undefined || excluded.length === 0);
+    return undefined;
+  }
+  const meanings = array(raw.exclusions, 50).map(exclusion);
+  check(excluded !== undefined && meanings.length === excluded.length);
+  meanings.forEach((meaning, index) => check(meaning.idea === excluded[index]));
+  return meanings;
 }
 function challenge(value: unknown): AssumptionChallenge {
   const raw = object(value);
@@ -480,6 +515,12 @@ function reviewBindings(raw: Record<string, unknown>, payload: Exploration) {
     check(digest(payload.consistency.advice));
   }
 }
+function reviewContentShape(payload: Exploration) {
+  check(payload.content.producer === authoredProducer);
+  const objective = payload.content.objective;
+  const facts = payload.content.facts;
+  check(objective !== undefined && facts !== undefined && facts.length > 0 && facts[0] === objective);
+}
 function reviewVerdicts(payload: Exploration) {
   const verdicts = new Set<string>();
   for (const entry of payload.challenges) {
@@ -497,6 +538,7 @@ export function savedReview(value: unknown): SavedReview {
   check(raw.basis_revision !== raw.result_revision);
   const payload = exploration(value);
   reviewBindings(raw, payload);
+  reviewContentShape(payload);
   reviewVerdicts(payload);
   const saved = count(raw.saved_unix);
   check(saved > 0);
