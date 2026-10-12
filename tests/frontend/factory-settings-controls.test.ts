@@ -624,7 +624,10 @@ test('a preparation retry after an unconfirmed response reuses both admitted ide
   });
   await settings.getByRole('button', {name: 'Preview selected source'}).click();
   await page.waitForTimeout(250);
-  assert.match(await settings.getByRole('status').innerText(), /Source preview returned/);
+  assert.match(
+    await settings.getByRole('status').filter({hasText: 'Source preview'}).innerText(),
+    /Source preview returned/
+  );
   await settings.getByRole('button', {name: 'Record exact-input acceptance'}).click();
   await settings.getByRole('status').filter({hasText: 'Change confirmed'}).waitFor();
   await settings.locator('[name="effects_evidence"]').fill('Reviewed installed effects.');
@@ -1220,4 +1223,73 @@ test('Factory settings reload after a tab flap during load instead of sticking b
   await page.locator('[data-factory-settings]').filter({hasText: 'Capacity: 2 concurrent runs, 8 queued'}).waitFor();
   const refreshButton = page.locator('soda-factory-settings').getByRole('button', {name: 'Refresh current authority'});
   assert.equal(await refreshButton.isDisabled(), false);
+});
+
+test('Factory settings mount optional effects with authorizer/submitter context and retire on tab switch', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.drawerFixture.setReply(async (call) => {
+      if (call.method === 'GET' && call.url.endsWith('/api/repositories/7/factory/lifecycle/pr_created'))
+        return Response.json({
+          event: 'pr_created',
+          revision: '4',
+          enabled: true,
+          capable: true,
+          actor_id: '1001',
+          submitter_id: '7',
+          executor_ready: true,
+          repository_id: '7',
+          reviewer_ids: ['11'],
+        });
+      if (call.method === 'GET' && call.url.endsWith('/api/repositories/7/factory/lifecycle/issue_created'))
+        return Response.json({
+          event: 'issue_created',
+          revision: '0',
+          enabled: false,
+          capable: true,
+          actor_id: '',
+          repository_id: '7',
+        });
+      if (call.method === 'GET' && call.url.endsWith('/api/repositories/7/factory/lifecycle/verified_merge'))
+        return Response.json({
+          event: 'verified_merge',
+          revision: '0',
+          enabled: false,
+          capable: true,
+          actor_id: '',
+          repository_id: '7',
+        });
+      if (call.method === 'GET' && call.url.endsWith('/api/repositories/7/factory/access'))
+        return Response.json({
+          repository: '7',
+          observed_unix: 1728670000,
+          viewer: {
+            code_write: true,
+            owner_or_admin: true,
+            environment_owner: false,
+            operator: false,
+            member: true,
+            session_current: true,
+          },
+          effective: {effective: true, dispatch_open: true, missing: []},
+          required_actions: [],
+          planning: [],
+        });
+      return null;
+    });
+    window.drawerFixture.api.setPresentation('settings');
+  });
+  await refresh(page);
+  await page.getByRole('tab', {name: 'Factory'}).click();
+  const effects = page.locator('soda-factory-optional-effects');
+  await effects.getByText('Pull request human review').waitFor();
+  await effects.getByText(/Authorized by 1001, revision 4/).waitFor();
+  await effects.getByText(/Submitter 7, executor ready/).waitFor();
+  await page.getByRole('tab', {name: 'Overview'}).click();
+  await page.locator('soda-factory-settings').evaluate(async (el) => {
+    await (el as HTMLElement & {updateComplete: Promise<unknown>}).updateComplete;
+  });
+  const retired = (await effects.textContent()) || '';
+  assert.doesNotMatch(retired, /Authorized by 1001/);
+  assert.match(retired, /No configuration recorded\./);
 });

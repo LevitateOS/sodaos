@@ -595,6 +595,88 @@ test('optional effects map an unavailable executor refusal distinctly', async (t
   await effects.getByText('No lifecycle executor is configured yet; the saved preference is kept.').waitFor();
 });
 
+test('optional effects link a journaled pull number and leave unclaimed rows text-only', async (t) => {
+  const page = await openView(t, 'effects', [
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/lifecycle/issue_created',
+      status: 200,
+      json: {event: 'issue_created', revision: '0', enabled: false, capable: true, actor_id: '', repository_id: '7'},
+    },
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/lifecycle/pr_created',
+      status: 200,
+      json: {
+        event: 'pr_created',
+        revision: '4',
+        enabled: true,
+        capable: true,
+        actor_id: '1001',
+        submitter_id: '7',
+        executor_ready: true,
+        repository_id: '7',
+        reviewer_ids: ['11'],
+      },
+    },
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/lifecycle/verified_merge',
+      status: 200,
+      json: {event: 'verified_merge', revision: '0', enabled: false, capable: true, actor_id: '', repository_id: '7'},
+    },
+    {method: 'GET', path: 'repositories/7/factory/lifecycle/issue_created/actions?issue=12', status: 200, json: []},
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/lifecycle/pr_created/actions?issue=12',
+      status: 200,
+      json: {
+        actions: [
+          {
+            id: 'action-bound-1',
+            event: 'pr_created',
+            action: 'pr_reviewer_request',
+            actor_id: '7',
+            issue_id: '12',
+            target_id: '34',
+            config_owner: '99',
+            pr_number: '34',
+            attempts: 1,
+            max_attempts: 5,
+            revoked: false,
+            settled: false,
+            results: {'34': 'delivered'},
+          },
+          {
+            id: 'action-unclaimed-2',
+            event: 'pr_created',
+            action: 'pr_reviewer_request',
+            actor_id: '0',
+            issue_id: '12',
+            attempts: 0,
+            max_attempts: 5,
+            revoked: false,
+            settled: false,
+            results: {},
+          },
+        ],
+      },
+    },
+    {method: 'GET', path: 'repositories/7/factory/lifecycle/verified_merge/actions?issue=12', status: 200, json: []},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+  ]);
+  const effects = page.locator('soda-factory-optional-effects');
+  await effects.getByText('Pull request human review').waitFor();
+  const pr = effects.locator('li', {hasText: 'Pull request human review'});
+  await pr.getByText(/Submitter 7, executor ready/).waitFor();
+  await pr.getByText(/Submitted by 7, authorized by 99/).waitFor();
+  const links = pr.getByRole('link', {name: 'Native target'});
+  assert.equal(await links.count(), 1);
+  assert.equal(await links.first().getAttribute('href'), '/soda-tester/demo/pulls/34');
+  await pr.getByText(/Submitter unclaimed/).waitFor();
+  await pr.getByText(/Native target unresolved/).waitFor();
+});
+
 test('work plan renders recorded steps and the empty comparison note', async (t) => {
   const page = await openView(t, 'plan', [
     {
