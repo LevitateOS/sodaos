@@ -40,6 +40,18 @@ test('stale read keeps the review past a moved head', () => {
   assert.equal(read.review?.result_revision, 'd222222222222222222222222');
 });
 
+test('parser tolerates server null arrays', () => {
+  const read = savedReviewRead(
+    mutate((doc) => {
+      const revision = review(doc);
+      (revision.recommendation as Record<string, unknown>).constraints = null;
+      (revision.consistency as Record<string, unknown>).mismatches = null;
+    })
+  );
+  assert.deepEqual(read.review?.recommendation?.constraints, []);
+  assert.deepEqual(read.review?.consistency?.mismatches, []);
+});
+
 test('missing read carries no review', () => {
   const read = savedReviewRead({
     intent: 'd000000000000000000000000',

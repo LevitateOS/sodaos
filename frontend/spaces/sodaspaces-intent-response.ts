@@ -579,6 +579,9 @@ function bound(value: unknown, minimum: number, maximum: number) {
   return Number(value);
 }
 function array(value: unknown, maximum: number): unknown[] {
+  // Go emits unset slices as null; SavedReview.Validate accepts them, so the
+  // parser does too. Required arrays keep their own length checks.
+  if (value === null) return [];
   check(Array.isArray(value) && value.length <= maximum);
   return value;
 }
