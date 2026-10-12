@@ -17,8 +17,11 @@ func TestCheckProposalEffectsCatchesSilentAdditions(t *testing.T) {
 	smuggled := proposal
 	smuggled.Alternative.Steps[0].Action = "describes what they need and gets an email receipt"
 	mismatches := CheckProposalEffects(content, smuggled)
-	if len(mismatches) != 1 || mismatches[0].Class != MismatchEffectAdded || !strings.Contains(mismatches[0].Detail, "email") {
+	if len(mismatches) != 1 || mismatches[0].Class != MismatchEffectAdded {
 		t.Fatalf("mismatches=%+v", mismatches)
+	}
+	if !strings.Contains(mismatches[0].Detail, "d777777777777777777777777") || !strings.Contains(mismatches[0].Detail, "Email everyone") {
+		t.Fatalf("decline not cited=%q", mismatches[0].Detail)
 	}
 	sourced := content
 	sourced.Facts = append(append([]string(nil), content.Facts...), "Send an email receipt for every request")
@@ -33,6 +36,46 @@ func TestCheckProposalEffectsCatchesSilentAdditions(t *testing.T) {
 	mismatches = CheckProposalEffects(content, gapped)
 	if len(mismatches) != 1 || mismatches[0].Class != MismatchOutcomeGap {
 		t.Fatalf("mismatches=%+v", mismatches)
+	}
+}
+
+func TestCheckProposalEffectsIgnoresIncidentalVocabulary(t *testing.T) {
+	r := draftRevision()
+	r.Objective = "Time-off requests my manager can approve"
+	r.Ideas = []ProductIdea{
+		{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept"},
+		{ID: "d666666666666666666666666", Description: "Email the reviewer", Consequence: "Notify the person", Decision: "decline"},
+	}
+	content, err := ComposeProposalContent(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := ConsolidateContent(content, "shared_review", strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mismatches := CheckProposalEffects(content, proposal); len(mismatches) != 0 {
+		t.Fatalf("incidental reviewer/person vocabulary flagged=%+v", mismatches)
+	}
+}
+
+func TestCheckProposalEffectsDefersSemanticOverlapToJudgment(t *testing.T) {
+	r := draftRevision()
+	r.Objective = "Time-off requests my manager can approve"
+	r.Ideas = []ProductIdea{
+		{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept"},
+		{ID: "d666666666666666666666666", Description: "The reviewer decides every request", Consequence: "Reviewer time on every submission", Decision: "decline"},
+	}
+	content, err := ComposeProposalContent(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := ConsolidateContent(content, "shared_review", strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mismatches := CheckProposalEffects(content, proposal); len(mismatches) != 0 {
+		t.Fatalf("semantic resemblance decided deterministically=%+v", mismatches)
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-const consistencyRubric = "Verify the recommended walkthrough, its illustrative summary and the effective outcomes against each other and the supplied corrections. Choose consistent only when the walkthrough delivers every requested outcome, adds no unsourced effects and matches its summary. Otherwise name the specific mismatch class. Judge only supplied facts; grant no authority, access or spending."
+const consistencyRubric = "Verify the recommended walkthrough, its illustrative summary and the effective outcomes against each other and the supplied corrections. Choose consistent only when the walkthrough delivers every requested outcome, adds no unsourced effects and matches its summary. A walkthrough that reintroduces supplied declined behavior is an effect_added mismatch. Otherwise name the specific mismatch class. Judge only supplied facts; grant no authority, access or spending."
 
 func consistencyOptions() map[string]any {
 	return map[string]any{
@@ -33,6 +33,7 @@ type consistencyEvidence struct {
 	Outcomes    []string                   `json:"outcomes"`
 	Milestones  []factory.Milestone        `json:"milestones"`
 	Constraints []string                   `json:"constraints"`
+	Exclusions  []factory.Exclusion        `json:"exclusions,omitempty"`
 }
 
 // JudgeConsistency verifies the consolidated proposal. Deterministic code
@@ -63,7 +64,7 @@ func (c *Coordinator) JudgeConsistency(ctx context.Context, r factory.IntentRevi
 		report.Advice = advice
 		return report, report.Validate()
 	}
-	state := consistencyEvidence{Objective: r.Objective, Facts: content.Facts, Unknowns: content.Unknowns, Recommended: proposal.Alternative, Outcomes: proposal.Outcomes, Milestones: proposal.Milestones, Constraints: proposal.Constraints}
+	state := consistencyEvidence{Objective: r.Objective, Facts: content.Facts, Unknowns: content.Unknowns, Recommended: proposal.Alternative, Outcomes: proposal.Outcomes, Milestones: proposal.Milestones, Constraints: proposal.Constraints, Exclusions: content.Exclusions}
 	options := consistencyOptions()
 	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
 		Purpose:  factory.JudgmentConsistency,
@@ -102,5 +103,6 @@ func codeCheckAdvice(content factory.ProposalContent, proposal factory.Consolida
 		Objective   string                     `json:"objective"`
 		Facts       []string                   `json:"facts"`
 		Recommended factory.ProductAlternative `json:"recommended"`
-	}{content.Objective, content.Facts, proposal.Alternative}, "deterministic-effect-scan", map[string]any{"mismatch": "code-found", "clean": "code-found-none"})
+		Exclusions  []factory.Exclusion        `json:"exclusions,omitempty"`
+	}{content.Objective, content.Facts, proposal.Alternative, content.Exclusions}, "deterministic-effect-scan", map[string]any{"mismatch": "code-found", "clean": "code-found-none"})
 }
