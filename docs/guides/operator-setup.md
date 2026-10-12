@@ -84,8 +84,11 @@ checks each owner against the selected operation bindings before changing
 configuration or services. Forgejo permits `read:user` only on tokens with all
 repository resources; native extension operations still require the selected
 repository, token, actor and operation binding. Mixed native snapshot reads need
-both `read:issue` and `read:repository`. Publisher, creator, reviewer and merger
-operation scopes remain separate from those read scopes. Install the
+both `read:issue` and `read:repository`. The issue-graph credential needs
+`read:issue` for adoption reads, and each background-read credential needs its
+own installation/token/actor/repository binding: snapshot reads ride only
+enrolled bindings, without granting mutation. Publisher, creator, reviewer and
+merger operation scopes remain separate from those read scopes. Install the
 repository-scoped issue-open hook before creating tasks:
 Fountain retains original creation facts for seven days, so missing hooks,
 expired events and deleted task records cannot support historical recovery.
