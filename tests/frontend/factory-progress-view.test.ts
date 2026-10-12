@@ -13,8 +13,15 @@ import {
   describeRevisionHistory,
   describeWhyNext,
   describeWorkOverview,
+  detailContextFromScope,
   intentGeneration,
+  overviewScopeFromBound,
+  overviewScopeFromMappings,
+  planContextFromScope,
+  retiredOverviewScope,
+  revisionContextFromScope,
 } from '../../frontend/spaces/sodaspaces-factory-progress-view';
+import type {PreparedExtensionMount} from '../../frontend/spaces/soda-extension';
 import {
   factoryAccess,
   issuePlan,
@@ -798,4 +805,75 @@ test('revision history composes before/after and affected work per revision', ()
   assert.match(cut.truncatedNote, /beyond this page/);
   assert.match(describeRevisionHistory(undefined, 'unavailable').stateText, /could not be read/);
   assert.match(describeRevisionHistory(undefined, 'missing').stateText, /No revision history/);
+});
+
+test('overview scope feeds effective mappings without capabilities', () => {
+  const scope = overviewScopeFromMappings(
+    [
+      {task: 'd11111111', issue: '12', effective: true, issueLink: `${path}/issues/12`},
+      {task: 'd22222222', issue: '11', effective: false, issueLink: `${path}/issues/11`},
+    ],
+    '7',
+    intentId
+  );
+  assert.equal(scope.repository, '7');
+  assert.equal(scope.intentID, intentId);
+  assert.deepEqual(scope.issues, [{issue: '12'}]);
+});
+
+test('overview scope feeds bound issues with read capabilities', () => {
+  const open = {
+    watch: {available: true},
+    stop: {available: true},
+    retry: {available: false, reason: 'repository_write_required'},
+    takeover: {available: true},
+    pause: {available: true},
+    resume: {available: true},
+  };
+  const detail: FactoryIssueDetail = {
+    repository: '7',
+    issue: '12',
+    status: {valid: true, withdrawn: false, revision: 1, reasons: []},
+    closure: {state: 'none'},
+    capabilities: open,
+    observed_unix: 1720000300,
+  };
+  const scope = overviewScopeFromBound([detail], '7', intentId);
+  assert.equal(scope.issues.length, 1);
+  assert.equal(scope.issues[0]?.issue, '12');
+  assert.deepEqual(scope.issues[0]?.capabilities, open);
+  assert.deepEqual(retiredOverviewScope(), {repository: '', issues: []});
+});
+
+test('child contexts derive from scope with exact keys and runs', () => {
+  const transport = {} as unknown as PreparedExtensionMount;
+  const open = {
+    watch: {available: true},
+    stop: {available: false, reason: 'repository_write_required'},
+    retry: {available: true},
+    takeover: {available: true},
+    pause: {available: true},
+    resume: {available: true},
+  };
+  const scope = {repository: '7', intentID: intentId, issues: [{issue: '12', capabilities: open}]};
+  const plan = planContextFromScope(transport, '7', path, scope);
+  assert.deepEqual(plan.issues, ['12']);
+  assert.equal(plan.repository, '7');
+  assert.equal(plan.repositoryPath, path);
+  const detail = detailContextFromScope(transport, '7', path, scope, '12', {
+    runIDs: ['d'.repeat(32)],
+    environmentID: 'p' + 'f'.repeat(24),
+  });
+  assert.equal(detail.issue, '12');
+  assert.deepEqual(detail.runIDs, ['d'.repeat(32)]);
+  assert.equal(detail.capabilities.stop, false);
+  assert.equal(detail.capabilities.retry, true);
+  assert.equal(detail.capabilities.project_stop, true);
+  const unknown = detailContextFromScope(transport, '7', path, scope, '13', {runIDs: []});
+  assert.equal(unknown.capabilities.stop, true);
+  assert.equal(unknown.capabilities.project_stop, false);
+  assert.equal(unknown.environmentID, undefined);
+  const revision = revisionContextFromScope(transport, scope);
+  assert.equal(revision?.intentID, intentId);
+  assert.equal(revisionContextFromScope(transport, retiredOverviewScope()), undefined);
 });

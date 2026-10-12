@@ -322,6 +322,28 @@ export function capabilityGate(
 export type InterventionKind = 'pause' | 'resume' | 'stop' | 'retry' | 'takeover' | 'project_stop';
 export type InterventionResult = 'idle' | 'pending' | 'confirmed' | 'uncertain' | 'failed';
 
+// upfrontCapabilities maps one issue's backend capabilities to the
+// detail element's upfront intervention booleans. Unknown
+// capabilities stay permissive: the backend gate and server
+// authorization decide once the issue read lands, while upfront
+// false would stick disabled. project_stop follows environment
+// presence because its POST requires a target.
+export function upfrontCapabilities(
+  capabilities: WorkCapabilities | undefined,
+  hasEnvironment: boolean
+): Record<InterventionKind, boolean> {
+  if (!capabilities)
+    return {pause: true, resume: true, stop: true, retry: true, takeover: true, project_stop: hasEnvironment};
+  return {
+    pause: capabilities.pause.available,
+    resume: capabilities.resume.available,
+    stop: capabilities.stop.available,
+    retry: capabilities.retry.available,
+    takeover: capabilities.takeover.available,
+    project_stop: hasEnvironment,
+  };
+}
+
 export interface InterventionModel {
   readonly kind: InterventionKind;
   readonly label: string;
