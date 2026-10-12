@@ -16,9 +16,9 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `32305c05ab5dde6ca65752bbd2135d9e997a2516` and paired Fountain source
+Reviewed Soda source `0c759a2506031401ab03cf6a3b819cd20f9385a0` and paired Fountain source
 `442a42f24a8eefe46e187b550ec9db22b2660949` for the native frontend correction. This delta
-adds fifteen focused domain, Store, API and browser source/test paths and changes no package, language
+adds sixteen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
@@ -30,8 +30,7 @@ Fountain now defines its page-feature registry/config replacement in
 first consumer. Its radio/reset GETs now emit cancelable native submit events
 through `requestSubmit()`, preserving validation and the host navigation seam.
 The generic host owns these native duties. Ten focused lifecycle/control cases pass; the navigation regression still includes
-two explicit
-expected failures, and the corrected live-terminal fixture has only been vetted.
+two explicit expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
 Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
@@ -83,6 +82,10 @@ remain strict. Two PostgreSQL/API recovery/capture cases pass with injected
 judgments. The resulting exact JSON reaches the production Lit component:
 13 restoration and 5 parser cases pass with no skips, including ordered flow,
 recommendation/verdict restoration, failures, superseded loads and actor switches.
+GET restoration consumes no new judgments or effects. An explicitly requested
+join fails on missing/malformed capture files; ordinary component checks remain
+independent. Native composition and installed content remain I04/I08 evidence.
+
 Soda's type-only browser contract mirror now matches the canonical Fountain
 `df41bd73d8` declaration exactly, with a pinned body hash. It remains preparation;
 production callers still await the callable contract. Formatting excludes only
@@ -91,9 +94,12 @@ to the persistent actions-menu summary instead of its hidden item. Five focused
 mirror/focus cases pass. The three added paths retain G01/S04/H06 ownership;
 no native host adapter, runtime package or process is added.
 
-GET restoration consumes no new judgments or effects. An explicitly requested
-join fails on missing/malformed capture files; ordinary component checks remain
-independent. Native composition and installed content remain I04/I08 evidence.
+The local dialog fixture uses emitted extension styles and native document tokens.
+All six compact/short rename, creation and department cases pass, covering bounds,
+default-scheme opacity, initial focus, dismissal and restored focus. The thirteen
+settings cases include keyboard wrap/Home/End and no-write selection. These checks
+remain local composition; browser zoom and final native geometry remain open.
+The new dialog test retains S04/H06 ownership without a product layout change.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
