@@ -90,6 +90,17 @@ API facts (new installed-map journey section, helper mountedSpacesFacts
 plus evidence fields; D06 retained, test-only, no shipping change).
 Structural/body/review pins and the integrated packet stand unchanged.
 
+Final-delta upkeep at `39d9ad6a` (2026-10-12), incremental from
+`2509c22c`: 0 added, 15 modified, 0 deleted outside this plan. Records
+merged duties only: S13 clarify dedup (pinned texts, stable-identity
+reuse, 3 tests), U06 review-only allowance top-up (fresh usage read,
+412 CAS retry, 2 tests), I91 exhaustion sentinel with chooser seam and
+409 funding branches, C native-New blank entry with its test, and Q07
+allowance POST+201 journey receipt. I0f4 and C/I routing fixes are not
+on this pin and are claimed by no row; they join a later packet when
+merged. New rows carry current spans; prior rows keep their pins.
+Structural/body/review pins and the integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
