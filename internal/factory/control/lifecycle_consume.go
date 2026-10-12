@@ -30,16 +30,19 @@ type LifecycleExecutor interface {
 
 // LifecycleEventInput is one proven production completion that may fire
 // a configured optional effect. SourceID is the durable event identity
-// (revision plus task key, publication ID, merge ID); AuthRevision
-// carries the event's current authorization facts. IssueIndex carries
-// the original issue index for verified merges; every other event
-// carries the exact native target in IssueID.
+// (revision plus task key, publication plus PR receipt, merge plus
+// merge/closure facts); AuthRevision carries the event's stable
+// authorization basis (I-F5: generation authorization, PRCreate intent,
+// merge intent — all immutable). IssueIndex is the work-issue read key
+// (native index); TargetID is the exact native payload target, or zero
+// for verified merges where the executor resolves and revalidates the
+// closed target from the index before anything journals.
 type LifecycleEventInput struct {
 	Event        string
 	SourceID     string
 	RepositoryID int64
-	IssueID      int64
 	IssueIndex   int64
+	TargetID     int64
 	AuthRevision string
 	MergeRef     string
 	Closed       bool
@@ -140,12 +143,15 @@ func lifecycleAttempt(ctx context.Context, s *store.Store, ex LifecycleExecutor,
 	next := a.RecordActionAttempt(opID)
 	next, err = s.UpdateAction(ctx, next, a.Attempts)
 	if err != nil {
+		if errors.Is(err, store.ErrLifecycleActionStale) {
+			return ReconcileLifecycleAction(ctx, s, ex, a.ID)
+		}
 		return a, err
 	}
 	a = next
 	work := factory.LifecycleWork{
 		OperationID: opID, Event: a.Event, ActorID: a.ActorID, RepositoryID: a.RepositoryID,
-		IssueID: a.IssueID, LabelID: a.LabelID, AssigneeID: a.AssigneeID, ReviewerIDs: append([]int64(nil), a.ReviewerIDs...),
+		IssueID: a.TargetID, LabelID: a.LabelID, AssigneeID: a.AssigneeID, ReviewerIDs: append([]int64(nil), a.ReviewerIDs...),
 		Note: a.Note, AuthRevision: a.AuthRevision, MergeRef: a.MergeRef, Closed: a.Closed,
 		NativeRev: rev, NotAfter: time.Now().Add(lifecycleNotAfter).Unix(),
 	}
@@ -159,6 +165,9 @@ func lifecycleAttempt(ctx context.Context, s *store.Store, ex LifecycleExecutor,
 		if lookupErr != nil {
 			journaled, journalErr := s.UpdateAction(ctx, a.RecordActionResult(factory.LifecycleResultUncertain), a.Attempts)
 			if journalErr != nil {
+				if errors.Is(journalErr, store.ErrLifecycleActionStale) {
+					return ReconcileLifecycleAction(ctx, s, ex, a.ID)
+				}
 				return a, journalErr
 			}
 			return journaled, nil
@@ -167,6 +176,9 @@ func lifecycleAttempt(ctx context.Context, s *store.Store, ex LifecycleExecutor,
 	}
 	journaled, err := s.UpdateAction(ctx, a.RecordActionResult(ClassifyLifecycleOutcome(outcome)), a.Attempts)
 	if err != nil {
+		if errors.Is(err, store.ErrLifecycleActionStale) {
+			return ReconcileLifecycleAction(ctx, s, ex, a.ID)
+		}
 		return a, err
 	}
 	return journaled, nil
@@ -176,9 +188,12 @@ func lifecycleAttempt(ctx context.Context, s *store.Store, ex LifecycleExecutor,
 // a pending first attempt, or the single retry once every target
 // shows definitive no-effect. Uncertain or denied targets never ride
 // a new operation identity: uncertainty reconciles by lookup, denial
-// stops. Budget remains, capability is still proved, configuration is
-// still enabled, and the enrolled actor still matches the journaled
-// actor. Reconciliation lookups need none of this.
+// stops. Every submit revalidates CURRENT proof (I-F12): capability
+// still proved, configuration still enabled for the same repository,
+// and the enrolled actor still matching the journaled submitter. On
+// any negative the action is left as-is (failed stays failed, pending
+// stays pending) for a later tick; disable-mid-flight pauses, it does
+// not cancel or revoke. Reconciliation lookups need none of this.
 func lifecycleRetryAllowed(ctx context.Context, s *store.Store, ex LifecycleExecutor, a factory.LifecycleAction) bool {
 	if a.Attempts >= factory.MaxLifecycleAttempts || a.Revoked {
 		return false
@@ -208,6 +223,48 @@ func lifecycleRetryAllowed(ctx context.Context, s *store.Store, ex LifecycleExec
 		return false
 	}
 	return true
+}
+
+// claimLifecycleAction binds an unclaimed journaled action to current
+// enrollment before its first attempt: the resolved enrolled UID
+// becomes the submitter, and a missing completion-note target resolves
+// from the journaled read-key index. Already-claimed rows pass
+// through untouched. The claim persists without consuming attempt
+// budget; failures leave the row unclaimed for a later tick.
+func claimLifecycleAction(ctx context.Context, s *store.Store, ex LifecycleExecutor, a factory.LifecycleAction) (factory.LifecycleAction, error) {
+	if a.Attempts > 0 || (a.ActorID > 0 && a.TargetID > 0) {
+		return a, nil
+	}
+	next := a
+	if next.ActorID <= 0 {
+		actorCtx, actorCancel := withLifecycleTimeout(ctx)
+		enrolled, err := ex.EnrolledActor(actorCtx)
+		actorCancel()
+		if err != nil || enrolled <= 0 {
+			return a, nil
+		}
+		next.ActorID = enrolled
+	}
+	if next.TargetID <= 0 {
+		if next.Event != factory.LifecycleEventVerifiedMerge {
+			return a, nil
+		}
+		targetCtx, targetCancel := withLifecycleTimeout(ctx)
+		resolved, err := ex.ResolveNoteTarget(targetCtx, next.RepositoryID, next.IssueID)
+		targetCancel()
+		if err != nil {
+			return a, nil
+		}
+		next.TargetID = resolved
+	}
+	claimed, err := s.UpdateAction(ctx, next, a.Attempts)
+	if err != nil {
+		if errors.Is(err, store.ErrLifecycleActionStale) {
+			return s.LifecycleAction(ctx, a.ID)
+		}
+		return a, err
+	}
+	return claimed, nil
 }
 
 // ReconcileLifecycleAction settles one journaled action without
@@ -264,6 +321,11 @@ func ReconcileLifecycleAction(ctx context.Context, s *store.Store, ex LifecycleE
 		return a, nil
 	}
 	if a.Attempts == 0 {
+		claimed, err := claimLifecycleAction(ctx, s, ex, a)
+		if err != nil {
+			return a, err
+		}
+		a = claimed
 		if !lifecycleRetryAllowed(ctx, s, ex, a) {
 			return a, nil
 		}
@@ -279,17 +341,64 @@ func ReconcileLifecycleAction(ctx context.Context, s *store.Store, ex LifecycleE
 // effect for one proven production completion. The inline call makes at
 // most one attempt; the single retry after definitive no-effect runs
 // on a later tick via ReconcileLifecycleAction so optional work stays
-// out of default-path latency. Disabled events, unproved capability,
-// repository mismatch, unresolvable targets and actor/enrollment
-// mismatch journal nothing. Duplicate deliveries reconcile the
-// journaled action instead of submitting twice. Every optional failure
-// returns without touching default state; hook sites must never gate
-// default delivery on this result.
+// out of default-path latency. The submitter is always the resolved
+// enrolled lifecycle UID; the human configuration authorizer is
+// journaled alongside, never equated (JEV 3/3 separate_roles plus
+// native ActorMismatch evidence). Disabled events, unproved
+// capability and repository mismatch journal nothing and perform no
+// native work. A missing or unresolvable executor on an enabled,
+// proved event journals an uncertain outcome so the no-op setup is
+// visible instead of silent; the drain attempts it once an executor
+// is available. Duplicate deliveries reconcile the journaled action
+// instead of submitting twice. Every optional failure returns without
+// touching default state; hook sites must never gate default delivery
+// on this result.
+// ErrLifecycleExecutorUnavailable reports an enabled, proved event
+// that cannot submit because no lifecycle executor or enrollment is
+// usable. The event journals an unclaimed uncertain row so the no-op
+// setup stays visible; the drain claims and attempts it once an
+// executor is available.
+var ErrLifecycleExecutorUnavailable = errors.New("lifecycle executor unavailable")
+
+// journalUnavailableExecutor records one unclaimed uncertain row for an
+// enabled, proved event fired without a usable executor. Completion
+// notes omit the target until the drain resolves it from the journaled
+// read-key index. The row is always visible and never blocks the
+// default path; errors return the unavailability sentinel.
+func journalUnavailableExecutor(ctx context.Context, s *store.Store, cfg factory.LifecycleConfig, in LifecycleEventInput) error {
+	a := factory.LifecycleAction{
+		ID: LifecycleActionID(in), Event: in.Event, Action: factory.EventAction(in.Event),
+		RepositoryID: in.RepositoryID, IssueID: in.IssueIndex, TargetID: in.TargetID,
+		ConfigOwner: cfg.ActorID,
+		LabelID:     cfg.LabelID, AssigneeID: cfg.AssigneeID, ReviewerIDs: append([]int64(nil), cfg.ReviewerIDs...),
+		Note: cfg.Note, AuthRevision: in.AuthRevision, MergeRef: in.MergeRef, Closed: in.Closed,
+	}
+	if err := a.Validate(); err != nil {
+		return err
+	}
+	recorded, err := s.RecordAction(ctx, a)
+	if err != nil {
+		if errors.Is(err, store.ErrLifecycleActionConflict) {
+			return ErrLifecycleExecutorUnavailable
+		}
+		return err
+	}
+	if recorded.Attempts == 0 && len(recorded.Results) == 0 {
+		if _, err := s.UpdateAction(ctx, recorded.RecordActionResult(factory.LifecycleResultUncertain), 0); err != nil && !errors.Is(err, store.ErrLifecycleActionStale) {
+			return err
+		}
+	}
+	return ErrLifecycleExecutorUnavailable
+}
+
 func ConsumeLifecycleEvent(ctx context.Context, s *store.Store, ex LifecycleExecutor, in LifecycleEventInput) error {
-	if s == nil || ex == nil {
+	if s == nil {
 		return factory.ErrLifecycleAction
 	}
-	if !factory.ValidLifecycleEvent(in.Event) || in.SourceID == "" || in.RepositoryID <= 0 || in.AuthRevision == "" {
+	if !factory.ValidLifecycleEvent(in.Event) || in.SourceID == "" || in.RepositoryID <= 0 || in.IssueIndex <= 0 || in.AuthRevision == "" {
+		return factory.ErrLifecycleAction
+	}
+	if in.Event != factory.LifecycleEventVerifiedMerge && in.TargetID <= 0 {
 		return factory.ErrLifecycleAction
 	}
 	cfg, err := s.LifecycleConfig(ctx, in.Event)
@@ -308,18 +417,18 @@ func ConsumeLifecycleEvent(ctx context.Context, s *store.Store, ex LifecycleExec
 		}
 		return err
 	}
+	if ex == nil {
+		return journalUnavailableExecutor(ctx, s, cfg, in)
+	}
 	actorCtx, actorCancel := withLifecycleTimeout(ctx)
 	enrolled, err := ex.EnrolledActor(actorCtx)
 	actorCancel()
-	if err != nil {
-		return err
+	if err != nil || enrolled <= 0 {
+		return journalUnavailableExecutor(ctx, s, cfg, in)
 	}
-	if enrolled <= 0 || enrolled != cfg.ActorID {
-		return factory.ErrLifecycleAction
-	}
-	issueID := in.IssueID
+	target := in.TargetID
 	if in.Event == factory.LifecycleEventVerifiedMerge {
-		if in.IssueIndex <= 0 || !in.Closed {
+		if !in.Closed {
 			return factory.ErrLifecycleAction
 		}
 		targetCtx, targetCancel := withLifecycleTimeout(ctx)
@@ -328,12 +437,13 @@ func ConsumeLifecycleEvent(ctx context.Context, s *store.Store, ex LifecycleExec
 		if err != nil {
 			return err
 		}
-		issueID = resolved
+		target = resolved
 	}
 	a := factory.LifecycleAction{
 		ID: LifecycleActionID(in), Event: in.Event, Action: factory.EventAction(in.Event),
-		ActorID: enrolled, RepositoryID: in.RepositoryID, IssueID: issueID,
-		LabelID: cfg.LabelID, AssigneeID: cfg.AssigneeID, ReviewerIDs: append([]int64(nil), cfg.ReviewerIDs...),
+		ActorID: enrolled, RepositoryID: in.RepositoryID, IssueID: in.IssueIndex, TargetID: target,
+		ConfigOwner: cfg.ActorID,
+		LabelID:     cfg.LabelID, AssigneeID: cfg.AssigneeID, ReviewerIDs: append([]int64(nil), cfg.ReviewerIDs...),
 		Note: cfg.Note, AuthRevision: in.AuthRevision, MergeRef: in.MergeRef, Closed: in.Closed,
 	}
 	if err := a.Validate(); err != nil {
@@ -382,7 +492,7 @@ func ConsumeGeneratedIssues(ctx context.Context, s *store.Store, ex LifecycleExe
 	var first error
 	for _, key := range LifecycleNewIssueKeys(keys, g) {
 		entry := issues[key]
-		if entry.IssueID <= 0 {
+		if entry.IssueID <= 0 || entry.IssueIndex <= 0 {
 			if first == nil {
 				first = factory.ErrLifecycleAction
 			}
@@ -390,7 +500,7 @@ func ConsumeGeneratedIssues(ctx context.Context, s *store.Store, ex LifecycleExe
 		}
 		in := LifecycleEventInput{
 			Event: factory.LifecycleEventIssueCreated, SourceID: r.ID + ":" + key,
-			RepositoryID: r.Repository, IssueID: entry.IssueID, AuthRevision: g.AuthRevision,
+			RepositoryID: r.Repository, IssueIndex: entry.IssueIndex, TargetID: entry.IssueID, AuthRevision: g.AuthRevision,
 		}
 		if err := ConsumeLifecycleEvent(ctx, s, ex, in); err != nil && first == nil {
 			first = err
@@ -406,13 +516,13 @@ func ConsumePublishedPR(ctx context.Context, s *store.Store, ex LifecycleExecuto
 	if s == nil || ex == nil {
 		return factory.ErrLifecycleAction
 	}
-	if p.Stage != factory.PublicationPublished || p.PRNumber <= 0 || p.PRID <= 0 || p.PRCreate.IssueID <= 0 || p.PRCreate.Work == nil || p.PRCreate.Work.AuthRevision == "" {
+	if p.Stage != factory.PublicationPublished || p.Issue <= 0 || p.PRNumber <= 0 || p.PRID <= 0 || p.PRCreate.IssueID <= 0 || p.PRCreate.Work == nil || p.PRCreate.Work.AuthRevision == "" {
 		return factory.ErrLifecycleAction
 	}
 	source := p.ID + ":pr-" + strconv.FormatInt(p.PRNumber, 10) + "-" + strconv.FormatInt(p.PRID, 10)
 	in := LifecycleEventInput{
 		Event: factory.LifecycleEventPRCreated, SourceID: source,
-		RepositoryID: p.Repository, IssueID: p.PRCreate.IssueID, AuthRevision: p.PRCreate.Work.AuthRevision,
+		RepositoryID: p.Repository, IssueIndex: p.Issue, TargetID: p.PRCreate.IssueID, AuthRevision: p.PRCreate.Work.AuthRevision,
 	}
 	return ConsumeLifecycleEvent(ctx, s, ex, in)
 }
@@ -424,14 +534,14 @@ func ConsumeVerifiedMerge(ctx context.Context, s *store.Store, ex LifecycleExecu
 	if s == nil || ex == nil {
 		return factory.ErrLifecycleAction
 	}
-	if m.Stage != factory.MergeMerged || m.Issue <= 0 || m.MergedCommit == "" || m.OriginalClosingOccurrence == "" || m.Operation.Work == nil || m.Operation.Work.AuthRevision == "" {
+	if m.Stage != factory.MergeMerged || m.Issue <= 0 || m.PRNumber <= 0 || m.MergedCommit == "" || m.OriginalClosingOccurrence == "" || m.Operation.Work == nil || m.Operation.Work.AuthRevision == "" {
 		return factory.ErrLifecycleAction
 	}
 	source := m.ID + ":merge-" + m.MergedCommit + "-" + m.OriginalClosingOccurrence
 	in := LifecycleEventInput{
 		Event: factory.LifecycleEventVerifiedMerge, SourceID: source,
 		RepositoryID: m.Repository, IssueIndex: m.Issue, AuthRevision: m.Operation.Work.AuthRevision,
-		MergeRef: m.MergedCommit, Closed: true,
+		MergeRef: "pr/" + strconv.FormatInt(m.PRNumber, 10) + "@" + m.MergedCommit, Closed: true,
 	}
 	return ConsumeLifecycleEvent(ctx, s, ex, in)
 }

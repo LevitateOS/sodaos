@@ -44,7 +44,7 @@ func (f *loopFakeBackground) CancelOperation(_ context.Context, id string) (exte
 }
 
 func loopAction(id string) factory.LifecycleAction {
-	return factory.LifecycleAction{ID: id, Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, LabelID: 3, AuthRevision: "rev-1"}
+	return factory.LifecycleAction{ID: id, Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, TargetID: 420, LabelID: 3, AuthRevision: "rev-1"}
 }
 
 // TestLifecycleJournalLoop proves the Soda durable side of UX-L07: the

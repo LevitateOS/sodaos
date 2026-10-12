@@ -15,8 +15,9 @@ import (
 
 // lifecycleConfigView renders one event's optional-effect configuration:
 // exact actor/targets, revision, enablement and that event's own
-// capability proof state. Unproved events render enabled=false
-// regardless of any stored wish; the store refuses enabling them.
+// runnable state. Events without native proof or without a configured
+// lifecycle executor render enabled=false regardless of any stored
+// wish; enabling them is refused. The saved preference is preserved.
 type lifecycleConfigView struct {
 	Event        string   `json:"event"`
 	Revision     string   `json:"revision"`
@@ -88,6 +89,16 @@ type lifecycleConfigSave struct {
 	Note        string  `json:"note,omitempty"`
 }
 
+// lifecycleExecutorReady reports whether a lifecycle executor is
+// configured on the serving coordinator. The native capability marker
+// proves the handlers exist; only a wired executor with its enrolled
+// credential can submit. Gating both the runnable claim and new
+// enables on this keeps marker-only setups from advertising effects
+// that cannot execute.
+func (s *API) lifecycleExecutorReady() bool {
+	return s != nil && s.Coordinator != nil && s.Coordinator.Lifecycle != nil
+}
+
 func decodeLifecycleConfigSave(body []byte) (lifecycleConfigSave, error) {
 	var save lifecycleConfigSave
 	decoder := json.NewDecoder(bytes.NewReader(body))
@@ -118,6 +129,7 @@ func (s *API) apiFactoryLifecycleConfig(w http.ResponseWriter, r *http.Request, 
 		auth.JSONError(w, 503, "store_unavailable", "Could not read capability proof.")
 		return
 	}
+	capable = capable && s.lifecycleExecutorReady()
 	c, err := s.Store.LifecycleConfig(r.Context(), event)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -167,6 +179,10 @@ func (s *API) apiFactoryLifecycleConfigSave(w http.ResponseWriter, r *http.Reque
 		auth.JSONError(w, 400, "invalid_request", "Configuration body is malformed.")
 		return
 	}
+	if save.Enabled && !s.lifecycleExecutorReady() {
+		auth.JSONError(w, 409, "executor_unavailable", "No lifecycle executor is configured yet.")
+		return
+	}
 	c := factory.LifecycleConfig{
 		Event: event, Revision: save.Revision, Enabled: save.Enabled,
 		ActorID: v.User.ID, RepositoryID: repository,
@@ -192,7 +208,7 @@ func (s *API) apiFactoryLifecycleConfigSave(w http.ResponseWriter, r *http.Reque
 		auth.JSONError(w, 503, "store_unavailable", "Could not read capability proof.")
 		return
 	}
-	auth.JSONResponse(w, 200, lifecycleConfigDTO(stored, capable))
+	auth.JSONResponse(w, 200, lifecycleConfigDTO(stored, capable && s.lifecycleExecutorReady()))
 }
 
 // apiFactoryLifecycleActions lists bounded durable action results for one

@@ -70,7 +70,13 @@ func (s *Store) LifecycleAction(ctx context.Context, id string) (factory.Lifecyc
 // UpdateAction records the next attempt/results for one action. The write
 // applies only when the stored attempt count still equals expected, so
 // concurrent writers cannot exceed the finite attempt budget or reorder
-// results. Revoked actions refuse updates.
+// results. Revoked actions refuse updates. Same-attempt writes are
+// additionally monotonic per target: a stored terminal result
+// (delivered, failed, denied) cannot regress to a non-terminal state
+// or change to another terminal state without advancing the attempt
+// count, so a stale recovery write can never overwrite a terminal
+// result its own submit already settled. Fresh attempt claims (attempt
+// count advancing by one) may reset results to uncertain.
 func (s *Store) UpdateAction(ctx context.Context, next factory.LifecycleAction, expectedAttempts int) (factory.LifecycleAction, error) {
 	if err := next.Validate(); err != nil {
 		return factory.LifecycleAction{}, err
@@ -82,35 +88,84 @@ func (s *Store) UpdateAction(ctx context.Context, next factory.LifecycleAction, 
 	if err != nil {
 		return factory.LifecycleAction{}, err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_lifecycle_actions SET attempts=$2,revoked=$3,data=$4 WHERE id=$1 AND attempts=$5 AND revoked=FALSE`,
-		next.ID, next.Attempts, next.Revoked, string(data), expectedAttempts)
-	if err != nil {
-		return factory.LifecycleAction{}, fmt.Errorf("lifecycle action update failed: %w", err)
-	}
-	n, err := result.RowsAffected()
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.LifecycleAction{}, err
 	}
-	if n == 0 {
+	defer func() { _ = tx.Rollback() }()
+	var stored factory.LifecycleAction
+	var raw string
+	var storedAttempts int
+	var storedRevoked bool
+	if err := tx.QueryRowContext(ctx, `SELECT attempts,revoked,data FROM factory_lifecycle_actions WHERE id=$1 FOR UPDATE`, next.ID).Scan(&storedAttempts, &storedRevoked, &raw); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return factory.LifecycleAction{}, ErrLifecycleActionStale
+		}
+		return factory.LifecycleAction{}, err
+	}
+	if storedRevoked || storedAttempts != expectedAttempts {
 		return factory.LifecycleAction{}, ErrLifecycleActionStale
+	}
+	if err := json.Unmarshal([]byte(raw), &stored); err != nil {
+		return factory.LifecycleAction{}, err
+	}
+	if next.Attempts == storedAttempts && !lifecycleResultsMonotonic(stored.Results, next.Results) {
+		return factory.LifecycleAction{}, ErrLifecycleActionStale
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE factory_lifecycle_actions SET attempts=$2,revoked=$3,data=$4 WHERE id=$1`, next.ID, next.Attempts, next.Revoked, string(data)); err != nil {
+		return factory.LifecycleAction{}, fmt.Errorf("lifecycle action update failed: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return factory.LifecycleAction{}, err
 	}
 	return next, nil
 }
 
+// lifecycleResultsMonotonic reports whether moving from stored to next
+// results keeps every stored terminal outcome: terminal states may
+// repeat identically but never regress to pending/uncertain or flip to
+// another terminal state within one attempt.
+func lifecycleResultsMonotonic(stored, next map[string]string) bool {
+	for target, state := range stored {
+		switch state {
+		case factory.LifecycleResultDelivered, factory.LifecycleResultFailed, factory.LifecycleResultDenied:
+			if next[target] != state {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // RevokeAction latches one action revoked so no further effect attempts.
-// Revocation is idempotent and never un-records prior attempts.
+// Revocation is idempotent and never un-records prior attempts. The
+// locked row's attempt count is re-read so the journaled JSON cannot
+// fall behind the column after a concurrent update.
 func (s *Store) RevokeAction(ctx context.Context, id string) (factory.LifecycleAction, error) {
-	current, err := s.LifecycleAction(ctx, id)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return factory.LifecycleAction{}, err
 	}
-	current.Revoked = true
+	defer func() { _ = tx.Rollback() }()
+	var raw string
+	var storedAttempts int
+	if err := tx.QueryRowContext(ctx, `SELECT attempts,data FROM factory_lifecycle_actions WHERE id=$1 FOR UPDATE`, id).Scan(&storedAttempts, &raw); err != nil {
+		return factory.LifecycleAction{}, err
+	}
+	var current factory.LifecycleAction
+	if err := json.Unmarshal([]byte(raw), &current); err != nil {
+		return factory.LifecycleAction{}, err
+	}
+	current.Attempts, current.Revoked = storedAttempts, true
 	data, err := json.Marshal(current)
 	if err != nil {
 		return factory.LifecycleAction{}, err
 	}
-	if _, err := s.db.ExecContext(ctx, `UPDATE factory_lifecycle_actions SET revoked=TRUE,data=$2 WHERE id=$1`, id, string(data)); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE factory_lifecycle_actions SET revoked=TRUE,data=$2 WHERE id=$1`, id, string(data)); err != nil {
 		return factory.LifecycleAction{}, fmt.Errorf("lifecycle action revoke failed: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return factory.LifecycleAction{}, err
 	}
 	return current, nil
 }
@@ -297,12 +352,15 @@ func (s *Store) LifecycleConfig(ctx context.Context, event string) (factory.Life
 }
 
 // UnsettledLifecycleActions returns up to limit recorded actions that may
-// still need recovery: never attempted, or holding a target outside the
-// terminal states. Revoked actions never return. The predicate is
-// deliberately conservative: callers recheck Settled in Go before any
-// native call, so a false positive costs one row read and never a
-// submit. Limit is clamped to 1..64; stable identity order keeps drains
-// deterministic.
+// still need recovery: never attempted (including unclaimed rows left by
+// an unavailable executor), holding a target outside the terminal
+// states, or all-failed with attempt budget remaining so the later-tick
+// retry is selectable. Revoked actions never return, nor do rows whose
+// every result is delivered or denied, nor all-failed rows with the
+// budget exhausted. The predicate is deliberately conservative:
+// callers recheck retry allowance in Go before any native call, so a
+// false positive costs one row read and never a submit. Limit is
+// clamped to 1..64; stable identity order keeps drains deterministic.
 func (s *Store) UnsettledLifecycleActions(ctx context.Context, limit int) ([]factory.LifecycleAction, error) {
 	if limit < 1 {
 		limit = 1
@@ -310,7 +368,7 @@ func (s *Store) UnsettledLifecycleActions(ctx context.Context, limit int) ([]fac
 	if limit > 64 {
 		limit = 64
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_lifecycle_actions WHERE revoked=FALSE AND (attempts=0 OR EXISTS (SELECT 1 FROM jsonb_each_text(data->'results') WHERE value NOT IN ('delivered','failed','denied'))) ORDER BY id LIMIT $1`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_lifecycle_actions WHERE revoked=FALSE AND (attempts=0 OR EXISTS (SELECT 1 FROM jsonb_each_text(data->'results') WHERE value NOT IN ('delivered','failed','denied')) OR (attempts<2 AND EXISTS (SELECT 1 FROM jsonb_each_text(data->'results') WHERE value='failed') AND NOT EXISTS (SELECT 1 FROM jsonb_each_text(data->'results') WHERE value NOT IN ('failed')))) ORDER BY id LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}

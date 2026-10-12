@@ -99,7 +99,7 @@ func TestReconcileLifecycleCapabilities(t *testing.T) {
 		t.Fatalf("unsupported event admitted on recovery: %v %v", ok, err)
 	}
 
-	a, err := db.RecordAction(ctx, factory.LifecycleAction{ID: "act-stale-1", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, LabelID: 3, AuthRevision: "rev-1"})
+	a, err := db.RecordAction(ctx, factory.LifecycleAction{ID: "act-stale-1", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, TargetID: 420, LabelID: 3, AuthRevision: "rev-1"})
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}

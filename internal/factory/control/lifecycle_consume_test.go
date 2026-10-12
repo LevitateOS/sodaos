@@ -51,7 +51,7 @@ func enableConsumeConfig(t *testing.T, s *store.Store, event string, mutate func
 	if _, err := s.RegisterCapability(ctx, event, "gen-1", "install-1"); err != nil {
 		t.Fatalf("capability: %v", err)
 	}
-	cfg := factory.LifecycleConfig{Event: event, Enabled: true, ActorID: 7, RepositoryID: 9}
+	cfg := factory.LifecycleConfig{Event: event, Enabled: true, ActorID: 99, RepositoryID: 9}
 	switch event {
 	case factory.LifecycleEventIssueCreated:
 		cfg.LabelID = 3
@@ -69,7 +69,7 @@ func enableConsumeConfig(t *testing.T, s *store.Store, event string, mutate func
 }
 
 func consumeIssueInput() LifecycleEventInput {
-	return LifecycleEventInput{Event: factory.LifecycleEventIssueCreated, SourceID: "rev-1:task-a", RepositoryID: 9, IssueID: 42, AuthRevision: "rev-1:digest"}
+	return LifecycleEventInput{Event: factory.LifecycleEventIssueCreated, SourceID: "rev-1:task-a", RepositoryID: 9, IssueIndex: 7, TargetID: 42, AuthRevision: "rev-1:digest"}
 }
 
 // TestLifecycleNewIssueKeys proves reused and delivered bindings never
@@ -121,20 +121,59 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 		}
 	})
 
-	t.Run("actorMismatchJournalsNothing", func(t *testing.T) {
+	t.Run("separateRolesSubmit", func(t *testing.T) {
 		s, _ := postgresFixture(t, nil)
 		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
-		ex := &consumeFakeExecutor{actor: 11, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
+		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
 			return consumeOutcome(factory.OpEffectCommitted, ""), nil
+		}, lookup: func(string) (factory.OperationOutcome, error) {
+			return factory.OperationOutcome{}, errors.New("unused")
 		}}
-		if err := ConsumeLifecycleEvent(ctx, s, ex, consumeIssueInput()); err == nil {
-			t.Fatal("enrollment mismatch accepted")
+		if err := ConsumeLifecycleEvent(ctx, s, ex, consumeIssueInput()); err != nil {
+			t.Fatalf("separate roles: %v", err)
 		}
-		if len(ex.submits) != 0 {
-			t.Fatal("mismatched actor submitted")
+		a, err := s.LifecycleAction(ctx, LifecycleActionID(consumeIssueInput()))
+		if err != nil {
+			t.Fatalf("journal: %v", err)
 		}
-		if _, err := s.LifecycleAction(ctx, LifecycleActionID(consumeIssueInput())); !errors.Is(err, store.ErrNotFound) {
-			t.Fatalf("mismatched action journaled: %v", err)
+		if a.ActorID != 7 || a.ConfigOwner != 99 {
+			t.Fatalf("roles: %+v", a)
+		}
+		if a.IssueID != 7 || a.TargetID != 42 {
+			t.Fatalf("read key/target: %+v", a)
+		}
+	})
+
+	t.Run("unavailableExecutorJournalsUncertain", func(t *testing.T) {
+		s, _ := postgresFixture(t, nil)
+		enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
+		in := consumeIssueInput()
+		if err := ConsumeLifecycleEvent(ctx, s, nil, in); !errors.Is(err, ErrLifecycleExecutorUnavailable) {
+			t.Fatalf("err=%v", err)
+		}
+		a, err := s.LifecycleAction(ctx, LifecycleActionID(in))
+		if err != nil {
+			t.Fatalf("journal: %v", err)
+		}
+		if a.Attempts != 0 || a.ActorID != 0 || a.Results["label"] != factory.LifecycleResultUncertain || a.ConfigOwner != 99 {
+			t.Fatalf("unclaimed: %+v", a)
+		}
+		// The drain claims and attempts the row once an executor
+		// appears, without a duplicate event.
+		ex := &consumeFakeExecutor{actor: 7, revision: 1, submit: func(factory.LifecycleWork) (factory.OperationOutcome, error) {
+			return consumeOutcome(factory.OpEffectCommitted, ""), nil
+		}, lookup: func(string) (factory.OperationOutcome, error) {
+			return factory.OperationOutcome{NotObserved: true}, nil
+		}}
+		if err := ReconcileUnsettledLifecycle(ctx, s, ex); err != nil {
+			t.Fatalf("drain: %v", err)
+		}
+		claimed, err := s.LifecycleAction(ctx, LifecycleActionID(in))
+		if err != nil {
+			t.Fatalf("journal: %v", err)
+		}
+		if !claimed.Settled() || claimed.ActorID != 7 || len(ex.submits) != 1 || ex.submits[0].IssueID != 42 {
+			t.Fatalf("claimed: %+v", claimed)
 		}
 	})
 
@@ -182,7 +221,7 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 		}, lookup: func(string) (factory.OperationOutcome, error) {
 			return factory.OperationOutcome{}, errors.New("unused")
 		}}
-		in := LifecycleEventInput{Event: factory.LifecycleEventPRCreated, SourceID: "pub-1", RepositoryID: 9, IssueID: 88, AuthRevision: "pubauth-1"}
+		in := LifecycleEventInput{Event: factory.LifecycleEventPRCreated, SourceID: "pub-1", RepositoryID: 9, IssueIndex: 8, TargetID: 88, AuthRevision: "pubauth-1"}
 		if err := ConsumeLifecycleEvent(ctx, s, ex, in); err != nil {
 			t.Fatalf("consume: %v", err)
 		}
@@ -246,6 +285,10 @@ func TestConsumeLifecycleEvent(t *testing.T) {
 		if len(ex.submits) != 1 || ex.submits[0].IssueID != 77 || !ex.submits[0].Closed {
 			t.Fatalf("submit: %+v", ex.submits)
 		}
+		a, err := s.LifecycleAction(ctx, LifecycleActionID(in))
+		if err != nil || a.IssueID != 5 || a.TargetID != 77 {
+			t.Fatalf("read key/target: %+v %v", a, err)
+		}
 	})
 }
 
@@ -285,6 +328,10 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 		if _, err := s.LifecycleAction(ctx, "lifecycle:issue_created:rev-1:task-new"); err != nil {
 			t.Fatalf("journal: %v", err)
 		}
+		visible, err := s.ListActions(ctx, 9, 7, factory.LifecycleEventIssueCreated, 64)
+		if err != nil || len(visible) != 1 || visible[0].TargetID != 42 {
+			t.Fatalf("read visibility: %+v %v", visible, err)
+		}
 		if _, err := s.LifecycleAction(ctx, "lifecycle:issue_created:rev-1:task-reused"); !errors.Is(err, store.ErrNotFound) {
 			t.Fatalf("reused journaled: %v", err)
 		}
@@ -298,8 +345,10 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 		}, lookup: func(string) (factory.OperationOutcome, error) {
 			return factory.OperationOutcome{}, errors.New("unused")
 		}}
-		p := factory.Publication{ID: "pub-1", Stage: factory.PublicationPublished, Repository: 9, PRNumber: 12, PRID: 34,
-			PRCreate: factory.PublicationOperation{IssueID: 88, Work: &factory.PublicationIntent{AuthRevision: "pubauth-1", OperationID: "pr-op-1"}}}
+		p := factory.Publication{
+			ID: "pub-1", Stage: factory.PublicationPublished, Repository: 9, Issue: 8, PRNumber: 12, PRID: 34,
+			PRCreate: factory.PublicationOperation{IssueID: 88, Work: &factory.PublicationIntent{AuthRevision: "pubauth-1", OperationID: "pr-op-1"}},
+		}
 		if err := ConsumePublishedPR(ctx, s, ex, p); err != nil {
 			t.Fatalf("consume: %v", err)
 		}
@@ -309,6 +358,10 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 		a, err := s.LifecycleAction(ctx, "lifecycle:pr_created:pub-1:pr-12-34")
 		if err != nil || !a.Settled() {
 			t.Fatalf("journal: %+v %v", a, err)
+		}
+		visible, err := s.ListActions(ctx, 9, 8, factory.LifecycleEventPRCreated, 64)
+		if err != nil || len(visible) != 1 || visible[0].TargetID != 88 {
+			t.Fatalf("read visibility: %+v %v", visible, err)
 		}
 		open := p
 		open.Stage = factory.PublicationOpen
@@ -325,13 +378,19 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 		}, lookup: func(string) (factory.OperationOutcome, error) {
 			return factory.OperationOutcome{}, errors.New("unused")
 		}}
-		m := factory.Merge{ID: "merge-1", Stage: factory.MergeMerged, Repository: 9, Issue: 5, MergedCommit: "abc123", OriginalClosingOccurrence: "99",
-			Operation: factory.MergeOperation{Work: &factory.MergeIntent{AuthRevision: "mergeauth-1", OperationID: "merge-op-1"}}}
+		m := factory.Merge{
+			ID: "merge-1", Stage: factory.MergeMerged, Repository: 9, Issue: 5, PRNumber: 12, MergedCommit: "abc123", OriginalClosingOccurrence: "99",
+			Operation: factory.MergeOperation{Work: &factory.MergeIntent{AuthRevision: "mergeauth-1", OperationID: "merge-op-1"}},
+		}
 		if err := ConsumeVerifiedMerge(ctx, s, ex, m); err != nil {
 			t.Fatalf("consume: %v", err)
 		}
-		if len(ex.submits) != 1 || ex.submits[0].IssueID != 55 || ex.submits[0].MergeRef != "abc123" {
+		if len(ex.submits) != 1 || ex.submits[0].IssueID != 55 || ex.submits[0].MergeRef != "pr/12@abc123" {
 			t.Fatalf("submits: %+v", ex.submits)
+		}
+		visible, err := s.ListActions(ctx, 9, 5, factory.LifecycleEventVerifiedMerge, 64)
+		if err != nil || len(visible) != 1 || visible[0].TargetID != 55 {
+			t.Fatalf("read visibility: %+v %v", visible, err)
 		}
 		unclosed := m
 		unclosed.OriginalClosingOccurrence = ""
@@ -396,7 +455,7 @@ func TestReconcileUnsettledDrain(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	enableConsumeConfig(t, s, factory.LifecycleEventIssueCreated, nil)
 
-	pending := factory.LifecycleAction{ID: "lifecycle:issue_created:rev-9:task-z", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 50, LabelID: 3, AuthRevision: "rev-9"}
+	pending := factory.LifecycleAction{ID: "lifecycle:issue_created:rev-9:task-z", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 50, TargetID: 500, LabelID: 3, AuthRevision: "rev-9"}
 	if _, err := s.RecordAction(ctx, pending); err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -420,5 +479,31 @@ func TestReconcileUnsettledDrain(t *testing.T) {
 	}
 	if len(ex.submits) != 1 {
 		t.Fatal("settled action redriven")
+	}
+	// An inline definitive failure is selected and retried by a later
+	// tick with no duplicate event.
+	failed := factory.LifecycleAction{ID: "lifecycle:issue_created:rev-9:task-f", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 51, TargetID: 510, LabelID: 3, AuthRevision: "rev-9"}
+	if _, err := s.RecordAction(ctx, failed); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if _, err := s.UpdateAction(ctx, failed.RecordActionAttempt("op-f1"), 0); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	stored, err := s.LifecycleAction(ctx, failed.ID)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if _, err := s.UpdateAction(ctx, stored.RecordActionResult(factory.LifecycleResultFailed), 1); err != nil {
+		t.Fatalf("fail: %v", err)
+	}
+	if err := ReconcileUnsettledLifecycle(ctx, s, ex); err != nil {
+		t.Fatalf("retry drain: %v", err)
+	}
+	retried, err := s.LifecycleAction(ctx, failed.ID)
+	if err != nil {
+		t.Fatalf("journal: %v", err)
+	}
+	if !retried.Settled() || retried.Attempts != 2 || len(ex.submits) != 2 {
+		t.Fatalf("failed not retried: %+v", retried)
 	}
 }
