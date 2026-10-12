@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `0c759a2506031401ab03cf6a3b819cd20f9385a0` and paired Fountain source
-`5f3b9797bbd10e1455415f8e9def0f90467b1432` for the native frontend correction. This delta
+`de0f8de9f76a94889f2fb36372b6c8c24727fc94` for the native frontend correction. This delta
 adds sixteen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -32,7 +32,9 @@ through `requestSubmit()`, preserving validation and the host navigation seam.
 The shared native footer now owns the retained contribution home, while ordinary
 native content uses the existing page region. Both parallel Workspace templates
 are removed. Native-first page-only entry, successful HTML render selection,
-session concealment and incoming version refusal have focused checks. Fifty-one
+session concealment and incoming version refusal have focused checks. Native
+null page configuration now clears stale keys with an empty object, while a
+missing envelope keeps the unknown-document path; its 29 navigation cases pass. Fifty-one
 browser mount/navigation/lifecycle/admin cases, the affected native router/context
 unit packages and the SDK module pass. The generic example uses an admitted
 stream through the public helper. Expanded natural navigation and final native
