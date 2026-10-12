@@ -29,7 +29,7 @@ import (
 // none consulted (TypeSafe key absent, so the funded gate is proven by the
 // consumed reservation, not a live model answer).
 func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
-	s, call, errorCode := q05Mux(t, "")
+	_, s, call, errorCode := q05Mux(t, "")
 
 	const draftID = "d111111111111111111111111"
 	const intentID = "d222222222222222222222222"
@@ -98,7 +98,7 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 // q05Mux builds the real product mux on an ephemeral PG store with a fake
 // native callback authority. keyFile, when non-empty, enables live TypeSafe
 // judgments; empty keeps the deterministic no-credentials boundary.
-func q05Mux(t *testing.T, keyFile string) (*store.Store, func(method, path, body string) (int, []byte), func(body []byte) string) {
+func q05Mux(t *testing.T, keyFile string) (*API, *store.Store, func(method, path, body string) (int, []byte), func(body []byte) string) {
 	t.Helper()
 	suffix := "q05-" + strconv.Itoa(os.Getpid())
 	callbackPath := "@soda-callback-" + suffix
@@ -108,11 +108,22 @@ func q05Mux(t *testing.T, keyFile string) (*store.Store, func(method, path, body
 	}
 	callback := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var in extensions.CallbackRequest
-		if r.URL.Path != extensions.NativeCallbackPath || r.Header.Get(extensions.AdmissionHeader) != "test-admission" || json.NewDecoder(r.Body).Decode(&in) != nil || in.Operation != extensions.OperationCurrentActor {
+		if r.URL.Path != extensions.NativeCallbackPath || r.Header.Get(extensions.AdmissionHeader) != "test-admission" || json.NewDecoder(r.Body).Decode(&in) != nil {
 			http.Error(w, "denied", http.StatusForbidden)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Actor: &extensions.Actor{ID: "1", Username: "alice"}})
+		switch in.Operation {
+		case extensions.OperationCurrentActor:
+			_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Actor: &extensions.Actor{ID: "1", Username: "alice"}})
+		case extensions.OperationRepository:
+			if in.RepositoryID != "7" {
+				http.Error(w, "not visible", http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: "alice", Name: "Alpha", Permission: "admin"}})
+		default:
+			http.Error(w, "denied", http.StatusForbidden)
+		}
 	}))
 	callback.Listener.Close()
 	callback.Listener = callbackListener
@@ -167,7 +178,7 @@ func q05Mux(t *testing.T, keyFile string) (*store.Store, func(method, path, body
 		}
 		return decoded.Error.Code
 	}
-	return s, call, errorCode
+	return product, s, call, errorCode
 }
 
 // TestFirstExploreLiveSuccess proves funded exploration success through the
@@ -179,7 +190,7 @@ func q05Mux(t *testing.T, keyFile string) (*store.Store, func(method, path, body
 // pinned (status, head advance, exploration presence, consumption). A 201
 // here is funded-judged-saved success, not proof of coherent ready work.
 func TestFirstExploreLiveSuccess(t *testing.T) {
-	s, call, _ := q05Mux(t, q05KeyFile(t))
+	_, s, call, _ := q05Mux(t, q05KeyFile(t))
 
 	const draftID = "d777777777777777777777777"
 	const intentID = "d888888888888888888888888"
@@ -194,7 +205,7 @@ func TestFirstExploreLiveSuccess(t *testing.T) {
 // planning_calls 8). Same structural success assertions as the
 // reviewed-direction case; no accept/repository/generate/native binding.
 func TestFirstExploreFreshEntryLive(t *testing.T) {
-	s, call, _ := q05Mux(t, q05KeyFile(t))
+	_, s, call, _ := q05Mux(t, q05KeyFile(t))
 
 	const draftID = "d777777777777777777777777"
 	const intentID = "d888888888888888888888888"
