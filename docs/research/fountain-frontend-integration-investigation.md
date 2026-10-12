@@ -7,14 +7,15 @@ and manages navigation. Soda also replaces many native templates and supplies a
 separately compiled stylesheet graph. These layers do not share a complete
 document, initialization, theme or layout contract.
 
-The correction should put the existing Forgejo frontend in charge of its shell
-and page lifecycle, with Soda supplying Workspace content and local controls.
-That direction requires an explicit resolution of one existing product promise:
-ordinary full-document navigation can preserve a server terminal session and
-process, but cannot preserve the old document's exact terminal element, renderer
-and browser socket. Native shell ownership alone does not settle whether
-navigation must remain full-document or gain a properly integrated persistent
-native lifecycle. Another incomplete wrapper would repeat the failure.
+The correction puts the existing Forgejo frontend in charge of its shell and page
+lifecycle, with consumers supplying content and local controls. The current
+terminal element/renderer/socket guarantee remains binding. Ordinary document
+replacement cannot preserve those browser objects, so Fountain needs a proved
+native persistent lifecycle. Reconnection is not an approved substitute and
+consumers must not build adapters for missing native capabilities. The
+[correction plan](../development/factory-implementation-plan.md#native-frontend-responsibility-and-correction)
+now makes this platform/consumer split explicit. Another incomplete wrapper would
+repeat the failure.
 
 This investigation is non-normative. Product and security requirements remain in
 [Spaces](../product/spaces.md), [frontend trust](../architecture/trust.md#frontend-and-session-boundary)
@@ -312,27 +313,29 @@ preserve existing Projects, services, volumes, files and terminal processes.
 
 ## Correction sequence and parallel boundaries
 
-The preferred architectural direction is native document rendering and native
-frontend initialization, with content-only Soda mounts and exact authorized
-terminal reconnection. **Its full-navigation browser-object semantics require an
-explicit product decision before that cutover.** If identical objects remain
-mandatory, the alternative is a separately proved native persistent lifecycle;
-the current iframe/content-swap host cannot stand in for that proof.
+The correction target is Fountain-owned native frontend composition and a proved
+persistent lifecycle, with content-only consumer mounts. The earlier conditional
+document-load/reconnection recommendation would require a product change that has
+not been made. Preserving the existing guarantee selects the native persistent
+capability for implementation-and-proof; it does not establish that capability
+already works. No consumer should supply its native routing, initialization,
+container geometry or browser-session lifecycle.
 
 | Packet | Owner and decisive result | Dependencies |
 | --- | --- | --- |
-| Native frontend boundary | Fountain: remove global alternate-shell interception, iframe/history router and hidden duplicate chrome for a native-document cutover; retain authoritative handlers and contribution/session APIs. | Resolve navigation/object-lifetime contract first; prove the chosen boundary on one real native route before broad work. |
-| Native contribution composition | Fountain with Soda entry owner: one content owner, no unused mount, coherent global/repository/alias rendering and initialized native controls. | Chosen native frontend boundary. |
-| Theme build semantics | Soda browser build: emitted tokens remain valid under native light/dark selection; dialog, inputs and actions have correct computed colors. | Independent of the shell decision; use existing compiled-payload checks. |
+| Native frontend boundary | Fountain: prove persistent native navigation/initialization on actual templates independently of Soda, then replace alternate-shell interception, iframe/history router and hidden duplicate chrome. Retain authoritative handlers and contribution/session APIs. | Existing preservation contract; prove one critical native boundary before broad work. |
+| Native contribution composition | Fountain: canonical generic mount/presentation/context/lifecycle contract, one owner, usable native containers, no vacant competing mount, declared content routes and initialized native controls. Soda consumes the contract without inspecting host DOM. | Proved native boundary and callable host handoff. |
+| Theme build semantics | Soda browser build: emitted tokens remain valid under native light/dark selection; dialog, inputs and actions have correct computed colors. | Independent of native cutover; use existing compiled-payload checks. |
 | Content geometry | Soda: settings have usable selected-panel space; creation/dialog/compact content is reachable without hiding its context or actions. | Can start from actual measured geometry; qualify again after native composition settles. |
 | Template and route alignment | Soda/Fountain: native extension tabs remain discoverable; Tailnet manifest/bridge/authorizer agree with operator scope; review actual override responsibilities. | Route and permission contracts; no enrollment or provider action needed. |
 | Saved review restoration | Soda intent/API/Store owners: private exact-revision flow reads restore the proposed experience without replaying effects. | Establish durable request/revision ownership; never expose global receipts directly. |
 | Composed acceptance and delivery | Existing test/delivery owners: real template/asset/initializer integration, both navigation entry sequences, readable settings/colors, current auth/revocation and separately measured terminal lifetimes. | Each completed capability releases its check; one integrator and one VM operator serialize shared resources. |
 
 Theme, layout, route-scope diagnosis and saved-flow contract work need not wait for
-whole-lane completion. Native navigation and its terminal acceptance depend on the
-explicit lifetime decision. Production qualification and execution-provider calls
-are separate from these frontend checks.
+whole-lane completion. Native navigation and terminal acceptance depend on the
+actual native lifecycle proof. Fountain owns the generic capability; Soda owns
+its product fixes and consumer simplification. Production qualification and
+execution-provider calls are separate from these frontend checks.
 
 Three corrected, independently reworded Jev consultations with actual
 `jev-1.13.0` responses favor native documents at probabilities 0.99, 0.97 and 0.75.
@@ -342,6 +345,14 @@ and distinguishes native shell ownership from document-loading semantics.
 The first consultation set was retained and superseded because explanatory
 snippet prose was reused. These judgments provide advice; they supply no
 requirement authority, software proof or explanation of the wording sensitivity.
+
+The subsequent responsibility review preserves the existing object guarantee and
+selects the Fountain-owned native persistent capability. Its corrected fresh Jev
+triplet favors that direction at 1.00, 1.00 and 0.89, with 0.11 insufficient in
+the third result. Receipts and independent wording/equivalence review are retained
+in `.artifacts/fountain-frontend-boundary-20261012/`. This advice reinforces the
+ownership direction, not implementation feasibility; a generic host proof comes
+before consumer migration or whole-site conversion.
 
 ## Minimum acceptance for the correction
 

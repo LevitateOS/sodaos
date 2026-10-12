@@ -144,9 +144,63 @@ requirements in UX-C02/UX-C03/UX-C06/UX-C07, UX-U01, UX-W05/UX-W07 and UX-Q03/UX
 Do not replace missing installed acceptance with the previous aggregate count.
 The [full frontend investigation](../research/fountain-frontend-integration-investigation.md)
 adds the emitted-theme failure, Tailnet contribution-scope mismatch, saved-review
-restoration gap and native-document/terminal-lifetime decision. Its correction
+restoration gap and native-navigation/terminal-lifetime constraint. Its correction
 boundaries and acceptance cases guide the reopened work; it changes no product
 requirement by itself.
+
+### Native frontend responsibility and correction
+
+The owner requires Fountain extensions to use the existing Forgejo frontend and
+requires the platform/consumer split to keep host work in Fountain. Preserve the
+[Spaces terminal lifetime](../product/spaces.md): ordinary native navigation
+retains the same owner, terminal element, renderer and socket; reload may admit
+new browser objects for the exact existing process. The correction therefore
+needs a native persistent lifecycle in Fountain. Full-document reconnection is
+not an approved substitute, and consumer adapters cannot supply the missing host
+capability.
+
+Fountain's `contrib/extensions/README.md`, **Native frontend correction target**,
+owns the generic target contract and proof sequence. It applies independently of
+Soda. Fountain owns native shell/navigation, native configuration and feature
+initialization/teardown, guarded route registration and collisions, contribution
+instance selection, retained mount/presentation/context/lifetime, usable native
+containers, native UI/theme mechanisms and session/request/stream authority.
+Consumers declare their content/routes/permissions/assets, render within the
+supplied area, manage local resources and product state, and enforce their domain
+policy. See the [consumer integration boundary](../reference/forgejo.md).
+
+Soda must stop inspecting host ancestors, hiding generic panels, detecting a
+competing page/panel mount, measuring native navbar/footer space, and using native
+DOM events as an undocumented browser API. Those gaps belong to Fountain's native
+frontend contract. Conversely, Fountain must not understand Soda request IDs,
+Projects, terminal-session records or factory policy. Product subroutes and their
+identity meaning are consumer declarations, with bounded host admission and
+collision enforcement. Soda's malformed emitted CSS, settings geometry and saved
+review restoration remain Soda defects.
+
+| Correction packet | Owner, outcome and existing task coverage | Start / acceptance dependency |
+| --- | --- | --- |
+| NF-01: native capability proof | Fountain, UX-C02/UX-Q03: actual native templates/assets/config/initializers plus the existing generic notes example and an added/reused admitted test stream. Both native → contribution → native and contribution → native → contribution retain one node/resource/socket; native controls, context, URL/history/focus/scroll and invalidation work. No Soda payload or host-DOM logic in the example. | Start now from the inspected source/evidence. A critical-boundary failure requires reassessment before broad conversion. |
+| NF-02: reusable host contract | Fountain, UX-C02/UX-C06: canonical manifest/browser definitions for linked page/panel ownership, content routes, current presentation/context, suspend/revalidate/resume/retire and scoped transport. Native layout supplies usable space and native UI/theme semantics. | NF-01 establishes the mechanism; publish the callable host handoff H-N with real examples. |
+| NF-03: native cutover | Fountain, UX-C02/UX-C07: replace alternate-body wrapping, iframe/history router, selective full-document copying and wrapper-only chrome hiding. Integrate repeatable lifecycle into actual native feature owners; retain handlers/guards/admission/stream revocation and qualify affected native feature classes. | NF-01/NF-02; one route proof does not qualify every native feature. |
+| NF-04: consumer simplification | Soda, UX-C03/UX-C04/UX-C05/UX-C06: consume the host contract; remove obsolete page/panel shell adapters, duplicate transport/lifecycle rules and native template overrides that implement host mechanics, with their callers/fixtures. Keep one Lit owner, actual xterm resources and product state. Retain legitimate scoped content and appliance branding. | Implementation can start at callable H-N; composed acceptance requires NF-03 and actual Soda assets/templates. |
+| NF-05: product corrections and installed acceptance | Soda and affected native test owners, UX-U03/UX-W05/UX-W07/UX-Q03/UX-Q08: valid emitted colors, usable settings/creation, private exact-revision flow restoration, aligned Tailnet scope/operator policy and actual installed navigation/terminal checks. | Product CSS/layout/restoration/scope work can proceed independently. Integrated browser and terminal acceptance follows the capabilities it exercises. |
+
+This extends the reopened tasks' finish conditions; it is not another aggregate
+completion claim. The first proof belongs in Fountain, before a whole-site native
+conversion or more consumer orchestration. Use existing native/browser/stream
+drivers with real composition. Generic proof demonstrates host independence;
+Soda's actual xterm/stream/process, compiled colors and local layout need their
+own evidence. Shared native files and the VM retain one integrator/operator.
+
+Three corrected fresh JEV consultations return actual `jev-1.13.0` responses
+favoring Fountain-owned native persistence at probabilities 1.00, 1.00 and 0.89;
+the third retains 0.11 insufficient probability. Independent review confirms
+equivalent facts/alternatives and newly worded prose. An earlier set was retained
+and superseded after wording corrections. Requests, responses and audit remain
+ignored under `.artifacts/fountain-frontend-boundary-20261012/`. Agreement advises
+the ownership direction; native feasibility still needs NF-01, and no judgment
+changes the product contract.
 
 The original implementation input was Soda `299e3d202cac0a4541bc376cbc0ee7564104086b`
 and Fountain `e4b58254a0b5a6ac0bc60445860a02c2a6df6ed2`. Soda also contains seven
@@ -157,10 +211,12 @@ are not the existing VM's current installed versions.
 
 ### What is already available, and what must change
 
-Reuse the corrected shared native shell, persistent Workspace owner, native
-authorization/session guards, Project/terminal machinery, atomic native issue
-graph writer and working Factory coding/review/correction/check/merge/closure loop.
-Do not schedule their replacement as new infrastructure.
+Reuse native authorization/session guards, Project/terminal machinery, the
+single Workspace content owner, atomic native issue graph writer and working
+Factory coding/review/correction/check/merge/closure loop. Native frontend
+composition and lifecycle remain reopened under the correction above; the current
+wrapper is not an established capability to reuse. Do not replace the retained
+domain/runtime foundations as new infrastructure.
 
 The task tables cover these changes:
 
@@ -208,7 +264,7 @@ real completed capability. Never let a fixture authorize an actual effect.
 | Handoff | Producer and concrete contents | Immediate consumers |
 | --- | --- | --- |
 | B | Inspected current source, existing callable interfaces and scoped reusable evidence. | Any independent investigation or unchanged-contract work. |
-| H-N | UX-C02: admitted new/request route shapes, parameter rules, appSubUrl, session/repository context and retained-owner event behavior. | UX-C03, UX-C06 and route fixtures. |
+| H-N | NF-02/UX-C02: callable canonical Fountain manifest/browser contract for declared content routes, linked page/panel ownership, appSubUrl, presentation and observed context updates, suspend/revalidate/resume/retire, usable native containers and scoped transport. Real generic examples; no consumer host-DOM event adapter. | UX-C03, UX-C04, UX-C06 and native/consumer fixtures. |
 | H-I | UX-I01/UX-I02: requested facts, supported/autonomous choices, corrections, unresolved assumptions, effective revision/repository and attributable authorization. | UX-S03–UX-S07, UX-U01/UX-U03–UX-U08, UX-F01/UX-F04 and generation fixtures. |
 | H-D | UX-S01/UX-S03: bounded authored alternatives, roles/actions/results/branches, evidence references, outcome mapping and authorship mechanism. | UX-S04–UX-S06 and UX-U04–UX-U06. UI composition can use examples before the proposer passes its capability proof. |
 | H-J | UX-S02: seven judgment purposes, semantic fingerprints, typed answers, uncertainty, reservation/cache/result records and refresh rules. | UX-S04–UX-S09 and UX-F03. |
@@ -271,11 +327,11 @@ and `scripts/build-soda-extension.ts`.
 | Task | Deliverable and decisive completion condition | Start | Finish |
 | --- | --- | --- | --- |
 | UX-C01 | Inspect exact heads/dirty changes, map existing interface owners and reserve shared writers. Release each needed handoff independently with real examples and identify contract changes. Preserve all unrelated files; no broad audit, wholesale staging or speculative schema work. | B | — |
-| UX-C02 | Prove and implement the smallest generic native route support for new-request and saved-request content. Verify proposed `/workspace/new` and `/workspace/requests/:request` shapes against actual admission/route collision rules before relying on them. Keep native guards, normal auth/install/error layouts, appSubUrl and exactly one retained owner. No new shell or full-Workspace iframe. | B | — |
+| UX-C02 | Implement Fountain's native frontend correction through NF-01/NF-02/NF-03: first prove native persistence independently of Soda, then provide generic declared content routes and the reusable mount/presentation/context/lifecycle contract. Preserve current new/request URLs without hardcoding Soda ID semantics in the host. Native feature initialization, shell layout, guards, auth/install/error handling and appSubUrl remain host-owned. One retained owner; no browsing wrapper or consumer shell substitute. | B | — |
 | UX-C03 | Wire visible **New Project** to the native new-request page in populated and empty global Workspace; add repository **Plan new work** and preserve existing manual Project access. Direct load, title, query/fragment, Back/Forward and reload work without provisioning or account enrollment. | H-N, UX-U01 view contract | UX-C02, UX-U01 |
 | UX-C04 | Integrate request capture/resume, exploration/review, repository selection and generation status into the retained Workspace owner. Release capture/resume on H-N plus the private read contract; add review on H-D and commitment/status on their own ready contracts. Back/Cancel keeps the right draft/return target; no duplicate owner, stale callback or replayed effect. | H-N; H-I/private reads for capture; H-D only for review | UX-C03, UX-U03, UX-U04, UX-U05, UX-U06, UX-U07, UX-U08 |
 | UX-C05 | Incrementally wire discovery, Project/join/settings, request overview/detail, revision and ordinary activity. Changing content preserves current terminal identity/focus; browsing a repository cannot retarget an attached terminal. Integrate optional-action callbacks separately when UX-V07 is ready. | H-R, feature callbacks | UX-W01, UX-W02, UX-W03, UX-W04, UX-W05, UX-W06, UX-V01, UX-V02, UX-V03, UX-V04, UX-V05, UX-V06 |
-| UX-C06 | Keep native contribution declarations, extension entry/build graph, package assets/styles and mount-context use consistent. Prove new content loads through the actual contribution with one Lit/terminal ownership graph; no duplicate public asset copy. Subsequent content commits rerun affected asset checks. | H-N, UX-U01 entry contract | UX-C02, UX-U01 |
+| UX-C06 | Migrate Soda to Fountain's callable browser contract under NF-04; remove host-ancestor inspection, shell sizing/visibility, duplicate transport/lifecycle rules and competing-mount detection. Keep declarations, entry/build graph, valid scoped package assets/styles and local content geometry consistent. Actual contribution has one Lit/terminal ownership graph and no duplicate public asset copy. Subsequent content changes rerun affected asset checks. | H-N, UX-U01 entry contract | UX-C02, UX-U01 |
 | UX-C07 | Join remaining SDK/schema/route/coordinator callbacks through their single owners, including UX-I08 history enrichment of UX-U03. Remove superseded gates/callers/fixtures with replacements and reconcile contracts across both repositories. No legacy acceptance reader, parallel login or hidden second Workspace implementation remains. | Released feature patches | UX-C04, UX-C05, UX-C06, UX-I08, UX-L06, UX-V07 |
 
 UX-C02 uses existing native route/extension tests and the actual host module. UX-C03/UX-C04

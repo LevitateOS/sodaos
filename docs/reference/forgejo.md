@@ -46,16 +46,30 @@ Repository product tabs precede native unit tabs so Workspace is discoverable
 before the trailing menu items overflow. Project selection uses the observed
 native repository ID, never its display name.
 
-Global and repository Workspace render directly through Fountain's shared
-native head, navigation, repository header and footer templates. Soda supplies
-content in one retained panel root, displayed as full-page content on Workspace.
-The host swaps native content without disconnecting that root. Ordinary native
-pages retain the browsing iframe so their native frontend initialization remains
-intact. Workspace itself is never framed. Native history, pathname, query,
-fragment and appSubUrl stay canonical. Reload renders the shared native template
-and creates a fresh browser mount through normal session admission. Credential
-and account-state pages, mutations, partial responses, downloads and errors retain
-their normal handling. Native flash notices remain visible.
+Global and repository Workspace use shared native templates and one retained
+Soda owner. The current host frames ordinary native browsing and copies Workspace
+content from fetched documents; installed review found navigation, initialization
+and composition failures. This is the implementation being corrected, not proof
+that the native frontend contract is satisfied. The correction is specified in
+[native frontend responsibility and correction](../development/factory-implementation-plan.md#native-frontend-responsibility-and-correction).
+
+Fountain owns native shell/navigation, page configuration and native feature
+initialization/teardown, generic contribution placement, connected mount lifetime,
+context updates and usable container geometry. Soda consumes that browser
+contract, renders product content inside its root and owns local resources,
+styles, workflows and additional domain authorization. It must not inspect host
+ancestors, calculate navbar/footer space, hide native chrome, initialize core
+Forgejo features or independently decide native session validity. Generic routes
+and browser contracts belong in Fountain; product route declarations and parameter
+meaning belong to the consumer. Native UI/theme mechanisms belong to Fountain;
+Soda remains responsible for valid emitted assets and usable local content.
+
+The correction preserves the [ordinary-navigation terminal lifetime](../product/spaces.md)
+rather than substituting reconnect semantics. Native pathname/query/fragment,
+appSubUrl, title/history, focus/scroll and native account/repository controls stay
+under Fountain's frontend lifecycle. Reload creates a fresh admitted browser
+owner. Credential/account-state pages, installation, mutations, partial responses,
+downloads and errors retain their appropriate native handling.
 
 Add product UI through declared native page or panel contributions. Public routes
 are host-owned slots; manifest scope and permissions remain authoritative. A

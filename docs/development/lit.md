@@ -8,6 +8,14 @@ navigate. Xterm and its socket remain resources of the terminal component.
 Forgejo owns its own pages, forms, authentication and native scripts. See the
 [Forgejo integration contract](../reference/forgejo.md) for that boundary.
 
+The pending native frontend correction removes consumer inspection of host
+ancestors, chrome visibility and navbar/footer sizing. Fountain supplies context,
+presentation/lifetime updates and usable native containers. Lit components own
+their content and local resources, including terminal sizing inside the supplied
+area; they consume the host lifecycle without retiring persistent terminals on
+ordinary navigation. Core native initialization and session revalidation remain
+Fountain responsibilities.
+
 ## Runtime and builds
 
 The root `package.json` declares Lit and the single `bun.lock` pins its resolved
@@ -20,7 +28,7 @@ bun run build:forgejo
 bun run test:lit
 ```
 
-`system/containers/extension/extension.json` declares the Spaces, Runners and Tailnet
+`system/containers/extension/extension.json` declares the Spaces and Tailnet
 page entries and Workspace panel entry. `scripts/build-soda-extension.ts` bundles
 their module graphs, builds their CSS and packages the locked xterm assets and
 notices. Extension components load those package assets through the mount context's
