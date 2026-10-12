@@ -125,10 +125,55 @@ test('first use: picker Back preserves the reviewed direction', async (t) => {
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await reviewFirstIntent(page);
   await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
-  await page.locator('.soda-setup-actions').getByRole('button', {name: 'Back', exact: true}).click();
+  await page.locator('.soda-setup-topbar').getByRole('button', {name: 'Back', exact: true}).click();
   await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
   assert.equal(await page.getByRole('heading', {name: 'Choose a repository'}).count(), 0);
   assert(await page.getByRole('button', {name: 'Choose repository', exact: true}).isEnabled());
+});
+test('first use: picker summarizes reviewed authorization and the create effect', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  await page.getByText('Saving 1 authorized idea and 1 work item to the chosen repository.').waitFor();
+  await page.getByText('Continuing creates factory work for that repository.').waitFor();
+  const create = page.getByRole('link', {name: 'Create a new repository'});
+  assert.equal(await create.getAttribute('target'), '_blank');
+  assert.equal(await create.getAttribute('rel'), 'noopener');
+});
+test('first use: resumed accepted request suggests its repository in the picker', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  const intent = await page.evaluate(() => {
+    const calls = window.workspaceFixture.calls as {body?: Record<string, unknown>}[];
+    const accepted = calls.find((call) => (call.body as Record<string, unknown> | undefined)?.state === 'accepted');
+    return String((accepted?.body as Record<string, unknown> | undefined)?.intent || '');
+  });
+  assert.match(intent, /^d[0-9a-f]{24}$/);
+  await page.getByRole('button', {name: 'Change repository', exact: true}).click();
+  await page.waitForFunction(() => {
+    const el = document.querySelector('soda-intent');
+    const h2 = Array.from(el?.shadowRoot?.querySelectorAll('h2') || []).find(
+      (h) => h.textContent?.trim() === 'Review your product direction'
+    );
+    if (!h2) return false;
+    const r = h2.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.evaluate((id) => {
+    window.history.pushState({}, '', `/workspace/requests/${id}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, intent);
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
+  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  await page.getByText('Showing the suggested repository for this request.', {exact: true}).waitFor();
 });
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);

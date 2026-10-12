@@ -93,7 +93,8 @@ function authorizationNote(view: RepositoryPickerView) {
   if (!auth) return '';
   return html`<p>
     Saving ${plural(auth.ideas, 'authorized idea', 'authorized ideas')} and
-    ${plural(auth.tasks, 'work item', 'work items')} to the chosen repository.
+    ${plural(auth.tasks, 'work item', 'work items')} to the chosen repository. Continuing creates factory work for
+    that repository.
   </p>`;
 }
 function suggestedNote(view: RepositoryPickerView) {
@@ -130,8 +131,7 @@ export function renderRepositoryPicker(view: RepositoryPickerView, actions: Repo
     </div>
     ${repositoryResults(view, actions.select)} ${repositoryPages(view, actions.search)}
     <div class="soda-setup-actions">
-      <button class="ui button" ?disabled=${pickerLocked(view)} @click=${actions.back}>Back</button
-      ><a href=${view.createURL}>Create a new repository</a
+      <a href=${view.createURL} target="_blank" rel="noopener">Create a new repository</a
       ><button class="ui primary button" ?disabled=${pickerLocked(view) || !choice} @click=${actions.continue}>
         ${continueCaption(choice)}
       </button>
