@@ -168,6 +168,13 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
             format!("{}:{WORKER_SOURCE}", c.source),
             format!("{}:{WORKER_FORGEJO}", c.forgejo_source),
             format!("{}:{WORKER_TOOLS}", c.tools),
+            // The configured controller executable keeps its host path as
+            // the worker invocation, but ProtectHome=tmpfs masks /home, so
+            // a validated /home controller is ENOENT at re-exec (203/EXEC).
+            // Self-bind the one admitted file read-only; systemd applies
+            // BindReadOnlyPaths after the tmpfs, restoring exactly the
+            // path trusted_executable and dispatcher-byte equality checked.
+            format!("{}:{}", c.executable, c.executable),
         ],
         writable: vec![
             format!(

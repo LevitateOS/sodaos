@@ -186,6 +186,60 @@ fn development_worker_inputs_and_completion() {
 }
 
 #[test]
+fn build_worker_self_binds_validated_executable_read_only() {
+    // Q-L-worker203: ProtectHome=tmpfs masks /home, so the configured
+    // controller path must be restored read-only in the worker namespace
+    // while the invocation keeps the exact admitted host path.
+    let c = WorkerConfig {
+        executable: "/home/soda-build/soda-build".to_owned(),
+        ..test_config()
+    };
+    let r = Request {
+        source: c.source.clone(),
+        out: format!("{}/test", c.output_parent),
+        development: true,
+        target: "candidate".to_owned(),
+        ..Request::default()
+    };
+    let w = build_worker(&c, &r).unwrap();
+    assert_eq!(w.executable, c.executable);
+    assert!(w
+        .read_only
+        .contains(&format!("{}:{}", c.executable, c.executable)));
+    assert!(!w.writable.join(" ").contains(&c.executable));
+}
+
+#[test]
+fn build_worker_executable_bind_passes_argv_admission() {
+    // Joined description->argv check with a host-trusted executable:
+    // the emitted self-bind pair must survive worker_argv validation.
+    let c = WorkerConfig {
+        executable: argv_executable(),
+        build_home: "/home/worker".to_owned(),
+        runtime: "/run/attempt-xyz".to_owned(),
+        ..test_config()
+    };
+    let r = Request {
+        source: c.source.clone(),
+        forgejo_source: c.forgejo_source.clone(),
+        forgejo_revision: "b".repeat(40),
+        out: format!("{}/test", c.output_parent),
+        development: true,
+        target: "candidate".to_owned(),
+        ..Request::default()
+    };
+    let mut w = build_worker(&c, &r).unwrap();
+    w.name = "soda-build-manual-01".to_owned();
+    let argv = worker_argv(&w).unwrap();
+    assert!(argv.contains(&format!(
+        "--property=BindReadOnlyPaths={0}:{0}",
+        c.executable
+    )));
+    assert!(argv.contains(&"--property=ProtectHome=tmpfs".to_owned()));
+    assert!(argv.contains(&"--property=ProtectSystem=strict".to_owned()));
+}
+
+#[test]
 fn worker_forwards_controller_live_inputs() {
     let c = test_config();
     let mut r = Request {
