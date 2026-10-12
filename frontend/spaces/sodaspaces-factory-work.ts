@@ -984,8 +984,7 @@ export class SodaFactoryOptionalEffects extends LitElement {
     const detail = sodaErrorDetail(posted.value);
     if (posted.status === 403)
       this.message = detail.message ?? 'Only the repository owner or administrator may configure effects.';
-    else if (posted.status === 409)
-      this.message = detail.message ?? 'This event has no verified native capability yet.';
+    else if (posted.status === 409) this.message = conflictSaveMessage(detail);
     else if (posted.status === 412) this.message = detail.message ?? 'Configuration changed; refresh and retry.';
     else this.message = detail.message ?? `Save refused (${posted.status}).`;
   }
@@ -1005,6 +1004,12 @@ export class SodaFactoryOptionalEffects extends LitElement {
   }
 }
 customElements.define('soda-factory-optional-effects', SodaFactoryOptionalEffects);
+
+function conflictSaveMessage(detail: SodaErrorDetail): string {
+  if (detail.code === 'executor_unavailable')
+    return detail.message ?? 'No lifecycle executor is configured yet; the saved preference is kept.';
+  return detail.message ?? 'This event has no verified native capability yet.';
+}
 
 function sameEffectsContext(
   next: LifecycleEffectsContext | undefined,

@@ -534,7 +534,7 @@ test('lifecycle effects gate on proof and name actor, targets and results', () =
   assert.equal(describeLifecycleEffect('pr_created', {...config, capable: false}, 'ready', []).canConfigure, false);
   assert.match(
     describeLifecycleEffect('pr_created', {...config, capable: false}, 'ready', []).stateText,
-    /checkpoint has not passed/
+    /not runnable yet/
   );
   assert.equal(describeLifecycleEffect('pr_created', {...config, enabled: false}, 'ready', []).stateText, 'Disabled.');
   assert.equal(
@@ -559,7 +559,7 @@ test('each optional effect gates on its own native checkpoint', () => {
   assert.equal(describeLifecycleEffect('verified_merge', {...effect, capable: false}, 'ready', []).canConfigure, false);
   assert.match(
     describeLifecycleEffect('issue_created', {...effect, capable: false}, 'ready', []).stateText,
-    /checkpoint has not passed/
+    /not runnable yet/
   );
 });
 
