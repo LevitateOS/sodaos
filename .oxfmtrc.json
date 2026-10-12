@@ -4,5 +4,10 @@
   "printWidth": 120,
   "bracketSpacing": false,
   "trailingComma": "es5",
-  "ignorePatterns": ["node_modules/**", ".artifacts/**", ".local/**"]
+  "ignorePatterns": [
+    "node_modules/**",
+    ".artifacts/**",
+    ".local/**",
+    "frontend/spaces/fountain-browser-contract.d.ts"
+  ]
 }
