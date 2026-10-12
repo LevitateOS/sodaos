@@ -356,7 +356,7 @@ func TestConsumeOwnerHelpers(t *testing.T) {
 			t.Fatalf("submits: %+v", ex.submits)
 		}
 		a, err := s.LifecycleAction(ctx, "lifecycle:pr_created:pub-1:pr-12-34")
-		if err != nil || !a.Settled() {
+		if err != nil || !a.Settled() || a.PRNumber != 12 {
 			t.Fatalf("journal: %+v %v", a, err)
 		}
 		visible, err := s.ListActions(ctx, 9, 8, factory.LifecycleEventPRCreated, 64)
