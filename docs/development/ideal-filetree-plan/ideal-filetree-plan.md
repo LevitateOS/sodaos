@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` and paired Fountain source
-`ebbd6655553cc0fd66321a888ef82e542267199b` for the native frontend correction. This delta
+`1cc3d9c157a9246b15114c6c2d2ab4def5fe68b6` for the native frontend correction. This delta
 adds seventeen focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -45,8 +45,13 @@ as single global features. Page entry enhances new native nodes; retirement
 removes their dropdown, tooltip and table-sort state. All three contribution-root
 shapes are excluded from native enhancement/sort binding/tooltip retirement,
 using one selector. Twenty-eight registry/admin/common/sort cases and affected
-lint checks pass. The host navigator hook is available; actual native route joins,
-HTMX retirement and the remaining native classes stay open.
+lint checks pass. Automatic tooltip setup also preserves those roots while
+explicit tooltip APIs remain usable; ten DOM/observer cases pass. Native HTMX
+entry/retirement uses the pinned library process/swap APIs, cleans polling queues
+before aborting native XHRs, and excludes contribution roots. Four mocked-library
+join cases pass; actual polling/morph browser proof remains open. The host
+navigator hook is available; actual route joins and remaining native classes
+stay open.
 No source or process responsibility moves to Soda.
 
 Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
