@@ -327,6 +327,7 @@ Current coherent source duties matched to live consumer and prior semantic unit 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–511; resolve_live_inputs | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Resolve the controller-supplied live release inputs for worker execution; this is input-source selection, not candidate construction. — Current source inspected at lib/soda-release-tools/src/worker/runtime.rs; concrete renderer/build/test consumer is named in the selector and description. |
+| 167–177; validated controller-executable self-bind read-only | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Delta at `deb79186` (L484): BindReadOnlyPaths restores the trusted path masked by ProtectHome tmpfs. Prior rows retain their pinned scope. |
 
 <a id="coverage-2fd37711a534"></a>
 
@@ -337,3 +338,4 @@ Current coherent source duties matched to live consumer and prior semantic unit 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–634; worker_forwards_controller_live_inputs test | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Verify the release worker forwards controller-selected live inputs into the build request. — Current source inspected at lib/soda-release-tools/src/worker/tests.rs; concrete renderer/build/test consumer is named in the selector and description. |
+| 189–240; build_worker_self_binds_validated_executable_read_only; build_worker_executable_bind_passes_argv_admission | [D02](../../slices/release-and-installation.md#d02-pinned-input-acquisition) | retained | Delta at `deb79186` (L484): self-bind and argv-admission tests. Prior rows retain their pinned scope. |

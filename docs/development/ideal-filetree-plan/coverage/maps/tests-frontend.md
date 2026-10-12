@@ -72,6 +72,9 @@ Delta duty inspection at `93fb3513`. Progress model/render tests: generations, o
 | 426–621; recorded choices explain selection, fairness and masked winners test; lifecycle effects gate on proof test; each optional effect gates on its own checkpoint test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks choice/lifecycle models — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
 | 622–738; planning reference finds this request test; access standing states powers test; revision history composes before/after test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks planning-reference/standing/history models — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
 | 548–608; lifecycle results name submitter, authorizer and distinct native target test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `93fb3513`: submitter/authorizer/target rendering test — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+| 810–823; overview scope feeds effective mappings without capabilities test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `deb79186`: capability-free mapping feed — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+| 824–847; overview scope feeds bound issues with read capabilities test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `deb79186`: capability-bound issue feed — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+| 848–879; child contexts derive from scope with exact keys and runs test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `deb79186`: exact-key child derivation — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
 
 <a id="coverage-0c23db822fa9"></a>
 
@@ -85,6 +88,7 @@ Delta duty inspection at `93fb3513`. Rendered settings-control regressions: acti
 | 164–830; preparation controls render API evidence test; preparation decisions copy reviewed facts test; initial source, acceptance, approval and role preparation test; preparation retry reuses admitted identities test; reload adopts role identity test; reaccepting requirements blocks preparation test | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Checks preparation decision/identity behavior — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
 | 831–1088; provider budget and sponsorship test; provider budget reports forbidden test; late replies cannot write into newer context test | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Checks budget/approval fencing — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
 | 1089–1223; Factory execution usage reports exact minutes test; Factory execution usage stays unavailable test; Factory settings reload after tab flap test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `93fb3513`: usage-honesty and reload tests — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
+| 1228–1295; Factory settings mount optional effects with authorizer/submitter context and retire on tab switch test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `deb79186`: effects mount context with tab-switch retirement — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
 
 <a id="coverage-481f0d5e01fd"></a>
 
@@ -97,6 +101,8 @@ Delta duty inspection at `93fb3513`. Real-engine work control tests: overview re
 | 263–409; work overview renders direction test; work detail renders evidence links and runs all six interventions test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks overview/detail controls on a real engine — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
 | 410–505; direction revision shows allowance reference test; allowance increase with blank effect test; allowance below recorded usage is refused locally test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks allowance adjust and local refusal — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
 | 506–627; optional effects gate per checkpoint test; optional effects map unavailable executor refusal test; work plan renders recorded steps test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks effect gating, refusal mapping and plan rendering — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
+| 598–679; optional effects link a journaled pull number and leave unclaimed rows text-only test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `deb79186`: journaled-PR links with text-only unclaimed rows — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
+| 711–843; overview scope feeds derived plan, detail and revision mounts, then retires test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `deb79186`: scope-fed mounts with retirement — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
 
 <a id="coverage-c5572d2bff36"></a>
 
@@ -129,6 +135,7 @@ Delta duty inspection at `93fb3513`. Work-view tests: merge+closure delivery evi
 | --- | --- | --- | --- |
 | 61–207; delivery needs both merge and closure evidence test; check and readiness verdicts map test; detail models carry evidence test; detail models carry attempt, review, staleness test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks delivery evidence and detail models — Current source block and named test consumer inspected in tests/frontend/factory-work-view.test.ts. |
 | 208–304; capability gates name the recorded refusal reason test; intervention outcomes separate confirmed, pending, uncertain and failed test; interventions pair scope, impact and results test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks gating and intervention outcomes — Current source block and named test consumer inspected in tests/frontend/factory-work-view.test.ts. |
+| 307–339; upfront capabilities map known flags and stay permissive when unknown test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `deb79186`: permissive capability mapping — Current source block and named test consumer inspected in tests/frontend/factory-work-view.test.ts. |
 
 <a id="coverage-ab64cfc46f94"></a>
 
@@ -320,6 +327,7 @@ Delta duty inspection at `93fb3513`. Intent-first journey tests: entry/departmen
 | 786–1050; review leads with walkthrough test; change something submits correction test; assumption challenges batch recommendations test; unsupported objectives show unknowns test; planning and judgment failures preserve draft test; human decisions record provenance test; idea cards keep votes test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks review/challenge/provenance behavior — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
 | 1051–1187; accepted review shows authorization, generation progress and unsaved loss test; settled autonomous baseline advances test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks accepted-review and baseline behavior — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
 | 1188–1416; explore initializes independent allowance test; allowance-only decrease preserves usage test; raising planning calls states effect test; lowering below used calls fails test; stale allowance retries once test; refused allowance blocks exploration test; untouched control adopts raised funding test; back-to-review focuses heading test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks independent-allowance lifecycle and Back focus — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
+| 1418–1446; resumed accepted request exports its durable repository on intent-resumed test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `deb79186` (U08): durable-repository export on resume — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
 
 <a id="coverage-2f3c2de49d3b"></a>
 
@@ -344,6 +352,15 @@ Delta duty inspection at `93fb3513`. Recovery honesty tests: unguessed welcome, 
 | 96–287; first use: incomplete and failed inventories never render guessed welcome test; departure during authorization cannot dispatch test; terminal handshake with mismatched generation is refused test; partial project list explains missing items test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks recovery honesty — Current source block and named test consumer inspected in tests/frontend/workspace-recovery.test.ts. |
 | 288–317; offline refresh says offline instead of generic failure test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `93fb3513`: offline-distinction test — Current source block and named test consumer inspected in tests/frontend/workspace-recovery.test.ts. |
 
+<a id="coverage-c2a26e926cdd"></a>
+
+## [tests/frontend/workspace-setup-inventory-resume.test.ts](../../../../../tests/frontend/workspace-setup-inventory-resume.test.ts)
+
+Delta duty inspection at `deb79186`. Inventory-click accepted-resume test: restores the committed overview with native links and performs no writes.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 6–46; first use: inventory-click accepted resume restores its overview with native links and no writes test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks write-free accepted resume — Current source block and named test consumer inspected in tests/frontend/workspace-setup-inventory-resume.test.ts. |
 <a id="coverage-def1180aecb0"></a>
 
 ## [tests/frontend/workspace-setup-routes.test.ts](../../../../../tests/frontend/workspace-setup-routes.test.ts)
@@ -353,6 +370,9 @@ Delta duty inspection at `93fb3513`. Setup-route tests: request-id scoping, sub-
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 13–77; request id reads only from app-root request routes test; request and new routes preserve sub-path test; intent identity reads saved detail test; inventory intents parse saved list test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks route scoping and identity reads — Current source block and named test consumer inspected in tests/frontend/workspace-setup-routes.test.ts. |
+| 129–157; overview scope feed keeps valid entries and retires on malformed payloads test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `deb79186`: scope-feed admission with malformed retirement — Current source block and named test consumer inspected in tests/frontend/workspace-setup-routes.test.ts. |
+| 158–167; scope equality compares values so refresh re-dispatch does not churn the root test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `deb79186`: value-equality churn guard — Current source block and named test consumer inspected in tests/frontend/workspace-setup-routes.test.ts. |
+| 168–187; work children derive only from a live scope matching the retained identity test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `deb79186`: live-scope child gating — Current source block and named test consumer inspected in tests/frontend/workspace-setup-routes.test.ts. |
 <a id="coverage-9e91797b5f1c"></a>
 
 ## [tests/frontend/workspace-setup.test.ts](../../../../../tests/frontend/workspace-setup.test.ts)
@@ -371,6 +391,8 @@ Current browser assertions split by repository setup/creation, persisted Project
 | 455–503; setup: join states account test; setup: welcome footer tracks steps test | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Delta at `93fb3513`: join/footer creation tests. Prior rows retain their pinned scope. — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
 | 504–553; setup: failed creation preserves request test; setup: intent entry receives session actor test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `93fb3513`: accepted-request preservation and intent entry tests. Prior rows retain their pinned scope. — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
 | 554–665; setup: saved draft resumes from request route test; setup: unknown request route test; setup: saving draft syncs route test; setup: new entry canonicalizes route test; setup: discovery groups saved drafts test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `93fb3513`: draft-route and discovery tests. Prior rows retain their pinned scope. — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
+| 218–259; first use: resumed accepted request restores its overview with native links and no writes test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `deb79186`: write-free accepted-resume restore — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
+| 260–308; first use: committed inspection mounts plan, detail and revision from the overview scope test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `deb79186`: scope-fed child mounts — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
 
 <a id="coverage-7d206141c57e"></a>
 <a id="testsfrontendworkspacetestts-1"></a>
