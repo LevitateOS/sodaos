@@ -2,6 +2,8 @@
 
 Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
 
+Scoped saved-review source at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): F05 SaveIntentRevision now delegates its existing CAS write to saveIntentRevisionTx. `factory_intent_reviews.go` joins review INSERT/replay validation to that transaction and performs exact owner-private reads. Schema47 adds its table and required-column verification; historical selectors below retain their scope.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).

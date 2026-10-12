@@ -16,9 +16,9 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `082beb863a1108b11765ee106852ed56600007bc` and paired Fountain source
+Reviewed Soda source `8fd38912bf3bed4287387d482e96f7e0fb0e4776` and paired Fountain source
 `64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
-adds two focused settings fixture/test paths and changes no package, language
+adds ten focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
@@ -45,9 +45,22 @@ consumer document-token declarations; its three emitted graph/token checks pass.
 Local Project settings CSS bounds Identity and protects selected-panel space;
 all twelve wide/compact/short browser fixture cases pass using fallback fonts.
 The two new test paths are allocated to S05/H06 in the inventory and target tree.
-Native computed colors, native fonts/containers and terminal identity remain
-separate composition/installed evidence. The desired responsibility split is
+Native fonts/containers and terminal identity remain separate composition/installed evidence.
+The emitted-color Chrome fixture now checks dialog surface/border/text and
+action/link colors in both native-selected schemes. Font imports are excluded
+from color evidence. The desired responsibility split is
 unchanged; neither this delta nor its fixtures qualify final native behavior.
+
+Saved-review domain/wire validity remains F05 in `internal/factory`, exact
+private persistence remains in `internal/store`, and the existing web API owns
+Explore saving plus exact owner-private reads. Browser parsing stays in the
+existing F05 response module. The seven new source/test paths follow those
+owners. PostgreSQL save/replay/CAS/privacy/forced-rollback cases pass (7 executed,
+0 skipped); joined schema drift checks, six domain cases, browser parser and
+TypeScript/Lit checks pass against `cb8492909eef64718103940f733a13bcfe5b9b97`. Schema 47 adds one
+review table; Open refuses protected existing schema 46 until a tested preserving
+operator transition is applied. No VM activation is claimed. Current source maps
+record these added duties without advancing historical full-body audit pins.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
