@@ -25,6 +25,111 @@ Changed current body; prior ownership not reused as exact selectors
 | 162–168; hidden lifecycle actions test | [P05](../../slices/projects.md#p05-project-startstop) | retained | Checks hidden Create and lifecycle handlers cannot dispatch. — Current source block and named test consumer inspected in tests/frontend/drawer-controls.test.ts. |
 | 224–237; terminal render after disposal test | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Checks terminal render readiness after disposal and reconnect cannot revive a retired session. — Current source block and named test consumer inspected in tests/frontend/drawer-controls.test.ts. |
 
+<a id="coverage-6c0243e8e3fc"></a>
+
+## [tests/frontend/factory-access-response.test.ts](../../../../../tests/frontend/factory-access-response.test.ts)
+
+Delta duty inspection at `93fb3513`. Access-parser tests: exact permission/usage units without conversion, non-owner/missing-budget honesty, visible unknown codes, real call-unit allowances, and malformed-DTO refusal.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 46–109; owner permission/usage DTO parses with exact units and no conversion test; non-owner usage stays a status test; unknown reason and status codes stay visible test; planning allowances parse with real call units test; malformed permission DTO is refused test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks access DTO admission, unit honesty and refusal without partial use — Current source block and named test consumer inspected in tests/frontend/factory-access-response.test.ts. |
+
+<a id="coverage-4a1dbb58d192"></a>
+
+## [tests/frontend/factory-activity.test.ts](../../../../../tests/frontend/factory-activity.test.ts)
+
+Delta duty inspection at `93fb3513`. Activity-parser tests: repository binding/stamps/safe links, item kind/target/link binding, and unknown-instead-of-invented timestamps.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 43–96; factory activity keeps repository binding, stamps and safe links test; factory activity items bind kind, target and exact native link test; activity timestamps stay unknown test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks activity payload admission and honest timestamps — Current source block and named test consumer inspected in tests/frontend/factory-activity.test.ts. |
+
+<a id="coverage-12d21b318c35"></a>
+
+## [tests/frontend/factory-progress-response.test.ts](../../../../../tests/frontend/factory-progress-response.test.ts)
+
+Delta duty inspection at `93fb3513`. H-R/H-A/L06 parser tests: identity-bound overview/plan/allowance/effects/access/revision reads, foreign masking, and wrong-scope/bad-page refusal.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 59–223; request overview binds direction, counts, mappings and attention test; issue plan binds freshness, plan and comparisons test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks overview/plan identity binding — Current source block and named test consumer inspected in tests/frontend/factory-progress-response.test.ts. |
+| 224–324; planning allowance binds bounded units and consumption test; lifecycle configs bind enablement, proof, actor and targets test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks allowance/config binding — Current source block and named test consumer inspected in tests/frontend/factory-progress-response.test.ts. |
+| 325–524; lifecycle actions bind attempts, revocation and per-target results test; lifecycle actions admit unclaimed rows test; masked foreign choices stay visible test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks action results, unclaimed rows and masking — Current source block and named test consumer inspected in tests/frontend/factory-progress-response.test.ts. |
+| 525–686; repository access binds standing, verdict and bounded planning listing test; repository access rejects wrong scope test; revision history binds before/after and affected work test; revision history rejects wrong scope test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks access/revision binding and refusal — Current source block and named test consumer inspected in tests/frontend/factory-progress-response.test.ts. |
+| 473–544; lifecycle actions bind unequal identities and a distinct native target test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `93fb3513`: unequal-identity and distinct-target test — Current source block and named test consumer inspected in tests/frontend/factory-progress-response.test.ts. |
+
+<a id="coverage-e1cdbc7969dc"></a>
+
+## [tests/frontend/factory-progress-view.test.ts](../../../../../tests/frontend/factory-progress-view.test.ts)
+
+Delta duty inspection at `93fb3513`. Progress model/render tests: generations, overview counts, why-next, prerequisites, revision/allowance, request overview, recorded plan/choice, lifecycle gating, planning reference, access standing and revision history.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 84–260; generation records bind tasks to native issues test; overview counts factual states test; overview distinguishes missing, waiting and unavailable test; why-next needs no consultation test; prerequisites name waiting reasons test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks generation/overview/why-next/prerequisite models — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+| 261–425; revision and allowance stay attributable test; allowance shows bounded units test; request overview projects evidenced counts test; recorded plans name freshness test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks revision/allowance/overview/plan models — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+| 426–621; recorded choices explain selection, fairness and masked winners test; lifecycle effects gate on proof test; each optional effect gates on its own checkpoint test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks choice/lifecycle models — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+| 622–738; planning reference finds this request test; access standing states powers test; revision history composes before/after test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks planning-reference/standing/history models — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+| 548–608; lifecycle results name submitter, authorizer and distinct native target test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `93fb3513`: submitter/authorizer/target rendering test — Current source block and named test consumer inspected in tests/frontend/factory-progress-view.test.ts. |
+
+<a id="coverage-0c23db822fa9"></a>
+
+## [tests/frontend/factory-settings-controls.test.ts](../../../../../tests/frontend/factory-settings-controls.test.ts)
+
+Delta duty inspection at `93fb3513`. Rendered settings-control regressions: activity links/preferences, authority/capacity, policy, preparation decisions/identity/retry, budget/sponsorship, late-reply fencing, execution usage honesty and load-interruption recovery.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 6–163; Factory activity preserves exact native links test; Factory activity rejects foreign links test; Factory settings render current authority test; Factory settings expose stale authority test; repository policy preserves canonical role selections test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks activity/settings/policy rendering — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
+| 164–830; preparation controls render API evidence test; preparation decisions copy reviewed facts test; initial source, acceptance, approval and role preparation test; preparation retry reuses admitted identities test; reload adopts role identity test; reaccepting requirements blocks preparation test | [P08](../../slices/projects.md#p08-preparation-requirements-acceptance) | retained | Checks preparation decision/identity behavior — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
+| 831–1088; provider budget and sponsorship test; provider budget reports forbidden test; late replies cannot write into newer context test | [P09](../../slices/projects.md#p09-privileged-preparation-approval) | retained | Checks budget/approval fencing — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
+| 1089–1223; Factory execution usage reports exact minutes test; Factory execution usage stays unavailable test; Factory settings reload after tab flap test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Delta at `93fb3513`: usage-honesty and reload tests — Current source block and named test consumer inspected in tests/frontend/factory-settings-controls.test.ts. |
+
+<a id="coverage-481f0d5e01fd"></a>
+
+## [tests/frontend/factory-work-controls.test.ts](../../../../../tests/frontend/factory-work-controls.test.ts)
+
+Delta duty inspection at `93fb3513`. Real-engine work control tests: overview rendering, detail evidence with all six interventions, direction-revision allowance adjust with local refusal, per-checkpoint effect gating with executor-refusal mapping, and plan rendering.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 263–409; work overview renders direction test; work detail renders evidence links and runs all six interventions test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks overview/detail controls on a real engine — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
+| 410–505; direction revision shows allowance reference test; allowance increase with blank effect test; allowance below recorded usage is refused locally test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks allowance adjust and local refusal — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
+| 506–627; optional effects gate per checkpoint test; optional effects map unavailable executor refusal test; work plan renders recorded steps test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks effect gating, refusal mapping and plan rendering — Current source block and named test consumer inspected in tests/frontend/factory-work-controls.test.ts. |
+
+<a id="coverage-c5572d2bff36"></a>
+
+## [tests/frontend/factory-work-response.test.ts](../../../../../tests/frontend/factory-work-response.test.ts)
+
+Delta duty inspection at `93fb3513`. Work-parser tests: issue-detail and repository-summary identity binding, command-outcome attribution, and error/pending honesty.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 80–229; issue detail binds acceptance, readiness, checks and merge test; issue detail binds attempt, publication, review, closure and links test; repository summary binds queue, setup and authority test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks detail/summary identity binding — Current source block and named test consumer inspected in tests/frontend/factory-work-response.test.ts. |
+| 230–388; pause and resume receipts bind the exact command test; run intervention outcomes bind the exact run test; project stop binds running state test; error envelopes yield detail or nothing test; command read-back refusals stay attributable test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks outcome attribution and refusal honesty — Current source block and named test consumer inspected in tests/frontend/factory-work-response.test.ts. |
+
+<a id="coverage-1ffe2dfc9c57"></a>
+
+## [tests/frontend/factory-work.test.ts](../../../../../tests/frontend/factory-work.test.ts)
+
+Delta duty inspection at `93fb3513`. Read-failure missing/unavailable separation test.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 5–22; read failures separate missing from unavailable test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks failure classification — Current source block and named test consumer inspected in tests/frontend/factory-work.test.ts. |
+
+<a id="coverage-8ba1cec4e3df"></a>
+
+## [tests/frontend/factory-work-view.test.ts](../../../../../tests/frontend/factory-work-view.test.ts)
+
+Delta duty inspection at `93fb3513`. Work-view tests: merge+closure delivery evidence, check/readiness verdicts, detail evidence models, capability-gate reasons, and intervention outcome separation.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 61–207; delivery needs both merge and closure evidence test; check and readiness verdicts map test; detail models carry evidence test; detail models carry attempt, review, staleness test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks delivery evidence and detail models — Current source block and named test consumer inspected in tests/frontend/factory-work-view.test.ts. |
+| 208–304; capability gates name the recorded refusal reason test; intervention outcomes separate confirmed, pending, uncertain and failed test; interventions pair scope, impact and results test | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Checks gating and intervention outcomes — Current source block and named test consumer inspected in tests/frontend/factory-work-view.test.ts. |
+
 <a id="coverage-ab64cfc46f94"></a>
 
 ## [tests/frontend/fixtures/drawer-fixture.ts](../../../../../tests/frontend/fixtures/drawer-fixture.ts)
@@ -40,6 +145,26 @@ Exact byte-identical prior detailed map units
 | 103–107, 141–142; prior detailed responsibility interval | [P05](../../slices/projects.md#p05-project-startstop) | retained | Synthetic explicit native Start/Stop receipt; declarations/fields: `fetchFixture`; Synthetic observed native Project lifecycle receipt; declarations/fields: `fetchFixture` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/fixtures/drawer-fixture.ts; manifest identical_prior confirms byte identity |
 | 108–116, 133–134, 143–154; prior detailed responsibility interval | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Synthetic development key application/removal response distinction; declarations/fields: `fetchFixture`; Synthetic saved human development key metadata; declarations/fields: `fetchFixture`; Synthetic target key fingerprints and ordinary project SSH connection; declarations/fields: `fetchFixture` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/fixtures/drawer-fixture.ts; manifest identical_prior confirms byte identity |
 | 126–132, 135–140; prior detailed responsibility interval | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Synthetic supported profile and observed Project readiness; declarations/fields: `fetchFixture`; Synthetic observed Project userspace version receipt; declarations/fields: `fetchFixture` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/fixtures/drawer-fixture.ts; manifest identical_prior confirms byte identity |
+
+<a id="coverage-696a2b4e0f2b"></a>
+
+## [tests/frontend/fixtures/factory-work-fixture.ts](../../../../../tests/frontend/fixtures/factory-work-fixture.ts)
+
+Delta duty inspection at `93fb3513`. Work-view fixture: stable synthetic identities (intent/revision/task/run/project/environment), call/route shapes and view selectors for the work control tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–118; file scaffold; WorkCall; WorkRoute; INTENT; REVISION; TASK_A; TASK_B; RUN; PROJECT; ENVIRONMENT; WorkView | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Current scaffold duty: file scaffold; 10 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-ab768aa1e036"></a>
+
+## [tests/frontend/fixtures/intent-model.ts](../../../../../tests/frontend/fixtures/intent-model.ts)
+
+Delta duty inspection at `93fb3513`. Scripted intent-store fixture for creation/review tests: allowance endpoints, head-GET behavior and saved/resumed detail reads consumed by the intent journey suites.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–153; file scaffold; createIntentModel | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 1 named unit assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 
 <a id="coverage-0d9022ac1da1"></a>
 
@@ -103,6 +228,16 @@ Exact byte-identical prior detailed map units
 | 160–168; prior detailed responsibility interval | [P03](../../slices/projects.md#p03-human-membership-and-accounts) | retained | Assert Join is explicit and leaves saved SSH keys out by default; declarations/fields: `test: Join is explicit and leaves saved SSH keys out by default` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/native-project-controls.test.ts; manifest identical_prior confirms byte identity |
 | 170–178, 180–189, 191–204, 206–240; prior detailed responsibility interval | [P04](../../slices/projects.md#p04-development-ssh-access) | retained | Assert private key input is rejected before a native request; declarations/fields: `test: private key input is rejected before a native request`; 4 named units assigned here; remaining selectors preserve each duty — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/native-project-controls.test.ts; manifest identical_prior confirms byte identity |
 
+<a id="coverage-c0d90b2ec261"></a>
+
+## [tests/frontend/project-environment-controls.test.ts](../../../../../tests/frontend/project-environment-controls.test.ts)
+
+Delta duty inspection at `93fb3513`. Environment control tests: no-implicit-create/join/start, managed binding, network failure/recovery, shared-network administration, member read-only scope, startup uncertainty, legacy-OS read-only display, stop/start separation, readiness links and non-admin read-only state.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 6–204; create never implicitly joins test; managed Create submits reviewed binding test; network failure after Create test; shared Network requires administration test; members get only observed access test; network startup uncertainty test; legacy OS observation is explicit test; OS text stays text test; Stop requires confirmation test; stopped environment has Start only test | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Checks environment control behavior — Current source block and named test consumer inspected in tests/frontend/project-environment-controls.test.ts. |
+| 205–226; overview readiness links summarize Access/Network test; non-administrator sees read-only state test | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Delta at `93fb3513`: readiness-link and read-only tests — Current source block and named test consumer inspected in tests/frontend/project-environment-controls.test.ts. |
 <a id="coverage-cf5e8a201965"></a>
 
 ## [tests/frontend/sodaspaces-http.test.ts](../../../../../tests/frontend/sodaspaces-http.test.ts)
@@ -162,6 +297,30 @@ Changed current body; prior ownership not reused as exact selectors
 | --- | --- | --- | --- |
 | 1–208; Spaces terminal test suite | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Checks terminal presentation lifecycle, rendering and retirement behavior in the Spaces frontend. — Current source inspected at tests/frontend/terminal.test.ts; concrete renderer/build/test consumer is named in the selector and description. |
 
+<a id="coverage-3993a8d79cb4"></a>
+
+## [tests/frontend/workspace-discovery.test.ts](../../../../../tests/frontend/workspace-discovery.test.ts)
+
+Delta duty inspection at `93fb3513`. Discovery tests: empty-state distinctions, stable recent ordering, attention split, lifecycle grouping and honest unbound labels.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 17–111; empty discovery distinguishes loading, unavailable, filtered and truly empty test; recent keys order stable identities test; attention split keeps ordinary sessions out test; saved requests group by lifecycle test; unbound requests label their missing repository test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks discovery grouping and honesty — Current source block and named test consumer inspected in tests/frontend/workspace-discovery.test.ts. |
+
+<a id="coverage-06d45a0053ed"></a>
+
+## [tests/frontend/workspace-intent.test.ts](../../../../../tests/frontend/workspace-intent.test.ts)
+
+Delta duty inspection at `93fb3513`. Intent-first journey tests: entry/department, draft save/resume, review/correction, challenges, unsupported honesty, failure preservation, provenance, votes, accepted-review/generation status, autonomous baseline, and the full independent-allowance lifecycle plus Back-focus behavior.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 351–577; intent-first entry stores department test; native generation failure retains acceptance test; save draft reports saved state test; department dialog validates test; unavailable proposal keeps objective editable test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks entry/department/draft behavior — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
+| 578–785; saved draft resumes by request id test; declined direction resumes for revision test; saved inventory lists states test; saved inventory names resume actions test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks resume and inventory behavior — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
+| 786–1050; review leads with walkthrough test; change something submits correction test; assumption challenges batch recommendations test; unsupported objectives show unknowns test; planning and judgment failures preserve draft test; human decisions record provenance test; idea cards keep votes test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks review/challenge/provenance behavior — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
+| 1051–1187; accepted review shows authorization, generation progress and unsaved loss test; settled autonomous baseline advances test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks accepted-review and baseline behavior — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
+| 1188–1416; explore initializes independent allowance test; allowance-only decrease preserves usage test; raising planning calls states effect test; lowering below used calls fails test; stale allowance retries once test; refused allowance blocks exploration test; untouched control adopts raised funding test; back-to-review focuses heading test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Checks independent-allowance lifecycle and Back focus — Current source block and named test consumer inspected in tests/frontend/workspace-intent.test.ts. |
+
 <a id="coverage-2f3c2de49d3b"></a>
 
 ## [tests/frontend/workspace-journey.test.ts](../../../../../tests/frontend/workspace-journey.test.ts)
@@ -174,6 +333,26 @@ Exact byte-identical prior detailed map units
 | 24–48; prior detailed responsibility interval | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Test harness scope — Exact private matrix/terminal approval and native observer contracts; declarations/fields: `scope` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/workspace-journey.test.ts; manifest identical_prior confirms byte identity |
 | 114–169; prior detailed responsibility interval | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Assert exact native observer requires original account, PID/start, unit, cgroup and records; quoted shell parses without execution; declarations/fields: `test: exact native observer requires original account, PID/start, unit, cgroup and records; quoted shell parses without execution`; Assert reservation permission admits only the selected name and measured bounded geometry; declarations/fields: `test: reservation permission admits only the selected name and measured bounded geometry` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/workspace-journey.test.ts; manifest identical_prior confirms byte identity |
 
+<a id="coverage-223e47bacb7e"></a>
+
+## [tests/frontend/workspace-recovery.test.ts](../../../../../tests/frontend/workspace-recovery.test.ts)
+
+Delta duty inspection at `93fb3513`. Recovery honesty tests: unguessed welcome, no late dispatch after departure, refused mismatched terminal handshake, partial-list explanation, and offline-vs-failure distinction with retry recovery.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 96–287; first use: incomplete and failed inventories never render guessed welcome test; departure during authorization cannot dispatch test; terminal handshake with mismatched generation is refused test; partial project list explains missing items test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks recovery honesty — Current source block and named test consumer inspected in tests/frontend/workspace-recovery.test.ts. |
+| 288–317; offline refresh says offline instead of generic failure test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `93fb3513`: offline-distinction test — Current source block and named test consumer inspected in tests/frontend/workspace-recovery.test.ts. |
+
+<a id="coverage-def1180aecb0"></a>
+
+## [tests/frontend/workspace-setup-routes.test.ts](../../../../../tests/frontend/workspace-setup-routes.test.ts)
+
+Delta duty inspection at `93fb3513`. Setup-route tests: request-id scoping, sub-path preservation, saved/resumed intent identity, and inventory-intent parsing with malformed rejection.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 13–77; request id reads only from app-root request routes test; request and new routes preserve sub-path test; intent identity reads saved detail test; inventory intents parse saved list test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks route scoping and identity reads — Current source block and named test consumer inspected in tests/frontend/workspace-setup-routes.test.ts. |
 <a id="coverage-9e91797b5f1c"></a>
 
 ## [tests/frontend/workspace-setup.test.ts](../../../../../tests/frontend/workspace-setup.test.ts)
@@ -188,6 +367,10 @@ Current browser assertions split by repository setup/creation, persisted Project
 | 62–65, 149–158; refreshed creation outcome readiness interpretation; stopped Project is represented as not ready after refresh | [P02](../../slices/projects.md#p02-profile-and-runtime-readiness) | retained | Asserts uncertain creation resolves to Join only after status inspection, incomplete creation opens Project needs inspection, and rejected creation returns to eligible Create.; Changes the existing Project observation to stopped and asserts the UI reports Project not ready without silently repeating creation. — current source tests/frontend/workspace-setup.test.ts:62-65; ready/incomplete/rejected post-refresh views; current source tests/frontend/workspace-setup.test.ts:149-158; observed.running false and not-ready assertion |
 | 133–141; retired native actor cannot publish private repository choices | [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) | retained | Changes the native user/session context while a search is pending and asserts stale private repository choices and setup UI are removed. — current source tests/frontend/workspace-setup.test.ts:133-141; actor change, refresh and no-choice assertions |
 | 159–168; explicit authorized Project Start action | [P05](../../slices/projects.md#p05-project-startstop) | retained | Asserts Start is offered and mutates Project lifecycle only for an administrator, while non-administrators cannot start it. — current source tests/frontend/workspace-setup.test.ts:159-168; explicit Start click and authorization branch |
+| 98–217; first use: keyboard selection and post-commit Change test; first use: committed inspection mounts overview test; first use: uncommitted review mounts no overview test; first use: picker Back preserves direction test; first use: picker summarizes authorization test; first use: resumed request suggests repository test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `93fb3513`: first-use inspection/picker tests. Prior rows retain their pinned scope. — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
+| 455–503; setup: join states account test; setup: welcome footer tracks steps test | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Delta at `93fb3513`: join/footer creation tests. Prior rows retain their pinned scope. — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
+| 504–553; setup: failed creation preserves request test; setup: intent entry receives session actor test | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Delta at `93fb3513`: accepted-request preservation and intent entry tests. Prior rows retain their pinned scope. — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
+| 554–665; setup: saved draft resumes from request route test; setup: unknown request route test; setup: saving draft syncs route test; setup: new entry canonicalizes route test; setup: discovery groups saved drafts test | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Delta at `93fb3513`: draft-route and discovery tests. Prior rows retain their pinned scope. — Current source block and named test consumer inspected in tests/frontend/workspace-setup.test.ts. |
 
 <a id="coverage-7d206141c57e"></a>
 <a id="testsfrontendworkspacetestts-1"></a>

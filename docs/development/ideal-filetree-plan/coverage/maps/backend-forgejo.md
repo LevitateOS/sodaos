@@ -19,6 +19,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | 1–18; file scaffold | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 19–44, 84–166; ServiceBackground; backgroundBootstrap; NewServiceBackground; SubmitOperation; GetOperation; CancelOperation; PublishPushEnv | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | The SDK BackgroundClient methods are implemented directly by ServiceBackground; snapshot readers and publishers continue sharing the same lazy admission. The redundant forwarding adapter is removed. — Current SDK interface and production call sites inspected |
 | 45–82; ReadNativeRevision; ReadSnapshot | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | ServiceBackground remains the typed SDK client for revision/snapshot reads, preserving per-dial peer verification and same-open bounded credential handling. — Current source and caller paths inspected |
+| 27–31; OnBootstrap | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Delta at `93fb3513`: post-bootstrap hook run after every completed bootstrap attempt. Prior rows retain their pinned scope. |
 
 <a id="coverage-d7a9a3149384"></a>
 
@@ -30,6 +31,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–46, 51–140, 203–214; file scaffold; maxBackgroundBodyBytes; validBackgroundAdmission; validBackgroundOperationID; backgroundSecret; checkBackgroundRecord; admissionForCall; bootstrap; verifiedPeer | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current retained helpers and declaration spans; the `G02` callback bootstrap/redirect cut is assigned below. |
 | 47–49, 141–202; rejectBackgroundRedirect; ServiceBackground.performBootstrap | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Existing callback admission bootstrap refuses redirects, preserving the exact callback path. The focused local redirect fixture covers refusal only. |
+| 137–141; OnBootstrap hook fire in bootstrap | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Delta at `93fb3513`: fires the post-bootstrap hook inside bootstrap. Prior rows retain their pinned scope. |
 
 <a id="coverage-b3264fdcee80"></a>
 
@@ -113,6 +115,64 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–69; file scaffold; TestResponseBoundary; TestNativeStatusIsTypedAndSanitized; TestTransportCancellation | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-98ea52a7eced"></a>
+
+## [internal/forgejo/lifecycle_capabilities.go](../../../../../internal/forgejo/lifecycle_capabilities.go)
+
+Delta duty inspection at `93fb3513`. Native operations handshake adapter (L06): binds the background client to the registrar's handshake; records the latest answer for current-identity logs while availability stays fenced by registrar rows. Backs ReconcileLifecycleCapabilities.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–72; file scaffold; CapabilityHandshakeSource; NewCapabilityHandshakeSource; Handshake; LastHandshake; ReadOperations | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Current scaffold duty: file scaffold; 5 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-d9d1a725e266"></a>
+
+## [internal/forgejo/lifecycle_capabilities_test.go](../../../../../internal/forgejo/lifecycle_capabilities_test.go)
+
+Delta duty inspection at `93fb3513`. Handshake mapping/failure and foreign-installation refusal tests over a served operations background.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–113; file scaffold; scriptedOperationsClient; ReadOperations; TestCapabilityHandshakeMapsNativeAnswer; TestCapabilityHandshakeRecordsFailure; serveOperationsBackground; TestServiceBackgroundReadOperationsRoundTrip; TestServiceBackgroundReadOperationsRefusesForeignInstallation | [G02](../../slices/forgejo-integration.md#g02-background-service-admission) | retained | Current scaffold duty: file scaffold; 7 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-023aa3c16694"></a>
+
+## [internal/forgejo/lifecycle_executor_test.go](../../../../../internal/forgejo/lifecycle_executor_test.go)
+
+Delta duty inspection at `93fb3513`. Executor revision observation, submit/lookup and foreign-record refusal tests with a fake background.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–122; file scaffold; consumeFakeBackground; ReadOperations; ReadNativeRevision; ReadSnapshot; ReadCreations; SubmitOperation; GetOperation; CancelOperation; TestLifecycleExecutorRevision; TestLifecycleExecutorSubmitLookup; TestLifecycleExecutorForeignRecord | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 11 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-17a5dd1f0308"></a>
+
+## [internal/forgejo/lifecycle.go](../../../../../internal/forgejo/lifecycle.go)
+
+Delta duty inspection at `93fb3513`. Optional-effect native transport (L02/L03/L04/L07): exact payload builders per event, LifecycleWriter submit with lost-reply lookup plus per-target outcome classification, and the LifecycleExecutor surface (enrolled actor, revision observation, note-target resolution, conditional submit). Effect-state mirrors keep both layers classifying identically; the extension SDK owns the kind strings.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–317; file scaffold; LifecycleKindIssue; LifecycleKindReview; LifecycleKindNote; lifecycleEffectCommitted; lifecycleEffectNotCommitted; LifecycleIssuePayload; LifecycleReviewPayload; LifecycleNotePayload; LifecycleWriter; NewLifecycleWriter; SubmitAction; LookupAction; ClassifyLifecycleOutcome; LifecycleExecutor; NewLifecycleExecutor; EnrolledActor; ObserveLifecycleRevision; ResolveNoteTarget; lifecycleWorkPayload; lifecycleOutcome; SubmitLifecycle; LookupLifecycle | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 23 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-61c7c31e415f"></a>
+
+## [internal/forgejo/lifecycle_payload_join_test.go](../../../../../internal/forgejo/lifecycle_payload_join_test.go)
+
+Delta duty inspection at `93fb3513`. Envelope/payload join test at the native transport seam.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–38; file scaffold; TestLifecyclePayloadJoin | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 1 named unit assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+<a id="coverage-6eb0010ff5ae"></a>
+
+## [internal/forgejo/lifecycle_test.go](../../../../../internal/forgejo/lifecycle_test.go)
+
+Delta duty inspection at `93fb3513`. Payload-builder, kind-distinctness, lost-response reconcile, uncertain-stays and outcome-classifier tests.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–133; file scaffold; lifecycleFakeBackground; ReadNativeRevision; ReadOperations; ReadSnapshot; ReadCreations; SubmitOperation; GetOperation; CancelOperation; TestLifecyclePayloadBuilders; TestLifecycleKindsDistinct; TestLifecycleSubmitReconcilesLostResponse; TestLifecycleSubmitUncertainStays; TestClassifyLifecycleOutcome | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 14 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 <a id="coverage-75ed324c2b45"></a>
 <a id="internalforgejomergego-1"></a>
 
