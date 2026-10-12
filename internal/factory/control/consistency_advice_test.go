@@ -68,13 +68,13 @@ func TestJudgeConsistencyNamesMismatchClasses(t *testing.T) {
 	}
 }
 
-func TestJudgeConsistencyDeclinedOverlapSkipsJudgment(t *testing.T) {
+func TestJudgeConsistencyIncidentalVocabularyConsultsClean(t *testing.T) {
 	ideas := []factory.ProductIdea{
 		{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept"},
-		{ID: "d666666666666666666666666", Description: "The reviewer decides every request", Consequence: "Reviewer time on every submission", Decision: "decline"},
+		{ID: "d666666666666666666666666", Description: "Email the reviewer", Consequence: "Notify the person", Decision: "decline"},
 	}
 	c, r := draftAssumptionFixture(t, ideas, 5)
-	chooser := &assumptionChooser{selected: "consistent", confidence: 1}
+	chooser := &assumptionChooser{selected: "consistent", confidence: 0.9}
 	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: chooser}
 	content, err := factory.ComposeProposalContent(r)
 	if err != nil {
@@ -88,11 +88,39 @@ func TestJudgeConsistencyDeclinedOverlapSkipsJudgment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(report.Mismatches) != 1 || report.Mismatches[0].Class != factory.MismatchEffectAdded || chooser.calls != 0 {
+	if len(report.Mismatches) != 0 || chooser.calls != 1 {
 		t.Fatalf("report=%+v calls=%d", report, chooser.calls)
 	}
-	if !strings.Contains(report.Mismatches[0].Detail, "d666666666666666666666666") {
-		t.Fatalf("detail=%q", report.Mismatches[0].Detail)
+	if err := report.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestJudgeConsistencySemanticOverlapJudgmentNamesMismatch(t *testing.T) {
+	ideas := []factory.ProductIdea{
+		{ID: "d333333333333333333333333", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept"},
+		{ID: "d666666666666666666666666", Description: "The reviewer decides every request", Consequence: "Reviewer time on every submission", Decision: "decline"},
+	}
+	c, r := draftAssumptionFixture(t, ideas, 5)
+	chooser := &assumptionChooser{selected: "effect_added", confidence: 0.8}
+	c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: chooser}
+	content, err := factory.ComposeProposalContent(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(content.Exclusions) != 1 || content.Exclusions[0].Idea != "d666666666666666666666666" {
+		t.Fatalf("exclusions=%+v", content.Exclusions)
+	}
+	proposal, err := factory.ConsolidateContent(content, "shared_review", strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := c.JudgeConsistency(context.Background(), r, content, proposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Mismatches) != 1 || report.Mismatches[0].Class != factory.MismatchEffectAdded || chooser.calls != 1 {
+		t.Fatalf("report=%+v calls=%d", report, chooser.calls)
 	}
 	if err := report.Validate(); err != nil {
 		t.Fatal(err)
