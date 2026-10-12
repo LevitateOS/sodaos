@@ -80,6 +80,16 @@ accommodation, no named duty). FirstUse caller duties follow as a second
 packet when the Q FirstUse checked packet lands. Structural/body/review
 pins and the integrated packet stand unchanged.
 
+Second duty packet at `2509c22c` (2026-10-12), incremental from
+`59b18572`: 0 added, 3 modified, 0 deleted outside this plan. Records
+the two settled canon pins only: L-5bfb scoped dashboard HTTPS/DNS
+egress for the fixed design client (self stream-socket subsuming the
+removed standalone listen, http name_connect, DNS resolve; no other
+duty changed) and Q-2d74 FirstUse real intent preamble with mounted
+API facts (new installed-map journey section, helper mountedSpacesFacts
+plus evidence fields; D06 retained, test-only, no shipping change).
+Structural/body/review pins and the integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their

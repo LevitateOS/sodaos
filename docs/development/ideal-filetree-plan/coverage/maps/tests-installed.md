@@ -116,6 +116,20 @@ Exact byte-identical prior detailed map units
 | 7–23; prior detailed responsibility interval | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | loginNativeForgejo — Installed project/terminal UI control helpers; declarations/fields: `loginNativeForgejo` — docs/development/ideal-filetree-plan/coverage/maps/tests-installed.md#tests/installed/sodaspaces-controls.ts; manifest identical_prior confirms byte identity |
 | 25–35, 84–89; prior detailed responsibility interval | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | projectView — Installed project/terminal UI control helpers; declarations/fields: `projectView`; terminalMenu — Installed project/terminal UI control helpers; declarations/fields: `terminalMenu` — docs/development/ideal-filetree-plan/coverage/maps/tests-installed.md#tests/installed/sodaspaces-controls.ts; manifest identical_prior confirms byte identity |
 
+<a id="coverage-2d74c15c0259"></a>
+
+## [tests/installed/sodaspaces-first-use-journey.ts](../../../../../tests/installed/sodaspaces-first-use-journey.ts)
+
+Delta duty inspection at `2509c22c`. Installed first-use journey driver (Q, test-only): real intent preamble with mounted API facts, funded-design explore, consequential decisions with settle loop, accept-save and native-generate permits. D06 retained; no shipping change.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 37–40, 81–88, 374; mountedSpacesFacts consumer; recordFactory; listener cleanup | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `2509c22c` (Q-2d74): all Spaces paths via mounted subURL/apiBase (unprefixed constants removed); factory-response recorder with listener cleanup — Current source block and named test consumer inspected in tests/installed/sodaspaces-first-use-journey.ts. |
+| 90–133; intent entry; saved draft 201; route sync | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `2509c22c` (Q-2d74): declared objective with visible entry, Save draft 201 with exact permit, pathname-exact route sync with preserved query/fragment — Current source block and named test consumer inspected in tests/installed/sodaspaces-first-use-journey.ts. |
+| 134–196; exploreRound; Explore ideas 201 | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `2509c22c` (Q-2d74): funded-design explore round with draft-save permit, allowance funding evidence and explore 201 with revision linkage — Current source block and named test consumer inspected in tests/installed/sodaspaces-first-use-journey.ts. |
+| 198–264; consequential decisions; Update-proposal settle loop | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `2509c22c` (Q-2d74): exactly-once matched recorded decisions with Update-proposal settle loop and re-inspection — Current source block and named test consumer inspected in tests/installed/sodaspaces-first-use-journey.ts. |
+| 265–306; repository choice; accept-save; native-generate | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `2509c22c` (Q-2d74): accept-save and native-generate permits with generation state — Current source block and named test consumer inspected in tests/installed/sodaspaces-first-use-journey.ts. |
+
 <a id="coverage-704d1bfb0ec6"></a>
 
 ## [tests/installed/sodaspaces-input.ts](../../../../../tests/installed/sodaspaces-input.ts)
@@ -139,6 +153,8 @@ Delta duty inspection at `59b18572`. Native workspace mount evidence helper (Q d
 | --- | --- | --- | --- |
 | 11–12, 14–27; workspaceRequestID; workspaceSubURL; admittedWorkspaceRest | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `59b18572` (Q-7a52): four admitted rest shapes (/workspace, /workspace/new, /workspace/requests/d{24}, /{owner}/{repo}/workspace) after one admitted sub-URL strip — Current source block and named test consumer inspected in tests/installed/sodaspaces-journey-evidence.ts. |
 | 35–45, 53; subURL/prefix/shape/canonical-path/API assertions | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `59b18572` (Q-7a52): admitted-sub-URL, prefix, shape, canonical-path (pathname+search, no doubling) and subURL-scoped API assertions — Current source block and named test consumer inspected in tests/installed/sodaspaces-journey-evidence.ts. |
+| 63–71; mountedSpacesFacts | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `2509c22c` (Q-2d74): validated mount facts (subURL, apiBase) for exact request paths — Current source block and named test consumer inspected in tests/installed/sodaspaces-journey-evidence.ts. |
+| 86–90; FirstUseEvidence intent/explore/decisions/factory/generation | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `2509c22c` (Q-2d74): new evidence fields for the real intent preamble — Current source block and named test consumer inspected in tests/installed/sodaspaces-journey-evidence.ts. |
 
 <a id="coverage-5112ed1b4d4d"></a>
 
