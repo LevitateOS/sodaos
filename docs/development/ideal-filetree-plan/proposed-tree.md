@@ -2,7 +2,7 @@
 
 ## Native correction target delta
 
-Source `32305c05ab5dde6ca65752bbd2135d9e997a2516` adds fifteen paths across settings, saved-review,
+Source `0c759a2506031401ab03cf6a3b819cd20f9385a0` adds sixteen paths across settings, saved-review,
 emitted-color, browser contract and local focus corrections. Each follows the existing defining owner; this
 scoped allocation does not advance the historical complete-tree census.
 
@@ -23,6 +23,7 @@ scoped allocation does not advance the historical complete-tree census.
 | `frontend/spaces/fountain-browser-contract.d.ts` | G01 canonical external host declaration mirror; retained frontend path, no consumer runtime adapter |
 | `tests/frontend/host-contract-pin.test.ts` | G01/H06 exact declaration hash/type check; retained browser test path |
 | `tests/frontend/workspace-focus.test.ts` | S04/H06 local terminal dialog focus check; retained browser test path |
+| `tests/frontend/dialog-geometry.test.ts` | S04/H06 local emitted-style dialog geometry/focus check; retained browser test path |
 
 ## Complete proposed tree
 
