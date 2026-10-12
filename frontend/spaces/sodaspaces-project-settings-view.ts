@@ -402,6 +402,7 @@ export function renderFactoryView(input: SettingsViewInput) {
         environment: input.readEnvironment()?.id || '',
         profile: input.readProfiles().find((profile) => profile.id === input.readSelectedProfile()),
       }}
+      .active=${input.readSelected() === 'factory' && !input.isStale()}
     ></soda-factory-settings>
   </section>`;
 }

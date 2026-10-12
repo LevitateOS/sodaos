@@ -103,6 +103,34 @@ export function groupSavedRequests(summaries: SavedRequest[]): RequestGroups {
 export function requestRepositoryLabel(repository: string): string {
   return repository === '0' || !repository ? 'No repository yet' : repository;
 }
+export interface RequestGroupsInput {
+  groups: RequestGroups;
+  resume: (intent: string) => void;
+}
+/** Discovery section for grouped saved requests; empty inventories render nothing. */
+export function renderRequestGroups(input: RequestGroupsInput) {
+  const sections: {title: string; items: SavedRequest[]}[] = [
+    {title: 'Drafts', items: input.groups.drafts},
+    {title: 'Accepted', items: input.groups.accepted},
+    {title: 'Closed', items: input.groups.closed},
+  ].filter((section) => section.items.length);
+  if (!sections.length) return '';
+  return html`<section aria-label="Saved requests">
+    ${sections.map(
+      (section) => html`<h3>${section.title} (${section.items.length})</h3>
+        <ul>
+          ${section.items.map(
+            (item) => html`<li>
+              ${item.objective} · ${requestRepositoryLabel(item.repository)}
+              <button class="ui button" aria-label="Resume ${item.objective}" @click=${() => input.resume(item.intent)}>
+                Resume
+              </button>
+            </li>`
+          )}
+        </ul>`
+    )}
+  </section>`;
+}
 export interface FilteredSpacesInput {
   reading: NavReading;
   spaces: Space[];

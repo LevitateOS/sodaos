@@ -274,17 +274,21 @@ func revisionAuthorityState(current, found bool) string {
 
 // revisionGenerationView renders one revision's confirmed submitted
 // graph facts separately from its accepted direction: the generation
-// state plus the submitted task keys behind it. SubmittedDiffers marks
-// a submitted graph whose keys diverge from the revision's accepted
-// tasks; before S07 adoption the two always match.
+// state, the submitted task keys behind it, and the retained delivered
+// refs bound to closed native history without mutation. DeliveredRefs
+// pin preserved-closed issues and carry no merge proof; they must never
+// be read as completed work. SubmittedDiffers marks a submitted graph
+// whose keys diverge from the revision's accepted tasks; before S07
+// adoption the two always match.
 type revisionGenerationView struct {
-	SubmittedKeys    []string `json:"submitted_keys,omitempty"`
-	State            string   `json:"state"`
-	SubmittedDiffers bool     `json:"submitted_differs,omitempty"`
+	SubmittedKeys    []string                          `json:"submitted_keys,omitempty"`
+	DeliveredRefs    map[string]factory.DeliveredIssue `json:"delivered_refs,omitempty"`
+	State            string                            `json:"state"`
+	SubmittedDiffers bool                              `json:"submitted_differs,omitempty"`
 }
 
 func revisionGenerationDTO(generation factory.IntentGeneration, revision factory.IntentRevision) revisionGenerationView {
-	view := revisionGenerationView{State: generation.State, SubmittedKeys: []string{}}
+	view := revisionGenerationView{State: generation.State, SubmittedKeys: []string{}, DeliveredRefs: generation.Delivered}
 	for _, task := range generation.SubmittedTasks {
 		view.SubmittedKeys = append(view.SubmittedKeys, task.Key)
 	}

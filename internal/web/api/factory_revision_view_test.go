@@ -175,6 +175,30 @@ func TestRevisionGenerationDTO(t *testing.T) {
 	}
 }
 
+func TestRevisionGenerationDeliveredRefs(t *testing.T) {
+	revision := factory.IntentRevision{Tasks: []factory.IntentTask{{Key: "a"}}}
+	pinned := revisionGenerationDTO(factory.IntentGeneration{
+		State:          "completed",
+		SubmittedTasks: []factory.IntentTask{{Key: "a"}},
+		Delivered:      map[string]factory.DeliveredIssue{"k": {IssueID: 101, IssueIndex: 3, ContentVersion: 2}},
+	}, revision)
+	ref, ok := pinned.DeliveredRefs["k"]
+	if !ok || ref.IssueID != 101 || ref.IssueIndex != 3 || ref.ContentVersion != 2 {
+		t.Fatalf("delivered refs: %+v", pinned)
+	}
+	legacy := revisionGenerationDTO(factory.IntentGeneration{State: "completed"}, revision)
+	if legacy.DeliveredRefs != nil {
+		t.Fatalf("legacy delivered refs: %+v", legacy)
+	}
+	body, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "delivered_refs") {
+		t.Fatalf("empty refs rendered: %s", body)
+	}
+}
+
 func TestParseRevisionHistoryQuery(t *testing.T) {
 	if limit, ok := parseRevisionHistoryQuery(""); !ok || limit != DefaultRevisionComparisons {
 		t.Fatalf("defaults: %d %v", limit, ok)
