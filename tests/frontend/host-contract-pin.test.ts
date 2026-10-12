@@ -5,8 +5,8 @@ import {readFile} from 'node:fs/promises';
 import type {MountEntry} from '../../frontend/spaces/fountain-browser-contract.js';
 
 // Lane C re-pins source + hash on every canonical contract change (H-N prep).
-const source = 'sdk/browser/extension-contract.d.ts at df41bd73d8';
-const pin = '54eb17593dae064a754926676cf075d54affad3be728357677da77370c607ab7';
+const source = 'sdk/browser/extension-contract.d.ts at e8aa420d3e';
+const pin = '3e5c679a87f19706ddcae7b05646c7759a8fff4c0fd09a47a8bbca1a087fcab2';
 const marker = '// --- contract body begins ---';
 
 test('host contract mirror matches the pinned Fountain bytes', async () => {
