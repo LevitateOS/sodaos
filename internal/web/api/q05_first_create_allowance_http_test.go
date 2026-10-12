@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/config"
@@ -27,79 +29,7 @@ import (
 // none consulted (TypeSafe key absent, so the funded gate is proven by the
 // consumed reservation, not a live model answer).
 func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
-	suffix := "q05-" + strconv.Itoa(os.Getpid())
-	callbackPath := "@soda-callback-" + suffix
-	callbackListener, err := net.Listen("unix", callbackPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	callback := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var in extensions.CallbackRequest
-		if r.URL.Path != extensions.NativeCallbackPath || r.Header.Get(extensions.AdmissionHeader) != "test-admission" || json.NewDecoder(r.Body).Decode(&in) != nil || in.Operation != extensions.OperationCurrentActor {
-			http.Error(w, "denied", http.StatusForbidden)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Actor: &extensions.Actor{ID: "1", Username: "alice"}})
-	}))
-	callback.Listener.Close()
-	callback.Listener = callbackListener
-	callback.Start()
-	t.Cleanup(callback.Close)
-	t.Setenv(extensions.CallbackEnv, callbackPath)
-
-	admin, ok := store.TestFixtureDSN()
-	if !ok {
-		t.Skip("SODA_PG_* fixture unavailable")
-	}
-	s, _, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(cleanup)
-	s.PriorityCallBudget = 32
-	product := &API{Config: &config.Config{ForgejoURL: "https://soda.test"}, Store: s}
-	mux := http.NewServeMux()
-	product.registerExtensionProductRoutes(mux)
-
-	call := func(method, path, body string) (int, []byte) {
-		t.Helper()
-		authority, err := json.Marshal(extensions.Authority{
-			ExtensionID: "soda", InstanceID: "q05-test", SessionGeneration: "generation-1",
-			Contribution: extensions.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: strings.ToLower(method)},
-			Actor:        extensions.Actor{ID: "1", Username: "alice"},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		var reader *strings.Reader
-		if body == "" {
-			reader = strings.NewReader("")
-		} else {
-			reader = strings.NewReader(body)
-		}
-		r := httptest.NewRequest(method, path, reader)
-		r.Header.Set(extensions.ContextHeader, string(authority))
-		r.Header.Set(extensions.AdmissionHeader, "test-admission")
-		r.Header.Set(extensions.SessionGenerationHeader, "generation-1")
-		if method != http.MethodGet && method != http.MethodHead {
-			r.Header.Set("Origin", "https://soda.test")
-		}
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, r)
-		return w.Code, w.Body.Bytes()
-	}
-	errorCode := func(t *testing.T, body []byte) string {
-		t.Helper()
-		var decoded struct {
-			Error struct {
-				Code string `json:"code"`
-			} `json:"error"`
-		}
-		if err := json.Unmarshal(body, &decoded); err != nil {
-			t.Fatal(err)
-		}
-		return decoded.Error.Code
-	}
+	s, call, errorCode := q05Mux(t, "")
 
 	const draftID = "d111111111111111111111111"
 	const intentID = "d222222222222222222222222"
@@ -108,12 +38,12 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
 		t.Fatalf("draft save status=%d body=%s", code, body)
 	}
-	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", ""); code != http.StatusNotFound || errorCode(t, body) != "allowance_not_found" {
+	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", ""); code != http.StatusNotFound || errorCode(body) != "allowance_not_found" {
 		t.Fatalf("fresh allowance status=%d body=%s", code, body)
 	}
 	// Current factory-work browser shape: positive amount, no ceiling.
 	workShape := `{"id":"d444444444444444444444444","intent":"` + intentID + `","amount":8,"unit":"planning_calls"}`
-	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", workShape); code != http.StatusBadRequest || errorCode(t, body) != "invalid_allowance" {
+	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", workShape); code != http.StatusBadRequest || errorCode(body) != "invalid_allowance" {
 		t.Fatalf("factory-work shape status=%d body=%s", code, body)
 	}
 	// U contract shape: ceiling=amount least privilege.
@@ -125,7 +55,7 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 	if code == http.StatusConflict {
 		t.Fatalf("funded explore refused: %s", body)
 	}
-	if code != http.StatusServiceUnavailable || errorCode(t, body) != "planning_unavailable" {
+	if code != http.StatusServiceUnavailable || errorCode(body) != "planning_unavailable" {
 		t.Fatalf("explore without TypeSafe credentials status=%d body=%s", code, body)
 	}
 	code, body = call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", "")
@@ -162,5 +92,148 @@ func TestFirstCreateAllowanceHTTPBoundary(t *testing.T) {
 	}
 	if _, err := s.IntentGeneration(context.Background(), draftID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("generation state err=%v", err)
+	}
+}
+
+// q05Mux builds the real product mux on an ephemeral PG store with a fake
+// native callback authority. keyFile, when non-empty, enables live TypeSafe
+// judgments; empty keeps the deterministic no-credentials boundary.
+func q05Mux(t *testing.T, keyFile string) (*store.Store, func(method, path, body string) (int, []byte), func(body []byte) string) {
+	t.Helper()
+	suffix := "q05-" + strconv.Itoa(os.Getpid())
+	callbackPath := "@soda-callback-" + suffix
+	callbackListener, err := net.Listen("unix", callbackPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	callback := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var in extensions.CallbackRequest
+		if r.URL.Path != extensions.NativeCallbackPath || r.Header.Get(extensions.AdmissionHeader) != "test-admission" || json.NewDecoder(r.Body).Decode(&in) != nil || in.Operation != extensions.OperationCurrentActor {
+			http.Error(w, "denied", http.StatusForbidden)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(extensions.CallbackResponse{Actor: &extensions.Actor{ID: "1", Username: "alice"}})
+	}))
+	callback.Listener.Close()
+	callback.Listener = callbackListener
+	callback.Start()
+	t.Cleanup(callback.Close)
+	t.Setenv(extensions.CallbackEnv, callbackPath)
+
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	s, _, cleanup, err := store.OpenEphemeral(context.Background(), admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	s.PriorityCallBudget = 32
+	product := &API{Config: &config.Config{ForgejoURL: "https://soda.test", TypeSafeAPIKeyFile: keyFile}, Store: s}
+	mux := http.NewServeMux()
+	product.registerExtensionProductRoutes(mux)
+
+	call := func(method, path, body string) (int, []byte) {
+		t.Helper()
+		authority, err := json.Marshal(extensions.Authority{
+			ExtensionID: "soda", InstanceID: "q05-test", SessionGeneration: "generation-1",
+			Contribution: extensions.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: strings.ToLower(method)},
+			Actor:        extensions.Actor{ID: "1", Username: "alice"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Header.Set(extensions.ContextHeader, string(authority))
+		r.Header.Set(extensions.AdmissionHeader, "test-admission")
+		r.Header.Set(extensions.SessionGenerationHeader, "generation-1")
+		if method != http.MethodGet && method != http.MethodHead {
+			r.Header.Set("Origin", "https://soda.test")
+		}
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		return w.Code, w.Body.Bytes()
+	}
+	errorCode := func(body []byte) string {
+		t.Helper()
+		var decoded struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(body, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		return decoded.Error.Code
+	}
+	return s, call, errorCode
+}
+
+// TestFirstExploreLiveSuccess proves the successful first slice through the
+// actual mux with browser-emitted payloads: fresh draft -> U-contract
+// allowance 201 -> explore 201 with saved proposal head and live judgments
+// charged. Declared external judgment: LIVE TypeSafe API (model jev-latest
+// default), keyed by TYPESAFE_API_KEY; skips when absent. Model-selected
+// content is intentionally unasserted; only structural success facts are
+// pinned (status, head advance, exploration presence, consumption).
+func TestFirstExploreLiveSuccess(t *testing.T) {
+	key := strings.TrimSpace(os.Getenv("TYPESAFE_API_KEY"))
+	if key == "" {
+		t.Skip("TYPESAFE_API_KEY unavailable")
+	}
+	keyFile := filepath.Join(t.TempDir(), "typesafe.key")
+	if err := os.WriteFile(keyFile, []byte(key+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, call, _ := q05Mux(t, keyFile)
+
+	const draftID = "d777777777777777777777777"
+	const intentID = "d888888888888888888888888"
+	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,` +
+		`"ideas":[{"id":"d333333333333333333333333","description":"Track leave requests","consequence":"Managers review requests","decision":"accept"}]}`
+	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
+		t.Fatalf("draft save status=%d body=%s", code, body)
+	}
+	uShape := `{"id":"d555555555555555555555555","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
+	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", uShape); code != http.StatusCreated {
+		t.Fatalf("U allowance shape status=%d body=%s", code, body)
+	}
+	start := time.Now()
+	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`)
+	t.Logf("live explore status=%d elapsed=%s", code, time.Since(start).Round(time.Second))
+	if code != http.StatusCreated {
+		t.Fatalf("live explore status=%d body=%s", code, body)
+	}
+	var explored struct {
+		factory.IntentRevision
+		Exploration struct {
+			Content factory.ProposalContent `json:"content"`
+		} `json:"exploration"`
+	}
+	if err := json.Unmarshal(body, &explored); err != nil {
+		t.Fatal(err)
+	}
+	if explored.ID == draftID || explored.Predecessor != draftID {
+		t.Fatalf("explore head id=%s predecessor=%s", explored.ID, explored.Predecessor)
+	}
+	if !explored.Exploration.Content.Supported && len(explored.Exploration.Content.Unknowns) == 0 {
+		t.Fatal("explore returned no content")
+	}
+	var funded factory.PlanningAllowance
+	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", ""); code != http.StatusOK {
+		t.Fatalf("allowance read status=%d", code)
+	} else if err := json.Unmarshal(body, &funded); err != nil {
+		t.Fatal(err)
+	}
+	if funded.Consumed < 1 {
+		t.Fatalf("live judgments consumed=%d", funded.Consumed)
+	}
+	head, err := s.IntentRevision(context.Background(), intentID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if head.ID != explored.ID {
+		t.Fatalf("stored head %s != explored %s", head.ID, explored.ID)
 	}
 }
