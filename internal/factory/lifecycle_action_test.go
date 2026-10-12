@@ -6,20 +6,29 @@ import (
 )
 
 func testIssueAction() LifecycleAction {
-	return LifecycleAction{ID: "act-1", Event: LifecycleEventIssueCreated, Action: LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, LabelID: 3, AssigneeID: 15, AuthRevision: "rev-1"}
+	return LifecycleAction{ID: "act-1", Event: LifecycleEventIssueCreated, Action: LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, TargetID: 420, ConfigOwner: 99, LabelID: 3, AssigneeID: 15, AuthRevision: "rev-1"}
 }
 
 func TestLifecycleActionValidate(t *testing.T) {
 	if err := testIssueAction().Validate(); err != nil {
 		t.Fatalf("valid issue action rejected: %v", err)
 	}
-	review := LifecycleAction{ID: "act-2", Event: LifecycleEventPRCreated, Action: LifecycleActionPRReviewerRequest, ActorID: 7, RepositoryID: 9, IssueID: 88, ReviewerIDs: []int64{15, 23, 29}, AuthRevision: "rev-1"}
+	review := LifecycleAction{ID: "act-2", Event: LifecycleEventPRCreated, Action: LifecycleActionPRReviewerRequest, ActorID: 7, RepositoryID: 9, IssueID: 88, TargetID: 880, ReviewerIDs: []int64{15, 23, 29}, AuthRevision: "rev-1"}
 	if err := review.Validate(); err != nil {
 		t.Fatalf("valid review action rejected: %v", err)
 	}
-	note := LifecycleAction{ID: "act-3", Event: LifecycleEventVerifiedMerge, Action: LifecycleActionCompletionNote, ActorID: 7, RepositoryID: 9, IssueID: 12, Note: "Factory completed the work.", AuthRevision: "rev-1", MergeRef: "pr/88@abc", Closed: true}
+	note := LifecycleAction{ID: "act-3", Event: LifecycleEventVerifiedMerge, Action: LifecycleActionCompletionNote, ActorID: 7, RepositoryID: 9, IssueID: 12, TargetID: 120, Note: "Factory completed the work.", AuthRevision: "rev-1", MergeRef: "pr/88@abc", Closed: true}
 	if err := note.Validate(); err != nil {
 		t.Fatalf("valid completion action rejected: %v", err)
+	}
+	unclaimed := testIssueAction()
+	unclaimed.ActorID, unclaimed.TargetID, unclaimed.Attempts = 0, 0, 0
+	if err := unclaimed.Validate(); err != nil {
+		t.Fatalf("unclaimed action rejected: %v", err)
+	}
+	unclaimed.Attempts = 1
+	if err := unclaimed.Validate(); err == nil {
+		t.Fatal("claimed action without submitter accepted")
 	}
 	emptyLabel := testIssueAction()
 	emptyLabel.LabelID, emptyLabel.AssigneeID = 0, 0
@@ -116,5 +125,29 @@ func TestLifecycleActionAttempts(t *testing.T) {
 	revoked.Revoked = true
 	if revoked.Applicable() || revoked.CanAttempt("label", 1) {
 		t.Fatal("revoked action still applicable")
+	}
+}
+
+func TestLifecycleActionAttemptBudget(t *testing.T) {
+	a := testIssueAction().RecordActionAttempt("op-1")
+	if a.Attempts != 1 {
+		t.Fatalf("multi-target attempt overcounted: %+v", a)
+	}
+	if a.Results["label"] != LifecycleResultUncertain || a.Results["assignee"] != LifecycleResultUncertain {
+		t.Fatalf("targets not marked: %+v", a.Results)
+	}
+	if a.Operations["label"] != "op-1" || a.Operations["assignee"] != "op-1" {
+		t.Fatalf("identity not shared: %+v", a.Operations)
+	}
+	a = a.RecordActionResult(LifecycleResultFailed)
+	if !a.CanAttempt("label", 2) || !a.CanAttempt("assignee", 2) {
+		t.Fatal("retry refused after definitive no-effect")
+	}
+	a = a.RecordActionAttempt("op-2").RecordActionResult(LifecycleResultDelivered)
+	if !a.Settled() || a.Attempts != MaxLifecycleAttempts {
+		t.Fatalf("budget wrong: %+v", a)
+	}
+	if LifecycleDenyReason("native_refused") || !LifecycleDenyReason(LifecycleReasonAuthorityLost) || !LifecycleDenyReason(LifecycleReasonCancelledBeforeSubmit) || !LifecycleDenyReason(LifecycleReasonCancelledBeforeAdmit) {
+		t.Fatal("deny mapping wrong")
 	}
 }

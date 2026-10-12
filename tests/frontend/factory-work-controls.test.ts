@@ -422,7 +422,7 @@ test('direction revision shows allowance reference and history, then adjusts all
       method: 'POST',
       path: 'factory/intent-allowances',
       status: 201,
-      json: {...allowance, id: ALLOWANCE_NEXT, predecessor: ALLOWANCE, amount: 60, reserved: 0, consumed: 0},
+      json: {...allowance, id: ALLOWANCE_NEXT, predecessor: ALLOWANCE, amount: 60, ceiling: 60},
     },
   ]);
   const direction = page.locator('soda-factory-direction-revision');
@@ -440,8 +440,67 @@ test('direction revision shows allowance reference and history, then adjusts all
   assert.equal(body.intent, INTENT);
   assert.equal(body.predecessor, ALLOWANCE);
   assert.equal(body.amount, 60);
+  assert.equal(body.ceiling, 60);
   assert.equal(body.unit, 'planning_calls');
+  assert.equal(body.reserved, 5);
+  assert.equal(body.consumed, 12);
   assert.equal(body.effect, 'cover review queue');
+});
+
+test('allowance increase with a blank effect records the mechanical delta effect', async (t) => {
+  const page = await openView(t, 'direction', [
+    {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
+    {method: 'GET', path: `factory/intents/${INTENT}/allowance`, status: 200, json: allowance},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    {
+      method: 'GET',
+      path: `factory/intents/${INTENT}/revisions?limit=2`,
+      status: 200,
+      json: {intent: INTENT, observed_unix: 1728670000, revisions: [historyEntry, historyFirst]},
+    },
+    {
+      method: 'POST',
+      path: 'factory/intent-allowances',
+      status: 201,
+      json: {...allowance, id: ALLOWANCE_NEXT, predecessor: ALLOWANCE, amount: 60, ceiling: 60},
+    },
+  ]);
+  const direction = page.locator('soda-factory-direction-revision');
+  await direction.getByText(/23 available/).waitFor();
+  await direction.locator('input[name="amount"]').fill('60');
+  await direction.getByRole('button', {name: 'Adjust allowance'}).click();
+  await direction.getByText('Allowance adjusted to 60 planning calls.').waitFor();
+
+  const calls = await workCalls(page);
+  const post = calls.find((call) => call.method === 'POST' && call.path === 'factory/intent-allowances');
+  const body = post?.body as Record<string, unknown>;
+  assert.equal(body.amount, 60);
+  assert.equal(body.ceiling, 60);
+  assert.equal(body.reserved, 5);
+  assert.equal(body.consumed, 12);
+  assert.equal(body.effect, 'Authorize 20 additional planning calls (60 total).');
+});
+
+test('allowance below recorded usage is refused locally without posting', async (t) => {
+  const page = await openView(t, 'direction', [
+    {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
+    {method: 'GET', path: `factory/intents/${INTENT}/allowance`, status: 200, json: allowance},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    {
+      method: 'GET',
+      path: `factory/intents/${INTENT}/revisions?limit=2`,
+      status: 200,
+      json: {intent: INTENT, observed_unix: 1728670000, revisions: [historyEntry, historyFirst]},
+    },
+  ]);
+  const direction = page.locator('soda-factory-direction-revision');
+  await direction.getByText(/23 available/).waitFor();
+  await direction.locator('input[name="amount"]').fill('10');
+  await direction.getByRole('button', {name: 'Adjust allowance'}).click();
+  await direction.getByText('Allowance amount must cover 17 reserved and consumed planning calls.').waitFor();
+
+  const calls = await workCalls(page);
+  assert.equal(calls.filter((call) => call.method === 'POST' && call.path === 'factory/intent-allowances').length, 0);
 });
 
 test('optional effects gate per checkpoint and save exact identity', async (t) => {
@@ -481,7 +540,7 @@ test('optional effects gate per checkpoint and save exact identity', async (t) =
   ]);
   const effects = page.locator('soda-factory-optional-effects');
   await effects.getByText('Pull request human review').waitFor();
-  await effects.getByText('its native capability checkpoint has not passed').waitFor();
+  await effects.getByText('its native capability is not runnable yet').waitFor();
   await effects.getByText('Not configured yet.').waitFor();
   await effects.getByText(/You hold: code write, owner or admin/).waitFor();
   const pr = effects.locator('li', {hasText: 'Pull request human review'});
@@ -492,6 +551,48 @@ test('optional effects gate per checkpoint and save exact identity', async (t) =
   const calls = await workCalls(page);
   const put = calls.find((call) => call.method === 'PUT');
   assert.deepEqual(put?.body, {revision: 4, enabled: true, reviewer_ids: [11, 12, 13]});
+});
+
+test('optional effects map an unavailable executor refusal distinctly', async (t) => {
+  const prConfig = {
+    event: 'pr_created',
+    revision: '4',
+    enabled: true,
+    capable: true,
+    actor_id: '1001',
+    repository_id: '7',
+    reviewer_ids: ['11', '12'],
+  };
+  const page = await openView(t, 'effects', [
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/lifecycle/issue_created',
+      status: 200,
+      json: {event: 'issue_created', revision: '0', enabled: false, capable: false, actor_id: '', repository_id: '7'},
+    },
+    {method: 'GET', path: 'repositories/7/factory/lifecycle/pr_created', status: 200, json: prConfig},
+    {
+      method: 'GET',
+      path: 'repositories/7/factory/lifecycle/verified_merge',
+      status: 200,
+      json: {event: 'verified_merge', revision: '0', enabled: false, capable: true, actor_id: '', repository_id: '7'},
+    },
+    {method: 'GET', path: 'repositories/7/factory/lifecycle/issue_created/actions?issue=12', status: 200, json: []},
+    {method: 'GET', path: 'repositories/7/factory/lifecycle/pr_created/actions?issue=12', status: 200, json: []},
+    {method: 'GET', path: 'repositories/7/factory/lifecycle/verified_merge/actions?issue=12', status: 200, json: []},
+    {method: 'GET', path: 'repositories/7/factory/access', status: 200, json: access},
+    {
+      method: 'PUT',
+      path: 'repositories/7/factory/lifecycle/pr_created',
+      status: 409,
+      json: {error: {code: 'executor_unavailable'}},
+    },
+  ]);
+  const effects = page.locator('soda-factory-optional-effects');
+  await effects.getByText('Pull request human review').waitFor();
+  const pr = effects.locator('li', {hasText: 'Pull request human review'});
+  await pr.getByRole('button', {name: 'Save effect configuration'}).click();
+  await effects.getByText('No lifecycle executor is configured yet; the saved preference is kept.').waitFor();
 });
 
 test('work plan renders recorded steps and the empty comparison note', async (t) => {

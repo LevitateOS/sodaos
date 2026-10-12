@@ -50,6 +50,14 @@ var ErrLifecycleAction = errors.New("invalid lifecycle action")
 // triggered it, its exact actor/targets, finite attempt budget and one
 // result per target. Native operation identities live with their target
 // result so replay and reconciliation stay per target.
+//
+// Identity roles are distinct (F GAP-1, I-F1): IssueID is the
+// work-issue READ key (native index) used by per-issue result reads,
+// while TargetID is the exact native payload target (native issue ID)
+// used by submits and recovery. ActorID is the enrolled native
+// submitter; ConfigOwner is the human authorizer who enabled the
+// configuration. The two are linked by (event, repository) plus the
+// capability proof that admitted the configuration, never equated.
 type LifecycleAction struct {
 	ID           string            `json:"id"`
 	Event        string            `json:"event"`
@@ -57,6 +65,9 @@ type LifecycleAction struct {
 	ActorID      int64             `json:"actor_id"`
 	RepositoryID int64             `json:"repository_id"`
 	IssueID      int64             `json:"issue_id"`
+	TargetID     int64             `json:"target_id"`
+	PRNumber     int64             `json:"pr_number,omitempty"`
+	ConfigOwner  int64             `json:"config_owner,omitempty"`
 	LabelID      int64             `json:"label_id,omitempty"`
 	AssigneeID   int64             `json:"assignee_id,omitempty"`
 	ReviewerIDs  []int64           `json:"reviewer_ids,omitempty"`
@@ -134,7 +145,14 @@ func (a LifecycleAction) Validate() error {
 	if a.ID == "" || !ValidLifecycleEvent(a.Event) || EventAction(a.Event) != a.Action {
 		return ErrLifecycleAction
 	}
-	if a.ActorID <= 0 || a.RepositoryID <= 0 || a.IssueID <= 0 || a.AuthRevision == "" {
+	if a.RepositoryID <= 0 || a.IssueID <= 0 || a.AuthRevision == "" {
+		return ErrLifecycleAction
+	}
+	// Unclaimed rows (no attempt yet) may omit the submitter and, for
+	// completion notes, the resolved native target: the drain claims
+	// both from current enrollment and target resolution before the
+	// first attempt. Claimed rows always carry both.
+	if a.Attempts > 0 && (a.ActorID <= 0 || a.TargetID <= 0) {
 		return ErrLifecycleAction
 	}
 	if a.Attempts < 0 || a.Attempts > MaxLifecycleAttempts {
@@ -300,4 +318,85 @@ func itoa(n int64) string {
 		buf[i] = '-'
 	}
 	return string(buf[i:])
+}
+
+// Native denial reasons: outcomes that stop further attempts rather
+// than admitting the single retry. Authority loss covers withdrawn
+// permission and actor/credential mismatch; ordered cancellation
+// covers revocation races admitted before submit.
+const (
+	LifecycleReasonAuthorityLost         = "authority_lost"
+	LifecycleReasonCancelledBeforeSubmit = "cancelled_before_submit"
+	LifecycleReasonCancelledBeforeAdmit  = "cancelled_before_admission"
+)
+
+// LifecycleDenyReason reports whether a native reason code denies the
+// action instead of failing it.
+func LifecycleDenyReason(reason string) bool {
+	switch reason {
+	case LifecycleReasonAuthorityLost, LifecycleReasonCancelledBeforeSubmit, LifecycleReasonCancelledBeforeAdmit:
+		return true
+	default:
+		return false
+	}
+}
+
+// RecordActionAttempt returns the action with one attempt started across
+// every target under a single operation identity. One native operation
+// covers all targets of an attempt (label plus assignee, all reviewers,
+// one note), so the finite attempt budget counts submits, not targets.
+func (a LifecycleAction) RecordActionAttempt(operationID string) LifecycleAction {
+	if a.Results == nil {
+		a.Results = map[string]string{}
+	}
+	if a.Operations == nil {
+		a.Operations = map[string]string{}
+	}
+	a.Attempts++
+	for _, target := range a.Targets() {
+		a.Results[target] = LifecycleResultUncertain
+		a.Operations[target] = operationID
+	}
+	return a
+}
+
+// RecordActionResult returns the action with every target settled to a
+// terminal state. Uncertain outcomes stay uncertain until authoritative
+// lookup reconciles them; only delivered, failed or denied settle.
+func (a LifecycleAction) RecordActionResult(state string) LifecycleAction {
+	if a.Results == nil {
+		a.Results = map[string]string{}
+	}
+	for _, target := range a.Targets() {
+		switch state {
+		case LifecycleResultDelivered, LifecycleResultFailed, LifecycleResultDenied:
+			a.Results[target] = state
+		default:
+			a.Results[target] = LifecycleResultUncertain
+		}
+	}
+	return a
+}
+
+// LifecycleWork is one native lifecycle submit: the durable operation
+// identity, the enrolled actor, the exact native target and the
+// current authorization facts. IssueID is the native payload target
+// (the journal's TargetID); the read-key index never reaches native
+// submits. NativeRev is observed fresh per attempt and stays a
+// submit-time parameter, never journaled identity.
+type LifecycleWork struct {
+	OperationID  string
+	Event        string
+	ActorID      int64
+	RepositoryID int64
+	IssueID      int64
+	LabelID      int64
+	AssigneeID   int64
+	ReviewerIDs  []int64
+	Note         string
+	AuthRevision string
+	MergeRef     string
+	Closed       bool
+	NativeRev    int64
+	NotAfter     int64
 }

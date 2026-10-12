@@ -680,6 +680,7 @@ export interface LifecycleEffectModel {
   readonly stateText: string;
   readonly configText: string;
   readonly resultsText: readonly string[];
+  readonly resultsLinks: readonly (string | undefined)[];
   readonly canConfigure: boolean;
   readonly config: LifecycleEffectConfig | undefined;
 }
@@ -701,12 +702,20 @@ function lifecycleResultLine(action: LifecycleEffectAction): string {
     entries.length > 0 ? entries.map(([target, result]) => `${target}: ${result}`).join('; ') : 'no results recorded';
   const revoked = action.revoked ? ', revoked' : '';
   const settled = action.settled ? ', settled' : '';
-  return `Action ${action.id.slice(0, 8)} on issue #${action.issue_id}: ${action.attempts}/${action.max_attempts} attempts${revoked}${settled}. ${outcomes}.`;
+  const submitter = action.actor_id === '0' ? 'Submitter unclaimed' : `Submitted by ${action.actor_id}`;
+  const authorized = action.config_owner ? `, authorized by ${action.config_owner}` : '';
+  const target = action.target_id ? `Native target ${action.target_id}.` : 'Native target unresolved.';
+  return (
+    `Action ${action.id.slice(0, 8)} on issue #${action.issue_id}: ` +
+    `${action.attempts}/${action.max_attempts} attempts${revoked}${settled}. ` +
+    `${submitter}${authorized}. ${target} ${outcomes}.`
+  );
 }
-// describeLifecycleEffect gates one optional effect on its own native
-// capability proof. Unproved effects stay unavailable with no
-// configuration shown; configured effects name their exact actor,
-// targets and per-target results.
+// describeLifecycleEffect gates one optional effect on its own runnable
+// capability (native proof plus a configured executor). Unrunnable
+// effects stay unavailable with no configuration shown; configured
+// effects name their exact authorizer, submitter, native target and
+// per-target results.
 export function describeLifecycleEffect(
   event: LifecycleEventKind,
   config: LifecycleEffectConfig | undefined,
@@ -720,6 +729,7 @@ export function describeLifecycleEffect(
       stateText: configState === 'unavailable' ? 'Configuration could not be read.' : 'No configuration recorded.',
       configText: '',
       resultsText: actions.map(lifecycleResultLine),
+      resultsLinks: actions.map((action) => action.target_link),
       canConfigure: false,
       config: undefined,
     };
@@ -727,9 +737,10 @@ export function describeLifecycleEffect(
     return {
       event,
       title: lifecycleTitles[event],
-      stateText: 'Unavailable: its native capability checkpoint has not passed.',
+      stateText: 'Unavailable: its native capability is not runnable yet.',
       configText: '',
       resultsText: actions.map(lifecycleResultLine),
+      resultsLinks: actions.map((action) => action.target_link),
       canConfigure: false,
       config,
     };
@@ -737,8 +748,9 @@ export function describeLifecycleEffect(
     event,
     title: lifecycleTitles[event],
     stateText: config.revision === '0' ? 'Not configured yet.' : config.enabled ? 'Active.' : 'Disabled.',
-    configText: `Actor ${config.actor_id || 'unset'}, revision ${config.revision}. ${lifecycleTargets(event, config)}`,
+    configText: `Authorized by ${config.actor_id || 'unset'}, revision ${config.revision}. ${lifecycleTargets(event, config)}`,
     resultsText: actions.map(lifecycleResultLine),
+    resultsLinks: actions.map((action) => action.target_link),
     canConfigure: true,
     config,
   };
@@ -796,7 +808,11 @@ export function renderLifecycleEffects(
             <p role="status">${model.stateText}</p>
             ${model.configText ? html`<p>${model.configText}</p>` : ''}
             <ul>
-              ${model.resultsText.map((line) => html`<li>${line}</li>`)}
+              ${model.resultsText.map(
+                (line, index) => html`<li>
+                  ${line}${model.resultsLinks[index] ? html` <a href=${model.resultsLinks[index]}>Native target</a>` : ''}
+                </li>`
+              )}
             </ul>
             ${
               model.canConfigure

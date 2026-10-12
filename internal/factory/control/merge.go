@@ -118,6 +118,10 @@ func (c *Coordinator) MergePass(ctx context.Context) MergeReport {
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")
 	}
+	// Optional lifecycle recovery: bounded drain (see PublishPass).
+	if c.Lifecycle != nil {
+		_ = ReconcileUnsettledLifecycle(ctx, c.Store, c.Lifecycle)
+	}
 	return report
 }
 

@@ -10,12 +10,14 @@ import {
   intentList,
   intentRevision,
   newDecisionID,
+  planningAllowance,
 } from './sodaspaces-intent-response.js';
 import type {
   Department,
   Exploration,
   IntentGenerationStatus,
   IntentRevision,
+  PlanningAllowance,
   ProductIdea,
   SavedRequest,
 } from './sodaspaces-intent-response.js';
@@ -195,6 +197,8 @@ export class SodaIntent extends LitElement {
   private resumeID = '';
   private loadedRequest = '';
   private generationIntent = '';
+  private allowance: PlanningAllowance | undefined;
+  private userSetCalls = false;
   private savedSnapshot: IntentRevision | undefined;
   private departmentsLoaded = false;
   generationNotice = '';
@@ -255,6 +259,8 @@ export class SodaIntent extends LitElement {
     this.resumeController?.abort();
     this.request = '';
     this.loadedRequest = '';
+    this.allowance = undefined;
+    this.userSetCalls = false;
     this.revision = undefined;
     this.savedSnapshot = undefined;
     this.exploration = undefined;
@@ -266,6 +272,16 @@ export class SodaIntent extends LitElement {
     this.error = '';
     this.changeOpen = false;
     this.changeText = '';
+  }
+  focusReview() {
+    void this.updateComplete.then(() => {
+      const root = this.shadowRoot;
+      if (!root) return;
+      const target =
+        root.querySelector<HTMLElement>('section.intent-review h2') ||
+        root.querySelector<HTMLElement>('section.intent-entry h2');
+      target?.focus();
+    });
   }
   private async perform(operation: (signal: AbortSignal) => Promise<void>, note = 'Saving and planning…') {
     if (this.busy || this.blocked || !this.api) return false;
@@ -413,6 +429,10 @@ export class SodaIntent extends LitElement {
     else this.error = 'Could not load the saved request. Your current edits are kept; try again.';
   }
   private applyRevision(saved: IntentRevision) {
+    if (saved.intent !== this.revision?.intent) {
+      this.allowance = undefined;
+      this.userSetCalls = false;
+    }
     this.revision = saved;
     this.savedSnapshot = structuredClone(saved);
     this.exploration = undefined;
@@ -475,8 +495,97 @@ export class SodaIntent extends LitElement {
     this.savedError = '';
     return saved;
   }
+  private async readAllowance(intent: string, signal: AbortSignal): Promise<PlanningAllowance | undefined> {
+    try {
+      const found = planningAllowance(
+        await this.call('/api/factory/intents/' + intent + '/allowance', undefined, signal),
+        intent
+      );
+      this.allowance = found;
+      return found;
+    } catch (error) {
+      if (error instanceof SodaRequestError && error.status === 404) return undefined;
+      throw error;
+    }
+  }
+  private allowanceBody(intent: string, wanted: number, current: PlanningAllowance | undefined) {
+    return {
+      id: newDecisionID(),
+      intent,
+      ...(current ? {predecessor: current.id, reserved: current.reserved, consumed: current.consumed} : {}),
+      amount: wanted,
+      ceiling: wanted,
+      unit: 'planning_calls',
+      ...(current && wanted > current.amount
+        ? {effect: `Authorize ${wanted - current.amount} additional planning calls (${wanted} total).`}
+        : {}),
+    };
+  }
+  private async postAllowance(
+    intent: string,
+    wanted: number,
+    current: PlanningAllowance | undefined,
+    signal: AbortSignal
+  ) {
+    const saved = planningAllowance(
+      await this.call('/api/factory/intent-allowances', this.allowanceBody(intent, wanted, current), signal),
+      intent
+    );
+    this.allowance = saved;
+  }
+  private async postAllowanceFresh(intent: string, wanted: number, signal: AbortSignal): Promise<boolean> {
+    const fresh = await this.readAllowance(intent, signal);
+    if (signal.aborted) return false;
+    if (fresh && fresh.amount === wanted) return true;
+    await this.postAllowance(intent, wanted, fresh, signal);
+    return true;
+  }
+  private allowanceMessage(error: unknown): string {
+    const status = error instanceof SodaRequestError ? error.status : 0;
+    const code = error instanceof SodaRequestError ? error.code : '';
+    if (status === 404)
+      return 'The planning allowance is unavailable to the current account. Your description is saved; try again.';
+    if (status === 409 || status === 412)
+      return 'The planning allowance changed while saving. Your description is saved; try again.';
+    if (code === 'invalid_allowance')
+      return 'The planning allowance was not accepted. Your description is saved; check the amount and try again.';
+    return 'The planning allowance could not be confirmed. Your description is saved; try again.';
+  }
+  private allowanceFailed(error: unknown, signal: AbortSignal) {
+    if (signal.aborted) return;
+    this.error = this.allowanceMessage(error);
+  }
+  private adoptAllowance(current: PlanningAllowance | undefined) {
+    if (current && !this.userSetCalls) this.planningCalls = current.amount;
+  }
+  private async ensureAllowance(intent: string, signal: AbortSignal): Promise<boolean> {
+    try {
+      const current = await this.readAllowance(intent, signal);
+      if (signal.aborted) return false;
+      this.adoptAllowance(current);
+      const wanted = this.planningCalls;
+      if (current && current.amount === wanted) return true;
+      if (this.belowFloor(current, wanted)) return false;
+      try {
+        await this.postAllowance(intent, wanted, current, signal);
+        return true;
+      } catch (error) {
+        if (!(error instanceof SodaRequestError) || error.status !== 412) throw error;
+        return await this.postAllowanceFresh(intent, wanted, signal);
+      }
+    } catch (error) {
+      this.allowanceFailed(error, signal);
+      return false;
+    }
+  }
+  private belowFloor(current: PlanningAllowance | undefined, wanted: number): boolean {
+    if (!current || wanted >= current.reserved + current.consumed) return false;
+    this.error = `Planning calls cannot go below ${current.reserved + current.consumed} already used. Your description is saved; raise the amount or try again.`;
+    return true;
+  }
   private async explore(signal: AbortSignal) {
     const saved = await this.save('draft', '0', signal);
+    if (!(await this.ensureAllowance(saved.intent, signal))) return;
     try {
       const response = await this.call(
         '/api/factory/intents/' + saved.intent + '/explore',
@@ -754,6 +863,7 @@ export class SodaIntent extends LitElement {
       },
       setBound: (field, value) => {
         this[field] = value;
+        if (field === 'planningCalls') this.userSetCalls = true;
         if (this.revision) this.dirty = true;
       },
       decide: this.decide,

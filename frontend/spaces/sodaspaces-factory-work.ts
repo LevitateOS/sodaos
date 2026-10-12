@@ -620,7 +620,8 @@ export class SodaFactoryDirectionRevision extends LitElement {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
     const {amount, effect} = allowanceFormInput(form);
-    const invalid = allowanceAmountError(amount);
+    const usage = allowanceUsage(this.allowance);
+    const invalid = allowanceAmountError(amount, usage.reserved, usage.consumed);
     if (invalid !== undefined) {
       this.message = invalid;
       return;
@@ -645,13 +646,18 @@ export class SodaFactoryDirectionRevision extends LitElement {
     this.applyAllowanceSave(context, posted);
   }
   private allowanceBody(context: DirectionRevisionContext, amount: number, effect: string) {
+    const current = this.allowance;
+    const increase = allowanceIncreaseEffect(current, amount, effect);
     return {
       id: newDecisionID(),
       intent: context.intentID,
-      ...(this.allowance === undefined ? {} : {predecessor: this.allowance.id}),
+      ...(current === undefined ? {} : {predecessor: current.id}),
       amount,
+      ceiling: amount,
       unit: 'planning_calls',
-      ...(effect === '' ? {} : {effect}),
+      reserved: current?.reserved ?? 0,
+      consumed: current?.consumed ?? 0,
+      ...(increase === undefined ? {} : {effect: increase}),
     };
   }
   private applyAllowanceSave(context: DirectionRevisionContext, posted: Posted) {
@@ -695,9 +701,26 @@ function allowanceFormInput(form: HTMLFormElement): {amount: number; effect: str
   return {amount: Number(data.get('amount')), effect: String(data.get('effect') ?? '').trim()};
 }
 
-function allowanceAmountError(amount: number): string | undefined {
+function allowanceUsage(current: PlanningAllowanceView | undefined): {reserved: number; consumed: number} {
+  return {reserved: current?.reserved ?? 0, consumed: current?.consumed ?? 0};
+}
+
+function allowanceAmountError(amount: number, reserved: number, consumed: number): string | undefined {
   if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100)
     return 'Allowance amount must be a whole number from 0 to 100.';
+  if (amount < reserved + consumed)
+    return `Allowance amount must cover ${reserved + consumed} reserved and consumed planning calls.`;
+  return undefined;
+}
+
+function allowanceIncreaseEffect(
+  current: PlanningAllowanceView | undefined,
+  amount: number,
+  effect: string
+): string | undefined {
+  if (effect !== '') return effect;
+  if (current !== undefined && amount > current.amount)
+    return `Authorize ${amount - current.amount} additional planning calls (${amount} total).`;
   return undefined;
 }
 
@@ -961,8 +984,7 @@ export class SodaFactoryOptionalEffects extends LitElement {
     const detail = sodaErrorDetail(posted.value);
     if (posted.status === 403)
       this.message = detail.message ?? 'Only the repository owner or administrator may configure effects.';
-    else if (posted.status === 409)
-      this.message = detail.message ?? 'This event has no verified native capability yet.';
+    else if (posted.status === 409) this.message = conflictSaveMessage(detail);
     else if (posted.status === 412) this.message = detail.message ?? 'Configuration changed; refresh and retry.';
     else this.message = detail.message ?? `Save refused (${posted.status}).`;
   }
@@ -982,6 +1004,12 @@ export class SodaFactoryOptionalEffects extends LitElement {
   }
 }
 customElements.define('soda-factory-optional-effects', SodaFactoryOptionalEffects);
+
+function conflictSaveMessage(detail: SodaErrorDetail): string {
+  if (detail.code === 'executor_unavailable')
+    return detail.message ?? 'No lifecycle executor is configured yet; the saved preference is kept.';
+  return detail.message ?? 'This event has no verified native capability yet.';
+}
 
 function sameEffectsContext(
   next: LifecycleEffectsContext | undefined,
