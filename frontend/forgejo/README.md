@@ -780,3 +780,45 @@ The Forgejo navigation uses only the canonical Soda symbol, in a 44px target.
 The outer plate is red; the middle plate is dark on light surfaces and white on
 dark surfaces; the inner core is transparent. Guest, explicit account and automatic
 theme choices select the matching SVG. Native image and home-link semantics remain.
+
+## Native-frontend correction prep inventory (NFX-H03/H04/H05, 2026-10-13)
+
+Rechecked against Soda `4a062801` and Fountain `6abafdb4`. This is a
+preparation record only; it accepts none of H03–H05.
+
+- **H03 override census.** The payload ships 264 template destinations:
+  243 also exist in Fountain and every one differs (branding structure,
+  classes or copy), 21 are Soda-only (`custom/soda/*`, explore wrappers,
+  split repo-settings partials), and none is byte-identical to its native
+  counterpart. The script overrides are likewise live product behaviour:
+  `repository-switcher.ts` (remote repository search over the native
+  Fomantic dropdown), `repository-actions.ts` (responsive `<details>`
+  action menu), `notification-preview.ts` (native HTMX inbox fragment),
+  `personal-settings.ts` and `login-theme.ts` (settings/guest-theme
+  behaviour). No template or script removal is callable yet: each removal
+  needs the corresponding H-C (A04 native placement/containers) or
+  H-ROUTE (C04 declared subroutes/programmatic navigation) capability,
+  and Fountain still admits only the host-owned `workspace`/`tailnet`
+  global routes with no declared subroutes. Keep approved extension
+  tabs discoverable and account/repository controls native meanwhile.
+- **H04 central joins.** `internal/web/api/extension_native.go` already
+  registers every current product route centrally behind
+  `extensionProtected` (factory, repositories, spaces, environments,
+  identity and `settings/tailnet*`), and the Tailnet frontend reaches
+  them only through the mount transport (`settings/tailnet[/host|/enrollment]`,
+  `environments/{id}/tailnet`). No remaining G/D-requested handler,
+  duplicated DTO/router owner or superseded hardcoded bridge caller was
+  found in H-owned files. The three contribution gates stay distinct:
+  bridge admission (`auth.ExtensionContribution`), operator authorizer
+  (`cmd/soda-extension`), and per-path product gate
+  (`extensionProductContribution`).
+- **H05 Tailnet composition state.** The Tailnet page is operator-only
+  at every gate (manifest route, contribution authorizer, product gate)
+  and read-only observation already refuses non-operators. It still
+  drives concealment from `pagehide`/`pageshow`/`visibilitychange`
+  instead of the host lifecycle, and the Soda contract mirror is stale
+  (pinned Fountain `e8aa420d3e` prototype vs current canonical
+  `6abafdb4` C03 contract). Migrating the entry to host
+  `update`/`suspend`/`resume`/`retire` waits for the C/D re-pin (H-N)
+  and D05's transport/lifecycle migration; do not layer it onto the
+  un-migrated `prepareExtensionMount` adapter from H alone.
