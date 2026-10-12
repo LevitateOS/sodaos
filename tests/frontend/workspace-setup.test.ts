@@ -519,3 +519,43 @@ test('setup: new entry canonicalizes the route and leave returns', async (t) => 
   await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor({state: 'hidden'});
 });
+
+test('setup: discovery groups saved drafts from inventory and resumes them', {timeout: 20000}, async (t) => {
+  const page = await fixture(t, 'page', undefined, false);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  const heading = page.getByRole('heading', {name: 'What do you want to build?', exact: true});
+  const begin = async () => {
+    await page.locator('.soda-create-another-project:visible').waitFor();
+    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await heading.waitFor();
+  };
+  const saveAndLeave = async (objective: string) => {
+    await page.getByLabel('Describe what you want to build', {exact: true}).fill(objective);
+    await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+    await page.getByText('Saved', {exact: true}).waitFor();
+    const route = await page.evaluate(() => window.location.pathname);
+    await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
+    await heading.waitFor({state: 'hidden'});
+    return route;
+  };
+  await begin();
+  await saveAndLeave('Build discovery alpha');
+  await begin();
+  const saved = await saveAndLeave('Build discovery beta');
+  assert.match(saved, /^\/workspace\/requests\/d[0-9a-f]{24}$/);
+  await begin();
+  await page.locator('soda-intent').getByText('Build discovery beta', {exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await heading.waitFor({state: 'hidden'});
+  await page.getByText('Drafts (2)', {exact: true}).waitFor();
+  await page.getByText('Build discovery alpha', {exact: false}).waitFor();
+  await page.getByText('No repository yet', {exact: false}).first().waitFor();
+  await page.getByRole('button', {name: 'Resume Build discovery beta', exact: true}).click();
+  await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
+  assert.equal(await page.evaluate(() => window.location.pathname), saved);
+  await heading.waitFor();
+  await page.waitForFunction(() => {
+    const area = document.querySelector('soda-intent')?.shadowRoot?.querySelector('textarea');
+    return area instanceof HTMLTextAreaElement && area.value === 'Build discovery beta';
+  });
+});
