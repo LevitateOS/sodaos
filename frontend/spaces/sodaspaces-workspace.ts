@@ -619,19 +619,7 @@ export class SodaSpaces extends LitElement {
     return 'No authorized projects available.';
   }
   private renderEmptySpaces() {
-    if (
-      filteredSpaces({
-        reading: this.navReading(),
-        spaces: this.spaces,
-        entries: this.layout.entries,
-        search: this.search,
-        attentionOnly: this.attentionOnly,
-        thisPage: this.thisPage,
-        binding: this.binding,
-        projectName: (space) => this.projectName(space),
-      }).length
-    )
-      return '';
+    if (this.navigationSpaces().length) return '';
     return html`<p>${this.emptyFilterMessage()}</p>`;
   }
   private renderWelcomeFooter() {
@@ -724,16 +712,7 @@ export class SodaSpaces extends LitElement {
         <button class="ui button" @click=${() => this.nextAttention()}>Next attention</button>
       </div>
       ${repeat(
-        filteredSpaces({
-          reading: this.navReading(),
-          spaces: this.spaces,
-          entries: this.layout.entries,
-          search: this.search,
-          attentionOnly: this.attentionOnly,
-          thisPage: this.thisPage,
-          binding: this.binding,
-          projectName: (space) => this.projectName(space),
-        }),
+        this.navigationSpaces(),
         (space) => space.environment.id,
         (space) =>
           projectRows({
@@ -1071,8 +1050,17 @@ export class SodaSpaces extends LitElement {
         target.space,
         target.run
       );
-    if (!factoryWatching(this.watches, target.run.id)) return;
+    const watch = this.watches.find((entry) => entry.run === target.run.id);
+    if (!watch) return;
+    watch.hidden = false;
+    if (!this.navigationShows(target.space)) {
+      this.search = '';
+      this.attentionOnly = false;
+      this.thisPage = false;
+    }
     cancelSetup(this.setupReading(), this.setupActions(), this);
+    if (!this.stale && hideNavigation(this.setupScreen, this.view, this.compact, this.layout.sidebar, this.stale))
+      this.showSessions();
   }
   private syncIntentRoute(intent: string | null) {
     if (intent !== null && !requestIDPattern.test(intent)) return;
@@ -1118,6 +1106,21 @@ export class SodaSpaces extends LitElement {
       observedAt: this.observedAt,
       now: this.now,
     };
+  }
+  private navigationSpaces() {
+    return filteredSpaces({
+      reading: this.navReading(),
+      spaces: this.spaces,
+      entries: this.layout.entries,
+      search: this.search,
+      attentionOnly: this.attentionOnly,
+      thisPage: this.thisPage,
+      binding: this.binding,
+      projectName: (space) => this.projectName(space),
+    });
+  }
+  private navigationShows(space: Space) {
+    return this.navigationSpaces().some((entry) => entry.environment.id === space.environment.id);
   }
   private nextAttention() {
     if (!this.activeSurface || this.stale || !this.available) return;

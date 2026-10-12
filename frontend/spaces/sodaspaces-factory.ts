@@ -336,6 +336,9 @@ export function mountFactoryWatch(
   root.append(view);
   return {
     setVisible: (visible: boolean) => view.setVisible(visible),
+    get connected() {
+      return view.isConnected;
+    },
     watch: () => view.watch(),
     get started() {
       return view.started;

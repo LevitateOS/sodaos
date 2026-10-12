@@ -388,6 +388,102 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
   );
   assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
 });
+test(
+  'setup: Watch reveal clears only obstructing filters, hidden watch and hidden navigation',
+  {timeout: 90000},
+  async (t) => {
+    const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+    await page.evaluate(() => window.workspaceFixture.api.refresh());
+    await reviewFirstIntent(page);
+    await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+    await page.getByRole('button', {name: 'Continue', exact: true}).click();
+    await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await page.getByRole('button', {name: 'Join project', exact: true}).click();
+    await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+    await page.evaluate(() => {
+      window.workspaceFixture.enableFactoryRun('5');
+      const [space] = window.workspaceFixture.spaces;
+      space?.factory_runs.push({
+        id: 'd'.repeat(32),
+        role: 'soda-coder',
+        issue: '5',
+        attempt: 'attempt-1',
+        reconciled: false,
+      });
+      return window.workspaceFixture.api.refresh();
+    });
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    const detail = page.locator('soda-factory-work-detail');
+    await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    // Phase 1: search + attention filters exclude the target space row while the
+    // unfiltered saved Resume stays available; Watch must clear the obstruction.
+    // The search control is hidden with a single project, so fill drives the real
+    // input handler; attentionOnly has no visible control in this state.
+    await page.locator('.soda-workspace-navigation input[type="search"]').fill('zzz-no-such-project', {force: true});
+    await page.evaluate(() => {
+      (document.querySelector('soda-spaces') as unknown as {attentionOnly: boolean}).attentionOnly = true;
+    });
+    await page.locator('.soda-factory').waitFor({state: 'hidden'});
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await page.locator('soda-factory-work-detail').waitFor();
+    await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+    assert.equal(await page.locator('.soda-workspace-navigation input[type="search"]').inputValue(), '');
+    assert.equal(
+      await page.evaluate(
+        () => (document.querySelector('soda-spaces') as unknown as {attentionOnly: boolean}).attentionOnly
+      ),
+      false
+    );
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.sockets.filter(
+            (socket) => !socket.closed && String(socket.url).includes('/factory/runs/dddddddd')
+          ).length
+      ),
+      1
+    );
+    // Phase 2: hiding the exact watch through the real factory command, then
+    // watching again, reveals the same live watch without a second connection.
+    await page.evaluate(() => {
+      document
+        .querySelector('[data-factory-owner]')
+        ?.dispatchEvent(new CustomEvent('soda-factory-command', {bubbles: true, detail: 'hide'}));
+    });
+    await page.locator('.soda-factory').waitFor({state: 'hidden'});
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await page.locator('soda-factory-work-detail').waitFor();
+    await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.workspaceFixture.sockets.filter(
+            (socket) => !socket.closed && String(socket.url).includes('/factory/runs/dddddddd')
+          ).length
+      ),
+      1
+    );
+    // Phase 3: compact layout hides navigation; Watch restores the sessions view.
+    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await page.locator('soda-factory-work-detail').waitFor();
+    await page.setViewportSize({width: 500, height: 800});
+    await page.waitForFunction(
+      () => (document.querySelector('soda-spaces') as unknown as {compact: boolean}).compact === true
+    );
+    await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
+    await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+    await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
+    assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
+  }
+);
 test('first use: superseded search and retired actor cannot publish stale private choices', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
