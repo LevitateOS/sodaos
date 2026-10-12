@@ -300,6 +300,12 @@ export function focusSetupPanel(host: SetupHost, isStale: () => boolean, isActiv
   });
 }
 
+export function focusSetupIntent(host: SetupHost, isStale: () => boolean, isActiveSurface: () => boolean) {
+  void host.updateComplete.then(() => {
+    if (!isStale() && isActiveSurface()) host.querySelector<SodaIntent>('soda-intent')?.focusReview();
+  });
+}
+
 export function beginSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.available || !reading.canRestore || !reading.activeSurface) return;
   actions.notifyFactory('');
@@ -312,7 +318,7 @@ export function beginSetup(reading: SetupReading, actions: SetupActions, host: S
   actions.setSetupCommitted(false);
   if (reading.requestId !== '') host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.syncIntentRoute(null);
-  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+  focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
 }
 
 export function resumeSetup(intent: string, reading: SetupReading, actions: SetupActions, host: SetupHost) {
@@ -328,7 +334,7 @@ export function resumeSetup(intent: string, reading: SetupReading, actions: Setu
   actions.setSetupCommitted(false);
   host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.syncIntentRoute(intent);
-  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+  focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
 }
 
 function chooseIntentRepository(event: Event, reading: SetupReading, actions: SetupActions, host: SetupHost) {
@@ -343,13 +349,13 @@ function chooseIntentRepository(event: Event, reading: SetupReading, actions: Se
 export function backToReview(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore || reading.setup !== 'repositories' || !reading.activeSurface) return;
   actions.setSetup('intent');
-  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+  focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
 }
 
 export function inspectCommittedRequest(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore || reading.setup !== 'configure' || !reading.activeSurface) return;
   actions.setSetup('intent');
-  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+  focusSetupIntent(host, actions.isStale, actions.isActiveSurface);
 }
 
 export function leaveSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
