@@ -260,37 +260,66 @@ const historyFirst = {
   work: [],
 };
 
-test('work overview renders direction, dependencies and summary on a real engine', async (t) => {
+const requestOverviewRoute = {
+  direction: {
+    objective: 'Let a team track demo work.',
+    approach: 'incremental',
+    ideas_by_decision: {accept: 2, pending: 1},
+    ideas_by_source: {requested: 2, assumption: 1},
+    effective_outcomes: [],
+    ideas_total: 3,
+    tasks_total: 2,
+    unresolved_assumptions: 1,
+  },
+  context: {repository: '7'},
+  generation: {state: 'completed'},
+  setup: {state: 'ready', project: PROJECT},
+  work_items: {by_state: {waiting: 1}, total: 1, outcomes_total: 2, outcomes_evidenced: 0},
+  mappings: [
+    {
+      task_key: TASK_A,
+      issue_id: '100',
+      issue_index: '12',
+      acceptance_id: IDEA,
+      created_unix: 1720000000,
+      effective: true,
+    },
+    {
+      task_key: TASK_B,
+      issue_id: '101',
+      issue_index: '13',
+      acceptance_id: IDEA,
+      created_unix: 1720000000,
+      effective: false,
+    },
+  ],
+  attention: [{code: 'work_attention', issue: '12'}],
+  intent: INTENT,
+  revision: REVISION,
+  state: 'accepted',
+  observed_unix: 1720000300,
+};
+
+test('work overview renders the authoritative request overview on a real engine', async (t) => {
   const page = await openView(t, 'overview', [
-    {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
-    {
-      method: 'GET',
-      path: `factory/intents/${INTENT}/generation`,
-      status: 200,
-      json: {
-        intent_id: INTENT,
-        revision_id: REVISION,
-        state: 'completed',
-        task_issue_ids: {[TASK_A]: 12, [TASK_B]: 13},
-      },
-    },
-    {
-      method: 'GET',
-      path: 'repositories/7/factory',
-      status: 200,
-      json: {
-        repository: '7',
-        queue: {queued: 0, active: 0},
-        effective: {effective: true, dispatch_open: true, missing: []},
-      },
-    },
-    {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
+    {method: 'GET', path: `factory/intents/${INTENT}/overview`, status: 200, json: requestOverviewRoute},
   ]);
   const overview = page.locator('soda-factory-work-overview');
   await overview.getByText('Let a team track demo work.').waitFor();
-  await overview.getByText('Build demo detail.').waitFor();
-  const open = overview.getByRole('link', {name: 'Open issue #13'});
-  assert.equal(await open.getAttribute('href'), '/soda-tester/demo/issues/13');
+  await overview.getByText('1 waiting').waitFor();
+  assert.equal(
+    await overview.getByRole('link', {name: 'issue #12', exact: true}).getAttribute('href'),
+    '/soda-tester/demo/issues/12'
+  );
+  assert.equal(
+    await overview.getByRole('link', {name: 'Open issue #12', exact: true}).getAttribute('href'),
+    '/soda-tester/demo/issues/12'
+  );
+  const calls = await workCalls(page);
+  assert.deepEqual(
+    calls.map((call) => call.path),
+    [`factory/intents/${INTENT}/overview`]
+  );
 });
 
 test('work detail renders evidence links and runs all six interventions', async (t) => {
@@ -710,28 +739,8 @@ test('work plan renders recorded steps and the empty comparison note', async (t)
 
 test('overview scope feeds derived plan, detail and revision mounts, then retires', async (t) => {
   const page = await openView(t, 'overview', [
+    {method: 'GET', path: `factory/intents/${INTENT}/overview`, status: 200, json: requestOverviewRoute},
     {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
-    {
-      method: 'GET',
-      path: `factory/intents/${INTENT}/generation`,
-      status: 200,
-      json: {
-        intent_id: INTENT,
-        revision_id: REVISION,
-        state: 'completed',
-        task_issue_ids: {[TASK_A]: 12, [TASK_B]: 13},
-      },
-    },
-    {
-      method: 'GET',
-      path: 'repositories/7/factory',
-      status: 200,
-      json: {
-        repository: '7',
-        queue: {queued: 0, active: 0},
-        effective: {effective: true, dispatch_open: true, missing: []},
-      },
-    },
     {method: 'GET', path: 'repositories/7/factory/issues/12', status: 200, json: issueDetail},
     {
       method: 'GET',
@@ -782,7 +791,7 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
     feed.issues.map((entry) => entry.issue),
     ['12']
   );
-  assert.ok(feed.issues[0]?.capabilities);
+  assert.equal(feed.issues[0]?.capabilities, undefined);
 
   await page.evaluate(() => {
     (window as unknown as {lastScope?: unknown}).lastScope = undefined;
@@ -840,4 +849,64 @@ test('overview scope feeds derived plan, detail and revision mounts, then retire
   });
   assert.equal(await page.locator('soda-factory-work-plan').textContent(), '');
   assert.equal(await page.locator('soda-factory-work-detail').textContent(), '');
+});
+
+test('intent overview failures surface unavailable with no fallback reads', async (t) => {
+  const bait: StubRoute[] = [
+    {method: 'GET', path: `factory/intents/${INTENT}`, status: 200, json: intentRevision},
+    {
+      method: 'GET',
+      path: `factory/intents/${INTENT}/generation`,
+      status: 200,
+      json: {intent_id: INTENT, revision_id: REVISION, state: 'completed', task_issue_ids: {[TASK_A]: 12}},
+    },
+    {
+      method: 'GET',
+      path: 'repositories/7/factory',
+      status: 200,
+      json: {
+        repository: '7',
+        queue: {queued: 0, active: 0},
+        effective: {effective: true, dispatch_open: true, missing: []},
+      },
+    },
+  ];
+  const failures: {route: StubRoute; message: string}[] = [
+    {
+      route: {method: 'GET', path: `factory/intents/${INTENT}/overview`, status: 500, json: {}},
+      message: 'Factory read failed (500).',
+    },
+    {
+      route: {
+        method: 'GET',
+        path: `factory/intents/${INTENT}/overview`,
+        status: 200,
+        json: {
+          ...requestOverviewRoute,
+          work_items: {...requestOverviewRoute.work_items, by_state: {waiting: '1'}},
+        },
+      },
+      message: 'Invalid or mismatched Soda response',
+    },
+  ];
+  for (const failure of failures) {
+    const page = await openView(t, 'overview', [failure.route, ...bait]);
+    const overview = page.locator('soda-factory-work-overview');
+    await overview.getByText(failure.message).waitFor();
+    const calls = await workCalls(page);
+    assert.deepEqual(
+      calls.map((call) => call.path),
+      [`factory/intents/${INTENT}/overview`]
+    );
+    const scope = (await page.evaluate(() => {
+      const el = document.querySelector('soda-factory-work-overview') as unknown as {
+        boundScope: {repository: string; intentID?: string; issues: unknown[]};
+      };
+      return el.boundScope;
+    })) as {repository: string; intentID?: string; issues: unknown[]};
+    assert.equal(scope.repository, '7');
+    assert.equal(scope.intentID, INTENT);
+    assert.deepEqual(scope.issues, []);
+    assert.equal(await overview.getByText('No counted work.').count(), 0);
+  }
 });

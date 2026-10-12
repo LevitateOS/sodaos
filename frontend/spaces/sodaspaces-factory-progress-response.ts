@@ -153,17 +153,18 @@ function requestMapping(value: unknown): RequestMapping {
     effective: raw.effective,
   };
 }
+// requestCounts binds evidenced work-item counts. The backend omits
+// zero by_state buckets (sparse maps), so absent canonical buckets
+// read as zero; provided values, unknown keys, totals and outcome
+// counters still validate exactly.
 function requestCounts(value: unknown): RequestCounts {
   const raw = object(value);
   const by = countMap(raw.by_state, ['delivered', 'working', 'waiting', 'attention']);
-  check(
-    by.delivered !== undefined && by.working !== undefined && by.waiting !== undefined && by.attention !== undefined
-  );
   return {
-    delivered: by.delivered as number,
-    working: by.working as number,
-    waiting: by.waiting as number,
-    attention: by.attention as number,
+    delivered: by.delivered ?? 0,
+    working: by.working ?? 0,
+    waiting: by.waiting ?? 0,
+    attention: by.attention ?? 0,
     total: counter(raw.total),
     outcomes_total: counter(raw.outcomes_total),
     outcomes_evidenced: counter(raw.outcomes_evidenced),

@@ -93,12 +93,81 @@ test('request overview binds direction, counts, mappings and attention', () => {
     {context: {repository: 'x'}},
     {generation: {state: ''}},
     {setup: {state: 'built'}},
-    {work_items: {...overview.work_items, by_state: {delivered: 1}}},
+    {work_items: {...overview.work_items, by_state: {waiting: '1'}}},
     {mappings: [{...overview.mappings[0], issue_index: '0'}]},
     {attention: [{code: 'invented_code'}]},
     {attention: [{code: 'work_attention', issue: 'nope'}]},
   ])
     assert.throws(() => requestOverview({...overview, ...delta}, intent));
+});
+
+test('request overview normalizes omitted sparse by_state buckets to zero', () => {
+  const sparse = requestOverview(
+    {
+      direction: {
+        objective:
+          'Q08 journey probe: add one static page to the test project that displays exactly the text HELLO. First user action: open the page. Success: the page shows HELLO.',
+        approach: 'complete_first',
+        ideas_by_decision: {accept: 1, pending: 1},
+        ideas_by_source: {assumption: 1, autonomous: 1},
+        effective_outcomes: [],
+        ideas_total: 2,
+        tasks_total: 1,
+        unresolved_assumptions: 1,
+      },
+      context: {repository: '2'},
+      generation: {state: 'completed'},
+      setup: {state: 'preparing', project: 'pd4551daa94e07f05082d6ab1'},
+      work_items: {by_state: {waiting: 1}, outcomes_total: 3, outcomes_evidenced: 0, total: 1},
+      mappings: [
+        {
+          task_key: 'd602b93b0b434c67359c8a37f',
+          issue_id: '1',
+          issue_index: '1',
+          acceptance_id: 'd2636062b35195d5c7e59079c',
+          created_unix: 1791802987,
+          content_version: 0,
+          effective: true,
+        },
+      ],
+      attention: [{code: 'unresolved_assumption', idea: 'dd2a188f777c11d5ba46def15'}],
+      intent: 'dd07c0680add52741c356b010',
+      revision: 'd0304e9e89e6e3db9ef3d0064',
+      state: 'accepted',
+      observed_unix: 1791806043,
+    },
+    'dd07c0680add52741c356b010'
+  );
+  assert.equal(sparse.work_items.delivered, 0);
+  assert.equal(sparse.work_items.working, 0);
+  assert.equal(sparse.work_items.waiting, 1);
+  assert.equal(sparse.work_items.attention, 0);
+  assert.equal(sparse.work_items.total, 1);
+  assert.equal(sparse.mappings[0]?.issue_index, '1');
+  for (const bad of [
+    {by_state: {waiting: '1'}},
+    {by_state: {waiting: 1, shipped: 1}},
+    {by_state: {waiting: -1}},
+    {by_state: {waiting: 1.5}},
+  ])
+    assert.throws(() =>
+      requestOverview(
+        {
+          direction: sparse.direction,
+          context: {repository: '2'},
+          generation: {state: 'completed'},
+          setup: {state: 'preparing'},
+          work_items: {by_state: bad.by_state, outcomes_total: 3, outcomes_evidenced: 0, total: 1},
+          mappings: [],
+          attention: [],
+          intent: 'dd07c0680add52741c356b010',
+          revision: 'd0304e9e89e6e3db9ef3d0064',
+          state: 'accepted',
+          observed_unix: 1791806043,
+        },
+        'dd07c0680add52741c356b010'
+      )
+    );
 });
 
 const candidate = {
