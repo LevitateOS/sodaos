@@ -170,14 +170,41 @@ func q05Mux(t *testing.T, keyFile string) (*store.Store, func(method, path, body
 	return s, call, errorCode
 }
 
-// TestFirstExploreLiveSuccess proves the successful first slice through the
-// actual mux with browser-emitted payloads: fresh draft -> U-contract
+// TestFirstExploreLiveSuccess proves funded exploration success through the
+// actual mux for a reviewed-direction draft (one accepted idea): U-contract
 // allowance 201 -> explore 201 with saved proposal head and live judgments
 // charged. Declared external judgment: LIVE TypeSafe API (model jev-latest
 // default), keyed by TYPESAFE_API_KEY; skips when absent. Model-selected
 // content is intentionally unasserted; only structural success facts are
-// pinned (status, head advance, exploration presence, consumption).
+// pinned (status, head advance, exploration presence, consumption). A 201
+// here is funded-judged-saved success, not proof of coherent ready work.
 func TestFirstExploreLiveSuccess(t *testing.T) {
+	s, call, _ := q05Mux(t, q05KeyFile(t))
+
+	const draftID = "d777777777777777777777777"
+	const intentID = "d888888888888888888888888"
+	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,` +
+		`"ideas":[{"id":"d333333333333333333333333","description":"Track leave requests","consequence":"Managers review requests","decision":"accept"}]}`
+	q05LiveExplore(t, s, call, draft, intentID, draftID, "reviewed-direction")
+}
+
+// TestFirstExploreFreshEntryLive is the byte-equivalent first-entry case:
+// U nextRevision with no current revision emits repository "0", empty
+// ideas/tasks, state draft and control defaults (max_issues 20,
+// planning_calls 8). Same structural success assertions as the
+// reviewed-direction case; no accept/repository/generate/native binding.
+func TestFirstExploreFreshEntryLive(t *testing.T) {
+	s, call, _ := q05Mux(t, q05KeyFile(t))
+
+	const draftID = "d777777777777777777777777"
+	const intentID = "d888888888888888888888888"
+	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","repository":"0","objective":"Time-off requests my manager can approve",` +
+		`"ideas":[],"tasks":[],"state":"draft","max_issues":20,"planning_calls":8}`
+	q05LiveExplore(t, s, call, draft, intentID, draftID, "fresh-entry")
+}
+
+func q05KeyFile(t *testing.T) string {
+	t.Helper()
 	key := strings.TrimSpace(os.Getenv("TYPESAFE_API_KEY"))
 	if key == "" {
 		t.Skip("TYPESAFE_API_KEY unavailable")
@@ -186,24 +213,23 @@ func TestFirstExploreLiveSuccess(t *testing.T) {
 	if err := os.WriteFile(keyFile, []byte(key+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s, call, _ := q05Mux(t, keyFile)
+	return keyFile
+}
 
-	const draftID = "d777777777777777777777777"
-	const intentID = "d888888888888888888888888"
-	draft := `{"id":"` + draftID + `","intent":"` + intentID + `","objective":"Time-off requests my manager can approve","state":"draft","max_issues":10,"planning_calls":8,` +
-		`"ideas":[{"id":"d333333333333333333333333","description":"Track leave requests","consequence":"Managers review requests","decision":"accept"}]}`
+func q05LiveExplore(t *testing.T, s *store.Store, call func(method, path, body string) (int, []byte), draft, intentID, draftID, label string) {
+	t.Helper()
 	if code, body := call(http.MethodPost, "/api/factory/intents", draft); code != http.StatusCreated {
-		t.Fatalf("draft save status=%d body=%s", code, body)
+		t.Fatalf("%s draft save status=%d body=%s", label, code, body)
 	}
 	uShape := `{"id":"d555555555555555555555555","intent":"` + intentID + `","amount":8,"ceiling":8,"unit":"planning_calls"}`
 	if code, body := call(http.MethodPost, "/api/factory/intent-allowances", uShape); code != http.StatusCreated {
-		t.Fatalf("U allowance shape status=%d body=%s", code, body)
+		t.Fatalf("%s U allowance shape status=%d body=%s", label, code, body)
 	}
 	start := time.Now()
 	code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/explore", `{"revision":"`+draftID+`"}`)
-	t.Logf("live explore status=%d elapsed=%s", code, time.Since(start).Round(time.Second))
+	t.Logf("%s live explore status=%d elapsed=%s", label, code, time.Since(start).Round(time.Second))
 	if code != http.StatusCreated {
-		t.Fatalf("live explore status=%d body=%s", code, body)
+		t.Fatalf("%s live explore status=%d body=%s", label, code, body)
 	}
 	var explored struct {
 		factory.IntentRevision
@@ -215,25 +241,25 @@ func TestFirstExploreLiveSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	if explored.ID == draftID || explored.Predecessor != draftID {
-		t.Fatalf("explore head id=%s predecessor=%s", explored.ID, explored.Predecessor)
+		t.Fatalf("%s explore head id=%s predecessor=%s", label, explored.ID, explored.Predecessor)
 	}
 	if !explored.Exploration.Content.Supported && len(explored.Exploration.Content.Unknowns) == 0 {
-		t.Fatal("explore returned no content")
+		t.Fatalf("%s explore returned no content", label)
 	}
 	var funded factory.PlanningAllowance
 	if code, body := call(http.MethodGet, "/api/factory/intents/"+intentID+"/allowance", ""); code != http.StatusOK {
-		t.Fatalf("allowance read status=%d", code)
+		t.Fatalf("%s allowance read status=%d", label, code)
 	} else if err := json.Unmarshal(body, &funded); err != nil {
 		t.Fatal(err)
 	}
 	if funded.Consumed < 1 {
-		t.Fatalf("live judgments consumed=%d", funded.Consumed)
+		t.Fatalf("%s live judgments consumed=%d", label, funded.Consumed)
 	}
 	head, err := s.IntentRevision(context.Background(), intentID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if head.ID != explored.ID {
-		t.Fatalf("stored head %s != explored %s", head.ID, explored.ID)
+		t.Fatalf("%s stored head %s != explored %s", label, head.ID, explored.ID)
 	}
 }
