@@ -74,6 +74,11 @@ test('native Soda package contains its entire local browser asset graph', async 
 
 // Canonical palette endpoints each scheme token must resolve to under the
 // externally selected native scheme. Independent literals, not source-derived.
+// The minifier shortens some palette hex to named colors; map those explicitly.
+const namedColors: Record<string, string> = {
+  gray: '#808080',
+  silver: '#c0c0c0',
+};
 const schemeTokens: Record<string, {light: string; dark: string}> = {
   '--soda-page-canvas': {light: '#ffffff', dark: '#101010'},
   '--soda-page-surface': {light: '#ffffff', dark: '#101010'},
@@ -174,7 +179,14 @@ function substituteVars(
 function resolveSchemeColor(declarations: Map<string, string>, token: string, scheme: 'light' | 'dark'): string {
   const raw = declarations.get(token);
   if (raw === undefined) throw new Error(`Missing emitted token ${token}`);
-  const color = substituteVars(raw, scheme, declarations, 0).trim().toLowerCase();
+  const expanded = substituteVars(raw, scheme, declarations, 0).trim();
+  const color = expanded.toLowerCase();
+  if (/^[a-z]+$/.test(color)) {
+    const mapped = namedColors[color];
+    if (mapped === undefined)
+      throw new Error(`Emitted ${token} resolves to unmapped named ${scheme} color: ${expanded}`);
+    return mapped;
+  }
   const short = /^#([0-9a-f]{3})$/.exec(color);
   const full = short?.[1]
     ? `#${short[1]
@@ -183,16 +195,14 @@ function resolveSchemeColor(declarations: Map<string, string>, token: string, sc
         .join('')}`
     : color;
   if (!/^#[0-9a-f]{6}$/.test(full) && !/^#[0-9a-f]{8}$/.test(full)) {
-    throw new Error(
-      `Emitted ${token} resolves to invalid ${scheme} color: ${substituteVars(raw, scheme, declarations, 0).trim()}`
-    );
+    throw new Error(`Emitted ${token} resolves to invalid ${scheme} color: ${expanded}`);
   }
   return full;
 }
 
 function schemeTokenNames(css: string): string[] {
   const names = new Set<string>();
-  for (const match of css.matchAll(/--(soda-(?:page|button)-[a-z-]+):/g)) {
+  for (const match of css.matchAll(/--(soda-page-[a-z-]+|soda-button-primary-[a-z-]+|soda-button-danger):/g)) {
     if (match[1]) names.add(`--${match[1]}`);
   }
   return [...names].sort();

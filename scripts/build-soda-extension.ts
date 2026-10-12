@@ -74,6 +74,43 @@ async function buildScripts(assets: string) {
   assert.deepEqual(output.sort(), Object.keys(entries).sort(), 'Manifest entries lack built browser modules');
 }
 
+function closingParen(css: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === '(') depth++;
+    else if (css[i] === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  throw new Error('Unbalanced parentheses in emitted stylesheet');
+}
+
+// Pinned Bun 1.4.2 lowers light-dark() to guard-variable fragments but emits
+// the selection guards only alongside in-graph color-scheme rules. Native
+// scheme selection lives outside this compilation graph, so restore the native
+// call and let the browser resolve it against the external selection.
+function restoreNativeSchemeCalls(css: string): string {
+  const lightMarker = 'var(--buncss-light,';
+  const darkMarker = 'var(--buncss-dark,';
+  let output = '';
+  let rest = css;
+  for (;;) {
+    const light = rest.indexOf(lightMarker);
+    if (light < 0) {
+      assert(!rest.includes('--buncss-'), 'Unpaired lowered scheme fragment in emitted stylesheet');
+      return output + rest;
+    }
+    const lightEnd = closingParen(rest, light + 3);
+    let dark = lightEnd + 1;
+    while (rest[dark] === ' ' || rest[dark] === '\n' || rest[dark] === '\t' || rest[dark] === '\r') dark++;
+    if (!rest.startsWith(darkMarker, dark)) throw new Error('Unpaired lowered scheme fragment in emitted stylesheet');
+    const darkEnd = closingParen(rest, dark + 3);
+    output += `${rest.slice(0, light)}light-dark(${rest.slice(light + lightMarker.length, lightEnd)},${rest.slice(dark + darkMarker.length, darkEnd)})`;
+    rest = rest.slice(darkEnd + 1);
+  }
+}
+
 export async function buildExtensionStylesheets(assets: string): Promise<void> {
   for (const [name, path] of Object.entries(styles)) {
     const result = await Bun.build({
@@ -98,6 +135,8 @@ export async function buildExtensionStylesheets(assets: string): Promise<void> {
       result.outputs.map((file) => basename(file.path)),
       [name]
     );
+    const emitted = resolve(assets, name);
+    await writeFile(emitted, restoreNativeSchemeCalls(await readFile(emitted, 'utf8')));
   }
   const terminal = resolve(assets, 'sodaspaces-terminal.css');
   await writeFile(terminal, `@import url("./soda-terminal/xterm.css");\n${await readFile(terminal, 'utf8')}`);
