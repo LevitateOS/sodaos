@@ -38,6 +38,7 @@ paths are private service routes, not public URLs to call directly:
 | PUT | `/api/repositories/{repositoryID}/factory/lifecycle/{event}` | Save effect configuration with revision CAS (owner/admin) |
 | GET | `/api/repositories/{repositoryID}/factory/lifecycle/{event}/actions?issue=N` | Bounded durable action results for one issue/event |
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
+| GET, PUT | `/api/factory/connections/{connection}/usage-budget` | Connection-owner rolling-minutes execution budget; GET 404s when unset (never zero-filled), PUT saves with command envelope + revision CAS |
 | GET | `/api/repositories/{repositoryID}/factory/access` | Repository Factory permission, readiness and usage: execution usage plus viewer planning allowances |
 | GET, POST | `/api/factory/departments` | Current actor’s reusable product direction |
 | POST | `/api/factory/intents` | Save immutable product intent revision with predecessor CAS |
