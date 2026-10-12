@@ -503,27 +503,23 @@ export class SodaSpaces extends LitElement {
       return;
     }
     if (!this.pendingNewRoute) return;
-    const armed =
-      this.binding?.kind === 'page' &&
-      this.spaces.length > 0 &&
-      isNewRouteLocation(window.location.pathname, this.repositoryPrefix());
+    const armed = this.newRouteCurrent() && this.spaces.length > 0;
     if (armed) beginSetup(this.setupReading(), this.setupActions(), this);
     if (this.setup || !isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
       this.pendingNewRoute = false;
+  }
+  private newRouteCurrent() {
+    return this.binding?.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix());
   }
   private freshEntryFromSetup() {
     // Genuine native New arrival while a setup is active: the location no
     // longer names the reviewed request, so drop that loaded identity and
     // show a blank entry. Fresh in-progress entries (no revision) and busy
-    // elements are left untouched; only the committed creation screen owns
-    // its view. The setup return target is preserved for Back.
+    // elements are left untouched; stale owners and in-flight project
+    // mutations keep the screen, exactly like Back/cancel. The setup return
+    // target is preserved for Back.
     if (!this.pendingNewRoute) return;
-    if (
-      this.setup === 'configure' ||
-      this.binding?.kind !== 'page' ||
-      !isNewRouteLocation(window.location.pathname, this.repositoryPrefix())
-    )
-      return;
+    if (this.stale || !this.canRestore || !this.newRouteCurrent()) return;
     const intent = this.querySelector<SodaIntent>('soda-intent');
     if (!intent || intent.busy || intent.revision === undefined) return;
     intent.reset();

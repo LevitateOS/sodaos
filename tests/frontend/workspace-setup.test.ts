@@ -1088,6 +1088,68 @@ test('setup: native New while viewing accepted starts blank and saves apart', {t
   await resumed.getByText('Native work generated.').waitFor();
 });
 
+test('setup: native New on idle Configure starts blank and saves apart', {timeout: 90000}, async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  const prefix = '/forgejo.test';
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  const acceptedIntent = await page.evaluate(
+    () =>
+      (document.querySelector('soda-intent') as unknown as {revision?: {intent: string}} | null)?.revision?.intent ?? ''
+  );
+  assert.match(acceptedIntent, /^d[0-9a-f]{24}$/);
+  assert.equal(
+    await page.evaluate(() => (document.querySelector('soda-spaces') as unknown as {setup: string}).setup),
+    'configure'
+  );
+  // Explicit native New before any Create operation takes the same owner.
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+  }, `${prefix}/workspace/new`);
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.equal(await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(), '');
+  assert.equal(
+    await page.evaluate(
+      () => (document.querySelector('soda-intent') as unknown as {revision?: unknown} | null)?.revision
+    ),
+    undefined
+  );
+  assert.equal(
+    await page.evaluate(() => (document.querySelector('soda-spaces') as unknown as {setup: string}).setup),
+    'intent'
+  );
+  assert.equal(await page.evaluate(() => window.location.pathname), `${prefix}/workspace/new`);
+  // Next save mints a separate identity; the accepted request is preserved.
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a second tracker');
+  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
+  await page.waitForFunction(
+    (intent) =>
+      window.location.pathname.startsWith('/forgejo.test/workspace/requests/d') &&
+      !window.location.pathname.endsWith(intent),
+    acceptedIntent
+  );
+  const posts = await page.evaluate(() =>
+    window.workspaceFixture.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/api/factory/intents'))
+  );
+  assert.ok(posts.length > 0);
+  const fresh = posts[posts.length - 1];
+  assert.equal(fresh?.body?.intent === acceptedIntent, false);
+  assert.equal(fresh?.body?.predecessor, undefined);
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  const resumeName = /^Resume Build a small project tracker$/;
+  await page.getByRole('button', {name: resumeName}).waitFor();
+  await page.getByRole('button', {name: resumeName}).click();
+  await page.waitForFunction(
+    (intent) => window.location.pathname === `/forgejo.test/workspace/requests/${intent}`,
+    acceptedIntent
+  );
+  await page.locator('soda-factory-work-overview').getByText('Build a small project tracker').waitFor();
+});
+
 test('setup: unknown request route reports unavailable without losing the entry', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
