@@ -2,6 +2,8 @@ import {html} from 'lit';
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import './sodaspaces-intent.js';
 import type {SodaIntent} from './sodaspaces-intent.js';
+import {intentList} from './sodaspaces-intent-response.js';
+import type {SavedRequest} from './sodaspaces-intent-response.js';
 
 /** Native opaque request id shape shared with the host alias routes. */
 export const requestIDPattern = /^d[0-9a-f]{24}$/;
@@ -34,6 +36,15 @@ export function intentIdentity(event: Event): string {
   if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return '';
   const intent = (detail as Record<string, unknown>).intent;
   return typeof intent === 'string' ? intent : '';
+}
+
+/** Saved requests carried by intent-inventory; malformed payloads yield []. */
+export function inventoryIntents(event: Event): SavedRequest[] {
+  try {
+    return intentList((event as CustomEvent).detail).intents;
+  } catch {
+    return [];
+  }
 }
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
@@ -144,6 +155,7 @@ export interface SetupActions {
   notifyFactory(message: string): void;
   api(path: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
   syncIntentRoute(intent: string | null): void;
+  setSavedRequests(intents: SavedRequest[]): void;
 }
 
 export interface SetupHost {
@@ -226,6 +238,7 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
         ?hidden=${!reading.welcomeScreen && reading.setup !== 'intent'}
         @intent-saved=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
         @intent-resumed=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
+        @intent-inventory=${(event: Event) => actions.setSavedRequests(inventoryIntents(event))}
         @intent-reviewed=${() => chooseIntentRepository(read(), actions, host)}
         @intent-leave=${() => leaveSetup(read(), actions, host)}
       ></soda-intent>
@@ -250,6 +263,19 @@ export function beginSetup(reading: SetupReading, actions: SetupActions, host: S
   actions.setRepositoryChoice('');
   if (reading.requestId !== '') host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.syncIntentRoute(null);
+  focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
+}
+
+export function resumeSetup(intent: string, reading: SetupReading, actions: SetupActions, host: SetupHost) {
+  if (reading.stale || !reading.available || !reading.canRestore || !reading.activeSurface) return;
+  if (!requestIDPattern.test(intent)) return;
+  actions.notifyFactory('');
+  actions.rememberFocus();
+  actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
+  actions.setSetup('intent');
+  actions.setRepositoryChoice('');
+  host.querySelector<SodaIntent>('soda-intent')?.reset();
+  actions.syncIntentRoute(intent);
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
 }
 
