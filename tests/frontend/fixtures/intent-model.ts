@@ -5,6 +5,7 @@ import type {IntentRevision} from '../../../frontend/spaces/sodaspaces-intent-re
 export function createIntentModel() {
   const revisions = new Map<string, IntentRevision>();
   const departments: Record<string, unknown>[] = [];
+  const allowances = new Map<string, Record<string, unknown>>();
   let serial = 100;
   const nextID = () => 'd' + (++serial).toString(16).padStart(24, '0');
   return (path: string, method: string, body: Record<string, unknown> | null): Response | undefined => {
@@ -35,9 +36,34 @@ export function createIntentModel() {
       }));
       return Response.json({intents: Number.isFinite(limit) ? all.slice(0, Math.max(0, limit)) : all});
     }
+    if (method === 'GET') {
+      const allowance = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/allowance$/);
+      if (allowance) {
+        const key = allowance[1] || '';
+        const stored = key ? allowances.get(key) : undefined;
+        if (!stored) return new Response(null, {status: 404});
+        return Response.json(stored);
+      }
+    }
+    if (path.endsWith('/api/factory/intent-allowances') && method === 'POST' && body) {
+      const intent = String(body.intent || '');
+      if (!/^d[0-9a-f]{24}$/.test(intent)) return new Response(null, {status: 400});
+      const record = {
+        id: String(body.id || nextID()),
+        intent,
+        unit: 'planning_calls',
+        amount: body.amount ?? 0,
+        reserved: body.reserved ?? 0,
+        consumed: body.consumed ?? 0,
+      };
+      allowances.set(intent, record);
+      return Response.json(record, {status: 201});
+    }
     const single = method === 'GET' ? path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})$/) : null;
     if (single) {
-      const stored = [...revisions.values()].find((revision) => revision.intent === single[1]);
+      const stored = [...revisions.values()]
+        .reverse()
+        .find((revision) => revision.intent === single[1]);
       if (!stored) return new Response(null, {status: 404});
       return Response.json(stored);
     }
