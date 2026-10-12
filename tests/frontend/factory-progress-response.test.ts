@@ -281,6 +281,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
       enabled: true,
       capable: true,
       actor_id: '1001',
+      submitter_id: '1002',
+      executor_ready: true,
       repository_id: '7',
       reviewer_ids: ['11', '12'],
     },
@@ -289,6 +291,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
   );
   assert.equal(parsed.enabled, true);
   assert.deepEqual(parsed.reviewer_ids, ['11', '12']);
+  assert.equal(parsed.submitter_id, '1002');
+  assert.equal(parsed.executor_ready, true);
   const fresh = lifecycleEffectConfig(
     {event: 'issue_created', revision: '0', enabled: false, capable: false, actor_id: '', repository_id: '7'},
     'issue_created',
@@ -296,6 +300,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
   );
   assert.equal(fresh.enabled, false);
   assert.equal(fresh.capable, false);
+  assert.equal(fresh.submitter_id, '');
+  assert.equal(fresh.executor_ready, undefined);
   for (const delta of [
     {event: 'issue_deleted'},
     {revision: 'x'},
@@ -304,6 +310,8 @@ test('lifecycle configs bind enablement, proof, actor and targets', () => {
     {reviewer_ids: ['11', '12', '13', '14']},
     {reviewer_ids: ['0']},
     {note: 'x'.repeat(1001)},
+    {submitter_id: 'x'},
+    {executor_ready: 'yes'},
   ])
     assert.throws(() =>
       lifecycleEffectConfig(
@@ -474,7 +482,7 @@ test('lifecycle actions bind unequal identities and a distinct native target', (
           issue_id: '12',
           target_id: '34',
           config_owner: '1002',
-          target_link: '/soda/progress/pulls/3',
+          pr_number: '3',
           attempts: 1,
           max_attempts: 2,
           revoked: false,
@@ -503,12 +511,12 @@ test('lifecycle actions bind unequal identities and a distinct native target', (
   assert.equal(parsed[0]?.actor_id, '1001');
   assert.equal(parsed[0]?.config_owner, '1002');
   assert.equal(parsed[0]?.target_id, '34');
-  assert.equal(parsed[0]?.target_link, '/soda/progress/pulls/3');
+  assert.equal(parsed[0]?.pr_number, '3');
   assert.equal(parsed[1]?.actor_id, '0');
   assert.equal(parsed[1]?.config_owner, undefined);
   assert.equal(parsed[1]?.target_id, undefined);
-  assert.equal(parsed[1]?.target_link, undefined);
-  for (const bad of [{target_id: 'x'}, {config_owner: '-1'}, {target_link: 'https://forgejo.test/x'}]) {
+  assert.equal(parsed[1]?.pr_number, undefined);
+  for (const bad of [{target_id: 'x'}, {config_owner: '-1'}, {pr_number: 'x'}, {pr_number: '-1'}]) {
     assert.throws(() =>
       lifecycleEffectActions(
         {
