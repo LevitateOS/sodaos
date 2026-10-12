@@ -182,6 +182,7 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/factory/intents/{intentID}/generation", protect(s.apiIntentGeneration, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/intents/{intentID}/history", protect(s.apiIntentHistory, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/intents/{intentID}/allowance", protect(s.apiIntentAllowance, http.MethodGet))
+	mux.HandleFunc("GET /api/factory/intents/{intentID}/review", protect(s.apiIntentReview, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/intents/{intentID}/overview", protect(s.apiFactoryRequestOverview, http.MethodGet))
 	mux.HandleFunc("GET /api/factory/intents/{intentID}/revisions", protect(s.apiFactoryRevisionHistory, http.MethodGet))
 	mux.HandleFunc("POST /api/factory/intent-allowances", protect(s.apiIntentAllowanceSave, http.MethodPost))

@@ -68,6 +68,17 @@ func (s *Store) SaveIntentRevision(ctx context.Context, r factory.IntentRevision
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := saveIntentRevisionTx(ctx, tx, r, raw); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// saveIntentRevisionTx runs the head-serialized CAS revision save inside an
+// open transaction. Atomic review saves share it so a revision and its exact
+// presentation commit or roll back together.
+func saveIntentRevisionTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, raw []byte) error {
+	var err error
 	if r.Department != "" {
 		var owner int64
 		if err = tx.QueryRowContext(ctx, `SELECT owner_id FROM factory_departments WHERE id=$1`, r.Department).Scan(&owner); err != nil {
@@ -101,7 +112,7 @@ func (s *Store) SaveIntentRevision(ctx context.Context, r factory.IntentRevision
 		if !same {
 			return ErrCommandConflict
 		}
-		return tx.Commit()
+		return nil
 	}
 	if head != r.Predecessor {
 		return ErrStaleRevision
@@ -137,7 +148,7 @@ func (s *Store) SaveIntentRevision(ctx context.Context, r factory.IntentRevision
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_intent_heads SET revision=$2 WHERE id=$1`, r.Intent, r.ID); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *Store) IntentRevision(ctx context.Context, intent string, owner int64) (factory.IntentRevision, error) {
