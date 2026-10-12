@@ -118,3 +118,27 @@ func TestLifecycleActionAttempts(t *testing.T) {
 		t.Fatal("revoked action still applicable")
 	}
 }
+
+func TestLifecycleActionAttemptBudget(t *testing.T) {
+	a := testIssueAction().RecordActionAttempt("op-1")
+	if a.Attempts != 1 {
+		t.Fatalf("multi-target attempt overcounted: %+v", a)
+	}
+	if a.Results["label"] != LifecycleResultUncertain || a.Results["assignee"] != LifecycleResultUncertain {
+		t.Fatalf("targets not marked: %+v", a.Results)
+	}
+	if a.Operations["label"] != "op-1" || a.Operations["assignee"] != "op-1" {
+		t.Fatalf("identity not shared: %+v", a.Operations)
+	}
+	a = a.RecordActionResult(LifecycleResultFailed)
+	if !a.CanAttempt("label", 2) || !a.CanAttempt("assignee", 2) {
+		t.Fatal("retry refused after definitive no-effect")
+	}
+	a = a.RecordActionAttempt("op-2").RecordActionResult(LifecycleResultDelivered)
+	if !a.Settled() || a.Attempts != MaxLifecycleAttempts {
+		t.Fatalf("budget wrong: %+v", a)
+	}
+	if LifecycleDenyReason("native_refused") || !LifecycleDenyReason(LifecycleReasonAuthorityLost) || !LifecycleDenyReason(LifecycleReasonCancelledBeforeSubmit) || !LifecycleDenyReason(LifecycleReasonCancelledBeforeAdmit) {
+		t.Fatal("deny mapping wrong")
+	}
+}
