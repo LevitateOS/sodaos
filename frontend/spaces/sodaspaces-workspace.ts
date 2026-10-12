@@ -236,6 +236,8 @@ export class SodaSpaces extends LitElement {
     | {project: string; view: 'terminal' | 'sessions' | 'project'; mode: 'standard' | 'journey' | 'settings'}
     | undefined;
   private reviewAuthorization: {ideas: number; tasks: number} | undefined;
+  private reviewedIntent: string | undefined;
+  private setupCommitted = false;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
   private renaming = new Set<string>();
@@ -956,6 +958,9 @@ export class SodaSpaces extends LitElement {
       actorId: this.actor?.id || '',
       requestId: requestIdFromLocation(window.location.pathname),
       reviewAuthorization: this.reviewAuthorization,
+      reviewedIntent: this.reviewedIntent,
+      setupCommitted: this.setupCommitted,
+      transport: this.binding?.transport,
       suggestedRepository: this.suggestedSetupRepository(),
       onBegin: this.onBeginSetup,
       onRefresh: this.onRefreshClick,
@@ -994,6 +999,12 @@ export class SodaSpaces extends LitElement {
       },
       setReviewAuthorization: (auth) => {
         this.reviewAuthorization = auth;
+      },
+      setReviewedIntent: (intent) => {
+        this.reviewedIntent = intent;
+      },
+      setSetupCommitted: (committed) => {
+        this.setupCommitted = committed;
       },
       setProject: (project) => {
         this.project = project;

@@ -120,6 +120,32 @@ test('first use: keyboard selection and post-commit Change inspects without writ
     0
   );
 });
+test('first use: committed inspection mounts the request overview with verified native links', async (t) => {
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await reviewFirstIntent(page);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).focus();
+  await page.keyboard.press('Space');
+  await page.getByRole('button', {name: 'Continue', exact: true}).focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await page.getByRole('button', {name: 'Change repository', exact: true}).click();
+  const overview = page.locator('soda-factory-work-overview');
+  await overview.getByText('Build a small project tracker').waitFor();
+  await overview.getByText('Native work generated.').waitFor();
+  const link = overview.getByRole('link', {name: 'issue #5', exact: true});
+  assert.equal(await link.getAttribute('href'), '/forgejo.test/alice/Alpha/issues/5');
+});
+test('first use: uncommitted review mounts no request overview', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction', exact: true}).waitFor();
+  assert.equal(await page.locator('soda-factory-work-overview').count(), 0);
+});
 test('first use: picker Back preserves the reviewed direction', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
