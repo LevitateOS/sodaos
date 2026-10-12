@@ -16,9 +16,10 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-12)
 
-Reviewed Soda source `668f551c0334954ee5d7a48dc23c5d80170c86da` and paired Fountain source
+Reviewed Soda source `082beb863a1108b11765ee106852ed56600007bc` and paired Fountain source
 `b1603d3f90535d4abf4c80c8619ff2f76e8e146e` for the native frontend correction. This delta
-adds no Soda paths and changes no package, language or process ownership.
+adds two focused settings fixture/test paths and changes no package, language
+or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
 follow that same route. The affected inventory and symbol maps below preserve
@@ -31,7 +32,14 @@ and control checks pass; the navigation regression still includes two explicit
 expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
-The desired responsibility split and remaining correction tasks are unchanged.
+The emitted stylesheet builder restores native `light-dark()` calls and removes
+consumer document-token declarations; its three emitted graph/token checks pass.
+Local Project settings CSS bounds Identity and protects selected-panel space;
+all twelve wide/compact/short browser fixture cases pass using fallback fonts.
+The two new test paths are allocated to S05/H06 in the inventory and target tree.
+Native computed colors, native fonts/containers and terminal identity remain
+separate composition/installed evidence. The desired responsibility split is
+unchanged; neither this delta nor its fixtures qualify final native behavior.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-10)
 was last reconciled at canonical HEAD `04286c48`, application source `0b073439`,
