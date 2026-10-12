@@ -1,5 +1,7 @@
 # Tracked files: tests
 
+
+Scoped native frontend delta at `668f551c0334954ee5d7a48dc23c5d80170c86da` (2026-10-12): `TestForgejoPayloadOperatorSettingsUseDeclaredTailnetRoute` replaces the old admin-scope assertion; other payload duties are unchanged. No added or deleted paths; historical rows retain their separate scope.
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.

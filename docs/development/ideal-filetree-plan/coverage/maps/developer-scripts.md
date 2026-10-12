@@ -451,6 +451,8 @@ current source declaration/method inspection; receiver methods normalized by met
 
 ## [scripts/forgejo_soda_settings_test.go](../../../../../scripts/forgejo_soda_settings_test.go)
 
+Scoped inspection at `668f551c0334954ee5d7a48dc23c5d80170c86da`: navigation declaration assertions match global Tailnet scope; H06 test ownership and target placement are unchanged.
+
 current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
