@@ -17,7 +17,7 @@ diary. Maintaining it does not authorize executing the refactor.
 ## Scoped native frontend maintenance (2026-10-12)
 
 Reviewed Soda source `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2` and paired Fountain source
-`64afd5050abe02abd5e83ead1fc8e0da861d8827` for the native frontend correction. This delta
+`442a42f24a8eefe46e187b550ec9db22b2660949` for the native frontend correction. This delta
 adds twelve focused domain, Store, API and browser source/test paths and changes no package, language
 or process ownership.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
@@ -27,14 +27,17 @@ all unrelated historical body, catalog and structural review pins.
 
 Fountain now defines its page-feature registry/config replacement in
 `web_src/js/native-lifecycle.js`, with the admin user-list search control as its
-first consumer. The generic host owns these native duties. Its focused lifecycle
-and control checks pass; the navigation regression still includes two explicit
+first consumer. Its radio/reset GETs now emit cancelable native submit events
+through `requestSubmit()`, preserving validation and the host navigation seam.
+The generic host owns these native duties. Ten focused lifecycle/control cases pass; the navigation regression still includes two explicit
 expected failures, and the corrected live-terminal fixture has only been vetted.
 These source changes release implementation of the native transition; they do
 not establish native browser composition, terminal preservation or deployment.
 Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
 its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
-mount/update/suspend/resume/retire and admitted scoped transport. Thirteen mount
+mount/update/suspend/resume/retire and admitted scoped transport. Hidden shelter
+suspend/resume preserves roots and resources; visible navigation uses update.
+The declaration still precedes final contract distribution. Thirteen mount
 cases and browser type/lint checks pass, including failed and late mount cleanup.
 A must join the host invalidation signal. Canonical distribution and production
 owner/route wiring remain gated by actual native persistence proof; this prototype
