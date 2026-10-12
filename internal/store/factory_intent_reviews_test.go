@@ -161,6 +161,31 @@ func TestSaveIntentReviewRejectsMisbound(t *testing.T) {
 	}
 }
 
+// TestSaveIntentReviewInsertFailureRollsBack forces the review write to
+// fail after the revision write and proves the whole save rolls back:
+// the head stays and no revision row survives.
+func TestSaveIntentReviewInsertFailureRollsBack(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	const intent, basis, result = "d060000000000000000000000", "d111111111111111111111117", "d222222222222222222222228"
+	if err := s.SaveIntentRevision(ctx, reviewFixtureRevision(basis, intent, "")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.ExecContext(ctx, `DROP TABLE factory_intent_reviews`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveIntentRevisionWithReview(ctx, reviewFixtureRevision(result, intent, basis), reviewFixtureReview(intent, basis, result)); err == nil {
+		t.Fatal("review write failure accepted")
+	}
+	if head := mustHead(t, s, ctx, intent, 1); head != basis {
+		t.Fatalf("failed save moved the head to %s", head)
+	}
+	var revisions int
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_intent_revisions WHERE id=$1`, result).Scan(&revisions); err != nil || revisions != 0 {
+		t.Fatalf("failed save left %d revision rows: %v", revisions, err)
+	}
+}
+
 func TestIntentReviewPrivacy(t *testing.T) {
 	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()
