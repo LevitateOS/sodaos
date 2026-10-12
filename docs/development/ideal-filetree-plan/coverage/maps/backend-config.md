@@ -38,6 +38,7 @@ exact-blob current maintained map; full spans retained
 | 45–47; Config.ForgejoMergeCredentialFile | [G07](../../slices/forgejo-integration.md#g07-conditional-native-merge) | retained | Distinct native merge credential configuration; declarations/fields: `Config.ForgejoMergeCredentialFile` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 48–51; Config.FactoryIntakeSecretFile | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) | retained | Native webhook intake HMAC secret configuration; declarations/fields: `Config.FactoryIntakeSecretFile` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 52–56; Config.FactoryPublicationRoot | [G04](../../slices/forgejo-integration.md#g04-candidate-publication-and-pr-creation) | retained | Backend-private candidate bundle and Git workspace root; declarations/fields: `Config.FactoryPublicationRoot` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 52–55, 172–180; Config.ForgejoLifecycleCredentialFile; validateConfigPaths lifecycle credential branch | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Delta at `93fb3513`: absolute-path lifecycle credential file requiring background service inputs. Prior rows retain their pinned scope. |
 
 <a id="coverage-78b78dc33eda"></a>
 
@@ -69,6 +70,15 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–39; file scaffold; TestFactoryIntakeSecretFile | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestFactoryIntakeSecretFile — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-9e8f2eff5f82"></a>
+
+## [internal/config/lifecycle_credential_test.go](../../../../../internal/config/lifecycle_credential_test.go)
+
+Delta duty inspection at `93fb3513`. Lifecycle credential-file admission tests: absolute path, background-service requirement, enrolled-binding match.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–48; file scaffold; TestLifecycleCredentialFile | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Current scaffold duty: file scaffold; 1 named unit assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 <a id="coverage-6c9bcddd3c22"></a>
 
 ## [internal/config/load_test.go](../../../../../internal/config/load_test.go)

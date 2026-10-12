@@ -401,6 +401,7 @@ export function renderFactoryView(input: SettingsViewInput) {
         repository: input.readBindingRepository(),
         environment: input.readEnvironment()?.id || '',
         profile: input.readProfiles().find((profile) => profile.id === input.readSelectedProfile()),
+        repositoryURL: input.readRepositoryURL(),
       }}
       .active=${input.readSelected() === 'factory' && !input.isStale()}
     ></soda-factory-settings>

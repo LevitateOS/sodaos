@@ -30,7 +30,10 @@ Current path navigation is reconciled at `c8a53fdb`: the target tree
 contains all 2,600 tracked leaves, including the implemented D06 Rust remote
 payload. The selective inventory delta maps later package guides and four
 Factory/Forgejo test files; historical source/body reviews retain their pins. Current inventories distinguish those paths from retired predecessors;
-the detailed body census remains historical at `519b76bd`. Optional filename
+the detailed body census remains historical at `519b76bd`. The 2026-10-12 F
+delta catalogs `299e3d20..93fb3513` (93 added, 80 modified, 0 deleted
+outside this plan) with current rows at `93fb3513`; structural, body-census
+and review pins retain their recorded scope. Optional filename
 splits are superseded by defining owners in the current modules. Full R02
 body/caller/join acceptance and R03/R04 qualification retain their separate gates.
 The adoption source `d7eca882` is a historical pin. Subsequent source changes

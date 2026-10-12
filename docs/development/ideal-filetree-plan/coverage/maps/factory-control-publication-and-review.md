@@ -17,6 +17,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–185; file scaffold; MergeExecutor; mergePassLimit; MergeLink; MergeWait; MergeError; MergeReport; MergePass; mergeError; mergeWait; mergeOne; mergeCallError; storeMerge; finishMerge | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 120–124; ReconcileUnsettledLifecycle drain in MergePass | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Delta at `93fb3513`: nil-guarded bounded drain recovery (55ec). Prior rows retain their pinned scope. |
 
 <a id="coverage-fcde0088ef72"></a>
 
@@ -40,6 +41,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–136, 151–188; file scaffold; observeMergeEvidence; mergeAuthority; completeMerge | [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 | 137–150; mergeWork | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current declaration duty: mergeWork — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 198–202; ConsumeVerifiedMerge hook on confirmed path | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Delta at `93fb3513`: nil-guarded completion-note effect after verified merge and original closure (55ec). Prior rows retain their pinned scope. |
 
 <a id="coverage-bbbc155fd9cd"></a>
 
@@ -111,6 +113,7 @@ current source declaration/method inspection; receiver methods normalized by met
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–187; file scaffold; PublicationExecutor; publishPassLimit; PublishLink; PublishWait; PublishError; PublishReport; PublishPass; publicationError; publicationWait; publishOne; assignmentForPublication; completePublication; publicationCallError; cancelRepositoryPublications; cancelAcceptancePublications; exportTerminal | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Current scaffold duty: file scaffold; `publishAfterSettle` retired in `6cc4771c`; retained named duties assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| 103–107; ReconcileUnsettledLifecycle drain in PublishPass | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Delta at `93fb3513`: nil-guarded bounded drain of pending/uncertain actions (55ec). Prior rows retain their pinned scope. |
 
 <a id="r02-current-path-internal-factory-control-publication-children-go"></a>
 
@@ -165,6 +168,7 @@ Correction registration and recovery have mixed F09/F10 responsibilities. F09 ow
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | F09 withdrawal gate, recorded-operation cancellation and completion-pending handling, as added at `0352f4ba` | [F09](../../slices/factory-coordination.md#f09-publication-progression) | retained | Withdrawal materializes/uses the shared gate, records exact cancellation and preserves committed-but-incomplete state for later recovery. Correction-chain creation remains F10. Broader B04.C remains open for other registration/review duties. |
+| 249–253; ConsumePublishedPR hook in Published branch | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Delta at `93fb3513`: nil-guarded reviewer-request effect after the published stage persists (55ec). Prior rows retain their pinned scope. |
 
 <a id="coverage-cd3691f7a87a"></a>
 

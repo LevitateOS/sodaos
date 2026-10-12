@@ -373,7 +373,7 @@ export class SodaIntent extends LitElement {
       this.loadedRequest = id;
       this.dispatchEvent(
         new CustomEvent('intent-resumed', {
-          detail: {intent: saved.intent, revision: saved.id, state: saved.state},
+          detail: {intent: saved.intent, revision: saved.id, state: saved.state, repository: saved.repository},
           bubbles: true,
           composed: true,
         })

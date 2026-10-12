@@ -12,6 +12,37 @@ the implemented D06 Rust personal-Git payload. Detailed duty/body selectors
 remain pinned to `519b76bd`; current path membership and repaired navigation do
 not requalify its source or runtime conclusions.
 
+### Feature-delta upkeep at `93fb3513` (2026-10-12)
+
+Catalog delta pin `93fb3513`, scoped to `299e3d20..93fb3513`: 93 added, 80
+modified, 0 deleted outside this plan. All 173 delta paths carry current
+inventory rows; new duties carry current map sections or pinned delta rows
+(121 new sections). Reuse rule: files whose delta changes add named duties,
+routes, tables or tests gained refreshed rows; pure-churn files reuse their
+existing rows with prior pins intact. Structural tree, body-census and
+review pins retain their recorded scope: the tree stays complete at
+`9a184b7f` (a partial leaf add would falsify its pin, so advancement awaits
+a full re-census; all delta files are retained at current paths with
+existing owners and no new directories, tasks or lanes). The S 400-line
+concern review and its factual addendum are incorporated as OCR pins on the
+five oversized delta files; installed credential/configuration proof stays
+Q08 scope. Sixteen tracked paths added between `9a184b7f` and `299e3d20`
+and untouched by this delta still await rows:
+`internal/config/factory_judgment_test.go`,
+`internal/factory/control/intent_generation_recovery.go`,
+`internal/factory/control/planning_test.go`,
+`internal/factory/control/priority_dispatch.go`,
+`internal/factory/control/priority_test.go`,
+`internal/factory/control/priority_typesafe.go`,
+`internal/factory/control/priority_typesafe_test.go`,
+`internal/factory/control/serving_planning_priority_test.go`,
+`internal/factory/planning.go`, `internal/factory/planning_test.go`,
+`internal/forgejo/issue_graph.go`, `internal/forgejo/issue_graph_test.go`,
+`internal/store/factory_planning.go`,
+`internal/web/api/factory_intent_generation.go`,
+`internal/web/factory_activity_test.go`,
+`tests/frontend/workspace-native-shell.test.ts`.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their

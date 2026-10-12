@@ -528,7 +528,17 @@ exact-blob current maintained map; full spans retained
 | 67; forgejo.NewCheckAssessor | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Connect native CI evidence observer using configured merge actor; declarations/fields: `forgejo.NewCheckAssessor` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 79–80, 164–171, 185–194; avatarHandler; publicAvatarPath, canonicalAvatarPath; Server.ServeHTTP | [H05](../../slices/shared-supporting-slices.md#h05-branding-avatars-and-attribution) | retained | Public fixed native avatar routes; declarations/fields: `avatarHandler`; Canonical versioned public avatar route; declarations/fields: `publicAvatarPath`, `canonicalAvatarPath`; Public versioned avatar path handling rejects aliases before routing; declarations/fields: `Server.ServeHTTP` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
 | 101–105; Server.CloseTerminals | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Close human terminal operations/streams on service shutdown; declarations/fields: `Server.CloseTerminals` — Manifest confirms byte identity; current maintained responsibility map spans reused and clipped only to current file bounds. |
+| 38–40, 69–72, 91–93, 174, 178–199; capabilities; refreshing; refreshLifecycleCapabilities | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Delta at `93fb3513`: capability handshake source, bootstrap refresh hook, lifecycle executor wiring and non-failing refresh. Prior rows retain their pinned scope. |
 
+<a id="coverage-c97426875408"></a>
+
+## [internal/web/server_lifecycle_test.go](../../../../../internal/web/server_lifecycle_test.go)
+
+Delta duty inspection at `93fb3513`. Capability-refresh wiring test: register-then-clear over a served background. Exercises the L06 startup registrar path owned by the server composition.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–76; file scaffold; serveCapabilityBackground; TestRefreshLifecycleCapabilitiesRegistersThenClears | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 <a id="coverage-a6358cf5b564"></a>
 
 ## [internal/web/server_test.go](../../../../../internal/web/server_test.go)

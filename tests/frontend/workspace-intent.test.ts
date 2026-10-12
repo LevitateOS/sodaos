@@ -1414,3 +1414,33 @@ test('back-to-review transition focuses the review heading through focusReview',
   assert.equal(focused.isTarget, true);
   assert.equal(focused.text, 'Review your product direction');
 });
+
+test('resumed accepted request exports its durable repository on intent-resumed', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.evaluate(() => {
+    (window as unknown as {intentStore: IntentStore}).intentStore.seed([
+      {
+        id: 'd444444444444444444444444',
+        intent: 'd555555555555555555555555',
+        repository: '7',
+        objective: 'Accepted tracker',
+        ideas: [],
+        tasks: [],
+        state: 'accepted',
+        max_issues: 20,
+        planning_calls: 8,
+      },
+    ]);
+  });
+  await resumeIntent(page, 'd555555555555555555555555');
+  await page.waitForFunction(() => (window as unknown as {resumed: unknown[]}).resumed.length > 0);
+  const detail = await page.evaluate(() => (window as unknown as {resumed: Record<string, unknown>[]}).resumed[0]);
+  assert.deepEqual(detail, {
+    intent: 'd555555555555555555555555',
+    revision: 'd444444444444444444444444',
+    state: 'accepted',
+    repository: '7',
+  });
+});
