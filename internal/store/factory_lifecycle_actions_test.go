@@ -9,7 +9,7 @@ import (
 )
 
 func testLifecycleAction() factory.LifecycleAction {
-	return factory.LifecycleAction{ID: "act-store-1", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, LabelID: 3, AuthRevision: "rev-1"}
+	return factory.LifecycleAction{ID: "act-store-1", Event: factory.LifecycleEventIssueCreated, Action: factory.LifecycleActionIssueLabelAssignee, ActorID: 7, RepositoryID: 9, IssueID: 42, TargetID: 420, LabelID: 3, AuthRevision: "rev-1"}
 }
 
 func TestRecordActionReplaysIdentical(t *testing.T) {
@@ -56,6 +56,17 @@ func TestUnsettledLifecycleActions(t *testing.T) {
 	if _, err := s.RecordAction(ctx, settled); err != nil {
 		t.Fatalf("settled record: %v", err)
 	}
+	retryable := issue.RecordActionAttempt("op-r1").RecordActionResult(factory.LifecycleResultFailed)
+	retryable.ID = "act-unsettled-retryable"
+	if _, err := s.RecordAction(ctx, retryable); err != nil {
+		t.Fatalf("retryable record: %v", err)
+	}
+	exhausted := issue.RecordActionAttempt("op-x1").RecordActionResult(factory.LifecycleResultFailed)
+	exhausted = exhausted.RecordActionAttempt("op-x2").RecordActionResult(factory.LifecycleResultFailed)
+	exhausted.ID = "act-unsettled-exhausted"
+	if _, err := s.RecordAction(ctx, exhausted); err != nil {
+		t.Fatalf("exhausted record: %v", err)
+	}
 	revoked := issue
 	revoked.ID = "act-unsettled-revoked"
 	if _, err := s.RecordAction(ctx, revoked); err != nil {
@@ -72,12 +83,48 @@ func TestUnsettledLifecycleActions(t *testing.T) {
 	for _, a := range got {
 		ids[a.ID] = true
 	}
-	if !ids[pending.ID] || !ids[uncertain.ID] || ids[settled.ID] || ids[revoked.ID] {
+	if !ids[pending.ID] || !ids[uncertain.ID] || !ids[retryable.ID] || ids[settled.ID] || ids[revoked.ID] || ids[exhausted.ID] {
 		t.Fatalf("unsettled: %v", ids)
 	}
 	one, err := s.UnsettledLifecycleActions(ctx, 1)
 	if err != nil || len(one) != 1 {
 		t.Fatalf("limit: %v %v", one, err)
+	}
+}
+
+func TestUpdateActionFencesSameAttemptResults(t *testing.T) {
+	s, _ := postgresFixture(t, nil)
+	ctx := context.Background()
+	a := testLifecycleAction()
+	a.ID = "act-fence-1"
+	if _, err := s.RecordAction(ctx, a); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	claimed, err := s.UpdateAction(ctx, a.RecordActionAttempt("op-f1"), 0)
+	if err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	if _, err := s.UpdateAction(ctx, claimed.RecordActionResult(factory.LifecycleResultDelivered), 1); err != nil {
+		t.Fatalf("settle: %v", err)
+	}
+	// A stale same-attempt write regressing delivered to uncertain is
+	// refused and the terminal result stands.
+	stale := claimed.RecordActionResult(factory.LifecycleResultUncertain)
+	if _, err := s.UpdateAction(ctx, stale, 1); !errors.Is(err, ErrLifecycleActionStale) {
+		t.Fatalf("regression err=%v", err)
+	}
+	flip := claimed.RecordActionResult(factory.LifecycleResultFailed)
+	if _, err := s.UpdateAction(ctx, flip, 1); !errors.Is(err, ErrLifecycleActionStale) {
+		t.Fatalf("flip err=%v", err)
+	}
+	got, err := s.LifecycleAction(ctx, a.ID)
+	if err != nil || got.Results["label"] != factory.LifecycleResultDelivered {
+		t.Fatalf("terminal lost: %+v %v", got, err)
+	}
+	// Advancing the attempt count may still reset results.
+	retry, err := s.UpdateAction(ctx, got.RecordActionAttempt("op-f2"), 1)
+	if err != nil || retry.Attempts != 2 || retry.Results["label"] != factory.LifecycleResultUncertain {
+		t.Fatalf("retry claim: %+v %v", retry, err)
 	}
 }
 

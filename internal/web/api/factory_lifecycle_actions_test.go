@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 )
 
 func TestLifecycleConfigDTOGatesEnabledOnCapability(t *testing.T) {
@@ -55,5 +57,46 @@ func TestDecodeLifecycleConfigSaveRejects(t *testing.T) {
 		if _, err := decodeLifecycleConfigSave([]byte(body)); err == nil {
 			t.Fatalf("%s accepted", name)
 		}
+	}
+}
+
+type apiTestLifecycleExecutor struct{}
+
+func (apiTestLifecycleExecutor) EnrolledActor(context.Context) (int64, error) {
+	return 7, nil
+}
+
+func (apiTestLifecycleExecutor) ObserveLifecycleRevision(context.Context, int64) (int64, error) {
+	return 1, nil
+}
+
+func (apiTestLifecycleExecutor) ResolveNoteTarget(context.Context, int64, int64) (int64, error) {
+	return 1, nil
+}
+
+func (apiTestLifecycleExecutor) SubmitLifecycle(context.Context, factory.LifecycleWork) (factory.OperationOutcome, error) {
+	return factory.OperationOutcome{}, nil
+}
+
+func (apiTestLifecycleExecutor) LookupLifecycle(context.Context, string) (factory.OperationOutcome, error) {
+	return factory.OperationOutcome{}, nil
+}
+
+// TestLifecycleExecutorReady gates runnable claims on a configured
+// executor: marker-only setups never read capable.
+func TestLifecycleExecutorReady(t *testing.T) {
+	var nilAPI *API
+	if nilAPI.lifecycleExecutorReady() {
+		t.Fatal("nil API ready")
+	}
+	if (&API{}).lifecycleExecutorReady() {
+		t.Fatal("missing coordinator ready")
+	}
+	if (&API{Coordinator: &control.Coordinator{}}).lifecycleExecutorReady() {
+		t.Fatal("missing executor ready")
+	}
+	wired := &API{Coordinator: &control.Coordinator{Lifecycle: apiTestLifecycleExecutor{}}}
+	if !wired.lifecycleExecutorReady() {
+		t.Fatal("wired executor not ready")
 	}
 }
