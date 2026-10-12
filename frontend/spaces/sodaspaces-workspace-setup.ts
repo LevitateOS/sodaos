@@ -46,6 +46,16 @@ export function inventoryIntents(event: Event): SavedRequest[] {
     return [];
   }
 }
+
+/** Authorized counts carried by intent-reviewed; malformed payloads yield undefined. */
+export function reviewedAuthorization(event: Event): {ideas: number; tasks: number} | undefined {
+  const detail = (event as CustomEvent).detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return undefined;
+  const record = detail as Record<string, unknown>;
+  if (!Number.isInteger(record.authorizedIdeas) || (record.authorizedIdeas as number) < 0) return undefined;
+  if (!Number.isInteger(record.tasks) || (record.tasks as number) < 0) return undefined;
+  return {ideas: record.authorizedIdeas as number, tasks: record.tasks as number};
+}
 import {renderRepositoryPicker} from './sodaspaces-repository-picker-view.js';
 import {repositoryChoices} from './sodaspaces-repository-response.js';
 import type {RepositoryChoices} from './sodaspaces-repository-response.js';
@@ -125,6 +135,8 @@ export interface SetupReading {
   firstSpace: Space | undefined;
   actorId: string;
   requestId: string;
+  reviewAuthorization: {ideas: number; tasks: number} | undefined;
+  suggestedRepository: string | undefined;
   onBegin: () => void;
   onRefresh: () => void;
 }
@@ -138,6 +150,7 @@ export interface SetupActions {
   setRepositoryError(error: string): void;
   setRepositoryBusy(busy: boolean): void;
   setSetupReturn(target: SetupReturn | undefined): void;
+  setReviewAuthorization(auth: {ideas: number; tasks: number} | undefined): void;
   setProject(project: string): void;
   setView(view: 'terminal' | 'sessions' | 'project'): void;
   setManagementMode(mode: 'standard' | 'journey' | 'settings'): void;
@@ -180,6 +193,8 @@ export function renderSetupBody(
         error: reading.repositoryError,
         blocked,
         createURL: reading.forgejoPrefix + '/repo/create',
+        ...(reading.reviewAuthorization ? {authorization: reading.reviewAuthorization} : {}),
+        ...(reading.suggestedRepository ? {suggested: reading.suggestedRepository} : {}),
       },
       {
         query: (value) => onRepositoryQuery(actions, value),
@@ -239,7 +254,7 @@ export function renderSetup(reading: SetupReading, actions: SetupActions, host: 
         @intent-saved=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
         @intent-resumed=${(event: Event) => actions.syncIntentRoute(intentIdentity(event))}
         @intent-inventory=${(event: Event) => actions.setSavedRequests(inventoryIntents(event))}
-        @intent-reviewed=${() => chooseIntentRepository(read(), actions, host)}
+        @intent-reviewed=${(event: Event) => chooseIntentRepository(event, read(), actions, host)}
         @intent-leave=${() => leaveSetup(read(), actions, host)}
       ></soda-intent>
       ${renderSetupBody(reading, actions, host, blocked, read)}
@@ -261,6 +276,7 @@ export function beginSetup(reading: SetupReading, actions: SetupActions, host: S
   actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
   actions.setSetup('intent');
   actions.setRepositoryChoice('');
+  actions.setReviewAuthorization(undefined);
   if (reading.requestId !== '') host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.syncIntentRoute(null);
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
@@ -274,13 +290,15 @@ export function resumeSetup(intent: string, reading: SetupReading, actions: Setu
   actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
   actions.setSetup('intent');
   actions.setRepositoryChoice('');
+  actions.setReviewAuthorization(undefined);
   host.querySelector<SodaIntent>('soda-intent')?.reset();
   actions.syncIntentRoute(intent);
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
 }
 
-function chooseIntentRepository(reading: SetupReading, actions: SetupActions, host: SetupHost) {
+function chooseIntentRepository(event: Event, reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.canRestore || !reading.activeSurface) return;
+  actions.setReviewAuthorization(reviewedAuthorization(event));
   actions.setSetup('repositories');
   focusSetupPanel(host, actions.isStale, actions.isActiveSurface);
   void searchRepositories({...reading, setup: 'repositories', repositoryChoice: ''}, actions, 1);
@@ -313,6 +331,7 @@ export function cancelSetup(reading: SetupReading, actions: SetupActions, host: 
   actions.currentRepositoryRequest()?.abort();
   actions.admitRepositoryRequest(undefined);
   actions.setRepositoryBusy(false);
+  actions.setReviewAuthorization(undefined);
   actions.setSetup(null);
   if (reading.requestId !== '') actions.syncIntentRoute(null);
   if (reading.setupReturn) {
