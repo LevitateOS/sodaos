@@ -96,11 +96,12 @@ test('settings tabs: arrow keys wrap and Home/End jump with selection following 
 
 // Viewport coverage note: the compact (320x568) and short (720x422) matrix
 // viewports verify the settings composition across small allocations, and
-// the 200% test below derives its viewport/allocation from the standard
-// base so the browser-zoom equivalence is explicit and measured.
+// the reduced-size test below derives its viewport/allocation from the
+// standard base as a reduced CSS viewport/allocation proxy. Final native
+// fonts/container/browser behavior (F06) remains open.
 
-test('settings tabs stay usable at measured 200% browser-zoom equivalent', async (t) => {
-  // 200% browser zoom halves the CSS viewport and the measured allocation.
+test('settings tabs stay usable at reduced CSS viewport/allocation proxy', async (t) => {
+  // The proxy halves the CSS viewport and the measured allocation.
   const base = {width: 1440, height: 1000, allocation: 600};
   const viewport = {width: base.width / 2, height: base.height / 2, allocation: base.allocation / 2};
   for (const tab of tabs) {
@@ -130,38 +131,47 @@ test('settings tabs stay usable at measured 200% browser-zoom equivalent', async
     });
     assert(
       (geometry.siblings['soda-identity'] ?? 0) > 0,
-      `${tab} 200% Identity sibling crushed to zero ` + JSON.stringify(geometry.siblings)
+      `${tab} reduced-proxy Identity sibling crushed to zero ` + JSON.stringify(geometry.siblings)
     );
     // One control row (44px) stays visible even at the halved allocation.
     assert(
       geometry.content >= 44,
-      `${tab} 200% panel content squeezed to ${geometry.content}px ` + JSON.stringify(geometry.siblings)
+      `${tab} reduced-proxy panel content squeezed to ${geometry.content}px ` + JSON.stringify(geometry.siblings)
     );
-    assert(geometry.horizontal <= 1, `${tab} 200% panel overflows horizontally`);
+    assert(geometry.horizontal <= 1, `${tab} reduced-proxy panel overflows horizontally`);
     const first = panel.locator('button:not([disabled]), [href], input:not([disabled]), select, textarea').first();
     await first.scrollIntoViewIfNeeded();
-    assert(await first.isVisible(), `${tab} 200% first control unreachable`);
-    assert(await first.isEnabled(), `${tab} 200% first control disabled`);
+    assert(await first.isVisible(), `${tab} reduced-proxy first control unreachable`);
+    assert(await first.isEnabled(), `${tab} reduced-proxy first control disabled`);
     const scrolls = await panel.evaluate((node) => {
       node.scrollTop = node.scrollHeight;
       return node.scrollTop > 0 || node.scrollHeight <= node.clientHeight;
     });
-    assert(scrolls, `${tab} 200% panel overflow does not scroll`);
+    assert(scrolls, `${tab} reduced-proxy panel overflow does not scroll`);
     assert(
       await panel.evaluate((node) => {
         const column = node.parentElement;
         return !!column && column.scrollHeight <= column.clientHeight + 1;
       }),
-      `${tab} 200% column spills its allocation`
+      `${tab} reduced-proxy column spills its allocation`
     );
   }
 });
 
 test('settings access with no saved keys keeps the add-key form reachable at compact width', async (t) => {
-  const page = await settingsFixture(t, {}, {width: 320, height: 568, allocation: 568});
+  const page = await settingsFixture(t, {saved: [], installed: []}, {width: 320, height: 568, allocation: 568});
   await page.getByRole('tab', {name: 'Access', exact: true}).click();
   const panel = page.locator('[role=tabpanel]:visible');
   await panel.waitFor();
+  // The subject is the actual empty key list, not the default saved fixture:
+  // the joined panel renders no saved-key entries and no remove actions.
+  await panel.locator('fieldset[data-control=keys]').waitFor();
+  assert.equal(
+    await panel.locator('fieldset[data-control=keys] ul li').count(),
+    0,
+    'empty state still lists a saved key'
+  );
+  assert.equal(await panel.getByRole('button', {name: 'Remove saved key', exact: true}).count(), 0);
   const keyField = panel.getByLabel('Public SSH key');
   await keyField.waitFor();
   await keyField.scrollIntoViewIfNeeded();

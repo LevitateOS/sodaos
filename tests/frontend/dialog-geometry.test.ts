@@ -86,7 +86,7 @@ async function dialogGeometry(page: Page, name: string, viewport: {width: number
 for (const viewport of [
   {width: 320, height: 568},
   {width: 720, height: 422},
-  // Measured 200% browser-zoom equivalent of the 1440x1000 standard viewport.
+  // Reduced CSS viewport/allocation proxy: half the 1440x1000 standard viewport.
   {width: 1440 / 2, height: 1000 / 2},
 ]) {
   test(
@@ -168,8 +168,8 @@ for (const viewport of [
 }
 
 // Viewport coverage note: the compact/short matrix viewports above verify
-// the dialogs across small allocations. This is viewport coverage only,
-// pending actual 200% zoom qualification. The CSS `zoom` property is
-// deliberately not used: it keeps the viewport while scaling rendering,
-// which is not browser zoom and would assert non-production overflow
+// the dialogs across small allocations as a reduced CSS viewport/allocation
+// proxy. Final native fonts/container/browser behavior (F06) remains open.
+// The CSS `zoom` property is deliberately not used: it keeps the viewport
+// while scaling rendering, which would assert non-production overflow
 // semantics.

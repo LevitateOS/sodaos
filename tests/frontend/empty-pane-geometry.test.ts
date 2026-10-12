@@ -6,7 +6,7 @@ setupWorkspaceDriver();
 // F05: the empty pane is the terminal-selection surface shown in a pane with
 // no attached terminal. Its message and both actions (Use existing terminal /
 // New terminal here) must stay inside the pane box and remain reachable at
-// compact, short-height and measured 200% browser-zoom-equivalent sizes,
+// compact, short-height and reduced CSS viewport/allocation proxy sizes,
 // with no horizontal spill. 720x500 derives from the 1440x1000 base halved.
 for (const viewport of [
   {width: 320, height: 568},
