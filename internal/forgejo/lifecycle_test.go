@@ -19,6 +19,10 @@ func (f *lifecycleFakeBackground) ReadNativeRevision(context.Context) (sdk.Nativ
 	return sdk.NativeRevisionObservation{Revision: 1, Idle: true}, nil
 }
 
+func (f *lifecycleFakeBackground) ReadOperations(context.Context) (sdk.OperationsHandshake, error) {
+	return sdk.OperationsHandshake{}, errors.New("unused")
+}
+
 func (f *lifecycleFakeBackground) ReadSnapshot(context.Context, sdk.CredentialFile, sdk.SnapshotRequest) (sdk.NativeSnapshot, error) {
 	return sdk.NativeSnapshot{}, errors.New("unused")
 }
