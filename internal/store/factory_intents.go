@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -115,6 +116,18 @@ func (s *Store) SaveIntentRevision(ctx context.Context, r factory.IntentRevision
 			return err
 		}
 		if headRev.State == "accepted" && r.Repository != headRev.Repository {
+			return errors.New("repository change needs a separate build request")
+		}
+		// The first commitment pins the repository for the whole intent:
+		// any later draft, rejected, declined, or abandoned head keeps it.
+		// Revision rows are immutable and the head lock serializes saves,
+		// so one committed row read here binds this save exactly.
+		var committed string
+		err = tx.QueryRowContext(ctx, `SELECT data->>'repository' FROM factory_intent_revisions WHERE intent=$1 AND data->>'state'='accepted' LIMIT 1`, r.Intent).Scan(&committed)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if err == nil && committed != strconv.FormatInt(r.Repository, 10) {
 			return errors.New("repository change needs a separate build request")
 		}
 	}
