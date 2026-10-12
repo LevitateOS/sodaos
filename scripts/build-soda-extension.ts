@@ -10,7 +10,7 @@ const entries = {
   'soda-workspace-panel-entry.js': 'frontend/spaces/soda-workspace-panel-entry.ts',
   'soda-tailnet-entry.js': 'frontend/tailnet/soda-tailnet-entry.ts',
 } as const;
-const styles = {
+export const styles = {
   'components.css': 'assets/branding/forgejo/components.css',
   'sodaspaces.css': 'frontend/spaces/sodaspaces.css',
   'sodaspaces-page.css': 'frontend/spaces/sodaspaces-workspace.css',
@@ -74,7 +74,7 @@ async function buildScripts(assets: string) {
   assert.deepEqual(output.sort(), Object.keys(entries).sort(), 'Manifest entries lack built browser modules');
 }
 
-async function buildStyles(assets: string) {
+export async function buildExtensionStylesheets(assets: string): Promise<void> {
   for (const [name, path] of Object.entries(styles)) {
     const result = await Bun.build({
       entrypoints: [source(path)],
@@ -163,7 +163,7 @@ export async function buildSodaExtensionAssets(out: string, terminal: string) {
   const assets = resolve(out, 'assets');
   await mkdir(assets, {recursive: true});
   await buildScripts(assets);
-  await buildStyles(assets);
+  await buildExtensionStylesheets(assets);
   await copyLockedTerminal(assets, terminal);
   await copyNotices(assets);
   const files = (await filesUnder(assets)).sort();
