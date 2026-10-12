@@ -273,6 +273,16 @@ export class SodaIntent extends LitElement {
     this.changeOpen = false;
     this.changeText = '';
   }
+  focusReview() {
+    void this.updateComplete.then(() => {
+      const root = this.shadowRoot;
+      if (!root) return;
+      const target =
+        root.querySelector<HTMLElement>('section.intent-review h2') ||
+        root.querySelector<HTMLElement>('section.intent-entry h2');
+      target?.focus();
+    });
+  }
   private async perform(operation: (signal: AbortSignal) => Promise<void>, note = 'Saving and planning…') {
     if (this.busy || this.blocked || !this.api) return false;
     const request = new AbortController();
