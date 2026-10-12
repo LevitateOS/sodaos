@@ -46,10 +46,35 @@ test('parser tolerates server null arrays', () => {
       const revision = review(doc);
       (revision.recommendation as Record<string, unknown>).constraints = null;
       (revision.consistency as Record<string, unknown>).mismatches = null;
+      revision.challenges = null;
     })
   );
   assert.deepEqual(read.review?.recommendation?.constraints, []);
   assert.deepEqual(read.review?.consistency?.mismatches, []);
+  assert.deepEqual(read.review?.challenges, []);
+  const unsupported = savedReviewRead(
+    mutate((doc) => {
+      const content = review(doc).content as Record<string, unknown>;
+      content.supported = false;
+      content.alternatives = null;
+    })
+  );
+  assert.equal(unsupported.review?.content.alternatives, undefined);
+  const branches = savedReviewRead(
+    mutate((doc) => {
+      const alternatives = (review(doc).content as Record<string, unknown>).alternatives as Array<
+        Record<string, unknown>
+      >;
+      const first = alternatives[0];
+      assert.ok(first);
+      const steps = first.steps as Array<Record<string, unknown>>;
+      const step = steps[0];
+      assert.ok(step);
+      step.branches = null;
+    })
+  );
+  const adopted = branches.review?.content.alternatives?.[0]?.steps[0];
+  assert.equal(adopted?.branches, undefined);
 });
 
 test('missing read carries no review', () => {
@@ -189,6 +214,46 @@ test('parser rejects substituted identities', () => {
       'facts not leading with the objective',
       mutate((doc) => {
         (review(doc).content as Record<string, unknown>).facts = ['A different opening claim'];
+      }),
+    ],
+    [
+      'alternative outcomes null',
+      mutate((doc) => {
+        const alternatives = (review(doc).content as Record<string, unknown>).alternatives as Array<
+          Record<string, unknown>
+        >;
+        const first = alternatives[0];
+        assert.ok(first);
+        first.outcomes = null;
+      }),
+    ],
+    [
+      'alternative outcomes empty',
+      mutate((doc) => {
+        const alternatives = (review(doc).content as Record<string, unknown>).alternatives as Array<
+          Record<string, unknown>
+        >;
+        const first = alternatives[0];
+        assert.ok(first);
+        first.outcomes = [];
+      }),
+    ],
+    [
+      'milestones null',
+      mutate((doc) => {
+        (review(doc).recommendation as Record<string, unknown>).milestones = null;
+      }),
+    ],
+    [
+      'unknowns null',
+      mutate((doc) => {
+        (review(doc).content as Record<string, unknown>).unknowns = null;
+      }),
+    ],
+    [
+      'exclusion meanings nulled under excluded ideas',
+      mutate((doc) => {
+        (review(doc).content as Record<string, unknown>).exclusions = null;
       }),
     ],
   ];

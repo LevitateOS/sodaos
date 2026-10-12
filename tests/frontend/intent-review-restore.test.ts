@@ -150,57 +150,53 @@ test('fresh resume restores the illustrated flow without Explore', async () => {
 
 // The G07 source join: TestSavedReviewJoinCaptureRound records one live
 // Explore→save→read round here; this test restores the production component
-// from those exact bytes. Regenerate with that Go test when the round shape
-// changes; the files hold API response bodies only.
-const joinDir = new URL('../../.artifacts/g07-join/', import.meta.url);
-let joinRevision: unknown;
-let joinRead: unknown;
-try {
-  joinRevision = JSON.parse(readFileSync(new URL('revision.json', joinDir), 'utf8'));
-  joinRead = JSON.parse(readFileSync(new URL('review.json', joinDir), 'utf8'));
-} catch {
-  joinRevision = undefined;
-  joinRead = undefined;
-}
-
-test(
-  'live round restores the captured flow, recommendation and verdicts',
-  {skip: joinRevision === undefined || joinRead === undefined},
-  async () => {
-    const revision = joinRevision;
-    const rawRead = joinRead;
-    const read = savedReviewRead(rawRead);
-    const review = read.review;
-    assert.ok(review);
-    const recommendation = review.recommendation;
-    assert.ok(recommendation);
-    assert.ok(review.settled.length + review.challenges.length > 0);
-    const intent = read.intent;
-    const routes: Record<string, unknown> = {
-      '/api/factory/departments': [],
-      '/api/factory/intents?limit=20': {intents: []},
-      [`/api/factory/intents/${intent}`]: revision,
-      [`/api/factory/intents/${intent}/review`]: rawRead,
-    };
-    const calls: string[] = [];
-    const el = await mount(stubApi(routes, calls), intent);
-    const text = rendered(el);
-    assert.match(text, /Here is how it would work/);
-    let at = -1;
-    for (const milestone of recommendation.milestones) {
-      const next = text.indexOf(milestone.name, at + 1);
-      assert.ok(next > at, `milestone out of order: ${milestone.name}`);
-      at = next;
-    }
-    for (const step of recommendation.alternative.steps) {
-      assert.ok(text.includes(step.action), `step missing: ${step.action}`);
-    }
-    assert.deepEqual(el.exploration?.settled, review.settled);
-    assert.equal(el.exploration?.challenges.length, review.challenges.length);
-    assert.ok(!calls.some((path) => path.endsWith('/explore')), 'resume explored instead of restoring');
-    for (const path of calls) assert.ok(path in routes, `effect replay: ${path}`);
+// from those exact bytes and fails closed when they are absent: a missing
+// artifact is a missing join, never a pass or a skip. Regenerate with that
+// Go test when the round shape changes; the files hold API response bodies
+// only.
+test('live round restores the captured flow, recommendation and verdicts', async () => {
+  const joinDir = new URL('../../.artifacts/g07-join/', import.meta.url);
+  let revision: unknown;
+  let rawRead: unknown;
+  try {
+    revision = JSON.parse(readFileSync(new URL('revision.json', joinDir), 'utf8'));
+    rawRead = JSON.parse(readFileSync(new URL('review.json', joinDir), 'utf8'));
+  } catch {
+    assert.fail(
+      'G07 join artifact missing: run TestSavedReviewJoinCaptureRound in internal/web/api to regenerate .artifacts/g07-join/{revision,review}.json'
+    );
   }
-);
+  const read = savedReviewRead(rawRead);
+  const review = read.review;
+  assert.ok(review);
+  const recommendation = review.recommendation;
+  assert.ok(recommendation);
+  assert.ok(review.settled.length + review.challenges.length > 0);
+  const intent = read.intent;
+  const routes: Record<string, unknown> = {
+    '/api/factory/departments': [],
+    '/api/factory/intents?limit=20': {intents: []},
+    [`/api/factory/intents/${intent}`]: revision,
+    [`/api/factory/intents/${intent}/review`]: rawRead,
+  };
+  const calls: string[] = [];
+  const el = await mount(stubApi(routes, calls), intent);
+  const text = rendered(el);
+  assert.match(text, /Here is how it would work/);
+  let at = -1;
+  for (const milestone of recommendation.milestones) {
+    const next = text.indexOf(milestone.name, at + 1);
+    assert.ok(next > at, `milestone out of order: ${milestone.name}`);
+    at = next;
+  }
+  for (const step of recommendation.alternative.steps) {
+    assert.ok(text.includes(step.action), `step missing: ${step.action}`);
+  }
+  assert.deepEqual(el.exploration?.settled, review.settled);
+  assert.equal(el.exploration?.challenges.length, review.challenges.length);
+  assert.ok(!calls.some((path) => path.endsWith('/explore')), 'resume explored instead of restoring');
+  for (const path of calls) assert.ok(path in routes, `effect replay: ${path}`);
+});
 
 test('moved head keeps the review with an out-of-date notice', async () => {
   const moved = {...headRevision, id: 'd333333333333333333333333'};
