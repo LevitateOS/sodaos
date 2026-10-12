@@ -101,6 +101,14 @@ on this pin and are claimed by no row; they join a later packet when
 merged. New rows carry current spans; prior rows keep their pins.
 Structural/body/review pins and the integrated packet stand unchanged.
 
+Final routing delta at `71f79938` (2026-10-12), incremental from
+`39d9ad6a`: 0 added, 4 modified, 0 deleted outside this plan. Records
+the settled source only: I0f revisions/plan GET query admission with
+nine allowlist rows, and C accepted-overview plus idle-Configure native
+New routing (committed-flag clear, stale/canRestore guard, shared
+newRouteCurrent helper, 2 regressions). C source settled at this pin.
+Structural/body/review pins and the integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
