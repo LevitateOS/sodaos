@@ -47,12 +47,21 @@ files_search_pids(soda_dashboard_t)
 allow soda_dashboard_t soda_host_socket_t:sock_file write;
 allow soda_dashboard_t unconfined_service_t:unix_stream_socket connectto;
 allow soda_dashboard_t http_cache_port_t:tcp_socket name_bind;
-allow soda_dashboard_t self:tcp_socket listen;
 allow soda_dashboard_t node_t:tcp_socket node_bind;
 
 # The service observer resolves its native actor through Forgejo's loopback
 # REST listener. Fedora labels the configured TCP port 3000 ntop_port_t.
 allow soda_dashboard_t ntop_port_t:tcp_socket name_connect;
+
+# The fixed design client (internal/factory/control/priority_typesafe.go)
+# POSTs to https://api.typesafe.ai (TCP 443, http_port_t) with DNS
+# resolution. The container template grants the domain no self socket or
+# external connect permissions, so the client needs its own stream-socket
+# use (subsuming the former standalone self listen allow),
+# the http name_connect, and DNS resolution. No other egress changes.
+allow soda_dashboard_t self:tcp_socket create_stream_socket_perms;
+corenet_tcp_connect_http_port(soda_dashboard_t)
+sysnet_dns_name_resolve(soda_dashboard_t)
 
 # systemd creates and removes this one socket as its socket unit starts and
 # stops; it does not gain permission to relabel or manage other runtime files.
