@@ -1378,3 +1378,39 @@ test('untouched control adopts externally raised funding instead of clobbering i
     20
   );
 });
+
+test('back-to-review transition focuses the review heading through focusReview', async (t) => {
+  const page = await fixture(t, 'page', undefined, true);
+  await installIntentStore(page);
+  await setExplorationMode(page, 'supported');
+  await page.getByRole('heading', {name: 'What do you want to build?'}).waitFor();
+  await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a leave tracker');
+  await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  await page
+    .getByRole('combobox', {name: /^Choice:/})
+    .first()
+    .selectOption('accept');
+  await updateProposal(page);
+  await page.getByRole('button', {name: 'Choose repository', exact: true}).click();
+  await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.getByRole('heading', {name: 'Review your product direction'}).waitFor();
+  // C's focusSetupPanel consumer will call focusReview here once integrated;
+  // invoke it directly to prove the U contract in the real transition.
+  await page.evaluate(async () => {
+    const host = document.querySelector('soda-intent') as unknown as {
+      focusReview(): void;
+      updateComplete: Promise<unknown>;
+    };
+    host.focusReview();
+    await host.updateComplete;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  const focused = await page.evaluate(() => {
+    const root = document.querySelector('soda-intent')?.shadowRoot;
+    const target = root?.querySelector('section.intent-review h2');
+    return {isTarget: !!target && root?.activeElement === target, text: target?.textContent || ''};
+  });
+  assert.equal(focused.isTarget, true);
+  assert.equal(focused.text, 'Review your product direction');
+});
