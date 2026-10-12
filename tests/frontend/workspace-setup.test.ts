@@ -896,6 +896,23 @@ test('setup: direct /workspace/new load activates fresh entry in populated works
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
 });
 
+test('setup: retained owner follows native forward to /workspace/new without remount', {timeout: 60000}, async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  // Native forward: Fountain pushState then panel-entry sync calls present()
+  // on the retained owner; no popstate fires and nothing remounts.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/workspace/new');
+    (document.querySelector('soda-spaces') as unknown as {present(kind: 'page'): void}).present('page');
+  });
+  await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
+    []
+  );
+});
+
 test('setup: unknown request route reports unavailable without losing the entry', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh());

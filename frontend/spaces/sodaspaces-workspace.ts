@@ -446,7 +446,13 @@ export class SodaSpaces extends LitElement {
     // current content presentation and observed repository preference change.
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
     if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
+    this.armNewRoute(kind);
     this.requestUpdate();
+  }
+  private armNewRoute(kind: 'page' | 'native') {
+    // Same guarded one-shot as configure/popstate for retained presentation.
+    if (kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+      this.pendingNewRoute = true;
   }
   private pollAttention() {
     if (this.stale || this.disposed) return;
@@ -485,14 +491,23 @@ export class SodaSpaces extends LitElement {
     this.display();
   }
   private activateNewRoute() {
-    // One-shot fresh entry for direct new-route load/traversal in a populated
-    // workspace. The flag clears on any setup so Back/cancel never refires;
-    // /workspace/new stays the neutral post-leave route for rendering.
-    if (this.setup) this.pendingNewRoute = false;
-    else if (this.pendingNewRoute && this.spaces.length) {
-      beginSetup(this.setupReading(), this.setupActions(), this);
-      if (this.setup) this.pendingNewRoute = false;
+    // One-shot fresh entry for direct new-route load/traversal/forward in a
+    // populated workspace. The flag clears on any setup so Back/cancel never
+    // refires; /workspace/new stays the neutral post-leave route for
+    // rendering. The current route is rechecked so a stale flag left by
+    // native navigation can never activate.
+    if (this.setup) {
+      this.pendingNewRoute = false;
+      return;
     }
+    if (!this.pendingNewRoute) return;
+    const armed =
+      this.binding?.kind === 'page' &&
+      this.spaces.length > 0 &&
+      isNewRouteLocation(window.location.pathname, this.repositoryPrefix());
+    if (armed) beginSetup(this.setupReading(), this.setupActions(), this);
+    if (this.setup || !isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
+      this.pendingNewRoute = false;
   }
   private geometryChanged(width: number, height: number, cell: {width: number; height: number}) {
     if (this.workspaceWidth !== this.clientWidth) return true;
