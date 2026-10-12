@@ -235,6 +235,14 @@ export class SodaIntent extends LitElement {
     if (changed.has('actor')) {
       this.exploration = undefined;
       this.restoredReview = undefined;
+      // Abort an in-flight resume, but do not clear its controller: the
+      // settling resume still owns busy cleanup. Mark the request handled
+      // so the busy cascade does not refetch the old request under the
+      // new actor; navigation still resumes.
+      if (this.resumeController) {
+        this.resumeController.abort();
+        this.loadedRequest = this.request;
+      }
     }
   }
   protected updated(changed: PropertyValues<this>) {
@@ -388,6 +396,7 @@ export class SodaIntent extends LitElement {
       if (saved.intent !== id) throw Error('Mismatched intent revision');
       const read = await this.loadReview(id, controller.signal);
       if (!this.resumeCurrent(id, controller)) return;
+      if (read && (read.intent !== id || read.head_revision !== saved.id)) throw Error('Mismatched review snapshot');
       this.applyRevision(saved, read);
       this.loadedRequest = id;
       this.dispatchEvent(
@@ -451,10 +460,11 @@ export class SodaIntent extends LitElement {
     try {
       return savedReviewRead(await this.call('/api/factory/intents/' + id + '/review', undefined, signal));
     } catch (error) {
-      // An absent review route or record degrades to no restored review;
-      // genuine failures fail the resume with edits kept.
-      if (error instanceof SodaRequestError && error.status !== 404) throw error;
-      return undefined;
+      // Only an absent review degrades to no restored review. Network,
+      // parse and all other failures rethrow so the resume fails with
+      // unsaved edits kept instead of applying a bare revision.
+      if (error instanceof SodaRequestError && error.status === 404) return undefined;
+      throw error;
     }
   }
   private applyRevision(saved: IntentRevision, read?: SavedReviewRead) {

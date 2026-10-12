@@ -211,6 +211,51 @@ test('failed review load preserves the prior revision and unsaved correction', a
   assert.equal(kept?.value, 'Only direct managers approve');
 });
 
+async function poisonedReviewKeepsEdits(name: string, poison: unknown) {
+  const calls: string[] = [];
+  const el = await mount(stubApi(baseRoutes(JSON.parse(hflowCurrent)), calls), 'd000000000000000000000000');
+  const field = el.shadowRoot?.querySelector<HTMLTextAreaElement>('textarea[aria-label^="Explain a correction"]');
+  assert.ok(field, name);
+  field.value = 'Only direct managers approve';
+  field.dispatchEvent(new Event('input', {bubbles: true, composed: true}));
+  await el.updateComplete;
+  assert.equal(el.dirty, true, name);
+  const routes = baseRoutes(JSON.parse(hflowCurrent));
+  routes['/api/factory/intents/d000000000000000000000001'] = {
+    ...headRevision,
+    id: 'd111111111111111111111112',
+    intent: 'd000000000000000000000001',
+  };
+  routes['/api/factory/intents/d000000000000000000000001/review'] = poison;
+  el.api = stubApi(routes, calls);
+  el.request = 'd000000000000000000000001';
+  await settle(el);
+  assert.equal(el.revision?.intent, 'd000000000000000000000000', name);
+  assert.match(el.error, /kept/, name);
+  const kept = el.shadowRoot?.querySelector<HTMLTextAreaElement>('textarea[aria-label^="Explain a correction"]');
+  assert.equal(kept?.value, 'Only direct managers approve', name);
+}
+
+test('poisoned review responses fail the resume with edits kept', async () => {
+  await poisonedReviewKeepsEdits('network', new TypeError('network down'));
+  await poisonedReviewKeepsEdits('parse', {
+    intent: 'd000000000000000000000001',
+    head_revision: 'd111111111111111111111112',
+    status: 'current',
+  });
+  await poisonedReviewKeepsEdits('wrong-intent', JSON.parse(hflowCurrent));
+  const mixedHead = JSON.parse(hflowCurrent) as Record<string, unknown>;
+  const mixedReview = mixedHead.review as Record<string, unknown>;
+  mixedHead.intent = 'd000000000000000000000001';
+  mixedHead.head_revision = 'd333333333333333333333333';
+  mixedHead.status = 'stale';
+  mixedReview.intent = 'd000000000000000000000001';
+  (mixedReview.content as Record<string, unknown>).intent = 'd000000000000000000000001';
+  (mixedReview.recommendation as Record<string, unknown>).intent = 'd000000000000000000000001';
+  (mixedReview.consistency as Record<string, unknown>).intent = 'd000000000000000000000001';
+  await poisonedReviewKeepsEdits('mixed-head', mixedHead);
+});
+
 test('superseded resume never applies stale review data', async () => {
   let releaseReview!: () => void;
   const reviewGate = new Promise<void>((resolve) => {
@@ -260,6 +305,42 @@ test('superseded resume never applies stale review data', async () => {
   assert.equal(el.revision?.intent, 'd000000000000000000000001');
   assert.equal(el.exploration, undefined);
   assert.equal(el.error, '');
+  assert.doesNotMatch(rendered(el), /Here is how it would work/);
+});
+
+test('gated account switch discards the old actor response', async () => {
+  let releaseReview!: () => void;
+  const reviewGate = new Promise<void>((resolve) => {
+    releaseReview = resolve;
+  });
+  let reviewRequested = false;
+  const api = async (path: string): Promise<unknown> => {
+    if (path === '/api/factory/intents/d000000000000000000000000/review') {
+      reviewRequested = true;
+      await reviewGate;
+    }
+    const routes = baseRoutes(JSON.parse(hflowCurrent));
+    if (!(path in routes)) throw new Error('unstubbed ' + path);
+    return structuredClone(routes[path]);
+  };
+  const el = document.createElement('soda-intent') as SodaIntent;
+  el.api = api;
+  el.actor = '1';
+  el.request = 'd000000000000000000000000';
+  el.active = true;
+  document.body.appendChild(el);
+  for (let i = 0; i < 200 && !reviewRequested; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.ok(reviewRequested, 'switch landed before the review fetch started');
+  el.actor = '2';
+  await el.updateComplete;
+  releaseReview();
+  await settle(el);
+  assert.equal(el.exploration, undefined);
+  assert.equal(el.revision, undefined);
+  assert.equal(el.error, '');
+  assert.equal(el.busy, false);
   assert.doesNotMatch(rendered(el), /Here is how it would work/);
 });
 
