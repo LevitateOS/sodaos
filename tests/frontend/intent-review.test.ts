@@ -163,6 +163,30 @@ test('parser rejects substituted identities', () => {
       }),
     ],
     [
+      'recommendation bound to another intent',
+      mutate((doc) => {
+        (review(doc).recommendation as Record<string, unknown>).intent = 'd999999999999999999999999';
+      }),
+    ],
+    [
+      'consistency bound to another intent',
+      mutate((doc) => {
+        (review(doc).consistency as Record<string, unknown>).intent = 'd999999999999999999999999';
+      }),
+    ],
+    [
+      'recommendation advice not a digest',
+      mutate((doc) => {
+        (review(doc).recommendation as Record<string, unknown>).advice = 'judgment call number three';
+      }),
+    ],
+    [
+      'consistency advice not a digest',
+      mutate((doc) => {
+        (review(doc).consistency as Record<string, unknown>).advice = 'checked and confident';
+      }),
+    ],
+    [
       'basis equals result',
       mutate((doc) => {
         review(doc).basis_revision = 'd222222222222222222222222';
@@ -190,6 +214,19 @@ test('parser rejects substituted identities', () => {
       'challenge colliding with settlement',
       mutate((doc) => {
         review(doc).settled = ['d444444444444444444444444'];
+      }),
+    ],
+    [
+      'duplicate challenge ideas',
+      mutate((doc) => {
+        const challenges = review(doc).challenges as Array<Record<string, unknown>>;
+        challenges.push({...challenges[0]});
+      }),
+    ],
+    [
+      'duplicate settled ideas',
+      mutate((doc) => {
+        review(doc).settled = ['d555555555555555555555555', 'd555555555555555555555555'];
       }),
     ],
   ];

@@ -147,6 +147,7 @@ export interface SavedRequest {
 }
 export const decisionID = (value: unknown): value is string =>
   typeof value === 'string' && /^d[0-9a-f]{24}$/.test(value);
+const digest = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 function text(value: unknown, limit: number): string {
   check(typeof value === 'string' && value.trim() && value.length <= limit && !value.includes('\0'));
   return value;
@@ -468,16 +469,35 @@ export interface SavedReviewRead {
   status: 'current' | 'stale' | 'missing';
   review?: SavedReview;
 }
+function reviewBindings(raw: Record<string, unknown>, payload: Exploration) {
+  check(payload.content.intent === raw.intent && payload.content.revision === raw.basis_revision);
+  if (payload.recommendation) {
+    check(payload.recommendation.intent === raw.intent && payload.recommendation.revision === raw.basis_revision);
+    check(digest(payload.recommendation.advice));
+  }
+  if (payload.consistency) {
+    check(payload.consistency.intent === raw.intent && payload.consistency.revision === raw.basis_revision);
+    check(digest(payload.consistency.advice));
+  }
+}
+function reviewVerdicts(payload: Exploration) {
+  const verdicts = new Set<string>();
+  for (const entry of payload.challenges) {
+    check(!verdicts.has(entry.idea));
+    verdicts.add(entry.idea);
+  }
+  for (const id of payload.settled) {
+    check(!verdicts.has(id));
+    verdicts.add(id);
+  }
+}
 export function savedReview(value: unknown): SavedReview {
   const raw = object(value);
   check(decisionID(raw.intent) && decisionID(raw.basis_revision) && decisionID(raw.result_revision));
   check(raw.basis_revision !== raw.result_revision);
   const payload = exploration(value);
-  check(payload.content.intent === raw.intent && payload.content.revision === raw.basis_revision);
-  if (payload.recommendation) check(payload.recommendation.revision === raw.basis_revision);
-  if (payload.consistency) check(payload.consistency.revision === raw.basis_revision);
-  const verdicts = new Set(payload.challenges.map((entry) => entry.idea));
-  for (const id of payload.settled) check(!verdicts.has(id));
+  reviewBindings(raw, payload);
+  reviewVerdicts(payload);
   const saved = count(raw.saved_unix);
   check(saved > 0);
   return {
