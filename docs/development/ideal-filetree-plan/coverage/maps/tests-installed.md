@@ -129,6 +129,17 @@ Exact byte-identical prior detailed map units
 | 25–44; prior detailed responsibility interval | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | matchesTerminalReservation — Private journey/mutation scope parsing and exact terminal reservation matcher; declarations/fields: `matchesTerminalReservation` — docs/development/ideal-filetree-plan/coverage/maps/tests-installed.md#tests/installed/sodaspaces-input.ts; manifest identical_prior confirms byte identity |
 | 45–48; prior detailed responsibility interval | [H03](../../slices/shared-supporting-slices.md#h03-encoding-and-parsing) | retained | validID — Private journey/mutation scope parsing and exact terminal reservation matcher; declarations/fields: `validID` — docs/development/ideal-filetree-plan/coverage/maps/tests-installed.md#tests/installed/sodaspaces-input.ts; manifest identical_prior confirms byte identity |
 
+<a id="coverage-7a526bf1e259"></a>
+
+## [tests/installed/sodaspaces-journey-evidence.ts](../../../../../tests/installed/sodaspaces-journey-evidence.ts)
+
+Delta duty inspection at `59b18572`. Native workspace mount evidence helper (Q driver): admitted sub-URL strip, four workspace rest shapes, canonical-path and same-origin API assertions. D06 retained.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 11–12, 14–27; workspaceRequestID; workspaceSubURL; admittedWorkspaceRest | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `59b18572` (Q-7a52): four admitted rest shapes (/workspace, /workspace/new, /workspace/requests/d{24}, /{owner}/{repo}/workspace) after one admitted sub-URL strip — Current source block and named test consumer inspected in tests/installed/sodaspaces-journey-evidence.ts. |
+| 35–45, 53; subURL/prefix/shape/canonical-path/API assertions | [D06](../../slices/release-and-installation.md#d06-installed-qualification) | retained | Delta at `59b18572` (Q-7a52): admitted-sub-URL, prefix, shape, canonical-path (pathname+search, no doubling) and subURL-scoped API assertions — Current source block and named test consumer inspected in tests/installed/sodaspaces-journey-evidence.ts. |
+
 <a id="coverage-5112ed1b4d4d"></a>
 
 ## [tests/installed/sodaspaces-matrix-native.ts](../../../../../tests/installed/sodaspaces-matrix-native.ts)

@@ -68,6 +68,18 @@ vs same-run recreation is recorded without claiming a continuous renderer
 or socket across filter DOM removal. Structural/body/full-review pins and
 the integrated packet stand unchanged.
 
+Settled-duty upkeep at `59b18572` (2026-10-12), incremental from
+`8fbed0a7`: 0 added, 8 modified, 0 deleted outside this plan. Records
+the four settled canon pins only: C03 direct/forward fresh-entry duties
+(isNewRouteLocation, pendingNewRoute, armNewRoute, activateNewRoute, 3
+new tests), I03 /factory/intents query admission with allowlist rows,
+and Helper v2 native workspace shapes with subURL/prefix/canonical-path
+assertions (D06 retained, new installed-map section). The workspace-driver
+shell-route tweak stays under its generic inventory row (harness
+accommodation, no named duty). FirstUse caller duties follow as a second
+packet when the Q FirstUse checked packet lands. Structural/body/review
+pins and the integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
