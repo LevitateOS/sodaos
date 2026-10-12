@@ -41,6 +41,65 @@ func TestClarifyIdeaCarriesAssumptionBasis(t *testing.T) {
 	}
 }
 
+func TestAppendClarifyOnceReusesStableIdentity(t *testing.T) {
+	base := factory.IntentRevision{Ideas: []factory.ProductIdea{{ID: "d111111111111111111111111", Description: "Track leave requests", Decision: "accept"}}}
+	first := appendClarifyOnce(base, "d222222222222222222222222")
+	clarified := 0
+	for _, idea := range first.Ideas {
+		if idea.Description == "Describe the first user action and the result that should count as success" {
+			clarified++
+		}
+	}
+	if clarified != 1 {
+		t.Fatalf("round one clarifications=%d", clarified)
+	}
+	second := appendClarifyOnce(first, "d333333333333333333333333")
+	clarified = 0
+	for _, idea := range second.Ideas {
+		if idea.Description == "Describe the first user action and the result that should count as success" {
+			clarified++
+			if idea.ID != "d222222222222222222222222" || idea.Decision != "pending" {
+				t.Fatalf("stable clarification lost=%+v", idea)
+			}
+		}
+	}
+	if clarified != 1 {
+		t.Fatalf("round two clarifications=%d, want exactly one stable idea", clarified)
+	}
+}
+
+func TestAppendClarifyOncePreservesAnsweredClarification(t *testing.T) {
+	answered := clarifyIdea("d222222222222222222222222")
+	answered.Decision = "edit"
+	answered.Correction = "The first action is submitting the request form"
+	answered.Provenance = "human"
+	answered.Actor = 7
+	r := factory.IntentRevision{Ideas: []factory.ProductIdea{
+		{ID: "d111111111111111111111111", Description: "Track leave requests", Decision: "accept"},
+		answered,
+	}}
+	next := appendClarifyOnce(r, "d333333333333333333333333")
+	if len(next.Ideas) != 2 {
+		t.Fatalf("answered clarification duplicated: %+v", next.Ideas)
+	}
+	if next.Ideas[1].Correction != "The first action is submitting the request form" || next.Ideas[1].Provenance != "human" {
+		t.Fatalf("answer not preserved=%+v", next.Ideas[1])
+	}
+}
+
+func TestAppendClarifyOnceIgnoresOrdinaryIdeas(t *testing.T) {
+	r := factory.IntentRevision{Ideas: []factory.ProductIdea{
+		{ID: "d111111111111111111111111", Description: "Track leave requests", Consequence: "Managers review requests", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
+	}}
+	next := appendClarifyOnce(r, "d222222222222222222222222")
+	if len(next.Ideas) != 2 || next.Ideas[0].ID != "d111111111111111111111111" {
+		t.Fatalf("ordinary idea touched=%+v", next.Ideas)
+	}
+	if next.Ideas[1].ID != "d222222222222222222222222" || next.Ideas[1].Decision != "pending" {
+		t.Fatalf("clarification missing=%+v", next.Ideas)
+	}
+}
+
 func TestExploreResponseKeepsRevisionFlatWithExploration(t *testing.T) {
 	proposal := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", State: "draft"}
 	content := factory.DescribeAlternatives("Time-off requests my manager can approve")
