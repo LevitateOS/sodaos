@@ -128,6 +128,16 @@ fixture shape and committed-state regression step. No durable identity
 or DTO change. Structural/body/review pins and the integrated packet
 stand unchanged.
 
+Sparse-overview duty delta at `31caf48a` (2026-10-12), incremental
+from `2f382509`: 0 added, 6 modified, 0 deleted outside this plan (4
+V source/test files recorded here; 2 Q guide docs are Q-owned and
+untouched by this packet). Records sparse by_state zeros with
+validation retained, the authoritative H-R read/error boundary, the
+repo-only no-intent view, removal of the unreachable composed readers
+with imports (stale-selector rows marked superseded, kept as history),
+and the new plus converted tests. Structural/body/review pins and the
+integrated packet stand unchanged.
+
 Historical responsibility snapshot: **2026-10-07**, source `519b76bd`, with
 root/asset packet `58a99730` and this authorized documentation refresh recorded
 separately. The baseline’s 12 already modified guidance inputs retain their
