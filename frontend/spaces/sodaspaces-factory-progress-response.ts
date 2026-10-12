@@ -1,4 +1,5 @@
 import {check, id, object, projectId} from './sodaspaces-api.js';
+import {nativePath} from './sodaspaces-factory-activity.js';
 import {decisionID} from './sodaspaces-intent-response.js';
 import {issueBlocker} from './sodaspaces-factory-work-response.js';
 import type {IssueBlocker} from './sodaspaces-factory-work-response.js';
@@ -515,6 +516,9 @@ export interface LifecycleEffectAction {
   readonly revoked: boolean;
   readonly settled: boolean;
   readonly results: Record<string, string>;
+  readonly target_id?: string;
+  readonly config_owner?: string;
+  readonly target_link?: string;
 }
 
 const lifecycleEvents = ['issue_created', 'pr_created', 'verified_merge'];
@@ -578,31 +582,69 @@ function lifecycleResultsMap(value: unknown): Record<string, string> {
   }
   return out;
 }
+// lifecycleBoundID admits an absent or "0" journaled identity as
+// unbound: unclaimed native targets and unknown historical owners
+// read distinctly from bound identities, never as identity zero.
+function lifecycleBoundID(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  check(decimalID(value));
+  return value === '0' ? undefined : value;
+}
+// lifecycleTargetLink admits only a verified native relative path:
+// links render solely from bound producer facts, never from a
+// client-built URL.
+function lifecycleTargetLink(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  check(nativePath(value));
+  return value;
+}
 function lifecycleAction(value: unknown, issue: string, event: string): LifecycleEffectAction {
   const raw = object(value);
   check(typeof raw.id === 'string' && raw.id.length >= 1 && raw.id.length <= 128);
   check(raw.event === event && lifecycleEvents.includes(event));
   check(typeof raw.action === 'string' && raw.action === lifecycleActions[event]);
   check(raw.issue_id === issue);
-  check(typeof raw.attempts === 'number' && Number.isSafeInteger(raw.attempts) && raw.attempts >= 0);
-  // Unclaimed rows (no attempt yet) carry actor_id "0": the drain
-  // claims the enrolled submitter before the first attempt. Claimed
-  // rows always carry the enrolled actor.
-  const actor = raw.actor_id;
-  if (raw.attempts === 0) check(decimalID(actor));
-  else check(id(actor));
+  const attempt = lifecycleActionAttempt(raw);
   check(typeof raw.revoked === 'boolean' && typeof raw.settled === 'boolean');
   return {
     id: raw.id,
     event,
     action: raw.action,
-    actor_id: actor,
+    actor_id: attempt.actor,
     issue_id: issue,
-    attempts: raw.attempts,
+    attempts: attempt.attempts,
     max_attempts: counter(raw.max_attempts),
     revoked: raw.revoked,
     settled: raw.settled,
     results: lifecycleResultsMap(raw.results),
+    ...(attempt.targetID === undefined ? {} : {target_id: attempt.targetID}),
+    ...(attempt.configOwner === undefined ? {} : {config_owner: attempt.configOwner}),
+    ...(attempt.targetLink === undefined ? {} : {target_link: attempt.targetLink}),
+  };
+}
+// lifecycleActionAttempt binds one action row's attempt count with
+// its actor and bound identities. Unclaimed rows (no attempt yet)
+// carry actor_id "0": the drain claims the enrolled submitter
+// before the first attempt. Claimed rows always carry the enrolled
+// actor.
+function lifecycleActionAttempt(raw: Record<string, unknown>): {
+  actor: string;
+  attempts: number;
+  targetID: string | undefined;
+  configOwner: string | undefined;
+  targetLink: string | undefined;
+} {
+  const attempts = raw.attempts;
+  check(typeof attempts === 'number' && Number.isSafeInteger(attempts) && attempts >= 0);
+  const actor = raw.actor_id;
+  if (attempts === 0) check(decimalID(actor));
+  else check(id(actor));
+  return {
+    actor,
+    attempts,
+    targetID: lifecycleBoundID(raw.target_id),
+    configOwner: lifecycleBoundID(raw.config_owner),
+    targetLink: lifecycleTargetLink(raw.target_link),
   };
 }
 // lifecycleEffectActions binds one issue/event's durable action results
