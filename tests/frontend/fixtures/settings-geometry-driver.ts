@@ -40,11 +40,13 @@ export function setupSettingsGeometryDriver() {
                 : url.pathname === '/assets/soda/forgejo/components-buttons.css'
                   ? 'assets/branding/forgejo/components-buttons.css'
                   : '';
-        if (local)
-          return new Response(Bun.file(path.join(root, local)), {headers: {'Content-Type': 'text/css'}});
+        if (local) return new Response(Bun.file(path.join(root, local)), {headers: {'Content-Type': 'text/css'}});
         if (url.pathname !== '/') return new Response(null, {status: 404});
+        const allocation = Number(url.searchParams.get('h')) || 600;
         return new Response(
-          '<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style>.soda-workspace-management{height:600px}main{display:contents}body{margin:0}</style><div class="soda-workspace-management"><div><main></main></div></div><script type="module" src="/assets/drawer-fixture.js"></script>',
+          '<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style>.soda-workspace-management{height:' +
+            allocation +
+            'px}main{display:contents}body{margin:0}</style><div class="soda-workspace-management"><div><main></main></div></div><script type="module" src="/assets/drawer-fixture.js"></script>',
           {headers: {'Content-Type': 'text/html'}}
         );
       },
@@ -58,32 +60,69 @@ export function setupSettingsGeometryDriver() {
 }
 
 const connections = [
-  {owner_id: '1', provider_id: 'codex', id: 'conn-alpha', label: 'Alpha', email: 'alice@example.test', plan: 'team', state: 'connected'},
-  {owner_id: '1', provider_id: 'Muse', id: 'conn-beta', label: 'Beta', email: 'alice@example.test', plan: 'solo', state: 'connected'},
-  {owner_id: '1', provider_id: 'codex', id: 'conn-gamma', label: 'Gamma', email: 'alice@example.test', plan: 'team', state: 'expired'},
+  {
+    owner_id: '1',
+    provider_id: 'codex',
+    id: 'conn-alpha',
+    label: 'Alpha',
+    email: 'alice@example.test',
+    plan: 'team',
+    state: 'connected',
+  },
+  {
+    owner_id: '1',
+    provider_id: 'Muse',
+    id: 'conn-beta',
+    label: 'Beta',
+    email: 'alice@example.test',
+    plan: 'solo',
+    state: 'connected',
+  },
+  {
+    owner_id: '1',
+    provider_id: 'codex',
+    id: 'conn-gamma',
+    label: 'Gamma',
+    email: 'alice@example.test',
+    plan: 'team',
+    state: 'expired',
+  },
 ];
 
-export async function settingsFixture(t: TestContext, extra: Partial<State> = {}): Promise<Page> {
-  const page = await browser.newPage();
+export interface SettingsViewport {
+  width: number;
+  height: number;
+  allocation: number;
+}
+
+export async function settingsFixture(
+  t: TestContext,
+  extra: Partial<State> = {},
+  viewport: SettingsViewport = {width: 1440, height: 1000, allocation: 600}
+): Promise<Page> {
+  const page = await browser.newPage({viewport: {width: viewport.width, height: viewport.height}});
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   t.after(async () => {
     await page.close();
     assert.deepEqual(errors, []);
   });
-  await page.goto(server.url.href);
+  await page.goto(server.url.href + `?h=${viewport.allocation}`);
   await page.waitForFunction(() => typeof window.createDrawerFixture === 'function');
-  await page.evaluate(async ({extra, connections}) => {
-    window.drawerFixture = window.createDrawerFixture(extra);
-    window.drawerFixture.setReply(async (call) => {
-      if (call.url.includes('/identity/connections'))
-        return Response.json(call.url.includes('/environments/') ? [] : connections);
-      if (call.url.endsWith('/grants') || call.url.endsWith('/leases')) return Response.json([]);
-      return null;
-    });
-    window.drawerFixture.api.setPresentation('settings');
-    await window.drawerFixture.api.refresh();
-  }, {extra, connections});
+  await page.evaluate(
+    async ({extra, connections}) => {
+      window.drawerFixture = window.createDrawerFixture(extra);
+      window.drawerFixture.setReply(async (call) => {
+        if (call.url.includes('/identity/connections'))
+          return Response.json(call.url.includes('/environments/') ? [] : connections);
+        if (call.url.endsWith('/grants') || call.url.endsWith('/leases')) return Response.json([]);
+        return null;
+      });
+      window.drawerFixture.api.setPresentation('settings');
+      await window.drawerFixture.api.refresh();
+    },
+    {extra, connections}
+  );
   await page.getByRole('heading', {name: 'Identity connections'}).waitFor();
   await page.locator('[data-project-controls][aria-busy=false]').waitFor();
   return page;
