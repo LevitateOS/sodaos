@@ -318,6 +318,7 @@ export class SodaFactorySettings extends LitElement {
   private contextValue: FactoryContext | undefined;
   private activeValue = true;
   private needsLoad = true;
+  private interrupted = false;
   private serial = 0;
   private pendingPreparation?: PendingPreparation;
 
@@ -352,7 +353,10 @@ export class SodaFactorySettings extends LitElement {
   set active(value: boolean) {
     if (value === this.activeValue) return;
     this.activeValue = value;
-    if (!value) this.serial++;
+    if (!value) {
+      this.serial++;
+      this.interrupted = true;
+    }
     this.requestUpdate();
   }
 
@@ -402,16 +406,26 @@ export class SodaFactorySettings extends LitElement {
     const context = this.contextValue;
     if (!context || !this.activeValue) return;
     this.needsLoad = false;
+    this.interrupted = false;
     const serial = this.serial;
     const retained = {sourceSelection: this.view.sourceSelection, sourcePreview: this.view.sourcePreview};
     this.view = {...this.view, busy: true, message: ''};
     try {
       const next = await this.loadView(context, retained);
-      if (serial !== this.serial) return;
+      if (serial !== this.serial) return this.discardInterruptedLoad();
       this.view = {...next, message: '', busy: false};
     } catch (error) {
-      if (serial === this.serial) this.showRefreshError(error);
+      if (serial !== this.serial) return this.discardInterruptedLoad();
+      this.showRefreshError(error);
     }
+  }
+
+  private discardInterruptedLoad() {
+    if (!this.interrupted) return;
+    this.interrupted = false;
+    this.needsLoad = true;
+    this.view = {...this.view, busy: false};
+    this.requestUpdate();
   }
 
   private async loadView(
