@@ -1,6 +1,17 @@
 import {nativeAppSubUrl} from './soda-native-paths.js';
 import {id} from './sodaspaces-api.js';
-import type {MountContext} from './fountain-browser-contract.js';
+import type {MountContext, ResumeValidation} from './fountain-browser-contract.js';
+
+/**
+ * Host lifecycle resumes only under the admitted session generation
+ * (NFX-D05/C05). A mismatched resume validation is a retirement signal:
+ * the caller must release its resources instead of resuming stale state.
+ * The host normally retires on mismatch without calling resume; this
+ * check is the consumer-side refusal for a directly supplied validation.
+ */
+export function resumeGenerationRefused(generation: string, validation?: ResumeValidation): boolean {
+  return validation !== undefined && validation.sessionGeneration !== generation;
+}
 
 // Soda consumer mount context is the canonical Fountain MountContext
 // (NFX-D01/H-N). The host supplies scoped request/stream/navigate helpers;

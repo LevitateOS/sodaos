@@ -2,6 +2,7 @@ import {prepareExtensionMount} from '../spaces/soda-extension.js';
 import type {ExtensionMountContext} from '../spaces/soda-extension.js';
 import type {MountHandle} from '../spaces/fountain-browser-contract.js';
 import {mountTailnetPage} from './soda-tailnet-page.js';
+import type {ContributionPresentation, MountHandle, ResumeValidation} from '../spaces/fountain-browser-contract.js';
 
 export function mount(root: HTMLElement, context: ExtensionMountContext): MountHandle {
   if (context.pageId !== 'tailnet') throw Error('Invalid Tailnet page');
@@ -18,45 +19,15 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
   let disposed = false;
   let retired = false;
   let suspended = false;
-  const dispose = () => {
-    if (disposed) return;
-    disposed = true;
-    transport.dispose();
-    page.dispose();
-    styles.forEach((link) => link.remove());
-    root.classList.remove('soda-settings', 'soda-tailnet-settings');
   };
-  return {
+  // Host lifecycle (NFX-D05): suspend clears secrets and pauses polling,
+  // resume revalidates under the admitted generation, retire releases.
+  const handle: MountHandle & {dispose: () => void} = {
+    update: (presentation: ContributionPresentation) => page.update(presentation),
+    suspend: () => page.suspend(),
+    resume: (validation: ResumeValidation) => page.resume(validation),
+    retire: () => dispose(),
     dispose,
-    update(presentation) {
-      if (disposed || retired) return;
-      if (!presentation.visible && !suspended) {
-        suspended = true;
-        page.suspend();
-      } else if (presentation.visible && suspended) {
-        suspended = false;
-        page.resume();
-      }
-    },
-    suspend() {
-      if (disposed || retired || suspended) return;
-      suspended = true;
-      page.suspend();
-    },
-    resume(validation) {
-      if (disposed || retired) return;
-      if (validation.sessionGeneration !== transport.generation) {
-        page.retire();
-        return;
-      }
-      suspended = false;
-      page.resume();
-    },
-    retire() {
-      if (retired) return;
-      retired = true;
-      page.retire();
-      dispose();
-    },
   };
+  return handle;
 }

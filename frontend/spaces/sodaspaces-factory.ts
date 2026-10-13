@@ -10,7 +10,9 @@ import {object, readSodaJSON} from './sodaspaces-api.js';
 import type {TerminalView, Renderer} from './sodaspaces-terminal.js';
 import type {FitAddon} from '@xterm/addon-fit';
 import type {ITerminalAddon} from '@xterm/xterm';
+import {resumeGenerationRefused} from './soda-extension.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
+import type {ResumeValidation} from './fountain-browser-contract.js';
 
 export interface FactoryWatchContext {
   expectedUserId: string;
@@ -98,18 +100,9 @@ export class SodaFactoryWatch extends LitElement {
     window.visualViewport?.addEventListener('resize', () => resize(this.screenInput()), {
       signal: this.lifetime.signal,
     });
-    window.addEventListener('pagehide', () => this.invalidate(), {
-      signal: this.lifetime.signal,
-    });
-    window.addEventListener(
-      'pageshow',
-      (event) => {
-        if (event.persisted) this.invalidate();
-      },
-      {
-        signal: this.lifetime.signal,
-      }
-    );
+    // Host lifecycle only (NFX-D05): no pagehide/pageshow self-interpretation.
+    // The host drives suspend/resume/retire; ordinary navigation retains
+    // this renderer and its read-only stream.
   }
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -280,6 +273,23 @@ export class SodaFactoryWatch extends LitElement {
     this.viewVisible = visible;
     if (visible) resize(this.screenInput()); // Presentation only: never connect.
   }
+  /** Host concealment: pause visible work, retain renderer and stream. */
+  suspend() {
+    this.setVisible(false);
+  }
+  /** Host rebind after shelter/revalidation; never reconnects the stream. */
+  resume(validation?: ResumeValidation) {
+    if (this.disposed) return;
+    if (this.binding && resumeGenerationRefused(this.binding.transport.generation, validation)) {
+      this.retire();
+      return;
+    }
+    this.setVisible(true);
+  }
+  /** Host retirement: release the view without ending the watched run. */
+  retire() {
+    this.dispose();
+  }
   stop() {
     this.detach('Stopped watching. The run continues without this view.');
   }
@@ -347,6 +357,9 @@ export function mountFactoryWatch(
       return view.updateComplete;
     },
     stop: () => view.stop(),
+    suspend: () => view.suspend(),
+    resume: (validation?: ResumeValidation) => view.resume(validation),
+    retire: () => view.retire(),
     invalidate: () => view.invalidate(),
     dispose: () => view.dispose(),
   };

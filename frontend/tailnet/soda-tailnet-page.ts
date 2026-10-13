@@ -1,5 +1,7 @@
 import {LitElement, html} from 'lit';
+import {resumeGenerationRefused} from '../spaces/soda-extension.js';
 import type {PreparedExtensionMount} from '../spaces/soda-extension.js';
+import type {ContributionPresentation, ResumeValidation} from '../spaces/fountain-browser-contract.js';
 import type {Settings} from './soda-tailnet-response.js';
 import {refresh, request, resetEnrollment, resetHost} from './soda-tailnet-observation.js';
 import type {ObservationInput} from './soda-tailnet-observation.js';
@@ -46,11 +48,8 @@ class SodaTailnet extends LitElement {
   private tags = '';
   private preauthorized = false;
   private mode: 'save' | 'rotate' = 'save';
-  private readonly hiddenPage = () => this.retire();
-  private readonly shownPage = () => this.resume();
-  private readonly visibility = () => {
-    if (!document.hidden && !this.hostDirty && !this.enrollmentDirty) void refresh(this.observationInput());
-  };
+  // Local dirty guard only (NFX-D05): warn on unsaved operator drafts.
+  // Lifecycle authority comes from the host, never from this event.
   private readonly departure = (event: BeforeUnloadEvent) => {
     if (this.hostDirty || this.enrollmentDirty || this.busy) {
       event.preventDefault();
@@ -62,19 +61,41 @@ class SodaTailnet extends LitElement {
   }
   connectedCallback() {
     super.connectedCallback();
-    window.addEventListener('pagehide', this.hiddenPage);
-    window.addEventListener('pageshow', this.shownPage);
     window.addEventListener('beforeunload', this.departure);
-    document.addEventListener('visibilitychange', this.visibility);
     this.resume();
   }
   disconnectedCallback() {
     this.retire();
-    window.removeEventListener('pagehide', this.hiddenPage);
-    window.removeEventListener('pageshow', this.shownPage);
     window.removeEventListener('beforeunload', this.departure);
-    document.removeEventListener('visibilitychange', this.visibility);
     super.disconnectedCallback();
+  }
+  /**
+   * Host concealment (NFX-D05): clear secrets and pause polling while
+   * retaining operator drafts and observed settings for resume.
+   */
+  suspend() {
+    this.clearSecrets();
+    this.lifetime?.abort();
+    this.lifetime = null;
+    clearInterval(this.timer);
+    this.timer = undefined;
+  }
+  /** Host presentation update: visibility drives suspend/resume only. */
+  applyPresentation(presentation: ContributionPresentation) {
+    if (presentation.visible) this.resume();
+    else this.suspend();
+  }
+  /** Host retirement: full release; drafts and secrets do not resume. */
+  retireHost() {
+    this.retire();
+  }
+  /** Host rebind: resume polling only under the admitted generation. */
+  resumeHost(validation?: ResumeValidation) {
+    if (this.transport && resumeGenerationRefused(this.transport.generation, validation)) {
+      this.retire();
+      return;
+    }
+    this.resume();
   }
   private clearSecrets() {
     this.querySelectorAll<HTMLInputElement>('input[type=password]').forEach((input) => {
@@ -454,9 +475,10 @@ export function mountTailnetPage(root: HTMLElement, transport: PreparedExtension
   page.dataset.enrollmentLabel = root.dataset.enrollmentLabel || 'Automatic project access';
   root.append(page);
   return {
+    update: (presentation: ContributionPresentation) => page.applyPresentation(presentation),
+    suspend: () => page.suspend(),
+    resume: (validation?: ResumeValidation) => page.resumeHost(validation),
+    retire: () => page.retireHost(),
     dispose: () => page.remove(),
-    suspend: () => page.hostSuspend(),
-    resume: () => page.hostResume(),
-    retire: () => page.hostRetire(),
   };
 }

@@ -3,30 +3,91 @@ import assert from 'node:assert/strict';
 import {setupTerminalDriver, fixture, action, opening, ready, actions} from './fixtures/terminal-driver';
 setupTerminalDriver();
 
-for (const event of ['pagehide', 'pageshow'])
-  test(`${event} retires access without End or replay`, async (t) => {
-    const page = await fixture(t);
-    await ready(page);
-    await page.evaluate(async (event) => {
-      const f = window.terminalFixture;
-      window.dispatchEvent(event === 'pageshow' ? new PageTransitionEvent(event, {persisted: true}) : new Event(event));
-      await f.api.ready;
-      f.socket().message({type: 'output', data: 'YWJj'});
-      window.dispatchEvent(new Event('focus'));
-      f.root.querySelector('button')?.click();
-    }, event);
-    assert.deepEqual(
-      await page.evaluate(() => ({
-        disposed: window.terminalFixture.term().disposed,
-        state: window.terminalFixture.socket().readyState,
-        count: window.terminalFixture.sockets.length,
-        output: window.terminalFixture.term().writes.length,
-      })),
-      {disposed: 1, state: 3, count: 1, output: 0}
-    );
-    assert.equal(await page.getByRole('button', {name: 'Reconnect terminal', includeHidden: true}).count(), 0);
-    assert.deepEqual(await actions(page), []);
+test('host retirement releases renderer and socket without End or replay', async (t) => {
+  const page = await fixture(t);
+  await ready(page);
+  await page.evaluate(async () => {
+    const f = window.terminalFixture;
+    f.api.retire();
+    await f.api.ready;
+    f.socket().message({type: 'output', data: 'YWJj'});
+    window.dispatchEvent(new Event('focus'));
+    f.root.querySelector('button')?.click();
   });
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      disposed: window.terminalFixture.term().disposed,
+      state: window.terminalFixture.socket().readyState,
+      count: window.terminalFixture.sockets.length,
+      output: window.terminalFixture.term().writes.length,
+    })),
+    {disposed: 1, state: 3, count: 1, output: 0}
+  );
+  assert.equal(await page.getByRole('button', {name: 'Reconnect terminal', includeHidden: true}).count(), 0);
+  assert.deepEqual(await actions(page), []);
+});
+test('browser cache events no longer retire the terminal', async (t) => {
+  const page = await fixture(t);
+  await ready(page);
+  assert.deepEqual(
+    await page.evaluate(async () => {
+      const f = window.terminalFixture;
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
+      await f.api.ready;
+      return {
+        disposed: f.term().disposed,
+        state: f.socket().readyState,
+        count: f.sockets.length,
+      };
+    }),
+    {disposed: 0, state: 1, count: 1}
+  );
+  assert.deepEqual(await actions(page), []);
+});
+test('host suspend and resume retain the exact renderer and socket', async (t) => {
+  const page = await fixture(t);
+  await ready(page);
+  assert.deepEqual(
+    await page.evaluate(async () => {
+      const f = window.terminalFixture,
+        screen = f.root.querySelector('.soda-terminal-screen'),
+        peer = f.socket();
+      f.api.suspend();
+      const sheltered = {state: peer.readyState, disposed: f.term().disposed, count: f.sockets.length};
+      f.api.resume({sessionGeneration: 'fixture-generation'});
+      await f.api.ready;
+      return {
+        ...sheltered,
+        stateAfter: peer.readyState,
+        sameSocket: f.socket() === peer,
+        sameScreen: screen === f.root.querySelector('.soda-terminal-screen'),
+        countAfter: f.sockets.length,
+      };
+    }),
+    {state: 1, disposed: 0, count: 1, stateAfter: 1, sameSocket: true, sameScreen: true, countAfter: 1}
+  );
+  assert.deepEqual(await actions(page), []);
+});
+test('host resume under a foreign generation retires without End', async (t) => {
+  const page = await fixture(t);
+  await ready(page);
+  await page.evaluate(async () => {
+    const f = window.terminalFixture;
+    f.api.suspend();
+    f.api.resume({sessionGeneration: 'foreign-generation'});
+    await f.api.ready;
+  });
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      disposed: window.terminalFixture.term().disposed,
+      state: window.terminalFixture.socket().readyState,
+      count: window.terminalFixture.sockets.length,
+    })),
+    {disposed: 1, state: 3, count: 1}
+  );
+  assert.deepEqual(await actions(page), []);
+});
 test('visibility changes preserve renderer and perform no lifetime operation', async (t) => {
   const page = await fixture(t);
   await ready(page);
