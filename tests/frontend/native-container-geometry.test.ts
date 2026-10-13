@@ -10,7 +10,7 @@ import {browserZoomFixture} from './fixtures/browser-zoom.js';
 // markup is transcribed, so this remains authored-fixture evidence rather
 // than native template rendering or installed qualification. The markup is
 // transcribed from Fountain templates/extensions/{page,panels}.tmpl and
-// templates/base/{head,footer}.tmpl at forgejo-ext 042b3bc325, the body
+// templates/base/{head,footer}.tmpl in the canonical Fountain source, the body
 // flex column from web_src/css/base.css, and the container rules are
 // served from Fountain's own CSS files, not retyped. The page mount
 // (.extension-page-mount, min-height only) stays content-sized; the
@@ -83,10 +83,17 @@ before(async () => {
     ],
   });
   assert(panelBuild.success, `panel fixture build failed: ${panelBuild.logs.join('\n')}`);
+  const nativeBuild = await Bun.build({
+    entrypoints: [path.join(fountain, 'web_src/js/features/extensions.js')],
+    target: 'browser',
+    format: 'esm',
+  });
+  assert(nativeBuild.success, `native host fixture build failed: ${nativeBuild.logs.join('\n')}`);
   const scripts: Record<string, Blob> = {
     '/assets/workspace-fixture.js': wsBuild.outputs[0]!,
     '/assets/drawer-fixture.js': drawerBuild.outputs[0]!,
-    '/assets/persistent-panel.js': panelBuild.outputs[0]!,
+    '/forge/-/native/assets/soda/persistent-panel.js': panelBuild.outputs[0]!,
+    '/assets/native-host.js': nativeBuild.outputs[0]!,
   };
   const sodaCss: Record<string, string> = {
     '/assets/sodaspaces-drawer.css': 'frontend/spaces/sodaspaces-project.css',
@@ -103,6 +110,22 @@ before(async () => {
       const url = new URL(req.url);
       if (scripts[url.pathname])
         return new Response(scripts[url.pathname], {headers: {'Content-Type': 'text/javascript'}});
+      if (url.pathname === '/forge/-/native/session')
+        return new Response(null, {status: 204, headers: {'X-Extension-Session-Generation': 'fixture-generation'}});
+      if (url.pathname.startsWith('/forge/-/native/assets/soda/')) {
+        const relative = url.pathname.slice('/forge/-/native/assets/soda/'.length);
+        const canonical = relative === 'components.css' ? '/assets/soda/forgejo/components.css' : '/assets/' + relative;
+        const stylesheet = sodaCss[canonical];
+        if (stylesheet)
+          return new Response(Bun.file(path.join(root, stylesheet)), {headers: {'Content-Type': 'text/css'}});
+        if (relative.startsWith('soda-terminal/'))
+          return new Response(
+            Bun.file(path.join(root, '.artifacts/browser-terminal/vendor', path.basename(relative))),
+            {
+              headers: {'Content-Type': relative.endsWith('.mjs') ? 'text/javascript' : 'text/css'},
+            }
+          );
+      }
       if (url.pathname === '/assets/native/container.css')
         return new Response(fountainCss('modules/container.css'), {headers: {'Content-Type': 'text/css'}});
       if (url.pathname === '/assets/native/extensions.css')
@@ -128,10 +151,10 @@ before(async () => {
           html
         );
       // Fountain panels.tmpl via base/footer.tmpl: panels home after .full.height.
-      if (url.pathname === '/panel')
+      if (url.pathname === '/forge/workspace')
         return new Response(
           shellHead('Native panel') +
-            `<body><div class="full height"><div role="main" class="page-content"><p>Native content</p></div></div><aside id="extension-panels" class="extension-workspace-panels" aria-label="Workspace panels" data-extension-panels><section class="extension-workspace-panel" aria-labelledby="extension-panel-soda-workspace"><h2 id="extension-panel-soda-workspace">Workspace</h2><div data-extension-panel data-extension-id="soda" data-extension-panel-id="workspace"></div></section></aside><footer class="page-footer">native footer</footer><script type="module" src="/assets/persistent-panel.js"></script></body>`,
+            `<link rel="stylesheet" href="/forge/-/native/assets/soda/soda-terminal/xterm.css"><body data-page-data='{}'><div class="full height"><div role="main" class="page-content"><section class="extension-page extension-page-owner-presented"><h1>Workspace</h1></section></div></div><aside id="extension-panels" class="extension-workspace-panels" aria-label="Workspace panels" data-extension-panels data-app-sub-url="/forge" data-extension-session-generation="fixture-generation"><section class="extension-workspace-panel" aria-labelledby="extension-panel-soda-workspace"><h2 id="extension-panel-soda-workspace">Workspace</h2><div data-extension-panel data-extension-contract-version="1" data-app-sub-url="/forge" data-extension-id="soda" data-extension-panel-id="workspace" data-extension-owner-id="workspace" data-extension-entry="/forge/-/native/assets/soda/persistent-panel.js" data-extension-api-base="/forge/-/native/pages/soda/spaces/api/" data-extension-asset-base="/forge/-/native/assets/soda/" data-extension-session-generation="fixture-generation"></div></section></aside><footer class="page-footer">native footer</footer><script type="module" src="/forge/-/native/assets/soda/persistent-panel.js"></script></body>`,
           html
         );
       // Project settings (drawer fixture) inside the same real panel mount.
@@ -236,7 +259,7 @@ test('F06 panel container: Soda binds to the host-sized panels home at zoom 1 an
   const page = await browser.context.newPage();
   page.setDefaultTimeout(5000);
   trackErrors(t, page);
-  await page.goto(server.url.href + 'panel');
+  await page.goto(server.url.href + 'forge/workspace');
   await browser.setZoom(page, 1);
   await page.locator('[data-extension-panel] soda-spaces').waitFor();
   const dims = await page.evaluate(() => {
@@ -256,12 +279,12 @@ test('F06 panel container: Soda binds to the host-sized panels home at zoom 1 an
   assert(dims.hOverflow <= 1, 'panel page overflows horizontally');
   assert(dims.mount.w > 0 && dims.mount.h > 0, 'panel mount has no size');
   assert.equal(dims.inlineHeight, '', 'Soda panel must not invent host height');
-  // Post-A04/H-C (observed 2026-10-13, Fountain 042b3bc325): the visible
+  // Current A04/H-C source: the visible
   // panels home fills the remaining viewport column (flex:1, 24rem floor)
   // and the mount binds the height:100% Soda chain against it.
   assert(dims.aside.h >= 900, `panels home not host-sized: ${dims.aside.h}px`);
   assert(dims.mount.h >= 800, `panel mount not host-sized: ${dims.mount.h}px`);
-  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+  await page.getByRole('button', {name: 'Projects', exact: true}).click();
   await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor({state: 'attached'});
   const at1x = await page.evaluate(() => {
@@ -305,7 +328,7 @@ test('F06 panel container: Soda binds to the host-sized panels home at zoom 1 an
   assert(at4x.mount.h >= 200, `panel mount collapsed at zoom 4x: ${at4x.mount.h}px`);
   assert(at4x.terminalH >= 100, `terminal not usable in panel container at zoom 4x: ${at4x.terminalH}px`);
   assert(at4x.hOverflow <= 1, 'panel page overflows horizontally at zoom 4x');
-  for (const name of ['Sessions', 'New terminal']) {
+  for (const name of ['Projects', 'New terminal']) {
     const control = page.getByRole('button', {name, exact: true});
     await control.scrollIntoViewIfNeeded();
     assert(await control.isVisible(), `${name} unreachable in panel container at zoom 4x`);

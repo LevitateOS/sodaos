@@ -64,6 +64,7 @@ test('local fixture supports the full journey, simulated IO, persistent reload a
   const widths = await page
     .locator('.soda-workspace-terminal:visible')
     .evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().width));
+  assert.equal(widths.length, 2, 'both connected split terminals must be visibly allocated');
   assert(widths.every((width) => width > 550));
   await page.getByLabel('Theme', {exact: true}).selectOption('light');
   await page.setViewportSize({width: 390, height: 844});

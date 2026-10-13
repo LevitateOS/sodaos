@@ -119,6 +119,12 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.get('origin') !== origin)
         return json({error: 'Fixture controls require same-origin requests'}, 403);
       if (url.pathname.startsWith('/_fixture/')) {
+        if (url.pathname === '/_fixture/native-base.css' || url.pathname === '/_fixture/native-extensions.css') {
+          const file = url.pathname.endsWith('/native-base.css') ? 'base.css' : 'features/extensions.css';
+          return new Response(Bun.file(resolve(root, '../forgejo-ext/web_src/css', file)), {
+            headers: {'Content-Type': 'text/css', 'Cache-Control': 'no-store'},
+          });
+        }
         if (url.pathname === '/_fixture/review.css')
           return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.css')), {
             headers: {'Content-Type': 'text/css', 'Cache-Control': 'no-store'},
