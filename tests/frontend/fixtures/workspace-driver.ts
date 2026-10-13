@@ -175,6 +175,8 @@ export async function openSession(page: Page, name: string) {
       await project.click();
     }
     await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+    if (!(await page.locator('.soda-project-terminals').isVisible()))
+      await page.getByLabel('Workspace options', {exact: true}).click();
   } else await page.getByRole('button', {name: 'Sessions', exact: true}).click();
   await page.locator('.soda-session-list button').filter({hasText: name}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();

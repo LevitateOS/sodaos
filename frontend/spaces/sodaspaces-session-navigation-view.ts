@@ -123,10 +123,10 @@ function renderSessionNavigationList(rows: readonly NavigationSession[]): Templa
     <p ?hidden=${rows.length !== 0}>No terminals observed.</p>`;
 }
 export function renderProjectTerminalList(rows: readonly NavigationSession[]): TemplateResult {
-  return html`<details class="soda-project-terminals" open>
-    <summary>Terminals (${rows.length})</summary>
+  return html`<section class="soda-project-terminals" aria-label="Terminals in this project">
+    <p class="soda-menu-heading">Terminals in this project</p>
     ${renderSessionNavigationList(rows)}
-  </details>`;
+  </section>`;
 }
 export function renderProjectNavigation(
   name: string,

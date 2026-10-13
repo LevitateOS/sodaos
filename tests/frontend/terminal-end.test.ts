@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {setupTerminalDriver, fixture, action, ready, end, actions, id} from './fixtures/terminal-driver';
+import {setupTerminalDriver, fixture, action, ready, end, actions, id, env} from './fixtures/terminal-driver';
 setupTerminalDriver();
 
 test('End is separately confirmed with native generation and survives attachment closing first', async (t) => {
   const page = await fixture(t);
+  const screen = await page.locator('.soda-terminal-screen').elementHandle();
+  assert(screen, 'the terminal screen exists before connecting');
+  assert(
+    await page.locator('.soda-terminal-context').getByRole('button', {name: 'Open terminal', exact: true}).isVisible()
+  );
+  assert.equal(await page.locator('.soda-terminal-context > span').count(), 0);
   await ready(page);
+  assert(await screen.evaluate((node) => node.isConnected), 'connecting retains the same screen');
   assert.deepEqual(
     await page.evaluate(() => {
       const f = window.terminalFixture;
@@ -20,7 +27,12 @@ test('End is separately confirmed with native generation and survives attachment
     }),
     {prevented: true, escaped: false, focus: 'Terminal actions'}
   );
+  await page.getByLabel('Terminal actions', {exact: true}).click();
+  assert.equal(await page.locator('.soda-terminal-identity').innerText(), `original-alice @ ${env}`);
   await action(page, 'End terminal…');
+  const confirmation = page.getByRole('dialog', {name: 'End terminal confirmation'});
+  assert.match(await confirmation.innerText(), /Original account: original-alice/);
+  assert((await confirmation.innerText()).includes(env));
   assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Cancel');
   assert.deepEqual(await actions(page), []);
   await page.evaluate(() => {
@@ -45,6 +57,7 @@ test('unconfirmed End keeps the locator, but does not prevent a later explicit a
   );
   await end(page);
   await page.getByText('End was not confirmed.', {exact: false}).waitFor();
+  assert(await page.locator('.soda-terminal-context').getByRole('status').isVisible());
   assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id);
   await page.evaluate(() => window.terminalFixture.setReply(undefined));
   await end(page);

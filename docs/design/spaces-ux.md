@@ -17,7 +17,10 @@ A Project is the place to describe work, follow progress and review results.
 The page sidebar is a compact Project switcher: name, owner, observed runtime
 status and an attention count when an authorized terminal needs attention.
 Selecting a Project opens **Work**. **Terminals** is a secondary Project view;
-its session list, pane tabs and splits support hands-on development. Native CLI
+its pane tabs and splits support hands-on development, with the full session list
+available in Workspace options. The Project title and Work/Terminals switch share
+one compact header; terminal status and its recovery action sit together directly
+below the session tabs. Native CLI
 agents remain inside real terminals; there is no separate
 agent-chat frontend or application origin. Checkout and worktree policy belongs to the
 [factory concurrency rules](../product/overview.md#concurrency-and-usage-limits),
@@ -46,7 +49,8 @@ provider picker in onboarding.
 - Terminal and live-watch owners stay mounted across views, Project selection
   and filtering. Selecting a Project changes planning context; an existing
   terminal keeps its original repository/account until explicitly selected or
-  ended. The terminal's own header identifies that context.
+  ended. Each tab identifies its bound Project; terminal actions and End confirmation
+  retain the original Project/account identity.
 
 The persistent native panel remains a compact session tool while browsing
 Forgejo. The page provides the work-first Project experience in the same native

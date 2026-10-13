@@ -998,14 +998,14 @@ export class SodaSpaces extends LitElement {
             @keydown=${this.onSidebarKey}
           ></div>
           <div class="soda-workspace-work">
-            ${this.renderPageToolbar()} ${this.renderProjectViews()}
+            ${this.renderPageToolbar()}
             <div
               class="soda-project-content"
               ?hidden=${this.view !== 'work' && this.view !== 'plans' && !(this.binding?.kind === 'native' && this.view === 'sessions')}
             >
               ${this.renderProjectWork()} ${this.renderFactoryActivity()}
             </div>
-            ${this.renderTerminalDirectory()} ${this.renderCanvas()}
+            ${this.renderCanvas()}
             <div class="soda-workspace-management" ?hidden=${hideManagement(this.view, this.stale)}></div>
           </div>
         </div>
@@ -1063,7 +1063,7 @@ export class SodaSpaces extends LitElement {
         <button class="ui button" ?disabled=${this.busy || this.stale} @click=${this.onRefreshClick}>
           Refresh Spaces
         </button>
-        ${openInDrawerOption} ${toggleSidebarOption} ${nativeMgmt}
+        ${openInDrawerOption} ${toggleSidebarOption} ${nativeMgmt} ${this.renderTerminalDirectory()}
       `
     );
   }
@@ -1100,7 +1100,7 @@ export class SodaSpaces extends LitElement {
       >
         ${sessionsButtonLabel(kind)}
       </button>
-      ${this.renderToolbarTitle()}
+      ${this.renderToolbarTitle()} ${this.renderProjectViews()}
       <button
         class=${newTerminalButtonClass(kind)}
         data-environment-id=${this.selectedSpace?.environment.id || ''}
@@ -1378,6 +1378,7 @@ export class SodaSpaces extends LitElement {
     return 'Saved ' + (row.entry?.locator.kind || 'unknown') + ' terminal';
   }
   private selectRow(space: Space, row: Row) {
+    this.closeMenus();
     if (row.entry) void this.openSaved(row.entry, this.choosingPane);
     else if (row.metadata) void openExisting(this.createInput(), space, row.metadata, this.choosingPane);
   }

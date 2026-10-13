@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {setupWorkspaceDriver, fixture, openSession, textContents} from './fixtures/workspace-driver';
+import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
 test('observed unread coalesces noisy hidden output, survives refresh, and clears only deliberate viewing', async (t) => {
@@ -128,9 +129,35 @@ test('authorized collection reports an observed other writer without needing a f
   const attention = page.getByRole('button', {name: 'alice/Alpha', exact: true}).locator('.soda-project-attention');
   await attention.waitFor();
   assert.equal(await attention.getAttribute('aria-label'), '1 terminal needs attention');
+  await page.setViewportSize({width: 390, height: 844});
   await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  assert.equal(await page.getByRole('tab').count(), 0, 'observed sessions do not become open tabs');
+  assert.equal(await page.locator('.soda-project-terminals:visible').count(), 0);
+  assert.equal(await page.locator('.soda-workspace-toolbar .soda-project-views').count(), 1);
+  await page.getByLabel('Workspace options', {exact: true}).click();
+  assert.equal(await page.locator('.soda-project-terminals .soda-session-list button:visible').count(), 2);
   await page.locator('.soda-project-terminals .soda-session-list button').filter({hasText: 'Build'}).click();
   await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  const geometry = await page.locator('.soda-workspace').evaluate((node) => {
+    const header = node.querySelector('.soda-workspace-toolbar')!.getBoundingClientRect();
+    const status = node
+      .querySelector('.soda-workspace-terminal:not([hidden]) .soda-terminal-status')!
+      .getBoundingClientRect();
+    return {
+      headerHeight: header.height,
+      errorOffset: status.top - header.top,
+      overflow: node.scrollWidth - node.clientWidth,
+    };
+  });
+  await captureSpacesComponent(page, 'compact-terminal-failure');
+  assert(
+    geometry.headerHeight <= 144,
+    'compact project navigation consumes too much terminal height: ' + JSON.stringify(geometry)
+  );
+  assert(geometry.errorOffset <= 208, 'terminal failure is buried below repeated navigation');
+  assert(geometry.overflow <= 1, 'compact terminal chrome must fit the viewport');
+  assert.equal(await page.locator('.soda-project-terminals:visible').count(), 0, 'selection closes the session menu');
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   await page.evaluate(async () => {
     const f = window.workspaceFixture,

@@ -54,7 +54,9 @@ export function newTerminalButtonClass(kind: 'native' | 'page' | undefined) {
   return kind === 'page' ? 'ui primary button' : 'ui button';
 }
 export function newTerminalButtonLabel(kind: 'native' | 'page' | undefined) {
-  return kind === 'page' ? html`<span aria-hidden="true">＋</span> New terminal` : '＋';
+  return kind === 'page'
+    ? html`<span aria-hidden="true">＋</span><span class="soda-new-terminal-label"> New terminal</span>`
+    : '＋';
 }
 export function renderProjectSettingsButton(
   kind: 'native' | 'page' | undefined,
@@ -63,7 +65,15 @@ export function renderProjectSettingsButton(
   onShow: () => void
 ) {
   if (kind !== 'page') return '';
-  return html`<button class="ui button" ?disabled=${blocked || !space} @click=${onShow}>Project settings</button>`;
+  return html`<button
+    class="ui button"
+    aria-label="Project settings"
+    title="Project settings"
+    ?disabled=${blocked || !space}
+    @click=${onShow}
+  >
+    <span aria-hidden="true">⚙</span>
+  </button>`;
 }
 function hideBackButton(
   view: WorkspaceView,

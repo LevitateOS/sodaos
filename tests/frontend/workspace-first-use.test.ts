@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright';
-import {setupWorkspaceDriver, chooseFirstRepository, fixture, textContents} from './fixtures/workspace-driver';
+import {
+  setupWorkspaceDriver,
+  chooseFirstRepository,
+  fixture,
+  openSession,
+  textContents,
+} from './fixtures/workspace-driver';
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
@@ -37,7 +43,6 @@ async function workspaceIntroGeometry(page: Page) {
   assert.equal(await page.locator('[role=tab]:visible, .soda-empty-pane:visible').count(), 0);
   assert.equal(await page.locator('.soda-selected-project h1').innerText(), 'alice/Alpha');
   assert.equal(await page.locator('.soda-project-state').innerText(), 'Running');
-  assert.equal(await page.locator('.soda-project-profile').innerText(), 'Rocky Linux 9 · Terminal');
   assert.equal(await page.getByRole('button', {name: 'Project settings', exact: true}).count(), 1);
   assert.equal(await workspace.locator('.ui.primary.button:visible').count(), 1);
   return workspace.evaluate((node) => {
@@ -246,21 +251,15 @@ for (const theme of ['light', 'dark'])
       const terminalInsets = await page.locator('.soda-workspace-terminal:visible').evaluate((node) => {
         const screen = node.querySelector('.soda-terminal-screen')!.getBoundingClientRect();
         const grid = node.querySelector('.xterm-screen')!.getBoundingClientRect();
-        const account = node.querySelector('.soda-terminal-context > span')!.getBoundingClientRect();
         return {
           left: grid.x - screen.x,
           top: grid.y - screen.y,
           right: screen.right - grid.right,
           bottom: screen.bottom - grid.bottom,
-          accountOffset: account.x - grid.x,
         };
       });
       assert(terminalInsets.left >= 8 && terminalInsets.top >= 8, 'terminal text touches its frame');
       assert(terminalInsets.right >= 0 && terminalInsets.bottom >= 0, 'fitted terminal cells escape the padded screen');
-      assert(
-        Math.abs(terminalInsets.accountOffset) <= 1,
-        'account identity and terminal text lose their shared left edge'
-      );
       assert(geometry.canvas.height > geometry.workspace.height * 0.65, 'chrome consumes too much terminal height');
       assert(geometry.workspace.bottom - geometry.canvas.bottom <= 26, 'terminal leaves unused space below it');
       assert(
@@ -286,7 +285,13 @@ for (const theme of ['light', 'dark'])
         0,
         'single tab/pane has no move destination'
       );
-      if (!geometry.compact) assert.equal(await page.locator('.soda-session-list [aria-current=true]').count(), 1);
+      assert.equal(await page.locator('.soda-project-terminals:visible').count(), 0);
+      await page.getByLabel('Workspace options', {exact: true}).click();
+      assert.equal(
+        await page.locator('.soda-project-terminals .soda-session-list [aria-current=true]:visible').count(),
+        1
+      );
+      await page.keyboard.press('Escape');
       const terminalScreen = await page.locator('.soda-workspace-terminal:visible .xterm').elementHandle();
       const menuBaseline = await page.evaluate(() => ({
         calls: window.workspaceFixture.calls.length,
@@ -337,7 +342,7 @@ for (const theme of ['light', 'dark'])
       assert.equal(before.writes.length, 3);
       assert.deepEqual(before.writes[1]?.body, {ssh_keys: 'none'});
       await page.evaluate(() => window.workspaceFixture.remount());
-      await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
+      await openSession(page, 'Terminal 1');
       assert.deepEqual(
         await page.evaluate(() => {
           const f = window.workspaceFixture;

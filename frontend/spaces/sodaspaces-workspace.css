@@ -83,11 +83,12 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-workspace-management > div, soda-project-controls { display: block; height: 100%; min-height: 0; }
 .soda-workspace.is-compact .ui.button, .soda-workspace.is-compact summary, .soda-workspace.is-compact .soda-workspace-toolbar > a { min-height: var(--soda-control-height) !important; }
 .soda-workspace.is-compact .soda-workspace-tabs .ui.button { height: var(--soda-control-height) !important; }
+.soda-workspace.is-compact .soda-new-terminal-label { display: none; }
 
 /* The frame and terminal owners remain mounted across setup and working views. */
 .soda-workspace-frame { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .soda-workspace[data-workspace-kind=page] { background: var(--soda-page-canvas); }
-.soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-3) var(--soda-space-4); gap: var(--soda-space-2); min-height: 80px; border-bottom: 0; }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-1) var(--soda-space-3); gap: var(--soda-space-2); min-height: var(--soda-control-height); border-bottom: 1px solid var(--soda-page-edge); }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar > .ui.button { min-height: var(--soda-control-height) !important; padding-inline: var(--soda-space-4) !important; border-color: var(--soda-page-edge); }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar .soda-menu > div { right: 0; left: auto; }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-navigation { padding: var(--soda-space-3) var(--soda-space-3); }
@@ -153,7 +154,6 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 @media (max-width: 800px) {
   .soda-workspace.is-setup { padding-block: var(--soda-space-6); }
   .soda-workspace.is-setup .soda-workspace-frame { min-height: 480px; }
-  .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-4); min-height: 88px; }
   .soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin: 0; }
   .soda-workspace[data-workspace-kind=page] .soda-workspace-navigation { padding: var(--soda-space-4); }
 }
@@ -215,8 +215,8 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 }
 
 /* The first workspace keeps identity fixed while the centered next action changes. */
-.soda-project-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--soda-space-2) var(--soda-space-4); }
-.soda-selected-project h1 { min-width: 0; max-width: 100%; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--soda-font-workspace-title); }
+.soda-project-heading { display: flex; align-items: center; gap: var(--soda-space-2); }
+.soda-selected-project h1 { min-width: 0; max-width: 100%; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--soda-font-label); }
 .soda-workspace .soda-project-profile { margin: var(--soda-space-2) 0 0; font: var(--soda-font-meta); color: var(--soda-page-muted); }
 .soda-project-state, .soda-project-status { display: inline-flex; align-items: center; gap: var(--soda-space-2); color: var(--soda-page-muted); font: var(--soda-font-meta); white-space: nowrap; }
 .soda-project-state::before, .soda-project-status::before { content: ""; display: inline-block; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
@@ -244,8 +244,8 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-workspace .ui.button.soda-create-another-project { display: flex; align-items: center; justify-content: flex-start; gap: var(--soda-space-2); width: 100%; text-align: left; padding: var(--soda-space-3) !important; text-transform: none; letter-spacing: normal; font: var(--soda-font-body) !important; color: var(--soda-page-muted); }
 
 /* Project work is the reading surface; terminals keep their own retained canvas. */
-.soda-project-views { display: flex; flex: 0 0 auto; gap: var(--soda-space-2); padding-inline: var(--soda-space-4); border-bottom: 1px solid var(--soda-page-edge); }
-.soda-workspace .soda-project-views .ui.button { min-height: var(--soda-control-height) !important; padding-inline: var(--soda-space-4) !important; border: 0; border-bottom: 2px solid transparent; text-transform: none; color: var(--soda-page-muted); }
+.soda-project-views { display: flex; flex: 0 0 auto; gap: var(--soda-space-1); }
+.soda-workspace .soda-project-views .ui.button { min-height: var(--soda-control-height) !important; padding-inline: var(--soda-space-2) !important; border: 0; border-bottom: 2px solid transparent; text-transform: none; color: var(--soda-page-muted); }
 .soda-workspace .soda-project-views .ui.button[aria-pressed=true] { color: var(--soda-page-text); background: transparent; border-bottom-color: var(--soda-button-primary-bg); }
 .soda-project-content { flex: 1; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: var(--soda-space-6) var(--soda-space-8); }
 soda-project-work { display: block; min-width: 0; }
@@ -280,8 +280,8 @@ soda-project-work { display: block; min-width: 0; }
 .soda-project-activity .soda-factory-box { margin-block: var(--soda-space-4); border: 1px solid var(--soda-page-edge); }
 .soda-project-activity .soda-factory-owner { display: flex; min-width: 0; height: clamp(220px, 40dvh, 420px); }
 .soda-project-activity soda-factory-watch { display: flex; flex: 1; min-width: 0; min-height: 0; }
-.soda-project-terminals { flex: 0 1 auto; min-height: 0; max-height: 28%; overflow: auto; border-bottom: 1px solid var(--soda-page-edge); padding-inline: var(--soda-space-4); }
-.soda-project-terminals summary { cursor: pointer; padding-block: var(--soda-space-2); font: var(--soda-font-label); }
+.soda-project-terminals { border-top: 1px solid var(--soda-page-edge); margin-top: var(--soda-space-2); }
+.soda-project-terminals .soda-session-list { margin-top: var(--soda-space-2); }
 @media (max-width: 640px) {
   .soda-project-content { padding: var(--soda-space-4); }
   .soda-project-views { padding-inline: var(--soda-space-2); }

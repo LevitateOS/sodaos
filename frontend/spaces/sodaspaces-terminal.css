@@ -1,25 +1,30 @@
 /* Full-size terminal view. Xterm descendants retain their own layout/ANSI rules. */
 soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; position: relative; padding: 0; border: 0; }
-.soda-terminal > p { margin: var(--soda-space-3); font: var(--soda-font-meta); color: var(--soda-page-muted); }
 .soda-terminal-screen { flex: 1; min-width: 0; min-height: 0; padding: var(--soda-space-1); box-sizing: content-box; background: var(--soda-terminal-screen); overflow: hidden; }
 .soda-terminal-screen[hidden] { display: none; }
 .soda-terminal-screen .xterm { height: 100%; }
-/* Managed workspace: one identity line, menu and exceptional status only. */
-.soda-terminal-context { display: flex; align-items: center; justify-content: space-between; min-height: var(--soda-workspace-control); flex-shrink: 0; gap: var(--soda-space-2); padding-left: var(--soda-space-2); }
+/* One controls row; human account/project identity stays in its actions menu. */
+.soda-terminal-context { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; min-height: var(--soda-workspace-control); flex-shrink: 0; gap: var(--soda-space-2); padding: var(--soda-space-1) var(--soda-space-2); }
 .soda-terminal-context .soda-menu > div { max-height: min(60dvh, calc(var(--soda-terminal-height, 70dvh) - 60px)); }
-.soda-terminal-context > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.soda-terminal > .soda-terminal-status { margin: 0; padding: var(--soda-space-1) var(--soda-space-2); max-height: 30%; overflow: auto; }
+.soda-terminal-context > .soda-terminal-status { grid-column: 1; margin: 0; padding: 0; min-width: 0; max-height: min(9em, 30dvh); overflow: auto; overflow-wrap: anywhere; font: var(--soda-font-meta); color: var(--soda-page-warning); }
+.soda-terminal-context > .soda-terminal-connect { grid-column: 2; white-space: nowrap; }
+.soda-terminal-context > .soda-menu { grid-column: 3; }
+.soda-workspace .soda-terminal-context > .ui.button { border-color: var(--soda-page-edge); text-transform: none; }
+.soda-terminal-identity { overflow-wrap: anywhere; }
 .soda-terminal-confirm { position: absolute; top: 36px; left: var(--soda-space-2); right: var(--soda-space-2); max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: var(--soda-page-warning-bg); color: var(--soda-page-warning); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); box-shadow: var(--soda-elevation-dialog); }
-/* Keep the original account/project strip attached to its stable terminal owner. */
+/* Controls stay attached to the exact terminal owner across Project navigation. */
 .soda-workspace[data-workspace-kind=page] .soda-terminal-context { font: var(--soda-font-button); padding-left: var(--soda-space-4); border-bottom: 0; background: var(--soda-page-canvas); }
 .soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: var(--soda-space-4); }
 @media (max-width: 640px) {
   .soda-workspace[data-workspace-kind=page] .soda-terminal-context { padding-left: var(--soda-space-2); }
   .soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: var(--soda-space-2); }
 }
-/* Exceptional feedback stays with the exact terminal, above retained output. */
-.soda-workspace .soda-terminal > .soda-terminal-status:not(.soda-visually-hidden) { margin: var(--soda-space-2); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); border-inline-start-width: 3px; color: var(--soda-page-warning); background: var(--soda-page-warning-bg); font: var(--soda-font-meta); flex-shrink: 0; overflow-wrap: anywhere; }
-.soda-workspace .soda-terminal > .ui.primary.button { align-self: flex-start; min-height: var(--soda-control-height) !important; margin: var(--soda-space-2); padding: var(--soda-space-2) var(--soda-space-4) !important; }
+/* Factory watches retain their run heading and separate watch/status controls. */
+.soda-factory > .soda-terminal-context { padding-block: 0; padding-right: 0; }
+.soda-factory .soda-terminal-context > span { grid-column: 1 / 3; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.soda-factory > .soda-terminal-status { margin: 0; padding: var(--soda-space-1) var(--soda-space-2); max-height: 30%; overflow: auto; font: var(--soda-font-meta); color: var(--soda-page-muted); }
+.soda-workspace .soda-factory > .soda-terminal-status:not(.soda-visually-hidden) { margin: var(--soda-space-2); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); border-inline-start-width: 3px; color: var(--soda-page-warning); background: var(--soda-page-warning-bg); flex-shrink: 0; overflow-wrap: anywhere; }
+.soda-workspace .soda-factory > .ui.primary.button { align-self: flex-start; min-height: var(--soda-control-height) !important; margin: var(--soda-space-2); padding: var(--soda-space-2) var(--soda-space-4) !important; }
 .soda-workspace .soda-terminal-context .soda-menu > div { max-height: min(60dvh, calc(var(--soda-terminal-height, 70dvh) - 60px), var(--soda-menu-available-height, 60dvh)); }
 .soda-terminal-confirm { box-sizing: border-box; overflow-wrap: anywhere; }

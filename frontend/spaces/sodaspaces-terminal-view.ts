@@ -189,11 +189,15 @@ export function renderTerminal(view: TerminalPresentation, commands: TerminalCom
   return html`
     <section class=${'soda-terminal' + (view.ready ? ' is-connected' : '')}>
       <div class="soda-terminal-context">
-        <span title=${view.project}>${view.login} @ ${view.project}</span>
+        <p class=${'soda-terminal-status' + (!view.notice ? ' soda-visually-hidden' : '')} role="status" tabindex="-1">
+          ${view.message}
+        </p>
+        ${!view.ready && view.canConnect ? html`<button type="button" class="ui button soda-terminal-connect" @click=${commands.connect}>${view.connectLabel}</button>` : ''}
         <details class="soda-menu" @keydown=${commands.menuKey}>
           <summary aria-label="Terminal actions" data-action="controls">⋯</summary>
           <div>
             <p class="soda-menu-heading" title=${view.name}><span>${view.name}</span></p>
+            <p class="soda-menu-help soda-terminal-identity">${view.login} @ ${view.project}</p>
             <button type="button" class="ui button" ?disabled=${!view.canEnd} @click=${commands.rename}>
               Rename terminal
             </button>
@@ -208,16 +212,12 @@ export function renderTerminal(view: TerminalPresentation, commands: TerminalCom
           </div>
         </details>
       </div>
-      ${!view.ready && view.canConnect ? html`<button type="button" class="ui primary button" @click=${commands.connect}>${view.connectLabel}</button>` : ''}
-      <p class=${'soda-terminal-status' + (!view.notice ? ' soda-visually-hidden' : '')} role="status" tabindex="-1">
-        ${view.message}
-      </p>
       ${view.confirmingName !== null ? confirmation(view, commands) : ''}
       <!-- Xterm exclusively owns this stable, unconditional node's descendants. -->
       <div
         class="soda-terminal-screen"
         ?hidden=${!view.screenVisible}
-        aria-label=${`Terminal for ${view.login}; Ctrl+Shift+Enter focuses terminal controls`}
+        aria-label=${`Terminal for ${view.login} in ${view.project}; Ctrl+Shift+Enter focuses terminal controls`}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === 'Escape') {
             event.preventDefault();
