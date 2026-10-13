@@ -30,8 +30,8 @@ run
 --env=GOCACHE=/work/out/gocache
 --env=GOPATH=/work/out/gopath
 --env=TMPDIR=/work/out/tmp
---env=FORGEJO_VERSION=15.0.9-soda.aaaaaaaaaaaa+gitea-1.22.0
-docker.io/library/golang@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468
+--env=FORGEJO_VERSION=15.0.10-soda.aaaaaaaaaaaa+gitea-1.22.0
+docker.io/library/golang@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade
 sh
 -ec
 "###;
@@ -66,7 +66,7 @@ go mod verify
 bun install --frozen-lockfile
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/rockylinux/rockylinux:10.2
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-podman --remote=false pull --quiet --platform=linux/amd64 codeberg.org/forgejo/forgejo:15.0.9
+podman --remote=false pull --quiet --platform=linux/amd64 codeberg.org/forgejo/forgejo:15.0.10
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/library/caddy:2
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691

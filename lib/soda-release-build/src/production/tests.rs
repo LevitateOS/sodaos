@@ -33,7 +33,7 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
         ),
         (
             "system/host/services/forgejo.container",
-            "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.9\n",
+            "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.10\n",
         ),
         (
             "system/host/services/soda-proxy.container",

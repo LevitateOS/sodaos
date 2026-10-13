@@ -39,7 +39,7 @@ fn oracle_production_sequence() {
         ),
         (
             "system/host/services/forgejo.container",
-            "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.9\n",
+            "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.10\n",
         ),
         (
             "system/host/services/soda-proxy.container",
@@ -179,7 +179,7 @@ fn oracle_production_sequence() {
     assert_eq!(entries.len(), 4);
     let requests = [
         "docker.io/rockylinux/rockylinux:10.2",
-        "codeberg.org/forgejo/forgejo:15.0.9",
+        "codeberg.org/forgejo/forgejo:15.0.10",
         "docker.io/library/caddy:2",
         "docker.io/tailscale/alpine-base:3.22",
     ];

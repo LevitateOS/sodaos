@@ -222,7 +222,7 @@ mod tests {
         // Oracle: forgejoVersionStamp outputs.
         assert_eq!(
             forgejo_version_stamp(&"a".repeat(40)).unwrap(),
-            "15.0.9-soda.aaaaaaaaaaaa+gitea-1.22.0"
+            "15.0.10-soda.aaaaaaaaaaaa+gitea-1.22.0"
         );
         assert_eq!(
             forgejo_version_stamp("dirty").unwrap_err().message(),
@@ -243,7 +243,7 @@ mod tests {
         };
         good.validate().unwrap();
         let bad_image = ForgejoToolchain {
-            compiler_image: "docker.io/library/golang:1.26.7-alpine".to_string(),
+            compiler_image: "docker.io/library/golang:1.26.9-alpine".to_string(),
             ..good.clone()
         };
         assert_eq!(
@@ -325,7 +325,7 @@ mod tests {
         ] {
             assert!(joined.contains(required), "missing {required}");
         }
-        assert!(!joined.contains("golang:1.26.7-alpine"));
+        assert!(!joined.contains("golang:1.26.9-alpine"));
         assert!(!joined.contains("apk add --no-cache build-base git"));
         assert!(context.join("forgejo-bin").exists());
         let toolchain: ForgejoToolchain =

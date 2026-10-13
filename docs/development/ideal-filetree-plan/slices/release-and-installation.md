@@ -1,5 +1,10 @@
 # Release and installation
 
+The [15.0.10 LTS input handoff](../coverage/README.md#fountain-lts-delta-2026-10-13)
+retains D02/D03's existing exact-source/toolchain and packaging owners. Source
+archive provenance follows the separate Fountain repository; source/consumer
+checks do not advance OS build, installed or release qualification below.
+
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 

@@ -69,7 +69,10 @@ inventory and publishes a prerelease. Notes automatically identify it as unquali
 It refuses an existing release or changed/oversize files; it never uses upload
 clobbering. Preserve a failed attempt and inspect GitHub's actual state before
 retrying. Uploaded source archives include both repositories, not just GitHub's
-automatically generated Soda archive.
+automatically generated Soda archive. `fountain-source.tar` comes from the separate
+Fountain repository selected by `fountain-source.json`, at the exact revision used
+to compile Fountain. Hosting that corresponding-source archive beside the SodaOS
+binary does not change Fountain's source ownership.
 
 Download `sodaos-x86_64.iso` from that release and use those bytes for one fresh
 native KVM installation into a disposable disk. Exercise the guided disk installer,

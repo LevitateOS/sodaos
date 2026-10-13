@@ -3,6 +3,11 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+The [15.0.10 LTS delta](../coverage/README.md#fountain-lts-delta-2026-10-13)
+retains the separate provider's native authority, collaboration and ref-sync
+owners. Its focused security/compatibility checks do not advance the older
+whole-body or native/installed evidence below.
+
 ## First-principles refresh (2026-10-13)
 
 Current source inspection starts at Soda
