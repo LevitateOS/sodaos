@@ -30,6 +30,26 @@ bun run test:frontend
 bun run check:source
 ```
 
+### GitHub CI
+
+The [CI workflow](../../.github/workflows/ci.yml) runs on pull requests, pushes to
+`main`, merge groups and manual dispatch. Its two Linux jobs reuse the existing
+source suite and Rust workspace tests. The source job starts PostgreSQL 17 and
+passes the restricted fixture password file so database tests cannot silently
+skip for lack of a fixture. Browser fixtures use the repository-selected Playwright
+Chromium. Neither job starts an appliance or contacts an AI provider.
+
+Both jobs check out the exact Fountain source from
+[`fountain-source.json`](../../fountain-source.json) beside Soda as `forgejo-ext`.
+Go and Bun versions come from their manifests; Rust follows `rust-toolchain.toml`.
+Actions are pinned to full commit hashes, with grouped Dependabot updates.
+Outdated runs on the same PR/ref are cancelled. The required `CI` result fails
+unless both jobs succeeded, including when a dependency job failed or was skipped.
+
+Source CI does not rebuild the OS. The local build, public download smoke and
+immutable publication remain the [release workflow](release.md). Use focused local
+checks during implementation; let one hosted run exercise the workflow itself.
+
 ## Native stage
 
 ```sh

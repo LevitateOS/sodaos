@@ -93,6 +93,80 @@ fn check_tag(gh: &dyn GitHub, manifest: &Manifest) -> Result<(), Error> {
     }
     Ok(())
 }
+
+/// Only main's latest push run for these exact sources can authorize delivery.
+/// PR merge commits and an older success hidden behind a failed rerun do not qualify.
+fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
+    #[derive(Deserialize)]
+    struct FountainSource {
+        revision: String,
+    }
+    let bytes = command(
+        gh,
+        &[
+            "api",
+            "--hostname",
+            "github.com",
+            "--header",
+            "Accept: application/vnd.github.raw+json",
+            &format!(
+                "{API}/contents/fountain-source.json?ref={}",
+                manifest.soda_revision
+            ),
+        ],
+    )?;
+    let fountain: FountainSource =
+        serde_json::from_slice(&bytes).map_err(|_| Error::msg("Fountain source pin refused"))?;
+    if fountain.revision != manifest.forgejo_revision {
+        return Err(Error::msg(
+            "built Fountain revision differs from the CI source pin",
+        ));
+    }
+    #[derive(Deserialize)]
+    struct Run {
+        id: u64,
+        head_sha: String,
+        head_branch: Option<String>,
+        event: String,
+        path: String,
+        status: String,
+        conclusion: Option<String>,
+    }
+    #[derive(Deserialize)]
+    struct Runs {
+        workflow_runs: Vec<Run>,
+    }
+    let runs: Runs = api(
+        gh,
+        &format!(
+            "{API}/actions/workflows/ci.yml/runs?head_sha={}&branch=main&event=push&per_page=1",
+            manifest.soda_revision
+        ),
+    )?;
+    let Some(run) = runs
+        .workflow_runs
+        .first()
+        .filter(|_| runs.workflow_runs.len() == 1)
+    else {
+        return Err(Error::msg(
+            "CI push run on main required for the built revision",
+        ));
+    };
+    if run.id == 0
+        || run.head_sha != manifest.soda_revision
+        || run.head_branch.as_deref() != Some("main")
+        || run.event != "push"
+        || run.path != ".github/workflows/ci.yml"
+        || run.status != "completed"
+        || run.conclusion.as_deref() != Some("success")
+    {
+        return Err(Error::msg(
+            "latest CI push run must pass for the exact built revision",
+        ));
+    }
+    Ok(run.id)
+}
+
 fn release(gh: &dyn GitHub, tag: &str) -> Result<Release, Error> {
     #[derive(Deserialize)]
     struct ReleaseId {
@@ -149,6 +223,7 @@ pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(
     manifest.validate()?;
     let assets = inventory(manifest, directory)?;
     check_tag(gh, manifest)?;
+    let ci_run = check_ci(gh, manifest)?;
     #[derive(Deserialize)]
     struct Settings {
         enabled: bool,
@@ -172,7 +247,7 @@ pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(
     std::fs::write(
         &notes_path,
         format!(
-            "UNQUALIFIED CANDIDATE: install and first-boot checks pending.\n\n{}",
+            "UNQUALIFIED CANDIDATE: install and first-boot checks pending.\n\n{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n",
             manifest.notes
         ),
     )
@@ -255,6 +330,7 @@ pub fn promote(
     let downloaded = inspect(downloaded_iso, &manifest.iso)?;
     receipt.validate(&manifest, &downloaded)?;
     check_tag(gh, &manifest)?;
+    let ci_run = check_ci(gh, &manifest)?;
     let current = release(gh, &manifest.tag)?;
     if current.draft || !current.prerelease || !current.immutable {
         return Err(Error::msg(
@@ -276,7 +352,7 @@ pub fn promote(
     )?;
     let notes = directory.join("qualified-release-notes.md");
     let receipt_text = serde_json::to_string_pretty(&receipt).map_err(|_| Error::refused())?;
-    std::fs::write(&notes, format!("{}\n\nNative install and first-boot smoke checks passed for the unchanged release bytes.\n\n```json\n{receipt_text}\n```\n", manifest.notes)).map_err(|_| Error::msg("cannot write qualified notes"))?;
+    std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative install and first-boot smoke checks passed for the unchanged release bytes.\n\n```json\n{receipt_text}\n```\n", manifest.notes)).map_err(|_| Error::msg("cannot write qualified notes"))?;
     command(
         gh,
         &[

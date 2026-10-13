@@ -21,7 +21,12 @@ GitHub owns release immutability and publication state. There is no registry
 channel, observed-authority database or publisher ledger. Failed or uncertain
 publication is inspected before any retry; uploads never use clobbering.
 
-The `gh` client needs repository Contents write permission. Staging also reads the
+Staging and promotion both require the latest successful `CI` push run on `main`
+for the built Soda commit. The built Fountain revision must match that commit's
+`fountain-source.json`. The release notes link to the admitted CI run. CI checks
+source; the separate native smoke still qualifies the actual downloaded media.
+
+The `gh` client needs repository Contents write and Actions read permission. Staging also reads the
 repository's immutable-release setting, which requires Administration read access;
 enabling it is a one-time Administration write operation. Local signing uses the
 Skopeo version in [tools.json](tools.json) and restricted private-file inputs.

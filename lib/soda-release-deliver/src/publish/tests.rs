@@ -72,6 +72,15 @@ fn tag(m: &Manifest) -> Result<Vec<u8>, Error> {
         serde_json::json!({"ref":format!("refs/tags/{}",m.tag),"object":{"type":"commit","sha":m.soda_revision}}),
     )
 }
+fn fountain(m: &Manifest) -> Result<Vec<u8>, Error> {
+    json(serde_json::json!({"revision":m.forgejo_revision}))
+}
+fn ci_run(m: &Manifest) -> serde_json::Value {
+    serde_json::json!({"id":23,"head_sha":m.soda_revision,"head_branch":"main","event":"push","path":".github/workflows/ci.yml","status":"completed","conclusion":"success"})
+}
+fn ci(m: &Manifest) -> Result<Vec<u8>, Error> {
+    json(serde_json::json!({"workflow_runs":[ci_run(m)]}))
+}
 fn remote(
     m: &Manifest,
     assets: &[Asset],
@@ -89,6 +98,8 @@ fn stage_checks_exact_inventory_before_publishing() {
     let items = inventory(&m, dir.path()).unwrap();
     let gh = Script::new(vec![
         tag(&m),
+        fountain(&m),
+        ci(&m),
         json(serde_json::json!({"enabled":true})),
         Err(Error::msg("GitHub resource not found")),
         Ok(vec![]),
@@ -104,7 +115,7 @@ fn stage_checks_exact_inventory_before_publishing() {
     assert!(gh.replies.borrow().is_empty());
     let calls = gh.calls.borrow();
     assert_eq!(
-        calls[2],
+        calls[4],
         [
             "release",
             "view",
@@ -115,13 +126,15 @@ fn stage_checks_exact_inventory_before_publishing() {
             "databaseId"
         ]
     );
-    assert!(calls[3].contains(&"--draft".to_owned()));
-    assert_eq!(calls[6].last().unwrap(), &format!("{API}/releases/17"));
-    assert!(calls[7].contains(&"--latest=false".to_owned()));
+    assert!(calls[5].contains(&"--draft".to_owned()));
+    assert_eq!(calls[8].last().unwrap(), &format!("{API}/releases/17"));
+    assert!(calls[9].contains(&"--latest=false".to_owned()));
     let mut bad = items.clone();
     bad[0].sha256 = "c".repeat(64);
     let gh = Script::new(vec![
         tag(&m),
+        fountain(&m),
+        ci(&m),
         json(serde_json::json!({"enabled":true})),
         Err(Error::msg("GitHub resource not found")),
         Ok(vec![]),
@@ -130,7 +143,7 @@ fn stage_checks_exact_inventory_before_publishing() {
         remote(&m, &bad, true, true, false),
     ]);
     assert!(stage(&gh, &m, dir.path()).is_err());
-    assert_eq!(gh.calls.borrow().len(), 7);
+    assert_eq!(gh.calls.borrow().len(), 9);
 }
 #[test]
 fn stage_refuses_existing_release_and_wrong_tag() {
@@ -139,12 +152,14 @@ fn stage_refuses_existing_release_and_wrong_tag() {
     for draft in [true, false] {
         let gh = Script::new(vec![
             tag(&m),
+            fountain(&m),
+            ci(&m),
             json(serde_json::json!({"enabled":true})),
             json(serde_json::json!({"databaseId":17})),
             remote(&m, &items, draft, true, !draft),
         ]);
         assert!(stage(&gh, &m, dir.path()).is_err());
-        assert_eq!(gh.calls.borrow().len(), 4);
+        assert_eq!(gh.calls.borrow().len(), 6);
     }
     let gh = Script::new(vec![json(
         serde_json::json!({"ref":"refs/tags/v0.1.0","object":{"type":"commit","sha":"c".repeat(40)}}),
@@ -172,6 +187,8 @@ fn promotion_requires_bound_native_receipt_and_actual_download() {
     write_json(&qp, &q).unwrap();
     let gh = Script::new(vec![
         tag(&m),
+        fountain(&m),
+        ci(&m),
         json(serde_json::json!({"databaseId":17})),
         remote(&m, &items, false, true, true),
         Ok(vec![]),
@@ -179,8 +196,8 @@ fn promotion_requires_bound_native_receipt_and_actual_download() {
         remote(&m, &items, false, false, true),
     ]);
     promote(&gh, dir.path(), &qp, &dir.path().join(ISO_NAME)).unwrap();
-    assert_eq!(gh.calls.borrow()[3][1], "verify-asset");
-    assert!(gh.calls.borrow()[4].contains(&"--prerelease=false".to_owned()));
+    assert_eq!(gh.calls.borrow()[5][1], "verify-asset");
+    assert!(gh.calls.borrow()[6].contains(&"--prerelease=false".to_owned()));
     q.observed_soda_revision = "c".repeat(40);
     write_json(&qp, &q).unwrap();
     let gh = Script::new(vec![]);
@@ -191,6 +208,42 @@ fn promotion_requires_bound_native_receipt_and_actual_download() {
     std::fs::write(dir.path().join(ISO_NAME), b"tampered").unwrap();
     assert!(promote(&gh, dir.path(), &qp, &dir.path().join(ISO_NAME)).is_err());
     assert!(gh.calls.borrow().is_empty());
+}
+#[test]
+fn publication_requires_current_ci_for_both_exact_sources() {
+    let (dir, m) = fixture();
+    for (field, value) in [
+        ("head_sha", serde_json::json!("c".repeat(40))),
+        ("head_branch", serde_json::json!("topic")),
+        ("event", serde_json::json!("pull_request")),
+        ("path", serde_json::json!(".github/workflows/other.yml")),
+        ("status", serde_json::json!("in_progress")),
+        ("conclusion", serde_json::json!("failure")),
+        ("conclusion", serde_json::json!("cancelled")),
+        ("conclusion", serde_json::json!("skipped")),
+    ] {
+        let mut run = ci_run(&m);
+        run[field] = value;
+        let gh = Script::new(vec![
+            tag(&m),
+            fountain(&m),
+            json(serde_json::json!({"workflow_runs":[run]})),
+        ]);
+        assert!(stage(&gh, &m, dir.path()).is_err(), "{field}");
+        assert_eq!(gh.calls.borrow().len(), 3);
+    }
+    let gh = Script::new(vec![
+        tag(&m),
+        fountain(&m),
+        json(serde_json::json!({"workflow_runs":[]})),
+    ]);
+    assert!(stage(&gh, &m, dir.path()).is_err());
+    let gh = Script::new(vec![
+        tag(&m),
+        json(serde_json::json!({"revision":"c".repeat(40)})),
+    ]);
+    assert!(stage(&gh, &m, dir.path()).is_err());
+    assert_eq!(gh.calls.borrow().len(), 2);
 }
 #[test]
 fn asset_limit_and_tag_admission_refuse_before_transport() {

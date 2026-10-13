@@ -24,6 +24,19 @@ How developers produce and qualify release candidates. Durable model:
 ## Build once, stage, install, promote
 
 Use clean committed Soda and Fountain sources and the admitted native build worker.
+The Fountain checkout must match `fountain-source.json` in that Soda revision.
+Push Soda to `main` and wait for its `CI` workflow to pass before the expensive
+native build. `soda-release` independently checks the latest push run for that
+exact commit and the Fountain pin before staging and again before promotion.
+Missing, pending, skipped, cancelled or failed CI cannot authorize delivery;
+a PR's synthetic merge commit cannot qualify a different release commit.
+
+GitHub Free hosts source CI. The existing local native builder owns OS builds and
+the guided installation smoke; no self-hosted Actions agent or custom download
+server is required. GitHub credentials remain with the operator running
+`soda-release`, outside the isolated build worker. CI has read-only repository
+access and receives no release keys or publication credentials.
+
 Choose the release tag before building: the installer embeds the exact versioned
 GitHub rootfs URL. For example, with tag `v0.1.0`:
 
@@ -75,7 +88,7 @@ soda-release promote --input /PRIVATE/new-release \
 ```
 
 Promotion checks the bound receipt, verifies the downloaded ISO using GitHub's
-attestation and rereads the locked remote inventory. It records the receipt in
+attestation and rereads the locked remote inventory. It records the CI run and receipt in
 release notes and changes the same release to latest. This is the website download:
 `https://github.com/LevitateOS/sodaos/releases/latest/download/sodaos-x86_64.iso`.
 Use versioned URLs in the installer and latest only for the website's default CTA.

@@ -59,9 +59,10 @@ fn merge_policy_matches_oracle_semantically() {
     let merged = merge_policy(&trust, original).expect("policy.merge");
     // Preserved scopes are re-emitted (not byte-kept), so compare as DOM.
     let got: JsonValue = serde_json::from_slice(&merged).unwrap();
-    assert!(text.contains(r#""dockerRepository": ""#));
-    assert!(text.contains(&format!("{}-release", trust.prefix)));
-    assert!(text.contains("sigstoreSigned"));
+    let repository = format!("{}-release", trust.prefix);
+    let requirement = &got["transports"]["docker"][&repository][0];
+    assert_eq!(requirement["signedIdentity"]["dockerRepository"], repository);
+    assert_eq!(requirement["type"], "sigstoreSigned");
 
     let conflict = format!(
         r#"{{"default":[{{"type":"insecureAcceptAnything"}}],"transports":{{"docker":{{"{}-release:tag":[{{"type":"insecureAcceptAnything"}}]}}}}}}"#,

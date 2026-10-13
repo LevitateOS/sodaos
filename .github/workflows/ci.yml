@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GOTOOLCHAIN: local
+  GOWORK: 'off'
+  GOFLAGS: -mod=readonly
+  CGO_ENABLED: '0'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  source:
+    name: Go and browser source checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: sodaos
+    services:
+      postgres:
+        image: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env:
+          POSTGRES_PASSWORD: soda-ci-fixture
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 6
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Read Fountain source pin
+        id: fountain
+        run: |
+          jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
+          jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
+          mkdir -p "$PWD/.artifacts/tmp"
+          echo "TMPDIR=$PWD/.artifacts/tmp" >> "$GITHUB_ENV"
+      - name: Check out the selected Fountain source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ${{ steps.fountain.outputs.repository }}
+          ref: ${{ steps.fountain.outputs.revision }}
+          path: forgejo-ext
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: sodaos/go.mod
+          cache-dependency-path: sodaos/go.sum
+      - name: Set up Bun from package.json
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: sodaos/package.json
+      - name: Set up the repository-selected Rust toolchain
+        run: rustup toolchain install --profile minimal --no-self-update
+      - name: Cache locked Cargo downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install locked browser tooling
+        run: |
+          bun install --frozen-lockfile
+          bun --bun node_modules/playwright/cli.js install --with-deps chromium
+      - name: Run source checks with PostgreSQL
+        env:
+          SODA_PG_HOST: 127.0.0.1
+          SODA_PG_PORT: '5432'
+          SODA_PG_SUPER_PASSWORD_FILE: ${{ github.workspace }}/sodaos/.artifacts/tmp/postgres.passwd
+        run: |
+          umask 077
+          printf '%s' 'soda-ci-fixture' > "$SODA_PG_SUPER_PASSWORD_FILE"
+          test -s "$SODA_PG_SUPER_PASSWORD_FILE"
+          bun run check:source
+
+  rust:
+    name: Rust workspace tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: sodaos
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Read Fountain source pin
+        id: fountain
+        run: |
+          jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
+          jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
+          mkdir -p "$PWD/.artifacts/tmp"
+          echo "TMPDIR=$PWD/.artifacts/tmp" >> "$GITHUB_ENV"
+      - name: Check out the selected Fountain source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ${{ steps.fountain.outputs.repository }}
+          ref: ${{ steps.fountain.outputs.revision }}
+          path: forgejo-ext
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: sodaos/go.mod
+          cache: false
+      - name: Set up Bun from package.json
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: sodaos/package.json
+      - name: Set up the repository-selected Rust toolchain
+        run: rustup toolchain install --profile minimal --no-self-update
+      - name: Cache locked Cargo downloads
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install locked source dependencies
+        run: bun install --frozen-lockfile
+      - name: Run Rust tests
+        run: cargo test --workspace --locked
+
+  ci:
+    name: CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    needs: [source, rust]
+    if: ${{ always() }}
+    steps:
+      - name: Require both source jobs to pass
+        env:
+          SOURCE_RESULT: ${{ needs.source.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+        run: |
+          test "$SOURCE_RESULT" = success
+          test "$RUST_RESULT" = success
