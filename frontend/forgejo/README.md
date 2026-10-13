@@ -1,6 +1,8 @@
 # Soda Forgejo presentation overrides
 
-Targets stock Forgejo **15.0.9**. The login wrapper is adapted from the embedded
+Targets Fountain on Forgejo **15.0.10 LTS**. Template attribution and source hashes
+retain their original **15.0.9** adaptation baseline. The login wrapper is adapted
+from the embedded
 `templates/user/auth/signin.tmpl`; upstream project: https://codeberg.org/forgejo/forgejo.
 Forgejo's GPL-3.0-or-later terms apply to the adapted template; see
 [licensing obligations](../../docs/research/licensing.md). Its original embedded wrapper SHA-256:
@@ -220,7 +222,7 @@ The login illustration is unchanged.
 ## Translation scaffold
 
 [i18n/](i18n/README.md) reserves Soda-only locale additions. Native build now verifies
-the complete 15.0.9 English catalog using `locale.lock.json`, merges only that
+the complete 15.0.10 English catalog using `locale.lock.json`, merges only that
 namespace and stages the full replacement. Translation of the remaining custom
 copy remains future work; this is not evidence of a new installed catalog.
 
