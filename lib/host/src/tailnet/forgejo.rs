@@ -1079,16 +1079,13 @@ mod tests {
 
     #[test]
     fn status_only_argv_passthrough() {
-        use std::os::unix::fs::PermissionsExt;
         let env = TestEnv::fresh("argv");
-        let script = env.path("record.sh");
         let record = env.path("argv.bin");
-        std::fs::write(
-            &script,
-            format!("#!/bin/sh\nprintf \"%s\\0\" \"$@\" > \"{record}\"\n"),
-        )
-        .unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let script = stub_cli(
+            &env,
+            "record.sh",
+            &format!("printf \"%s\\0\" \"$@\" > \"{record}\""),
+        );
         let exec = NativeStatusOnly;
         let deadline = Instant::now() + Duration::from_secs(30);
         exec.run(&[], &script, &["restart", "forgejo.service"], deadline)
@@ -1400,10 +1397,20 @@ mod tests {
     }
 
     fn stub_cli(env: &TestEnv, name: &str, body: &str) -> String {
-        use std::os::unix::fs::PermissionsExt;
         let script = env.path(name);
-        std::fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        // Write in a child so parallel spawns cannot inherit an open writer
+        // from this test process and make execution fail with ETXTBSY.
+        assert!(std::process::Command::new("/bin/sh")
+            .args([
+                "-c",
+                "printf '%s' \"$2\" > \"$1\" && chmod 755 \"$1\"",
+                "fixture",
+                &script,
+                &format!("#!/bin/sh\n{body}\n"),
+            ])
+            .status()
+            .unwrap()
+            .success());
         script
     }
 

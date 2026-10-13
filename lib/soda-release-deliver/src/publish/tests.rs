@@ -97,11 +97,11 @@ fn stage_checks_exact_inventory_before_publishing() {
     let (dir, m) = fixture();
     let items = inventory(&m, dir.path()).unwrap();
     let gh = Script::new(vec![
-        tag(&m),
         fountain(&m),
         ci(&m),
         json(serde_json::json!({"enabled":true})),
         Err(Error::msg("GitHub resource not found")),
+        tag(&m),
         Ok(vec![]),
         Ok(vec![]),
         json(serde_json::json!({"databaseId":17})),
@@ -115,7 +115,7 @@ fn stage_checks_exact_inventory_before_publishing() {
     assert!(gh.replies.borrow().is_empty());
     let calls = gh.calls.borrow();
     assert_eq!(
-        calls[4],
+        calls[3],
         [
             "release",
             "view",
@@ -132,11 +132,11 @@ fn stage_checks_exact_inventory_before_publishing() {
     let mut bad = items.clone();
     bad[0].sha256 = "c".repeat(64);
     let gh = Script::new(vec![
-        tag(&m),
         fountain(&m),
         ci(&m),
         json(serde_json::json!({"enabled":true})),
         Err(Error::msg("GitHub resource not found")),
+        tag(&m),
         Ok(vec![]),
         Ok(vec![]),
         json(serde_json::json!({"databaseId":17})),
@@ -151,7 +151,6 @@ fn stage_refuses_existing_release_and_wrong_tag() {
     let items = inventory(&m, dir.path()).unwrap();
     for draft in [true, false] {
         let gh = Script::new(vec![
-            tag(&m),
             fountain(&m),
             ci(&m),
             json(serde_json::json!({"enabled":true})),
@@ -159,32 +158,62 @@ fn stage_refuses_existing_release_and_wrong_tag() {
             remote(&m, &items, draft, true, !draft),
         ]);
         assert!(stage(&gh, &m, dir.path()).is_err());
-        assert_eq!(gh.calls.borrow().len(), 6);
+        assert_eq!(gh.calls.borrow().len(), 5);
     }
-    let gh = Script::new(vec![json(
-        serde_json::json!({"ref":"refs/tags/v0.1.0","object":{"type":"commit","sha":"c".repeat(40)}}),
-    )]);
+    let gh = Script::new(vec![
+        fountain(&m),
+        ci(&m),
+        json(serde_json::json!({"enabled":true})),
+        Err(Error::msg("GitHub resource not found")),
+        json(
+            serde_json::json!({"ref":"refs/tags/v0.1.0","object":{"type":"commit","sha":"c".repeat(40)}}),
+        ),
+    ]);
     assert!(stage(&gh, &m, dir.path()).is_err());
-    assert_eq!(gh.calls.borrow().len(), 1);
+    assert_eq!(gh.calls.borrow().len(), 5);
 }
 #[test]
-fn promotion_requires_bound_native_receipt_and_actual_download() {
+fn stage_creates_missing_tag_for_the_ci_qualified_revision() {
     let (dir, m) = fixture();
     let items = inventory(&m, dir.path()).unwrap();
-    let mut q = Qualification {
-        format: 1,
-        soda_revision: m.soda_revision.clone(),
-        forgejo_revision: m.forgejo_revision.clone(),
-        iso_sha256: m.assets[0].sha256.clone(),
-        rootfs_sha256: m.assets[1].sha256.clone(),
-        downloaded_iso_sha256: m.assets[0].sha256.clone(),
-        observed_soda_revision: m.soda_revision.clone(),
-        install: "passed".into(),
-        boot: "passed".into(),
-        applications: "passed".into(),
-    };
-    let qp = dir.path().join("qualified.json");
-    write_json(&qp, &q).unwrap();
+    let gh = Script::new(vec![
+        fountain(&m),
+        ci(&m),
+        json(serde_json::json!({"enabled":true})),
+        Err(Error::msg("GitHub resource not found")),
+        Err(Error::msg("GitHub resource not found")),
+        tag(&m),
+        Ok(vec![]),
+        Ok(vec![]),
+        json(serde_json::json!({"databaseId":17})),
+        remote(&m, &items, true, true, false),
+        Ok(vec![]),
+        json(serde_json::json!({"databaseId":17})),
+        remote(&m, &items, false, true, true),
+        Ok(vec![]),
+    ]);
+    stage(&gh, &m, dir.path()).unwrap();
+    assert!(gh.replies.borrow().is_empty());
+    assert_eq!(
+        gh.calls.borrow()[5],
+        [
+            "api",
+            "--hostname",
+            "github.com",
+            "--method",
+            "POST",
+            &format!("{API}/git/refs"),
+            "--raw-field",
+            &format!("ref=refs/tags/{}", m.tag),
+            "--raw-field",
+            &format!("sha={}", m.soda_revision),
+        ]
+    );
+}
+#[test]
+fn promotion_requires_observed_revision_smoke_confirmation_and_actual_download() {
+    let (dir, m) = fixture();
+    let items = inventory(&m, dir.path()).unwrap();
     let gh = Script::new(vec![
         tag(&m),
         fountain(&m),
@@ -195,18 +224,26 @@ fn promotion_requires_bound_native_receipt_and_actual_download() {
         Ok(vec![]),
         remote(&m, &items, false, false, true),
     ]);
-    promote(&gh, dir.path(), &qp, &dir.path().join(ISO_NAME)).unwrap();
+    let downloaded = dir.path().join(ISO_NAME);
+    promote(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
     assert_eq!(gh.calls.borrow()[5][1], "verify-asset");
     assert!(gh.calls.borrow()[6].contains(&"--prerelease=false".to_owned()));
-    q.observed_soda_revision = "c".repeat(40);
-    write_json(&qp, &q).unwrap();
+    let receipt: Qualification = read_json(&dir.path().join("qualification.json")).unwrap();
+    assert_eq!(receipt.soda_revision, m.soda_revision);
+    assert_eq!(receipt.forgejo_revision, m.forgejo_revision);
+    assert_eq!(receipt.observed_soda_revision, m.soda_revision);
+    assert_eq!(receipt.downloaded_iso_sha256, m.assets[0].sha256);
+    assert_eq!(receipt.rootfs_sha256, m.assets[1].sha256);
+    assert_eq!(receipt.install, "passed");
+    assert_eq!(receipt.boot, "passed");
+    assert_eq!(receipt.applications, "passed");
     let gh = Script::new(vec![]);
-    assert!(promote(&gh, dir.path(), &qp, &dir.path().join(ISO_NAME)).is_err());
+    assert!(promote(&gh, dir.path(), &downloaded, &"c".repeat(40), true).is_err());
     assert!(gh.calls.borrow().is_empty());
-    q.observed_soda_revision = m.soda_revision.clone();
-    write_json(&qp, &q).unwrap();
+    assert!(promote(&gh, dir.path(), &downloaded, &m.soda_revision, false).is_err());
+    assert!(gh.calls.borrow().is_empty());
     std::fs::write(dir.path().join(ISO_NAME), b"tampered").unwrap();
-    assert!(promote(&gh, dir.path(), &qp, &dir.path().join(ISO_NAME)).is_err());
+    assert!(promote(&gh, dir.path(), &downloaded, &m.soda_revision, true).is_err());
     assert!(gh.calls.borrow().is_empty());
 }
 #[test]
@@ -225,25 +262,20 @@ fn publication_requires_current_ci_for_both_exact_sources() {
         let mut run = ci_run(&m);
         run[field] = value;
         let gh = Script::new(vec![
-            tag(&m),
             fountain(&m),
             json(serde_json::json!({"workflow_runs":[run]})),
         ]);
         assert!(stage(&gh, &m, dir.path()).is_err(), "{field}");
-        assert_eq!(gh.calls.borrow().len(), 3);
+        assert_eq!(gh.calls.borrow().len(), 2);
     }
     let gh = Script::new(vec![
-        tag(&m),
         fountain(&m),
         json(serde_json::json!({"workflow_runs":[]})),
     ]);
     assert!(stage(&gh, &m, dir.path()).is_err());
-    let gh = Script::new(vec![
-        tag(&m),
-        json(serde_json::json!({"revision":"c".repeat(40)})),
-    ]);
+    let gh = Script::new(vec![json(serde_json::json!({"revision":"c".repeat(40)}))]);
     assert!(stage(&gh, &m, dir.path()).is_err());
-    assert_eq!(gh.calls.borrow().len(), 2);
+    assert_eq!(gh.calls.borrow().len(), 1);
 }
 #[test]
 fn asset_limit_and_tag_admission_refuse_before_transport() {

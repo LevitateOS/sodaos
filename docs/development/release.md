@@ -49,22 +49,23 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
 
 The build emits an unqualified media candidate. It never publishes or silently
 installs on the builder. Omit the development `fast` compression mode for releases.
-Check the emitted sizes before any upload; both ISO and rootfs must be below 2 GiB.
+Staging enforces the 2 GiB per-asset limit before upload.
 The isolated worker uses a local artifact-signing key for authenticated packaging;
 GitHub authenticates distribution separately.
 
-Push the exact source revision and create its release tag. Enable immutable releases
-once in the repository settings. With the installed `gh` client authenticated for
-this repository, prepare notes that clearly identify the candidate as unqualified:
+Enable immutable releases once in the repository settings. With the installed
+`gh` client authenticated for this repository, prepare release notes and stage:
 
 ```sh
 soda-release stage --candidate /BUILD/artifacts \
-  --media /BUILD/artifacts/media/media.json --tag v0.1.0 \
+  --tag v0.1.0 \
   --notes /PRIVATE/candidate-notes.md --out /PRIVATE/new-release
 ```
 
-Staging verifies source/tag identity, copies and hashes the complete release asset
-set, creates a draft, checks the remote inventory and publishes a prerelease.
+Staging reads `media/media.json` from the candidate, copies and hashes the complete
+release asset set, and checks source CI. It creates a missing tag at the exact built
+commit, refuses a tag pointing elsewhere, then uploads a draft, checks the remote
+inventory and publishes a prerelease. Notes automatically identify it as unqualified.
 It refuses an existing release or changed/oversize files; it never uses upload
 clobbering. Preserve a failed attempt and inspect GitHub's actual state before
 retrying. Uploaded source archives include both repositories, not just GitHub's
@@ -77,14 +78,17 @@ image identities in the candidate are locally available. Keep temporary files an
 VM storage on the workspace disk. Do not substitute a retained appliance or an
 injected preinstalled disk for this installation.
 
-Write the observed qualification as JSON, using full revisions and SHA-256 values
-from this attempt. `install`, `boot` and `applications` must be `"passed"`; the
-receipt also names `format: 1`, `soda_revision`, `forgejo_revision`, `iso_sha256`,
-`rootfs_sha256`, `downloaded_iso_sha256` and `observed_soda_revision`.
+After that smoke passes, supply the full Soda revision actually read from the
+installed guest. `--smoke-passed` confirms that this downloaded ISO installed,
+the guest booted without installation media, and all candidate images were present.
+The command derives the release identities and hashes and writes
+`qualification.json` in the prepared release directory; no hand-written receipt
+is needed.
 
 ```sh
 soda-release promote --input /PRIVATE/new-release \
-  --qualification /PRIVATE/qualification.json --downloaded-iso /PRIVATE/sodaos-x86_64.iso
+  --downloaded-iso /PRIVATE/sodaos-x86_64.iso \
+  --observed-revision FULL_REVISION_READ_FROM_INSTALLED_GUEST --smoke-passed
 ```
 
 Promotion checks the bound receipt, verifies the downloaded ISO using GitHub's

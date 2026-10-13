@@ -155,12 +155,9 @@ fn hold_bars_preparation_and_releases_by_revision() {
     );
     // A started-but-unfinished preparation bars release.
     let directory = ctx.preparations.join(PID);
-    crate::fsx::write_new(
-        &directory.join("started.json"),
-        b"{\"pid\": 999, \"pgid\": 999}",
-        0o644,
-    )
-    .unwrap();
+    let pgid = dead_pgid();
+    let started = format!("{{\"pid\": {pgid}, \"pgid\": {pgid}}}");
+    crate::fsx::write_new(&directory.join("started.json"), started.as_bytes(), 0o644).unwrap();
     assert_fail(
         do_release(&ctx, &release_request("1")),
         "running preparations bar hold release",

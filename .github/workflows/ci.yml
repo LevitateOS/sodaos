@@ -26,8 +26,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  source:
-    name: Go and browser source checks
+  go:
+    name: Go and source guards
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     defaults:
@@ -85,6 +85,60 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
+      - name: Install locked source dependencies
+        run: bun install --frozen-lockfile
+      - name: Run Go checks with PostgreSQL
+        env:
+          SODA_PG_HOST: 127.0.0.1
+          SODA_PG_PORT: '5432'
+        run: |
+          umask 077
+          export SODA_PG_SUPER_PASSWORD_FILE="$TMPDIR/postgres.passwd"
+          printf '%s' 'soda-ci-fixture' > "$SODA_PG_SUPER_PASSWORD_FILE"
+          test -s "$SODA_PG_SUPER_PASSWORD_FILE"
+          bun run check:source go
+
+  browser:
+    name: TypeScript and browser checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sodaos
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Read Fountain source pin
+        id: fountain
+        run: |
+          jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
+          jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
+          ci_tmp=$(mktemp -d "$HOME/t.XXXXXX")
+          echo "TMPDIR=$ci_tmp" >> "$GITHUB_ENV"
+      - name: Check out the selected Fountain source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ${{ steps.fountain.outputs.repository }}
+          ref: ${{ steps.fountain.outputs.revision }}
+          path: forgejo-ext
+          persist-credentials: false
+      - name: Set up Bun from package.json
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: sodaos/package.json
+      - name: Set up the repository-selected Rust toolchain
+        run: rustup toolchain install --profile minimal --no-self-update
+      - name: Cache locked Cargo downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - name: Install locked browser tooling
         run: |
           bun install --frozen-lockfile
@@ -106,16 +160,8 @@ jobs:
           EOF
           sudo apparmor_parser --replace /etc/apparmor.d/soda-ci-playwright
           bun -e "import {chromium} from 'playwright'; const browser = await chromium.launch({headless: true, chromiumSandbox: true}); await browser.close();"
-      - name: Run source checks with PostgreSQL
-        env:
-          SODA_PG_HOST: 127.0.0.1
-          SODA_PG_PORT: '5432'
-        run: |
-          umask 077
-          export SODA_PG_SUPER_PASSWORD_FILE="$TMPDIR/postgres.passwd"
-          printf '%s' 'soda-ci-fixture' > "$SODA_PG_SUPER_PASSWORD_FILE"
-          test -s "$SODA_PG_SUPER_PASSWORD_FILE"
-          bun run check:source
+      - name: Run TypeScript and browser checks
+        run: bun run check:source browser
 
   rust:
     name: Rust workspace tests
@@ -172,13 +218,15 @@ jobs:
     name: CI
     runs-on: ubuntu-24.04
     timeout-minutes: 2
-    needs: [source, rust]
+    needs: [go, browser, rust]
     if: ${{ always() }}
     steps:
-      - name: Require both source jobs to pass
+      - name: Require all source jobs to pass
         env:
-          SOURCE_RESULT: ${{ needs.source.result }}
+          GO_RESULT: ${{ needs.go.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
           RUST_RESULT: ${{ needs.rust.result }}
         run: |
-          test "$SOURCE_RESULT" = success
+          test "$GO_RESULT" = success
+          test "$BROWSER_RESULT" = success
           test "$RUST_RESULT" = success

@@ -215,11 +215,11 @@ impl Qualification {
 /// Stage exact bytes locally; this does not qualify or publish a release.
 pub fn prepare(
     candidate: &Path,
-    media_path: &Path,
     tag: &str,
     notes_path: &Path,
     out: &Path,
 ) -> Result<Manifest, Error> {
+    let media_path = candidate.join("media/media.json");
     if !valid_tag(tag) {
         return Err(failure("exact release tag required"));
     }
@@ -324,7 +324,7 @@ pub fn prepare(
             "Fountain source differs from the compiled candidate",
         ));
     }
-    assets.push(copy_asset(media_path, out, "media.json")?);
+    assets.push(copy_asset(&media_path, out, "media.json")?);
     let manifest = Manifest {
         format: 1,
         tag: tag.to_owned(),
