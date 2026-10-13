@@ -1010,6 +1010,8 @@ export class SodaSpaces extends LitElement {
       project: this.project,
       view: this.view,
       managementMode: this.managementMode,
+      page: this.binding?.kind === 'page',
+      hasSelection: this.selected !== '',
       setupReturn: this.setupReturn,
       firstSpace: this.spaces[0],
       actorId: this.actor?.id || '',

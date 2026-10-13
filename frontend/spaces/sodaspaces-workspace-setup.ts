@@ -249,6 +249,10 @@ export interface SetupReading {
   project: string;
   view: 'terminal' | 'sessions' | 'project';
   managementMode: 'standard' | 'journey' | 'settings';
+  /** Page binding: the sessions list is a transient overlay above the retained terminal. */
+  page: boolean;
+  /** A terminal selection is retained under the current view. */
+  hasSelection: boolean;
   setupReturn: SetupReturn | undefined;
   firstSpace: Space | undefined;
   actorId: string;
@@ -599,11 +603,22 @@ export function focusSetupIntent(host: SetupHost, isStale: () => boolean, isActi
   });
 }
 
+/**
+ * View captured for Back from setup. On a page the sessions list is a transient
+ * overlay above the retained terminal (the only way to reach creation at compact
+ * widths), so Back restores the working terminal, matching the wide layout where
+ * navigation and terminal stay visible together.
+ */
+export function setupReturnView(reading: SetupReading): SetupReturn['view'] {
+  if (reading.page && reading.view === 'sessions' && reading.hasSelection) return 'terminal';
+  return reading.view;
+}
+
 export function beginSetup(reading: SetupReading, actions: SetupActions, host: SetupHost) {
   if (reading.stale || !reading.available || !reading.canRestore || !reading.activeSurface) return;
   actions.notifyFactory('');
   actions.rememberFocus();
-  actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
+  actions.setSetupReturn({project: reading.project, view: setupReturnView(reading), mode: reading.managementMode});
   actions.setSetup('intent');
   actions.setRepositoryChoice('');
   actions.setReviewAuthorization(undefined);
@@ -619,7 +634,7 @@ export function resumeSetup(intent: string, reading: SetupReading, actions: Setu
   if (!requestIDPattern.test(intent)) return;
   actions.notifyFactory('');
   actions.rememberFocus();
-  actions.setSetupReturn({project: reading.project, view: reading.view, mode: reading.managementMode});
+  actions.setSetupReturn({project: reading.project, view: setupReturnView(reading), mode: reading.managementMode});
   actions.setSetup('intent');
   actions.setRepositoryChoice('');
   actions.setReviewAuthorization(undefined);
