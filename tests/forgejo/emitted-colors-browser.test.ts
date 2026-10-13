@@ -20,6 +20,7 @@ async function documentCss(): Promise<string> {
 
 const expected = {
   light: {
+    canvas: 'rgb(255, 255, 255)',
     surface: 'rgb(255, 255, 255)',
     edge: 'rgb(133, 133, 133)',
     text: 'rgb(16, 16, 16)',
@@ -28,6 +29,7 @@ const expected = {
     link: 'rgb(223, 0, 27)',
   },
   dark: {
+    canvas: 'rgb(16, 16, 16)',
     surface: 'rgb(16, 16, 16)',
     edge: 'rgb(128, 128, 128)',
     text: 'rgb(255, 255, 255)',
@@ -37,7 +39,7 @@ const expected = {
   },
 } as const;
 
-test('emitted dialog/action colors compute under native-selected schemes', {timeout: 120000}, async () => {
+test('emitted workspace and Tailnet colors inherit native-selected schemes', {timeout: 120000}, async () => {
   // Short temp root: Chrome socket paths overflow the 108-char unix limit
   // under deep checkout TMPDIRs. Removed with the workdir below.
   const cacheRoot = resolve(homedir(), '.cache', 'soda-tests');
@@ -55,7 +57,9 @@ test('emitted dialog/action colors compute under native-selected schemes', {time
     await buildExtensionStylesheets(assets);
     const emitted = (
       await Promise.all(
-        ['components.css', 'sodaspaces-page.css'].map(async (name) => readFile(resolve(assets, name), 'utf8'))
+        ['components.css', 'sodaspaces-page.css', 'soda-settings.css', 'soda-tailnet.css'].map(async (name) =>
+          readFile(resolve(assets, name), 'utf8')
+        )
       )
     ).join('\n');
     const doc = await documentCss();
@@ -68,16 +72,29 @@ test('emitted dialog/action colors compute under native-selected schemes', {time
         `<style>html{color-scheme:${scheme}}</style><style>${doc}</style><style>${emitted}</style>` +
           '<div class="soda-page"><div class="soda-page-container"><a id="soda-link" href="#">x</a></div></div>' +
           '<div class="soda-workspace-dialog" id="soda-dialog">x</div>' +
-          '<div class="soda-drop-edge" id="soda-action">x</div>'
+          '<div class="soda-drop-edge" id="soda-action">x</div>' +
+          '<div class="soda-settings soda-tailnet-settings" id="soda-tailnet">' +
+          '<div class="settings-actions"><button id="soda-tailnet-refresh">Refresh observations</button></div></div>'
       );
       const colors = await page.evaluate(() => {
         const styleOf = (id: string) => {
           const element = document.getElementById(id);
           if (!element) throw new Error(`Missing fixture element ${id}`);
           const style = getComputedStyle(element);
-          return {background: style.backgroundColor, border: style.borderTopColor, color: style.color};
+          return {
+            background: style.backgroundColor,
+            border: style.borderTopColor,
+            color: style.color,
+            scheme: style.colorScheme,
+          };
         };
-        return {dialog: styleOf('soda-dialog'), action: styleOf('soda-action'), link: styleOf('soda-link')};
+        return {
+          dialog: styleOf('soda-dialog'),
+          action: styleOf('soda-action'),
+          link: styleOf('soda-link'),
+          tailnet: styleOf('soda-tailnet'),
+          tailnetRefresh: styleOf('soda-tailnet-refresh'),
+        };
       });
       const want = expected[scheme];
       assert.equal(colors.dialog.background, want.surface);
@@ -86,6 +103,11 @@ test('emitted dialog/action colors compute under native-selected schemes', {time
       assert.equal(colors.action.background, want.action);
       assert.equal(colors.action.color, want.onAction);
       assert.equal(colors.link.color, want.link);
+      assert.equal(colors.tailnet.scheme, scheme);
+      assert.equal(colors.tailnet.background, want.canvas);
+      assert.equal(colors.tailnet.color, want.text);
+      assert.equal(colors.tailnetRefresh.background, want.surface);
+      assert.equal(colors.tailnetRefresh.color, want.text);
     }
     await page.close();
   } finally {

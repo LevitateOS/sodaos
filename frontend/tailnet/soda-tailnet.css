@@ -1,5 +1,10 @@
 .soda-settings soda-tailnet { display: block; min-width: 0; }
-.soda-tailnet-settings { overflow-wrap: anywhere; color: var(--soda-page-text); background: var(--soda-page-canvas); }
+.soda-tailnet-settings { box-sizing: border-box; max-width: 1120px; overflow-wrap: anywhere; color: var(--soda-page-text); background: var(--soda-page-canvas); }
+.soda-tailnet-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--soda-space-6); padding-block: var(--soda-space-4) var(--soda-space-6); }
+.soda-tailnet-toolbar h2 { margin: 0 0 var(--soda-space-2); }
+.soda-tailnet-toolbar p { max-width: 640px; margin: 0; color: var(--soda-page-muted); }
+.soda-tailnet-toolbar button { flex: 0 0 auto; }
+.soda-tailnet-settings .soda-tailnet-status { margin: 0 0 var(--soda-space-6); padding: var(--soda-space-4); border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); }
 .soda-tailnet-settings fieldset { min-inline-size: 0; background: var(--soda-page-surface); }
 .soda-tailnet-settings input, .soda-tailnet-settings select { min-width: 0; max-width: 100%; }
 .soda-tailnet-settings input[type=checkbox] { width: auto; min-height: auto; justify-self: start; }
@@ -12,6 +17,8 @@
 .soda-tailnet-settings summary { cursor: pointer; font: var(--soda-font-label); }
 .soda-tailnet-settings button:hover:not(:disabled) { background: var(--soda-page-hover); }
 @media (max-width: 600px) {
+  .soda-tailnet-toolbar { flex-direction: column; gap: var(--soda-space-4); }
+  .soda-tailnet-toolbar button { width: 100%; }
   .soda-tailnet-settings dl { grid-template-columns: minmax(0, 1fr); }
   .soda-tailnet-settings .settings-actions > button { width: 100%; }
 }

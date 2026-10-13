@@ -1,4 +1,4 @@
-.soda-settings { font: var(--soda-font-body); color-scheme: inherit; }
+.soda-settings { font: var(--soda-font-body); }
 .soda-settings .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--soda-space-4); }
 .soda-settings h1 { font: var(--soda-font-title); }
 .soda-settings h2 { font: var(--soda-font-heading); }

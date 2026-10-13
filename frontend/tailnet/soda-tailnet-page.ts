@@ -455,12 +455,16 @@ class SodaTailnet extends LitElement {
   }
   protected render() {
     return html`
-      <div class="settings-actions">
+      <header class="soda-tailnet-toolbar">
+        <div>
+          <h2>Network access</h2>
+          <p>Manage this appliance’s connection and network access for your Projects.</p>
+        </div>
         <button type="button" ?disabled=${this.busy || !!this.pending} @click=${this.refreshObservations}>
           Refresh observations
         </button>
-      </div>
-      <p role="status" aria-live="polite">${this.message}</p>
+      </header>
+      <p class="soda-tailnet-status" role="status" aria-live="polite">${this.message}</p>
       ${this.notice ? html`<p class="tailnet-notice" role="status">${this.notice}</p>` : ''}
       ${renderReconnect(this.confirmationViewInput())} ${renderPending(this.confirmationViewInput())}
       ${this.renderAuthorized()}
