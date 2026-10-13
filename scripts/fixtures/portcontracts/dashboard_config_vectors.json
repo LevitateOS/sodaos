@@ -13,18 +13,24 @@
       "expect": {
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "factory_intake_secret_file": "",
+        "factory_judgment_call_budget": 0,
         "factory_publication_root": "",
         "forgejo_background_credential_file": "",
         "forgejo_background_host_uid": null,
         "forgejo_background_socket": "",
+        "forgejo_graph_actor_id": 0,
+        "forgejo_graph_credential_file": "",
         "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_lifecycle_credential_file": "",
         "forgejo_merge_credential_file": "",
         "forgejo_review_credential_file": "",
         "forgejo_url": "https://forgejo.example.test",
         "host_socket": "/run/soda/host.sock",
         "identity_socket": "/run/soda/identity/admin.sock",
         "listen": "127.0.0.1:8080",
-        "operator_id": 7
+        "operator_id": 7,
+        "typesafe_api_key_file": "",
+        "typesafe_model": ""
       }
     },
     {
@@ -49,18 +55,24 @@
       "expect": {
         "database_dsn_file": "/run/soda/postgres/soda.dsn",
         "factory_intake_secret_file": "/etc/soda/intake.secret",
+        "factory_judgment_call_budget": 0,
         "factory_publication_root": "/var/lib/soda/factory-pub",
         "forgejo_background_credential_file": "/etc/soda/bg.cred",
         "forgejo_background_host_uid": 997,
         "forgejo_background_socket": "/run/soda/forgejo-bg.sock",
+        "forgejo_graph_actor_id": 0,
+        "forgejo_graph_credential_file": "",
         "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_lifecycle_credential_file": "",
         "forgejo_merge_credential_file": "/etc/soda/merge.cred",
         "forgejo_review_credential_file": "/etc/soda/review.cred",
         "forgejo_url": "https://forgejo.example.test",
         "host_socket": "/run/soda/host.sock",
         "identity_socket": "/run/custom/identity.sock",
         "listen": "127.0.0.2:9090",
-        "operator_id": 9
+        "operator_id": 9,
+        "typesafe_api_key_file": "",
+        "typesafe_model": ""
       }
     },
     {

@@ -44,7 +44,9 @@ var expectedSourceCommands = [][]string{
 	{"bash", "scripts/check-no-npm.sh"},
 	{"bash", "scripts/check-no-python.sh"},
 	{"bun", "run", "typecheck"},
-	{"bun", "run", "test"},
+	{"bun", "run", "build:forgejo"},
+	{"bun", "run", "test:frontend:prepared"},
+	{"bun", "run", "test:forgejo:prepared"},
 }
 
 type sourceFixture struct {
@@ -156,16 +158,22 @@ func TestSourceCommandsWorkWithoutAStageOrGitCheckout(t *testing.T) {
 	Check(t, strings.Contains(result.Stdout, "Local source checks executed"), "stdout=%q", result.Stdout)
 }
 
-func TestSourceEachFailureStopsRemainingSuites(t *testing.T) {
+func TestSourceFailuresContinueIndependentSuites(t *testing.T) {
 	fixture := newSourceFixture(t)
 	for index, command := range expectedSourceCommands {
 		t.Run(strings.Join(command, " "), func(t *testing.T) {
 			WriteFile(t, fixture.log, []byte{}, 0o644)
 			result := fixture.run(t, strings.Join(command, " "))
 			Check(t, result.Code == 7, "exit = %d", result.Code)
-			Check(t, equalCommands(commandNames(fixture.commands(t)), expectedSourceCommands[:index+1]),
+			want := expectedSourceCommands
+			// Compiler/dependency admission failures stop all execution; a failed
+			// browser build prevents only its dependent prepared suites.
+			if index < 2 || index == 7 {
+				want = expectedSourceCommands[:index+1]
+			}
+			Check(t, equalCommands(commandNames(fixture.commands(t)), want),
 				"commands = %v", commandNames(fixture.commands(t)))
-			Check(t, !strings.Contains(result.Stdout, "Local source checks executed"), "stdout=%q", result.Stdout)
+			Check(t, strings.Contains(result.Stdout, "Local source checks executed") == (index >= 2), "stdout=%q", result.Stdout)
 		})
 	}
 }

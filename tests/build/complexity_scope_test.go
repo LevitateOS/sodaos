@@ -50,7 +50,7 @@ func TestComplexityAnalyzerFailuresCannotPass(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			fakeGo := filepath.Join(dir, "go")
-			script := "#!/bin/sh\nprintf '%s' " + shellQuote(tc.stdout) + "\nprintf '%s' " + shellQuote(tc.stderr) + " >&2\nexit " + tc.code + "\n"
+			script := "#!/bin/sh\n[ \"$2\" != -n ] || exit 0\nprintf '%s' " + shellQuote(tc.stdout) + "\nprintf '%s' " + shellQuote(tc.stderr) + " >&2\nexit " + tc.code + "\n"
 			if err := os.WriteFile(fakeGo, []byte(script), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -65,6 +65,26 @@ func TestComplexityAnalyzerFailuresCannotPass(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestComplexityToolDownloadDiagnosticsAreNotFindings(t *testing.T) {
+	dir := t.TempDir()
+	fakeGo := filepath.Join(dir, "go")
+	script := "#!/bin/sh\n" +
+		"if [ \"$2\" = -n ]; then\n" +
+		"  printf 'go: downloading github.com/fzipp/gocyclo v0.6.0\\n' >&2\n" +
+		"  touch " + shellQuote(filepath.Join(dir, "prepared")) + "\n" +
+		"else\n" +
+		"  test -f " + shellQuote(filepath.Join(dir, "prepared")) + " || exit 1\n" +
+		"fi\n"
+	if err := os.WriteFile(fakeGo, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	env := SetEnv(os.Environ(), "PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", filepath.Join(RepoRoot, "scripts/check-complexity.sh"), "internal/factory/control/operator.go")
+	Require(t, result.Code == 0, "download diagnostic failed gate: %s", result.Stdout+result.Stderr)
+	Check(t, strings.Contains(result.Stdout, "below 10"), "stdout=%q", result.Stdout)
+	Check(t, strings.Contains(result.Stderr, "go: downloading"), "download diagnostic lost: %q", result.Stderr)
 }
 
 func TestComplexityDefaultDiscoveryFailureFailsClosed(t *testing.T) {

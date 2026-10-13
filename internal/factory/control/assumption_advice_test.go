@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type assumptionChooser struct {
@@ -186,7 +187,7 @@ func TestJudgeAssumptionsExhaustionAndMismatchFail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.JudgeAssumptions(context.Background(), r, content, r.Ideas); !errors.Is(err, ErrPriorityUnavailable) {
+	if _, err := c.JudgeAssumptions(context.Background(), r, content, r.Ideas); !errors.Is(err, store.ErrPlanningAllowanceExhausted) {
 		t.Fatalf("exhaustion error=%v", err)
 	}
 	stale := r

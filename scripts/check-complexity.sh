@@ -52,6 +52,9 @@ for path in "${selected[@]}"; do
   fi
 done
 
+# Resolve and compile the tool first so Go's cold-cache download diagnostics
+# remain separate from analyzer diagnostics, which must still fail the gate.
+go tool -n gocyclo >/dev/null
 if analysis=$(go tool gocyclo -over 9 "${selected[@]}" 2>&1); then
   analysis_status=0
 else

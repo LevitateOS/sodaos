@@ -56,8 +56,9 @@ jobs:
         run: |
           jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
           jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
-          mkdir -p "$PWD/.artifacts/tmp"
-          echo "TMPDIR=$PWD/.artifacts/tmp" >> "$GITHUB_ENV"
+          # Unix sockets have a 108-byte path limit; keep test scratch short.
+          ci_tmp=$(mktemp -d "$HOME/t.XXXXXX")
+          echo "TMPDIR=$ci_tmp" >> "$GITHUB_ENV"
       - name: Check out the selected Fountain source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -77,7 +78,7 @@ jobs:
       - name: Set up the repository-selected Rust toolchain
         run: rustup toolchain install --profile minimal --no-self-update
       - name: Cache locked Cargo downloads
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             ~/.cargo/registry
@@ -92,9 +93,9 @@ jobs:
         env:
           SODA_PG_HOST: 127.0.0.1
           SODA_PG_PORT: '5432'
-          SODA_PG_SUPER_PASSWORD_FILE: ${{ github.workspace }}/sodaos/.artifacts/tmp/postgres.passwd
         run: |
           umask 077
+          export SODA_PG_SUPER_PASSWORD_FILE="$TMPDIR/postgres.passwd"
           printf '%s' 'soda-ci-fixture' > "$SODA_PG_SUPER_PASSWORD_FILE"
           test -s "$SODA_PG_SUPER_PASSWORD_FILE"
           bun run check:source
@@ -117,8 +118,8 @@ jobs:
         run: |
           jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
           jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
-          mkdir -p "$PWD/.artifacts/tmp"
-          echo "TMPDIR=$PWD/.artifacts/tmp" >> "$GITHUB_ENV"
+          ci_tmp=$(mktemp -d "$HOME/t.XXXXXX")
+          echo "TMPDIR=$ci_tmp" >> "$GITHUB_ENV"
       - name: Check out the selected Fountain source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -138,7 +139,7 @@ jobs:
       - name: Set up the repository-selected Rust toolchain
         run: rustup toolchain install --profile minimal --no-self-update
       - name: Cache locked Cargo downloads
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             ~/.cargo/registry
@@ -148,7 +149,7 @@ jobs:
       - name: Install locked source dependencies
         run: bun install --frozen-lockfile
       - name: Run Rust tests
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --locked --no-fail-fast
 
   ci:
     name: CI

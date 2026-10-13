@@ -434,6 +434,7 @@ fn muse_stop_ok_without_custody_return() {
     let delivery = delivery_fixture();
     let rt = runtime(FakeExec::new(vec![
         ok(&format!("{IID}\n")),
+        ok("active\n"),
         ok(""),
         ok("inactive\n"),
         err("exit status 1"),
@@ -447,36 +448,36 @@ fn muse_stop_ok_without_custody_return() {
 #[test]
 fn muse_start_action_denied_like_go() {
     // Go `projectOperation` serves only validate/stop; start denies after
-    // the invocation check.
+    // the invocation and active-state checks.
     let delivery = delivery_fixture();
-    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n"))]));
+    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
     assert_eq!(
         rt.muse("start", &delivery, deadline()).unwrap_err(),
         terminal::ERR_DENIED
     );
-    assert_eq!(rt.exec.calls().len(), 1);
+    assert_eq!(rt.exec.calls().len(), 2);
 }
 
 #[test]
 fn muse_finish_action_denied_like_go() {
     let delivery = delivery_fixture();
-    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n"))]));
+    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
     assert_eq!(
         rt.muse("finish", &delivery, deadline()).unwrap_err(),
         terminal::ERR_DENIED
     );
-    assert_eq!(rt.exec.calls().len(), 1);
+    assert_eq!(rt.exec.calls().len(), 2);
 }
 
 #[test]
 fn muse_unknown_action_denied_after_invocation_check() {
     let delivery = delivery_fixture();
-    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n"))]));
+    let rt = runtime(FakeExec::new(vec![ok(&format!("{IID}\n")), ok("active\n")]));
     assert_eq!(
         rt.muse("launch", &delivery, deadline()).unwrap_err(),
         terminal::ERR_DENIED
     );
-    assert_eq!(rt.exec.calls().len(), 1);
+    assert_eq!(rt.exec.calls().len(), 2);
 }
 
 #[test]

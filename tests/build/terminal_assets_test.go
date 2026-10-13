@@ -41,7 +41,7 @@ func TestTerminalAssetsBrowserBuildPreparesLockedRenderer(t *testing.T) {
 		Check(t, !strings.Contains(scripts["test:"+group+":prepared"], "build:forgejo"),
 			"test:%s:prepared rebuilds", group)
 	}
-	Check(t, scripts["test:frontend:prepared"] == "SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts",
+	Check(t, scripts["test:frontend:prepared"] == "SODA_TAILNET_COMPONENT=1 bun test --isolate tests/frontend/*.test.ts",
 		"frontend prepared = %q", scripts["test:frontend:prepared"])
 	Check(t, scripts["test:forgejo:prepared"] == "SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/*.test.ts tests/forgejo/presentation/*.test.ts",
 		"forgejo prepared = %q", scripts["test:forgejo:prepared"])

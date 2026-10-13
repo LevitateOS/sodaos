@@ -651,8 +651,18 @@ pub fn run_as_role(
     }
 }
 
+fn record_completion(ctx: &crate::Ctx, directory: &Path, payload: &[u8]) -> Result<(), Error> {
+    // A recorded completion survives a later stop, but stopping live work
+    // must not turn its termination into a failed completion.
+    let _lock = state_lock(ctx)?;
+    if fsx::lexists(&directory.join("stopped.json")) {
+        return Ok(());
+    }
+    fsx::write_new(&directory.join("finished.json"), payload, 0o644)
+}
+
 /// `setup.sh`, then `check.sh` when setup passed and no stop tombstone
-/// raced the launch; completion is always recorded.
+/// raced the launch; completion is recorded unless stop already won.
 pub fn run_preparation(
     ctx: &crate::Ctx,
     directory: &Path,
@@ -735,8 +745,7 @@ pub fn run_preparation(
         ),
     ]);
     let payload = crate::emit::dumps_default(&finished);
-    fsx::write_new(&directory.join("finished.json"), payload.as_bytes(), 0o644)?;
-    Ok(())
+    record_completion(ctx, directory, payload.as_bytes())
 }
 
 /// Double-fork supervisor: the intermediate records the leader before
@@ -786,10 +795,10 @@ pub fn spawn_detached(
     }
     let outcome = grandchild_body(ctx, directory, fields, tools, account.as_ref(), deadline);
     if outcome.is_err() {
-        let _ = fsx::write_new(
-            &directory.join("finished.json"),
+        let _ = record_completion(
+            ctx,
+            directory,
             b"{\"setup_exit\": 127, \"check_exit\": null, \"launch_error\": true}",
-            0o644,
         );
     }
     unsafe {

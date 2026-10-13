@@ -236,6 +236,27 @@ fn stop_bars_unknown_identity_and_retires_known() {
 }
 
 #[test]
+fn stop_preserves_recorded_completion() {
+    for (check_exit, phase) in [(0, "ready"), (1, "failed")] {
+        let scratch = Scratch::fresh();
+        let (git, _) = scratch.git_script("git-ok", 0);
+        let ctx = scratch.ctx(&git);
+        crate::ops_approve::do_approve(&ctx, &approve_default(PID)).unwrap();
+        let directory = ctx.preparations.join(PID);
+        let payload = format!("{{\"setup_exit\": 0, \"check_exit\": {check_exit}}}");
+        record_completion(&ctx, &directory, payload.as_bytes()).unwrap();
+        do_stop(&ctx, &op_value("stop", Some(PID))).unwrap();
+        let state = do_inspect(&ctx, &op_value("inspect", Some(PID))).unwrap();
+        assert_eq!(state.get("phase").and_then(|v| v.as_str()), Some(phase));
+        assert_eq!(state.get("stopped").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            std::fs::read(directory.join("finished.json")).unwrap(),
+            payload.as_bytes()
+        );
+    }
+}
+
+#[test]
 fn inspect_reports_phases_and_hold() {
     let scratch = Scratch::fresh();
     let (git, _) = scratch.git_script("git-ok", 0);
