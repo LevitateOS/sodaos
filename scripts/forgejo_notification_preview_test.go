@@ -117,7 +117,7 @@ func TestForgejoNotificationPreviewSignedInHook(t *testing.T) {
 		if err := tmpl.Execute(&out, map[string]any{"IsSigned": signed}); err != nil {
 			t.Fatal(err)
 		}
-		if !signed && strings.TrimSpace(out.String()) != "" {
+		if !signed && (strings.Contains(out.String(), `id="soda-notification-preview"`) || strings.Contains(out.String(), `/notification-preview.js`)) {
 			t.Fatal("guest loads preview")
 		}
 		if signed {

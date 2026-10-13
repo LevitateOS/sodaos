@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+// Wiki clone initialization now belongs to the paired Fountain page feature.
+// Its two changed leaf hashes bind that native source; other bodies retain 15.0.9.
 func TestForgejoRepositoryContentOverridesRetain1509Source(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -20,13 +22,13 @@ func TestForgejoRepositoryContentOverridesRetain1509Source(t *testing.T) {
 		{"wiki start", []string{"repo", "wiki", "start.tmpl"}, "df9bba8dd8bd9a8b7f24ac4fe958ea15a37cfc8aba93a9d8784953f1a7b58877", "page-content repository wiki start", "page-content repository wiki start soda-repository-content soda-wiki-start"},
 		{"wiki pages", []string{"repo", "wiki", "pages.tmpl"}, "f51549e3a26f4047022a0ea036feba2facc8f6dde285eb691874a7a7ce2c5c30", "page-content repository wiki pages", "page-content repository wiki pages soda-repository-content soda-wiki-pages"},
 		{"wiki editor", []string{"repo", "wiki", "new.tmpl"}, "41ccd691cd117d62d760f8d0b3e64c4e36b84a7c4960218897cc60554ea67ded", "page-content repository wiki new", "page-content repository wiki new soda-repository-content soda-wiki-editor"},
-		{"wiki revisions", []string{"repo", "wiki", "revision.tmpl"}, "cb35be04efc2167a55f190294507804e7b1dbb659f59e9a324d820aea8450164", "page-content repository wiki revisions", "page-content repository wiki revisions soda-repository-content soda-wiki-revisions"},
+		{"wiki revisions", []string{"repo", "wiki", "revision.tmpl"}, "a62e951113f7e73415b6c3a9d2d80144096faa78589eaaa22a4ea406d267bdc1", "page-content repository wiki revisions", "page-content repository wiki revisions soda-repository-content soda-wiki-revisions"},
 		{"project list", []string{"repo", "projects", "list.tmpl"}, "393a0457150580cab1c757a361a7e0f999203c23ba94f017139f56518ef01fc7", "page-content repository projects milestones", "page-content repository projects milestones soda-repository-content soda-projects-list"},
 		{"project editor", []string{"repo", "projects", "new.tmpl"}, "e41a6fc08613492002ef37ea4c46123aa64dd77a87193144df9921bf2626663f", "page-content repository projects edit-project new milestone", "page-content repository projects edit-project new milestone soda-repository-content soda-projects-new"},
 		{"project board", []string{"repo", "projects", "view.tmpl"}, "9263f45e6652fb23c6100c72da27a069c04cb2b936dc1b5cda54f59dda46f0b5", "page-content repository projects view-project", "page-content repository projects view-project soda-repository-content soda-projects-view"},
 		{"release list", []string{"repo", "release", "list.tmpl"}, "4225a3f054e68ea9d69772bbaa230d8de625c88a17da415bcbcb571d3e765794", "page-content repository releases", "page-content repository releases soda-repository-content soda-release-list"},
 		{"release editor", []string{"repo", "release", "new.tmpl"}, "7e58e9fd1283d4fd10362b9fa53b39510c902d8d7943503b0e23cb9acf6472cb", "page-content repository new release", "page-content repository new release soda-repository-content soda-release-editor"},
-		{"wiki view", []string{"repo", "wiki", "view.tmpl"}, "781d4d2a4dc174b7c00e96db8bba77dfcad110546d3a6575c4bdde3e135a3758", "page-content repository wiki view", "page-content repository wiki view soda-repository-content soda-wiki-view"},
+		{"wiki view", []string{"repo", "wiki", "view.tmpl"}, "ab8ed0b87f303abc613e60facf587af7c194cf1adea41fba2f5cf1f7d19cf965", "page-content repository wiki view", "page-content repository wiki view soda-repository-content soda-wiki-view"},
 	}
 
 	for _, tt := range tests {

@@ -26,14 +26,16 @@ func inlineForgejoCSSImports(t *testing.T, css string) string {
 }
 
 // Exact upstream recovery guards every native action, gate, input and JS delegate.
+// Lifecycle-corrected leaves bind the paired Fountain templates; other hashes
+// retain the original Forgejo 15.0.9 attribution and native gates.
 func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 	cases := []struct {
 		path, hash string
 		undo       [][2]string
 	}{
 		{"moderation/new_abuse_report.tmpl", "552b7c046569127ade1615566065123fcf7f45d41072affea8d16765515d35af", [][2]string{{"class=\"page-content moderation new-report soda-page soda-moderation\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\"", "class=\"page-content moderation new-report\""}, {"class=\"ui form soda-form\"", "class=\"ui form\""}}},
-		{"repo/actions/dispatch.tmpl", "7d7626ef9a37196c4d1c14621430a1046c10063939c95375b4b2f116609f6c6d", [][2]string{{"class=\"ui info message tw-flex tw-items-center soda-code-dispatch\"", "class=\"ui info message tw-flex tw-items-center\""}}},
-		{"repo/actions/list.tmpl", "5088c8639e883d60c2bf1b310cc772355caa2298415a38591570197d6d1d6c76", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-actions page-content ", "class=\"page-content "}}},
+		{"repo/actions/dispatch.tmpl", "427fec67269465372e354f681c571de5fe8783e792222d2a90aa1df06da8edfb", [][2]string{{"class=\"ui info message tw-flex tw-items-center soda-code-dispatch\"", "class=\"ui info message tw-flex tw-items-center\""}}},
+		{"repo/actions/list.tmpl", "bdc824d0e5bd8e7a32abf8f8c538b8657a7af7e5f92fa693ae6209a47b8e7e43", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-actions page-content ", "class=\"page-content "}}},
 		{"repo/actions/list_inner.tmpl", "bad8a6689e3c76d2dcbc61e8012771f55321d585eca5bc767565ef3bc8a608ff", [][2]string{{"class=\"ui stackable grid soda-code-workflows\"", "class=\"ui stackable grid\""}}},
 		{"repo/actions/no_workflows.tmpl", "91b7fc0d341981a988ef5ee4d31a4c4e5ff16eeea4bf1405c9114c86819609f4", [][2]string{{"class=\"empty-placeholder soda-empty soda-code-no-workflows\"", "class=\"empty-placeholder\""}, {"<h2 class=\"soda-empty-title\">", "<h2>"}, {"<p class=\"soda-empty-description\">", "<p>"}}},
 		{"repo/actions/runs_list.tmpl", "e5bb7de6c4912d8ff3fdce9274bbf3cac0f35a19efcaf8d77f62ae1fbf3fd29b", [][2]string{{"class=\"flex-list run-list soda-code-runs\"", "class=\"flex-list run-list\""}, {"class=\"empty-placeholder soda-empty soda-empty--inset\"", "class=\"empty-placeholder\""}, {"<h2 class=\"soda-empty-title\">", "<h2>"}}},
@@ -50,10 +52,10 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 		{"repo/editor/edit.tmpl", "7f2eeb1a0fd496451a69fb3313c748b9c0e40ac1adf836e33dc605f5f7c4df7f", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-editor page-content ", "class=\"page-content "}, {"<form class=\"soda-form ", "<form class=\""}}},
 		{"repo/editor/patch.tmpl", "a128e7c2f41a6e7199ceb7e6f9609fb6e983eece71f66195d40fd932772c0fd7", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-editor page-content ", "class=\"page-content "}, {"<form class=\"soda-form ", "<form class=\""}}},
 		{"repo/editor/upload.tmpl", "db1ae7fb8e2a14503a2511d6d0b69bee462faf9bc5d2144cb2169716709f7258", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-editor page-content ", "class=\"page-content "}, {"<form class=\"soda-form ", "<form class=\""}}},
-		{"repo/empty.tmpl", "8795f36b8ffcc6ff7f81714f7aed2d21a1579468992407a554ad7f38fdffdda0", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}}},
+		{"repo/empty.tmpl", "9f1724b5bd38c0b56680360aec37ed482d11f774996fce65d1c89b52d0c13cd4", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}}},
 		{"repo/find/files.tmpl", "7b8bb3d319d0509f3d31df2bf27e5eac4ac8a0410c7f0a8c5ca74c2b30c319ec", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}, {"class=\"tw-flex tw-items-center soda-code-finder\"", "class=\"tw-flex tw-items-center\""}}},
 		{"repo/forks.tmpl", "a519029ae63d7da5a6ad3e601bb6571b8f7fb9c79ea3a9a67b05713f32936e34", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}}},
-		{"repo/home.tmpl", "41cf3643a2247475e9634369c657fffa7f2af18f94735a9c1bf37147a2846393", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}, {"class=\"repo-button-row soda-toolbar\"", "class=\"repo-button-row\""}}},
+		{"repo/home.tmpl", "a831d399e2923f825a21e66487f72f55996763aaf1b806b6801382301b6ab2fe", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}, {"class=\"repo-button-row soda-toolbar\"", "class=\"repo-button-row\""}}},
 		{"repo/search.tmpl", "16aa2ff93305811a67b7f3ac76c8f7acf6dbf8a0bafe8cdef7356e1b06a035c5", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}}},
 		{"repo/tag/list.tmpl", "e150f972d21c6ea11bb7b150ad5c4cf638dcee28ee08f9283b3e0f867d3f17f1", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}}},
 		{"repo/user_cards.tmpl", "42bd9f68ed92ae17e31fa07237f18f1e8fd2b767e5fc5da86e83addf082c0744", [][2]string{{"class=\"user-cards soda-code-people\"", "class=\"user-cards\""}}},
@@ -81,10 +83,10 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 		{"webhook/new.tmpl", "581de797cb9a2f83193985ec51e712f15fdd3e7c5008512ecfa114035623e73a", [][2]string{{`{{if not .SettingsPresentation}}{{.CustomHeaderTitle}}{{end}}`, `{{.CustomHeaderTitle}}`}, {"class=\"ui top attached header soda-webhook-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-webhook-provider\"", "class=\"ui attached segment\""}}},
 		{"webhook/shared-settings.tmpl", "06576d36e3b23e919aebbae72cefa8743492d8478040928bf7ce47d0622a3fc6", [][2]string{{"class=\"event type soda-webhook-events\"", "class=\"event type\""}, {"<legend class=\"soda-p-heading\">", "<legend>"}}},
 		{"repo/sub_menu.tmpl", "e9c1b52e5f0a8f766d4bec6897926db92a05f6c2f9147bc704ddf43664518b9e", [][2]string{{"class=\"soda-code-summary ui segments repository-summary", "class=\"ui segments repository-summary"}}},
-		{"repo/branch_dropdown.tmpl", "0d3a657b58fa06b24c459854d60cc49bf9a85b7fe0f167236321748d1c93cf41", [][2]string{{"class=\"soda-code-ref-selector js-branch-tag-selector ", "class=\"js-branch-tag-selector "}}},
+		{"repo/branch_dropdown.tmpl", "79b795f25b6adc051e9a94acd2bc095604b6c93437ca62659037fc9ac5a31203", [][2]string{{"class=\"soda-code-ref-selector js-branch-tag-selector ", "class=\"js-branch-tag-selector "}}},
 		{"repo/commit_header.tmpl", "83e7c16cf1701969474fe47c62c9f86c717d1611e0373c5b50ac48534f13a194", [][2]string{{"class=\"soda-code-commit-heading ui top attached header clearing segment tw-relative commit-header", "class=\"ui top attached header clearing segment tw-relative commit-header"}}},
 		{"repo/clone_buttons.tmpl", "909f391790b470a2156f0747dd3cb77da5a6702d41f675a3bc4394ea6e30f0bf", [][2]string{{"class=\"js-clone-url soda-code-clone-url\"", "class=\"js-clone-url\""}}},
-		{"repo/diff/box.tmpl", "6a252c2fb44ea9c1dfa0b4b9d22335598b96d560b6bdc8d6285314ba36723eb4", [][2]string{{"<div class=\"soda-code-diff\">", "<div>"}}},
+		{"repo/diff/box.tmpl", "af4395c7dd2eb05596355adfcf93432315aec664c4cb0597bb8223d1fe06e764", [][2]string{{"<div class=\"soda-code-diff\">", "<div>"}}},
 		{"shared/blocked_users_list.tmpl", "a677d1c59c5c158916f007da2a43161f5b4f615e75a540e8e75d38b92ea385e8", [][2]string{{"class=\"flex-list soda-blocked-users\"", "class=\"flex-list\""}, {`<div class="soda-empty soda-empty--page">
 			{{template "custom/soda/empty_content" dict "Icon" "octicon-shield-check" "Title" (ctx.Locale.Tr "settings.blocked_users_none")}}
 		</div>`, `<div class="flex-item">

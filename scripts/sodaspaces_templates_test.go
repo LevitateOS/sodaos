@@ -11,8 +11,8 @@ import (
 )
 
 func TestForgejoFooterKeepsLiveFeatures(t *testing.T) {
-	// The retired drawer no longer owns the footer. Repository actions and
-	// notifications keep their native Forgejo visibility gates.
+	// Native leaf definitions load once even on native-first entry. Their
+	// connected elements own enhancement; notifications retain the session gate.
 	type repository struct {
 		ID                       int64
 		IsBroken, IsBeingCreated bool
@@ -21,14 +21,13 @@ func TestForgejoFooterKeepsLiveFeatures(t *testing.T) {
 		name    string
 		repo    *repository
 		signed  bool
-		actions bool
 	}{
-		{"signed", &repository{ID: 9223372036854775807}, true, true},
-		{"anonymous", &repository{ID: 42}, false, true},
-		{"no repository", nil, false, false},
-		{"signed non-repository", nil, true, false},
-		{"broken", &repository{ID: 42, IsBroken: true}, true, false},
-		{"creating", &repository{ID: 42, IsBeingCreated: true}, true, false},
+		{"signed", &repository{ID: 9223372036854775807}, true},
+		{"anonymous", &repository{ID: 42}, false},
+		{"no repository", nil, false},
+		{"signed non-repository", nil, true},
+		{"broken", &repository{ID: 42, IsBroken: true}, true},
+		{"creating", &repository{ID: 42, IsBeingCreated: true}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpl, err := template.New("hooks").Funcs(template.FuncMap{"AppSubUrl": func() string { return "" }, "AssetUrlPrefix": func() string { return "/assets" }, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles(
@@ -42,8 +41,10 @@ func TestForgejoFooterKeepsLiveFeatures(t *testing.T) {
 				t.Fatal(err)
 			}
 			html := out.String()
-			if strings.Contains(html, `src="/assets/soda/forgejo/repository-actions.js?v=4"`) != tc.actions {
-				t.Fatal("repository disclosure script escaped its native repository boundary")
+			for _, name := range []string{"repository-actions", "repository-switcher", "personal-settings"} {
+				if strings.Count(html, `src="/assets/soda/forgejo/`+name+`.js?`) != 1 {
+					t.Fatalf("native leaf definition %q must load once for later entries", name)
+				}
 			}
 			if strings.Contains(html, `id="sodaspaces-root"`) || strings.Contains(html, `/assets/sodaspaces.js`) || strings.Contains(html, `data-user-id=`) {
 				t.Fatal("retired drawer bootstrap returned")
@@ -97,8 +98,8 @@ func TestForgejoFooterUsesPrefixedNativeAssets(t *testing.T) {
 	if err := tmpl.Execute(&out, ctx); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"repository-actions.js?v=4", "notification-preview.js?v=1", "repository-switcher.js?v=3-repository-only"} {
-		if !strings.Contains(out.String(), `src="/native/assets/soda/forgejo/`+path+`"`) {
+	for _, path := range []string{"repository-actions.js", "notification-preview.js", "repository-switcher.js", "personal-settings.js"} {
+		if !strings.Contains(out.String(), `src="/native/assets/soda/forgejo/`+path+`?`) {
 			t.Fatal("lost native asset subpath", path)
 		}
 	}

@@ -120,7 +120,7 @@ func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 				t.Fatalf("execute custom header: %v", err)
 			}
 			output := rendered.String()
-			hasScript := strings.Contains(output, `/soda/forgejo/login-theme.js?v=2`)
+			hasScript := strings.Contains(output, `/soda/forgejo/login-theme.js?`)
 			if hasScript != tt.wantScript {
 				t.Errorf("guest theme script presence = %t, want %t:\n%s", hasScript, tt.wantScript, output)
 			}
