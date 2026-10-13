@@ -13,23 +13,24 @@ accepted tasks are summarized below instead of remaining in active queues.
 
 The current scoped source reconciliation covers the accumulated delta from
 Soda `5d2817604b49a16c7fb0b4b85e7513328884cf4f` to
-`ac22514b906e659f89616e5fa4df0f0fa679f1d6` and Fountain
+`1bb1a27cb946f5c825bd5e2786b479ae649b355a` and Fountain
 `6abafdb4092018de6eca3fb8994b2a88f08c2396` to
-`c72f5607b2f5e25d49d02f564843bab4dfe95172` on 2026-10-13.
-These are committed source pins, not installed revisions. Current Fountain
-native feature, markup and context patches and Soda branding/layout patches
-remain uncommitted and outside those pins; their checks cannot silently become
-evidence for the committed pair.
+`695986487355053334c4163ebb85e384a1290437` on 2026-10-13.
+The native cutover, lifecycle, branded controls and host-owned intent navigation
+are committed on canonical main. These are source pins, not installed revisions.
+Matched development component images have been built, byte-checked, transferred
+and imported into the existing VM; services have not been activated and Store
+remains at version 46. No aggregate completion claim follows from those outputs.
 The original planning pair was Soda `8df756f1bc7f410b694004f2133af046fecc44f4`
 and Fountain `87ec92d4f0101071a734b2f790f3bb1fb1d3366e`; it is historical input,
 not the current source or installed revision. Recheck heads and dirty work before
 future implementation; preserve unrelated work, files, Projects and processes.
 
-**Execution has resumed under the owner's implementation/deployment instruction.**
-Codex coordinates the continuation after the Muse sessions exited. This document
-records actual source handoffs and unmet finish conditions; worker goals and
-percentages do not supply acceptance. The coordinator owns the final task ledger,
-matching native qualification and existing-VM delivery.
+**Execution is paused for the owner-requested Muse handoff.**
+The native implementation and existing-VM delivery authorization remain in scope.
+This document records actual source handoffs and unmet finish conditions; worker
+goals and percentages do not supply acceptance. The continuing coordinator owns
+the final task ledger, matching native qualification and existing-VM delivery.
 
 The generic target belongs to Fountain's `contrib/extensions/README.md`, **Native
 frontend correction target**. Product/security guarantees remain in
@@ -71,27 +72,30 @@ or adding a prerequisite to already proved work.
 
 C03's definition and host initial-hidden-presentation join are committed.
 C04 defines linked owner identity, one entry/API base, declared subroutes and
-public navigation in `a9ba2ce0ba`; Soda's type-only mirror records that revision
-and body hash. H-N, H-OWNER and H-ROUTE are callable source handoffs consumed by
-Soda. Their availability does not establish the updated independent example's
-native-browser finish condition. A04 placement is committed in `8bffb18713`;
+public navigation in `a9ba2ce0ba`. `04f2d81b2d` adds explicit history intent:
+extension navigation pushes by default and may replace a saved draft entry.
+Soda's byte-identical type mirror records `04f2d81b2d` and its body hash.
+H-N, H-OWNER and H-ROUTE are callable source handoffs consumed by Soda.
+The independently built generic example now has its scoped native-prefix
+API/stream/owner receipt; that receipt does not establish whole-site or installed
+qualification. A04 placement is committed in `8bffb18713`;
 its native-rendered geometry/control finish condition remains distinct from the
 transcribed-container fixtures.
 
 | Task scope | Current committed result and actual evidence | Remaining finish condition |
 | --- | --- | --- |
 | A01 | Diagnostic reconciliation names the original two native template shapes and existing failure/proof subjects. | Coordinator acceptance of the retained diagnostic receipt. |
-| A04–A06 | Shared-owner placement and repository route admission are implemented; current native cutover/content-region patches are still pending. | Registered-owner native geometry/controls, removal/caller joins and complete native navigation evidence. |
-| B03–B07 | Common, browsing/editor, collaboration/form and account/admin lifecycle patches and map checks are committed. `1ce6001008` retires Dashboard Vue state/searches; `616bce5b1e` and `c72f5607b2` add explicit native content/widget and repository Vue/asynchronous-work retirement. | Required real native class checks and complete startup/retirement coverage; current dirty registration/template/remaining-feature patches stay pending, so B07's commit title is not closure. |
-| C03–C05, C07 | Canonical browser distribution, generic owner/routes, initial hidden presentation, lifecycle/revalidation and repository admission are implemented. | Their applicable independently built example and real native lifecycle/composition checks against current bindings. |
+| A04–A06 | Native cutover and shared-owner admission are committed in `b9045c7ae6`; `e273447c78` fixes duplicate native element registration. Native controls and generic URL-prefix checks pass. | Complete natural-link Soda navigation and the remaining native feature/geometry finish checks; old injected-anchor proof cannot close I04. |
+| B03–B07 | Native feature registration/retirement and declarative page data are committed through `b9045c7ae6`. Five real native control representatives pass at root and `/forge` prefixes; all 385 native frontend unit tests pass. | Each remaining mapped class's native check and repeated-entry coverage. Investigate the inferred native dirty-form departure gap; no actual loss has yet been demonstrated. |
+| C03–C05, C07 | Canonical browser contract, owner/routes, revalidation and admission are implemented. Independently built generic example passes actual native `/forge` scoped API/stream/context and retained-owner checks. | Reconcile remaining authority/composition cases with I05 and final native feature coverage; installed proof remains separate. |
 | C06 | `72673ea722`: focused proxy/callback/WebSocket checks and actual native HTTP/WS routes through the manager/SDK pass. Original repeated-slash suffixes are refused before admission; exact path/query forwarding and stalled backend cancellation pass. | Bounded C06 source/real-handler finish scope is verified; installed authority/process proof remains I05/I08. |
-| D01–D06 | One canonical host contract and shared Workspace entry, declared routes, public lifecycle consumption and removal of the named host-DOM/height adapters are committed through `13d221e0`. The panel re-export entry is deleted. | Each row's consumer/build/component checks plus the required actual registered-owner/native composition joins; source removals do not close D06/I04. |
-| E04 | The merged `aee8b048` graph checks cover extension package closure, font assets and notices after the entry/lifecycle joins. | Record exact final output identities in I07 and refresh changed graph inputs; installed byte identity remains I08. |
+| D01–D06 | One canonical host contract/entry and public lifecycle replace consumer adapters. `1bb1a27c` removes consumer history/popstate routing, sends native push/replace intent and restores the retained view on host base entry. 57 focused route/setup checks and consumer typechecks pass. | Complete current natural-link native route/history/reload/identity joins; I04/I06 remain open at their full finish scopes. |
+| E04 | Package, font/notices and emitted-color checks pass. Final navigation graph changes only the Workspace entry among 21 extension files; image readback verifies the complete branded payload and extension resources. | Recheck only changed graph inputs after pending fixes; installed byte identity remains I08. |
 | F05 | `ac22514b`: all ten existing keyboard/settings/creation/dialog/compact cases pass using Chromium `tabs.setZoom/getZoom` at 200%/400%, with explicit per-tab isolation. Both default driver smoke checks, tests typecheck and scoped lint/format pass. | F05's authored actual-browser-zoom finish scope is verified. |
-| F06 | All three container cases pass with actual zoom and Fountain CSS; markup remains transcribed. | Settings/creation/dialog/compact checks in actual native-rendered branded containers remain open. |
-| H03–H05 | Native settings extension tabs and the customization/provider responsibility review are committed; Tailnet consumes the public host lifecycle. | Actual branded controls/history/operator cases at the applicable native composition, followed by I08 installed evidence. |
+| F06 | Current natural-link native run passes 8 of 10 subjects, including 100% creation/return/dialog and 400% global/repository/settings allocation. | At 400%, diagnose Create project return waiting for the retained terminal; fix rename dialog top clipping (y=-8.25 in a 360×250 viewport). Keep strict reachability bounds. Compact and installed qualification remain separate. |
+| H03–H05 | Native custom-element leaf controls, declarative data and handler ownership are committed; account/switcher/clone native representatives pass, and Tailnet consumes public lifecycle. | Remaining native history/operator cases and I08 installed branded controls/Tailnet admission and refusal. |
 | I02/I03 | Page/state inventory, mandatory renderer/socket assertions and affected task-scoped checks are implemented. An inert terminal boundary is explicitly skipped. | Complete actual-subject inventory/check reconciliation; skipped paths supply no positive preservation proof. |
-| I04–I09 | Composed drivers and component preparation are available. | Current native composition/authority/terminal identities, matching admitted outputs, preserving Store transition, installed pages/processes and final ledger remain open. |
+| I04–I09 | Current native fixtures, isolated compiled component images and image byte/mode readbacks are available. Updated images are imported on the VM without activation. Store transition, backup and process observers are prepared. | Resolve native failures, complete natural-link/authority proof, take fresh quiesced backup, perform guarded preserving Store46→47 and identity/component activation, verify installed pages and exact process continuity, then reconcile acceptance/docs. |
 
 The ten F05 cases and three F06 callers passed together after the per-tab
 isolation correction. C06's earlier failing real-handler cases and the initial
@@ -102,12 +106,12 @@ or from the historical 23-task snapshot alone.
 
 ## Scheduling and completion rules
 
-**Execution allocation:** No Muse session is active in this continuation. The
+**Execution allocation at handoff:** No Muse session is active. The
 owner's retained ceiling is two live Muse CLI sessions in total, including a
 Muse coordinator if used. That ceiling does not describe the current Codex
 worker count. The nine lane letters describe ownership and queued outputs;
-Codex uses its available execution slots with acknowledged whole-file leases
-in the canonical checkouts. Keep one heavy-build/VM operator.
+The continuing coordinator allocates acknowledged whole-file leases in the
+canonical checkouts. Keep one heavy-build/VM operator.
 
 **Start** names the smallest input needed to begin that task's implementation.
 **Finish** names the behavior and evidence required to close it. A callable handoff
