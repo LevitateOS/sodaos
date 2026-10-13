@@ -3,6 +3,54 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+## First-principles refresh (2026-10-13)
+
+Baseline: `fde19669440455a77e4c81c4f08ccc60a72276eb`, plus the named H06
+gate/test patches below. Current helper owners and actual consumers were reconciled
+with retained reviews and the Go/Rust/TypeScript/PostgreSQL decisions
+(GUIDANCE-01/03/05). Historical scope is preserved. **Met** is the bounded
+source model, **partial** retains a concrete workflow/evidence gap, and native
+outcomes marked **unknown** were not executed. Helpers must not acquire domain
+authority merely because several callers share a mechanism.
+
+| Slice / purpose | First principles | Current assessment and evidence | Desired gap | Dependency-ordered implementation / check |
+| --- | --- | --- | --- | --- |
+| H01 Private IPC and service lifetime: provide admitted bounded request/stream transport. | Kernel/socket identity and transport limits precede domain admission; stopping a listener is distinct from retiring admitted children/streams. | **Partial.** `lib/host/src/daemon/server.rs` uses Hyper/Tokio, bounded connection/backend permits and joined terminal tasks; `internal/host/client.go` consumes the private host transport. Real namespace/lifetime behavior is **unknown**. | Qualify current peer and shutdown boundaries with actual processes; retain native libraries rather than another transport bridge. | Before dependent host journeys, reuse daemon/client refusal tests, then prove one actual private peer/request/stream shutdown boundary. Domain authorization stays with its callers. |
+| H02 Storage mechanics: provide PostgreSQL connections, transactions and schema admission. | A transaction implements its domain's invariant; concurrency proof must match PostgreSQL; schema/key admission cannot create a second canonical ledger. | **Partial.** `internal/store/store.go`, `schema.go`, `readiness_work.go` and `readiness_creations.go` retain domain-local SQL and bounded readiness transactions; `cmd/soda-identity/src/pg.rs` retains distinct broker connection mechanics. No new live PG check ran here. | Preserve current database choice and validate changed invariant/lock order with the existing disposable fixture. | After O01, exercise only changed schema/key/transaction contracts with explicit fixture DSN. Historical SQLite single-connection proof is inapplicable; no migration/alternate store is proposed. |
+| H03 Encoding and parsing: enforce caller-owned bounded wire representations. | Syntax helpers grant no authority; duplicate/unknown fields, size, UTF-8 and completion belong to each protocol's admitted representation; shared syntax does not imply shared semantics. | **Met** for inspected Go boundary: `internal/strictjson/decode.go` bounds input and rejects invalid UTF-8/duplicate/unknown/trailing content. Current Rust callers use `lib/host/src/json/` and `cmd/soda-identity/src/strict.rs`; retired syntax engine remains retired. | Keep one mature syntax implementation per language and caller-owned DTO/field contracts; compare real consumers before consolidation. | Before a changed wire caller, run its existing malformed/producer-vector tests. No blanket cross-domain DTO, alias package or generic parser framework. |
+| H04 Configuration and filesystem primitives: admit protected inputs and mechanical file/lock effects. | Caller owns policy, target, lock order and lifecycle; helper must preserve private paths/descriptors and report uncertainty without expanding cleanup scope. | **Partial.** `internal/config/config.go` admits configuration; `internal/filelock/filelock.go` waits cancellably with native flock; `lib/host/src/tcontrol_policy.rs` and installer key helpers retain caller-specific protected file ownership. Native permission/concurrency behavior is **unknown**. | Resolve demonstrated caller-specific failures before sharing helpers; do not normalize away differing secret/ownership contracts. | Before dependent O/N/I effects, run existing restricted-input/lock/cancellation tests for changed owner, then selected native filesystem boundary checks. No new cleanup coordinator. |
+| H05 Branding, avatars and attribution: retain canonical deterministic visuals and provenance. | Rendering is deterministic and bounded; artwork/licensing remain canonical; native authentication/product authority is independent of appearance. | **Met** for inspected renderer model: `internal/avatar/avatar.go` validates 32-hex seed/size, shares immutable style and creates one renderer per call; `assets/branding/` retains canonical native-host consumers. Installed visual integration is **unknown**. | Preserve deliberate Forgejo design breadth and stock Cockpit branding; verify actual asset/staging consumers when they change. | After changed asset consumers/D03, run established avatar snapshot and native branding source checks; inspect one installed browser appearance only for the affected integration. No new shell or visual redesign. |
+| H06 Developer tooling and verification infrastructure: report reliable scoped source/test results. | A checker failure cannot become compliance; actual file arguments and tool status must survive the gate; source PASS is not native qualification. | **Partial, two concrete corrections implemented.** `scripts/check-oxfmt.sh` and `check-ts-complexity.sh` formerly swallowed tool failures and split paths. Both now preserve status and explicit/default filename boundaries. The complexity gate retains canonical max 9 and lets `check-oxlint.sh` own unrelated correctness rules. Existing `tests/build/source_checks_test.go` and `complexity_scope_test.go` exercise copied actual gates. | Keep domain test/receipt owners and evidence scope explicit; other tool gates remain outside this correction's proof. | Prove the actual pinned rule profile before changing flags, reproduce false success, fix current entrypoints and run focused drivers. Five oxfmt and five complexity boundary cases pass; real Oxlint confirms threshold/parser/input behavior below. No new config/profile owner or checker framework. |
+
+H06 implementation evidence: exact Go 1.26.7 executed the focused
+`TestOxfmtGatePreservesFormatterFailureAndPaths` and
+`TestTSComplexityGatePreservesAnalyzerFailureAndPaths` tests in `./tests/build`
+with `-count=1` (ten passing subcases).
+The original gate returned zero/PASS with the fake formatter's `formatter
+unavailable` stderr and exit 2 on an ordinary filename; the fixed gate passes
+clean-result, differences, operational-failure, explicit spaced-path and default
+NUL-path cases. The copied original TypeScript complexity gate returned
+zero/PASS on a real malformed ordinary frontend input under installed Oxlint
+1.81.0; the changed gate reports the actual parse failure and exits nonzero.
+Real-tool profile checks show that `-A all -D complexity` would reset the rule's
+configured options and incorrectly admit complexity 10. The selected
+`-A correctness` preserves max 9: a combined complexity-9/10 fixture reports
+only the latter; a concrete unrelated `no-unreachable` error remains the general
+lint gate's responsibility; missing inputs and parse failures still fail.
+`bash -n` passes for both changed scripts. All scratch/cache/temp
+paths were under `/home`; no formatter install, whole-tree source scan,
+native build or operational command ran. Independent A challenge inspected the
+actual script/test diff and accepted retained diagnostics/status, explicit/default
+filename handling and failure of direct discovery under `set -e`; it found no
+blocking objection within this formatter boundary. A's final TypeScript challenge
+also accepted preserved max-9 options, direct status/discovery failure handling,
+payload scope and retained diagnostics against the exact copied script/config
+and selected real-tool fixtures; no blocking objection remained. Fake-tool results
+prove gate behavior; the real
+Oxlint fixture checks support only this selected profile, not native qualification.
+A also checked H03's bounded strictjson contract and H05's validated deterministic
+renderer boundary. Those accepted source claims do not qualify installed consumers.
+
 ## H01 Private IPC and service lifetime
 
 Provide admitted private request/stream transport and explicit service startup/shutdown.

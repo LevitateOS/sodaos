@@ -196,3 +196,63 @@ func TestSourceNativeGateStillSurroundsSharedSourceChecks(t *testing.T) {
 		Check(t, strings.Contains(after, want), "missing after marker %q", want)
 	}
 }
+
+func TestOxfmtGatePreservesFormatterFailureAndPaths(t *testing.T) {
+	for _, tc := range []struct {
+		name, output, diagnostic string
+		path                     string
+		status                   string
+		wantPass                 bool
+		defaultFiles             bool
+	}{
+		{name: "formatted", status: "0", wantPass: true},
+		{name: "formatting needed", output: "frontend/file.ts\n", status: "1"},
+		{name: "formatter failure", diagnostic: "formatter unavailable\n", status: "2"},
+		{name: "explicit paths", path: "frontend/space name.ts", status: "0", wantPass: true},
+		{name: "default paths", path: "frontend/space name.ts", status: "0", wantPass: true, defaultFiles: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := tc.path
+			if path == "" {
+				path = "frontend/file.ts"
+			}
+			dir := t.TempDir()
+			for _, path := range []string{"scripts", "node_modules/.bin"} {
+				if err := os.MkdirAll(filepath.Join(dir, path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			gate := filepath.Join(dir, "scripts/check-oxfmt.sh")
+			if err := os.WriteFile(gate, []byte(ReadFile(t, "scripts/check-oxfmt.sh")), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			tool := "#!/bin/sh\n" +
+				"[ \"$#\" -eq 2 ] && [ \"$1\" = --list-different ] && [ \"$2\" = " + shellQuote(path) + " ] || { echo 'path split' >&2; exit 2; }\n" +
+				"printf '%s' " + shellQuote(tc.output) + "\nprintf '%s' " + shellQuote(tc.diagnostic) + " >&2\nexit " + tc.status + "\n"
+			if err := os.WriteFile(filepath.Join(dir, "node_modules/.bin/oxfmt"), []byte(tool), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			args := []string{gate, path}
+			env := os.Environ()
+			if tc.defaultFiles {
+				fakeGit := "#!/bin/sh\n[ \"$1\" = ls-files ] && [ \"$2\" = -z ] || exit 2\nprintf 'frontend/space name.ts\\0'\n"
+				bin := filepath.Join(dir, "node_modules/.bin")
+				if err := os.WriteFile(filepath.Join(bin, "git"), []byte(fakeGit), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				env = SetEnv(env, "PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+				args = []string{gate}
+			}
+			result := Run(t, RunOpt{Cwd: dir, Env: env, Timeout: 10 * time.Second}, "/bin/bash", args...)
+			if (result.Code == 0) != tc.wantPass || strings.Contains(result.Stderr, "path split") {
+				t.Fatalf("gate status=%d stdout=%q stderr=%q", result.Code, result.Stdout, result.Stderr)
+			}
+			if tc.diagnostic != "" && !strings.Contains(result.Stderr, strings.TrimSpace(tc.diagnostic)) {
+				t.Fatalf("formatter diagnostic lost: %q", result.Stderr)
+			}
+			if tc.output != "" && !strings.Contains(result.Stdout, strings.TrimSpace(tc.output)) {
+				t.Fatalf("unformatted file output lost: %q", result.Stdout)
+			}
+		})
+	}
+}

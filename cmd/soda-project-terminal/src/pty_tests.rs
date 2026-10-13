@@ -9,6 +9,50 @@ use crate::pty_relay::{
     apply_control_frame, ingest_control_bytes, read_pty_output, session_should_stop,
 };
 
+fn exec_ready_pipe() -> (std::os::fd::OwnedFd, std::os::fd::OwnedFd) {
+    use std::os::fd::FromRawFd;
+    let mut fds = [-1; 2];
+    assert_eq!(unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+    unsafe {
+        (
+            std::os::fd::OwnedFd::from_raw_fd(fds[0]),
+            std::os::fd::OwnedFd::from_raw_fd(fds[1]),
+        )
+    }
+}
+
+#[test]
+fn exec_readiness_timeout_does_not_read_a_stalled_child_pipe() {
+    use std::os::fd::AsRawFd;
+    let (reader, writer) = exec_ready_pipe();
+    // Release the writer later so a regression fails rather than hanging tests.
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        drop(writer);
+    });
+    let started = std::time::Instant::now();
+    let ready = wait_for_exec(reader.as_raw_fd(), 0.02).unwrap();
+    let elapsed = started.elapsed();
+    release.join().unwrap();
+    assert!(!ready);
+    assert!(
+        elapsed < std::time::Duration::from_millis(200),
+        "{elapsed:?}"
+    );
+}
+
+#[test]
+fn exec_readiness_distinguishes_eof_from_launch_failure() {
+    use std::os::fd::AsRawFd;
+    let (reader, writer) = exec_ready_pipe();
+    drop(writer);
+    assert!(wait_for_exec(reader.as_raw_fd(), 0.1).unwrap());
+
+    let (reader, writer) = exec_ready_pipe();
+    write_all_blocking(writer.as_raw_fd(), b"1").unwrap();
+    assert!(!wait_for_exec(reader.as_raw_fd(), 0.1).unwrap());
+}
+
 fn login() -> Account {
     Account {
         pw_name: "op".to_string(),

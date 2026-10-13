@@ -3,6 +3,94 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+## First-principles refresh (2026-10-13)
+
+This bounded refresh starts at Soda `fde19669440455a77e4c81c4f08ccc60a72276eb`
+with a clean source tree and the paired Fountain/SDK checkout at
+`124907625d984755bb685168d0daddf8ef1cb36e`. It inspects current entrypoints,
+coordinator/domain seams and their immediate consumers. The existing cards,
+review records and workflow traces supply historical scope and findings; their
+older full-body review and execution receipts are not advanced by this table.
+`Met` means the named principle is supported within this source inspection;
+`partial` identifies a remaining implementation or verification gap. Neither
+means the whole slice or installed workflow has been qualified.
+
+The current combined audit-and-implementation instruction authorizes bounded
+local corrections. Product requirements remain owned by
+[the overview](../../../product/overview.md),
+[Trust](../../../architecture/trust.md) and
+[Factory interfaces](../../../architecture/factory-interfaces.md).
+GUIDANCE-01/03/05 retain Go domain/coordinator/store, Rust privileged execution,
+and PostgreSQL; GUIDANCE-07 gives conditional native effects their owning trust
+contract. No new process, ledger, language port or compatibility path is proposed.
+
+| Slice | Purpose | First principle | Current assessment and evidence | Desired gap | Dependency-ordered implementation/check plan |
+| --- | --- | --- | --- | --- | --- |
+| F01 | Configure repository automation. | Repository authority is a separate standing grant; enablement cannot confer host/provider authority. | **Met within inspected admission/validation.** [settings](../../../../internal/web/api/factory_settings.go), [grant commands](../../../../internal/factory/control/grants.go) and [effective authority](../../../../internal/factory/effective_authority.go) preserve the separation and revisioned replay. | Verification: current native maintainer and enrolled actor checks through the serving extension. No new code defect established. | Retain Go owners; after G01/G02, use existing settings/grants scenarios to check enable, changed-command conflict and withdrawal. Native execution remains separate. |
+| F02 | Grant appliance execution permission. | The configured operator grants bounded capacity use, independently of repository membership. | **Met within inspected source.** [factory settings](../../../../internal/web/api/factory_settings.go) admit the operator; [ApplyOperatorGrant](../../../../internal/factory/control/grants.go) uses the store command transaction. | Verification: current PostgreSQL replay/withdrawal plus F08 stop outcome; grant withdrawal alone cannot prove termination. | Retain API/control/store owners. Check existing grant command replay first, then F08 cancellation/settlement; no second operator service. |
+| F03 | Reserve finite capacity and account sponsored time. | Atomic admission and irreversible usage must prevent overlap or retries from erasing charged provider usage. | **Partial.** [occupancy](../../../../internal/factory/control/dispatch_occupancy.go), [reservations](../../../../internal/store/factory_reservations.go) and [allowances](../../../../internal/factory/allowance.go) implement distinct held/settled accounting. PostgreSQL concurrency and native-duration equivalence were not exercised here. | Verification: shared connection rolling allowance, concurrent admission and uncertain settlement against actual broker lifetimes. | After F02/F04, reuse existing dispatch concurrency/accounting checks with PostgreSQL, then F08/I06 settlement evidence. Retain one store transaction owner; no new reservation framework. |
+| F04 | Let a provider owner sponsor selected factory roles. | Repository administration cannot spend another account's allowance or move its credentials. | **Met within inspected authority wiring.** [settings](../../../../internal/web/api/factory_settings.go), [sponsorship](../../../../internal/factory/sponsorship.go) and [effective authority](../../../../internal/factory/effective_authority.go) reference current broker grants and a separate connection budget. | Verification: credential-generation/grant revocation reaching dispatch and settlement. No new code defect established. | Retain Go sponsorship metadata and Rust credential custody. After I03/G01, reuse sponsorship withdrawal checks; follow F07/F08 for in-flight effects. |
+| F05 | Accept exact requirements and invalidate changed authority. | A copied objective or restored text cannot revive an obsolete acceptance occurrence. | **Met within inspected revalidation seam.** [acceptance status](../../../../internal/factory/control/acceptance_status.go) checks withdrawn heads, generated-intent authority and fresh evidence; [acceptance domain](../../../../internal/factory/acceptance.go) owns semantic bindings. | Verification: native edit/reopen/withdrawal reaching running work and outstanding conditional operations. | After G03, run existing acceptance invalidation/withdrawal scenarios; then trace F08/F09/F12 retirement. Preserve immutable decisions and one PostgreSQL head. |
+| F06 | Reassess issue/dependency readiness from event hints. | Hints identify work; fresh bounded reads establish readiness and authorize no execution. | **Partial.** [durable readiness work](../../../../internal/factory/control/readiness_work.go) replaces retired sweeps and tracks pass budgets. [observer](../../../../internal/forgejo/observe.go) still has lazy actor/bootstrap work outside the visible three-RPC-per-evidence charge. This is the existing B03.C-lifetime review seam. | Verification/design gap: demonstrate aggregate physical-call cost and durable continuation under real triggers before changing budget mechanics. | After G02/G03, reuse existing continuation/budget drivers and inspect actual cold-start calls; only then correct the owning budget if evidence shows the limit is exceeded. Do not restore recursive sweeps. |
+| F07 | Dispatch one bounded assignment under current authority. | Persist exact identity/context before external launch; uncertainty blocks replacement. | **Partial.** [dispatch](../../../../internal/factory/control/dispatch.go) delegates host/broker effects; [context reader](../../../../internal/factory/control/dispatch_context.go) binds accepted paths, approved base and attempt deadline to the real host request. Native provider execution remains unverified here. | Verification: prepared source/context, role checkout and broker lease reaching the actual CLI unchanged. | After F01–F06/P08/P09/I05, reuse dispatch recovery/context tests, then the existing bounded native driver. Retain Go coordination and Rust host execution. |
+| F08 | Observe, stop, retry or take over recorded runs. | Requested stop, confirmed process retirement and returned credential are different facts. | **Partial.** [settlement](../../../../internal/factory/control/settle.go) preserves uncertainty until host and broker agree; [operator CLI](../../../../cmd/soda-factory/src/main.rs) owns only status/stop/reconcile; current host execution lives in [lib/host factory](../../../../lib/host/src/factory/mod.rs). | Verification: real descendant retirement/credential closure and concurrent takeover. Historical `rust/soda-host`/`rust/soda-factory` locators below are not current paths. | After P05/I06, reuse stop/replay/settlement checks, then narrowly observe native stop. Preserve retained Project roots; retry only after reconciled ownership. |
+| F09 | Persist publication/correction progression and receipts. | Persist immutable operations before effects; withdrawal must enumerate every recorded child operation. | **Partial pending native verification.** [publication reconciliation](../../../../internal/factory/control/publication_reconcile.go) and [withdrawal](../../../../internal/factory/control/publication_withdraw.go) now include correction and review operations, so the old correction-enumeration omission is not assumed current. | Verification: lost reply and withdrawal across branch, PR, correction and review effects on the paired native producer. | After F05/F08/G04, reuse publication recovery/children checks, then existing conditional native scenarios. Retain one publication record and per-operation receipts. |
+| F10 | Independently review each candidate and bound correction. | Review belongs to the exact reviewer/head; retries recover the saved operation rather than regenerate intent. | **Partial pending native loop evidence.** [review cycle](../../../../internal/factory/control/review_cycle.go) now looks up saved `ReviewOperations` before current output/policy reads; [withdrawal](../../../../internal/factory/control/publication_withdraw.go) captures them. The historical immutable-review finding does not describe that path. | Verification: same-Project coder correction, fresh reviewer and lost native response within remaining allowances. | After F07/F09/G05, reuse review recovery/allowance scenarios, then the existing native review primitive and correction loop. No new review ledger. |
+| F11 | Assess required checks for exact candidate/base. | A report or stale pass cannot substitute for current native checks under current policy. | **Met within inspected verdict boundary.** [check assessment](../../../../internal/factory/checks_assessment.go), [check pass](../../../../internal/factory/control/checks_pass.go) and [merge evidence](../../../../internal/factory/control/merge_evidence.go) separate persisted assessments from a fresh pre-merge verdict. | Maintenance gap addressed with G06/G07: one check-evidence mapper. Native Actions availability remains a verification gap. | Apply the shared Go mapper, run focused G06/G07 caller checks, then reuse exact-candidate assessment scenarios. Local runner provisioning remains deferred. |
+| F12 | Merge eligible work and release dependants after confirmed completion. | Completion requires attributable merge, current result reachability and the original issue closure occurrence. | **Partial pending native completion evidence.** [merge evidence](../../../../internal/factory/control/merge_evidence.go) rechecks authority/review/checks; [completion](../../../../internal/forgejo/merge_completion.go) now requests same-revision ancestry for a descendant base tip. Historical target-tip-equality findings are not reopened. | Verification: attributable merge followed by a legitimate descendant, issue reopen/reclose and dependency reconsideration. | After F05/F09/F10/F11/G07, reuse ancestry/completion tests; qualify the existing native merge/completion driver before any broader factory claim. Retain exact receipts and fresh read authority. |
+
+The bounded code change from this refresh belongs to G06/G07: remove duplicated
+check reduction while preserving F11/F12 policy ownership. The remaining rows
+identify retained boundaries and targeted evidence work, not speculative code
+projects or permission to perform installation, external mutations or release builds.
+
+Independent challenge checked the refreshed saved-review lookup, correction/review
+withdrawal enumeration, merge reachability and native snapshot seams, retained
+language/storage boundaries and the scoped verdicts. No blocking objection was
+found within those inspected seams. New planning/judgment implementations were
+not reviewed in full, and native races/qualification remain unperformed.
+
+Current responsibilities also include the following additions within the existing
+slice IDs. These source traces extend this refresh's scope; they do not inherit
+the older reviews' full-body completion:
+
+- **F03/F05:** [planning allowance](../../../../internal/factory/intent_allowance.go)
+  is a separately revisioned `planning_calls` budget, preserving reserved and
+  consumed calls when its ceiling changes. [Intent generation](../../../../internal/factory/control/intent_generation.go)
+  derives native tasks/dependencies only from accepted scope, binds exact graph
+  operations and adopts exact native task receipts; [generation recovery](../../../../internal/factory/control/intent_generation_recovery.go)
+  resumes one pending graph per pass through the existing serving owner. **Partial:**
+  current owner/packet/adoption seams were inspected, not the entire design-judgment
+  implementation or native graph workflow. Next reuse allowance, generation and
+  recovery tests after G02/G03; do not treat advice as human approval or add a
+  second task ledger. Product direction and planning authority live in
+  [the overview](../../../product/overview.md#planning-and-priority-judgments).
+- **F06/G03:** [original creation recovery](../../../../internal/factory/control/creation_recovery.go)
+  advances retained native creation-task cursors and durable readiness work with
+  one repository page per pass. **Partial:** current cursor/identity/retention checks
+  are present; cold-start physical calls and end-to-end retained-page delivery
+  remain the same bounded-read verification gap. Reuse creation recovery and
+  serving due-work scenarios before native qualification; no universal issue
+  history or sweep is inferred.
+- **F05/F07:** [planning](../../../../internal/factory/control/planning.go)
+  refreshes accepted scope and journals bounded implementation judgments;
+  [priority](../../../../internal/factory/control/priority.go) reserves funded calls,
+  covers the eligible set through a tournament and records fairness.
+  **Partial:** current admission/reuse/reservation seams were inspected, not every
+  judgment caller or a live external consultation. Next reuse planning/priority
+  freshness and dispatch revalidation tests; retain Go policy and the established
+  classifier client without a new scheduler or provider call in this audit.
+- **F07/F08/F10:** [explicit retry](../../../../internal/factory/control/lifecycle_retry.go)
+  requires a reconciled prior run and current authority; [dispatch attempt](../../../../internal/factory/control/dispatch_attempt.go)
+  waits for that saved decision before creating a new attempt. A fresh explicit
+  attempt receives current policy limits while earlier usage remains charged to
+  the shared provider budget. **Partial:** current source gate inspected; concurrent
+  PostgreSQL replay/accounting and native retirement remain unexecuted. Next use
+  existing retry/allowance/dispatch checks after F03/I06, preserving the
+  [current retry contract](../../../product/overview.md#human-intervention)
+  rather than the older blanket assumption that retry can never receive fresh
+  attempt allowance.
+
 ## F01 Repository factory policy
 
 Configure which repository work the factory may perform and under which roles, checks and merge policy.

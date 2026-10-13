@@ -115,13 +115,21 @@ func matchCheckTarget(target factory.CheckTarget, snapshot NativeSnapshot) (fact
 	if pull.HasMerged {
 		return empty, &factory.PublicationRefusal{Reason: "pr_merged"}
 	}
+	return mapObservedChecks(snapshot, target.HeadRef, target.BaseRef, "checks_unavailable")
+}
+
+// mapObservedChecks reduces complete bracketed native check evidence for both
+// assessment and merge. Callers retain target validation and unavailable reasons;
+// factory owns the verdict on the mapped evidence.
+func mapObservedChecks(snapshot NativeSnapshot, headRef, baseRef, unavailable string) (factory.ObservedChecks, error) {
+	var empty factory.ObservedChecks
 	if snapshot.Checks == nil {
-		return empty, &factory.PublicationWait{Reason: "checks_unavailable"}
+		return empty, &factory.PublicationWait{Reason: unavailable}
 	}
 	observed := factory.ObservedChecks{NativeRev: snapshot.Revision, Complete: true}
 	for _, ref := range snapshot.Refs {
 		switch ref.Ref {
-		case target.HeadRef:
+		case headRef:
 			if !ref.Visible {
 				observed.Hidden = true
 				continue
@@ -129,7 +137,7 @@ func matchCheckTarget(target factory.CheckTarget, snapshot NativeSnapshot) (fact
 			if ref.Exists {
 				observed.HeadTip = ref.OID
 			}
-		case target.BaseRef:
+		case baseRef:
 			if !ref.Visible {
 				observed.Hidden = true
 				continue
@@ -154,7 +162,7 @@ func matchCheckTarget(target factory.CheckTarget, snapshot NativeSnapshot) (fact
 		contexts[item.Context] = true
 		id, err := strconv.ParseInt(item.ID, 10, 64)
 		if err != nil || id <= 0 {
-			return empty, &factory.PublicationWait{Reason: "checks_unavailable"}
+			return empty, &factory.PublicationWait{Reason: unavailable}
 		}
 		prior, seen := winners[item.Context]
 		if !seen || item.UpdatedUnix > prior.updated || item.UpdatedUnix == prior.updated && id > prior.id {
@@ -167,7 +175,7 @@ func matchCheckTarget(target factory.CheckTarget, snapshot NativeSnapshot) (fact
 	}
 	sort.Slice(observed.Checks, func(i, j int) bool { return observed.Checks[i].Context < observed.Checks[j].Context })
 	if err := observed.Validate(); err != nil {
-		return empty, &factory.PublicationWait{Reason: "checks_unavailable"}
+		return empty, &factory.PublicationWait{Reason: unavailable}
 	}
 	return observed, nil
 }

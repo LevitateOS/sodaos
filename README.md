@@ -3,20 +3,22 @@
 **The operating system for software factories.** Run your coding agents on your
 infrastructure, with controlled access and reviewable results.
 
-A person authorizes work in Forgejo. Soda gives a coding agent a fresh workspace
-with time and resource limits. Results return as a pull request, checked by CI
-and a fresh review against the exact candidate commit. One bounded repair receives
-new verification; a person decides what merges. Every run ends with a recorded
-outcome and separately tracked cleanup.
+A person authorizes factory operation in Forgejo. Soda coordinates eligible
+issues through bounded agent execution in a persistent Project, pull requests,
+CI and independent review of the exact candidate commit. Corrections receive
+fresh verification; merges require the configured policy and current native
+authority. Every run has a recorded outcome and separately tracked cleanup.
+The [product overview](docs/product/overview.md) owns the complete lifecycle.
 
 Persistent shared Projects support human development, debugging and intervention
 through native Forgejo, SSH, Git, mise and container tools. Developers do not
 receive individual Linux accounts on the host.
 
-Soda integrates Forgejo's native frontend with **Spaces** (repository environment
-entry and drawer), a protected Go environment/access API, OAuth, native
-provisioning, Tailnet/Runners operator settings and stock branded Cockpit. The
-`soda-factory` operator command owns explicit admission and bounded execution.
+Soda integrates Forgejo's native frontend and authentication with **Spaces**,
+a protected Go environment/access API, native provisioning, Tailnet
+operator settings and stock branded Cockpit. The dashboard backend owns factory
+coordination and its PostgreSQL ledger; `soda-factory` exposes private operator
+status, stop and reconciliation commands.
 
 Start with the [first factory task](docs/public/30-Use-Soda/15-software-factory.md).
 The [operator reference](docs/reference/factory.md) describes configuration and
@@ -28,15 +30,18 @@ Documentation index: [docs/README.md](docs/README.md).
 
 ```text
 Fedora CoreOS host — operator administration only
-├── Stock branded Cockpit, tailscaled, trusted project Tailnet companions and CI runners
-├── soda-factory — unprivileged operator command, execution ledger and publisher
-│   └── Rootless Podman — disposable agent workspaces and restricted networking
+├── Stock branded Cockpit, tailscaled and trusted project Tailnet companions
+├── soda-host — privileged Project, terminal and Tailnet operations
+├── soda-identity — private provider-credential broker
+├── soda-factory — client for the backend's private operator interface
 └── Podman
-    ├── Stock Forgejo — native frontend, identity/Git and its own persistent data
-    ├── Soda Go API/OAuth service — separate SQLite/grants
+    ├── Fountain / Forgejo — native frontend, identity/Git and extension host
+    ├── Soda Go service — environment API and factory coordinator
+    ├── PostgreSQL — separate Soda and Forgejo databases
     ├── Caddy — configured private HTTPS endpoints
     └── Persistent Project OS containers
-        ├── Project-local accounts, homes, SSH and personal checkouts
+        ├── Separate human and factory accounts and checkouts
+        ├── Supervised human terminals and factory agent runs
         ├── Actual shared installed tools/files
         └── Native nested workloads and persistent service data
 ```

@@ -3,6 +3,50 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+## First-principles refresh (2026-10-13)
+
+Current source inspection starts at Soda
+`fde19669440455a77e4c81c4f08ccc60a72276eb` and the clean paired Fountain/SDK
+checkout `124907625d984755bb685168d0daddf8ef1cb36e`. The table follows current
+consumers, transport and receipt/observation seams; it reuses earlier cards for
+inventory and historical evidence only. It does not advance their full-body
+review, native/browser execution or installed qualification. `Met` is scoped
+to the inspected principle; `partial` records an implementation or verification
+gap. Requirements remain in [Trust](../../../architecture/trust.md),
+[Factory interfaces](../../../architecture/factory-interfaces.md) and
+[the Forgejo contract](../../../reference/forgejo.md). GUIDANCE-07 retains native
+conditional operations; GUIDANCE-08 preserves the intentional all-page Soda design.
+
+| Slice | Purpose | First principle | Current assessment and evidence | Desired gap | Dependency-ordered implementation/check plan |
+| --- | --- | --- | --- | --- | --- |
+| G01 | Admit native browser contributions and product calls. | Fountain owns sessions/navigation; client-authored context grants nothing. | **Partial pending current native composition evidence.** [extension entrypoint](../../../../cmd/soda-extension/main.go), [live authority](../../../../internal/web/auth/extension.go) and [resource admission](../../../../internal/web/auth/extension_service.go) keep the host callback and session generation authoritative. | Verification: mount/update/retire and session loss against the current host contract, including ordinary navigation with a retained terminal. | Retain Go admission and TypeScript contribution owners. Use existing admission tests, then the established browser contract driver on the paired provider. No parallel login or browser shell. |
+| G02 | Share one browser-independent native admission. | Transport identity and installation admission are separate from actor credentials; readers/writers share one bootstrap owner. | **Met within inspected source wiring.** [web construction](../../../../internal/web/server.go) shares the same background; [bootstrap](../../../../internal/forgejo/background_admission.go) serializes/rebinds admission and pins the native peer. | Verification: paired native revoke/rebind and aggregate cold-start cost for F06. No second admission required. | Retain Go `ServiceBackground`. Reuse existing scripted Unix bootstrap/rebind checks before targeted native admission verification. |
+| G03 | Read complete permission-checked native evidence and retained original creation provenance. | A stable revision bracket, explicit completeness and exact locators precede semantic decisions; retained creation history is explicitly limited. | **Met within inspected validation boundary.** [snapshot](../../../../internal/forgejo/snapshot.go), [pull/check/ref validation](../../../../internal/forgejo/snapshot_pull.go) and [creation recovery transport](../../../../internal/forgejo/creation_recovery.go) bind locators and bounded pages; F05/F06 own acceptance/readiness semantics. | Verification: real native hidden/completeness/revision and retained creation-page behavior; test copies cannot establish upstream truth. | After G02, reuse bracket/transport/creation recovery tests, then current native snapshot driver. Retain SDK aliases and one validation boundary; do not duplicate native history. |
+| G04 | Validate candidate bytes and conditionally publish/create PR. | Validate the real bundle, bind native intent and adopt only the exact attributable receipt. | **Partial pending native effect qualification.** [publisher](../../../../internal/forgejo/publish.go), [candidate validation](../../../../internal/forgejo/publish/candidate_validation.go) and [operation receipts](../../../../internal/forgejo/publish/operation_receipts.go) are current Go owners; historical `internal/host/publish` locators below are retired. | Verification: actual export/bundle/ref/PR effects and lost-response recovery without independent retry identities. | With G02/G03 available and F09 providing saved publication intent, reuse candidate/receipt checks; then validate native publication effects and F09 adoption. Keep validation unprivileged and native Git/Forgejo as effect owners. |
+| G05 | Submit the exact independent native review. | Reviewer authority is distinct; immutable intent and attributable outcome survive lost replies. | **Partial pending native workflow evidence.** [review adapter](../../../../internal/forgejo/review.go) binds actor/head/base/event; current [review caller](../../../../internal/factory/control/review_cycle.go) persists and recovers review work. | Verification: actual native review receipt and withdrawal/recovery within F10. The historical missing-persistence finding is not assumed current. | With G02/G03 available and F10 providing a saved exact review operation, reuse adapter/recovery tests; then validate the native primitive and F10 adoption. Retain body-only review and dedicated credential custody. |
+| G06 | Observe native CI checks without scheduling jobs. | Both assessment and merge must interpret the same native status ordering, visibility and ref evidence. | **Met for refreshed local mapping.** [checks](../../../../internal/forgejo/checks.go) now owns shared `mapObservedChecks`; [caller tests](../../../../internal/forgejo/checks_test.go) compare assessment/merge evidence and retain their distinct unavailable reasons. | **Implemented maintenance correction:** duplicated mapper removed. Verification gap: current native Actions/snapshot production. | Shared Go reduction first, focused real-caller mapping/error checks next; then reuse native check driver when its actual upstream fixtures exist. F11 retains verdicts; no local CI scheduler. |
+| G07 | Submit conditional merge and confirm native completion. | Exact intent/receipt plus fresh result reachability are required; cancellation cannot undo committed effects. | **Partial pending native completion evidence.** [merge observation](../../../../internal/forgejo/merge_observation.go) consumes G06's mapper; [merge completion](../../../../internal/forgejo/merge_completion.go) verifies same-revision ancestry and original issue closure. | Mapper duplication corrected with G06. Verify real descendant-base ancestry, protections, operation completion and issue occurrence before claiming autonomous completion. | With G02/G03 available and F12 providing admitted immutable MergeWork, run local mapping/receipt/ancestry checks; then validate native merge effects and F12 completion. Retain Go adapter and upstream native engine. |
+| G08 | Present the intentional Soda design on native pages. | Native forms, handlers, permissions and lifecycle remain authoritative under every override. | **Partial.** [repository switcher](../../../../assets/branding/forgejo/repository-switcher.ts) delegates native dropdown behavior; [settings template](../../../../frontend/forgejo/templates/repo/settings/options.tmpl) composes native form concerns; current [Forgejo contract](../../../reference/forgejo.md) still identifies composition/initialization qualification work. Older full-template review is not refreshed by this pass. | Verification: current host initialization/retirement, native form/CSRF handling and geometry across retained overrides. Override breadth is not a defect. | After G01, reuse existing component/source checks and the current native browser driver. Retain TypeScript/templates/assets; fix only demonstrated contract mismatches, not the design scope. |
+| G09 | Read/change the current actor's Soda display preference. | A local display label cannot become native identity or authentication authority. | **Met within inspected source.** [preferences](../../../../internal/web/auth/session.go) bound input and target the admitted user; [extension service](../../../../internal/web/auth/extension_service.go) performs live before-write authority revalidation. Trust explicitly assigns Soda preferences locally. | Verification: authenticated successful save and stale-session refusal; no profile synchronization requirement established. | After G01, reuse preference-admission tests and one current native save/read journey. Retain Go auth/store and one `users.name` preference. |
+
+The local G06/G07 patch removes one duplicated status reducer. Focused tests
+exercise both actual callers, update-time/native-ID ordering, hidden evidence and
+missing/overflowing-ID error paths. These are local source tests; no native
+Fountain request, browser journey, installed state or external mutation is performed.
+The focused tests passed with pinned Go 1.26.7; the assigned independent reviewer
+accepted the extraction and caller/error parity within this local source scope.
+The same challenge accepted the bounded current review/publication/completion
+and snapshot dispositions; it did not review whole new judgment implementations
+or qualify native/browser behavior.
+
+The newer native [issue-graph writer](../../../../internal/forgejo/issue_graph.go)
+consumes the same G02 admission and exact-operation contracts while F05 owns
+accepted-intent/task adoption. It is an additional conditional collaboration
+effect within this integration group, not candidate publication or another
+native ledger. Its current owner check, submit/lookup/cancel and exact receipt
+consumer were inspected; generation/recovery/native qualification remains
+partial with F05, and the older G04 full-body review does not cover it.
+
 Scoped upkeep at Soda `ac22514b` / Fountain `c72f5607b2` (2026-10-13): G01
 consumes the canonical a9ba2ce0ba type-only mirror and supplied owner/routes/
 request/stream/lifecycle contract. Fountain retains the native shell, feature

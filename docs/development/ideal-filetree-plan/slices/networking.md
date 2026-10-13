@@ -3,6 +3,36 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+## First-principles refresh (2026-10-13)
+
+Baseline: `fde19669440455a77e4c81c4f08ccc60a72276eb`. This is a bounded
+current-owner/caller refresh using the networking contract and the historical
+records below; it does not repeat their complete source reviews or advance their
+native evidence. **Met** means the stated source model is supported; **partial**
+means an explicit end-to-end gap remains; **unknown** is an unobserved outcome,
+not a defect. Go serves/adopts domain requests, Rust performs host effects and
+TypeScript presents them. GUIDANCE-01/03 retain those boundaries. No new network,
+proxy, name service or automatic replay is proposed.
+
+| Slice / purpose | First principles | Current assessment and evidence | Desired gap | Dependency-ordered implementation / check |
+| --- | --- | --- | --- | --- |
+| N01 Private origins, TLS and activation: establish private browser access. | Admit an explicit origin, private bind, operator identity and TLS choice before effects; client trust requires client evidence. | **Partial.** `cmd/soda-activate/src/activation.rs` validates root, TLS alternatives, private IP, configuration and fixed listeners before service effects; `system/host/config/proxy.Caddyfile` owns proxy wiring. Actual trust/reachability remains **unknown**. | Keep one commissioned origin and truthful failure after partial activation; demonstrate the existing client journey. | After O02, retain activation tests, inspect actual service/TLS outputs in a selected native fixture, then verify a trusted intended client. No rebuild just to test configuration logic. |
+| N02 Project LAN access: expose usable native connection facts. | Membership admits disclosure; an observed address is a fact, not a route guarantee; native SSH/services remain their owners. | **Partial.** `internal/web/api/environments_api.go` delegates authorized connection reads to host; `lib/host/src/net.rs` admits configured subnet addresses. Client routing is **unknown**. | Demonstrate the ordinary `user@project-ip` journey without custom routing authority. | After P02–P04/P11, run the existing developer-access checks against the exact native Project and a selected client; retain address and route evidence separately. |
+| N03 Host Tailnet control: administer the host's native identity/preferences. | Current configured operator and confirmation precede effects; uncertain command/readback stays uncertain; browser concealment must retire secrets/reads. | **Partial.** `internal/web/api/tailnet.go` checks operator/current session before and after host calls; `lib/host/src/tcontrol.rs` and `frontend/tailnet/soda-tailnet-page.ts` retain separate native and presentation owners. Installed availability is **unknown**. | Qualify current operator admission and readback after both successful and unconfirmed native actions. | After G01/H01/N01, exercise existing API refusal tests, then scoped native action/readback. Inspect native state before retrying an unconfirmed effect. |
+| N04 Project enrollment policy: retain operator-approved policy and restricted provider inputs. | Projects inherit policy, never host identity; policy intent, provider admission and enrollment are separate facts; secrets stay private. | **Partial.** API clears `ClientSecret`; `lib/host/src/tcontrol_policy.rs` retains revisions and protected storage; `tcontrol_enroll.rs` distinguishes submitted enrollment from confirmed reachability. Real provider admission is **unknown**. | Qualify the selected policy/provider contract without adding a provider state machine. | After N03/H04, use existing save/check/rotate/disable refusal vectors; only then exercise the owner-selected provider and verify stored policy plus IDs-only observations. |
+| N05 Project Tailnet selection: admit explicit networking intent for an original Project. | Product authority must establish who may select/change intent; current handler checks alone cannot grant it. Bind admitted mutation to current revision/original container without silent retargeting. | **Partial.** `internal/web/api/tailnet.go` currently distinguishes human-owner creation options and existing Project authority; `lib/host/src/tcontrol_policy.rs` owns bound intent. Selector authority and uncertain-creation replay remain **unknown** under REQ-Q1/N05-Q4, as does native behavior. | Resolve the selector/creation-replay contract before semantic changes; preserve existing revision/container refusals and independent LAN operation. | After P01/P03/N04, retain current refusal tests. Gate selection/replay changes on REQ-Q1; add neither replay ledger nor broader authority by inference. Native N06 evidence cannot settle this product decision. |
+| N06 Project companion lifecycle: attach optional ephemeral Tailnet execution to one native run. | The companion belongs to an exact run incarnation; resolver/key cleanup cannot affect a replacement run or the persistent Project. | **Partial.** `lib/host/src/tailnet/companion/start.rs` gates on saved policy/image and waits for native runtime; `stop.rs` checks recorded Project/container/run identity. Installed resolver/logout behavior is **unknown**. | Verify start/stop/replacement against real Podman namespaces while preserving off-policy no-op behavior. | After P05/N04/N05, reuse incarnation/refusal fixtures; prove one enabled native lifecycle and one stale-run cleanup refusal before expanding scenarios. |
+| N07 Git endpoint advertisement: refresh only an admitted native SSH listener. | Clone advertisement, browser origin and actual routing differ; confirm listener binding before an SSH-domain-only rewrite; restart only when needed. | **Partial.** Current owner is Rust `cmd/soda-forgejo-tailnet/main.rs` → `lib/host/src/tailnet/forgejo.rs`, with root/90-second admission, private inspection and conditional restart. The historical Go helper is retired; live route proof is **unknown**. | Qualify the current helper/listener/readback tuple; avoid planning another language cutover. | After N03/O04, run existing Rust listener/rewrite/refusal tests when this owner changes, then the installed advertisement driver for the exact configured private listener and intended Git client. |
+
+The dependency order is O02/N01 and G01/H01 first, then N03/H04/N04,
+Project authority and N05, and finally N06/N07 native journeys. The missing
+native outcomes are evidence work, not authority to create new network services.
+REQ-Q1 remains a separate owner-contract question for optional selection/replay;
+current API behavior has not resolved it.
+Independent A checked N02 address-versus-route evidence, N06 exact companion/run
+cleanup and N07's current Rust entrypoint/caller. No blocking objection remained
+within those source seams; this is not independent proof of all seven workflows.
+
 Scoped upkeep at Soda `ac22514b` / Fountain `c72f5607b2` (2026-10-13): N03's
 Tailnet entry/page consume the public host lifecycle, pausing reads and clearing
 secrets on concealment, generation-checking resume and releasing local resources

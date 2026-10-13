@@ -1,5 +1,28 @@
 # Parallel implementation schedule
 
+## First-principles pass (2026-10-13)
+
+The [current selection](implementation-tasks.md#first-principles-implementation-2026-10-13)
+uses three GPT-6.1 Sol workers and the coordinator in the canonical checkout.
+The [subsystem index](slices/README.md#first-principles-refresh-2026-10-13)
+records its source identity and evidence limits. Each group table contains its
+per-slice ordered next work; the three selected implementation packets have no mutual
+dependency.
+
+| Writer | Assessment and document ownership | Selected source/test ownership | Independent challenger |
+| --- | --- | --- | --- |
+| A: `audit_projects_identity_spaces` | P01–P12, I01–I10, S01–S06; their three group cards | `cmd/soda-project-terminal/src/pty.rs`, `pty_tests.rs` | B |
+| B: `audit_factory_forgejo` | F01–F12, G01–G09; their two group cards | `internal/forgejo/checks.go`, `checks_test.go`, `merge_observation.go` | C |
+| C: `audit_platform_delivery` | N01–N07, O01–O07, D01–D11, H01–H06; their four group cards | `scripts/check-oxfmt.sh`, `check-ts-complexity.sh`; `tests/build/source_checks_test.go`, `complexity_scope_test.go` | A |
+| Coordinator | Shared index, plan/task/lane integration and root README | No shared schema/manifest or Store mutation selected | B reviews README; coordinator reviews all selected diffs |
+
+The critical path is each local proof and correction, then independent challenge
+and shared documentation/check integration. No worktree, dependency upgrade or
+production build is needed for these changes. Later installed checks require
+an identified target and retain their actual operational scope.
+
+## Earlier scoped continuations
+
 The scoped [native frontend continuation](../native-frontend-correction-tasks.md)
 is active under Codex coordination after the Muse sessions exited. Committed
 Soda `ac22514b` / Fountain `c72f5607b2` supplies the canonical mirror,

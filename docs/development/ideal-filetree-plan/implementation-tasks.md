@@ -1,5 +1,43 @@
 # Implementation task list
 
+## First-principles implementation (2026-10-13)
+
+The current request authorizes the assessment and start of implementation.
+The [nine-subsystem index](slices/README.md#first-principles-refresh-2026-10-13)
+links all 80 per-slice purpose, constraint, current-gap and next-step assessments.
+Those tables are the current first-principles work queue; historical packets
+below retain their broader scope and separately recorded completion evidence.
+Retain slices whose inspected behavior satisfies the purpose. Reproduce a
+specific failure before extending their code; missing native evidence calls
+for a bounded check of the actual boundary, not a replacement implementation.
+
+The first changes share no source files and can proceed in parallel:
+
+| Slice / existing packet | Demonstrated difference from the desired slice | Implementation and exact owner | Verification and remaining dependency |
+| --- | --- | --- | --- |
+| S05 / A07 | A stalled child can hold the exec-ready pipe open; the parent reads it after the five-second readiness wait has already expired. Launch therefore has no effective deadline. | In `cmd/soda-project-terminal/src/pty.rs`, return on timeout before reading. Keep the existing EOF/failure-byte protocol and child cleanup. Extend `pty_tests.rs` with a real held-open pipe subject. | Reproduce the old overrun; verify timeout, EOF, launch failure and existing PTY/cleanup checks. Installed privileged terminal startup remains separate. |
+| G06, G07 / B07 | Assessment and merge independently implement the same latest-check selection, visibility and validation rules. Maintaining two copies can make their evidence disagree. | Keep one `mapObservedChecks` definition in `internal/forgejo/checks.go`; call it from `merge_observation.go`, preserving caller-specific admission and unavailable reasons. Extend existing `checks_test.go`. | Check both real callers against timestamp/ID ordering and hidden/malformed evidence; run their affected package tests. Native producer qualification remains separate. |
+| H06 / C11 | `scripts/check-oxfmt.sh` and `scripts/check-ts-complexity.sh` discard tool exit status, permitting a false PASS; word splitting also changes supplied filenames. | Preserve status, use argument arrays and NUL-delimited tracked-path discovery. For complexity, retain the canonical max-9 rule and disable the separate correctness category. Keep regressions in existing `tests/build/source_checks_test.go` and `complexity_scope_test.go`. | Exercise the actual copied gates against controlled tools; verify the installed Oxlint still rejects complexity 10 and parser/input failures while accepting complexity 9 and leaving unrelated correctness to its own gate. Run shell syntax and Go formatting checks. |
+| H06 documentation / coordinator | The root README still describes retired SQLite, disposable workers and a CLI-owned execution ledger. | Reconcile `README.md` with current service definitions, backend/CLI owners and product/trust guides; link the purpose/slice index from this living plan. | Read current callers and installed definitions; independent F/G review. This corrects navigation and explanations without claiming new installed evidence. |
+
+The four code corrections above are implemented locally. Focused checks pass:
+13 PTY tests, nine Forgejo check/merge tests, and ten formatter/complexity gate
+scenarios. The real installed Oxlint confirms the max-9 profile and the original
+malformed-input false PASS becoming a failure. Independent cross-lane review,
+Go architecture checks, affected formatting, shell syntax and whitespace checks
+pass. The index contains all 80 unique assessment rows and their local source
+links resolve. These are scoped source/tool results; full-body review, native
+journeys and release qualification remain at their separately recorded scope.
+
+For each code change: establish the actual failing or duplicated subject →
+change its existing owner → run the smallest affected checks → independently
+challenge the diff → reconcile the slice and shared plan. Broader verification
+uses the composed source only after these checks pass. This order preserves
+native/provider/installed evidence gates without making them a dependency of
+unrelated source repairs. No package, schema, manifest or process is added.
+
+## Historical packet schedule
+
 Execute through the [parallel schedule and file ownership rules](implementation-lanes.md).
 Unchecked entries are **deferred**, not implementation authorization; checked entries preserve their recorded completed scope. M is a
 behavior-preserving move/split/consolidation, C a named correctness correction,

@@ -1,5 +1,55 @@
 # Slice catalog index
 
+## First-principles refresh (2026-10-13)
+
+The current request covers SodaOS and its Forgejo integration: list the
+subsystems, split them into slices, establish each purpose and its necessary
+constraints, compare the implementation with that model, plan improvements and
+start implementing. The nine groups and 80 stable slice IDs below cover the
+existing application, platform, delivery and development responsibilities.
+A subsystem is a capability boundary; its slices can span languages and processes.
+
+The refresh starts from clean Soda commit
+`fde19669440455a77e4c81c4f08ccc60a72276eb`, tree
+`17b232afb7c4202b3e359cf20ee4f623e23d063e` (2,804 tracked paths), and the clean
+local Forgejo SDK checkout `124907625d984755bb685168d0daddf8ef1cb36e`.
+The first-principles tables in each group record current inspected owners,
+purpose, constraints, assessment, desired difference and ordered next work.
+Historical cards and full review records below retain their original source
+and evidence scope. This refresh does not claim a new line-by-line review of
+all 2,804 paths or qualify an installed appliance.
+
+| Subsystem | Slices | Main code owners | Purpose |
+| --- | --- | --- | --- |
+| [Projects](projects.md#first-principles-refresh-2026-10-13) | P01–P12 (12) | `internal/project`, Project API/store operations, `lib/host/src`, `system/project` | Give authorized humans and factory roles persistent repository environments with distinct accounts and lifetimes. |
+| [Identity brokering](identity-brokering.md#first-principles-refresh-2026-10-13) | I01–I10 (10) | `cmd/soda-identity`, `internal/identity`, Muse helpers and host bindings | Keep provider credentials private while lending bounded, revocable execution authority. |
+| [Factory coordination](factory-coordination.md#first-principles-refresh-2026-10-13) | F01–F12 (12) | `internal/factory/control`, `internal/factory`, factory Store/API operations, `cmd/soda-factory` | Advance authorized work through readiness, execution, verification and policy-bound merge without duplicate effects or erased provider usage. |
+| [Spaces and terminals](spaces-and-terminals.md#first-principles-refresh-2026-10-13) | S01–S06 (6) | `frontend/spaces`, terminal API/host operations, `cmd/soda-project-terminal` | Let people observe and control their work while preserving session lifetime across browser navigation. |
+| [Forgejo integration](forgejo-integration.md#first-principles-refresh-2026-10-13) | G01–G09 (9) | `cmd/soda-extension`, `internal/forgejo`, `internal/web/auth`, `frontend/forgejo` | Integrate Soda with native identity, collaboration, evidence and conditional mutations. |
+| [Networking](networking.md#first-principles-refresh-2026-10-13) | N01–N07 (7) | `internal/tailnet`, host Tailnet operations, `cmd/soda-tailnet`, proxy/service definitions | Establish truthful private reachability without conflating enrollment, routing and authority. |
+| [Operator administration](operator-administration.md#first-principles-refresh-2026-10-13) | O01–O07 (7) | Setup/activation/database/Forgejo recovery commands, host services | Bootstrap and maintain the appliance while preserving existing state and explicit operator authority. |
+| [Release and installation](release-and-installation.md#first-principles-refresh-2026-10-13) | D01–D11 (11) | `lib/soda-release-*`, `lib/release-inputs`, installer/import commands, release/acceptance tools | Produce, verify, distribute and install exact artifacts with separate build, release and disk-write authority. |
+| [Shared support](shared-supporting-slices.md#first-principles-refresh-2026-10-13) | H01–H06 (6) | `lib/unix-http`, `lib/wire-time`, `internal/store`, parsing/config/lock helpers, assets and checks | Supply bounded mechanics and honest evidence while leaving domain decisions with their owners. |
+| **Total** | **80** | | |
+
+“First principles” here means the necessary conditions for the purpose to be
+true: the right authority, one source of truth, explicit resource ownership,
+bounded work and observable completion. It does not mean replacing native
+libraries or already-correct code. Group verdicts are scoped source assessments;
+uncertain native behavior remains a verification task. The selected first changes
+and their checks are in the [implementation tasks](../implementation-tasks.md#first-principles-implementation-2026-10-13).
+
+Keep the completion dimensions separate:
+
+| Dimension | Scope of this refresh |
+| --- | --- |
+| Responsibility coverage | All 80 slice purposes, principles and next steps are recorded. Current named owners/callers were inspected; whole-file responsibility coverage retains its earlier baseline. |
+| Established workflows | Selected current boundaries were retraced, including newer factory planning/recovery/retry duties. Full native and installed workflows remain separate evidence work. |
+| Independent challenge | Each lane's consequential scoped conclusions and selected corrections received another lane's review; dispositions and limits are recorded in the group cards. |
+| Exact allocation | Selected corrections name existing defining source and test files in the task list. All other slices retain their current owners; no new package/process or complete ideal-tree cutover is implied. |
+
+## Historical catalog evidence
+
 R02 note @HEAD `cb221d9c`: source citations below are audit-pinned to the
 `0d8d3b8e` snapshot (refs exclude later tree changes, per the catalog
 statement). ~400 citations name pre-move paths (`rust/soda-identity`,

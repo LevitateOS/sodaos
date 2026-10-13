@@ -14,6 +14,17 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
+## First-principles implementation (2026-10-13)
+
+The current user request selects an application-wide purpose/constraint/gap
+assessment and the start of implementation. The [subsystem index](slices/README.md#first-principles-refresh-2026-10-13)
+maps all nine groups and 80 slices, records the fresh source identity, and links
+their current assessments and ordered next steps. It preserves the older full
+review, structural and native evidence scopes rather than advancing their pins.
+The [selected implementation tasks](implementation-tasks.md#first-principles-implementation-2026-10-13)
+address demonstrated defects and shared-owner simplification in place. Current
+package, language and process ownership remains as recorded below.
+
 ## Scoped native frontend maintenance (2026-10-13)
 
 The current incremental review covers Soda

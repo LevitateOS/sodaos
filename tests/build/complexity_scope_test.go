@@ -99,3 +99,56 @@ func TestComplexityPrecommitRoutesStagedToolsFiles(t *testing.T) {
 	Require(t, prodline != "", "prodgofiles line not found")
 	Check(t, strings.Contains(prodline, "tools"), "prodgofiles=%q", prodline)
 }
+
+func TestTSComplexityGatePreservesAnalyzerFailureAndPaths(t *testing.T) {
+	for _, tc := range []struct {
+		name, output, diagnostic, status string
+		defaultFiles, wantPass           bool
+	}{
+		{name: "clean", status: "0", wantPass: true},
+		{name: "complexity violation", output: "frontend/space name.ts:1:1: error eslint(complexity): Maximum allowed is 9.\n", status: "1"},
+		{name: "parser failure", output: "frontend/space name.ts:1:1: error: Expected expression\n", status: "1"},
+		{name: "operational failure", diagnostic: "oxlint unavailable\n", status: "2"},
+		{name: "default spaced paths", status: "0", wantPass: true, defaultFiles: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, path := range []string{"scripts", "node_modules/.bin"} {
+				if err := os.MkdirAll(filepath.Join(dir, path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			gate := filepath.Join(dir, "scripts/check-ts-complexity.sh")
+			if err := os.WriteFile(gate, []byte(ReadFile(t, "scripts/check-ts-complexity.sh")), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			tool := "#!/bin/sh\n" +
+				"[ \"$#\" -eq 4 ] && [ \"$1\" = -A ] && [ \"$2\" = correctness ] && [ \"$3\" = --format=agent ] && [ \"$4\" = 'frontend/space name.ts' ] || { echo 'wrong profile or paths' >&2; exit 2; }\n" +
+				"printf '%s' " + shellQuote(tc.output) + "\nprintf '%s' " + shellQuote(tc.diagnostic) + " >&2\nexit " + tc.status + "\n"
+			bin := filepath.Join(dir, "node_modules/.bin")
+			if err := os.WriteFile(filepath.Join(bin, "oxlint"), []byte(tool), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			args := []string{gate, "frontend/space name.ts", "scripts/out-of-scope.ts", "frontend/fixtures/ignored.ts"}
+			env := os.Environ()
+			if tc.defaultFiles {
+				fakeGit := "#!/bin/sh\n[ \"$1\" = ls-files ] && [ \"$2\" = -z ] || exit 2\nprintf 'frontend/space name.ts\\0scripts/out-of-scope.ts\\0frontend/fixtures/ignored.ts\\0'\n"
+				if err := os.WriteFile(filepath.Join(bin, "git"), []byte(fakeGit), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				env = SetEnv(env, "PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+				args = []string{gate}
+			}
+			result := Run(t, RunOpt{Cwd: dir, Env: env, Timeout: 10 * time.Second}, "/bin/bash", args...)
+			if (result.Code == 0) != tc.wantPass || strings.Contains(result.Stderr, "wrong profile or paths") {
+				t.Fatalf("gate status=%d stdout=%q stderr=%q", result.Code, result.Stdout, result.Stderr)
+			}
+			if tc.diagnostic != "" && !strings.Contains(result.Stderr, strings.TrimSpace(tc.diagnostic)) {
+				t.Fatalf("analyzer diagnostic lost: %q", result.Stderr)
+			}
+			if tc.output != "" && !strings.Contains(result.Stdout, strings.TrimSpace(tc.output)) {
+				t.Fatalf("analyzer output lost: %q", result.Stdout)
+			}
+		})
+	}
+}

@@ -3,6 +3,7 @@ package forgejo
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -59,6 +60,57 @@ func TestMatchCheckTargetLatestWins(t *testing.T) {
 	}
 	if observed.ObservedContexts != 2 {
 		t.Fatalf("contexts: %+v", observed)
+	}
+}
+
+func TestCheckAssessmentAndMergeUseSameEvidence(t *testing.T) {
+	w := mergeTestWork()
+	issue, snapshot := mergeTestSnapshots(w)
+	snapshot.Checks.Items = []CheckEvidence{
+		{ID: "23", Context: "build", State: "failure", UpdatedUnix: 2, Visible: true},
+		{ID: "22", Context: "build", State: "success", UpdatedUnix: 2, Visible: true},
+		{ID: "24", Context: "build", State: "success", UpdatedUnix: 1, Visible: true},
+		{ID: "25", Context: "private", Visible: false},
+	}
+	target := factory.CheckTarget{
+		Repository: w.Repository, PRNumber: w.PRNumber, PRID: w.PRID, IssueID: w.IssueID,
+		HeadRef: w.HeadRef, BaseRef: w.BaseRef, HeadOID: w.HeadOID, BaseOID: w.BaseOID,
+	}
+	checks, err := matchCheckTarget(target, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merge, err := matchMergeTarget(w, issue, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(checks, merge.Checks) {
+		t.Fatalf("assessment and merge evidence differ: %+v / %+v", checks, merge.Checks)
+	}
+	if !checks.Hidden || checks.ObservedContexts != 1 || len(checks.Checks) != 1 || checks.Checks[0].State != "failure" {
+		t.Fatalf("latest visible evidence lost its ordering or hidden flag: %+v", checks)
+	}
+}
+
+func TestCheckCallersRetainUnavailableReasons(t *testing.T) {
+	w := mergeTestWork()
+	target := factory.CheckTarget{
+		Repository: w.Repository, PRNumber: w.PRNumber, PRID: w.PRID, IssueID: w.IssueID,
+		HeadRef: w.HeadRef, BaseRef: w.BaseRef, HeadOID: w.HeadOID, BaseOID: w.BaseOID,
+	}
+	for _, missing := range []bool{false, true} {
+		issue, snapshot := mergeTestSnapshots(w)
+		snapshot.Checks.Items = []CheckEvidence{{ID: "9223372036854775808", Context: "build", State: "success", Visible: true}}
+		if missing {
+			snapshot.Checks = nil
+		}
+		_, checkErr := matchCheckTarget(target, snapshot)
+		_, mergeErr := matchMergeTarget(w, issue, snapshot)
+		for err, reason := range map[error]string{checkErr: "checks_unavailable", mergeErr: "merge_evidence_unavailable"} {
+			if wait, ok := err.(*factory.PublicationWait); !ok || wait.Reason != reason {
+				t.Fatalf("missing=%v: got %v, want %s", missing, err, reason)
+			}
+		}
 	}
 }
 

@@ -126,6 +126,17 @@ pub fn flush_closed(outgoing: &mut Vec<u8>) {
     }
 }
 
+/// Wait for the child to exec without reading a pipe whose writer is stalled.
+fn wait_for_exec(fd: i32, timeout: f64) -> std::io::Result<bool> {
+    if !wait_readable(fd, timeout)? {
+        return Ok(false);
+    }
+    let mut probe = [0u8; 16];
+    // EOF proves exec via CLOEXEC; a byte reports child launch failure.
+    let got = read_fd(fd, &mut probe)?;
+    Ok(got == 0)
+}
+
 /// Attach a PTY to the tmux socket; returns the process exit code.
 pub fn run_terminal(account: &Account, cols: i64, rows: i64, seconds: i64, sock: &str) -> i32 {
     STOPPED.store(false, Ordering::SeqCst);
@@ -153,11 +164,7 @@ pub fn run_terminal(account: &Account, cols: i64, rows: i64, seconds: i64, sock:
             libc::close(gate_write);
         }
         gate_open = false;
-        let ready = wait_readable(ready_read, 5.0).map_err(|_| ())?;
-        let mut probe = [0u8; 16];
-        // Blocking read: EOF (empty) proves exec via CLOEXEC.
-        let got = read_fd(ready_read, &mut probe).map_err(|_| ())?;
-        if !ready || got > 0 {
+        if !wait_for_exec(ready_read, 5.0).map_err(|_| ())? {
             return Ok("launch_failed".to_string());
         }
         set_nonblocking(0, true).map_err(|_| ())?;
