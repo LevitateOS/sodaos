@@ -1,4 +1,5 @@
 import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {homedir} from 'node:os';
 import {resolve} from 'node:path';
 import {chromium, type Page} from 'playwright';
 
@@ -13,9 +14,9 @@ type ChromeZoom = {
 
 /** Chromium's actual per-tab zoom, in a disposable extension/profile. */
 export async function browserZoomFixture() {
-  const artifacts = resolve(import.meta.dirname, '../../../.artifacts');
-  await mkdir(artifacts, {recursive: true});
-  const profile = await mkdtemp(resolve(artifacts, 'zoom-'));
+  // Chromium's SingletonSocket must fit Linux's 108-byte Unix socket limit.
+  // Keep this disposable profile on the home volume, outside deep checkouts.
+  const profile = await mkdtemp(resolve(homedir(), '.soda-z-'));
   const extension = resolve(profile, 'extension');
   const temporary = resolve(profile, 'tmp');
   await mkdir(extension);
