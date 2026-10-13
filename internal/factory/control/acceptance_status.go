@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -325,7 +324,7 @@ func (c *Coordinator) finishWithdrawal(ctx context.Context, commandID string, re
 							receipt.PendingRuns = []FencedRun{{ID: runID, Reason: "run accounting pending"}}
 							return receipt, ErrCommandRunning
 						}
-					} else if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+					} else if lookupErr != nil && !errors.Is(lookupErr, store.ErrNotFound) {
 						return receipt, lookupErr
 					}
 				}

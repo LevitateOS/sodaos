@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"slices"
 	"strings"
@@ -397,7 +396,7 @@ func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 		t.Fatalf("exhausted correction created child work: launches=%d preparations=%d", len(host.launches), len(host.preparations))
 	}
 	exhaustedChildID := publicationChildID(current.ID, current.Candidate, project.RoleCoder)
-	if _, err := fx.db.Assignment(ctx, exhaustedChildID); !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, store.ErrNotFound) {
+	if _, err := fx.db.Assignment(ctx, exhaustedChildID); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("exhausted correction assignment exists: %v", err)
 	}
 	runsAfter, err := fx.db.ProjectFactoryRuns(ctx, owner.ProjectID, 100)

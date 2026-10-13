@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,7 +45,7 @@ func (c *Coordinator) scopedIntentTasks(ctx context.Context, r factory.IntentRev
 // truth rather than re-deriving it.
 func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRevision, revision int64) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
 	previous, err := c.Store.PreviousGeneratedIntent(ctx, r.Intent, r.ID)
-	if errors.Is(err, store.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrNotFound) {
 		tasks, e := c.scopedIntentTasks(ctx, r, nil)
 		if e != nil {
 			return sdk.IssueGraphPayload{}, nil, nil, nil, e
@@ -235,7 +234,7 @@ func (c *Coordinator) deliveredStable(ctx context.Context, prior []factory.Inten
 			return false, errors.New("previous graph receipt does not bind submitted tasks")
 		}
 		decision, err := c.Store.AcceptanceDecision(ctx, b.AcceptanceID)
-		if errors.Is(err, store.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, store.ErrNotFound) {
 			break
 		}
 		if err != nil {

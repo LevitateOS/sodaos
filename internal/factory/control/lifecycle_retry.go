@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"time"
@@ -105,7 +104,7 @@ func (c *Coordinator) RetryRun(ctx context.Context, commandID, principal, runID 
 // Missing ownership is a domain refusal. An unavailable database or malformed
 // stored record remains an operational error and cannot imply ineligibility.
 func retryOwnershipError(err error) error {
-	if errors.Is(err, store.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrNotFound) {
 		return store.ErrExplicitRetryIneligible
 	}
 	return err

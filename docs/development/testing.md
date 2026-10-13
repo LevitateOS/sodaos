@@ -38,9 +38,14 @@ source suite and Rust workspace tests. The source job starts PostgreSQL 17 and
 passes the restricted fixture password file so database tests cannot silently
 skip for lack of a fixture. Browser fixtures use the repository-selected Playwright
 Chromium. Neither job starts an appliance or contacts an AI provider.
+On Ubuntu, a scoped AppArmor profile admits Playwright's Chromium binaries to
+user namespaces so the browser sandbox remains enabled. Its launch preflight
+runs before the longer source suite.
 
 Both jobs check out the exact Fountain source from
 [`fountain-source.json`](../../fountain-source.json) beside Soda as `forgejo-ext`.
+The browser job installs Fountain's fixture dependencies through Bun's frozen
+upstream-lock import, with dependency scripts disabled.
 Go and Bun versions come from their manifests; Rust follows `rust-toolchain.toml`.
 Actions are pinned to full commit hashes, with grouped Dependabot updates.
 Outdated runs on the same PR/ref are cancelled. The required `CI` result fails

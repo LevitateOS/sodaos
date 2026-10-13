@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"reflect"
@@ -146,7 +145,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		}
 		return
 	}
-	if !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, store.ErrNotFound) {
+	if !errors.Is(err, store.ErrNotFound) {
 		publicationError(report, p.ID, "child_assignment_unavailable")
 		return
 	}

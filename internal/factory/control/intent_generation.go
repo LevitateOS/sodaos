@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -164,7 +163,7 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 		return factory.IntentGeneration{}, err
 	}
 	g, err := c.Store.IntentGeneration(ctx, r.ID)
-	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, store.ErrNotFound) {
+	if errors.Is(err, store.ErrNotFound) {
 		payload, reused, submitted, delivered, e := c.prepareIntentGraph(ctx, r, revision)
 		if e != nil {
 			return factory.IntentGeneration{}, e
@@ -364,7 +363,7 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 				return store.ErrCommandConflict
 			}
 			adopted[b.TaskKey] = b
-		} else if !errors.Is(e, store.ErrNotFound) && !errors.Is(e, sql.ErrNoRows) {
+		} else if !errors.Is(e, store.ErrNotFound) {
 			return e
 		}
 	}
@@ -436,7 +435,7 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 		head, headErr := c.Store.AcceptanceHead(ctx, r.Repository, entry.IssueIndex)
 		if headErr == nil && head != decision.ID {
 			decision.Predecessor = head
-		} else if headErr != nil && !errors.Is(headErr, store.ErrNotFound) && !errors.Is(headErr, sql.ErrNoRows) {
+		} else if headErr != nil && !errors.Is(headErr, store.ErrNotFound) {
 			return headErr
 		}
 		for _, edge := range native.Dependencies.Items {
@@ -464,7 +463,7 @@ func (c *Coordinator) adoptIntentGraph(ctx context.Context, r factory.IntentRevi
 		}
 
 		old, e := c.Store.AcceptanceDecision(ctx, decision.ID)
-		if errors.Is(e, store.ErrNotFound) || errors.Is(e, sql.ErrNoRows) {
+		if errors.Is(e, store.ErrNotFound) {
 			_, e = c.AdmitAcceptance(ctx, generatedDecisionID("command", r.ID, key), "accepted-intent:"+r.ID, decision)
 		} else if e == nil {
 			if old.Approver != decision.Approver || old.Repository != decision.Repository || old.IssueIndex != decision.IssueIndex || old.TitleDigest != decision.TitleDigest || old.ContentDigest != decision.ContentDigest {

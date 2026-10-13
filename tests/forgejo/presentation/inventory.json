@@ -980,8 +980,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a9ae91be2ad2574a3fc177581b3493f23289363821042d87bb7737bc6b41af84",
-      "presentationReview": "Merge administration navigation and mechanism-removal module graphs under one new epoch; preserve coordinated logout, notification, drawer suppression and repository-switcher gates.",
+      "beforeRoleHash": "deb6a499ba85fe364314790d6662036635fbbcfe324cd6caf580298f9bc38f2a",
+      "presentationReview": "Load repository actions, personal settings and repository switcher element definitions once so their native elements own activation and cleanup across page entries; preserve the signed-in notification preview gate.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -1097,9 +1097,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "87aa8cd463786c85ddd3aafeceaaedb3a8e9c4fdb8e2332a174db0c2b8eaa03c",
+      "beforeRoleHash": "7cf44897d082e473cef259349a95f855b9ff14deec3ef739ac08ae4ac45cef10",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Advance the login-theme cache epoch for its classic-script scoping correction; preserve guest, route and placement gates."
     },
     {
       "template": "custom/soda/milestone_row.tmpl",
@@ -2827,9 +2828,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4d7953373c81bf084f8f3e7587d6679fd624df941cde12fa94a3c8cdea678d3b",
+      "beforeRoleHash": "978cd6f940ffc7d9e8544f09b9e78c212b26b81b5d40440ecbd3137959de8044",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Remove the inline workflow dropdown initializer now owned by the native page feature; preserve the native dispatch form and inputs."
     },
     {
       "template": "repo/actions/list.tmpl",
@@ -2857,9 +2859,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b777aee81895ded640d7673b435f94c24986506ac8337448eb2b51ff6b61c62d",
+      "beforeRoleHash": "62c41f5d05f899052e70d5477a10bac51ac7fe248164901e11cfefffd00ffbbb",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Remove inline polling helpers now owned by the native Actions page feature; preserve the list polling trigger and native controls."
     },
     {
       "template": "repo/actions/list_inner.tmpl",
@@ -3099,9 +3102,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "34d00e6625ae26cab27c3cb65dc725ba3a2b676fc1dd11b03d4cd92fa0682cf1",
+      "beforeRoleHash": "40b1f90757eeca96b3eb14348d4eef76b3b4674459ede3569ad4dbabf5fbd936",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Emit branch selector inputs as inert native page-data JSON instead of an inline module; preserve branch, tag, release and permission values for the native selector."
     },
     {
       "template": "repo/clone_buttons.tmpl",
@@ -3415,9 +3419,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2a4f536cc5f433fdbb1ecd2083de86ce86f4d0d68cb083cd5148e6c4e3820eb5",
+      "beforeRoleHash": "9d6e6d14b7e23986baedc7fcbcba29ff84061c98050baca428ed0fe03858ba9e",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Emit diff inputs as inert native page-data JSON and let the native feature own tree visibility and accumulated file state; preserve review, whitespace and diff partials."
     },
     {
       "template": "repo/diff/compare.tmpl",
@@ -3697,7 +3702,6 @@
       "nativeCalls": [
         "base/head",
         "base/alert",
-        "repo/clone_script",
         "base/footer"
       ],
       "roles": [
@@ -3718,9 +3722,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "775bfd8a5eb2319ac823ff628ca9e65c929c3f4e31505c8ea861656ba53a571a",
+      "beforeRoleHash": "b22c17d2fa2deea342425f94915d253185555d4539e379b4d3295624c5ec727c",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Remove the obsolete clone_script include; the native repository feature owns the retained clone controls."
     },
     {
       "template": "repo/find/files.tmpl",
@@ -3903,13 +3908,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "30889e32a1b29516fce6f9ea895f0ce429ecc8d4b18ccb92d5fd54bc16c67b47",
+      "beforeRoleHash": "f863dc782a3a690878de61828e84839f6c2a8e6788fb25debee7329e22a95cd3",
       "upstreamCallers": [
         "repo/flags.tmpl",
         "repo/packages.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "One set of native repository action forms is inline on wide panes and disclosed on compact panes. Default-open markup preserves wide-page access without JavaScript; native guards and partials preserved."
+      "presentationReview": "Use native element lifetimes for repository actions and the feature-owned switcher; show non-admin extension tabs first while preserving signed-in, repository health and permission gates."
     },
     {
       "template": "repo/home.tmpl",
@@ -3921,7 +3926,6 @@
         "base/alert",
         "custom/repo_flag_banners",
         "repo/admin_flags",
-        "repo/clone_script",
         "repo/code/recently_pushed_new_branches",
         "repo/code/fork_sync_message",
         "repo/blame",
@@ -3962,9 +3966,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/003.png"
         ]
       },
-      "beforeRoleHash": "0919ba52474c25016cc5d5dc14477121a9336d9d29fc6bae2b0b1d3f53f2e885",
+      "beforeRoleHash": "78398e56287e4dd760167f99ea8308ce0e96f143b9e814a59fa2eb41ea57e4fa",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Remove the obsolete clone_script include; preserve the native clone controls, repository content and permission gates."
     },
     {
       "template": "repo/issue/choose.tmpl",
@@ -5508,10 +5513,10 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "82a9156c5e7285423d5a853934403d36914e9a7db761f8e4a6a142dd2ba448cc",
+      "beforeRoleHash": "f16a9825da5785d50c8a0cb32a38568e82bf2efa3452f505f542e175fa956354",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "repository-settings-structural-overhaul"
+      "presentationReview": "Close the soda-personal-settings element opened by the shared shell; load its definition once from the common footer instead of a page-local script."
     },
     {
       "template": "repo/settings/layout_head.tmpl",
@@ -5569,10 +5574,10 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e14fb3e23fea0e5f0470f60d91bf9c5d051345480694f11e99b37e6c5d236131",
+      "beforeRoleHash": "87a86f47a5b7970328c42a74aa2b2d12fc86f081ff59ea538f5c30114bf8fb58",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md."
+      "presentationReview": "Give the existing repository settings shell a soda-personal-settings element lifetime; preserve native forms, layout, titles and signed-in data."
     },
     {
       "template": "repo/settings/lfs.tmpl",
@@ -5792,10 +5797,10 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "46703b49d8a8c7cb0325a51aa50d87794068c76cdea4e9c082e9d9f26d125684",
+      "beforeRoleHash": "a45ee6c6de0a414e1bf33cf82c1513daba016e68fa3006a7427ba57ba0bbca0f",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "repository-settings-structural-overhaul; bounded Sodaspaces settings destination",
+      "presentationReview": "Restore native repository extension settings links for admin entries, with the native URL and current-page state.",
       "presentationDelta": "Adds one signed-in stable-ID Soda settings link; all native destinations and feature/permission gates remain unchanged. The Soda page and every action reauthorize independently."
     },
     {
@@ -6832,7 +6837,6 @@
       "callers": [],
       "nativeCalls": [
         "base/head",
-        "repo/clone_script",
         "base/paginate",
         "base/footer"
       ],
@@ -6851,9 +6855,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7a5b7fa9afb05bcd47925b5a8385cb25a3e1a7371654fd3544c10f87e2ffd519",
+      "beforeRoleHash": "bbf0263af50e059125ea79404c33fc8c2e5d53397398f4729df27dd9e5cdc9fa",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Remove the obsolete clone_script include; preserve native wiki clone controls and revision pagination."
     },
     {
       "template": "repo/wiki/search.tmpl",
@@ -6919,7 +6924,6 @@
       "callers": [],
       "nativeCalls": [
         "base/head",
-        "repo/clone_script",
         "repo/unicode_escape_prompt",
         "repo/unicode_escape_prompt",
         "repo/unicode_escape_prompt",
@@ -6945,9 +6949,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b25f6f6fef69dfde12f8a2bfe1b55493b934d675a0112e90978b21cd268b347e",
+      "beforeRoleHash": "9940565e6366e18e863c92c8a0988dfcb0d4a80d5106e37e372da3c2f65059d0",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Remove the obsolete clone_script include; preserve native wiki clone controls, content and confirmation boundaries."
     },
     {
       "template": "shared/actions/runner_create.tmpl",
@@ -9181,10 +9186,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f823bc0305df82c5776ff2553448f4b52b65869d8d80bac676de2a03bc7b1a97",
+      "beforeRoleHash": "bc9fdb5618c56bf17eda43e8056f451a82e15bbeb05fb459c847f5bddb0ebced",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "presentationReview": "Close the soda-personal-settings element opened by the shared shell; load its definition once from the common footer instead of a page-local script.",
       "taskComposition": "identity/navigation"
     },
     {
@@ -9249,10 +9254,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "78f2ccc7ec2b05552e157af59f91bcbd40395a996c181ac1ddf4b3a0aec08f0d",
+      "beforeRoleHash": "a557a33df15b78b61baece26904958d37c8cd98b3648f6ed666d5b8b226e59c6",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md.",
+      "presentationReview": "Give the existing personal settings shell a soda-personal-settings element lifetime; preserve native forms, identity, layout and titles.",
       "taskComposition": "identity/navigation"
     },
     {
@@ -9294,8 +9299,8 @@
       ],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "5964fe9225d368e0dfe560a1e83fe529546a932545ad4934885bc1c04b14d514",
+      "presentationReview": "Restore native user extension settings links with their native URL, title and current-page state.",
+      "beforeRoleHash": "1a95228962833ec1d8c9188c3d4abfd4e8132a2d50bce7c5cd06ea79532e6e8d",
       "taskComposition": "identity/navigation"
     },
     {

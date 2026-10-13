@@ -191,7 +191,7 @@ library root. Own them with Forgejo UI docs; do not treat them as `internal/`.
 | CLI | `flag.NewFlagSet` → `run() error` → main prints/exits |
 | Absence from store | Use `errors.Is(err, store.ErrNotFound)`. Do not import `database/sql` outside `store`. |
 | File size | Prefer &lt;400 LOC; split before a production file exceeds 500 LOC |
-| Tests | Assert exported contracts; reopen SQL/schema guts only inside `store` tests |
+| Tests | Assert exported contracts; reopen SQL/schema guts only inside `store` tests, except the named existing integration fixtures below |
 
 ## Hard invariants (persistence)
 
@@ -230,6 +230,27 @@ Hexagonal/ports-everywhere, ORM/sqlc mandate, re-litigating the `release/`,
 `scripts/check-sql-locality.sh` fails when sources outside `internal/store`
 import `database/sql`, call `sql.Open`, or embed SQL verb literals. It runs from
 `bun run check:source`.
+
+The gate retains exact-file exceptions for existing integration fixtures that
+need state unavailable through the public Store API. These operate on disposable
+test databases; production SQL and new test files remain subject to the gate.
+When changing these fixtures, use existing Store methods where they express the
+same scenario. Do not add a production SQL escape hatch just to seed a test.
+
+| Existing fixture under `internal/factory/control/` | Required direct database state |
+| --- | --- |
+| `merge_effect_test.go` | Exhaust an active attempt before checking uncertain and committed native merge effects |
+| `dispatch_expiry_test.go` | Exhaust recorded roots before dispatch closure and explicit retry |
+| `progress_test.go` | Exhaust a live coordinator's root before its automatic wake |
+| `dispatch_preparation_test.go` | Consume an attempt, expire admission receipts, and temporarily hide a policy table to exercise operational failure |
+| `dispatch_source_preparation_test.go` | Expire a ready source receipt during admission and confirm that no admission rows remain |
+| `traversal_test.go` | Remove admission headers so their independent cap does not obscure dispatch traversal limits |
+| `readiness_sweep_test.go` | Isolate the cycle bound and inspect durable cursor state across acceptance changes |
+| `staged_seed_test.go` | Seed an external Forgejo SQLite fixture whose dependency edges have no REST writer |
+
+The separate `internal/acceptance/workload_access.go` and its matching test also
+have exact exemptions: their `psql` statements target disposable workload
+databases, not the product Store.
 
 `internal/archcheck` fails when a retired package name returns, when
 `web/aliases.go` is recreated, or when production code crosses a banned

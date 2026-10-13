@@ -20,6 +20,18 @@ while IFS= read -r -d '' file; do
     # staged Forgejo SQLite fixture because it has no REST writer. The
     # production Store remains PostgreSQL-only (COST-GO-SQLITE-FIXTURE-1).
     ./internal/factory/control/staged_seed_test.go) continue ;;
+    # Existing adversarial integration fixtures, individually documented in
+    # docs/development/go.md. Never exempt a production file or all tests.
+    # Force consumed clocks without waiting for real attempt deadlines.
+    ./internal/factory/control/merge_effect_test.go) continue ;;
+    ./internal/factory/control/dispatch_expiry_test.go) continue ;;
+    ./internal/factory/control/progress_test.go) continue ;;
+    # Expire private admission receipts and simulate an unavailable table.
+    ./internal/factory/control/dispatch_preparation_test.go) continue ;;
+    ./internal/factory/control/dispatch_source_preparation_test.go) continue ;;
+    # Isolate bounded traversal from admission headers; inspect saved cursors.
+    ./internal/factory/control/traversal_test.go) continue ;;
+    ./internal/factory/control/readiness_sweep_test.go) continue ;;
   esac
   if grep -nE '"database/sql"|sql\.Open[[:space:]]*\(|`(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]|"[[:space:]]*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]' "$file" >"$hits_file" 2>/dev/null; then
     while IFS= read -r hit; do
@@ -30,7 +42,7 @@ done < <(find ./internal ./cmd ./tools -name '*.go' -print0)
 
 if [ -n "$violations" ]; then
   printf '%s' "$violations"
-  printf 'SQL locality failed: database/sql, sql.Open, and SQL verb literals are allowed only in internal/store (docs/development/go.md).\n'
+  printf 'SQL locality failed: database/sql, sql.Open, and SQL verb literals require internal/store or a named test fixture exception (docs/development/go.md).\n'
   exit 1
 fi
-printf 'SQL locality passed: no database/sql usage outside internal/store.\n'
+printf 'SQL locality passed: product SQL stays in internal/store; named fixture exceptions only.\n'

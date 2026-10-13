@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 
@@ -48,10 +47,8 @@ func TestRetryRequiresLinkedTerminalAttempt(t *testing.T) {
 }
 
 func TestRetryOwnershipRefusalPreservesOperationalErrors(t *testing.T) {
-	for _, missing := range []error{store.ErrNotFound, sql.ErrNoRows} {
-		if !errors.Is(retryOwnershipError(missing), store.ErrExplicitRetryIneligible) {
-			t.Fatalf("missing owner is not a domain refusal: %v", missing)
-		}
+	if !errors.Is(retryOwnershipError(store.ErrNotFound), store.ErrExplicitRetryIneligible) {
+		t.Fatal("missing owner is not a domain refusal")
 	}
 	for _, unavailable := range []error{context.Canceled, context.DeadlineExceeded, errors.New("database unavailable")} {
 		if retryOwnershipError(unavailable) != unavailable {

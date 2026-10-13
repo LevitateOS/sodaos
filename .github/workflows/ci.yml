@@ -89,6 +89,23 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun --bun node_modules/playwright/cli.js install --with-deps chromium
+      - name: Install Fountain browser fixture dependencies
+        working-directory: forgejo-ext
+        # Bun imports the exact checkout's upstream lock without running scripts.
+        run: bun install --frozen-lockfile --ignore-scripts --no-progress
+      - name: Enable the Chromium sandbox on Ubuntu
+        run: |
+          # Ubuntu restricts user namespaces for downloaded Chromium binaries.
+          # Admit only Playwright's browsers; retain Chromium's own sandbox.
+          sudo tee /etc/apparmor.d/soda-ci-playwright >/dev/null <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile soda-ci-playwright "$HOME/.cache/ms-playwright/**/chrome{,-headless-shell}" flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser --replace /etc/apparmor.d/soda-ci-playwright
+          bun -e "import {chromium} from 'playwright'; const browser = await chromium.launch({headless: true, chromiumSandbox: true}); await browser.close();"
       - name: Run source checks with PostgreSQL
         env:
           SODA_PG_HOST: 127.0.0.1

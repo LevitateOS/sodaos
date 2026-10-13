@@ -94,8 +94,8 @@ export class SodaIntent extends LitElement {
       box-sizing: border-box;
       font: inherit;
       color: inherit;
-      border: 1px solid var(--soda-page-edge, #aaa);
-      background: var(--soda-page-surface, #fff);
+      border: 1px solid var(--soda-page-edge);
+      background: var(--soda-page-surface);
       border-radius: 0;
       padding: 0.75rem;
     }
@@ -118,8 +118,8 @@ export class SodaIntent extends LitElement {
       cursor: default;
     }
     .primary {
-      background: var(--soda-button-primary-bg, #c42a31);
-      color: var(--soda-button-primary-text, #fff);
+      background: var(--soda-button-primary-bg);
+      color: var(--soda-button-primary-text);
     }
     .context,
     .actions {
@@ -136,11 +136,11 @@ export class SodaIntent extends LitElement {
       margin-block: 1rem;
     }
     article {
-      border-block-end: 1px solid var(--soda-page-edge, #aaa);
+      border-block-end: 1px solid var(--soda-page-edge);
       padding-block: 1rem;
     }
     .consequence {
-      color: var(--soda-page-muted, #666);
+      color: var(--soda-page-muted);
     }
     .department-dialog {
       box-sizing: border-box;
@@ -148,9 +148,9 @@ export class SodaIntent extends LitElement {
       z-index: 40;
       inset: 15% max(1rem, calc((100vw - 600px)/2)) auto;
       padding: 1.5rem;
-      background: var(--soda-page-surface, #fff);
-      border: 1px solid var(--soda-page-edge, #aaa);
-      box-shadow: 0 0 0 100vmax #0008;
+      background: var(--soda-page-surface);
+      border: 1px solid var(--soda-page-edge);
+      box-shadow: var(--soda-elevation-dialog);
       max-height: 70vh;
       overflow: auto;
     }
