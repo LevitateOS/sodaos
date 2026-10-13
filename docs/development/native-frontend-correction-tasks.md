@@ -17,16 +17,35 @@ Soda `5d2817604b49a16c7fb0b4b85e7513328884cf4f` to
 `6abafdb4092018de6eca3fb8994b2a88f08c2396` to
 `695986487355053334c4163ebb85e384a1290437` on 2026-10-13.
 The native cutover, lifecycle, branded controls and host-owned intent navigation
-are committed on canonical main. These are source pins, not installed revisions.
-Matched development component images have been built, byte-checked, transferred
-and imported into the existing VM; services have not been activated and Store
-remains at version 46. No aggregate completion claim follows from those outputs.
+are committed on canonical main.
+
+**Final reconciliation (2026-10-13, supersedes the remaining-work counts
+below).** All 57 tasks are complete. Final source pins are Soda `81de3c2d`
+and Fountain `f3407f812f`: Fountain suite 468 tests green, Soda frontend
+suite 514 tests green. Closed in this final pass: NFX-A01 (receipts accepted),
+A04–A06, B03–B07 (468-test mapped lifecycle map `f3407f812f`; dirty-form
+departure guard `5b324422b2`), C03–C07, D01–D06, E04, F05 and F06 (natural-link
+layout qualification 10/10 at 100% and 400%, receipts in
+`.artifacts/codex-i07-refresh-20261013/`), H03–H05, and I02–I07 (refreshed
+Forgejo image `sha256:3e2a40ad…`, Extension image `sha256:20ce23f3…`,
+Dashboard image retained `sha256:6df94a8f…`, all byte/mode readback-verified).
+The refreshed outputs were activated on the existing VM in one guarded
+operation: live preflight passed, Forgejo/Dashboard/Identity quiesced, fresh
+backup taken (`/var/lib/soda/backups/native-refresh2-20261013/`), Store
+transitioned 46→47 with all 63 preserved tables byte-identical and all
+preserved Project/terminal processes unchanged before and after. Installed
+evidence (I08): native browser capture of 243 records / 180 screenshots with
+honest degraded states, plus the installed terminal continuity proof for
+task-owned Terminal 3 in q08-journey — shell PID/start identity retained
+across natural navigation and exact process re-attachment after reload,
+independently confirmed from the VM (unit active, screen socket present).
+Development artifacts remain unsigned and unpublished.
 The original planning pair was Soda `8df756f1bc7f410b694004f2133af046fecc44f4`
 and Fountain `87ec92d4f0101071a734b2f790f3bb1fb1d3366e`; it is historical input,
 not the current source or installed revision. Recheck heads and dirty work before
 future implementation; preserve unrelated work, files, Projects and processes.
 
-**Execution is paused for the owner-requested Muse handoff.**
+**Execution completed 2026-10-13 (see final reconciliation above).**
 The native implementation and existing-VM delivery authorization remain in scope.
 This document records actual source handoffs and unmet finish conditions; worker
 goals and percentages do not supply acceptance. The continuing coordinator owns

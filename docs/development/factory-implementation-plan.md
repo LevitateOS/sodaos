@@ -179,11 +179,9 @@ The [full parallel correction task list](native-frontend-correction-tasks.md)
 decomposes this work into 57 tasks in nine logical lanes, with single file writers,
 partial handoffs, a dependency graph and scoped finish conditions. It owns the
 detailed correction schedule; the NF packets below retain their milestone role.
-Its reconciled snapshot has **23 accepted tasks and 34 remaining**. The native
-persistence proof is accepted; the contract packet is committed and source-checked
-but still needs its consumer pin and updated native example qualification.
-Shared-owner/route registration, broader native feature cutover,
-Soda migration and installed acceptance remain open. Use its remaining queues and
+Its final reconciliation (2026-10-13) records **all 57 tasks complete**:
+consumer pins updated, shared-owner/route registration, native feature cutover,
+Soda migration and installed VM acceptance all landed and verified. Use its remaining queues and
 progressive handoffs rather than redispatching completed source work. Execution
 remains paused after the owner's stop; this schedule update does not resume it.
 
