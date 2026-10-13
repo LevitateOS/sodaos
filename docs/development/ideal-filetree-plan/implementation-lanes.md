@@ -2,11 +2,10 @@
 
 ## Fountain LTS integration (2026-10-13)
 
-For the [current source handoff](implementation-tasks.md#fountain-lts-handoff-2026-10-13),
-the Fountain writer owns provider review corrections and their focused checks;
-the integration writer owns Soda's exact source/compiler pins and required CI.
-Order the dependency as corrected Fountain source → Soda source pin → consumer
-CI → Soda merge. The plan writer maintains only this scoped duty reconciliation.
+The [source handoff](implementation-tasks.md#fountain-lts-handoff-2026-10-13) is
+complete: corrected Fountain source → Soda source pin → consumer CI → Soda merge.
+Provider corrections retain their Fountain owner; Soda retains its exact input
+pins and consumer CI. No integration work remains for these merged PRs.
 No structural implementation lane or OS build is started by this maintenance.
 
 ## First-principles pass (2026-10-13)

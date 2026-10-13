@@ -18,11 +18,12 @@ diary. Maintaining it does not authorize executing the refactor.
 
 The release-input delta in Soda PR #44 updates the paired Fountain source from
 Forgejo 15.0.9 to 15.0.10 LTS. Source inspected is Soda
-`465f2c71..1de6909c` plus PR #44's corrected provider pin, and Fountain
+`465f2c71..68d824014566966c432258d6f87d27f0c675ae51` after PR #44 merged, and Fountain
 `124907625d..fd7890e0ae88a3d65fdafd713dd70f5a489a1336` after PR #1 merged
-into `codex/fountain-extensions`. Soda's final merge identity remains pending.
+into `codex/fountain-extensions`. Soda's resulting tree matches the source that
+passed the required CI gate; this bookkeeping does not repeat those checks.
 The Soda range includes PR #43's action-pin updates. The [bounded duty map](coverage/README.md#fountain-lts-delta-2026-10-13)
-accounts for all sixteen modified Soda paths and the paired provider's added
+accounts for all sixteen modified release-input paths and the paired provider's added
 test/fixture paths. It changes no package, language or process owner and requires
 no proposed-tree move. Fountain source remains owned by its separate repository;
 the release archive is corresponding source for the exact compiled revision.

@@ -3,7 +3,8 @@
 ## Fountain LTS delta (2026-10-13)
 
 Scoped inputs are recorded in the [plan](../ideal-filetree-plan.md#scoped-fountain-lts-maintenance-2026-10-13).
-Soda PR #44 modifies sixteen existing paths and adds or deletes none. These
+Soda PR #44's release-input change modifies sixteen existing paths; six existing
+plan files carry H06 documentation upkeep. No paths are added or deleted. These
 selectors supplement the older inventories/maps without replacing their pins:
 
 | Changed paths / selected duty | Existing owner and disposition |

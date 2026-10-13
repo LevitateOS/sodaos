@@ -5,9 +5,9 @@
 The [scoped LTS delta](ideal-filetree-plan.md#scoped-fountain-lts-maintenance-2026-10-13)
 retains D02/D03's exact provider/compiler handoff and G's existing native owners.
 Fountain review corrections and focused runner/label checks are complete in
-maintained merge `fd7890e0ae88`; Soda must consume that exact revision and merge
-after its required consumer checks pass. No package move or language port is
-selected. A later release remains an explicit
+maintained merge `fd7890e0ae88`; Soda merge `68d824014566` consumes that exact
+revision after its required consumer checks passed. This source handoff is
+complete; no package move or language port is selected. A later release remains an explicit
 action with the existing build/install/publication gates; source CI does not
 qualify a new downloadable OS. Older task and native evidence scopes below stand.
 
