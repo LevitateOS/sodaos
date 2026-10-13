@@ -40,14 +40,32 @@ identical to baseline, `factory_lifecycle_capabilities` intentionally
 refreshed on the new extension handshake; no quiesced after-transition
 table receipt was retained, so no byte-identical-table claim is made.
 All preserved Project/terminal processes were unchanged before and after.
-Repair continuation in progress (not completion): the host dirty/history
-correction (Fountain `163c102d9b`) awaits its installed Chromium proof;
-B03–B07 real native-page controls pass 12/12 on stock and `/forge`
-prefix fixtures; the installed terminal proof was rewritten to exact
-element/renderer/socket identity and passes for Terminal 3; the installed
-page capture still has 60 discovered-but-unvisited pages and an observer
-fetch-redirect block to finish. Development artifacts remain unsigned
-and unpublished.
+Repair continuation (2026-10-13, this coordinator): the host
+dirty/history correction is complete — Fountain `163c102d9b` plus
+`124907625d` (native history-write coordination and repeat-GET
+preservation; 57 host unit tests) — and proved on the installed VM in
+real Chromium: dirty middle entry with forward tip, refused Back and
+Forward restoring the exact position (draft, element, history length),
+accepted Forward reaching the tip. B03–B07 real native-page controls
+pass 13/13 on stock and `/forge` fixtures, including the admin class
+through the fixture administrator's real native login. The installed
+terminal proof asserts exact terminal element, xterm instance and OPEN
+WebSocket object identity (single binding), fresh reload objects bound
+to the original account/repository/Project/session, and independent
+operator-observer PID/start confirmation; it passes for Terminal 3
+(bash 1558/start 9519761, left alive). Refresh3 images (Forgejo
+`sha256:37c307b35f…`, Extension `sha256:1e771d1fe5…`; Dashboard and
+identity reused) were built from Soda `f639e78b` / Fountain
+`124907625d`, readback-verified (375/375 payload files, served bundle
+hashes equal) and activated scoped on the existing VM; protected
+Projects and Terminal 1 are unchanged. The installed capture was
+finished at 293 records / 287 images with no unvisited bound and a
+narrow native fetch-redirect allowance at login/logout; native logout
+lands on the signed-out page and the protected Workspace then returns
+401, with remaining non-observed records limited to legitimate
+denials, missing units, archive downloads and truthful Tailnet 503
+states. The Factory sidebar now shows human-readable status instead of
+raw wire codes. Development artifacts remain unsigned and unpublished.
 The original planning pair was Soda `8df756f1bc7f410b694004f2133af046fecc44f4`
 and Fountain `87ec92d4f0101071a734b2f790f3bb1fb1d3366e`; it is historical input,
 not the current source or installed revision. Recheck heads and dirty work before
