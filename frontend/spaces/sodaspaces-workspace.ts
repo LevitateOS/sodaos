@@ -836,7 +836,6 @@ export class SodaSpaces extends LitElement {
       this.onNewTerminal
     );
     return html`<div class="soda-workspace-canvas" ?hidden=${hideCanvas(this.view, this.stale)}>
-      <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
       ${recovery} ${intro}
       <div class="soda-workspace-chrome" ?hidden=${hidePaneChrome(this.firstTerminal, this.inventoryRecovery)}>
         ${repeat(
@@ -907,6 +906,7 @@ export class SodaSpaces extends LitElement {
       @keydown=${this.onWorkspaceKey}
       @click=${this.onWorkspaceClick}
     >
+      <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
       ${heading} ${this.renderNativeToolbar()} ${banners} ${this.renderDrawerProjectionTabs()}
       ${this.renderWorkspaceFrame()} ${this.renderCreationDialog()} ${this.renderRenameDialog()}
     </section>`;

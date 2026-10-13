@@ -23,6 +23,13 @@ test('page stylesheet sizes the workspace host without drawer CSS', async (t) =>
 });
 
 async function workspaceIntroGeometry(page: Page) {
+  // Wait for loaded-font ResizeObserver work and its Lit update before
+  // comparing the two settled intro layouts around Join.
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+  });
   const workspace = page.locator('.soda-workspace');
   assert.equal(await page.locator('.soda-setup-footer:visible').count(), 0);
   assert.equal(await page.getByRole('button', {name: 'Back to workspace', exact: true}).count(), 0);
@@ -79,11 +86,16 @@ for (const theme of ['light', 'dark'])
       await page.evaluate(() => document.fonts.ready);
       const setupBounds = await page.locator('.soda-workspace-frame').boundingBox();
       assert(setupBounds);
+      const allocation = await page.locator('main[data-extension-panel]').boundingBox();
+      assert(allocation, 'current native panels allocate the authored mount');
       assert(
-        setupBounds.width >= Math.min(1240, width * (width >= 1440 ? 0.85 : 0.89)),
-        'setup frame is trapped inside native content width'
+        setupBounds.width >= Math.min(1240, allocation.width * 0.85),
+        'setup frame is trapped inside its native allocation: ' + JSON.stringify({setupBounds, allocation})
       );
-      assert(Math.abs(setupBounds.x - (width - setupBounds.width) / 2) <= 1, 'setup frame is not centered');
+      assert(
+        Math.abs(setupBounds.x - allocation.x - (allocation.width - setupBounds.width) / 2) <= 1,
+        'setup frame is not centered in its allocation'
+      );
       const welcome = await page.locator('.soda-setup-welcome').boundingBox();
       assert(welcome && welcome.width <= 560 && welcome.x > setupBounds.x, 'welcome lacks a focused reading measure');
       await captureSpacesComponent(page, `welcome-${theme}-${width}`);
@@ -252,8 +264,8 @@ for (const theme of ['light', 'dark'])
       assert(geometry.canvas.height > geometry.workspace.height * 0.65, 'chrome consumes too much terminal height');
       assert(geometry.workspace.bottom - geometry.canvas.bottom <= 26, 'terminal leaves unused space below it');
       assert(
-        Math.abs(geometry.canvas.x + geometry.canvas.width - width) <= 1,
-        'native container leaves a right gutter'
+        Math.abs(geometry.canvas.right - allocation.x - allocation.width) <= 1,
+        'terminal must fill its native allocation: ' + JSON.stringify({canvas: geometry.canvas, allocation})
       );
       if (!geometry.compact) assert(geometry.header.x >= geometry.nav.right, 'project header overlaps sidebar');
       await captureSpacesComponent(page, `working-${theme}-${width}`);

@@ -44,19 +44,23 @@ export function setupWorkspaceDriver(createPage?: () => Promise<Page>) {
         if (url.pathname === '/assets/workspace-fixture.js')
           return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
         const local =
-          url.pathname === '/assets/sodaspaces-drawer.css'
-            ? 'frontend/spaces/sodaspaces-project.css'
-            : url.pathname === '/assets/sodaspaces-page.css'
-              ? 'frontend/spaces/sodaspaces-workspace.css'
-              : url.pathname === '/assets/sodaspaces-terminal.css'
-                ? 'frontend/spaces/sodaspaces-terminal.css'
-                : url.pathname.startsWith('/assets/soda-terminal/')
-                  ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
-                  : url.pathname.startsWith('/assets/soda/forgejo/icons/')
-                    ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
-                    : url.pathname.startsWith('/assets/soda/')
-                      ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
-                      : '';
+          url.pathname === '/assets/native-fountain-base.css'
+            ? '../forgejo-ext/web_src/css/base.css'
+            : url.pathname === '/assets/native-fountain-extensions.css'
+              ? '../forgejo-ext/web_src/css/features/extensions.css'
+              : url.pathname === '/assets/sodaspaces-drawer.css'
+                ? 'frontend/spaces/sodaspaces-project.css'
+                : url.pathname === '/assets/sodaspaces-page.css'
+                  ? 'frontend/spaces/sodaspaces-workspace.css'
+                  : url.pathname === '/assets/sodaspaces-terminal.css'
+                    ? 'frontend/spaces/sodaspaces-terminal.css'
+                    : url.pathname.startsWith('/assets/soda-terminal/')
+                      ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
+                      : url.pathname.startsWith('/assets/soda/forgejo/icons/')
+                        ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
+                        : url.pathname.startsWith('/assets/soda/')
+                          ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
+                          : '';
         if (local)
           return new Response(Bun.file(path.join(root, local)), {
             headers: {
@@ -77,7 +81,7 @@ export function setupWorkspaceDriver(createPage?: () => Promise<Page>) {
         )
           return new Response(null, {status: 404});
         return new Response(
-          '<!doctype html><style>.ui.button{display:inline-flex;justify-content:center;text-align:center}</style><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>',
+          '<!doctype html><style>.ui.button{display:inline-flex;justify-content:center;text-align:center}</style><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style data-fixture-allocation>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>',
           {headers: {'Content-Type': 'text/html'}}
         );
       },
@@ -108,18 +112,44 @@ export async function fixture(
   await page.goto(server.url.href);
   await page.waitForFunction(() => !!window.createWorkspaceFixture);
   if (firstUse)
-    await page.evaluate(() => {
-      // Exercise native container/button CSS precedence without claiming native HTML.
+    await page.evaluate(async () => {
+      // Authored shared-layout boundary using the current Fountain allocation
+      // CSS. The retained mount is a sibling of native content, never a child
+      // of its capped ui container. This is not a Go-rendered fixture.
       const mount = document.querySelector('main');
       if (!mount) throw Error('Missing fixture mount');
-      const shell = document.createElement('div'),
-        container = document.createElement('div');
-      shell.className = 'page-content soda-page';
-      container.className = 'soda-page-container';
+      const allocation = document.querySelector('[data-fixture-allocation]');
+      if (!allocation) throw Error('Missing authored allocation');
+      allocation.textContent = 'body{margin:0}';
+      const shell = document.createElement('div');
+      shell.className = 'full height';
+      shell.innerHTML =
+        '<div class="page-content extensions"><div class="ui container"><section class="extension-page extension-page-owner-presented"><h1>Workspace</h1></section></div></div>';
+      const home = document.createElement('aside'),
+        panel = document.createElement('section');
+      home.id = 'extension-panels';
+      home.className = 'extension-workspace-panels';
+      home.dataset.extensionPanels = '';
+      panel.className = 'extension-workspace-panel';
+      mount.dataset.extensionPanel = '';
+      mount.dataset.extensionOwnerId = 'workspace';
       mount.dataset.view = 'spaces';
-      mount.before(shell);
-      shell.append(container);
-      container.append(mount);
+      mount.before(shell, home);
+      home.append(panel);
+      panel.append(mount);
+      await Promise.all(
+        ['/assets/native-fountain-base.css', '/assets/native-fountain-extensions.css'].map(
+          (href) =>
+            new Promise<void>((resolve, reject) => {
+              const link = document.createElement('link');
+              link.rel = 'stylesheet';
+              link.href = href;
+              link.onload = () => resolve();
+              link.onerror = () => reject(Error('Missing current Fountain fixture CSS'));
+              document.head.append(link);
+            })
+        )
+      );
     });
   if (beforeMount) await page.evaluate(beforeMount);
   await page.evaluate(

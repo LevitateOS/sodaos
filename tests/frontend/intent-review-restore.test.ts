@@ -1,4 +1,4 @@
-import test, {after} from 'node:test';
+import test, {after, afterEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
@@ -7,9 +7,10 @@ import {savedReviewRead} from '../../frontend/spaces/sodaspaces-intent-response.
 import {hflowCurrent} from './fixtures/saved-review';
 import type {SodaIntent} from '../../frontend/spaces/sodaspaces-intent.js';
 
-const dom = new JSDOM('', {url: 'https://soda.test/'});
-// Dispatch and instanceof checks must use one DOM realm: force the fixture
-// globals over any host-provided ones, then restore after this file.
+// Bun shares imported Lit classes across files. Reuse the installed fixture
+// window so their HTMLElement base and the custom-element registry stay in one
+// realm; a fresh registry cannot construct a class cached from another realm.
+const dom = typeof window === 'undefined' ? new JSDOM('', {url: 'https://soda.test/'}) : {window};
 const forcedGlobals: Record<string, unknown> = {
   window: dom.window,
   document: dom.window.document,
@@ -42,6 +43,21 @@ const {
 } = await import('../../frontend/spaces/sodaspaces-intent.js');
 const {SodaRequestError} = await import('../../frontend/spaces/sodaspaces-api.js');
 assert.ok(SodaIntentElement);
+assert.equal(
+  customElements.get('soda-intent'),
+  SodaIntentElement,
+  'fixture registry must own the imported constructor'
+);
+const elements: SodaIntent[] = [];
+afterEach(() => {
+  for (const el of elements.splice(0)) el.remove();
+});
+function createIntent(): SodaIntent {
+  const el = document.createElement('soda-intent');
+  assert(el instanceof SodaIntentElement, 'fixture must construct the real registered component');
+  elements.push(el);
+  return el;
+}
 
 test('adoptReview keeps the stored presentation with basis/result identity', () => {
   const adopted = adoptReview(savedReviewRead(JSON.parse(hflowCurrent)));
@@ -123,7 +139,7 @@ async function settle(el: SodaIntent) {
 }
 
 async function mount(api: (path: string) => Promise<unknown>, request: string): Promise<SodaIntent> {
-  const el = document.createElement('soda-intent') as SodaIntent;
+  const el = createIntent();
   el.api = api;
   el.actor = '1';
   el.request = request;
@@ -347,7 +363,7 @@ test('superseded resume never applies stale review data', async () => {
     if (!(path in routes)) throw new Error('unstubbed ' + path);
     return structuredClone(routes[path]);
   };
-  const el = document.createElement('soda-intent') as SodaIntent;
+  const el = createIntent();
   el.api = api;
   el.actor = '1';
   el.request = 'd000000000000000000000000';
@@ -382,7 +398,7 @@ test('gated account switch discards the old actor response', async () => {
     if (!(path in routes)) throw new Error('unstubbed ' + path);
     return structuredClone(routes[path]);
   };
-  const el = document.createElement('soda-intent') as SodaIntent;
+  const el = createIntent();
   el.api = api;
   el.actor = '1';
   el.request = 'd000000000000000000000000';

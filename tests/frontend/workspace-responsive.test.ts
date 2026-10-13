@@ -124,9 +124,12 @@ for (const theme of ['light', 'dark'])
       baseline.writes
     );
   });
-test('native CSS loaded last preserves full-width Spaces and quiet controls', async (t) => {
+test('current native panels allocation preserves available Spaces width and quiet controls', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
+    // This case opts native chrome into the branding button contract while
+    // leaving the retained mount in its separate native panels allocation.
+    document.querySelector('.page-content')?.classList.add('soda-page');
     const button = document.createElement('button');
     button.className = 'ui button';
     button.id = 'native-button-probe';
@@ -135,8 +138,13 @@ test('native CSS loaded last preserves full-width Spaces and quiet controls', as
   });
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await chooseFirstRepository(page);
-  const layout = await page.locator('.soda-page-container').boundingBox();
-  assert(layout && layout.x === 0 && layout.width === 1440, 'native content gutters returned');
+  const layout = await page.locator('main[data-extension-panel]').boundingBox();
+  const workspace = await page.locator('.soda-workspace').boundingBox();
+  assert(layout && workspace, 'authored native allocation and real workspace must be visible');
+  assert(
+    Math.abs(workspace.x - layout.x) <= 1 && Math.abs(workspace.width - layout.width) <= 1,
+    'workspace must use the width supplied by native panels'
+  );
   const back = page.getByRole('button', {name: 'Back', exact: true});
   assert.equal(
     await back.evaluate((node) => getComputedStyle(node).borderTopColor),
