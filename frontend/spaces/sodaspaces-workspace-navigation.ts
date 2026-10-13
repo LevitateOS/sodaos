@@ -1,11 +1,15 @@
 import {html} from 'lit';
+import {repeat} from 'lit/directives/repeat.js';
 import type {Space} from './sodaspaces-inventory-response.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
-import {factoryAuthorityText, factoryControlText} from './sodaspaces-factory-response.js';
 import {attentionReason} from './sodaspaces-attention.js';
 import type {LayoutEntry, PaneTree} from './sodaspaces-layout.js';
 import {paneFor, sameLocator} from './sodaspaces-layout.js';
-import {renderProjectNavigation} from './sodaspaces-session-navigation-view.js';
+import {
+  renderProjectDirectoryRow,
+  renderProjectNavigation,
+  renderProjectTerminalList,
+} from './sodaspaces-session-navigation-view.js';
 import type {Row, Slot, WorkspaceContext} from './sodaspaces-workspace-types.js';
 
 export interface NavReading {
@@ -257,13 +261,34 @@ function pageProjectNav(
     select: () => selectProject(space),
   };
 }
-function projectSubtitle(space: Space, status: string) {
-  return (
-    status +
-    (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : '') +
-    factoryAuthorityText(space.factory_authority) +
-    factoryControlText(space.factory_control)
-  );
+export interface ProjectDirectoryInput {
+  reading: NavReading;
+  spaces: Space[];
+  entries: LayoutEntry[];
+  project: string;
+  projectName: (space: Space) => string;
+  projectState: (space: Space) => 'running' | 'stopped' | 'unknown';
+  selectProject: (space: Space) => void;
+}
+/** Project selection changes display context only; execution controls live in the selected Project. */
+export function renderProjectDirectory(input: ProjectDirectoryInput) {
+  const disabled = input.reading.stale || !input.reading.available;
+  return html`<div class="soda-project-directory">
+    ${repeat(
+      input.spaces,
+      (space) => space.environment.id,
+      (space) =>
+        renderProjectDirectoryRow({
+          environmentId: space.environment.id,
+          name: input.projectName(space),
+          state: disabled ? 'unknown' : input.projectState(space),
+          attention: attentionRows(input.reading, [space], input.entries).length,
+          active: input.project === space.environment.repository_id,
+          disabled,
+          select: () => input.selectProject(space),
+        })
+    )}
+  </div>`;
 }
 export interface ProjectRowsInput {
   reading: NavReading;
@@ -283,16 +308,22 @@ export interface ProjectRowsInput {
   showManagement: (repository: string) => void;
   selectProject: (space: Space) => void;
 }
-export function projectRows(input: ProjectRowsInput) {
+function projectSessionRows(input: ProjectRowsInput) {
   const query = input.search.toLocaleLowerCase();
   const matched = rows(input.space, input.entries, input.reading.slots).filter((row) =>
     rowMatchesQuery(row, input.reading.slots, query, input.projectName)
   );
   const shown = input.attentionOnly ? matched.filter((row) => rowAttention(input.reading, input.space, row)) : matched;
+  return shown.map((row) => rowNavItem(input.reading, input.space, row, input.selected, input.tree, input.selectRow));
+}
+export function renderProjectTerminals(input: ProjectRowsInput) {
+  return renderProjectTerminalList(projectSessionRows(input));
+}
+export function projectRows(input: ProjectRowsInput) {
   return html`${renderProjectNavigation(
     input.projectName,
-    projectSubtitle(input.space, input.status),
-    shown.map((row) => rowNavItem(input.reading, input.space, row, input.selected, input.tree, input.selectRow)),
+    input.status,
+    projectSessionRows(input),
     input.reading.stale || !input.reading.available,
     () => {
       void input.showManagement(input.space.environment.repository_id);

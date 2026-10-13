@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {html} from 'lit';
 import {check, object, readSodaJSON, SodaRequestError} from './sodaspaces-api.js';
 import {spacesResponse} from './sodaspaces-inventory-response.js';
@@ -101,7 +102,7 @@ export interface InventoryInput {
   readRestored: () => boolean;
   readSurfaceVisible: () => boolean;
   readActor: () => {id: string; login: string} | undefined;
-  readView: () => 'terminal' | 'sessions' | 'project';
+  readView: () => WorkspaceView;
   readManagementMode: () => 'standard' | 'journey' | 'settings';
   readStorageLoaded: () => boolean;
   readUpdateComplete: () => Promise<boolean>;
@@ -120,7 +121,7 @@ export interface InventoryInput {
   setStorageKey: (storageKey: string) => void;
   setSetup: (setup: 'intent' | 'repositories' | 'configure' | null) => void;
   clearSetupReturn: () => void;
-  setView: (view: 'terminal' | 'sessions' | 'project') => void;
+  setView: (view: WorkspaceView) => void;
   setReconnectRequired: (required: boolean) => void;
   invalidate: () => void;
   loadLayout: () => void;
@@ -263,7 +264,8 @@ export function refreshJourneyManagement(input: InventoryInput) {
 
 export function syncPageJourney(input: InventoryInput) {
   if (missingRepositoryProject(input)) {
-    if (input.readView() === 'terminal') void input.showManagement(input.readProject(), 'journey');
+    if (input.readView() === 'terminal' || input.readView() === 'work')
+      void input.showManagement(input.readProject(), 'journey');
     return;
   }
   if (!pageJourneyActive(input)) return;

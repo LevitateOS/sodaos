@@ -13,9 +13,12 @@ explicit human Project creation or reuse. The end-to-end proposal below develops
 the interactions that connect those capabilities. The
 [operator reference](../reference/factory.md) documents the existing command interface.
 
-A focused first-use journey, then a project/session sidebar for finding work, tabs
-for switching within a pane, and contextual splits for the few terminals viewed
-together. Native CLI agents remain inside real terminals; there is no separate
+A Project is the place to describe work, follow progress and review results.
+The page sidebar is a compact Project switcher: name, owner, observed runtime
+status and an attention count when an authorized terminal needs attention.
+Selecting a Project opens **Work**. **Terminals** is a secondary Project view;
+its session list, pane tabs and splits support hands-on development. Native CLI
+agents remain inside real terminals; there is no separate
 agent-chat frontend or application origin. Checkout and worktree policy belongs to the
 [factory concurrency rules](../product/overview.md#concurrency-and-usage-limits),
 not this presentation design.
@@ -24,6 +27,30 @@ Visual language matches Soda brand tokens: Barlow interface type, Plex Mono for
 controls/terminal, square geometry, thin rules, restrained red primary actions and
 clear whitespace. Every repository lives on this Forgejo; there is no external
 provider picker in onboarding.
+
+### Everyday Project flow
+
+- **Work** lists the signed-in person's plans for the selected repository. **New
+  work** opens the existing description/review flow and suggests that repository
+  at the later explicit repository choice. It does not create another Project.
+- **Saved plans** is a separate entry for drafts without a repository, accepted
+  work and closed plans across repositories. It is not appended to Project
+  navigation. **Continue planning**, **View progress** and **Review** resume the
+  existing saved-request route.
+- List states are facts about a plan: Draft, Accepted and Closed. Accepted does
+  not mean running or delivered. The request's progress view owns execution and
+  result evidence. Loading failures and partially loaded lists remain explicit.
+- Project runtime and access setup live behind **Terminals** and **Project
+  settings**. A stopped runtime does not redirect someone away from planning.
+  **New project** retains the guided first-use flow and explicit provisioning.
+- Terminal and live-watch owners stay mounted across views, Project selection
+  and filtering. Selecting a Project changes planning context; an existing
+  terminal keeps its original repository/account until explicitly selected or
+  ended. The terminal's own header identifies that context.
+
+The persistent native panel remains a compact session tool while browsing
+Forgejo. The page provides the work-first Project experience in the same native
+shell. Neither view creates, joins or starts an environment merely by opening it.
 
 ## First-use journey
 
@@ -552,8 +579,9 @@ into an approved contract.
 
 ### Everyday terminals, discovery and compact layouts
 
-Search finds actual Projects and session names; group human sessions, saved
-requests and Factory attention so these are not mistaken for one another.
+Page sidebar search finds Projects by name or owner. The selected Project's
+Terminals view lists its sessions; the native panel searches Projects and session
+names. Saved plans and Project activity have separate content areas.
 Recent items use exact stable identity. Show an empty inventory differently from
 an unavailable one. Native repository Workspace selects its own context without
 changing a terminal already attached to another Project.
@@ -675,7 +703,8 @@ annotated sheets predate this proposal and are not evidence that it is implement
 
 ## Full-page workspace
 
-- Project/session navigation in a sidebar.
+- Compact Project navigation in a sidebar; Work opens first, with Terminals as a
+  secondary Project view. Saved plans has a separate entry.
 - Local tabs within a pane; splits for simultaneous views.
 - Focus is input ownership; attention is advisory from real signals.
 - Measured pane minima after xterm render; do not collapse on stale geometry.

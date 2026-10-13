@@ -11,6 +11,11 @@ import {
 import {captureSpacesComponent} from '../../scripts/screenshot';
 setupWorkspaceDriver();
 
+async function resumeSavedPlan(page: Page, action = 'View progress', objective = 'Build a small project tracker') {
+  await page.getByRole('button', {name: 'Saved plans', exact: true}).click();
+  await page.getByRole('button', {name: action + ': ' + objective, exact: true}).click();
+}
+
 async function projectPressed(page: Page) {
   return page.evaluate(() => {
     const el = document.querySelector('soda-spaces');
@@ -328,7 +333,7 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
     });
     return window.workspaceFixture.api.refresh();
   });
-  await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+  await resumeSavedPlan(page);
   const resumed = page.locator('soda-factory-work-overview');
   await resumed.getByText('Build a small project tracker').waitFor();
   await resumed.getByText('Native work generated.').waitFor();
@@ -365,7 +370,7 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
   const leftRequest = await page.evaluate(() => window.location.pathname);
   assert.ok(!leftRequest.includes('/workspace/requests/'));
   // Return: the saved request resumes with its committed identity and targets intact.
-  await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+  await resumeSavedPlan(page);
   await page.locator('soda-factory-work-detail').waitFor();
   const returned = page.locator('soda-factory-work-detail');
   assert.equal(await returned.getByText('no run selected').count(), 0);
@@ -389,7 +394,7 @@ test('setup: detail Watch binds the live run target into an observe-only watch',
   assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
 });
 test(
-  'setup: Watch reveal clears only obstructing filters, hidden watch and hidden navigation',
+  'setup: Watch stays independent of project filters and reveals the retained view at compact widths',
   {timeout: 90000},
   async (t) => {
     const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
@@ -413,31 +418,20 @@ test(
       });
       return window.workspaceFixture.api.refresh();
     });
-    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await resumeSavedPlan(page);
     const detail = page.locator('soda-factory-work-detail');
     await detail.getByRole('button', {name: 'Watch output', exact: true}).click();
     await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
-    // Phase 1: search + attention filters exclude the target space row while the
-    // unfiltered saved Resume stays available; Watch must clear the obstruction.
-    // The search control is hidden with a single project, so fill drives the real
-    // input handler; attentionOnly has no visible control in this state.
+    // Phase 1: filtering the Project directory must keep the selected work and
+    // its live watch connected and visible. Revealing it again keeps one owner.
     await page.locator('.soda-workspace-navigation input[type="search"]').fill('zzz-no-such-project', {force: true});
-    await page.evaluate(() => {
-      (document.querySelector('soda-spaces') as unknown as {attentionOnly: boolean}).attentionOnly = true;
-    });
-    await page.locator('.soda-factory').waitFor({state: 'hidden'});
-    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    assert(await page.locator('.soda-factory').isVisible());
+    await resumeSavedPlan(page);
     await page.locator('soda-factory-work-detail').waitFor();
     await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
     await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
     assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
     assert.equal(await page.locator('.soda-workspace-navigation input[type="search"]').inputValue(), '');
-    assert.equal(
-      await page.evaluate(
-        () => (document.querySelector('soda-spaces') as unknown as {attentionOnly: boolean}).attentionOnly
-      ),
-      false
-    );
     assert.equal(await page.evaluate(() => document.querySelectorAll('.soda-factory').length), 1);
     assert.equal(
       await page.evaluate(
@@ -456,7 +450,7 @@ test(
         ?.dispatchEvent(new CustomEvent('soda-factory-command', {bubbles: true, detail: 'hide'}));
     });
     await page.locator('.soda-factory').waitFor({state: 'hidden'});
-    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    await resumeSavedPlan(page);
     await page.locator('soda-factory-work-detail').waitFor();
     await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
     await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
@@ -471,15 +465,16 @@ test(
       ),
       1
     );
-    // Phase 3: compact layout hides navigation; Watch restores the sessions view.
-    await page.getByRole('button', {name: /^Resume Build a small project tracker$/}).click();
+    // Phase 3: compact layout shows the watch in Project work without requiring the directory.
+    await resumeSavedPlan(page);
     await page.locator('soda-factory-work-detail').waitFor();
     await page.setViewportSize({width: 500, height: 800});
     await page.waitForFunction(
       () => (document.querySelector('soda-spaces') as unknown as {compact: boolean}).compact === true
     );
     await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
-    await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+    await page.getByRole('button', {name: 'Work', exact: true}).waitFor();
+    assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), 0);
     await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
     assert.match(await page.locator('.soda-factory [role="status"]').innerText(), /Watching soda-coder · issue #5/);
   }
@@ -639,11 +634,11 @@ test('setup cancel restores the non-first return target instead of selecting the
     });
     return window.workspaceFixture.api.refresh();
   });
-  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('heading', {name: 'Projects', exact: true}).waitFor();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
   await page.getByRole('button', {name: 'Project settings'}).click();
   await page.getByRole('heading', {name: 'Project OS'}).waitFor();
-  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('heading', {name: 'Projects', exact: true}).waitFor();
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
   await page.getByRole('radio', {name: /alice\/Gamma/}).check();
@@ -651,7 +646,7 @@ test('setup cancel restores the non-first return target instead of selecting the
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).waitFor();
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
   await page.getByRole('heading', {name: 'Project OS'}).waitFor();
-  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('heading', {name: 'Projects', exact: true}).waitFor();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).waitFor();
   assert.equal(await projectPressed(page), 'alice/Alpha=false,alice/Beta=true');
   assert.equal(
@@ -694,9 +689,9 @@ test('setup cancel falls back to the first project only when the return target i
     });
     return window.workspaceFixture.api.refresh();
   });
-  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('heading', {name: 'Projects', exact: true}).waitFor();
   await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
-  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('heading', {name: 'Projects', exact: true}).waitFor();
   await reviewFirstIntent(page);
   await page.getByRole('radio', {name: /alice\/Gamma/}).waitFor();
   await page.getByRole('radio', {name: /alice\/Gamma/}).check();
@@ -711,7 +706,7 @@ test('setup cancel falls back to the first project only when the return target i
     await window.workspaceFixture.api.refresh();
   });
   await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
-  await page.getByRole('button', {name: 'Projects'}).click();
+  await page.getByRole('heading', {name: 'Projects', exact: true}).waitFor();
   await page.getByRole('button', {name: 'alice/Alpha', exact: true}).waitFor();
   assert.equal(await projectPressed(page), 'alice/Alpha=true');
   assert.equal(
@@ -750,7 +745,7 @@ test('setup: welcome footer tracks describe, repository and create steps', async
     return window.workspaceFixture.api.refresh();
   });
   await page.locator('.soda-create-another-project:visible').waitFor();
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'New project', exact: true}).click();
   const footer = page.locator('.soda-setup-footer');
   await footer.waitFor();
   const steps = async () => textContents(footer.locator('li'));
@@ -856,7 +851,7 @@ test('setup: saved draft resumes from its request route across history traversal
 test('setup: direct /workspace/new load activates fresh entry in populated workspace', {timeout: 60000}, async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
-  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  await page.getByRole('navigation', {name: 'Projects', exact: true}).waitFor();
   const mountNewRoute = () =>
     page.evaluate(async () => {
       window.workspaceFixture = window.createWorkspaceFixture('page', false, '');
@@ -883,7 +878,7 @@ test('setup: direct /workspace/new load activates fresh entry in populated works
   );
   // Back exits to the ordinary workspace with terminals/navigation preserved.
   await page.getByRole('button', {name: 'Back', exact: true}).click();
-  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  await page.getByRole('navigation', {name: 'Projects', exact: true}).waitFor();
   assert.deepEqual(
     await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.method !== 'GET')),
     []
@@ -896,7 +891,7 @@ test('setup: direct /workspace/new load activates fresh entry in populated works
 test('setup: retained owner follows native forward to /workspace/new without remount', {timeout: 60000}, async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
-  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
+  await page.getByRole('navigation', {name: 'Projects', exact: true}).waitFor();
   // Native forward: Fountain pushState then panel-entry sync calls present()
   // on the retained owner; no popstate fires and nothing remounts.
   await page.evaluate(() => {
@@ -913,8 +908,8 @@ test('setup: retained owner follows native forward to /workspace/new without rem
 test('setup: native New while resuming starts a blank entry and saves a new identity', {timeout: 90000}, async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
-  await page.getByRole('navigation', {name: 'Projects and terminals'}).waitFor();
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('navigation', {name: 'Projects', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'New project', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
   await page.getByRole('button', {name: 'Save draft', exact: true}).click();
@@ -922,7 +917,7 @@ test('setup: native New while resuming starts a blank entry and saves a new iden
   const savedRoute = await page.evaluate(() => window.location.pathname);
   await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
   await page.waitForFunction(() => window.location.pathname === '/workspace');
-  await page.getByRole('button', {name: 'Resume Build a small project tracker', exact: true}).click();
+  await resumeSavedPlan(page, 'Continue planning');
   await page.waitForFunction((route) => window.location.pathname === route, savedRoute);
   const resumedIntent = await page.evaluate(
     () =>
@@ -993,8 +988,7 @@ test('setup: native New while viewing accepted starts blank and saves apart', {t
     });
     return window.workspaceFixture.api.refresh();
   });
-  const resumeName = /^Resume Build a small project tracker$/;
-  await page.getByRole('button', {name: resumeName}).click();
+  await resumeSavedPlan(page);
   const resumed = page.locator('soda-factory-work-overview');
   await resumed.getByText('Build a small project tracker').waitFor();
   await resumed.getByText('Native work generated.').waitFor();
@@ -1009,7 +1003,7 @@ test('setup: native New while viewing accepted starts blank and saves apart', {t
   // Mount the live watch terminal, then return to the accepted review.
   await page.locator('soda-factory-work-detail').getByRole('button', {name: 'Watch output', exact: true}).click();
   await page.locator('.soda-factory.is-connected .xterm-rows').waitFor();
-  await page.getByRole('button', {name: resumeName}).click();
+  await resumeSavedPlan(page);
   await resumed.getByText('Native work generated.').waitFor();
   const watchAlive = () =>
     page.evaluate(
@@ -1079,8 +1073,7 @@ test('setup: native New while viewing accepted starts blank and saves apart', {t
   );
   // Back returns to the pre-resume target; the accepted work is intact.
   await page.getByRole('button', {name: 'Back', exact: true}).click();
-  await page.getByRole('button', {name: resumeName}).waitFor();
-  await page.getByRole('button', {name: resumeName}).click();
+  await resumeSavedPlan(page);
   await page.waitForFunction((route) => window.location.pathname === route, acceptedRoute);
   await resumed.getByText('Native work generated.').waitFor();
 });
@@ -1179,7 +1172,7 @@ test('setup: new entry canonicalizes the route and leave returns', async (t) => 
   const page = await fixture(t, 'page', undefined, false);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await page.locator('.soda-create-another-project:visible').waitFor();
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'New project', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   assert.equal(await page.evaluate(() => window.location.pathname), '/workspace/new');
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
@@ -1193,7 +1186,7 @@ test('setup: discovery groups saved drafts from inventory and resumes them', {ti
   const heading = page.getByRole('heading', {name: 'What do you want to build?', exact: true});
   const begin = async () => {
     await page.locator('.soda-create-another-project:visible').waitFor();
-    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await page.getByRole('button', {name: 'New project', exact: true}).click();
     await heading.waitFor();
   };
   const saveAndLeave = async (objective: string) => {
@@ -1214,10 +1207,12 @@ test('setup: discovery groups saved drafts from inventory and resumes them', {ti
   await page.locator('soda-intent').getByText('Build discovery beta', {exact: true}).waitFor();
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   await heading.waitFor({state: 'hidden'});
-  await page.getByText('Drafts (2)', {exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Saved plans', exact: true}).click();
+  await page.locator('.soda-work-item').first().waitFor();
+  assert.equal(await page.locator('.soda-work-state[data-state="draft"]').count(), 2);
   await page.getByText('Build discovery alpha', {exact: false}).waitFor();
-  await page.getByText('No repository yet', {exact: false}).first().waitFor();
-  await page.getByRole('button', {name: 'Resume Build discovery beta', exact: true}).click();
+  await page.getByText('Not linked to a repository', {exact: true}).first().waitFor();
+  await page.getByRole('button', {name: 'Continue planning: Build discovery beta', exact: true}).click();
   await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
   assert.equal(await page.evaluate(() => window.location.pathname), saved);
   await heading.waitFor();

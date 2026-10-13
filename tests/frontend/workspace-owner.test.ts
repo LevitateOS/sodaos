@@ -57,7 +57,7 @@ test('setup requests host push/replace navigation and waits for the entered pres
     window.workspaceFixture.deferNavigation(true);
   });
   const before = await page.evaluate(() => ({url: location.href, history: history.length}));
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'New project', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   assert.deepEqual(await page.evaluate(() => window.workspaceFixture.navigations), [
     {path: '/forgejo.test/workspace/new', replace: false},
@@ -98,7 +98,7 @@ for (const outcome of ['success', 'failure'] as const)
       ).length,
       sockets: window.workspaceFixture.sockets.length,
     }));
-    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await page.getByRole('button', {name: 'New project', exact: true}).click();
     await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
     await page.evaluate((outcome) => {
       const original = window.fetch;

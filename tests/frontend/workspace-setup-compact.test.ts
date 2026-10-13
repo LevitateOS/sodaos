@@ -11,7 +11,7 @@ test('compact setup: Back from creation restores the same connected terminal', a
   const before = await page.locator('.soda-workspace-terminal:not([hidden])').getAttribute('id');
   // Creation is only reachable through the sessions overlay at compact widths.
   await page.getByRole('button', {name: 'Projects', exact: true}).click();
-  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'New project', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   await page.getByRole('button', {name: 'Back', exact: true}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();

@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {LitElement, html} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {renderMenu, renderWelcomeSteps} from './sodaspaces-workspace-view.js';
@@ -74,12 +75,16 @@ import type {FactoryWatchRequest, SetupActions, SetupReading} from './sodaspaces
 import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
 import type {SodaIntent} from './sodaspaces-intent.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
+import './sodaspaces-project-work.js';
+import type {SodaProjectWork} from './sodaspaces-project-work.js';
 import {
   attentionRows,
   filteredSpaces,
   groupSavedRequests,
   projectRows,
   renderRequestGroups,
+  renderProjectDirectory,
+  renderProjectTerminals,
   rows,
 } from './sodaspaces-workspace-navigation.js';
 import {displayFactoryWatches, factorySection, factoryWatching, watchRun} from './sodaspaces-workspace-factory.js';
@@ -210,7 +215,7 @@ export class SodaSpaces extends LitElement {
   declare private busy: boolean;
   declare private layout: WorkspaceLayout;
   declare private storageNotice: string;
-  declare private view: 'terminal' | 'sessions' | 'project';
+  declare private view: WorkspaceView;
   declare private stale: boolean;
   declare private search: string;
   declare private thisPage: boolean;
@@ -251,12 +256,11 @@ export class SodaSpaces extends LitElement {
   declare private repositoryError: string;
   private repositoryRequest: AbortController | undefined;
   private repositoryCursors: string[] = [''];
-  private setupReturn:
-    | {project: string; view: 'terminal' | 'sessions' | 'project'; mode: 'standard' | 'journey' | 'settings'}
-    | undefined;
+  private setupReturn: {project: string; view: WorkspaceView; mode: 'standard' | 'journey' | 'settings'} | undefined;
   private reviewAuthorization: {ideas: number; tasks: number} | undefined;
   private reviewedIntent: string | undefined;
   private setupCommitted = false;
+  private workRepository: string | undefined;
   declare private overviewScope: OverviewScope | undefined;
   private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
@@ -350,7 +354,11 @@ export class SodaSpaces extends LitElement {
     );
   }
   private get firstTerminal() {
-    return this.pageReadyForFirstTerminal() && this.spaceReadyForFirstTerminal(this.selectedSpace);
+    return (
+      this.view === 'terminal' &&
+      this.pageReadyForFirstTerminal() &&
+      this.spaceReadyForFirstTerminal(this.selectedSpace)
+    );
   }
   private get inventoryRecovery() {
     return (
@@ -404,6 +412,7 @@ export class SodaSpaces extends LitElement {
       ...context,
     };
     if (context.kind === 'page' && context.repositoryId) this.project = context.repositoryId;
+    this.view = context.kind === 'page' ? 'work' : 'terminal';
     this.factory = factory;
     this.storageKey = '';
     this.routePathname = window.location.pathname;
@@ -435,9 +444,13 @@ export class SodaSpaces extends LitElement {
     const entered = pathname !== this.routePathname || kind !== this.binding.kind;
     this.routePathname = pathname;
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
-    if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
+    this.presentView(kind, repositoryId);
     this.armNewRoute(kind, entered);
     this.requestUpdate();
+  }
+  private presentView(kind: 'page' | 'native', repositoryId?: string) {
+    if (kind === 'native' && (this.view === 'work' || this.view === 'plans')) this.view = 'terminal';
+    if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
   }
   private presentedRoute(route?: string) {
     return route ? route.split(/[?#]/)[0] || this.routePathname : window.location.pathname;
@@ -597,14 +610,44 @@ export class SodaSpaces extends LitElement {
     this.attentionOnly = true;
   };
   private readonly onRefreshClick = () => this.refresh();
-  private readonly onBeginSetup = () => beginSetup(this.setupReading(), this.setupActions(), this);
-  private readonly onResumeRequest = (intent: string) =>
+  private readonly onBeginSetup = () => {
+    this.workRepository = undefined;
+    beginSetup(this.setupReading(), this.setupActions(), this);
+  };
+  private readonly onResumeRequest = (intent: string) => {
+    this.workRepository = undefined;
     resumeSetup(intent, this.setupReading(), this.setupActions(), this);
+  };
+  private readonly onNewWork = () => {
+    this.workRepository = this.view === 'plans' ? undefined : this.project;
+    beginSetup(this.setupReading(), this.setupActions(), this);
+  };
+  private readonly onWorkResume = (event: CustomEvent<{intent: string}>) => this.onResumeRequest(event.detail.intent);
+  private readonly onWorkAuthorityLost = (event: CustomEvent<{reconnectRequired: boolean}>) => {
+    this.reconnectRequired = event.detail.reconnectRequired;
+    this.invalidate();
+  };
+  private readonly onShowWork = () => {
+    this.view = 'work';
+  };
+  private readonly onShowPlans = () => {
+    this.view = 'plans';
+  };
+  private readonly onShowTerminals = () => {
+    this.view = 'terminal';
+    const space = this.selectedSpace;
+    if (space && !this.projectRunnable(space)) void this.showManagement(this.project, 'journey');
+    this.markViewed();
+  };
   private renderDiscoveryRequests() {
     // Discovery groups exist only when navigation is visible: while setup is
     // open the composer owns the saved list, and hidden duplicates would steal
     // text matches from it.
-    if (hideNavigation(this.setupScreen, this.view, this.compact, this.layout.sidebar, this.stale)) return '';
+    if (
+      this.binding?.kind === 'page' ||
+      hideNavigation(this.setupScreen, this.view, this.compact, this.layout.sidebar, this.stale)
+    )
+      return '';
     return renderRequestGroups({groups: groupSavedRequests(this.savedRequests), resume: this.onResumeRequest});
   }
   private readonly onShowSessions = () => this.showSessions();
@@ -646,14 +689,11 @@ export class SodaSpaces extends LitElement {
     </div>`;
   }
   private navAriaLabel() {
-    return this.binding?.kind === 'page' ? 'Projects and terminals' : 'Projects and sessions';
+    return this.binding?.kind === 'page' ? 'Projects' : 'Projects and sessions';
   }
   private renderProjectsHeading() {
     if (this.binding?.kind !== 'page') return '';
-    const title =
-      !this.compact && this.view !== 'sessions'
-        ? html`<button class="ui button" @click=${this.onShowSessions}>Projects</button>`
-        : html`<h2>Projects</h2>`;
+    const title = html`<h2>Projects</h2>`;
     return html`<div class="soda-projects-heading">
       ${title}<span class="soda-project-count" aria-label=${this.spaces.length + ' visible projects'}
         >${this.spaces.length}</span
@@ -670,11 +710,7 @@ export class SodaSpaces extends LitElement {
     >`;
   }
   private hideAttentionFilters() {
-    return (
-      this.binding?.kind === 'page' &&
-      !attentionRows(this.navReading(), this.spaces, this.layout.entries).length &&
-      !this.attentionOnly
-    );
+    return this.binding?.kind === 'page';
   }
   private renderCreateAnotherProject() {
     if (this.binding?.kind !== 'page') return '';
@@ -683,7 +719,7 @@ export class SodaSpaces extends LitElement {
       ?disabled=${workspaceBlocked(this.stale, this.available) || !this.canRestore}
       @click=${this.onBeginSetup}
     >
-      <span aria-hidden="true">＋</span> Create project
+      <span aria-hidden="true">＋</span> New project
     </button>`;
   }
   private emptyFilterMessage() {
@@ -765,7 +801,8 @@ export class SodaSpaces extends LitElement {
     >
       ${this.renderProjectsHeading()}
       <label ?hidden=${this.hideTerminalSearch()}
-        >Find a terminal <input type="search" .value=${this.search} @input=${this.onSearchInput}
+        >${this.binding?.kind === 'page' ? 'Find a project' : 'Find a terminal'}
+        <input type="search" .value=${this.search} @input=${this.onSearchInput}
       /></label>
       ${this.renderThisPageFilter()}
       <div class="soda-attention-filters" aria-label="Session attention" ?hidden=${this.hideAttentionFilters()}>
@@ -785,45 +822,116 @@ export class SodaSpaces extends LitElement {
         </button>
         <button class="ui button" @click=${() => this.nextAttention()}>Next attention</button>
       </div>
-      ${repeat(
-        this.navigationSpaces(),
-        (space) => space.environment.id,
-        (space) =>
-          projectRows({
-            reading: this.navReading(),
-            space,
-            search: this.search,
-            attentionOnly: this.attentionOnly,
-            selected: this.selected,
-            entries: this.layout.entries,
-            tree: this.layout.tree,
-            kind: this.binding?.kind,
-            project: this.project,
-            state: this.projectState(space),
-            status: this.projectStatus(space),
-            projectName: this.projectName(space),
-            factory: factorySection({
-              readWatches: () => this.watches,
-              isStale: () => this.stale,
-              pushWatch: (watch) => {
-                this.watches.push(watch);
-              },
-              replaceWatches: (watches) => {
-                this.watches = watches;
-              },
-              updated: () => this.requestUpdate(),
-              available: this.available,
-              space,
-              query: this.search.toLocaleLowerCase(),
-            }),
-            selectRow: (target, row) => this.selectRow(target, row),
-            showManagement: (repository) => this.showManagement(repository),
-            selectProject: (target) => this.selectProject(target),
-          })
-      )}
-      ${this.renderDiscoveryRequests()} ${renderMoreProjects(this.moreProjectsInput())}
-      ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
+      ${this.renderProjectNavigation()} ${this.renderDiscoveryRequests()}
+      ${renderMoreProjects(this.moreProjectsInput())} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
+      ${this.binding?.kind === 'page' ? html`<button class="ui button soda-saved-plans" aria-pressed=${this.view === 'plans'} @click=${this.onShowPlans}>Saved plans</button>` : ''}
     </nav>`;
+  }
+  private renderProjectNavigation() {
+    if (this.binding?.kind === 'page')
+      return renderProjectDirectory({
+        reading: this.navReading(),
+        spaces: this.navigationSpaces(),
+        entries: this.layout.entries,
+        project: this.view === 'plans' ? '' : this.project,
+        projectName: (space) => this.projectName(space),
+        projectState: (space) => this.projectState(space),
+        selectProject: (space) => this.selectProject(space),
+      });
+    return repeat(
+      this.navigationSpaces(),
+      (space) => space.environment.id,
+      (space) => projectRows(this.projectRowsInput(space))
+    );
+  }
+  private projectRowsInput(space: Space) {
+    return {
+      reading: this.navReading(),
+      space,
+      search: this.binding?.kind === 'page' ? '' : this.search,
+      attentionOnly: this.binding?.kind === 'native' && this.attentionOnly,
+      selected: this.selected,
+      entries: this.layout.entries,
+      tree: this.layout.tree,
+      kind: this.binding?.kind,
+      project: this.project,
+      state: this.projectState(space),
+      status: this.projectStatus(space),
+      projectName: this.projectName(space),
+      factory: '',
+      selectRow: (target: Space, row: Row) => this.selectRow(target, row),
+      showManagement: (repository: string) => this.showManagement(repository),
+      selectProject: (target: Space) => this.selectProject(target),
+    };
+  }
+  private renderProjectViews() {
+    if (this.binding?.kind !== 'page' || this.view === 'plans' || !this.selectedSpace || this.setupScreen) return '';
+    return html`<nav class="soda-project-views" aria-label="Project views">
+      <button class="ui button" aria-pressed=${this.view === 'work'} @click=${this.onShowWork}>Work</button>
+      <button class="ui button" aria-pressed=${this.view === 'terminal'} @click=${this.onShowTerminals}>
+        Terminals
+      </button>
+    </nav>`;
+  }
+  private projectWorkContext() {
+    return this.binding && this.actor && !this.stale && this.available
+      ? {
+          transport: this.binding.transport,
+          mode: this.view === 'plans' ? ('all-plans' as const) : ('project' as const),
+          ...(this.selectedSpace ? {repository: {id: this.project, name: this.projectName(this.selectedSpace)}} : {}),
+          repositoryNames: new Map(
+            this.spaces.map((space) => [space.environment.repository_id, this.projectName(space)])
+          ),
+        }
+      : undefined;
+  }
+  private renderProjectWork() {
+    const active =
+      this.binding?.kind === 'page' && !this.setupScreen && (this.view === 'work' || this.view === 'plans');
+    return html`<soda-project-work
+      .context=${this.projectWorkContext()}
+      .active=${active && this.activeSurface}
+      ?hidden=${!active || this.stale}
+      @soda-work-new=${this.onNewWork}
+      @soda-work-resume=${this.onWorkResume}
+      @soda-work-authority-lost=${this.onWorkAuthorityLost}
+    ></soda-project-work>`;
+  }
+  private renderFactoryActivity() {
+    // Keep every watch owner connected across project, search and surface changes.
+    return repeat(
+      this.spaces,
+      (space) => space.environment.id,
+      (space) => html`<section
+        class="soda-project-activity"
+        aria-label=${'Activity in ' + this.projectName(space)}
+        ?hidden=${!this.factoryActivityVisible(space)}
+      >
+        ${factorySection({
+          readWatches: () => this.watches,
+          isStale: () => this.stale,
+          pushWatch: (watch) => {
+            this.watches.push(watch);
+          },
+          replaceWatches: (watches) => {
+            this.watches = watches;
+          },
+          updated: () => this.requestUpdate(),
+          available: this.available,
+          space,
+          query: '',
+        })}
+      </section>`
+    );
+  }
+  private factoryActivityVisible(space: Space) {
+    if (this.stale || this.setupScreen) return false;
+    if (this.binding?.kind === 'native') return this.view === 'sessions';
+    return this.view === 'work' && space.environment.repository_id === this.project;
+  }
+  private renderTerminalDirectory() {
+    if (this.binding?.kind !== 'page' || this.view !== 'terminal' || !this.selectedSpace || this.stale) return '';
+    return renderProjectTerminals(this.projectRowsInput(this.selectedSpace));
   }
   private renderCanvas() {
     const recovery = renderInventoryRecovery(
@@ -885,7 +993,14 @@ export class SodaSpaces extends LitElement {
             @keydown=${this.onSidebarKey}
           ></div>
           <div class="soda-workspace-work">
-            ${this.renderPageToolbar()} ${this.renderCanvas()}
+            ${this.renderPageToolbar()} ${this.renderProjectViews()}
+            <div
+              class="soda-project-content"
+              ?hidden=${this.view !== 'work' && this.view !== 'plans' && !(this.binding?.kind === 'native' && this.view === 'sessions')}
+            >
+              ${this.renderProjectWork()} ${this.renderFactoryActivity()}
+            </div>
+            ${this.renderTerminalDirectory()} ${this.renderCanvas()}
             <div class="soda-workspace-management" ?hidden=${hideManagement(this.view, this.stale)}></div>
           </div>
         </div>
@@ -947,19 +1062,28 @@ export class SodaSpaces extends LitElement {
       `
     );
   }
+  private renderToolbarTitle() {
+    const kind = this.binding?.kind;
+    const space = this.selectedSpace;
+    return this.view === 'plans'
+      ? html`<div class="soda-selected-project"><h1>Saved plans</h1></div>`
+      : renderToolbarProject(
+          kind,
+          space,
+          space ? this.projectState(space) : '',
+          space ? this.projectStatus(space) : '',
+          space ? this.projectName(space) : ''
+        );
+  }
   private renderToolbar() {
     const kind = this.binding?.kind;
     const space = this.selectedSpace;
-    const project = renderToolbarProject(
-      kind,
-      space,
-      space ? this.projectState(space) : '',
-      space ? this.projectStatus(space) : '',
-      space ? this.projectName(space) : ''
-    );
-    const settings = renderProjectSettingsButton(kind, workspaceBlocked(this.stale, this.available), space, () =>
-      this.showManagement(this.project)
-    );
+    const settings =
+      this.view === 'plans'
+        ? ''
+        : renderProjectSettingsButton(kind, workspaceBlocked(this.stale, this.available), space, () =>
+            this.showManagement(this.project)
+          );
     const back = renderBackButton(this.view, kind, this.managementMode, () => this.back());
     return html`<header class="soda-workspace-toolbar" ?hidden=${this.setupScreen}>
       <button
@@ -971,14 +1095,14 @@ export class SodaSpaces extends LitElement {
       >
         ${sessionsButtonLabel(kind)}
       </button>
-      ${project}
+      ${this.renderToolbarTitle()}
       <button
         class=${newTerminalButtonClass(kind)}
         data-environment-id=${this.selectedSpace?.environment.id || ''}
         data-terminal-name=${defaultTerminalName(this.newTerminalInput(), this.selectedSpace)}
         aria-label="New terminal"
         title="New terminal"
-        ?hidden=${hideNewTerminal(this.firstTerminal, kind, space)}
+        ?hidden=${(kind === 'page' && this.view !== 'terminal') || hideNewTerminal(this.firstTerminal, kind, space)}
         ?disabled=${disableNewTerminal(workspaceBlocked(this.stale, this.available), this.creating, kind, space)}
         @click=${this.onNewTerminal}
       >
@@ -1029,12 +1153,14 @@ export class SodaSpaces extends LitElement {
   }
   private suggestedSetupRepository(): string | undefined {
     const requestId = requestIdFromLocation(this.routePathname, this.repositoryPrefix());
-    if (!requestId) return undefined;
-    return this.savedRequests?.find((saved) => saved.intent === requestId)?.repository;
+    if (!requestId) return this.workRepository;
+    const saved = this.savedRequests?.find((request) => request.intent === requestId)?.repository;
+    return saved && saved !== '0' ? saved : this.workRepository;
   }
   private setupActions(): SetupActions {
     return {
       setSetup: (setup) => {
+        if (this.setup && !setup) void this.querySelector<SodaProjectWork>('soda-project-work')?.refresh();
         this.setup = setup;
       },
       setRepositoryQuery: (query) => {
@@ -1135,8 +1261,9 @@ export class SodaSpaces extends LitElement {
       this.thisPage = false;
     }
     cancelSetup(this.setupReading(), this.setupActions(), this);
-    if (!this.stale && hideNavigation(this.setupScreen, this.view, this.compact, this.layout.sidebar, this.stale))
-      this.showSessions();
+    if (this.stale) return;
+    this.project = target.space.environment.repository_id;
+    this.view = this.binding?.kind === 'page' ? 'work' : 'sessions';
   }
   private syncIntentRoute(intent: string | null) {
     if (intent !== null) {
@@ -1163,9 +1290,13 @@ export class SodaSpaces extends LitElement {
   private selectProject(space: Space) {
     if (this.stale || !this.available || !this.canRestore) return;
     this.project = space.environment.repository_id;
+    if (this.binding?.kind === 'page') {
+      this.view = 'work';
+      this.choosingPane = undefined;
+      return;
+    }
     this.back();
-    if (!space.login || !space.environment.provisioned || space.observed?.running !== true)
-      void this.showManagement(this.project, 'journey');
+    if (!this.projectRunnable(space)) void this.showManagement(this.project, 'journey');
   }
   markViewed(key?: string) {
     const n = this.epoch;
@@ -1195,6 +1326,10 @@ export class SodaSpaces extends LitElement {
     };
   }
   private navigationSpaces() {
+    if (this.binding?.kind === 'page') {
+      const query = this.search.toLocaleLowerCase();
+      return this.spaces.filter((space) => this.projectName(space).toLocaleLowerCase().includes(query));
+    }
     return filteredSpaces({
       reading: this.navReading(),
       spaces: this.spaces,
@@ -1320,6 +1455,10 @@ export class SodaSpaces extends LitElement {
   private showSessions(pane?: string) {
     this.rememberFocus();
     this.choosingPane = pane;
+    if (pane && this.binding?.kind === 'page') {
+      this.onShowTerminals();
+      return;
+    }
     this.thisPage = false;
     if (this.binding?.kind === 'page' && !this.compact) {
       if (this.layout.sidebar === null) {
@@ -1342,7 +1481,7 @@ export class SodaSpaces extends LitElement {
     });
   }
   private back() {
-    this.view = 'terminal';
+    this.view = this.binding?.kind === 'page' ? 'work' : 'terminal';
     this.choosingPane = undefined;
     this.restoreFocus();
     this.markViewed();
@@ -1823,6 +1962,7 @@ export class SodaSpaces extends LitElement {
 
   setVisible(visible: boolean) {
     this.surfaceVisible = visible;
+    this.requestUpdate();
     this.display();
     if (visible && !this.restored) void this.refresh();
   }

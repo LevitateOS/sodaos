@@ -182,7 +182,9 @@ export function displayFactoryWatch(input: FactoryDisplayInput, watch: FactoryWa
     watch.view = mountFactoryWatch(owner, context);
     watch.view.watch();
   }
-  watch.view.setVisible(input.isSurfaceVisible() && !watch.hidden && !input.ownerConcealed());
+  watch.view.setVisible(
+    input.isSurfaceVisible() && !watch.hidden && !input.ownerConcealed() && !owner.closest('[hidden]')
+  );
 }
 
 export function displayFactoryWatches(input: FactoryDisplayInput) {

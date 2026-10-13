@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {check} from './sodaspaces-api.js';
 import {terminalResponse} from './sodaspaces-terminal-response.js';
 import type {Space} from './sodaspaces-inventory-response.js';
@@ -34,7 +35,7 @@ export interface TerminalsInput {
   setSlots: (slots: Slot[]) => void;
   setMaximized: (key: string | undefined) => void;
   setStatus: (status: string) => void;
-  setView: (view: 'terminal' | 'sessions' | 'project') => void;
+  setView: (view: WorkspaceView) => void;
   setChoosingPane: (pane: string | undefined) => void;
 }
 
@@ -357,7 +358,7 @@ export interface CreateInput {
   readSpaces: () => Space[];
   readLayout: () => WorkspaceLayout;
   setLayout: (layout: WorkspaceLayout) => void;
-  setView: (view: 'terminal' | 'sessions' | 'project') => void;
+  setView: (view: WorkspaceView) => void;
   setStatus: (status: string) => void;
   isValidName: (name: string) => boolean;
   addSlot: (space: Space, entry: LayoutEntry) => Promise<Slot | undefined>;

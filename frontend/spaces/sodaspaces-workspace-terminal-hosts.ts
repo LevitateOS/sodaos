@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {terminalObservation} from './sodaspaces-attention.js';
 import {check, object} from './sodaspaces-api.js';
 import {terminalID, terminalMetadata} from './sodaspaces-terminal-response.js';
@@ -13,7 +14,7 @@ export interface HostsInput {
   isStale: () => boolean;
   isDisposed: () => boolean;
   readEpoch: () => number;
-  readView: () => 'terminal' | 'sessions' | 'project';
+  readView: () => WorkspaceView;
   readSetupScreen: () => boolean;
   readTabHeight: () => number;
   readSurfaceVisible: () => boolean;

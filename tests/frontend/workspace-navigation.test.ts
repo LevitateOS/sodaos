@@ -194,10 +194,10 @@ test('project drafts and independent terminal owners survive detail switching', 
   await page.locator('soda-project-controls [aria-busy=false]').waitFor();
   await page.getByRole('tab', {name: 'Access', exact: true}).click();
   await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).fill('unsent public key draft');
-  await page.locator('.soda-project-select').filter({hasText: 'alice/Beta'}).click();
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
   await page.getByRole('button', {name: 'Project settings', exact: true}).click();
   await page.locator('soda-project-controls:visible [aria-busy=false]').waitFor();
-  await page.locator('.soda-project-select').filter({hasText: 'alice/Alpha'}).click();
+  await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
   await page.getByRole('button', {name: 'Project settings', exact: true}).click();
   assert.equal(
     await page.getByRole('textbox', {name: 'Public SSH key', exact: true}).inputValue(),
@@ -221,7 +221,7 @@ test('pending rename keeps original ID while another project is deliberately sel
     )
   );
   await page.getByRole('button', {name: 'Save name', exact: true}).click();
-  await page.locator('.soda-project-select').filter({hasText: 'alice/Beta'}).click();
+  await page.getByRole('button', {name: 'alice/Beta', exact: true}).click();
   await page.waitForFunction(() => window.workspaceFixture.calls.some((c) => c.body?.action === 'rename'));
   const calls = await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.body?.action === 'rename'));
   assert.equal(calls.length, 1);
@@ -259,7 +259,7 @@ test('Factory view binds one read-only run while refresh and hide retain its ren
     await window.workspaceFixture.api.refresh();
   });
   await openSession(page, 'Build');
-  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  await page.getByRole('button', {name: 'Work', exact: true}).click();
 
   const watch = (watching: boolean) =>
     page.getByRole('button', {

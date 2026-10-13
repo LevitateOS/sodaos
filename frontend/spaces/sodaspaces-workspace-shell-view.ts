@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {html} from 'lit';
 import type {Space} from './sodaspaces-inventory-response.js';
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
@@ -5,7 +6,7 @@ import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 export function workspaceBlocked(stale: boolean, available: boolean) {
   return stale || !available;
 }
-function navigationVisible(view: 'terminal' | 'sessions' | 'project', compact: boolean, sidebar: number | null) {
+function navigationVisible(view: WorkspaceView, compact: boolean, sidebar: number | null) {
   return view === 'sessions' || (!compact && sidebar !== null);
 }
 export function busyAttr(busy: boolean) {
@@ -29,7 +30,7 @@ export function renderSetupHeading(setupScreen: boolean) {
   if (!setupScreen) return '';
   return html`<div class="soda-setup-heading">
     <h1>Spaces</h1>
-    <p>Your projects and terminals, together.</p>
+    <p>Describe work. Follow progress. Review results.</p>
   </div>`;
 }
 function hideListStatus(status: string, setupScreen: boolean, setup: 'intent' | 'repositories' | 'configure' | null) {
@@ -93,14 +94,14 @@ export function renderSetupTopbar(
 export function hideWorkspaceBody(setupScreen: boolean, setup: 'intent' | 'repositories' | 'configure' | null) {
   return setupScreen && setup !== 'configure';
 }
-export function workspaceBodyClass(view: 'terminal' | 'sessions' | 'project') {
+export function workspaceBodyClass(view: WorkspaceView) {
   return 'soda-workspace-body' + (view === 'sessions' ? ' is-navigating' : '');
 }
 export function workspaceBodyStyle(
   setupScreen: boolean,
   compact: boolean,
   sidebar: number | null,
-  view: 'terminal' | 'sessions' | 'project'
+  view: WorkspaceView
 ) {
   if (!setupScreen && !compact && sidebar !== null && view !== 'sessions') {
     return `grid-template-columns:${sidebar}px 6px minmax(0,1fr)`;
@@ -109,7 +110,7 @@ export function workspaceBodyStyle(
 }
 export function hideNavigation(
   setupScreen: boolean,
-  view: 'terminal' | 'sessions' | 'project',
+  view: WorkspaceView,
   compact: boolean,
   sidebar: number | null,
   stale: boolean
@@ -119,13 +120,13 @@ export function hideNavigation(
 export function hideSidebarDivider(
   setupScreen: boolean,
   compact: boolean,
-  view: 'terminal' | 'sessions' | 'project',
+  view: WorkspaceView,
   sidebar: number | null
 ) {
   if (setupScreen || compact || view === 'sessions') return true;
   return sidebar === null;
 }
-export function hideCanvas(view: 'terminal' | 'sessions' | 'project', stale: boolean) {
+export function hideCanvas(view: WorkspaceView, stale: boolean) {
   return view !== 'terminal' || stale;
 }
 function inventoryHelper(spaces: Space[], connectURL: string) {
@@ -180,6 +181,6 @@ export function renderFirstTerminalIntro(
 export function hidePaneChrome(firstTerminal: boolean, inventoryRecovery: boolean) {
   return firstTerminal || inventoryRecovery;
 }
-export function hideManagement(view: 'terminal' | 'sessions' | 'project', stale: boolean) {
+export function hideManagement(view: WorkspaceView, stale: boolean) {
   return view !== 'project' || stale;
 }

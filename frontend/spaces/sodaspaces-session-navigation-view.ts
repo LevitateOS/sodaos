@@ -57,6 +57,77 @@ export interface NavigationSession {
   readonly disabled: boolean;
   readonly select: () => void;
 }
+export interface ProjectDirectoryRow {
+  readonly environmentId: string;
+  readonly name: string;
+  readonly state: 'running' | 'stopped' | 'unknown';
+  readonly attention: number;
+  readonly active: boolean;
+  readonly disabled: boolean;
+  readonly select: () => void;
+}
+export function renderProjectDirectoryRow(project: ProjectDirectoryRow): TemplateResult {
+  const separator = project.name.lastIndexOf('/');
+  const name = separator < 0 ? project.name : project.name.slice(separator + 1);
+  const owner = separator < 0 ? '' : project.name.slice(0, separator);
+  const status =
+    project.state === 'unknown' ? 'Status unavailable' : project.state === 'running' ? 'Running' : 'Stopped';
+  const attention =
+    project.attention === 1 ? '1 terminal needs attention' : `${project.attention} terminals need attention`;
+  return html`<section class="soda-project-group" data-environment-id=${project.environmentId}>
+    <button
+      class="ui button soda-project-select"
+      aria-label=${project.name}
+      aria-pressed=${project.active ? 'true' : 'false'}
+      aria-describedby=${'soda-project-directory-status-' + project.environmentId}
+      ?disabled=${project.disabled}
+      @click=${project.select}
+    >
+      <span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span>
+      <span class="soda-project-select-body">
+        <span class="soda-project-name">${name}</span>
+        <small class="soda-project-owner" ?hidden=${!owner}>${owner}</small>
+        <small
+          class="soda-project-status"
+          data-state=${project.state}
+          id=${'soda-project-directory-status-' + project.environmentId}
+          >${status}</small
+        >
+      </span>
+      ${project.attention ? html`<span class="soda-project-attention" aria-label=${attention} title=${attention}>${project.attention}</span>` : ''}
+    </button>
+  </section>`;
+}
+function renderSessionNavigationList(rows: readonly NavigationSession[]): TemplateResult {
+  return html`<div class="soda-session-list">
+      ${repeat(
+        rows,
+        (row) => row.key,
+        (row) => html`
+          <button
+            class="ui button"
+            data-terminal-id=${row.terminalId}
+            aria-current=${row.active ? 'true' : 'false'}
+            ?disabled=${row.disabled}
+            @click=${row.select}
+          >
+            <span
+              >${row.name}${row.unread ? html`<span class="soda-unread" role="img" aria-label="Unread output"> •</span>` : ''}</span
+            >
+            <small>${row.description}</small>
+            ${row.attention ? html`<small class="soda-attention">${row.attention}</small>` : ''}
+          </button>
+        `
+      )}
+    </div>
+    <p ?hidden=${rows.length !== 0}>No terminals observed.</p>`;
+}
+export function renderProjectTerminalList(rows: readonly NavigationSession[]): TemplateResult {
+  return html`<details class="soda-project-terminals" open>
+    <summary>Terminals (${rows.length})</summary>
+    ${renderSessionNavigationList(rows)}
+  </details>`;
+}
 export function renderProjectNavigation(
   name: string,
   status: string,
@@ -94,28 +165,7 @@ export function renderProjectNavigation(
         <summary ?hidden=${!!selection}>
           ${selection ? 'Terminals' : name} ${!selection ? html`<small>${status}</small>` : ''}
         </summary>
-        <div class="soda-session-list">
-          ${repeat(
-            rows,
-            (row) => row.key,
-            (row) => html`
-              <button
-                class="ui button"
-                data-terminal-id=${row.terminalId}
-                aria-current=${row.active ? 'true' : 'false'}
-                ?disabled=${row.disabled}
-                @click=${row.select}
-              >
-                <span
-                  >${row.name}${row.unread ? html`<span class="soda-unread" role="img" aria-label="Unread output"> •</span>` : ''}</span
-                >
-                <small>${row.description}</small>
-                ${row.attention ? html`<small class="soda-attention">${row.attention}</small>` : ''}
-              </button>
-            `
-          )}
-        </div>
-        <p ?hidden=${rows.length !== 0}>No terminals observed.</p>
+        ${renderSessionNavigationList(rows)}
       </details>
       ${!selection ? html`<button class="ui button soda-project-details" ?disabled=${disabled} @click=${details}>Environment / access: ${name}</button>` : ''}
     </section>

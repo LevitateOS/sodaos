@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {html} from 'lit';
 import type {Area, DividerArea, Minimum, Pane, Projection, Split, WorkspaceLayout} from './sodaspaces-layout.js';
 import {
@@ -24,7 +25,7 @@ export interface LayoutInput {
   readSlots: () => Slot[];
   readCell: () => {width: number; height: number};
   readTabHeight: () => number;
-  readView: () => 'terminal' | 'sessions' | 'project';
+  readView: () => WorkspaceView;
   isStale: () => boolean;
   isDisposed: () => boolean;
   readStorageLoaded: () => boolean;

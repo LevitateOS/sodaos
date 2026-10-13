@@ -162,7 +162,20 @@ export async function fixture(
   return page;
 }
 export async function openSession(page: Page, name: string) {
-  await page.getByRole('button', {name: /^(Sessions|Projects)$/}).click();
+  if (await page.locator('.soda-workspace[data-workspace-kind="page"]').count()) {
+    const repository = await page.evaluate(
+      (name) =>
+        window.workspaceFixture.spaces.find((space) => space.terminals.some((terminal) => terminal.name.includes(name)))
+          ?.environment.repository,
+      name
+    );
+    if (repository) {
+      const project = page.getByRole('button', {name: repository, exact: true});
+      if (!(await project.isVisible())) await page.getByRole('button', {name: 'Projects', exact: true}).click();
+      await project.click();
+    }
+    await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  } else await page.getByRole('button', {name: 'Sessions', exact: true}).click();
   await page.locator('.soda-session-list button').filter({hasText: name}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
 }
@@ -171,6 +184,8 @@ export async function action(page: Page, name: string) {
   await page.locator('.soda-workspace-terminal:not([hidden])').getByRole('button', {name, exact: true}).click();
 }
 export async function create(page: Page, name = 'New build') {
+  if (await page.getByRole('button', {name: 'Terminals', exact: true}).isVisible())
+    await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.getByRole('button', {name: 'New terminal', exact: true}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
   await action(page, 'Rename terminal');
@@ -209,7 +224,7 @@ export async function chooseFirstRepository(page: Page, capture?: string) {
 export async function reviewFirstIntent(page: Page) {
   await page.locator('soda-intent:visible, .soda-create-another-project:visible').first().waitFor();
   if (await page.locator('.soda-create-another-project:visible').count())
-    await page.getByRole('button', {name: 'Create project', exact: true}).click();
+    await page.getByRole('button', {name: 'New project', exact: true}).click();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Build a small project tracker');
   await page.getByRole('button', {name: 'Explore ideas', exact: true}).click();

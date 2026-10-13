@@ -21,20 +21,33 @@ export function createIntentModel() {
       return Response.json({...body, owner: '1', created_unix: 1}, {status: 201});
     }
     if (method === 'GET' && /\/api\/factory\/intents(\?.*)?$/.test(path)) {
-      const limit = Number(new URL(path, 'http://fixture').searchParams.get('limit') ?? '20');
+      const query = new URL(path, 'http://fixture').searchParams;
+      const limit = Number(query.get('limit') ?? '20');
       const heads = new Map<string, IntentRevision>();
       for (const revision of revisions.values()) heads.set(revision.intent, revision);
-      const all = [...heads.values()].map((revision, index) => ({
-        intent: revision.intent,
-        revision: revision.id,
-        state: revision.state,
-        objective: revision.objective,
-        repository: revision.repository,
-        created_unix: index + 1,
-        effective_count: revision.effective_outcomes?.length ?? 0,
-        task_count: revision.tasks?.length ?? 0,
-      }));
-      return Response.json({intents: Number.isFinite(limit) ? all.slice(0, Math.max(0, limit)) : all});
+      const all = [...heads.values()]
+        .map((revision, index) => ({
+          intent: revision.intent,
+          revision: revision.id,
+          state: revision.state,
+          objective: revision.objective,
+          repository: revision.repository,
+          created_unix: index + 1,
+          effective_count: revision.effective_outcomes?.length ?? 0,
+          task_count: revision.tasks?.length ?? 0,
+        }))
+        .filter(
+          (item) =>
+            (!query.get('repository') ||
+              query.get('repository') === '0' ||
+              item.repository === query.get('repository')) &&
+            (!query.get('state') || item.state === query.get('state')) &&
+            item.intent > (query.get('cursor') || '')
+        )
+        .sort((a, b) => a.intent.localeCompare(b.intent));
+      const intents = all.slice(0, limit);
+      const next = all.length > intents.length ? intents.at(-1)?.intent : undefined;
+      return Response.json({intents, ...(next ? {next_cursor: next} : {})});
     }
     if (method === 'GET') {
       const allowance = path.match(/\/api\/factory\/intents\/(d[0-9a-f]{24})\/allowance$/);

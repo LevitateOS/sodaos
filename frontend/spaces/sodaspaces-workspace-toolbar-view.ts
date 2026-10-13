@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {html} from 'lit';
 import type {Space} from './sodaspaces-inventory-response.js';
 import type {WorkspaceContext} from './sodaspaces-workspace-types.js';
@@ -6,7 +7,7 @@ export function sessionsButtonHidden(
   kind: 'native' | 'page' | undefined,
   compact: boolean,
   sidebar: number | null,
-  view: 'terminal' | 'sessions' | 'project'
+  view: WorkspaceView
 ) {
   if (kind !== 'page') return false;
   return !compact && sidebar !== null && view !== 'sessions';
@@ -26,16 +27,12 @@ export function renderToolbarProject(
 ) {
   if (kind !== 'page') return '';
   const stateBadge = space ? html`<span class="soda-project-state" data-state=${state}>${status}</span>` : '';
-  const profile = space?.environment.profile
-    ? html`<p class="soda-project-profile">Rocky Linux ${space.environment.profile.version} · Terminal</p>`
-    : '';
   const title = toolbarProjectTitle(space, projectName);
   return html`<div class="soda-selected-project">
     <div class="soda-project-heading">
       <h1 title=${title}>${title}</h1>
       ${stateBadge}
     </div>
-    ${profile}
   </div>`;
 }
 export function hideNewTerminal(firstTerminal: boolean, kind: 'native' | 'page' | undefined, space: Space | undefined) {
@@ -69,18 +66,19 @@ export function renderProjectSettingsButton(
   return html`<button class="ui button" ?disabled=${blocked || !space} @click=${onShow}>Project settings</button>`;
 }
 function hideBackButton(
-  view: 'terminal' | 'sessions' | 'project',
+  view: WorkspaceView,
   kind: 'native' | 'page' | undefined,
   managementMode: 'standard' | 'journey' | 'settings'
 ) {
   if (view === 'terminal') return true;
+  if (view === 'work' || view === 'plans') return true;
   return kind === 'page' && view === 'project' && managementMode === 'journey';
 }
 function backButtonLabel(kind: 'native' | 'page' | undefined) {
   return kind === 'page' ? 'Back to workspace' : 'Back to terminal';
 }
 export function renderBackButton(
-  view: 'terminal' | 'sessions' | 'project',
+  view: WorkspaceView,
   kind: 'native' | 'page' | undefined,
   managementMode: 'standard' | 'journey' | 'settings',
   onBack: () => void

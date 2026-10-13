@@ -25,7 +25,7 @@ test('observed unread coalesces noisy hidden output, survives refresh, and clear
   );
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   assert.equal(await tab.locator('.soda-unread').count(), 1);
-  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  await page.getByRole('button', {name: 'Work', exact: true}).click();
   assert.equal(await page.locator('.soda-attention-filters:visible').count(), 0);
   await openSession(page, 'Build');
   await page.waitForFunction(() => !document.querySelector('[aria-selected=true] .soda-unread'));
@@ -43,7 +43,7 @@ test('observed unread coalesces noisy hidden output, survives refresh, and clear
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
 });
 test('attention has stable authorized counts/order and exact navigation without creation or lifetime actions', async (t) => {
-  const page = await fixture(t);
+  const page = await fixture(t, 'native');
   await page.evaluate(() => {
     const f = window.workspaceFixture,
       a = f.spaces[0]?.terminals[0],
@@ -57,7 +57,7 @@ test('attention has stable authorized counts/order and exact navigation without 
     c.ready = false;
     return f.api.refresh();
   });
-  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
   await page.getByRole('button', {name: 'Attention (3)', exact: true}).click();
   assert.deepEqual(await textContents(page.locator('.soda-session-list > button > span')), [
     'Build',
@@ -66,12 +66,12 @@ test('attention has stable authorized counts/order and exact navigation without 
   ]);
   await page.getByRole('button', {name: 'Next attention', exact: true}).click();
   await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).waitFor();
-  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
   await page.getByRole('button', {name: 'Next attention', exact: true}).click();
   await page.getByRole('tab', {name: 'Edit · alice/Alpha', exact: true}).waitFor();
   await page.getByText('Native transition is still in progress.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
-  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
   await page.evaluate(() => {
     const b = window.workspaceFixture.spaces[1];
     if (b) {
@@ -105,10 +105,12 @@ test('stale metadata and late transport generations cannot claim cleanup or repl
     window.workspaceFixture.sockets[0]?.onmessage?.({data: JSON.stringify({type: 'closed', reason: 'unavailable'})})
   );
   await page.getByText('Attachment ended or unavailable.', {exact: false}).waitFor();
-  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  await page.getByRole('button', {name: 'Work', exact: true}).click();
   await peer.evaluate((socket) => socket?.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('late')})}));
   assert.equal(await page.locator('.soda-unread').count(), 0);
-  await page.getByRole('button', {name: 'Attention (1)', exact: true}).waitFor();
+  const attention = page.getByRole('button', {name: 'alice/Alpha', exact: true}).locator('.soda-project-attention');
+  await attention.waitFor();
+  assert.equal(await attention.getAttribute('aria-label'), '1 terminal needs attention');
   assert.match(
     await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''),
     /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/
@@ -123,8 +125,11 @@ test('authorized collection reports an observed other writer without needing a f
     terminal.attached = true;
     await f.api.refresh();
   });
-  await page.getByRole('button', {name: 'Attention (1)', exact: true}).waitFor();
-  await page.getByRole('button', {name: 'Next attention', exact: true}).click();
+  const attention = page.getByRole('button', {name: 'alice/Alpha', exact: true}).locator('.soda-project-attention');
+  await attention.waitFor();
+  assert.equal(await attention.getAttribute('aria-label'), '1 terminal needs attention');
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  await page.locator('.soda-project-terminals .soda-session-list button').filter({hasText: 'Build'}).click();
   await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   await page.evaluate(async () => {
@@ -135,6 +140,7 @@ test('authorized collection reports an observed other writer without needing a f
     await f.api.refresh();
   });
   assert.equal(await page.locator('.soda-attention-filters:visible').count(), 0);
+  assert.equal(await attention.count(), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((call) => call.body).length), 0);
 });

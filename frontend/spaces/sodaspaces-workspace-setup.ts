@@ -1,3 +1,4 @@
+import type {WorkspaceView} from './sodaspaces-workspace-types.js';
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
 import {id, object} from './sodaspaces-api.js';
@@ -226,7 +227,7 @@ export function repositorySearchPath(query: string, cursor: string) {
 
 export interface SetupReturn {
   project: string;
-  view: 'terminal' | 'sessions' | 'project';
+  view: WorkspaceView;
   mode: 'standard' | 'journey' | 'settings';
 }
 
@@ -247,7 +248,7 @@ export interface SetupReading {
   repositoryBusy: boolean;
   forgejoPrefix: string;
   project: string;
-  view: 'terminal' | 'sessions' | 'project';
+  view: WorkspaceView;
   managementMode: 'standard' | 'journey' | 'settings';
   /** Page binding: the sessions list is a transient overlay above the retained terminal. */
   page: boolean;
@@ -281,7 +282,7 @@ export interface SetupActions {
   setReviewedIntent(intent: string | undefined): void;
   setSetupCommitted(committed: boolean): void;
   setProject(project: string): void;
-  setView(view: 'terminal' | 'sessions' | 'project'): void;
+  setView(view: WorkspaceView): void;
   setManagementMode(mode: 'standard' | 'journey' | 'settings'): void;
   repositoryCursors(): string[];
   currentRepositoryRequest(): AbortController | undefined;
