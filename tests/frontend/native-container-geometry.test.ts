@@ -2,11 +2,13 @@ import test, {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync, readFileSync} from 'node:fs';
 import path from 'node:path';
-import {chromium, type Browser, type Page} from 'playwright';
+import type {Page} from 'playwright';
+import {browserZoomFixture} from './fixtures/browser-zoom.js';
 
-// NFX-F06 development check: constrained-allocation geometry with Fountain's
-// A04 container styles and Soda's emitted branding. Device-metrics emulation
-// below is a reflow proxy, not actual browser zoom. The container markup is
+// NFX-F06 local geometry with Fountain's A04 styles and Soda branding.
+// Zoom uses Chromium's actual tabs.setZoom/getZoom setting. The container
+// markup is transcribed, so this remains authored-fixture evidence rather
+// than native template rendering or installed qualification. The markup is
 // transcribed from Fountain templates/extensions/{page,panels}.tmpl and
 // templates/base/{head,footer}.tmpl at forgejo-ext 042b3bc325, the body
 // flex column from web_src/css/base.css, and the container rules are
@@ -21,7 +23,7 @@ const fountain = [path.join(root, '../forgejo-ext'), path.join(root, '../../forg
 );
 assert(fountain, 'Fountain checkout (forgejo-ext) is required beside Soda for F06 native CSS');
 
-let browser: Browser;
+let browser: Awaited<ReturnType<typeof browserZoomFixture>>;
 let server: ReturnType<typeof Bun.serve>;
 
 function fountainCss(rel: string): string {
@@ -142,7 +144,7 @@ before(async () => {
       return new Response(null, {status: 404});
     },
   });
-  browser = await chromium.launch({headless: true, chromiumSandbox: true});
+  browser = await browserZoomFixture();
 });
 
 after(async () => {
@@ -152,14 +154,7 @@ after(async () => {
 
 async function applyZoom(page: Page, factor: 2 | 4) {
   const css = {width: Math.round(1440 / factor), height: Math.round(1000 / factor)};
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width: css.width,
-    height: css.height,
-    deviceScaleFactor: factor,
-    mobile: false,
-  });
-  const actual = await page.evaluate(() => ({width: innerWidth, height: innerHeight, dpr: devicePixelRatio}));
+  const actual = await browser.setZoom(page, factor);
   assert.deepEqual(actual, {...css, dpr: factor}, `zoom ${factor}x did not take effect`);
   return css;
 }
@@ -177,10 +172,11 @@ test(
   'F06 page container: workspace binds to the native ui container width at zoom 1 and 4',
   {timeout: 60000},
   async (t) => {
-    const page = await browser.newPage({viewport: {width: 1440, height: 1000}});
+    const page = await browser.context.newPage();
     page.setDefaultTimeout(5000);
     trackErrors(t, page);
     await page.goto(server.url.href + 'page');
+    await browser.setZoom(page, 1);
     await page.waitForFunction(() => !!window.createWorkspaceFixture);
     await page.evaluate(async () => {
       window.workspaceFixture = window.createWorkspaceFixture('page');
@@ -236,133 +232,134 @@ test(
   }
 );
 
-test(
-  'F06 panel container: Soda binds to the host-sized panels home at zoom 1 and 4',
-  {timeout: 60000},
-  async (t) => {
-    const page = await browser.newPage({viewport: {width: 1440, height: 1000}});
-    page.setDefaultTimeout(5000);
-    trackErrors(t, page);
-    await page.goto(server.url.href + 'panel');
-    await page.locator('[data-extension-panel] soda-spaces').waitFor();
-    const dims = await page.evaluate(() => {
-      const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
-      const section = document.querySelector('.extension-workspace-panel')!.getBoundingClientRect();
-      const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
-      const root = document.querySelector('[data-extension-panel]') as HTMLElement;
-      return {
-        aside: {w: Math.round(aside.width), h: Math.round(aside.height)},
-        section: {w: Math.round(section.width), h: Math.round(section.height)},
-        mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
-        inlineHeight: root.style.height,
-        hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      };
-    });
-    console.log('F06 panel @1x', JSON.stringify(dims));
-    assert(dims.hOverflow <= 1, 'panel page overflows horizontally');
-    assert(dims.mount.w > 0 && dims.mount.h > 0, 'panel mount has no size');
-    assert.equal(dims.inlineHeight, '', 'Soda panel must not invent host height');
-    // Post-A04/H-C (observed 2026-10-13, Fountain 042b3bc325): the visible
-    // panels home fills the remaining viewport column (flex:1, 24rem floor)
-    // and the mount binds the height:100% Soda chain against it.
-    assert(dims.aside.h >= 900, `panels home not host-sized: ${dims.aside.h}px`);
-    assert(dims.mount.h >= 800, `panel mount not host-sized: ${dims.mount.h}px`);
-    await page.getByRole('button', {name: 'Sessions', exact: true}).click();
-    await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
-    await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor({state: 'attached'});
-    const at1x = await page.evaluate(() => {
-      const term = document.querySelector('.soda-workspace-terminal:not([hidden])');
-      const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
-      return {
-        mountH: Math.round(mount.height),
-        terminalH: term ? Math.round(term.getBoundingClientRect().height) : -1,
-        connected: !!document.querySelector('.soda-workspace-terminal:not([hidden]) .is-connected'),
-        inlineHeight: (document.querySelector('[data-extension-panel]') as HTMLElement).style.height,
-        hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      };
-    });
-    console.log('F06 panel terminal @1x', JSON.stringify(at1x));
-    assert(at1x.connected, 'terminal did not connect inside the host-sized panel container');
-    assert(at1x.mountH >= 800, `panel mount not host-sized with terminal open: ${at1x.mountH}px`);
-    assert(at1x.terminalH >= 700, `terminal not usable inside host-sized panel: ${at1x.terminalH}px`);
-    assert.equal(at1x.inlineHeight, '', 'Soda panel must not invent host height with terminal open');
-    assert(at1x.hOverflow <= 1, 'panel page overflows horizontally with terminal open');
-    const css = await applyZoom(page, 4);
-    await page.waitForFunction(
-      () =>
-        (document.querySelector('.soda-workspace-terminal:not([hidden])')?.getBoundingClientRect().height ?? 0) >= 44,
-      null,
-      {timeout: 5000}
-    );
-    const at4x = await page.evaluate(() => {
-      const term = document.querySelector('.soda-workspace-terminal:not([hidden])');
-      const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
-      const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
-      return {
-        aside: {w: Math.round(aside.width), h: Math.round(aside.height)},
-        mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
-        terminalH: term ? Math.round(term.getBoundingClientRect().height) : -1,
-        connected: !!document.querySelector('.soda-workspace-terminal:not([hidden]) .is-connected'),
-        hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      };
-    });
-    console.log('F06 panel @4x', JSON.stringify(at4x), 'css', JSON.stringify(css));
-    // Compact floor: 18rem min-height keeps a usable mount at 360x250 CSS.
-    assert(at4x.connected, 'terminal did not stay connected in panel container at zoom 4x');
-    assert(at4x.mount.h >= 200, `panel mount collapsed at zoom 4x: ${at4x.mount.h}px`);
-    assert(at4x.terminalH >= 100, `terminal not usable in panel container at zoom 4x: ${at4x.terminalH}px`);
-    assert(at4x.hOverflow <= 1, 'panel page overflows horizontally at zoom 4x');
-    for (const name of ['Sessions', 'New terminal']) {
-      const control = page.getByRole('button', {name, exact: true});
-      await control.scrollIntoViewIfNeeded();
-      assert(await control.isVisible(), `${name} unreachable in panel container at zoom 4x`);
-    }
-  }
-);
-
-test('F06 settings in panel container: host-sized at zoom 1, tabs reachable at zoom 4x', {timeout: 60000}, async (t) => {
-  const page = await browser.newPage({viewport: {width: 1440, height: 1000}});
+test('F06 panel container: Soda binds to the host-sized panels home at zoom 1 and 4', {timeout: 60000}, async (t) => {
+  const page = await browser.context.newPage();
   page.setDefaultTimeout(5000);
   trackErrors(t, page);
-  await page.goto(server.url.href + 'settings-panel');
-  await page.waitForFunction(() => typeof window.createDrawerFixture === 'function');
-  await page.evaluate(async () => {
-    window.drawerFixture = window.createDrawerFixture({});
-    window.drawerFixture.setReply(async () => null);
-    window.drawerFixture.api.setPresentation('settings');
-    await window.drawerFixture.api.refresh();
-  });
-  await page.getByRole('heading', {name: 'Identity connections'}).waitFor();
-  const at1x = await page.evaluate(() => {
+  await page.goto(server.url.href + 'panel');
+  await browser.setZoom(page, 1);
+  await page.locator('[data-extension-panel] soda-spaces').waitFor();
+  const dims = await page.evaluate(() => {
     const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
+    const section = document.querySelector('.extension-workspace-panel')!.getBoundingClientRect();
     const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
+    const root = document.querySelector('[data-extension-panel]') as HTMLElement;
     return {
       aside: {w: Math.round(aside.width), h: Math.round(aside.height)},
+      section: {w: Math.round(section.width), h: Math.round(section.height)},
       mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
+      inlineHeight: root.style.height,
+      hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  console.log('F06 panel @1x', JSON.stringify(dims));
+  assert(dims.hOverflow <= 1, 'panel page overflows horizontally');
+  assert(dims.mount.w > 0 && dims.mount.h > 0, 'panel mount has no size');
+  assert.equal(dims.inlineHeight, '', 'Soda panel must not invent host height');
+  // Post-A04/H-C (observed 2026-10-13, Fountain 042b3bc325): the visible
+  // panels home fills the remaining viewport column (flex:1, 24rem floor)
+  // and the mount binds the height:100% Soda chain against it.
+  assert(dims.aside.h >= 900, `panels home not host-sized: ${dims.aside.h}px`);
+  assert(dims.mount.h >= 800, `panel mount not host-sized: ${dims.mount.h}px`);
+  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+  await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
+  await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor({state: 'attached'});
+  const at1x = await page.evaluate(() => {
+    const term = document.querySelector('.soda-workspace-terminal:not([hidden])');
+    const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
+    return {
+      mountH: Math.round(mount.height),
+      terminalH: term ? Math.round(term.getBoundingClientRect().height) : -1,
+      connected: !!document.querySelector('.soda-workspace-terminal:not([hidden]) .is-connected'),
       inlineHeight: (document.querySelector('[data-extension-panel]') as HTMLElement).style.height,
       hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
-  console.log('F06 settings-panel @1x', JSON.stringify(at1x));
-  assert(at1x.hOverflow <= 1, 'settings panel page overflows horizontally');
-  assert.equal(at1x.inlineHeight, '', 'Soda settings panel must not invent host height');
-  assert(at1x.aside.h >= 900, `settings panels home not host-sized: ${at1x.aside.h}px`);
-  assert(at1x.mount.h >= 800, `settings panel mount not host-sized: ${at1x.mount.h}px`);
+  console.log('F06 panel terminal @1x', JSON.stringify(at1x));
+  assert(at1x.connected, 'terminal did not connect inside the host-sized panel container');
+  assert(at1x.mountH >= 800, `panel mount not host-sized with terminal open: ${at1x.mountH}px`);
+  assert(at1x.terminalH >= 700, `terminal not usable inside host-sized panel: ${at1x.terminalH}px`);
+  assert.equal(at1x.inlineHeight, '', 'Soda panel must not invent host height with terminal open');
+  assert(at1x.hOverflow <= 1, 'panel page overflows horizontally with terminal open');
   const css = await applyZoom(page, 4);
-  console.log('F06 settings-panel css', JSON.stringify(css));
-  for (const tab of ['Overview', 'Access', 'Network', 'Factory'] as const) {
-    await page.getByRole('tab', {name: tab, exact: true}).click();
-    const panel = page.locator('[role=tabpanel]:visible');
-    await panel.waitFor();
-    const geo = await panel.evaluate((n) => ({
-      h: n.getBoundingClientRect().height,
-      hOverflow: n.scrollWidth - n.clientWidth,
-    }));
-    console.log(`F06 settings tab ${tab} @4x`, JSON.stringify(geo));
-    assert(geo.h >= 44, `${tab} panel squeezed inside native panel container at zoom 4x: ${geo.h}`);
-    assert(geo.hOverflow <= 1, `${tab} panel overflows horizontally in native panel container at zoom 4x`);
-    const first = panel.locator('button:not([disabled]), [href], input:not([disabled]), select, textarea').first();
-    await first.scrollIntoViewIfNeeded();
-    assert(await first.isVisible(), `${tab} first control unreachable in native panel container at zoom 4x`);
+  await page.waitForFunction(
+    () => (document.querySelector('.soda-workspace-terminal:not([hidden])')?.getBoundingClientRect().height ?? 0) >= 44,
+    null,
+    {timeout: 5000}
+  );
+  const at4x = await page.evaluate(() => {
+    const term = document.querySelector('.soda-workspace-terminal:not([hidden])');
+    const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
+    const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
+    return {
+      aside: {w: Math.round(aside.width), h: Math.round(aside.height)},
+      mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
+      terminalH: term ? Math.round(term.getBoundingClientRect().height) : -1,
+      connected: !!document.querySelector('.soda-workspace-terminal:not([hidden]) .is-connected'),
+      hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  console.log('F06 panel @4x', JSON.stringify(at4x), 'css', JSON.stringify(css));
+  // Compact floor: 18rem min-height keeps a usable mount at 360x250 CSS.
+  assert(at4x.connected, 'terminal did not stay connected in panel container at zoom 4x');
+  assert(at4x.mount.h >= 200, `panel mount collapsed at zoom 4x: ${at4x.mount.h}px`);
+  assert(at4x.terminalH >= 100, `terminal not usable in panel container at zoom 4x: ${at4x.terminalH}px`);
+  assert(at4x.hOverflow <= 1, 'panel page overflows horizontally at zoom 4x');
+  for (const name of ['Sessions', 'New terminal']) {
+    const control = page.getByRole('button', {name, exact: true});
+    await control.scrollIntoViewIfNeeded();
+    assert(await control.isVisible(), `${name} unreachable in panel container at zoom 4x`);
   }
 });
+
+test(
+  'F06 settings in panel container: host-sized at zoom 1, tabs reachable at zoom 4x',
+  {timeout: 60000},
+  async (t) => {
+    const page = await browser.context.newPage();
+    page.setDefaultTimeout(5000);
+    trackErrors(t, page);
+    await page.goto(server.url.href + 'settings-panel');
+    await browser.setZoom(page, 1);
+    await page.waitForFunction(() => typeof window.createDrawerFixture === 'function');
+    await page.evaluate(async () => {
+      window.drawerFixture = window.createDrawerFixture({});
+      window.drawerFixture.setReply(async () => null);
+      window.drawerFixture.api.setPresentation('settings');
+      await window.drawerFixture.api.refresh();
+    });
+    await page.getByRole('heading', {name: 'Identity connections'}).waitFor();
+    const at1x = await page.evaluate(() => {
+      const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
+      const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
+      return {
+        aside: {w: Math.round(aside.width), h: Math.round(aside.height)},
+        mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
+        inlineHeight: (document.querySelector('[data-extension-panel]') as HTMLElement).style.height,
+        hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    console.log('F06 settings-panel @1x', JSON.stringify(at1x));
+    assert(at1x.hOverflow <= 1, 'settings panel page overflows horizontally');
+    assert.equal(at1x.inlineHeight, '', 'Soda settings panel must not invent host height');
+    assert(at1x.aside.h >= 900, `settings panels home not host-sized: ${at1x.aside.h}px`);
+    assert(at1x.mount.h >= 800, `settings panel mount not host-sized: ${at1x.mount.h}px`);
+    const css = await applyZoom(page, 4);
+    console.log('F06 settings-panel css', JSON.stringify(css));
+    for (const tab of ['Overview', 'Access', 'Network', 'Factory'] as const) {
+      await page.getByRole('tab', {name: tab, exact: true}).click();
+      const panel = page.locator('[role=tabpanel]:visible');
+      await panel.waitFor();
+      const geo = await panel.evaluate((n) => ({
+        h: n.getBoundingClientRect().height,
+        hOverflow: n.scrollWidth - n.clientWidth,
+      }));
+      console.log(`F06 settings tab ${tab} @4x`, JSON.stringify(geo));
+      assert(geo.h >= 44, `${tab} panel squeezed inside native panel container at zoom 4x: ${geo.h}`);
+      assert(geo.hOverflow <= 1, `${tab} panel overflows horizontally in native panel container at zoom 4x`);
+      const first = panel.locator('button:not([disabled]), [href], input:not([disabled]), select, textarea').first();
+      await first.scrollIntoViewIfNeeded();
+      assert(await first.isVisible(), `${tab} first control unreachable in native panel container at zoom 4x`);
+    }
+  }
+);

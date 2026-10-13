@@ -7,9 +7,9 @@ container markup transcribed from Fountain
 `templates/extensions/{page,panels}.tmpl` and `templates/base/{head,footer}.tmpl`,
 and the body flex column from Fountain `web_src/css/base.css`.
 This is a local fixture with transcribed markup, not native template rendering
-or installed evidence. CDP changes CSS allocation and DPR; it does not set actual
-browser zoom. The dimensions below remain useful constrained-allocation checks.
-The fixture does not supply a consumer host-height adapter.
+or installed evidence. The current driver sets actual Chromium tab zoom through
+`chrome.tabs.setZoom` and verifies it through `getZoom`, CSS viewport and DPR.
+It does not supply a consumer host-height adapter.
 
 ## Page container — requalified
 
@@ -47,10 +47,11 @@ Drawer/settings fixture inside the same host-sized panels-home mount.
 
 ## Remaining qualification
 
-The three cases passed after the consumer adapter removal on 2026-10-13:
+The three cases passed after the consumer adapter removal and actual browser-zoom
+join on 2026-10-13:
 Workspace page, connected terminal panel and settings panel. They cover the
-actual Fountain styles with transcribed container HTML at ordinary and reduced
-allocation. They do not requalify creation/dialogs in native-rendered containers,
-actual browser zoom, terminal object lifetime or installed behavior. Those joins
+actual Fountain styles with transcribed container HTML at 100% and 400% browser
+zoom. They do not requalify creation/dialogs in native-rendered containers,
+terminal object lifetime or installed behavior. Those joins
 remain with F05/F06 and I04/I06/I08; the prior local responsive/focus checks retain
 their original scope.
