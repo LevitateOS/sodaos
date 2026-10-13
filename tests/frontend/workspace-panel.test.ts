@@ -22,13 +22,33 @@ test('native Workspace presentation retains one owner, renderer and socket', asy
     host.append(aside);
     aside.append(section);
     section.append(f.root);
-    window.mountWorkspacePanel(f.root, {
+    const apiBase = location.origin + '/-/native/pages/soda/spaces/api/';
+    (window as unknown as {workspacePanelHandle: unknown}).workspacePanelHandle = window.mountWorkspacePanel(f.root, {
       extensionId: 'soda',
       panelId: 'workspace',
+      ownerId: 'workspace',
       appSubUrl: '',
-      apiBase: location.origin + '/-/native/panels/soda/workspace/api/',
+      apiBase,
       assetBase: location.origin + '/assets/',
       sessionGeneration: f.generation,
+      contractVersion: 1,
+      request: (path: string, init: RequestInit = {}) =>
+        fetch(apiBase + path, {
+          ...init,
+          credentials: 'same-origin',
+          redirect: 'error',
+          headers: new Headers({
+            ...Object.fromEntries(new Headers(init.headers)),
+            'X-Extension-Session-Generation': f.generation,
+          }),
+        }),
+      stream: (path: string) => {
+        const url = new URL(apiBase + path, location.origin);
+        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(url);
+        return {socket, close: (code?: number, reason?: string) => socket.close(code, reason)};
+      },
+      navigate: () => {},
     });
   });
   await page.locator('soda-spaces .is-connected').waitFor();
@@ -44,11 +64,15 @@ test('native Workspace presentation retains one owner, renderer and socket', asy
   ] as const) {
     await page.evaluate(
       ({full, repository}) => {
-        const host = document.querySelector<HTMLElement>('[data-extension-workspace]');
-        if (!host) throw Error('Missing native host');
-        host.toggleAttribute('data-workspace-direct', full);
-        host.dataset.extensionRepositoryId = repository;
-        host.dispatchEvent(new Event('extension-workspace-navigation'));
+        const handle = (window as unknown as {workspacePanelHandle: {update: (p: unknown) => void}})
+          .workspacePanelHandle;
+        handle.update({
+          mode: full ? 'page' : 'panel',
+          route: '/workspace',
+          params: {},
+          repositoryId: repository,
+          visible: true,
+        });
       },
       {full, repository}
     );

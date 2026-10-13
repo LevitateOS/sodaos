@@ -7,7 +7,6 @@ import {parseArgs} from 'node:util';
 const root = resolve(import.meta.dir, '..');
 const entries = {
   'soda-spaces-entry.js': 'frontend/spaces/soda-spaces-entry.ts',
-  'soda-workspace-panel-entry.js': 'frontend/spaces/soda-workspace-panel-entry.ts',
   'soda-tailnet-entry.js': 'frontend/tailnet/soda-tailnet-entry.ts',
 } as const;
 export const styles = {
@@ -43,7 +42,9 @@ async function checkManifestEntries() {
     pages: Array<{entry: string}>;
     panels: Array<{entry: string}>;
   };
-  const declared = [...manifest.pages, ...manifest.panels].map((item) => item.entry);
+  // One shared Workspace owner (NFX-D02/H-OWNER) declares the same entry
+  // for its page and panel, so manifest entries are compared as a set.
+  const declared = [...new Set([...manifest.pages, ...manifest.panels].map((item) => item.entry))];
   assert.deepEqual(declared.sort(), Object.keys(entries).sort(), 'Soda manifest entries and browser source differ');
 }
 

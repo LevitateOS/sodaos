@@ -97,13 +97,33 @@ if (location.pathname === '/workspace' || pageRepository.has(location.pathname))
   model.root.dataset.extensionPage = '';
   model.root.dataset.extensionId = 'soda';
   model.root.dataset.extensionPageId = 'spaces';
+  const pageApiBase = location.origin + '/-/native/pages/soda/spaces/api/';
   mountSpacesEntry(model.root, {
     extensionId: 'soda',
     pageId: 'spaces',
+    ownerId: 'workspace',
     appSubUrl: '',
     ...(pageRepository.has(location.pathname) ? {repositoryId: pageRepository.get(location.pathname)!} : {}),
-    apiBase: location.origin + '/-/native/pages/soda/spaces/api/',
+    apiBase: pageApiBase,
     assetBase: location.origin + '/assets/',
     sessionGeneration: model.generation,
+    contractVersion: 1,
+    request: (path: string, init: RequestInit = {}) =>
+      fetch(pageApiBase + path, {
+        ...init,
+        credentials: 'same-origin',
+        redirect: 'error',
+        headers: new Headers({
+          ...Object.fromEntries(new Headers(init.headers)),
+          'X-Extension-Session-Generation': model.generation,
+        }),
+      }),
+    stream: (path: string) => {
+      const url = new URL(pageApiBase + path, location.origin);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      const socket = new WebSocket(url);
+      return {socket, close: (code?: number, reason?: string) => socket.close(code, reason)};
+    },
+    navigate: (path: string) => window.location.assign(path),
   });
 }

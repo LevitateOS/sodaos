@@ -49,13 +49,33 @@ test('Fountain direct Workspace preserves native paths, history and the terminal
       '<div data-extension-workspace-direct-content><h1>Workspace</h1></div><aside class="extension-workspace-panels"><section class="extension-workspace-panel"></section></aside>';
     f.root.before(navbar, host);
     host.querySelector('section')?.append(f.root);
+    const apiBase = location.origin + '/-/native/pages/soda/spaces/api/';
     window.mountWorkspacePanel(f.root, {
       extensionId: 'soda',
       panelId: 'workspace',
+      ownerId: 'workspace',
       appSubUrl: '',
-      apiBase: location.origin + '/-/native/panels/soda/workspace/api/',
+      apiBase,
       assetBase: location.origin + '/assets/',
       sessionGeneration: f.generation,
+      contractVersion: 1,
+      request: (path: string, init: RequestInit = {}) =>
+        fetch(apiBase + path, {
+          ...init,
+          credentials: 'same-origin',
+          redirect: 'error',
+          headers: new Headers({
+            ...Object.fromEntries(new Headers(init.headers)),
+            'X-Extension-Session-Generation': f.generation,
+          }),
+        }),
+      stream: (path: string) => {
+        const url = new URL(apiBase + path, location.origin);
+        url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(url);
+        return {socket, close: (code?: number, reason?: string) => socket.close(code, reason)};
+      },
+      navigate: () => {},
     });
   });
   await page.addScriptTag({

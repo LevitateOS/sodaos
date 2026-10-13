@@ -113,6 +113,15 @@ class SodaTailnet extends LitElement {
     }, 10000);
     void refresh(this.observationInput());
   }
+  hostSuspend() {
+    this.retire();
+  }
+  hostResume() {
+    this.resume();
+  }
+  hostRetire() {
+    this.retire();
+  }
   private current(lifetime: AbortController) {
     return this.isConnected && this.lifetime === lifetime && !lifetime.signal.aborted;
   }
@@ -444,5 +453,10 @@ export function mountTailnetPage(root: HTMLElement, transport: PreparedExtension
   page.dataset.applianceLabel = root.dataset.applianceLabel || 'Appliance';
   page.dataset.enrollmentLabel = root.dataset.enrollmentLabel || 'Automatic project access';
   root.append(page);
-  return {dispose: () => page.remove()};
+  return {
+    dispose: () => page.remove(),
+    suspend: () => page.hostSuspend(),
+    resume: () => page.hostResume(),
+    retire: () => page.hostRetire(),
+  };
 }

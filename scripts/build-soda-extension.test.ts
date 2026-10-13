@@ -34,7 +34,6 @@ test('native Soda package contains its entire local browser asset graph', async 
     expect(listed).toEqual(files);
     for (const name of [
       'soda-spaces-entry.js',
-      'soda-workspace-panel-entry.js',
       'soda-tailnet-entry.js',
       'components.css',
       'soda-settings.css',

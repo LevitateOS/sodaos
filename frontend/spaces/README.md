@@ -16,8 +16,11 @@ the lifetime of the native page and persistent workspace-panel contributions.
   JSON contracts.
 - `sodaspaces-attention.ts` derives bounded lifecycle observations; mounted
   refreshes never create or renew terminals.
-- `sodaspaces-page.ts` and `soda-workspace-panel-entry.ts` adapt the shared owner
-  to the native page and persistent panel.
+- `soda-spaces-entry.ts` is the one shared Workspace owner entry: the spaces
+  page and workspace panel declare the same owner and entry, and the host
+  mounts a single retained instance driven through its MountHandle.
+  `soda-workspace-panel-entry.ts` re-exports that mount for panel fixtures;
+  `sodaspaces-page.ts` remains for the review fixture's page presentation.
 
 `system/containers/extension/extension.json` declares the browser entries.
 `scripts/build-soda-extension.ts` checks that declaration against the entries and

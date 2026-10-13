@@ -2,100 +2,80 @@ import {nativeAppSubUrl} from './soda-native-paths.js';
 import {id} from './sodaspaces-api.js';
 import type {MountContext} from './fountain-browser-contract.js';
 
-// Native host inputs for the existing Lit page/workspace adapters. No actor or
-// repository displayed by the browser is accepted as operation authority.
-export interface ExtensionMountContext {
-  extensionId: string;
-  pageId?: string;
-  panelId?: string;
-  appSubUrl: string;
-  repositoryId?: string;
-  apiBase: string;
-  assetBase: string;
-  sessionGeneration: string;
-  /** Canonical host contract version; entries refuse any other value before effects. */
-  contractVersion?: number;
-  /** Host-scoped request helper (Fountain MountContext); preferred over the local fallback. */
-  request?: MountContext['request'];
-  /** Host-scoped stream helper (Fountain MountContext); preferred over the local fallback. */
-  stream?: MountContext['stream'];
+// Soda consumer mount context is the canonical Fountain MountContext
+// (NFX-D01/H-N). The host supplies scoped request/stream/navigate helpers;
+// Soda keeps only its product/domain validation and disposed guard, and
+// never re-implements generic URL/session transport rules.
+export type ExtensionMountContext = MountContext;
+
+function isPageMount(context: ExtensionMountContext): boolean {
+  return ['spaces', 'tailnet'].includes(context.pageId || '') && !context.panelId;
 }
 
-function nativeBase(value: string, origin: string): URL {
-  const base = new URL(value, origin);
-  if (
-    base.origin !== origin ||
-    base.username ||
-    base.password ||
-    base.search ||
-    base.hash ||
-    !base.pathname.endsWith('/')
-  ) {
-    throw Error('Invalid native app URL');
-  }
-  return base;
+function isPanelMount(context: ExtensionMountContext): boolean {
+  return context.panelId === 'workspace' && !context.pageId;
+}
+
+function validateMountContext(context: ExtensionMountContext): void {
+  // Refuse an unexpected canonical contract version before any effects.
+  // The host dataset already refuses mismatches; this binds the consumer
+  // build to a compatible host runtime.
+  if (context.contractVersion !== 1) throw Error('Unsupported native contract version');
+  if (context.extensionId !== 'soda' || !context.sessionGeneration) throw Error('Invalid workspace mount context');
+  if (!isPageMount(context) && !isPanelMount(context)) throw Error('Invalid workspace mount context');
+  validateOwner(context);
+  nativeAppSubUrl(context);
+  validateRepository(context.repositoryId);
+}
+
+function validateOwner(context: ExtensionMountContext): void {
+  // Shared-owner identity (NFX-C04/H-OWNER): the pair (extensionId, ownerId)
+  // names one retained owner. Soda declares exactly one, "workspace",
+  // linking the spaces page and the workspace panel on one entry.
+  if (context.ownerId === undefined) return;
+  if (context.ownerId !== 'workspace') throw Error('Invalid workspace mount context');
+  if (context.pageId !== 'spaces' && context.panelId !== 'workspace') throw Error('Invalid workspace mount context');
+}
+
+function requireHostTransport(context: ExtensionMountContext) {
+  // Host-scoped transport is required (H-N): Fountain binds apiBase,
+  // session generation, credentials and lifetime, and tracks sockets
+  // across update/suspend/resume, closing them only on retire. There is
+  // no local URL/session fallback; generic scoping stays with the host.
+  if (typeof context.request !== 'function') throw Error('Native host transport unavailable');
+  if (typeof context.stream !== 'function') throw Error('Native host transport unavailable');
+  if (typeof context.navigate !== 'function') throw Error('Native host transport unavailable');
+  return {hostRequest: context.request, hostStream: context.stream, hostNavigate: context.navigate};
 }
 
 // Prepares the native request transport and lifetime for mounted pages.
-export function prepareExtensionMount(root: HTMLElement, context: ExtensionMountContext) {
-  // Refuse an unexpected canonical contract version before any effects.
-  if (context.contractVersion !== undefined && context.contractVersion !== 1) {
-    throw Error('Unsupported native contract version');
-  }
-  if (
-    context.extensionId !== 'soda' ||
-    !context.sessionGeneration ||
-    !(
-      (['spaces', 'tailnet'].includes(context.pageId || '') && !context.panelId) ||
-      (context.panelId === 'workspace' && !context.pageId)
-    )
-  ) {
-    throw Error('Invalid workspace mount context');
-  }
-  nativeAppSubUrl(context);
-  validateRepository(context.repositoryId);
-  const apiBase = nativeBase(context.apiBase, location.origin);
-  const assetBase = nativeBase(context.assetBase, location.origin);
-  const lifetime = new AbortController();
+export function prepareExtensionMount(root: HTMLElement, context: ExtensionMountContext): PreparedExtensionMount {
+  validateMountContext(context);
+  const {hostRequest, hostStream, hostNavigate} = requireHostTransport(context);
   const generation = context.sessionGeneration;
   let disposed = false;
-  const hostRequest = context.request;
-  const hostStream = context.stream;
+  const assertLive = () => {
+    if (disposed) throw Error('Native app mount is disposed');
+  };
   return {
     root,
     generation,
-    assetBase: assetBase.href,
+    ownerId: context.ownerId,
+    assetBase: context.assetBase,
     async request(relativePath: string, init: RequestInit = {}): Promise<Response> {
-      if (disposed) throw Error('Native app mount is disposed');
-      // Host-scoped transport (H-N): Fountain binds apiBase, session generation,
-      // credentials and lifetime; Soda keeps only its disposed guard here and
-      // all protocol/domain parsing in its callers.
-      if (hostRequest) return hostRequest(relativePath, init);
-      const url = extensionURL(apiBase, relativePath, true);
-      const headers = new Headers(init.headers);
-      headers.set('X-Extension-Session-Generation', generation);
-      return fetch(url, {
-        ...init,
-        headers,
-        credentials: 'same-origin',
-        redirect: 'error',
-        cache: 'no-store',
-        signal: init.signal ? AbortSignal.any([init.signal, lifetime.signal]) : lifetime.signal,
-      });
+      assertLive();
+      return hostRequest(relativePath, init);
     },
     websocket(relativePath: string): WebSocket {
-      if (disposed) throw Error('Native app mount is disposed');
-      // Host-scoped stream: Fountain rejects query/hash targets and tracks the
-      // socket across update/suspend/resume, closing it only on retire.
-      if (hostStream) return hostStream(relativePath).socket;
-      const url = extensionURL(apiBase, relativePath, false);
-      if (url.search) throw Error('Invalid Soda terminal path');
-      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-      return new WebSocket(url);
+      assertLive();
+      return hostStream(relativePath).socket;
+    },
+    navigate(path: string): void {
+      assertLive();
+      hostNavigate(path);
     },
     dispose() {
       disposed = true;
-      lifetime.abort();
     },
   };
 }
@@ -104,12 +84,13 @@ function validateRepository(repositoryId: string | undefined) {
   if (repositoryId !== undefined && !id(repositoryId)) throw Error('Invalid native repository');
 }
 
-function extensionURL(apiBase: URL, relativePath: string, allowQuery: boolean): URL {
-  const url = new URL(relativePath, apiBase);
-  if (!url.href.startsWith(apiBase.href) || url.hash || (!allowQuery && url.search) || /%2f|%5c/i.test(url.pathname)) {
-    throw Error('Invalid Soda operation path');
-  }
-  return url;
+export interface PreparedExtensionMount {
+  root: HTMLElement;
+  generation: string;
+  ownerId?: string | undefined;
+  assetBase: string;
+  request(relativePath: string, init?: RequestInit): Promise<Response>;
+  websocket(relativePath: string): WebSocket;
+  navigate?: (path: string) => void;
+  dispose(): void;
 }
-
-export type PreparedExtensionMount = ReturnType<typeof prepareExtensionMount>;
