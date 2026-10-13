@@ -5,12 +5,14 @@ export function mountSpacesPage(
   root: HTMLElement,
   transport: PreparedExtensionMount,
   forgejoPrefix = '',
-  repositoryId?: string
+  repositoryId?: string,
+  navigate?: (path: string) => void
 ) {
   const workspace = mountSodaspaces(root, {
     kind: 'page',
     transport,
     forgejoPrefix,
+    ...(navigate ? {navigate} : {}),
     ...(repositoryId ? {repositoryId} : {}),
   });
   let disposed = false;
@@ -36,6 +38,7 @@ export function mountSpacesPage(
     get canRestore() {
       return workspace.canRestore;
     },
+    update: workspace.update,
     dispose() {
       disposed = true;
       observer.disconnect();

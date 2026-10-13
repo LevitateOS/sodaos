@@ -32,6 +32,7 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
     kind: context.pageId === 'spaces' ? 'page' : 'native',
     transport,
     forgejoPrefix: prefix,
+    ...(context.navigate ? {navigate: context.navigate} : {}),
     ...(context.repositoryId ? {repositoryId: context.repositoryId} : {}),
   });
   void workspace.refresh();
