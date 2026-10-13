@@ -1,313 +1,284 @@
-//! `publish.go`: ledger-serialized publication with observation.
+//! GitHub Releases owns publication state; local artifacts remain immutable inputs.
+use crate::Error;
+use serde::Deserialize;
+use std::path::Path;
+use std::process::Command;
+pub mod assets;
+use assets::{inspect, inventory, read_json, Asset};
+pub use assets::{prepare, Manifest, Qualification};
+const REPOSITORY: &str = "github.com/LevitateOS/sodaos";
+const API: &str = "repos/LevitateOS/sodaos";
 
-use std::collections::BTreeMap;
-
-use crate::buildx::fresh_directory;
-use crate::document::read_json;
-use crate::fetch::{discover, lock_state, save_state};
-use crate::model::{Channel, Permit, Trust};
-use crate::native::{private_file, verify_copy, write_json, Runner};
-use crate::prepare::immutable_tag;
-use crate::{is_channel, is_digest_ref, now_unix, Error};
-
-mod ledger;
-pub use ledger::{init_ledger, Ledger};
-
-fn upload(
-    r: &dyn Runner,
-    t: &Trust,
-    reference: &str,
-    signed: &str,
-    dest: &str,
-    auth: &str,
-    out: &str,
-) -> Result<(), Error> {
-    let (repo, _) = t.reference(reference)?;
-    let policy = policy_for_upload(t, &repo, signed)?;
-    let policy_path = format!("{out}/upload-policy.json");
-    write_json(&policy_path, &policy)?;
-    let registry = registry_config_for_upload(out, t)?;
-    r.run(&[
-        "--command-timeout=10m",
-        "--policy",
-        &policy_path,
-        "--registries.d",
-        &registry,
-        "copy",
-        "--preserve-digests",
-        "--src-no-creds",
-        "--dest-authfile",
-        auth,
-        &format!("dir:{signed}"),
-        &format!("docker://{dest}"),
-    ])?;
+/// Injectable command boundary; production delegates directly to the mature gh CLI.
+pub trait GitHub {
+    fn run(&self, args: &[String]) -> Result<Vec<u8>, Error>;
+}
+pub struct Gh;
+impl GitHub for Gh {
+    fn run(&self, args: &[String]) -> Result<Vec<u8>, Error> {
+        let output = Command::new("/usr/bin/gh")
+            .args(args)
+            .env("GH_HOST", "github.com")
+            .output()
+            .map_err(|_| Error::msg("GitHub CLI unavailable"))?;
+        if !output.status.success() {
+            if String::from_utf8_lossy(&output.stderr).contains("(HTTP 404)") {
+                return Err(Error::msg("GitHub resource not found"));
+            }
+            return Err(Error::msg(
+                "GitHub command failed; inspect the exact release before repeating publication",
+            ));
+        }
+        if output.stdout.len() > 4 << 20 {
+            return Err(Error::msg("GitHub response exceeds bound"));
+        }
+        Ok(output.stdout)
+    }
+}
+fn command(gh: &dyn GitHub, args: &[&str]) -> Result<Vec<u8>, Error> {
+    gh.run(&args.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>())
+}
+fn api<T: serde::de::DeserializeOwned>(gh: &dyn GitHub, path: &str) -> Result<T, Error> {
+    let bytes = command(gh, &["api", "--hostname", "github.com", path])?;
+    serde_json::from_slice(&bytes).map_err(|_| Error::msg("GitHub response refused"))
+}
+#[derive(Deserialize)]
+struct RemoteAsset {
+    name: String,
+    size: u64,
+    digest: String,
+    state: String,
+}
+#[derive(Deserialize)]
+struct Release {
+    id: u64,
+    tag_name: String,
+    draft: bool,
+    prerelease: bool,
+    immutable: bool,
+    assets: Vec<RemoteAsset>,
+}
+#[derive(Deserialize)]
+struct GitObject {
+    #[serde(rename = "type")]
+    kind: String,
+    sha: String,
+}
+#[derive(Deserialize)]
+struct TagRef {
+    #[serde(rename = "ref")]
+    reference: String,
+    object: GitObject,
+}
+#[derive(Deserialize)]
+struct AnnotatedTag {
+    object: GitObject,
+}
+fn check_tag(gh: &dyn GitHub, manifest: &Manifest) -> Result<(), Error> {
+    let tag: TagRef = api(gh, &format!("{API}/git/ref/tags/{}", manifest.tag))?;
+    if tag.reference != format!("refs/tags/{}", manifest.tag) {
+        return Err(Error::msg("exact remote tag required"));
+    }
+    let object = if tag.object.kind == "tag" {
+        let annotated: AnnotatedTag = api(gh, &format!("{API}/git/tags/{}", tag.object.sha))?;
+        annotated.object
+    } else {
+        tag.object
+    };
+    if object.kind != "commit" || object.sha != manifest.soda_revision {
+        return Err(Error::msg(
+            "remote tag does not identify the built Soda revision",
+        ));
+    }
     Ok(())
 }
-
-// Policy/registry helpers shared with native.rs shapes.
-fn policy_for_upload(t: &Trust, repo: &str, signed: &str) -> Result<impl serde::Serialize, Error> {
-    crate::native::policy_for_publish(t, repo, "dir", signed)
+fn release(gh: &dyn GitHub, tag: &str) -> Result<Release, Error> {
+    api(gh, &format!("{API}/releases/tags/{tag}"))
 }
-
-fn registry_config_for_upload(out: &str, t: &Trust) -> Result<String, Error> {
-    crate::native::registry_config_for_publish(out, t)
-}
-
-fn observe_published(
-    r: &dyn Runner,
-    t: &Trust,
-    p: &Permit,
-    role: &str,
-    out: &str,
-) -> Result<(), Error> {
-    let reference = format!("{}@{}", p.repository, p.digest);
-    if is_channel(role) {
-        let actual = discover(r, t, role)?;
-        if actual != reference {
+fn check_inventory(release: &Release, manifest: &Manifest, assets: &[Asset]) -> Result<(), Error> {
+    if release.id == 0 || release.tag_name != manifest.tag || release.assets.len() != assets.len() {
+        return Err(Error::msg("remote release inventory differs"));
+    }
+    for expected in assets {
+        let matches: Vec<_> = release
+            .assets
+            .iter()
+            .filter(|a| a.name == expected.name)
+            .collect();
+        if matches.len() != 1
+            || matches[0].state != "uploaded"
+            || matches[0].size != expected.bytes
+            || matches[0].digest != format!("sha256:{}", expected.sha256)
+        {
             return Err(Error::msg(
-                "publication not observed at intended channel; held, not replayed",
+                "remote release asset differs from admitted bytes",
             ));
         }
     }
-    verify_copy(
-        r,
-        t,
-        &reference,
-        &format!("docker://{reference}"),
-        &format!("{out}/observed"),
-    )
+    Ok(())
+}
+fn verify_release(gh: &dyn GitHub, tag: &str) -> Result<(), Error> {
+    command(gh, &["release", "verify", tag, "--repo", REPOSITORY])?;
+    Ok(())
 }
 
-fn admit_publish_ledger(
-    t: &Trust,
-    p: &Permit,
-    ledger_path: &str,
-    out: &str,
-) -> Result<(String, Ledger), Error> {
-    t.validate()?;
-    let role = t.role(&p.repository)?;
-    if p.format != 1 || !is_digest_ref(&p.digest) {
-        return Err(Error::refused());
+/// Upload a complete draft, verify its inventory, and expose it as an unqualified
+/// immutable prerelease. Existing releases are never adopted or overwritten.
+pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(), Error> {
+    manifest.validate()?;
+    let assets = inventory(manifest, directory)?;
+    check_tag(gh, manifest)?;
+    #[derive(Deserialize)]
+    struct Settings {
+        enabled: bool,
     }
-    let ledger: Ledger = read_json(ledger_path)?;
-    if ledger.validate(t).is_err() || ledger.repository != p.repository {
-        return Err(Error::refused());
-    }
-    fresh_directory(out)?;
-    Ok((role, ledger))
-}
-
-fn should_observe(observe: bool, ledger: &Ledger, p: &Permit) -> bool {
-    observe || (ledger.phase == "complete" && ledger.digest == p.digest)
-}
-
-fn observe_only(
-    r: &dyn Runner,
-    t: &Trust,
-    p: &Permit,
-    role: &str,
-    ledger_path: &str,
-    out: &str,
-    ledger: &Ledger,
-) -> Result<(), Error> {
-    if ledger.digest != p.digest || ledger.phase == "idle" {
-        return Err(Error::refused());
-    }
-    observe_published(r, t, p, role, out)?;
-    let mut ledger = ledger.clone();
-    ledger.phase = "complete".to_string();
-    ledger.state.trust_epoch = t.epoch;
-    save_state(ledger_path, &ledger)?;
-    let mut receipt = BTreeMap::new();
-    receipt.insert(
-        "Reference".to_string(),
-        format!("{}@{}", p.repository, p.digest),
-    );
-    receipt.insert(
-        "Outcome".to_string(),
-        "publication observed; no write replayed".to_string(),
-    );
-    write_json(&format!("{out}/receipt.json"), &receipt)
-}
-
-mod channel;
-use channel::{admit_channel_offer, promote_channel};
-
-#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
-fn admit_signed(
-    r: &dyn Runner,
-    t: &Trust,
-    p: &Permit,
-    role: &str,
-    signed: &str,
-    auth: &str,
-    ledger_path: &str,
-    out: &str,
-    ledger: &Ledger,
-) -> Result<(String, Channel, Ledger), Error> {
-    if p.validate(t, now_unix()).is_err() || private_file(auth).is_err() {
-        return Err(Error::refused());
-    }
-    let reference = format!("{}@{}", p.repository, p.digest);
-    let check = format!("{out}/signed-check");
-    verify_copy(r, t, &reference, &format!("dir:{signed}"), &check)?;
-    let copy = format!("{check}/image");
-    let mut offer = Channel::default();
-    let mut next = ledger.state.clone();
-    if is_channel(role) {
-        let (verified, admitted) = admit_channel_offer(r, t, p, role, &copy, out, &next)?;
-        next = verified;
-        offer = admitted;
-    }
-    next.trust_epoch = t.epoch;
-    let mut ledger = ledger.clone();
-    ledger.phase = "pending".to_string();
-    ledger.digest = p.digest.clone();
-    ledger.state = next;
-    save_state(ledger_path, &ledger)?;
-    Ok((copy, offer, ledger))
-}
-
-fn commit_immutable(
-    r: &dyn Runner,
-    t: &Trust,
-    reference: &str,
-    copy: &str,
-    auth: &str,
-    out: &str,
-) -> Result<(), Error> {
-    let immutable = format!("{out}/immutable-upload");
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&immutable)
-            .map_err(|e| Error::msg(format!("mkdir {immutable}: {e}")))?;
-    }
-    upload(
-        r,
-        t,
-        reference,
-        copy,
-        &immutable_tag(reference),
-        auth,
-        &immutable,
-    )?;
-    verify_copy(
-        r,
-        t,
-        reference,
-        &format!("docker://{reference}"),
-        &format!("{out}/registry-roundtrip"),
-    )
-}
-
-#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
-fn finalize_publication(
-    r: &dyn Runner,
-    t: &Trust,
-    p: &Permit,
-    role: &str,
-    reference: &str,
-    ledger_path: &str,
-    out: &str,
-    ledger: &Ledger,
-) -> Result<(), Error> {
-    observe_published(r, t, p, role, out)?;
-    let mut ledger = ledger.clone();
-    ledger.phase = "complete".to_string();
-    save_state(ledger_path, &ledger)?;
-    let mut receipt = BTreeMap::new();
-    receipt.insert("Reference".to_string(), reference.to_string());
-    receipt.insert(
-        "Outcome".to_string(),
-        "published and anonymously signature-verified; no activation".to_string(),
-    );
-    write_json(&format!("{out}/receipt.json"), &receipt)
-}
-
-/// `Publish`: ledger-serialized publication for a protected worker.
-#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
-pub fn publish(
-    r: &dyn Runner,
-    t: &Trust,
-    p: &Permit,
-    signed: &str,
-    auth: &str,
-    ledger_path: &str,
-    out: &str,
-    observe: bool,
-) -> Result<(), Error> {
-    let _lock = lock_state(ledger_path)?;
-    let (role, ledger) = admit_publish_ledger(t, p, ledger_path, out)?;
-    if should_observe(observe, &ledger, p) {
-        return observe_only(r, t, p, &role, ledger_path, out, &ledger);
-    }
-    if ledger.phase == "pending" {
+    let settings: Settings = api(gh, &format!("{API}/immutable-releases"))?;
+    if !settings.enabled {
         return Err(Error::msg(
-            "uncertain publication held; use observation, never blind replay",
+            "enable GitHub immutable releases before staging",
         ));
     }
-    let reference = format!("{}@{}", p.repository, p.digest);
-    let (copy, offer, ledger) =
-        admit_signed(r, t, p, &role, signed, auth, ledger_path, out, &ledger)?;
-    commit_immutable(r, t, &reference, &copy, auth, out)?;
-    if is_channel(&role) {
-        promote_channel(
-            r, t, p, &role, &reference, &copy, auth, out, &offer, &ledger,
-        )?;
-    }
-    finalize_publication(r, t, p, &role, &reference, ledger_path, out, &ledger)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use super::channel::validate_channel_history;
-    use crate::model::{empty_state, Seen};
-
-    fn trust() -> Trust {
-        Trust {
-            prefix: "ghcr.io/example/sodaos".to_string(),
-            ..Trust::default()
+    match release(gh, &manifest.tag) {
+        Ok(_) => {
+            return Err(Error::msg(
+                "release already exists; inspect it, do not replay staging",
+            ))
         }
+        Err(e) if e.0 == "GitHub resource not found" => (),
+        Err(e) => return Err(e),
     }
-
-    #[test]
-    fn ledger_phases() {
-        let trust = trust();
-        let idle = Ledger {
-            format: 1,
-            repository: format!("{}-release", trust.prefix),
-            phase: "idle".to_string(),
-            state: empty_state(),
-            ..Ledger::default()
-        };
-        assert!(idle.validate(&trust).is_ok());
-        let mut pending = idle.clone();
-        pending.phase = "pending".to_string();
-        pending.digest = format!("sha256:{}", "a".repeat(64));
-        assert!(pending.validate(&trust).is_ok());
-        let mut bad = idle.clone();
-        bad.phase = "bogus".to_string();
-        assert_eq!(bad.validate(&trust).unwrap_err(), Error::refused());
-        let mut wrong_repo = idle.clone();
-        wrong_repo.repository = "ghcr.io/other/x".to_string();
-        assert_eq!(wrong_repo.validate(&trust).unwrap_err(), Error::refused());
+    let notes_path = directory.join("release-notes.md");
+    std::fs::write(
+        &notes_path,
+        format!(
+            "UNQUALIFIED CANDIDATE: install and first-boot checks pending.\n\n{}",
+            manifest.notes
+        ),
+    )
+    .map_err(|_| Error::msg("cannot write candidate release notes"))?;
+    command(
+        gh,
+        &[
+            "release",
+            "create",
+            &manifest.tag,
+            "--repo",
+            REPOSITORY,
+            "--verify-tag",
+            "--draft",
+            "--prerelease",
+            "--latest=false",
+            "--notes-file",
+            notes_path.to_str().ok_or_else(Error::refused)?,
+        ],
+    )?;
+    let mut upload = vec![
+        "release".to_owned(),
+        "upload".to_owned(),
+        manifest.tag.clone(),
+        "--repo".to_owned(),
+        REPOSITORY.to_owned(),
+    ];
+    for a in &assets {
+        upload.push(
+            directory
+                .join(&a.name)
+                .to_str()
+                .ok_or_else(Error::refused)?
+                .to_owned(),
+        );
     }
-
-    #[test]
-    fn channel_history_rules() {
-        let empty = Seen::default();
-        assert!(validate_channel_history(&empty, "absent").is_ok());
-        assert!(validate_channel_history(&empty, &format!("sha256:{}", "a".repeat(64))).is_err());
-        let seen = Seen {
-            sequence: 2,
-            digest: format!("sha256:{}", "b".repeat(64)),
-            issued: 10,
-        };
-        assert!(validate_channel_history(&seen, &format!("sha256:{}", "b".repeat(64))).is_ok());
-        assert!(validate_channel_history(&seen, "absent").is_err());
+    gh.run(&upload)?;
+    let before = release(gh, &manifest.tag)?;
+    if !before.draft || !before.prerelease {
+        return Err(Error::msg(
+            "candidate release is not the expected draft prerelease",
+        ));
     }
+    check_inventory(&before, manifest, &assets)?;
+    command(
+        gh,
+        &[
+            "release",
+            "edit",
+            &manifest.tag,
+            "--repo",
+            REPOSITORY,
+            "--verify-tag",
+            "--draft=false",
+            "--prerelease",
+            "--latest=false",
+        ],
+    )?;
+    let after = release(gh, &manifest.tag)?;
+    if after.draft || !after.prerelease || !after.immutable {
+        return Err(Error::msg(
+            "candidate publication is not an immutable prerelease",
+        ));
+    }
+    check_inventory(&after, manifest, &assets)?;
+    verify_release(gh, &manifest.tag)
 }
+
+/// Promote only the unchanged immutable candidate after exact install/boot smoke
+/// checks and verification of the ISO actually downloaded from GitHub.
+pub fn promote(
+    gh: &dyn GitHub,
+    directory: &Path,
+    qualification_path: &Path,
+    downloaded_iso: &Path,
+) -> Result<(), Error> {
+    let manifest: Manifest = read_json(&directory.join("release.json"))?;
+    manifest.validate()?;
+    let receipt: Qualification = read_json(qualification_path)?;
+    let downloaded = inspect(downloaded_iso, &manifest.iso)?;
+    receipt.validate(&manifest, &downloaded)?;
+    check_tag(gh, &manifest)?;
+    let current = release(gh, &manifest.tag)?;
+    if current.draft || !current.prerelease || !current.immutable {
+        return Err(Error::msg(
+            "only the exact immutable prerelease can be promoted",
+        ));
+    }
+    let assets = inventory(&manifest, directory)?;
+    check_inventory(&current, &manifest, &assets)?;
+    command(
+        gh,
+        &[
+            "release",
+            "verify-asset",
+            &manifest.tag,
+            downloaded_iso.to_str().ok_or_else(Error::refused)?,
+            "--repo",
+            REPOSITORY,
+        ],
+    )?;
+    let notes = directory.join("qualified-release-notes.md");
+    let receipt_text = serde_json::to_string_pretty(&receipt).map_err(|_| Error::refused())?;
+    std::fs::write(&notes, format!("{}\n\nNative install and first-boot smoke checks passed for the unchanged release bytes.\n\n```json\n{receipt_text}\n```\n", manifest.notes)).map_err(|_| Error::msg("cannot write qualified notes"))?;
+    command(
+        gh,
+        &[
+            "release",
+            "edit",
+            &manifest.tag,
+            "--repo",
+            REPOSITORY,
+            "--verify-tag",
+            "--prerelease=false",
+            "--latest",
+            "--notes-file",
+            notes.to_str().ok_or_else(Error::refused)?,
+        ],
+    )?;
+    let latest: Release = api(gh, &format!("{API}/releases/latest"))?;
+    if latest.id != current.id || latest.draft || latest.prerelease || !latest.immutable {
+        return Err(Error::msg(
+            "qualified release is not the expected latest release",
+        ));
+    }
+    check_inventory(&latest, &manifest, &assets)?;
+    Ok(())
+}
+#[cfg(test)]
+mod tests;

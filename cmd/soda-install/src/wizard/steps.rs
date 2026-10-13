@@ -225,8 +225,8 @@ pub(super) fn step_subnet(console: &Console, ctx: &Ctx, current: &str) -> Result
             console.print("");
             feedback.clear();
         }
-        console.print(
-            "Developer client routing is configured separately. Any canonical IPv4 range is accepted, including public or overlapping ranges.");
+        console.print("Choose a private IPv4 subnet that does not overlap your LAN or VPN routes. Check those routes before accepting the default.");
+        console.print("Soda refuses overlap with its reserved 10.88.0.0/16 and 10.90.0.0/24 networks. Developer client routing is configured separately.");
         let default = if current.is_empty() {
             "10.89.0.0/24"
         } else {

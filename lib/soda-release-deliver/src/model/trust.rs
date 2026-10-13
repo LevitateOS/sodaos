@@ -25,8 +25,6 @@ pub struct Trust {
     pub max_age_seconds: i64,
     #[serde(deserialize_with = "crate::json_serde::null_i64")]
     pub clock_skew_seconds: i64,
-    #[serde(deserialize_with = "crate::json_serde::null_u64_map")]
-    pub minimum_sequence: BTreeMap<String, u64>,
 }
 
 fn valid_trust_timing(t: &Trust) -> bool {
@@ -41,8 +39,7 @@ fn valid_trust_envelope(t: &Trust) -> bool {
     t.format == 1
         && valid_repository_prefix(&t.prefix)
         && t.epoch != 0
-        && t.keys.len() == 4
-        && t.minimum_sequence.len() == 3
+        && t.keys.len() == 1
         && valid_trust_timing(t)
 }
 
@@ -72,13 +69,10 @@ impl Trust {
             return Err(Error::refused());
         }
         let mut seen = BTreeSet::new();
-        for role in ["artifact", "candidate", "preview", "stable"] {
+        for role in ["artifact"] {
             let empty = Vec::new();
             let keys = self.keys.get(role).unwrap_or(&empty);
             admit_trust_role_keys(keys, &mut seen)?;
-            if role != "artifact" && self.minimum_sequence.get(role).copied().unwrap_or(0) == 0 {
-                return Err(Error::refused());
-            }
         }
         Ok(())
     }
@@ -87,11 +81,6 @@ impl Trust {
         for name in ["host", "release", "media"].into_iter().chain(NAMES) {
             if repository == format!("{}-{name}", self.prefix) {
                 return Ok("artifact".to_string());
-            }
-        }
-        for channel in ["candidate", "preview", "stable"] {
-            if repository == format!("{}-channel-{channel}", self.prefix) {
-                return Ok(channel.to_string());
             }
         }
         Err(Error::refused())

@@ -75,6 +75,7 @@ fn allowed_worker_env_key(key: &str) -> bool {
             | "CARGO_TARGET_DIR"
             | "CARGO_NET_OFFLINE"
             | "BUN_INSTALL_CACHE_DIR"
+            | "TMPDIR"
             | "PLAYWRIGHT_BROWSERS_PATH"
             | "SODA_BUILD_START_NS"
     )
@@ -113,7 +114,6 @@ pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
         format!("--property=WorkingDirectory={}", w.directory),
         "--property=ProtectHome=tmpfs".to_owned(),
         "--property=ProtectSystem=strict".to_owned(),
-        "--property=PrivateTmp=yes".to_owned(),
         "--property=PrivateMounts=yes".to_owned(),
         "--property=Delegate=yes".to_owned(),
         "--property=CPUQuota=400%".to_owned(),

@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::buildx::fresh_directory;
-use crate::document::{read_document, read_file};
-use crate::model::{admit_channel, empty_state, Channel, Permit, Release, Trust};
-use crate::{hash_bytes, is_channel, now_unix, Error};
+use crate::document::read_file;
+use crate::model::{Permit, Trust};
+use crate::{hash_bytes, now_unix, Error};
 
 use super::{local_policy, private_file, verify_copy, write_json, Runner};
 
@@ -63,15 +63,7 @@ fn admit_signed_payload(t: &Trust, p: &Permit, snapshot: &str) -> Result<(), Err
     if hash_bytes(&manifest_bytes) != p.digest {
         return Err(Error::refused());
     }
-    let role = t.role(&p.repository).unwrap_or_default();
-    if is_channel(&role) {
-        let channel: Channel = read_document(snapshot, &p.digest)?;
-        admit_channel(t, &empty_state(), &channel, &p.digest, &role, now_unix())?;
-    }
-    if p.repository == format!("{}-release", t.prefix) {
-        let release: Release = read_document(snapshot, &p.digest)?;
-        release.validate(t)?;
-    }
+    t.role(&p.repository)?;
     Ok(())
 }
 

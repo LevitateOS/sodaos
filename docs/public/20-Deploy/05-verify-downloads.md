@@ -11,10 +11,10 @@ Start at the [SodaOS releases](https://github.com/LevitateOS/sodaos/releases/lat
 from the official website. Read that release's notes and verification instructions.
 Choose the x86-64 artifact for x86-64 hardware or a matching VM.
 
-Use the ISO for installation media, or QCOW2 for disk-image import. Keep the
-selected artifact, its verification metadata and accompanying deployment recipe
-from the same release together. A compressed image and its decompressed disk
-are different byte sequences; verify each against the corresponding digest.
+Use the release installation media for a PC or a VM. Keep its verification
+metadata from the same release. The guided installer supplies the matching Soda
+components and creates the machine's provisioning from your choices; you do not
+assemble application archives or prepare a separate Ignition document.
 
 Do not infer filenames, signing identities or update-image references from an
 older product or another repository. An application container archive is not a
@@ -56,9 +56,10 @@ provides a checksum list, inspect its filenames and use your tool's check mode
 from the download directory, for example `sha256sum --check SHA256SUMS` on Linux.
 Do not use broad wildcards that may select a different release.
 
-For a `.zst` image, verify the compressed file before decompression with `zstd`.
-Do not overwrite an existing disk. Verify the uncompressed image when its digest
-is supplied, then use the release's import instructions.
+If a release also publishes a compressed disk image for a particular platform,
+use its matching import instructions. Verify the compressed file before
+decompression and the resulting disk against its own digest when supplied;
+these are different byte sequences. Preserve existing disks.
 
 ## Stop on a mismatch
 
@@ -68,5 +69,5 @@ correct files through the official release channel. Do not boot the image or
 remove a verification step to continue.
 
 Verification establishes artifact identity, not permission to erase a disk or
-proof of a backup. Continue with [ISO installation](20-install-on-premises.md)
+proof of a backup. Continue with [guided installation](20-install-on-premises.md)
 or [cloud/VM deployment](10-deploy-to-cloud.md).

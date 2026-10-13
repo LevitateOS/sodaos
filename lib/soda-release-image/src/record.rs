@@ -13,15 +13,12 @@ use crate::sys;
 /// These are the actual bytes staged into the host and component images. The
 /// archive identities in the payload bind the images; this inventory names
 /// the fork, independent package, and host service inputs within those images.
-pub fn candidate_content(out: &str) -> Result<Vec<(String, String)>, Error> {
+pub fn candidate_content(out: &str, native: &str) -> Result<Vec<(String, String)>, Error> {
     let root = sys::dir_name(out);
     let mut paths: Vec<(String, String)> = [
         (
             "dashboard:/usr/local/bin/soda-dashboard",
-            sys::join(&[
-                &root,
-                "work/host-context/rootfs/usr/libexec/soda/soda-dashboard",
-            ]),
+            sys::join(&[native, "bin/soda-dashboard"]),
         ),
         (
             "forgejo:/usr/local/bin/gitea",
@@ -109,8 +106,8 @@ pub fn content_inventory_bytes(files: &[(String, String)]) -> Result<Vec<u8>, Er
     Ok(data.into_bytes())
 }
 
-pub fn write_content_inventory(context: &str, out: &str) -> Result<(), Error> {
-    let files = candidate_content(out)?;
+pub fn write_content_inventory(context: &str, out: &str, native: &str) -> Result<(), Error> {
+    let files = candidate_content(out, native)?;
     let data = content_inventory_bytes(&files)?;
     files::owned_write(
         &sys::join(&[context, "rootfs/usr/share/soda/host-image/content.json"]),
@@ -185,6 +182,7 @@ pub fn record_build_result(
 /// a signed release/channel authority or a qualified upgrade declaration.
 pub fn record_candidate(
     out: &str,
+    native: &str,
     prefix: &str,
     host: &model::Image,
     archive_hash: &str,
@@ -202,14 +200,18 @@ pub fn record_candidate(
         notes: "Complete unsigned local appliance payload only. All app content is embedded in one shared OCI layout for ordinary Podman import; repository names are intended, not provisioned. No production, native boot, signature or recovery acceptance.".to_string(),
         ..model::Candidate::default()
     };
-    record_candidate_inputs(out, &mut record)?;
+    record_candidate_inputs(out, native, &mut record)?;
     let mut data =
         serde_json::to_string_pretty(&record).expect("serialization to String cannot fail");
     data.push('\n');
     sys::write_new(&sys::join(&[out, "candidate.json"]), data.as_bytes(), 0o600)
 }
 
-pub fn record_candidate_inputs(out: &str, record: &mut model::Candidate) -> Result<(), Error> {
+pub fn record_candidate_inputs(
+    out: &str,
+    native: &str,
+    record: &mut model::Candidate,
+) -> Result<(), Error> {
     if !model::is_revision(&record.forgejo_revision) {
         return Err(Error::msg("exact Forgejo source revision required"));
     }
@@ -226,7 +228,7 @@ pub fn record_candidate_inputs(out: &str, record: &mut model::Candidate) -> Resu
     let toolchain_text = sys::read_json_build_text(&sys::join(&[out, "forgejo-toolchain.json"]))?;
     record.forgejo_toolchain = model::ForgejoToolchain::parse(&toolchain_text)?;
     record.forgejo_toolchain.validate()?;
-    record.content_sha256 = candidate_content(out)?;
+    record.content_sha256 = candidate_content(out, native)?;
     verify_embedded_content_inventory(out, &record.content_sha256)?;
     record.payload_sha256 = sys::hash_file(&sys::join(&[out, "payload.json"]))?;
     Ok(())
@@ -254,6 +256,41 @@ mod tests {
     use super::*;
 
     #[test]
+    fn shipping_inventory_reads_component_producers() {
+        let dir = std::env::temp_dir().join(format!("sri-content-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let out = dir.join("artifacts");
+        let native = dir.join("native");
+        for (path, bytes) in [
+            (native.join("bin/soda-dashboard"), b"dashboard".as_slice()),
+            (out.join("forgejo-context/forgejo-bin"), b"forgejo"),
+            (out.join("extension-context/extension/extension.json"), b"{}"),
+            (out.join("extension-context/extension/backend"), b"backend"),
+            (out.join("extension-context/extension/run"), b"run"),
+            (out.join("extension-context/extension/assets/app.js"), b"app"),
+            (dir.join("work/host-context/rootfs/usr/share/containers/systemd/forgejo.container"), b"forgejo unit"),
+            (dir.join("work/host-context/rootfs/usr/share/containers/systemd/soda-dashboard.container"), b"dashboard unit"),
+            (dir.join("work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service"), b"extension unit"),
+        ] {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+        let content = candidate_content(out.to_str().unwrap(), native.to_str().unwrap()).unwrap();
+        assert!(content.contains(&(
+            "dashboard:/usr/local/bin/soda-dashboard".to_string(),
+            files::hash_bytes(b"dashboard")
+        )));
+        assert!(content.contains(&(
+            "extension:/usr/share/soda/extension/backend".to_string(),
+            files::hash_bytes(b"backend")
+        )));
+        assert!(!dir
+            .join("work/host-context/rootfs/usr/libexec/soda/soda-dashboard")
+            .exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn oracle_candidate_inputs_require_exact_fork_revision() {
         // Oracle: Go recordCandidateInputs revision gate.
         let mut record = model::Candidate {
@@ -261,7 +298,7 @@ mod tests {
             ..model::Candidate::default()
         };
         assert_eq!(
-            record_candidate_inputs("/nonexistent", &mut record)
+            record_candidate_inputs("/nonexistent", "/nonexistent", &mut record)
                 .unwrap_err()
                 .0,
             "exact Forgejo source revision required"

@@ -1,91 +1,10 @@
-//! `prepare.go`: release document preparation and candidate verification.
-
-use std::collections::BTreeMap;
-
-use crate::buildx::{hash_at, read_at, Image as BuildImage, Root};
-use crate::document::{read_file, write_document};
-use crate::model::{Candidate, MediaBinding, Release, Trust};
+//! Candidate archive and installed-content integrity checks.
+use crate::buildx::{hash_at, Image as BuildImage, Root};
+use crate::model::Candidate;
 use crate::oci::{inspect_oci, inspect_oci_content};
 use crate::payload::{Payload, NAMES};
-use crate::{hash_bytes, is_channel, is_digest_ref, Error};
-
-/// `Qualification`: admitted operator release identity plus evidence.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Qualification {
-    pub serial: u64,
-    pub class: String,
-    pub scope: String,
-    pub notes: String,
-    pub evidence: BTreeMap<String, String>,
-}
-
-fn hash_release_provenance(root: &Root, release: &mut Release) -> Result<(), Error> {
-    for (name, path) in [
-        ("source.tar", "source.tar"),
-        ("forgejo-source.tar", "forgejo-source.tar"),
-        ("app-inputs.json", "app-inputs.json"),
-        ("packages.txt", "packages.txt"),
-        ("presentation.json", "forgejo-context/presentation.json"),
-    ] {
-        let hash = hash_at(root, path)?;
-        release
-            .provenance
-            .insert(name.to_string(), format!("sha256:{hash}"));
-    }
-    Ok(())
-}
-
-pub(crate) fn read_media_binding(path: &str) -> Result<Vec<u8>, Error> {
-    let data = read_file(path, 1 << 20)?;
-    let binding = MediaBinding::decode_lenient(&data).map_err(|_| Error::refused())?;
-    if !crate::model::valid_media_file(&binding.iso)
-        || !crate::model::valid_media_file(&binding.rootfs)
-    {
-        return Err(Error::refused());
-    }
-    Ok(data)
-}
-
-fn build_release_document(
-    t: &Trust,
-    candidate: &str,
-    media: Vec<u8>,
-    q: &Qualification,
-) -> Result<Release, Error> {
-    let root = Root::open(candidate)?;
-    let payload_bytes = read_at(&root, "payload.json", 1 << 20)?;
-    let candidate_bytes = read_at(&root, "candidate.json", 1 << 20)?;
-    let mut release = Release {
-        format: 1,
-        serial: q.serial,
-        class: q.class.clone(),
-        payload: payload_bytes,
-        candidate: candidate_bytes,
-        media,
-        provenance: BTreeMap::new(),
-        qualification: q.scope.clone(),
-        evidence: q.evidence.clone(),
-        notes: q.notes.clone(),
-    };
-    hash_release_provenance(&root, &mut release)?;
-    let (p, c) = release.validate(t)?;
-    verify_candidate_images(&root, candidate, &p, &c)?;
-    Ok(release)
-}
-
-/// `Prepare`: build and package the release document from unchanged inputs.
-pub fn prepare(
-    t: &Trust,
-    candidate: &str,
-    media: &str,
-    q: &Qualification,
-    out: &str,
-) -> Result<String, Error> {
-    t.validate()?;
-    let media_bytes = read_media_binding(media)?;
-    let release = build_release_document(t, candidate, media_bytes, q)?;
-    write_document(out, &release)
-}
+use crate::{hash_bytes, Error};
+use std::collections::BTreeMap;
 
 fn candidate_image_content(
     content: &BTreeMap<String, String>,
@@ -226,26 +145,6 @@ pub fn verify_candidate_images(
     Ok(files)
 }
 
-/// `ReferenceForDocument`: immutable reference for a prepared document.
-pub fn reference_for_document(t: &Trust, kind: &str, digest: &str) -> Result<String, Error> {
-    if !is_digest_ref(digest) {
-        return Err(Error::refused());
-    }
-    let repo = if is_channel(kind) {
-        format!("{}-channel-{kind}", t.prefix)
-    } else if kind == "release" {
-        format!("{}-release", t.prefix)
-    } else {
-        return Err(Error::refused());
-    };
-    Ok(format!("{repo}@{digest}"))
-}
-
-pub(crate) fn immutable_tag(reference: &str) -> String {
-    let (repo, digest) = reference.split_once('@').unwrap_or((reference, ""));
-    format!("{repo}:sha256-{}", digest.trim_start_matches("sha256:"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,42 +186,5 @@ mod tests {
             with_inventory.get("host:/usr/share/soda/host-image/content.json"),
             Some(&expected_hash)
         );
-    }
-
-    #[test]
-    fn document_references_and_tags() {
-        let trust = Trust {
-            prefix: "ghcr.io/example/sodaos".to_string(),
-            ..Trust::default()
-        };
-        let digest = format!("sha256:{}", "a".repeat(64));
-        assert_eq!(
-            reference_for_document(&trust, "release", &digest).unwrap(),
-            format!("ghcr.io/example/sodaos-release@{digest}")
-        );
-        assert_eq!(
-            reference_for_document(&trust, "stable", &digest).unwrap(),
-            format!("ghcr.io/example/sodaos-channel-stable@{digest}")
-        );
-        assert!(reference_for_document(&trust, "bogus", &digest).is_err());
-        assert!(reference_for_document(&trust, "release", "nope").is_err());
-        assert_eq!(
-            immutable_tag(&format!("repo@{}", digest)),
-            format!("repo:sha256-{}", "a".repeat(64))
-        );
-    }
-
-    #[test]
-    fn prepare_refuses_bad_trust_first() {
-        let trust = Trust::default();
-        let err = prepare(
-            &trust,
-            "/nonexistent",
-            "/nonexistent-media",
-            &Qualification::default(),
-            "/tmp/srd-nope",
-        )
-        .unwrap_err();
-        assert_eq!(err, Error::refused());
     }
 }

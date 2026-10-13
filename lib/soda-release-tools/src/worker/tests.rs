@@ -137,6 +137,7 @@ fn test_config() -> WorkerConfig {
         source: "/source".to_owned(),
         forgejo_source: "/forgejo".to_owned(),
         output_parent: "/source/.artifacts/releases/isolated".to_owned(),
+        build_home: "/storage/home".to_owned(),
         tools: "/tools".to_owned(),
         media_authority_directory: "/authority".to_owned(),
         ..WorkerConfig::default()
@@ -161,6 +162,9 @@ fn development_worker_inputs_and_completion() {
         }
         let w = build_worker(&c, &r).unwrap();
         assert_eq!(w.user, "soda-build-worker");
+        assert!(w.writable.contains(&"/storage/home/tmp:/tmp".to_owned()));
+        assert!(w.writable.contains(&"/storage/home/tmp:/var/tmp".to_owned()));
+        assert!(w.environment.contains(&format!("TMPDIR={WORKER_HOME}/tmp")));
         assert!(w
             .read_only
             .contains(&format!("{}:{WORKER_FORGEJO}", c.forgejo_source)));
@@ -643,7 +647,6 @@ fn worker_argv_golden() {
         "--property=WorkingDirectory=/run/soda-build-source",
         "--property=ProtectHome=tmpfs",
         "--property=ProtectSystem=strict",
-        "--property=PrivateTmp=yes",
         "--property=PrivateMounts=yes",
         "--property=Delegate=yes",
         "--property=CPUQuota=400%",

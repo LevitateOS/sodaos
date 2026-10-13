@@ -234,7 +234,6 @@ pub fn read_document<T: DeserializeOwned + Default>(path: &str, want: &str) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Channel;
     use std::io::Read;
 
     fn temp_dir(prefix: &str) -> String {
@@ -253,17 +252,7 @@ mod tests {
     #[test]
     fn document_round_trip_and_bounds() {
         let dir = temp_dir("srd-doc-unit");
-        let channel = Channel {
-            format: 1,
-            name: "candidate".to_string(),
-            sequence: 3,
-            issued: 100,
-            expires: 200,
-            releases: [("x86_64".to_string(), "r".to_string())]
-                .into_iter()
-                .collect(),
-            ..Channel::default()
-        };
+        let channel = serde_json::json!({"payload":"local artifact metadata"});
         let out = format!("{dir}/doc");
         let digest = write_document(&out, &channel).unwrap();
         assert!(digest.starts_with("sha256:") && digest.len() == 71);

@@ -185,11 +185,16 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
             ),
             format!("{}:{WORKER_HOME}", c.build_home),
             format!("{}:{WORKER_RUNTIME}", c.runtime),
+            // Temporary bytes stay on the admitted workspace disk, including
+            // tools that use /tmp directly instead of honoring TMPDIR.
+            format!("{}/tmp:/tmp", c.build_home),
+            format!("{}/tmp:/var/tmp", c.build_home),
         ],
         environment: vec![
             format!("HOME={WORKER_HOME}"),
             format!("PATH={PINNED_GO_ROOT}/bin:{WORKER_TOOLS}/rust/bin:{WORKER_TOOLS}/bin:/usr/sbin:/usr/bin:/sbin:/bin"),
             format!("XDG_RUNTIME_DIR={WORKER_RUNTIME}"),
+            format!("TMPDIR={WORKER_HOME}/tmp"),
             "GOTOOLCHAIN=go1.26.7".to_owned(),
             format!("GOCACHE={WORKER_HOME}/go-build"),
             format!("GOMODCACHE={WORKER_HOME}/go-mod"),

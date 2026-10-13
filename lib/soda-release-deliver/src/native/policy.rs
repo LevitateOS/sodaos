@@ -183,19 +183,6 @@ fn requirement(t: &Trust, repo: &str) -> Result<Requirement, Error> {
     })
 }
 
-pub(crate) fn policy_for_publish(
-    t: &Trust,
-    repo: &str,
-    transport: &str,
-    scope: &str,
-) -> Result<PolicyDocument, Error> {
-    policy_for(t, repo, transport, scope)
-}
-
-pub(crate) fn registry_config_for_publish(out: &str, t: &Trust) -> Result<String, Error> {
-    registry_config(out, t)
-}
-
 pub(super) fn policy_for(
     t: &Trust,
     repo: &str,
@@ -232,9 +219,6 @@ fn soda_trust_repos(t: &Trust) -> Vec<String> {
     ];
     for name in crate::payload::NAMES {
         repos.push(format!("{}-{name}", t.prefix));
-    }
-    for channel in ["candidate", "preview", "stable"] {
-        repos.push(format!("{}-channel-{channel}", t.prefix));
     }
     repos
 }

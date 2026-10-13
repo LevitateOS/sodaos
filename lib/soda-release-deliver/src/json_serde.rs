@@ -165,31 +165,6 @@ pub(crate) fn null_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error>
     }
 }
 
-pub(crate) fn null_u64_map<'de, D: Deserializer<'de>>(
-    d: D,
-) -> Result<std::collections::BTreeMap<String, u64>, D::Error> {
-    use serde::de::Error as _;
-    let raw = Option::<std::collections::BTreeMap<String, Box<serde_json::value::RawValue>>>::deserialize(d)?;
-    let mut out = std::collections::BTreeMap::new();
-    for (key, value) in raw.unwrap_or_default() {
-        let number = if value.get() == "null" {
-            0
-        } else {
-            let lexeme = parse_integer(value.get())
-                .ok_or_else(|| D::Error::custom("invalid unsigned integer"))?;
-            if lexeme == "-0" {
-                0
-            } else {
-                lexeme
-                    .parse::<u64>()
-                    .map_err(|_| D::Error::custom("invalid unsigned integer"))?
-            }
-        };
-        out.insert(key, number);
-    }
-    Ok(out)
-}
-
 fn parse_integer(token: &str) -> Option<&str> {
     let digits = token.strip_prefix('-').unwrap_or(token);
     if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {

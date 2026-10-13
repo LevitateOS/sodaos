@@ -42,7 +42,17 @@ pub fn stage_candidate_forgejo(
     stage_forgejo_container_inputs(source, &forgejo_context)?;
     stage_extension_package(source, context, out, production.native())?;
     crate::build::link_prepared_assets(production)?;
+    remove_container_only_host_commands(context)?;
     Ok(forgejo_context)
+}
+
+fn remove_container_only_host_commands(context: &str) -> Result<(), Error> {
+    // Component contexts already hold hardlinks to these bytes. Their servers
+    // execute inside the dashboard/extension images, not on the native host.
+    for name in ["soda-dashboard", "soda-extension"] {
+        fs::remove_file(sys::join(&[context, "rootfs/usr/libexec/soda", name]))?;
+    }
+    Ok(())
 }
 
 fn stage_forgejo_container_inputs(source: &str, context: &str) -> Result<(), Error> {
@@ -391,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn extension_package_reads_new_layout() {
+    fn shipping_component_staging_preserves_container_bytes() {
         // CORR-C-005: extension inputs live under system/containers/extension/.
         let dir = std::env::temp_dir().join(format!("sri-ext-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -405,7 +415,15 @@ mod tests {
         let backend = context.join("rootfs/usr/libexec/soda/soda-extension");
         fs::create_dir_all(backend.parent().unwrap()).unwrap();
         fs::write(&backend, b"backend").unwrap();
+        fs::write(backend.with_file_name("soda-dashboard"), b"dashboard").unwrap();
+        fs::write(backend.with_file_name("soda-host"), b"host").unwrap();
         let native = dir.join("native");
+        link_candidate_commands(
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+            &["soda-dashboard".to_string(), "soda-extension".to_string()],
+        )
+        .unwrap();
         let assets = native.join("soda-extension-assets");
         fs::create_dir_all(assets.join("assets")).unwrap();
         fs::write(assets.join("files.json"), b"[\"a.bin\"]").unwrap();
@@ -425,6 +443,22 @@ mod tests {
         assert!(package.join("backend").is_file());
         assert!(package.join("assets/a.bin").is_file());
         assert!(out.join("extension-context/Containerfile").is_file());
+        remove_container_only_host_commands(context.to_str().unwrap()).unwrap();
+        assert_eq!(fs::read(package.join("backend")).unwrap(), b"backend");
+        assert_eq!(
+            fs::read(native.join("bin/soda-dashboard")).unwrap(),
+            b"dashboard"
+        );
+        assert_eq!(
+            fs::read(native.join("bin/soda-extension")).unwrap(),
+            b"backend"
+        );
+        assert_eq!(
+            fs::read(backend.with_file_name("soda-host")).unwrap(),
+            b"host"
+        );
+        assert!(!backend.exists());
+        assert!(!backend.with_file_name("soda-dashboard").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 

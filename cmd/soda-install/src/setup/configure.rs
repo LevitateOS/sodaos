@@ -1,8 +1,8 @@
-use super::SBIN;
 use super::access::configured_access;
-use super::address::{SetupAddress, private_setup_origin, setup_addresses};
+use super::address::{private_setup_origin, setup_addresses, SetupAddress};
+use super::SBIN;
 
-use crate::command::{Runner, failure_summary};
+use crate::command::{failure_summary, Runner};
 use crate::console::Console;
 use crate::errors::{self, Error};
 use crate::signal::Ctx;
@@ -65,7 +65,7 @@ fn prompt_setup_address(
 ) -> Result<SetupAddress, Error> {
     console.page("Private browser setup");
     console.print(
-        "Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.",
+        "Use a root console or SSH terminal for setup. The Forgejo token input will be hidden.",
     );
     console.print("Select the appliance address your laptop can reach. No domain is needed.");
     for (i, choice) in choices.iter().enumerate() {
@@ -109,10 +109,7 @@ fn prompt_operator_token(
     console.print(format_args!("The final Soda address will be {origin}"));
     console.print(
         "Use a stable address or DHCP reservation. Changing it later needs explicit configuration maintenance.");
-    console.print(format_args!(
-        "If you have no SSH key access yet, cancel and run {} enroll-key at the local console.",
-        crate::candidate::CANDIDATE_INSTALLER_BINARY
-    ));
+    console.print("Connect with the root password you set during installation, or an installed SSH key. Key enrollment is optional.");
     console.print("From your laptop, connect with an SSH tunnel to the native Forgejo installer:");
     console.print(format_args!("ssh -L 33000:127.0.0.1:3000 root@{address}"));
     console.print(
@@ -121,7 +118,7 @@ fn prompt_operator_token(
         "Keep its localhost browser URL for this bootstrap; activation below sets the final private URL.");
     console.print(
         "In Forgejo Settings > Applications, create the operator token described in the operator setup guide.");
-    console.print("Required scope: read:user. No admin or repository scope is needed. Paste it here through the SSH terminal; input is hidden.");
+    console.print("Required scope: read:user. No admin or repository scope is needed. Enter it in this root terminal; input is hidden.");
     console.print(
         "Caddy will issue local HTTPS certificates. You will explicitly trust its public root certificate on your laptop.");
     let answer = console.ask(

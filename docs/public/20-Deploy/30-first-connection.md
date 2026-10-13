@@ -1,6 +1,6 @@
 # Make the first connection
 
-Sign in to inspect repository work, then register a development key if you also need a persistent human project.
+Sign in with your own Forgejo account, then explicitly Join a Project to use its browser terminal; add a development key only if you need external SSH.
 
 Review factory issues and pull requests through Forgejo using your own account.
 Admitting an agent task follows the [factory walkthrough](../30-Use-Soda/15-software-factory.md);
@@ -14,9 +14,9 @@ and the approved LAN or Tailnet route. Browser origins, the host's operator SSH
 address, Forgejo's Git endpoint and each project's IP are different endpoints.
 Do not substitute one for another.
 
-For cloud access, connect your client to the permitted Tailnet. The operator
-must also establish and approve the project-subnet route; reaching the dashboard
-does not by itself prove that you can reach a project. See
+For cloud access, connect your client to the permitted Tailnet. Direct Project
+SSH or service access also needs the operator's approved project-subnet route;
+browser-terminal access uses the appliance's browser origin. See
 [Tailscale](../30-Use-Soda/40-tailscale.md#route-the-project-subnet).
 
 ## Trust the browser endpoints and sign in
@@ -30,7 +30,19 @@ Select **Sign in** and complete Forgejo's login, initial password change, MFA an
 consent as applicable. You return to Soda as your Forgejo identity. Use a private
 channel for an initial password; never paste it into a project or issue.
 
-## Add your public development key
+## Join and open a browser terminal
+
+Open the environment you intend to use and select **Join project**. Current
+repository code-write permission is required. The repository owner must Join too.
+Choose account-only access if you do not need external SSH keys, wait for native
+provisioning to complete, then open a browser terminal. Verify `whoami` and `$HOME`
+refer to your own Project account. See [Projects and workspaces](../30-Use-Soda/20-projects-and-workspaces.md).
+
+Joining creates your Project account; merely signing in or observing a Project
+does not grant execution. A browser terminal needs neither a client SSH key nor
+a direct client route to the Project subnet.
+
+## Add an optional public development key
 
 Use an existing personal SSH key or create one on your client:
 
@@ -43,16 +55,16 @@ Keep the private file on that client. Open your Soda **Profile**, find the
 public development-access keys and register only the `.pub` file's contents.
 Check the resulting fingerprint.
 
-These keys are installed into a project's account when you explicitly join.
-They are not your Git-host key registry, and subsequent profile edits do not
-synchronize existing project accounts. See [People and access](../50-Operate/10-people-and-access.md).
+These keys are installed when you explicitly select them during Join or apply
+them through that Project's access controls. They are not your Git-host key
+registry, and profile edits do not synchronize existing Project accounts. See
+[People and access](../50-Operate/10-people-and-access.md).
 
-## Join and obtain the project address
+## Obtain the external SSH connection details
 
-Open the environment you intend to use and select **Join project**.
-Wait for its real provisioning result, then use its connection details: your
-project-local login, current IP and public SSH host key. The repository owner
-must join too. See [Projects and workspaces](../30-Use-Soda/20-projects-and-workspaces.md).
+After Join and explicit key installation, use the Project's connection details:
+your project-local login, current IP and public SSH host key. Have the operator
+confirm your client route to that subnet before testing SSH.
 
 `PROJECT_USER` and `PROJECT_IP` below mean those displayed values. An example IP
 in documentation is not the address of your installation.

@@ -26,6 +26,10 @@ path = "src/bin/soda-artifacts.rs"
 name = "soda-candidate-check"
 path = "src/bin/soda-candidate-check.rs"
 
+[[bin]]
+name = "soda-release"
+path = "src/bin/soda-release.rs"
+
 [[test]]
 name = "cli"
 path = "tests/cli/main.rs"

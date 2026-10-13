@@ -42,7 +42,7 @@ fn command(name: &str) -> ClapCommand {
         .disable_help_subcommand(true)
         .arg(boolean(
             "development",
-            "explicit development-only run; never release-qualified",
+            "select a development target; building never qualifies or publishes a release",
         ))
         .arg(value(
             "target",
@@ -70,7 +70,7 @@ fn command(name: &str) -> ClapCommand {
         ))
         .arg(value(
             "media-authority",
-            "worker-local fixture authority; not release custody",
+            "worker-local packaging authority; GitHub owns release authenticity",
         ))
         .arg(value(
             "live-inputs",
@@ -194,9 +194,6 @@ pub fn admit_parent_dispatch(f: &BuildFlags) -> Result<(), String> {
             "controller resolves live inputs per attempt; operator selection refused".to_owned(),
         );
     }
-    if !f.request.development {
-        return Err("production builds removed; development only".to_owned());
-    }
     Ok(())
 }
 
@@ -237,7 +234,7 @@ pub fn progress_title(r: &Request) -> String {
     if r.development {
         format!("Soda development {} (not release-qualified)", r.target)
     } else {
-        "Soda release build".to_owned()
+        "Soda release media build (not release-qualified)".to_owned()
     }
 }
 

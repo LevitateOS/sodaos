@@ -148,7 +148,6 @@ fn deliver_trust_of(trust: &model::Trust) -> DeliverTrust {
         not_before: trust.not_before,
         max_age_seconds: trust.max_age_seconds,
         clock_skew_seconds: trust.clock_skew_seconds,
-        minimum_sequence: trust.minimum_sequence.iter().cloned().collect(),
     }
 }
 
@@ -848,16 +847,14 @@ mod tests {
             format: 1,
             prefix: "ghcr.io/e/s".to_string(),
             epoch: 7,
-            keys: vec![("stable".to_string(), vec!["k".to_string()])],
+            keys: vec![("artifact".to_string(), vec!["k".to_string()])],
             not_before: 1,
             max_age_seconds: 60,
             clock_skew_seconds: 0,
-            minimum_sequence: vec![("stable".to_string(), 3)],
         };
         let converted = deliver_trust_of(&trust);
         assert_eq!(converted.epoch, 7);
-        assert_eq!(converted.keys["stable"], vec!["k".to_string()]);
-        assert_eq!(converted.minimum_sequence["stable"], 3);
+        assert_eq!(converted.keys["artifact"], vec!["k".to_string()]);
         let permit = model::Permit {
             format: 1,
             repository: "repo".to_string(),

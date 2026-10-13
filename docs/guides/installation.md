@@ -14,6 +14,31 @@ admission to verified results and human merge.
 Commands that write disks, mutate providers, publish artifacts or destroy fixtures
 require explicit task approval. This guide is not that approval.
 
+## Install from release media
+
+Use the selected release's verified x86-64 installation media for a PC or VM.
+Write it to the intended USB device or attach it as VM optical media, then boot
+its console. The installer supplies the matching Soda components and renders
+the machine's provisioning from the reviewed choices. End users do not prepare
+Butane/Ignition, build application images or generate password hashes.
+
+The guided `soda-install disk` flow reviews network settings, exact destination
+disk, hostname, native root password and Project subnet before an explicit disk
+erase confirmation. Check the subnet against LAN/VPN routes; the installer also
+rejects overlap with Soda's reserved networks. Preserve independent backups and
+console access. After successful installation, remove the media, reboot and log
+in with the chosen root password.
+
+Run `/usr/libexec/soda/soda-install configure` from a root terminal on the installed
+host. It guides private-address selection, native Forgejo bootstrap and local HTTPS
+activation. Root password SSH is available after the guided installation; operator
+key enrollment is optional. Complete client certificate trust and a real browser
+Project terminal as described in [Operator setup](operator-setup.md).
+
+Use [the public installation guide](../public/20-Deploy/20-install-on-premises.md)
+for the complete end-user path. The builder instructions below are for release
+developers, not prerequisites for installing a downloaded release.
+
 ## Prepare the builder
 
 Use a native `x86_64` builder under the
@@ -38,18 +63,12 @@ candidate snapshots its exact HEAD and embeds its patched binary. The separate
 `soda-extension-install.service` before an activated Forgejo starts. An install
 failure blocks Forgejo startup.
 
-## Provision the host
+## Install developer candidates
 
-Provision Fedora CoreOS with the selected installation media. Complete Forgejo's
-native first-run installation on loopback as described in
-[Operator setup](operator-setup.md). Do not expose an unfinished installer through
-the public reverse proxy.
-
-## Install built components
-
-Install the candidate's application images, host content and Forgejo customization
-payload through the admitted install path for that candidate. Prefer the same
-immutable candidate for install and later update.
+For an admitted developer candidate on an existing host, use its component install
+path for application images, host content and Forgejo customization. This is
+separate from the release-media disk flow, which supplies its included components.
+Prefer the same immutable candidate for install and later update.
 
 Existing-state maintenance updates affected components without replaying first
 install as a service upgrade and without using `--rm` / `--replace` as repair
@@ -57,11 +76,13 @@ against preserved project roots.
 
 ## Reachability and activation
 
-1. Establish real project reachability (addresses, routes, client trust).
-2. Run setup/activate with explicit private bind address and TLS as in
-   [Operator setup](operator-setup.md).
+1. Choose a private appliance address the intended client can reach.
+2. Complete guided configure, or the deliberate setup/activate path for custom
+   configuration in [Operator setup](operator-setup.md).
 3. Trust the appliance public root certificate on intended clients when using
-   local TLS.
+   local TLS, then verify actual browser login and a Project terminal.
+4. Establish a separate client route to Project addresses when direct SSH or
+   native service access is required.
 
 The dashboard mounts only its config and credential files, the host and
 identity helper sockets, its private data and the shared extension IPC

@@ -98,7 +98,7 @@ pub(crate) fn write_json<T: Serialize + ?Sized>(path: &str, value: &T) -> Result
 }
 
 mod policy;
-pub(crate) use policy::{local_policy, policy_for_publish, registry_config_for_publish};
+pub(crate) use policy::local_policy;
 pub use policy::{merge_policy, write_registry_config};
 use policy::{policy_for, registry_config};
 

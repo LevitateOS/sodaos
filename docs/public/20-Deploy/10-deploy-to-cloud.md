@@ -1,96 +1,62 @@
-# Deploy to a cloud or VM
+# Deploy in a VM or cloud
 
-Deploy a Soda OS software factory on matching virtual hardware, establish private operator access and retain separate capacity for human projects.
+Use the release installation media in an x86-64 virtual machine, with a separate destination disk, console access and private client connectivity.
 
-Allow capacity for disposable agent workspaces, Forgejo verification and persistent
-human data. After deployment, follow [Operator setup](25-operator-setup.md) and
-the [factory walkthrough](../30-Use-Soda/15-software-factory.md).
+A VM follows the same [guided installation](20-install-on-premises.md) as a PC.
+You do not need to build application images or prepare an Ignition document for
+that path. Keep capacity for retained Projects, Forgejo data and intended factory
+work. Continue with [Operator setup](25-operator-setup.md) after first boot.
 
-## Prepare the deployment
+## Prepare a virtual machine
 
-[Verify the release's QCOW2](05-verify-downloads.md) and use its matching
-provisioning recipe. Select an x86-64 instance with enough storage for persistent
-project roots, repositories and service data.
-Keep a usable provider/VM console independent of SSH.
+[Verify the installation media](05-verify-downloads.md). Choose supported x86-64
+virtual hardware and firmware, create the destination disk, attach the media as
+an optical disk and retain the platform's console.
 
-Use a trusted LAN for a local VM or private Tailnet connectivity for remote
-access. For teams, Scaleway is the first cloud-provider path; you operate the
-server and its data in your own account.
+Choose networking that lets the intended client reach the appliance's private
+address. With NAT, use the VM platform's deliberate private forwarding or access
+path; a guest address alone does not prove client access. A host-only network
+may be appropriate for one laptop, but it does not connect other team members.
 
-## Close public ingress before boot
+Boot the media, follow the installer and detach it after successful installation.
+Do not start a second instance by copying an already configured disk containing
+private machine keys, accounts or enrolled provider state.
 
-Create the provider security policy before starting the server. Deny public
-inbound access to SSH, Cockpit, Soda, Forgejo and development services. Preserve
-required outbound DNS, provisioning, dependency and Tailscale access and native
-stateful response traffic. Keep the provider console for bootstrap; do not open
-public SSH to work around private-network setup.
+## Choose a cloud deployment path
 
-The provider security group, host listeners/firewall and Tailnet access policy
-are independent boundaries. A host firewall change does not authorize public
-cloud exposure.
+A cloud platform must provide a supported boot mechanism, independent console
+access and a private network path for the operator. Use only the deployment path
+and hardware documented for the selected release and platform. A provider's
+ability to import a generic disk does not establish that it supports the release's
+boot or provisioning requirements.
 
-## Import the disk and supply provisioning
+If that release publishes a platform disk image and matching import instructions,
+verify and use them together. Disk-image import is a separate path from the guided
+media installer; do not substitute generic cloud-init for CoreOS Ignition or
+assemble another image from application container archives.
 
-1. Verify the compressed image, decompress using its documented format and
-   verify the resulting disk as instructed by the release.
-2. Import the QCOW2 as the boot disk using the platform's native image/snapshot
-   import. Preserve the downloaded original; use a separate instance disk.
-3. Allocate sufficient capacity and select supported native firmware/devices.
-4. Prepare the release's per-instance operator configuration and deliver its
-   Ignition through the documented platform/boot mechanism **before first boot**.
-5. Start the instance and use its console to inspect provisioning and disk capacity.
+## Keep public ingress closed
 
-Soda uses Fedora CoreOS and Ignition, not the predecessor's cloud-init account
-model. A provider accepting a QCOW2 does not prove its generic user-data field
-supplies Ignition. Use the matching release recipe and
-[CoreOS provisioning guidance](https://docs.fedoraproject.org/en-US/fedora-coreos/producing-ign/)
-for the selected platform. Do not boot multiple instances with copied private
-host keys or already enrolled Tailnet/runner state.
+Set the provider's network policy before first boot. Keep SSH, Cockpit, Soda,
+Forgejo and Project services on their intended private network. Preserve console
+access and any required outbound DNS, dependency or Tailscale connectivity.
 
-Protect provisioning documents, password hashes and machine keys both locally
-and in provider metadata. Deleting the local file does not remove provider-held
-copies; apply native access and retention controls there too.
+Provider policy, host listeners/firewall and Tailnet access rules are independent
+boundaries. Do not open public SSH or publish the unfinished Forgejo installer to
+work around an unavailable private route.
 
-## Deploy on Scaleway
+For remote access through Tailscale, establish the appliance and client's approved
+Tailnet membership before [private browser setup](25-operator-setup.md).
+Project subnet routing is separate; configure it only for the direct Project
+access your clients need. See [Tailscale](../30-Use-Soda/40-tailscale.md).
 
-Use the release's Scaleway recipe for the boot/provisioning settings, alongside
-Scaleway's own image and network controls:
+## Verify the installed result
 
-1. Choose the matching Instance architecture, Availability Zone and storage capacity.
-2. Upload the verified disk to the appropriate Object Storage region and follow
-   [snapshot import](https://www.scaleway.com/en/docs/instances/how-to/snapshot-import-export-feature/).
-   Wait for completion before selecting the snapshot as boot storage.
-3. Create a dedicated [security group](https://www.scaleway.com/en/docs/instances/how-to/use-security-groups/)
-   with public ingress closed and required outbound connectivity.
-4. Create the Instance stopped, attach the intended boot/data volumes and review
-   security group, architecture and boot settings.
-5. Deliver the release recipe's private provisioning input, then start and use
-   the [serial console](https://www.scaleway.com/en/docs/instances/how-to/use-serial-console/)
-   to confirm first-boot results and operator access.
+Confirm console access, usable disk capacity, trusted private browser and SSH
+identity, and a real Project Join/browser terminal before storing team data.
+Verify direct Project SSH separately when required. Keep the console available
+and establish your backup procedure.
 
-Scaleway owns exact import/storage parameters and billing. Review resource names
-and costs before creating them. Do not substitute a different image format or
-public bootstrap path merely because an import or provisioning step failed.
-
-## Establish private access
-
-From the operator console, complete
-[Tailscale's initial sign-in](../30-Use-Soda/40-tailscale.md#initial-cloud-connection)
-and any device approval. Join the client to the permitted Tailnet, then finish
-[operator setup](25-operator-setup.md) for trusted browser origins and service binds.
-
-Establish a separate approved subnet route to project IPs. Host enrollment alone
-is insufficient. Check direct project SSH and intended service ports from a real
-developer client while keeping public ingress closed.
-
-## Validate before storing team data
-
-Confirm console access, architecture, actual usable filesystem capacity, trusted
-browser and SSH identities, developer login/join and project connectivity.
-Record your backup/restore method and retain the console as an independent
-access path. A running VM or green import status does not establish application
-or data readiness.
-
-If boot fails, inspect native console diagnostics, disk format/attachment,
-firmware and provisioning delivery. Preserve partial disks and diagnostics;
-do not overwrite an instance containing work as an import retry.
+For a failed boot, inspect native console diagnostics, selected firmware/devices,
+media identity and network path. Preserve partial disks and data; an import or
+installation retry must not overwrite a machine containing work.

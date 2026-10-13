@@ -134,6 +134,7 @@ pub fn export_host_archive(
     let hash = sys::hash_file(&archive)?;
     record::record_candidate(
         out,
+        production.native(),
         prefix,
         &host,
         &hash,

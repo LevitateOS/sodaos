@@ -51,7 +51,7 @@ pub fn build_host_candidate(
         host::record_host_packages(context_dir, artifacts, &observation, production)?;
     payload.host_packages_sha256 = package_hash.clone();
     payload_stage::seal_candidate_payload(&payload, snapshot, context_dir, artifacts, production)?;
-    record::write_content_inventory(context_dir, artifacts)?;
+    record::write_content_inventory(context_dir, artifacts, production.native())?;
     prepare::inventory(context_dir)?;
     let id = host::build_host_image(
         context_dir,

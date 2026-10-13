@@ -12,11 +12,8 @@ pub(crate) use candidate::path_clean;
 pub use candidate::{valid_candidate_content, Candidate};
 
 mod release;
-pub use release::{admit_release, MediaBinding, MediaFile, Release};
-pub(crate) use release::{valid_media_binding, valid_media_file};
-
-mod channel;
-pub use channel::{admit_channel, empty_state, Channel, Highwater, Seen};
+pub(crate) use release::valid_media_binding;
+pub use release::{MediaBinding, MediaFile};
 
 // ---------------------------------------------------------------------------
 // Permit

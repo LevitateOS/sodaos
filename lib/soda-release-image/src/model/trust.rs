@@ -17,7 +17,6 @@ pub struct Trust {
     pub not_before: i64,
     pub max_age_seconds: i64,
     pub clock_skew_seconds: i64,
-    pub minimum_sequence: Vec<(String, u64)>,
 }
 
 #[derive(Default)]
@@ -29,7 +28,6 @@ struct TrustWire {
     not_before: i64,
     max_age_seconds: i64,
     clock_skew_seconds: i64,
-    minimum_sequence: crate::jsonio::OrderedMap<u64>,
 }
 
 crate::jsonio::case_record!(TrustWire, {
@@ -40,7 +38,6 @@ crate::jsonio::case_record!(TrustWire, {
     not_before: i64 => "NotBefore",
     max_age_seconds: i64 => "MaxAgeSeconds",
     clock_skew_seconds: i64 => "ClockSkewSeconds",
-    minimum_sequence: crate::jsonio::OrderedMap<u64> => "MinimumSequence",
 });
 
 impl Trust {
@@ -54,7 +51,6 @@ impl Trust {
             not_before: wire.not_before,
             max_age_seconds: wire.max_age_seconds,
             clock_skew_seconds: wire.clock_skew_seconds,
-            minimum_sequence: wire.minimum_sequence.0,
         })
     }
 
@@ -66,20 +62,11 @@ impl Trust {
             .unwrap_or_default()
     }
 
-    fn minimum(&self, role: &str) -> u64 {
-        self.minimum_sequence
-            .iter()
-            .find(|(r, _)| r == role)
-            .map(|(_, v)| *v)
-            .unwrap_or(0)
-    }
-
     pub fn validate(&self) -> Result<(), Error> {
         if !(self.format == 1
             && valid_repository_prefix(&self.prefix)
             && self.epoch != 0
-            && self.keys.len() == 4
-            && self.minimum_sequence.len() == 3
+            && self.keys.len() == 1
             && self.not_before > 0
             && self.max_age_seconds >= 60
             && self.max_age_seconds <= 7 * 86400
@@ -89,11 +76,8 @@ impl Trust {
             return Err(Error::msg(sys::refused()));
         }
         let mut seen: Vec<String> = Vec::new();
-        for role in ["artifact", "candidate", "preview", "stable"] {
+        for role in ["artifact"] {
             admit_trust_role_keys(&self.role_keys(role), &mut seen)?;
-            if role != "artifact" && self.minimum(role) == 0 {
-                return Err(Error::msg(sys::refused()));
-            }
         }
         Ok(())
     }

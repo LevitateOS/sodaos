@@ -28,22 +28,11 @@ struct TrustRecord<'a> {
     NotBefore: u64,
     MaxAgeSeconds: u16,
     ClockSkewSeconds: u8,
-    MinimumSequence: MinimumSequence,
 }
 
 #[derive(Serialize)]
 struct TrustKeys<'a> {
     artifact: [&'a str; 1],
-    candidate: [&'a str; 1],
-    preview: [&'a str; 1],
-    stable: [&'a str; 1],
-}
-
-#[derive(Serialize)]
-struct MinimumSequence {
-    candidate: u8,
-    preview: u8,
-    stable: u8,
 }
 
 #[derive(Serialize)]
@@ -87,25 +76,17 @@ pub(super) fn worker_json(
 }
 
 /// `trust_json` emits the trust record with its required final LF.
-pub(super) fn trust_json(prefix: &str, now: u64, pubs: [&str; 4]) -> String {
+pub(super) fn trust_json(prefix: &str, now: u64, public_key: &str) -> String {
     let record = TrustRecord {
         Format: 1,
         Prefix: prefix,
         Epoch: 1,
         Keys: TrustKeys {
-            artifact: [pubs[0]],
-            candidate: [pubs[1]],
-            preview: [pubs[2]],
-            stable: [pubs[3]],
+            artifact: [public_key],
         },
         NotBefore: now - 600,
         MaxAgeSeconds: 3600,
         ClockSkewSeconds: 10,
-        MinimumSequence: MinimumSequence {
-            candidate: 1,
-            preview: 1,
-            stable: 1,
-        },
     };
     pretty_json(&record) + "\n"
 }

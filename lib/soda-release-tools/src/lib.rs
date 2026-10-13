@@ -20,3 +20,5 @@ pub mod exitcode;
 pub mod pipeline;
 pub mod progress;
 pub mod worker;
+
+pub mod release_cli;

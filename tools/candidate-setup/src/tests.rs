@@ -54,12 +54,7 @@ fn trust_json_has_current_fields_and_trailing_newline() {
         trust_json(
             "ghcr.io/levitateos/sodaos/é😀\u{7f}",
             424242,
-            [
-                "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
-                "candidate-pub\n",
-                "preview-pub\n",
-                "stable-pub\n",
-            ],
+            "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm",
         )
     };
     let got = make();
@@ -72,15 +67,10 @@ fn trust_json_has_current_fields_and_trailing_newline() {
         record["Keys"]["artifact"][0],
         "a\"b\\c\nd\re\tf\x08g\x0ch\x01i\x7fj\u{80}k\u{e9}\u{1f600}l\x1fm"
     );
-    assert_eq!(record["Keys"]["candidate"][0], "candidate-pub\n");
-    assert_eq!(record["Keys"]["preview"][0], "preview-pub\n");
-    assert_eq!(record["Keys"]["stable"][0], "stable-pub\n");
+    assert_eq!(record["Keys"].as_object().unwrap().len(), 1);
     assert_eq!(record["NotBefore"], 423642);
     assert_eq!(record["MaxAgeSeconds"], 3600);
     assert_eq!(record["ClockSkewSeconds"], 10);
-    assert_eq!(record["MinimumSequence"]["candidate"], 1);
-    assert_eq!(record["MinimumSequence"]["preview"], 1);
-    assert_eq!(record["MinimumSequence"]["stable"], 1);
     assert_eq!(got, make());
 }
 

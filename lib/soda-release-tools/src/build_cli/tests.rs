@@ -64,10 +64,6 @@ fn admit_internal_dispatch_binds_authority() {
             },
             ..BuildFlags::default()
         },
-        BuildFlags {
-            worker_config: "/cfg".to_owned(),
-            ..BuildFlags::default()
-        },
     ];
     for f in &bad {
         assert!(admit_build_dispatch(f).is_err(), "{f:?}");
@@ -81,6 +77,11 @@ fn admit_internal_dispatch_binds_authority() {
         ..BuildFlags::default()
     };
     assert!(admit_build_dispatch(&good).is_ok());
+    let release_media = BuildFlags {
+        worker_config: "/cfg".to_owned(),
+        ..BuildFlags::default()
+    };
+    assert!(admit_parent_dispatch(&release_media).is_ok());
 }
 
 #[test]
@@ -138,7 +139,10 @@ fn progress_title_matches_go() {
         progress_title(&dev),
         "Soda development media (not release-qualified)"
     );
-    assert_eq!(progress_title(&Request::default()), "Soda release build");
+    assert_eq!(
+        progress_title(&Request::default()),
+        "Soda release media build (not release-qualified)"
+    );
 }
 
 #[test]

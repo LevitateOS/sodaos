@@ -2,7 +2,7 @@
 
 Operator tools for producing Soda candidates and installation media, inspecting
 archives and retrieving verified upstream CoreOS inputs. This package supplies
-`soda-build`, `soda-candidate`, `soda-artifacts` and `soda-candidate-check`.
+`soda-build`, `soda-candidate`, `soda-artifacts`, `soda-candidate-check` and `soda-release`.
 
 ## Choose a command
 
@@ -12,6 +12,7 @@ archives and retrieving verified upstream CoreOS inputs. This package supplies
 | `soda-build` | Dispatch a candidate or media build to an isolated worker. |
 | `soda-candidate-check` | Verify candidate archives against architecture and exact source revisions. |
 | `soda-artifacts` | Inspect OCI archives, fetch verified CoreOS inputs or convert private Butane. |
+| `soda-release` | Stage immutable GitHub release assets and promote them after the native install smoke. |
 
 Use `--help` on any binary to see its flags. Builds require native Linux
 `x86_64`, clean committed Soda and Fountain checkouts, pinned toolchains and an
@@ -19,6 +20,9 @@ operator-admitted controller with restricted worker configuration. Start in the
 Soda checkout root. Follow the
 [native support guide](../../docs/development/native-support.md#local-host-content-image-candidate)
 for setup and input admission; a direct `cargo run` does not admit a controller.
+For the source-to-download path, follow the [release workflow](../../docs/development/release.md).
+The default build produces unqualified release media; staging and promotion are
+explicit subsequent commands.
 
 ## Produce a development candidate
 

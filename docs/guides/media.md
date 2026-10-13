@@ -10,12 +10,18 @@ Build/install procedures: [Installation](installation.md).
 
 | Owner | Responsibility |
 | --- | --- |
-| `soda-candidate`, `soda-build` (`lib/soda-release-tools`) | Development candidate/media producer (no release qualification) |
+| `soda-build` (`lib/soda-release-tools`) | Exact-source candidate/media producer; building alone is not qualification |
+| `soda-release` (`lib/soda-release-tools`) | GitHub prerelease staging and qualification-bound promotion |
 | Stable CoreOS stream (resolved live per build) | Upstream ISO metadata per architecture; observed values recorded, never pinned |
-| `rust/soda-install` | Interactive disk adapter and installed-host continuation |
+| `cmd/soda-install` | Interactive disk adapter and installed-host continuation |
 | `soda-render-provisioning` (`tools/release-assets`) | Public bootstrap Butane/Ignition template |
 
-Python and Butane are build-time tools. They are not required on the live OS.
+Butane is a build-time tool. End users do not author provisioning files.
+
+The downloaded ISO automatically retrieves its authenticated root filesystem from
+the same versioned GitHub release. Internet access to GitHub is required during
+installation. The runtime and bundled application images arrive together; there
+are no separate components for the user to download or assemble.
 
 ## Branding
 
@@ -36,7 +42,7 @@ media; media build is not an application-build prerequisite for a running host.
 ## Install interaction
 
 Manual install uses a password-only text flow with correction/Back/pre-write restart,
-then key enrollment and private setup on the installed host. The installer writes
+then private setup on the installed host, with optional key enrollment. The installer writes
 disks only after explicit confirmation. Interrupted writes must leave a recoverable
 or clearly failed machine state rather than a silently partial appliance.
 

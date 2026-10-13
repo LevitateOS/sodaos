@@ -119,29 +119,22 @@ pub(super) fn admit_fixture_authority(
         cleanup.push(owner.path().to_path_buf());
         let staged_passphrase = format!("{tmpd}/passphrase");
         stage_file(&staged_passphrase, random_hex_passphrase()?.as_bytes())?;
-        for role in ["artifact", "candidate", "preview", "stable"] {
-            let output_prefix = format!("{tmpd}/{role}");
-            run_stdout_null(
-                "skopeo",
-                &[
-                    "generate-sigstore-key",
-                    "--output-prefix",
-                    &output_prefix,
-                    "--passphrase-file",
-                    &staged_passphrase,
-                ],
-            )?;
-        }
+        let output_prefix = format!("{tmpd}/artifact");
+        run_stdout_null(
+            "skopeo",
+            &[
+                "generate-sigstore-key",
+                "--output-prefix",
+                &output_prefix,
+                "--passphrase-file",
+                &staged_passphrase,
+            ],
+        )?;
         let now = unix_now()?;
-        let pubs = [
-            read_staged(&format!("{tmpd}/artifact.pub"))?,
-            read_staged(&format!("{tmpd}/candidate.pub"))?,
-            read_staged(&format!("{tmpd}/preview.pub"))?,
-            read_staged(&format!("{tmpd}/stable.pub"))?,
-        ];
+        let public_key = read_staged(&format!("{tmpd}/artifact.pub"))?;
         stage_file(
             &format!("{tmpd}/trust.json"),
-            trust_json(&prefix, now, [&pubs[0], &pubs[1], &pubs[2], &pubs[3]]).as_bytes(),
+            trust_json(&prefix, now, &public_key).as_bytes(),
         )?;
         stage_file(&format!("{tmpd}/config.json"), config_json().as_bytes())?;
         for name in [

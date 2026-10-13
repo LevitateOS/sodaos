@@ -9,6 +9,35 @@ operator identity through `/api/v1/user`.
 Media continuation: [Installation media](media.md).
 Install/activate context: [Installation](installation.md).
 
+## Guided browser setup
+
+After the release-media disk installation, use a root SSH terminal or local
+console and run `/usr/libexec/soda/soda-install configure`. Root password SSH is
+enabled by that installation; an installed SSH key may be used instead, and
+[key enrollment](../operator/enroll-key.md) is optional.
+
+Select the assigned private address your client can reach. The console supplies
+the SSH tunnel command for Forgejo's loopback installer, asks for the native
+administrator's `read:user` token through hidden input and invokes setup plus
+local HTTPS activation. It passes the token in a restricted temporary file; the
+operator does not create a token file or supply a certificate by hand for this path.
+
+Compare the displayed public CA fingerprint, copy only its public certificate
+through verified SSH, and trust it using the client's normal certificate settings.
+Then verify browser login and a joined Project's real browser terminal. Configure
+a Project subnet route separately when direct Project SSH/services are needed.
+Active units, a configured address or a displayed Project IP alone prove neither
+client reachability nor completed login/execution.
+
+An activated installation produces read-only access guidance on rerun; uncertain
+setup/activation preserves state and must be inspected before retry. The
+[public walkthrough](../public/20-Deploy/25-operator-setup.md) follows this path.
+
+## Deliberate setup with custom configuration
+
+The lower-level commands below are an alternative for an operator selecting a
+custom browser origin/certificate, not additional steps after guided configure.
+
 1. Provision operator host access and start the Forgejo unit. Its web listener
    initially binds host loopback. Do not expose an unfinished installer through the
    public reverse proxy.

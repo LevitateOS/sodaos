@@ -46,7 +46,7 @@ The existing build now pulls the unchanged selected Forgejo/Caddy references for
 
 ## Build and artifact contract
 
-The current `soda-build` and `soda-candidate` public interfaces support development targets only; neither exposes a production build mode.
+`soda-build` produces unqualified release media by default. Its explicit development targets stop at candidate or media; `soda-candidate` remains a development wrapper. Publication and qualification belong to `soda-release`.
 Retained `.artifacts/native/` trees may still be read by maintenance tools.
 
 Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, occupied output or simultaneous build is refused; there is no automatic removal of earlier artifacts. `GOTOOLCHAIN=local` prevents implicit toolchain installation.
@@ -121,9 +121,8 @@ never admits workers, signs, or publishes, and has no production mode. Fixture-o
 media authority is not production signing authority; release delivery and
 publication remain separately owned and grant-scoped as below.
 
-Substitute the operator-admitted absolute paths and explicit URL. Production
-builds are removed: omitting `--development` is refused, target flags require
-development mode, and candidate mode refuses media-only inputs. Development
+Substitute the operator-admitted absolute paths and explicit URL. Omitting `--development` builds release-candidate media without publishing or installing.
+Target flags select development boundaries, and candidate mode refuses media-only inputs. Development
 cannot select publication/final signing.
 Source commands run only inside the separate systemd worker:
 read-only source/tools, selected writable output/cache/runtime binds, CPUs 0–3,
@@ -134,17 +133,16 @@ a four-CPU quota, 16 GiB ceiling, and no operator-home or real-release-custody a
 It and the fixture key inputs belong to the build worker but are bound read-only.
 They are not copied into frozen source or command environment. This authority is
 **fixture-only**: production release keys must never be supplied to the build worker.
-Native identity/custody boundary checks have passed; the complete P9 scenario and
-final release approval remain separate qualification and delivery work. The public URL is explicit and receives a
+Native identity/custody boundary checks do not establish release readiness; the
+public-download installation smoke and promotion remain separate operations. The public URL is explicit and receives a
 hash-named rootfs file. A local URL does not make the ISO distribution-ready.
 
 The controller's VCS revision must match the clean checkout. The admitted source and
 its committed Git objects must be readable by the isolated build identity; private
 untracked inputs are not source inputs and must not be made accessible to fix that.
 Each output is fresh;
-there is no worktree, partial-host mode, resume or skip-tests flag. The intended
-repository prefix defaults to `ghcr.io/levitateos/sodaos`; changing it does not create
-or publish repositories. Source and app inputs freeze before compilation. Prepared
+there is no worktree, partial-host mode, resume or skip-tests flag. The internal image-identity prefix defaults to `ghcr.io/levitateos/sodaos`; it does not
+create a registry dependency. User downloads are GitHub release assets. Source and app inputs freeze before compilation. Prepared
 source/browser suites no longer gate the build; they consume the same emitted
 assets when run directly. Native page/provider journeys still belong to their
 separately authorized qualification drivers.
@@ -198,10 +196,10 @@ worker units). An unmatched reason gets no guess: the log path is the whole
 advice. Preflight refusals happen before any run and say the fix directly: a
 dirty tree lists the files to commit or stash, and a reused `--out` asks for a
 fresh directory per attempt.
-There is no P9/P10 production qualification path: development targets are the
-only builds, and channel/GHCR publication remains grant-scoped. Earlier failures
-stop immediately. These build/inspection effects do not authorize installation,
-publishing or migration.
+The builder has no implicit installation or promotion phase. Use `soda-release`
+after a completed build, following the [release workflow](release.md). Earlier
+failures stop immediately; a build-only task does not authorize publication or
+disk installation.
 The host install floats on current repositories: bare package names plus the
 stable Tailscale repository, with the observed RPM inventory recorded per build
 as the bill-of-materials. No lock file precedes the install, for either
@@ -218,85 +216,28 @@ defines current storage, defaults and machine-state ownership. The base/RPM inve
 is recorded per build, not locked, mirrored or byte-reproducible. No installed-release claim follows
 from local image inspection or ordinary build-cache reuse.
 
-## Trusted release-delivery worker
+## GitHub release delivery
 
-The [release plan](../architecture/release.md)
-owns authority, protocol and custody. The `tools/soda-release` worker CLI was
-removed: delivery operations below live in `lib/soda-release-deliver` with no
-current operator entry point. Nothing there runs build code, installs a
-policy/image, imports Podman state or reboots. It uses the locked native
-skopeo from `lib/soda-release-deliver/tools.json` and the existing M1 OCI
-verifier. No new Go cryptographic signing implementation or registry
-server is introduced. Run source checks/builds with the repository-pinned Go.
-
-All operations require `--trust PUBLIC-TRUST.json` and an absolute `--out`. Trust is
-public but integrity-controlled; it is not build-supplied authority. The exact JSON
-types are in [`internal/release/deliver/model.go`](../../internal/release/deliver/model.go).
-Native subprocesses do not inherit ambient credentials/proxy/user configuration.
-Public anonymous GHCR access is the implemented commissioning target; private pulls
-or an ambient authenticated proxy are not silently substituted.
+The [release architecture](../architecture/release.md#public-distribution) owns
+public hosting and qualification; the [release workflow](release.md#build-once-stage-install-promote)
+provides the concrete commands. The Rust `soda-release` entry point in
+`lib/soda-release-tools` delegates to `lib/soda-release-deliver` and the native
+`gh` client. It does not build, install an image, change host trust or reboot.
 
 | Operation | Inputs and effects |
 | --- | --- |
-| `prepare` | `--input M1-CANDIDATE-DIR --media MEDIA.json --qualification PUBLIC-QUALIFICATION.json`; verifies archives/identities, embeds exact ISO/rootfs bindings and emits one local release OCI layout. Prints its intended digest reference. No signatures/registry effects. |
-| `channel` | `--input CHANNEL.json`; validates channel shape/freshness and writes its local OCI layout/reference. Does not authorize publication or prove referenced artifacts available. |
-| `policy` | Optional `--base-policy FILE`; writes proposed policy/registries.d into a fresh directory, preserving unrelated scopes or refusing conflicts. Never installs it. |
-| `init-state` | `--out NEW-PRIVATE-STATE-FILE`; explicit bootstrap only, refuses an existing file. No discovery/reset/recovery side effect. |
-| `init-ledger` | `--repository EXACT-REPOSITORY --out NEW-PRIVATE-LEDGER-FILE`; explicit publisher bootstrap. Existing channel history cannot be silently adopted with a fresh ledger. |
-| `sign` | `--input LOCAL-PATH --transport oci\|oci-archive\|dir --permit PRIVATE-PERMIT.json --signer PRIVATE-SIGNER.json`; private snapshot, exact-digest admission, local native signing and verification. No registry write or interactive signing prompt. |
-| `publish` | `--input SIGNED-DIR --permit PRIVATE-PERMIT.json --auth-file PRIVATE-AUTH.json --ledger EXISTING-LEDGER`; **real registry writes**, credential use and protected promotion if authorized. Requires fresh output; stops/holds on uncertain effects. |
-| `publish --observe` | Same protected permit/ledger, but no input/auth file needed; observes a recorded pending/completed publication without replaying uploads, including after permit expiry. It is not a fresh-offer/activation approval. |
-| `fetch` | `--channel candidate\|preview\|stable --arch ARCH --state EXISTING-STATE`; public discovery plus native signature-verified downloads, durable observed-authority state and a verified receipt only after completeness. No installation/activation. |
+| `stage` | Reads exact candidate/media/source artifacts, prepares a fresh asset directory, checks the tag and per-file size limit, uploads a draft, compares remote hashes and sizes, and publishes an immutable prerelease. Requires GitHub repository write access. |
+| `promote` | Reads the prepared release and a native install/boot/application receipt, verifies the downloaded ISO and unchanged GitHub inventory, then updates notes and prerelease/latest flags. No image re-upload or disk mutation. |
 
-Except the two initialization operations, `--out` names a **new** directory with an
-existing real parent. It is never reused/cleared automatically. Keep local outputs
-under `.artifacts/release-delivery/`. Private keys/passphrases/permits/auth/signer
-configuration must be real files owned by the worker, with no group/other access,
-inside restricted directories. `PRIVATE-SIGNER.json` contains only `Key` and
-`Passphrase` absolute filenames; secret values never go in argv. `Permit` specifies
-exact `Repository`, `Digest`, expiry and, for promotion, the previously approved
-channel digest or explicit `absent` bootstrap. The **protected pipeline worker**
-produces these permits after qualification; users do not manually sign releases or
-write per-release permits as the intended operating procedure. Build/test workers
-must not share the signer's UID, credentials or generic command authority.
+Keep private authority inputs and task receipts on the workspace disk. Only public
+artifact files enter the upload set; keys, passphrases, credentials and private VM
+configuration must never be published. Native OCI artifact signing remains a local
+packaging boundary and uses restricted key/passphrase files. GitHub owns published
+asset and tag immutability; no local channel state or publication ledger is needed.
 
-Preserve snapshots, signatures, pending ledgers and failed outputs. Skopeo's
-`--remove-signatures` applies only to the new private signing snapshot so an existing
-signature cannot mask the wrong signing key; it does not remove registry artifacts
-or signatures. Every publication uses `--preserve-digests` and verifies an anonymous
-native round trip. A complete or uncertain job is observed, not automatically replayed.
-There is no tag CAS or distributed publisher lock; obey the owning single-writer
-contract. Explicit fault reconciliation is not ordinary per-release manual signing.
-
-Source/process-double checks:
-
-```sh
-GOTOOLCHAIN=go1.26.7 go test -race ./internal/release/deliver
-```
-
-Native **filesystem-only** Sigstore proof, using fresh synthetic keys and no network
-transport, registry, daemon, fixture lifecycle or global trust changes:
-
-```sh
-mkdir -p .artifacts/release-delivery
-SODA_RELEASE_NATIVE_OUT="$PWD/.artifacts/release-delivery/UNIQUE-NATIVE-PROOF" \
-  GOTOOLCHAIN=go1.26.7 go test ./internal/release/deliver \
-  -run '^TestNativeSigstoreDirectoryRoundTrip$' -count=1 -v
-```
-
-The directory must not exist. Keys, private passphrase, failed copies and the receipt
-remain restricted there; never commit or publish them. This opt-in native receipt
-is not GHCR attachment/anonymous-pull, installed bootc policy/cache, worker isolation
-or native boot/upgrade acceptance. Real resource provisioning/publication needs its
-exact grant; no release timer or worker service is installed by these commands.
-
-The [retained real bootstrap receipt](release.md)
-identifies the root-only builder state at `/var/lib/soda-release`, public trust at
-`system/host/trust/release-trust.json`, completed immutable uploads and the remaining
-GitHub visibility step. That operational state is separate from synthetic/local-test
-outputs. Do not rerun initialization/key generation or recreate its root. Use the
-[permissions policy](../../AGENTS.md#permissions-and-preservation) for the bounded
-candidate commissioning grant; this guide does not authorize additional effects.
+An existing or uncertain publication is inspected rather than overwritten. There
+is no automatic asset clobbering or cleanup of failed attempts. A prerelease is
+explicitly unqualified until the one bounded public-download native smoke passes.
 
 ## SSH, commands and exact-source remote phases
 

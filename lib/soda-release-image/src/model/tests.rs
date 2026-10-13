@@ -69,31 +69,6 @@ fn oracle_payload_identity_validation() {
 }
 
 #[test]
-fn trust_key_admission_preserves_cross_role_separation() {
-    let key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaxfR8uEsQkf4vOblY6RA8ncDfYEt\n6zOg9KE5RdiYwpZP40Li/hp/m47n60p8D54WK84zV2sxXs7LtkBoN79R9Q==\n-----END PUBLIC KEY-----".to_string();
-    let trust = Trust {
-        format: 1,
-        prefix: "ghcr.io/example/sodaos".to_string(),
-        epoch: 1,
-        keys: ["artifact", "candidate", "preview", "stable"]
-            .into_iter()
-            .map(|role| (role.to_string(), vec![key.clone()]))
-            .collect(),
-        not_before: 1,
-        max_age_seconds: 60,
-        clock_skew_seconds: 0,
-        minimum_sequence: ["candidate", "preview", "stable"]
-            .into_iter()
-            .map(|role| (role.to_string(), 1))
-            .collect(),
-    };
-    assert_eq!(
-        trust.validate().unwrap_err().0,
-        "signer roles must not share keys"
-    );
-}
-
-#[test]
 fn producer_trust_fixture_keeps_its_raw_der_fingerprint() {
     let text = include_str!("../../../../system/host/trust/release-trust.json");
     let trust = Trust::parse(text).expect("producer trust fixture");

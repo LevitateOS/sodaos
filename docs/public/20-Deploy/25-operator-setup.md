@@ -1,135 +1,113 @@
 # Operator setup
 
-Prepare the appliance, Forgejo and private access, then configure the agent profile and authority for approved software work.
+Continue from the installed appliance to trusted private browser access using the guided setup console.
 
-Host administration, Forgejo collaboration, factory execution and persistent human
-projects have separate authority. The [factory walkthrough](../30-Use-Soda/15-software-factory.md)
-describes explicit task admission after the appliance is configured.
+Host administration, native Forgejo accounts, Project membership and factory
+execution have separate authority. Keep the root password for the operator;
+create normal Forgejo accounts for developers. Browser setup does not enroll a
+provider account or authorize factory work.
 
-## Keep four authorities separate
+## Connect to the installed appliance
 
-Native host root administers the appliance and Cockpit. Forgejo has its own
-administrator account. Soda records a configured operator by their stable
-Forgejo identity. Project owners administer only their own environments.
-Do not create developer host accounts or reuse root's password as a team login.
-
-Complete the selected release's host/component installation first. Its initial
-Forgejo listener is loopback-only; Cockpit listens on all interfaces with
-root-only authentication from the start, so keep the host on its private
-network. Keep native console access and use the operator's verified SSH key;
-keep bootstrap access private. If no operator key is installed yet, the
-[optional key enrollment](../../operator/enroll-key.md) imports one laptop key
-through a short password-only window.
-
-## Configure Forgejo privately
-
-From the operator's client, open a loopback-bound tunnel:
+Keep the host on its private network and retain local or VM console access.
+The guided disk installation enables root password SSH. From your client:
 
 ```sh
-ssh -N -L 127.0.0.1:3000:127.0.0.1:3000 root@APPLIANCE_ADDRESS
+ssh root@APPLIANCE_ADDRESS
 ```
 
-Replace `APPLIANCE_ADDRESS` with the approved private host endpoint and verify
-its SSH host key independently. Open `http://127.0.0.1:3000` locally to complete
-Forgejo's native installation and establish its administrator. That HTTP path
-stays inside your SSH tunnel; it is not the team's published browser origin.
+Use the actual private address displayed by the appliance and verify its SSH
+host fingerprint independently before entering the installation password.
+An installed operator key can be used instead; key enrollment is optional.
 
-Configure the intended Forgejo HTTPS origin and Git SSH port **2222**. Preserve
-Forgejo's own persistent data and follow its
-[administration documentation](https://forgejo.org/docs/latest/admin/).
-
-## Configure Soda's identity integration
-
-Using Forgejo's native settings, create the operator token required for setup:
-`read:user`, belonging to a Forgejo site administrator. Setup only reads
-`/api/v1/user` to confirm that administrator identity.
-Setup does not need admin or repository token scopes. Store it through a
-private input channel in a mode-0600 file on the appliance, not argv or a shared
-terminal transcript. Do not lend this server credential to developers.
-
-On the host, replace the example Forgejo origin and token-file path:
+Run the guided setup in a root SSH terminal or local console:
 
 ```sh
-/usr/bin/soda-setup \
-  --forgejo-url https://git.example.test \
-  --token-file /root/private/forgejo-token
+/usr/libexec/soda/soda-install configure
 ```
 
-Setup records the operator identity and creates the grant-encryption key.
-It creates no OAuth application and retains no OAuth secret; it keeps no
-bootstrap-token copy/reference and leaves the supplied token file unchanged.
-After durable configuration, setup revokes the bootstrap token server-side
-so the token itself is unusable; failures before that point keep it usable
-for retry. Other existing copies need
-separately authorized maintenance;
-setup does not delete or revoke them.
-Soda's browser pages and product operations use Forgejo's native extension service
-on the configured HTTPS origin. The public `/-/soda/` routes are limited to the
-broker identity callback and avatar provider. The origin must resolve to the
-approved endpoint and be covered by a trusted certificate. Setup refuses to overwrite existing configuration. After
-an uncertain failure, inspect Forgejo's applications and Soda's existing state
-before retrying; do not reset its databases.
+Choose the listed private appliance address your client can reach. Use a stable
+address or DHCP reservation: changing it later requires explicit configuration
+maintenance. No domain or separately supplied certificate is needed for this
+local HTTPS path.
 
-## Activate trusted private browser access
+## Complete native Forgejo setup
 
-Supply a valid certificate/key covering the configured Forgejo/Sodaspaces origin. Use a
-restricted private input directory. Select the private appliance IP deliberately:
+The console gives you an SSH tunnel command. From your client, using the selected
+private appliance address:
 
 ```sh
-/usr/bin/soda-activate \
-  --bind-ip PRIVATE_APPLIANCE_IP \
-  --certificate /root/private/browser-cert.pem \
-  --private-key /root/private/browser-key.pem
+ssh -N -L 33000:127.0.0.1:3000 root@APPLIANCE_ADDRESS
 ```
 
-Activation binds the proxy and Forgejo Git SSH to that private IP and starts the
-services with their required permissions. The dashboard process is unprivileged.
-Never substitute a public address or disable TLS checks to complete activation.
+Open `http://localhost:33000` on that client. Complete Forgejo's native installation
+and create its administrator. Keep its localhost browser URL during bootstrap;
+the guided activation sets the final private HTTPS origin and Git SSH port 2222.
+The unfinished installer remains behind the tunnel, rather than a public proxy.
 
-For Tailnet Git access, enroll the host first and choose the intended Tailnet
-listener address. Later advertisement refresh is not a substitute for a reachable
-listener. Browser/OAuth origins remain distinct configured values.
+In Forgejo **Settings > Applications**, create an administrator-owned token with
+`read:user`. No admin or repository token scope is needed for browser setup.
+Return to the root setup terminal, type `CONFIGURE SODA` when ready and enter the
+token at the hidden prompt. Do not paste it into a command, issue or shared log.
+The console supplies it privately to setup; you do not create a token file by hand.
 
-## Route projects to developers
+Setup reads `/api/v1/user`, records the native operator identity and writes the
+browser configuration. It creates no OAuth application and does not provision
+the identity broker or its encryption key. After durable configuration it revokes
+the bootstrap token server-side. Factory enrollment is a separate operator action.
 
-Choose a private project subnet that overlaps neither the host LAN nor other
-client/VPN routes. Soda also reserves `10.88.0.0/16` for Podman's default
-bridge and `10.90.0.0/24` for the appliance network. Project addresses live on
-the appliance's routed bridge.
-Establish either a LAN-router route via the appliance or a native Tailscale subnet
-route with the required administrator approval and access rules.
+## Trust and open the private browser address
 
-See [Tailscale subnet routing](../30-Use-Soda/40-tailscale.md#route-the-project-subnet).
-Verify from the intended developer client, not only from the host. A dashboard
-page displaying a bridge IP is not a connectivity check. Limit forwarding and
-service access to the approved private networks.
+Guided activation uses the selected private IP and Caddy's local HTTPS certificate.
+Wait for the console to confirm the browser services and display the public CA's
+SHA-256 certificate fingerprint and copy command.
 
-## Check and hand over
+Copy only the public root certificate over the verified SSH connection. Compare
+its certificate fingerprint with the console, then install it through your
+client/browser's normal certificate trust settings. Never copy the CA private key
+or disable TLS checking to bypass a warning.
 
-1. Verify trusted Soda and Forgejo HTTPS origins from the client, and sign in as
-   the configured operator through Forgejo.
-2. Verify separate [root-only Cockpit access](../30-Use-Soda/10-cockpit.md).
-3. Use **People** to [add a developer](../50-Operate/10-people-and-access.md).
-4. Have that person complete login, development-key registration and an explicit
-   join, then verify project SSH and Git independently.
-5. Record private endpoints, trust material and the backup procedure in protected
-   operator records. Share only the URLs/public identity details each user needs.
+Open the exact displayed HTTPS address and sign in to Forgejo. A reported active
+service or configured URL is not a successful client login; verify it from the
+intended client. Cockpit remains separate host administration with root-only login.
 
-Setup and first installation are not normal upgrade commands. Preserve existing
-configuration, grant-encryption key, databases and project roots during
-[maintenance](../30-Use-Soda/60-updates-and-fallback.md).
+## Check the first Project
 
-## Configure bounded agent execution
+Create or choose a repository, open Sodaspaces, explicitly create its development
+environment as its owner, then Join as a code-write-authorized member. The creator
+must Join too. Open a browser terminal and verify its Project login/home.
 
-After private Forgejo access is established, supervise bounded agent execution
-through the [factory operator reference](../../reference/factory.md): the
-`soda-factory` operator command inspects recorded runs, retires one run and
-settles outstanding work, as shown in the
-[first-task walkthrough](../30-Use-Soda/15-software-factory.md). Automatic
-intake remains unavailable: a project join, issue label or repository creation
-does not admit work. Configure CPU, memory, process and writable-storage limits
-against available capacity, and select permitted network destinations deliberately.
+An external development SSH key is optional for browser terminals. If you need
+direct Project SSH or service access, choose a non-overlapping private Project
+subnet and establish its client route through your LAN router or an approved
+[Tailscale subnet route](../30-Use-Soda/40-tailscale.md#route-the-project-subnet).
+Soda reserves `10.88.0.0/16` and `10.90.0.0/24`; check the selected Project subnet
+against other LAN/VPN routes. A displayed Project address proves no client route.
 
-Keep the dedicated provider credential home outside human project roots. Protect
-the factory ledger and its workspace/publication directories. Verify the first task,
-its exact-commit CI and review, and recorded cleanup before routine operation.
+Use [People and access](../50-Operate/10-people-and-access.md) to onboard developers,
+then have one complete [First connection](30-first-connection.md) with their own
+account. Share only the endpoints/public identity details each person needs and
+retain protected operator records and a backup procedure.
+
+## Optional operator key
+
+To import a laptop public key later, run `soda-install enroll-key` from the native
+root console. Choose the reachable private IPv4 address, verify its displayed
+host fingerprint and explicitly arm the temporary import window. It accepts one
+public key through password authentication on port 22222 for at most five minutes.
+Keep the private key on your client. After verifying key access, decide separately
+whether to disable host password logins.
+
+## Preserve existing setup
+
+Rerunning configure on an activated appliance gives read-only access guidance
+instead of another bootstrap. If setup or activation was not confirmed, inspect
+the retained configuration and service state before retrying; do not delete its
+markers, databases, encryption keys or Project roots as repair.
+
+Installation and first setup are not upgrade commands. Follow
+[maintenance](../30-Use-Soda/60-updates-and-fallback.md) for existing installations.
+Configure provider connections, native factory actors and bounded execution
+through the separate [factory walkthrough](../30-Use-Soda/15-software-factory.md)
+after browser access is established. A login, repository or Project Join does not
+grant factory execution authority.

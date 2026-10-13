@@ -282,15 +282,16 @@ fn oracle_asset_destinations_refuse_early() {
 }
 
 #[test]
-fn oracle_compile_recipes() {
+fn shipping_compile_recipes() {
     // Oracle: TestProductionCompileKeepsLayoutAndVerifiesELF +
     // TestProductionCompileRustKeepsLayoutAndVerifiesELF.
     let (prod, calls, _root) = production_fixture();
     let dest = PathBuf::from(&prod.out).join("program");
-    prod.compile("./cmd/soda-host", &dest.to_string_lossy())
+    prod.compile("./cmd/soda-dashboard", &dest.to_string_lossy())
         .unwrap();
     let text = calls.lock().unwrap().join("\n");
     assert!(text.contains("-buildvcs=false") && !text.contains("-tags="));
+    assert!(text.contains("-ldflags=-s -w"));
     assert_eq!(text.matches("go build").count(), 1);
     let dest = PathBuf::from(&prod.out).join("soda-identity-compose");
     prod.compile_rust(
@@ -302,6 +303,7 @@ fn oracle_compile_recipes() {
     let text = calls.lock().unwrap().join("\n");
     assert!(
         text.contains("cargo build --release --locked --offline")
+            && text.contains("--config profile.release.strip=\"symbols\"")
             && text.contains("-p soda-identity-compose --bin soda-identity-compose")
     );
     assert_eq!(text.matches("cargo build").count(), 1);

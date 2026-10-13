@@ -9,7 +9,6 @@ pub mod buildx;
 pub mod check;
 pub mod content;
 pub mod document;
-pub mod fetch;
 pub(crate) mod json_serde;
 pub mod model;
 pub mod native;
@@ -18,9 +17,7 @@ pub mod payload;
 pub mod prepare;
 pub mod publish;
 
-pub use model::{
-    admit_channel, admit_release, empty_state, Channel, Highwater, Permit, Release, Seen, Trust,
-};
+pub use model::{Permit, Trust};
 pub use payload::{Image, Payload, NAMES};
 
 /// Validation/transport failure with a diagnostic message.
@@ -68,11 +65,6 @@ pub fn hash_bytes(data: &[u8]) -> String {
 /// `Digest`: `sha256:`-prefixed digest shape.
 pub fn is_digest_ref(s: &str) -> bool {
     s.len() == 7 + 64 && s.starts_with("sha256:") && soda_build_tools::reader::is_digest(&s[7..])
-}
-
-/// `channel`: known channel names.
-pub fn is_channel(s: &str) -> bool {
-    s == "candidate" || s == "preview" || s == "stable"
 }
 
 /// Current UTC time as a Unix timestamp (`nowUTC().Unix()`).
