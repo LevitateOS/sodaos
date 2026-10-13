@@ -48,6 +48,11 @@ test('native Soda package contains its entire local browser asset graph', async 
       'soda-terminal/xterm.LICENSE',
       'soda-terminal/fit.LICENSE',
       'licenses/lit.LICENSE',
+      'licenses/font-sources.json',
+      'licenses/fonts/barlow.LICENSE',
+      'licenses/fonts/barlow-condensed.LICENSE',
+      'licenses/fonts/fraunces.LICENSE',
+      'licenses/fonts/ibm-plex-mono.LICENSE',
     ])
       expect(files).toContain(name);
     for (const name of files.filter((file) => file.endsWith('.js'))) {
