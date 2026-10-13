@@ -781,75 +781,46 @@ The outer plate is red; the middle plate is dark on light surfaces and white on
 dark surfaces; the inner core is transparent. Guest, explicit account and automatic
 theme choices select the matching SVG. Native image and home-link semantics remain.
 
-## Native-frontend correction prep inventory (NFX-H03/H04/H05, 2026-10-13)
+## Native-frontend customization inventory (NFX-H03/H04/H05)
 
-Rechecked against Soda `4a062801` and Fountain `6abafdb4`. This is a
-preparation record only; it accepts none of H03–H05.
+Source inspection uses Soda `72284a49` and Fountain `042b3bc3`, with the
+callable C03 browser contract, C04 shared-owner/subroute registration and A04
+native contribution containers. These inputs replace the earlier preparation
+dependencies; they do not qualify every branded destination or installed page.
 
-- **H03 override census.** The payload ships 264 template destinations:
-  243 also exist in Fountain and every one differs (branding structure,
-  classes or copy), 21 are Soda-only (`custom/soda/*`, explore wrappers,
-  split repo-settings partials), and none is byte-identical to its native
-  counterpart. The script overrides are likewise live product behaviour:
-  `repository-switcher.ts` (remote repository search over the native
-  Fomantic dropdown), `repository-actions.ts` (responsive `<details>`
-  action menu), `notification-preview.ts` (native HTMX inbox fragment),
-  `personal-settings.ts` and `login-theme.ts` (settings/guest-theme
-  behaviour). No template or script removal is callable yet: each removal
-  needs the corresponding H-C (A04 native placement/containers) or
-  H-ROUTE (C04 declared subroutes/programmatic navigation) capability,
-  and Fountain still admits only the host-owned `workspace`/`tailnet`
-  global routes with no declared subroutes. Keep approved extension
-  tabs discoverable and account/repository controls native meanwhile.
-- **H04 central joins.** `internal/web/api/extension_native.go` already
-  registers every current product route centrally behind
-  `extensionProtected` (factory, repositories, spaces, environments,
-  identity and `settings/tailnet*`), and the Tailnet frontend reaches
-  them only through the mount transport (`settings/tailnet[/host|/enrollment]`,
-  `environments/{id}/tailnet`). No remaining G/D-requested handler,
-  duplicated DTO/router owner or superseded hardcoded bridge caller was
-  found in H-owned files. The three contribution gates stay distinct:
-  bridge admission (`auth.ExtensionContribution`), operator authorizer
-  (`cmd/soda-extension`), and per-path product gate
-  (`extensionProductContribution`).
-- **H05 Tailnet composition state.** The Tailnet page is operator-only
-  at every gate (manifest route, contribution authorizer, product gate)
-  and read-only observation already refuses non-operators. It still
-  drives concealment from `pagehide`/`pageshow`/`visibilitychange`
-  instead of the host lifecycle, and the Soda contract mirror is stale
-  (pinned Fountain `e8aa420d3e` prototype vs current canonical
-  `6abafdb4` C03 contract). Migrating the entry to host
-  `update`/`suspend`/`resume`/`retire` waits for the C/D re-pin (H-N)
-  and D05's transport/lifecycle migration; do not layer it onto the
-  un-migrated `prepareExtensionMount` adapter from H alone.
+- **H03 override census.** The payload still ships 264 template destinations:
+  243 exist in Fountain, 21 are Soda-only presentation partials, and none is
+  byte-identical to its native counterpart. This comparison identifies source
+  differences, not 264 native-route acceptance results. The payload overrides
+  neither `base/head`, `base/footer`, `base/head_navbar`, `admin/navbar` nor
+  `extensions/{page,content,panels}`. Fountain supplies the shared shell,
+  account controls and contribution placement. No shipped template contains
+  the retired iframe/Workspace-wrapper navigation hooks, and this review found
+  no redundant shell implementation to remove from those templates.
+- **Retained product presentation.** The repository header keeps native
+  permission gates, unit tabs and controls while adding the repository switcher.
+  Its `custom` dropdown remains feature-owned, using native Fomantic keyboard
+  and ARIA behavior with Soda's repository search. `repository-actions.ts`,
+  `notification-preview.ts`, `personal-settings.ts` and `login-theme.ts` supply
+  branded action-menu, native inbox-preview, settings and guest-theme behavior;
+  native contribution placement does not replace those features. Their source
+  classification is not proof of initialization on every native transition.
+- **Approved extension tabs.** The branded repository header renders non-admin
+  repository tabs; `repo/settings/navbar` renders admin extension tabs and
+  `user/settings/navbar` renders user extension tabs. Native current-page and
+  visibility conditions remain. The global account and admin navbars stay
+  Fountain-owned. `scripts/forgejo_branding_composition_test.go` renders these
+  source joins, including both current-page choices and the native-history guard.
+- **H04 and Tailnet boundary.** Product handlers remain centrally protected in
+  `internal/web/api/extension_native.go`. Bridge admission, the configured-operator
+  authorizer and per-path product policy remain separate checks. Tailnet now
+  consumes the host's `update`/`suspend`/`resume`/`retire` callbacks and supplied
+  transport; the former browser-cache listeners and stale prototype mirror are
+  no longer pending migration inputs. Concealment and native session validation
+  remain host-owned; product operator refusal is retained.
 
-## Wave-2 H03/H05 slices (independent of A04/H-C)
-
-Rechecked against Soda `6a931fca` and Fountain `70f3f656c6` (C03 contract
-v1, C04 owner/subroutes, B03–B06 native lifetimes merged).
-
-- **Restored discoverability.** Fountain renders approved extension pages
-  in five native templates; Soda overrides three of them. The repository
-  header already rendered non-admin repository tabs first, but the branded
-  `repo/settings/navbar` dropped the admin extension tabs and
-  `user/settings/navbar` dropped the user extension tabs that Fountain
-  renders. Both navbars now render those pages again (admin-only in
-  repository settings, mirroring Fountain; all user pages in account
-  settings), with the native current-page semantics expressed as
-  `aria-current`. The global account navbar and admin navbar are not
-  overridden, so their native controls and tabs stay Fountain-owned.
-  Source composition in `scripts/forgejo_branding_composition_test.go`
-  covers both header entry orders (native page current, extension page
-  current), the switcher, the settings tabs and the native-history guard.
-- **Still blocked on A04/H-C.** No further template or script removal is
-  callable: the remaining 264-destination census entries carry live
-  branding structure/classes or Soda product behaviour, and their
-  simplification needs the native placement/container handoff, not
-  C03/C04/B03. The five scripts stay: B03 explicitly leaves `custom`
-  dropdowns to their feature owner (the switcher), and the other four
-  implement Soda product behaviour with no native replacement.
-- **E-owned needs (listed, not edited here).** If a future H-C container
-  lets a settings extension link live outside the grouped menus, E should
-  confirm `.soda-settings-nav-link` spacing in
-  `assets/branding/forgejo/components-settings.css`; no `components.css`
-  brand-section change is needed for the restored tabs.
+Branded source/template checks, browser composition and installed observations
+are distinct evidence. Broader native navigation is still being qualified;
+H05's real controls/history/operator composition and I08's installed page/state
+coverage must use their actual input pins. No blanket removal or acceptance of
+the 264 destinations follows from this inventory.
