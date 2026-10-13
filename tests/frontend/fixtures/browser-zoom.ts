@@ -5,6 +5,7 @@ import {chromium, type Page} from 'playwright';
 type ChromeZoom = {
   tabs: {
     query(query: object): Promise<Array<{id?: number; url?: string}>>;
+    setZoomSettings(id: number, settings: {mode: 'automatic'; scope: 'per-tab'}): Promise<void>;
     setZoom(id: number, factor: number): Promise<void>;
     getZoom(id: number): Promise<number>;
   };
@@ -49,6 +50,7 @@ export async function browserZoomFixture() {
           const matches = (await chrome.tabs.query({})).filter((tab) => tab.url === url);
           if (matches.length !== 1 || matches[0]?.id === undefined) throw Error('Unique zoom subject missing');
           const id = matches[0].id;
+          await chrome.tabs.setZoomSettings(id, {mode: 'automatic', scope: 'per-tab'});
           await chrome.tabs.setZoom(id, zoom);
           return chrome.tabs.getZoom(id);
         },

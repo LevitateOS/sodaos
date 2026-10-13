@@ -7,12 +7,13 @@ import {captureSpacesComponent} from '../../../scripts/screenshot';
 
 const root = path.resolve(import.meta.dirname, '../../..');
 let browser: Browser, server: ReturnType<typeof Bun.serve>;
+let pageFactory: () => Promise<Page>;
 // Lit preserves template whitespace in text nodes, so raw text contents vary with
 // source formatting. Collapse runs like rendered HTML does.
 export async function textContents(locator: Locator): Promise<string[]> {
   return (await locator.allTextContents()).map((s) => s.replace(/\s+/g, ' ').trim());
 }
-export function setupWorkspaceDriver() {
+export function setupWorkspaceDriver(createPage?: () => Promise<Page>) {
   before(async () => {
     const build = await Bun.build({
       entrypoints: [path.join(root, 'tests/frontend/fixtures/workspace-fixture.ts')],
@@ -81,7 +82,8 @@ export function setupWorkspaceDriver() {
         );
       },
     });
-    browser = await chromium.launch({headless: true, chromiumSandbox: true});
+    if (!createPage) browser = await chromium.launch({headless: true, chromiumSandbox: true});
+    pageFactory = createPage ?? (() => browser.newPage({viewport: {width: 1440, height: 1000}}));
   });
   after(async () => {
     await browser?.close();
@@ -95,7 +97,7 @@ export async function fixture(
   firstUse = false,
   subpath = ''
 ) {
-  const page = await browser.newPage({viewport: {width: 1440, height: 1000}}),
+  const page = await pageFactory(),
     errors: string[] = [];
   page.setDefaultTimeout(5000);
   page.on('pageerror', (e) => errors.push(e.message));

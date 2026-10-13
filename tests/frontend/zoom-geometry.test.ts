@@ -1,7 +1,8 @@
-import test from 'node:test';
+import test, {before, after} from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright';
 import {setupSettingsGeometryDriver, settingsFixture} from './fixtures/settings-geometry-driver';
+import {browserZoomFixture} from './fixtures/browser-zoom';
 import {
   setupWorkspaceDriver,
   fixture,
@@ -10,17 +11,20 @@ import {
   paneAction,
   chooseFirstRepository,
 } from './fixtures/workspace-driver';
-setupSettingsGeometryDriver();
-setupWorkspaceDriver();
+let browser: Awaited<ReturnType<typeof browserZoomFixture>>;
+before(async () => {
+  browser = await browserZoomFixture();
+});
+after(async () => {
+  await browser?.close();
+});
+setupSettingsGeometryDriver(() => browser.context.newPage());
+setupWorkspaceDriver(() => browser.context.newPage());
 
 // F05: actual browser zoom, keyboard, compact and short-height reachability.
-// Earlier geometry suites shrink the CSS viewport as a proxy (device pixel
-// ratio stays 1). These cases instead drive Chromium's own device-metrics
-// zoom emulation — the layout viewport shrinks to physical/zoom while the
-// device pixel ratio rises to the zoom factor, exactly as desktop browser
-// zoom presents to CSS — and assert that distinction, so a plain resize
-// cannot satisfy them. Keyboard zoom shortcuts are inert in headless
-// Chromium, so the metrics override is the honest automatable zoom path.
+// Chromium's tabs.setZoom/getZoom changes and verifies its actual per-tab
+// browser zoom. These authored component fixtures exercise source behavior;
+// they do not establish native template rendering or installed behavior.
 // Physical window for every zoom case: 1440x1000.
 
 const PHYSICAL = {width: 1440, height: 1000};
@@ -30,18 +34,7 @@ async function applyZoom(page: Page, factor: 2 | 4): Promise<{width: number; hei
     width: Math.round(PHYSICAL.width / factor),
     height: Math.round(PHYSICAL.height / factor),
   };
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width: css.width,
-    height: css.height,
-    deviceScaleFactor: factor,
-    mobile: false,
-  });
-  const actual = await page.evaluate(() => ({
-    width: innerWidth,
-    height: innerHeight,
-    dpr: devicePixelRatio,
-  }));
+  const actual = await browser.setZoom(page, factor);
   assert.deepEqual(
     actual,
     {width: css.width, height: css.height, dpr: factor},
@@ -74,12 +67,8 @@ const tabs = ['Overview', 'Access', 'Network', 'Factory'] as const;
 
 for (const factor of [2, 4] as const) {
   test(`settings zoom ${factor}x: every tab panel stays usable with reachable controls`, async (t) => {
-    const css = {
-      width: Math.round(PHYSICAL.width / factor),
-      height: Math.round(PHYSICAL.height / factor),
-    };
-    // The native host allocation scales with the window: 600 physical px.
-    const page = await settingsFixture(t, {}, {...css, allocation: Math.round(600 / factor)});
+    // Authored host allocation: 600 physical px, expressed in zoomed CSS px.
+    const page = await settingsFixture(t, {}, {...PHYSICAL, allocation: Math.round(600 / factor)});
     await applyZoom(page, factor);
     for (const tab of tabs) {
       await page.getByRole('tab', {name: tab, exact: true}).click();
@@ -119,7 +108,7 @@ for (const factor of [2, 4] as const) {
 }
 
 test('settings zoom 4x: arrow/Home/End tab keyboard navigation still follows focus', async (t) => {
-  const page = await settingsFixture(t, {}, {width: 360, height: 250, allocation: 150});
+  const page = await settingsFixture(t, {}, {...PHYSICAL, allocation: 150});
   await applyZoom(page, 4);
   const selected = () => page.locator('[role=tab][aria-selected=true]').innerText();
   await page.getByRole('tab', {name: 'Overview', exact: true}).click();
@@ -259,7 +248,7 @@ test('workspace zoom 4x: toolbar scrolls, menu stays on-screen, terminal keeps h
   const css = await applyZoom(page, 4);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await openSession(page, 'Build');
-  // Pane projection recomputes asynchronously after the metrics change.
+  // Pane projection recomputes asynchronously after the browser zoom change.
   await page.waitForFunction(
     () => (document.querySelector('.soda-workspace-terminal:not([hidden])')?.getBoundingClientRect().height ?? 0) >= 44,
     null,
@@ -293,7 +282,7 @@ test('empty pane zoom 4x: selection message and actions stay inside the pane', {
   const css = await applyZoom(page, 4);
   const pane = page.locator('.soda-empty-pane:visible');
   await pane.waitFor();
-  // Pane projection recomputes asynchronously after the metrics change.
+  // Pane projection recomputes asynchronously after the browser zoom change.
   await page.waitForFunction(
     () => (document.querySelector('.soda-empty-pane')?.getBoundingClientRect().height ?? 0) >= 60,
     null,

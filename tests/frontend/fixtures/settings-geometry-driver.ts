@@ -7,12 +7,13 @@ import type {State} from './drawer-fixture';
 const root = path.resolve(import.meta.dirname, '../../..');
 let browser: Browser;
 let server: ReturnType<typeof Bun.serve>;
+let pageFactory: (viewport: SettingsViewport) => Promise<Page>;
 // F01 composed settings allocation. Unlike the bare drawer mount, this serves
 // the production stylesheets and the production management-container structure,
 // so host sizing comes from the real rules. The 600 px management height
 // reproduces the installed fixed flex-parent measurement; the harness adds only
 // that allocation plus a layout-neutral mount wrapper.
-export function setupSettingsGeometryDriver() {
+export function setupSettingsGeometryDriver(createPage?: (viewport: SettingsViewport) => Promise<Page>) {
   before(async () => {
     const build = await Bun.build({
       entrypoints: [path.join(root, 'tests/frontend/fixtures/drawer-fixture.ts')],
@@ -51,7 +52,9 @@ export function setupSettingsGeometryDriver() {
         );
       },
     });
-    browser = await chromium.launch({headless: true, chromiumSandbox: true});
+    if (!createPage) browser = await chromium.launch({headless: true, chromiumSandbox: true});
+    pageFactory =
+      createPage ?? ((viewport) => browser.newPage({viewport: {width: viewport.width, height: viewport.height}}));
   });
   after(async () => {
     await browser?.close();
@@ -100,7 +103,7 @@ export async function settingsFixture(
   extra: Partial<State> = {},
   viewport: SettingsViewport = {width: 1440, height: 1000, allocation: 600}
 ): Promise<Page> {
-  const page = await browser.newPage({viewport: {width: viewport.width, height: viewport.height}});
+  const page = await pageFactory(viewport);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   t.after(async () => {
