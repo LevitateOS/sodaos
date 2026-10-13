@@ -8,10 +8,17 @@ import (
 	"testing"
 )
 
+type forgejoThemeStrings struct{}
+
+func (forgejoThemeStrings) HasPrefix(s, prefix string) bool { return strings.HasPrefix(s, prefix) }
+
 func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
+	selectedTheme := "soda-auto"
 	functions := template.FuncMap{
 		"AppSubUrl":      func() string { return "/forge" },
 		"AssetUrlPrefix": func() string { return "/forge/assets" },
+		"ThemeName":      func(any) string { return selectedTheme },
+		"StringUtils":    func() forgejoThemeStrings { return forgejoThemeStrings{} },
 		"ctx": func() forgejoTemplateContext {
 			return forgejoTemplateContext{Locale: forgejoTemplateLocale{translations: map[string]string{
 				"home":                   "Home",
@@ -25,15 +32,19 @@ func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
 		},
 	}
 	theme := readForgejoTemplate(t, "custom", "soda", "theme_toggle.tmpl")
+	navbar := `{{define "custom/soda/guest_theme"}}` + readForgejoTemplate(t, "custom", "soda", "guest_theme.tmpl") + `{{end}}{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "custom/extra_links"}}` + readForgejoTemplate(t, "custom", "extra_links.tmpl") + `{{end}}`
 	tests := []struct {
 		name       string
 		templateID string
 		definition string
 		data       map[string]any
 		wantClass  string
+		theme      string
+		wantCount  int
 	}{
 		{
 			name:       "home",
+			wantCount:  1,
 			templateID: "home",
 			definition: `{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "home"}}` + readForgejoTemplate(t, "home.tmpl") + `{{end}}`,
 			data:       map[string]any{"ShowRegistrationButton": true},
@@ -41,6 +52,7 @@ func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
 		},
 		{
 			name:       "sign in",
+			wantCount:  1,
 			templateID: "sign-in",
 			definition: `{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}{{define "user/auth/signin_inner"}}native sign in{{end}}{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "sign-in"}}` + readForgejoTemplate(t, "user", "auth", "signin.tmpl") + `{{end}}`,
 			data:       map[string]any{},
@@ -48,6 +60,7 @@ func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
 		},
 		{
 			name:       "prohibited sign in",
+			wantCount:  1,
 			templateID: "prohibit-login",
 			definition: `{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "prohibit-login"}}` + readForgejoTemplate(t, "user", "auth", "prohibit_login.tmpl") + `{{end}}`,
 			data:       map[string]any{"PageIsSignIn": true},
@@ -55,14 +68,41 @@ func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
 		},
 		{
 			name:       "guest explorer hook",
+			wantCount:  1,
 			templateID: "custom/extra_links",
-			definition: `{{define "custom/soda/guest_theme"}}` + readForgejoTemplate(t, "custom", "soda", "guest_theme.tmpl") + `{{end}}{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "custom/extra_links"}}` + readForgejoTemplate(t, "custom", "extra_links.tmpl") + `{{end}}`,
+			definition: navbar,
 			data:       map[string]any{"PageIsExploreRepositories": true},
 			wantClass:  "soda-guest-theme-toggle",
+		},
+		{
+			name:       "guest native page without presentation markers",
+			templateID: "custom/extra_links",
+			definition: navbar,
+			data:       map[string]any{},
+			wantClass:  "soda-guest-theme-toggle",
+			wantCount:  1,
+		},
+		{
+			name:       "guest native theme",
+			templateID: "custom/extra_links",
+			definition: navbar,
+			data:       map[string]any{"PageIsExploreRepositories": true},
+			theme:      "forgejo-auto",
+		},
+		{
+			name:       "signed native page without presentation markers",
+			templateID: "custom/extra_links",
+			definition: navbar,
+			data:       map[string]any{"IsSigned": true},
+			wantClass:  "soda-account-appearance",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			selectedTheme = tt.theme
+			if selectedTheme == "" {
+				selectedTheme = "soda-auto"
+			}
 			parsed, err := template.New(tt.name).Funcs(functions).Parse(tt.definition)
 			if err != nil {
 				t.Fatalf("parse theme placement: %v", err)
@@ -72,21 +112,27 @@ func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
 				t.Fatalf("execute theme placement: %v", err)
 			}
 			output := rendered.String()
-			if count := strings.Count(output, `id="soda-theme-toggle"`); count != 1 {
-				t.Errorf("theme placement rendered %d singleton hooks:\n%s", count, output)
+			if count := strings.Count(output, `id="soda-theme-toggle"`); count != tt.wantCount {
+				t.Errorf("theme placement rendered %d singleton hooks, want %d:\n%s", count, tt.wantCount, output)
 			}
-			if !strings.Contains(output, tt.wantClass) {
+			if tt.wantClass != "" && !strings.Contains(output, tt.wantClass) {
 				t.Errorf("theme placement does not contain class %q:\n%s", tt.wantClass, output)
+			}
+			if strings.Contains(output, "soda-account-appearance") != (tt.data["IsSigned"] == true) {
+				t.Errorf("account appearance control does not match sign-in state:\n%s", output)
 			}
 		})
 	}
 }
 
-func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
+func TestForgejoHeaderLoadsGuestThemeScriptForSodaGuests(t *testing.T) {
+	selectedTheme := "soda-auto"
 	functions := template.FuncMap{
 		"dict":           forgejoTemplateDict,
 		"AppSubUrl":      func() string { return "/forge" },
 		"AssetUrlPrefix": func() string { return "/forge/assets" },
+		"ThemeName":      func(any) string { return selectedTheme },
+		"StringUtils":    func() forgejoThemeStrings { return forgejoThemeStrings{} },
 	}
 	definition := `{{define "custom/soda/theme_toggle"}}{{end}}{{define "custom/soda/guest_theme"}}` + readForgejoTemplate(t, "custom", "soda", "guest_theme.tmpl") + `{{end}}{{define "custom/header"}}` + readForgejoTemplate(t, "custom", "header.tmpl") + `{{end}}`
 	parsed, err := template.New("custom-header").Funcs(functions).Parse(definition)
@@ -98,6 +144,7 @@ func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 		name       string
 		data       map[string]any
 		wantScript bool
+		theme      string
 	}{
 		{name: "guest home", data: map[string]any{"PageIsHome": true}, wantScript: true},
 		{name: "guest sign in", data: map[string]any{"PageIsSignIn": true}, wantScript: true},
@@ -108,13 +155,21 @@ func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 		{name: "guest repository", data: map[string]any{"Repository": true}, wantScript: true},
 		{name: "guest organization", data: map[string]any{"Org": true}, wantScript: true},
 		{name: "guest recovery under subpath", data: map[string]any{"Link": "/forge/user/forgot_password"}, wantScript: true},
-		{name: "recovery on wrong subpath", data: map[string]any{"Link": "/user/forgot_password"}},
+		{name: "guest recovery independent of route", data: map[string]any{"Link": "/user/forgot_password"}, wantScript: true},
 		{name: "signed recovery", data: map[string]any{"IsSigned": true, "Link": "/forge/user/reset_password"}},
 		{name: "signed explorer", data: map[string]any{"IsSigned": true, "PageIsExploreRepositories": true}},
-		{name: "unrelated guest page", data: map[string]any{}},
+		{name: "unrelated guest page", data: map[string]any{}, wantScript: true},
+		{name: "guest extension", data: map[string]any{"PageIsExtension": true}, wantScript: true},
+		{name: "guest light theme", data: map[string]any{}, theme: "soda-light", wantScript: true},
+		{name: "guest dark theme", data: map[string]any{}, theme: "soda-dark", wantScript: true},
+		{name: "guest native theme", data: map[string]any{"PageIsExploreRepositories": true}, theme: "forgejo-auto"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			selectedTheme = tt.theme
+			if selectedTheme == "" {
+				selectedTheme = "soda-auto"
+			}
 			var rendered bytes.Buffer
 			if err := parsed.ExecuteTemplate(&rendered, "custom/header", tt.data); err != nil {
 				t.Fatalf("execute custom header: %v", err)

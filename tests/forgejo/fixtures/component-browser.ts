@@ -49,9 +49,9 @@ export async function openComponentBrowser(): Promise<ComponentBrowser> {
   }
   async function render(markup: string, theme = 'light') {
     await page.mouse.move(1600, 990);
-    await page.setContent(`<link rel="stylesheet" href="${origin}/assets/css/index.css">
+    await page.setContent(`<html data-theme="soda-${theme}"><head><link rel="stylesheet" href="${origin}/assets/css/index.css">
         <link rel="stylesheet" href="${origin}/assets/css/theme-forgejo-${theme}.css">
-        <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
+        <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style></head><body>${markup}</body></html>`);
   }
   return {page, render, close: () => browser.close()};
 }

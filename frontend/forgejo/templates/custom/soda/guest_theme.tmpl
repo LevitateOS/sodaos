@@ -1,17 +1,7 @@
-{{/* One presentation-only route gate for the head script and navbar control.
-     Auth paths use Forgejo's native Link and preserve configured subpaths. */}}
+{{/* Guest appearance follows the selected native theme on every page.
+     Standalone entry screens already render their own toggle. */}}
 {{$page := .Page}}
-{{$auth := eq $page.Link
-	(printf "%s/user/sign_up" AppSubUrl)
-	(printf "%s/user/forgot_password" AppSubUrl)
-	(printf "%s/user/reset_password" AppSubUrl)
-	(printf "%s/user/settings/change_password" AppSubUrl)
-	(printf "%s/user/two_factor" AppSubUrl)
-	(printf "%s/user/two_factor/scratch" AppSubUrl)
-	(printf "%s/user/webauthn" AppSubUrl)
-	(printf "%s/user/activate" AppSubUrl)}}
-{{$branded := or $page.PageIsHome $page.PageIsSignIn $page.LinkAccountMode $page.PageIsExploreRepositories $page.PageIsExploreUsers $page.PageIsExploreOrganizations $page.PageIsExploreCode $page.ContextUser $page.PageIsInstall $page.Repository $page.Org $auth}}
-{{if and (not $page.IsSigned) $branded}}
+{{if and (not $page.IsSigned) (StringUtils.HasPrefix (ThemeName $page.SignedUser) "soda-")}}
 	{{if eq .Placement "head"}}
 		<script src="{{AssetUrlPrefix}}/soda/forgejo/login-theme.js?v=3" data-app-sub-url="{{AppSubUrl}}"></script>
 	{{else if and (eq .Placement "navbar") (not (or $page.PageIsHome $page.PageIsSignIn $page.LinkAccountMode $page.PageIsInstall))}}

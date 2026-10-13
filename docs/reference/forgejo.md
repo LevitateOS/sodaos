@@ -18,6 +18,10 @@ destinations before writes, including symlinks and special files.
 Do not deploy an unchanged copy of the upstream template tree. Prefer dedicated
 template hooks; use targeted overrides only when necessary.
 
+Shared shell styling follows Fountain's selected Soda theme, independently of the
+current page or extension. Account appearance controls follow authentication state;
+guest theme controls follow the selected theme, without a page-route allowlist.
+
 ## Native extension presentation
 
 Fountain owns the native page and persistent-panel host. Soda declares the Spaces

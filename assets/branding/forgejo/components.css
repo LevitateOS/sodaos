@@ -74,9 +74,8 @@
   --soda-terminal-text: #ffffff;
 }
 
-/* Native extension pages share the shell; retained workspace islands do not
-   opt unrelated native pages into full-page styling. */
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions), .soda-login) {
+/* The selected native theme owns the shell, independently of page content. */
+html[data-theme^="soda-"] body {
   font-family: Barlow, Arial, sans-serif;
   background: var(--soda-page-canvas);
   color: var(--soda-page-text);
@@ -84,29 +83,29 @@ body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions), .soda-
   height: auto;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) .full.height {
+html[data-theme^="soda-"] body .full.height {
   display: flex;
   flex-direction: column;
   padding-bottom: 0;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar {
+html[data-theme^="soda-"] body #navbar {
   background: var(--soda-page-canvas);
   border-bottom: 1px solid var(--soda-page-edge);
   padding: 12px max(24px, calc((100% - 1240px)/2));
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .item {
+html[data-theme^="soda-"] body #navbar .item {
   color: var(--soda-page-text);
   font-family: Barlow, Arial, sans-serif;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .active.item {
+html[data-theme^="soda-"] body #navbar .active.item {
   color: var(--soda-page-link);
   background: transparent;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar #navbar-logo {
+html[data-theme^="soda-"] body #navbar #navbar-logo {
   width: 44px;
   border-radius: 0;
   /* Outrank native link hover backgrounds without resetting the theme image. */
@@ -114,68 +113,69 @@ body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navba
   margin-right: 16px;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar-logo img {
+html[data-theme^="soda-"] body #navbar-logo img {
   opacity: 0;
 }
 
-html[data-soda-login-theme="dark"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="false"]) #navbar-logo, html[data-theme*="-dark"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="true"], .page-content.extensions) #navbar-logo {
+html[data-theme^="soda-"][data-soda-login-theme="dark"] #navbar-logo,
+html[data-theme="soda-dark"]:not([data-soda-login-theme]) #navbar-logo {
   --soda-navbar-symbol: url('../source/soda-symbol-brutalist-dark.svg');
 }
 
 @media (prefers-color-scheme: dark) {
-  html[data-theme*="-auto"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="true"], .page-content.extensions) #navbar-logo {
+  html[data-theme="soda-auto"]:not([data-soda-login-theme]) #navbar-logo {
     --soda-navbar-symbol: url('../source/soda-symbol-brutalist-dark.svg');
   }
 
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-left {
+html[data-theme^="soda-"] body #navbar .navbar-left {
   flex: 1;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-right {
+html[data-theme^="soda-"] body #navbar .navbar-right {
   gap: 8px;
 }
 
 /* Soda's added links must not push native profile controls offscreen just above
    Forgejo's mobile breakpoint. Keep its mobile menu/visibility rules unchanged. */
 @media (min-width: 768px) {
-  body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-left {
+  html[data-theme^="soda-"] body #navbar .navbar-left {
     min-inline-size: 0;
     flex-wrap: wrap;
   }
-  body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-right {
+  html[data-theme^="soda-"] body #navbar .navbar-right {
     flex-shrink: 0;
   }
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar details > summary {
+html[data-theme^="soda-"] body #navbar details > summary {
   color: var(--soda-page-muted);
   border-radius: 0;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar details .content {
+html[data-theme^="soda-"] body #navbar details .content {
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
   border-color: var(--soda-page-edge);
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar details .content :is(a,.header) {
+html[data-theme^="soda-"] body #navbar details .content :is(a,.header) {
   color: var(--soda-page-text);
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar details .content a:hover {
+html[data-theme^="soda-"] body #navbar details .content a:hover {
   color: var(--soda-page-link);
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) :is(#soda-theme-toggle,.soda-account-appearance) {
+html[data-theme^="soda-"] body :is(#soda-theme-toggle,.soda-account-appearance) {
   order: 9;
   margin-left: auto;
   flex-shrink: 0;
   color: var(--soda-page-muted);
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) .soda-account-appearance {
+html[data-theme^="soda-"] body .soda-account-appearance {
   display: grid;
   place-items: center;
   width: var(--soda-control-height);
@@ -183,22 +183,22 @@ body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) .soda-
   border-radius: 0;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) .soda-account-appearance:hover {
+html[data-theme^="soda-"] body .soda-account-appearance:hover {
   color: var(--soda-page-link);
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) .page-footer {
+html[data-theme^="soda-"] body .page-footer {
   background: var(--soda-page-canvas);
   color: var(--soda-page-muted);
   border-top: 1px solid var(--soda-page-edge);
   padding: 16px 16px;
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) .page-footer a {
+html[data-theme^="soda-"] body .page-footer a {
   color: var(--soda-page-muted);
 }
 
-body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) :is(a,button,input,textarea,summary,[tabindex]):focus-visible {
+html[data-theme^="soda-"] body :is(a,button,input,textarea,summary,[tabindex]):focus-visible {
   outline: 2px solid var(--soda-page-link);
   outline-offset: 3px;
 }
@@ -280,7 +280,7 @@ body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) :is(a,
   color: var(--soda-page-link);
 }
 @media (pointer: coarse) {
-  body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) { --soda-control-icon: 44px; }
+  html[data-theme^="soda-"] body { --soda-control-icon: 44px; }
 }
 
 /* Shared editor/metadata composition; gallery and native callers use the same
@@ -310,18 +310,18 @@ body:has(.soda-login) {
 /* Keep the desktop navigation's utility actions clear of the final text link
    just above Forgejo's mobile breakpoint, without reducing the logo artwork. */
 @media (min-width: 768px) and (max-width: 1000px) {
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar #navbar-logo { width: 44px; margin-right: 0; }
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-right { gap: 4px; }
+ html[data-theme^="soda-"] body #navbar #navbar-logo { width: 44px; margin-right: 0; }
+ html[data-theme^="soda-"] body #navbar .navbar-right { gap: 4px; }
 }
 
 /* Match Forgejo's mobile navigation breakpoint, including narrow desktop panes.
    Group the theme and menu actions at the end of the header. */
 @media (max-width: 767px) {
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar { padding-inline: 16px; }
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar #navbar-logo { width: 44px; margin-right: 0; }
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-left { gap: 0; }
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-mobile-right { padding: 0; gap: 0; }
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) :is(#soda-theme-toggle,.soda-account-appearance) { margin-left: 0; }
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar #mobile-notifications-icon { margin-right: 0 !important; }
- body:has(.soda-page, .soda-page-marker, :where(.page-content.extensions)) #navbar .navbar-mobile-right > :is(a,button) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; margin: 0; }
+ html[data-theme^="soda-"] body #navbar { padding-inline: 16px; }
+ html[data-theme^="soda-"] body #navbar #navbar-logo { width: 44px; margin-right: 0; }
+ html[data-theme^="soda-"] body #navbar .navbar-left { gap: 0; }
+ html[data-theme^="soda-"] body #navbar .navbar-mobile-right { padding: 0; gap: 0; }
+ html[data-theme^="soda-"] body :is(#soda-theme-toggle,.soda-account-appearance) { margin-left: 0; }
+ html[data-theme^="soda-"] body #navbar #mobile-notifications-icon { margin-right: 0 !important; }
+ html[data-theme^="soda-"] body #navbar .navbar-mobile-right > :is(a,button) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; margin: 0; }
 }

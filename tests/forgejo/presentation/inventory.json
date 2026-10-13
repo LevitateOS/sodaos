@@ -944,8 +944,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "24b791a3ffe6556a600a79ced30f3d3eb59f300fa0c7e1e551f454cdcfa7c99f",
-      "presentationReview": "Forgejo extensions supply contribution navigation from the Soda manifest; keep only the shared theme controls in this host-owned hook.",
+      "beforeRoleHash": "601536fa16caa9ce943a25c430d4a514ad108005075af2aef343fa640ceb5724",
+      "presentationReview": "Keep the signed-in appearance control available on every native page and let guest controls follow the selected theme.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
       ],
@@ -1009,12 +1009,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "97972a508c23a7ae355ce7565f003e7ba34a25a26ac26bf63bce1e84ba347529",
+      "beforeRoleHash": "858a1433d8394af095af10de840059b2f1410131d1d5947246694474b7276f7a",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Advance the paired module-graph epoch for merged administration navigation and mechanism removals; keep all other styling hooks unchanged."
+      "presentationReview": "Advance shared shell, button and guest palette cache epochs for page-independent Soda theme activation."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -1097,10 +1097,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7cf44897d082e473cef259349a95f855b9ff14deec3ef739ac08ae4ac45cef10",
+      "beforeRoleHash": "2a3ee0ffb66535cd1f511daf008a83b1456473e2a0239289553bbf9f96d98e26",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Advance the login-theme cache epoch for its classic-script scoping correction; preserve guest, route and placement gates."
+      "presentationReview": "Activate guest appearance by selected Soda theme rather than route, retaining signed-in exclusion and standalone-screen toggle placement."
     },
     {
       "template": "custom/soda/milestone_row.tmpl",
