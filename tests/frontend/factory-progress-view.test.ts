@@ -705,8 +705,9 @@ test('access standing states powers, verdict and unassigned resolvers', () => {
     }),
     'ready'
   );
-  assert.match(blocked.verdictText, /not effective: policy_missing/);
-  assert.match(blocked.actionsText[0] ?? '', /owner_or_admin via policy/);
+  assert.match(blocked.verdictText, /not effective: no Factory policy recorded/);
+  assert.doesNotMatch(blocked.verdictText, /policy_missing/);
+  assert.match(blocked.actionsText[0] ?? '', /no Factory policy recorded: resolve by owner_or_admin via policy/);
   assert.match(blocked.actionsText[1] ?? '', /unassigned/);
   assert.match(describeAccessStanding(undefined, 'missing').powersText, /No permission record/);
 });

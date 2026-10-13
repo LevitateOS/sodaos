@@ -1077,17 +1077,33 @@ function standingPowers(access: FactoryAccess): string {
   return held.length === 0 ? `You hold no repository powers. ${session}` : `You hold: ${held.join(', ')}. ${session}`;
 }
 
+// Wire codes stay on the wire; the sidebar shows local status text.
+const missingPhrases: Readonly<Record<string, string>> = {
+  policy_missing: 'no Factory policy recorded',
+  operator_grant_missing: 'no operator grant recorded',
+  capacity_missing: 'no dispatch capacity recorded',
+  environment_grant_missing: 'no environment grant recorded',
+  authority_missing: 'no Factory authority recorded',
+};
+
+function missingPhrase(code: string): string {
+  return missingPhrases[code] ?? 'a prerequisite is missing';
+}
+
 function standingVerdict(access: FactoryAccess): string {
   if (access.effective.effective && access.effective.dispatch_open) return 'Factory dispatch is effective and open.';
   if (access.effective.effective) return 'Authority is effective but dispatch is closed.';
-  const missing = access.effective.missing.length === 0 ? 'no reason given' : access.effective.missing.join(', ');
+  const missing =
+    access.effective.missing.length === 0
+      ? 'no reason given'
+      : access.effective.missing.map(missingPhrase).join(', ');
   return `Factory authority is not effective: ${missing}.`;
 }
 
 function standingAction(code: string, resolveBy: string, setting: string): string {
   const resolver = resolveBy === '' ? 'unassigned' : resolveBy;
   const section = setting === '' ? 'no setting named' : setting;
-  return `${code}: resolve by ${resolver} via ${section}.`;
+  return `${missingPhrase(code)}: resolve by ${resolver} via ${section}.`;
 }
 
 // describeAccessStanding states the viewer's exact powers and the
