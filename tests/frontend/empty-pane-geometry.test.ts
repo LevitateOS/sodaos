@@ -24,6 +24,13 @@ for (const viewport of [
       await paneAction(page, 'Split right');
       await page.locator('.soda-empty-pane:visible').waitFor();
       await page.setViewportSize(viewport);
+      // ResizeObserver publishes the new allocation, then Lit projects the
+      // compact pane. Visibility alone can still describe the outgoing layout.
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+      });
       // Compact widths consolidate panes; select the empty pane if the
       // focused-pane control is offered so the same surface is measured.
       const focused = page.getByLabel('Focused pane', {exact: true});
