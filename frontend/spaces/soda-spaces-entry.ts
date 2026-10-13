@@ -3,7 +3,6 @@ import type {ExtensionMountContext} from './soda-extension.js';
 import type {MountHandle} from './fountain-browser-contract.js';
 import {mountSodaspaces} from './sodaspaces-workspace.js';
 import {nativeAppSubUrl} from './soda-native-paths.js';
-import type {ContributionPresentation, MountHandle, ResumeValidation} from './fountain-browser-contract.js';
 
 // One shared Workspace owner (NFX-D02/H-OWNER): the spaces page and the
 // workspace panel declare the same owner and entry, so the host mounts a
@@ -79,14 +78,4 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       dispose();
     },
   };
-  // Host lifecycle (NFX-D05): ordinary navigation updates/suspends/resumes
-  // with full retention; only retire/dispose releases browser resources.
-  const handle: MountHandle & {dispose: () => void} = {
-    update: (presentation: ContributionPresentation) => page.update(presentation),
-    suspend: () => page.suspend(),
-    resume: (validation: ResumeValidation) => page.resume(validation),
-    retire: () => dispose(),
-    dispose,
-  };
-  return handle;
 }

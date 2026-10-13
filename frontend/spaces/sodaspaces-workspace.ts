@@ -450,6 +450,7 @@ export class SodaSpaces extends LitElement {
     if (!this.binding || this.disposed) return;
     this.present(presentation.mode === 'page' ? 'page' : 'native', presentation.repositoryId, presentation.route);
     if (presentation.visible !== this.surfaceVisible) this.setVisible(presentation.visible);
+    if (presentation.visible) this.markViewed();
   }
   private armNewRoute(kind: 'page' | 'native') {
     // Same guarded one-shot as configure/popstate for retained presentation.
@@ -1802,18 +1803,6 @@ export class SodaSpaces extends LitElement {
     this.surfaceVisible = visible;
     this.display();
     if (visible && !this.restored) void this.refresh();
-  }
-  /**
-   * Host presentation update (NFX-D05): display facts only, never authority.
-   * Ordinary navigation arrives here and retains every renderer/socket.
-   */
-  applyPresentation(presentation: ContributionPresentation) {
-    if (!this.binding || this.disposed) return;
-    this.present(presentation.mode === 'page' ? 'page' : 'native', presentation.repositoryId);
-    if (presentation.visible) {
-      this.setVisible(true);
-      this.markViewed();
-    } else this.setVisible(false);
   }
   /** Host concealment: shelter without closing any terminal or watch stream. */
   suspend() {
