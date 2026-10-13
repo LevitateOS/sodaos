@@ -36,6 +36,7 @@ func (s *dueReadinessSource) ReadAcceptanceEvidence(_ context.Context, _, issue 
 }
 
 func TestServingOwnerResumesFutureReadinessBackoffWithoutRedelivery(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	c := coordinatorFixture(t, nil, nil)
 	source := &dueReadinessSource{evidence: readinessEvidence(12, readinessView("3"), nil, nil), passed: make(chan struct{}, 1)}
@@ -121,6 +122,7 @@ func (h *capacityReleaseHost) FactoryStop(ctx context.Context, in project.Factor
 }
 
 func TestServingOwnerPicksUpQueuedIssueAfterNativeCapacityRelease(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)

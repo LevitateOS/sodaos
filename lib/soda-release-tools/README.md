@@ -22,7 +22,10 @@ Soda checkout root. Follow the
 for setup and input admission; a direct `cargo run` does not admit a controller.
 For the source-to-download path, follow the [release workflow](../../docs/development/release.md).
 The default build produces unqualified release media; staging and promotion are
-explicit subsequent commands.
+explicit subsequent commands. Staging derives the media path from the candidate
+and creates its exact tag when missing. Promotion takes the revision read from
+the installed guest and `--smoke-passed`; it generates the bound qualification
+receipt from the existing release metadata and downloaded ISO.
 
 ## Produce a development candidate
 

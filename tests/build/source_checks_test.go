@@ -83,14 +83,14 @@ type loggedCommand struct {
 	Env     map[string]any
 }
 
-func (f sourceFixture) run(t *testing.T, fail string) ProcResult {
+func (f sourceFixture) run(t *testing.T, fail string, suites ...string) ProcResult {
 	t.Helper()
 	env := SetEnv(os.Environ(), "PATH", f.tools+string(os.PathListSeparator)+os.Getenv("PATH"))
 	env = SetEnv(env, "COMMAND_LOG", f.log)
 	env = SetEnv(env, "FAIL_COMMAND", fail)
 	env = SetEnv(env, "GOTOOLCHAIN", "auto")
-	return Run(t, RunOpt{Cwd: f.tools, Env: env, Timeout: 30 * time.Second},
-		"/bin/bash", filepath.Join(f.root, "scripts/check-source.sh"))
+	args := append([]string{filepath.Join(f.root, "scripts/check-source.sh")}, suites...)
+	return Run(t, RunOpt{Cwd: f.tools, Env: env, Timeout: 30 * time.Second}, "/bin/bash", args...)
 }
 
 func (f sourceFixture) commands(t *testing.T) []loggedCommand {
@@ -142,39 +142,71 @@ func equalCommands(a, b [][]string) bool {
 }
 
 func TestSourceCommandsWorkWithoutAStageOrGitCheckout(t *testing.T) {
-	fixture := newSourceFixture(t)
-	result := fixture.run(t, "")
-	Require(t, result.Code == 0, "check-source failed: %s", result.Stderr)
-	commands := fixture.commands(t)
-	Check(t, equalCommands(commandNames(commands), expectedSourceCommands), "commands = %v", commandNames(commands))
-	for _, entry := range commands {
-		Check(t, entry.Cwd == fixture.root, "cwd = %q", entry.Cwd)
-		want := map[string]any{"GOWORK": "off", "GOFLAGS": "-mod=readonly", "CGO_ENABLED": "0", "GOTOOLCHAIN": "local"}
-		Check(t, len(entry.Env) == len(want), "env = %v", entry.Env)
-		for key, value := range want {
-			Check(t, entry.Env[key] == value, "env[%s] = %v", key, entry.Env[key])
-		}
+	for _, tc := range []struct {
+		name     string
+		args     []string
+		commands [][]string
+	}{
+		{"default", nil, expectedSourceCommands},
+		{"all", []string{"all"}, expectedSourceCommands},
+		{"go", []string{"go"}, expectedSourceCommands[:6]},
+		{"browser", []string{"browser"}, expectedSourceCommands[6:]},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newSourceFixture(t)
+			result := fixture.run(t, "", tc.args...)
+			Require(t, result.Code == 0, "check-source failed: %s", result.Stderr)
+			commands := fixture.commands(t)
+			Check(t, equalCommands(commandNames(commands), tc.commands), "commands = %v", commandNames(commands))
+			for _, entry := range commands {
+				Check(t, entry.Cwd == fixture.root, "cwd = %q", entry.Cwd)
+				want := map[string]any{"GOWORK": "off", "GOFLAGS": "-mod=readonly", "CGO_ENABLED": "0", "GOTOOLCHAIN": "local"}
+				Check(t, len(entry.Env) == len(want), "env = %v", entry.Env)
+				for key, value := range want {
+					Check(t, entry.Env[key] == value, "env[%s] = %v", key, entry.Env[key])
+				}
+			}
+			Check(t, strings.Contains(result.Stdout, "Local source checks executed"), "stdout=%q", result.Stdout)
+		})
 	}
-	Check(t, strings.Contains(result.Stdout, "Local source checks executed"), "stdout=%q", result.Stdout)
 }
 
 func TestSourceFailuresContinueIndependentSuites(t *testing.T) {
 	fixture := newSourceFixture(t)
-	for index, command := range expectedSourceCommands {
-		t.Run(strings.Join(command, " "), func(t *testing.T) {
-			WriteFile(t, fixture.log, []byte{}, 0o644)
-			result := fixture.run(t, strings.Join(command, " "))
-			Check(t, result.Code == 7, "exit = %d", result.Code)
-			want := expectedSourceCommands
-			// Compiler/dependency admission failures stop all execution; a failed
-			// browser build prevents only its dependent prepared suites.
-			if index < 2 || index == 7 {
-				want = expectedSourceCommands[:index+1]
-			}
-			Check(t, equalCommands(commandNames(fixture.commands(t)), want),
-				"commands = %v", commandNames(fixture.commands(t)))
-			Check(t, strings.Contains(result.Stdout, "Local source checks executed") == (index >= 2), "stdout=%q", result.Stdout)
-		})
+	for _, suite := range []string{"all", "go", "browser"} {
+		commands := expectedSourceCommands
+		if suite == "go" {
+			commands = commands[:6]
+		} else if suite == "browser" {
+			commands = commands[6:]
+		}
+		for index, command := range commands {
+			fail := strings.Join(command, " ")
+			t.Run(suite+"/"+fail, func(t *testing.T) {
+				WriteFile(t, fixture.log, []byte{}, 0o644)
+				result := fixture.run(t, fail, suite)
+				Check(t, result.Code == 7, "exit = %d", result.Code)
+				want := commands
+				// Compiler/dependency admission stops execution; a failed browser
+				// build prevents only its dependent prepared suites.
+				admission := fail == "go version" || fail == "go mod verify"
+				if admission || fail == "bun run build:forgejo" {
+					want = commands[:index+1]
+				}
+				Check(t, equalCommands(commandNames(fixture.commands(t)), want),
+					"commands = %v", commandNames(fixture.commands(t)))
+				Check(t, strings.Contains(result.Stdout, "Local source checks executed") != admission, "stdout=%q", result.Stdout)
+			})
+		}
+	}
+}
+
+func TestSourceRejectsUnknownSuiteBeforeRunningTools(t *testing.T) {
+	for _, args := range [][]string{{"browsre"}, {"go", "browser"}} {
+		fixture := newSourceFixture(t)
+		result := fixture.run(t, "", args...)
+		Check(t, result.Code == 2, "exit = %d", result.Code)
+		Check(t, len(fixture.commands(t)) == 0, "unexpected command execution")
 	}
 }
 

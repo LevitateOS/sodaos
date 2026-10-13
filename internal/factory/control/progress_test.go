@@ -76,6 +76,7 @@ func (h *lostReplyProgressHost) finish() {
 }
 
 func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fx := publishSeed(t)
 	decision := fx.seed.accept(t, 31, "d333333333333333333333333")
@@ -156,8 +157,10 @@ func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
 }
 
 func TestCoordinatorWakeRetiresExpiredRecordedRun(t *testing.T) {
+	t.Parallel()
 	for _, phase := range []string{project.FactoryApproved, project.FactoryRunning} {
 		t.Run(phase, func(t *testing.T) {
+			t.Parallel()
 			var stops atomic.Int32
 			host := &stubHost{
 				inspect: func(in project.FactoryInspect) (project.FactoryState, error) {
@@ -301,6 +304,7 @@ func (h *progressLiveHost) FactoryLaunch(context.Context, project.FactoryLaunch)
 }
 
 func TestCoordinatorWakePreservesLiveCLIAndCloseJoinsInspection(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	host := &progressLiveHost{stubHost: &stubHost{}, entered: make(chan struct{})}
 	c := coordinatorFixture(t, host, nil)
@@ -346,6 +350,7 @@ func TestCoordinatorWakePreservesLiveCLIAndCloseJoinsInspection(t *testing.T) {
 }
 
 func TestCoordinatorWakeResumesReadinessWithoutRedelivery(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	source := &fakeEvidenceSource{evidence: map[string]AcceptanceEvidence{
 		"42/3": readinessEvidence(12, readinessView("3"), nil, nil),
@@ -384,6 +389,7 @@ func TestCoordinatorWakeResumesReadinessWithoutRedelivery(t *testing.T) {
 }
 
 func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fx := publishSeed(t)
 	policy, err := fx.db.RepositoryPolicy(ctx, fx.seed.repo)
@@ -514,6 +520,7 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 }
 
 func TestCoordinatorWakeClosesExpiredRootWithoutMoreRuns(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fx := publishSeed(t)
 	owner := fx.finishReported(t, 32)
@@ -571,6 +578,7 @@ func TestCoordinatorWakeClosesExpiredRootWithoutMoreRuns(t *testing.T) {
 }
 
 func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fx := publishSeed(t)
 	policy, err := fx.db.RepositoryPolicy(ctx, fx.seed.repo)

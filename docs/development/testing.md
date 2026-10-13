@@ -30,26 +30,32 @@ bun run test:frontend
 bun run check:source
 ```
 
+`check:source` runs all source checks by default. Select `bun run check:source go`
+for Go tests and repository source guards, or `bun run check:source browser` for
+TypeScript and prepared browser suites. The browser selection needs Bun and Rust
+for asset tooling, but does not require Go or PostgreSQL.
+
 ### GitHub CI
 
 The [CI workflow](../../.github/workflows/ci.yml) runs on pull requests, pushes to
-`main`, merge groups and manual dispatch. Its two Linux jobs reuse the existing
-source suite and Rust workspace tests. The source job starts PostgreSQL 17 and
+`main`, merge groups and manual dispatch. Three independent Linux jobs run Go and
+source guards, TypeScript and browser checks, and Rust workspace tests. Browser
+feedback does not wait for the database suites. The Go job starts PostgreSQL 17 and
 passes the restricted fixture password file so database tests cannot silently
 skip for lack of a fixture. Browser fixtures use the repository-selected Playwright
-Chromium. Neither job starts an appliance or contacts an AI provider.
+Chromium. No job starts an appliance or contacts an AI provider.
 On Ubuntu, a scoped AppArmor profile admits Playwright's Chromium binaries to
 user namespaces so the browser sandbox remains enabled. Its launch preflight
-runs before the longer source suite.
+runs before the browser suite.
 
-Both jobs check out the exact Fountain source from
+All three jobs check out the exact Fountain source from
 [`fountain-source.json`](../../fountain-source.json) beside Soda as `forgejo-ext`.
 The browser job installs Fountain's fixture dependencies through Bun's frozen
 upstream-lock import, with dependency scripts disabled.
 Go and Bun versions come from their manifests; Rust follows `rust-toolchain.toml`.
 Actions are pinned to full commit hashes, with grouped Dependabot updates.
 Outdated runs on the same PR/ref are cancelled. The required `CI` result fails
-unless both jobs succeeded, including when a dependency job failed or was skipped.
+unless all three jobs succeeded, including when a dependency job failed or was skipped.
 The protected `main` branch requires this check from GitHub Actions and requires
 the candidate to be up to date with `main`; the rule also applies to administrators.
 Use a branch and pull request for subsequent changes. No separate reviewer

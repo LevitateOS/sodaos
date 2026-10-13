@@ -75,8 +75,29 @@ struct TagRef {
 struct AnnotatedTag {
     object: GitObject,
 }
-fn check_tag(gh: &dyn GitHub, manifest: &Manifest) -> Result<(), Error> {
-    let tag: TagRef = api(gh, &format!("{API}/git/ref/tags/{}", manifest.tag))?;
+fn check_tag(gh: &dyn GitHub, manifest: &Manifest, create_missing: bool) -> Result<(), Error> {
+    let tag: TagRef = match api(gh, &format!("{API}/git/ref/tags/{}", manifest.tag)) {
+        Ok(tag) => tag,
+        Err(e) if create_missing && e.0 == "GitHub resource not found" => {
+            let bytes = command(
+                gh,
+                &[
+                    "api",
+                    "--hostname",
+                    "github.com",
+                    "--method",
+                    "POST",
+                    &format!("{API}/git/refs"),
+                    "--raw-field",
+                    &format!("ref=refs/tags/{}", manifest.tag),
+                    "--raw-field",
+                    &format!("sha={}", manifest.soda_revision),
+                ],
+            )?;
+            serde_json::from_slice(&bytes).map_err(|_| Error::msg("GitHub tag response refused"))?
+        }
+        Err(e) => return Err(e),
+    };
     if tag.reference != format!("refs/tags/{}", manifest.tag) {
         return Err(Error::msg("exact remote tag required"));
     }
@@ -222,7 +243,6 @@ fn verify_release(gh: &dyn GitHub, tag: &str) -> Result<(), Error> {
 pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(), Error> {
     manifest.validate()?;
     let assets = inventory(manifest, directory)?;
-    check_tag(gh, manifest)?;
     let ci_run = check_ci(gh, manifest)?;
     #[derive(Deserialize)]
     struct Settings {
@@ -243,6 +263,7 @@ pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(
         Err(e) if e.0 == "GitHub resource not found" => (),
         Err(e) => return Err(e),
     }
+    check_tag(gh, manifest, true)?;
     let notes_path = directory.join("release-notes.md");
     std::fs::write(
         &notes_path,
@@ -321,15 +342,32 @@ pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(
 pub fn promote(
     gh: &dyn GitHub,
     directory: &Path,
-    qualification_path: &Path,
     downloaded_iso: &Path,
+    observed_revision: &str,
+    smoke_passed: bool,
 ) -> Result<(), Error> {
+    if !smoke_passed {
+        return Err(Error::msg(
+            "explicit native install/boot/image smoke confirmation required",
+        ));
+    }
     let manifest: Manifest = read_json(&directory.join("release.json"))?;
     manifest.validate()?;
-    let receipt: Qualification = read_json(qualification_path)?;
     let downloaded = inspect(downloaded_iso, &manifest.iso)?;
+    let receipt = Qualification {
+        format: 1,
+        soda_revision: manifest.soda_revision.clone(),
+        forgejo_revision: manifest.forgejo_revision.clone(),
+        iso_sha256: manifest.asset(&manifest.iso)?.sha256.clone(),
+        rootfs_sha256: manifest.asset(&manifest.rootfs)?.sha256.clone(),
+        downloaded_iso_sha256: downloaded.sha256.clone(),
+        observed_soda_revision: observed_revision.to_owned(),
+        install: "passed".to_owned(),
+        boot: "passed".to_owned(),
+        applications: "passed".to_owned(),
+    };
     receipt.validate(&manifest, &downloaded)?;
-    check_tag(gh, &manifest)?;
+    check_tag(gh, &manifest, false)?;
     let ci_run = check_ci(gh, &manifest)?;
     let current = release(gh, &manifest.tag)?;
     if current.draft || !current.prerelease || !current.immutable {
@@ -350,6 +388,7 @@ pub fn promote(
             REPOSITORY,
         ],
     )?;
+    assets::write_json(&directory.join("qualification.json"), &receipt)?;
     let notes = directory.join("qualified-release-notes.md");
     let receipt_text = serde_json::to_string_pretty(&receipt).map_err(|_| Error::refused())?;
     std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative install and first-boot smoke checks passed for the unchanged release bytes.\n\n```json\n{receipt_text}\n```\n", manifest.notes)).map_err(|_| Error::msg("cannot write qualified notes"))?;
