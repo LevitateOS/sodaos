@@ -449,8 +449,15 @@ evidence and remaining limitations are recorded in the implementation handoff.
 
 ## Presentation contract
 
-The native frontend uses one registry, `templates/custom/header.tmpl`, and no
-runtime component framework. `components.css` owns semantic tokens and explicit
+Native presentation styles register through `templates/custom/header.tmpl`.
+`templates/custom/footer.tmpl` loads the three page-leaf custom-element definitions
+once for the document: `soda-repository-actions`, `soda-repository-switcher` and
+`soda-personal-settings`. Each connected element enhances its own existing native
+controls and releases its owned listeners, observers, requests and widget resources
+on disconnection. Later native transplants initialize through the same definitions.
+Repository and account settings share the settings leaf; the repository header owns
+the actions and switcher leaves. Notification preview and guest-theme behavior
+remain document features. `components.css` owns semantic tokens and explicit
 presentation roles; `components-forms.css`, `components-settings.css`, intro,
 list, empty and toolbar sheets own their respective reusable structures.
 Family styles compose those structures and adapt specialized native canvases.
@@ -783,13 +790,13 @@ theme choices select the matching SVG. Native image and home-link semantics rema
 
 ## Native-frontend customization inventory (NFX-H03/H04/H05)
 
-Source inspection uses Soda `72284a49` and Fountain `042b3bc3`, with the
-callable C03 browser contract, C04 shared-owner/subroute registration and A04
-native contribution containers. These inputs replace the earlier preparation
-dependencies; they do not qualify every branded destination or installed page.
+This inventory describes the canonical payload and current native source joins:
+the callable C03 browser contract, C04 shared-owner/subroute registration and A04
+native contribution containers. Source composition does not qualify every branded
+destination or installed page.
 
 - **H03 override census.** The payload still ships 264 template destinations:
-  243 exist in Fountain, 21 are Soda-only presentation partials, and none is
+  243 exist in Fountain, 21 are Soda-only template destinations, and none is
   byte-identical to its native counterpart. This comparison identifies source
   differences, not 264 native-route acceptance results. The payload overrides
   neither `base/head`, `base/footer`, `base/head_navbar`, `admin/navbar` nor
@@ -799,12 +806,14 @@ dependencies; they do not qualify every branded destination or installed page.
   no redundant shell implementation to remove from those templates.
 - **Retained product presentation.** The repository header keeps native
   permission gates, unit tabs and controls while adding the repository switcher.
-  Its `custom` dropdown remains feature-owned, using native Fomantic keyboard
-  and ARIA behavior with Soda's repository search. `repository-actions.ts`,
-  `notification-preview.ts`, `personal-settings.ts` and `login-theme.ts` supply
-  branded action-menu, native inbox-preview, settings and guest-theme behavior;
-  native contribution placement does not replace those features. Their source
-  classification is not proof of initialization on every native transition.
+  Its `soda-repository-switcher` leaf keeps the feature-owned `custom` dropdown,
+  using native Fomantic keyboard and ARIA behavior with Soda's repository search.
+  `repository-actions.ts`, `repository-switcher.ts` and `personal-settings.ts`
+  register the page leaves from the shared footer; their connection/disconnection
+  hooks own re-entry and cleanup. `notification-preview.ts` and `login-theme.ts`
+  retain document-owned inbox-preview and guest-theme behavior. The focused
+  `branding-lifecycle.test.ts` covers connection, retirement and fresh entry of
+  the leaves; source and fixture checks remain separate from installed controls.
 - **Approved extension tabs.** The branded repository header renders non-admin
   repository tabs; `repo/settings/navbar` renders admin extension tabs and
   `user/settings/navbar` renders user extension tabs. Native current-page and
