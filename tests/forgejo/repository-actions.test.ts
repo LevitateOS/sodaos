@@ -16,6 +16,7 @@ function fixture(initialCompact = true) {
   const dom = new JSDOM(
     `<!doctype html><body>
     <div class="soda-repository-header">
+      <soda-repository-actions class="repo-buttons button-row">
       <details class="soda-repository-actions" open>
         <summary>Repository actions</summary>
         <div class="soda-repository-action-menu">
@@ -25,6 +26,7 @@ function fixture(initialCompact = true) {
           <div class="ui modal"><button id="modal-action" type="button">Modal action</button></div>
         </div>
       </details>
+      </soda-repository-actions>
     </div>
     <button id="outside" type="button">Outside</button>
   </body>`,
@@ -39,7 +41,8 @@ function fixture(initialCompact = true) {
   const modalAction = doc.getElementById('modal-action');
   const outside = doc.getElementById('outside');
   const header = doc.querySelector<HTMLElement>('.soda-repository-header');
-  assert(details && summary && panel && feed && watch && modalAction && outside && header);
+  const owner = doc.querySelector<HTMLElement>('soda-repository-actions');
+  assert(details && summary && panel && feed && watch && modalAction && outside && header && owner);
 
   let compact = initialCompact;
   const nativeGetComputedStyle = dom.window.getComputedStyle.bind(dom.window);
@@ -51,6 +54,7 @@ function fixture(initialCompact = true) {
   });
   let resize: (() => void) | undefined;
   let observed: Element | undefined;
+  let disconnected = 0;
   class TestResizeObserver {
     constructor(callback: () => void) {
       resize = callback;
@@ -58,12 +62,17 @@ function fixture(initialCompact = true) {
     observe(target: Element) {
       observed = target;
     }
+    disconnect() {
+      disconnected++;
+    }
   }
   Object.defineProperty(dom.window, 'ResizeObserver', {value: TestResizeObserver});
   runActions(dom);
   assert.equal(observed, header);
   return {
     dom,
+    owner,
+    header,
     details,
     summary,
     panel,
@@ -71,6 +80,8 @@ function fixture(initialCompact = true) {
     watch,
     modalAction,
     outside,
+    disconnects: () => disconnected,
+    resize: () => resize,
     setCompact(value: boolean, beforeResize?: () => void) {
       compact = value;
       beforeResize?.();
@@ -95,6 +106,45 @@ test('initial mode follows CSS and wide actions ignore dismissal', () => {
   assert.equal(wide.details.open, true);
   assert.equal(escape.defaultPrevented, false);
   wide.dom.window.close();
+});
+
+test('native action owner disconnect releases global listeners and resize work, then reconnects once', () => {
+  const f = fixture(true);
+  const retiredResize = f.resize();
+  assert(retiredResize);
+  f.owner.remove();
+  assert.equal(f.disconnects(), 1);
+  assert.equal(f.details.dataset.repositoryActionsEnhanced, undefined);
+  f.details.open = true;
+  f.outside.click();
+  retiredResize();
+  assert.equal(f.details.open, true, 'retired callbacks cannot hide detached native actions');
+  f.header.append(f.owner);
+  assert.equal(f.details.open, false, 'the same native owner can enter again');
+  f.details.open = true;
+  let focuses = 0;
+  f.summary.focus = () => {
+    focuses++;
+  };
+  f.watch.dispatchEvent(new f.dom.window.KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+  assert.equal(focuses, 1);
+  f.owner.remove();
+  assert.equal(f.disconnects(), 2);
+  f.dom.window.close();
+});
+
+test('an action row arriving after boot is enhanced through its own connected lifecycle', () => {
+  const f = fixture(true);
+  const next = f.owner.cloneNode(true);
+  f.owner.remove();
+  f.header.append(next);
+  assert(next instanceof f.dom.window.HTMLElement);
+  const details = next.querySelector<HTMLDetailsElement>('details');
+  assert(details);
+  assert.equal(details.dataset.repositoryActionsEnhanced, 'true');
+  assert.equal(details.open, false);
+  f.outside.click();
+  f.dom.window.close();
 });
 
 test('mode transitions open wide actions and preserve a focused action on compaction', () => {

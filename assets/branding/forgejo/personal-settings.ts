@@ -28,10 +28,11 @@ function eventTargetNode(target: EventTarget | null): Node | null {
   return target instanceof Node ? target : null;
 }
 
-function enhanceSettingsNav(settings: HTMLElement): void {
+function enhanceSettingsNav(settings: HTMLElement, signal: AbortSignal): (() => void) | undefined {
   const nav = settings.querySelector<HTMLElement>('.soda-settings-nav');
   const current = nav?.querySelector<HTMLButtonElement>('.soda-settings-current');
   if (!nav || !current) return;
+  const options = {signal};
   const mobile = matchMedia('(max-width: 899px)');
   const groups = [...nav.querySelectorAll('.soda-settings-nav-group')];
   const active = nav.querySelector('[aria-current="page"]');
@@ -42,44 +43,72 @@ function enhanceSettingsNav(settings: HTMLElement): void {
   const close = () => closeSettingsNav(current, groups);
   close();
   nav.classList.add('is-enhanced');
-  current.addEventListener('click', () => setNavOpen(current, current.getAttribute('aria-expanded') !== 'true'));
+  current.addEventListener(
+    'click',
+    () => setNavOpen(current, current.getAttribute('aria-expanded') !== 'true'),
+    options
+  );
   groups.forEach((group) => {
     const trigger = group.querySelector('button');
     if (!trigger) return;
-    trigger.addEventListener('click', () => {
-      const open = trigger.getAttribute('aria-expanded') !== 'true';
-      close();
-      setNavOpen(trigger, open);
-    });
-    trigger.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
+    trigger.addEventListener(
+      'click',
+      () => {
+        const open = trigger.getAttribute('aria-expanded') !== 'true';
         close();
-        setNavOpen(trigger, true);
-        group.querySelector('a')?.focus();
-      }
-    });
+        setNavOpen(trigger, open);
+      },
+      options
+    );
+    trigger.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          close();
+          setNavOpen(trigger, true);
+          group.querySelector('a')?.focus();
+        }
+      },
+      options
+    );
   });
-  nav.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    const trigger = navTriggerForEscape(current, mobile, event);
-    close();
-    trigger?.focus();
-    event.preventDefault();
-  });
-  document.addEventListener('pointerdown', (event) => {
-    if (nav.contains(eventTargetNode(event.target))) return;
-    const focused = nav.contains(document.activeElement);
-    const trigger = navTriggerForPointer(current, mobile);
-    close();
-    if (focused) trigger?.focus();
-  });
+  nav.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Escape') return;
+      const trigger = navTriggerForEscape(current, mobile, event);
+      close();
+      trigger?.focus();
+      event.preventDefault();
+    },
+    options
+  );
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (nav.contains(eventTargetNode(event.target))) return;
+      const focused = nav.contains(document.activeElement);
+      const trigger = navTriggerForPointer(current, mobile);
+      close();
+      if (focused) trigger?.focus();
+    },
+    options
+  );
   // During focusout activeElement can still be body. Use the destination:
   // hiding the menu before the link receives focus cancels its pointer click.
-  nav.addEventListener('focusout', (event) => {
-    if (!nav.contains(eventTargetNode(event.relatedTarget))) close();
-  });
-  mobile.addEventListener('change', close);
+  nav.addEventListener(
+    'focusout',
+    (event) => {
+      if (!nav.contains(eventTargetNode(event.relatedTarget))) close();
+    },
+    options
+  );
+  mobile.addEventListener('change', close, options);
+  return () => {
+    close();
+    nav.classList.remove('is-enhanced');
+  };
 }
 
 function clickClosesAvatarDialog(dialog: HTMLDialogElement, event: MouseEvent): boolean {
@@ -112,8 +141,10 @@ function enhanceAvatarDialog(
   avatarEditor: HTMLDetailsElement,
   avatarDialog: HTMLDialogElement,
   avatarTrigger: HTMLElement,
-  avatarBody: HTMLElement
-): () => void {
+  avatarBody: HTMLElement,
+  signal: AbortSignal
+): {open: () => void; dispose: () => void} {
+  const options = {signal};
   avatarDialog.append(avatarBody);
   avatarEditor.hidden = true;
   avatarTrigger.setAttribute('role', 'button');
@@ -122,31 +153,56 @@ function enhanceAvatarDialog(
   const openAvatar = () => {
     if (!avatarDialog.open) avatarDialog.showModal();
   };
-  avatarTrigger.addEventListener('click', (event) => {
-    event.preventDefault();
-    openAvatar();
-  });
-  avatarTrigger.addEventListener('keydown', (event) => {
-    if (event.key === ' ') {
+  avatarTrigger.addEventListener(
+    'click',
+    (event) => {
       event.preventDefault();
       openAvatar();
-    }
-  });
-  avatarDialog.querySelector('.soda-avatar-close')?.addEventListener('click', () => avatarDialog.close());
-  avatarDialog.addEventListener('click', (event) => {
-    if (clickClosesAvatarDialog(avatarDialog, event)) avatarDialog.close();
-  });
-  avatarDialog.addEventListener('keydown', (event) => {
-    trapAvatarDialogTab(avatarDialog, event);
-  });
-  avatarDialog.addEventListener('close', () => avatarTrigger.focus({preventScroll: true}));
-  return openAvatar;
+    },
+    options
+  );
+  avatarTrigger.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === ' ') {
+        event.preventDefault();
+        openAvatar();
+      }
+    },
+    options
+  );
+  avatarDialog.querySelector('.soda-avatar-close')?.addEventListener('click', () => avatarDialog.close(), options);
+  avatarDialog.addEventListener(
+    'click',
+    (event) => {
+      if (clickClosesAvatarDialog(avatarDialog, event)) avatarDialog.close();
+    },
+    options
+  );
+  avatarDialog.addEventListener(
+    'keydown',
+    (event) => {
+      trapAvatarDialogTab(avatarDialog, event);
+    },
+    options
+  );
+  avatarDialog.addEventListener('close', () => avatarTrigger.focus({preventScroll: true}), options);
+  return {
+    open: openAvatar,
+    dispose: () => {
+      if (avatarDialog.open) avatarDialog.close();
+      avatarEditor.append(avatarBody);
+      avatarEditor.hidden = false;
+      for (const attribute of ['role', 'aria-haspopup', 'aria-controls']) avatarTrigger.removeAttribute(attribute);
+    },
+  };
 }
 
-function elementFromLocationHash(): HTMLElement | null | undefined {
+function elementFromLocationHash(settings: HTMLElement): HTMLElement | undefined {
   if (!location.hash) return undefined;
   try {
-    return document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    return target && settings.contains(target) ? target : undefined;
   } catch {
     return undefined;
   }
@@ -171,11 +227,12 @@ function revealSettingsEditor(target: HTMLElement): void {
 }
 
 function revealSettingsHash(
+  settings: HTMLElement,
   openAvatar: (() => void) | undefined,
   avatarEditor: HTMLDetailsElement | null,
   avatarDialog: HTMLDialogElement | null
 ): void {
-  const target = elementFromLocationHash();
+  const target = elementFromLocationHash(settings);
   if (!target) return;
   if (openAvatar && shouldOpenAvatarFromHash(openAvatar, avatarEditor, avatarDialog, target)) {
     openAvatar();
@@ -197,50 +254,78 @@ function focusVisiblePanel(settings: HTMLElement, button: HTMLButtonElement, sel
   }
 }
 
-function enhanceSettingsPanels(settings: HTMLElement): void {
-  settings.addEventListener('click', (event) => {
-    const button =
-      event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-panel]') : null;
-    if (!button?.dataset.panel) return;
-    const selector = button.dataset.panel;
-    requestAnimationFrame(() => {
-      focusVisiblePanel(settings, button, selector);
-    });
-  });
+function enhanceSettingsPanels(settings: HTMLElement, signal: AbortSignal): () => void {
+  let frame = 0;
+  settings.addEventListener(
+    'click',
+    (event) => {
+      const button =
+        event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-panel]') : null;
+      if (!button?.dataset.panel) return;
+      const selector = button.dataset.panel;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!signal.aborted) focusVisiblePanel(settings, button, selector);
+      });
+    },
+    {signal}
+  );
+  return () => cancelAnimationFrame(frame);
 }
 
-const settings = document.querySelector<HTMLElement>('.soda-settings-shell');
-if (settings) {
-  enhanceSettingsNav(settings);
+function prepareSettingsAvatar(settings: HTMLElement, signal: AbortSignal, hasErrors: Element | null) {
+  const avatarEditor = settings.querySelector<HTMLDetailsElement>('#avatar-settings');
+  const avatarDialog = settings.querySelector<HTMLDialogElement>('#avatar-dialog');
+  const avatarTrigger = settings.querySelector<HTMLElement>('.soda-avatar-trigger');
+  const avatarBody = avatarEditor?.querySelector<HTMLElement>('.soda-settings-disclosure-body');
+  // Server errors keep the native inline editor and authoritative alerts.
+  const canEnhance = avatarEditor && avatarDialog && avatarTrigger && avatarBody && !hasErrors;
+  const enhanced =
+    canEnhance && typeof avatarDialog.showModal === 'function'
+      ? enhanceAvatarDialog(avatarEditor, avatarDialog, avatarTrigger, avatarBody, signal)
+      : undefined;
+  return {avatarEditor, avatarDialog, enhanced};
+}
+
+function enhancePersonalSettings(settings: HTMLElement): () => void {
+  const lifetime = new AbortController();
+  const disposeNav = enhanceSettingsNav(settings, lifetime.signal);
   const hasErrors = settings.querySelector('.ui.error.message, .ui.negative.message, .field.error');
   settings.querySelectorAll<HTMLDetailsElement>('[data-settings-editor]').forEach((editor) => {
     // Ambiguous server errors keep every potentially affected editor visible.
     editor.open = Boolean(hasErrors);
   });
-  const avatarEditor = settings.querySelector<HTMLDetailsElement>('#avatar-settings');
-  const avatarDialog = settings.querySelector<HTMLDialogElement>('#avatar-dialog');
-  const avatarTrigger = settings.querySelector<HTMLElement>('.soda-avatar-trigger');
-  // Server errors retain the expanded inline editor and authoritative page alerts.
-  // Without JS (or dialog support), the avatar link reaches the same native form.
-  let openAvatar: (() => void) | undefined;
-  const avatarBody = avatarEditor?.querySelector<HTMLElement>('.soda-settings-disclosure-body');
-  if (
-    avatarEditor &&
-    avatarDialog &&
-    typeof avatarDialog.showModal === 'function' &&
-    avatarTrigger &&
-    avatarBody &&
-    !hasErrors
-  ) {
-    openAvatar = enhanceAvatarDialog(avatarEditor, avatarDialog, avatarTrigger, avatarBody);
-  }
-  const revealHash = () => revealSettingsHash(openAvatar, avatarEditor, avatarDialog);
+  // The avatar still uses one native form, restored on disconnect for re-entry.
+  const {avatarEditor, avatarDialog, enhanced} = prepareSettingsAvatar(settings, lifetime.signal, hasErrors);
+  const revealHash = () => revealSettingsHash(settings, enhanced?.open, avatarEditor, avatarDialog);
   revealHash();
-  window.addEventListener('hashchange', revealHash);
+  window.addEventListener('hashchange', revealHash, {signal: lifetime.signal});
   if (hasErrors) {
     const field = settings.querySelector<HTMLElement>('.field.error input:not([type=hidden]), .field.error textarea');
     field?.focus();
   }
+  // Native show/hide-panel handlers retain ownership; supplement keyboard focus.
+  const disposePanels = enhanceSettingsPanels(settings, lifetime.signal);
+  return () => {
+    lifetime.abort();
+    disposeNav?.();
+    disposePanels();
+    enhanced?.dispose();
+  };
 }
-// Native show/hide-panel handlers retain ownership; supplement keyboard focus.
-if (settings) enhanceSettingsPanels(settings);
+
+class SodaPersonalSettings extends HTMLElement {
+  private dispose: (() => void) | undefined;
+
+  connectedCallback(): void {
+    if (!this.dispose) this.dispose = enhancePersonalSettings(this);
+  }
+
+  disconnectedCallback(): void {
+    this.dispose?.();
+    this.dispose = undefined;
+  }
+}
+
+if (!customElements.get('soda-personal-settings'))
+  customElements.define('soda-personal-settings', SodaPersonalSettings);

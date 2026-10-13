@@ -8,7 +8,7 @@
 				</div>
 				<div class="flex-item-main">
 					<div class="flex-item-title tw-font-normal">
-						<div class="soda-repository-breadcrumb" data-sub-url="{{AppSubUrl}}" data-owner-id="{{.Owner.ID}}" data-owner-name="{{.Owner.Name}}" data-user-id="{{if $.IsSigned}}{{$.SignedUserID}}{{end}}" data-repo-link="{{$.RepoLink}}" data-repo-name="{{.Name}}" data-repo-private="{{.IsPrivate}}" data-repo-fork="{{.IsFork}}">
+						<soda-repository-switcher class="soda-repository-breadcrumb" data-sub-url="{{AppSubUrl}}" data-owner-id="{{.Owner.ID}}" data-owner-name="{{.Owner.Name}}" data-user-id="{{if $.IsSigned}}{{$.SignedUserID}}{{end}}" data-repo-link="{{$.RepoLink}}" data-repo-name="{{.Name}}" data-repo-private="{{.IsPrivate}}" data-repo-fork="{{.IsFork}}">
                           <div class="soda-switcher-part"><a class="muted" href="{{.Owner.HomeLink}}">{{.Owner.Name}}</a>
                           </div>
                           <span aria-hidden="true">/</span>
@@ -18,7 +18,7 @@
                             <div class="menu"><div class="header">Switch repository</div><div class="ui icon input"><input class="search" type="search" placeholder="Find a repository…" aria-label="Find a repository">{{svg "octicon-search" 16 "icon"}}</div><div class="message soda-switcher-status" role="status">Loading…</div></div>
                           </div>{{end}}</div>
                           <template data-symbol="repo">{{svg "octicon-repo" 16}}</template><template data-symbol="private">{{svg "octicon-lock" 16}}</template><template data-symbol="fork">{{svg "octicon-repo-forked" 16}}</template><template data-symbol="check">{{svg "octicon-check" 16}}</template>
-                        </div>
+                        </soda-repository-switcher>
 					</div>
 				</div>
 				<div class="flex-item-trailing">
@@ -45,7 +45,7 @@
 				</div>
 			</div>
 			{{if not (or .IsBeingCreated .IsBroken)}}
-				<div class="repo-buttons button-row">
+				<soda-repository-actions class="repo-buttons button-row">
 					<details class="soda-repository-actions" open>
 						<summary aria-label="{{ctx.Locale.Tr "repo.more_operations"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.more_operations"}}">{{svg "octicon-kebab-horizontal" 16}}</summary>
 						<div class="soda-repository-action-menu">
@@ -83,7 +83,7 @@
 							{{end}}
 						</div>
 					</details>
-				</div>
+				</soda-repository-actions>
 			{{end}}
 		</div>
 		{{if $.PullMirror}}

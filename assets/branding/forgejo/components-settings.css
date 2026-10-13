@@ -133,6 +133,7 @@
 }
 
 /* Shared personal/repository settings shell, navigation and content contract. */
+soda-personal-settings { display: block; }
 .soda-settings-shell > .ui.container.soda-page-container { width: 100% !important; max-width: min(1168px, 100%) !important; margin-top: 0; padding-inline: 24px; margin-inline: auto !important; }
 .soda-settings-bar { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid var(--soda-page-text); }
 .soda-settings-layout, .soda-settings-shell .flex-container-main, .soda-settings-shell :is(.user-setting-content, .repo-setting-content) { min-width: 0; width: 100%; }

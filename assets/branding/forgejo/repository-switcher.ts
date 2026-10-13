@@ -11,6 +11,9 @@ type Picker = {
   plugin: Dropdown;
   request: AbortController | undefined;
   timer: number;
+  timeout: number;
+  frame: number;
+  lifetime: AbortController;
 };
 type Switcher = {
   root: HTMLElement;
@@ -27,11 +30,14 @@ function jqueryDropdown(): ((element: HTMLElement) => Dropdown) | undefined {
 }
 
 function cloneSymbol(root: HTMLElement, name: string): Node {
-  return root.querySelector<HTMLTemplateElement>(`template[data-symbol="${name}"]`)!.content.cloneNode(true);
+  const template = root.querySelector<HTMLTemplateElement>(`template[data-symbol="${name}"]`);
+  if (!template) throw new Error('Missing repository symbol');
+  return template.content.cloneNode(true);
 }
 
 function cancelPicker(p: Picker): void {
   clearTimeout(p.timer);
+  clearTimeout(p.timeout);
   p.request?.abort();
   p.request = undefined;
 }
@@ -94,6 +100,7 @@ async function fetchSwitcherText(p: Picker, url: string): Promise<string | undef
   const controller = new AbortController();
   p.request = controller;
   const timeout = window.setTimeout(() => controller.abort(new Error('Request timed out')), 10000);
+  p.timeout = timeout;
   try {
     const response = await fetch(url, {
       credentials: 'same-origin',
@@ -217,7 +224,7 @@ function isAbortError(error: unknown): boolean {
 
 function failure(switcher: Switcher): void {
   const p = switcher.picker;
-  if (!p.element.classList.contains('active')) return;
+  if (p.lifetime.signal.aborted || !p.element.classList.contains('active')) return;
   clearPicker(p);
   setPickerStatus(p, 'Could not load. Try again.');
   const retry = renderSwitcherRow(switcher, 'Retry', 'retry', false, 'repo');
@@ -230,6 +237,7 @@ function failure(switcher: Switcher): void {
 
 async function loadRepos(switcher: Switcher, page = 1): Promise<void> {
   const p = switcher.picker;
+  if (p.lifetime.signal.aborted) return;
   prepareRepoPage(p, page);
   setPickerStatus(p, 'Loading repositories…');
   const params = new URLSearchParams({
@@ -258,8 +266,9 @@ function repositionIfActive(p: Picker): void {
   if (p.element.classList.contains('active')) positionPicker(p);
 }
 
-function bindSwitcherEvents(switcher: Switcher): void {
+function bindSwitcherEvents(switcher: Switcher): () => void {
   const p = switcher.picker;
+  const options = {signal: p.lifetime.signal};
   p.element.setAttribute('role', 'button');
   p.element.setAttribute('aria-haspopup', 'listbox');
   p.element.setAttribute('aria-controls', p.menu.id);
@@ -273,9 +282,12 @@ function bindSwitcherEvents(switcher: Switcher): void {
     transition: 'none',
     direction: 'downward',
     onShow: () => {
+      if (p.lifetime.signal.aborted) return;
       p.element.setAttribute('aria-expanded', 'true');
       void loadSwitcher(switcher);
-      requestAnimationFrame(() => {
+      cancelAnimationFrame(p.frame);
+      p.frame = requestAnimationFrame(() => {
+        if (p.lifetime.signal.aborted) return;
         positionPicker(p);
         p.input.focus({preventScroll: true});
       });
@@ -300,52 +312,112 @@ function bindSwitcherEvents(switcher: Switcher): void {
         void loadRepos(switcher);
       }, 200);
     },
-    true
+    {...options, capture: true}
   );
-  p.element.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      p.plugin.dropdown('hide');
-      p.element.focus({preventScroll: true});
-    }
+  p.element.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === 'Escape') {
+        p.plugin.dropdown('hide');
+        p.element.focus({preventScroll: true});
+      }
+    },
+    options
+  );
+  p.element.addEventListener(
+    'focusout',
+    (event) => {
+      if (event.relatedTarget instanceof Node && !p.element.contains(event.relatedTarget)) p.plugin.dropdown('hide');
+    },
+    options
+  );
+  const observer = new ResizeObserver(() => {
+    if (!p.lifetime.signal.aborted) repositionIfActive(p);
   });
-  p.element.addEventListener('focusout', (event) => {
-    if (event.relatedTarget instanceof Node && !p.element.contains(event.relatedTarget)) p.plugin.dropdown('hide');
-  });
-  new ResizeObserver(() => {
-    repositionIfActive(p);
-  }).observe(p.menu);
-  window.addEventListener('resize', () => {
-    repositionIfActive(p);
-  });
+  observer.observe(p.menu);
+  window.addEventListener(
+    'resize',
+    () => {
+      repositionIfActive(p);
+    },
+    options
+  );
   window.addEventListener(
     'scroll',
     () => {
       repositionIfActive(p);
     },
-    true
+    {...options, capture: true}
   );
+  return () => {
+    p.lifetime.abort();
+    cancelPicker(p);
+    cancelAnimationFrame(p.frame);
+    observer.disconnect();
+    p.plugin.dropdown('destroy');
+    p.element.hidden = true;
+    p.element.setAttribute('aria-expanded', 'false');
+  };
 }
 
-function enhanceRepositorySwitcher(): void {
-  const root = document.querySelector<HTMLElement>('.soda-repository-breadcrumb');
-  const jq = jqueryDropdown();
-  if (!root || !jq || !root.dataset.userId) return;
+function switcherElements(root: HTMLElement) {
   const element = root.querySelector<HTMLElement>('.soda-repository-switcher[data-kind="repository"]');
   if (!element) return;
-  const menu = element.querySelector<HTMLElement>(':scope > .menu')!;
-  const input = element.querySelector<HTMLInputElement>('input.search')!;
-  const status = element.querySelector<HTMLElement>('[role="status"]')!;
+  const menu = element.querySelector<HTMLElement>(':scope > .menu');
+  const input = element.querySelector<HTMLInputElement>('input.search');
+  const status = element.querySelector<HTMLElement>('[role="status"]');
+  if (!menu || !input || !status) return;
+  return {element, menu, input, status};
+}
+
+function enhanceRepositorySwitcher(root: HTMLElement): (() => void) | undefined {
+  const jq = jqueryDropdown();
+  const elements = switcherElements(root);
+  if (!jq || !root.dataset.userId || !elements) return;
   const currentOwner = {id: root.dataset.ownerId ?? '', name: root.dataset.ownerName ?? ''};
-  bindSwitcherEvents({
+  return bindSwitcherEvents({
     root,
     prefix: root.dataset.subUrl ?? '',
     currentOwner,
     currentRepo: root.dataset.repoLink,
     currentName: `${currentOwner.name}/${root.dataset.repoName}`,
-    picker: {element, menu, input, status, plugin: jq(element), request: undefined, timer: 0},
+    picker: {
+      ...elements,
+      plugin: jq(elements.element),
+      request: undefined,
+      timer: 0,
+      timeout: 0,
+      frame: 0,
+      lifetime: new AbortController(),
+    },
     itemID: 0,
   });
 }
 
-if (document.readyState === 'complete') enhanceRepositorySwitcher();
-else window.addEventListener('load', enhanceRepositorySwitcher, {once: true});
+class SodaRepositorySwitcher extends HTMLElement {
+  private lifetime: AbortController | undefined;
+  private dispose: (() => void) | undefined;
+
+  connectedCallback(): void {
+    if (this.lifetime) return;
+    this.lifetime = new AbortController();
+    const enhance = () => {
+      if (this.isConnected) this.dispose = enhanceRepositorySwitcher(this);
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', enhance, {once: true, signal: this.lifetime.signal});
+    } else {
+      enhance();
+    }
+  }
+
+  disconnectedCallback(): void {
+    this.lifetime?.abort();
+    this.dispose?.();
+    this.dispose = undefined;
+    this.lifetime = undefined;
+  }
+}
+
+if (!customElements.get('soda-repository-switcher'))
+  customElements.define('soda-repository-switcher', SodaRepositorySwitcher);

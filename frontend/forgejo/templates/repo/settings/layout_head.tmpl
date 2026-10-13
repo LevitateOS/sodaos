@@ -1,5 +1,5 @@
 {{template "base/head" .ctxData}}
-<div role="main" aria-label="{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}" class="page-content soda-page soda-settings-shell soda-repository-settings soda-native-forms {{.pageClass}}" data-signed="{{if .ctxData.IsSigned}}true{{else}}false{{end}}">
+<soda-personal-settings role="main" aria-label="{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}" class="page-content soda-page soda-settings-shell soda-repository-settings soda-native-forms {{.pageClass}}" data-signed="{{if .ctxData.IsSigned}}true{{else}}false{{end}}">
 	{{template "repo/header" .ctxData}}
 	<div class="ui container soda-page-container">
 		{{if .parentURL}}<a class="soda-settings-parent" href="{{.parentURL}}">{{svg "octicon-arrow-left" 16}} {{.parentTitle}}</a>{{end}}
@@ -16,5 +16,5 @@
 		</div>
 	</div>
 </div>
-</div>
+</soda-personal-settings>
 {{end}}

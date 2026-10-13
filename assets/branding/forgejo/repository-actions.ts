@@ -76,36 +76,82 @@ function dismissActionsOnFocusOut(details: HTMLDetailsElement, summary: HTMLElem
   details.open = false;
 }
 
-function enhanceRepositoryActions(details: HTMLDetailsElement): void {
-  if (details.dataset.repositoryActionsEnhanced) return;
+function enhanceRepositoryActions(details: HTMLDetailsElement): (() => void) | undefined {
   const summary = details.querySelector<HTMLElement>(':scope > summary');
   const panel = details.querySelector<HTMLElement>(':scope > .soda-repository-action-menu');
   if (!summary || !panel) return;
+  const lifetime = new AbortController();
+  const options = {signal: lifetime.signal};
+  const wasOpen = details.open;
   details.dataset.repositoryActionsEnhanced = 'true';
   const state = {compact: false, summaryHadFocus: {value: false}};
   // Hiding summary can blur it before ResizeObserver delivers the new mode.
-  summary.addEventListener('focus', () => {
-    state.summaryHadFocus.value = true;
-  });
-  summary.addEventListener('blur', () => {
-    if (compactActionsMode(summary)) state.summaryHadFocus.value = false;
-  });
+  summary.addEventListener(
+    'focus',
+    () => {
+      state.summaryHadFocus.value = true;
+    },
+    options
+  );
+  summary.addEventListener(
+    'blur',
+    () => {
+      if (compactActionsMode(summary)) state.summaryHadFocus.value = false;
+    },
+    options
+  );
   syncActionsMode(details, summary, panel, state, true);
-  details.addEventListener('keydown', (event) => {
-    onActionsEscape(details, summary, event);
-  });
-  document.addEventListener('click', (event) => {
-    dismissOpenActions(details, summary, event.target);
-  });
-  details.addEventListener('focusout', (event) => {
-    dismissActionsOnFocusOut(details, summary, event.relatedTarget);
-  });
+  details.addEventListener(
+    'keydown',
+    (event) => {
+      onActionsEscape(details, summary, event);
+    },
+    options
+  );
+  document.addEventListener(
+    'click',
+    (event) => {
+      dismissOpenActions(details, summary, event.target);
+    },
+    options
+  );
+  details.addEventListener(
+    'focusout',
+    (event) => {
+      dismissActionsOnFocusOut(details, summary, event.relatedTarget);
+    },
+    options
+  );
   const header = details.closest('.soda-repository-header');
+  let observer: ResizeObserver | undefined;
   if (header && typeof ResizeObserver === 'function') {
-    new ResizeObserver(() => syncActionsMode(details, summary, panel, state)).observe(header);
+    observer = new ResizeObserver(() => {
+      if (!lifetime.signal.aborted) syncActionsMode(details, summary, panel, state);
+    });
+    observer.observe(header);
+  }
+  return () => {
+    lifetime.abort();
+    observer?.disconnect();
+    details.open = wasOpen;
+    delete details.dataset.repositoryActionsEnhanced;
+  };
+}
+
+class SodaRepositoryActions extends HTMLElement {
+  private dispose: (() => void) | undefined;
+
+  connectedCallback(): void {
+    if (this.dispose) return;
+    const details = this.querySelector<HTMLDetailsElement>(':scope > .soda-repository-actions');
+    if (details) this.dispose = enhanceRepositoryActions(details);
+  }
+
+  disconnectedCallback(): void {
+    this.dispose?.();
+    this.dispose = undefined;
   }
 }
 
-for (const details of document.querySelectorAll<HTMLDetailsElement>('.soda-repository-actions')) {
-  enhanceRepositoryActions(details);
-}
+if (!customElements.get('soda-repository-actions'))
+  customElements.define('soda-repository-actions', SodaRepositoryActions);

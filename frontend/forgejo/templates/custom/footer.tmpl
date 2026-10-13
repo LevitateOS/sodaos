@@ -1,7 +1,7 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
-{{if .Repository}}{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
-<script src="{{AssetUrlPrefix}}/soda/forgejo/repository-actions.js?v=5"></script>
-{{end}}{{end}}
+{{/* Definitions load once for both initial markup and later native page entries. */}}
+<script defer src="{{AssetUrlPrefix}}/soda/forgejo/repository-actions.js?v=6-native-owner"></script>
+<script defer src="{{AssetUrlPrefix}}/soda/forgejo/personal-settings.js?v=9-native-owner"></script>
 {{if .IsSigned}}
 <div id="soda-notification-preview" class="soda-notification-preview" popover="auto" role="region" aria-labelledby="soda-notification-preview-title">
 	<div class="soda-notification-preview-header">
@@ -16,4 +16,4 @@
 <script src="{{AssetUrlPrefix}}/soda/forgejo/notification-preview.js?v=2"></script>
 {{end}}
 
-{{if and .IsSigned .Repository}}<script defer src="{{AssetUrlPrefix}}/soda/forgejo/repository-switcher.js?v=4-repository-only"></script>{{end}}
+<script defer src="{{AssetUrlPrefix}}/soda/forgejo/repository-switcher.js?v=5-native-owner"></script>
