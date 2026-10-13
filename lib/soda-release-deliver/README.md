@@ -8,11 +8,13 @@ from [release-tools](../soda-release-tools/README.md).
 
 - `publish::prepare` binds the current candidate, media, source archives and
   provenance to a fresh local asset set and checks GitHub's per-file size limit.
-- `publish::stage` checks the exact remote tag, uploads a complete draft, compares
+- `publish::stage` creates a missing tag at the CI-qualified built revision or
+  verifies the existing tag, uploads a complete draft, compares
   remote sizes and hashes, then publishes an explicitly unqualified immutable
   prerelease. It never overwrites an existing release.
-- `publish::promote` admits the native install/boot/application receipt, verifies
-  the downloaded ISO through GitHub and promotes those unchanged assets to latest.
+- `publish::promote` binds the operator's observed installed revision and explicit
+  install/boot/image smoke confirmation to the downloaded ISO, generates the
+  receipt, verifies the download through GitHub and promotes unchanged assets to latest.
 - `check::check_candidate` verifies native candidate archives and identities.
 - `native` retains the restricted Skopeo boundary for local OCI artifact signing
   and verification. These packaging keys do not replace GitHub's release attestation.

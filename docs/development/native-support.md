@@ -226,8 +226,8 @@ provides the concrete commands. The Rust `soda-release` entry point in
 
 | Operation | Inputs and effects |
 | --- | --- |
-| `stage` | Reads exact candidate/media/source artifacts, prepares a fresh asset directory, checks the tag and per-file size limit, uploads a draft, compares remote hashes and sizes, and publishes an immutable prerelease. Requires GitHub repository write access. |
-| `promote` | Reads the prepared release and a native install/boot/application receipt, verifies the downloaded ISO and unchanged GitHub inventory, then updates notes and prerelease/latest flags. No image re-upload or disk mutation. |
+| `stage` | Reads exact candidate/media/source artifacts, prepares a fresh asset directory, checks source CI and per-file size limits, creates or verifies the exact tag, uploads a draft, compares remote hashes and sizes, and publishes an immutable prerelease. Requires GitHub repository write access. |
+| `promote` | Binds the observed installed revision and explicit native smoke confirmation to the prepared release and downloaded ISO, writes the receipt, checks unchanged GitHub inventory, then updates notes and prerelease/latest flags. No image re-upload or disk mutation. |
 
 Keep private authority inputs and task receipts on the workspace disk. Only public
 artifact files enter the upload set; keys, passphrases, credentials and private VM

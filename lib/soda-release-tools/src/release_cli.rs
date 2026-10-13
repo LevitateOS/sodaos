@@ -1,21 +1,26 @@
 //! Thin operator entrypoint for GitHub staging and exact install/boot promotion.
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 use soda_release_deliver::publish;
 use std::path::Path;
 
 fn command() -> Command {
-    let stage = ["candidate", "media", "tag", "notes", "out"]
-        .into_iter()
-        .fold(
-            Command::new("stage").about("Publish an explicitly unqualified immutable prerelease"),
-            |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
-        );
-    let promote = ["input", "qualification", "downloaded-iso"]
+    let stage = ["candidate", "tag", "notes", "out"].into_iter().fold(
+        Command::new("stage").about("Publish an explicitly unqualified immutable prerelease"),
+        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+    );
+    let promote = ["input", "downloaded-iso", "observed-revision"]
         .into_iter()
         .fold(
             Command::new("promote")
                 .about("Promote unchanged bytes after native install/boot smoke checks"),
             |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+        )
+        .arg(
+            Arg::new("smoke-passed")
+                .long("smoke-passed")
+                .help("Confirm this downloaded ISO installed, booted without media, and all candidate images were present")
+                .action(ArgAction::SetTrue)
+                .required(true),
         );
     Command::new("soda-release")
         .subcommand_required(true)
@@ -44,7 +49,6 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         "stage" => {
             let manifest = publish::prepare(
                 Path::new(get("candidate")?),
-                Path::new(get("media")?),
                 get("tag")?,
                 Path::new(get("notes")?),
                 Path::new(get("out")?),
@@ -56,8 +60,9 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         "promote" => publish::promote(
             &publish::Gh,
             Path::new(get("input")?),
-            Path::new(get("qualification")?),
             Path::new(get("downloaded-iso")?),
+            get("observed-revision")?,
+            flags.get_flag("smoke-passed"),
         )
         .map_err(|e| e.to_string()),
         _ => Err("unknown release action".to_owned()),
@@ -77,5 +82,19 @@ mod tests {
         assert!(run(["soda-release", "--help"].map(str::to_owned)).is_ok());
         assert!(run(["soda-release", "stage"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "promote", "--input", "missing"].map(str::to_owned)).is_err());
+        let promote = [
+            "soda-release",
+            "promote",
+            "--input",
+            "release",
+            "--downloaded-iso",
+            "download.iso",
+            "--observed-revision",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ];
+        assert!(command().try_get_matches_from(promote).is_err());
+        assert!(command()
+            .try_get_matches_from(promote.into_iter().chain(["--smoke-passed"]))
+            .is_ok());
     }
 }
