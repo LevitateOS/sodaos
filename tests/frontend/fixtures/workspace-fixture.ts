@@ -3,6 +3,7 @@ import {mountSodaspaces} from '../../../frontend/spaces/sodaspaces-workspace.js'
 import {mount as mountWorkspacePanel} from '../../../frontend/spaces/soda-spaces-entry.js';
 import {mount as mountSpacesEntry} from '../../../frontend/spaces/soda-spaces-entry.js';
 import {object} from '../../../frontend/spaces/sodaspaces-api.js';
+import type {ContributionNavigationOptions} from '../../../frontend/spaces/fountain-browser-contract.js';
 import {createWorkspaceModel} from './workspace-model.js';
 export {projectA, projectB} from './workspace-model.js';
 export function installWorkspaceModel(
@@ -59,16 +60,45 @@ function createWorkspaceFixture(
     },
     dispose() {},
   };
+  const navigations: Array<{path: string; replace: boolean}> = [];
+  let navigationDeferred = false;
+  const presentRoute = (route = location.pathname + location.search + location.hash) => {
+    const pathname = route.split(/[?#]/)[0] || '';
+    const workspace = pathname === `${subpath}/workspace` || pathname.startsWith(`${subpath}/workspace/`);
+    api.update({mode: workspace ? 'page' : 'panel', route, params: {}, visible: true});
+  };
+  // Authored fixture host: history is owned here, and the consumer receives
+  // the same public presentation callback that the real native host supplies.
+  const navigate = (path: string, {replace = false}: ContributionNavigationOptions = {}) => {
+    navigations.push({path, replace});
+    if (navigationDeferred) return;
+    if (replace) window.history.replaceState(null, '', path);
+    else window.history.pushState(null, '', path);
+    presentRoute(path);
+  };
   const context =
     mode === 'page'
-      ? {kind: 'page' as const, transport, forgejoPrefix: subpath, ...(repositoryId ? {repositoryId} : {})}
-      : {kind: 'native' as const, transport, forgejoPrefix: subpath, repositoryId: '7', pageRepositoryId: '7'};
+      ? {kind: 'page' as const, transport, navigate, forgejoPrefix: subpath, ...(repositoryId ? {repositoryId} : {})}
+      : {
+          kind: 'native' as const,
+          transport,
+          navigate,
+          forgejoPrefix: subpath,
+          repositoryId: '7',
+          pageRepositoryId: '7',
+        };
   let api = mountSodaspaces(model.root, context);
+  window.addEventListener('popstate', () => presentRoute());
   return {
     get api() {
       return api;
     },
     ...model,
+    navigations,
+    presentRoute,
+    deferNavigation(value: boolean) {
+      navigationDeferred = value;
+    },
     async remount() {
       api.dispose();
       api = mountSodaspaces(model.root, context);

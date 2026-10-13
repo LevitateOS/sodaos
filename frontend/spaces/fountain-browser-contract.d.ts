@@ -1,6 +1,6 @@
 // Fountain canonical browser contract mirror (NFX-C03/H-N + NFX-C04/H-OWNER).
-// Source: Fountain sdk/browser/extension-contract.d.ts at a9ba2ce0ba.
-// sha256(body): b1269647e41dae92ee625aecbe51ae57a6deeb0321ca0c66f5fcf31152951788
+// Source: Fountain sdk/browser/extension-contract.d.ts at 04f2d81b2d.
+// sha256(body): f28b7dc655e0c7c509ec8ecb899c3050ba1fd703c31437179059654b33fa3890
 // contractMajor: 1, manifestProtocol: 1.
 // Do not hand-edit; re-sync from Fountain (lane C re-pins per change).
 // --- contract body begins ---
@@ -40,6 +40,12 @@ export interface ContributionPresentation {
   repositoryId?: string;
   /** Whether the host currently shows this contribution. */
   visible: boolean;
+}
+
+/** Browser history intent for an ordinary host-owned native transition. */
+export interface ContributionNavigationOptions {
+  /** Replace the current history entry; omitted/false adds a new entry. */
+  replace?: boolean;
 }
 
 /** Fetch subset the host forwards for a scoped contribution request. */
@@ -145,9 +151,11 @@ export interface MountContext {
    * authentication, credential-bearing, cross-origin, and other
    * host-handled destinations take their native full-document load;
    * private native prefixes are refused. The path is display routing
-   * only and never confers authority. Throws once the owner is retired.
+   * only and never confers authority. Adds a history entry by default;
+   * `{replace: true}` replaces it, for example after saving a draft revision.
+   * Throws once the owner is retired.
    */
-  navigate: (path: string) => void;
+  navigate: (path: string, options?: ContributionNavigationOptions) => void;
 }
 
 /**

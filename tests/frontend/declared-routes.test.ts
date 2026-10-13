@@ -116,6 +116,6 @@ test('pinned contract mirror exposes declared-route navigation and owner identit
     new URL('../../frontend/spaces/fountain-browser-contract.d.ts', import.meta.url),
     'utf8'
   );
-  assert.match(mirror, /navigate: \(path: string\) => void/);
+  assert.match(mirror, /navigate: \(path: string, options\?: ContributionNavigationOptions\) => void/);
   assert.match(mirror, /ownerId\?: string/);
 });

@@ -830,7 +830,7 @@ test('setup: saved draft resumes from its request route across history traversal
   const saved = await page.evaluate(() => window.location.pathname);
   await page.getByText('Saved', {exact: true}).waitFor();
   await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
-  await page.waitForFunction(() => window.location.pathname === '/workspace/new');
+  await page.waitForFunction(() => window.location.pathname === '/workspace');
   await page.getByText('Saved', {exact: true}).waitFor();
   assert.equal(
     await page.getByLabel('Describe what you want to build', {exact: true}).inputValue(),
@@ -889,9 +889,6 @@ test('setup: direct /workspace/new load activates fresh entry in populated works
     []
   );
   // Traversal back into the new route reactivates the entry.
-  await page.evaluate(() => {
-    window.history.pushState({}, '', '/');
-  });
   await page.goBack();
   await page.getByRole('heading', {name: 'What do you want to build?', exact: true}).waitFor();
 });
@@ -924,7 +921,7 @@ test('setup: native New while resuming starts a blank entry and saves a new iden
   await page.waitForFunction(() => window.location.pathname.startsWith('/workspace/requests/d'));
   const savedRoute = await page.evaluate(() => window.location.pathname);
   await page.getByRole('button', {name: 'Save and leave', exact: true}).click();
-  await page.waitForFunction(() => window.location.pathname === '/workspace/new');
+  await page.waitForFunction(() => window.location.pathname === '/workspace');
   await page.getByRole('button', {name: 'Resume Build a small project tracker', exact: true}).click();
   await page.waitForFunction((route) => window.location.pathname === route, savedRoute);
   const resumedIntent = await page.evaluate(

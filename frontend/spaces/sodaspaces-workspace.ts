@@ -284,6 +284,7 @@ export class SodaSpaces extends LitElement {
   private dragged: string | undefined;
   private choosingPane: string | undefined;
   private pendingNewRoute = false;
+  private pendingWorkspaceRoute = false;
   private invoker: HTMLElement | undefined;
   private lastMinimum = 0;
   constructor() {
@@ -412,24 +413,14 @@ export class SodaSpaces extends LitElement {
     // Host lifecycle only (NFX-D05): no pagehide/pageshow/visibilitychange
     // self-interpretation. The entry forwards host update/suspend/resume/
     // retire here; ordinary navigation retains every terminal and watch.
-    // popstate below is retained in-page route arming, not authority.
-    window.addEventListener(
-      'popstate',
-      () => {
-        this.routePathname = window.location.pathname;
-        if (this.binding?.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix()))
-          this.pendingNewRoute = true;
-        this.requestUpdate();
-      },
-      {
-        signal: this.lifetime.signal,
-      }
-    );
     // One mounted-workspace timer, never a navbar poller. GET refresh uses the
     // existing bounded/cancellable caller, and cannot create work.
     this.attentionTimer = window.setInterval(() => this.pollAttention(), 30000);
     this.addEventListener('soda-project-observed', (e) => this.onProjectObserved(e));
     this.addEventListener('soda-project-operation', (e) => this.onProjectOperation(e));
+    this.addEventListener('soda-intent-operation', (event) => {
+      if (this.pendingWorkspaceRoute && event.target === this.querySelector('soda-intent')) this.requestUpdate();
+    });
     this.addEventListener('soda-project-change-repository', (e) => this.onProjectChangeRepository(e));
     this.addEventListener('soda-project-changed', (e) => {
       if (!(e instanceof CustomEvent)) return;
@@ -440,10 +431,12 @@ export class SodaSpaces extends LitElement {
     if (!this.binding || this.disposed || (repositoryId !== undefined && !id(repositoryId))) return;
     // Transport/account and each terminal's locator remain unchanged. Only the
     // current content presentation and observed repository preference change.
-    this.routePathname = this.presentedRoute(route);
+    const pathname = this.presentedRoute(route);
+    const entered = pathname !== this.routePathname || kind !== this.binding.kind;
+    this.routePathname = pathname;
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
     if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
-    this.armNewRoute(kind);
+    this.armNewRoute(kind, entered);
     this.requestUpdate();
   }
   private presentedRoute(route?: string) {
@@ -455,8 +448,12 @@ export class SodaSpaces extends LitElement {
     if (presentation.visible !== this.surfaceVisible) this.setVisible(presentation.visible);
     if (presentation.visible) this.markViewed();
   }
-  private armNewRoute(kind: 'page' | 'native') {
-    // Same guarded one-shot as configure/popstate for retained presentation.
+  private armNewRoute(kind: 'page' | 'native', entered: boolean) {
+    // Only a confirmed host entry can return setup to the retained Workspace.
+    // Repeated base updates while a requested /new entry is pending cannot.
+    const workspace = kind === 'page' && this.routePathname === `${this.repositoryPrefix()}/workspace`;
+    if (!workspace) this.pendingWorkspaceRoute = false;
+    else if (entered) this.pendingWorkspaceRoute = true;
     if (kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix())) this.pendingNewRoute = true;
   }
   private pollAttention() {
@@ -496,10 +493,13 @@ export class SodaSpaces extends LitElement {
     this.display();
   }
   private activateNewRoute() {
+    if (this.pendingWorkspaceRoute) {
+      this.returnToWorkspace();
+      return;
+    }
     // One-shot fresh entry for direct new-route load/traversal/forward in a
     // populated workspace. The flag clears on any setup so Back/cancel never
-    // refires; /workspace/new stays the neutral post-leave route for
-    // rendering. The current route is rechecked so a stale flag left by
+    // refires. The current route is rechecked so a stale flag left by
     // native navigation can never activate.
     if (this.setup) {
       this.freshEntryFromSetup();
@@ -510,6 +510,13 @@ export class SodaSpaces extends LitElement {
     const armed = this.newRouteCurrent() && this.spaces.length > 0;
     if (armed) beginSetup(this.setupReading(), this.setupActions(), this);
     if (this.setup || !isNewRouteLocation(this.routePathname, this.repositoryPrefix())) this.pendingNewRoute = false;
+  }
+  private returnToWorkspace() {
+    if (this.stale || !this.canRestore || this.querySelector<SodaIntent>('soda-intent')?.busy) return;
+    this.pendingWorkspaceRoute = this.pendingNewRoute = false;
+    // The host already entered the base route. The ordinary guarded cancel
+    // restores the selected view; its route request is therefore a no-op.
+    if (this.setup || this.setupReturn) cancelSetup(this.setupReading(), this.setupActions(), this);
   }
   private newRouteCurrent() {
     return this.binding?.kind === 'page' && isNewRouteLocation(this.routePathname, this.repositoryPrefix());
@@ -1130,14 +1137,24 @@ export class SodaSpaces extends LitElement {
       this.showSessions();
   }
   private syncIntentRoute(intent: string | null) {
-    if (intent !== null && !requestIDPattern.test(intent)) return;
+    if (intent !== null) {
+      if (!requestIDPattern.test(intent)) return;
+      // A save finishing after a confirmed Workspace entry must not redirect
+      // that entry back to its saved revision. The normal update then exits.
+      if (this.pendingWorkspaceRoute) {
+        this.requestUpdate();
+        return;
+      }
+    }
     const target =
-      intent === null ? newRouteFor(this.repositoryPrefix()) : requestRouteFor(this.repositoryPrefix(), intent);
+      intent === null
+        ? this.setup
+          ? newRouteFor(this.repositoryPrefix())
+          : `${this.repositoryPrefix()}/workspace`
+        : requestRouteFor(this.repositoryPrefix(), intent);
     if (target !== this.routePathname) {
       const url = target + window.location.search + window.location.hash;
-      if (intent === null) window.history.pushState(null, '', url);
-      else window.history.replaceState(null, '', url);
-      this.routePathname = target;
+      this.binding?.navigate?.(url, {replace: intent !== null});
     }
     this.requestUpdate();
   }

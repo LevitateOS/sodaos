@@ -670,7 +670,7 @@ export function cancelSetup(reading: SetupReading, actions: SetupActions, host: 
   actions.setReviewedIntent(undefined);
   actions.setSetupCommitted(false);
   actions.setSetup(null);
-  if (reading.requestId !== '') actions.syncIntentRoute(null);
+  actions.syncIntentRoute(null);
   if (reading.setupReturn) {
     actions.setProject(reading.setupReturn.project);
     actions.setView(reading.setupReturn.view);

@@ -321,7 +321,10 @@ export class SodaIntent extends LitElement {
         this.error = 'Could not save or plan this request. Your choices are kept; try again.';
       return false;
     } finally {
-      if (this.operation === request) this.busy = false;
+      if (this.operation === request) {
+        this.busy = false;
+        this.dispatchEvent(new CustomEvent('soda-intent-operation', {bubbles: true, composed: true}));
+      }
     }
   }
   private async call(path: string, body: Record<string, unknown> | undefined, signal: AbortSignal) {
