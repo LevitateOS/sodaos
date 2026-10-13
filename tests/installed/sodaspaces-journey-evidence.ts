@@ -5,8 +5,9 @@ import type {MatrixProject} from './sodaspaces-matrix-input';
 export const spacesPage = '/workspace';
 export const spacesAPI = '/-/native/pages/soda/spaces/api';
 const workspacePage = '/workspace';
-const workspaceMount = '[data-extension-workspace]';
-const spacesMount = '[data-extension-page][data-extension-id="soda"][data-extension-page-id="spaces"]';
+// The product mounts one retained `soda-spaces` owner inside its
+// contribution root; retired host wrappers are not part of the page.
+const spacesOwner = 'soda-spaces';
 
 const workspaceRequestID = /^d[0-9a-f]{24}$/;
 const workspaceSubURL = /^(?:\/[A-Za-z0-9._~-]+)*$/;
@@ -28,26 +29,17 @@ function admittedWorkspaceRest(rest: string): boolean {
 
 export async function nativeSpacesMount(page: Page): Promise<string> {
   const hashBefore = new URL(page.url()).hash;
-  const workspace = page.locator(workspaceMount);
-  await workspace.waitFor();
-  assert.equal(await page.locator(workspaceMount).count(), 1, 'Exactly one native Workspace owner required');
-  assert((await workspace.getAttribute('data-workspace-direct')) !== null, 'Direct native layout required');
-  const subURL = (await workspace.getAttribute('data-app-sub-url')) ?? '';
+  const owner = page.locator(spacesOwner);
+  await owner.waitFor();
+  assert.equal(await owner.count(), 1, 'Exactly one native Workspace owner required');
+  const mount = owner.locator('xpath=ancestor::*[@data-extension-id="soda"][1]');
+  await mount.waitFor();
+  const subURL = (await mount.getAttribute('data-app-sub-url')) ?? '';
   assert(workspaceSubURL.test(subURL), 'Native sub-URL must be admitted');
   const url = new URL(page.url());
   assert(url.pathname.startsWith(subURL), 'Native workspace prefix mismatch');
   const rest = subURL === '' ? url.pathname : url.pathname.slice(subURL.length);
   assert(admittedWorkspaceRest(rest), 'Native workspace shape required');
-  assert.equal(
-    await workspace.getAttribute('data-workspace-path'),
-    url.pathname + url.search,
-    'Native Workspace URL must be canonical'
-  );
-  const workspaceGeneration = await workspace.getAttribute('data-workspace-session-generation');
-  assert(workspaceGeneration, 'Workspace mount has no native session');
-
-  const mount = page.locator(spacesMount);
-  await mount.waitFor();
   const api = new URL((await mount.getAttribute('data-extension-api-base')) || '', url.origin);
   assert.equal(api.origin, url.origin, 'Spaces API must be same-origin');
   assert.equal(api.pathname, `${subURL}${spacesAPI}/`, 'Spaces mount API mismatch');
@@ -55,16 +47,17 @@ export async function nativeSpacesMount(page: Page): Promise<string> {
   assert.equal(api.hash, '', 'Spaces API hash is not allowed');
   const generation = await mount.getAttribute('data-extension-session-generation');
   assert(generation, 'Spaces mount has no native session');
-  assert.equal(generation, workspaceGeneration, 'Workspace and Spaces must share native session authority');
   assert.equal(new URL(page.url()).hash, hashBefore, 'Native fragment must be preserved');
   return generation;
 }
 
 /** Validated mount facts callers need for exact request paths. */
 export async function mountedSpacesFacts(page: Page): Promise<{subURL: string; apiBase: string}> {
-  const workspace = page.locator('[data-extension-workspace]');
-  const subURL = (await workspace.getAttribute('data-app-sub-url')) ?? '';
-  const base = await page.locator(spacesMount).getAttribute('data-extension-api-base');
+  const owner = page.locator(spacesOwner);
+  await owner.waitFor();
+  const mount = owner.locator('xpath=ancestor::*[@data-extension-id="soda"][1]');
+  const subURL = (await mount.getAttribute('data-app-sub-url')) ?? '';
+  const base = await mount.getAttribute('data-extension-api-base');
   assert(base, 'Spaces mount has no API base');
   const api = new URL(base, new URL(page.url()).origin);
   return {subURL, apiBase: api.pathname.replace(/\/$/, '')};
