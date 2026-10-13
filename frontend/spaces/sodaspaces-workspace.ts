@@ -313,7 +313,7 @@ export class SodaSpaces extends LitElement {
     return this;
   }
   private get activeSurface() {
-    return this.surfaceVisible && this.isConnected && !this.closest('[hidden], [inert]');
+    return this.surfaceVisible && this.isConnected;
   }
   private get selectedSpace() {
     return this.spaces.find((s) => s.environment.repository_id === this.project);
@@ -440,11 +440,14 @@ export class SodaSpaces extends LitElement {
     if (!this.binding || this.disposed || (repositoryId !== undefined && !id(repositoryId))) return;
     // Transport/account and each terminal's locator remain unchanged. Only the
     // current content presentation and observed repository preference change.
-    this.routePathname = route ? route.split(/[?#]/)[0] || this.routePathname : window.location.pathname;
+    this.routePathname = this.presentedRoute(route);
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
     if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
     this.armNewRoute(kind);
     this.requestUpdate();
+  }
+  private presentedRoute(route?: string) {
+    return route ? route.split(/[?#]/)[0] || this.routePathname : window.location.pathname;
   }
   applyPresentation(presentation: WorkspacePresentation) {
     if (!this.binding || this.disposed) return;
@@ -463,7 +466,7 @@ export class SodaSpaces extends LitElement {
     if (this.shouldRefreshAttention()) void this.refresh();
   }
   private shouldRefreshAttention() {
-    if (!this.activeSurface || document.visibilityState !== 'visible') return false;
+    if (!this.activeSurface) return false;
     return this.now - this.observedAt >= 60000;
   }
   private projectEventFromHost(e: Event) {
@@ -1386,7 +1389,7 @@ export class SodaSpaces extends LitElement {
       readManagementMode: () => this.managementMode,
       readStorageLoaded: () => this.storageLoaded,
       readUpdateComplete: () => this.updateComplete,
-      concealed: () => this.closest('[hidden]') !== null,
+      concealed: () => !this.activeSurface,
       setBusy: (busy) => {
         this.busy = busy;
       },
@@ -1569,7 +1572,7 @@ export class SodaSpaces extends LitElement {
       readUpdateComplete: () => this.updateComplete,
       readFactory: () => this.factory,
       findMountLayer: () => this.querySelector('.soda-workspace-owners'),
-      concealed: () => this.closest('[hidden]') !== null,
+      concealed: () => !this.activeSurface,
       live: (n) => this.live(n),
       persist: () => this.persist(),
       requestUpdate: () => this.requestUpdate(),
@@ -1625,7 +1628,7 @@ export class SodaSpaces extends LitElement {
       isSurfaceVisible: () => this.surfaceVisible,
       projectName: (space) => this.projectName(space),
       findOwner: (runId) => this.querySelector<HTMLElement>(`[data-factory-owner="${runId}"]`),
-      ownerConcealed: () => this.closest('[hidden]') !== null,
+      ownerConcealed: () => !this.activeSurface,
       invalidate: () => this.invalidate(),
       requestUpdate: () => this.requestUpdate(),
     });

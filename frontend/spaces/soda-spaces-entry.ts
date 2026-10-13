@@ -55,21 +55,21 @@ export function mount(root: HTMLElement, context: ExtensionMountContext): MountH
       visible = presentation.visible;
       const kind = presentation.mode === 'page' ? 'page' : 'native';
       root.classList.toggle('soda-spaces-page-mount', kind === 'page');
-      workspace.present(kind, presentation.repositoryId);
-      workspace.setVisible(visible && !suspended);
+      workspace.update({...presentation, visible: visible && !suspended});
     },
     suspend() {
       if (disposed || retired || suspended) return;
       suspended = true;
-      workspace.setVisible(false);
+      workspace.suspend();
     },
     resume(validation) {
       if (disposed || retired) return;
       if (validation.sessionGeneration !== transport.generation) {
-        workspace.invalidate();
+        dispose();
         return;
       }
       suspended = false;
+      workspace.resume(validation);
       workspace.setVisible(visible);
     },
     retire() {

@@ -1,4 +1,4 @@
-import {mount} from '../../../frontend/spaces/soda-workspace-panel-entry.js';
+import {mount} from '../../../frontend/spaces/soda-spaces-entry.js';
 import {createWorkspaceModel} from './workspace-model.js';
 import {object} from '../../../frontend/spaces/sodaspaces-api.js';
 

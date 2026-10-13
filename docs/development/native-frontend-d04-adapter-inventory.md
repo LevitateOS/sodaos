@@ -1,34 +1,23 @@
-# NFX-D04 host-ancestor adapter inventory (D-lane prep)
+# NFX-D04 host-layout adapter inventory
 
-Source: Soda `frontend/spaces/*` at wave1/D-prep-migration base, Fountain
-`sdk/browser/extension-contract.d.ts` at d240b821a4 (H-N source present in
-`web_src/js/features/extension-mount.js`, wired by `extensions.js`).
+The public boundary belongs to the [Forgejo integration contract](../reference/forgejo.md#native-extension-presentation).
+This inventory covers the remaining D04 source adapters from Soda `72284a49`,
+using Fountain's callable C03/A04 providers at `042b3bc3` and the pinned
+`fountain-browser-contract.d.ts` mirror.
 
-## Removed in this prep slice (safe against current Fountain source)
-- `soda-extension.ts`: duplicate scoped fetch/WebSocket construction is bypassed
-  when the host supplies `MountContext.request`/`stream`; unexpected
-  `contractVersion` refuses before effects. Soda domain validation
-  (extension/page/panel identity, `id()` repository check, disposed guard) and
-  all protocol parsing in callers are retained. Local transport remains only as
-  fallback for callers not yet receiving host helpers (Tailnet entry, tests).
+| Removed adapter | Current owner and input |
+| --- | --- |
+| `sodaspaces-page.ts`: navbar/footer queries, ResizeObserver subscriptions, viewport-minus-chrome calculation and inline mount height | Fountain supplies the native container; the page forwards public presentation/lifecycle updates to its retained Workspace |
+| `sodaspaces-workspace.ts`: host-ancestor `[hidden]`/`[inert]` inspection and document visibility polling gate | The host supplies visible/concealed state through `ContributionPresentation.visible` and suspend/resume; internal callers use that state and the owner's connection |
+| `sodaspaces-workspace.css`: native page/container gutter overrides and legacy drawer Hide-control reservation | Fountain owns its page gutters and contribution placement; Soda styles only its mount and content |
 
-## Retained Soda-internal (not host adapters; keep)
-- `soda-native-paths.ts` `nativeAppSubUrl`: shared native-prefix helper for
-  native navigation links only; API authority stays with the mount transport.
-- Workspace/Factory/Terminal internal `querySelector`/`closest('[hidden]')`
-  on Soda-owned shadow/DOM subtrees, terminal cell sizing
-  (`sodaspaces-workspace.ts` canvas measure), focus management.
+Workspace measurement still observes the Soda element and its own canvas,
+measures terminal cells, and applies local pane geometry. Local terminal/Project
+view hiding, menu bounds, focus management and product guards remain consumer
+responsibilities. Public presentation updates and concealment retain the same
+owner and browser resources; retirement releases them through the existing
+lifecycle. No replacement host-height or host-DOM adapter is added.
 
-## Host-ancestor adapters remaining (remove only at H-C/A04 + H-N lifecycle)
-| File | Adapter | Replacement |
-| --- | --- | --- |
-| `soda-workspace-panel-entry.ts` | `root.closest('[data-extension-workspace]')`, `.extension-workspace-panel(s)` ancestor toggling, `extension-workspace-navigation` host event, footer/`getBoundingClientRect` height sizing | Host `update(presentation)` + native container (H-C) |
-| `sodaspaces-page.ts` | `document.querySelector('footer')`, `#navbar` ResizeObserver, viewport height sizing | Native container sizing (H-C) |
-| `soda-spaces-entry.ts` | `window.frameElement[data-extension-workspace-frame]` and `[data-workspace-direct]` panel detection returning no-op mounts | One shared owner registration (H-OWNER/D02) |
-| `sodaspaces-workspace.ts` | `pageshow`/`pagehide`/`visibilitychange` + `window.location` route parsing as lifecycle/authority-adjacent signals | Host lifecycle `update/suspend/resume/retire` (C05/D05) |
-| `sodaspaces-workspace-drawer.ts` | `window.location.assign(...)` success navigation | Host programmatic native navigation (H-ROUTE/D03) |
-| `sodaspaces-factory.ts`, `sodaspaces-terminal.ts` | `pagehide`/`pageshow` invalidation listeners | Host lifecycle (D05) |
-
-No adapter above is removed in this slice: each still needs its callable
-H-C/H-OWNER/H-ROUTE/C05 host replacement, and removing it now would break
-current page/panel behaviour.
+Entry/route/transport migration and final native composition are separate joins.
+D04 source removal does not by itself qualify every native container or installed
+terminal/process preservation; those remain the applicable F06/I04–I08 checks.
