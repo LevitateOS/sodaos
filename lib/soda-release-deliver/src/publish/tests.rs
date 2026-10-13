@@ -93,16 +93,31 @@ fn stage_checks_exact_inventory_before_publishing() {
         Err(Error::msg("GitHub resource not found")),
         Ok(vec![]),
         Ok(vec![]),
+        json(serde_json::json!({"databaseId":17})),
         remote(&m, &items, true, true, false),
         Ok(vec![]),
+        json(serde_json::json!({"databaseId":17})),
         remote(&m, &items, false, true, true),
         Ok(vec![]),
     ]);
     stage(&gh, &m, dir.path()).unwrap();
     assert!(gh.replies.borrow().is_empty());
     let calls = gh.calls.borrow();
+    assert_eq!(
+        calls[2],
+        [
+            "release",
+            "view",
+            &m.tag,
+            "--repo",
+            REPOSITORY,
+            "--json",
+            "databaseId"
+        ]
+    );
     assert!(calls[3].contains(&"--draft".to_owned()));
-    assert!(calls[6].contains(&"--latest=false".to_owned()));
+    assert_eq!(calls[6].last().unwrap(), &format!("{API}/releases/17"));
+    assert!(calls[7].contains(&"--latest=false".to_owned()));
     let mut bad = items.clone();
     bad[0].sha256 = "c".repeat(64);
     let gh = Script::new(vec![
@@ -111,22 +126,26 @@ fn stage_checks_exact_inventory_before_publishing() {
         Err(Error::msg("GitHub resource not found")),
         Ok(vec![]),
         Ok(vec![]),
+        json(serde_json::json!({"databaseId":17})),
         remote(&m, &bad, true, true, false),
     ]);
     assert!(stage(&gh, &m, dir.path()).is_err());
-    assert_eq!(gh.calls.borrow().len(), 6);
+    assert_eq!(gh.calls.borrow().len(), 7);
 }
 #[test]
 fn stage_refuses_existing_release_and_wrong_tag() {
     let (dir, m) = fixture();
     let items = inventory(&m, dir.path()).unwrap();
-    let gh = Script::new(vec![
-        tag(&m),
-        json(serde_json::json!({"enabled":true})),
-        remote(&m, &items, false, true, true),
-    ]);
-    assert!(stage(&gh, &m, dir.path()).is_err());
-    assert_eq!(gh.calls.borrow().len(), 3);
+    for draft in [true, false] {
+        let gh = Script::new(vec![
+            tag(&m),
+            json(serde_json::json!({"enabled":true})),
+            json(serde_json::json!({"databaseId":17})),
+            remote(&m, &items, draft, true, !draft),
+        ]);
+        assert!(stage(&gh, &m, dir.path()).is_err());
+        assert_eq!(gh.calls.borrow().len(), 4);
+    }
     let gh = Script::new(vec![json(
         serde_json::json!({"ref":"refs/tags/v0.1.0","object":{"type":"commit","sha":"c".repeat(40)}}),
     )]);
@@ -153,14 +172,15 @@ fn promotion_requires_bound_native_receipt_and_actual_download() {
     write_json(&qp, &q).unwrap();
     let gh = Script::new(vec![
         tag(&m),
+        json(serde_json::json!({"databaseId":17})),
         remote(&m, &items, false, true, true),
         Ok(vec![]),
         Ok(vec![]),
         remote(&m, &items, false, false, true),
     ]);
     promote(&gh, dir.path(), &qp, &dir.path().join(ISO_NAME)).unwrap();
-    assert_eq!(gh.calls.borrow()[2][1], "verify-asset");
-    assert!(gh.calls.borrow()[3].contains(&"--prerelease=false".to_owned()));
+    assert_eq!(gh.calls.borrow()[3][1], "verify-asset");
+    assert!(gh.calls.borrow()[4].contains(&"--prerelease=false".to_owned()));
     q.observed_soda_revision = "c".repeat(40);
     write_json(&qp, &q).unwrap();
     let gh = Script::new(vec![]);

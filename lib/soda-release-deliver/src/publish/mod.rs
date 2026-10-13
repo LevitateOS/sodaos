@@ -22,7 +22,8 @@ impl GitHub for Gh {
             .output()
             .map_err(|_| Error::msg("GitHub CLI unavailable"))?;
         if !output.status.success() {
-            if String::from_utf8_lossy(&output.stderr).contains("(HTTP 404)") {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("(HTTP 404)") || stderr.trim() == "release not found" {
                 return Err(Error::msg("GitHub resource not found"));
             }
             return Err(Error::msg(
@@ -93,7 +94,27 @@ fn check_tag(gh: &dyn GitHub, manifest: &Manifest) -> Result<(), Error> {
     Ok(())
 }
 fn release(gh: &dyn GitHub, tag: &str) -> Result<Release, Error> {
-    api(gh, &format!("{API}/releases/tags/{tag}"))
+    #[derive(Deserialize)]
+    struct ReleaseId {
+        #[serde(rename = "databaseId")]
+        id: u64,
+    }
+    // GitHub's REST lookup by tag excludes drafts; gh resolves both states.
+    let bytes = command(
+        gh,
+        &[
+            "release",
+            "view",
+            tag,
+            "--repo",
+            REPOSITORY,
+            "--json",
+            "databaseId",
+        ],
+    )?;
+    let release: ReleaseId =
+        serde_json::from_slice(&bytes).map_err(|_| Error::msg("GitHub response refused"))?;
+    api(gh, &format!("{API}/releases/{}", release.id))
 }
 fn check_inventory(release: &Release, manifest: &Manifest, assets: &[Asset]) -> Result<(), Error> {
     if release.id == 0 || release.tag_name != manifest.tag || release.assets.len() != assets.len() {
