@@ -14,6 +14,27 @@ do not change the proposed structure. This is the single forward-looking plan;
 revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
+## Scoped Fountain LTS maintenance (2026-10-13)
+
+The release-input delta in Soda PR #44 updates the paired Fountain source from
+Forgejo 15.0.9 to 15.0.10 LTS. Source inspected is Soda
+`465f2c71..1de6909c` plus PR #44's corrected provider pin, and Fountain
+`124907625d..fd7890e0ae88a3d65fdafd713dd70f5a489a1336` after PR #1 merged
+into `codex/fountain-extensions`. Soda's final merge identity remains pending.
+The Soda range includes PR #43's action-pin updates. The [bounded duty map](coverage/README.md#fountain-lts-delta-2026-10-13)
+accounts for all sixteen modified Soda paths and the paired provider's added
+test/fixture paths. It changes no package, language or process owner and requires
+no proposed-tree move. Fountain source remains owned by its separate repository;
+the release archive is corresponding source for the exact compiled revision.
+
+This source handoff does not advance the historical structural, catalog, body,
+review-input or native qualification baselines. Earlier unallocated paths and
+unreconciled changes already identified below and in the coverage index remain
+pending; this is not a complete reconciliation from those older baselines.
+Source/tool checks of the LTS update are separate from an OS build, installed
+qualification and publication. Publishing a new version remains an explicit
+release action under the [release guide](../release.md).
+
 ## First-principles implementation (2026-10-13)
 
 The current user request selects an application-wide purpose/constraint/gap
@@ -233,7 +254,7 @@ The non-normative
 [investigation](../../research/library-reuse-investigation.md) supports the
 selected direction; product/trust owners remain authoritative.
 
-Last maintained: **2026-10-13** (native correction scopes above; historical audit pins remain separate). This scoped currentness pass also accounts for
+Last maintained: **2026-10-13** (LTS and native correction scopes above; historical audit pins remain separate). This scoped currentness pass also accounts for
 the later source receipts noted above; it does not refresh historical path or
 line counts. The task refresh also accounts for already-landed
 B07 publication/merge placement, C06 stdin-delivery and C07 enrollment corrections,

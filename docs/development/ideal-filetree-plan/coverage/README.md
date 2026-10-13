@@ -1,5 +1,44 @@
 # Coverage index
 
+## Fountain LTS delta (2026-10-13)
+
+Scoped inputs are recorded in the [plan](../ideal-filetree-plan.md#scoped-fountain-lts-maintenance-2026-10-13).
+Soda PR #44 modifies sixteen existing paths and adds or deletes none. These
+selectors supplement the older inventories/maps without replacing their pins:
+
+| Changed paths / selected duty | Existing owner and disposition |
+| --- | --- |
+| `fountain-source.json`; `lib/release-inputs/src/reader/forgejo.rs` | D02 retained: exact separate Fountain repository/revision, upstream version stamp and immutable Go 1.26.9 compiler input. |
+| `lib/soda-release-image/src/model.rs`; `lib/soda-release-deliver/src/buildx/mod.rs` | D03 retained: consume the matching compiler image; no new compiler or packaging owner. |
+| `system/host/services/forgejo.container` | D03/H01 retained: installed Fountain version identity; same service and process boundary. |
+| `lib/soda-release-build/src/forgejo.rs`, `src/production/tests.rs`, `tests/oracle/production.rs`, `tests/oracle_vectors.rs`; `lib/soda-release-deliver/tests/goldens/deliver.json` | D02/D03 verification retained: version/toolchain/production fixtures track the selected input; signed historical fixture bytes retain their original identity. |
+| `go.mod`, `go.sum` | H06 retained: reconcile the actual Fountain SDK dependency graph; Soda's Go directive is unchanged. |
+| `frontend/forgejo/locale.lock.json` | H05/D02 retained: verify the 15.0.10 English locale input; catalog bytes and digest are unchanged. |
+| `frontend/forgejo/README.md`, `frontend/forgejo/locales/README.md`; `docs/development/release.md` | H06 retained: explain current provider/locale/provenance inputs; historical template attribution remains at its original source. |
+
+The action-pin-only PR #43 changes `.github/workflows/ci.yml` under H06 without
+adding a job or changing the CI/release authority boundary. No Soda added-path
+row, target leaf, package split, port or process change follows from this delta.
+
+Paired Fountain additions stay outside the Soda inventory: upstream
+`release-notes/14287.md`, seven `services/issue/TestIsValidTeamReviewRequest/*.yml`
+fixtures, `services/repository/branch_test.go` and
+`routers/api/actions/runner/runner_test.go` retain provider documentation,
+review-authorization, Git-ref and runner-log verification duties. Existing provider owners
+retain label ownership/visibility, fork-review Actions secret isolation,
+release-attachment visibility, workflow scheduling and current-tip branch sync.
+The conflict joins preserve Fountain's collaboration reservation and callback
+context. Review correction `463d95d9f0` preserves numeric removal of labels from
+the repository's own organization without exposing other owners' labels; it
+finalizes runner logs only at the acknowledged end and skips no-op task writes.
+The focused runner and native label-route checks pass at that correction;
+the maintained merge has identical source bytes. They do not qualify the full
+Actions suite or a newly installed OS.
+
+These are scoped membership/duty observations. The pre-existing inventory gaps,
+full structural refresh and historical body/review/native evidence below remain
+at their recorded scope; no new whole-tree coverage count is asserted.
+
 ## Scoped native correction delta (2026-10-13)
 
 Incremental source/duty membership is reconciled from Soda `5d281760` to
