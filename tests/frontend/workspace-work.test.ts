@@ -137,6 +137,33 @@ test('Work, Project and Terminals navigation retain the exact terminal owner and
   assert.equal(await writes(page), 0);
 });
 
+test('native page entry opens Work once and preserves a deliberately selected terminal view', async (t) => {
+  const page = await fixture(t, 'native');
+  await page.evaluate(async () => {
+    await window.workspaceFixture.api.refresh();
+    window.workspaceFixture.presentRoute('/workspace');
+  });
+  await page
+    .locator('soda-project-work:visible')
+    .getByRole('heading', {name: 'What would you like to change?', exact: true})
+    .waitFor();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  await page.evaluate(() => window.workspaceFixture.presentRoute('/workspace'));
+  assert.equal(await page.getByRole('button', {name: 'Terminals', exact: true}).getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  await openSession(page, 'Build');
+  const renderer = await page.locator('.soda-workspace-terminal:visible .xterm').elementHandle();
+  await page.evaluate(() => {
+    window.workspaceFixture.presentRoute('/explore/repos');
+    window.workspaceFixture.presentRoute('/workspace');
+  });
+  assert.equal(await page.getByRole('button', {name: 'Terminals', exact: true}).getAttribute('aria-pressed'), 'true');
+  assert(await renderer?.evaluate((node) => node.isConnected));
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets[0]?.closed), 0);
+  assert.equal(await writes(page), 0);
+});
+
 test('compact Projects navigation opens another Project work view without starting a terminal', async (t) => {
   const page = await fixture(t);
   await page.setViewportSize({width: 390, height: 740});

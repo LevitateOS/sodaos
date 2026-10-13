@@ -444,13 +444,18 @@ export class SodaSpaces extends LitElement {
     const entered = pathname !== this.routePathname || kind !== this.binding.kind;
     this.routePathname = pathname;
     this.binding = workspacePresentation(this.binding, kind, repositoryId);
-    this.presentView(kind, repositoryId);
+    this.presentView(kind, entered, repositoryId);
     this.armNewRoute(kind, entered);
     this.requestUpdate();
   }
-  private presentView(kind: 'page' | 'native', repositoryId?: string) {
-    if (kind === 'native' && (this.view === 'work' || this.view === 'plans')) this.view = 'terminal';
-    if (!this.selected && kind === 'page' && repositoryId) this.project = repositoryId;
+  private presentView(kind: 'page' | 'native', entered: boolean, repositoryId?: string) {
+    if (kind === 'native') {
+      if (this.view === 'work' || this.view === 'plans') this.view = 'terminal';
+      return;
+    }
+    if (this.selected) return;
+    if (entered && this.view === 'terminal') this.view = 'work';
+    if (repositoryId) this.project = repositoryId;
   }
   private presentedRoute(route?: string) {
     return route ? route.split(/[?#]/)[0] || this.routePathname : window.location.pathname;
