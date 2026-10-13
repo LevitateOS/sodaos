@@ -3,6 +3,13 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+Scoped upkeep at Soda `ac22514b` / Fountain `c72f5607b2` (2026-10-13): N03's
+Tailnet entry/page consume the public host lifecycle, pausing reads and clearing
+secrets on concealment, generation-checking resume and releasing local resources
+on retirement. Configured-operator/product guards remain with their existing
+owners. No network service, language or process moves; actual native/installed
+operator availability and refusal retain their separate evidence gates.
+
 ## N01 Private origins, TLS and activation
 
 Configure the appliance's explicit private browser origin, TLS material and activated service wiring.

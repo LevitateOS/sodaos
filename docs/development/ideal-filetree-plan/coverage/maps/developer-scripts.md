@@ -1,5 +1,15 @@
 # Developer scripts
 
+Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
+`scripts/build-soda-extension.ts` and its tests keep D03/H05 graph/package
+ownership, remove the panel re-export input and check package closure, assets and notices.
+The added `forgejo_branding_composition_test.go` keeps H06 synthetic render
+helpers (`brandingSettingsFuncs`, `renderBrandingTemplate`,
+`renderForgejoRepositoryHeaderAt`) and G01/H05 tab/switcher/account/native-anchor
+assertions. These source templates use synthetic helpers; they do not exercise
+the actual native page-handler/frontend lifecycle or installed composition.
+Historical complete-body selectors below retain their pins.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).

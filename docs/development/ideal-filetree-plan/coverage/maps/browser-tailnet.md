@@ -1,5 +1,16 @@
 # Browser tailnet
 
+## Committed native lifecycle delta at ac22514b (2026-10-13)
+
+`frontend/tailnet/soda-tailnet-entry.ts` consumes the pinned canonical MountHandle
+and returns update/suspend/resume/retire/dispose. `soda-tailnet-page.ts` defines
+applyPresentation, suspend, resumeHost and retireHost: concealment clears secrets
+and pauses reads, matching generation resumes polling, and retirement releases
+local resources/drafts. Existing N03 host-settings/operator duties remain; native
+initialization, session authority, shell and routing stay Fountain-owned. These
+named current duties supersede the affected historical selectors below without
+advancing their body/review or installed-operator evidence pins.
+
 [Responsibility map index](README.md) · [Coverage scope](../README.md).
 
 Current responsibility accounting at `519b76bd` (2026-10-07).

@@ -1,5 +1,27 @@
 # Browser spaces
 
+## Committed native correction duties at ac22514b (2026-10-13)
+
+Incremental from `5d281760`; current selectors below supersede the affected
+historical named-unit rows without advancing their full body/review pins.
+The external native shell/lifecycle/authority owner remains Fountain.
+
+| Current path / defining selectors | Existing owner | Current responsibility |
+| --- | --- | --- |
+| `fountain-browser-contract.d.ts`: erased MountContext/MountHandle/ContributionPresentation/ResumeValidation imports | G01 | Byte-pinned canonical external definition at Fountain a9ba2ce0ba; consumer consumption is not another host runtime. |
+| `soda-extension.ts`: context/version/product guards, requireHostTransport, prepareExtensionMount, resumeGenerationRefused | S02/S05 | Consume supplied request/stream/navigate and lifecycle; retain disposed/generation/product-ID checks. Local generic URL construction and browser socket creation are removed. |
+| `soda-spaces-entry.ts`: mount and returned update/suspend/resume/retire/dispose closures | S02/S05 | One real page/panel owner and stylesheet graph; no frame/competing-panel/no-op owner detection. |
+| `sodaspaces-page.ts`: mountSpacesPage and forwarded public lifecycle | S02/S05 | Local Workspace mount only; native navbar/footer measurements, chrome subscriptions and inline host-height calculation are removed. |
+| `sodaspaces-workspace.ts`: present, presentedRoute, applyPresentation, suspend/resume/retire, mountSodaspaces | S02/S05 | Consume route/repository/mode/visible updates; keep original terminal bindings, local canvas/terminal-cell geometry and guarded setup. Host ancestor/visibility-event interpretation is removed. |
+| `sodaspaces-workspace-drawer.ts`: successful setup navigation; `sodaspaces-workspace-types.ts`: supplied navigate/route/presentation shapes | S02 | Successful navigation uses the public host callback; product path/selection semantics remain Soda-owned. |
+| `sodaspaces-terminal.ts`: host-supplied suspension/resumption/retirement | S04 | Preserve admitted attachment/renderer through ordinary lifecycle callbacks; retirement releases browser resources without End. |
+| `sodaspaces-factory.ts`: watch lifecycle; `sodaspaces-project.ts`: suspend/resume/retire | S02/S05 | Retain watched-run identity, local dirty/read/secret guards and product state; public host callbacks control concealment/revalidation. Domain execution and Project operation authority do not move. |
+| `sodaspaces-workspace.css`: content geometry and removed native page/gutter selectors | S05 | Native page gutters/placement belong to Fountain; local content, panes, dialogs and controls stay in Soda. |
+
+This map is source responsibility reconciliation. Authored component callbacks
+and source guards do not establish actual native composition or installed object/
+process continuity.
+
 Scoped saved-review source at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): F05 sodaspaces-intent-response.ts adds SavedReviewRead parsing and basis/result/producer/digest/verdict/exclusion validation; no restored UI or new shell is claimed.
 
 Scoped guarded restoration at `6f30b3396b729278fe3a0040ffdc4b6de18b3d3f`: `SodaIntent.loadRequest/loadReview/applyRevision`, `willUpdate`, `adoptReview` and `restoredStale` retain F05 local review state and failure/account guards. They do not initialize or route the native host. Actual producer-byte compatibility and guarded Lit restoration pass at `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2`; native composition remains separate.
@@ -19,13 +41,13 @@ Disposition concerns the duty, not source validity or installed qualification.
 
 ## [frontend/spaces/soda-extension.ts](../../../../../frontend/spaces/soda-extension.ts)
 
-exact-blob current maintained map; full spans retained
+Current selectors reconciled at ac22514b; prior complete-body pin remains historical.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–2, 12–27, 84; file scaffold; nativeBase; PreparedExtensionMount | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Current scaffold duty: file scaffold; Current declaration duty: nativeBase; Current declaration duty: PreparedExtensionMount — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 3–11, 28–75; ExtensionMountContext; prepareExtensionMount | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current declaration duty: ExtensionMountContext; Current declaration duty: prepareExtensionMount — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 76–83; extensionURL | [P05](../../slices/projects.md#p05-project-startstop) | retained | Current declaration duty: extensionURL — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+| imports; resumeGenerationRefused; PreparedExtensionMount; prepareExtensionMount disposed guard | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Consumer lifetime and generation refusal around host-supplied capabilities. |
+| ExtensionMountContext; isPageMount; isPanelMount; validateMountContext; validateOwner; requireHostTransport; prepareExtensionMount; validateRepository | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Canonical erased type consumption, Soda mount/product-ID admission and forwarding of the supplied transport. Defining generic contract remains Fountain-owned. |
+| former nativeBase/extensionURL/request-generation/browser-WebSocket implementation | S02/S05/P05 | retired | Generic URL/session/socket implementation is removed; actual product operation paths remain with their defining callers. |
 
 <a id="coverage-f710ab93aa2b"></a>
 
@@ -79,14 +101,13 @@ exact-blob current maintained map; full spans retained
 
 <a id="coverage-6f26ed7d76cb"></a>
 
-## [frontend/spaces/soda-workspace-panel-entry.ts](../../../../../frontend/spaces/soda-workspace-panel-entry.ts)
+## Retired frontend/spaces/soda-workspace-panel-entry.ts
 
-exact-blob current maintained map; full spans retained
-
-| Current spans and named units | Owner | Disposition | Responsibility / evidence |
-| --- | --- | --- | --- |
-| 1–5; file scaffold | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Current scaffold duty: file scaffold — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
-| 6–27; mount | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) | retained | Current declaration duty: mount — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
+Physically deleted in the committed D02 entry/build cutover. Its S02/S05 mount
+and lifetime duties now reside in `soda-spaces-entry.ts`, the one linked page/panel
+entry. The manifest and builder select that entry directly; no forwarding target
+or second owner remains allocated. The historical coverage anchor is retained
+for the retirement record, not as a current-source link.
 
 <a id="coverage-e6523693d393"></a>
 <a id="frontendspacessodaspaces-apits-1"></a>

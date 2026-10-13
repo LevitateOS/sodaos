@@ -3,6 +3,15 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+Scoped upkeep at Soda `ac22514b` / Fountain `c72f5607b2` (2026-10-13): S02
+consumes the one shared entry and public route/presentation/lifecycle callbacks;
+S04 keeps admitted terminal/renderer/browser-resource custody without End on
+retirement; S05 keeps local content/terminal-cell geometry. Named host-ancestor,
+navbar/footer-height and native-gutter adapters and the panel re-export are
+removed. C06 real-handler and F05 actual-zoom evidence do not close native or
+installed terminal/container finish conditions. Earlier card/review/body pins
+remain historical; current named duties are in the browser responsibility map.
+
 ## S01 Authorized inventory
 
 - **Validity review:** [S01 record](../reviews/S01.md) — actual reviewed scope, findings and pending completion dimensions.

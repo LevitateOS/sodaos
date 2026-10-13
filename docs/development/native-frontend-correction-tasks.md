@@ -4,28 +4,32 @@ This is the executable decomposition of the
 [native frontend correction](factory-implementation-plan.md#native-frontend-responsibility-and-correction):
 Fountain supplies extensions through Forgejo's native frontend, with a reusable
 persistent lifecycle; Soda supplies product content and local resources.
-The scope remains **57 correction tasks: 23 accepted and 34 remaining**.
+The scope remains **57 correction tasks**. The 2026-10-12 snapshot accepted
+23 tasks and left 34 for continuation; that historical count is not a current
+completion claim.
 They refine NF-01–NF-05 and the reopened UX tasks rather than replacing the
 complete factory backlog. Original task IDs and finish conditions are retained;
 accepted tasks are summarized below instead of remaining in active queues.
 
-The **2026-10-12 accepted-work snapshot** remains unchanged. Source consolidation
-on 2026-10-13 is reconciled against Soda
-`5d2817604b49a16c7fb0b4b85e7513328884cf4f` and Fountain
-`6abafdb4092018de6eca3fb8994b2a88f08c2396`. The checked but unfinished C03
-packet is committed in Fountain `d240b821a4`: browser declaration/config, notes
-page/panel entries, extension README and mount module/test. The original
-organization-navigation experiment is retained in merged history at `cc59c5b72b`;
-current source keeps organization pages on the native document path until their
-feature lifecycle is qualified. Worktree consolidation does not accept another task.
+The current scoped source reconciliation covers the accumulated delta from
+Soda `5d2817604b49a16c7fb0b4b85e7513328884cf4f` to
+`ac22514b906e659f89616e5fa4df0f0fa679f1d6` and Fountain
+`6abafdb4092018de6eca3fb8994b2a88f08c2396` to
+`c72f5607b2f5e25d49d02f564843bab4dfe95172` on 2026-10-13.
+These are committed source pins, not installed revisions. Current Fountain
+native feature, markup and context patches and Soda branding/layout patches
+remain uncommitted and outside those pins; their checks cannot silently become
+evidence for the committed pair.
 The original planning pair was Soda `8df756f1bc7f410b694004f2133af046fecc44f4`
 and Fountain `87ec92d4f0101071a734b2f790f3bb1fb1d3366e`; it is historical input,
 not the current source or installed revision. Recheck heads and dirty work before
 future implementation; preserve unrelated work, files, Projects and processes.
 
-**Execution remains paused.** This is the remaining-work schedule for a future
-explicit resume. Reorganizing it does not restart agents, dispatch implementation,
-run consultations/builds, or deploy the VM.
+**Execution has resumed under the owner's implementation/deployment instruction.**
+Codex coordinates the continuation after the Muse sessions exited. This document
+records actual source handoffs and unmet finish conditions; worker goals and
+percentages do not supply acceptance. The coordinator owns the final task ledger,
+matching native qualification and existing-VM delivery.
 
 The generic target belongs to Fountain's `contrib/extensions/README.md`, **Native
 frontend correction target**. Product/security guarantees remain in
@@ -36,7 +40,7 @@ may restore a fresh browser attachment to the exact admitted process. No task
 substitutes a wrapper, consumer host adapter or reconnect semantics for that
 ordinary-navigation guarantee.
 
-## Accepted work and remaining evidence
+## Retained accepted snapshot and current evidence
 
 Acceptance here records each task's source/fixture finish scope. It does not
 mean the remaining composition or existing-VM acceptance has passed.
@@ -60,35 +64,50 @@ fragment traversal, session-generation mismatch and native logout. It does not
 prove every native route, a pushed focusable-fragment target, Soda xterm identity,
 human process continuity or installed behavior.
 
-A01 remains an **evidence reconciliation** item: the ledger omits it even though
-the later seam and proof are accepted. Review retained diagnostic receipts against
-its original condition; do not automatically count it, recreate obsolete broken
-code or make it a new prerequisite for already proved work. The count stays 23/57
-until that review actually accepts it.
+A01's diagnostic reconciliation is committed in Fountain `92b2554144`.
+Its retained failing subjects remain distinct from the later passing A03 proof;
+acceptance must use those original subjects, without reconstructing broken code
+or adding a prerequisite to already proved work.
 
-C03's seven-file packet has strict example typechecking and isolated consumer
-emit/syntax evidence. The consolidated mount/navigation suite passes 58 cases.
-The packet is committed; the
-Soda mirror has not been re-pinned to its changed declaration, and the updated
-example has not received native browser qualification. Its callback tests pause
-work after updates/suspension; initial hidden native-first mount presentation is
-an explicit lifecycle gap for the host join, not consumer DOM-adapter work.
+C03's definition and host initial-hidden-presentation join are committed.
+C04 defines linked owner identity, one entry/API base, declared subroutes and
+public navigation in `a9ba2ce0ba`; Soda's type-only mirror records that revision
+and body hash. H-N, H-OWNER and H-ROUTE are callable source handoffs consumed by
+Soda. Their availability does not establish the updated independent example's
+native-browser finish condition. A04 placement is committed in `8bffb18713`;
+its native-rendered geometry/control finish condition remains distinct from the
+transcribed-container fixtures.
 
-E04 has a reusable current stylesheet handoff; it still needs final D/H entry
-graphs. F05 still needs actual zoom evidence. C04's canonical shared-owner entry
-and admitted API identity are unresolved; no completed consultation is recorded.
-The existing VM has not received this correction. Its preserving Store-format
-transition and installed screenshots/terminal observations remain delivery work.
+| Task scope | Current committed result and actual evidence | Remaining finish condition |
+| --- | --- | --- |
+| A01 | Diagnostic reconciliation names the original two native template shapes and existing failure/proof subjects. | Coordinator acceptance of the retained diagnostic receipt. |
+| A04–A06 | Shared-owner placement and repository route admission are implemented; current native cutover/content-region patches are still pending. | Registered-owner native geometry/controls, removal/caller joins and complete native navigation evidence. |
+| B03–B07 | Common, browsing/editor, collaboration/form and account/admin lifecycle patches and map checks are committed. `1ce6001008` retires Dashboard Vue state/searches; `616bce5b1e` and `c72f5607b2` add explicit native content/widget and repository Vue/asynchronous-work retirement. | Required real native class checks and complete startup/retirement coverage; current dirty registration/template/remaining-feature patches stay pending, so B07's commit title is not closure. |
+| C03–C05, C07 | Canonical browser distribution, generic owner/routes, initial hidden presentation, lifecycle/revalidation and repository admission are implemented. | Their applicable independently built example and real native lifecycle/composition checks against current bindings. |
+| C06 | `72673ea722`: focused proxy/callback/WebSocket checks and actual native HTTP/WS routes through the manager/SDK pass. Original repeated-slash suffixes are refused before admission; exact path/query forwarding and stalled backend cancellation pass. | Bounded C06 source/real-handler finish scope is verified; installed authority/process proof remains I05/I08. |
+| D01–D06 | One canonical host contract and shared Workspace entry, declared routes, public lifecycle consumption and removal of the named host-DOM/height adapters are committed through `13d221e0`. The panel re-export entry is deleted. | Each row's consumer/build/component checks plus the required actual registered-owner/native composition joins; source removals do not close D06/I04. |
+| E04 | The merged `aee8b048` graph checks cover extension package closure, font assets and notices after the entry/lifecycle joins. | Record exact final output identities in I07 and refresh changed graph inputs; installed byte identity remains I08. |
+| F05 | `ac22514b`: all ten existing keyboard/settings/creation/dialog/compact cases pass using Chromium `tabs.setZoom/getZoom` at 200%/400%, with explicit per-tab isolation. Both default driver smoke checks, tests typecheck and scoped lint/format pass. | F05's authored actual-browser-zoom finish scope is verified. |
+| F06 | All three container cases pass with actual zoom and Fountain CSS; markup remains transcribed. | Settings/creation/dialog/compact checks in actual native-rendered branded containers remain open. |
+| H03–H05 | Native settings extension tabs and the customization/provider responsibility review are committed; Tailnet consumes the public host lifecycle. | Actual branded controls/history/operator cases at the applicable native composition, followed by I08 installed evidence. |
+| I02/I03 | Page/state inventory, mandatory renderer/socket assertions and affected task-scoped checks are implemented. An inert terminal boundary is explicitly skipped. | Complete actual-subject inventory/check reconciliation; skipped paths supply no positive preservation proof. |
+| I04–I09 | Composed drivers and component preparation are available. | Current native composition/authority/terminal identities, matching admitted outputs, preserving Store transition, installed pages/processes and final ledger remain open. |
+
+The ten F05 cases and three F06 callers passed together after the per-tab
+isolation correction. C06's earlier failing real-handler cases and the initial
+zoom-isolation failure remain separate diagnostic evidence. Local source,
+authored browser fixtures, native-rendered subjects and installed behavior retain
+their separate scopes. No new aggregate completion count follows from merges,
+or from the historical 23-task snapshot alone.
 
 ## Scheduling and completion rules
 
-**Muse allocation:** The owner's current ceiling is two live Muse CLI sessions
-in total, including the coordinator. The nine lane letters describe ownership
-and queued tasks. Use one coordinator with native subagents/workflows, adding at
-most one scoped peer for independent ready work. Initially allow at most two
-active native subagents across both sessions; workflows share that worker budget
-and queue the remaining tasks. Use the canonical checkouts with acknowledged
-file leases. A larger CLI allocation requires a new explicit owner instruction.
+**Execution allocation:** No Muse session is active in this continuation. The
+owner's retained ceiling is two live Muse CLI sessions in total, including a
+Muse coordinator if used. That ceiling does not describe the current Codex
+worker count. The nine lane letters describe ownership and queued outputs;
+Codex uses its available execution slots with acknowledged whole-file leases
+in the canonical checkouts. Keep one heavy-build/VM operator.
 
 **Start** names the smallest input needed to begin that task's implementation.
 **Finish** names the behavior and evidence required to close it. A callable handoff
@@ -118,19 +137,19 @@ entire lane. Apply the owning guide's post-merge reconciliation when a merge occ
 All build/cache/temp outputs stay under `/home`; task receipts/generated outputs
 stay ignored. Resource-heavy builds and the VM have one operator.
 
-## Remaining lanes and first ready work
+## Lane follow-up after the committed handoffs
 
-| Lane | Repository and responsibility | Remaining task IDs | First useful action on resume |
+| Lane | Repository and responsibility | Tasks from the historical continuation | Current useful action |
 | --- | --- | --- | --- |
-| A | Fountain native layout and cutover | NFX-A01, NFX-A04, NFX-A05, NFX-A06 (4) | Reconcile A01 receipts; prepare A04 integration while C publishes H-N/H-OWNER. Preserve the A worktree's uncommitted Dashboard/orgs patch; broader admission is not proved by its mock case. |
-| B | Fountain native feature lifetimes | NFX-B03, NFX-B04, NFX-B05, NFX-B06, NFX-B07 (5) | Continue common controls and lease disjoint browsing/editor, collaboration/form and account/admin classes. H-P is already available. |
-| C | Fountain public contract, registration and authority | NFX-C03, NFX-C04, NFX-C05, NFX-C06, NFX-C07 (5) | Finish the checked C03 packet and release H-N; resolve C04 owner identity and release H-OWNER before route breadth. |
-| D | Soda content and terminal integration | NFX-D01, NFX-D02, NFX-D03, NFX-D04, NFX-D05, NFX-D06 (6) | Prepare exact adapter removals now; consume H-N immediately for transport/lifecycle migration, without waiting for all C tasks. |
-| E | Soda final CSS and package graphs | NFX-E04 (1) | Reuse the checked current graph; refresh only changed D/H/F imports/styles and return exact output identities. |
-| F | Soda responsive/accessibility acceptance | NFX-F05, NFX-F06 (2) | Complete actual zoom/keyboard/compact checks locally; final native-container checks follow H-C/D04. |
+| A | Fountain native layout and cutover | NFX-A01, NFX-A04, NFX-A05, NFX-A06 | Reconcile original diagnostics, finish the pending native content/cutover patches and qualify the registered owner in actual templates. |
+| B | Fountain native feature lifetimes | NFX-B03, NFX-B04, NFX-B05, NFX-B06, NFX-B07 | Finish leased feature/widget retirement gaps and real native class checks; merge titles do not close the map. |
+| C | Fountain public contract, registration and authority | NFX-C03, NFX-C04, NFX-C05, NFX-C06, NFX-C07 | Reuse callable H-N/H-OWNER/H-ROUTE and verified C06; qualify the current independent example and applicable native lifecycle joins. |
+| D | Soda content and terminal integration | NFX-D01, NFX-D02, NFX-D03, NFX-D04, NFX-D05, NFX-D06 | Reuse committed transport/entry/route/lifecycle and adapter removal; finish actual registered-owner/native composition evidence. |
+| E | Soda final CSS and package graphs | NFX-E04 | Reuse the checked current graph; refresh only changed D/H/F imports/styles and return exact output identities. |
+| F | Soda responsive/accessibility acceptance | NFX-F05, NFX-F06 | F05 actual-zoom evidence is verified; complete F06 in native-rendered branded containers, including creation/dialogs. |
 | G | Saved-review support | None (0) | Preserve accepted source behavior; supply D/I's exact restoration examples or leased joins, without repeating the backend implementation. |
-| H | Soda native branding and Tailnet composition | NFX-H03, NFX-H04, NFX-H05 (3) | Prepare exact override removals and any remaining requested API/policy join; apply each native capability as it becomes callable. |
-| I | Shared evidence, build and existing-VM delivery | NFX-I02, NFX-I03, NFX-I04, NFX-I05, NFX-I06, NFX-I07, NFX-I08, NFX-I09 (8) | Repair the real positive terminal fixture and track per-route/component cases; reuse preserving Store-transition evidence at its unchanged binding. |
+| H | Soda native branding and Tailnet composition | NFX-H03, NFX-H04, NFX-H05 | Finish pending customization registration/removal against actual callable providers, then verify branded native controls/history and operator refusal. |
+| I | Shared evidence, build and existing-VM delivery | NFX-I02, NFX-I03, NFX-I04, NFX-I05, NFX-I06, NFX-I07, NFX-I08, NFX-I09 | Use the corrected mandatory terminal assertions and page/state inventory for actual native composition; preserve exact output/Store/process bindings through delivery. |
 
 Nine logical owners remain, but equal-sized or permanently occupied queues are
 not the objective. B03, B04, B05 and B06 can use separate workers on explicitly
@@ -140,9 +159,10 @@ after an exact repository/file handoff, while their defining files retain owners
 Do not create more source splits, worktrees or coordinators merely to occupy panes.
 
 With four execution slots, keep the coordinator available for integration and
-prioritize C03, B's common controls, and F05/I02 independent evidence preparation.
-On H-N, rotate a slot into D migration; on H-OWNER, prioritize A04. With greater
-capacity, run B's disjoint classes alongside C/D/F/H preparation. Keep one heavy
+prioritize remaining native lifecycle/cutover gaps plus the current independent
+example and terminal proof. H-N/H-OWNER/H-ROUTE consumption is already committed;
+do not redispatch their implementation merely because this plan retained old
+queue entries. Run disjoint feature fixes alongside scoped evidence/docs work. Keep one heavy
 build/VM operator; do not invent elapsed-time estimates from task counts.
 
 ## Priority and progressive release
@@ -151,10 +171,10 @@ These are output priorities, not global waves that every lane must await.
 
 | Priority | Concrete work | Output and immediate use |
 | --- | --- | --- |
-| First | C03: review the retained dirty packet, handle applicable initial-presentation join, commit and check the independently built example against the native fixture. C supplies canonical bytes/revision/hash/version; D applies the mirror/pin preparatory slice before H-N. A reconciles A01 receipts independently. | H-N releases D01/D04/D05 browser work and D02 entry preparation. Mirror preparation does not require full D01 migration. No new H-P rerun for unchanged subjects. |
-| Parallel now | B03 common controls and separately leased B04/B05/B06 classes; F05 actual local zoom/keyboard checks; I02 real terminal/authority fixture cases; I03/I09 scoped reconciliation. | Each checked class or fixture releases its consumer without waiting for the whole lane. Native table sorting must preserve its original replace-history semantics when the host hook is joined. |
-| Next critical join | C04 owner slice: three equivalent fresh JEV consultations before approach selection, then explicit declaration/entry/API identity, refusal tests and A's route/template/runtime join. | H-OWNER releases D02 registration and A04 native placement. Advice does not substitute for registration proof. |
-| Independently released routes | C04 route slice: generic bounded subroutes and the host's public programmatic navigation needed by the current drawer `window.location.assign` caller. Keep product-ID interpretation in Soda. | H-ROUTE releases D03 and route-dependent H03. Existing owner/layout work need not wait for all route cases. |
+| Reuse callable source | C03/C04 types, owner/routes and hidden-presentation join are committed; Soda's a9ba2ce0ba mirror and consumers are joined. Qualify the independently built example against the current native fixture. A reconciles its original diagnostic receipt independently. | Preserve available H-N/H-OWNER/H-ROUTE instead of rebuilding their source handoffs. Native example evidence remains a separate C03 finish gate. |
+| Parallel now | Finish individually leased B-class retirements; I02/I03 actual-subject/check reconciliation and F06 native-container interactions. Reuse the verified C06 and F05 checks. | Each checked class or fixture releases its consumer without waiting for the whole lane. Native table sorting preserves its original replace-history semantics. |
+| Registered owner/layout | A04 placement and D02's one-entry registration are implemented. Exercise actual native page/panel geometry and controls rather than treating transcribed HTML as native rendering. | Source owner/layout handoffs are available; actual H-C qualification keeps its rendering/geometry/control gate. |
+| Independently released routes | C04/D03 generic subroutes and public navigation are implemented. Verify canonical route/history/reload and drawer success through actual native composition; keep product-ID interpretation in Soda. | Source H-ROUTE is available; remaining route evidence does not require reimplementing declaration or owner identity. |
 | Compose each callable slice | A04, D02/D04/D05, C05/C06, H03/H04, changed E04 graphs and F06. H supplies its Tailnet lifecycle join; F/G apply D's exact component callbacks in their files. | H-C supplies native containers; graph and authority checks use actual component inputs. Preserve the available G restoration contract. |
 | Close source cutover | B07 and C07 close their maps from qualified slices; D06 joins consumer/product changes; A05 removes obsolete callers and A06 completes native navigation acceptance. | H-NATIVE and composed source evidence. B07/C07 must not wait for A05/A06, which consume their outputs. |
 | Produce and deliver | I07 prepares each coherent changed component at checked pins; I04/I05/I06 complete composition, authority and actual terminal identities; I08 activates matching outputs and verifies installed pages/processes; I09 closes the ledger. | Component output preparation can overlap composed checks. Activation waits for matching outputs, applicable checks and the preserving Store transition. |
@@ -168,10 +188,10 @@ earlier check, refresh the affected binding rather than repeating unrelated work
 
 C owns the defining declaration; D is the physical writer for Soda's
 `frontend/spaces/fountain-browser-contract.d.ts` and
-`tests/frontend/host-contract-pin.test.ts`. Their pre-H-N mirror/pin update uses
-C's committed canonical bytes/revision/hash/version and does not start D01's
-full transport/adapter migration. A applies C's initial-presentation runtime patch
-in `extensions.js`; source ownership does not move to the consumer.
+`tests/frontend/host-contract-pin.test.ts`. The committed mirror/pin consumes
+C's a9ba2ce0ba bytes/revision/hash/version; future changes re-pin that definition.
+A's initial-presentation runtime join is committed in `extensions.js`; source
+ownership does not move to the consumer.
 
 The original three fresh JEV consultations used independently reworded, equivalent
 sanitized source summaries and advised early callable seams alongside independent
@@ -183,9 +203,11 @@ proof of native feasibility, elapsed time or implementation completion.
 
 ## Callable handoffs
 
-H-0, H-P and H-FLOW are available at their recorded scopes. H-ASSET's current
-color/stylesheet slice is available; final entry-graph closure remains E04.
-H-N, H-OWNER, H-ROUTE, H-C and final H-NATIVE are not released by this plan.
+H-0, H-P and H-FLOW retain their recorded scopes. H-N, H-OWNER and H-ROUTE are
+callable committed source handoffs already consumed by Soda. H-ASSET includes
+the checked entry graph from merged `aee8b048`; later changed graph inputs require
+refresh. A04 supplies H-C's source layout, but its native-rendered checks and
+final H-NATIVE remain open. Availability does not replace a task's Finish gate.
 
 | Handoff | Producer | Required artifact and immediate consumers |
 | --- | --- | --- |
@@ -254,7 +276,7 @@ from the first route/control/mount slice before B01's complete map closes.
 
 | Task | Remaining result and decisive check | Start | Finish |
 | --- | --- | --- | --- |
-| NFX-C03 | Finish the retained checked packet: canonical type-only definition consumption, consumer expected-version refusal before effects, public mount/lifecycle/scoped helpers and example. A applies any needed initial host-presentation join; consumers never infer it from host markup. C commits the reviewed definition and supplies bytes/revision/hash/version; D updates its mirror/pin preparatory slice before handoff. | H-P available; seven-file uncommitted packet and isolated consumer evidence; mirror preparation does not wait for D01 migration | Independently built generic consumer example plus host build/type checks and applicable native example check; release H-N before Soda migration or whole cutover |
+| NFX-C03 | Finish the retained checked packet: canonical type-only definition consumption, consumer expected-version refusal before effects, public mount/lifecycle/scoped helpers and example. A applies any needed initial host-presentation join; consumers never infer it from host markup. C commits the reviewed definition and supplies bytes/revision/hash/version; D updates its mirror/pin preparatory slice before handoff. | H-P and committed definition/example/initial-presentation packet available; Soda mirror is joined | Independently built generic consumer example plus host build/type checks and applicable native example check; release H-N before Soda migration or whole cutover |
 | NFX-C04 | Deliver separately: explicit linked page/panel owner with one canonical entry/API identity, then bounded declared subroutes and public programmatic native navigation for D's actual drawer caller. Replace host-coded Soda request paths/ID rules. Preserve public URLs, permissions, route conflicts and reserved native/account namespaces; backend product-ID validation stays in Soda. | C01/H-P available; shared-owner identity selection follows three fresh source-grounded JEV consultations, without permission union | Release H-OWNER after actual registration/refusal cases before unrelated route breadth; H-ROUTE follows its own route/navigation cases. A applies mixed joins |
 | NFX-C05 | Join host suspension, hidden private cached state, native revalidation, verified resumption and retirement/account-change handling. Reuse existing native admission/session-generation and live authority checks. Consumers receive one lifecycle; they do not independently interpret browser cache events as authority. | C01 refusal cases now; C02/C03 for browser wiring | Real component lifecycle/native stream checks; no stale private state or operation after revocation |
 | NFX-C06 | Complete guarded HTTP/stream helpers, URL scoping, request cancellation and resource retirement. Preserve existing origin, session, repository and contribution checks; application payload/protocol and additional policy remain consumer-owned. | Existing server boundary review now; C03 for callable joins | Focused proxy/callback/WebSocket checks and consumer helper use; no parallel authentication implementation |
@@ -262,7 +284,7 @@ from the first route/control/mount slice before B01's complete map closes.
 
 ## D Soda consumer and terminal integration
 
-**Owner files:** Soda `frontend/spaces/{soda-extension,soda-native-paths,soda-spaces-entry,soda-workspace-panel-entry,sodaspaces-page,sodaspaces-workspace,sodaspaces-workspace-setup,sodaspaces-workspace-drawer,sodaspaces-workspace-navigation,sodaspaces-workspace-factory,sodaspaces-factory,sodaspaces-terminal}.ts`
+**Owner files:** Soda `frontend/spaces/{soda-extension,soda-native-paths,soda-spaces-entry,sodaspaces-page,sodaspaces-workspace,sodaspaces-workspace-setup,sodaspaces-workspace-drawer,sodaspaces-workspace-navigation,sodaspaces-workspace-factory,sodaspaces-factory,sodaspaces-terminal}.ts`
 and related terminal resource modules. D owns root/setup integration and the
 extension manifest/entry imports. F owns `sodaspaces-workspace.css`; G owns
 `sodaspaces-intent.ts`. They apply D's precise removals/callback joins in their files.

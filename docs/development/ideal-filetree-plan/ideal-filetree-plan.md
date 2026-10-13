@@ -16,21 +16,28 @@ diary. Maintaining it does not authorize executing the refactor.
 
 ## Scoped native frontend maintenance (2026-10-13)
 
-Reviewed Soda source `5d2817604b49a16c7fb0b4b85e7513328884cf4f` and paired Fountain source
-`6abafdb4092018de6eca3fb8994b2a88f08c2396` for the native frontend correction. This delta
-adds seventeen focused domain, Store, API and browser source/test paths and changes no package, language
-or process ownership.
+The current incremental review covers Soda
+`5d2817604b49a16c7fb0b4b85e7513328884cf4f..ac22514b906e659f89616e5fa4df0f0fa679f1d6`
+and paired Fountain
+`6abafdb4092018de6eca3fb8994b2a88f08c2396..c72f5607b2f5e25d49d02f564843bab4dfe95172`.
+It adds ten Soda source/test/document paths and deletes the obsolete panel-entry
+re-export; all follow existing owners. Earlier seventeen-path native-correction
+allocations remain separately recorded. No package, language or process ownership
+changes. Current uncommitted Fountain feature/widget, native content/context and
+extension placement patches plus Soda branding/layout patches are pending
+outside these pins. This is incremental
+source/duty reconciliation, not a new whole-tree/body audit or installed revision.
 Soda's existing `allowedContribution` now admits the manifest's global Tailnet
 route only for the configured operator; the three declaration/policy test files
 follow that same route. The affected inventory and symbol maps below preserve
 all unrelated historical body, catalog and structural review pins.
 
-The worktree consolidation merges the existing repository-switcher ownership
-marker and private socket-path fixture correction. It adds no paths or ownership
-boundaries. Their focused header and two socket-refusal checks pass. Fountain's
-original organization experiment is retained in merged history while current
-route admission remains qualified only for Dashboard and Users. The additional
-Dashboard assertion does not qualify the organization feature lifecycle.
+The earlier worktree consolidation retains the repository-switcher ownership
+marker and private socket-path fixture correction, with their focused header and
+socket-refusal checks. Fountain's original organization experiment remains in
+history; committed lifecycle/route breadth now includes additional repository,
+organization, account and admin classes. Their source registration and focused
+checks do not establish whole-site native feature qualification.
 
 Fountain now defines its page-feature registry/config replacement in
 `web_src/js/native-lifecycle.js`, with the admin user-list search control as its
@@ -43,16 +50,17 @@ session concealment and incoming version refusal have focused checks. Native
 null page configuration now clears stale keys with an empty object, while a
 missing envelope keeps the unknown-document path. Outgoing scroll is captured
 before native content replacement so layout clamping cannot lose the position
-Back must restore; its 32 navigation cases pass. Exact `/admin` Dashboard
-admission is a development spike; `/admin/orgs` remains held. Terminal
+Back must restore; its historical 32 navigation cases retain their scope.
+Terminal
 invalidation conceals live content before retiring native features and still
 emits consumer invalidation when native cleanup throws. These repairs add no
 path, package or process boundary. Prior native router/context
 unit and SDK checks retain their unchanged source scopes. The generic example uses an admitted
-stream through the public helper. The scoped generic native proof now passes 124
+stream through the public helper. The earlier A03 native proof at `c81b933d` passed 124
 browser checks across natural navigation, exact roots/socket, admin controls,
 repository/account context, history/scroll/fragment traversal and invalidation.
-Final native composition and installed terminal lifetime remain open.
+The historical A03 proof retains its exact revision and subjects. Current native
+composition and installed terminal lifetime remain open.
 Native document listeners and surviving navbar/language controls register
 as single global features. Page entry enhances new native nodes; retirement
 removes their dropdown, tooltip and table-sort state. All three contribution-root
@@ -63,29 +71,46 @@ explicit tooltip APIs remain usable; ten DOM/observer cases pass. Native HTMX
 entry/retirement uses the pinned library process/swap APIs, cleans polling queues
 before aborting native XHRs, and excludes contribution roots. Four mocked-library
 join cases pass; actual native polling/retirement also passes. Detailed morph
-and in-flight XHR cases remain separate open checks. The host
-navigator hook is available; actual route joins and remaining native classes
-stay open.
+and in-flight XHR cases remain separate open checks. The host navigator hook and
+generic declared owner/subroute joins are committed. Native feature classes now
+have B03–B07 source patches and focused tests; required real-page checks and
+current dirty retirement patches still keep complete native coverage open.
+`1ce6001008` retires Dashboard Vue state and pending searches.
+`616bce5b1e` supplies content/widget retirement, and `c72f5607b2` adds repository
+Vue unmount and generation/cancellation guards around asynchronous work. Their
+three new tests retain provider feature/verification ownership. Native entry/
+retirement registration and remaining template/feature joins are still pending;
+the helper commits do not establish complete native class qualification.
 No source or process responsibility moves to Soda.
 
 Fountain's browser declaration is defined in `sdk/browser/extension-contract.d.ts`;
-its prototype runtime is `web_src/js/features/extension-mount.js`. The host owns
+its callable runtime is `web_src/js/features/extension-mount.js`. The host owns
 mount/update/suspend/resume/retire and admitted scoped transport. Hidden shelter
 suspend/resume preserves roots and resources; visible navigation uses update.
-The declaration still precedes final contract distribution. Twenty-six mount
+Consumers use the canonical type-only definition or a byte-pinned mirror; no
+consumer runtime host adapter is distributed. Twenty-six historical mount
 cases and browser type/lint checks pass, including failed and late mount cleanup.
 Owner retirement, disposal and invalidation cancel admitted in-flight requests and
 body reads; pre-aborted callers send nothing. Native signal composition preserves
 caller cancellation without per-request forwarding listeners. Update, suspend and
-resume preserve requests. All 58 joined mount/navigation cases pass.
+resume preserve requests. The original 58 joined mount/navigation cases retain
+their historical binding; updated native composition remains separately open.
 The host invalidation signal is joined. Mount datasets derive their current
 browser version from the SDK constant; missing/skewed incoming versions retire
 rather than adopt an old owner. The expanded native persistence proof releases
-contract finalization. Its seven-file checked C03 packet is committed in `d240b821a4`,
-without Soda re-pin or updated-example native qualification. Declared shared-owner/
-subroute wiring, consumer migration and final native/installed transport
-qualification remain open. The [remaining schedule](../native-frontend-correction-tasks.md)
-preserves 34 open tasks, ready partial handoffs and the explicit implementation pause.
+contract finalization. C03's committed initial-hidden-presentation join drives
+concealed owners through the public lifecycle. C04 `a9ba2ce0ba` defines linked
+page/panel owner identity, one entry/API base, bounded generic subroutes and public
+navigation. Soda re-pins and consumes those callable source handoffs. A04
+`8bffb18713` supplies shared native placement, with its actual native-rendered
+geometry/control gate still open. C06 `72673ea722` closes a demonstrated original-
+path normalization gap: native HTTP/WS suffix refusal, exact path/query forwarding
+and canceled stalled backend responses pass through real handler/manager/SDK
+fixtures, alongside focused package checks. The unchanged pre-guard native stream
+fixture also passed repository/account revocation and long HTTP-timeout survival
+at its stated binding. Updated-example/native composition and installed transport
+qualification remain open. The [current schedule](../native-frontend-correction-tasks.md)
+records resumed execution and distinguishes landed source from task acceptance.
 
 The emitted stylesheet builder restores native `light-dark()` calls and removes
 consumer document-token declarations; its three emitted graph/token checks pass.
@@ -93,7 +118,7 @@ Local Project settings CSS gives Identity a 64px floor, bounds repository contex
 and protects selected-panel space. Fifteen settings cases pass using fallback
 fonts, including keyboard behavior, reduced CSS allocation and actual empty keys.
 The two new test paths are allocated to S05/H06 in the inventory and target tree.
-Native fonts/containers and terminal identity remain separate composition/installed evidence.
+Native-rendered containers and terminal identity remain separate composition/installed evidence.
 The emitted-color Chrome fixture now checks dialog surface/border/text and
 action/link colors in both native-selected schemes. Font imports are excluded
 from color evidence. The desired responsibility split is
@@ -132,11 +157,17 @@ GET restoration consumes no new judgments or effects. An explicitly requested
 join fails on missing/malformed capture files; ordinary component checks remain
 independent. Native composition and installed content remain I04/I08 evidence.
 
-Soda's type-only browser contract mirror now matches the canonical Fountain
-`93c8d8a0f6` declaration exactly, retaining its `e8aa420d3e` body pin and hash.
-Version binding and owner-bound cancellation are in that mirror. It remains preparation;
-production callers still await the callable contract. Formatting excludes only
-that byte-pinned mirror. The existing local focus owner restores terminal dialogs
+Soda's type-only browser contract mirror now records Fountain `a9ba2ce0ba` and
+body hash `b1269647e41dae92ee625aecbe51ae57a6deeb0321ca0c66f5fcf31152951788`.
+Version binding, one shared owner, public native navigation and scoped transport
+are consumed by production entries. `soda-spaces-entry.ts` is the one Workspace
+page/panel entry; `soda-workspace-panel-entry.ts` is physically removed from source
+and the build graph. Workspace/Terminal, Factory watch, Project and Tailnet consume
+public update/suspend/resume/retire callbacks. The named page navbar/footer height,
+ancestor visibility and native gutter adapters are removed in `13d221e0`, while
+local content sizing, terminal cells, view guards and domain rules remain Soda
+duties. Native one-owner/terminal composition still needs its actual subjects.
+Formatting excludes only that byte-pinned mirror. The existing local focus owner restores terminal dialogs
 to the persistent actions-menu summary instead of its hidden item. Five focused
 mirror/focus cases pass. The three added paths retain G01/S04/H06 ownership;
 no native host adapter, runtime package or process is added.
@@ -146,8 +177,13 @@ Nine compact/short/reduced-viewport rename, creation and department cases pass,
 covering bounds, default-scheme opacity, initial focus, dismissal and restored
 focus. Three empty-pane cases measure message/actions containment and local focus.
 Together with the fifteen settings and three setup cases, all 30 checks pass.
-These checks remain local composition; actual browser zoom and final native
-geometry remain open. The new empty-pane test retains S05/H06 ownership without
+These earlier checks remain local composition. F05 `ac22514b` now passes ten
+settings/keyboard/creation/dialog/compact cases with actual Chromium
+`tabs.setZoom/getZoom`, explicit per-tab isolation and observed viewport/DPR.
+Two unchanged-default driver smoke cases, tests typecheck and scoped formatting/
+lint also pass. The three F06 callers pass actual zoom using Fountain CSS and
+transcribed HTML; native-rendered creation/dialog/container qualification remains
+open. The new empty-pane test retains S05/H06 ownership without
 a parallel layout or test framework.
 
 The [current task state](implementation-tasks.md#current-task-state-2026-10-11)
@@ -186,7 +222,7 @@ The non-normative
 [investigation](../../research/library-reuse-investigation.md) supports the
 selected direction; product/trust owners remain authoritative.
 
-Last maintained: **2026-10-12** (native correction scopes above; historical audit pins remain separate). This scoped currentness pass also accounts for
+Last maintained: **2026-10-13** (native correction scopes above; historical audit pins remain separate). This scoped currentness pass also accounts for
 the later source receipts noted above; it does not refresh historical path or
 line counts. The task refresh also accounts for already-landed
 B07 publication/merge placement, C06 stdin-delivery and C07 enrollment corrections,

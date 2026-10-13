@@ -1,5 +1,19 @@
 # Package ownership and execution topology
 
+## Scoped native frontend boundary (2026-10-13)
+
+Soda `5d281760..ac22514b` and Fountain `6abafdb409..c72f5607b2` retain the
+existing owners: Fountain defines native shell/configuration/feature lifetime,
+generic owner/routes/mounts and session/transport authority. Soda consumes its
+byte-pinned type-only contract and supplied capabilities; S02/S04/S05 retain
+Workspace/content/terminal lifetimes and N03 retains local Tailnet policy/UI.
+The separate panel re-export entry is deleted in favor of the one Spaces entry.
+Ten added test/document leaves use the existing frontend/scripts/docs owners;
+no new package, sidecar, language port or consumer host adapter is allocated.
+Current dirty Fountain feature/content and Soda branding/layout patches plus actual native/installed
+qualification remain outside this committed delta. Historical complete package,
+tree and body/review counts below keep their original pins.
+
 ## Current package and path mapping
 
 Current Soda source `9a184b7f` and paired Fountain source `1e6970300e`

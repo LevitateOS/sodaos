@@ -1,5 +1,13 @@
 # Documentation development and design
 
+Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
+H06 retains the new `native-frontend-d04-adapter-inventory.md` source-removal
+record and `native-frontend-f06-container-receipt.md` transcribed-container
+development record. Changed factory/correction plans and frontend package guides
+reconcile native provider versus product consumer responsibilities and explicit
+evidence limits. They do not grant runtime authority, advance historical review
+pins or establish native/installed task acceptance.
+
 Current path navigation reconciled at `45ebf4c4` (2026-10-09); historical symbol/body selectors remain pinned to `519b76bd` unless a narrow current selector is explicitly stated.
 
 [Responsibility map index](README.md) · [Coverage scope](../README.md).

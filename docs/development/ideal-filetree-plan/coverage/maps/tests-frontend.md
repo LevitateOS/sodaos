@@ -1,5 +1,27 @@
 # Tests frontend
 
+## Committed native correction tests at ac22514b (2026-10-13)
+
+Incremental from `5d281760`; each added path is retained in the existing test
+tree, with no new framework. Historical complete-body selectors remain separate.
+
+| Path / named units | Existing owner | Actual subject and limit |
+| --- | --- | --- |
+| `tests/frontend/declared-routes.test.ts`: declared new/saved request cases and drawer host navigation | G01/S02/H06 | Synthetic API/browser state with supplied public navigation; native route/history qualification remains separate. |
+| `tests/frontend/fixtures/browser-zoom.ts`: ChromeZoom, browserZoomFixture, setZoom, close | H06 | Actual Chromium tabs.setZoomSettings/setZoom/getZoom, verified CSS viewport/DPR, disposable profile and exact cleanup. |
+| `tests/frontend/host-lifecycle.test.ts`: event-listener census, matching callback retention, foreign-generation refusal | S02/S04/H06 | Real Soda component callbacks and fixture socket/terminal identity; no installed native process identity claim. |
+| `tests/frontend/native-container-geometry.test.ts`: source CSS/server fixture, page/panel/settings cases | S05/H06 | Actual 1×/4× browser zoom, Fountain styles and transcribed HTML; three cases pass, with native-rendered creation/dialog/container conditions open. |
+| `tests/frontend/page-state-inventory.md`: subject/owner/evidence rows and masking rules | S04/H06 | Verification inventory; prepared or skipped subjects are not performed proof. |
+| `tests/frontend/workspace-owner.test.ts`: owner/entry/subroute manifest, mount-handle/removal and mirror assertions | G01/S02/H06 | Source/manifest/type checks; native registration/one-owner navigation is not established by text assertions. |
+| `tests/frontend/zoom-geometry.test.ts`: applyZoom, dialog bounds and ten settings/keyboard/creation/dialog/compact cases | S04/S05/H06 | Actual 200%/400% per-tab zoom with reachable actions, focus/dismissal, scrolling and pane content; all ten pass locally. |
+
+Changed settings/workspace drivers add optional page factories for the same
+zoom fixture; ordinary callers retain their previous browser/viewport lifecycle.
+One unchanged default caller per driver passed. Existing terminal/workspace/
+panel/contract fixtures are joined to the supplied lifecycle and mandatory
+renderer/socket assertions. Those changes preserve their existing slices and
+do not qualify native or installed composition by themselves.
+
 Scoped local geometry check at `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` (2026-10-12): existing settings/setup/dialog fixtures preserve local S05/S04 duties and H06 measurement/focus assertions. Fifteen settings, three setup, nine dialog and three empty-pane cases pass; reduced CSS viewport/allocation proxy and default colors only, with actual browser zoom/native/installed qualification open.
 
 [Responsibility map index](README.md) · [Coverage scope](../README.md).

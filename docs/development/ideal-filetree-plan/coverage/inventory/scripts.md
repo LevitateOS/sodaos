@@ -1,5 +1,11 @@
 # Tracked files: scripts
 
+Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
+extension builder/maps remove the obsolete panel re-export graph and check affected package closure,
+assets and notices under the existing D03/H05 owners. The added branded
+template test below retains G01/H05/H06 ownership and its source-renderer scope;
+it is not an installed or full native frontend lifecycle receipt.
+
 Scoped native frontend delta at `668f551c0334954ee5d7a48dc23c5d80170c86da` (2026-10-12): `TestSodaNavigationComesFromForgejoExtensionManifest`: Tailnet is the declared global route without an admin permission. No added or deleted paths; historical rows retain their separate scope.
 Scoped E/F delta at `082beb863a1108b11765ee106852ed56600007bc` (2026-10-12): `build-soda-extension.ts` and its existing test retain D03 builder and H05 branding duties; emitted native scheme calls and token inheritance are now checked.
 
@@ -13,6 +19,7 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
+| [scripts/forgejo_branding_composition_test.go](../../../../../scripts/forgejo_branding_composition_test.go) | test source | G01/H05/H06 / retained | Branded repository/account settings extension-tab discoverability and native-anchor source composition with synthetic template helpers, not actual page-handler/browser qualification. |
 | [scripts/README.md](../../../../../scripts/README.md) | package guide | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Package guide for this retained owner: current entrypoints, responsibilities and contract guidance. Selective path addition at `c8a53fdb`; historical body and native receipts retain their scope. |
 | [scripts/build-forgejo-preview.ts](../../../../../scripts/build-forgejo-preview.ts) | program source | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Current script scope; split declarations retain the path's release/install/qualification duty. |
 | [scripts/build-forgejo.test.ts](../../../../../scripts/build-forgejo.test.ts) | test source | [D03](../../slices/release-and-installation.md#d03-candidate-production) / retained | Current script scope; split declarations retain the path's release/install/qualification duty. |

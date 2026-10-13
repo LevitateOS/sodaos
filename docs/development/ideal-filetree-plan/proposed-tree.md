@@ -1,5 +1,27 @@
 # Complete desired repository tree
 
+## Current incremental native target delta (2026-10-13)
+
+Committed Soda `5d281760..ac22514b`, paired with Fountain
+`6abafdb409..c72f5607b2`, adds these ten retained leaves. This is a scoped
+target overlay, not a new complete-tree census or full-body review. Existing
+package/language/process boundaries stay in place. The deleted
+`frontend/spaces/soda-workspace-panel-entry.ts` has no target: its former mount
+joins the canonical `soda-spaces-entry.ts` graph directly.
+
+| Added target | Existing defining responsibility |
+| --- | --- |
+| `docs/development/native-frontend-d04-adapter-inventory.md` | H06 scoped source-adapter upkeep |
+| `docs/development/native-frontend-f06-container-receipt.md` | H06 explicitly authored/transcribed-container development evidence |
+| `scripts/forgejo_branding_composition_test.go` | G01/H05/H06 branded template source composition |
+| `tests/frontend/declared-routes.test.ts` | G01/S02/H06 public route/content navigation fixture |
+| `tests/frontend/fixtures/browser-zoom.ts` | H06 existing Playwright fixture's actual isolated Chromium zoom |
+| `tests/frontend/host-lifecycle.test.ts` | S02/S04/H06 component callback retention/refusal |
+| `tests/frontend/native-container-geometry.test.ts` | S05/H06 authored container geometry; actual native rendering remains separate |
+| `tests/frontend/page-state-inventory.md` | S04/H06 actual-subject/evidence preparation inventory |
+| `tests/frontend/workspace-owner.test.ts` | G01/S02/H06 shared-owner manifest/entry source checks |
+| `tests/frontend/zoom-geometry.test.ts` | S04/S05/H06 actual browser zoom/keyboard/compact cases |
+
 ## Native correction target delta
 
 Source `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` adds seventeen paths across settings, saved-review,
@@ -1450,7 +1472,6 @@ then-proposed tree; the selective target changes above do not refresh this evide
 │   │   ├── soda-identity.ts
 │   │   ├── soda-native-paths.ts
 │   │   ├── soda-spaces-entry.ts
-│   │   ├── soda-workspace-panel-entry.ts
 │   │   ├── sodaspaces-api.ts
 │   │   ├── sodaspaces-attention.ts
 │   │   ├── sodaspaces-environment-view.ts

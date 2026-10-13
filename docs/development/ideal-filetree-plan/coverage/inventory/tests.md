@@ -1,5 +1,12 @@
 # Tracked files: tests
 
+Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
+the seven added paths below use the existing browser fixture/test owners.
+Changed Workspace/Terminal/panel/native-path/contract tests follow the callable
+one-owner/route/lifecycle contract; driver hooks preserve default callers.
+F05 uses actual isolated Chromium zoom, while F06's container HTML remains
+transcribed. These rows do not advance the historical full inventory/body pin.
+
 Scoped native frontend delta at `668f551c0334954ee5d7a48dc23c5d80170c86da` (2026-10-12): `TestForgejoPayloadOperatorSettingsUseDeclaredTailnetRoute` replaces the old admin-scope assertion; other payload duties are unchanged. No added or deleted paths; historical rows retain their separate scope.
 Scoped E/F delta at `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6` (2026-10-12): existing settings/setup/dialog fixtures add reduced CSS viewport/allocation and explicit empty-key subjects; `empty-pane-geometry.test.ts` adds S05/H06 selection-surface containment and focus checks. All 30 local checks pass; actual browser zoom/native/installed qualification remains separate.
 
@@ -13,6 +20,13 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
+| [tests/frontend/declared-routes.test.ts](../../../../../tests/frontend/declared-routes.test.ts) | test source | G01/S02/H06 / retained | Declared new/request routes, public native navigation and original request selection; authored browser fixture, not native-rendered navigation. |
+| [tests/frontend/fixtures/browser-zoom.ts](../../../../../tests/frontend/fixtures/browser-zoom.ts) | test source | H06 / retained | Disposable Chromium extension/profile, actual tabs.setZoom/getZoom and per-tab isolation; all temporary state remains under ignored /home artifacts. |
+| [tests/frontend/host-lifecycle.test.ts](../../../../../tests/frontend/host-lifecycle.test.ts) | test source | S02/S04/H06 / retained | Actual component callbacks preserve fixture terminal/socket identity on update/suspend/resume and refuse foreign generation without End; source event-listener census is separate evidence. |
+| [tests/frontend/native-container-geometry.test.ts](../../../../../tests/frontend/native-container-geometry.test.ts) | test source | S05/H06 / retained | Three local page/panel/settings subjects using Fountain CSS and transcribed markup at actual 1×/4× browser zoom; native rendering, creation/dialog joins and installed scope remain open. |
+| [tests/frontend/page-state-inventory.md](../../../../../tests/frontend/page-state-inventory.md) | verification inventory | S04/H06 / retained | Synthetic native/browser/Store subject and evidence-driver inventory; inert/skipped subjects cannot count as preservation proof. |
+| [tests/frontend/workspace-owner.test.ts](../../../../../tests/frontend/workspace-owner.test.ts) | test source | G01/S02/H06 / retained | Shared-owner manifest/entry/type and removal assertions; source checks do not establish registered-owner native navigation. |
+| [tests/frontend/zoom-geometry.test.ts](../../../../../tests/frontend/zoom-geometry.test.ts) | test source | S04/S05/H06 / retained | Ten F05 settings/keyboard/creation/dialog/compact cases pass with actual 2×/4× browser zoom and observed viewport/DPR at ac22514b. |
 | [tests/frontend/empty-pane-geometry.test.ts](../../../../../tests/frontend/empty-pane-geometry.test.ts) | test source | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / retained, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Three local empty-pane message/action containment and reachable-focus cases using the existing workspace fixture; actual native/browser zoom qualification remains open. |
 | [tests/frontend/intent-review-restore.test.ts](../../../../../tests/frontend/intent-review-restore.test.ts) | test source | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) / retained, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Production Lit restoration in JSDOM: failed/superseded loads, snapshot binding and account switches; actual producer-byte join passes at `7bedb0425744b1ddb47ff0d9c0b81231abcab2c2`. |
 | [tests/frontend/setup-geometry.test.ts](../../../../../tests/frontend/setup-geometry.test.ts) | test source | [S05](../../slices/spaces-and-terminals.md#s05-interactive-attachment) / retained, [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Existing first-use creation fixture: compact/short/reduced-viewport context/actions, honest scrolling and Back round trip; three local cases pass at `2f95baaef4a8f1519f31348de2e6bdcfd0b9d3c6`. |

@@ -1,5 +1,11 @@
 # Tracked files: docs
 
+Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
+the two added documentation leaves retain H06 upkeep and their explicitly scoped
+source/fixture evidence. The changed factory/correction plans and package guides
+reconcile public host versus consumer responsibilities without a process or
+language move. Historical complete inventory/body/review pins remain unchanged.
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `9a184b7f` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
@@ -18,6 +24,8 @@ Generated/third-party status and runtime use are separate from disposition.
 
 | Current tracked path | Kind | Owner / disposition | Responsibility evidence |
 | --- | --- | --- | --- |
+| [docs/development/native-frontend-d04-adapter-inventory.md](../../../../../docs/development/native-frontend-d04-adapter-inventory.md) | documentation | H06 / retained | Named source adapter removals and remaining local content/terminal duties; native/installed conditions remain separate. |
+| [docs/development/native-frontend-f06-container-receipt.md](../../../../../docs/development/native-frontend-f06-container-receipt.md) | documentation | H06 / retained | Explicitly transcribed-container development measurements; actual native rendering, creation/dialog joins and installed scope are not qualified. |
 | [docs/README.md](../../../../../docs/README.md) | documentation | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) / retained | Subject guide/handbook or design input; current docs index/public docs-sync consumer and canonical subject authority |
 | [docs/architecture/factory-interfaces.md](../../../../../docs/architecture/factory-interfaces.md) | documentation | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / retained, [H02](../../slices/shared-supporting-slices.md#h02-storage-mechanics) / retained, [G01](../../slices/forgejo-integration.md#g01-browser-authority-and-contributions) / retained, [F01](../../slices/factory-coordination.md#f01-repository-factory-policy) / retained, [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / retained, [I05](../../slices/identity-brokering.md#i05-native-binding-and-private-delivery) / retained | [current units](../maps/documentation-contracts.md#coverage-f4ba726f8b49) |
 | [docs/architecture/networking.md](../../../../../docs/architecture/networking.md) | documentation | [N02](../../slices/networking.md#n02-project-lan-access) / retained, [N01](../../slices/networking.md#n01-private-origins-tls-and-activation) / retained, [N03](../../slices/networking.md#n03-host-tailnet-control) / retained | [current units](../maps/documentation-contracts.md#coverage-fa967c3731b1) |

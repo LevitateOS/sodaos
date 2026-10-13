@@ -1,5 +1,16 @@
 # Parallel implementation schedule
 
+The scoped [native frontend continuation](../native-frontend-correction-tasks.md)
+is active under Codex coordination after the Muse sessions exited. Committed
+Soda `ac22514b` / Fountain `c72f5607b2` supplies the canonical mirror,
+owner/routes, consumer lifecycle and adapter-removal handoffs. C06 real-handler
+and F05 actual-browser-zoom scopes pass; remaining native feature/cutover,
+native-rendered geometry and installed obligations retain their exact gates.
+Current dirty Fountain and Soda branding/layout patches are pending outside these
+pins. Keep one writer
+per file and one heavy-build/VM operator; do not redispatch committed seams or
+advance historical catalog/body/source-review pins from this scoped upkeep.
+
 The active [Fountain/Soda correction queue](fountain-soda-correctness-tasks.md#current-source-reconciliation-2026-10-11)
 uses three workers and the integration lead under its four exclusive writer
 reservations. It adds correctness requirements to the existing packet recipients;
@@ -14,7 +25,7 @@ and A00, with L00–L18 adoption subpackets defined in the
 [library-adoption chapter](library-adoption.md). Completed structural entries
 remain completed at their recorded scope; pending generic-engine splits selected
 for replacement are superseded. The canonical
-[current task state](implementation-tasks.md#current-task-state-2026-10-09)
+[current task state](implementation-tasks.md#current-task-state-2026-10-11)
 records completed L00–L15, L17 and L18 source scopes, completed L16.G and deferred
 optional L16 adoption. L10.N4 retains curl at source scope; its shipped-image,
 TLS and provider qualification remain with R04. L17 completes the fixed

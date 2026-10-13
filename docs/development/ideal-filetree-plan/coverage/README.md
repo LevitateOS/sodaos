@@ -1,5 +1,40 @@
 # Coverage index
 
+## Scoped native correction delta (2026-10-13)
+
+Incremental source/duty membership is reconciled from Soda `5d281760` to
+`ac22514b`, with paired Fountain `6abafdb409..c72f5607b2`: ten added Soda
+paths and one deleted panel-entry re-export. The affected frontend, tests,
+scripts and documentation inventories/maps assign these to their existing
+G01/S02/S04/S05/N03/H05/H06 and release-asset owners. The target delta records
+the new leaves and removes the obsolete entry without a package, language or
+process move. Current dirty Fountain native/content/widget patches and Soda
+branding/layout patches stay pending.
+
+C06 actual HTTP/WS handler-manager-SDK checks and F05 actual browser zoom retain
+their bounded scopes. F06 serves real Fountain CSS with transcribed HTML;
+native-rendered/installed conditions and I04–I09 remain open. No whole-tree,
+catalog, body-census or independent review pin below is advanced by this delta.
+
+The paired Fountain delta adds 25 test files outside Soda's tracked inventory.
+They remain provider-owned G01/G08/H06 evidence under C's native boundary and
+B's feature lifetime writers, not new Soda packages or adapters:
+
+| Provider-owned added paths | Existing defining responsibility |
+| --- | --- |
+| `routers/web/extensions/proxy_test.go` | C06 scoped transport, body bounds/cancellation and origin checks |
+| `web_src/js/modules/modal.test.js` | B common native modal lifetime |
+| `web_src/js/features/{pull-view-file-lifecycle,repo-code-lifecycle,repo-findfile-lifecycle,repo-wiki-lifecycle}.test.js` | B native browsing/editor retirement |
+| `web_src/js/features/{repo-issue-content,repo-issue-list,repo-issue-pr-form,repo-issue-pr-status,repo-issue-sidebar-list}.test.js` | B native collaboration/form lifetime |
+| `web_src/js/features/admin/{common,config,emails}.test.js` and `web_src/js/features/{common-organization,notification,org-team,repo-legacy,repo-settings,sshkey-helper}.test.js` | B account/admin/organization and mapped native feature lifetime |
+| `web_src/js/features/{dashboard-repo-list,b07-closure}.test.js` | B dashboard retirement and registration-map/source guards |
+| `web_src/js/features/{native-content-lifecycle,repository-vue-lifecycle}.test.js` and `web_src/js/components/repository-retirement.test.js` | B explicit native widget/Vue resource retirement and asynchronous-work guards |
+
+Changed SDK/manifest/manager, mount/route/callback/WS, context/template/CSS and
+native entry/config/feature files retain their paired provider owners. Focused
+test additions are not real-page coverage of every class; current dirty native
+content, Vue/widget/markup retirement and branding joins remain pending.
+
 ## Complete source-to-slice coverage
 
 Current Soda path navigation is reconciled at `9a184b7f` alongside the paired

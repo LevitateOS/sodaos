@@ -1,5 +1,12 @@
 # Port assessment and cutovers
 
+The scoped native frontend delta at Soda `ac22514b` / Fountain `c72f5607b2`
+changes no language or process allocation. Removing the panel entry and generic
+consumer host/transport adapters is the current one-owner source cutover, not a
+new Go/Rust port or a forwarding target. Native-rendered and installed terminal/
+authority/container qualification remains with the correction tasks; historical
+port acceptance and review pins below are unchanged.
+
 ## Current remaining implementation ports
 
 The original task schedule and audit pin remain historical source snapshots;

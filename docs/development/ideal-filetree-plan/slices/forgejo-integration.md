@@ -3,6 +3,14 @@
 [Slice catalog and evidence scope](README.md). The cards below span current
 source owners; they do not create packages, services or an approved intended model.
 
+Scoped upkeep at Soda `ac22514b` / Fountain `c72f5607b2` (2026-10-13): G01
+consumes the canonical a9ba2ce0ba type-only mirror and supplied owner/routes/
+request/stream/lifecycle contract. Fountain retains the native shell, feature
+initialization/retirement and account/repository/session authority; G08's
+legitimate branding and attribution remain. Current native composition and
+installed duties stay open, with dirty provider patches outside the committed
+pins. This upkeep does not advance the original validity or full-body reviews.
+
 ## G01 Browser authority and contributions
 
 - **Validity review:** [G01 record](../reviews/G01.md) — actual reviewed scope, findings and pending completion dimensions.
