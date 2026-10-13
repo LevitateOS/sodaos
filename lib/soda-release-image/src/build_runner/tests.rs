@@ -210,7 +210,7 @@ fn run_build_command_cancel_kills_and_reports() {
             None,
             env!("CARGO_MANIFEST_DIR"),
             "sh",
-            &["-c".to_string(), "sleep 30".to_string()],
+            &["-c".to_string(), "exec sleep 30".to_string()],
         )
         .unwrap_err();
         assert!(err.0.contains("build cancelled"), "unexpected: {}", err.0);
@@ -229,7 +229,7 @@ fn cloned_cancellation_reaches_a_running_command() {
         Some(&mut output),
         env!("CARGO_MANIFEST_DIR"),
         "sh",
-        &["-c".to_string(), "echo ready; sleep 30".to_string()],
+        &["-c".to_string(), "echo ready; exec sleep 30".to_string()],
     )
     .unwrap_err();
     assert!(error.0.contains("build cancelled"));

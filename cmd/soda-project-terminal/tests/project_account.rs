@@ -99,12 +99,19 @@ impl Env {
             command.env(key, value);
         }
         let mut child = command.spawn().expect("spawn project-account");
-        child
+        if let Err(error) = child
             .stdin
             .take()
             .expect("stdin")
             .write_all(stdin)
-            .expect("write stdin");
+        {
+            // Argument rejection may close stdin before the fixture writes.
+            assert_eq!(
+                error.kind(),
+                std::io::ErrorKind::BrokenPipe,
+                "write stdin: {error}"
+            );
+        }
         let output = child.wait_with_output().expect("wait");
         (
             output.status.code().expect("exit code"),

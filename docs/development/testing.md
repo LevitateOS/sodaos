@@ -45,6 +45,10 @@ Go and Bun versions come from their manifests; Rust follows `rust-toolchain.toml
 Actions are pinned to full commit hashes, with grouped Dependabot updates.
 Outdated runs on the same PR/ref are cancelled. The required `CI` result fails
 unless both jobs succeeded, including when a dependency job failed or was skipped.
+The protected `main` branch requires this check from GitHub Actions and requires
+the candidate to be up to date with `main`; the rule also applies to administrators.
+Use a branch and pull request for subsequent changes. No separate reviewer
+approval is required by this CI policy.
 
 Source CI does not rebuild the OS. The local build, public download smoke and
 immutable publication remain the [release workflow](release.md). Use focused local
