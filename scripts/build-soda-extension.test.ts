@@ -1,9 +1,38 @@
 import {expect, test} from 'bun:test';
+import {createHash} from 'node:crypto';
 import {mkdir, mkdtemp, readFile, rm, stat} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {buildExtensionStylesheets, buildSodaExtensionAssets, styles} from './build-soda-extension.js';
 
 const root = resolve(import.meta.dir, '..');
+
+// NFX-E04 exact output identities (H-ASSET): sha256 of every emitted file at
+// Soda 72284a49 after the wave-2 D/F/H entry and style graphs. Refresh this
+// map (and only this map) when a graph input changes; any other mismatch is
+// a builder regression.
+const expectedIdentities: Record<string, string> = {
+  'chunk-qht6w2m6.js': '220f12c5e7409060aaf0e45d01e7e4d3a58df6b7848f58a9f333952081a11a9d',
+  'components.css': 'e7b2ecd9341decdb1ec7b010191baad14fdd148af632b2f86cd6c973ed778fb0',
+  'licenses/font-sources.json': '93979bcffd6015d411f7ab171da4ed9f1a28ef841830bea430e9ca7635b92979',
+  'licenses/fonts/barlow-condensed.LICENSE': '046ee27d8bddc6b6ee08eee53c96dbf3ec1f6df561644e018507dd8ffcb11d31',
+  'licenses/fonts/barlow.LICENSE': '4877e0c1b66f0b16cc3ebc4801c4def24c06252f618b9229428b20c7387aa0c0',
+  'licenses/fonts/fraunces.LICENSE': 'cd3384cafac6f2bddc3955273958a2e029f97027c8037ac539ef5744a77b579e',
+  'licenses/fonts/ibm-plex-mono.LICENSE': '23b0a9d0c6d3f140a0b77e483c5cfa6bba574325ef5cb189ed9f2fec4884533f',
+  'licenses/lit.LICENSE': '45d31799d0db956cc3eb5469346abbd9b7025babc5ff29fab10d7095da992ef1',
+  'soda-settings.css': '9bd5b645d7c390d7054fb02276e712d0af99ce051a7f039680b543d938ad9250',
+  'soda-spaces-entry.js': '2a7ecf25d1b5dfa6f6d02e7930e1aabd0dfd34932c25f6fe7136538d58c0b7e0',
+  'soda-tailnet-entry.js': 'f55bd4af43db19efa6024d538980e2457f57e10502b503f718c65d5902afa138',
+  'soda-tailnet.css': 'badea9c71552068047e5cee6bdabfdfa8ee1346536fb021c66c6f074e9c67b98',
+  'soda-terminal/addon-fit.mjs': '2d87e1bddc73be9111de8beee5370c3bb7aac9c94e18e6f245f02ca741ef1769',
+  'soda-terminal/fit.LICENSE': 'e256f01188af527e4d06d21d06fbf785ae9c50d4b328bf03cbe0ba7f0aa4228f',
+  'soda-terminal/xterm.LICENSE': 'b569f629d00f2626a8100df2a1798210535621e42164dfd426a6fe5aac7b0ccd',
+  'soda-terminal/xterm.css': '854a7c0fb70e8b1a083c16797ab827299fb18744f5ad34f227b48337e33293c6',
+  'soda-terminal/xterm.mjs': 'b336ec65a086c056d4804b3d4c2347da5663d3f23c3f25be866467bd8857ad59',
+  'sodaspaces-drawer.css': '0ad011730a229f7cfa44cc674f681e4340c6fc19ef2fd10be05392ad5a16a825',
+  'sodaspaces-page.css': '22905de3233107bcfd86515a636bd4dbcac3617a3f4136126d35a79a87029e8a',
+  'sodaspaces-terminal.css': '4bc8623981bde5b97e514d0ceca2ad907218f028ac5b3bfd7cd262c0eeaf0a56',
+  'sodaspaces.css': 'ed093cc63d692c03d85bfda39aecfa725f5b38ae8c261ba861f4a292ff1bc82b',
+};
 
 test('native Soda package contains its entire local browser asset graph', async () => {
   const artifactRoot = resolve(root, '.artifacts');
@@ -48,8 +77,18 @@ test('native Soda package contains its entire local browser asset graph', async 
       'soda-terminal/xterm.LICENSE',
       'soda-terminal/fit.LICENSE',
       'licenses/lit.LICENSE',
+      'licenses/font-sources.json',
+      'licenses/fonts/barlow.LICENSE',
+      'licenses/fonts/barlow-condensed.LICENSE',
+      'licenses/fonts/fraunces.LICENSE',
+      'licenses/fonts/ibm-plex-mono.LICENSE',
     ])
       expect(files).toContain(name);
+    expect(files).toEqual(Object.keys(expectedIdentities).sort());
+    for (const [name, sha256] of Object.entries(expectedIdentities)) {
+      const bytes = await readFile(resolve(out, 'assets', name));
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(sha256);
+    }
     for (const name of files.filter((file) => file.endsWith('.js'))) {
       const body = await readFile(resolve(out, 'assets', name), 'utf8');
       for (const match of body.matchAll(/(?:from\s*|import\(\s*)["'](\.[^"']+)["']/g)) {
