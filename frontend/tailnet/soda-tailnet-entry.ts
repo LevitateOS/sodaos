@@ -1,6 +1,7 @@
 import {prepareExtensionMount} from '../spaces/soda-extension.js';
 import type {ExtensionMountContext} from '../spaces/soda-extension.js';
 import {mountTailnetPage} from './soda-tailnet-page.js';
+import type {ContributionPresentation, MountHandle, ResumeValidation} from '../spaces/fountain-browser-contract.js';
 
 export function mount(root: HTMLElement, context: ExtensionMountContext) {
   if (context.pageId !== 'tailnet') throw Error('Invalid Tailnet page');
@@ -14,12 +15,23 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
   });
   const page = mountTailnetPage(root, transport);
   root.append(...styles);
-  return {
-    dispose() {
-      transport.dispose();
-      page.dispose();
-      styles.forEach((link) => link.remove());
-      root.classList.remove('soda-settings', 'soda-tailnet-settings');
-    },
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    transport.dispose();
+    page.dispose();
+    styles.forEach((link) => link.remove());
+    root.classList.remove('soda-settings', 'soda-tailnet-settings');
   };
+  // Host lifecycle (NFX-D05): suspend clears secrets and pauses polling,
+  // resume revalidates under the admitted generation, retire releases.
+  const handle: MountHandle & {dispose: () => void} = {
+    update: (presentation: ContributionPresentation) => page.update(presentation),
+    suspend: () => page.suspend(),
+    resume: (validation: ResumeValidation) => page.resume(validation),
+    retire: () => dispose(),
+    dispose,
+  };
+  return handle;
 }

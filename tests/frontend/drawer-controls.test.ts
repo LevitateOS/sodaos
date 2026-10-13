@@ -87,13 +87,13 @@ test('stale project controls cannot refresh/replay on focus', async (t) => {
   await refresh(page);
   const count = await page.evaluate(() => window.drawerFixture.calls.length);
   await page.evaluate(async () => {
-    window.dispatchEvent(new Event('pagehide'));
+    window.drawerFixture.api.retire();
     window.dispatchEvent(new Event('focus'));
     await window.drawerFixture.api.refresh();
   });
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), count);
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
-  assert.equal(await page.locator('[data-control=refresh]').isDisabled(), true);
+  assert.equal(await page.locator('[data-control=refresh]').count(), 0);
   assert.equal(await page.locator('#native').count(), 1);
 });
 for (const kind of ['HTML', 'oversized', '401', '403'] as const)

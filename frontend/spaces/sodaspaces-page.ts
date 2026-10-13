@@ -1,5 +1,6 @@
 import {mountSodaspaces} from './sodaspaces-workspace.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
+import type {ContributionPresentation, ResumeValidation} from './fountain-browser-contract.js';
 
 export function mountSpacesPage(
   root: HTMLElement,
@@ -32,16 +33,22 @@ export function mountSpacesPage(
   void document.fonts.ready.then(measure);
   measure();
   void workspace.refresh();
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    observer.disconnect();
+    window.removeEventListener('resize', measure);
+    window.visualViewport?.removeEventListener('resize', measure);
+    workspace.dispose();
+  };
   return {
     get canRestore() {
       return workspace.canRestore;
     },
-    dispose() {
-      disposed = true;
-      observer.disconnect();
-      window.removeEventListener('resize', measure);
-      window.visualViewport?.removeEventListener('resize', measure);
-      workspace.dispose();
-    },
+    update: (presentation: ContributionPresentation) => workspace.update(presentation),
+    suspend: () => workspace.suspend(),
+    resume: (validation?: ResumeValidation) => workspace.resume(validation),
+    retire: () => dispose(),
+    dispose,
   };
 }

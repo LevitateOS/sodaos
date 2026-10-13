@@ -3,6 +3,8 @@ import {repeat} from 'lit/directives/repeat.js';
 import {renderMenu, renderWelcomeSteps} from './sodaspaces-workspace-view.js';
 import {renderRename} from './sodaspaces-terminal-dialog-view.js';
 import {mountProjectControls} from './sodaspaces-project.js';
+import {resumeGenerationRefused} from './soda-extension.js';
+import type {ContributionPresentation, ResumeValidation} from './fountain-browser-contract.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, hideTab} from './sodaspaces-layout.js';
@@ -398,33 +400,16 @@ export class SodaSpaces extends LitElement {
     if (context.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
       this.pendingNewRoute = true;
     this.addEventListener('focusout', (event) => menuFocusOut(event), {signal: this.lifetime.signal});
-    window.addEventListener('pagehide', () => this.invalidate(), {
-      signal: this.lifetime.signal,
-    });
+    // Host lifecycle only (NFX-D05): no pagehide/pageshow/visibilitychange
+    // self-interpretation. The entry forwards host update/suspend/resume/
+    // retire here; ordinary navigation retains every terminal and watch.
+    // popstate below is retained in-page route arming, not authority.
     window.addEventListener(
       'popstate',
       () => {
         if (this.binding?.kind === 'page' && isNewRouteLocation(window.location.pathname, this.repositoryPrefix()))
           this.pendingNewRoute = true;
         this.requestUpdate();
-      },
-      {
-        signal: this.lifetime.signal,
-      }
-    );
-    window.addEventListener(
-      'pageshow',
-      (e) => {
-        if (e.persisted) this.invalidate();
-      },
-      {
-        signal: this.lifetime.signal,
-      }
-    );
-    document.addEventListener(
-      'visibilitychange',
-      () => {
-        if (document.visibilityState === 'visible') this.markViewed();
       },
       {
         signal: this.lifetime.signal,
@@ -1799,6 +1784,42 @@ export class SodaSpaces extends LitElement {
     this.display();
     if (visible && !this.restored) void this.refresh();
   }
+  /**
+   * Host presentation update (NFX-D05): display facts only, never authority.
+   * Ordinary navigation arrives here and retains every renderer/socket.
+   */
+  applyPresentation(presentation: ContributionPresentation) {
+    if (!this.binding || this.disposed) return;
+    this.present(presentation.mode === 'page' ? 'page' : 'native', presentation.repositoryId);
+    if (presentation.visible) {
+      this.setVisible(true);
+      this.markViewed();
+    } else this.setVisible(false);
+  }
+  /** Host concealment: shelter without closing any terminal or watch stream. */
+  suspend() {
+    if (this.disposed || this.stale) return;
+    this.setVisible(false);
+    for (const watch of this.watches) watch.view?.suspend();
+    for (const project of this.projects.values()) project.api.suspend();
+  }
+  /** Host rebind after shelter/revalidation; attachments stay exact. */
+  resume(validation?: ResumeValidation) {
+    if (this.disposed) return;
+    if (this.binding && resumeGenerationRefused(this.binding.transport.generation, validation)) {
+      this.retire();
+      return;
+    }
+    if (this.stale) return;
+    this.setVisible(true);
+    this.markViewed();
+    for (const watch of this.watches) watch.view?.resume(validation);
+    for (const project of this.projects.values()) project.api.resume(validation);
+  }
+  /** Host retirement: release all browser resources without End. */
+  retire() {
+    this.dispose();
+  }
   invalidate() {
     this.reconnectRequired = false;
     if (this.stale) return;
@@ -1883,6 +1904,10 @@ export function mountSodaspaces(
     markViewed: () => box.markViewed(),
     setVisible: (visible: boolean) => box.setVisible(visible),
     present: (kind: 'page' | 'native', repositoryId?: string) => box.present(kind, repositoryId),
+    update: (presentation: ContributionPresentation) => box.applyPresentation(presentation),
+    suspend: () => box.suspend(),
+    resume: (validation?: ResumeValidation) => box.resume(validation),
+    retire: () => box.retire(),
     refresh: () => box.refresh(),
     invalidate: () => box.invalidate(),
     get ready() {

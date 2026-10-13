@@ -5,7 +5,9 @@ import {id as identifier} from './sodaspaces-api.js';
 import {terminalID} from './sodaspaces-terminal-response.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
+import {resumeGenerationRefused} from './soda-extension.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
+import type {ResumeValidation} from './fountain-browser-contract.js';
 import {connect} from './sodaspaces-terminal-attachment.js';
 import type {AttachmentInput} from './sodaspaces-terminal-attachment.js';
 import {awaitScreen, clearScreen, openTerminal, resize, screenReady} from './sodaspaces-terminal-screen.js';
@@ -143,18 +145,10 @@ export class SodaTerminal extends LitElement {
     window.visualViewport?.addEventListener('resize', () => resize(this.screenInput()), {
       signal: this.lifetime.signal,
     });
-    window.addEventListener('pagehide', () => this.invalidate(), {
-      signal: this.lifetime.signal,
-    });
-    window.addEventListener(
-      'pageshow',
-      (event) => {
-        if (event.persisted) this.invalidate();
-      },
-      {
-        signal: this.lifetime.signal,
-      }
-    );
+    // Host lifecycle only (NFX-D05): the contribution never interprets
+    // pagehide/pageshow/visibilitychange as authority. The host drives
+    // suspend/resume/retire through the mount handle; ordinary navigation
+    // retains this element, renderer and socket.
   }
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -429,6 +423,23 @@ export class SodaTerminal extends LitElement {
     if (this.terminal) this.terminal.options.disableStdin = !visible || this.state !== 'ready';
     if (visible) resize(this.screenInput()); // Presentation only: never connect or focus.
   }
+  /** Host concealment: pause visible work, retain renderer and socket. */
+  suspend() {
+    this.setVisible(false);
+  }
+  /** Host rebind after shelter/revalidation; never reconnects or replays. */
+  resume(validation?: ResumeValidation) {
+    if (this.disposed) return;
+    if (this.binding && resumeGenerationRefused(this.binding.transport.generation, validation)) {
+      this.retire();
+      return;
+    }
+    this.setVisible(true);
+  }
+  /** Host retirement: release browser resources without ending the session. */
+  retire() {
+    this.dispose();
+  }
   focus() {
     if (this.viewVisible && !this.closest('[hidden], [inert]') && this.state === 'ready') this.terminal?.focus();
   }
@@ -501,6 +512,9 @@ export function mountTerminal(
       return terminal.updateComplete;
     },
     restore: () => terminal.restore(),
+    suspend: () => terminal.suspend(),
+    resume: (validation?: ResumeValidation) => terminal.resume(validation),
+    retire: () => terminal.retire(),
     invalidate: () => terminal.invalidate(),
     disconnect: () => terminal.disconnect(),
     dispose: () => terminal.dispose(),

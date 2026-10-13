@@ -96,7 +96,7 @@ test('members get only observed own-account network access, not mutation control
     'ssh alice@100.64.0.2'
   );
   assert.deepEqual(await writes(page), []);
-  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  await page.evaluate(() => window.drawerFixture.api.retire());
   assert.equal(await page.getByRole('textbox', {name: 'Tailnet SSH command', exact: true}).count(), 0);
   assert.equal(await page.getByText('100.64.0.2', {exact: true}).count(), 0);
 });

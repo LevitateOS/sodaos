@@ -1,6 +1,8 @@
 import './soda-identity.js';
 import './sodaspaces-factory-settings.js';
+import {resumeGenerationRefused} from './soda-extension.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
+import type {ResumeValidation} from './fountain-browser-contract.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
@@ -201,6 +203,7 @@ export class SodaProjectControls extends LitElement {
   private epoch = 0;
   private disposed = false;
   private mutationPending = false;
+  private suspended = false;
   private outcomeNeedsAttention = false;
   private joinFailed = false;
   private joinNeedsCheck = false;
@@ -240,18 +243,9 @@ export class SodaProjectControls extends LitElement {
     if (this.binding || this.disposed) throw Error('Project binding is immutable');
     this.binding = {...context};
     check(id(context.expectedUserId));
-    window.addEventListener('pagehide', () => this.invalidate(), {
-      signal: this.lifetime.signal,
-    });
-    window.addEventListener(
-      'pageshow',
-      (e) => {
-        if (e.persisted) this.invalidate();
-      },
-      {
-        signal: this.lifetime.signal,
-      }
-    );
+    // Host lifecycle only (NFX-D05): no pagehide/pageshow self-interpretation.
+    // The Workspace forwards host suspend/resume/retire to this component;
+    // ordinary navigation retains its binding and local drafts.
   }
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -622,6 +616,28 @@ export class SodaProjectControls extends LitElement {
     this.draft = '';
     this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
   }
+  /** Host concealment: pause reads, retain binding and local drafts. */
+  suspend() {
+    if (this.disposed || this.stale) return;
+    this.suspended = true;
+    ++this.epoch;
+    this.readController?.abort();
+  }
+  /** Host rebind: revalidate with a fresh read; never replays a mutation. */
+  resume(validation?: ResumeValidation) {
+    if (this.disposed) return;
+    if (this.binding && resumeGenerationRefused(this.binding.transport.generation, validation)) {
+      this.retire();
+      return;
+    }
+    if (!this.suspended) return;
+    this.suspended = false;
+    void this.refresh();
+  }
+  /** Host retirement: release this component; no operation is replayed. */
+  retire() {
+    this.dispose();
+  }
   invalidate() {
     ++this.epoch;
     this.stale = true;
@@ -820,6 +836,9 @@ export function mountProjectControls(root: HTMLElement, context: ProjectContext)
       return box.canRestore;
     },
     refresh: () => box.refresh(),
+    suspend: () => box.suspend(),
+    resume: (validation?: ResumeValidation) => box.resume(validation),
+    retire: () => box.retire(),
     invalidate: () => box.invalidate(),
     setPresentation: (mode: 'standard' | 'journey' | 'settings') => box.setPresentation(mode),
     get ready() {

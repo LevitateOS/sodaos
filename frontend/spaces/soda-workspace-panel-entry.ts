@@ -2,6 +2,7 @@ import {prepareExtensionMount} from './soda-extension.js';
 import type {ExtensionMountContext} from './soda-extension.js';
 import {mountSodaspaces} from './sodaspaces-workspace.js';
 import {nativeAppSubUrl} from './soda-native-paths.js';
+import type {ContributionPresentation, MountHandle, ResumeValidation} from './fountain-browser-contract.js';
 
 export function mount(root: HTMLElement, context: ExtensionMountContext) {
   if (context.panelId !== 'workspace') throw Error('Invalid workspace panel');
@@ -65,13 +66,39 @@ export function mount(root: HTMLElement, context: ExtensionMountContext) {
   host?.addEventListener('extension-workspace-navigation', sync);
   window.addEventListener('resize', measure);
   sync();
-  return {
-    dispose() {
-      transport.dispose();
-      host?.removeEventListener('extension-workspace-navigation', sync);
-      window.removeEventListener('resize', measure);
-      retire();
-      styles.forEach((style) => style.remove());
-    },
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    transport.dispose();
+    host?.removeEventListener('extension-workspace-navigation', sync);
+    window.removeEventListener('resize', measure);
+    retire();
+    styles.forEach((style) => style.remove());
   };
+  // Host lifecycle (NFX-D05): update/suspend/resume retain the one owner;
+  // only retire/dispose releases it. Presentation facts stay display-only.
+  const handle: MountHandle & {dispose: () => void} = {
+    update: (presentation: ContributionPresentation) => {
+      if (!workspace) {
+        sync();
+        return;
+      }
+      workspace.update(presentation);
+      present(presentation.visible);
+      measure();
+    },
+    suspend: () => {
+      workspace?.suspend();
+      present(false);
+    },
+    resume: (validation: ResumeValidation) => {
+      present(true);
+      workspace?.resume(validation);
+      measure();
+    },
+    retire: () => dispose(),
+    dispose,
+  };
+  return handle;
 }
