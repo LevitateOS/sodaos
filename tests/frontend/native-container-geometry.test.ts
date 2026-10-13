@@ -4,17 +4,16 @@ import {existsSync, readFileSync} from 'node:fs';
 import path from 'node:path';
 import {chromium, type Browser, type Page} from 'playwright';
 
-// NFX-F06: requalify the changed local geometry (F01-F05, including the
-// wave-1 F05 actual-zoom fixes) inside the native containers that exist
-// today, with the actual branded stylesheet. The container markup is
+// NFX-F06 development check: constrained-allocation geometry with Fountain's
+// A04 container styles and Soda's emitted branding. Device-metrics emulation
+// below is a reflow proxy, not actual browser zoom. The container markup is
 // transcribed from Fountain templates/extensions/{page,panels}.tmpl and
-// templates/base/footer.tmpl at forgejo-ext 70f3f656c6, and the container
-// rules are served from Fountain's own CSS files, not retyped. Soda must
-// not repair missing host space here: the page mount
-// (.extension-page-mount, min-height only) and the panels home
-// (.extension-workspace-panels, no height) supply no definite block size
-// until A04/H-C lands. Those remainders are asserted as observations
-// below (no invented Soda height), not fixed in Soda.
+// templates/base/{head,footer}.tmpl at forgejo-ext 042b3bc325, the body
+// flex column from web_src/css/base.css, and the container rules are
+// served from Fountain's own CSS files, not retyped. The page mount
+// (.extension-page-mount, min-height only) stays content-sized; the
+// panels home (.extension-workspace-panels, flex:1 with a min-height
+// floor) supplies definite host space. Soda invents no host height.
 
 const root = path.resolve(import.meta.dirname, '../..');
 const fountain = [path.join(root, '../forgejo-ext'), path.join(root, '../../forgejo-ext')].find((p) =>
@@ -34,7 +33,7 @@ const shellHead = (
 ) => `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><link rel="icon" href="data:,">
 <link rel="stylesheet" href="/assets/native/container.css"><link rel="stylesheet" href="/assets/native/extensions.css">
 <link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css">
-<style>:root{--page-margin-x:32px}@media(max-width:767.98px){:root{--page-margin-x:8px}}body{margin:0}.full.height{display:flex;flex-direction:column;min-height:100dvh}.page-content{flex:1}</style>`;
+<style>:root{--page-margin-x:32px}@media(max-width:767.98px){:root{--page-margin-x:8px}}html,body{height:100%}body{margin:0;display:flex;flex-direction:column}.full.height{flex-grow:1;padding-bottom:80px}.page-content{display:block}</style>`;
 
 before(async () => {
   const wsBuild = await Bun.build({
@@ -211,7 +210,7 @@ test(
     );
     assert(Math.abs(at1x.mount.w - at1x.container.w) <= 2, 'Soda mount does not bind to the native container width');
     assert(at1x.hOverflow <= 1, 'page overflows horizontally inside the native container');
-    assert.equal(at1x.hostHeight, '', 'Soda must not invent host height on the page mount (A04 remainder)');
+    assert.equal(at1x.hostHeight, '', 'Soda must not invent host height on the page mount');
     const css = await applyZoom(page, 4);
     await page.waitForFunction(
       () =>
@@ -238,7 +237,7 @@ test(
 );
 
 test(
-  'F06 panel container: Soda binds to the real panels home without inventing host height',
+  'F06 panel container: Soda binds to the host-sized panels home at zoom 1 and 4',
   {timeout: 60000},
   async (t) => {
     const page = await browser.newPage({viewport: {width: 1440, height: 1000}});
@@ -262,48 +261,66 @@ test(
     console.log('F06 panel @1x', JSON.stringify(dims));
     assert(dims.hOverflow <= 1, 'panel page overflows horizontally');
     assert(dims.mount.w > 0 && dims.mount.h > 0, 'panel mount has no size');
-    // A04 remainder, observed not repaired: on an ordinary native document the
-    // panels home has no definite height, so Soda (non-direct) sets no inline
-    // height and the mount is content-sized rather than viewport-sized.
-    assert.equal(
-      dims.inlineHeight,
-      '',
-      'Soda panel must not invent host height outside the direct path (A04 remainder)'
-    );
-    assert(dims.mount.h < 1000, 'panel mount unexpectedly viewport-sized; A04 host space may have landed, update F06');
+    assert.equal(dims.inlineHeight, '', 'Soda panel must not invent host height');
+    // Post-A04/H-C (observed 2026-10-13, Fountain 042b3bc325): the visible
+    // panels home fills the remaining viewport column (flex:1, 24rem floor)
+    // and the mount binds the height:100% Soda chain against it.
+    assert(dims.aside.h >= 900, `panels home not host-sized: ${dims.aside.h}px`);
+    assert(dims.mount.h >= 800, `panel mount not host-sized: ${dims.mount.h}px`);
     await page.getByRole('button', {name: 'Sessions', exact: true}).click();
     await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
     await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor({state: 'attached'});
-    // A04-dependent remainder (observed 2026-10-13, Fountain 70f3f656c6):
-    // the session opens and the terminal connects, but inside the ordinary
-    // panels home it has no usable height (mount 49px content box at 1440px
-    // wide; aside/section 111px including the panel heading and padding).
-    // Soda does not repair this host-space gap; A04/H-C must supply a
-    // definite responsive block size for .extension-workspace-panels.
-    // When A04 lands this assertion should fail and F06 can be completed.
-    const remainder = await page.evaluate(() => {
+    const at1x = await page.evaluate(() => {
       const term = document.querySelector('.soda-workspace-terminal:not([hidden])');
       const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
       return {
         mountH: Math.round(mount.height),
         terminalH: term ? Math.round(term.getBoundingClientRect().height) : -1,
         connected: !!document.querySelector('.soda-workspace-terminal:not([hidden]) .is-connected'),
+        inlineHeight: (document.querySelector('[data-extension-panel]') as HTMLElement).style.height,
+        hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
     });
-    console.log('F06 panel A04 remainder', JSON.stringify(remainder));
-    assert(remainder.connected, 'terminal did not connect inside the real panel container');
-    assert(
-      remainder.mountH < 200,
-      `panel mount unexpectedly host-sized (${remainder.mountH}px); A04 may have landed, finish F06`
+    console.log('F06 panel terminal @1x', JSON.stringify(at1x));
+    assert(at1x.connected, 'terminal did not connect inside the host-sized panel container');
+    assert(at1x.mountH >= 800, `panel mount not host-sized with terminal open: ${at1x.mountH}px`);
+    assert(at1x.terminalH >= 700, `terminal not usable inside host-sized panel: ${at1x.terminalH}px`);
+    assert.equal(at1x.inlineHeight, '', 'Soda panel must not invent host height with terminal open');
+    assert(at1x.hOverflow <= 1, 'panel page overflows horizontally with terminal open');
+    const css = await applyZoom(page, 4);
+    await page.waitForFunction(
+      () =>
+        (document.querySelector('.soda-workspace-terminal:not([hidden])')?.getBoundingClientRect().height ?? 0) >= 44,
+      null,
+      {timeout: 5000}
     );
-    assert(
-      remainder.terminalH < 44,
-      `terminal unexpectedly usable (${remainder.terminalH}px); A04 may have landed, finish F06`
-    );
+    const at4x = await page.evaluate(() => {
+      const term = document.querySelector('.soda-workspace-terminal:not([hidden])');
+      const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
+      const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
+      return {
+        aside: {w: Math.round(aside.width), h: Math.round(aside.height)},
+        mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
+        terminalH: term ? Math.round(term.getBoundingClientRect().height) : -1,
+        connected: !!document.querySelector('.soda-workspace-terminal:not([hidden]) .is-connected'),
+        hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    console.log('F06 panel @4x', JSON.stringify(at4x), 'css', JSON.stringify(css));
+    // Compact floor: 18rem min-height keeps a usable mount at 360x250 CSS.
+    assert(at4x.connected, 'terminal did not stay connected in panel container at zoom 4x');
+    assert(at4x.mount.h >= 200, `panel mount collapsed at zoom 4x: ${at4x.mount.h}px`);
+    assert(at4x.terminalH >= 100, `terminal not usable in panel container at zoom 4x: ${at4x.terminalH}px`);
+    assert(at4x.hOverflow <= 1, 'panel page overflows horizontally at zoom 4x');
+    for (const name of ['Sessions', 'New terminal']) {
+      const control = page.getByRole('button', {name, exact: true});
+      await control.scrollIntoViewIfNeeded();
+      assert(await control.isVisible(), `${name} unreachable in panel container at zoom 4x`);
+    }
   }
 );
 
-test('F06 settings in panel container: tabs stay reachable at zoom 4x', {timeout: 60000}, async (t) => {
+test('F06 settings in panel container: host-sized at zoom 1, tabs reachable at zoom 4x', {timeout: 60000}, async (t) => {
   const page = await browser.newPage({viewport: {width: 1440, height: 1000}});
   page.setDefaultTimeout(5000);
   trackErrors(t, page);
@@ -316,6 +333,21 @@ test('F06 settings in panel container: tabs stay reachable at zoom 4x', {timeout
     await window.drawerFixture.api.refresh();
   });
   await page.getByRole('heading', {name: 'Identity connections'}).waitFor();
+  const at1x = await page.evaluate(() => {
+    const aside = document.querySelector('.extension-workspace-panels')!.getBoundingClientRect();
+    const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
+    return {
+      aside: {w: Math.round(aside.width), h: Math.round(aside.height)},
+      mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
+      inlineHeight: (document.querySelector('[data-extension-panel]') as HTMLElement).style.height,
+      hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  console.log('F06 settings-panel @1x', JSON.stringify(at1x));
+  assert(at1x.hOverflow <= 1, 'settings panel page overflows horizontally');
+  assert.equal(at1x.inlineHeight, '', 'Soda settings panel must not invent host height');
+  assert(at1x.aside.h >= 900, `settings panels home not host-sized: ${at1x.aside.h}px`);
+  assert(at1x.mount.h >= 800, `settings panel mount not host-sized: ${at1x.mount.h}px`);
   const css = await applyZoom(page, 4);
   console.log('F06 settings-panel css', JSON.stringify(css));
   for (const tab of ['Overview', 'Access', 'Network', 'Factory'] as const) {
