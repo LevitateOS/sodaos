@@ -46,5 +46,6 @@
 <a href="{{AppSubUrl}}/user/settings/storage_overview" {{if .PageIsStorageOverview}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.storage_overview"}}</a>
 {{end}}
 </div></section>
+{{with .ExtensionPages}}{{with index . "user"}}{{range .}}<a class="soda-settings-nav-link" href="{{.URL}}"{{if eq .URL $.ExtensionPageURL}} aria-current="page"{{end}}>{{.Title}}</a>{{end}}{{end}}{{end}}
 </div></nav>
 {{end}}
