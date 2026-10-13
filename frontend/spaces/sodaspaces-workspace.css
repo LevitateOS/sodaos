@@ -74,7 +74,9 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-menu > div > .ui.button { display: block; width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .soda-menu input { width: 100%; box-sizing: border-box; min-height: var(--soda-workspace-control); }
 .soda-workspace-toolbar .soda-menu > div { left: 0; right: auto; }
-.soda-workspace-dialog { position: absolute; top: 54px; left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); max-height: calc(100% - 70px); overflow: auto; box-sizing: border-box; z-index: 30; padding: var(--soda-panel-inset); border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); color: var(--soda-page-text); box-shadow: var(--soda-elevation-dialog); }
+/* Viewport-anchored: workspace-anchored absolute positioning scrolls with the
+   document and clips above short viewports (F06 400% measured y -8.25). */
+.soda-workspace-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 24px)); max-height: calc(100% - 70px); overflow: auto; box-sizing: border-box; z-index: 30; padding: var(--soda-panel-inset); border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); color: var(--soda-page-text); box-shadow: var(--soda-elevation-dialog); }
 .soda-workspace-dialog label { display: block; margin-bottom: var(--soda-space-2); }
 .soda-workspace-dialog input, .soda-workspace-dialog select { width: 100%; box-sizing: border-box; min-height: var(--soda-workspace-tab); font: inherit; }
 .soda-workspace-management { flex: 1; min-height: 0; overflow: auto; }

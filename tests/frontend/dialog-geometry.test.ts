@@ -167,6 +167,37 @@ for (const viewport of [
   );
 }
 
+test('terminal rename dialog 360x250 scrolled document: stays viewport-contained', {timeout: 30000}, async (t) => {
+  // F06 400% shape: shell content around the mount makes the document
+  // taller than the short viewport, and ambient scroll leaves the workspace
+  // top above the viewport while the terminal actions stay visible
+  // (qualification measured dialog y -8.25 in 360x250). The dialog must
+  // stay fully reachable anyway instead of moving with scrolled content.
+  const viewport = {width: 360, height: 250};
+  const page = await emittedFixture(t, viewport, false);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await openSession(page, 'Build');
+  await page.evaluate(() => {
+    const below = document.createElement('div');
+    below.dataset.geometryBelow = '';
+    below.setAttribute('aria-hidden', 'true');
+    below.style.cssText = 'height:200px;';
+    document.body.append(below);
+    // Workspace top above the viewport while the terminal actions stay
+    // visible, so opening Rename performs no scroll reset of its own.
+    window.scrollTo(0, 140);
+  });
+  await action(page, 'Rename terminal');
+  await page.waitForFunction(
+    () => document.activeElement?.tagName === 'INPUT' && !!document.activeElement?.closest('[role=dialog]'),
+    null,
+    {timeout: 5000}
+  );
+  const dialog = await dialogGeometry(page, 'Rename terminal', viewport);
+  await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+  await dialog.waitFor({state: 'detached'});
+});
+
 // Viewport coverage note: the compact/short matrix viewports above verify
 // the dialogs across small allocations as a reduced CSS viewport/allocation
 // proxy. Final native fonts/container/browser behavior (F06) remains open.
