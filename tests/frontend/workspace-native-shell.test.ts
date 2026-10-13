@@ -27,27 +27,32 @@ test('Fountain direct Workspace preserves native paths, history and the terminal
     return route.fulfill({
       contentType: 'text/html',
       headers: {'X-Extension-Session-Generation': generation},
-      body: `<html><head><title>${repo ? 'team/repo' : 'Global'} Workspace</title></head><body><main data-workspace-direct data-extension-repository-id="${repo ? '7' : ''}" data-workspace-session-generation="${generation}"><div data-extension-workspace-direct-content>${repo ? '<div class="repo-header">team/repo</div>' : ''}<h1 id="details">Workspace</h1></div></main></body></html>`,
+      body: `<html><head><title>${repo ? 'team/repo' : 'Global'} Workspace</title></head><body data-page-data='{}'><nav id="navbar"><a href="/forge/team/repo/workspace?view=all#details">Repository Workspace</a><a href="/forge/workspace?view=global#notes">Global Workspace</a><a href="/forge/user/settings/security">Account controls</a></nav><div class="page-content"><div data-extension-workspace-direct-content>${repo ? '<div class="repo-header">team/repo</div>' : ''}<h1 id="details">Workspace</h1></div></div><aside data-extension-panels data-app-sub-url="/forge" data-extension-session-generation="${generation}"></aside></body></html>`,
     });
   });
   await page.evaluate(() => {
     const f = window.workspaceFixture;
+    Object.assign(window, {config: {appSubUrl: '/forge', pageData: {}}});
     f.api.dispose();
     history.replaceState(null, '', '/forge/workspace?view=first#notes');
     const navbar = document.createElement('nav');
     navbar.id = 'navbar';
     navbar.innerHTML =
       '<a id="native-repository" href="/forge/team/repo/workspace?view=all#details">Repository Workspace</a><a id="native-global" href="/forge/workspace?view=global#notes">Global Workspace</a><a id="native-account" href="/forge/user/settings/security">Account controls</a>';
-    const host = document.createElement('main');
+    const content = document.createElement('div');
+    content.className = 'page-content';
+    content.innerHTML = '<div data-extension-workspace-direct-content><h1>Workspace</h1></div>';
+    const host = document.createElement('aside');
+    host.className = 'extension-workspace-panels';
+    host.dataset.extensionPanels = '';
     host.dataset.extensionWorkspace = '';
     host.dataset.workspaceDirect = '';
     host.dataset.extensionRepositoryId = '';
     host.dataset.workspacePath = '/forge/workspace?view=first';
     host.dataset.appSubUrl = '/forge';
-    host.dataset.workspaceSessionGeneration = f.generation;
-    host.innerHTML =
-      '<div data-extension-workspace-direct-content><h1>Workspace</h1></div><aside class="extension-workspace-panels"><section class="extension-workspace-panel"></section></aside>';
-    f.root.before(navbar, host);
+    host.dataset.extensionSessionGeneration = f.generation;
+    host.innerHTML = '<section class="extension-workspace-panel"></section>';
+    f.root.before(navbar, content, host);
     host.querySelector('section')?.append(f.root);
     const apiBase = location.origin + '/-/native/pages/soda/spaces/api/';
     window.mountWorkspacePanel(f.root, {
