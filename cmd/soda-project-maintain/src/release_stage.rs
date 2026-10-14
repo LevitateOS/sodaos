@@ -435,24 +435,31 @@ impl StagedContent {
             return Err("staging commit differs from admitted mounted target".into());
         }
         let before = inspect(deadline)?;
-        if pending(&before, commit)? {
-            return Ok(());
-        }
+        let already_staged = pending(&before, commit)?;
         let repository = self.mountpoint.join("ostree/repo");
         let repository = repository
             .to_str()
             .ok_or("target repository path unavailable")?;
-        run(
-            OSTREE,
-            &[
-                &format!("--repo={REPOSITORY}"),
-                "pull-local",
-                "--untrusted",
-                repository,
-                commit,
-            ],
-            deadline,
-        )?;
+        // rpm-ostree resolves container base metadata through digest-named blob
+        // refs; pulling only the deployment commit leaves those refs missing.
+        // Never import the source repository's mutable image/refspec pointers.
+        let refs = run(OSTREE, &[&format!("--repo={repository}"), "refs"], deadline)?;
+        let mut args = vec![
+            format!("--repo={REPOSITORY}"),
+            "pull-local".into(),
+            "--untrusted".into(),
+            repository.into(),
+            commit.into(),
+        ];
+        args.extend(container_blob_refs(&refs)?);
+        let borrowed: Vec<_> = args.iter().map(String::as_str).collect();
+        run(OSTREE, &borrowed, deadline)?;
+        if already_staged {
+            if inspect(deadline)? != before {
+                return Err("locked target changed during native metadata import".into());
+            }
+            return Ok(());
+        }
         stage_commit(commit, &before.booted, deadline)
     }
 
@@ -480,6 +487,26 @@ impl StagedContent {
         }
         Ok(())
     }
+}
+
+fn container_blob_refs(bytes: &[u8]) -> Result<Vec<String>, String> {
+    const PREFIX: &str = "ostree/container/blob/";
+    let text = std::str::from_utf8(bytes).map_err(|_| "native repository refs unavailable")?;
+    if text.lines().count() > 256 {
+        return Err("native repository ref inventory exceeds its bound".into());
+    }
+    text.lines()
+        .filter(|reference| reference.starts_with(PREFIX))
+        .map(|reference| {
+            if !reference
+                .strip_prefix("ostree/container/blob/sha256_3A_")
+                .is_some_and(digest)
+            {
+                return Err("invalid native container blob ref".into());
+            }
+            Ok(reference.to_owned())
+        })
+        .collect()
 }
 
 fn text(path: &Path) -> Result<&str, String> {
@@ -517,6 +544,22 @@ impl Drop for StagedContent {
 mod tests {
     use super::*;
     use serde_json::{json, Value};
+
+    #[test]
+    fn native_import_keeps_digest_blob_refs_without_retargeting_image_pointers() {
+        let blob = format!("ostree/container/blob/sha256_3A_{}", "a".repeat(64));
+        let refs = format!("ostree/1/1/0\n{blob}\nostree/container/image/current\n");
+        assert_eq!(container_blob_refs(refs.as_bytes()).unwrap(), vec![blob]);
+        for invalid in [
+            b"ostree/container/blob/sha256_3A_../current".as_slice(),
+            b"ostree/container/blob/--mirror".as_slice(),
+            b"ostree/container/blob/sha256_3A_ABC".as_slice(),
+            b"\xff".as_slice(),
+        ] {
+            assert!(container_blob_refs(invalid).is_err());
+        }
+        assert!(container_blob_refs("other\n".repeat(257).as_bytes()).is_err());
+    }
 
     fn observed() -> Value {
         json!({"deployments":[

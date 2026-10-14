@@ -106,6 +106,9 @@ The existing public rootfs contains the complete host, application images and an
 OSTree repository inside its EROFS root. Explicit maintenance consumes the selected
 GitHub release's rootfs and metadata together; users do not assemble helpers.
 Native `ostree pull-local` and locked deployment retain FCOS activation ownership.
+Import includes the digest-named container blob references required by rpm-ostree
+to resolve the deployment's image metadata. Mutable image pointers from the media
+repository are not imported over the appliance's existing pointers.
 Before finalization, the workflow rechecks the exact staged commit, serial and
 lock, then binds rpm-ostree's native base identity: the container manifest digest
 for an imported container commit, otherwise the base OSTree commit. This rule also
@@ -116,8 +119,8 @@ deployment. Development qualification admits the exact candidate without a recei
 only through its explicit fixture path. Normal upgrade admission and release
 delivery require the bound native receipt.
 
-The explicit `release` maintenance operation closes admission before applying support or releasing the
-native finalization lock. It fixes all enrolled container identities, includes
+The explicit `release` maintenance operation closes admission before applying
+support or releasing the native finalization lock. It fixes all enrolled container identities, includes
 stopped roots, refuses active or uncertain work, and retains a durable operation
 record across interruption and reboot. Boot reconciliation checks actual host,
 Project and future-image identities before reopening admission; that additional

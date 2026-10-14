@@ -562,6 +562,9 @@ fn run_operation(args: &[String]) -> Result<(), String> {
     let helper = tool(&content.helper_path, &record.target_sha256)?;
     replace(&record, &helper, deadline)?;
     phase(&mut record, "helpers_verified")?;
+    // The helper's open file pins the mounted release filesystem. Retire the
+    // read handle before unmounting, including matching-support no-op repairs.
+    drop(helper);
     content.close(deadline)?;
     release_inventory::revalidate(&entries, deadline)?;
     phase(&mut record, "activation_requested")?;
