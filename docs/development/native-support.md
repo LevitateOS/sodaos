@@ -56,6 +56,11 @@ Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, 
 bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
 ```
 
+When a candidate has a `docker/` artifact directory, the existing candidate
+checker also verifies its [Docker metadata and actual OCI contents](../../lib/soda-release-deliver/README.md#docker-metadata-and-provenance).
+This is read-only artifact admission; Docker production packaging, registry
+publication and native qualification remain separate operations.
+
 soda-build candidates carry payload/candidate/OCI archives under `artifacts/`. The payload contains Fountain branding/templates and the separately packaged Soda extension and service, not a standalone React frontend or Go page shells. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
 The disk installer verifies candidate media before writing, validates the explicit project subnet before applying it, and refuses to replay an attempted install. Application setup, HTTPS activation and migrations still use core-owned commands. Do not install Soda on the builder.

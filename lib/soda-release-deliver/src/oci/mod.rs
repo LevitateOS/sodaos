@@ -81,16 +81,77 @@ pub fn inspect_oci_content(
     revision: &str,
     paths: &[String],
 ) -> Result<(BuildImage, BTreeMap<String, String>), Error> {
+    requested_oci_paths(paths)?;
+    let (_, mut file) = open_oci_archive(file, arch, revision)?;
+    let inspected = inspect_oci_file_content(&mut file, arch, revision, paths)?;
+    Ok((inspected.image, inspected.content))
+}
+
+/// Verified identity, content and labels from the same open archive.
+pub struct InspectedContent {
+    pub image: BuildImage,
+    pub content: BTreeMap<String, String>,
+    pub labels: BTreeMap<String, String>,
+    /// Verified archive blobs, usable to check a copied shared OCI payload.
+    pub blobs: BTreeMap<String, String>,
+}
+
+/// Inspect an already-confined regular file without reopening its path.
+pub fn inspect_oci_file_content(
+    file: &mut std::fs::File,
+    arch: &str,
+    revision: &str,
+    paths: &[String],
+) -> Result<InspectedContent, Error> {
     let wanted = requested_oci_paths(paths)?;
-    let (want, mut f) = open_oci_archive(file, arch, revision)?;
-    let entries = read_oci_archive_entries(&f)?;
-    let (image, manifest) = inspect_content_manifest(&entries, &want, revision)?;
+    let (mut inspected, manifest) = inspect_file_metadata(file, arch, revision)?;
     use std::io::Seek;
-    f.seek(std::io::SeekFrom::Start(0))
-        .map_err(|e| Error::msg(format!("seek {file}: {e}")))?;
-    let (layers, unsupported) = scan_oci_archive_layers(&mut f, &manifest.layers, &wanted)?;
-    let content = resolve_oci_members(&layers, &unsupported, &wanted)?;
-    Ok((image, content))
+    file.rewind()
+        .map_err(|error| Error::msg(error.to_string()))?;
+    let (layers, unsupported) = scan_oci_archive_layers(file, &manifest.layers, &wanted)?;
+    inspected.content = resolve_oci_members(&layers, &unsupported, &wanted)?;
+    Ok(inspected)
+}
+
+/// Identity, labels and blob hashes without a rootfs member selection.
+pub fn inspect_oci_file(
+    file: &mut std::fs::File,
+    arch: &str,
+    revision: &str,
+) -> Result<InspectedContent, Error> {
+    inspect_file_metadata(file, arch, revision).map(|(image, _)| image)
+}
+
+fn inspect_file_metadata(
+    file: &mut std::fs::File,
+    arch: &str,
+    revision: &str,
+) -> Result<(InspectedContent, OciManifest), Error> {
+    let want = oci_architecture(arch).map_err(|error| Error::msg(error.0))?;
+    if !revision.is_empty() && !is_revision(revision) {
+        return Err(Error::msg("full source revision required"));
+    }
+    use std::io::Seek;
+    file.rewind()
+        .map_err(|error| Error::msg(error.to_string()))?;
+    let entries = read_oci_archive_entries(&mut *file)?;
+    let (image, manifest) = inspect_content_manifest(&entries, want, revision)?;
+    let config = fetch_oci_blob(&entries, &manifest.config)?;
+    let labels = schema::parse_oci_config(config.data.as_deref().unwrap_or_default())?.labels;
+    let blobs = entries
+        .iter()
+        .filter(|(name, _)| name.starts_with("blobs/sha256/"))
+        .map(|(name, blob)| (name.clone(), blob.hash.clone()))
+        .collect();
+    Ok((
+        InspectedContent {
+            image,
+            content: BTreeMap::new(),
+            labels,
+            blobs,
+        },
+        manifest,
+    ))
 }
 
 type LayerScan = (Vec<BTreeMap<String, LayerMember>>, Vec<bool>);

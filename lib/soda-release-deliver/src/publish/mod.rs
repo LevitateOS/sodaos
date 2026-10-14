@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
 pub mod assets;
+pub(crate) use assets::valid_tag;
 use assets::{inspect, inventory, read_json, Asset};
 pub use assets::{prepare, Manifest, Qualification};
 const REPOSITORY: &str = "github.com/LevitateOS/sodaos";

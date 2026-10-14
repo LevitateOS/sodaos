@@ -193,7 +193,8 @@ outer image manifest and config digests, exported OCI archive hash/size, RPM
 inventory hash, and distributed Compose file hash/size. The common candidate
 continues to own the bundled application image and Project-support identities;
 Docker references those bindings rather than creating another application catalog.
-Exact JSON field names belong to the delivery model implementation.
+Exact JSON field names and producer/readback interfaces belong to
+[the delivery metadata model](../../lib/soda-release-deliver/README.md#docker-metadata-and-provenance).
 
 The native build resolves the Fedora base before packaging and records the
 packages actually installed. A pinned base does not make mutable RPM repositories

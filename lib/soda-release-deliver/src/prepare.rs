@@ -23,7 +23,7 @@ fn candidate_image_content(
     (expected, paths)
 }
 
-fn candidate_content_with_embedded_inventory(
+pub(crate) fn candidate_content_with_embedded_inventory(
     content: &BTreeMap<String, String>,
 ) -> Result<BTreeMap<String, String>, Error> {
     let mut data = serde_json::to_vec_pretty(content).map_err(|_| Error::refused())?;

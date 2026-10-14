@@ -373,15 +373,15 @@ pub(super) fn parse_oci_manifest(data: &[u8]) -> Result<OciManifest, Error> {
     })
 }
 
-struct OciConfig {
+pub(super) struct OciConfig {
     os: String,
     arch: String,
     rootfs_type: String,
     diff_ids: Vec<String>,
-    labels: BTreeMap<String, String>,
+    pub(super) labels: BTreeMap<String, String>,
 }
 
-fn parse_oci_config(data: &[u8]) -> Result<OciConfig, Error> {
+pub(super) fn parse_oci_config(data: &[u8]) -> Result<OciConfig, Error> {
     let invalid = || Error::msg("invalid OCI image config");
     let text = std::str::from_utf8(data).map_err(|_| invalid())?;
     let config: ConfigDocument = serde_json::from_str(text).map_err(|_| invalid())?;

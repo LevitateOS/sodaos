@@ -85,7 +85,7 @@ pub fn observe_host_packages(
             ))
         })?;
     let lines: Vec<String> = packages.trim().split('\n').map(|s| s.to_string()).collect();
-    packages::valid_rpm_inventory(&lines)?;
+    packages::valid_rpm_inventory(&lines).map_err(|error| Error::msg(error.0))?;
     Ok(format!("{}\n", lines.join("\n")).into_bytes())
 }
 

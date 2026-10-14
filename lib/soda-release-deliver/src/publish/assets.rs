@@ -70,7 +70,7 @@ pub(super) fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), Err
         serde_json::to_vec_pretty(value).map_err(|_| failure("release metadata refused"))?;
     fs::write(path, bytes).map_err(|_| failure("cannot write release metadata"))
 }
-pub(super) fn valid_tag(tag: &str) -> bool {
+pub(crate) fn valid_tag(tag: &str) -> bool {
     !tag.is_empty()
         && tag.len() <= 128
         && tag.as_bytes()[0].is_ascii_alphanumeric()

@@ -25,6 +25,9 @@ pub fn check_candidate(
     }
     let root = Root::open(candidate)?;
     verify_candidate_images(&root, candidate, &p, &c)?;
+    if crate::buildx::entry_exists(&root, "docker")? {
+        crate::docker::verify(candidate)?;
+    }
     Ok(())
 }
 

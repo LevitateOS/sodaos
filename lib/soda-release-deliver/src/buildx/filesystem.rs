@@ -112,6 +112,16 @@ pub fn open_layout_entry(root: &Root, name: &str) -> Result<(std::fs::File, i64)
     Ok((std::fs::File::from(fd), st.st_size))
 }
 
+/// Check an optional artifact without ignoring unreadable or linked ancestors.
+pub fn entry_exists(root: &Root, name: &str) -> Result<bool, Error> {
+    check_confined(name)?;
+    match confined_stat(root, name) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(Error::msg(format!("lstat {name}: {error}"))),
+    }
+}
+
 /// `readAt`: bounded regular read confined to an open directory.
 pub fn read_at(root: &Root, name: &str, maximum: i64) -> Result<Vec<u8>, Error> {
     check_confined(name)?;

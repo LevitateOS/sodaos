@@ -8,6 +8,7 @@ pub mod admission;
 pub mod buildx;
 pub mod check;
 pub mod content;
+pub mod docker;
 pub mod document;
 pub(crate) mod json_serde;
 pub mod model;

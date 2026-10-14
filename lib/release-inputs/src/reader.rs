@@ -14,6 +14,7 @@
 pub mod forgejo;
 pub mod image;
 pub mod muse;
+pub mod rpm;
 pub mod settings;
 pub mod signature;
 pub mod stream;
