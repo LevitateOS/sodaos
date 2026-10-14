@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+    # Qualify a commit before pushing it to protected main without a new branch.
+    tags: ['ci/soda-main-*']
   pull_request:
   workflow_dispatch:
   merge_group:
