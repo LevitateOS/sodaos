@@ -4,6 +4,11 @@ How developers produce and qualify release candidates. Durable model:
 [Release architecture](../architecture/release.md). Tool contracts:
 [Native support](native-support.md).
 
+The agreed changes to component packaging, optional Tailnet and Fountain-owned
+extension management are in the
+[implementation plan](release-components-and-extensions-plan.md). The procedures
+below describe the existing release track until that implementation lands.
+
 Retained-Project transitions follow the
 [release maintenance contract](../architecture/release.md#host-update-ownership)
 and [operator procedure](../guides/operator-setup.md#explicit-release-maintenance).

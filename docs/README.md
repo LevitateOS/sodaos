@@ -67,6 +67,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Testing](development/testing.md) | Native/source validation and finished-factory acceptance criteria |
 | [Native support tools](development/native-support.md) | Build/support tool effects |
 | [Release workflow](development/release.md) | Running the release pipeline |
+| [Release components and optional extensions plan](development/release-components-and-extensions-plan.md) | Agreed component packaging, optional Tailnet and Fountain extension-management implementation |
 | [Cockpit](development/cockpit.md) | Stock Cockpit branding port |
 
 ## Design and research
