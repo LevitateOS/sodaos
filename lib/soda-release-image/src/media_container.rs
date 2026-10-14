@@ -63,6 +63,7 @@ pub fn build_media_container(
         "--cpus=4".to_string(),
         "--memory=16g".to_string(),
         "--env=COSA_SUPERMIN_MEMORY=12288".to_string(),
+        "--env=RUNVM_CACHE_SIZE=75G".to_string(),
         "--env=RUNVM_NONET=1".to_string(),
         format!("--volume={work}:/srv:rw"),
         format!("--volume={}/config:/config:ro", root),

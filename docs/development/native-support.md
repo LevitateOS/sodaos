@@ -175,6 +175,9 @@ candidate and packaging inputs using existing Sigstore primitives. P8 invokes th
 floating latest Assembler in fresh disposable scratch, extracts minimal media,
 customizes it once, and reads back Ignition, kernel arguments and native rootfs
 chunk hashes.
+Assembler scratch uses its upstream `RUNVM_CACHE_SIZE=75G` setting for the complete
+runtime image set. This is a sparse task-owned disk on `/home`; the packaging
+container retains its four-CPU and 16 GiB memory limits.
 `artifacts/media/media.json` binds the ISO/rootfs sizes, hashes, URL, candidate and
 actual rootfs filesystem/options. `image-config.json` is checked against the built
 host and included in the authenticated packaging inventory. Media builds also record
