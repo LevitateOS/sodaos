@@ -148,13 +148,22 @@ fn build_bool_and_scalar_forms_preserve_contract() {
 }
 
 #[test]
-fn build_deep_refusal_matches_go() {
-    // A fully admitted parent dispatch from a dirty checkout fails at the
-    // VCS stamp before any privileged step, like the Go owner.
+fn build_dispatch_refuses_nested_checkout_before_privileged_work() {
+    // A nested directory must fail source admission before worker dispatch,
+    // regardless of where the test's temporary directory lives.
     let scratch = TempDir::new("build-deep");
+    let init = std::process::Command::new("git")
+        .args(["init", "--quiet"])
+        .arg(&scratch.path)
+        .output()
+        .unwrap();
+    assert!(init.status.success());
+    let nested = scratch.path.join("nested");
+    std::fs::create_dir(&nested).unwrap();
+    let candidate = scratch.path.join("candidate");
     let (code, out, err) = run(
         &build_bin(),
-        &scratch.path,
+        &nested,
         &[
             "--development",
             "--target",
@@ -162,7 +171,7 @@ fn build_deep_refusal_matches_go() {
             "--arch",
             "x86_64",
             "--out",
-            "/tmp/pr-reltools-out",
+            candidate.to_str().unwrap(),
             "--repository-prefix",
             "ghcr.io/levitateos/sodaos",
             "--worker-config",
@@ -173,16 +182,20 @@ fn build_deep_refusal_matches_go() {
     );
     assert_eq!(code, 1);
     assert_eq!(out, "");
-    // Like Go, the FAILED progress line precedes the final message.
+    // The FAILED progress line precedes the final admission error.
     assert!(
         err.starts_with("FAILED   Soda development candidate (not release-qualified) | total "),
         "{err}"
     );
-    // The crate binary may be stamped clean or dirty depending on the
-    // checkout state at build time; every outcome matches Go exactly.
+    // A dirty controller is rejected before inspecting the source directory.
+    let expected = if env!("SODA_BUILD_VCS_MODIFIED") == "0" {
+        "canonical checkout root required\n"
+    } else {
+        "controller must be compiled from committed source\n"
+    };
+    assert!(err.ends_with(expected), "{err}");
     assert!(
-        err.ends_with("controller must be compiled from committed source\n")
-            || err.ends_with("canonical Forgejo checkout required\n"),
-        "{err}"
+        !candidate.exists(),
+        "refused input created candidate output"
     );
 }
