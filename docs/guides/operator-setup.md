@@ -89,6 +89,11 @@ No upgrade pair is currently qualified. A first-install release or a prospective
 [release contract](../architecture/release.md#host-update-ownership) owns this
 qualification boundary.
 
+Qualification covers the installed source release's maintenance command and the
+target release's boot reconciliation together. Use that installed command for
+the qualified transition. Substituting a newer maintenance binary cannot qualify
+an earlier source release.
+
 For a qualified pair, use appliance root to download the complete selected GitHub
 release into a root-owned directory that other users cannot write. The existing
 `gh release download TAG --repo LevitateOS/sodaos --dir DIRECTORY` obtains its
