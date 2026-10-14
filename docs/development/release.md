@@ -56,6 +56,12 @@ its evidence records verification without claiming a file replacement.
 Missing evidence, same-commit feasibility experiments or an unbound target cannot
 produce this receipt. Retain the original observations locally.
 
+Prepare the source fixture with its candidate's destination service enablement
+and verify that the native operator socket is ready. A candidate-only source
+fixture does not qualify first install; the target requires complete production
+media. Task-owned development executables or manual native metadata repairs
+produce development evidence, not a qualifying journey.
+
 Staging a declared upgrade source requires that receipt and includes it in the
 same immutable GitHub release. Fresh-install promotion retains its separate smoke
 receipt. Operator maintenance selects one complete downloaded release directory;
