@@ -166,6 +166,7 @@ pub fn build_host_image(
             "--remote=false".to_string(),
             "build".to_string(),
             "--pull=never".to_string(),
+            "--squash-all".to_string(),
             "--rm=false".to_string(),
             format!("--platform=linux/{platform}"),
             format!("--build-arg=BASE_IMAGE={pinned}"),

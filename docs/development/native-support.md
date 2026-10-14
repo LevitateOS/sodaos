@@ -160,6 +160,9 @@ All seven runtime images use ordinary Podman through one shared OCI layout.
 Podman exports uncompressed OCI layers so native EROFS can compress and deduplicate
 shared files across images once; image configs, diffIDs and filesystem contents
 stay identical. The copier preserves these exact exported descriptors.
+The host producer uses Podman's `--squash-all` before export. Its final filesystem
+and base provenance remain intact; replaced files from intermediate build layers
+do not enter the public rootfs's OSTree import cache.
 Obsolete payload
 readers and storage selectors are removed. No bootc installer, update engine, bound storage,
 lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inherited

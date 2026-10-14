@@ -21,12 +21,12 @@ pub struct LayerMember {
     pub blocked: bool,
 }
 
-// Embedded compressed images in the current host producer can decode beyond
-// 1 GiB; the image-wide decoded budget remains the aggregate backstop.
-pub const MAX_OCI_LAYER_BYTES: u64 = 2 << 30;
-pub const MAX_OCI_LAYER_COMPRESSED_BYTES: u64 = 1 << 30;
 pub const MAX_OCI_IMAGE_LAYER_BYTES: u64 = 16 << 30;
 pub const MAX_OCI_IMAGE_COMPRESSED_BYTES: u64 = 4 << 30;
+// The flattened host carries the complete runtime in one layer. A layer may
+// consume the image budget; aggregate accounting still bounds all layers.
+pub const MAX_OCI_LAYER_BYTES: u64 = MAX_OCI_IMAGE_LAYER_BYTES;
+pub const MAX_OCI_LAYER_COMPRESSED_BYTES: u64 = MAX_OCI_IMAGE_COMPRESSED_BYTES;
 pub const MAX_OCI_MEMBER_BYTES: u64 = 512 << 20;
 
 struct BoundedReader<'a, R: ?Sized> {
