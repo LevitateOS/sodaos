@@ -1,0 +1,4 @@
+*
+!Dockerfile
+!soda-docker-init.service
+!image-import.conf
