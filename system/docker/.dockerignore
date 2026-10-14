@@ -2,3 +2,5 @@
 !Dockerfile
 !soda-docker-init.service
 !image-import.conf
+!project-scope.conf
+!network-scope.conf

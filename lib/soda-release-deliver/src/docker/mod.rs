@@ -149,6 +149,14 @@ fn runtime_content(
             "/usr/lib/systemd/system/soda-image-import.service.d/docker.conf",
             "system/docker/image-import.conf",
         ),
+        (
+            "/usr/lib/systemd/system/libpod-.scope.d/soda-docker.conf",
+            "system/docker/project-scope.conf",
+        ),
+        (
+            "/usr/lib/systemd/system/run-.scope.d/soda-docker.conf",
+            "system/docker/network-scope.conf",
+        ),
     ] {
         expected.insert(member.into(), identity(&inputs[input]).sha256);
     }

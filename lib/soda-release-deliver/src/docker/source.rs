@@ -6,11 +6,13 @@ use std::process::{Command, Stdio};
 use crate::buildx::{open_layout_entry, Root};
 use crate::Error;
 
-pub(super) const SOURCE_FILES: [&str; 7] = [
+pub(super) const SOURCE_FILES: [&str; 9] = [
     "system/docker/Dockerfile",
     "system/docker/compose.yaml",
     "system/docker/soda-docker-init.service",
     "system/docker/image-import.conf",
+    "system/docker/project-scope.conf",
+    "system/docker/network-scope.conf",
     "LICENSE",
     "NOTICE",
     "fountain-source.json",

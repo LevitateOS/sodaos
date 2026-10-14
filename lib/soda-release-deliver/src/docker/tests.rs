@@ -238,6 +238,14 @@ impl Fixture {
                 "/usr/lib/systemd/system/soda-image-import.service.d/docker.conf",
                 "system/docker/image-import.conf",
             ),
+            (
+                "/usr/lib/systemd/system/libpod-.scope.d/soda-docker.conf",
+                "system/docker/project-scope.conf",
+            ),
+            (
+                "/usr/lib/systemd/system/run-.scope.d/soda-docker.conf",
+                "system/docker/network-scope.conf",
+            ),
         ] {
             host_files.insert(installed.into(), source[input].clone());
         }
@@ -364,6 +372,25 @@ fn coherent_outer_image_with_changed_payload_is_not_accepted() {
         .0
         .contains("content differs"));
     assert!(!fixture.dir.path().join(METADATA_PATH).exists());
+}
+
+#[test]
+fn shutdown_scope_dropins_must_match_archived_source() {
+    for path in [
+        "/usr/lib/systemd/system/libpod-.scope.d/soda-docker.conf",
+        "/usr/lib/systemd/system/run-.scope.d/soda-docker.conf",
+    ] {
+        let mut fixture = Fixture::new(BuildPurpose::Production);
+        fixture
+            .runtime
+            .insert(path.into(), b"different ordering".to_vec());
+        fixture.rebuild();
+        assert!(record(fixture.path(), &fixture.request)
+            .unwrap_err()
+            .0
+            .contains("content differs"));
+        assert!(!fixture.dir.path().join(METADATA_PATH).exists());
+    }
 }
 
 #[test]

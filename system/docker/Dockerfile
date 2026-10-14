@@ -31,6 +31,8 @@ COPY --from=appliance /etc/soda/ /etc/soda/
 COPY --from=appliance /etc/cockpit/ /etc/cockpit/
 COPY soda-docker-init.service /usr/lib/systemd/system/soda-docker-init.service
 COPY image-import.conf /usr/lib/systemd/system/soda-image-import.service.d/docker.conf
+COPY project-scope.conf /usr/lib/systemd/system/libpod-.scope.d/soda-docker.conf
+COPY network-scope.conf /usr/lib/systemd/system/run-.scope.d/soda-docker.conf
 
 RUN test "$(uname -m)" = x86_64 && \
     test -f /usr/share/soda/release.json && \
