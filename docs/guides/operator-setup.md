@@ -8,6 +8,8 @@ operator identity through `/api/v1/user`.
 
 Media continuation: [Installation media](media.md).
 Install/activate context: [Installation](installation.md).
+Docker operators use [Configure private browser access](docker.md#configure-private-browser-access)
+for the host SSH tunnel and runtime `docker compose exec` context.
 
 ## Guided browser setup
 

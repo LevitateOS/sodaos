@@ -9,6 +9,20 @@ services:
     network_mode: host
     restart: unless-stopped
     stop_grace_period: 5m
+    # Readiness for operator setup; browser/factory enrollment is separate.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          systemctl is-active --quiet soda-image-import.service &&
+          systemctl is-active --quiet soda-host.socket &&
+          systemctl is-active --quiet soda-postgres.service &&
+          systemctl is-active --quiet forgejo.service &&
+          curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3000/api/healthz > /dev/null
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 15m
     environment:
       SODA_PROJECT_SUBNET: ${SODA_PROJECT_SUBNET:-10.89.0.0/24}
     tmpfs:

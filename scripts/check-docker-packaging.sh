@@ -30,6 +30,10 @@ jq -e --arg image "$image" '
     .network_mode == "host" and .cgroup == "private" and
     .command == null and .entrypoint == null and
     .restart == "unless-stopped" and .stop_grace_period == "5m0s" and
+    .healthcheck.test[0] == "CMD-SHELL" and
+    .healthcheck.disable != true and
+    .healthcheck.interval == "30s" and .healthcheck.timeout == "10s" and
+    .healthcheck.retries == 10 and .healthcheck.start_period == "15m0s" and
     (.tmpfs | sort) == ["/run", "/tmp"] and
     .environment.SODA_PROJECT_SUBNET == "10.89.0.0/24" and
     (.volumes | length) == 3 and
@@ -44,4 +48,22 @@ jq -e --arg image "$image" '
   echo 'Docker Compose deployment contract differs; see docs/guides/docker.md' >&2
   exit 1
 }
+
+# Exercise the shipped readiness command with controlled service/HTTP outcomes.
+# No service is started and no HTTP request leaves this process.
+health=$(jq -r '.services.soda.healthcheck.test[1]' "$compose")
+systemctl() { [[ "$*" != "is-active --quiet ${failed_unit:-}" ]]; }
+curl() { [[ "${failed_http:-0}" == 0 ]]; }
+export -f systemctl curl
+failed_unit= failed_http=0 bash -c "$health"
+for unit in soda-image-import.service soda-host.socket soda-postgres.service forgejo.service; do
+  if failed_unit="$unit" failed_http=0 bash -c "$health"; then
+    echo "Docker readiness admitted inactive $unit" >&2
+    exit 1
+  fi
+done
+if failed_unit= failed_http=1 bash -c "$health"; then
+  echo 'Docker readiness admitted a failed Forgejo health endpoint' >&2
+  exit 1
+fi
 echo 'Dockerfile and Compose packaging checks passed.'
