@@ -1,4 +1,5 @@
 d /var/lib/soda 0755 root root -
+d /var/lib/soda/project-maintenance 0755 root root -
 d /var/lib/soda/dashboard 0700 soda soda -
 d /var/lib/soda/dashboard/publication 0700 soda soda -
 d /etc/soda/factory 0700 soda soda -

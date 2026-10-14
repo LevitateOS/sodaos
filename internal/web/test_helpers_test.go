@@ -31,7 +31,11 @@ func apiTestServer(t *testing.T) *Server {
 			t.Fatal(err)
 		}
 	}
-	return New(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
+	s := New(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
+	// These fixtures stub native execution; the real directory gate has its
+	// own cross-process tests and cannot be silently created by HTTP tests.
+	s.API.ProjectCreationAdmission = func() (func(), error) { return func() {}, nil }
+	return s
 }
 
 func apiTestRequest(method, path, body, login string) *http.Request {

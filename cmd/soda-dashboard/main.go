@@ -28,7 +28,7 @@ func main() {
 func run() (runErr error) {
 	path := flag.String("config", "/etc/soda/dashboard.json", "configuration file")
 	extensionSocket := flag.String("extension-socket", "", "optional private native-extension Unix socket")
-	operatorSocket := flag.String("operator-socket", "", "optional private factory-operator Unix socket")
+	operatorSocket := flag.String("operator-socket", "", "optional private operator Unix socket")
 	operatorUID := flag.Int("operator-uid", -1, "required OS peer UID when the operator socket is set")
 	flag.Parse()
 	app, database, err := openDashboard(*path)
@@ -85,7 +85,7 @@ func operatorEndpoint(socket string, uid int, app *web.Server) (*http.Server, ne
 	if uid < 0 || uid > 0xffffffff {
 		return nil, nil, errors.New("operator socket requires an explicit OS peer UID")
 	}
-	server, listener, err := operatorHTTPServer(socket, uint32(uid), app.Coordinator)
+	server, listener, err := operatorHTTPServer(socket, uint32(uid), app.Coordinator, app.API.ProjectMaintenanceHandler())
 	if err != nil {
 		return nil, nil, err
 	}

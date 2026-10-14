@@ -1,2 +1,3 @@
 /run/soda/host\.sock -s system_u:object_r:soda_host_socket_t:s0
 /run/soda/identity/admin\.sock -s system_u:object_r:soda_identity_admin_socket_t:s0
+/var/lib/soda/project-maintenance(/.*)? system_u:object_r:soda_project_maintenance_t:s0

@@ -74,3 +74,12 @@ type soda_identity_admin_socket_t;
 files_type(soda_identity_admin_socket_t)
 allow init_t soda_identity_admin_socket_t:sock_file { create getattr setattr unlink };
 allow soda_dashboard_t soda_identity_admin_socket_t:sock_file { getattr write };
+
+# The shared, stable maintenance directory inode fences durable Project
+# reservations against privileged release activation. Dashboard may lock and
+# enumerate it, and inspect marker metadata, without reading private journals.
+type soda_project_maintenance_t;
+files_type(soda_project_maintenance_t)
+allow soda_dashboard_t soda_project_maintenance_t:dir { getattr open read search lock };
+allow soda_dashboard_t soda_project_maintenance_t:file getattr;
+allow soda_dashboard_t soda_project_maintenance_t:lnk_file getattr;

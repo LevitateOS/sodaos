@@ -37,6 +37,11 @@ func jsonNativeResponse(t *testing.T, status int, body string) *http.Response {
 // result instead of stranding Ready=false.
 func TestCreateCancellationStillRecordsResult(t *testing.T) {
 	s := apiTestServer(t)
+	admitted := false
+	s.API.ProjectCreationAdmission = func() (func(), error) {
+		admitted = true
+		return func() { admitted = false }, nil
+	}
 	profile := testCreationProfile()
 	rawProfile, _ := json.Marshal(profile)
 	r := apiTestRequest("POST", "/api/environments", `{"repository_id":"7"}`, "alice")
@@ -46,8 +51,14 @@ func TestCreateCancellationStillRecordsResult(t *testing.T) {
 	s.Host.HTTP = &http.Client{Transport: roundTrip(func(req *http.Request) (*http.Response, error) {
 		switch req.URL.Path {
 		case "/profile":
+			if !admitted {
+				t.Error("creation inspected its profile outside maintenance admission")
+			}
 			return jsonNativeResponse(t, 200, string(rawProfile)), nil
 		case "/create":
+			if !admitted {
+				t.Error("creation escaped maintenance admission")
+			}
 			var in project.Create
 			if err := json.NewDecoder(req.Body).Decode(&in); err != nil {
 				t.Error(err)
@@ -67,6 +78,9 @@ func TestCreateCancellationStillRecordsResult(t *testing.T) {
 	})}
 	w := httptest.NewRecorder()
 	nativeAPIServe(t, s, w, r)
+	if admitted {
+		t.Fatal("creation retained its admission guard after completion")
+	}
 	if created == "" {
 		t.Fatal("native creation never dispatched")
 	}

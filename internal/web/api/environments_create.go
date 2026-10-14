@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
@@ -210,6 +211,21 @@ func (s *API) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v sto
 	if !s.verifyRepositoryOwner(w, r, v, repositoryID) {
 		return
 	}
+	admit := s.ProjectCreationAdmission
+	if admit == nil {
+		admit = host.AcquireProjectCreation
+	}
+	release, err := admit()
+	if err != nil {
+		code := "project_admission_unavailable"
+		var refusal *host.ProjectAdmissionError
+		if errors.As(err, &refusal) {
+			code = refusal.Code()
+		}
+		auth.JSONError(w, http.StatusServiceUnavailable, code, "Project creation is unavailable during appliance maintenance. No reservation was created.")
+		return
+	}
+	defer release()
 	existing, found, ok := s.lookupReservation(w, r.Context(), repositoryID)
 	if !ok {
 		return

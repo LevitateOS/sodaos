@@ -27,6 +27,9 @@ type API struct {
 	// IntentExploreChooser overrides the TypeSafe judgment service for
 	// intent exploration when set. Production leaves it nil.
 	IntentExploreChooser control.ProductJudgment
+	// ProjectCreationAdmission holds native maintenance exclusion before any
+	// durable reservation. Tests with a fake native host supply an explicit gate.
+	ProjectCreationAdmission func() (func(), error)
 
 	terminalMu       sync.Mutex
 	SpacesSlots      chan struct{}
@@ -48,5 +51,6 @@ func New(cfg *config.Config, db *store.Store, client *forgejo.Client, hostClient
 	return &API{
 		Config: cfg, Store: db, Forgejo: client, Host: hostClient, Auth: auth,
 		SpacesSlots: make(chan struct{}, 4), RepositorySlots: make(chan struct{}, 4),
+		ProjectCreationAdmission: host.AcquireProjectCreation,
 	}
 }

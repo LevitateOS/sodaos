@@ -13,6 +13,24 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
+func TestProjectCreationAdmissionBeforeReservation(t *testing.T) {
+	s := apiTestServer(t)
+	s.API.ProjectCreationAdmission = func() (func(), error) { return nil, errors.New("maintenance gate unavailable") }
+	nativeCalls := 0
+	s.Host.HTTP = &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
+		nativeCalls++
+		return nil, errors.New("unexpected native call")
+	})}
+	w := httptest.NewRecorder()
+	nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/environments", `{"repository_id":"7"}`, "alice"))
+	if w.Code != http.StatusServiceUnavailable || nativeCalls != 0 {
+		t.Fatalf("closed gate admitted native creation: status=%d calls=%d", w.Code, nativeCalls)
+	}
+	if _, err := s.Store.ProjectByRepository(context.Background(), 7); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("closed gate wrote a retained reservation: %v", err)
+	}
+}
+
 // Real JSON handlers/store, fake host only: not installed account/SSH evidence.
 func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	s := apiTestServer(t)
