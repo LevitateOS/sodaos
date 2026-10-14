@@ -5,6 +5,7 @@ ARG BASE_IMAGE=registry.fedoraproject.org/fedora:44
 FROM ${SODA_BASE_IMAGE} AS appliance
 
 FROM ${BASE_IMAGE}
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY --from=appliance /etc/yum.repos.d/tailscale.repo /etc/yum.repos.d/tailscale.repo
 RUN dnf -y install systemd podman fuse-overlayfs iproute procps-ng \
     openssh-clients ca-certificates curl git gh nodejs tar gzip vim-minimal \

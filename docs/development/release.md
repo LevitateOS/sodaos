@@ -239,6 +239,15 @@ server is required. GitHub credentials remain with the operator running
 `soda-release`, outside the isolated build worker. CI has read-only repository
 access and receives no release keys or publication credentials.
 
+The required `CI` result includes the Docker packaging job. It runs
+`bash scripts/check-docker-packaging.sh`: checksum-pinned [Hadolint](https://github.com/hadolint/hadolint)
+checks the Dockerfile, and Compose's parser verifies the supported platform,
+runtime settings and persistent volumes. The Rust workspace job covers Docker
+metadata/provenance, candidate reuse, development/publication refusal and worker
+and CLI admission. New release components add their checks to these gates as
+they land. These source/fixture checks build no OS image and do not replace
+native qualification of the published image.
+
 Choose the release tag before building: the installer embeds the exact versioned
 GitHub rootfs URL. For example, with tag `v0.1.0`:
 
