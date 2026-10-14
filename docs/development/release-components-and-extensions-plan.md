@@ -271,7 +271,7 @@ do not create worktrees or separate worker CLIs.
 The owner selected **`muse-spark-1.3-contributor` with Contributor mode on**.
 Use **XHIGH**, the highest documented effort for that variant; Meta's
 [reasoning contract](https://dev.meta.ai/docs/reasoning) excludes MAX for Spark
-1.3 Contributor. This selection overrides the skill's model default. Verify the
+1.3 Contributor. This selection matches the current skill. Verify the
 installed profile and actual live settings/producer model before dispatch; a
 profile command accepting a name is not proof of served capability. Do not
 substitute another model. The prepared local roster records the exact CLI check.
@@ -521,7 +521,7 @@ Codex review remain separate. No task is complete merely because it was assigned
   do not label overall qualification complete while it remains open.
 - [ ] **C01 — Close exact owned resources.** Codex; accepted results/repairs and
   reported remaining gates. Preserve commits/evidence and any reserved candidate;
-  stop and verify the owned timers, reconcile commands/viewers, close only released
+  reconcile commands/viewers, close only released
   run resources and retire the matching heartbeat when no local follow-up remains.
   If I03 is externally gated, record implementation delivered/qualification pending
   rather than completed qualification. Absorb completed design into owning docs
@@ -542,12 +542,16 @@ ownership and exact handoff acceptance. Single-instance communication uses nativ
 subagent tools; there is no separate peer handshake or multi-TUI human-ready gate.
 At an authorized launch, verify the actual TUI identity/workspace/model/effort,
 startup receipt, goal and native roster. Record one concrete tmux viewer command.
-Arm one owned coordinator timer checking every worker every **5 minutes**, retaining
-its exact stop handle and setup ACK; first received wake is verified separately.
+Single-instance mode uses native worker progress/completion events and normal
+command handling. No recurring Muse worker-check loop is permitted, including
+native timers or external timer fallbacks; its worker timer is not applicable.
 Codex creates and verifies one **25-minute same-chat heartbeat**, quiet on healthy
-unchanged progress. Both are inactive during preparation.
+unchanged progress and active on stalls, failures or completion. It is inactive
+until verified startup. Codex coordinator selection: **GPT-6.1 Sol, High**;
+record actual runtime evidence and report unavailable configuration capabilities.
 
-Each assignment records next ACK/progress due, normally by the next worker check.
+Each assignment records a concrete ACK/progress deadline, handled through native
+events and normal command handling without another recurring worker loop.
 Long commands record owner, cwd, handle, start, expected progress and deadline;
 reinspect the same command every **1–5 minutes, normally two**. Missed progress
 requires a concrete decision, not duplicate builds or a reset deadline. Reuse
@@ -562,11 +566,11 @@ the coordinator's actual native tools. Require exact recipient ACK and actual
 progress/results; injection or a send summary is not delivery. Preserve raw
 rejections and return recovery evidence to the coordinator. An actual permission
 or capability failure is reported explicitly. Coordinator replacement requires
-old timer cessation, command/writer reconciliation, checklist handoff and each
+command/writer reconciliation, checklist handoff and each
 continuing worker's acknowledged authority transition before new dispatch.
 
 All writes, caches, temp files and sockets stay under `/home`. Respect repository
 language ownership and pinned tools. Do not mutate protected installations,
 reclaim another task's artifacts, broadly prune caches, push, merge or publish.
-Only after acceptance and exact resource release may Codex close owned timers,
+Only after acceptance and exact resource release may Codex close owned
 panes and disposable fixtures; preserve attached viewers and unique work.
