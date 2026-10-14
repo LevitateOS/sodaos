@@ -170,8 +170,15 @@ container, release and old/new digests. An interruption leaves managed admission
 closed. Rerun the same command to inspect actual state and finish the forward repair;
 changed identities, unreadable records or unexpected bytes remain blocked for
 operator investigation. Do not delete a record to force admission or restore old
-terminal/broker state over later writes. Saved previous bytes are recovery inputs,
-not an admitted automatic downgrade.
+terminal/broker state over later writes. Saved previous bytes are recovery inputs
+until verified completion, not an admitted automatic downgrade. Before reopening
+admission, repair or coordinated release completion retires only the exact old/new
+copies named by its record, under the same exclusion and idle checks. Each present
+copy must be a root-owned, executable regular file, not group/world writable,
+with one link, at most 32 MiB, whose digest matches its recorded name. Missing copies allow
+interrupted retirement to resume; unexpected content at either exact path keeps
+admission closed. Older unrecorded copies are preserved. Coordinated rollback
+uses the helper from the exact retained native source deployment.
 
 `--development-installed-host` is an explicitly unqualified repair for an already
 upgraded development appliance whose older release lacks the bundled maintenance

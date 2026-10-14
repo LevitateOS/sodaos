@@ -13,7 +13,7 @@ use crate::filesystem::{open_tool, verify_native, Tool};
 use crate::release_inventory::{self, Entry};
 use crate::release_stage::{self, Deployment};
 use crate::support_root::Root;
-use crate::terminal_support::{guest, trusted_read, SCRIPT};
+use crate::terminal_support::{guest, retire_recovery_copies, trusted_read, SCRIPT};
 
 const CLOSED: &str = "release operation incomplete; managed admission remains closed; inspect or recover this operation";
 const RECORD: &str = "operation.json";
@@ -192,7 +192,24 @@ fn phase(record: &mut Operation, value: &str) -> Result<(), String> {
     record.phase = value.into();
     save(record, false)
 }
-fn finish(mut record: Operation) -> Result<(), String> {
+fn finish(mut record: Operation, deadline: Instant) -> Result<(), String> {
+    // The retained native source deployment supplies coordinated rollback.
+    // Project-local copies are only needed until this verified finish boundary.
+    release_inventory::revalidate(&record.entries(), deadline)?;
+    for project in &record.projects {
+        let root = Root::open(&project.project_id, deadline)?;
+        if root.observation.id != project.container_id {
+            return Err(CLOSED.into());
+        }
+        retire_recovery_copies(
+            &root,
+            record.expected().2,
+            &project.old_sha256,
+            &project.new_sha256,
+            deadline,
+        )?;
+        root.close()?;
+    }
     phase(&mut record, "complete")?;
     fs::rename(path(RECORD), path(LAST)).map_err(|_| CLOSED)?;
     sync_directory()?;
@@ -390,8 +407,9 @@ pub(crate) fn reconcile_boot(args: &[String]) -> Result<(), String> {
     }
     let record = load(RECORD)?;
     no_other_repairs()?;
-    verify_active(&record, Instant::now() + Duration::from_secs(120))?;
-    finish(record)
+    let deadline = Instant::now() + Duration::from_secs(120);
+    verify_active(&record, deadline)?;
+    finish(record, deadline)
 }
 
 pub(crate) fn run(args: &[String]) -> Result<(), String> {
@@ -426,7 +444,7 @@ fn run_operation(args: &[String]) -> Result<(), String> {
         let state = release_stage::inspect(deadline)?;
         if state.booted.checksum == record.target_deployment {
             verify_active(record, deadline)?;
-            return finish(record.clone());
+            return finish(record.clone(), deadline);
         }
     }
     let directory = o
@@ -590,7 +608,7 @@ fn rollback(deadline: Instant) -> Result<(), String> {
         }
         replace(&record, &helper, deadline)?;
         verify_active(&record, deadline)?;
-        return finish(record);
+        return finish(record, deadline);
     }
     release_stage::stage_retained(&record.source_deployment, deadline)?;
     phase(&mut record, "host_locked")?;

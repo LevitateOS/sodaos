@@ -135,6 +135,22 @@ pub(crate) fn guest(
     Ok(hash.into())
 }
 
+pub(crate) fn retire_recovery_copies(
+    target: &Root,
+    expected: &str,
+    old: &str,
+    new: &str,
+    deadline: Instant,
+) -> Result<(), String> {
+    let out = target.run(SCRIPT, &["retire", expected, old, new], deadline)?;
+    if std::str::from_utf8(&out).map(str::trim).ok() != Some(expected) {
+        return Err(
+            "support recovery-copy retirement unconfirmed; admission remains closed".into(),
+        );
+    }
+    Ok(())
+}
+
 fn reconcile(
     record: &Operation,
     target: &Observation,
@@ -191,7 +207,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     let target = Root::open(&o.project, deadline)?;
     let actual = guest(&target, "observe", &digest, deadline)?;
     let marker = admission::marker_path(&o.project);
-    let record = match fs::symlink_metadata(&marker) {
+    let mut record = match fs::symlink_metadata(&marker) {
         Ok(_) => {
             let record: Operation = serde_json::from_slice(&trusted_read(&marker, 16384)?)
                 .map_err(|_| {
@@ -229,7 +245,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
         guest(&target, "idle", &digest, deadline).map_err(|_| {
             "active or uncertain managed terminal/factory work blocks maintenance; no files changed"
         })?;
-        let record = record.unwrap_or(Operation {
+        let record = record.get_or_insert(Operation {
             project: o.project.clone(),
             container: target.observation.id.clone(),
             release,
@@ -251,6 +267,15 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     }
     if guest(&target, "observe", &digest, deadline)? != digest {
         return Err("support replacement unconfirmed; admission remains closed".into());
+    }
+    if let Some(record) = &record {
+        retire_recovery_copies(
+            &target,
+            &digest,
+            &record.old_sha256,
+            &record.target_sha256,
+            deadline,
+        )?;
     }
     target.close()?;
     if marker.exists() {

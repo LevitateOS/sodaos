@@ -22,7 +22,8 @@ release's bundled input and metadata. Neither operation upgrades the host.
 GitHub release. Normal admission requires its exact native qualification receipt.
 `release --recover` resumes the recorded release; `release --rollback` restores
 the recorded host/support pair with idle-state checks. The internal
-`release-reconcile` boot action performs verification only. See the
+`release-reconcile` boot action verifies the active pair and retires its recorded
+recovery copies before reopening admission. See the
 [operator procedure](../../docs/guides/operator-setup.md#explicit-release-maintenance)
 for effects and recovery and the [qualification boundary](../../docs/architecture/release.md#host-update-ownership).
 No complete release pair is qualified yet.
@@ -34,6 +35,11 @@ uses temporary private runtime mounts, without starting init or user workloads.
 Container identity and runtime state are checked around the operation; the exact
 root is unmounted afterward. Unknown state, active work or uncertain cleanup blocks
 completion. The same container, accounts, keys, files and volumes are preserved.
+Verified completion retires only the recorded old/new terminal recovery copies
+before reopening admission; interrupted retirement resumes idempotently. Older
+unrecorded copies remain untouched. The
+[Project OS contract](../../docs/reference/project-os.md#terminal-support)
+defines file checks and the coordinated rollback source.
 
 ## Normal use
 

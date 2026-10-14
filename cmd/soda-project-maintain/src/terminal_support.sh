@@ -41,6 +41,32 @@ if test -d /run/soda-terminals; then
 fi
 idle
 if test "$action" = idle; then printf '%s\n' "$actual"; exit; fi
+if test "$action" = retire; then
+ test "$actual" = "$expected"
+ old=$3
+ new=$4
+ [[ "$old" =~ ^[a-f0-9]{64}$ && "$new" =~ ^[a-f0-9]{64}$ ]]
+ old_copy=/usr/libexec/soda/.project-terminal.previous-$old
+ new_copy=/usr/libexec/soda/.project-terminal.previous-$new
+ # Admit the complete declared set before the first unlink. A missing copy is
+ # already retired, including after an interrupted previous retirement.
+ for hash in "$old" "$new"; do
+  copy=/usr/libexec/soda/.project-terminal.previous-$hash
+  if test -e "$copy" || test -L "$copy"; then
+   safe "$copy"; test -f "$copy"; test -x "$copy"
+   test "$(stat -c %h "$copy")" = 1
+   test "$(stat -c %s "$copy")" -le 33554432
+   saved=$(sha256sum "$copy"); test "${saved%% *}" = "$hash"
+  fi
+ done
+ for copy in "$old_copy" "$new_copy"; do
+  if test -e "$copy"; then rm -- "$copy"; fi
+  test ! -e "$copy" && test ! -L "$copy"
+ done
+ sync -f /usr/libexec/soda
+ printf '%s\n' "$actual"
+ exit
+fi
 test "$action" = install
 test "$actual" = "$3"
 previous=/usr/libexec/soda/.project-terminal.previous-$actual
