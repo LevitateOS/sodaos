@@ -761,7 +761,7 @@ continues to bound aggregate expansion.
 
 | Admitted format | Production bounds |
 | --- | --- |
-| OCI layers | 4 GiB compressed / 16 GiB decoded per layer and per image, allowing the flattened complete host; 512 MiB wanted member; 100,000 entries |
+| OCI layers | 4 GiB compressed / 16 GiB decoded per layer and per image, allowing the flattened complete host; 512 MiB wanted member; 125,000 entries per layer; 100,000 layer descriptors |
 | Terminal distributions | 10,000,000 compressed bytes, 256 MiB decoded including skipped members/padding, 2,000,000 bytes per retained wanted member and 100,000 entries; bounded same-FD cache reads |
 | Inline gzip | Image Ignition: 10 MiB compressed / 2 MiB decoded; acceptance: 2 MiB compressed / 1 MiB decoded, with encoded-source admission before expansion |
 | Emblem | 64 KiB same-FD regular-file input and 256 XML nodes; no DTD/entity resolver; resolved SVG namespaces, finite absolute M/L/H/V/Z closed rings only |

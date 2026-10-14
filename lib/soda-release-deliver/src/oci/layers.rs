@@ -28,6 +28,8 @@ pub const MAX_OCI_IMAGE_COMPRESSED_BYTES: u64 = 4 << 30;
 pub const MAX_OCI_LAYER_BYTES: u64 = MAX_OCI_IMAGE_LAYER_BYTES;
 pub const MAX_OCI_LAYER_COMPRESSED_BYTES: u64 = MAX_OCI_IMAGE_COMPRESSED_BYTES;
 pub const MAX_OCI_MEMBER_BYTES: u64 = 512 << 20;
+// The measured complete host has 102,132 filesystem entries after flattening.
+const MAX_OCI_LAYER_ENTRIES: usize = 125_000;
 
 struct BoundedReader<'a, R: ?Sized> {
     inner: &'a mut R,
@@ -254,7 +256,7 @@ fn scan_oci_layer_inner<R: Read + ?Sized>(
         if !seen.insert(name.clone()) {
             return Err(Error::msg("duplicate OCI layer entry"));
         }
-        if seen.len() > 100000 {
+        if seen.len() > MAX_OCI_LAYER_ENTRIES {
             return Err(Error::msg("too many OCI layer entries"));
         }
         let header = item.header().clone();
