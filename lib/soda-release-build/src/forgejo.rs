@@ -126,6 +126,31 @@ pub fn build_forgejo_binary(prod: &Production) -> Result<String, Error> {
     std::fs::create_dir(&root).map_err(|e| io_error("mkdir", &root, e))?;
     crate::files::chmod(&root, 0o700)?;
     let platform = oci_architecture(&prod.arch)?.to_string();
+    let download = root.join("go-download");
+    std::fs::create_dir(&download).map_err(|e| io_error("mkdir", &download, e))?;
+    // Copy only public module downloads into this attempt. The compiler may
+    // relabel its private mounts without changing the shared native cache.
+    // Go verifies file-proxy downloads against the frozen fork's go.sum.
+    if let Some(cache) = std::env::var_os("GOMODCACHE") {
+        let cache = PathBuf::from(cache);
+        if !cache.is_absolute() {
+            return Err(Error::msg("absolute native Go module cache required"));
+        }
+        prod.call_execute(
+            &prod.forgejo_source,
+            "cp",
+            &[
+                "--recursive".to_string(),
+                "--reflink=auto".to_string(),
+                "--no-preserve=ownership,context".to_string(),
+                cache
+                    .join("cache/download/.")
+                    .to_string_lossy()
+                    .into_owned(),
+                download.to_string_lossy().into_owned(),
+            ],
+        )?;
+    }
     let args = forgejo_build_args(prod, &platform);
     prod.call_execute(&prod.forgejo_source, "podman", &args)?;
     inspect_forgejo_build(prod, &root)
@@ -179,9 +204,14 @@ pub fn forgejo_build_args(prod: &Production, platform: &str) -> Vec<String> {
         format!("--platform=linux/{platform}"),
         format!("--volume={}:/work/source:Z", prod.forgejo_source),
         format!("--volume={}:/work/out:Z", root.display()),
+        format!(
+            "--volume={}:/work/go-download:ro,Z",
+            root.join("go-download").display()
+        ),
         "--workdir=/work/source".to_string(),
         "--env=GOCACHE=/work/out/gocache".to_string(),
         "--env=GOPATH=/work/out/gopath".to_string(),
+        "--env=GOPROXY=file:///work/go-download,https://proxy.golang.org".to_string(),
         "--env=TMPDIR=/work/out/tmp".to_string(),
         format!("--env=FORGEJO_VERSION={stamp}"),
         FORGEJO_COMPILER_IMAGE.to_string(),
@@ -297,6 +327,10 @@ mod tests {
         prod.arch = "x86_64".to_string();
         prod.execute = Some(Box::new(move |dir, name, args| {
             assert_eq!(dir, source_clone.to_string_lossy());
+            if name == "cp" {
+                assert!(args.iter().any(|arg| arg == "--reflink=auto"));
+                return Ok(());
+            }
             assert_eq!(name, "podman");
             *seen_clone.lock().unwrap() = args.to_vec();
             std::fs::write(
@@ -316,6 +350,11 @@ mod tests {
         for required in [
             "--pull=always",
             "--platform=linux/amd64",
+            "--env=GOPROXY=file:///work/go-download,https://proxy.golang.org",
+            &format!(
+                "--volume={}:/work/go-download:ro,Z",
+                native_clone.join("forgejo-build/go-download").display()
+            ),
             &format!("--volume={}:/work/source:Z", source.display()),
             FORGEJO_COMPILER_IMAGE,
             "apk add --no-cache build-base=0.5-r4",

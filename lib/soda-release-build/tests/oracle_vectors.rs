@@ -26,9 +26,11 @@ run
 --platform=linux/amd64
 --volume=$ROOT/frozen-fork:/work/source:Z
 --volume=$ROOT/native/forgejo-build:/work/out:Z
+--volume=$ROOT/native/forgejo-build/go-download:/work/go-download:ro,Z
 --workdir=/work/source
 --env=GOCACHE=/work/out/gocache
 --env=GOPATH=/work/out/gopath
+--env=GOPROXY=file:///work/go-download,https://proxy.golang.org
 --env=TMPDIR=/work/out/tmp
 --env=FORGEJO_VERSION=15.0.10-soda.aaaaaaaaaaaa+gitea-1.22.0
 docker.io/library/golang@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade
