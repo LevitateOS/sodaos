@@ -49,6 +49,9 @@ and `stopped_project.json` using the shared `NativeEvidence` contract in
 deployment identities, the native finalization lock, closed admission, preserved
 container and protected-state identities, observed support and stopped state. It
 hashes those files and writes a new `upgrade-qualification.json` beside the candidate.
+The interrupted checkpoint is `support_verified_host_locked`, after support
+readback and before releasing native finalization. Matching support is a no-op;
+its evidence records verification without claiming a file replacement.
 Missing evidence, same-commit feasibility experiments or an unbound target cannot
 produce this receipt. Retain the original observations locally.
 

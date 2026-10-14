@@ -137,7 +137,7 @@ impl NativeEvidence {
             || !matches!(self.project_state_before.as_str(), "running" | "stopped")
             || (kind == "stopped_project" && self.project_state_before != "stopped")
             || (kind == "interrupted_recovery"
-                && self.interruption_checkpoint != "helper_replaced_host_locked")
+                && self.interruption_checkpoint != "support_verified_host_locked")
         {
             return Err(refused());
         }
@@ -389,7 +389,7 @@ mod tests {
                 }
                 .into(),
                 interruption_checkpoint: if kind == "interrupted_recovery" {
-                    "helper_replaced_host_locked"
+                    "support_verified_host_locked"
                 } else {
                     ""
                 }
@@ -420,6 +420,26 @@ mod tests {
     }
 
     #[test]
+    fn matching_support_records_verification_without_claiming_replacement() {
+        let dir = fixture();
+        for kind in KINDS {
+            let path = dir.path().join("evidence").join(format!("{kind}.json"));
+            let mut evidence: NativeEvidence =
+                serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            evidence.source_support_sha256 = evidence.target_support_sha256.clone();
+            fs::write(path, serde_json::to_vec_pretty(&evidence).unwrap()).unwrap();
+        }
+        let receipt = stamp(dir.path(), &dir.path().join("evidence")).unwrap();
+        assert_eq!(receipt.source_support_sha256, receipt.target_support_sha256);
+        admit_directory(
+            dir.path(),
+            &receipt.source_release,
+            &receipt.source_support_sha256,
+        )
+        .unwrap();
+    }
+
+    #[test]
     fn stamping_requires_real_bound_observations_for_every_native_boundary() {
         for change in [
             "missing_recovery",
@@ -429,6 +449,7 @@ mod tests {
             "unlocked",
             "wrong_helper",
             "stopped_started",
+            "wrong_checkpoint",
         ] {
             let dir = fixture();
             let kind = if change == "stopped_started" {
@@ -451,6 +472,7 @@ mod tests {
                     "unlocked" => evidence.staged_finalization_locked = false,
                     "wrong_helper" => evidence.observed_support_sha256 = "6".repeat(64),
                     "stopped_started" => evidence.project_state_after = "running".into(),
+                    "wrong_checkpoint" => evidence.interruption_checkpoint = "host_booted".into(),
                     _ => unreachable!(),
                 }
                 fs::write(path, serde_json::to_vec_pretty(&evidence).unwrap()).unwrap();
