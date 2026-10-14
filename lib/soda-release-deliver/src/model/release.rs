@@ -93,8 +93,10 @@ pub struct MediaBinding {
     pub host_manifest: String,
     #[serde(rename = "PayloadSHA256")]
     pub payload_sha256: String,
+    pub deployment_commit: String,
     #[serde(rename = "RootfsURL")]
     pub rootfs_url: String,
+    #[serde(rename = "ISO")]
     pub iso: MediaFile,
     pub rootfs: MediaFile,
 }
@@ -113,10 +115,11 @@ impl<'de> Deserialize<'de> for MediaBinding {
                     mut architecture,
                     mut host_manifest,
                     mut payload_sha256,
+                    mut deployment_commit,
                     mut rootfs_url,
                     mut iso,
                     mut rootfs,
-                ) = (None, None, None, None, None, None, None);
+                ) = (None, None, None, None, None, None, None, None);
                 while let Some(key) = m.next_key::<String>()? {
                     match key.as_str() {
                         "Revision" => {
@@ -136,6 +139,10 @@ impl<'de> Deserialize<'de> for MediaBinding {
                         "RootfsURL" => {
                             rootfs_url = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
                         }
+                        "DeploymentCommit" => {
+                            deployment_commit =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
                         "ISO" => iso = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
                         "Rootfs" => {
                             rootfs = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
@@ -150,6 +157,7 @@ impl<'de> Deserialize<'de> for MediaBinding {
                     architecture: decode_slot(architecture)?,
                     host_manifest: decode_slot(host_manifest)?,
                     payload_sha256: decode_slot(payload_sha256)?,
+                    deployment_commit: decode_slot(deployment_commit)?,
                     rootfs_url: decode_slot(rootfs_url)?,
                     iso: decode_slot(iso)?,
                     rootfs: decode_slot(rootfs)?,
@@ -183,6 +191,19 @@ mod media_json_tests {
         assert!(MediaBinding::decode_lenient(br#"{"ISO":{"Bytes":-0,"Bytes":1e0}}"#).is_err());
         let reset = MediaBinding::decode_lenient(br#"{"Revision":"old","Revision":null}"#).unwrap();
         assert!(reset.revision.is_empty());
+    }
+
+    #[test]
+    fn deployment_binding_is_distinct_from_assembler_import() {
+        let parsed = MediaBinding::decode_lenient(
+            br#"{"DeploymentCommit":"actual-rootfs","AssemblerImportCommit":"assembler-import"}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.deployment_commit, "actual-rootfs");
+        let import_only =
+            MediaBinding::decode_lenient(br#"{"AssemblerImportCommit":"assembler-import"}"#)
+                .unwrap();
+        assert!(import_only.deployment_commit.is_empty());
     }
 }
 

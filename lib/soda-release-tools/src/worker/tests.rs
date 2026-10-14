@@ -155,6 +155,7 @@ fn development_worker_inputs_and_completion() {
             out: format!("{}/test", c.output_parent),
             development: !target.is_empty(),
             target: target.to_owned(),
+            upgrade_from: "43.20260101.3.0.soda-cccccccccccc".to_owned(),
             ..Request::default()
         };
         if r.wants_media() {
@@ -170,6 +171,10 @@ fn development_worker_inputs_and_completion() {
             .contains(&format!("{}:{WORKER_FORGEJO}", c.forgejo_source)));
         assert!(w.arguments.contains(&WORKER_FORGEJO.to_owned()));
         assert!(w.arguments.contains(&r.forgejo_revision));
+        assert!(w
+            .arguments
+            .windows(2)
+            .any(|pair| pair == ["--upgrade-from", &r.upgrade_from]));
         if target == "candidate" {
             assert!(!w.read_only.join(" ").contains("authority"));
             assert!(!w.arguments.contains(&"--rootfs-base-url".to_owned()));

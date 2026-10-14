@@ -193,9 +193,8 @@ impl Payload {
         self.project_support
             .validate(&self.image("project-os").config)
             .map_err(Error::msg)?;
-        if !self.upgrade_from.is_empty() {
-            return Err(Error::msg("candidate has no qualified upgrade paths"));
-        }
+        soda_build_tools::project_support::validate_upgrade_sources(&self.upgrade_from, &self.id)
+            .map_err(Error::msg)?;
         Ok(())
     }
 

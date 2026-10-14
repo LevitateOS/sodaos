@@ -309,9 +309,8 @@ impl Payload {
         self.project_support
             .validate(&self.images["project-os"].config)
             .map_err(str::to_string)?;
-        if !self.upgrade_from.is_empty() {
-            return Err("candidate has no qualified upgrade paths".to_string());
-        }
+        soda_build_tools::project_support::validate_upgrade_sources(&self.upgrade_from, &self.id)
+            .map_err(str::to_string)?;
         Ok(())
     }
     pub(super) fn load(path: &Path) -> Result<Self, String> {

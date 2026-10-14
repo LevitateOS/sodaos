@@ -86,6 +86,8 @@ pub struct Media {
     pub console_sha256: String,
     #[serde(rename = "AssemblerImportCommit")]
     pub assembler_import_commit: String,
+    #[serde(rename = "DeploymentCommit")]
+    pub deployment_commit: String,
     #[serde(rename = "RootfsURL")]
     pub rootfs_url: String,
     #[serde(rename = "ISO")]
@@ -239,6 +241,7 @@ pub fn seal_media(
     manifest: &str,
     payload_sha256: &str,
     ostree_commit: &str,
+    deployment_commit: &str,
     rootfs_url: &str,
     compression: &str,
     filesystem: &str,
@@ -259,6 +262,7 @@ pub fn seal_media(
         payload_sha256: payload_sha256.to_string(),
         console_sha256: console,
         assembler_import_commit: ostree_commit.to_string(),
+        deployment_commit: deployment_commit.to_string(),
         rootfs_url: rootfs_url.to_string(),
         iso,
         rootfs,
@@ -334,6 +338,15 @@ pub fn assemble_media(
     if lock.installer.is_empty() || lock.installer != installer_version {
         return Err(Error::msg("Assembler installer version changed"));
     }
+    let deployment_commit = crate::media_installer::inspect_rootfs_deployment(
+        production,
+        &root,
+        &artifacts,
+        &id,
+        &rootfs_name,
+        &inputs.candidate.payload_sha256,
+        &inputs.payload.project_support.sha256,
+    )?;
     seal_media(
         &artifacts,
         &media_dir,
@@ -343,6 +356,7 @@ pub fn assemble_media(
         &inputs.candidate.host.manifest,
         &inputs.candidate.payload_sha256,
         &meta.ostree_commit,
+        &deployment_commit,
         &rootfs_url,
         &request.media_compression,
         &inputs.filesystem,

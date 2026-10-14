@@ -17,6 +17,68 @@ pub fn validate_installer_version(version: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// Observe the deployable commit in the public rootfs itself. The assembler's
+/// import commit is a different identity and cannot select this deployment.
+pub fn inspect_rootfs_deployment(
+    production: &dyn Production,
+    root: &str,
+    artifacts: &str,
+    image: &str,
+    rootfs_name: &str,
+    payload_sha256: &str,
+    support_sha256: &str,
+) -> Result<String, Error> {
+    let script = r#"set -euo pipefail
+scratch=/out/media/rootfs-readback
+mkdir "$scratch" "$scratch/mount"
+cpio --quiet --extract --to-stdout root.erofs < "/out/media/$1" > "$scratch/root.erofs"
+test -s "$scratch/root.erofs"
+mount -t erofs -o ro,loop,nodev,nosuid,noexec "$scratch/root.erofs" "$scratch/mount"
+trap 'umount "$scratch/mount"' EXIT
+status=$(ostree admin --sysroot="$scratch/mount" status --json)
+commit=$(jq -er 'if (.deployments|length)==1 then .deployments[0].checksum else error("ambiguous rootfs deployment") end' <<< "$status")
+serial=$(jq -er '.deployments[0].serial' <<< "$status")
+stateroot=$(jq -er '.deployments[0].stateroot' <<< "$status")
+test "$stateroot" = fedora-coreos
+deployment="$scratch/mount/ostree/deploy/$stateroot/deploy/$commit.$serial"
+printf '%s\n' "$commit"
+sha256sum "$deployment/usr/share/soda/release.json" "$deployment/usr/libexec/soda/project-terminal" "$deployment/usr/share/soda/project-support/project-terminal" | cut -d ' ' -f 1
+"#;
+    let observed = production.capture(
+        root,
+        "podman",
+        &[
+            "--remote=false".into(),
+            "run".into(),
+            "--rm".into(),
+            "--pull=never".into(),
+            "--network=none".into(),
+            "--read-only".into(),
+            "--privileged".into(),
+            "--security-opt=label=disable".into(),
+            format!("--volume={artifacts}:/out:rw"),
+            "--entrypoint=/bin/bash".into(),
+            image.into(),
+            "-euc".into(),
+            script.into(),
+            "rootfs-readback".into(),
+            rootfs_name.into(),
+        ],
+    )?;
+    let lines: Vec<_> = observed.lines().collect();
+    if lines.len() != 4
+        || !crate::model::is_digest(lines[0])
+        || lines[1] != payload_sha256
+        || lines[2] != support_sha256
+        || lines[3] != support_sha256
+    {
+        return Err(Error::msg(
+            "public rootfs deployment differs from candidate support/payload",
+        ));
+    }
+    Ok(lines[0].to_owned())
+}
+
 /// Read the installer version from the exact selected OCI image.
 pub fn observe_installer_version(
     production: &dyn Production,

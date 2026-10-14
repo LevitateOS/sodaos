@@ -77,6 +77,24 @@ operation). Soda does not invent a parallel host updater for ordinary maintenanc
 First-install evidence does not qualify an upgrade or recovery path. Those paths
 need their own evidence before being offered as supported release operations.
 
+An optional `UpgradeFrom` declares one prospective source release before the
+candidate is built. It is not qualification. A supported transition additionally
+requires `upgrade-qualification.json`, stamped after the native transition,
+interrupted recovery and stopped-Project observations exist. This external receipt
+binds source release and support digest to the exact target payload, host manifest,
+Project image, support digest, public rootfs and deployable OSTree commit, with
+hashes of the native observation files. It changes no baked host bytes.
+
+The existing public rootfs contains the complete host, application images and an
+OSTree repository inside its EROFS root. Explicit maintenance consumes the selected
+GitHub release's rootfs and metadata together; users do not assemble helpers.
+Native `ostree pull-local` and locked deployment retain FCOS activation ownership.
+Media records `DeploymentCommit` from that rootfs's actual deployment separately
+from `AssemblerImportCommit`; an assembler import identity cannot select a host
+deployment. Development qualification admits the exact candidate without a receipt
+only through its explicit fixture path. Normal upgrade admission and release
+delivery require the bound native receipt.
+
 Nonempty `UpgradeFrom` declarations remain refused. Explicit Project repair is
 implemented, but no release pair has qualified coordinated activation and rollback.
 Native locked staging can hold one explicitly staged deployment inactive; it does

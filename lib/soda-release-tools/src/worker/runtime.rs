@@ -227,6 +227,10 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
         w.arguments.push("--media-compression".to_owned());
         w.arguments.push(r.media_compression.clone());
     }
+    if !r.upgrade_from.is_empty() {
+        w.arguments.push("--upgrade-from".to_owned());
+        w.arguments.push(r.upgrade_from.clone());
+    }
     if !r.live_inputs.is_empty() {
         w.arguments.push("--live-inputs".to_owned());
         w.arguments.push(r.live_inputs.clone());

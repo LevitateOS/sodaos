@@ -23,6 +23,7 @@ pub fn build_host_candidate(
     base: &prepare::Base,
     production: &dyn Production,
     inventory: &crate::sys::ShippingInventory,
+    upgrade_from: &str,
     next: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<(), Error> {
     let mut payload = payload_stage::complete_candidate(
@@ -37,6 +38,14 @@ pub fn build_host_candidate(
         inventory.commands(),
         next,
     )?;
+    if !upgrade_from.is_empty() {
+        payload.upgrade_from = vec![upgrade_from.to_owned()];
+        soda_build_tools::project_support::validate_upgrade_sources(
+            &payload.upgrade_from,
+            &payload.id,
+        )
+        .map_err(Error::msg)?;
+    }
     next("P5 / Build FCOS host candidate")?;
     let observation = host::build_host_image(
         context_dir,

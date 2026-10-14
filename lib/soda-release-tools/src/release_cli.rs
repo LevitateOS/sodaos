@@ -22,10 +22,16 @@ fn command() -> Command {
                 .action(ArgAction::SetTrue)
                 .required(true),
         );
+    let qualify_upgrade = ["candidate", "evidence"].into_iter().fold(
+        Command::new("qualify-upgrade")
+            .about("Stamp exact native transition, recovery and stopped-Project observations"),
+        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+    );
     Command::new("soda-release")
         .subcommand_required(true)
         .subcommand(stage)
         .subcommand(promote)
+        .subcommand(qualify_upgrade)
 }
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
     let cli = match command().try_get_matches_from(args) {
@@ -46,6 +52,12 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
             .ok_or_else(|| format!("{name} required"))
     };
     match action {
+        "qualify-upgrade" => soda_release_deliver::upgrade::stamp(
+            Path::new(get("candidate")?),
+            Path::new(get("evidence")?),
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string()),
         "stage" => {
             let manifest = publish::prepare(
                 Path::new(get("candidate")?),
@@ -81,6 +93,7 @@ mod tests {
     fn release_cli_requires_exact_inputs_and_handles_help() {
         assert!(run(["soda-release", "--help"].map(str::to_owned)).is_ok());
         assert!(run(["soda-release", "stage"].map(str::to_owned)).is_err());
+        assert!(run(["soda-release", "qualify-upgrade"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "promote", "--input", "missing"].map(str::to_owned)).is_err());
         let promote = [
             "soda-release",

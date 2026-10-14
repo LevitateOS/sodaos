@@ -54,6 +54,10 @@ fn command(name: &str) -> ClapCommand {
         ))
         .arg(value("arch", "matching native x86_64"))
         .arg(value(
+            "upgrade-from",
+            "prospective source release ID; native qualification is separate",
+        ))
+        .arg(value(
             "out",
             "fresh absolute output below .artifacts/releases (parent must exist)",
         ))
@@ -112,6 +116,10 @@ pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
             }
         })?;
     let request = Request {
+        upgrade_from: matches
+            .get_one::<String>("upgrade-from")
+            .cloned()
+            .unwrap_or_default(),
         out: matches
             .get_one::<String>("out")
             .cloned()

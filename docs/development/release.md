@@ -32,8 +32,33 @@ binding follows the same candidate through media and GitHub delivery; delivery
 also inspects the helper content in the host and Project OCI archives. Source CI
 runs the focused artifact staging regression with the existing Rust workspace
 tests. Retained-Project repair and native upgrade qualification remain separate
-from fresh-install qualification; a nonempty `UpgradeFrom` is still refused until
-native activation and recovery are qualified.
+from fresh-install qualification. `--upgrade-from SOURCE_RELEASE_ID` records one
+prospective source before building; this declaration grants no activation or
+publication authority.
+
+After the actual native journey has emitted its transition, interrupted recovery
+and stopped-Project observations, stamp the unchanged candidate:
+
+```sh
+soda-release qualify-upgrade --candidate /BUILD/artifacts --evidence /PRIVATE/native-upgrade-evidence
+```
+
+The evidence directory contains `transition.json`, `interrupted_recovery.json`
+and `stopped_project.json` using the shared `NativeEvidence` contract in
+`lib/soda-release-deliver/src/upgrade.rs`. Stamping checks concrete source/target
+deployment identities, the native finalization lock, closed admission, preserved
+container and protected-state identities, observed support and stopped state. It
+hashes those files and writes a new `upgrade-qualification.json` beside the candidate.
+Missing evidence, same-commit feasibility experiments or an unbound target cannot
+produce this receipt. Retain the original observations locally.
+
+Staging a declared upgrade source requires that receipt and includes it in the
+same immutable GitHub release. Fresh-install promotion retains its separate smoke
+receipt. Operator maintenance selects one complete downloaded release directory;
+the existing hash-named rootfs carries the host, Project images and maintenance
+support. Its `DeploymentCommit` is read back during media assembly together with
+the embedded payload and support hashes. It must not be replaced with the
+assembler's separate import commit.
 
 ## Build once, stage, install, promote
 

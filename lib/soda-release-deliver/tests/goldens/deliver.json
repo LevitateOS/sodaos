@@ -85,7 +85,7 @@
     },
     "payload.upgrade_from": {
       "ok": false,
-      "err": "candidate has no qualified upgrade paths"
+      "err": "invalid prospective upgrade source"
     },
     "payload.validate": {
       "ok": true,

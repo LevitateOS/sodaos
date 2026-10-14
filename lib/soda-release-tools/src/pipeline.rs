@@ -60,6 +60,7 @@ pub fn image_request(r: &build_spec::Request) -> request::Request {
         development: r.development,
         target: r.target.clone(),
         media_compression: r.media_compression.clone(),
+        upgrade_from: r.upgrade_from.clone(),
     }
 }
 
@@ -528,6 +529,7 @@ mod tests {
             development: true,
             target: "media".to_string(),
             media_compression: "fast".to_string(),
+            upgrade_from: "43.20260101.3.0.soda-cccccccccccc".to_string(),
         }
     }
 
@@ -539,6 +541,7 @@ mod tests {
         assert_eq!(mapped.out, spec.out);
         assert_eq!(mapped.arch, spec.arch);
         assert_eq!(mapped.repository_prefix, spec.repository_prefix);
+        assert_eq!(mapped.upgrade_from, spec.upgrade_from);
         assert_eq!(mapped.revision, spec.revision);
         assert_eq!(mapped.rootfs_base_url, spec.rootfs_base_url);
         assert_eq!(mapped.media_authority, spec.media_authority);

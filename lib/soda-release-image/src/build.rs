@@ -320,6 +320,7 @@ pub fn execute_build_production(
         base,
         production,
         &inventory,
+        &request.upgrade_from,
         phase,
     )?;
     build_media::finish_build_media(production, request, media_tooling, assembler, phase)?;
@@ -452,6 +453,7 @@ fn run_build_inner(
             &base,
             &*production,
             &inventory,
+            &request.upgrade_from,
             &mut |label| progress.phase(label),
         )?;
         build_media::finish_build_media(

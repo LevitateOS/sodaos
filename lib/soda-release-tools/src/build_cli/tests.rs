@@ -7,6 +7,33 @@ fn flags(args: &[&str]) -> Result<BuildFlags, String> {
 }
 
 #[test]
+fn prospective_upgrade_source_is_explicit_and_not_qualification() {
+    let source = "43.20260101.3.0.soda-cccccccccccc";
+    let parsed = flags(&[
+        "--development",
+        "--target",
+        "candidate",
+        "--upgrade-from",
+        source,
+    ])
+    .unwrap();
+    assert_eq!(parsed.request.upgrade_from, source);
+    assert!(flags(&[
+        "--development",
+        "--target",
+        "candidate",
+        "--upgrade-from",
+        "latest"
+    ])
+    .is_err());
+    assert!(flags(&["--development", "--target", "candidate"])
+        .unwrap()
+        .request
+        .upgrade_from
+        .is_empty());
+}
+
+#[test]
 fn live_inputs_admission_boundary() {
     let worker = BuildFlags {
         worker_build: true,

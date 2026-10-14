@@ -344,9 +344,11 @@ impl Payload {
         self.project_support
             .validate(&self.images["project-os"].config)
             .map_err(Error::msg)?;
-        if matches!(&self.upgrade_from, Some(entries) if !entries.is_empty()) {
-            return Err(Error::msg("candidate has no qualified upgrade paths"));
-        }
+        soda_build_tools::project_support::validate_upgrade_sources(
+            self.upgrade_from.as_deref().unwrap_or_default(),
+            &self.id,
+        )
+        .map_err(Error::msg)?;
         Ok(())
     }
 }

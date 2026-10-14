@@ -78,7 +78,7 @@ fn payload_validation_rejects_go_test_mutations() {
     bad_upgrade.upgrade_from = vec!["unproved".to_string()];
     assert_eq!(
         bad_upgrade.validate().unwrap_err(),
-        "candidate has no qualified upgrade paths"
+        "invalid prospective upgrade source"
     );
     let mut bad_prefix = base.clone();
     bad_prefix.repository_prefix = "ghcr.io/example/soda\nImage=untrusted".to_string();

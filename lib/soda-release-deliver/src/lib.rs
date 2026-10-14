@@ -16,6 +16,7 @@ pub mod oci;
 pub mod payload;
 pub mod prepare;
 pub mod publish;
+pub mod upgrade;
 
 pub use model::{Permit, Trust};
 pub use payload::{Image, Payload, NAMES};

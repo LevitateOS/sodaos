@@ -183,12 +183,10 @@ impl Payload {
         self.project_support
             .validate(&self.images["project-os"].config)
             .map_err(Error::msg)?;
-        // Native admission is not implemented in this milestone. Do not
-        // publish a guessed compatibility promise simply because schemas
-        // happen to match.
-        if !self.upgrade_from.is_empty() {
-            return Err(Error::msg("candidate has no qualified upgrade paths"));
-        }
+        // Installation accepts prospective scope; upgrade admission additionally
+        // requires the external native qualification bound to these exact bytes.
+        soda_build_tools::project_support::validate_upgrade_sources(&self.upgrade_from, &self.id)
+            .map_err(Error::msg)?;
         Ok(())
     }
 }

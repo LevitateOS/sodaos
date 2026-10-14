@@ -21,6 +21,7 @@ pub struct Request {
     pub development: bool,
     pub target: String,
     pub media_compression: String,
+    pub upgrade_from: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -90,6 +91,13 @@ impl Request {
     /// media inputs. MediaAuthority is admitted separately inside the
     /// isolated media worker.
     pub fn validate_target(&self) -> std::result::Result<(), Error> {
+        if !self.upgrade_from.is_empty() {
+            soda_build_tools::project_support::validate_upgrade_sources(
+                &[self.upgrade_from.clone()],
+                "",
+            )
+            .map_err(Error::msg)?;
+        }
         self.validate_development_target()?;
         self.validate_media_inputs()
     }

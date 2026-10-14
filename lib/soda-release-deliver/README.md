@@ -16,6 +16,10 @@ from [release-tools](../soda-release-tools/README.md).
   install/boot/image smoke confirmation to the downloaded ISO, generates the
   receipt, verifies the download through GitHub and promotes unchanged assets to latest.
 - `check::check_candidate` verifies native candidate archives and identities.
+- `upgrade` admits one complete downloaded release, validates its external native
+  transition receipt, and stamps a receipt only from the fixed concrete native
+  observation files. Prospective source declarations alone grant no upgrade
+  authority. The rootfs contains all maintenance bytes and application images.
 - `native` retains the restricted Skopeo boundary for local OCI artifact signing
   and verification. These packaging keys do not replace GitHub's release attestation.
 

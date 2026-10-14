@@ -156,13 +156,17 @@ impl Manifest {
     }
     pub(super) fn validate(&self) -> Result<(), Error> {
         let mut names = std::collections::BTreeSet::new();
+        let has_upgrade = self
+            .assets
+            .iter()
+            .any(|asset| asset.name == crate::upgrade::QUALIFICATION_FILE);
         if self.format != 1
             || !valid_tag(&self.tag)
             || !crate::buildx::is_revision(&self.soda_revision)
             || !crate::buildx::is_revision(&self.forgejo_revision)
             || self.iso != ISO_NAME
             || self.notes.trim().is_empty()
-            || self.assets.len() != REQUIRED_METADATA.len() + 2
+            || self.assets.len() != REQUIRED_METADATA.len() + 2 + usize::from(has_upgrade)
         {
             return Err(failure("release manifest refused"));
         }
@@ -325,6 +329,27 @@ pub fn prepare(
         ));
     }
     assets.push(copy_asset(&media_path, out, "media.json")?);
+    if !payload
+        .upgrade_from
+        .as_deref()
+        .unwrap_or_default()
+        .is_empty()
+    {
+        let path = candidate.join(crate::upgrade::QUALIFICATION_FILE);
+        let receipt = crate::upgrade::load(&path)?;
+        receipt.validate(
+            &payload,
+            &c,
+            &media,
+            &receipt.source_release,
+            &receipt.source_support_sha256,
+        )?;
+        assets.push(copy_asset(&path, out, crate::upgrade::QUALIFICATION_FILE)?);
+    } else if candidate.join(crate::upgrade::QUALIFICATION_FILE).exists() {
+        return Err(failure(
+            "upgrade qualification requires a declared prospective source",
+        ));
+    }
     let manifest = Manifest {
         format: 1,
         tag: tag.to_owned(),

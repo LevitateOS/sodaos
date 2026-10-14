@@ -24,7 +24,7 @@ pub(crate) fn validate_release_payload(
         || schema < 1
         || !is_hex_string(presentation, 64)
         || !is_hex_string(host_packages, 64)
-        || !upgrade_from.is_empty()
+        || soda_build_tools::project_support::validate_upgrade_sources(upgrade_from, id).is_err()
     {
         return Err(());
     }
