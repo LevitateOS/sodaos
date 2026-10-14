@@ -6,8 +6,9 @@ from [release-tools](../soda-release-tools/README.md).
 
 ## Boundaries
 
-- `publish::prepare` binds one selected `appliance`, `docker` or `all` candidate
-  to a fresh exact public asset set; large registry archives and operator paths stay local.
+- `publish::prepare` requires the producer's completed production receipt and binds
+  one selected `appliance`, `docker` or `all` candidate to a fresh exact public asset
+  set; large registry archives and operator paths stay local.
 - `publish::stage` checks prepared bytes, exact-source CI and tag, uploads/reads back
   the Docker version anonymously, then publishes the complete immutable GitHub prerelease.
 - `publish::qualify_appliance` retains the existing downloaded-ISO/native-smoke gate.
@@ -103,7 +104,7 @@ unchanged image's purpose label must agree, and publication admission refuses
 development purpose. Record creation refuses existing metadata; verification
 rejects changed files, linked artifacts, missing members and mismatched labels.
 
-Before any registry write, the future publisher must call
+Before a candidate registry upload, the publisher calls
 `docker::admit_publication`. After an independent anonymous registry readback,
 `DockerMetadata::verify_registry` compares the canonical inspected image identity.
 `reference()` supplies `ghcr.io/levitateos/sodaos@sha256:...`; a Docker daemon image

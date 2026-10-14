@@ -103,12 +103,46 @@ fn validate(values: &BTreeMap<String, String>) -> Result<(), String> {
     }
     Ok(())
 }
+fn workflow_output(source: &Path, out: &Path) -> Result<(), String> {
+    let path = out.to_str().ok_or("safe workflow output required")?;
+    if !out.is_absolute()
+        || crate::worker::go_clean(path) != path
+        || !out.starts_with(source.join(".artifacts"))
+    {
+        return Err(
+            "workflow output must stay below the selected worktree's .artifacts without traversal"
+                .into(),
+        );
+    }
+    let parent = out
+        .parent()
+        .and_then(Path::to_str)
+        .ok_or("existing workflow output parent required")?;
+    crate::worker::valid_worker_path(parent)?;
+    crate::candidate::check_fresh_out(path)
+}
+fn packaging_args(selected: Distribution, tag: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    if selected != Distribution::Appliance {
+        args.extend(["--release-tag".into(), tag.into()]);
+    }
+    if selected != Distribution::Docker {
+        args.extend([
+            "--rootfs-base-url".into(),
+            format!("https://github.com/LevitateOS/sodaos/releases/download/{tag}/"),
+        ]);
+    }
+    args
+}
 pub fn run(flags: &ArgMatches) -> Result<(), String> {
     let values = choices(
         flags,
         &mut std::io::stdin().lock(),
         &mut std::io::stderr().lock(),
     )?;
+    if crate::worker::euid() != 0 {
+        return Err("run soda-release start with sudo: its admitted controller and restricted worker configuration require root; preserve GH_CONFIG_DIR and TMPDIR on the workspace disk".into());
+    }
     let notes = soda_release_deliver::document::read_file(&values["notes"], 64 << 10)
         .map_err(|error| error.to_string())?;
     if std::str::from_utf8(&notes)
@@ -119,22 +153,22 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         return Err("nonempty release notes required before building".into());
     }
     let selected = distribution(&values["distribution"])?;
-    let config = crate::worker::read_worker_config(&values["worker-config"])?;
     crate::worker::private_file(&values["worker-config"]).map_err(|_| {
         "run start as the admitted build operator with its root-owned restricted worker config"
             .to_owned()
     })?;
+    let config = crate::worker::read_worker_config(&values["worker-config"])?;
     crate::worker::trusted_executable(&config.executable)?;
     crate::worker::admit_storage_root(&config)?;
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     if cwd.to_str() != Some(config.source.as_str()) {
         return Err("run start from the worker's selected clean checkout or worktree".into());
     }
-    crate::candidate::check_clean_tree()?;
     if std::env::consts::OS != "linux" || crate::candidate::native_arch()? != "x86_64" {
         return Err("native Linux x86_64 build host required".into());
     }
     let revision = crate::build_cli::controller_revision()?;
+    crate::build_cli::check_source_revision(&config.source, &revision)?;
     let forgejo = crate::build_cli::forgejo_checkout_revision(&config.forgejo_source)?;
     #[derive(serde::Deserialize)]
     struct Pin {
@@ -148,9 +182,8 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         return Err("Fountain checkout differs from selected source pin".into());
     }
     let out = Path::new(&values["out"]);
-    crate::candidate::check_fresh_out(&values["out"])?;
-    if !out.starts_with(cwd.join(".artifacts"))
-        || !Path::new(&config.build_home).starts_with(cwd.join(".artifacts"))
+    workflow_output(&cwd, out)?;
+    if !Path::new(&config.build_home).starts_with(cwd.join(".artifacts"))
         || !Path::new(&config.runtime).starts_with(cwd.join(".artifacts"))
     {
         return Err("workflow output, build home and runtime must stay below the selected worktree's .artifacts".into());
@@ -204,13 +237,19 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
     {
         return Err("locked offline Canlang archive is missing or differs".into());
     }
-    if !std::process::Command::new("podman")
-        .arg("--version")
-        .status()
-        .map_err(|e| e.to_string())?
-        .success()
-    {
-        return Err("native Podman build engine unavailable".into());
+    for tool in if selected == Distribution::Appliance {
+        &["podman"][..]
+    } else {
+        &["podman", "skopeo"][..]
+    } {
+        if !std::process::Command::new(tool)
+            .arg("--version")
+            .status()
+            .map_err(|_| format!("required release tool {tool} unavailable"))?
+            .success()
+        {
+            return Err(format!("required release tool {tool} unavailable"));
+        }
     }
     publish::preflight(&publish::Gh, &revision, &forgejo, &values["tag"], selected)
         .map_err(|e| e.to_string())?;
@@ -230,18 +269,7 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         "--forgejo-source".into(),
         config.forgejo_source.clone(),
     ];
-    if selected != Distribution::Appliance {
-        args.extend(["--release-tag".into(), values["tag"].clone()]);
-    }
-    if selected != Distribution::Docker {
-        args.extend([
-            "--rootfs-base-url".into(),
-            format!(
-                "https://github.com/LevitateOS/sodaos/releases/download/{}",
-                values["tag"]
-            ),
-        ]);
-    }
+    args.extend(packaging_args(selected, &values["tag"]));
     let mut preflight_args = args.clone();
     preflight_args.push("--preflight".into());
     if !std::process::Command::new(&config.executable)
@@ -264,6 +292,10 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         return Err("build workspace has no free capacity".into());
     }
     eprintln!("Build workspace free capacity: {} GiB; keep diagnostics and failed attempts on this workspace.", (space.f_bavail as u64).saturating_mul(space.f_frsize as u64) / (1 << 30));
+    if flags.get_flag("preflight") {
+        println!("Release prerequisites passed; no build started or attempt created.");
+        return Ok(());
+    }
     use std::os::unix::fs::DirBuilderExt;
     std::fs::DirBuilder::new()
         .mode(0o700)
@@ -312,6 +344,19 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
 mod tests {
     use super::*;
     #[test]
+    fn guided_distribution_arguments_pass_the_real_producer_admission() {
+        for name in ["appliance", "docker", "all"] {
+            let selected = distribution(name).unwrap();
+            let mut args = vec!["--distribution".into(), name.into()];
+            args.extend(packaging_args(selected, "v1.2.3"));
+            let flags = crate::build_cli::parse_build_flags(&args).unwrap();
+            let request = crate::pipeline::image_request(&flags.request);
+            request.validate_target().unwrap();
+            assert_eq!(request.wants_docker(), selected != Distribution::Appliance);
+            assert_eq!(request.wants_media(), selected != Distribution::Docker);
+        }
+    }
+    #[test]
     fn missing_noninteractive_inputs_refuse_before_execution() {
         let flags = crate::release_cli::command()
             .try_get_matches_from(["soda-release", "start", "--non-interactive"])
@@ -354,5 +399,31 @@ mod tests {
         assert!(String::from_utf8(output)
             .unwrap()
             .contains("build and prepare only"));
+    }
+
+    #[test]
+    fn workflow_output_rejects_traversal_symlinks_and_existing_attempts() {
+        use std::os::unix::fs::symlink;
+        let source =
+            std::env::temp_dir().join(format!("soda-release-paths-{}", std::process::id()));
+        std::fs::create_dir(&source).unwrap();
+        std::fs::create_dir(source.join(".artifacts")).unwrap();
+        std::fs::create_dir(source.join("outside")).unwrap();
+        symlink(source.join("outside"), source.join(".artifacts/link")).unwrap();
+        assert!(workflow_output(&source, &source.join(".artifacts/fresh")).is_ok());
+        for path in [
+            ".artifacts/../outside/run",
+            ".artifacts/link/run",
+            "outside/run",
+            ".artifacts/missing/run",
+        ] {
+            assert!(
+                workflow_output(&source, &source.join(path)).is_err(),
+                "{path}"
+            );
+        }
+        std::fs::create_dir(source.join(".artifacts/fresh")).unwrap();
+        assert!(workflow_output(&source, &source.join(".artifacts/fresh")).is_err());
+        std::fs::remove_dir_all(source).unwrap();
     }
 }

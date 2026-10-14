@@ -18,6 +18,8 @@
 //! - Interrupts seed the image [`Cancel`] by peeking at (then restoring) the
 //!   global interrupt flag, so the outer CLI still owns exit-code reporting.
 
+use soda_build_tools::reader::build::BuildResult;
+
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -68,7 +70,7 @@ pub fn image_request(r: &build_spec::Request) -> request::Request {
 
 /// Map the pipeline result onto the worker result. The image `Checks` vector
 /// has no worker counterpart and is dropped.
-fn image_result(r: &request::Result) -> build_spec::ImageResult {
+fn image_result(r: &BuildResult) -> build_spec::ImageResult {
     build_spec::ImageResult {
         revision: r.revision.clone(),
         architecture: r.architecture.clone(),
@@ -583,7 +585,7 @@ mod tests {
 
     #[test]
     fn result_mapping_drops_checks() {
-        let result = request::Result {
+        let result = BuildResult {
             revision: "rev".to_string(),
             architecture: "amd64".to_string(),
             candidate: "cand".to_string(),

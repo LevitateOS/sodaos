@@ -69,7 +69,15 @@ fn fixture() -> (TempDir, Manifest) {
         assets: entries,
     };
     write_json(&dir.path().join("release.json"), &m).unwrap();
-    std::fs::write(dir.path().join("SHA256SUMS"), b"test checksums").unwrap();
+    let mut sums = m.assets.clone();
+    sums.push(inspect(&dir.path().join("release.json"), "release.json").unwrap());
+    std::fs::write(
+        dir.path().join("SHA256SUMS"),
+        sums.iter()
+            .map(|asset| format!("{}  {}\n", asset.sha256, asset.name))
+            .collect::<String>(),
+    )
+    .unwrap();
     (dir, m)
 }
 fn tag(m: &Manifest) -> Result<Vec<u8>, Error> {
@@ -226,11 +234,13 @@ fn promotion_requires_observed_revision_smoke_confirmation_and_actual_download()
         json(serde_json::json!({"databaseId":17})),
         remote(&m, &items, false, true, true),
         Ok(vec![]),
+        Ok(vec![]),
     ]);
     let downloaded = dir.path().join(ISO_NAME);
     qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
-    assert_eq!(gh.calls.borrow()[5][1], "verify-asset");
-    assert_eq!(gh.calls.borrow().len(), 6);
+    assert_eq!(gh.calls.borrow()[5][1], "verify");
+    assert_eq!(gh.calls.borrow()[6][1], "verify-asset");
+    assert_eq!(gh.calls.borrow().len(), 7);
     let receipt: Qualification =
         read_json(&dir.path().join("appliance-qualification.json")).unwrap();
     assert_eq!(receipt.soda_revision, m.soda_revision);
@@ -293,4 +303,119 @@ fn asset_limit_and_tag_admission_refuse_before_transport() {
     assert!(!assets::valid_tag("main^{commit}"));
     assert!(!assets::valid_tag("../tag"));
     assert!(assets::valid_tag("v0.1.0-rc.1"));
+}
+
+#[test]
+fn appliance_qualification_repeats_verified_readback_and_finishes_partial_receipt() {
+    let (dir, m) = fixture();
+    let items = inventory(&m, dir.path()).unwrap();
+    let downloaded = dir.path().join("downloaded.iso");
+    std::fs::copy(dir.path().join(ISO_NAME), &downloaded).unwrap();
+    let evidence = serde_json::to_vec(&ApplianceEvidence {
+        downloaded: downloaded.clone(),
+    })
+    .unwrap();
+    record_verified(&dir.path().join("appliance-evidence.json"), &evidence).unwrap();
+    for _ in 0..2 {
+        let gh = Script::new(vec![
+            tag(&m),
+            fountain(&m),
+            ci(&m),
+            json(serde_json::json!({"databaseId":17})),
+            remote(&m, &items, false, true, true),
+            Ok(vec![]),
+            Ok(vec![]),
+        ]);
+        qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
+        assert!(gh.replies.borrow().is_empty());
+    }
+    appliance_evidence(dir.path(), &m).unwrap();
+    std::fs::write(&downloaded, b"changed").unwrap();
+    assert!(appliance_evidence(dir.path(), &m).is_err());
+}
+
+struct NoRegistry;
+impl registry::Registry for NoRegistry {
+    fn run(&self, _args: &[String]) -> Result<Vec<u8>, Error> {
+        panic!("appliance status must not contact the registry");
+    }
+}
+
+#[test]
+fn status_distinguishes_drafts_mutable_releases_and_transport_failures() {
+    let (dir, m) = fixture();
+    let items = inventory(&m, dir.path()).unwrap();
+    for (draft, immutable, publication, next) in [
+        (true, false, "draft", "inspect partial staging"),
+        (
+            false,
+            false,
+            "mismatched",
+            "inspect immutable remote inventory",
+        ),
+    ] {
+        let gh = Script::new(vec![
+            fountain(&m),
+            ci(&m),
+            json(serde_json::json!({"databaseId":17})),
+            remote(
+                &m,
+                if draft { &[] } else { &items },
+                draft,
+                false,
+                immutable,
+            ),
+            Err(Error::msg("GitHub resource not found")),
+        ]);
+        let report = status(&gh, &NoRegistry, dir.path()).unwrap();
+        assert_eq!(report["publication"], publication);
+        assert_eq!(report["next_action"], next);
+        assert_eq!(report["appliance_qualified"], false);
+    }
+    let gh = Script::new(vec![
+        fountain(&m),
+        ci(&m),
+        Err(Error::msg("network unavailable")),
+        Err(Error::msg("GitHub resource not found")),
+    ]);
+    let report = status(&gh, &NoRegistry, dir.path()).unwrap();
+    assert_eq!(report["publication"], "unavailable");
+    assert_eq!(report["next_action"], "inspect remote publication");
+}
+
+#[test]
+fn status_rechecks_downloaded_appliance_evidence_and_recommendation() {
+    let (dir, m) = fixture();
+    let items = inventory(&m, dir.path()).unwrap();
+    let downloaded = dir.path().join("downloaded.iso");
+    std::fs::copy(dir.path().join(ISO_NAME), &downloaded).unwrap();
+    let gh = Script::new(vec![
+        tag(&m),
+        fountain(&m),
+        ci(&m),
+        json(serde_json::json!({"databaseId":17})),
+        remote(&m, &items, false, true, true),
+        Ok(vec![]),
+        Ok(vec![]),
+    ]);
+    qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
+    std::fs::remove_file(downloaded).unwrap();
+    std::fs::write(dir.path().join("promotion-complete.json"), b"{}").unwrap();
+    let gh = Script::new(vec![
+        fountain(&m),
+        ci(&m),
+        json(serde_json::json!({"databaseId":17})),
+        remote(&m, &items, false, false, true),
+        tag(&m),
+        Ok(vec![]),
+        Err(Error::msg("GitHub resource not found")),
+    ]);
+    let report = status(&gh, &NoRegistry, dir.path()).unwrap();
+    assert_eq!(report["appliance_qualified"], false);
+    assert!(report["blockers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value.as_str()
+            == Some("appliance recommendation no longer matches this release")));
 }

@@ -1,6 +1,6 @@
 //! GHCR candidate upload and independent anonymous identity verification.
 use super::{api, check_source_ci, GitHub};
-use crate::buildx::{write_new, Image};
+use crate::buildx::Image;
 use crate::model::{DockerMetadata, DOCKER_REPOSITORY};
 use crate::{docker, hash_bytes, Error};
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,7 @@ fn path(path: &Path) -> Result<&str, Error> {
     path.to_str().ok_or_else(Error::refused)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Publication {
     pub format: u32,
@@ -168,11 +168,27 @@ fn record_public(
     ci_run: u64,
     out: &Path,
 ) -> Result<Publication, Error> {
-    let (receipt, raw) = observe_public(registry, metadata, ci_run)?;
+    let (mut receipt, raw) = observe_public(registry, metadata, ci_run)?;
+    if out.join("registry.json").exists() {
+        let previous: Publication = super::read_json(&out.join("registry.json"))?;
+        // A later successful CI rerun need not replace the original publication
+        // receipt; identity is freshly observed before retaining it.
+        if previous.ci_run == 0 {
+            return Err(Error::msg(
+                "existing publication receipt has no successful source CI",
+            ));
+        }
+        receipt.ci_run = previous.ci_run;
+        if previous != receipt {
+            return Err(Error::msg(
+                "existing publication receipt differs from public image",
+            ));
+        }
+    }
     let mut bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
     bytes.push(b'\n');
-    write_new(path(&out.join("public-manifest.json"))?, &raw, 0o600)?;
-    write_new(path(&out.join("registry.json"))?, &bytes, 0o600)?;
+    super::record_verified(&out.join("public-manifest.json"), &raw)?;
+    super::record_verified(&out.join("registry.json"), &bytes)?;
     Ok(receipt)
 }
 

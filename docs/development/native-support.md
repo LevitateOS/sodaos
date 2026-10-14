@@ -46,7 +46,11 @@ The existing build now pulls the unchanged selected Forgejo/Caddy references for
 
 ## Build and artifact contract
 
-`soda-build` produces unqualified release media by default. Its explicit development targets stop at candidate or media; `soda-candidate` remains a development wrapper. Publication and qualification belong to `soda-release`.
+`soda-build` produces unqualified release media by default. Production distribution
+selection packages the appliance, Docker runtime or both from the same candidate.
+Its explicit development targets stop at candidate, media or Docker;
+`soda-candidate` remains a development wrapper. Publication and qualification
+belong to `soda-release`.
 Retained `.artifacts/native/` trees may still be read by maintenance tools.
 
 Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, occupied output or simultaneous build is refused; there is no automatic removal of earlier artifacts. `GOTOOLCHAIN=local` prevents implicit toolchain installation.
@@ -208,7 +212,10 @@ prune unrelated stores or modify retained appliances.
 
 `evidence/build.json` records purpose, requested/completed target, candidate hash
 (binding its payload and all application identities), host/payload identities and
-completed checks. Candidate-only output has no media path, live Ignition or packaging
+completed producer checks. The parent controller writes `evidence/completed.json`
+only after worker cleanup and final progress succeed, binding the exact producer
+record hash. Release preparation requires both; a producer record from a failed
+controller attempt cannot authorize delivery. Candidate-only output has no media path, live Ignition or packaging
 workspace. All current candidate checks and all seven images remain; media-only tools
 and signing inputs are not required for that target.
 
@@ -251,19 +258,21 @@ from local image inspection or ordinary build-cache reuse.
 The [release architecture](../architecture/release.md#public-distribution) owns
 public hosting and qualification; the [release workflow](release.md#build-once-stage-install-promote)
 provides the concrete commands. The Rust `soda-release` entry point in
-`lib/soda-release-tools` delegates to `lib/soda-release-deliver` and the native
-`gh` client. It does not build, install an image, change host trust or reboot.
-
-The builder implements distribution selection, Docker artifact verification and
-linked-worktree admission. The publisher interfaces below remain appliance-only.
-The [Docker release operator flow](release.md#docker-release-operator-flow)
-specifies the guided prepared-input, GHCR publication and qualification commands
-that still need implementation.
+`lib/soda-release-tools` delegates to `lib/soda-release-deliver`, native `gh` and
+Skopeo. The [guided release operator flow](release.md#guided-release-operator-flow)
+owns commands for all selected distributions. `start` invokes the admitted builder;
+publication and qualification commands do not install images, change host trust
+or reboot.
 
 | Operation | Inputs and effects |
 | --- | --- |
-| `stage` | Reads exact candidate/media/source artifacts, prepares a fresh asset directory, checks source CI and per-file size limits, creates or verifies the exact tag, uploads a draft, compares remote hashes and sizes, and publishes an immutable prerelease. Requires GitHub repository write access. |
-| `promote` | Binds the observed installed revision and explicit native smoke confirmation to the prepared release and downloaded ISO, writes the receipt, checks unchanged GitHub inventory, then updates notes and prerelease/latest flags. No image re-upload or disk mutation. |
+| `start` | Preflights exact committed source and CI, admitted worker configuration and local inputs, then builds once and prepares a private release directory. `--preflight` stops before creating an attempt. |
+| `prepare` | Requires a completed production build receipt and verifies all selected candidate artifacts before copying the public asset set. No network mutation. |
+| `status` | Rechecks local evidence and remote publication/recommendation state; reports blockers and the next action without mutation. |
+| `stage` | Reads the prepared release, checks source CI and immutable-release settings, creates or verifies its tag, uploads/verifies the Docker digest where selected, and publishes the complete immutable GitHub prerelease. |
+| `verify-docker` | Repeats anonymous registry readback and completes matching local verification records without another upload. |
+| `qualify` | Verifies the exact public downloads and selected targets' native evidence, retaining bound private receipts without moving recommendations. |
+| `promote` | Rechecks receipts, original evidence and immutable public assets; moves Docker latest to the same digest and updates eligible GitHub recommendations. Docker-only preserves the appliance recommendation. |
 
 Keep private authority inputs and task receipts on the workspace disk. Only public
 artifact files enter the upload set; keys, passphrases, credentials and private VM
@@ -273,7 +282,8 @@ asset and tag immutability; no local channel state or publication ledger is need
 
 An existing or uncertain publication is inspected rather than overwritten. There
 is no automatic asset clobbering or cleanup of failed attempts. A prerelease is
-explicitly unqualified until the one bounded public-download native smoke passes.
+explicitly unqualified until every selected distribution's required public-download
+native qualification passes.
 
 ## SSH, commands and exact-source remote phases
 

@@ -110,6 +110,7 @@ fn labels(base: &str, name: &str) -> BTreeMap<String, String> {
 
 struct Fixture {
     dir: TempDir,
+    _build: TempDir,
     request: DockerRequest,
     runtime: BTreeMap<String, Vec<u8>>,
     runtime_labels: BTreeMap<String, String>,
@@ -117,7 +118,8 @@ struct Fixture {
 
 impl Fixture {
     fn new(purpose: BuildPurpose) -> Self {
-        let dir = TempDir::new().unwrap();
+        let build = TempDir::new().unwrap();
+        let dir = TempDir::new_in(build.path()).unwrap();
         std::fs::create_dir(dir.path().join("docker")).unwrap();
         std::fs::create_dir(dir.path().join("images")).unwrap();
         let golden: Value =
@@ -286,6 +288,7 @@ impl Fixture {
         }
         let fixture = Self {
             dir,
+            _build: build,
             request: DockerRequest {
                 release_tag: "v0.1.0".into(),
                 purpose,
@@ -300,6 +303,59 @@ impl Fixture {
     }
     fn path(&self) -> &str {
         self.dir.path().to_str().unwrap()
+    }
+    fn completion(&self, metadata: &DockerMetadata) {
+        let output = self.dir.path().parent().unwrap().join("evidence");
+        std::fs::create_dir(&output).unwrap();
+        let result = soda_build_tools::reader::build::BuildResult {
+            revision: metadata.soda_revision.clone(),
+            architecture: "x86_64".into(),
+            candidate: self
+                .dir
+                .path()
+                .join("candidate.json")
+                .to_string_lossy()
+                .into_owned(),
+            candidate_sha256: metadata.candidate_sha256.clone(),
+            host_manifest: metadata.host_manifest.clone(),
+            payload_sha256: metadata.payload_sha256.clone(),
+            scope: "candidate-derived packaging; not a qualified release".into(),
+            purpose: "production".into(),
+            requested_target: "release".into(),
+            completed_target: if self.request.distribution == Distribution::All {
+                "all"
+            } else {
+                "docker"
+            }
+            .into(),
+            distribution: if self.request.distribution == Distribution::All {
+                "all"
+            } else {
+                "docker"
+            }
+            .into(),
+            release_tag: metadata.release_tag.clone(),
+            checks: vec![
+                "Docker OCI identity, candidate content, provenance and RPM inventory".into(),
+            ],
+            docker: self
+                .dir
+                .path()
+                .join(METADATA_PATH)
+                .to_string_lossy()
+                .into_owned(),
+            ..Default::default()
+        };
+        let bytes = serde_json::to_vec(&result).unwrap();
+        std::fs::write(output.join("build.json"), &bytes).unwrap();
+        let completion = soda_build_tools::reader::build::BuildCompletion {
+            build_sha256: identity(&bytes).sha256,
+        };
+        std::fs::write(
+            output.join("completed.json"),
+            serde_json::to_vec(&completion).unwrap(),
+        )
+        .unwrap();
     }
     fn rebuild(&self) {
         let image = oci(

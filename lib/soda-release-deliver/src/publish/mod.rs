@@ -60,6 +60,8 @@ struct Release {
     draft: bool,
     prerelease: bool,
     immutable: bool,
+    #[serde(default)]
+    published_at: Option<String>,
     assets: Vec<RemoteAsset>,
 }
 #[derive(Deserialize)]
@@ -246,6 +248,59 @@ fn verify_release(gh: &dyn GitHub, tag: &str) -> Result<(), Error> {
     Ok(())
 }
 
+fn latest_release(gh: &dyn GitHub) -> Result<Option<Release>, Error> {
+    match api(gh, &format!("{API}/releases/latest")) {
+        Ok(release) => Ok(Some(release)),
+        Err(error) if error.0 == "GitHub resource not found" => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+// Repeating a verified readback may finish an interrupted local receipt write.
+// Existing evidence must match byte-for-byte; this never replaces retained state.
+fn record_verified(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    use std::os::unix::fs::MetadataExt;
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata)
+            if metadata.is_file()
+                && metadata.mode() & 0o077 == 0
+                && metadata.len() == bytes.len() as u64
+                && std::fs::read(path).ok().as_deref() == Some(bytes) =>
+        {
+            Ok(())
+        }
+        Ok(_) => Err(Error::msg(
+            "existing publication evidence differs; inspect retained state",
+        )),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            crate::buildx::write_new(path.to_str().ok_or_else(Error::refused)?, bytes, 0o600)
+        }
+        Err(_) => Err(Error::msg("publication evidence unavailable")),
+    }
+}
+
+#[derive(Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct ApplianceEvidence {
+    downloaded: std::path::PathBuf,
+}
+
+fn appliance_evidence(
+    directory: &Path,
+    manifest: &Manifest,
+) -> Result<(Qualification, std::path::PathBuf), Error> {
+    let receipt: Qualification = read_json(&directory.join("appliance-qualification.json"))?;
+    let input: ApplianceEvidence = read_json(&directory.join("appliance-evidence.json"))?;
+    if !input.downloaded.is_absolute() {
+        return Err(Error::msg(
+            "absolute downloaded appliance evidence path required",
+        ));
+    }
+    let downloaded = inspect(&input.downloaded, &manifest.iso)?;
+    receipt.validate(manifest, &downloaded)?;
+    Ok((receipt, input.downloaded))
+}
+
 /// Upload a complete draft, verify its inventory, and expose it as an unqualified
 /// immutable prerelease. Existing releases are never adopted or overwritten.
 fn stage_github(
@@ -365,9 +420,10 @@ pub fn qualify_appliance(
             "explicit native install/boot/image smoke confirmation required",
         ));
     }
-    let manifest: Manifest = read_json(&directory.join("release.json"))?;
-    manifest.validate()?;
+    let manifest = assets::load(directory)?;
     let downloaded = inspect(downloaded_iso, &manifest.iso)?;
+    let downloaded_iso = std::fs::canonicalize(downloaded_iso)
+        .map_err(|_| Error::msg("downloaded ISO unavailable"))?;
     let receipt = Qualification {
         format: 1,
         soda_revision: manifest.soda_revision.clone(),
@@ -391,6 +447,7 @@ pub fn qualify_appliance(
     }
     let assets = inventory(&manifest, directory)?;
     check_inventory(&current, &manifest, &assets)?;
+    verify_release(gh, &manifest.tag)?;
     command(
         gh,
         &[
@@ -402,31 +459,13 @@ pub fn qualify_appliance(
             REPOSITORY,
         ],
     )?;
-    let bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
-    crate::buildx::write_new(
-        directory
-            .join("appliance-qualification.json")
-            .to_str()
-            .ok_or_else(Error::refused)?,
-        &bytes,
-        0o600,
-    )?;
-    #[derive(serde::Serialize)]
-    struct Input<'a> {
-        downloaded: &'a Path,
-    }
-    let bytes = serde_json::to_vec(&Input {
+    let bytes = serde_json::to_vec(&ApplianceEvidence {
         downloaded: downloaded_iso,
     })
     .map_err(|_| Error::refused())?;
-    crate::buildx::write_new(
-        directory
-            .join("appliance-evidence.json")
-            .to_str()
-            .ok_or_else(Error::refused)?,
-        &bytes,
-        0o600,
-    )?;
+    record_verified(&directory.join("appliance-evidence.json"), &bytes)?;
+    let bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
+    record_verified(&directory.join("appliance-qualification.json"), &bytes)?;
     Ok(())
 }
 
@@ -492,19 +531,12 @@ pub fn promote(
     let mut summaries = serde_json::Map::new();
     let mut downloaded_iso = None;
     if manifest.has_appliance() {
-        let receipt: Qualification = read_json(&directory.join("appliance-qualification.json"))?;
-        #[derive(Deserialize)]
-        struct Input {
-            downloaded: std::path::PathBuf,
-        }
-        let input: Input = read_json(&directory.join("appliance-evidence.json"))?;
-        let downloaded = inspect(&input.downloaded, &manifest.iso)?;
-        receipt.validate(&manifest, &downloaded)?;
+        let (receipt, downloaded) = appliance_evidence(directory, &manifest)?;
         summaries.insert(
             "appliance".into(),
             serde_json::to_value(&receipt).map_err(|_| Error::refused())?,
         );
-        downloaded_iso = Some(input.downloaded);
+        downloaded_iso = Some(downloaded);
     }
     if manifest.docker.is_some() {
         let receipt = qualification::verify(&manifest, directory)?;
@@ -545,10 +577,19 @@ pub fn promote(
         )?;
     }
     if let Some(metadata) = &manifest.docker {
+        qualification::validate_publication_time(
+            &manifest,
+            directory,
+            &qualification::evidence(directory)?,
+            current
+                .published_at
+                .as_deref()
+                .ok_or_else(|| Error::msg("immutable publication time unavailable"))?,
+        )?;
         registry::observe_public(registry, metadata, ci_run)?;
     }
     let prior_appliance_latest = if !manifest.has_appliance() {
-        Some(api::<Release>(gh, &format!("{API}/releases/latest"))?.id)
+        latest_release(gh)?.map(|release| release.id)
     } else {
         None
     };
@@ -577,9 +618,7 @@ pub fn promote(
                 "appliance latest pointer differs; inspect partial promotion",
             ));
         }
-    } else if api::<Release>(gh, &format!("{API}/releases/latest"))?.id
-        != prior_appliance_latest.ok_or_else(Error::refused)?
-    {
+    } else if latest_release(gh)?.map(|release| release.id) != prior_appliance_latest {
         return Err(Error::msg("Docker promotion changed the appliance latest pointer; inspect partial promotion without rollback"));
     }
     crate::buildx::write_new(
@@ -609,36 +648,64 @@ pub fn status(
         blockers.push(error.0.clone());
     }
     let publication = match remote {
+        Ok(ref remote) if remote.draft => {
+            blockers
+                .push("partial staging: inspect the existing draft before further mutation".into());
+            if check_inventory(remote, &manifest, &inventory(&manifest, directory)?).is_err() {
+                blockers.push("draft release inventory is incomplete or differs".into());
+            }
+            "draft"
+        }
         Ok(ref remote)
             if check_inventory(remote, &manifest, &inventory(&manifest, directory)?).is_ok() =>
         {
-            if remote.prerelease {
+            if !remote.immutable {
+                blockers.push("remote release is not immutable".into());
+                "mismatched"
+            } else if let Err(error) =
+                check_tag(gh, &manifest, false).and_then(|_| verify_release(gh, &manifest.tag))
+            {
+                blockers.push(error.0);
+                "unverified"
+            } else if remote.prerelease {
                 "unqualified prerelease"
             } else {
-                "qualified release"
+                "published release"
             }
         }
         Ok(_) => {
             blockers.push("remote release inventory differs".into());
             "mismatched"
         }
+        Err(ref error) if error.0 == "GitHub resource not found" => "not observed",
         Err(ref error) => {
             blockers.push(error.0.clone());
-            "not observed"
+            "unavailable"
         }
     };
-    if let Some(Err(error)) = docker {
-        blockers.push(error.0);
+    let docker_available = !matches!(docker, Some(Err(_)));
+    if let Some(Err(error)) = &docker {
+        blockers.push(error.0.clone());
     }
-    let appliance = !manifest.has_appliance()
+    let appliance = !manifest.has_appliance() || appliance_evidence(directory, &manifest).is_ok();
+    let docker_qualified = manifest.docker.is_none()
         || (|| -> Result<(), Error> {
-            let receipt: Qualification =
-                read_json(&directory.join("appliance-qualification.json"))?;
-            receipt.validate(&manifest, manifest.asset(&manifest.iso)?)
+            qualification::verify(&manifest, directory)?;
+            let published = remote.as_ref().map_err(|_| Error::refused())?;
+            if published.draft || !published.immutable {
+                return Err(Error::refused());
+            }
+            qualification::validate_publication_time(
+                &manifest,
+                directory,
+                &qualification::evidence(directory)?,
+                published
+                    .published_at
+                    .as_deref()
+                    .ok_or_else(Error::refused)?,
+            )
         })()
         .is_ok();
-    let docker_qualified =
-        manifest.docker.is_none() || qualification::verify(&manifest, directory).is_ok();
     if !appliance {
         blockers.push("appliance qualification missing or invalid".into());
     }
@@ -651,15 +718,25 @@ pub fn status(
         blockers
             .push("partial promotion: inspect both remote pointers before further mutation".into());
     }
-    let github_latest = api::<Release>(gh, &format!("{API}/releases/latest"))
-        .map(|release| release.tag_name)
-        .ok();
+    let github_latest = match latest_release(gh) {
+        Ok(release) => release.map(|release| release.tag_name),
+        Err(error) => {
+            blockers.push(format!("appliance recommendation unavailable: {}", error.0));
+            None
+        }
+    };
     let docker_latest = if manifest.docker.is_some() {
         registry::latest_digest(registry).ok()
     } else {
         None
     };
     let promotion_complete = directory.join("promotion-complete.json").exists();
+    if promotion_complete
+        && manifest.has_appliance()
+        && github_latest.as_deref() != Some(manifest.tag.as_str())
+    {
+        blockers.push("appliance recommendation no longer matches this release".into());
+    }
     if promotion_complete
         && manifest.docker.as_ref().is_some_and(|metadata| {
             docker_latest.as_deref() != Some(metadata.image.manifest.as_str())
@@ -673,14 +750,22 @@ pub fn status(
         "obtain successful exact-source main CI"
     } else if publication == "mismatched" {
         "inspect immutable remote inventory"
+    } else if publication == "draft" {
+        "inspect partial staging"
+    } else if matches!(publication, "unavailable" | "unverified") {
+        "inspect remote publication"
     } else if promotion_complete {
         "inspect recommendation state"
+    } else if publication == "published release" {
+        "inspect existing promotion"
     } else if directory.join("registry").exists()
         && !directory.join("registry/registry.json").exists()
     {
         "verify-docker"
     } else if publication == "not observed" {
         "stage"
+    } else if !docker_available {
+        "inspect public Docker image"
     } else if !appliance || !docker_qualified {
         "qualify"
     } else {
@@ -762,6 +847,15 @@ pub fn qualify_docker(
     }
     check_inventory(&remote, manifest, &inventory(manifest, directory)?)?;
     verify_release(gh, &manifest.tag)?;
+    qualification::validate_publication_time(
+        manifest,
+        directory,
+        evidence,
+        remote
+            .published_at
+            .as_deref()
+            .ok_or_else(|| Error::msg("immutable publication time unavailable"))?,
+    )?;
     registry::observe_public(
         registry,
         manifest.docker.as_ref().ok_or_else(Error::refused)?,

@@ -32,6 +32,47 @@ fn successful_attempt_requires_runtime_cleanup() {
 }
 
 #[test]
+fn cleanup_failure_cannot_create_a_completed_build_receipt() {
+    let _guard = crate::exitcode::interrupt_test_lock();
+    let _ = crate::exitcode::take_interrupt();
+    let root = temp_dir("completion-cleanup");
+    let evidence = root.join("evidence");
+    std::fs::create_dir(&evidence).unwrap();
+    std::fs::write(evidence.join("build.json"), b"producer finished\n").unwrap();
+    // A non-directory attempt is a concrete cleanup refusal, even though the
+    // worker completed successfully and left its ordinary build receipt.
+    let attempt = root.join("attempt");
+    std::fs::write(&attempt, b"occupied").unwrap();
+    let error = runtime::finish_attempt(
+        Ok(()),
+        WorkerUnitCustody::ExactUnitTerminal,
+        root.to_str().unwrap(),
+        attempt.to_str().unwrap(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(&error, WorkerError::Failed(message) if message.contains("runtime cleanup failed"))
+    );
+    let flags = crate::build_cli::BuildFlags {
+        request: Request {
+            out: root.to_string_lossy().into_owned(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut progress = BuildProgress::new("controller").unwrap();
+    progress.capture();
+    assert!(crate::build_cli::finish_build(
+        &flags,
+        &mut progress,
+        Some(crate::build_cli::map_worker_error(error))
+    )
+    .is_err());
+    assert!(!evidence.join("completed.json").exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn failed_attempt_keeps_primary_and_cleanup_errors() {
     assert_eq!(
         super::runtime::combine_attempt_cleanup::<()>(

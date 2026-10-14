@@ -6,13 +6,18 @@ use crate::{
     Error,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::BTreeMap,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 const KINDS: [&str; 4] = ["installation", "browser_project", "factory", "persistence"];
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct EvidenceInput {
-    directory: std::path::PathBuf,
+struct RetainedQualification {
+    qualification: DockerQualification,
+    evidence_directory: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +39,15 @@ pub struct NativeDocker {
     pub cgroup_version: u32,
     pub host_network: bool,
     pub fresh_volumes: bool,
+    pub outer_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativePersistence {
+    pub target: String,
+    pub registry_manifest: String,
+    pub registry_config: String,
     pub outer_before: String,
     pub outer_after: String,
     pub project_before: String,
@@ -48,6 +62,7 @@ pub struct DockerQualification {
     pub format: u32,
     pub native: NativeDocker,
     pub factory: NativeFactory,
+    pub persistence: NativePersistence,
     pub observations: BTreeMap<String, FileIdentity>,
 }
 
@@ -79,6 +94,7 @@ impl DockerQualification {
         let docker = manifest.docker.as_ref().ok_or_else(refused)?;
         let native = &self.native;
         let factory = &self.factory;
+        let persistence = &self.persistence;
         let payload: crate::payload::Payload = assets::read_json(&directory.join("payload.json"))?;
         let configs = payload
             .images
@@ -102,13 +118,17 @@ impl DockerQualification {
             || native.cgroup_version != 2
             || !native.host_network
             || !native.fresh_volumes
-            || !is_digest(&native.outer_before)
-            || !is_digest(&native.outer_after)
-            || native.outer_before == native.outer_after
-            || !is_digest(&native.project_before)
-            || native.project_before != native.project_after
-            || !is_digest(&native.protected_before_sha256)
-            || native.protected_before_sha256 != native.protected_after_sha256
+            || !is_digest(&native.outer_id)
+            || persistence.target != native.target
+            || persistence.registry_manifest != native.registry_manifest
+            || persistence.registry_config != native.registry_config
+            || persistence.outer_before != native.outer_id
+            || !is_digest(&persistence.outer_after)
+            || persistence.outer_before == persistence.outer_after
+            || !is_digest(&persistence.project_before)
+            || persistence.project_before != persistence.project_after
+            || !is_digest(&persistence.protected_before_sha256)
+            || persistence.protected_before_sha256 != persistence.protected_after_sha256
             || self.observations.len() != KINDS.len()
             || !is_digest(&factory.provider_execution_sha256)
             || factory.repository_id == 0
@@ -146,9 +166,32 @@ fn collect(
     let factory: NativeFactory =
         crate::json_serde::strict(&read_at(&root, "factory/native.json", 1 << 20)?)
             .map_err(|_| refused())?;
+    let persistence: NativePersistence =
+        crate::json_serde::strict(&read_at(&root, "persistence/native.json", 1 << 20)?)
+            .map_err(|_| refused())?;
+    for name in [
+        "docker.json",
+        "sodaos-docker-compose.yaml",
+        "candidate.json",
+        "payload.json",
+    ] {
+        if &assets::inspect(&evidence.join("downloads").join(name), name)?
+            != manifest.asset(name)?
+        {
+            return Err(Error::msg("downloaded qualification bytes changed"));
+        }
+    }
     let mut observations = BTreeMap::new();
+    let mut previous_finish = None;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| refused())?
+        .as_nanos() as i128;
     for kind in KINDS {
         let file = evidence.join(kind).join("observation.json");
+        // The general observation reader permits duplicate keys for its historical
+        // log contract. Qualification admits one unambiguous current record.
+        let _: serde_json::Value = assets::read_json(&file)?;
         let (observation, hash) =
             soda_acceptance::report::read_observation(file.to_str().ok_or_else(refused)?)
                 .map_err(|_| refused())?;
@@ -157,15 +200,30 @@ fn collect(
             || observation.evidence != "completed"
             || observation.exit_code != Some(0)
             || observation.tool_dirty
+            || !crate::buildx::is_revision(&observation.tool_revision)
             || observation.requested_revision != manifest.soda_revision
             || observation.requested_architecture != "x86_64"
             || !soda_acceptance::report::valid_owner(&observation.owner)
             || observation.target != native.target
             || observation.client_platform != "linux/amd64"
+            || observation.action != "exec"
+            || observation
+                .invocation
+                .as_ref()
+                .is_none_or(|args| args.is_empty() || args[0].is_empty())
             || observation.files.as_ref().is_none_or(BTreeMap::is_empty)
         {
             return Err(refused());
         }
+        let started = soda_wire_time::parse_nanos(&observation.started).ok_or_else(refused)?;
+        let finished = soda_wire_time::parse_nanos(&observation.finished).ok_or_else(refused)?;
+        if started >= finished
+            || finished > now
+            || previous_finish.is_some_and(|time| started < time)
+        {
+            return Err(Error::msg("native qualification observations must be finalized in installation, browser/Project, factory and persistence order"));
+        }
+        previous_finish = Some(finished);
         for name in [
             "docker.json",
             "sodaos-docker-compose.yaml",
@@ -182,7 +240,7 @@ fn collect(
                 return Err(refused());
             }
         }
-        if matches!(kind, "installation" | "factory") {
+        if matches!(kind, "installation" | "factory" | "persistence") {
             let bytes = crate::document::read_file(
                 evidence
                     .join(format!("{kind}/native.json"))
@@ -199,6 +257,17 @@ fn collect(
                 return Err(refused());
             }
         }
+        if kind == "factory"
+            && !observation.files.as_ref().is_some_and(|files| {
+                files.iter().any(|(path, hash)| {
+                    path != "native.json" && hash == &factory.provider_execution_sha256
+                })
+            })
+        {
+            return Err(Error::msg(
+                "factory execution digest must identify retained execution evidence",
+            ));
+        }
         observations.insert(
             kind.into(),
             FileIdentity {
@@ -211,6 +280,7 @@ fn collect(
         format: 1,
         native,
         factory,
+        persistence,
         observations,
     };
     receipt.validate(manifest, release)?;
@@ -222,36 +292,60 @@ pub fn stamp(
     evidence: &Path,
 ) -> Result<DockerQualification, Error> {
     let receipt = collect(manifest, release, evidence)?;
-    let bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| refused())?;
-    crate::buildx::write_new(
-        release
-            .join("docker-qualification.json")
-            .to_str()
-            .ok_or_else(refused)?,
-        &bytes,
-        0o600,
-    )?;
-    let locator = serde_json::to_vec(&EvidenceInput {
-        directory: std::fs::canonicalize(evidence).map_err(|_| refused())?,
-    })
-    .map_err(|_| refused())?;
-    crate::buildx::write_new(
-        release
-            .join("qualification-evidence.json")
-            .to_str()
-            .ok_or_else(refused)?,
-        &locator,
-        0o600,
-    )?;
+    let destination = release.join("docker-qualification.json");
+    if destination.exists() {
+        if verify(manifest, release)? != receipt {
+            return Err(refused());
+        }
+        return Ok(receipt);
+    }
+    // Receipt and private locator commit together. An interrupted write cannot
+    // leave a success receipt without its original evidence location.
+    let retained = RetainedQualification {
+        qualification: receipt.clone(),
+        evidence_directory: std::fs::canonicalize(evidence).map_err(|_| refused())?,
+    };
+    let bytes = serde_json::to_vec_pretty(&retained).map_err(|_| refused())?;
+    let mut file = tempfile::NamedTempFile::new_in(release).map_err(|_| refused())?;
+    file.write_all(&bytes).map_err(|_| refused())?;
+    file.as_file().sync_all().map_err(|_| refused())?;
+    file.persist_noclobber(&destination)
+        .map_err(|_| refused())?;
     Ok(receipt)
 }
 pub(super) fn verify(manifest: &Manifest, release: &Path) -> Result<DockerQualification, Error> {
-    let expected: DockerQualification =
+    let expected: RetainedQualification =
         assets::read_json(&release.join("docker-qualification.json"))?;
-    let evidence: EvidenceInput = assets::read_json(&release.join("qualification-evidence.json"))?;
-    let observed = collect(manifest, release, &evidence.directory)?;
-    if expected != observed {
+    let observed = collect(manifest, release, &expected.evidence_directory)?;
+    if expected.qualification != observed {
         return Err(refused());
     }
     Ok(observed)
+}
+
+pub(super) fn evidence(release: &Path) -> Result<PathBuf, Error> {
+    let retained: RetainedQualification =
+        assets::read_json(&release.join("docker-qualification.json"))?;
+    Ok(retained.evidence_directory)
+}
+
+pub(super) fn validate_publication_time(
+    manifest: &Manifest,
+    release: &Path,
+    evidence: &Path,
+    published_at: &str,
+) -> Result<(), Error> {
+    collect(manifest, release, evidence)?;
+    let published = soda_wire_time::parse_nanos(published_at).ok_or_else(refused)?;
+    let file = evidence.join("installation/observation.json");
+    let (observation, _) =
+        soda_acceptance::report::read_observation(file.to_str().ok_or_else(refused)?)
+            .map_err(|_| refused())?;
+    let started = soda_wire_time::parse_nanos(&observation.started).ok_or_else(refused)?;
+    if started < published {
+        return Err(Error::msg(
+            "Docker qualification must start after immutable release publication",
+        ));
+    }
+    Ok(())
 }

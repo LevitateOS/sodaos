@@ -275,6 +275,7 @@ pub fn prepare(
         .to_str()
         .ok_or_else(|| failure("invalid candidate path"))?;
     let (payload, c, _) = crate::admission::load_admitted_candidate(candidate_path)?;
+    admit_build(candidate, &payload, &c, distribution, tag)?;
     let media = if distribution != Distribution::Docker {
         Some(admit_media(&media_path, &payload, &c, tag)?)
     } else {
@@ -426,13 +427,7 @@ pub fn prepare(
         &bytes,
         0o600,
     )?;
-    let mut sums: Vec<Asset> = manifest.assets.clone();
-    sums.push(inspect(&out.join("release.json"), "release.json")?);
-    let checksums = sums
-        .iter()
-        .map(|a| format!("{}  {}\n", a.sha256, a.name))
-        .collect::<String>();
-    fs::write(out.join("SHA256SUMS"), checksums).map_err(|_| failure("cannot write checksums"))?;
+    write_checksums(&manifest, out)?;
     Ok(manifest)
 }
 pub(super) fn inventory(manifest: &Manifest, directory: &Path) -> Result<Vec<Asset>, Error> {
@@ -451,10 +446,86 @@ pub(super) fn inventory(manifest: &Manifest, directory: &Path) -> Result<Vec<Ass
             return Err(failure("prepared Docker metadata changed"));
         }
     }
-    for name in ["release.json", "SHA256SUMS"] {
-        assets.push(inspect(&directory.join(name), name)?);
+    assets.push(inspect(&directory.join("release.json"), "release.json")?);
+    let checksums = crate::document::read_file(
+        directory
+            .join("SHA256SUMS")
+            .to_str()
+            .ok_or_else(Error::refused)?,
+        64 << 10,
+    )?;
+    if checksums != checksums_text(&assets).as_bytes() {
+        return Err(failure(
+            "prepared release checksums differ from actual assets",
+        ));
     }
+    assets.push(inspect(&directory.join("SHA256SUMS"), "SHA256SUMS")?);
     Ok(assets)
+}
+
+fn checksums_text(assets: &[Asset]) -> String {
+    assets
+        .iter()
+        .map(|asset| format!("{}  {}\n", asset.sha256, asset.name))
+        .collect()
+}
+
+pub(super) fn write_checksums(manifest: &Manifest, directory: &Path) -> Result<(), Error> {
+    let mut assets = manifest.assets.clone();
+    assets.push(inspect(&directory.join("release.json"), "release.json")?);
+    fs::write(directory.join("SHA256SUMS"), checksums_text(&assets))
+        .map_err(|_| failure("cannot write checksums"))
+}
+
+fn admit_build(
+    directory: &Path,
+    payload: &crate::payload::Payload,
+    candidate: &crate::model::Candidate,
+    distribution: Distribution,
+    tag: &str,
+) -> Result<(), Error> {
+    let evidence = directory.join("../evidence");
+    let bytes = crate::document::read_file(
+        evidence
+            .join("build.json")
+            .to_str()
+            .ok_or_else(Error::refused)?,
+        1 << 20,
+    )?;
+    let completion: soda_build_tools::reader::build::BuildCompletion =
+        read_json(&evidence.join("completed.json"))?;
+    if completion.build_sha256 != crate::hash_bytes(&bytes)[7..] {
+        return Err(failure(
+            "successful controller completion for the unchanged producer result required",
+        ));
+    }
+    let result: soda_build_tools::reader::build::BuildResult = crate::json_serde::strict(&bytes)?;
+    let (selected, completed) = match distribution {
+        Distribution::Appliance => ("appliance", "media"),
+        Distribution::Docker => ("docker", "docker"),
+        Distribution::All => ("all", "all"),
+    };
+    let actual = inspect(&directory.join("candidate.json"), "candidate.json")?;
+    if result.purpose != "production"
+        || result.requested_target != "release"
+        || result.completed_target != completed
+        || result.distribution != selected
+        || result.revision != payload.revision
+        || result.architecture != "x86_64"
+        || result.host_manifest != candidate.host.manifest
+        || result.payload_sha256 != candidate.payload_sha256
+        || result.candidate_sha256 != actual.sha256
+        || result.checks.is_empty()
+        || (distribution != Distribution::Appliance && result.release_tag != tag)
+        || (distribution == Distribution::Appliance
+            && !result.release_tag.is_empty()
+            && result.release_tag != tag)
+    {
+        return Err(failure(
+            "completed production build for this exact distribution and candidate required",
+        ));
+    }
+    Ok(())
 }
 
 fn admit_media(

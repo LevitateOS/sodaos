@@ -193,8 +193,40 @@ fn independent_verification_never_repeats_upload() {
         .all(|args| args[0] == "inspect" && args.contains(&"--no-creds".into())));
 }
 
+#[test]
+fn registry_verification_finishes_partial_receipt_and_is_repeatable() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let metadata = record(fixture.path(), &fixture.request).unwrap();
+    let out = fixture.dir.path().join("publication");
+    std::fs::create_dir(&out).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&out, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let raw = readback(&fixture, &metadata).remove(0).unwrap();
+    crate::buildx::write_new(
+        out.join("public-manifest.json").to_str().unwrap(),
+        &raw,
+        0o600,
+    )
+    .unwrap();
+    for _ in 0..2 {
+        let registry = Commands::new(readback(&fixture, &metadata), "");
+        registry::verify(&ci(&metadata, true), &registry, fixture.dir.path(), &out).unwrap();
+        assert!(registry
+            .calls
+            .borrow()
+            .iter()
+            .all(|args| args[0] == "inspect"));
+    }
+    let receipt = std::fs::read(out.join("registry.json")).unwrap();
+    std::fs::write(out.join("public-manifest.json"), b"different").unwrap();
+    let registry = Commands::new(readback(&fixture, &metadata), "");
+    assert!(registry::verify(&ci(&metadata, true), &registry, fixture.dir.path(), &out).is_err());
+    assert_eq!(std::fs::read(out.join("registry.json")).unwrap(), receipt);
+}
+
 fn prepared(fixture: &Fixture) -> (std::path::PathBuf, crate::publish::Manifest, DockerMetadata) {
     let metadata = record(fixture.path(), &fixture.request).unwrap();
+    fixture.completion(&metadata);
     let root = fixture.dir.path();
     std::fs::create_dir(root.join("forgejo-context")).unwrap();
     for (name, body) in [
@@ -239,8 +271,9 @@ fn evidence(
     std::fs::create_dir(root.join("downloads")).unwrap();
     let payload: Payload =
         serde_json::from_slice(&std::fs::read(output.join("payload.json")).unwrap()).unwrap();
-    let native = json!({"target":"soda-qualification","tag":manifest.tag,"registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"compose_sha256":metadata.compose.sha256,"candidate_sha256":metadata.candidate_sha256,"payload_sha256":metadata.payload_sha256,"soda_revision":metadata.soda_revision,"forgejo_revision":metadata.forgejo_revision,"application_configs":payload.images.iter().map(|(name,image)|(name.clone(),image.config.clone())).collect::<BTreeMap<_,_>>(),"os":"linux","architecture":"x86_64","rootful":true,"cgroup_version":2,"host_network":true,"fresh_volumes":true,"outer_before":"a".repeat(64),"outer_after":"b".repeat(64),"project_before":"c".repeat(64),"project_after":"c".repeat(64),"protected_before_sha256":"d".repeat(64),"protected_after_sha256":"d".repeat(64)});
-    let factory = json!({"provider_execution_sha256":"e".repeat(64),"repository_id":1,"issue_id":2,"pull_request_id":3,"coder_actor":4,"reviewer_actor":5,"reviewed_head":"f".repeat(40),"merged_candidate_head":"f".repeat(40),"required_checks":{"CI":"success"},"elapsed_ms":1000,"funding_limit_ms":2000});
+    let native = json!({"target":"soda-qualification","tag":manifest.tag,"registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"compose_sha256":metadata.compose.sha256,"candidate_sha256":metadata.candidate_sha256,"payload_sha256":metadata.payload_sha256,"soda_revision":metadata.soda_revision,"forgejo_revision":metadata.forgejo_revision,"application_configs":payload.images.iter().map(|(name,image)|(name.clone(),image.config.clone())).collect::<BTreeMap<_,_>>(),"os":"linux","architecture":"x86_64","rootful":true,"cgroup_version":2,"host_network":true,"fresh_volumes":true,"outer_id":"a".repeat(64)});
+    let persistence = json!({"target":"soda-qualification","registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"outer_before":"a".repeat(64),"outer_after":"b".repeat(64),"project_before":"c".repeat(64),"project_after":"c".repeat(64),"protected_before_sha256":"d".repeat(64),"protected_after_sha256":"d".repeat(64)});
+    let factory = json!({"provider_execution_sha256":identity(b"native observation").sha256,"repository_id":1,"issue_id":2,"pull_request_id":3,"coder_actor":4,"reviewer_actor":5,"reviewed_head":"f".repeat(40),"merged_candidate_head":"f".repeat(40),"required_checks":{"CI":"success"},"elapsed_ms":1000,"funding_limit_ms":2000});
     let artifacts = manifest
         .assets
         .iter()
@@ -270,17 +303,20 @@ fn evidence(
         )
         .unwrap();
     }
-    for kind in ["installation", "browser_project", "factory", "persistence"] {
+    for (index, kind) in ["installation", "browser_project", "factory", "persistence"]
+        .into_iter()
+        .enumerate()
+    {
         let folder = root.join(kind);
         std::fs::create_dir(&folder).unwrap();
         let mut files = BTreeMap::new();
         std::fs::write(folder.join("stdout.txt"), b"native observation").unwrap();
         files.insert("stdout.txt".into(), identity(b"native observation").sha256);
-        if matches!(kind, "installation" | "factory") {
-            let body = serde_json::to_vec(if kind == "installation" {
-                &native
-            } else {
-                &factory
+        if kind != "browser_project" {
+            let body = serde_json::to_vec(match kind {
+                "installation" => &native,
+                "factory" => &factory,
+                _ => &persistence,
             })
             .unwrap();
             std::fs::write(folder.join("native.json"), &body).unwrap();
@@ -294,14 +330,15 @@ fn evidence(
             target: "soda-qualification".into(),
             client_platform: "linux/amd64".into(),
             action: "exec".into(),
+            invocation: Some(vec!["native-check".into(), kind.into()]),
             outcome: "completed".into(),
             execution: "completed".into(),
             evidence: "completed".into(),
             exit_code: Some(0),
             files: Some(files),
             artifacts: Some(artifacts.clone()),
-            started: "2026-10-14T00:00:00Z".into(),
-            finished: "2026-10-14T00:00:01Z".into(),
+            started: format!("2026-10-14T00:00:{:02}Z", index * 2),
+            finished: format!("2026-10-14T00:00:{:02}Z", index * 2 + 1),
             ..Default::default()
         };
         std::fs::write(
@@ -326,7 +363,7 @@ fn remote(
             sha256: identity(&body).sha256,
         });
     }
-    Ok(serde_json::to_vec(&json!({"id":17,"tag_name":manifest.tag,"draft":false,"prerelease":prerelease,"immutable":true,"assets":assets.iter().map(|asset|json!({"name":asset.name,"size":asset.bytes,"digest":format!("sha256:{}",asset.sha256),"state":"uploaded"})).collect::<Vec<_>>()})).unwrap())
+    Ok(serde_json::to_vec(&json!({"id":17,"tag_name":manifest.tag,"draft":false,"prerelease":prerelease,"immutable":true,"published_at":"2026-10-13T00:00:00Z","assets":assets.iter().map(|asset|json!({"name":asset.name,"size":asset.bytes,"digest":format!("sha256:{}",asset.sha256),"state":"uploaded"})).collect::<Vec<_>>()})).unwrap())
 }
 fn promotion_gh(
     metadata: &DockerMetadata,
@@ -399,6 +436,53 @@ fn qualified_docker_promotes_only_verified_digest_and_keeps_appliance_latest() {
         .iter()
         .any(|args| args.contains(&"--latest=false".into())));
     assert!(output.join("promotion-complete.json").exists());
+}
+
+#[test]
+fn docker_promotion_preserves_an_absent_appliance_recommendation() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, manifest, metadata) = prepared(&fixture);
+    let root = evidence(&fixture, &output, &manifest, &metadata);
+    crate::publish::qualification::stamp(&manifest, &output, &root).unwrap();
+    let mut responses = readback(&fixture, &metadata);
+    responses.extend([Ok(vec![]), readback(&fixture, &metadata).remove(0)]);
+    let registry = Commands::new(responses, &metadata.image.manifest);
+    let gh = promotion_gh(&metadata, &manifest, &output, false);
+    for reply in gh.replies.borrow_mut().iter_mut() {
+        if reply
+            .as_ref()
+            .is_ok_and(|bytes| String::from_utf8_lossy(bytes).contains("v0.0.1"))
+        {
+            *reply = Err(Error::msg("GitHub resource not found"));
+        }
+    }
+    crate::publish::promote(&gh, &registry, &output, Some(&auth(fixture.dir.path()))).unwrap();
+    assert!(output.join("promotion-complete.json").exists());
+}
+
+#[test]
+fn docker_promotion_refuses_observations_from_before_publication() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, manifest, metadata) = prepared(&fixture);
+    let root = evidence(&fixture, &output, &manifest, &metadata);
+    crate::publish::qualification::stamp(&manifest, &output, &root).unwrap();
+    let gh = promotion_gh(&metadata, &manifest, &output, false);
+    for reply in gh.replies.borrow_mut().iter_mut() {
+        if let Ok(bytes) = reply {
+            if let Ok(mut value) = serde_json::from_slice::<Value>(bytes) {
+                if value.get("published_at").is_some() {
+                    value["published_at"] = json!("2026-10-15T00:00:00Z");
+                    *bytes = serde_json::to_vec(&value).unwrap();
+                }
+            }
+        }
+    }
+    let registry = Commands::new(vec![], "");
+    assert!(
+        crate::publish::promote(&gh, &registry, &output, Some(&auth(fixture.dir.path()))).is_err()
+    );
+    assert!(registry.calls.borrow().is_empty());
+    assert!(!output.join("promotion-started.json").exists());
 }
 #[test]
 fn changed_evidence_and_half_qualified_all_refuse_before_remote_mutation() {
@@ -551,4 +635,200 @@ fn status_reports_partial_registry_readback_without_mutation() {
         .borrow()
         .iter()
         .all(|args| args[0] == "api" || args[1] == "view"));
+}
+
+#[test]
+fn status_refuses_qualification_from_before_immutable_publication() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, manifest, metadata) = prepared(&fixture);
+    let evidence = evidence(&fixture, &output, &manifest, &metadata);
+    crate::publish::qualification::stamp(&manifest, &output, &evidence).unwrap();
+    let mut release: Value =
+        serde_json::from_slice(&remote(&manifest, &output, true).unwrap()).unwrap();
+    release["published_at"] = json!("2026-10-15T00:00:00Z");
+    let mut replies = ci(&metadata, true).replies.into_inner();
+    replies.pop_back();
+    replies.extend([
+        Ok(b"{\"databaseId\":17}".to_vec()),
+        Ok(serde_json::to_vec(&release).unwrap()),
+        Ok(serde_json::to_vec(&json!({"ref":format!("refs/tags/{}",metadata.release_tag),"object":{"type":"commit","sha":metadata.soda_revision}})).unwrap()),
+        Ok(vec![]),
+        Err(Error::msg("GitHub resource not found")),
+    ]);
+    let gh = Commands::new(replies.into(), "");
+    let mut replies = readback(&fixture, &metadata);
+    replies.push(readback(&fixture, &metadata).remove(0));
+    let registry = Commands::new(replies, "");
+    let report = crate::publish::status(&gh, &registry, &output).unwrap();
+    assert_eq!(report["docker_qualified"], false);
+    assert_eq!(report["next_action"], "qualify");
+    assert!(gh.replies.borrow().is_empty());
+    assert!(registry
+        .calls
+        .borrow()
+        .iter()
+        .all(|args| args[0] == "inspect"));
+}
+
+#[test]
+fn qualification_rejects_missing_stale_or_reordered_driver_records() {
+    for (phase, key, value) in [
+        ("installation", "ToolRevision", json!("unknown")),
+        ("installation", "Invocation", Value::Null),
+        ("installation", "Started", Value::Null),
+        ("browser_project", "Started", json!("2026-10-14T00:00:00Z")),
+        ("factory", "Finished", json!("2026-10-13T00:00:00Z")),
+        ("persistence", "Finished", json!("2099-01-01T00:00:00Z")),
+    ] {
+        let fixture = Fixture::new(BuildPurpose::Production);
+        let (output, manifest, metadata) = prepared(&fixture);
+        let root = evidence(&fixture, &output, &manifest, &metadata);
+        let file = root.join(phase).join("observation.json");
+        let mut observation: Value =
+            serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        observation[key] = value;
+        std::fs::write(file, serde_json::to_vec(&observation).unwrap()).unwrap();
+        assert!(
+            crate::publish::qualification::stamp(&manifest, &output, &root).is_err(),
+            "{phase}/{key}"
+        );
+        assert!(!output.join("docker-qualification.json").exists());
+    }
+}
+
+#[test]
+fn qualification_requires_retained_execution_and_persistence_readbacks() {
+    for phase in ["factory", "persistence"] {
+        let fixture = Fixture::new(BuildPurpose::Production);
+        let (output, manifest, metadata) = prepared(&fixture);
+        let root = evidence(&fixture, &output, &manifest, &metadata);
+        let file = root.join(phase).join("native.json");
+        let mut native: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        if phase == "factory" {
+            native["provider_execution_sha256"] = json!("e".repeat(64));
+        } else {
+            native["outer_before"] = json!("e".repeat(64));
+        }
+        let bytes = serde_json::to_vec(&native).unwrap();
+        std::fs::write(&file, &bytes).unwrap();
+        let file = root.join(phase).join("observation.json");
+        let mut observation: Value =
+            serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        observation["Files"]["native.json"] = json!(identity(&bytes).sha256);
+        std::fs::write(file, serde_json::to_vec(&observation).unwrap()).unwrap();
+        assert!(
+            crate::publish::qualification::stamp(&manifest, &output, &root).is_err(),
+            "{phase}"
+        );
+        assert!(!output.join("docker-qualification.json").exists());
+    }
+}
+
+#[test]
+fn qualification_atomically_records_original_evidence_and_rechecks_downloads() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, manifest, metadata) = prepared(&fixture);
+    let root = evidence(&fixture, &output, &manifest, &metadata);
+    let expected = crate::publish::qualification::stamp(&manifest, &output, &root).unwrap();
+    assert_eq!(
+        crate::publish::qualification::stamp(&manifest, &output, &root).unwrap(),
+        expected
+    );
+    let receipt = std::fs::read(output.join("docker-qualification.json")).unwrap();
+    let retained: Value = serde_json::from_slice(&receipt).unwrap();
+    assert_eq!(
+        retained["evidence_directory"],
+        json!(root.canonicalize().unwrap())
+    );
+    assert!(!output.join("qualification-evidence.json").exists());
+    std::fs::write(
+        root.join("downloads/sodaos-docker-compose.yaml"),
+        b"changed compose",
+    )
+    .unwrap();
+    assert!(crate::publish::qualification::stamp(&manifest, &output, &root).is_err());
+    assert_eq!(
+        std::fs::read(output.join("docker-qualification.json")).unwrap(),
+        receipt
+    );
+}
+
+#[test]
+fn preparation_requires_completed_exact_production_build_and_valid_checksums() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, _, _) = prepared(&fixture);
+    let receipt = fixture
+        .dir
+        .path()
+        .parent()
+        .unwrap()
+        .join("evidence/build.json");
+    let original = std::fs::read(&receipt).unwrap();
+    let completion = receipt.parent().unwrap().join("completed.json");
+    let completed = std::fs::read(&completion).unwrap();
+    for (field, value) in [
+        ("Purpose", "development"),
+        ("RequestedTarget", "docker"),
+        ("CompletedTarget", "candidate"),
+        ("Distribution", "all"),
+        ("CandidateSHA256", "changed"),
+    ] {
+        let mut result: Value = serde_json::from_slice(&original).unwrap();
+        result[field] = json!(value);
+        let bytes = serde_json::to_vec(&result).unwrap();
+        std::fs::write(&receipt, &bytes).unwrap();
+        std::fs::write(
+            &completion,
+            serde_json::to_vec(&json!({"BuildSHA256":identity(&bytes).sha256})).unwrap(),
+        )
+        .unwrap();
+        let destination = fixture.dir.path().join("rejected");
+        assert!(
+            crate::publish::prepare(
+                fixture.dir.path(),
+                "v0.1.0",
+                Distribution::Docker,
+                &fixture.dir.path().join("notes.md"),
+                &destination
+            )
+            .is_err(),
+            "{field}"
+        );
+        assert!(!destination.exists());
+    }
+    std::fs::write(&receipt, &original).unwrap();
+    // A completed producer alone cannot relabel a failed controller run.
+    std::fs::remove_file(&completion).unwrap();
+    let destination = fixture.dir.path().join("missing-completion");
+    assert!(crate::publish::prepare(
+        fixture.dir.path(),
+        "v0.1.0",
+        Distribution::Docker,
+        &fixture.dir.path().join("notes.md"),
+        &destination
+    )
+    .is_err());
+    assert!(!destination.exists());
+    std::fs::write(&completion, br#"{"BuildSHA256":"changed"}"#).unwrap();
+    assert!(crate::publish::prepare(
+        fixture.dir.path(),
+        "v0.1.0",
+        Distribution::Docker,
+        &fixture.dir.path().join("notes.md"),
+        &destination
+    )
+    .is_err());
+    assert!(!destination.exists());
+    std::fs::write(&completion, completed).unwrap();
+    std::fs::remove_file(receipt).unwrap();
+    assert!(crate::publish::prepare(
+        fixture.dir.path(),
+        "v0.1.0",
+        Distribution::Docker,
+        &fixture.dir.path().join("notes.md"),
+        &fixture.dir.path().join("missing-result")
+    )
+    .is_err());
+    std::fs::write(output.join("SHA256SUMS"), b"changed checksums").unwrap();
+    assert!(crate::publish::assets::load(&output).is_err());
 }

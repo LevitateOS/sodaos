@@ -1979,6 +1979,7 @@ dependencies = [
  "soda-acceptance",
  "soda-build-tools",
  "soda-release-image",
+ "soda-wire-time",
  "tar",
  "tempfile",
 ]
@@ -2016,6 +2017,7 @@ dependencies = [
  "soda-release-image",
  "soda-wire-time",
  "tar",
+ "tempfile",
  "tokio",
  "url",
 ]

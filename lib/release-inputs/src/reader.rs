@@ -11,6 +11,7 @@
 //! `stream` records are the canonical Rust wire and validation owner for the
 //! controller-resolved live-input handoff consumed by the isolated build.
 
+pub mod build;
 pub mod forgejo;
 pub mod image;
 pub mod muse;

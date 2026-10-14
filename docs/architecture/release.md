@@ -42,11 +42,10 @@ in the GitHub release. Docker's runtime layers are delivered through GHCR rather
 than duplicated as a GitHub download. Source CI, artifact admission and deployment
 qualification are distinct gates. Development outputs cannot be staged or promoted.
 
-This is the target distribution contract. The implemented CLI and its current
-appliance-only completion boundaries remain described in
-[native support](../development/native-support.md#build-and-artifact-contract);
-the [Docker operator flow](../development/release.md#docker-release-operator-flow)
-defines the interfaces to implement.
+The implemented build and artifact boundaries are described in
+[native support](../development/native-support.md#build-and-artifact-contract).
+The [guided operator flow](../development/release.md#guided-release-operator-flow)
+connects preparation, publication, qualification and promotion for all targets.
 
 ## Public distribution
 

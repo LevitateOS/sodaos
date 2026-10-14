@@ -1,7 +1,5 @@
 //! `build.go`: pipeline request, result, and target admission.
 
-use serde::Serialize;
-
 use crate::error::Error;
 use crate::media;
 
@@ -24,42 +22,6 @@ pub struct Request {
     pub upgrade_from: String,
     pub distribution: String,
     pub release_tag: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-pub struct Result {
-    #[serde(rename = "Revision")]
-    pub revision: String,
-    #[serde(rename = "Architecture")]
-    pub architecture: String,
-    #[serde(rename = "Candidate")]
-    pub candidate: String,
-    #[serde(rename = "CandidateSHA256")]
-    pub candidate_sha256: String,
-    #[serde(rename = "HostManifest")]
-    pub host_manifest: String,
-    #[serde(rename = "PayloadSHA256")]
-    pub payload_sha256: String,
-    #[serde(rename = "Scope")]
-    pub scope: String,
-    #[serde(rename = "Media", skip_serializing_if = "String::is_empty")]
-    pub media: String,
-    #[serde(rename = "Purpose")]
-    pub purpose: String,
-    #[serde(rename = "RequestedTarget")]
-    pub requested_target: String,
-    #[serde(rename = "CompletedTarget")]
-    pub completed_target: String,
-    #[serde(rename = "Checks")]
-    pub checks: Vec<String>,
-    #[serde(rename = "MediaCompression", skip_serializing_if = "String::is_empty")]
-    pub media_compression: String,
-    #[serde(rename = "Distribution")]
-    pub distribution: String,
-    #[serde(rename = "ReleaseTag", skip_serializing_if = "String::is_empty")]
-    pub release_tag: String,
-    #[serde(rename = "Docker", skip_serializing_if = "String::is_empty")]
-    pub docker: String,
 }
 
 impl Request {
@@ -188,6 +150,7 @@ impl Request {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use soda_build_tools::reader::build::BuildResult;
 
     #[test]
     fn docker_and_all_require_versions_and_select_only_requested_packaging() {
@@ -348,18 +311,18 @@ mod tests {
     #[test]
     fn oracle_result_omits_empty_media_fields() {
         // Oracle: Go Result `json:",omitempty"` on Media/MediaCompression.
-        let result = Result {
+        let result = BuildResult {
             revision: "r".to_string(),
             checks: vec!["c".to_string()],
-            ..Result::default()
+            ..BuildResult::default()
         };
         let mut out = String::new();
         out.push_str(&serde_json::to_string(&result).expect("serialization to String cannot fail"));
         assert!(!out.contains("Media"));
-        let result = Result {
+        let result = BuildResult {
             media: "m".to_string(),
             media_compression: "fast".to_string(),
-            ..Result::default()
+            ..BuildResult::default()
         };
         let mut out = String::new();
         out.push_str(&serde_json::to_string(&result).expect("serialization to String cannot fail"));

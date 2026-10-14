@@ -1,5 +1,7 @@
 //! `build_record.go`: candidate content inventory + build receipts.
 
+use soda_build_tools::reader::build::BuildResult;
+
 use std::fs;
 
 use crate::error::Error;
@@ -136,8 +138,8 @@ pub fn write_content_inventory(context: &str, out: &str, native: &str) -> Result
 pub fn record_build_result(
     production: &dyn Production,
     request: &request::Request,
-) -> Result<request::Result, Error> {
-    let mut result = request::Result {
+) -> Result<BuildResult, Error> {
+    let mut result = BuildResult {
         revision: production.revision().to_string(),
         architecture: production.arch().to_string(),
         candidate: sys::join(&[production.out(), "candidate.json"]),
@@ -156,7 +158,7 @@ pub fn record_build_result(
         .into_iter()
         .map(|s| s.to_string())
         .collect(),
-        ..request::Result::default()
+        ..BuildResult::default()
     };
     let text = sys::read_json_build_text(&result.candidate)?;
     let candidate = model::Candidate::parse(&text)?;

@@ -57,6 +57,12 @@ pub(crate) fn command() -> Command {
             Arg::new("non-interactive")
                 .long("non-interactive")
                 .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("preflight")
+                .long("preflight")
+                .help("Check all release prerequisites without building or creating an attempt")
+                .action(ArgAction::SetTrue),
         );
     let qualify_upgrade = ["candidate", "evidence"].into_iter().fold(
         Command::new("qualify-upgrade")
@@ -127,6 +133,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         "qualify" => {
             let input = Path::new(get("input")?);
             let manifest = publish::assets::load(input).map_err(|error| error.to_string())?;
+            qualification_inputs(flags, manifest.distribution)?;
             if manifest.docker.is_some() {
                 publish::qualify_docker(
                     &publish::Gh,
@@ -175,6 +182,33 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         _ => Err("unknown release action".to_owned()),
     }
 }
+fn qualification_inputs(
+    flags: &clap::ArgMatches,
+    distribution: soda_release_deliver::model::Distribution,
+) -> Result<(), String> {
+    use soda_release_deliver::model::Distribution;
+    let mut required = Vec::new();
+    if distribution != Distribution::Appliance {
+        required.push("evidence");
+    }
+    if distribution != Distribution::Docker {
+        required.extend(["downloaded-iso", "observed-revision"]);
+    }
+    for name in required {
+        if flags
+            .get_one::<String>(name)
+            .is_none_or(|value| value.is_empty())
+        {
+            return Err(format!(
+                "--{name} required for the selected distribution before qualification"
+            ));
+        }
+    }
+    if distribution != Distribution::Docker && !flags.get_flag("smoke-passed") {
+        return Err("--smoke-passed required after the actual appliance installation smoke".into());
+    }
+    Ok(())
+}
 pub fn main() {
     if let Err(error) = run(std::env::args()) {
         eprintln!("{error}");
@@ -208,5 +242,42 @@ mod tests {
         assert!(command()
             .try_get_matches_from(["soda-release", "stage-docker"])
             .is_err());
+    }
+
+    #[test]
+    fn all_qualification_requires_both_targets_before_stamping_either() {
+        use soda_release_deliver::model::Distribution;
+        let parsed = command()
+            .try_get_matches_from([
+                "soda-release",
+                "qualify",
+                "--input",
+                "prepared",
+                "--evidence",
+                "observations",
+            ])
+            .unwrap();
+        let (_, flags) = parsed.subcommand().unwrap();
+        assert!(qualification_inputs(flags, Distribution::Docker).is_ok());
+        assert!(qualification_inputs(flags, Distribution::All)
+            .unwrap_err()
+            .contains("--downloaded-iso required"));
+        let parsed = command()
+            .try_get_matches_from([
+                "soda-release",
+                "qualify",
+                "--input",
+                "prepared",
+                "--evidence",
+                "observations",
+                "--downloaded-iso",
+                "download.iso",
+                "--observed-revision",
+                "revision",
+                "--smoke-passed",
+            ])
+            .unwrap();
+        let (_, flags) = parsed.subcommand().unwrap();
+        assert!(qualification_inputs(flags, Distribution::All).is_ok());
     }
 }

@@ -363,9 +363,23 @@ pub fn bind_build_source(r: &mut Request) -> Result<(), String> {
     }
     let source = std::env::current_dir().map_err(|e| e.to_string())?;
     let revision = controller_revision()?;
+    check_source_revision(&source.to_string_lossy(), &revision)?;
     r.source = source.to_string_lossy().into_owned();
     r.revision = revision;
     bind_forgejo_source(r)
+}
+
+/// Apply the producer's exact source admission before any worker dispatch or
+/// preflight success. An old admitted executable cannot select its own revision
+/// while the configured checkout has moved or contains uncommitted changes.
+pub(crate) fn check_source_revision(source: &str, revision: &str) -> Result<(), String> {
+    use soda_release_image::build_runner::{Cancel, Runner};
+    use soda_release_image::build_source::{verify_checkout_source, verify_committed_revision};
+
+    let runner = Runner::new(std::rc::Rc::new(Cancel::new()));
+    let source = verify_checkout_source(source, &runner).map_err(|error| error.0)?;
+    verify_committed_revision(&source, revision, &runner).map_err(|error| error.0)?;
+    Ok(())
 }
 
 pub fn print_build_artifacts(candidate: &str, media: &str, docker: &str, scope: &str) {
@@ -459,6 +473,14 @@ pub fn run() -> Result<(), ToolError> {
     } else if let Err(e) = run_parent_build(&f.worker_config, &f.request, &mut progress) {
         err = Some(map_worker_error(e));
     }
+    finish_build(&f, &mut progress, err)
+}
+
+pub(crate) fn finish_build(
+    flags: &BuildFlags,
+    progress: &mut BuildProgress,
+    mut err: Option<ToolError>,
+) -> Result<(), ToolError> {
     if err.is_none() {
         err = take_interrupt().map(ToolError::Interrupted);
     }
@@ -467,10 +489,37 @@ pub fn run() -> Result<(), ToolError> {
             err = Some(ToolError::msg(e));
         }
     }
+    if err.is_none() {
+        err = take_interrupt().map(ToolError::Interrupted);
+    }
     match err {
         Some(e) => Err(e),
-        None => Ok(()),
+        None if flags.worker_build => Ok(()),
+        None => record_build_completion(&flags.request.out),
     }
+}
+
+fn record_build_completion(out: &str) -> Result<(), ToolError> {
+    use soda_build_tools::reader::build::BuildCompletion;
+
+    let evidence = std::path::Path::new(out).join("evidence");
+    let build_sha256 = crate::digest::hash_file(&evidence.join("build.json").to_string_lossy())
+        .map_err(ToolError::msg)?;
+    let bytes = serde_json::to_vec(&BuildCompletion { build_sha256 })
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    // Commit only after the worker's terminal state, cleanup and controller
+    // progress succeed. An interrupted write cannot masquerade as completion.
+    let mut file = tempfile::NamedTempFile::new_in(&evidence)
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    file.write_all(&bytes)
+        .and_then(|_| file.as_file().sync_all())
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    if let Some(interrupt) = take_interrupt() {
+        return Err(ToolError::Interrupted(interrupt));
+    }
+    file.persist_noclobber(evidence.join("completed.json"))
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    Ok(())
 }
 
 pub fn main() {
