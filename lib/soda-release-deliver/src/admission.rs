@@ -5,9 +5,7 @@ use crate::model::Candidate;
 use crate::payload::Payload;
 use crate::Error;
 
-pub(crate) fn load_admitted_candidate(
-    candidate: &str,
-) -> Result<(Payload, Candidate, Vec<u8>), Error> {
+pub fn load_admitted_candidate(candidate: &str) -> Result<(Payload, Candidate, Vec<u8>), Error> {
     let root = Root::open(candidate)?;
     let payload = read_at(&root, "payload.json", 1 << 20)?;
     let raw = read_at(&root, "candidate.json", 1 << 20)?;

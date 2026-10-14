@@ -20,12 +20,13 @@ Each source-to-target pair requires its own native qualification receipt.
 
 ## Docker release operator flow
 
-This section defines the **target interface to implement**, not commands already
-available. Today `soda-build` has development `candidate`/`media` boundaries and
-produces appliance media for production; `soda-release prepare`, `stage` and
-`promote` require appliance media. Docker packaging is currently the manual
-[builder procedure](../guides/docker.md#build-the-runtime-image). Adding these
-interfaces does not imply that any Docker image is published or qualified.
+The guided operator and publishing commands below define the **target interface
+to implement**. `soda-build` already packages `appliance`, `docker` or `all` and
+supports development `candidate`, `media` and `docker` boundaries; the
+[builder procedure](../guides/docker.md#build-the-runtime-image) describes its
+implemented Docker path. `soda-release prepare`, `stage` and `promote` still
+require appliance media. Build outputs do not imply that any Docker image is
+published or qualified.
 The [release architecture](../architecture/release.md#distribution-targets)
 owns distribution identities and qualification requirements.
 
@@ -47,10 +48,10 @@ visibility/access blockers. New GHCR packages default to private; first-time
 publication cannot complete staging until anonymous digest pulls succeed.
 Never infer publication access from a successful source CI run or registry name.
 
-Implementation and its local builds use the task's worktree. Extend worker
-admission to accept a clean, exact-revision linked Git worktree: resolve its Git
-metadata/common directory read-only, archive the selected worktree revision,
-and keep writable outputs, build cache and temporary state below that worktree's
+Implementation and its local builds use the task's worktree. Worker admission
+accepts a clean, exact-revision linked Git worktree: it binds its Git common
+directory read-only and archives the selected worktree revision. Its admitted
+configuration must keep writable outputs, build cache and temporary state below that worktree's
 `.artifacts/`. Do not redirect a build to the canonical checkout to work around
 current admission. Release production still requires that exact revision to
 have passed `main` push CI. Worker admission is an existing prerequisite; `start`
@@ -78,7 +79,7 @@ build engine. A failed build remains failed and retains its diagnostics.
 
 ### Build and artifact handoff
 
-Add `--distribution appliance|docker|all` to `soda-build`, defaulting to
+`soda-build` accepts `--distribution appliance|docker|all`, defaulting to
 `appliance` for its existing production callers. Keep `--target` as a development
 completion boundary, distinct from distribution selection. Docker/`all` builds
 also require `--release-tag`; `start` passes its selected tag to the builder so
@@ -103,7 +104,7 @@ its Fedora base and uses the Dockerfile from the same frozen source, consuming
 the verified candidate host archive without recompiling the Soda payload.
 The worker sees neither GitHub nor GHCR publication credentials.
 
-The proposed local artifact handoff is:
+The builder produces the following local Docker artifacts:
 
 | Artifact | Role |
 | --- | --- |

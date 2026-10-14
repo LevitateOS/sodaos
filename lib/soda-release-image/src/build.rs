@@ -100,7 +100,10 @@ pub fn extract_build_snapshot(
             "--same-permissions".to_string(),
         ],
     )?;
-    crate::canlang::carry_tools(std::path::Path::new(source), std::path::Path::new(&snapshot))?;
+    crate::canlang::carry_tools(
+        std::path::Path::new(source),
+        std::path::Path::new(&snapshot),
+    )?;
     Ok(snapshot)
 }
 
@@ -284,6 +287,9 @@ pub fn prepare_build_production(
         &request.live_inputs,
         production,
     )?;
+    if request.wants_docker() {
+        production.prepare_docker()?;
+    }
     next("P2 / Verify and install frozen dependencies")?;
     production.dependencies()?;
     let (tooling, assembler) = build_media::prepare_build_media(production, request)?;
@@ -324,7 +330,7 @@ pub fn execute_build_production(
         &request.upgrade_from,
         phase,
     )?;
-    build_media::finish_build_media(production, request, media_tooling, assembler, phase)?;
+    finish_build_packaging(production, request, media_tooling, assembler, phase)?;
     record::record_build_result(production, request)
 }
 
@@ -421,6 +427,9 @@ fn run_build_inner(
                 &request.live_inputs,
                 &mut *production,
             )?;
+            if request.wants_docker() {
+                production.prepare_docker()?;
+            }
             progress.phase("P2 / Verify and install frozen dependencies")?;
             production.dependencies()?;
             let (tooling, lock) = build_media::prepare_build_media(&*production, request)?;
@@ -457,7 +466,7 @@ fn run_build_inner(
             &request.upgrade_from,
             &mut |label| progress.phase(label),
         )?;
-        build_media::finish_build_media(
+        finish_build_packaging(
             &*production,
             request,
             &media_tooling,
@@ -470,4 +479,19 @@ fn run_build_inner(
         Ok(result) => finalize_build(progress, result, Ok(())),
         Err(e) => finalize_build(progress, request::Result::default(), Err(e)),
     }
+}
+
+/// Both distributions consume the single verified candidate unchanged.
+fn finish_build_packaging(
+    production: &dyn Production,
+    request: &request::Request,
+    tools: &build_media::MediaTools,
+    assembler: &mut media::MediaLock,
+    phase: &mut dyn FnMut(&str) -> Result<(), Error>,
+) -> Result<(), Error> {
+    if request.wants_docker() {
+        phase("Docker / Package and verify candidate payload")?;
+        production.build_docker(request)?;
+    }
+    build_media::finish_build_media(production, request, tools, assembler, phase)
 }

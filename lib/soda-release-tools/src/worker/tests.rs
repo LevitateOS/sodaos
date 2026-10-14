@@ -145,6 +145,117 @@ fn test_config() -> WorkerConfig {
 }
 
 #[test]
+fn docker_worker_has_no_media_custody_and_keeps_version_and_distribution() {
+    let c = test_config();
+    let r = Request {
+        source: c.source.clone(),
+        forgejo_source: c.forgejo_source.clone(),
+        out: format!("{}/docker", c.output_parent),
+        arch: "x86_64".into(),
+        distribution: "docker".into(),
+        release_tag: "v1.2.3".into(),
+        ..Request::default()
+    };
+    let w = build_worker(&c, &r).unwrap();
+    assert!(w
+        .arguments
+        .windows(2)
+        .any(|p| p == ["--distribution", "docker"]));
+    assert!(w
+        .arguments
+        .windows(2)
+        .any(|p| p == ["--release-tag", "v1.2.3"]));
+    assert!(!w.arguments.contains(&"--rootfs-base-url".into()));
+    assert!(!w.arguments.contains(&"--media-authority".into()));
+    assert!(w
+        .read_only
+        .iter()
+        .all(|bind| !bind.contains("authority") && !bind.contains("docker.sock")));
+    assert!(!worker_config_paths(&c, &r).contains(&c.media_authority_directory));
+}
+
+#[test]
+fn linked_source_worker_binds_git_metadata_read_only() {
+    let root = temp_dir("linked-source");
+    let canonical = root.join("canonical");
+    let linked = root.join("linked");
+    std::fs::create_dir(&canonical).unwrap();
+    let run_git = |args: &[&str]| {
+        assert!(std::process::Command::new("git")
+            .current_dir(&canonical)
+            .args(args)
+            .status()
+            .unwrap()
+            .success());
+    };
+    run_git(&["init", "-q"]);
+    run_git(&[
+        "-c",
+        "user.name=fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--allow-empty",
+        "-qm",
+        "fixture",
+    ]);
+    run_git(&[
+        "worktree",
+        "add",
+        "--quiet",
+        "--detach",
+        linked.to_str().unwrap(),
+    ]);
+    let mut c = test_config();
+    c.source = linked.to_string_lossy().into_owned();
+    c.output_parent = format!("{}/.artifacts/releases/isolated", c.source);
+    let r = Request {
+        source: c.source.clone(),
+        forgejo_source: c.forgejo_source.clone(),
+        out: format!("{}/linked", c.output_parent),
+        development: true,
+        target: "candidate".into(),
+        ..Request::default()
+    };
+    assert!(build_worker(&c, &r).is_err());
+    c.build_home = format!("{}/.artifacts/worker/home", c.source);
+    c.runtime = format!("{}/.artifacts/worker/run", c.source);
+    let w = build_worker(&c, &r).unwrap();
+    let common = canonical.join(".git").to_string_lossy().into_owned();
+    assert!(w.read_only.contains(&format!("{common}:{common}")));
+    assert!(w.writable.iter().all(|bind| !bind.contains(".git")));
+    let runner = soda_release_image::build_runner::Runner::new(std::rc::Rc::new(
+        soda_release_image::build_runner::Cancel::new(),
+    ));
+    assert_eq!(
+        soda_release_image::build_source::verify_checkout_source(&c.source, &runner).unwrap(),
+        c.source
+    );
+    assert!(
+        soda_release_image::build_source::verify_committed_revision(&c.source, "", &runner).is_ok()
+    );
+    // The worker remaps source while its marker retains the absolute metadata
+    // path. Git must discover the remapped source rather than the old location.
+    let remapped = root.join("remapped");
+    std::fs::create_dir(&remapped).unwrap();
+    std::fs::copy(linked.join(".git"), remapped.join(".git")).unwrap();
+    let remapped = remapped.to_string_lossy().into_owned();
+    assert_eq!(
+        soda_release_image::build_source::verify_checkout_source(&remapped, &runner).unwrap(),
+        remapped
+    );
+    assert!(
+        soda_release_image::build_source::verify_committed_revision(&remapped, "", &runner).is_ok()
+    );
+    std::fs::write(linked.join("dirty"), b"dirty").unwrap();
+    assert!(
+        soda_release_image::build_source::verify_committed_revision(&c.source, "", &runner)
+            .is_err()
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn development_worker_inputs_and_completion() {
     let c = test_config();
     for target in ["candidate", "media", ""] {
@@ -164,7 +275,9 @@ fn development_worker_inputs_and_completion() {
         let w = build_worker(&c, &r).unwrap();
         assert_eq!(w.user, "soda-build-worker");
         assert!(w.writable.contains(&"/storage/home/tmp:/tmp".to_owned()));
-        assert!(w.writable.contains(&"/storage/home/tmp:/var/tmp".to_owned()));
+        assert!(w
+            .writable
+            .contains(&"/storage/home/tmp:/var/tmp".to_owned()));
         assert!(w.environment.contains(&format!("TMPDIR={WORKER_HOME}/tmp")));
         assert!(w
             .read_only
@@ -413,6 +526,7 @@ fn worker_result_binds_target_and_candidate() {
         purpose: "development".to_owned(),
         requested_target: "candidate".to_owned(),
         completed_target: "candidate".to_owned(),
+        distribution: "appliance".to_owned(),
         ..ImageResult::default()
     };
     for mode in [

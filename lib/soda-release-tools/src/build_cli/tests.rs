@@ -7,6 +7,28 @@ fn flags(args: &[&str]) -> Result<BuildFlags, String> {
 }
 
 #[test]
+fn docker_build_flags_admit_the_packaging_boundary() {
+    let f = flags(&["--distribution", "docker", "--release-tag", "v1.2.3"]).unwrap();
+    assert!(f.request.wants_docker());
+    assert!(!f.request.wants_media());
+    assert_eq!(
+        progress_title(&f.request),
+        "Soda release docker build (not release-qualified)"
+    );
+    assert!(flags(&["--distribution", "docker"]).is_err());
+    assert!(flags(&[
+        "--development",
+        "--target",
+        "docker",
+        "--distribution",
+        "docker",
+        "--release-tag",
+        "v1.2.3"
+    ])
+    .is_ok());
+}
+
+#[test]
 fn prospective_upgrade_source_is_explicit_and_not_qualification() {
     let source = "43.20260101.3.0.soda-cccccccccccc";
     let parsed = flags(&[

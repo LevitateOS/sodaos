@@ -1,9 +1,10 @@
 # The release builder supplies the complete, verified appliance image. Soda
 # binaries and bundled application images are reused, never rebuilt here.
 ARG SODA_BASE_IMAGE=soda-appliance:build
+ARG BASE_IMAGE=registry.fedoraproject.org/fedora:44
 FROM ${SODA_BASE_IMAGE} AS appliance
 
-FROM registry.fedoraproject.org/fedora:44
+FROM ${BASE_IMAGE}
 COPY --from=appliance /etc/yum.repos.d/tailscale.repo /etc/yum.repos.d/tailscale.repo
 RUN dnf -y install systemd podman fuse-overlayfs iproute procps-ng \
     openssh-clients ca-certificates curl git gh nodejs tar gzip vim-minimal \

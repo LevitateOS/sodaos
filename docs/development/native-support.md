@@ -71,7 +71,7 @@ The disk installer verifies candidate media before writing, validates the explic
 [release contract](../architecture/release.md).
 Explicit [development targets](release.md)
 stop this same producer at the requested boundary; they never qualify a release.
-Build from committed canonical source with the pinned Go/Rust/Bun/native prerequisites.
+Build from a clean committed checkout (including an admitted linked worktree) with the pinned Go/Rust/Bun/native prerequisites.
 The public entry point now requires an operator-admitted, root-owned executable and
 restricted `--worker-config`; it does not install accounts, grant sudo or create a
 worker policy. Account/helper installation requires applicable task approval.
@@ -90,7 +90,7 @@ from its existing `deployed-tree` input. No extra stage mount or codec is used.
 Complete media, including both installer osmet records, must still fit the
 GitHub asset limit and pass the [release qualification](release.md).
 
-The configuration names `Executable`, canonical `Source`, the separate clean committed
+The configuration names `Executable`, exact checkout `Source`, the separate clean committed
 `ForgejoSource`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
 `MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
@@ -103,7 +103,7 @@ build scripts and proc macros inside that same sandbox. The executable and its
 parents are root-owned and not group/world writable, and its bytes must equal the
 running dispatcher. The internal `--worker-build` stage refuses other identities.
 
-The operator runs the admitted executable as root from the canonical checkout:
+The operator runs the admitted executable as root from the configured checkout:
 
 ```sh
 # Candidate-only development: no rootfs URL or media authority needed/mounted.
@@ -132,7 +132,12 @@ never admits workers, signs, or publishes, and has no production mode. Fixture-o
 media authority is not production signing authority; release delivery and
 publication remain separately owned and grant-scoped as below.
 
-Substitute the operator-admitted absolute paths and explicit URL. Omitting `--development` builds release-candidate media without publishing or installing.
+Substitute the operator-admitted absolute paths and explicit URL. Omitting
+`--development` builds the selected release packaging without publishing or
+installing. `--distribution` defaults to `appliance`; `docker` skips media
+authority and ISO/rootfs tooling, and `all` packages the same candidate for both.
+Docker packaging requires an explicit `--release-tag`; for `all`, the rootfs URL
+must name that same GitHub release tag. See the [Docker builder procedure](../guides/docker.md#build-the-runtime-image).
 Target flags select development boundaries, and candidate mode refuses media-only inputs. Development
 cannot select publication/final signing.
 Source commands run only inside the separate systemd worker:
@@ -152,7 +157,9 @@ The controller's VCS revision must match the clean checkout. The admitted source
 its committed Git objects must be readable by the isolated build identity; private
 untracked inputs are not source inputs and must not be made accessible to fix that.
 Each output is fresh;
-there is no worktree, partial-host mode, resume or skip-tests flag. The internal image-identity prefix defaults to `ghcr.io/levitateos/sodaos`; it does not
+linked worktrees bind their Git common directory read-only and require their
+admitted build home/runtime below their own `.artifacts/`. There is no
+partial-host mode, resume or skip-tests flag. The internal image-identity prefix defaults to `ghcr.io/levitateos/sodaos`; it does not
 create a registry dependency. User downloads are GitHub release assets. Source and app inputs freeze before compilation. Prepared
 source/browser suites no longer gate the build; they consume the same emitted
 assets when run directly. Native page/provider journeys still belong to their
@@ -247,10 +254,11 @@ provides the concrete commands. The Rust `soda-release` entry point in
 `lib/soda-release-tools` delegates to `lib/soda-release-deliver` and the native
 `gh` client. It does not build, install an image, change host trust or reboot.
 
-These are the implemented appliance interfaces. The
-[Docker release operator flow](release.md#docker-release-operator-flow) specifies
-the distribution selector, worktree admission and prepared-input commands to
-implement; those planned flags and subcommands are not available in this CLI yet.
+The builder implements distribution selection, Docker artifact verification and
+linked-worktree admission. The publisher interfaces below remain appliance-only.
+The [Docker release operator flow](release.md#docker-release-operator-flow)
+specifies the guided prepared-input, GHCR publication and qualification commands
+that still need implementation.
 
 | Operation | Inputs and effects |
 | --- | --- |

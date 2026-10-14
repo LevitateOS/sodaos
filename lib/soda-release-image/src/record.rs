@@ -143,6 +143,8 @@ pub fn record_build_result(
         candidate: sys::join(&[production.out(), "candidate.json"]),
         purpose: request.purpose(),
         requested_target: request.requested_target(),
+        distribution: request.distribution().to_string(),
+        release_tag: request.release_tag.clone(),
         completed_target: "candidate".to_string(),
         scope: "P1-P6 verified candidate; not a qualified release".to_string(),
         checks: [
@@ -178,6 +180,16 @@ pub fn record_build_result(
     if request.development {
         result.scope = "development-only; not release-qualified".to_string();
     }
+    if request.wants_docker() {
+        result.docker = sys::join(&[production.out(), "docker/docker.json"]);
+        result.checks.push(
+            "Docker OCI identity, candidate content, provenance and RPM inventory".to_string(),
+        );
+        if !request.development {
+            result.scope = "candidate-derived packaging; not a qualified release".to_string();
+        }
+    }
+    result.completed_target = request.completed_target().to_string();
     let mut data =
         serde_json::to_string_pretty(&result).expect("serialization to String cannot fail");
     data.push('\n');

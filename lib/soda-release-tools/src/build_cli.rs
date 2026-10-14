@@ -46,7 +46,15 @@ fn command(name: &str) -> ClapCommand {
         ))
         .arg(value(
             "target",
-            "development boundary: candidate or media (requires --development)",
+            "development boundary: candidate, media or docker (requires --development)",
+        ))
+        .arg(value(
+            "distribution",
+            "packaging: appliance (default), docker or all",
+        ))
+        .arg(value(
+            "release-tag",
+            "explicit Docker version tag; all must match the rootfs URL",
         ))
         .arg(value(
             "media-compression",
@@ -116,6 +124,14 @@ pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
             }
         })?;
     let request = Request {
+        distribution: matches
+            .get_one::<String>("distribution")
+            .cloned()
+            .unwrap_or_default(),
+        release_tag: matches
+            .get_one::<String>("release-tag")
+            .cloned()
+            .unwrap_or_default(),
         upgrade_from: matches
             .get_one::<String>("upgrade-from")
             .cloned()
@@ -241,6 +257,11 @@ pub fn watch_build_signals() {
 pub fn progress_title(r: &Request) -> String {
     if r.development {
         format!("Soda development {} (not release-qualified)", r.target)
+    } else if r.wants_docker() {
+        format!(
+            "Soda release {} build (not release-qualified)",
+            r.distribution()
+        )
     } else {
         "Soda release media build (not release-qualified)".to_owned()
     }
@@ -336,11 +357,14 @@ pub fn bind_build_source(r: &mut Request) -> Result<(), String> {
     bind_forgejo_source(r)
 }
 
-pub fn print_build_artifacts(candidate: &str, media: &str, scope: &str) {
+pub fn print_build_artifacts(candidate: &str, media: &str, docker: &str, scope: &str) {
     let mut stderr = std::io::stderr().lock();
     let _ = writeln!(stderr, "CANDIDATE {candidate}");
     if !media.is_empty() {
         let _ = writeln!(stderr, "MEDIA {media}");
+    }
+    if !docker.is_empty() {
+        let _ = writeln!(stderr, "DOCKER {docker}");
     }
     let _ = writeln!(stderr, "{scope}");
 }
@@ -355,7 +379,12 @@ pub fn run_parent_build(
     let config =
         worker::load_worker_config(worker_config_path, r).map_err(worker::WorkerError::Failed)?;
     let result = worker::run_build_worker(&config, r, progress)?;
-    print_build_artifacts(&result.candidate, &result.media, &result.scope);
+    print_build_artifacts(
+        &result.candidate,
+        &result.media,
+        &result.docker,
+        &result.scope,
+    );
     Ok(())
 }
 

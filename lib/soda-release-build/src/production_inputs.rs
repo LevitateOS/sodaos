@@ -67,7 +67,7 @@ impl Production {
         crate::files::chmod(&path, 0o600)
     }
 
-    fn pull_resolved_input(
+    pub(crate) fn pull_resolved_input(
         &self,
         reference: &str,
         iid_name: &str,

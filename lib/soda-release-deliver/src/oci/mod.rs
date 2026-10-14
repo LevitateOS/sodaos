@@ -94,6 +94,7 @@ pub struct InspectedContent {
     pub labels: BTreeMap<String, String>,
     /// Verified archive blobs, usable to check a copied shared OCI payload.
     pub blobs: BTreeMap<String, String>,
+    pub blob_sizes: BTreeMap<String, u64>,
 }
 
 /// Inspect an already-confined regular file without reopening its path.
@@ -103,12 +104,32 @@ pub fn inspect_oci_file_content(
     revision: &str,
     paths: &[String],
 ) -> Result<InspectedContent, Error> {
+    inspect_oci_file_content_with_limits(file, arch, revision, paths, &BTreeMap::new())
+}
+
+/// Larger members must have explicit limits derived from verified source blobs.
+/// All members still stream through the image-wide decoded-byte budget.
+pub fn inspect_oci_file_content_with_limits(
+    file: &mut std::fs::File,
+    arch: &str,
+    revision: &str,
+    paths: &[String],
+    limits: &BTreeMap<String, u64>,
+) -> Result<InspectedContent, Error> {
     let wanted = requested_oci_paths(paths)?;
+    let mut member_limits = BTreeMap::new();
+    for (path, limit) in limits {
+        if !paths.contains(path) || *limit > MAX_OCI_IMAGE_LAYER_BYTES || *limit == 0 {
+            return Err(Error::msg("invalid OCI member limit"));
+        }
+        member_limits.insert(path.trim_start_matches('/').to_owned(), *limit);
+    }
     let (mut inspected, manifest) = inspect_file_metadata(file, arch, revision)?;
     use std::io::Seek;
     file.rewind()
         .map_err(|error| Error::msg(error.to_string()))?;
-    let (layers, unsupported) = scan_oci_archive_layers(file, &manifest.layers, &wanted)?;
+    let (layers, unsupported) =
+        scan_oci_archive_layers(file, &manifest.layers, &wanted, &member_limits)?;
     inspected.content = resolve_oci_members(&layers, &unsupported, &wanted)?;
     Ok(inspected)
 }
@@ -149,6 +170,11 @@ fn inspect_file_metadata(
             content: BTreeMap::new(),
             labels,
             blobs,
+            blob_sizes: entries
+                .iter()
+                .filter(|(name, _)| name.starts_with("blobs/sha256/"))
+                .map(|(name, blob)| (name.clone(), blob.size as u64))
+                .collect(),
         },
         manifest,
     ))
@@ -160,6 +186,7 @@ fn scan_oci_archive_layers<R: Read>(
     reader: R,
     layers: &[Descriptor],
     wanted: &BTreeMap<String, String>,
+    member_limits: &BTreeMap<String, u64>,
 ) -> Result<LayerScan, Error> {
     let indexes = layer_archive_indexes(layers)?;
     let mut found: Vec<BTreeMap<String, LayerMember>> = Vec::new();
@@ -185,6 +212,7 @@ fn scan_oci_archive_layers<R: Read>(
             &layers[positions[0]],
             wanted,
             &mut decoded_total,
+            member_limits,
         )?;
         for position in positions {
             found[position] = members.clone();

@@ -73,6 +73,10 @@ RPM inventory, corresponding-source licenses/notices, Docker init/import overrid
 and the outer RPM inventory. It checks the shared layout's index against the source
 host and every embedded application manifest/config/layer blob against its
 hash-bound candidate OCI archive, reusing the existing bounded OCI reader.
+Copied blobs use member limits from those verified archives, including layers
+larger than the ordinary 512 MiB file limit. Ordinary file limits and the
+16 GiB total decoded-image budget still apply; compressed layers retain their
+separate 4 GiB budget.
 These are artifact checks; native service/browser/factory behavior still needs
 [Docker qualification](../../docs/architecture/release.md#docker-qualification).
 

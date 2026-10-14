@@ -238,6 +238,7 @@ fn record_layer_entry<R: Read>(
 fn scan_oci_layer_inner<R: Read + ?Sized>(
     reader: &mut R,
     wanted: &BTreeMap<String, String>,
+    member_limits: &BTreeMap<String, u64>,
 ) -> Result<BTreeMap<String, LayerMember>, Error> {
     let mut found: BTreeMap<String, LayerMember> = BTreeMap::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
@@ -262,7 +263,13 @@ fn scan_oci_layer_inner<R: Read + ?Sized>(
         let size = header
             .size()
             .map_err(|e| Error::msg(format!("read OCI layer: {e}")))?;
-        if wanted.contains_key(&name) && size > MAX_OCI_MEMBER_BYTES {
+        if wanted.contains_key(&name)
+            && size
+                > member_limits
+                    .get(&name)
+                    .copied()
+                    .unwrap_or(MAX_OCI_MEMBER_BYTES)
+        {
             return Err(Error::msg("OCI layer member limit exceeded"));
         }
         record_layer_entry(
@@ -296,6 +303,15 @@ pub fn scan_oci_layer_with_budget<R: Read + ?Sized>(
     wanted: &BTreeMap<String, String>,
     aggregate: &mut u64,
 ) -> Result<BTreeMap<String, LayerMember>, String> {
+    scan_oci_layer_with_limits(reader, wanted, aggregate, &BTreeMap::new())
+}
+
+fn scan_oci_layer_with_limits<R: Read + ?Sized>(
+    reader: &mut R,
+    wanted: &BTreeMap<String, String>,
+    aggregate: &mut u64,
+    member_limits: &BTreeMap<String, u64>,
+) -> Result<BTreeMap<String, LayerMember>, String> {
     let remaining = MAX_OCI_IMAGE_LAYER_BYTES
         .checked_sub(*aggregate)
         .ok_or_else(|| "OCI image decoded limit exceeded".to_string())?;
@@ -304,7 +320,7 @@ pub fn scan_oci_layer_with_budget<R: Read + ?Sized>(
         read: 0,
         limit: MAX_OCI_LAYER_BYTES.min(remaining),
     };
-    let found = scan_oci_layer_inner(&mut bounded, wanted).map_err(|e| e.0)?;
+    let found = scan_oci_layer_inner(&mut bounded, wanted, member_limits).map_err(|e| e.0)?;
     drain_tar_padding(&mut bounded)
         .map_err(|_| "OCI layer limit, trailing data, or stream error".to_string())?;
     *aggregate = (*aggregate)
@@ -330,7 +346,7 @@ pub(super) fn layer_archive_indexes(
                 return Err(Error::msg("conflicting OCI layer descriptors"));
             }
         }
-        if !seen.contains_key(&name) {
+        if !seen.contains_key(&name) && layer.media_type != LAYER_TAR {
             let size =
                 u64::try_from(layer.size).map_err(|_| Error::msg("invalid OCI layer size"))?;
             compressed_total = compressed_total
@@ -531,6 +547,7 @@ mod tests {
                 &descriptor,
                 &wanted,
                 &mut aggregate,
+                &BTreeMap::new(),
             )
             .unwrap();
             assert_eq!(unsupported, blocked);
@@ -604,6 +621,41 @@ mod tests {
         };
         assert!(scan_archive_layer(&mut &[][..], &oversized, &wanted).is_err());
     }
+
+    #[test]
+    fn recorded_blob_limits_preserve_regular_member_and_total_budgets() {
+        let wanted = BTreeMap::from([("blob".to_string(), "/blob".to_string())]);
+        let layer = tar_bytes("blob", b"data");
+        let limits = BTreeMap::from([("blob".to_string(), 3)]);
+        assert_eq!(
+            scan_oci_layer_with_limits(&mut &layer[..], &wanted, &mut 0, &limits).unwrap_err(),
+            "OCI layer member limit exceeded"
+        );
+        let limits = BTreeMap::from([("blob".to_string(), 4)]);
+        assert!(scan_oci_layer_with_limits(&mut &layer[..], &wanted, &mut 0, &limits).is_ok());
+        let mut exhausted = MAX_OCI_IMAGE_LAYER_BYTES;
+        assert!(
+            scan_oci_layer_with_limits(&mut &layer[..], &wanted, &mut exhausted, &limits).is_err()
+        );
+
+        let raw = Descriptor {
+            digest: format!("sha256:{}", "a".repeat(64)),
+            size: (MAX_OCI_IMAGE_COMPRESSED_BYTES + 1) as i64,
+            media_type: LAYER_TAR.into(),
+            ..Descriptor::default()
+        };
+        assert!(layer_archive_indexes(std::slice::from_ref(&raw)).is_ok());
+        let compressed = Descriptor {
+            media_type: LAYER_GZIP.into(),
+            ..raw.clone()
+        };
+        assert!(layer_archive_indexes(&[compressed]).is_err());
+        let too_big = Descriptor {
+            size: (MAX_OCI_IMAGE_LAYER_BYTES + 1) as i64,
+            ..raw
+        };
+        assert!(scan_archive_layer(&mut &[][..], &too_big, &wanted).is_err());
+    }
 }
 
 #[cfg(test)]
@@ -613,7 +665,7 @@ pub(super) fn scan_archive_layer<R: Read>(
     wanted: &BTreeMap<String, String>,
 ) -> Result<(BTreeMap<String, LayerMember>, bool), Error> {
     let mut aggregate = 0;
-    scan_archive_layer_with_budget(reader, descriptor, wanted, &mut aggregate)
+    scan_archive_layer_with_budget(reader, descriptor, wanted, &mut aggregate, &BTreeMap::new())
 }
 
 pub(super) fn scan_archive_layer_with_budget<R: Read>(
@@ -621,9 +673,17 @@ pub(super) fn scan_archive_layer_with_budget<R: Read>(
     descriptor: &Descriptor,
     wanted: &BTreeMap<String, String>,
     aggregate: &mut u64,
+    member_limits: &BTreeMap<String, u64>,
 ) -> Result<(BTreeMap<String, LayerMember>, bool), Error> {
     let changed = || Error::msg("OCI layer changed during member verification");
-    if descriptor.size < 0 || descriptor.size as u64 > MAX_OCI_LAYER_COMPRESSED_BYTES {
+    if descriptor.size < 0
+        || descriptor.size as u64
+            > if descriptor.media_type == LAYER_TAR {
+                MAX_OCI_LAYER_BYTES
+            } else {
+                MAX_OCI_LAYER_COMPRESSED_BYTES
+            }
+    {
         return Err(Error::msg("OCI layer compressed limit exceeded"));
     }
     let mut tee = TeeHasher {
@@ -646,10 +706,12 @@ pub(super) fn scan_archive_layer_with_budget<R: Read>(
         return Ok((BTreeMap::new(), true));
     }
     let members: BTreeMap<String, LayerMember> = match descriptor.media_type.as_str() {
-        LAYER_TAR => scan_oci_layer_with_budget(&mut tee, wanted, aggregate).map_err(Error::msg)?,
+        LAYER_TAR => scan_oci_layer_with_limits(&mut tee, wanted, aggregate, member_limits)
+            .map_err(Error::msg)?,
         LAYER_GZIP => {
             let mut gz = MultiGzDecoder::new(&mut tee);
-            scan_oci_layer_with_budget(&mut gz, wanted, aggregate).map_err(Error::msg)?
+            scan_oci_layer_with_limits(&mut gz, wanted, aggregate, member_limits)
+                .map_err(Error::msg)?
         }
         _ => return Err(Error::msg("unsupported OCI layer media type")),
     };

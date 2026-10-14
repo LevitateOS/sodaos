@@ -71,13 +71,7 @@ pub(super) fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), Err
     fs::write(path, bytes).map_err(|_| failure("cannot write release metadata"))
 }
 pub(crate) fn valid_tag(tag: &str) -> bool {
-    !tag.is_empty()
-        && tag.len() <= 128
-        && tag.as_bytes()[0].is_ascii_alphanumeric()
-        && tag
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
-        && !tag.contains("..")
+    soda_build_tools::reader::settings::release_tag(tag)
 }
 fn basename(name: &str) -> bool {
     !name.is_empty()

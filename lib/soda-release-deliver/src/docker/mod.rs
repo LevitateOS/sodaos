@@ -171,8 +171,14 @@ fn check_content(
     Ok(())
 }
 
-fn bundled_blobs(root: &Root, p: &Payload) -> Result<BTreeMap<String, String>, Error> {
+struct BundledBlobs {
+    content: BTreeMap<String, String>,
+    member_limits: BTreeMap<String, u64>,
+}
+
+fn bundled_blobs(root: &Root, p: &Payload) -> Result<BundledBlobs, Error> {
     let mut blobs = BTreeMap::new();
+    let mut limits = BTreeMap::new();
     for (name, expected) in &p.images {
         let path = format!("images/{name}.oci");
         if file_identity(root, &path)?.sha256 != expected.archive_sha256 {
@@ -189,10 +195,17 @@ fn bundled_blobs(root: &Root, p: &Payload) -> Result<BTreeMap<String, String>, E
             )));
         }
         for (path, hash) in observed.blobs {
+            limits.insert(
+                format!("/usr/share/soda/images/{path}"),
+                observed.blob_sizes[&path],
+            );
             blobs.insert(format!("/usr/share/soda/images/{path}"), hash);
         }
     }
-    Ok(blobs)
+    Ok(BundledBlobs {
+        content: blobs,
+        member_limits: limits,
+    })
 }
 
 fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerMetadata, Error> {
@@ -234,9 +247,17 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
     }
     let mut expected = runtime_content(&p, &c, &inputs, &packages)?;
     expected.extend(host.content);
-    expected.extend(bundled_blobs(&root, &p)?);
+    let blobs = bundled_blobs(&root, &p)?;
+    expected.extend(blobs.content);
     let paths = expected.keys().cloned().collect::<Vec<_>>();
-    let image = inspect(&root, IMAGE_PATH, &p.revision, &paths)?;
+    let (mut file, _) = open_layout_entry(&root, IMAGE_PATH)?;
+    let image = crate::oci::inspect_oci_file_content_with_limits(
+        &mut file,
+        "x86_64",
+        &p.revision,
+        &paths,
+        &blobs.member_limits,
+    )?;
     check_content(&image.content, &expected)?;
     let value = DockerMetadata {
         format: 1,

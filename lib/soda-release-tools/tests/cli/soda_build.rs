@@ -46,11 +46,11 @@ fn build_admission_matrix_preserves_release_boundaries() {
     for (args, want) in [
         (
             vec!["--development"],
-            "--development requires --target candidate or media\n",
+            "--development requires --target candidate, media or docker\n",
         ),
         (
             vec!["--development", "--target", "bogus"],
-            "--development requires --target candidate or media\n",
+            "--development requires --target candidate, media or docker\n",
         ),
         (
             vec!["--target", "candidate"],

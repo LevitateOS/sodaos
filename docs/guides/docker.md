@@ -105,25 +105,45 @@ and qualification.
 ## Build the runtime image
 
 This is release-builder work; users of a published runtime image do not build
-components. Begin with the complete verified x86_64 candidate produced by
-`soda-build`, including `host.oci`, its exact source archives and licensing data.
-The commands below are the current manual builder path. Integrated packaging,
-GHCR staging and promotion are defined in the
-[target release operator flow](../development/release.md#docker-release-operator-flow);
-they are not implemented commands or evidence of a published Docker release.
-Import its host image under a local builder name with Skopeo:
+components. Run the admitted controller from its clean committed checkout or
+linked worktree, with its matching worker configuration. See [native build
+admission](../development/native-support.md#local-host-content-image-candidate) for setup and custody.
 
 ```sh
-skopeo copy oci-archive:/ABS/PATH/TO/artifacts/host.oci \
-  docker-daemon:soda-appliance:build
-docker build --build-arg SODA_BASE_IMAGE=soda-appliance:build \
-  -t sodaos-docker:local -f system/docker/Dockerfile system/docker
+# Docker-only production packaging: no media authority or rootfs URL.
+sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
+  --arch x86_64 --distribution docker --release-tag v0.1.0 \
+  --out /OUTPUT_PARENT/UNIQUE --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
+
+# For development, add --development --target docker to the same command.
 ```
 
-The Dockerfile copies the candidate's Soda binaries, complete shared OCI payload,
-native units, defaults and notices onto Fedora userspace. It does not rebuild
-Soda or its application images, and it does not carry CoreOS boot/disk services.
-The builder must record the resolved Fedora base and RPM inventory alongside the
-candidate identity and resulting Docker image digest. Registry publication is a
-separate release operation; a locally built image does not establish a public
-image, a production qualification or a supported upgrade.
+The builder freezes the Fedora base digest before compiling, produces the normal
+complete candidate once, then uses its verified local host config ID as the
+Dockerfile's appliance stage. Podman packages and exports the outer image without
+a Docker daemon socket. Soda binaries, shared OCI payload, native units, defaults
+and notices are copied unchanged; CoreOS boot/disk services are excluded.
+
+The attempt produces `image.oci`, `docker.json`, `packages.txt`
+and `compose.yaml` under `artifacts/docker/`. The verifier reads the exported
+image, compares candidate-owned files and every bundled blob with the candidate,
+and binds its platform, labels, sources, pinned Fedora base and observed outer
+RPM inventory. A mismatch fails the build before its success receipt. The
+internal `evidence/build.json` records distribution, version, completion boundary
+and Docker metadata location. These are build outputs, not qualification evidence.
+
+For a local development run, import the verified archive into Docker:
+
+```sh
+skopeo copy oci-archive:/ABS/PATH/TO/artifacts/docker/image.oci \
+  docker-daemon:sodaos-docker:local
+export SODA_IMAGE=sodaos-docker:local
+docker compose -f /ABS/PATH/TO/artifacts/docker/compose.yaml up -d
+```
+
+Production `--distribution all` packages the same candidate for Docker and the
+appliance; supply the existing media inputs and a rootfs URL for the same release
+tag. The [release operator flow](../development/release.md#docker-release-operator-flow)
+owns GHCR staging, public-image qualification and promotion; those publisher
+commands are not yet implemented. A locally built image is not a published or
+qualified Docker release.

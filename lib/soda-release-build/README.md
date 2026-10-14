@@ -23,6 +23,12 @@ For Rust consumers, the main entry points are:
 - [`production::Production`](src/production.rs): explicit source, revision,
   native-tool and output paths with execution/capture hooks. Its production
   steps compile programs, stage assets, build images and export archives.
+- [`Production::prepare_docker` and `build_docker`](src/production_docker.rs):
+  freeze the Fedora base alongside the common image inputs, then package the
+  verified local host config without rebuilding Soda or application images.
+  Exported Docker content and provenance must verify before metadata is issued;
+  [Docker build commands](../../docs/guides/docker.md#build-the-runtime-image)
+  describe distribution selection and artifact locations.
 - [`http::HttpTransport`](src/http.rs): the transport boundary used by input
   resolution and retrieval; `*_with` fetch functions accept a transport.
 

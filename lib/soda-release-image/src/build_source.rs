@@ -28,7 +28,23 @@ pub fn verify_checkout_source(requested_source: &str, runner: &Runner) -> Result
     let info = fs::symlink_metadata(sys::join(&[&source, ".git"]));
     match info {
         Ok(info) if info.file_type().is_dir() => Ok(source),
-        _ => Err(Error::msg("canonical checkout required; no worktree")),
+        Ok(info) if info.file_type().is_file() && info.len() <= 4096 => {
+            // Linked checkout Git metadata is bound read-only by the controller.
+            // Git resolves the marker; the same clean/exact-revision checks below
+            // apply before git archive produces the source snapshot.
+            runner.capture(
+                &source,
+                "git",
+                &[
+                    "-c".into(),
+                    format!("safe.directory={source}"),
+                    "rev-parse".into(),
+                    "--absolute-git-dir".into(),
+                ],
+            )?;
+            Ok(source)
+        }
+        _ => Err(Error::msg("regular checkout or linked worktree required")),
     }
 }
 

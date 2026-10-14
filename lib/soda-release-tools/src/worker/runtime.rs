@@ -192,6 +192,7 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
         ],
         environment: vec![
             format!("HOME={WORKER_HOME}"),
+            "GIT_OPTIONAL_LOCKS=0".to_owned(),
             format!("PATH={PINNED_GO_ROOT}/bin:{WORKER_TOOLS}/rust/bin:{WORKER_TOOLS}/bin:/usr/sbin:/usr/bin:/sbin:/bin"),
             format!("XDG_RUNTIME_DIR={WORKER_RUNTIME}"),
             format!("TMPDIR={WORKER_HOME}/tmp"),
@@ -218,6 +219,31 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
             r.forgejo_revision.clone(),
         ],
     };
+    for source in [&c.source, &c.forgejo_source] {
+        if let Some(common) = linked_checkout_metadata(source)? {
+            if source == &c.source {
+                let below = format!("{source}/.artifacts/");
+                if !c.build_home.starts_with(&below) || !c.runtime.starts_with(&below) {
+                    return Err(
+                        "linked worktree build home/runtime must be below its .artifacts"
+                            .to_owned(),
+                    );
+                }
+            }
+            // The .git marker contains an absolute host path. Preserve that
+            // path inside ProtectHome=tmpfs without exposing its source tree.
+            let bind = format!("{common}:{common}");
+            if !w.read_only.contains(&bind) {
+                w.read_only.push(bind);
+            }
+        }
+    }
+    w.arguments
+        .extend(["--distribution".to_owned(), r.distribution().to_owned()]);
+    if !r.release_tag.is_empty() {
+        w.arguments
+            .extend(["--release-tag".to_owned(), r.release_tag.clone()]);
+    }
     if r.development {
         w.arguments.push("--development".to_owned());
         w.arguments.push("--target".to_owned());
@@ -249,6 +275,49 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
     Ok(w)
 }
 
+fn linked_checkout_metadata(source: &str) -> Result<Option<String>, String> {
+    let marker = Path::new(source).join(".git");
+    match std::fs::symlink_metadata(&marker) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Ok(st) if st.file_type().is_dir() => return Ok(None),
+        Ok(st) if st.file_type().is_file() && st.len() <= 4096 => {}
+        _ => return Err("regular checkout or linked worktree required".to_owned()),
+    }
+    let git = |arg: &str| -> Result<String, String> {
+        let output = std::process::Command::new("git")
+            .current_dir(source)
+            .env("GIT_OPTIONAL_LOCKS", "0")
+            .args([
+                "-c",
+                &format!("safe.directory={source}"),
+                "rev-parse",
+                "--path-format=absolute",
+                arg,
+            ])
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !output.status.success() {
+            return Err("linked worktree metadata refused".to_owned());
+        }
+        String::from_utf8(output.stdout)
+            .map(|s| s.trim().to_owned())
+            .map_err(|e| e.to_string())
+    };
+    let common = git("--git-common-dir")?;
+    let private = git("--git-dir")?;
+    super::config::valid_worker_path(&common)?;
+    super::config::valid_worker_path(&private)?;
+    if !private.starts_with(&format!("{common}/worktrees/"))
+        || std::fs::read_to_string(Path::new(&private).join("gitdir"))
+            .map_err(|e| e.to_string())?
+            .trim()
+            != marker.to_string_lossy()
+    {
+        return Err("linked worktree metadata differs from admitted source".to_owned());
+    }
+    Ok(Some(common))
+}
+
 fn worker_result_matches(
     r: &Request,
     result: &ImageResult,
@@ -264,15 +333,26 @@ fn worker_result_matches(
         && result.requested_target == r.requested_target()
         && result.completed_target == completed
         && result.media_compression == r.media_compression
+        && result.distribution == r.distribution()
+        && result.release_tag == r.release_tag
+        && result.docker
+            == if r.wants_docker() {
+                format!("{out}/artifacts/docker/docker.json")
+            } else {
+                String::new()
+            }
 }
 
 pub fn validate_worker_result(r: &Request, result: &mut ImageResult) -> Result<(), String> {
     let rel = rel_path(&r.source, &r.out)?;
     let out = join_under(WORKER_SOURCE, &rel);
     let (media, completed) = if r.wants_media() {
-        (format!("{out}/artifacts/media/media.json"), "media")
+        (
+            format!("{out}/artifacts/media/media.json"),
+            r.completed_target(),
+        )
     } else {
-        (String::new(), "candidate")
+        (String::new(), r.completed_target())
     };
     if !worker_result_matches(r, result, &out, &media, completed) {
         return Err("worker result does not match this run".to_owned());
@@ -281,6 +361,27 @@ pub fn validate_worker_result(r: &Request, result: &mut ImageResult) -> Result<(
     match hash_file(&candidate) {
         Ok(hash) if hash == result.candidate_sha256 => {}
         _ => return Err("worker candidate receipt differs".to_owned()),
+    }
+    if r.wants_docker() {
+        let root = format!("{}/artifacts", r.out.trim_end_matches('/'));
+        let metadata = soda_release_deliver::docker::verify(&root).map_err(|e| e.0)?;
+        if metadata.release_tag != r.release_tag
+            || metadata.distribution
+                != if r.distribution() == "all" {
+                    soda_release_deliver::model::Distribution::All
+                } else {
+                    soda_release_deliver::model::Distribution::Docker
+                }
+            || metadata.purpose
+                != if r.development {
+                    soda_release_deliver::model::BuildPurpose::Development
+                } else {
+                    soda_release_deliver::model::BuildPurpose::Production
+                }
+        {
+            return Err("worker Docker metadata differs from this run".to_owned());
+        }
+        result.docker = format!("{root}/docker/docker.json");
     }
     result.candidate = candidate;
     if !media.is_empty() {
@@ -312,6 +413,9 @@ pub fn decode_image_result(data: &[u8]) -> Result<ImageResult, String> {
         requested_target: raw_string(slots.requested_target),
         completed_target: raw_string(slots.completed_target),
         media_compression: raw_string(slots.media_compression),
+        distribution: raw_string(slots.distribution),
+        release_tag: raw_string(slots.release_tag),
+        docker: raw_string(slots.docker),
     })
 }
 
@@ -335,6 +439,9 @@ struct ImageResultSlots {
     requested_target: Option<Box<RawValue>>,
     completed_target: Option<Box<RawValue>>,
     media_compression: Option<Box<RawValue>>,
+    distribution: Option<Box<RawValue>>,
+    release_tag: Option<Box<RawValue>>,
+    docker: Option<Box<RawValue>>,
 }
 
 impl<'de> Deserialize<'de> for ImageResultSlots {
@@ -369,6 +476,9 @@ impl<'de> Deserialize<'de> for ImageResultSlots {
                         "RequestedTarget" => &mut slots.requested_target,
                         "CompletedTarget" => &mut slots.completed_target,
                         "MediaCompression" => &mut slots.media_compression,
+                        "Distribution" => &mut slots.distribution,
+                        "ReleaseTag" => &mut slots.release_tag,
+                        "Docker" => &mut slots.docker,
                         _ => {
                             let _: Box<RawValue> = map.next_value()?;
                             continue;
@@ -473,7 +583,11 @@ pub fn run_build_worker(
     request: &Request,
     progress: &mut BuildProgress,
 ) -> Result<ImageResult, WorkerError> {
-    let boundary = if request.wants_media() {
+    let boundary = if request.wants_docker() && request.wants_media() {
+        "P1-P8 / Isolated source-to-Docker and media worker"
+    } else if request.wants_docker() {
+        "Docker / Isolated source-to-Docker worker"
+    } else if request.wants_media() {
         "P1-P8 / Isolated source-to-media worker"
     } else {
         "P1-P6 / Isolated development candidate worker"
