@@ -589,11 +589,17 @@ fn rollback(deadline: Instant) -> Result<(), String> {
         true,
         deadline,
     )?;
-    let source_deployment = Deployment {
-        checksum: record.source_deployment.clone(),
-        serial: record.source_serial,
-        staged: false,
-        finalization_locked: false,
+    // Native redeployment assigns a new serial and can retire the original
+    // directory. After rollback boot, read support from that exact booted commit.
+    let source_deployment = if state.booted.checksum == record.source_deployment {
+        state.booted.clone()
+    } else {
+        Deployment {
+            checksum: record.source_deployment.clone(),
+            serial: record.source_serial,
+            staged: false,
+            finalization_locked: false,
+        }
     };
     let helper = tool(
         &format!(

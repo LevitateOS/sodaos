@@ -114,7 +114,9 @@ reboot. Stop/Start, terminal Open and image import never perform this operation.
 
 Admission stays closed across interruption and reboot. The boot reconciliation
 unit verifies the actual booted release, retained helpers and selected future
-Project image before reopening it. If blocked, inspect the root-only
+Project image before reopening it. Its bounded systemd retries allow the operator
+socket to become ready during boot. They reconcile the same operation without
+selecting another release or repeating activation. If blocked, inspect the root-only
 `/var/lib/soda/project-maintenance/operation.json` and the reconciliation unit's
 journal. `release --recover` re-admits the recorded target and inspects actual
 boundaries before continuing; it can restage the exact locked deployment if an
