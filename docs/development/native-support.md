@@ -94,6 +94,28 @@ from its existing `deployed-tree` input. No extra stage mount or codec is used.
 Complete media, including both installer osmet records, must still fit the
 GitHub asset limit and pass the [release qualification](release.md).
 
+[EROFS global data deduplication](https://erofs.docs.kernel.org/en/latest/mkfs.html)
+does not support multithreaded compression. Extra worker CPUs alone therefore do
+not accelerate this profile. Compare compression settings against retained input
+in bounded, non-qualifying packing experiments first. Admit a new release profile
+only after its complete rootfs, including both osmet records, fits the asset limit;
+an incomplete or timed-out image supplies no fit or speed claim.
+
+Package observation uses a layered host image; only the final sealed host is
+flattened for native OSTree import. Final package, helper and exported-content
+verification remains required. Fountain's musl Go compiler uses a dedicated
+`fountain-go-cache` beside the worker's host Go cache, keeping its SELinux mount
+label separate while Go validates compiler and source cache keys across attempts.
+The cache is additionally partitioned by compiler image and observed APK inventory
+so cgo libraries/toolchain changes cannot reuse an older native compilation.
+Go module extraction remains private to each attempt and checksum admitted.
+The same private compiler cache retains Bun package downloads under its frozen lock.
+Successful builds remove their intermediate containers while keeping image-layer
+caches; failed build containers remain available for scoped diagnostics.
+Large media copies use copy-on-write where supported, with ordinary copying as
+the fallback and unchanged hash verification. Retain these caches independently
+of disposable attempts under the [active-release cleanup contract](release.md#guided-release-operator-flow).
+
 The configuration names `Executable`, exact checkout `Source`, the separate clean committed
 `ForgejoSource`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and

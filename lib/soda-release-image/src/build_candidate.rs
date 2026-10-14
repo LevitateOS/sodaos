@@ -52,7 +52,7 @@ pub fn build_host_candidate(
         artifacts,
         arch,
         revision,
-        prefix,
+        false,
         base,
         production,
     )?;
@@ -67,7 +67,7 @@ pub fn build_host_candidate(
         artifacts,
         arch,
         revision,
-        prefix,
+        true,
         base,
         production,
     )?;

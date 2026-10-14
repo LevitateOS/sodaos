@@ -80,7 +80,7 @@ pub fn build_media_container(
         "/bin/bash".to_string(),
         "-euc".to_string(),
     ];
-    let script = "umask 0022; cosa init /config; cp /assembler-root.oci /srv/tmp/assembler-root.oci; cosa import --skip-prune oci-archive:/inputs/host.oci; cosa buildextend-live --build \"$1\"";
+    let script = "umask 0022; cosa init /config; cp --reflink=auto /assembler-root.oci /srv/tmp/assembler-root.oci; cosa import --skip-prune oci-archive:/inputs/host.oci; cosa buildextend-live --build \"$1\"";
     base.push(script.to_string());
     base.push("assemble".to_string());
     base.push(payload_id.to_string());

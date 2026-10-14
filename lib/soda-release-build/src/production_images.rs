@@ -49,7 +49,8 @@ impl Production {
             "--remote=false".to_string(),
             "build".to_string(),
             "--pull=never".to_string(),
-            "--rm=false".to_string(),
+            "--rm=true".to_string(),
+            "--force-rm=false".to_string(),
             format!("--platform=linux/{platform}"),
             format!("--build-arg=BASE_IMAGE={pinned}"),
             format!(

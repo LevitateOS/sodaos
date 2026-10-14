@@ -125,6 +125,8 @@ pub fn build_forgejo_binary(prod: &Production) -> Result<String, Error> {
     let root = PathBuf::from(&prod.native).join("forgejo-build");
     std::fs::create_dir(&root).map_err(|e| io_error("mkdir", &root, e))?;
     crate::files::chmod(&root, 0o700)?;
+    let cache = forgejo_cache_root(prod);
+    std::fs::create_dir_all(&cache).map_err(|e| io_error("mkdir", &cache, e))?;
     let platform = oci_architecture(&prod.arch)?.to_string();
     let download = root.join("go-download");
     std::fs::create_dir(&download).map_err(|e| io_error("mkdir", &download, e))?;
@@ -178,12 +180,14 @@ pub fn forgejo_build_args(prod: &Production, platform: &str) -> Vec<String> {
          unzip -q -o -d /tmp/bun-extract /tmp/bun.zip\n\
          install -m 755 /tmp/bun-extract/bun-linux-x64-musl/bun /usr/local/bin/bun\n\
          test \"$(bun --version)\" = \"{FORGEJO_BUN_VERSION}\"\n\
-         mkdir -p /work/out/gocache /work/out/gopath /work/out/tmp\n\
+         mkdir -p /work/cache/gocache /work/out/gopath /work/out/tmp\n\
          LC_ALL=C apk info -v | LC_ALL=C sort > /work/out/apk-packages.txt\n\
+         cache_key=$( (printf '%s\\n' '{FORGEJO_COMPILER_IMAGE}'; cat /work/out/apk-packages.txt) | sha256sum | cut -d ' ' -f 1)\n\
+         export GOCACHE=/work/cache/gocache/$cache_key\n\
          # The git archive never contains built frontend outputs; generate them with\n\
          # the pinned Bun toolchain before bindata embeds public/. The frozen install\n\
          # resolves from the archived package lock; Bun is the only JS toolchain.\n\
-         bun install --frozen-lockfile --no-progress\n\
+         bun install --frozen-lockfile --no-progress --cache-dir /work/cache/bun\n\
          BROWSERSLIST_IGNORE_OLD_DATA=true bun ./node_modules/.bin/webpack\n\
          test -s public/assets/js/index.js\n\
          test -s public/assets/css/index.css\n\
@@ -205,11 +209,15 @@ pub fn forgejo_build_args(prod: &Production, platform: &str) -> Vec<String> {
         format!("--volume={}:/work/source:Z", prod.forgejo_source),
         format!("--volume={}:/work/out:Z", root.display()),
         format!(
+            "--volume={}:/work/cache:Z",
+            forgejo_cache_root(prod).display()
+        ),
+        format!(
             "--volume={}:/work/go-download:ro,Z",
             root.join("go-download").display()
         ),
         "--workdir=/work/source".to_string(),
-        "--env=GOCACHE=/work/out/gocache".to_string(),
+        "--env=GOCACHE=/work/cache/gocache".to_string(),
         "--env=GOPATH=/work/out/gopath".to_string(),
         "--env=GOPROXY=file:///work/go-download,https://proxy.golang.org".to_string(),
         "--env=TMPDIR=/work/out/tmp".to_string(),
@@ -219,6 +227,16 @@ pub fn forgejo_build_args(prod: &Production, platform: &str) -> Vec<String> {
         "-ec".to_string(),
         script,
     ]
+}
+
+fn forgejo_cache_root(prod: &Production) -> PathBuf {
+    // Go owns compiler/input cache keys. Keep the musl compiler's private cache
+    // separate from host Go's SELinux label and reusable across worker attempts.
+    std::env::var_os("GOCACHE")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+        .and_then(|path| path.parent().map(|parent| parent.join("fountain-go-cache")))
+        .unwrap_or_else(|| PathBuf::from(&prod.native).join("forgejo-cache"))
 }
 
 fn inspect_forgejo_build(prod: &Production, root: &Path) -> Result<String, Error> {

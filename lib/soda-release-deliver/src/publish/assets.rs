@@ -135,10 +135,17 @@ fn copy_asset(source: &Path, out: &Path, name: &str) -> Result<Asset, Error> {
     let input = checked_file(source)?;
     let mut output = File::options()
         .create_new(true)
+        .read(true)
         .write(true)
         .open(out.join(name))
         .map_err(|_| failure("release destination occupied"))?;
-    let (bytes, sha256) = hash_reader(input, Some(&mut output))?;
+    // Independent copy-on-write files avoid writing the complete media again.
+    // Hash the destination after cloning; ordinary filesystems keep one-pass copy.
+    let (bytes, sha256) = if rustix::fs::ioctl_ficlone(&output, &input).is_ok() {
+        hash_reader(output, None)?
+    } else {
+        hash_reader(input, Some(&mut output))?
+    };
     Ok(Asset {
         name: name.to_owned(),
         bytes,

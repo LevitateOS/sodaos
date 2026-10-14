@@ -151,7 +151,7 @@ pub fn build_host_image(
     out: &str,
     arch: &str,
     revision: &str,
-    _prefix: &str,
+    flatten: bool,
     base: &prepare::Base,
     production: &dyn Production,
 ) -> Result<String, Error> {
@@ -159,38 +159,40 @@ pub fn build_host_image(
     let pinned = base.image(arch);
     let iid = sys::join(&[out, "host.iid"]);
     const SCOPE: &str = "complete-local-payload";
-    production.execute(
-        context,
-        "podman",
-        &[
-            "--remote=false".to_string(),
-            "build".to_string(),
-            "--pull=never".to_string(),
-            "--squash-all".to_string(),
-            "--unsetlabel=ostree.commit".to_string(),
-            "--unsetlabel=ostree.final-diffid".to_string(),
-            "--rm=false".to_string(),
-            format!("--platform=linux/{platform}"),
-            format!("--build-arg=BASE_IMAGE={pinned}"),
-            format!("--build-arg=PAYLOAD_SCOPE={SCOPE}"),
-            format!("--label=org.opencontainers.image.revision={revision}"),
-            format!("--label=org.opencontainers.image.base.name={pinned}"),
-            format!(
-                "--label=org.opencontainers.image.base.digest={}",
-                pinned.split('@').nth(1).unwrap_or("")
-            ),
-            format!(
-                "--label=org.opencontainers.image.version={}.soda-{}",
-                base.release,
-                revision.get(..12).unwrap_or(revision)
-            ),
-            "--iidfile".to_string(),
-            iid.clone(),
-            "--file".to_string(),
-            "Containerfile".to_string(),
-            ".".to_string(),
-        ],
-    )?;
+    let mut args = vec![
+        "--remote=false".to_string(),
+        "build".to_string(),
+        "--pull=never".to_string(),
+        "--unsetlabel=ostree.commit".to_string(),
+        "--unsetlabel=ostree.final-diffid".to_string(),
+        "--rm=true".to_string(),
+        "--force-rm=false".to_string(),
+        format!("--platform=linux/{platform}"),
+        format!("--build-arg=BASE_IMAGE={pinned}"),
+        format!("--build-arg=PAYLOAD_SCOPE={SCOPE}"),
+        format!("--label=org.opencontainers.image.revision={revision}"),
+        format!("--label=org.opencontainers.image.base.name={pinned}"),
+        format!(
+            "--label=org.opencontainers.image.base.digest={}",
+            pinned.split('@').nth(1).unwrap_or("")
+        ),
+        format!(
+            "--label=org.opencontainers.image.version={}.soda-{}",
+            base.release,
+            revision.get(..12).unwrap_or(revision)
+        ),
+        "--iidfile".to_string(),
+        iid.clone(),
+        "--file".to_string(),
+        "Containerfile".to_string(),
+        ".".to_string(),
+    ];
+    // Package observation needs a runnable image, not a flattened OCI export.
+    // Flatten only the final sealed host consumed by native OSTree import.
+    if flatten {
+        args.insert(3, "--squash-all".to_string());
+    }
+    production.execute(context, "podman", &args)?;
     read_host_image_id(&iid)
 }
 

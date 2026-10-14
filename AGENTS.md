@@ -143,6 +143,11 @@ justify keeping obsolete implementations alive.
   never broadly prune, recreate roots or guess names against unrelated or
   protected state. Report partial operations and inspect retained state before
   choosing a recovery.
+- Before release-related cleanup, read the active workflow's `request.json` and
+  [release reservation contract](docs/development/release.md#guided-release-operator-flow).
+  Preserve its build output, prepared assets and required caches until promotion
+  or explicit abandonment, including while waiting for CI or user approval.
+  An idle directory or absence of open descriptors does not prove it is disposable.
 - Protect credentials, unrelated work and any state the owner explicitly requires
   keeping. Take consistent backups when that protection requires them; do not create
   a preservation programme for disposable experiments. Never blindly restore an old

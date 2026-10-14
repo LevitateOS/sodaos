@@ -134,6 +134,28 @@ fn packaging_args(selected: Distribution, tag: &str) -> Vec<String> {
     }
     args
 }
+
+fn check_workspace_capacity(
+    available: u64,
+    total: u64,
+    selected: Distribution,
+) -> Result<(), String> {
+    let required = if selected == Distribution::Docker {
+        1
+    } else {
+        // The admitted media scratch is 75 GiB. Native OSTree import also
+        // retains its default 3% free-space reserve on the workspace volume.
+        (75_u64 << 30).saturating_add(total / 100 * 3)
+    };
+    if available < required {
+        return Err(format!(
+            "insufficient workspace headroom: {} GiB available, {} GiB required before this build",
+            available / (1 << 30),
+            required.div_ceil(1 << 30)
+        ));
+    }
+    Ok(())
+}
 pub fn run(flags: &ArgMatches) -> Result<(), String> {
     let values = choices(
         flags,
@@ -288,9 +310,11 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         return Err("cannot inspect build workspace capacity".into());
     }
     let space = unsafe { space.assume_init() };
-    if space.f_bavail == 0 {
-        return Err("build workspace has no free capacity".into());
-    }
+    check_workspace_capacity(
+        (space.f_bavail as u64).saturating_mul(space.f_frsize as u64),
+        (space.f_blocks as u64).saturating_mul(space.f_frsize as u64),
+        selected,
+    )?;
     eprintln!("Build workspace free capacity: {} GiB; keep diagnostics and failed attempts on this workspace.", (space.f_bavail as u64).saturating_mul(space.f_frsize as u64) / (1 << 30));
     if flags.get_flag("preflight") {
         println!("Release prerequisites passed; no build started or attempt created.");
@@ -343,6 +367,15 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn media_preflight_reserves_scratch_and_native_import_headroom() {
+        let volume = 800_u64 << 30;
+        assert!(check_workspace_capacity(55 << 30, volume, Distribution::Appliance).is_err());
+        assert!(check_workspace_capacity(98 << 30, volume, Distribution::All).is_err());
+        assert!(check_workspace_capacity(100 << 30, volume, Distribution::All).is_ok());
+        assert!(check_workspace_capacity(55 << 30, volume, Distribution::Docker).is_ok());
+        assert!(check_workspace_capacity(0, volume, Distribution::Docker).is_err());
+    }
     #[test]
     fn guided_distribution_arguments_pass_the_real_producer_admission() {
         for name in ["appliance", "docker", "all"] {

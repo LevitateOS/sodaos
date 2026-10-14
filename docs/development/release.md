@@ -20,6 +20,26 @@ Each source-to-target pair requires its own native qualification receipt.
 
 ## Guided release operator flow
 
+Select the release commit after its intended integration is complete. That commit,
+the Fountain pin, version and distribution set define this release; later source
+work does not silently change a running attempt. Run the current admitted tools'
+preflight before starting production work.
+
+When promotion is intended, establish the native qualification target, collector
+commands and required access/funding first. Docker's evidence verifier consumes
+finalized observations; it does not supply the missing collector commands.
+Prove those commands with component/development checks before producing final
+bytes. Debugging a collector does not require rebuilding unchanged shipping bytes.
+
+An active workflow reserves the paths in its `request.json`: build output, prepared
+bundle and required worker caches. Cleanup must inspect that request and preserve
+these inputs while building, awaiting publication or qualification, or awaiting
+operator approval. A lack of open file descriptors does not make prepared media
+disposable. Release the reservation after promotion or explicit abandonment;
+failed experiments do not require indefinite retention. Keep Go, Cargo and Podman
+caches separate from disposable attempt scratch, and remove them only through an
+explicit cache-reset decision. Removing them makes the next build cold.
+
 The same prepared release carries its selected `appliance`, `docker` or
 `all` targets through build, stage, qualification and promotion. The
 [release architecture](../architecture/release.md#distribution-targets) owns
@@ -52,6 +72,9 @@ architecture, the locked offline Canlang archive, valid notes, fresh paths, Podm
 and (for Docker) Skopeo,
 exact-source main CI, immutable-release settings and existing tag/release conflicts.
 It reports missing/private GHCR visibility prerequisites and workspace capacity.
+Appliance/all preflight reserves at least 75 GiB of media scratch plus the native
+OSTree import's 3% workspace free-space margin; cold compiler/image caches can
+require additional capacity. Docker-only does not reserve appliance media scratch.
 The admitted controller's `--preflight` checks its own revision, byte identity
 and restricted worker configuration without dispatching a build. Missing prerequisites
 fail before compilation. `start --preflight` performs these checks without building
@@ -320,6 +343,15 @@ native build. `soda-release` independently checks the latest push run for that
 exact commit and the Fountain pin before staging and again before promotion.
 Missing, pending, skipped, cancelled or failed CI cannot authorize delivery;
 a PR's synthetic merge commit cannot qualify a different release commit.
+
+Protected-main qualification tags use `ci/soda-main-COMMIT_PREFIX` with the first
+12 characters of the full source commit. The tag runs all source suites. Its
+subsequent first main-push run reuses only the latest successful push run of that
+exact tag, commit and CI workflow. The main CI gate still runs and is the receipt
+checked by release admission. Missing, failed or pending prior checks execute the
+suites normally. PRs, tag runs and explicit CI reruns always execute the suites.
+Only the controller crate's environment/TCP fixtures serialize Rust test threads;
+the rest of the workspace tests run in parallel.
 
 GitHub Free hosts source CI. The existing local native builder owns OS builds and
 the guided installation smoke; no self-hosted Actions agent or custom download
