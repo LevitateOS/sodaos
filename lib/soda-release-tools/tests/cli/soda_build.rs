@@ -9,12 +9,32 @@ fn build_help_is_generated_and_safe() {
     for flag in [
         "--development",
         "--target",
+        "--distribution",
+        "--release-tag",
         "--worker-build",
         "--worker-config",
     ] {
         assert!(out.contains(flag), "help omitted {flag}: {out}");
     }
     assert!(!out.contains("--sign"), "help suggests signing: {out}");
+}
+
+#[test]
+fn docker_inputs_are_admitted_before_worker_dispatch() {
+    let scratch = TempDir::new("docker-build-admission");
+    for (args, expected) in [
+        (vec!["--distribution", "docker"], "Docker packaging requires an explicit version --release-tag"),
+        (vec!["--distribution", "docker", "--release-tag", "latest"], "Docker packaging requires an explicit version --release-tag"),
+        (vec!["--distribution", "docker", "--release-tag", "v1.2.3", "--rootfs-base-url", "https://example.invalid"], "candidate target refuses media-only inputs"),
+        (vec!["--development", "--target", "docker"], "development media requires appliance; development docker requires docker; all requires production"),
+        (vec!["--distribution", "all", "--release-tag", "v1.2.3", "--rootfs-base-url", "https://github.com/LevitateOS/sodaos/releases/download/v1.2.4/"], "all distribution requires a rootfs URL for the same release tag"),
+        (vec!["--distribution", "docker", "--release-tag", "v1.2.3"], "root-owned --worker-config required; media authority belongs to the isolated worker"),
+    ] {
+        let (code, out, err) = run(&build_bin(), &scratch.path, &args);
+        assert_eq!(code, 1, "{args:?}");
+        assert!(out.is_empty(), "{args:?}: {out}");
+        assert_eq!(err, format!("{expected}\n"), "{args:?}");
+    }
 }
 
 #[test]
@@ -46,11 +66,11 @@ fn build_admission_matrix_preserves_release_boundaries() {
     for (args, want) in [
         (
             vec!["--development"],
-            "--development requires --target candidate or media\n",
+            "--development requires --target candidate, media or docker\n",
         ),
         (
             vec!["--development", "--target", "bogus"],
-            "--development requires --target candidate or media\n",
+            "--development requires --target candidate, media or docker\n",
         ),
         (
             vec!["--target", "candidate"],

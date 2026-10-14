@@ -18,7 +18,7 @@ Rust consumers can start from these entry points:
   revisions, repository names and candidate/media target selection.
 - [`build::build`](src/build.rs): the candidate execution entry point. It
   accepts a `Cancel`, request, `Progress` and a production factory, returning
-  `request::Result` or `error::Error`.
+  the shared `soda_build_tools::reader::build::BuildResult` or `error::Error`.
 - [`foreign::Production`](src/foreign.rs): the boundary for compilation,
   container builds, OCI inspection, input resolution and media signing.
 - [`foreign::Progress`](src/foreign.rs): phase, step and build-log reporting.

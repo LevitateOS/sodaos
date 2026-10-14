@@ -20,6 +20,8 @@ pub struct Request {
     pub target: String,
     pub media_compression: String,
     pub upgrade_from: String,
+    pub distribution: String,
+    pub release_tag: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -36,11 +38,14 @@ pub struct ImageResult {
     pub requested_target: String,
     pub completed_target: String,
     pub media_compression: String,
+    pub distribution: String,
+    pub release_tag: String,
+    pub docker: String,
 }
 
 impl Request {
     pub fn wants_media(&self) -> bool {
-        self.target != "candidate"
+        crate::pipeline::image_request(self).wants_media()
     }
 
     pub fn purpose(&self) -> &'static str {
@@ -59,47 +64,26 @@ impl Request {
         }
     }
 
-    fn validate_development_target(&self) -> Result<(), String> {
-        if self.development {
-            if self.target != "candidate" && self.target != "media" {
-                return Err("--development requires --target candidate or media".to_owned());
-            }
-            return Ok(());
-        }
-        if !self.target.is_empty() {
-            return Err("--target requires --development".to_owned());
-        }
-        Ok(())
-    }
-
-    fn validate_media_inputs(&self) -> Result<(), String> {
-        if !self.media_compression.is_empty()
-            && (!self.development || self.target != "media" || self.media_compression != "fast")
-        {
-            return Err(
-                "--media-compression accepts only fast with --development --target media"
-                    .to_owned(),
-            );
-        }
-        if !self.wants_media() {
-            if !self.rootfs_base_url.is_empty() || !self.media_authority.is_empty() {
-                return Err("candidate target refuses media-only inputs".to_owned());
-            }
-            return Ok(());
-        }
-        media_base_url(&self.rootfs_base_url)
-    }
-
     pub fn validate_target(&self) -> Result<(), String> {
-        if !self.upgrade_from.is_empty() {
-            soda_build_tools::project_support::validate_upgrade_sources(
-                &[self.upgrade_from.clone()],
-                "",
-            )
-            .map_err(str::to_string)?;
+        crate::pipeline::image_request(self)
+            .validate_target()
+            .map_err(|e| e.0)
+    }
+
+    pub fn wants_docker(&self) -> bool {
+        crate::pipeline::image_request(self).wants_docker()
+    }
+
+    pub fn distribution(&self) -> &str {
+        if self.distribution.is_empty() {
+            "appliance"
+        } else {
+            &self.distribution
         }
-        self.validate_development_target()?;
-        self.validate_media_inputs()
+    }
+
+    pub fn completed_target(&self) -> &'static str {
+        crate::pipeline::image_request(self).completed_target()
     }
 }
 
@@ -197,7 +181,7 @@ mod tests {
         let mut r = dev_request("bogus");
         assert_eq!(
             r.validate_target().unwrap_err(),
-            "--development requires --target candidate or media"
+            "--development requires --target candidate, media or docker"
         );
         r = Request::default();
         assert_eq!(

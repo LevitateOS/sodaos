@@ -46,7 +46,11 @@ The existing build now pulls the unchanged selected Forgejo/Caddy references for
 
 ## Build and artifact contract
 
-`soda-build` produces unqualified release media by default. Its explicit development targets stop at candidate or media; `soda-candidate` remains a development wrapper. Publication and qualification belong to `soda-release`.
+`soda-build` produces unqualified release media by default. Production distribution
+selection packages the appliance, Docker runtime or both from the same candidate.
+Its explicit development targets stop at candidate, media or Docker;
+`soda-candidate` remains a development wrapper. Publication and qualification
+belong to `soda-release`.
 Retained `.artifacts/native/` trees may still be read by maintenance tools.
 
 Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, occupied output or simultaneous build is refused; there is no automatic removal of earlier artifacts. `GOTOOLCHAIN=local` prevents implicit toolchain installation.
@@ -55,6 +59,11 @@ Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, 
 # After soda-build writes candidate artifacts:
 bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
 ```
+
+When a candidate has a `docker/` artifact directory, the existing candidate
+checker also verifies its [Docker metadata and actual OCI contents](../../lib/soda-release-deliver/README.md#docker-metadata-and-provenance).
+This is read-only artifact admission; Docker production packaging, registry
+publication and native qualification remain separate operations.
 
 soda-build candidates carry payload/candidate/OCI archives under `artifacts/`. The payload contains Fountain branding/templates and the separately packaged Soda extension and service, not a standalone React frontend or Go page shells. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
@@ -66,7 +75,7 @@ The disk installer verifies candidate media before writing, validates the explic
 [release contract](../architecture/release.md).
 Explicit [development targets](release.md)
 stop this same producer at the requested boundary; they never qualify a release.
-Build from committed canonical source with the pinned Go/Rust/Bun/native prerequisites.
+Build from a clean committed checkout (including an admitted linked worktree) with the pinned Go/Rust/Bun/native prerequisites.
 The public entry point now requires an operator-admitted, root-owned executable and
 restricted `--worker-config`; it does not install accounts, grant sudo or create a
 worker policy. Account/helper installation requires applicable task approval.
@@ -85,7 +94,7 @@ from its existing `deployed-tree` input. No extra stage mount or codec is used.
 Complete media, including both installer osmet records, must still fit the
 GitHub asset limit and pass the [release qualification](release.md).
 
-The configuration names `Executable`, canonical `Source`, the separate clean committed
+The configuration names `Executable`, exact checkout `Source`, the separate clean committed
 `ForgejoSource`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
 `MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
@@ -98,7 +107,7 @@ build scripts and proc macros inside that same sandbox. The executable and its
 parents are root-owned and not group/world writable, and its bytes must equal the
 running dispatcher. The internal `--worker-build` stage refuses other identities.
 
-The operator runs the admitted executable as root from the canonical checkout:
+The operator runs the admitted executable as root from the configured checkout:
 
 ```sh
 # Candidate-only development: no rootfs URL or media authority needed/mounted.
@@ -127,7 +136,12 @@ never admits workers, signs, or publishes, and has no production mode. Fixture-o
 media authority is not production signing authority; release delivery and
 publication remain separately owned and grant-scoped as below.
 
-Substitute the operator-admitted absolute paths and explicit URL. Omitting `--development` builds release-candidate media without publishing or installing.
+Substitute the operator-admitted absolute paths and explicit URL. Omitting
+`--development` builds the selected release packaging without publishing or
+installing. `--distribution` defaults to `appliance`; `docker` skips media
+authority and ISO/rootfs tooling, and `all` packages the same candidate for both.
+Docker packaging requires an explicit `--release-tag`; for `all`, the rootfs URL
+must name that same GitHub release tag. See the [Docker builder procedure](../guides/docker.md#build-the-runtime-image).
 Target flags select development boundaries, and candidate mode refuses media-only inputs. Development
 cannot select publication/final signing.
 Source commands run only inside the separate systemd worker:
@@ -147,7 +161,9 @@ The controller's VCS revision must match the clean checkout. The admitted source
 its committed Git objects must be readable by the isolated build identity; private
 untracked inputs are not source inputs and must not be made accessible to fix that.
 Each output is fresh;
-there is no worktree, partial-host mode, resume or skip-tests flag. The internal image-identity prefix defaults to `ghcr.io/levitateos/sodaos`; it does not
+linked worktrees bind their Git common directory read-only and require their
+admitted build home/runtime below their own `.artifacts/`. There is no
+partial-host mode, resume or skip-tests flag. The internal image-identity prefix defaults to `ghcr.io/levitateos/sodaos`; it does not
 create a registry dependency. User downloads are GitHub release assets. Source and app inputs freeze before compilation. Prepared
 source/browser suites no longer gate the build; they consume the same emitted
 assets when run directly. Native page/provider journeys still belong to their
@@ -196,7 +212,10 @@ prune unrelated stores or modify retained appliances.
 
 `evidence/build.json` records purpose, requested/completed target, candidate hash
 (binding its payload and all application identities), host/payload identities and
-completed checks. Candidate-only output has no media path, live Ignition or packaging
+completed producer checks. The parent controller writes `evidence/completed.json`
+only after worker cleanup and final progress succeed, binding the exact producer
+record hash. Release preparation requires both; a producer record from a failed
+controller attempt cannot authorize delivery. Candidate-only output has no media path, live Ignition or packaging
 workspace. All current candidate checks and all seven images remain; media-only tools
 and signing inputs are not required for that target.
 
@@ -239,13 +258,21 @@ from local image inspection or ordinary build-cache reuse.
 The [release architecture](../architecture/release.md#public-distribution) owns
 public hosting and qualification; the [release workflow](release.md#build-once-stage-install-promote)
 provides the concrete commands. The Rust `soda-release` entry point in
-`lib/soda-release-tools` delegates to `lib/soda-release-deliver` and the native
-`gh` client. It does not build, install an image, change host trust or reboot.
+`lib/soda-release-tools` delegates to `lib/soda-release-deliver`, native `gh` and
+Skopeo. The [guided release operator flow](release.md#guided-release-operator-flow)
+owns commands for all selected distributions. `start` invokes the admitted builder;
+publication and qualification commands do not install images, change host trust
+or reboot.
 
 | Operation | Inputs and effects |
 | --- | --- |
-| `stage` | Reads exact candidate/media/source artifacts, prepares a fresh asset directory, checks source CI and per-file size limits, creates or verifies the exact tag, uploads a draft, compares remote hashes and sizes, and publishes an immutable prerelease. Requires GitHub repository write access. |
-| `promote` | Binds the observed installed revision and explicit native smoke confirmation to the prepared release and downloaded ISO, writes the receipt, checks unchanged GitHub inventory, then updates notes and prerelease/latest flags. No image re-upload or disk mutation. |
+| `start` | Preflights exact committed source and CI, admitted worker configuration and local inputs, then builds once and prepares a private release directory. `--preflight` stops before creating an attempt. |
+| `prepare` | Requires a completed production build receipt and verifies all selected candidate artifacts before copying the public asset set. No network mutation. |
+| `status` | Rechecks local evidence and remote publication/recommendation state; reports blockers and the next action without mutation. |
+| `stage` | Reads the prepared release, checks source CI and immutable-release settings, creates or verifies its tag, uploads/verifies the Docker digest where selected, and publishes the complete immutable GitHub prerelease. |
+| `verify-docker` | Repeats anonymous registry readback and completes matching local verification records without another upload. |
+| `qualify` | Verifies the exact public downloads and selected targets' native evidence, retaining bound private receipts without moving recommendations. |
+| `promote` | Rechecks receipts, original evidence and immutable public assets; moves Docker latest to the same digest and updates eligible GitHub recommendations. Docker-only preserves the appliance recommendation. |
 
 Keep private authority inputs and task receipts on the workspace disk. Only public
 artifact files enter the upload set; keys, passphrases, credentials and private VM
@@ -255,7 +282,8 @@ asset and tag immutability; no local channel state or publication ledger is need
 
 An existing or uncertain publication is inspected rather than overwritten. There
 is no automatic asset clobbering or cleanup of failed attempts. A prerelease is
-explicitly unqualified until the one bounded public-download native smoke passes.
+explicitly unqualified until every selected distribution's required public-download
+native qualification passes.
 
 ## SSH, commands and exact-source remote phases
 

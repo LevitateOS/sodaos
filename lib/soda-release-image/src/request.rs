@@ -1,7 +1,5 @@
 //! `build.go`: pipeline request, result, and target admission.
 
-use serde::Serialize;
-
 use crate::error::Error;
 use crate::media;
 
@@ -22,44 +20,16 @@ pub struct Request {
     pub target: String,
     pub media_compression: String,
     pub upgrade_from: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-pub struct Result {
-    #[serde(rename = "Revision")]
-    pub revision: String,
-    #[serde(rename = "Architecture")]
-    pub architecture: String,
-    #[serde(rename = "Candidate")]
-    pub candidate: String,
-    #[serde(rename = "CandidateSHA256")]
-    pub candidate_sha256: String,
-    #[serde(rename = "HostManifest")]
-    pub host_manifest: String,
-    #[serde(rename = "PayloadSHA256")]
-    pub payload_sha256: String,
-    #[serde(rename = "Scope")]
-    pub scope: String,
-    #[serde(rename = "Media", skip_serializing_if = "String::is_empty")]
-    pub media: String,
-    #[serde(rename = "Purpose")]
-    pub purpose: String,
-    #[serde(rename = "RequestedTarget")]
-    pub requested_target: String,
-    #[serde(rename = "CompletedTarget")]
-    pub completed_target: String,
-    #[serde(rename = "Checks")]
-    pub checks: Vec<String>,
-    #[serde(rename = "MediaCompression", skip_serializing_if = "String::is_empty")]
-    pub media_compression: String,
+    pub distribution: String,
+    pub release_tag: String,
 }
 
 impl Request {
     fn validate_development_target(&self) -> std::result::Result<(), Error> {
         if self.development {
-            if self.target != "candidate" && self.target != "media" {
+            if !["candidate", "media", "docker"].contains(&self.target.as_str()) {
                 return Err(Error::msg(
-                    "--development requires --target candidate or media",
+                    "--development requires --target candidate, media or docker",
                 ));
             }
             return Ok(());
@@ -99,11 +69,65 @@ impl Request {
             .map_err(Error::msg)?;
         }
         self.validate_development_target()?;
+        if !["appliance", "docker", "all"].contains(&self.distribution()) {
+            return Err(Error::msg(
+                "--distribution accepts appliance, docker or all",
+            ));
+        }
+        if self.development
+            && ((self.target == "docker" && self.distribution() != "docker")
+                || (self.target == "media" && self.distribution() != "appliance")
+                || self.distribution() == "all")
+        {
+            return Err(Error::msg("development media requires appliance; development docker requires docker; all requires production"));
+        }
+        if self.wants_docker() {
+            if !soda_build_tools::reader::settings::release_tag(&self.release_tag)
+                || self.release_tag.eq_ignore_ascii_case("latest")
+            {
+                return Err(Error::msg(
+                    "Docker packaging requires an explicit version --release-tag",
+                ));
+            }
+            if self.distribution() == "all"
+                && !self.rootfs_base_url.starts_with(&format!(
+                    "https://github.com/LevitateOS/sodaos/releases/download/{}/",
+                    self.release_tag
+                ))
+            {
+                return Err(Error::msg(
+                    "all distribution requires a rootfs URL for the same release tag",
+                ));
+            }
+        } else if !self.release_tag.is_empty() {
+            return Err(Error::msg("--release-tag requires Docker packaging"));
+        }
         self.validate_media_inputs()
     }
 
     pub fn wants_media(&self) -> bool {
-        self.target != "candidate"
+        self.target != "candidate" && self.target != "docker" && self.distribution() != "docker"
+    }
+
+    pub fn wants_docker(&self) -> bool {
+        self.target != "candidate" && ["docker", "all"].contains(&self.distribution())
+    }
+
+    pub fn distribution(&self) -> &str {
+        if self.distribution.is_empty() {
+            "appliance"
+        } else {
+            &self.distribution
+        }
+    }
+
+    pub fn completed_target(&self) -> &'static str {
+        match (self.wants_media(), self.wants_docker()) {
+            (true, true) => "all",
+            (true, false) => "media",
+            (false, true) => "docker",
+            (false, false) => "candidate",
+        }
     }
 
     pub fn purpose(&self) -> String {
@@ -126,6 +150,68 @@ impl Request {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use soda_build_tools::reader::build::BuildResult;
+
+    #[test]
+    fn docker_and_all_require_versions_and_select_only_requested_packaging() {
+        let docker = Request {
+            distribution: "docker".into(),
+            release_tag: "v1.2.3".into(),
+            ..Request::default()
+        };
+        assert!(docker.validate_target().is_ok());
+        assert!(docker.wants_docker());
+        assert!(!docker.wants_media());
+        assert_eq!(docker.completed_target(), "docker");
+        let dev = Request {
+            development: true,
+            target: "docker".into(),
+            ..docker.clone()
+        };
+        assert!(dev.validate_target().is_ok());
+        assert_eq!(dev.purpose(), "development");
+        let candidate = Request {
+            target: "candidate".into(),
+            release_tag: String::new(),
+            ..dev.clone()
+        };
+        assert!(candidate.validate_target().is_ok());
+        assert!(!candidate.wants_docker());
+        assert!(!candidate.wants_media());
+        let all = Request {
+            distribution: "all".into(),
+            rootfs_base_url: "https://github.com/LevitateOS/sodaos/releases/download/v1.2.3/"
+                .into(),
+            ..docker.clone()
+        };
+        assert!(all.validate_target().is_ok());
+        assert!(all.wants_docker() && all.wants_media());
+        assert_eq!(all.completed_target(), "all");
+        for bad in [
+            Request {
+                release_tag: String::new(),
+                ..docker.clone()
+            },
+            Request {
+                release_tag: "latest".into(),
+                ..docker.clone()
+            },
+            Request {
+                release_tag: "v2.0.0".into(),
+                ..all
+            },
+            Request {
+                rootfs_base_url: "https://example.invalid".into(),
+                ..docker
+            },
+            Request {
+                distribution: "appliance".into(),
+                ..dev
+            },
+        ] {
+            assert!(bad.validate_target().is_err(), "admitted {bad:?}");
+        }
+    }
 
     #[test]
     fn oracle_development_target_admission() {
@@ -177,7 +263,7 @@ mod tests {
             .validate_target()
             .unwrap_err()
             .0,
-            "--development requires --target candidate or media"
+            "--development requires --target candidate, media or docker"
         );
         assert_eq!(
             Request {
@@ -225,18 +311,18 @@ mod tests {
     #[test]
     fn oracle_result_omits_empty_media_fields() {
         // Oracle: Go Result `json:",omitempty"` on Media/MediaCompression.
-        let result = Result {
+        let result = BuildResult {
             revision: "r".to_string(),
             checks: vec!["c".to_string()],
-            ..Result::default()
+            ..BuildResult::default()
         };
         let mut out = String::new();
         out.push_str(&serde_json::to_string(&result).expect("serialization to String cannot fail"));
         assert!(!out.contains("Media"));
-        let result = Result {
+        let result = BuildResult {
             media: "m".to_string(),
             media_compression: "fast".to_string(),
-            ..Result::default()
+            ..BuildResult::default()
         };
         let mut out = String::new();
         out.push_str(&serde_json::to_string(&result).expect("serialization to String cannot fail"));

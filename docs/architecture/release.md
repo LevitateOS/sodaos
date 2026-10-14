@@ -11,9 +11,10 @@ This document owns the durable release model. How to run tools day-to-day lives 
 ## Candidate model
 
 1. **Build** produces architecture-specific candidate artifacts.
-2. **Image/media** assembles host content and installation media that consume that
-   candidate.
-3. **Stage** uploads the complete asset set as an immutable GitHub prerelease.
+2. **Package** produces the selected appliance media, Docker runtime, or both
+   from that candidate.
+3. **Stage** publishes the complete selected asset set as an immutable GitHub
+   prerelease and, for Docker, a versioned GHCR image.
 4. **Qualify and promote** tests those public bytes on native x86_64, then makes
    the unchanged release the default download.
 
@@ -21,9 +22,34 @@ Building or staging alone does not qualify a release. A failed build or failed
 installation cannot become successful by changing its label. Experimental
 host-image tooling does not replace native FCOS installation and updating.
 
+### Distribution targets
+
+The release request selects `appliance`, `docker`, or `all` before building.
+`all` selects both distributions from one source snapshot and common candidate;
+it does not rebuild Soda programs or bundled application images for Docker.
+The target set and source revisions are fixed for the release tag. Adding a
+distribution or changing shipping bytes requires a new release tag.
+
+An appliance release includes its ISO and hash-bound rootfs. A Docker-only
+release includes the complete runtime image and its installation metadata;
+ISO generation, rootfs hosting and CoreOS installation qualification are not
+prerequisites. The common candidate can still use the FCOS host archive as the
+Dockerfile's payload source without producing installation media.
+
+Both distributions retain the exact corresponding Soda and Fountain source
+archives, shared payload/candidate bindings, provenance and licensing material
+in the GitHub release. Docker's runtime layers are delivered through GHCR rather
+than duplicated as a GitHub download. Source CI, artifact admission and deployment
+qualification are distinct gates. Development outputs cannot be staged or promoted.
+
+The implemented build and artifact boundaries are described in
+[native support](../development/native-support.md#build-and-artifact-contract).
+The [guided operator flow](../development/release.md#guided-release-operator-flow)
+connects preparation, publication, qualification and promotion for all targets.
+
 ## Public distribution
 
-Users download one ISO. It automatically retrieves its hash-bound root filesystem
+Appliance users download one ISO. It automatically retrieves its hash-bound root filesystem
 from the same versioned GitHub release. The root filesystem contains the Soda
 runtime and application images; users do not download or assemble components.
 Installation requires internet access to GitHub. There is no Soda download server,
@@ -159,11 +185,89 @@ Persistent configuration, application data and writable Project roots survive
 container recreation. Replacing the Docker image is not a qualified appliance
 rpm-ostree transition or an implicitly supported retained-state upgrade.
 
-Registry delivery must bind an immutable Docker image digest to the verified
-candidate revision, bundled payload, resolved Fedora base, RPM inventory and
-corresponding source/notices. Docker qualification needs a fresh deployment,
-native browser/Project/factory checks, orderly shutdown and retained-state
-container recreation. Appliance ISO qualification alone does not qualify Docker.
+### Docker artifact identity
+
+The Docker binding identifies the release tag and native platform (`x86_64`,
+OCI `linux/amd64`), exact Soda/Fountain source revisions and archive hashes,
+shared candidate and payload hashes, and the source host manifest/archive hash.
+It also binds the resolved Fedora base manifest digest, Docker recipe hash,
+outer image manifest and config digests, exported OCI archive hash/size, RPM
+inventory hash, and distributed Compose file hash/size. The common candidate
+continues to own the bundled application image and Project-support identities;
+Docker references those bindings rather than creating another application catalog.
+Exact JSON field names and producer/readback interfaces belong to
+[the delivery metadata model](../../lib/soda-release-deliver/README.md#docker-metadata-and-provenance).
+
+The native build resolves the Fedora base before packaging and records the
+packages actually installed. A pinned base does not make mutable RPM repositories
+reproducible. Packaging reads back Soda's installed revision, payload and bundled
+image identities from the resulting runtime. Missing or mismatched identities
+refuse preparation and delivery. Neither a local Docker image ID nor a mutable
+tag substitutes for the distribution manifest digest.
+
+### Registry staging and recommendation
+
+The public runtime repository is `ghcr.io/levitateos/sodaos`. Its version tag
+matches the GitHub release tag; the release metadata also supplies the immutable
+`ghcr.io/levitateos/sodaos@sha256:...` reference. Publication preserves and reads
+back the recorded image digest. A conflicting existing version tag is refused;
+the publisher treats version tags as immutable even though registry tags are
+mutable. It never rebuilds or re-encodes a staged image during promotion.
+
+GHCR package visibility must allow anonymous pulls of the staged digest.
+Repository linkage, public visibility and publisher access are explicit
+prerequisites, not inferred from the repository name. GitHub documents
+[Container registry access and digest pulls](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+Registry and GitHub publication credentials stay with the release operator,
+outside the build worker. Source CI stays read-only.
+
+Staging publishes an explicitly unqualified prerelease with the Docker binding,
+exact Compose file, RPM inventory, source archives and shared release metadata.
+Qualification receipts are retained locally and incorporated into the editable
+release notes during promotion; immutable release assets cannot be appended later.
+The `latest` Docker tag is a recommendation pointer moved only to a qualified
+version's unchanged digest. Installation uses that version's Compose file and
+pins its recorded image digest.
+
+GitHub's latest release remains the appliance ISO download pointer. Promoting
+Docker-only releases must not change it. An `all` release can update both
+recommendations only after both distributions qualify; one passing target cannot
+promote a partially qualified release. Qualification records evidence without
+changing either recommendation. GHCR and GitHub changes are not atomic:
+partial publication or promotion must report observed remote state, retain its
+artifacts and refuse blind retry, overwrite or rollback of recommendation pointers.
+
+### Docker qualification
+
+One fresh deployment on the supported native Docker host uses the publicly
+downloaded Compose file and anonymously pulled registry digest, with new runtime
+volumes. Independent readback binds the pulled manifest/config, installed Soda
+revision, shared payload/application identities and host platform to the release.
+Required observations cover:
+
+- Initial image import, service readiness, operator setup and HTTPS activation.
+- Native browser login, Project creation/join, terminal access and one nested
+  container workload through the existing Project runtime.
+- The bounded factory journey with its required provider access and finite
+  funding; absent prerequisites are a blocker, not a skipped pass.
+- Orderly shutdown, restart and outer-container recreation using the same image
+  and the same `/etc`, `/var` and `/home` volumes. Configuration, credentials,
+  repository/database records, application data and Project files remain usable;
+  initialization and product mutations are not replayed.
+
+The receipt binds the GitHub release/tag, selected target set, source revisions,
+candidate/payload hashes, Docker binding and Compose hashes, observed registry
+and installed identities, native host prerequisites, and hashes of finalized
+observation files. Failed, skipped, missing, stale or identity-mismatched required
+observations refuse qualification and promotion. Private credentials and raw
+provider responses do not enter public metadata or release notes.
+
+Local development smoke, source CI and appliance ISO qualification do not qualify
+Docker. This receipt covers fresh installation and same-image persistence only.
+Cross-version replacement, downgrade, backup restoration and rollback require
+separate evidence before being offered as supported operations. Docker-qualified
+status and maintained recommendation pointers do not automatically upgrade any
+running installation.
 
 ## OCI metadata admission
 

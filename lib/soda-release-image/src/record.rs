@@ -1,5 +1,7 @@
 //! `build_record.go`: candidate content inventory + build receipts.
 
+use soda_build_tools::reader::build::BuildResult;
+
 use std::fs;
 
 use crate::error::Error;
@@ -136,13 +138,15 @@ pub fn write_content_inventory(context: &str, out: &str, native: &str) -> Result
 pub fn record_build_result(
     production: &dyn Production,
     request: &request::Request,
-) -> Result<request::Result, Error> {
-    let mut result = request::Result {
+) -> Result<BuildResult, Error> {
+    let mut result = BuildResult {
         revision: production.revision().to_string(),
         architecture: production.arch().to_string(),
         candidate: sys::join(&[production.out(), "candidate.json"]),
         purpose: request.purpose(),
         requested_target: request.requested_target(),
+        distribution: request.distribution().to_string(),
+        release_tag: request.release_tag.clone(),
         completed_target: "candidate".to_string(),
         scope: "P1-P6 verified candidate; not a qualified release".to_string(),
         checks: [
@@ -154,7 +158,7 @@ pub fn record_build_result(
         .into_iter()
         .map(|s| s.to_string())
         .collect(),
-        ..request::Result::default()
+        ..BuildResult::default()
     };
     let text = sys::read_json_build_text(&result.candidate)?;
     let candidate = model::Candidate::parse(&text)?;
@@ -178,6 +182,16 @@ pub fn record_build_result(
     if request.development {
         result.scope = "development-only; not release-qualified".to_string();
     }
+    if request.wants_docker() {
+        result.docker = sys::join(&[production.out(), "docker/docker.json"]);
+        result.checks.push(
+            "Docker OCI identity, candidate content, provenance and RPM inventory".to_string(),
+        );
+        if !request.development {
+            result.scope = "candidate-derived packaging; not a qualified release".to_string();
+        }
+    }
+    result.completed_target = request.completed_target().to_string();
     let mut data =
         serde_json::to_string_pretty(&result).expect("serialization to String cannot fail");
     data.push('\n');

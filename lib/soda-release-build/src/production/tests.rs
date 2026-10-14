@@ -20,6 +20,11 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
     std::fs::create_dir_all(&out).unwrap();
     let files = [
         (
+            "system/docker/Dockerfile",
+            "ARG BASE_IMAGE=registry.fedoraproject.org/fedora:44\n",
+        ),
+        ("system/docker/compose.yaml", "services: {}\n"),
+        (
             "package.json",
             "{\"packageManager\":\"bun@1.4.2\",\"unrelated\":true}",
         ),
@@ -156,6 +161,70 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
 }
 
 #[test]
+fn docker_packaging_reuses_host_and_refuses_an_unverified_export() {
+    let (mut prod, calls, root) = production_fixture();
+    prod.resolve_inputs().unwrap();
+    prod.prepare_docker().unwrap();
+    assert!(prod.prepare_docker().is_err());
+    let golden: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../soda-release-deliver/tests/goldens/deliver.json"
+    ))
+    .unwrap();
+    let payload = golden["payload"].as_str().unwrap();
+    let mut candidate: soda_release_deliver::model::Candidate =
+        serde_json::from_str(golden["candidate"].as_str().unwrap()).unwrap();
+    candidate.payload_sha256 = crate::sha256_hex(payload.as_bytes());
+    std::fs::write(PathBuf::from(&prod.out).join("payload.json"), payload).unwrap();
+    std::fs::write(
+        PathBuf::from(&prod.out).join("candidate.json"),
+        serde_json::to_vec(&candidate).unwrap(),
+    )
+    .unwrap();
+    let capture = prod.capture.take().unwrap();
+    prod.capture = Some(Box::new(move |dir, name, args| {
+        if args.iter().any(|a| a == "--entrypoint=/usr/bin/cat") {
+            Ok("fedora 0:44-1.x86_64".into())
+        } else {
+            capture(dir, name, args)
+        }
+    }));
+    // The scripted exporter emits a normal app OCI, not a Docker image carrying
+    // the candidate. Packaging must fail closed without a metadata receipt.
+    assert!(prod
+        .build_docker(
+            "v1.2.3",
+            soda_release_deliver::model::Distribution::Docker,
+            soda_release_deliver::model::BuildPurpose::Development
+        )
+        .is_err());
+    let calls = calls.lock().unwrap().join("\n");
+    assert_eq!(calls.matches(" pull ").count(), 5);
+    assert_eq!(calls.matches(" build ").count(), 1);
+    assert_eq!(calls.matches(" save ").count(), 1);
+    for arg in [
+        format!("--build-arg=SODA_BASE_IMAGE={}", candidate.host.config),
+        format!(
+            "--build-arg=BASE_IMAGE=registry.fedoraproject.org/fedora@sha256:{}",
+            "b".repeat(64)
+        ),
+        "--pull=never".into(),
+        "--label=io.soda.build-purpose=development".into(),
+        "--label=org.opencontainers.image.version=v1.2.3".into(),
+        format!(
+            "--label=io.soda.payload-sha256={}",
+            candidate.payload_sha256
+        ),
+    ] {
+        assert!(calls.contains(&arg), "missing {arg} in {calls}");
+    }
+    assert!(
+        !calls.contains("cargo build") && !calls.contains("go build") && !calls.contains("bun")
+    );
+    assert!(!PathBuf::from(&prod.out).join("docker/docker.json").exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn oracle_production_sequence() {
     // Oracle: TestProductionUsesOneAssetAndImageSequence.
     let (mut prod, calls, _root) = production_fixture();
@@ -201,7 +270,11 @@ fn oracle_production_sequence() {
         host.display(),
         forgejo.display()
     )));
-    assert_eq!(text.matches(" save --uncompressed --format=oci-archive").count(), 7);
+    assert_eq!(
+        text.matches(" save --uncompressed --format=oci-archive")
+            .count(),
+        7
+    );
     assert!(images.contains_key("canlang-runtime"));
     assert!(!text.contains(" push ") && !text.contains(" --rm ") && !text.contains("--replace"));
     assert!(images.contains_key("proxy"));

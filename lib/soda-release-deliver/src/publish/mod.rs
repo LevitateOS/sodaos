@@ -4,6 +4,9 @@ use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
 pub mod assets;
+pub mod qualification;
+pub mod registry;
+pub(crate) use assets::valid_tag;
 use assets::{inspect, inventory, read_json, Asset};
 pub use assets::{prepare, Manifest, Qualification};
 const REPOSITORY: &str = "github.com/LevitateOS/sodaos";
@@ -57,6 +60,8 @@ struct Release {
     draft: bool,
     prerelease: bool,
     immutable: bool,
+    #[serde(default)]
+    published_at: Option<String>,
     assets: Vec<RemoteAsset>,
 }
 #[derive(Deserialize)]
@@ -118,6 +123,14 @@ fn check_tag(gh: &dyn GitHub, manifest: &Manifest, create_missing: bool) -> Resu
 /// Only main's latest push run for these exact sources can authorize delivery.
 /// PR merge commits and an older success hidden behind a failed rerun do not qualify.
 fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
+    check_source_ci(gh, &manifest.soda_revision, &manifest.forgejo_revision)
+}
+
+pub fn check_source_ci(
+    gh: &dyn GitHub,
+    soda_revision: &str,
+    forgejo_revision: &str,
+) -> Result<u64, Error> {
     #[derive(Deserialize)]
     struct FountainSource {
         revision: String,
@@ -130,15 +143,12 @@ fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
             "github.com",
             "--header",
             "Accept: application/vnd.github.raw+json",
-            &format!(
-                "{API}/contents/fountain-source.json?ref={}",
-                manifest.soda_revision
-            ),
+            &format!("{API}/contents/fountain-source.json?ref={}", soda_revision),
         ],
     )?;
     let fountain: FountainSource =
         serde_json::from_slice(&bytes).map_err(|_| Error::msg("Fountain source pin refused"))?;
-    if fountain.revision != manifest.forgejo_revision {
+    if fountain.revision != forgejo_revision {
         return Err(Error::msg(
             "built Fountain revision differs from the CI source pin",
         ));
@@ -161,7 +171,7 @@ fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
         gh,
         &format!(
             "{API}/actions/workflows/ci.yml/runs?head_sha={}&branch=main&event=push&per_page=1",
-            manifest.soda_revision
+            soda_revision
         ),
     )?;
     let Some(run) = runs
@@ -174,7 +184,7 @@ fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
         ));
     };
     if run.id == 0
-        || run.head_sha != manifest.soda_revision
+        || run.head_sha != soda_revision
         || run.head_branch.as_deref() != Some("main")
         || run.event != "push"
         || run.path != ".github/workflows/ci.yml"
@@ -238,9 +248,67 @@ fn verify_release(gh: &dyn GitHub, tag: &str) -> Result<(), Error> {
     Ok(())
 }
 
+fn latest_release(gh: &dyn GitHub) -> Result<Option<Release>, Error> {
+    match api(gh, &format!("{API}/releases/latest")) {
+        Ok(release) => Ok(Some(release)),
+        Err(error) if error.0 == "GitHub resource not found" => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+// Repeating a verified readback may finish an interrupted local receipt write.
+// Existing evidence must match byte-for-byte; this never replaces retained state.
+fn record_verified(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    use std::os::unix::fs::MetadataExt;
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata)
+            if metadata.is_file()
+                && metadata.mode() & 0o077 == 0
+                && metadata.len() == bytes.len() as u64
+                && std::fs::read(path).ok().as_deref() == Some(bytes) =>
+        {
+            Ok(())
+        }
+        Ok(_) => Err(Error::msg(
+            "existing publication evidence differs; inspect retained state",
+        )),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            crate::buildx::write_new(path.to_str().ok_or_else(Error::refused)?, bytes, 0o600)
+        }
+        Err(_) => Err(Error::msg("publication evidence unavailable")),
+    }
+}
+
+#[derive(Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct ApplianceEvidence {
+    downloaded: std::path::PathBuf,
+}
+
+fn appliance_evidence(
+    directory: &Path,
+    manifest: &Manifest,
+) -> Result<(Qualification, std::path::PathBuf), Error> {
+    let receipt: Qualification = read_json(&directory.join("appliance-qualification.json"))?;
+    let input: ApplianceEvidence = read_json(&directory.join("appliance-evidence.json"))?;
+    if !input.downloaded.is_absolute() {
+        return Err(Error::msg(
+            "absolute downloaded appliance evidence path required",
+        ));
+    }
+    let downloaded = inspect(&input.downloaded, &manifest.iso)?;
+    receipt.validate(manifest, &downloaded)?;
+    Ok((receipt, input.downloaded))
+}
+
 /// Upload a complete draft, verify its inventory, and expose it as an unqualified
 /// immutable prerelease. Existing releases are never adopted or overwritten.
-pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(), Error> {
+fn stage_github(
+    gh: &dyn GitHub,
+    manifest: &Manifest,
+    directory: &Path,
+    before_release: impl FnOnce(u64) -> Result<(), Error>,
+) -> Result<(), Error> {
     manifest.validate()?;
     let assets = inventory(manifest, directory)?;
     let ci_run = check_ci(gh, manifest)?;
@@ -264,11 +332,12 @@ pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(
         Err(e) => return Err(e),
     }
     check_tag(gh, manifest, true)?;
+    before_release(ci_run)?;
     let notes_path = directory.join("release-notes.md");
     std::fs::write(
         &notes_path,
         format!(
-            "UNQUALIFIED CANDIDATE: install and first-boot checks pending.\n\n{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n",
+            "UNQUALIFIED CANDIDATE: native qualification of every selected distribution is pending.\n\n{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n",
             manifest.notes
         ),
     )
@@ -339,7 +408,7 @@ pub fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(
 
 /// Promote only the unchanged immutable candidate after exact install/boot smoke
 /// checks and verification of the ISO actually downloaded from GitHub.
-pub fn promote(
+pub fn qualify_appliance(
     gh: &dyn GitHub,
     directory: &Path,
     downloaded_iso: &Path,
@@ -351,9 +420,10 @@ pub fn promote(
             "explicit native install/boot/image smoke confirmation required",
         ));
     }
-    let manifest: Manifest = read_json(&directory.join("release.json"))?;
-    manifest.validate()?;
+    let manifest = assets::load(directory)?;
     let downloaded = inspect(downloaded_iso, &manifest.iso)?;
+    let downloaded_iso = std::fs::canonicalize(downloaded_iso)
+        .map_err(|_| Error::msg("downloaded ISO unavailable"))?;
     let receipt = Qualification {
         format: 1,
         soda_revision: manifest.soda_revision.clone(),
@@ -368,7 +438,7 @@ pub fn promote(
     };
     receipt.validate(&manifest, &downloaded)?;
     check_tag(gh, &manifest, false)?;
-    let ci_run = check_ci(gh, &manifest)?;
+    check_ci(gh, &manifest)?;
     let current = release(gh, &manifest.tag)?;
     if current.draft || !current.prerelease || !current.immutable {
         return Err(Error::msg(
@@ -377,6 +447,7 @@ pub fn promote(
     }
     let assets = inventory(&manifest, directory)?;
     check_inventory(&current, &manifest, &assets)?;
+    verify_release(gh, &manifest.tag)?;
     command(
         gh,
         &[
@@ -388,33 +459,436 @@ pub fn promote(
             REPOSITORY,
         ],
     )?;
-    assets::write_json(&directory.join("qualification.json"), &receipt)?;
-    let notes = directory.join("qualified-release-notes.md");
-    let receipt_text = serde_json::to_string_pretty(&receipt).map_err(|_| Error::refused())?;
-    std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative install and first-boot smoke checks passed for the unchanged release bytes.\n\n```json\n{receipt_text}\n```\n", manifest.notes)).map_err(|_| Error::msg("cannot write qualified notes"))?;
-    command(
-        gh,
-        &[
-            "release",
-            "edit",
-            &manifest.tag,
-            "--repo",
-            REPOSITORY,
-            "--verify-tag",
-            "--prerelease=false",
-            "--latest",
-            "--notes-file",
-            notes.to_str().ok_or_else(Error::refused)?,
-        ],
-    )?;
-    let latest: Release = api(gh, &format!("{API}/releases/latest"))?;
-    if latest.id != current.id || latest.draft || latest.prerelease || !latest.immutable {
+    let bytes = serde_json::to_vec(&ApplianceEvidence {
+        downloaded: downloaded_iso,
+    })
+    .map_err(|_| Error::refused())?;
+    record_verified(&directory.join("appliance-evidence.json"), &bytes)?;
+    let bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
+    record_verified(&directory.join("appliance-qualification.json"), &bytes)?;
+    Ok(())
+}
+
+pub fn stage(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+    auth: Option<&Path>,
+) -> Result<(), Error> {
+    let manifest = assets::load(directory)?;
+    if manifest.docker.is_some() && !directory.join("registry/registry.json").exists() {
+        let auth =
+            auth.ok_or_else(|| Error::msg("registry auth file required before Docker staging"))?;
+        use std::os::unix::fs::MetadataExt;
+        let st = std::fs::symlink_metadata(auth).map_err(|_| Error::refused())?;
+        if !st.is_file() || st.mode() & 0o077 != 0 || st.len() == 0 {
+            return Err(Error::msg(
+                "restricted registry auth file required before staging",
+            ));
+        }
+        if directory.join("registry").exists() {
+            return Err(Error::msg("registry upload was already attempted; run verify-docker and inspect remote state instead of replaying it"));
+        }
+    }
+    let candidate = if manifest.docker.is_some() {
+        Some(assets::candidate(directory, &manifest)?)
+    } else {
+        None
+    };
+    stage_github(gh, &manifest, directory, |ci_run| {
+        if let Some(metadata) = &manifest.docker {
+            let output = directory.join("registry");
+            if output.join("registry.json").exists() {
+                registry::observe_public(registry, metadata, ci_run)?;
+            } else {
+                registry::stage_admitted(
+                    gh,
+                    registry,
+                    candidate.as_deref().ok_or_else(Error::refused)?,
+                    auth.ok_or_else(|| {
+                        Error::msg("registry auth file required for Docker staging")
+                    })?,
+                    &output,
+                    metadata,
+                )?;
+            }
+        }
+        Ok(())
+    })
+}
+
+/// Recheck every selected target before moving either recommendation pointer.
+pub fn promote(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+    auth: Option<&Path>,
+) -> Result<(), Error> {
+    let manifest = assets::load(directory)?;
+    if directory.join("promotion-started.json").exists() {
+        return Err(Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"));
+    }
+    let mut summaries = serde_json::Map::new();
+    let mut downloaded_iso = None;
+    if manifest.has_appliance() {
+        let (receipt, downloaded) = appliance_evidence(directory, &manifest)?;
+        summaries.insert(
+            "appliance".into(),
+            serde_json::to_value(&receipt).map_err(|_| Error::refused())?,
+        );
+        downloaded_iso = Some(downloaded);
+    }
+    if manifest.docker.is_some() {
+        let receipt = qualification::verify(&manifest, directory)?;
+        summaries.insert(
+            "docker".into(),
+            serde_json::to_value(&receipt).map_err(|_| Error::refused())?,
+        );
+        let file =
+            auth.ok_or_else(|| Error::msg("registry auth file required for Docker promotion"))?;
+        let st = std::fs::symlink_metadata(file).map_err(|_| Error::refused())?;
+        use std::os::unix::fs::MetadataExt;
+        if !st.is_file() || st.mode() & 0o077 != 0 || st.len() == 0 {
+            return Err(Error::msg("restricted registry auth file required"));
+        }
+    }
+    check_tag(gh, &manifest, false)?;
+    let ci_run = check_ci(gh, &manifest)?;
+    let current = release(gh, &manifest.tag)?;
+    if current.draft || !current.prerelease || !current.immutable {
         return Err(Error::msg(
-            "qualified release is not the expected latest release",
+            "only the exact immutable prerelease can be promoted",
         ));
     }
-    check_inventory(&latest, &manifest, &assets)?;
+    let assets = inventory(&manifest, directory)?;
+    check_inventory(&current, &manifest, &assets)?;
+    verify_release(gh, &manifest.tag)?;
+    if let Some(downloaded) = &downloaded_iso {
+        command(
+            gh,
+            &[
+                "release",
+                "verify-asset",
+                &manifest.tag,
+                downloaded.to_str().ok_or_else(Error::refused)?,
+                "--repo",
+                REPOSITORY,
+            ],
+        )?;
+    }
+    if let Some(metadata) = &manifest.docker {
+        qualification::validate_publication_time(
+            &manifest,
+            directory,
+            &qualification::evidence(directory)?,
+            current
+                .published_at
+                .as_deref()
+                .ok_or_else(|| Error::msg("immutable publication time unavailable"))?,
+        )?;
+        registry::observe_public(registry, metadata, ci_run)?;
+    }
+    let prior_appliance_latest = if !manifest.has_appliance() {
+        latest_release(gh)?.map(|release| release.id)
+    } else {
+        None
+    };
+    let notes = directory.join("qualified-release-notes.md");
+    let summary = serde_json::to_string_pretty(&summaries).map_err(|_| Error::refused())?;
+    std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative qualification passed for every selected distribution and these exact release bytes.\n\n\x60\x60\x60json\n{summary}\n\x60\x60\x60\n", manifest.notes)).map_err(|_| Error::refused())?;
+    crate::buildx::write_new(directory.join("promotion-started.json").to_str().ok_or_else(Error::refused)?, summary.as_bytes(), 0o600)
+        .map_err(|_| Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"))?;
+    if let Some(metadata) = &manifest.docker {
+        registry::promote_digest(registry, metadata, auth.ok_or_else(Error::refused)?, directory)
+            .map_err(|_| Error::msg("Docker recommendation may have changed; inspect partial promotion with status before any further mutation"))?;
+    }
+    command(gh, &["release", "edit", &manifest.tag, "--repo", REPOSITORY, "--verify-tag", "--prerelease=false", if manifest.has_appliance() { "--latest=true" } else { "--latest=false" }, "--notes-file", notes.to_str().ok_or_else(Error::refused)?])
+        .map_err(|_| Error::msg("GitHub promotion failed after recommendation update; inspect status, do not replay or roll back"))?;
+    let after = release(gh, &manifest.tag)?;
+    if after.id != current.id || after.draft || after.prerelease || !after.immutable {
+        return Err(Error::msg(
+            "qualified release state differs; inspect partial promotion",
+        ));
+    }
+    check_inventory(&after, &manifest, &assets)?;
+    if manifest.has_appliance() {
+        let latest: Release = api(gh, &format!("{API}/releases/latest"))?;
+        if latest.id != current.id {
+            return Err(Error::msg(
+                "appliance latest pointer differs; inspect partial promotion",
+            ));
+        }
+    } else if latest_release(gh)?.map(|release| release.id) != prior_appliance_latest {
+        return Err(Error::msg("Docker promotion changed the appliance latest pointer; inspect partial promotion without rollback"));
+    }
+    crate::buildx::write_new(
+        directory
+            .join("promotion-complete.json")
+            .to_str()
+            .ok_or_else(Error::refused)?,
+        summary.as_bytes(),
+        0o600,
+    )?;
     Ok(())
+}
+
+pub fn status(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+) -> Result<serde_json::Value, Error> {
+    let manifest = assets::load(directory)?;
+    let ci = check_ci(gh, &manifest);
+    let remote = release(gh, &manifest.tag);
+    let docker = manifest.docker.as_ref().map(|metadata| {
+        registry::observe_public(registry, metadata, ci.as_ref().copied().unwrap_or(0))
+    });
+    let mut blockers = Vec::new();
+    if let Err(error) = &ci {
+        blockers.push(error.0.clone());
+    }
+    let publication = match remote {
+        Ok(ref remote) if remote.draft => {
+            blockers
+                .push("partial staging: inspect the existing draft before further mutation".into());
+            if check_inventory(remote, &manifest, &inventory(&manifest, directory)?).is_err() {
+                blockers.push("draft release inventory is incomplete or differs".into());
+            }
+            "draft"
+        }
+        Ok(ref remote)
+            if check_inventory(remote, &manifest, &inventory(&manifest, directory)?).is_ok() =>
+        {
+            if !remote.immutable {
+                blockers.push("remote release is not immutable".into());
+                "mismatched"
+            } else if let Err(error) =
+                check_tag(gh, &manifest, false).and_then(|_| verify_release(gh, &manifest.tag))
+            {
+                blockers.push(error.0);
+                "unverified"
+            } else if remote.prerelease {
+                "unqualified prerelease"
+            } else {
+                "published release"
+            }
+        }
+        Ok(_) => {
+            blockers.push("remote release inventory differs".into());
+            "mismatched"
+        }
+        Err(ref error) if error.0 == "GitHub resource not found" => "not observed",
+        Err(ref error) => {
+            blockers.push(error.0.clone());
+            "unavailable"
+        }
+    };
+    let docker_available = !matches!(docker, Some(Err(_)));
+    if let Some(Err(error)) = &docker {
+        blockers.push(error.0.clone());
+    }
+    let appliance = !manifest.has_appliance() || appliance_evidence(directory, &manifest).is_ok();
+    let docker_qualified = manifest.docker.is_none()
+        || (|| -> Result<(), Error> {
+            qualification::verify(&manifest, directory)?;
+            let published = remote.as_ref().map_err(|_| Error::refused())?;
+            if published.draft || !published.immutable {
+                return Err(Error::refused());
+            }
+            qualification::validate_publication_time(
+                &manifest,
+                directory,
+                &qualification::evidence(directory)?,
+                published
+                    .published_at
+                    .as_deref()
+                    .ok_or_else(Error::refused)?,
+            )
+        })()
+        .is_ok();
+    if !appliance {
+        blockers.push("appliance qualification missing or invalid".into());
+    }
+    if !docker_qualified {
+        blockers.push("Docker qualification missing or invalid".into());
+    }
+    let partial = directory.join("promotion-started.json").exists()
+        && !directory.join("promotion-complete.json").exists();
+    if partial {
+        blockers
+            .push("partial promotion: inspect both remote pointers before further mutation".into());
+    }
+    let github_latest = match latest_release(gh) {
+        Ok(release) => release.map(|release| release.tag_name),
+        Err(error) => {
+            blockers.push(format!("appliance recommendation unavailable: {}", error.0));
+            None
+        }
+    };
+    let docker_latest = if manifest.docker.is_some() {
+        registry::latest_digest(registry).ok()
+    } else {
+        None
+    };
+    let promotion_complete = directory.join("promotion-complete.json").exists();
+    if promotion_complete
+        && manifest.has_appliance()
+        && github_latest.as_deref() != Some(manifest.tag.as_str())
+    {
+        blockers.push("appliance recommendation no longer matches this release".into());
+    }
+    if promotion_complete
+        && manifest.docker.as_ref().is_some_and(|metadata| {
+            docker_latest.as_deref() != Some(metadata.image.manifest.as_str())
+        })
+    {
+        blockers.push("Docker recommendation no longer matches this release".into());
+    }
+    let next = if partial {
+        "inspect partial promotion"
+    } else if ci.is_err() {
+        "obtain successful exact-source main CI"
+    } else if publication == "mismatched" {
+        "inspect immutable remote inventory"
+    } else if publication == "draft" {
+        "inspect partial staging"
+    } else if matches!(publication, "unavailable" | "unverified") {
+        "inspect remote publication"
+    } else if promotion_complete {
+        "inspect recommendation state"
+    } else if publication == "published release" {
+        "inspect existing promotion"
+    } else if directory.join("registry").exists()
+        && !directory.join("registry/registry.json").exists()
+    {
+        "verify-docker"
+    } else if publication == "not observed" {
+        "stage"
+    } else if !docker_available {
+        "inspect public Docker image"
+    } else if !appliance || !docker_qualified {
+        "qualify"
+    } else {
+        "promote"
+    };
+    Ok(
+        serde_json::json!({"tag":manifest.tag,"distribution":manifest.distribution,"soda_revision":manifest.soda_revision,"publication":publication,"github_latest":github_latest,"docker_latest_digest":docker_latest,"appliance_qualified":if manifest.has_appliance(){Some(appliance)}else{None},"docker_qualified":if manifest.docker.is_some(){Some(docker_qualified)}else{None},"promotion_complete":promotion_complete,"blockers":blockers,"next_action":next}),
+    )
 }
 #[cfg(test)]
 mod tests;
+
+pub fn verify_registry(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+) -> Result<(), Error> {
+    let manifest = assets::load(directory)?;
+    let candidate = assets::candidate(directory, &manifest)?;
+    registry::verify(gh, registry, &candidate, &directory.join("registry"))?;
+    Ok(())
+}
+
+pub fn preflight(
+    gh: &dyn GitHub,
+    soda: &str,
+    fountain: &str,
+    tag: &str,
+    distribution: crate::model::Distribution,
+) -> Result<(), Error> {
+    if !valid_tag(tag) {
+        return Err(Error::msg("exact release tag required"));
+    }
+    check_source_ci(gh, soda, fountain)?;
+    #[derive(Deserialize)]
+    struct Settings {
+        enabled: bool,
+    }
+    if !api::<Settings>(gh, &format!("{API}/immutable-releases"))?.enabled {
+        return Err(Error::msg(
+            "enable immutable GitHub releases before building",
+        ));
+    }
+    match release(gh, tag) {
+        Ok(_) => return Err(Error::msg("release already exists; choose a fresh version")),
+        Err(error) if error.0 == "GitHub resource not found" => (),
+        Err(error) => return Err(error),
+    }
+    match api::<TagRef>(gh, &format!("{API}/git/ref/tags/{tag}")) {
+        Ok(reference) if reference.object.kind == "commit" && reference.object.sha == soda => (),
+        Ok(_) => return Err(Error::msg("existing tag differs from selected source")),
+        Err(error) if error.0 == "GitHub resource not found" => (),
+        Err(error) => return Err(error),
+    }
+    if distribution != crate::model::Distribution::Appliance {
+        let package = api::<serde_json::Value>(gh, "orgs/LevitateOS/packages/container/sodaos");
+        match package {
+            Ok(value) if value.get("visibility").and_then(|v|v.as_str())!=Some("public")=>return Err(Error::msg("GHCR package must be public before staging; change its package visibility")),
+            Ok(_) =>(),Err(error) if error.0=="GitHub resource not found"=>eprintln!("GHCR package does not exist; first upload requires public visibility before anonymous verification."),Err(error)=>return Err(error),
+        }
+    }
+    Ok(())
+}
+
+pub fn qualify_docker(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    manifest: &Manifest,
+    directory: &Path,
+    evidence: &Path,
+) -> Result<(), Error> {
+    check_tag(gh, manifest, false)?;
+    let ci = check_ci(gh, manifest)?;
+    let remote = release(gh, &manifest.tag)?;
+    if remote.draft || !remote.prerelease || !remote.immutable {
+        return Err(Error::msg(
+            "exact immutable unqualified prerelease required for qualification",
+        ));
+    }
+    check_inventory(&remote, manifest, &inventory(manifest, directory)?)?;
+    verify_release(gh, &manifest.tag)?;
+    qualification::validate_publication_time(
+        manifest,
+        directory,
+        evidence,
+        remote
+            .published_at
+            .as_deref()
+            .ok_or_else(|| Error::msg("immutable publication time unavailable"))?,
+    )?;
+    registry::observe_public(
+        registry,
+        manifest.docker.as_ref().ok_or_else(Error::refused)?,
+        ci,
+    )?;
+    for name in [
+        "docker.json",
+        "sodaos-docker-compose.yaml",
+        "candidate.json",
+        "payload.json",
+    ] {
+        let downloaded = evidence.join("downloads").join(name);
+        if &inspect(&downloaded, name)? != manifest.asset(name)? {
+            return Err(Error::msg(
+                "downloaded installation bytes differ from staged release",
+            ));
+        }
+        command(
+            gh,
+            &[
+                "release",
+                "verify-asset",
+                &manifest.tag,
+                downloaded.to_str().ok_or_else(Error::refused)?,
+                "--repo",
+                REPOSITORY,
+            ],
+        )?;
+    }
+    if directory.join("docker-qualification.json").exists() {
+        qualification::verify(manifest, directory)?;
+    } else {
+        qualification::stamp(manifest, directory, evidence)?;
+    }
+    Ok(())
+}

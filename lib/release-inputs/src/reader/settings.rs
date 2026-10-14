@@ -7,6 +7,17 @@
 use super::Error;
 use std::path::Path;
 
+/// Version identity accepted by the GitHub and Docker release producers.
+pub fn release_tag(tag: &str) -> bool {
+    !tag.is_empty()
+        && tag.len() <= 128
+        && tag.as_bytes()[0].is_ascii_alphanumeric()
+        && tag
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
+        && !tag.contains("..")
+}
+
 /// Reads the one `prefix` line of a manifest. Like the Go owner, the
 /// duplicate detector keys on a non-empty accumulated value, so two lines
 /// that both yield an empty value report `missing` rather than `duplicate`.

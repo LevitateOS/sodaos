@@ -45,6 +45,14 @@ pub trait Production {
 
     /// `p.ResolveInputs`: freeze image inputs on the production.
     fn resolve_inputs(&mut self) -> Result<(), Error>;
+    /// Freeze the outer Docker userspace before compilation begins.
+    fn prepare_docker(&mut self) -> Result<(), Error> {
+        Err(Error::msg("Docker packaging production unavailable"))
+    }
+    /// Package the already verified candidate; never compile its payload again.
+    fn build_docker(&self, _request: &crate::request::Request) -> Result<(), Error> {
+        Err(Error::msg("Docker packaging production unavailable"))
+    }
     /// `p.Dependencies`: verify and install frozen dependencies.
     fn dependencies(&self) -> Result<(), Error>;
     /// `p.Compile`: build one Go command.

@@ -213,14 +213,42 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install locked source dependencies
         run: bun install --frozen-lockfile
-      - name: Run Rust tests including Project support artifact and maintenance contracts
+      - name: Run Rust tests including Docker provenance, packaging and admission contracts
+        # TCP fixture shutdown/rebind checks require isolated test lifetimes.
+        env:
+          RUST_TEST_THREADS: '1'
         run: cargo test --workspace --locked --no-fail-fast
+
+  packaging:
+    name: Docker packaging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: sodaos
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Install verified Dockerfile linter
+        run: |
+          mkdir -p .artifacts/docker-ci/tools
+          curl --fail --silent --show-error --location \
+            https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-x86_64 \
+            --output .artifacts/docker-ci/tools/hadolint
+          printf '%s\n' 'c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507  .artifacts/docker-ci/tools/hadolint' | sha256sum --check
+          chmod 0755 .artifacts/docker-ci/tools/hadolint
+          echo "$PWD/.artifacts/docker-ci/tools" >> "$GITHUB_PATH"
+      - name: Check Dockerfile and Compose deployment contract
+        run: bash scripts/check-docker-packaging.sh
 
   ci:
     name: CI
     runs-on: ubuntu-24.04
     timeout-minutes: 2
-    needs: [go, browser, rust]
+    needs: [go, browser, rust, packaging]
     if: ${{ always() }}
     steps:
       - name: Require all source jobs to pass
@@ -228,7 +256,9 @@ jobs:
           GO_RESULT: ${{ needs.go.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
           RUST_RESULT: ${{ needs.rust.result }}
+          PACKAGING_RESULT: ${{ needs.packaging.result }}
         run: |
           test "$GO_RESULT" = success
           test "$BROWSER_RESULT" = success
           test "$RUST_RESULT" = success
+          test "$PACKAGING_RESULT" = success

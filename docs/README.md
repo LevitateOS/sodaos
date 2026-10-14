@@ -28,7 +28,7 @@ command workflow. Spaces connects repository environments with human and factory
 | Document | Owns |
 | --- | --- |
 | [Installation](guides/installation.md) | Build, provision, install, activate |
-| [Docker deployment](guides/docker.md) | Direct Docker runtime, persistent volumes and host requirements |
+| [Docker deployment](guides/docker.md) | Released-image installation, runtime setup, persistent volumes and host requirements |
 | [Installation media](guides/media.md) | CoreOS ISO and first-boot media |
 | [Operator setup](guides/operator-setup.md) | Forgejo bootstrap and Soda setup |
 | [Develop in a project](guides/develop.md) | SSH, Git, tools, everyday project use |

@@ -18,6 +18,8 @@
 //! - Interrupts seed the image [`Cancel`] by peeking at (then restoring) the
 //!   global interrupt flag, so the outer CLI still owns exit-code reporting.
 
+use soda_build_tools::reader::build::BuildResult;
+
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -43,8 +45,8 @@ use crate::build_spec;
 use crate::exitcode;
 use crate::progress::BuildProgress;
 
-/// Map the worker request onto the image pipeline request. All 13 fields
-/// share names and shapes with the Go owner; the mapping is total.
+/// Map the admitted worker request onto the image pipeline request, including
+/// the selected distribution and immutable Docker version.
 pub fn image_request(r: &build_spec::Request) -> request::Request {
     request::Request {
         source: r.source.clone(),
@@ -61,12 +63,14 @@ pub fn image_request(r: &build_spec::Request) -> request::Request {
         target: r.target.clone(),
         media_compression: r.media_compression.clone(),
         upgrade_from: r.upgrade_from.clone(),
+        distribution: r.distribution.clone(),
+        release_tag: r.release_tag.clone(),
     }
 }
 
 /// Map the pipeline result onto the worker result. The image `Checks` vector
 /// has no worker counterpart and is dropped.
-fn image_result(r: &request::Result) -> build_spec::ImageResult {
+fn image_result(r: &BuildResult) -> build_spec::ImageResult {
     build_spec::ImageResult {
         revision: r.revision.clone(),
         architecture: r.architecture.clone(),
@@ -80,6 +84,9 @@ fn image_result(r: &request::Result) -> build_spec::ImageResult {
         requested_target: r.requested_target.clone(),
         completed_target: r.completed_target.clone(),
         media_compression: r.media_compression.clone(),
+        distribution: r.distribution.clone(),
+        release_tag: r.release_tag.clone(),
+        docker: r.docker.clone(),
     }
 }
 
@@ -233,6 +240,27 @@ impl ImageProduction for RealProduction {
         self.inner.resolve_inputs().map_err(build_err)
     }
 
+    fn prepare_docker(&mut self) -> Result<(), ImageError> {
+        self.inner.prepare_docker().map_err(build_err)
+    }
+    fn build_docker(&self, r: &request::Request) -> Result<(), ImageError> {
+        use soda_release_deliver::model::{BuildPurpose, Distribution};
+        self.inner
+            .build_docker(
+                &r.release_tag,
+                if r.distribution() == "all" {
+                    Distribution::All
+                } else {
+                    Distribution::Docker
+                },
+                if r.development {
+                    BuildPurpose::Development
+                } else {
+                    BuildPurpose::Production
+                },
+            )
+            .map_err(build_err)
+    }
     fn dependencies(&self) -> Result<(), ImageError> {
         self.inner.dependencies().map_err(build_err)
     }
@@ -530,6 +558,8 @@ mod tests {
             target: "media".to_string(),
             media_compression: "fast".to_string(),
             upgrade_from: "43.20260101.3.0.soda-cccccccccccc".to_string(),
+            distribution: "appliance".to_string(),
+            release_tag: String::new(),
         }
     }
 
@@ -555,7 +585,7 @@ mod tests {
 
     #[test]
     fn result_mapping_drops_checks() {
-        let result = request::Result {
+        let result = BuildResult {
             revision: "rev".to_string(),
             architecture: "amd64".to_string(),
             candidate: "cand".to_string(),
@@ -569,6 +599,9 @@ mod tests {
             completed_target: "release".to_string(),
             checks: vec!["c1".to_string(), "c2".to_string()],
             media_compression: "".to_string(),
+            distribution: "appliance".to_string(),
+            release_tag: String::new(),
+            docker: String::new(),
         };
         let mapped = image_result(&result);
         assert_eq!(mapped.revision, "rev");

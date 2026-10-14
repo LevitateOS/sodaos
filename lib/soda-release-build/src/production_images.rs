@@ -34,7 +34,7 @@ fn lexical_rel(base: &Path, target: &Path) -> String {
 }
 
 impl Production {
-    fn build_image(
+    pub(crate) fn build_image(
         &self,
         name: &str,
         dir: &str,
@@ -77,7 +77,7 @@ impl Production {
         Ok(id)
     }
 
-    fn export_image_archive(
+    pub(crate) fn export_image_archive(
         &self,
         archives: &Path,
         name: &str,

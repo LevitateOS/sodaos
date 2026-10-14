@@ -1,9 +1,11 @@
 # The release builder supplies the complete, verified appliance image. Soda
 # binaries and bundled application images are reused, never rebuilt here.
 ARG SODA_BASE_IMAGE=soda-appliance:build
+ARG BASE_IMAGE=registry.fedoraproject.org/fedora:44
 FROM ${SODA_BASE_IMAGE} AS appliance
 
-FROM registry.fedoraproject.org/fedora:44
+FROM ${BASE_IMAGE}
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY --from=appliance /etc/yum.repos.d/tailscale.repo /etc/yum.repos.d/tailscale.repo
 RUN dnf -y install systemd podman fuse-overlayfs iproute procps-ng \
     openssh-clients ca-certificates curl git gh nodejs tar gzip vim-minimal \
@@ -29,6 +31,8 @@ COPY --from=appliance /etc/soda/ /etc/soda/
 COPY --from=appliance /etc/cockpit/ /etc/cockpit/
 COPY soda-docker-init.service /usr/lib/systemd/system/soda-docker-init.service
 COPY image-import.conf /usr/lib/systemd/system/soda-image-import.service.d/docker.conf
+COPY project-scope.conf /usr/lib/systemd/system/libpod-.scope.d/soda-docker.conf
+COPY network-scope.conf /usr/lib/systemd/system/run-.scope.d/soda-docker.conf
 
 RUN test "$(uname -m)" = x86_64 && \
     test -f /usr/share/soda/release.json && \

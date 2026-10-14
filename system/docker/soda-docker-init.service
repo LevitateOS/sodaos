@@ -8,6 +8,11 @@ ConditionPathExists=!/etc/soda/host.json
 Type=oneshot
 PassEnvironment=SODA_PROJECT_SUBNET
 UMask=0077
+ExecStartPre=/usr/bin/rm -f /etc/soda/.host.json.tmp
 ExecStart=/usr/bin/jq ".subnet = env.SODA_PROJECT_SUBNET" /usr/share/soda/defaults/host.example.json
-StandardOutput=file:/etc/soda/host.json
+ExecStartPost=/usr/bin/mv -T /etc/soda/.host.json.tmp /etc/soda/host.json
+# Each command opens this output. Unlink before jq instead of using truncate:,
+# which would also empty the completed file when ExecStartPost starts.
+StandardOutput=file:/etc/soda/.host.json.tmp
+StandardError=journal
 RemainAfterExit=yes

@@ -3,6 +3,8 @@
 //! Qualification and protected delivery consume its unchanged bytes; the
 //! result is not a qualified release.
 
+use soda_build_tools::reader::build::BuildResult;
+
 use std::rc::Rc;
 
 use crate::build_compile::compile_shipping_tools;
@@ -49,7 +51,7 @@ pub fn build(
     request: &request::Request,
     progress: &mut dyn Progress,
     make_production: &dyn Fn(Runner, ProductionInputs) -> Box<dyn Production>,
-) -> Result<request::Result, Error> {
+) -> Result<BuildResult, Error> {
     let runner = Runner::new(Rc::new(cancel.clone()));
     let result = run_build(request, progress, &runner, make_production, &|path| {
         runner.open_log(path, request.wants_media())
@@ -100,7 +102,10 @@ pub fn extract_build_snapshot(
             "--same-permissions".to_string(),
         ],
     )?;
-    crate::canlang::carry_tools(std::path::Path::new(source), std::path::Path::new(&snapshot))?;
+    crate::canlang::carry_tools(
+        std::path::Path::new(source),
+        std::path::Path::new(&snapshot),
+    )?;
     Ok(snapshot)
 }
 
@@ -284,6 +289,9 @@ pub fn prepare_build_production(
         &request.live_inputs,
         production,
     )?;
+    if request.wants_docker() {
+        production.prepare_docker()?;
+    }
     next("P2 / Verify and install frozen dependencies")?;
     production.dependencies()?;
     let (tooling, assembler) = build_media::prepare_build_media(production, request)?;
@@ -301,7 +309,7 @@ pub fn execute_build_production(
     media_tooling: &build_media::MediaTools,
     assembler: &mut media::MediaLock,
     phase: &mut dyn FnMut(&str) -> Result<(), Error>,
-) -> Result<request::Result, Error> {
+) -> Result<BuildResult, Error> {
     phase("P3 / Compile shipping programs")?;
     let inventory = compile_shipping_tools(
         production,
@@ -324,15 +332,15 @@ pub fn execute_build_production(
         &request.upgrade_from,
         phase,
     )?;
-    build_media::finish_build_media(production, request, media_tooling, assembler, phase)?;
+    finish_build_packaging(production, request, media_tooling, assembler, phase)?;
     record::record_build_result(production, request)
 }
 
 pub fn finalize_build(
     progress: &mut dyn Progress,
-    result: request::Result,
+    result: BuildResult,
     err: Result<(), Error>,
-) -> Result<request::Result, Error> {
+) -> Result<BuildResult, Error> {
     match err {
         Ok(()) => {
             let end = progress.end();
@@ -352,7 +360,7 @@ pub fn run_build(
     runner: &Runner,
     make_production: &dyn Fn(Runner, ProductionInputs) -> Box<dyn Production>,
     open_log: &dyn Fn(&str) -> Result<LogCloser, Error>,
-) -> Result<request::Result, Error> {
+) -> Result<BuildResult, Error> {
     let revision = admit_build_inputs(request, runner)?;
     progress.phase("P1 / Admit and freeze inputs")?;
     let (snapshot, close_log) =
@@ -380,7 +388,7 @@ fn run_build_inner(
     make_production: &dyn Fn(Runner, ProductionInputs) -> Box<dyn Production>,
     snapshot: &str,
     revision: &str,
-) -> Result<request::Result, Error> {
+) -> Result<BuildResult, Error> {
     let artifacts = sys::join(&[&request.out, "artifacts"]);
     // This helper runs two source commands before production is constructed.
     // Reuse the same runner so cancellation and log ownership stay shared.
@@ -421,6 +429,9 @@ fn run_build_inner(
                 &request.live_inputs,
                 &mut *production,
             )?;
+            if request.wants_docker() {
+                production.prepare_docker()?;
+            }
             progress.phase("P2 / Verify and install frozen dependencies")?;
             production.dependencies()?;
             let (tooling, lock) = build_media::prepare_build_media(&*production, request)?;
@@ -428,13 +439,13 @@ fn run_build_inner(
         })();
         match phase_result {
             Ok(parts) => parts,
-            Err(e) => return finalize_build(progress, request::Result::default(), Err(e)),
+            Err(e) => return finalize_build(progress, BuildResult::default(), Err(e)),
         }
     };
     let snapshot = snapshot.to_string();
     let artifacts = sys::join(&[&request.out, "artifacts"]);
     // Execute phases P3+ with progress-driven phase labels.
-    let outcome: Result<request::Result, Error> = (|| {
+    let outcome: Result<BuildResult, Error> = (|| {
         progress.phase("P3 / Compile shipping programs")?;
         let inventory = compile_shipping_tools(
             &*production,
@@ -457,7 +468,7 @@ fn run_build_inner(
             &request.upgrade_from,
             &mut |label| progress.phase(label),
         )?;
-        build_media::finish_build_media(
+        finish_build_packaging(
             &*production,
             request,
             &media_tooling,
@@ -468,6 +479,21 @@ fn run_build_inner(
     })();
     match outcome {
         Ok(result) => finalize_build(progress, result, Ok(())),
-        Err(e) => finalize_build(progress, request::Result::default(), Err(e)),
+        Err(e) => finalize_build(progress, BuildResult::default(), Err(e)),
     }
+}
+
+/// Both distributions consume the single verified candidate unchanged.
+fn finish_build_packaging(
+    production: &dyn Production,
+    request: &request::Request,
+    tools: &build_media::MediaTools,
+    assembler: &mut media::MediaLock,
+    phase: &mut dyn FnMut(&str) -> Result<(), Error>,
+) -> Result<(), Error> {
+    if request.wants_docker() {
+        phase("Docker / Package and verify candidate payload")?;
+        production.build_docker(request)?;
+    }
+    build_media::finish_build_media(production, request, tools, assembler, phase)
 }

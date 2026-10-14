@@ -21,6 +21,7 @@ pub mod live_inputs;
 pub mod production;
 pub mod production_assets;
 pub mod production_compile;
+mod production_docker;
 pub mod production_images;
 pub mod production_inputs;
 pub mod tailnet_inputs;

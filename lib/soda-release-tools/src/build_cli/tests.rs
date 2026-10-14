@@ -7,6 +7,28 @@ fn flags(args: &[&str]) -> Result<BuildFlags, String> {
 }
 
 #[test]
+fn docker_build_flags_admit_the_packaging_boundary() {
+    let f = flags(&["--distribution", "docker", "--release-tag", "v1.2.3"]).unwrap();
+    assert!(f.request.wants_docker());
+    assert!(!f.request.wants_media());
+    assert_eq!(
+        progress_title(&f.request),
+        "Soda release docker build (not release-qualified)"
+    );
+    assert!(flags(&["--distribution", "docker"]).is_err());
+    assert!(flags(&[
+        "--development",
+        "--target",
+        "docker",
+        "--distribution",
+        "docker",
+        "--release-tag",
+        "v1.2.3"
+    ])
+    .is_ok());
+}
+
+#[test]
 fn prospective_upgrade_source_is_explicit_and_not_qualification() {
     let source = "43.20260101.3.0.soda-cccccccccccc";
     let parsed = flags(&[
@@ -215,4 +237,137 @@ fn worker_failure_keeps_message_and_exit_1() {
     let err = map_worker_error(worker::WorkerError::Failed("boom".to_owned()));
     assert!(matches!(err, ToolError::Message(ref message) if message == "boom"));
     assert_eq!(build_exit_code(Some(&err)), 1);
+}
+
+#[test]
+fn preflight_cannot_be_used_as_a_worker_completion_boundary() {
+    let flags = BuildFlags {
+        preflight: true,
+        worker_build: true,
+        ..Default::default()
+    };
+    assert!(admit_build_dispatch(&flags)
+        .unwrap_err()
+        .contains("operator operation"));
+}
+
+#[test]
+fn controller_source_admission_requires_matching_clean_checkout_before_dispatch() {
+    let source = std::env::temp_dir().join(format!(
+        "soda-controller-source-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&source).unwrap();
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&source)
+            .args([
+                "-c",
+                "user.name=soda-tester",
+                "-c",
+                "user.email=soda-tester@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+            ])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap().trim().to_owned()
+    };
+    git(&["init", "--quiet"]);
+    std::fs::write(source.join("input"), b"frozen source\n").unwrap();
+    git(&["add", "input"]);
+    git(&["commit", "--quiet", "-m", "fixture"]);
+    let revision = git(&["rev-parse", "HEAD"]);
+    let root = source.to_str().unwrap();
+    check_source_revision(root, &revision).unwrap();
+    assert_eq!(
+        check_source_revision(root, &"0".repeat(40)).unwrap_err(),
+        "controller/source revision mismatch"
+    );
+    std::fs::create_dir(source.join("nested")).unwrap();
+    assert_eq!(
+        check_source_revision(source.join("nested").to_str().unwrap(), &revision).unwrap_err(),
+        "canonical checkout root required"
+    );
+    std::fs::write(source.join("input"), b"uncommitted source\n").unwrap();
+    assert_eq!(
+        check_source_revision(root, &revision).unwrap_err(),
+        "clean committed source required"
+    );
+    std::fs::remove_dir_all(source).unwrap();
+}
+
+#[test]
+fn build_completion_requires_final_controller_success() {
+    let _guard = crate::exitcode::interrupt_test_lock();
+    let _ = take_interrupt();
+    let out = tempfile::tempdir().unwrap();
+    let evidence = out.path().join("evidence");
+    std::fs::create_dir(&evidence).unwrap();
+    std::fs::write(evidence.join("build.json"), b"producer receipt\n").unwrap();
+    let mut flags = BuildFlags {
+        worker_build: true,
+        request: Request {
+            out: out.path().to_string_lossy().into_owned(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut worker_progress = BuildProgress::new("worker").unwrap();
+    worker_progress.capture();
+    finish_build(&flags, &mut worker_progress, None).unwrap();
+    assert!(!evidence.join("completed.json").exists());
+
+    flags.worker_build = false;
+    let mut failed_progress = BuildProgress::new("controller").unwrap();
+    failed_progress.capture();
+    let log = evidence.join("progress.log");
+    failed_progress.create_log(log.to_str().unwrap()).unwrap();
+    std::fs::remove_file(log).unwrap();
+    assert!(finish_build(&flags, &mut failed_progress, None).is_err());
+    assert!(!evidence.join("completed.json").exists());
+
+    let interrupted = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let at_finish = interrupted.clone();
+    let mut late_progress = BuildProgress::new_with_clock(
+        "controller",
+        Box::new(move || {
+            if at_finish.load(std::sync::atomic::Ordering::SeqCst) {
+                note_interrupt(143);
+            }
+            crate::progress::monotonic()
+        }),
+    )
+    .unwrap();
+    late_progress.capture();
+    interrupted.store(true, std::sync::atomic::Ordering::SeqCst);
+    assert!(matches!(
+        finish_build(&flags, &mut late_progress, None),
+        Err(ToolError::Interrupted(_))
+    ));
+    assert!(!evidence.join("completed.json").exists());
+
+    let mut progress = BuildProgress::new("controller").unwrap();
+    progress.capture();
+    finish_build(&flags, &mut progress, None).unwrap();
+    let completion: soda_build_tools::reader::build::BuildCompletion =
+        serde_json::from_slice(&std::fs::read(evidence.join("completed.json")).unwrap()).unwrap();
+    assert_eq!(
+        completion.build_sha256,
+        crate::digest::hash_file(evidence.join("build.json").to_str().unwrap()).unwrap()
+    );
+    assert!(record_build_completion(&flags.request.out).is_err());
 }

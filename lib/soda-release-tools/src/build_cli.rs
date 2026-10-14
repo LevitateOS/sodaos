@@ -44,9 +44,21 @@ fn command(name: &str) -> ClapCommand {
             "development",
             "select a development target; building never qualifies or publishes a release",
         ))
+        .arg(boolean(
+            "preflight",
+            "Validate source and admitted worker without starting a build",
+        ))
         .arg(value(
             "target",
-            "development boundary: candidate or media (requires --development)",
+            "development boundary: candidate, media or docker (requires --development)",
+        ))
+        .arg(value(
+            "distribution",
+            "packaging: appliance (default), docker or all",
+        ))
+        .arg(value(
+            "release-tag",
+            "explicit Docker version tag; all must match the rootfs URL",
         ))
         .arg(value(
             "media-compression",
@@ -100,6 +112,7 @@ fn command(name: &str) -> ClapCommand {
 
 #[derive(Debug, Clone, Default)]
 pub struct BuildFlags {
+    pub preflight: bool,
     pub request: Request,
     pub worker_build: bool,
     pub worker_config: String,
@@ -116,6 +129,14 @@ pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
             }
         })?;
     let request = Request {
+        distribution: matches
+            .get_one::<String>("distribution")
+            .cloned()
+            .unwrap_or_default(),
+        release_tag: matches
+            .get_one::<String>("release-tag")
+            .cloned()
+            .unwrap_or_default(),
         upgrade_from: matches
             .get_one::<String>("upgrade-from")
             .cloned()
@@ -167,6 +188,9 @@ pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
     };
     request.validate_target()?;
     Ok(BuildFlags {
+        preflight: matches.get_one::<String>("preflight").is_some_and(|value| {
+            matches!(value.as_str(), "true" | "1" | "t" | "T" | "TRUE" | "True")
+        }),
         request,
         worker_build: matches.get_one::<String>("worker-build").is_some_and(|v| {
             v == "true" || v == "1" || v == "t" || v == "T" || v == "TRUE" || v == "True"
@@ -206,6 +230,9 @@ pub fn admit_parent_dispatch(f: &BuildFlags) -> Result<(), String> {
 }
 
 pub fn admit_build_dispatch(f: &BuildFlags) -> Result<(), String> {
+    if f.preflight && f.worker_build {
+        return Err("preflight is an operator operation, not a worker completion boundary".into());
+    }
     if f.worker_build {
         admit_worker_build(f)
     } else {
@@ -241,6 +268,11 @@ pub fn watch_build_signals() {
 pub fn progress_title(r: &Request) -> String {
     if r.development {
         format!("Soda development {} (not release-qualified)", r.target)
+    } else if r.wants_docker() {
+        format!(
+            "Soda release {} build (not release-qualified)",
+            r.distribution()
+        )
     } else {
         "Soda release media build (not release-qualified)".to_owned()
     }
@@ -331,16 +363,33 @@ pub fn bind_build_source(r: &mut Request) -> Result<(), String> {
     }
     let source = std::env::current_dir().map_err(|e| e.to_string())?;
     let revision = controller_revision()?;
+    check_source_revision(&source.to_string_lossy(), &revision)?;
     r.source = source.to_string_lossy().into_owned();
     r.revision = revision;
     bind_forgejo_source(r)
 }
 
-pub fn print_build_artifacts(candidate: &str, media: &str, scope: &str) {
+/// Apply the producer's exact source admission before any worker dispatch or
+/// preflight success. An old admitted executable cannot select its own revision
+/// while the configured checkout has moved or contains uncommitted changes.
+pub(crate) fn check_source_revision(source: &str, revision: &str) -> Result<(), String> {
+    use soda_release_image::build_runner::{Cancel, Runner};
+    use soda_release_image::build_source::{verify_checkout_source, verify_committed_revision};
+
+    let runner = Runner::new(std::rc::Rc::new(Cancel::new()));
+    let source = verify_checkout_source(source, &runner).map_err(|error| error.0)?;
+    verify_committed_revision(&source, revision, &runner).map_err(|error| error.0)?;
+    Ok(())
+}
+
+pub fn print_build_artifacts(candidate: &str, media: &str, docker: &str, scope: &str) {
     let mut stderr = std::io::stderr().lock();
     let _ = writeln!(stderr, "CANDIDATE {candidate}");
     if !media.is_empty() {
         let _ = writeln!(stderr, "MEDIA {media}");
+    }
+    if !docker.is_empty() {
+        let _ = writeln!(stderr, "DOCKER {docker}");
     }
     let _ = writeln!(stderr, "{scope}");
 }
@@ -355,7 +404,12 @@ pub fn run_parent_build(
     let config =
         worker::load_worker_config(worker_config_path, r).map_err(worker::WorkerError::Failed)?;
     let result = worker::run_build_worker(&config, r, progress)?;
-    print_build_artifacts(&result.candidate, &result.media, &result.scope);
+    print_build_artifacts(
+        &result.candidate,
+        &result.media,
+        &result.docker,
+        &result.scope,
+    );
     Ok(())
 }
 
@@ -398,6 +452,15 @@ pub fn run() -> Result<(), ToolError> {
     }
     watch_build_signals();
     sanitize_build_env(f.worker_build);
+    if f.preflight {
+        bind_build_source(&mut f.request).map_err(ToolError::msg)?;
+        worker::load_worker_config(&f.worker_config, &f.request).map_err(ToolError::msg)?;
+        println!(
+            "Admitted source {} at {} with worker configuration; no build started.",
+            f.request.source, f.request.revision
+        );
+        return Ok(());
+    }
     let mut progress = BuildProgress::new(&progress_title(&f.request)).map_err(ToolError::msg)?;
     let mut err: Option<ToolError> = None;
     if let Err(e) = bind_build_source(&mut f.request) {
@@ -410,6 +473,14 @@ pub fn run() -> Result<(), ToolError> {
     } else if let Err(e) = run_parent_build(&f.worker_config, &f.request, &mut progress) {
         err = Some(map_worker_error(e));
     }
+    finish_build(&f, &mut progress, err)
+}
+
+pub(crate) fn finish_build(
+    flags: &BuildFlags,
+    progress: &mut BuildProgress,
+    mut err: Option<ToolError>,
+) -> Result<(), ToolError> {
     if err.is_none() {
         err = take_interrupt().map(ToolError::Interrupted);
     }
@@ -418,10 +489,37 @@ pub fn run() -> Result<(), ToolError> {
             err = Some(ToolError::msg(e));
         }
     }
+    if err.is_none() {
+        err = take_interrupt().map(ToolError::Interrupted);
+    }
     match err {
         Some(e) => Err(e),
-        None => Ok(()),
+        None if flags.worker_build => Ok(()),
+        None => record_build_completion(&flags.request.out),
     }
+}
+
+fn record_build_completion(out: &str) -> Result<(), ToolError> {
+    use soda_build_tools::reader::build::BuildCompletion;
+
+    let evidence = std::path::Path::new(out).join("evidence");
+    let build_sha256 = crate::digest::hash_file(&evidence.join("build.json").to_string_lossy())
+        .map_err(ToolError::msg)?;
+    let bytes = serde_json::to_vec(&BuildCompletion { build_sha256 })
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    // Commit only after the worker's terminal state, cleanup and controller
+    // progress succeed. An interrupted write cannot masquerade as completion.
+    let mut file = tempfile::NamedTempFile::new_in(&evidence)
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    file.write_all(&bytes)
+        .and_then(|_| file.as_file().sync_all())
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    if let Some(interrupt) = take_interrupt() {
+        return Err(ToolError::Interrupted(interrupt));
+    }
+    file.persist_noclobber(evidence.join("completed.json"))
+        .map_err(|error| ToolError::msg(error.to_string()))?;
+    Ok(())
 }
 
 pub fn main() {

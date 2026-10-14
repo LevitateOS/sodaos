@@ -18,6 +18,220 @@ Each source-to-target pair requires its own native qualification receipt.
 | Guest/fixture behavior | `tools/acceptance` | `tests/installed` |
 | Publish/promote | `lib/soda-release-deliver` | `soda-release` in `lib/soda-release-tools` |
 
+## Guided release operator flow
+
+The same prepared release carries its selected `appliance`, `docker` or
+`all` targets through build, stage, qualification and promotion. The
+[release architecture](../architecture/release.md#distribution-targets) owns
+artifact identities and required native qualification; the
+[Docker installation guide](../guides/docker.md) owns the user path.
+
+### 1. Select and preflight
+
+Run `soda-release start` from the clean committed checkout or admitted worktree.
+The guided overview shows distribution, exact version, restricted worker config,
+notes and fresh workflow output together; edit a field by number and use `go`.
+Flags preseed the same flow. `--non-interactive` requires every input.
+
+The admitted worker identifies its source, Fountain checkout, controller, cache,
+tools and output parent. The selected Source must be the current checkout, with
+writable workflow/build/cache/runtime paths below its `.artifacts/`. Admission
+and worker setup follow [native support](native-support.md#local-host-content-image-candidate);
+start does not install accounts, grant sudo or admit an executable.
+Run `start` with sudo: the admitted controller and restricted worker configuration
+require root. Keep GitHub authentication outside the worker. Set `GH_CONFIG_DIR`
+to the existing operator GitHub configuration directory and `TMPDIR` to a private
+temporary directory on the workspace disk, then preserve those two variables
+through sudo; never move credentials into build inputs.
+The prepared directory is private and root-owned, so use the same sudo context
+for its subsequent commands and a root-owned registry auth file. The examples
+below preserve that ownership consistently.
+
+Before building, start checks committed source and Fountain pin, supported native
+architecture, the locked offline Canlang archive, valid notes, fresh paths, Podman
+and (for Docker) Skopeo,
+exact-source main CI, immutable-release settings and existing tag/release conflicts.
+It reports missing/private GHCR visibility prerequisites and workspace capacity.
+The admitted controller's `--preflight` checks its own revision, byte identity
+and restricted worker configuration without dispatching a build. Missing prerequisites
+fail before compilation. `start --preflight` performs these checks without building
+or creating an attempt. Build failures remain failed, with retained diagnostics.
+
+```sh
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release start \
+  --distribution docker --tag v0.1.2-rc.1 \
+  --worker-config /home/BUILD/worker.json \
+  --notes /home/BUILD/notes.md \
+  --out /home/BUILD/WORKTREE/.artifacts/releases/workflow \
+  --non-interactive
+```
+
+### 2. Build and prepare once
+
+Start delegates to the admitted `soda-build`, reusing its progress display.
+Docker requires an explicit release tag and skips media; all derives the same
+tag's GitHub rootfs URL and packages both targets from one common candidate.
+There is no partial-host, resume or skip-tests build path.
+
+The workflow's private `request.json` records selected inputs, source identities
+and actual output paths. The build lives under the worker OutputParent with a
+fresh workflow-derived name; its prepared directory is `WORKFLOW/release`.
+Preparation requires the successful completed production build and verifies the
+source archives, exact target artifacts and generated checksums. Docker public
+assets are `docker.json`, `docker-packages.txt` and
+`sodaos-docker-compose.yaml`, beside shared provenance and both source archives.
+Appliance/all add media metadata, ISO and hash-named rootfs. All GitHub assets must
+fit the existing per-asset limit. The large Docker OCI archive stays local;
+private `operator.json` points to its verified candidate and is never uploaded.
+
+Start stops with an **unqualified local prepared release**. It never publishes or
+deploys. Manual `prepare --candidate ... --distribution ... --tag ... --notes ...
+--out ...` uses the same preparation for an existing production candidate.
+Use the prepared directory as the input to every subsequent command.
+
+```sh
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release status \
+  --input /home/BUILD/WORKFLOW/release
+```
+
+Status rechecks local asset bytes, original downloads and retained observations,
+and reports source CI, observed remote release, registry identity, qualification
+blockers, promotion attempt state and next action. Drafts, mutable releases and
+failed remote reads cannot authorize the next publication or promotion step.
+It makes no registry, GitHub or installation mutation. A missing observation is
+reported as a blocker, never as qualification.
+
+### 3. Stage the complete unqualified candidate
+
+Keep publication credentials outside the worker. Supply a restricted registry auth
+file for Docker/all. An existing authenticated gh account with package write access
+can create one without putting the token in argv or logs:
+
+```sh
+set +x
+umask 077
+gh auth token | sudo --preserve-env=TMPDIR skopeo login --username "$(gh api user --jq .login)" \
+  --password-stdin --authfile /home/BUILD/registry-auth.json ghcr.io
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release stage \
+  --input /home/BUILD/WORKFLOW/release \
+  --auth-file /home/BUILD/registry-auth.json
+```
+
+Stage rechecks exact-source main CI, tag, remote release conflicts and all local
+hashes before publication. Docker uses Skopeo's digest-preserving OCI upload to
+`ghcr.io/levitateos/sodaos:VERSION`, then reads the raw version manifest and
+its digest-selected config anonymously. Only matching source/base/platform and
+manifest/config identities produce the local `registry/registry.json` receipt.
+Stage publishes the complete asset set as one immutable unqualified GitHub prerelease.
+It does not move either recommendation pointer.
+
+First-time GHCR packages default to private. If upload succeeds but public readback
+fails, inspect the uploaded version and change its package visibility in GitHub.
+Then finish readback without another upload:
+
+```sh
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release verify-docker \
+  --input /home/BUILD/WORKFLOW/release
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release status \
+  --input /home/BUILD/WORKFLOW/release
+```
+
+Verification can be repeated: matching public bytes complete interrupted local
+verification records without uploading again. A conflicting local record is refused.
+After successful registry verification, stage can publish the still-absent GitHub
+release using that same public version. Existing GitHub releases are refused;
+failed/uncertain draft or promotion writes require inspection, not blind replay.
+
+### 4. Exercise the actual public installation bytes
+
+Use the versioned GitHub release's downloaded metadata and unedited Compose file,
+then anonymously pull its recorded digest onto a dedicated supported native host
+with fresh volumes. Follow [Docker installation](../guides/docker.md) using those
+bytes. Keep qualification downloads under `EVIDENCE/downloads/` with public asset
+names: `docker.json`, `sodaos-docker-compose.yaml`, `candidate.json`,
+`payload.json`. A cached development image or repository Compose file cannot
+substitute. Preserve original downloads, installed readbacks and observation files.
+
+Collect the four required phases using native/installed checks:
+installation/setup/HTTPS; browser login, Project/join/terminal/nested service;
+bounded funded factory execution; and shutdown/restart/same-image recreation.
+Use [soda-acceptance](../../tools/acceptance/README.md#collect-an-observation) to
+finalize each phase as `installation/observation.json`,
+`browser_project/observation.json`, `factory/observation.json` and
+`persistence/observation.json` below the evidence directory. Bind all four public
+downloads with `--artifact-file`. All observations identify the same native target
+and selected Soda revision; failed, skipped, dirty-tool or missing records refuse
+qualification. Credentials and raw provider responses remain private.
+
+The verifier consumes operator-owned check outputs. It does not provide an
+end-to-end Docker qualification runner: the existing installed browser checks and
+runtime probes need check commands that collect the required native readbacks;
+factory proposal UI checks alone do not prove completed provider execution and
+merge. Establish those commands against the real runtime before beginning a
+qualification attempt. Missing collectors or access block qualification.
+
+The installation check must emit `installation/native.json` as retained, hashed
+observation output. It records the actual pulled manifest/config, installed
+Soda/Fountain revisions, candidate/payload/Compose hashes, bundled application
+config IDs, native Linux/x86_64 rootful/cgroup-v2/host-network/fresh-volume facts,
+and the initial outer container ID. The persistence check must later emit its own
+`persistence/native.json`, binding the same target/image and initial container ID
+to before/after outer and Project IDs and protected-state hashes. Outer identity
+must change on recreation; Project identity and protected state must remain equal.
+The factory check must similarly capture `factory/native.json` with provider execution
+hash, repository/issue/PR and distinct coder/reviewer IDs, reviewed/merged candidate
+heads, nonempty successful required checks and actual elapsed/finite funding limits.
+Its provider execution hash must identify an actual retained observation file.
+All phases record the real check invocation and clean tool revision, complete in
+installation/browser/factory/persistence order, and start after immutable publication.
+`qualify` validates these observations; it does not run installation, browser or
+factory checks. These files must come from native readbacks. Exact strict
+field names live in [the qualification reader](../../lib/soda-release-deliver/src/publish/qualification.rs).
+
+Appliance/all also download the actual staged ISO, perform the existing fresh
+native disk install/reboot/image smoke and retain its independently read Soda revision.
+Missing provider, target or installation prerequisites are blockers.
+
+### 5. Qualify without moving recommendations
+
+```sh
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release qualify \
+  --input /home/BUILD/WORKFLOW/release \
+  --evidence /home/BUILD/finalized-docker-evidence
+```
+
+Docker qualification verifies immutable remote inventory, anonymous image identity,
+GitHub verification of the exact downloaded assets, native readbacks and finalized
+observation hashes. It creates a bound local `docker-qualification.json` receipt;
+it never deploys or replaces failed observations. Repeating qualification verifies
+the same retained evidence; changed evidence requires investigation. Appliance/all supply
+`--downloaded-iso`, `--observed-revision` and the existing `--smoke-passed`
+confirmation as well, creating their separate appliance receipt. All requires both.
+
+### 6. Promote the unchanged qualified digest
+
+```sh
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release status \
+  --input /home/BUILD/WORKFLOW/release
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release promote \
+  --input /home/BUILD/WORKFLOW/release \
+  --auth-file /home/BUILD/registry-auth.json
+```
+
+Promotion rechecks current CI, immutable remote assets, version digest, original
+qualification observations and every selected target before changing anything.
+It copies the existing public digest to GHCR latest with preserved bytes and verifies
+anonymous latest readback. Docker-only uses `--latest=false` for GitHub and confirms
+the existing appliance latest pointer is unchanged. Appliance/all may update the ISO
+recommendation only after their required qualification. No rebuild or re-encoding occurs.
+
+Only safe qualification summaries enter editable release notes; private evidence
+paths/captures never become release assets. Docker-only promotion also preserves
+an absent appliance recommendation. GitHub and GHCR mutations are not atomic.
+Promotion records its attempt before the first recommendation change and completion
+after readback. A failure retains partial state and instructs the operator to use
+status; the command refuses replay and never rolls recommendations back automatically.
+
 ## Development vs qualification
 
 - Use the smallest applicable development target while iterating.
@@ -113,6 +327,15 @@ server is required. GitHub credentials remain with the operator running
 `soda-release`, outside the isolated build worker. CI has read-only repository
 access and receives no release keys or publication credentials.
 
+The required `CI` result includes the Docker packaging job. It runs
+`bash scripts/check-docker-packaging.sh`: checksum-pinned [Hadolint](https://github.com/hadolint/hadolint)
+checks the Dockerfile, and Compose's parser verifies the supported platform,
+runtime settings and persistent volumes. The Rust workspace job covers Docker
+metadata/provenance, candidate reuse, development/publication refusal and worker
+and CLI admission. New release components add their checks to these gates as
+they land. These source/fixture checks build no OS image and do not replace
+native qualification of the published image.
+
 Choose the release tag before building: the installer embeds the exact versioned
 GitHub rootfs URL. For example, with tag `v0.1.0`:
 
@@ -143,16 +366,14 @@ as `stage`, including asset limits and any required upgrade qualification receip
 It does not contact GitHub, create a tag, publish, or qualify the release.
 
 To publish, enable immutable releases once in the repository settings. With the
-installed `gh` client authenticated for this repository, use a new output directory:
+installed `gh` client authenticated for this repository, stage the prepared directory:
 
 ```sh
-soda-release stage --candidate /BUILD/artifacts \
-  --tag v0.1.0 \
-  --notes /PRIVATE/candidate-notes.md --out /PRIVATE/new-release
+soda-release stage --input /PRIVATE/new-release
 ```
 
-Staging reads `media/media.json` from the candidate, copies and hashes the complete
-release asset set, and checks source CI. It creates a missing tag at the exact built
+Preparation binds the media and hashes the complete release asset set. Staging
+rechecks those prepared bytes and source CI. It creates a missing tag at the exact built
 commit, refuses a tag pointing elsewhere, then uploads a draft, checks the remote
 inventory and publishes a prerelease. Notes automatically identify it as unqualified.
 It refuses an existing release or changed/oversize files; it never uses upload
@@ -174,17 +395,18 @@ After that smoke passes, supply the full Soda revision actually read from the
 installed guest. `--smoke-passed` confirms that this downloaded ISO installed,
 the guest booted without installation media, and all candidate images were present.
 The command derives the release identities and hashes and writes
-`qualification.json` in the prepared release directory; no hand-written receipt
+`appliance-qualification.json` in the prepared release directory; no hand-written receipt
 is needed.
 
 ```sh
-soda-release promote --input /PRIVATE/new-release \
+soda-release qualify --input /PRIVATE/new-release \
   --downloaded-iso /PRIVATE/sodaos-x86_64.iso \
   --observed-revision FULL_REVISION_READ_FROM_INSTALLED_GUEST --smoke-passed
+soda-release promote --input /PRIVATE/new-release
 ```
 
-Promotion checks the bound receipt, verifies the downloaded ISO using GitHub's
-attestation and rereads the locked remote inventory. It records the CI run and receipt in
+Qualification checks the downloaded ISO using GitHub's attestation. Promotion
+rechecks the bound receipt, original download and locked remote inventory. It records the CI run and receipt in
 release notes and changes the same release to latest. This is the website download:
 `https://github.com/LevitateOS/sodaos/releases/latest/download/sodaos-x86_64.iso`.
 Use versioned URLs in the installer and latest only for the website's default CTA.

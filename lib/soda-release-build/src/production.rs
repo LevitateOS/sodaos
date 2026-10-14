@@ -74,7 +74,7 @@ impl Production {
         let archives = PathBuf::from(&self.out).join("images");
         std::fs::create_dir(&archives).map_err(|e| io_error("mkdir", &archives, e))?;
         crate::files::chmod(&archives, 0o755)?;
-        if self.inputs.len() != 4 {
+        if ![4, 5].contains(&self.inputs.len()) {
             return Err(Error::msg("image inputs must be frozen before production"));
         }
         let inputs = self.inputs.clone();

@@ -69,6 +69,7 @@ fn allowed_worker_env_key(key: &str) -> bool {
             | "PATH"
             | "XDG_RUNTIME_DIR"
             | "GOTOOLCHAIN"
+            | "GIT_OPTIONAL_LOCKS"
             | "GOCACHE"
             | "GOMODCACHE"
             | "CARGO_HOME"
