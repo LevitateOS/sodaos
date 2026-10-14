@@ -225,3 +225,31 @@ func TestNativeTerminalReserveCreateAttachAndAuthority(t *testing.T) {
 		t.Fatal("ended terminal ID authorized another native Create")
 	}
 }
+
+func TestNativeTerminalSupportMismatchHasSpecificError(t *testing.T) {
+	proxy, host, _, origin := nativeTerminalProxyFixture(t)
+	host.mu.Lock()
+	host.supportFailure = "terminal_support_mismatch"
+	initialRows, initialReservations := len(host.rows), len(host.reservations)
+	host.mu.Unlock()
+	response := nativeTerminalRequest(t, proxy, origin, http.MethodPost,
+		"/environments/"+webTerminalProject+"/terminal-sessions", nativeTerminalGeneration,
+		[]byte(`{"cols":80,"rows":24,"name":"Support check"}`))
+	var result struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 503 || result.Error.Code != "terminal_support_mismatch" || strings.Contains(strings.ToLower(result.Error.Message), "sign in") {
+		t.Fatalf("unexpected support response: %d %+v", response.StatusCode, result)
+	}
+	host.mu.Lock()
+	defer host.mu.Unlock()
+	if host.created != 0 || len(host.rows) != initialRows || len(host.reservations) != initialReservations {
+		t.Fatal("mismatch created a reservation or shell")
+	}
+}

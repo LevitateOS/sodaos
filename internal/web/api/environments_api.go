@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
@@ -149,6 +150,7 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 		return
 	}
 	auth.JSONResponse(w, 200, struct {
+		TerminalSupport      host.TerminalSupport `json:"terminal_support"`
 		AuthorityUnavailable bool                 `json:"authority_unavailable"`
 		ExecutionAllowed     bool                 `json:"execution_allowed"`
 		Environment          EnvironmentView      `json:"environment"`
@@ -156,7 +158,7 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 		NativeUnavailable    bool                 `json:"native_unavailable"`
 		Login                string               `json:"login"`
 		Administrator        bool                 `json:"environment_administrator"`
-	}{reader.authorityUnavailable, reader.executionAllowed, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
+	}{s.Host.TerminalSupport(r.Context(), p.ID), reader.authorityUnavailable, reader.executionAllowed, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
 }
 
 func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v store.Session) {

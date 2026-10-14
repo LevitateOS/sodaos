@@ -22,6 +22,14 @@ pub(crate) fn decode_release_payload(body: &[u8]) -> Result<ReleasePayload, ()> 
         &payload.images,
         &payload.upgrade_from,
     )?;
+    if let Some(support) = &payload.support {
+        let project = payload
+            .images
+            .iter()
+            .find(|(name, _)| name == "project-os")
+            .ok_or(())?;
+        support.validate(&project.1.config).map_err(|_| ())?;
+    }
     Ok(ReleasePayload {
         architecture: payload.architecture,
         images: payload.images,
@@ -42,6 +50,7 @@ struct PayloadDto {
     host_packages: String,
     images: Vec<(String, ReleaseImage)>,
     upgrade_from: Vec<String>,
+    support: Option<soda_build_tools::project_support::ProjectSupport>,
 }
 
 impl<'de> Deserialize<'de> for PayloadDto {
@@ -78,6 +87,7 @@ impl<'de> Deserialize<'de> for PayloadDto {
                         Some(9) => dto.host_packages = map.next_value::<Nullable<String>>()?.0,
                         Some(10) => dto.images = map.next_value::<Images>()?.0,
                         Some(11) => dto.upgrade_from = map.next_value::<Nullable<Vec<String>>>()?.0,
+                        Some(12) => dto.support = Some(map.next_value()?),
                         _ => return Err(de::Error::unknown_field(&key, PAYLOAD_FIELDS)),
                     }
                 }
@@ -212,6 +222,7 @@ const PAYLOAD_FIELDS: &[&str] = &[
     "HostPackagesSHA256",
     "Images",
     "UpgradeFrom",
+    "ProjectSupport",
 ];
 const IMAGE_FIELDS: &[&str] = &["Reference", "Config", "Manifest", "ArchiveSHA256"];
 

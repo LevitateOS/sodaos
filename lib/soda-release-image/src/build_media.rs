@@ -222,6 +222,12 @@ mod tests {
             schema: model::SCHEMA_VERSION,
             presentation_sha256: "c".repeat(64),
             host_packages_sha256: "d".repeat(64),
+            project_support: model::ProjectSupport {
+                sha256: "f".repeat(64),
+                destination: soda_build_tools::project_support::DESTINATION.into(),
+                payload_path: soda_build_tools::project_support::PAYLOAD_PATH.into(),
+                project_image: format!("sha256:{:064x}", 5),
+            },
             images,
             upgrade_from: Vec::new(),
         }

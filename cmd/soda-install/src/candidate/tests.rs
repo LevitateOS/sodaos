@@ -51,6 +51,12 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
         schema: 10,
         presentation_sha256: hash.clone(),
         host_packages_sha256: hash.clone(),
+        project_support: soda_build_tools::project_support::ProjectSupport {
+            sha256: hash.clone(),
+            destination: soda_build_tools::project_support::DESTINATION.into(),
+            payload_path: soda_build_tools::project_support::PAYLOAD_PATH.into(),
+            project_image: image_map["project-os"].config.clone(),
+        },
         images: image_map
             .into_iter()
             .map(|(name, image)| {

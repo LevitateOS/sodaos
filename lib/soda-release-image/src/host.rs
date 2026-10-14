@@ -234,6 +234,19 @@ pub fn verify_built_host(
     )?;
     compression::record_image_config(context, out, &image_config)?;
     inspect::inspect_complete(context, out, id, production)?;
+    let payload = model::Payload::load(&sys::join(&[out, "payload.json"]))?;
+    for installed in [
+        soda_build_tools::project_support::DESTINATION,
+        soda_build_tools::project_support::PAYLOAD_PATH,
+    ] {
+        crate::payload_stage::inspect_packaged_digest(
+            context,
+            id,
+            &payload.project_support.sha256,
+            installed,
+            production,
+        )?;
+    }
     export_host_archive(
         context,
         out,

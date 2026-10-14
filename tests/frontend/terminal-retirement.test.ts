@@ -189,6 +189,13 @@ for (const options of [{user: '2'}, {login: 'other'}, {responseStatus: 401}, {re
   test(`actual reservation authorization rejects before native transport: ${JSON.stringify(options)}`, async (t) => {
     const page = await fixture(t, options);
     await action(page, 'Open terminal');
-    await page.getByText('Could not authorize or attach.', {exact: false}).waitFor();
+    await page
+      .getByText(
+        options.responseStatus === 401
+          ? 'Your native login expired.'
+          : 'You do not have the required Project membership',
+        {exact: false}
+      )
+      .waitFor();
     assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
   });

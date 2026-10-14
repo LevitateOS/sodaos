@@ -83,7 +83,7 @@ pub(crate) fn emit_synthetic() -> Vec<u8> {
 
 pub(crate) fn run_install_script(archive: &[u8], targets: &[String]) -> (bool, String) {
     let mut cmd = Command::new("/bin/sh");
-    cmd.args(["-ceu", INSTALL_SCRIPT, "soda-muse-maintain"]);
+    cmd.args(["-ceu", INSTALL_SCRIPT, "soda-project-maintain"]);
     for t in targets {
         cmd.arg(t);
     }

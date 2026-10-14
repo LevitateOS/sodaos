@@ -41,7 +41,12 @@ func (s *API) extensionTerminalAttach(w http.ResponseWriter, r *http.Request, id
 	}
 	native, err := s.extensionOpenHostTerminal(ctx, r, identity, in)
 	if err != nil {
-		refuseTerminal(conn)
+		var failure *host.TerminalError
+		if errors.As(err, &failure) {
+			_ = host.Write(ctx, conn, host.TerminalFrame{Type: "closed", Reason: failure.Code})
+		} else {
+			refuseTerminal(conn)
+		}
 		return
 	}
 	defer native.Close()
@@ -92,7 +97,10 @@ func (s *API) extensionOpenHostTerminal(ctx context.Context, r *http.Request, id
 	}
 	if in.Action == "create" {
 		items, err := s.Host.TerminalStates(ctx, host.TerminalRequest{Action: "create", ID: in.ID, Project: identity.project.ID, Login: identity.login, Identity: identity.actorID, Cols: in.Cols, Rows: in.Rows, Name: in.Name, Scope: nativeTerminalScope(identity.authority.SessionGeneration)})
-		if err != nil || len(items) != 1 || !items[0].Ready {
+		if err != nil {
+			return nil, err
+		}
+		if len(items) != 1 || !items[0].Ready {
 			return nil, errors.New("terminal create failed")
 		}
 	}

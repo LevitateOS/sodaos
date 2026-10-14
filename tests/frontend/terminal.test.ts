@@ -5,6 +5,7 @@ import {
   setupTerminalDriver,
   fixture,
   opening,
+  action,
   actions,
   inputFrames,
   id,
@@ -205,4 +206,55 @@ test('observed writer refuses takeover without creating work', async (t) => {
   await page.evaluate(() => window.terminalFixture.api.restore());
   await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
+});
+
+test('support mismatch preserves the original terminal and never recommends signing in or creates again', async (t) => {
+  const page = await fixture(t, {
+    locator: {kind: 'existing', id},
+    existing,
+    responseStatus: 503,
+    responseCode: 'terminal_support_mismatch',
+  });
+  await action(page, 'Reconnect terminal');
+  await page.getByText('Terminal support needs an update.', {exact: false}).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.terminalFixture.locators), []);
+  assert(
+    (await page.evaluate(() => window.terminalFixture.calls)).every((call) =>
+      call.url.endsWith(`/terminal-sessions/${id}`)
+    )
+  );
+  assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
+  assert.deepEqual(await page.evaluate(() => window.terminalFixture.writes()), []);
+  assert(!/sign in/i.test(await page.locator('#mount').innerText()));
+});
+
+test('support failure on the native stream freezes and retains the existing terminal screen', async (t) => {
+  const page = await fixture(t);
+  await opening(page);
+  await page.evaluate(() => window.terminalFixture.ready());
+  const retained = await page.evaluate(async () => {
+    const f = window.terminalFixture,
+      screen = f.root.querySelector('.soda-terminal-screen'),
+      renderer = f.term();
+    f.socket().message({type: 'closed', reason: 'project_maintenance'});
+    await f.api.ready;
+    return {
+      sameScreen: screen === f.root.querySelector('.soda-terminal-screen'),
+      sameRenderer: renderer === f.term(),
+      disposed: renderer.disposed,
+      frozen: renderer.options.disableStdin,
+      locator: f.locator(),
+      mutations: f.writes().length,
+    };
+  });
+  assert.deepEqual(retained, {
+    sameScreen: true,
+    sameRenderer: true,
+    disposed: 0,
+    frozen: true,
+    locator: id,
+    mutations: 1,
+  });
+  await page.getByText('Project maintenance is in progress.', {exact: false}).waitFor();
+  assert(!/sign in/i.test(await page.locator('#mount').innerText()));
 });

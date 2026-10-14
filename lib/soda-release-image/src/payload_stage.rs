@@ -38,12 +38,59 @@ pub fn stage_candidate_forgejo(
     sys::create_dir(&forgejo_context, 0o700)?;
     production.stage_fork_binary(&forgejo_context)?;
     production.assets(context, &forgejo_context)?;
+    stage_project_support(context, production.native())?;
     payload.presentation_sha256 = complete::stage_presentation(&forgejo_context, context)?;
     stage_forgejo_container_inputs(source, &forgejo_context)?;
     stage_extension_package(source, context, out, production.native())?;
     crate::build::link_prepared_assets(production)?;
     remove_container_only_host_commands(context)?;
     Ok(forgejo_context)
+}
+
+/// Consume the single compilation owned by production_assets. Both host uses
+/// are part of the complete release root; maintenance needs no extra download.
+pub fn stage_project_support(context: &str, native: &str) -> Result<(), Error> {
+    let source = sys::join(&[native, "project-tools/bin/project-terminal"]);
+    let data = fs::read(&source)?;
+    for installed in [
+        soda_build_tools::project_support::DESTINATION,
+        soda_build_tools::project_support::PAYLOAD_PATH,
+    ] {
+        let destination = sys::join(&[context, "rootfs", installed.trim_start_matches('/')]);
+        fs::create_dir_all(sys::dir_name(&destination))?;
+        sys::write_new(&destination, &data, 0o755)?;
+    }
+    Ok(())
+}
+
+pub fn bind_project_support(
+    payload: &mut model::Payload,
+    context: &str,
+    native: &str,
+    production: &dyn Production,
+) -> Result<(), Error> {
+    let sha256 = sys::hash_file(&sys::join(&[native, "project-tools/bin/project-terminal"]))?;
+    let binding = model::ProjectSupport {
+        sha256,
+        destination: soda_build_tools::project_support::DESTINATION.to_string(),
+        payload_path: soda_build_tools::project_support::PAYLOAD_PATH.to_string(),
+        project_image: payload.image("project-os").config,
+    };
+    for installed in [&binding.destination, &binding.payload_path] {
+        let path = sys::join(&[context, "rootfs", installed.trim_start_matches('/')]);
+        if sys::hash_file(&path)? != binding.sha256 {
+            return Err(Error::msg("Project support staging mismatch"));
+        }
+    }
+    inspect_packaged_digest(
+        context,
+        &binding.project_image,
+        &binding.sha256,
+        &binding.destination,
+        production,
+    )?;
+    payload.project_support = binding;
+    Ok(())
 }
 
 fn remove_container_only_host_commands(context: &str) -> Result<(), Error> {
@@ -238,6 +285,16 @@ pub fn inspect_packaged_file(
     production: &dyn Production,
 ) -> Result<(), Error> {
     let want = sys::hash_file(&sys::join(&[out, staged]))?;
+    inspect_packaged_digest(out, image_id, &want, installed, production)
+}
+
+pub(crate) fn inspect_packaged_digest(
+    out: &str,
+    image_id: &str,
+    want: &str,
+    installed: &str,
+    production: &dyn Production,
+) -> Result<(), Error> {
     let observed = production.capture(
         out,
         "podman",
@@ -320,6 +377,7 @@ pub fn complete_candidate(
     phase("P4 / Build application images")?;
     let images = production.images(&forgejo_context)?;
     record_candidate_images(&mut payload, prefix, &images);
+    bind_project_support(&mut payload, context, production.native(), production)?;
     inspect_candidate_forgejo(source, out, &images, production)?;
     Ok(payload)
 }

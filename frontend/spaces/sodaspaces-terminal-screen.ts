@@ -188,6 +188,8 @@ export function openTerminal(
     lineHeight = Number(requiredToken(styles, '--soda-font-mono-line'));
   if (!Number.isFinite(fontSize) || fontSize <= 0 || !Number.isFinite(lineHeight) || lineHeight < 1)
     throw Error('Invalid terminal typography');
+  input.readTerminal()?.dispose();
+  screen.replaceChildren();
   const terminal = new Terminal({
     allowProposedApi: true,
     disableStdin: true,

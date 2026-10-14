@@ -17,6 +17,7 @@ export interface TerminalFixtureOptions {
   user?: string;
   login?: string;
   responseStatus?: number;
+  responseCode?: string;
   subURL?: string;
 }
 interface Call {
@@ -93,7 +94,10 @@ function createFixture(options: TerminalFixtureOptions = {}) {
       (options.user && options.user !== '1') ||
       (options.login && options.login !== 'original-alice')
     )
-      return new Response(null, {status: options.responseStatus || 403});
+      return Response.json(
+        {error: {code: options.responseCode || 'native_access_denied'}},
+        {status: options.responseStatus || 403}
+      );
     if (call.url.endsWith('/terminal-sessions') && call.method === 'POST')
       return Response.json({id: 'a'.repeat(32)}, {status: 201});
     if (call.url.includes('/terminal-sessions/')) {

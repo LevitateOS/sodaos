@@ -1,16 +1,29 @@
-# soda-muse-maintain
+# soda-project-maintain
 
-`soda-muse-maintain` lets an appliance operator explicitly install the packaged
-public Muse tools and restore the launch interface in an existing project.
+`soda-project-maintain` provides explicit `muse` and `terminal-support` operations.
+Muse installs packaged public tools and restores the launch interface.
+Terminal support repairs one admitted helper in an idle retained root.
 It operates on the project's retained container and requires appliance root.
+
+The [Project OS maintenance contract](../../docs/reference/project-os.md#same-root-maintenance)
+owns admission, supported roots, effects and interrupted recovery. Terminal repair:
+
+```sh
+sudo /usr/libexec/soda/soda-project-maintain terminal-support --project p0123456789abcdef01234567 --check
+sudo /usr/libexec/soda/soda-project-maintain terminal-support --project p0123456789abcdef01234567
+```
+
+`--development-installed-host` explicitly selects the already installed host helper
+for an unqualified development repair. Normal repair consumes the complete installed
+release's bundled input and metadata. Neither operation upgrades the host.
 
 ## Normal use
 
 Choose the exact project ID from Soda, then run on the appliance:
 
 ```sh
-sudo /usr/libexec/soda/soda-muse-maintain \
-  --project p0123456789abcdef01234567
+sudo /usr/libexec/soda/soda-project-maintain \
+  muse --project p0123456789abcdef01234567
 ```
 
 The ID has the form `p` followed by 24 lowercase hexadecimal characters.
@@ -24,7 +37,7 @@ for it to be running. It does not start a stopped project.
 | `--tools PATH` | Absolute public tool directory; defaults to `/usr/share/soda/muse-tools`. |
 | `--bind-only` | Restore the launch interface without installing tools or the system bus prerequisite. |
 
-The project startup service uses `--bind-only --project ID` to restore the
+The project startup service uses `muse --bind-only --project ID` to restore the
 interface after a restart. Full maintenance is an explicit operator action.
 
 ## Inputs and effects

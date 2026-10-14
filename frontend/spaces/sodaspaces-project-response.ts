@@ -1,4 +1,6 @@
 import {check, object, projectId} from './sodaspaces-api.js';
+import {supportObservation} from './sodaspaces-terminal-error.js';
+import type {SupportState} from './sodaspaces-terminal-error.js';
 
 export interface CreationProfile {
   id: string;
@@ -50,6 +52,7 @@ export function environmentResponse(value: unknown, repositoryId: string): Envir
   };
 }
 export interface Detail {
+  terminal_support: SupportState;
   environment: Environment & {provisioned: boolean};
   login: string;
   environment_administrator: boolean;
@@ -78,6 +81,7 @@ export function detailResponse(value: unknown, environment: Environment): Detail
     observed = {id: environment.id, running: state.running};
   }
   return {
+    terminal_support: supportObservation(data.terminal_support),
     environment: {...environmentResponse(env, environment.repository_id), provisioned: env.provisioned},
     login: data.login,
     environment_administrator: data.environment_administrator,

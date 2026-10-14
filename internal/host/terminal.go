@@ -206,7 +206,8 @@ func validOutputData(f TerminalFrame) bool {
 
 func validClosedReason(reason string) bool {
 	switch reason {
-	case "disconnected", "expired", "exited", "launch_failed", "stream_failed", "cleanup_unconfirmed":
+	case "disconnected", "expired", "exited", "launch_failed", "stream_failed", "cleanup_unconfirmed",
+		"terminal_support_mismatch", "terminal_support_unavailable", "project_maintenance":
 		return true
 	default:
 		return false

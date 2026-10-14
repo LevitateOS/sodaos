@@ -96,9 +96,22 @@ fn candidate_image_inputs(
         p.revision.clone()
     };
     match name {
-        "host" => Ok((
+        "host" => {
+            let mut content = candidate_content_with_embedded_inventory(&c.content_sha256)?;
+            for path in [
+                &p.project_support.destination,
+                &p.project_support.payload_path,
+            ] {
+                content.insert(format!("host:{path}"), p.project_support.sha256.clone());
+            }
+            Ok((revision, content))
+        }
+        "project-os" => Ok((
             revision,
-            candidate_content_with_embedded_inventory(&c.content_sha256)?,
+            BTreeMap::from([(
+                format!("project-os:{}", p.project_support.destination),
+                p.project_support.sha256.clone(),
+            )]),
         )),
         "dashboard" | "forgejo" | "extension" => Ok((revision, c.content_sha256.clone())),
         _ => Ok((revision, BTreeMap::new())),

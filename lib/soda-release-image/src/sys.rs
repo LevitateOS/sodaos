@@ -774,7 +774,7 @@ mod tests {
                 "soda-identity-compose",
                 "soda-image-import",
                 "soda-muse",
-                "soda-muse-maintain",
+                "soda-project-maintain",
                 "soda-setup",
                 "soda-tailnet",
             ]

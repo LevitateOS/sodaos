@@ -1,4 +1,4 @@
-// soda-muse-maintain installs public Muse tools and restores a live project interface.
+// soda-project-maintain installs public Muse tools and restores a live project interface.
 use std::time::{Duration, Instant};
 
 mod archive;
@@ -17,6 +17,7 @@ mod release_validation;
 mod release_wire;
 mod sha256;
 mod stage;
+mod terminal_support;
 #[cfg(test)]
 mod test_support;
 
@@ -32,7 +33,7 @@ const RELEASE_PATH: &str = "/usr/share/soda/release.json";
 
 fn main() {
     if let Err(e) = run() {
-        eprintln!("soda-muse-maintain: {e}");
+        eprintln!("soda-project-maintain: {e}");
         std::process::exit(1);
     }
 }
@@ -45,7 +46,12 @@ fn run() -> Result<(), String> {
         .skip(1)
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
-    let o = parse(&argv)?;
+    match argv.first().map(String::as_str) {
+        Some("terminal-support") => return terminal_support::run(&argv[1..]),
+        Some("muse") => {}
+        _ => return Err("select muse or terminal-support maintenance".to_string()),
+    }
+    let o = parse(&argv[1..])?;
     let c = load_config(&o.config)?;
     if c.muse_sha256.is_empty() {
         if o.bind_only {

@@ -36,7 +36,7 @@ for target in "$@"; do
  if test -e "$target"; then test -f "$target"; fi
  done
 for target in "$@"; do mkdir -p "$(dirname "$target")"; done
-stage=$(mktemp -d "$(dirname "$3")/.soda-muse-maintain.XXXXXXXX")
+stage=$(mktemp -d "$(dirname "$3")/.soda-project-maintain.XXXXXXXX")
 trap 'rm -rf -- "$stage"' EXIT
 tar --extract --file=- --directory="$stage" --no-same-owner
 chmod 0755 "$stage/muse" "$stage/soda-identity-compose" "$stage/muse-native"
@@ -77,7 +77,7 @@ pub(crate) fn stage_tools(
         "/bin/sh",
         "-ceu",
         INSTALL_SCRIPT,
-        "soda-muse-maintain",
+        "soda-project-maintain",
         DESTINATIONS[0],
         DESTINATIONS[1],
         DESTINATIONS[2],

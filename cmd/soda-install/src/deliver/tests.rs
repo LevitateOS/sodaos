@@ -12,6 +12,7 @@ fn fixture() -> Payload {
         schema: 10,
         presentation_sha256: "c".repeat(64),
         host_packages_sha256: "d".repeat(64),
+        project_support: Default::default(),
         images: BTreeMap::new(),
         upgrade_from: Vec::new(),
     };
@@ -33,6 +34,12 @@ fn fixture() -> Payload {
             },
         );
     }
+    payload.project_support = soda_build_tools::project_support::ProjectSupport {
+        sha256: "f".repeat(64),
+        destination: soda_build_tools::project_support::DESTINATION.into(),
+        payload_path: soda_build_tools::project_support::PAYLOAD_PATH.into(),
+        project_image: payload.images["project-os"].config.clone(),
+    };
     payload
 }
 
@@ -168,6 +175,7 @@ fn producer_payload(payload: &Payload) -> soda_release_image::model::Payload {
         schema: payload.schema,
         presentation_sha256: payload.presentation_sha256.clone(),
         host_packages_sha256: payload.host_packages_sha256.clone(),
+        project_support: payload.project_support.clone(),
         images: payload
             .images
             .iter()
@@ -225,6 +233,7 @@ fn payload_fixture() -> (Payload, String) {
             }
         }
     }
+    payload.project_support.project_image = payload.images["project-os"].config.clone();
     payload.validate().unwrap();
     (payload, layout)
 }

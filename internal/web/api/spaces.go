@@ -9,11 +9,13 @@ import (
 
 	"github.com/levitateos/sodaos/internal/web/auth"
 
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 type SpaceView struct {
+	TerminalSupport      host.TerminalSupport  `json:"terminal_support"`
 	TailnetState         string                `json:"tailnet_state,omitempty"`
 	Environment          EnvironmentView       `json:"environment"`
 	Login                string                `json:"login"`

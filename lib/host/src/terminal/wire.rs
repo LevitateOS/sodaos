@@ -560,6 +560,9 @@ fn valid_closed_reason(reason: &str) -> bool {
             | "launch_failed"
             | "stream_failed"
             | "cleanup_unconfirmed"
+            | "terminal_support_mismatch"
+            | "terminal_support_unavailable"
+            | "project_maintenance"
     )
 }
 

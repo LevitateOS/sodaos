@@ -98,7 +98,7 @@ toolchain selected by [rust-toolchain.toml](rust-toolchain.toml).
 | [Image import](cmd/soda-image-import/README.md) | Import bundled images into host Podman storage. |
 | [Installer](cmd/soda-install/README.md) | Install to disk and continue appliance setup. |
 | [Muse launcher](cmd/soda-muse/README.md) | Run Muse from a provisioned project account. |
-| [Muse maintenance](cmd/soda-muse-maintain/README.md) | Restore packaged Muse tools in a retained project. |
+| [Project maintenance](cmd/soda-project-maintain/README.md) | Explicitly repair terminal support or install packaged Muse tools in a retained project. |
 | [PostgreSQL maintenance](cmd/soda-pg-maintenance/README.md) | Back up, restore and provision appliance databases. |
 | [Project terminal helpers](cmd/soda-project-terminal/README.md) | Use managed terminals and understand their service helpers. |
 | [Operator setup](cmd/soda-setup/README.md) | Bootstrap the native operator binding and configuration. |

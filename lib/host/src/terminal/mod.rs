@@ -80,6 +80,9 @@ pub use self::native::{
     parse_output_line, NativeAttach,
 };
 
+mod support;
+pub use self::support::{SupportObservation, MISMATCH, UNAVAILABLE};
+
 mod stream;
 
 pub use self::stream::TerminalStart;

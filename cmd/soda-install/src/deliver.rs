@@ -56,6 +56,8 @@ pub struct Payload {
     pub presentation_sha256: String,
     #[serde(rename = "HostPackagesSHA256")]
     pub host_packages_sha256: String,
+    #[serde(rename = "ProjectSupport")]
+    pub project_support: soda_build_tools::project_support::ProjectSupport,
     #[serde(rename = "Images")]
     pub images: BTreeMap<String, Image>,
     #[serde(rename = "UpgradeFrom")]
@@ -178,6 +180,9 @@ impl Payload {
             return Err(Error::msg("incomplete appliance payload"));
         }
         self.valid_images()?;
+        self.project_support
+            .validate(&self.images["project-os"].config)
+            .map_err(Error::msg)?;
         // Native admission is not implemented in this milestone. Do not
         // publish a guessed compatibility promise simply because schemas
         // happen to match.

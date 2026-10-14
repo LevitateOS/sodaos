@@ -59,6 +59,9 @@ func (t *Terminal) Close() { _ = t.conn.CloseNow() }
 // TerminalStates performs one bounded operation over the existing private wire.
 // A missing/unavailable reply is not absence and never triggers Create or End.
 func terminalMetadata(f TerminalFrame, err error) ([]TerminalState, error) {
+	if err == nil && f.Type == "closed" {
+		return nil, terminalFailure(f.Reason)
+	}
 	if err != nil || f.Type != "metadata" || f.Terminals == nil {
 		return nil, errors.New("native terminal outcome unavailable")
 	}

@@ -1,10 +1,10 @@
 [package]
-name = "soda-muse-maintain"
+name = "soda-project-maintain"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "soda-muse-maintain"
+name = "soda-project-maintain"
 path = "src/main.rs"
 
 [dependencies]
@@ -13,3 +13,5 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"
 libc = "0.2"
+soda-host = { path = "../../lib/host" }
+soda-build-tools = { path = "../../lib/release-inputs" }

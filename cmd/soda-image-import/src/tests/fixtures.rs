@@ -146,6 +146,7 @@ fn test_payload(digests: &HashMap<String, LayoutImage>) -> Payload {
         schema: 10,
         presentation_sha256: repeat('c', 64),
         host_packages_sha256: repeat('d', 64),
+        project_support: Default::default(),
         images: HashMap::new(),
         upgrade_from: Vec::new(),
     };
@@ -161,6 +162,12 @@ fn test_payload(digests: &HashMap<String, LayoutImage>) -> Payload {
             },
         );
     }
+    payload.project_support = soda_build_tools::project_support::ProjectSupport {
+        sha256: repeat('f', 64),
+        destination: soda_build_tools::project_support::DESTINATION.into(),
+        payload_path: soda_build_tools::project_support::PAYLOAD_PATH.into(),
+        project_image: payload.images["project-os"].config.clone(),
+    };
     payload
 }
 
@@ -196,7 +203,7 @@ pub(super) fn payload_json_for(entries: &HashMap<String, (String, String)>) -> S
         );
     }
     let revision = repeat('a', 40);
-    [
+    let text = [
         "{\"Format\":3,\"ID\":\"44.20260817.3.2.soda-",
         &revision[..12],
         "\",\"Revision\":\"",
@@ -211,5 +218,13 @@ pub(super) fn payload_json_for(entries: &HashMap<String, (String, String)>) -> S
         &parts.join(","),
         "},\"UpgradeFrom\":[]}",
     ]
-    .concat()
+    .concat();
+    let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    value["ProjectSupport"] = serde_json::json!({
+        "SHA256": repeat('f', 64),
+        "Destination": soda_build_tools::project_support::DESTINATION,
+        "PayloadPath": soda_build_tools::project_support::PAYLOAD_PATH,
+        "ProjectImage": value["Images"]["project-os"]["Config"],
+    });
+    value.to_string()
 }

@@ -17,7 +17,11 @@ pub(crate) struct Observation {
     pub(crate) running: bool,
 }
 
-fn inspect_project(key: &str, project: &str, deadline: Instant) -> Result<Observation, String> {
+pub(crate) fn inspect_project(
+    key: &str,
+    project: &str,
+    deadline: Instant,
+) -> Result<Observation, String> {
     let body = podman(&["inspect", "--format", INSPECT_FORMAT, key], deadline)?;
     if body.len() > 8192 {
         return Err(String::from("invalid project observation"));

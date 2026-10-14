@@ -119,7 +119,7 @@ func (s *API) extensionReserveTerminal(w http.ResponseWriter, r *http.Request) {
 	id := newTerminalID()
 	items, err := s.extensionTerminalOperation(r, identity, host.TerminalRequest{Action: "reserve", ID: id, Cols: in.Cols, Rows: in.Rows, Name: in.Name, Scope: nativeTerminalScope(identity.authority.SessionGeneration)})
 	if !reservedTerminal(items, id, err) {
-		auth.JSONError(w, 503, "terminal_unavailable", "Terminal reservation unavailable; no shell creation was requested.")
+		terminalOperationError(w, err, "Terminal reservation unavailable; no shell creation was requested.")
 		return
 	}
 	auth.JSONResponse(w, 201, map[string]string{"id": id})
@@ -144,7 +144,7 @@ func (s *API) extensionTerminalSession(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := s.extensionTerminalOperation(r, identity, in)
 	if err != nil {
-		auth.JSONError(w, 503, "terminal_unavailable", "The exact native outcome is unavailable. Nothing was retried or replaced.")
+		terminalOperationError(w, err, "The exact native outcome is unavailable. Nothing was retried or replaced.")
 		return
 	}
 	if len(items) == 0 {

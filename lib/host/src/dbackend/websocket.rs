@@ -97,6 +97,23 @@ pub(super) fn pump_terminal(
             return Ok(());
         }
     };
+    let admission = match project::admission::admit(Some(&request.project)) {
+        Ok(guard) => guard,
+        Err(reason) => {
+            let code = if reason == project::admission::MAINTENANCE {
+                "project_maintenance"
+            } else {
+                terminal::UNAVAILABLE
+            };
+            let _ = ws.send(Message::Text(closed_frame(code).encode().into()));
+            return Ok(());
+        }
+    };
+    let support = service.support_in_container(&container, inspect_deadline);
+    if let Some(reason) = support.failure_code() {
+        let _ = ws.send(Message::Text(closed_frame(reason).encode().into()));
+        return Ok(());
+    }
     let end_hook = |actor: i64, lease_id: &str| {
         backend
             .broker
@@ -123,14 +140,28 @@ pub(super) fn pump_terminal(
             return Ok(());
         }
     };
-    pump_attached(ws, attach, session_deadline, shutdown)
+    pump_attached_admitted(ws, attach, session_deadline, shutdown, Some(admission))
 }
 
+#[cfg(test)]
 fn pump_attached<S>(
+    ws: tungstenite::protocol::WebSocket<S>,
+    attach: terminal::NativeAttach,
+    deadline: Instant,
+    shutdown: Arc<std::sync::atomic::AtomicBool>,
+) -> Result<(), String>
+where
+    S: std::io::Read + std::io::Write + std::os::fd::AsRawFd + Send + 'static,
+{
+    pump_attached_admitted(ws, attach, deadline, shutdown, None)
+}
+
+fn pump_attached_admitted<S>(
     mut ws: tungstenite::protocol::WebSocket<S>,
     mut attach: terminal::NativeAttach,
     deadline: Instant,
     shutdown: Arc<std::sync::atomic::AtomicBool>,
+    mut admission: Option<project::admission::AdmissionGuard>,
 ) -> Result<(), String>
 where
     S: std::io::Read + std::io::Write + std::os::fd::AsRawFd + Send + 'static,
@@ -291,6 +322,9 @@ where
         if pending_message.is_none() && !pending_send {
             match out_rx.try_recv() {
                 Ok(frame) => {
+                    if frame.frame_type == "ready" || frame.frame_type == "metadata" {
+                        drop(admission.take());
+                    }
                     closed = frame.frame_type == "closed" || frame.frame_type == "metadata";
                     pending_message = Some(Message::Text(frame.encode().into()));
                     write_deadline = Some(Instant::now() + Duration::from_secs(5));

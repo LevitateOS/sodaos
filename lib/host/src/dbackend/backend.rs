@@ -1,6 +1,6 @@
 use std::os::unix::net::UnixStream;
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use crate::daemon::backend::{BackendError, ExecBackend, TerminalSession};
 use crate::{domain, factory, json, project, terminal};
@@ -8,7 +8,7 @@ use crate::{domain, factory, json, project, terminal};
 use super::tailnet::{decode_tailnet_empty, map_tailnet_err};
 use super::websocket;
 use super::{
-    DaemonBackend, decode_empty, internal, map_factory_err, native_deadline, tailnet_deadline,
+    decode_empty, internal, map_factory_err, native_deadline, tailnet_deadline, DaemonBackend,
 };
 
 #[cfg(test)]
@@ -64,6 +64,7 @@ impl ExecBackend for DaemonBackend {
             return Err(internal("invalid project identity".to_string()));
         }
         input.validate().map_err(internal)?;
+        let _admission = project::admission::admit(None).map_err(internal)?;
         let out = self
             .project
             .create(&input, native_deadline())
@@ -90,6 +91,12 @@ impl ExecBackend for DaemonBackend {
         Ok(out.encode().into_bytes())
     }
 
+    fn terminal_support(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let id = self.targeted_id(body)?;
+        serde_json::to_vec(&self.terminal.terminal_support(&id, native_deadline()))
+            .map_err(|_| BackendError::Internal)
+    }
+
     fn connection(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let id = self.targeted_id(body)?;
         let out = self
@@ -101,6 +108,11 @@ impl ExecBackend for DaemonBackend {
 
     fn lifecycle(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let input = project::Lifecycle::decode(body).map_err(internal)?;
+        let _admission = if input.action != "inspect" {
+            Some(project::admission::admit(Some(&input.project)).map_err(internal)?)
+        } else {
+            None
+        };
         let out = self
             .project
             .lifecycle(&input, native_deadline())
@@ -118,6 +130,7 @@ impl ExecBackend for DaemonBackend {
 
     fn account(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let req = crate::pops::AccountReq::decode(body).map_err(internal)?;
+        let _admission = project::admission::admit(None).map_err(internal)?;
         self.pops
             .account(&req, native_deadline())
             .map_err(internal)?;
@@ -135,6 +148,7 @@ impl ExecBackend for DaemonBackend {
 
     fn prepare(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let req = crate::pops::PrepareReq::decode(body).map_err(internal)?;
+        let _admission = project::admission::admit(None).map_err(internal)?;
         self.pops
             .prepare(&req, native_deadline())
             .map(String::into_bytes)
@@ -144,6 +158,8 @@ impl ExecBackend for DaemonBackend {
     fn prepare_candidate(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let req = crate::pops::PrepareCandidateReq::decode(body).map_err(internal)?;
         req.0.validate().map_err(internal)?;
+        let _admission =
+            project::admission::admit(Some(&req.0.preparation.project)).map_err(internal)?;
         let deadline = crate::project::Runtime::<crate::project::Native>::cap_by_wire_deadline(
             native_deadline(),
             &req.0.deadline,
@@ -176,6 +192,7 @@ impl ExecBackend for DaemonBackend {
 
     fn prepare_context(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let req = crate::pops::PrepareContextReq::decode(body).map_err(internal)?;
+        let _admission = project::admission::admit(None).map_err(internal)?;
         self.pops
             .prepare_context(&req, native_deadline())
             .map(String::into_bytes)
@@ -212,6 +229,7 @@ impl ExecBackend for DaemonBackend {
         let factory = self.factory()?;
         let req = factory::FactoryLaunch::decode(body).map_err(internal)?;
         req.validate().map_err(internal)?;
+        let _admission = project::admission::admit(Some(&req.run.project)).map_err(internal)?;
         let out = factory
             .launch(&req, native_deadline())
             .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
@@ -298,6 +316,7 @@ impl ExecBackend for DaemonBackend {
         // The mux maps every non-501 identity error to 409, like Go's
         // `identityHandler`.
         let input = terminal::TerminalStart::decode(body).map_err(internal)?;
+        let _admission = project::admission::admit(Some(&input.project_id)).map_err(internal)?;
         let lease = terminal::identity_launch(
             self,
             &self.terminal,
@@ -311,6 +330,11 @@ impl ExecBackend for DaemonBackend {
 
     fn identity_action(&self, action: &str, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         let delivery = terminal::Delivery::decode(body).map_err(internal)?;
+        let _admission = if action == "start" {
+            Some(project::admission::admit(Some(&delivery.lease.project_id)).map_err(internal)?)
+        } else {
+            None
+        };
         if delivery.lease.kind == terminal::KIND_FACTORY {
             // Broker validate/stop/finish callbacks for supervised runs.
             let out = self

@@ -31,15 +31,16 @@ type nativeCreationPermit struct {
 	expires time.Time
 }
 type terminalNativeFixture struct {
-	atomic.Int32 // Successful native creates/attachments, not metadata operations
-	created      int
-	reservations map[string]nativeCreationPermit
-	mu           sync.Mutex
-	rows         map[string]host.TerminalState
-	writers      map[string]*websocket.Conn
-	requests     []host.TerminalRequest
-	fail         map[string]bool
-	echo         bool
+	atomic.Int32   // Successful native creates/attachments, not metadata operations
+	created        int
+	reservations   map[string]nativeCreationPermit
+	mu             sync.Mutex
+	rows           map[string]host.TerminalState
+	writers        map[string]*websocket.Conn
+	requests       []host.TerminalRequest
+	fail           map[string]bool
+	supportFailure string
+	echo           bool
 }
 
 func (f *terminalNativeFixture) count(action string) int {
@@ -116,6 +117,12 @@ func terminalWebFixture(t *testing.T, cleanupReason ...string) (*Server, *httpte
 		key := in.Project + "/" + in.ID
 		calls.mu.Lock()
 		calls.requests = append(calls.requests, in)
+		if calls.supportFailure != "" {
+			reason := calls.supportFailure
+			calls.mu.Unlock()
+			_ = host.Write(r.Context(), c, host.TerminalFrame{Type: "closed", Reason: reason})
+			return
+		}
 		items := []host.TerminalState{}
 		var end *websocket.Conn
 		valid := true

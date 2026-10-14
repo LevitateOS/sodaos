@@ -107,6 +107,10 @@ pub trait ExecBackend: Send + Sync {
     /// runtime and the tailnet control. Unknown actions MUST be rejected.
     fn tailnet(&self, action: &str, body: &[u8]) -> Result<Vec<u8>, BackendError>;
 
+    fn terminal_support(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
+
     // -- terminal route (terminal.go terminalHandler + service.go Handler) --
     /// Admission half of the websocket attach: validates executor-side
     /// preconditions (the Go `attachLauncher` assertion and stream

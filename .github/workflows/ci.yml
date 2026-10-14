@@ -211,7 +211,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install locked source dependencies
         run: bun install --frozen-lockfile
-      - name: Run Rust tests
+      - name: Run Rust tests including Project support artifact and maintenance contracts
         run: cargo test --workspace --locked --no-fail-fast
 
   ci:

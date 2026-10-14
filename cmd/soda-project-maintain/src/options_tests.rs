@@ -53,7 +53,7 @@ fn flag_parsing_vectors() {
     assert_eq!(parse(&args(&["-h"])).unwrap_err(), "flag: help requested");
     assert_eq!(
         usage_text("/usr/share/soda/muse-tools"),
-        "Usage of soda-muse-maintain:\n  -bind-only\n    \trestore only the launch interface\n  -config string\n    \toperator host configuration (default \"/etc/soda/host.json\")\n  -project string\n    \texact project identity\n  -tools string\n    \tinstalled public tool directory (default \"/usr/share/soda/muse-tools\")\n"
+        "Usage of soda-project-maintain:\n  -bind-only\n    \trestore only the launch interface\n  -config string\n    \toperator host configuration (default \"/etc/soda/host.json\")\n  -project string\n    \texact project identity\n  -tools string\n    \tinstalled public tool directory (default \"/usr/share/soda/muse-tools\")\n"
     );
     // Validation errors.
     assert_eq!(

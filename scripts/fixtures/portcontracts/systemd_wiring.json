@@ -48,7 +48,7 @@
     {
       "file": "system/host/services/soda-project@.service",
       "lines": [
-        "ExecStartPost=/usr/local/libexec/soda/soda-muse-maintain --bind-only --project %i"
+        "ExecStartPost=/usr/local/libexec/soda/soda-project-maintain muse --bind-only --project %i"
       ]
     },
     {

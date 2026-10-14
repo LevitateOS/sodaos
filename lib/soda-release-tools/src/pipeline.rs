@@ -114,6 +114,7 @@ fn deliver_payload_of(payload: &model::Payload) -> DeliverPayload {
         schema: payload.schema,
         presentation_sha256: payload.presentation_sha256.clone(),
         host_packages_sha256: payload.host_packages_sha256.clone(),
+        project_support: payload.project_support.clone(),
         images: payload
             .images
             .iter()
@@ -817,6 +818,7 @@ mod tests {
             schema: 1,
             presentation_sha256: "p".to_string(),
             host_packages_sha256: "h".to_string(),
+            project_support: Default::default(),
             images: vec![(
                 "proxy".to_string(),
                 model::PayloadImage {

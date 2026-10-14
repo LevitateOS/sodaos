@@ -20,7 +20,7 @@ pub struct ProducedImage {
     pub config: String,
     pub archive_sha256: String,
 }
-pub use payload::{Payload, PayloadImage};
+pub use payload::{Payload, PayloadImage, ProjectSupport};
 pub use trust::{Permit, SecretFiles, Trust};
 pub use url::{https_url, is_loopback_addr, parse_url, UrlParts};
 

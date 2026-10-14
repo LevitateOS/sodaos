@@ -7,6 +7,7 @@ use std::fmt;
 
 use crate::buildx::{is_digest, is_revision, oci_architecture, Root};
 use crate::Error;
+pub use soda_build_tools::project_support::ProjectSupport;
 
 pub const PATH: &str = "/usr/share/soda/release.json";
 pub const IMAGES_PATH: &str = "/usr/share/soda/images";
@@ -137,6 +138,7 @@ pub struct Payload {
     pub presentation_sha256: String,
     #[serde(rename = "HostPackagesSHA256")]
     pub host_packages_sha256: String,
+    pub project_support: ProjectSupport,
     pub images: BTreeMap<String, Image>,
     // `nil` vs empty is observable in JSON (`null` vs `[]`); Go leaves this
     // unset, so `None` marshals as `null` exactly like the owner.
@@ -163,10 +165,11 @@ impl<'de> Deserialize<'de> for Payload {
                     mut schema,
                     mut presentation_sha256,
                     mut host_packages_sha256,
+                    mut project_support,
                     mut images,
                     mut upgrade_from,
                 ) = (
-                    None, None, None, None, None, None, None, None, None, None, None, None,
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,
                 );
                 while let Some(key) = m.next_key::<String>()? {
                     match key.as_str() {
@@ -202,6 +205,10 @@ impl<'de> Deserialize<'de> for Payload {
                         "Images" => {
                             images = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
                         }
+                        "ProjectSupport" => {
+                            project_support =
+                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
+                        }
                         "UpgradeFrom" => {
                             upgrade_from = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
                         }
@@ -220,6 +227,7 @@ impl<'de> Deserialize<'de> for Payload {
                                     "PresentationSHA256",
                                     "HostPackagesSHA256",
                                     "Images",
+                                    "ProjectSupport",
                                     "UpgradeFrom",
                                 ],
                             ))
@@ -239,6 +247,7 @@ impl<'de> Deserialize<'de> for Payload {
                     schema,
                     presentation_sha256: decode_raw_default(presentation_sha256)?,
                     host_packages_sha256: decode_raw_default(host_packages_sha256)?,
+                    project_support: decode_raw_default(project_support)?,
                     images: decode_images(images)?,
                     upgrade_from: decode_raw_default(upgrade_from)?,
                 })
@@ -332,6 +341,9 @@ impl Payload {
             return Err(Error::msg("incomplete appliance payload"));
         }
         self.valid_images()?;
+        self.project_support
+            .validate(&self.images["project-os"].config)
+            .map_err(Error::msg)?;
         if matches!(&self.upgrade_from, Some(entries) if !entries.is_empty()) {
             return Err(Error::msg("candidate has no qualified upgrade paths"));
         }

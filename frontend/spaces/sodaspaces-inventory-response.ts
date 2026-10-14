@@ -7,6 +7,7 @@ import {spaceFactoryAuthority, spaceFactoryControl, spaceFactoryRuns} from './so
 import type {FactoryAuthority, FactoryControl, FactoryRun} from './sodaspaces-factory-response.js';
 
 export interface Space {
+  terminal_support?: Detail['terminal_support'];
   tailnet_state?: string;
   factory_authority?: FactoryAuthority;
   factory_control?: FactoryControl;

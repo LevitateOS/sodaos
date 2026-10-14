@@ -281,6 +281,9 @@ export class SodaTerminal extends LitElement {
       clearSocket: () => {
         this.socket = undefined;
       },
+      freezeScreen: () => {
+        if (this.terminal) this.terminal.options.disableStdin = true;
+      },
       clearScreen: () => {
         clearScreen(this.screenInput());
       },
@@ -377,7 +380,8 @@ export class SodaTerminal extends LitElement {
       remember: (value) => this.remember(value),
       publish: (kind, state) => publish(this.actionsInput(), kind, state),
       isLive: (generation) => live(this.actionsInput(), generation),
-      detach: (message, stale, reason) => detach(this.actionsInput(), message, stale, reason),
+      detach: (message, stale, reason, preserveScreen) =>
+        detach(this.actionsInput(), message, stale, reason, preserveScreen),
       dispatchMetadata: (metadata) => {
         this.dispatchEvent(
           new CustomEvent('soda-terminal-metadata', {

@@ -1,6 +1,7 @@
 import {html} from 'lit';
 import './sodaspaces-factory-settings.js';
 import type {TemplateResult} from 'lit';
+import {supportMessage} from './sodaspaces-terminal-error.js';
 import {renderEnvironment, renderProjectOS, renderOSObservation} from './sodaspaces-environment-view.js';
 import {renderConnection, renderKeys, renderForgejoKeys} from './sodaspaces-project-view.js';
 import {renderNetwork, renderNetworkSelection} from './sodaspaces-network.js';
@@ -264,6 +265,7 @@ export function renderEnvironmentView(input: SettingsViewInput) {
       (value) => input.selectProfile(value)
     )}
     ${renderCreateNetworkSelection(input)} ${renderNetworkSummary(input)} ${renderObservedOS(input)}
+    <p data-terminal-support>${supportMessage(input.readDetail()?.terminal_support || 'inspection_unavailable')}</p>
     ${renderEnvironment(
       {
         busy: input.isBusy(),

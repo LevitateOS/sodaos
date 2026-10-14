@@ -1,4 +1,4 @@
-import {object, readSodaJSON} from './sodaspaces-api.js';
+import {object, readSodaJSON, readSodaErrorCode, SodaRequestError} from './sodaspaces-api.js';
 import {terminalResponse} from './sodaspaces-terminal-response.js';
 import type {ConnectionState, TerminalObservation} from './sodaspaces-attention.js';
 import type {TerminalState} from './sodaspaces-terminal-attachment.js';
@@ -27,6 +27,7 @@ export interface ActionsInput {
   readSocket: () => WebSocket | undefined;
   clearSocket: () => void;
   clearScreen: () => void;
+  freezeScreen: () => void;
   remember: (value: string | null) => void;
   dispatchObservation: (detail: TerminalObservation) => void;
   dispatchAuthorityLost: () => void;
@@ -63,7 +64,8 @@ export function detach(
   input: ActionsInput,
   message: string,
   stale = false,
-  reason: ConnectionState = 'connection-lost'
+  reason: ConnectionState = 'connection-lost',
+  preserveScreen = false
 ) {
   input.bumpGeneration();
   input.setState(stale ? 'stale' : 'closed');
@@ -74,7 +76,8 @@ export function detach(
   abortActionIfStale(input, stale);
   input.disconnectObserver();
   closeSocket(input);
-  input.clearScreen();
+  if (preserveScreen) input.freezeScreen();
+  else input.clearScreen();
   input.setMessage(message);
   publish(input, 'state', reason);
 }
@@ -103,7 +106,7 @@ export async function json(
   });
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) authorityLost(input);
-    throw Error('Soda request refused');
+    throw new SodaRequestError(response.status, await readSodaErrorCode(response));
   }
   return object(await readSodaJSON(response));
 }

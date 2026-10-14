@@ -34,6 +34,7 @@ pub(super) struct Payload {
     pub(super) schema: i64,
     pub(super) presentation_sha256: String,
     pub(super) host_packages_sha256: String,
+    pub(super) project_support: soda_build_tools::project_support::ProjectSupport,
     pub(super) images: HashMap<String, ImageBinding>,
     pub(super) upgrade_from: Vec<String>,
 }
@@ -94,6 +95,7 @@ struct PayloadWire {
     schema: Option<Box<RawValue>>,
     presentation: Option<Box<RawValue>>,
     host: Option<Box<RawValue>>,
+    support: Option<Box<RawValue>>,
     images: Option<Box<RawValue>>,
     upgrade: Option<Box<RawValue>>,
 }
@@ -117,10 +119,11 @@ impl<'de> Deserialize<'de> for PayloadWire {
                     mut schema,
                     mut presentation,
                     mut host,
+                    mut support,
                     mut images,
                     mut upgrade,
                 ) = (
-                    None, None, None, None, None, None, None, None, None, None, None, None,
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,
                 );
                 while let Some(k) = m.next_key::<String>()? {
                     let v = m.next_value::<Box<RawValue>>()?;
@@ -146,6 +149,8 @@ impl<'de> Deserialize<'de> for PayloadWire {
                         &mut host
                     } else if k.eq_ignore_ascii_case("Images") {
                         &mut images
+                    } else if k.eq_ignore_ascii_case("ProjectSupport") {
+                        &mut support
                     } else if k.eq_ignore_ascii_case("UpgradeFrom") {
                         &mut upgrade
                     } else {
@@ -166,6 +171,7 @@ impl<'de> Deserialize<'de> for PayloadWire {
                     schema,
                     presentation,
                     host,
+                    support,
                     images,
                     upgrade,
                 })
@@ -239,6 +245,11 @@ pub(super) fn decode_payload(data: &[u8]) -> Result<Payload, String> {
         schema: raw_int(wire.schema.as_deref(), "Schema")?,
         presentation_sha256: raw_string(wire.presentation.as_deref(), "PresentationSHA256")?,
         host_packages_sha256: raw_string(wire.host.as_deref(), "HostPackagesSHA256")?,
+        project_support: match wire.support {
+            Some(raw) => serde_json::from_str(raw.get())
+                .map_err(|_| "invalid Project support binding".to_string())?,
+            None => Default::default(),
+        },
         images: decode_images(wire.images.as_deref())?,
         upgrade_from,
     })
@@ -295,6 +306,9 @@ impl Payload {
             return Err("incomplete appliance payload".to_string());
         }
         self.valid_images()?;
+        self.project_support
+            .validate(&self.images["project-os"].config)
+            .map_err(str::to_string)?;
         if !self.upgrade_from.is_empty() {
             return Err("candidate has no qualified upgrade paths".to_string());
         }

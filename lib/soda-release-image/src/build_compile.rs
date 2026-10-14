@@ -12,7 +12,7 @@ const RUNTIME_COMMANDS: [(&str, &str); 9] = [
     ("soda-setup", "soda-setup"),
     ("soda-image-import", "soda-image-import"),
     ("soda-muse", "soda-muse"),
-    ("soda-muse-maintain", "soda-muse-maintain"),
+    ("soda-project-maintain", "soda-project-maintain"),
     ("soda-identity", "soda-identity"),
     ("soda-host", "soda-host"),
     // The retired Go tailnet command is now a second soda-host binary.
@@ -171,6 +171,11 @@ pub fn compile_rust_tools(
 ) -> Result<(), Error> {
     for (member, bin, dest) in RUST_TOOLS {
         inventory.require_bin(member, bin)?;
+        // Assets produces the shared helper once. Payload staging installs
+        // those same bytes into the host and maintenance payload afterwards.
+        if bin == "project-terminal" {
+            continue;
+        }
         let dest = sys::join(&[context_dir, dest]);
         fs::create_dir_all(sys::dir_name(&dest))?;
         production.compile_rust(member, bin, &dest)?;
@@ -292,7 +297,7 @@ mod tests {
             ("soda-setup", "soda-setup"),
             ("soda-image-import", "soda-image-import"),
             ("soda-muse", "soda-muse"),
-            ("soda-muse-maintain", "soda-muse-maintain"),
+            ("soda-project-maintain", "soda-project-maintain"),
             ("soda-identity", "soda-identity"),
             ("soda-host", "soda-host"),
             ("soda-host", "soda-forgejo-tailnet"),
@@ -424,6 +429,15 @@ mod tests {
             panic!("command run")
         }
         fn capture(&self, _: &str, _: &str, args: &[String]) -> Result<String, Error> {
+            if args
+                .iter()
+                .any(|arg| arg == "--entrypoint=/usr/bin/sha256sum")
+            {
+                let installed = args.last().unwrap();
+                let image = &args[args.len() - 2];
+                let path = sys::join(&[image, installed.trim_start_matches('/')]);
+                return Ok(format!("{}  {installed}", sys::hash_file(&path)?));
+            }
             let manifest = args.last().expect("metadata manifest argument");
             let snapshot = std::path::Path::new(manifest)
                 .parent()
@@ -513,6 +527,76 @@ mod tests {
         ) -> Result<String, Error> {
             Ok(String::new())
         }
+    }
+
+    #[test]
+    fn project_support_stages_one_artifact_and_detects_different_packaged_bytes() {
+        let dir = std::env::temp_dir().join(format!("sri-support-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let native = dir.join("native");
+        let helper = native.join("project-tools/bin/project-terminal");
+        fs::create_dir_all(helper.parent().unwrap()).unwrap();
+        fs::write(&helper, b"shared-helper").unwrap();
+        let context = dir.join("context");
+        crate::payload_stage::stage_project_support(
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+        )
+        .unwrap();
+        let packaged = dir.join("project-image/usr/libexec/soda/project-terminal");
+        fs::create_dir_all(packaged.parent().unwrap()).unwrap();
+        fs::copy(&helper, &packaged).unwrap();
+        let mut payload = model::Payload::default();
+        payload.images.push((
+            "project-os".into(),
+            model::PayloadImage {
+                config: dir.join("project-image").to_string_lossy().into_owned(),
+                ..Default::default()
+            },
+        ));
+        let recorder = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        crate::payload_stage::bind_project_support(
+            &mut payload,
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+            &recorder,
+        )
+        .unwrap();
+        assert_eq!(
+            payload.project_support.sha256,
+            sys::hash_file(helper.to_str().unwrap()).unwrap()
+        );
+        fs::write(&packaged, b"old-image-helper").unwrap();
+        assert!(crate::payload_stage::bind_project_support(
+            &mut payload,
+            context.to_str().unwrap(),
+            native.to_str().unwrap(),
+            &recorder,
+        )
+        .unwrap_err()
+        .0
+        .contains("packaged content differs"));
+        fs::copy(&helper, &packaged).unwrap();
+        fs::write(
+            context.join("rootfs/usr/libexec/soda/project-terminal"),
+            b"different-host-helper",
+        )
+        .unwrap();
+        assert_eq!(
+            crate::payload_stage::bind_project_support(
+                &mut payload,
+                context.to_str().unwrap(),
+                native.to_str().unwrap(),
+                &recorder,
+            )
+            .unwrap_err()
+            .0,
+            "Project support staging mismatch"
+        );
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -658,11 +742,11 @@ mod tests {
     }
 
     #[test]
-    fn cmd1_compile_skips_terminal_identity_and_tools_ship_it_once() {
+    fn cmd1_compile_skips_terminal_identity_and_defers_shared_helper_to_assets() {
         // CORR-C-004-AMEND-1 (CODEX-A01-CMD-1): compile must never reference
         // the bogus (soda-project-terminal, soda-project-terminal) identity —
         // that binary does not exist post-fold. RUST_TOOLS retains the real
-        // tuple and produces project-terminal exactly once.
+        // inventory tuple; assets owns the one shared compilation.
         let dir = std::env::temp_dir().join(format!("sri-cmd1b-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let snapshot = dir.join("snap");
@@ -692,7 +776,7 @@ mod tests {
             .borrow()
             .iter()
             .any(|(_, p, _)| p == "./cmd/soda-project-terminal"));
-        // The retained RUST_TOOLS tuple ships project-terminal exactly once.
+        // The retained RUST_TOOLS tuple admits the shared helper exactly once.
         let tuples = RUST_TOOLS
             .iter()
             .filter(|(m, b, d)| {
@@ -714,7 +798,7 @@ mod tests {
             .iter()
             .filter(|(c, b, _)| c == "soda-project-terminal" && b == "project-terminal")
             .count();
-        assert_eq!(shipped, 1);
+        assert_eq!(shipped, 0);
         let _ = fs::remove_dir_all(&dir);
     }
 

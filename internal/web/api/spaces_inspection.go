@@ -30,6 +30,7 @@ func (s *API) inspectSpaceNative(ctx context.Context, p store.Project, row *Spac
 		err = errors.New("creation profile mismatch")
 	}
 	row.NativeUnavailable = err != nil
+	row.TerminalSupport = s.Host.TerminalSupport(ctx, p.ID)
 	if err == nil {
 		row.Observed = &observed
 		return true

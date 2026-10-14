@@ -1843,6 +1843,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "soda-build-tools",
 ]
 
 [[package]]
@@ -1865,6 +1866,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "signature 2.2.0",
+ "soda-build-tools",
  "soda-release-image",
  "ssh-key",
  "tempfile",
@@ -1885,17 +1887,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soda-muse-maintain"
-version = "0.1.0"
-dependencies = [
- "libc",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tar",
-]
-
-[[package]]
 name = "soda-pg-fixture"
 version = "0.1.0"
 dependencies = [
@@ -1912,6 +1903,19 @@ dependencies = [
  "libc",
  "soda-wire-time",
  "tempfile",
+]
+
+[[package]]
+name = "soda-project-maintain"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "soda-build-tools",
+ "soda-host",
+ "tar",
 ]
 
 [[package]]

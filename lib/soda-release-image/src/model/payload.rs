@@ -4,6 +4,7 @@ use serde::{Serialize, Serializer};
 use crate::error::Error;
 use crate::jsonio;
 use crate::sys;
+pub use soda_build_tools::project_support::ProjectSupport;
 
 use super::{
     is_coreos_release, is_digest, is_revision, oci_architecture, prefixed_digest,
@@ -45,6 +46,7 @@ struct PayloadWire {
     schema: i64,
     presentation_sha256: String,
     host_packages_sha256: String,
+    project_support: ProjectSupport,
     images: crate::jsonio::OrderedMap<PayloadImage>,
     upgrade_from: Vec<String>,
 }
@@ -60,6 +62,7 @@ crate::jsonio::case_record!(PayloadWire, {
     schema: i64 => "Schema",
     presentation_sha256: String => "PresentationSHA256",
     host_packages_sha256: String => "HostPackagesSHA256",
+    project_support: ProjectSupport => "ProjectSupport",
     images: crate::jsonio::OrderedMap<PayloadImage> => "Images",
     upgrade_from: Vec<String> => "UpgradeFrom",
 });
@@ -76,13 +79,14 @@ pub struct Payload {
     pub schema: i64,
     pub presentation_sha256: String,
     pub host_packages_sha256: String,
+    pub project_support: ProjectSupport,
     pub images: Vec<(String, PayloadImage)>,
     pub upgrade_from: Vec<String>,
 }
 
 impl Serialize for Payload {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut record = serializer.serialize_struct("Payload", 12)?;
+        let mut record = serializer.serialize_struct("Payload", 13)?;
         record.serialize_field("Format", &self.format)?;
         record.serialize_field("ID", &self.id)?;
         record.serialize_field("Revision", &self.revision)?;
@@ -93,6 +97,7 @@ impl Serialize for Payload {
         record.serialize_field("Schema", &self.schema)?;
         record.serialize_field("PresentationSHA256", &self.presentation_sha256)?;
         record.serialize_field("HostPackagesSHA256", &self.host_packages_sha256)?;
+        record.serialize_field("ProjectSupport", &self.project_support)?;
         record.serialize_field("Images", &crate::jsonio::SortedPairs(&self.images))?;
         record.serialize_field("UpgradeFrom", &self.upgrade_from)?;
         record.end()
@@ -113,6 +118,7 @@ impl Payload {
             schema: wire.schema,
             presentation_sha256: wire.presentation_sha256,
             host_packages_sha256: wire.host_packages_sha256,
+            project_support: wire.project_support,
             images: wire.images.0,
             upgrade_from: wire.upgrade_from,
         })
@@ -184,6 +190,9 @@ impl Payload {
             return Err(Error::msg("incomplete appliance payload"));
         }
         self.valid_images()?;
+        self.project_support
+            .validate(&self.image("project-os").config)
+            .map_err(Error::msg)?;
         if !self.upgrade_from.is_empty() {
             return Err(Error::msg("candidate has no qualified upgrade paths"));
         }

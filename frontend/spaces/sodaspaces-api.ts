@@ -53,3 +53,12 @@ export class SodaRequestError extends Error {
     super('Soda request failed');
   }
 }
+
+export async function readSodaErrorCode(response: Response): Promise<string | undefined> {
+  try {
+    const error = object(object(await readSodaJSON(response)).error);
+    if (typeof error.code === 'string' && /^[a-z_]{1,64}$/.test(error.code)) return error.code;
+  } catch {
+    /* Untrusted response text is never shown. */
+  }
+}

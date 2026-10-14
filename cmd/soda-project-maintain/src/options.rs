@@ -103,7 +103,7 @@ fn print_usage(tools_default: &str) {
 
 pub(crate) fn usage_text(tools_default: &str) -> String {
     format!(
-        "Usage of soda-muse-maintain:\n  -bind-only\n    \trestore only the launch interface\n  -config string\n    \toperator host configuration (default \"/etc/soda/host.json\")\n  -project string\n    \texact project identity\n  -tools string\n    \tinstalled public tool directory (default \"{tools_default}\")\n"
+        "Usage of soda-project-maintain:\n  -bind-only\n    \trestore only the launch interface\n  -config string\n    \toperator host configuration (default \"/etc/soda/host.json\")\n  -project string\n    \texact project identity\n  -tools string\n    \tinstalled public tool directory (default \"{tools_default}\")\n"
     )
 }
 

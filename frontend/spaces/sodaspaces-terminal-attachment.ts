@@ -1,4 +1,5 @@
 import {object} from './sodaspaces-api.js';
+import {terminalFailureMessage, terminalClosedMessage} from './sodaspaces-terminal-error.js';
 import {terminalID, terminalResponse} from './sodaspaces-terminal-response.js';
 import type {TerminalMetadata} from './sodaspaces-terminal-response.js';
 import type {ConnectionState, TerminalObservation} from './sodaspaces-attention.js';
@@ -21,7 +22,7 @@ export interface AttachmentInput {
   remember: (value: string | null) => void;
   publish: (kind: TerminalObservation['kind'], state: ConnectionState) => void;
   isLive: (generation: number) => boolean;
-  detach: (message: string, stale?: boolean, reason?: ConnectionState) => void;
+  detach: (message: string, stale?: boolean, reason?: ConnectionState, preserveScreen?: boolean) => void;
   dispatchMetadata: (metadata: TerminalMetadata) => void;
   json: (path: string, body: Record<string, unknown> | null, signal: AbortSignal) => Promise<Record<string, unknown>>;
   readTerminal: () => TerminalView | undefined;
@@ -283,11 +284,7 @@ function dispatchFrame(
     acceptReady(input, n, terminal, screen, action, request);
   else if (frame.type === 'output' && keys === 'data,type') acceptOutput(input, frame, terminal, queued);
   else if (frame.type === 'closed' && keys === 'reason,type')
-    input.detach(
-      'Attachment ended or unavailable. Reconnect only the existing terminal; no replacement was launched.',
-      false,
-      'unavailable'
-    );
+    input.detach(terminalClosedMessage(frame.reason), false, 'unavailable', true);
   else throw Error('frame');
 }
 
@@ -373,10 +370,7 @@ export async function connect(input: AttachmentInput, automatic = false) {
   try {
     if (await inspectExisting(input, n, request)) return;
     await attachPeer(input, n, request, automatic);
-  } catch {
-    if (input.isLive(n))
-      input.detach(
-        'Could not authorize or attach. Sign in again or inspect the existing terminal; nothing was replayed.'
-      );
+  } catch (error) {
+    if (input.isLive(n)) input.detach(terminalFailureMessage(error), false, 'unavailable', true);
   }
 }
