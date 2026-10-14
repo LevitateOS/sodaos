@@ -1,0 +1,701 @@
+//! Explicit release maintenance. Native OSTree owns staging and activation.
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
+use soda_host::project::admission;
+
+use crate::filesystem::{open_tool, verify_native, Tool};
+use crate::release_inventory::{self, Entry};
+use crate::release_stage::{self, Deployment};
+use crate::support_root::Root;
+use crate::terminal_support::{guest, trusted_read, SCRIPT};
+
+const CLOSED: &str = "release operation incomplete; managed admission remains closed; inspect or recover this operation";
+const RECORD: &str = "operation.json";
+const LAST: &str = "last-operation";
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct Project {
+    project_id: String,
+    container_id: String,
+    old_sha256: String,
+    new_sha256: String,
+    previous: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Operation {
+    format: u32,
+    source_release: String,
+    target_release: String,
+    source_deployment: String,
+    source_serial: u32,
+    target_deployment: String,
+    source_sha256: String,
+    target_sha256: String,
+    target_payload_sha256: String,
+    source_project_image: String,
+    target_project_image: String,
+    release_directory: String,
+    qualification_fixture: bool,
+    rollback: bool,
+    phase: String,
+    projects: Vec<Project>,
+}
+
+impl Operation {
+    fn expected(&self) -> (&str, &str, &str, &str) {
+        if self.rollback {
+            (
+                &self.source_release,
+                &self.source_deployment,
+                &self.source_sha256,
+                &self.source_project_image,
+            )
+        } else {
+            (
+                &self.target_release,
+                &self.target_deployment,
+                &self.target_sha256,
+                &self.target_project_image,
+            )
+        }
+    }
+    fn entries(&self) -> Vec<Entry> {
+        self.projects
+            .iter()
+            .map(|p| Entry {
+                project_id: p.project_id.clone(),
+                container_id: p.container_id.clone(),
+            })
+            .collect()
+    }
+    fn validate(&self) -> Result<(), String> {
+        use crate::release_validation::is_hex_string;
+        if self.format != 1
+            || self.source_release == self.target_release
+            || self.source_deployment == self.target_deployment
+            || ![
+                &self.source_deployment,
+                &self.target_deployment,
+                &self.source_sha256,
+                &self.target_sha256,
+                &self.target_payload_sha256,
+            ]
+            .iter()
+            .all(|v| is_hex_string(v, 64))
+            || ![&self.source_project_image, &self.target_project_image]
+                .iter()
+                .all(|v| {
+                    v.strip_prefix("sha256:")
+                        .is_some_and(|s| is_hex_string(s, 64))
+                })
+            || self.projects.len() > 128
+            || !Path::new(&self.release_directory).is_absolute()
+            || !matches!(
+                self.phase.as_str(),
+                "admitted"
+                    | "host_locked"
+                    | "helpers_verified"
+                    | "activation_requested"
+                    | "complete"
+            )
+        {
+            return Err(CLOSED.into());
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        let mut containers = std::collections::BTreeSet::new();
+        for p in &self.projects {
+            if !soda_host::domain::valid_id(&p.project_id)
+                || !is_hex_string(&p.container_id, 64)
+                || !ids.insert(&p.project_id)
+                || !containers.insert(&p.container_id)
+                || p.old_sha256 != self.source_sha256
+                || p.new_sha256 != self.target_sha256
+                || p.previous
+                    != format!(
+                        "/usr/libexec/soda/.project-terminal.previous-{}",
+                        self.source_sha256
+                    )
+            {
+                return Err(CLOSED.into());
+            }
+        }
+        Ok(())
+    }
+}
+
+fn path(name: &str) -> PathBuf {
+    Path::new(admission::DIRECTORY).join(name)
+}
+fn load(name: &str) -> Result<Operation, String> {
+    let record: Operation =
+        serde_json::from_slice(&trusted_read(&path(name), 1 << 20)?).map_err(|_| CLOSED)?;
+    record.validate()?;
+    Ok(record)
+}
+fn sync_directory() -> Result<(), String> {
+    fs::File::open(admission::DIRECTORY)
+        .and_then(|f| f.sync_all())
+        .map_err(|_| CLOSED.into())
+}
+fn save(record: &Operation, initial: bool) -> Result<(), String> {
+    save_at(Path::new(admission::DIRECTORY), record, initial, 0)
+}
+fn save_at(directory: &Path, record: &Operation, initial: bool, owner: u32) -> Result<(), String> {
+    record.validate()?;
+    let destination = directory.join("operation.next");
+    match fs::symlink_metadata(&destination) {
+        Ok(info) => {
+            // This is an uncommitted scratch write, not an operation boundary.
+            // It may be partial after interruption; never replace an unsafe entry.
+            if !info.is_file()
+                || info.uid() != owner
+                || info.mode() & 0o022 != 0
+                || info.len() > 1 << 20
+            {
+                return Err(CLOSED.into());
+            }
+            fs::remove_file(&destination).map_err(|_| CLOSED)?;
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err(CLOSED.into()),
+    }
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&destination)
+        .map_err(|_| CLOSED)?;
+    file.write_all(&serde_json::to_vec(record).map_err(|_| CLOSED)?)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| CLOSED)?;
+    if initial {
+        fs::hard_link(&destination, directory.join(RECORD)).map_err(|_| CLOSED)?;
+        fs::remove_file(destination).map_err(|_| CLOSED)?;
+    } else {
+        fs::rename(destination, directory.join(RECORD)).map_err(|_| CLOSED)?;
+    }
+    fs::File::open(directory)
+        .and_then(|f| f.sync_all())
+        .map_err(|_| CLOSED.into())
+}
+fn phase(record: &mut Operation, value: &str) -> Result<(), String> {
+    record.phase = value.into();
+    save(record, false)
+}
+fn finish(mut record: Operation) -> Result<(), String> {
+    phase(&mut record, "complete")?;
+    fs::rename(path(RECORD), path(LAST)).map_err(|_| CLOSED)?;
+    sync_directory()?;
+    println!(
+        "Release {} verified; Project admission reopened{}",
+        record.expected().0,
+        if record.qualification_fixture {
+            " (development qualification fixture; no supported release claim)"
+        } else {
+            ""
+        }
+    );
+    Ok(())
+}
+
+struct Options {
+    directory: Option<PathBuf>,
+    check: bool,
+    recover: bool,
+    rollback: bool,
+    fixture: bool,
+}
+fn options(args: &[String]) -> Result<Options, String> {
+    let mut out = Options {
+        directory: None,
+        check: false,
+        recover: false,
+        rollback: false,
+        fixture: false,
+    };
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--release-dir"=>out.directory=Some(PathBuf::from(args.next().ok_or("--release-dir needs a path")?)),
+            "--check"=>out.check=true,
+            "--recover"=>out.recover=true,
+            "--rollback"=>out.rollback=true,
+            "--qualification-fixture"=>out.fixture=true,
+            _=>return Err("release accepts --release-dir PATH, --check, --recover, --rollback and --qualification-fixture".into()),
+        }
+    }
+    if out.check && (out.recover || out.rollback)
+        || out.rollback && (out.directory.is_some() || out.fixture)
+    {
+        return Err("select one release operation".into());
+    }
+    Ok(out)
+}
+
+fn no_other_repairs() -> Result<(), String> {
+    for entry in fs::read_dir(admission::DIRECTORY).map_err(|_| CLOSED)? {
+        let entry = entry.map_err(|_| CLOSED)?;
+        if entry.file_name() != RECORD && entry.path().extension().is_some_and(|v| v == "json") {
+            return Err("a Project repair must be reconciled before release maintenance".into());
+        }
+    }
+    Ok(())
+}
+
+fn observe(
+    entries: &[Entry],
+    source: &str,
+    target: &str,
+    idle: bool,
+    deadline: Instant,
+) -> Result<(), String> {
+    release_inventory::revalidate(entries, deadline)?;
+    for entry in entries {
+        let root = Root::open(&entry.project_id, deadline)?;
+        if root.observation.id != entry.container_id {
+            return Err(CLOSED.into());
+        }
+        let actual = guest(
+            &root,
+            if idle { "idle" } else { "observe" },
+            target,
+            deadline,
+        )
+        .map_err(|_| {
+            format!(
+                "Project {} has active or uncertain managed work or unreadable support",
+                entry.project_id
+            )
+        })?;
+        if actual != source && actual != target {
+            return Err(format!(
+                "Project {} support is outside the admitted source/target pair",
+                entry.project_id
+            ));
+        }
+        root.close()?;
+    }
+    Ok(())
+}
+
+fn replace(record: &Operation, tool: &Tool, deadline: Instant) -> Result<(), String> {
+    let entries = record.entries();
+    observe(
+        &entries,
+        &record.source_sha256,
+        &record.target_sha256,
+        true,
+        deadline,
+    )?;
+    let expected = record.expected().2;
+    for p in &record.projects {
+        let root = Root::open(&p.project_id, deadline)?;
+        if root.observation.id != p.container_id {
+            return Err(CLOSED.into());
+        }
+        let actual = guest(&root, "idle", expected, deadline)?;
+        if actual != expected {
+            root.install(SCRIPT, expected, &actual, tool, deadline)?;
+        }
+        if guest(&root, "observe", expected, deadline)? != expected {
+            return Err(CLOSED.into());
+        }
+        root.close()?;
+    }
+    observe(&entries, expected, expected, true, deadline)
+}
+
+fn tool(path: &str, digest: &str) -> Result<Tool, String> {
+    let (dir, name) = path.rsplit_once('/').ok_or("invalid native helper path")?;
+    let source = open_tool(dir, name)?;
+    if source.size == 0 || source.size > 32 << 20 {
+        return Err("invalid native helper size".into());
+    }
+    verify_native(&source, digest)?;
+    Ok(source)
+}
+
+fn future_image(image: &str, digest: &str, deadline: Instant) -> Result<(), String> {
+    let out = crate::command::podman(
+        &[
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--read-only",
+            "--cap-drop=all",
+            "--security-opt=no-new-privileges",
+            "--entrypoint=/usr/bin/sha256sum",
+            image,
+            "/usr/libexec/soda/project-terminal",
+        ],
+        deadline,
+    )
+    .map_err(|_| "future-Project image support unavailable")?;
+    let text = std::str::from_utf8(&out).map_err(|_| "invalid image support observation")?;
+    if text.split_whitespace().collect::<Vec<_>>() != [digest, "/usr/libexec/soda/project-terminal"]
+    {
+        return Err("future-Project image helper differs from release".into());
+    }
+    Ok(())
+}
+
+fn verify_active(record: &Operation, deadline: Instant) -> Result<(), String> {
+    let (release, commit, digest, image) = record.expected();
+    let state = release_stage::inspect(deadline)?;
+    if state.booted.checksum != commit || state.staged.is_some() {
+        return Err(CLOSED.into());
+    }
+    let installed = crate::release_target::installed_source(deadline)?;
+    if installed.release_id != release
+        || installed.helper_sha256 != digest
+        || installed.deployment != commit
+    {
+        return Err(CLOSED.into());
+    }
+    // Also bind the selected profile, not merely a previously imported image.
+    let installed: soda_release_deliver::payload::Payload =
+        serde_json::from_slice(&trusted_read(Path::new(crate::RELEASE_PATH), 4 << 20)?)
+            .map_err(|_| CLOSED)?;
+    if !installed
+        .images
+        .get("project-os")
+        .is_some_and(|selected| selected.config == image)
+    {
+        return Err(CLOSED.into());
+    }
+    observe(&record.entries(), digest, digest, true, deadline)?;
+    future_image(image, digest, deadline)
+}
+
+pub(crate) fn reconcile_boot(args: &[String]) -> Result<(), String> {
+    if !args.is_empty() {
+        return Err("release-reconcile takes no arguments".into());
+    }
+    let _guard = admission::exclusive()?;
+    match fs::symlink_metadata(path(RECORD)) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(_) => return Err(CLOSED.into()),
+        Ok(_) => {}
+    }
+    let record = load(RECORD)?;
+    no_other_repairs()?;
+    verify_active(&record, Instant::now() + Duration::from_secs(120))?;
+    finish(record)
+}
+
+pub(crate) fn run(args: &[String]) -> Result<(), String> {
+    run_operation(args).map_err(|error| {
+        if fs::symlink_metadata(path(RECORD)).is_ok() {
+            format!("{error}; {CLOSED}")
+        } else {
+            error
+        }
+    })
+}
+fn run_operation(args: &[String]) -> Result<(), String> {
+    let o = options(args)?;
+    let _guard = admission::exclusive()?;
+    no_other_repairs()?;
+    let deadline = Instant::now() + Duration::from_secs(15 * 60);
+    if o.rollback {
+        return rollback(deadline);
+    }
+    let previous = if o.recover {
+        Some(load(RECORD)?)
+    } else {
+        if fs::symlink_metadata(path(RECORD)).is_ok() {
+            return Err(CLOSED.into());
+        }
+        None
+    };
+    if let Some(record) = &previous {
+        if record.rollback {
+            return rollback(deadline);
+        }
+        let state = release_stage::inspect(deadline)?;
+        if state.booted.checksum == record.target_deployment {
+            verify_active(record, deadline)?;
+            return finish(record.clone());
+        }
+    }
+    let directory = o
+        .directory
+        .or_else(|| {
+            previous
+                .as_ref()
+                .map(|r| PathBuf::from(&r.release_directory))
+        })
+        .ok_or("--release-dir PATH required")?;
+    let fixture = previous
+        .as_ref()
+        .map_or(o.fixture, |r| r.qualification_fixture);
+    if o.fixture && !fixture {
+        return Err("recovery cannot change qualification mode".into());
+    }
+    let target = crate::release_target::admit(&directory, fixture, deadline)?;
+    let state = release_stage::inspect(deadline)?;
+    if state.booted.checksum != target.source.deployment
+        || state.booted.checksum == target.media.deployment_commit
+    {
+        return Err("native source/target pair is not an upgrade".into());
+    }
+    let entries = release_inventory::inventory(deadline)?;
+    let mut record = if let Some(r) = previous {
+        if r.source_release != target.source.release_id
+            || r.source_sha256 != target.source.helper_sha256
+            || r.source_deployment != state.booted.checksum
+            || r.target_release != target.payload.id
+            || r.target_deployment != target.media.deployment_commit
+            || r.target_sha256 != target.payload.project_support.sha256
+            || r.target_payload_sha256 != target.candidate.payload_sha256
+            || r.entries() != entries
+        {
+            return Err(CLOSED.into());
+        }
+        r
+    } else {
+        Operation {
+            format: 1,
+            source_release: target.source.release_id.clone(),
+            target_release: target.payload.id.clone(),
+            source_deployment: state.booted.checksum.clone(),
+            source_serial: state.booted.serial,
+            target_deployment: target.media.deployment_commit.clone(),
+            source_sha256: target.source.helper_sha256.clone(),
+            target_sha256: target.payload.project_support.sha256.clone(),
+            target_payload_sha256: target.candidate.payload_sha256.clone(),
+            source_project_image: target.source.project_image.clone(),
+            target_project_image: target.payload.project_support.project_image.clone(),
+            release_directory: target
+                .directory
+                .to_str()
+                .ok_or("invalid release path")?
+                .into(),
+            qualification_fixture: fixture,
+            rollback: false,
+            phase: "admitted".into(),
+            projects: entries
+                .iter()
+                .map(|e| Project {
+                    project_id: e.project_id.clone(),
+                    container_id: e.container_id.clone(),
+                    old_sha256: target.source.helper_sha256.clone(),
+                    new_sha256: target.payload.project_support.sha256.clone(),
+                    previous: format!(
+                        "/usr/libexec/soda/.project-terminal.previous-{}",
+                        target.source.helper_sha256
+                    ),
+                })
+                .collect(),
+        }
+    };
+    println!(
+        "Admitted {}: {}",
+        target.payload.id,
+        target.qualification_scope()
+    );
+    let content = release_stage::StagedContent::open(&target, deadline)?;
+    crate::release_target::verify_project_image(&content.root, &target, deadline)?;
+    future_image(
+        &record.source_project_image,
+        &record.source_sha256,
+        deadline,
+    )?;
+    let source = tool(
+        &format!(
+            "{}/usr/libexec/soda/project-terminal",
+            release_stage::deployment_root(&state.booted)?.display()
+        ),
+        &record.source_sha256,
+    )?;
+    drop(source); // Establish retained rollback bytes before recording any mutation.
+    observe(
+        &entries,
+        &record.source_sha256,
+        if o.recover {
+            &record.target_sha256
+        } else {
+            &record.source_sha256
+        },
+        true,
+        deadline,
+    )?;
+    if o.check {
+        println!("Release {} preflight: {} exact Projects idle; native activation and support replacement have not run{}",record.target_release,entries.len(),if fixture { "; qualification fixture only" } else { "" });
+        return content.close(deadline);
+    }
+    target.confirm_source(deadline)?;
+    if !o.recover {
+        save(&record, true)?;
+    }
+    content.stage(&record.target_deployment, deadline)?;
+    phase(&mut record, "host_locked")?;
+    let helper = tool(&content.helper_path, &record.target_sha256)?;
+    replace(&record, &helper, deadline)?;
+    phase(&mut record, "helpers_verified")?;
+    content.close(deadline)?;
+    release_inventory::revalidate(&entries, deadline)?;
+    phase(&mut record, "activation_requested")?;
+    println!("Projects verified; requesting native activation of {}. Admission remains closed through boot verification.",record.target_release);
+    release_stage::activate(&record.target_deployment, deadline)
+}
+
+fn rollback(deadline: Instant) -> Result<(), String> {
+    let pending = fs::symlink_metadata(path(RECORD)).is_ok();
+    let mut record = load(if pending { RECORD } else { LAST })?;
+    let state = release_stage::inspect(deadline)?;
+    if state.booted.checksum != record.source_deployment
+        && state.booted.checksum != record.target_deployment
+    {
+        return Err(CLOSED.into());
+    }
+    release_inventory::revalidate(&record.entries(), deadline)?;
+    observe(
+        &record.entries(),
+        &record.source_sha256,
+        &record.target_sha256,
+        true,
+        deadline,
+    )?;
+    let source_deployment = Deployment {
+        checksum: record.source_deployment.clone(),
+        serial: record.source_serial,
+        staged: false,
+        finalization_locked: false,
+    };
+    let helper = tool(
+        &format!(
+            "{}/usr/libexec/soda/project-terminal",
+            release_stage::deployment_root(&source_deployment)?.display()
+        ),
+        &record.source_sha256,
+    )?;
+    record.rollback = true;
+    record.phase = "admitted".into();
+    save(&record, !pending)?;
+    if state.booted.checksum == record.source_deployment {
+        if state.staged.is_some() {
+            release_stage::discard_locked(&record.target_deployment, deadline)?;
+        }
+        replace(&record, &helper, deadline)?;
+        verify_active(&record, deadline)?;
+        return finish(record);
+    }
+    release_stage::stage_retained(&record.source_deployment, deadline)?;
+    phase(&mut record, "host_locked")?;
+    replace(&record, &helper, deadline)?;
+    phase(&mut record, "activation_requested")?;
+    release_stage::activate(&record.source_deployment, deadline)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn record() -> Operation {
+        Operation {
+            format: 1,
+            source_release: "source".into(),
+            target_release: "target".into(),
+            source_deployment: "1".repeat(64),
+            source_serial: 0,
+            target_deployment: "2".repeat(64),
+            source_sha256: "3".repeat(64),
+            target_sha256: "4".repeat(64),
+            target_payload_sha256: "5".repeat(64),
+            source_project_image: format!("sha256:{}", "6".repeat(64)),
+            target_project_image: format!("sha256:{}", "7".repeat(64)),
+            release_directory: "/var/home/release".into(),
+            qualification_fixture: false,
+            rollback: false,
+            phase: "host_locked".into(),
+            projects: vec![Project {
+                project_id: format!("p{}", "0".repeat(24)),
+                container_id: "8".repeat(64),
+                old_sha256: "3".repeat(64),
+                new_sha256: "4".repeat(64),
+                previous: format!(
+                    "/usr/libexec/soda/.project-terminal.previous-{}",
+                    "3".repeat(64)
+                ),
+            }],
+        }
+    }
+    #[test]
+    fn recovery_keeps_exact_pair_and_container_set_and_rollback_reverses_whole_pair() {
+        let mut r = record();
+        r.validate().unwrap();
+        assert_eq!(r.expected().1, r.target_deployment);
+        r.rollback = true;
+        assert_eq!(r.expected().1, r.source_deployment);
+        assert_eq!(r.expected().2, r.source_sha256);
+        r.projects.push(r.projects[0].clone());
+        assert!(r.validate().is_err());
+        r = record();
+        r.projects[0].new_sha256 = "9".repeat(64);
+        assert!(r.validate().is_err());
+        r = record();
+        r.projects[0].previous = "/arbitrary".into();
+        assert!(r.validate().is_err());
+        r = record();
+        r.target_deployment = r.source_deployment.clone();
+        assert!(r.validate().is_err());
+    }
+    #[test]
+    fn operation_modes_do_not_turn_read_only_preview_into_recovery() {
+        for args in [
+            vec!["--check", "--recover"],
+            vec!["--check", "--rollback"],
+            vec!["--rollback", "--qualification-fixture"],
+        ] {
+            assert!(options(&args.into_iter().map(str::to_string).collect::<Vec<_>>()).is_err());
+        }
+    }
+    #[test]
+    fn interrupted_journal_write_preserves_committed_boundary_and_can_resume() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        let dir = std::env::temp_dir().join(format!("soda-release-journal-{}", std::process::id()));
+        fs::create_dir(&dir).unwrap();
+        let owner = unsafe { libc::geteuid() };
+        let mut r = record();
+        save_at(&dir, &r, true, owner).unwrap();
+        fs::write(dir.join("operation.next"), b"partial").unwrap();
+        fs::set_permissions(
+            dir.join("operation.next"),
+            fs::Permissions::from_mode(0o600),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Operation>(&fs::read(dir.join(RECORD)).unwrap())
+                .unwrap()
+                .phase,
+            "host_locked"
+        );
+        r.phase = "helpers_verified".into();
+        save_at(&dir, &r, false, owner).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Operation>(&fs::read(dir.join(RECORD)).unwrap())
+                .unwrap()
+                .phase,
+            "helpers_verified"
+        );
+        assert!(save_at(&dir, &r, true, owner).is_err());
+        fs::remove_file(dir.join("operation.next")).unwrap();
+        symlink(dir.join(RECORD), dir.join("operation.next")).unwrap();
+        assert!(save_at(&dir, &r, false, owner).is_err());
+        assert!(dir.join(RECORD).is_file());
+        fs::remove_file(dir.join("operation.next")).unwrap();
+        fs::remove_file(dir.join(RECORD)).unwrap();
+        fs::remove_dir(dir).unwrap();
+    }
+}

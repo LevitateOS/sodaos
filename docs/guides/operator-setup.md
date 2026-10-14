@@ -81,6 +81,53 @@ join or issue label does not admit work. Follow the
 [first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) for explicit
 admission, verification and human merge.
 
+## Explicit release maintenance
+
+This workflow is implemented but awaits its complete native release-pair journey.
+No upgrade pair is currently qualified. A first-install release or a prospective
+`UpgradeFrom` declaration alone cannot authorize it. The
+[release contract](../architecture/release.md#host-update-ownership) owns this
+qualification boundary.
+
+For a qualified pair, use appliance root to download the complete selected GitHub
+release into a root-owned directory that other users cannot write. The existing
+`gh release download TAG --repo LevitateOS/sodaos --dir DIRECTORY` obtains its
+assets together. The bundled rootfs includes the host, Project images and support;
+there is no separate helper download or installation to assemble. Maintenance
+authenticates the fixed assets against that same GitHub release before admitting
+the exact source-to-target qualification.
+
+Run `/usr/libexec/soda/soda-project-maintain release --release-dir DIRECTORY --check`
+to inspect every enrolled running or stopped Project, verify the candidate and
+report active or uncertain managed work. This stages content and may import the
+future Project image, but does not replace Project support or stage/activate the
+host. Let existing work finish; the command never ends a terminal to proceed.
+Then run the same command without `--check`. It closes managed admission, records
+the fixed release and container set, locks the native staged deployment before
+replacing support, verifies all retained roots, and requests native activation and
+reboot. Stop/Start, terminal Open and image import never perform this operation.
+
+Admission stays closed across interruption and reboot. The boot reconciliation
+unit verifies the actual booted release, retained helpers and selected future
+Project image before reopening it. If blocked, inspect the root-only
+`/var/lib/soda/project-maintenance/operation.json` and the reconciliation unit's
+journal. `release --recover` re-admits the recorded target and inspects actual
+boundaries before continuing; it can restage the exact locked deployment if an
+interrupted reboot removed it. It cannot silently select another release or
+container. Never delete a record to force admission.
+
+`release --rollback` restores the recorded previous native deployment and Project
+support together. It requires unchanged container identities, retained source
+bytes and empty, readable managed state again. Incompatible or uncertain state
+leaves admission closed; it is never deleted or replaced with an old database.
+Manual rpm-ostree rollback and ordinary upstream update activation are outside
+this coordinated workflow. Native FCOS ownership and Zincati remain in place.
+
+The command's explicit `--qualification-fixture` path admits an exact prospective
+candidate solely for the disposable native qualification journey, before its
+receipt exists. Its output makes no supported-upgrade claim. It is not a normal
+operator recovery option. See the [release workflow](../development/release.md).
+
 ## Explicit factory enrollment
 
 Basic browser activation does not enable factory work. After choosing and

@@ -1915,6 +1915,7 @@ dependencies = [
  "sha2 0.10.9",
  "soda-build-tools",
  "soda-host",
+ "soda-release-deliver",
  "tar",
 ]
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=Verify an explicitly requested Project release transition
+After=systemd-tmpfiles-setup.service soda-image-import.service soda-dashboard.service
+Requires=soda-image-import.service
+ConditionPathExists=/var/lib/soda/project-maintenance/operation.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/soda/soda-project-maintain release-reconcile
+TimeoutStartSec=150s
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

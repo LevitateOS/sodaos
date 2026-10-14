@@ -1,6 +1,6 @@
 # soda-project-maintain
 
-`soda-project-maintain` provides explicit `muse` and `terminal-support` operations.
+`soda-project-maintain` provides explicit `muse`, `terminal-support` and `release` operations.
 Muse installs packaged public tools and restores the launch interface.
 Terminal support repairs one admitted helper in an idle retained root.
 It operates on the project's retained container and requires appliance root.
@@ -16,6 +16,15 @@ sudo /usr/libexec/soda/soda-project-maintain terminal-support --project p0123456
 `--development-installed-host` explicitly selects the already installed host helper
 for an unqualified development repair. Normal repair consumes the complete installed
 release's bundled input and metadata. Neither operation upgrades the host.
+
+`release --release-dir DIRECTORY [--check]` consumes one complete downloaded
+GitHub release. Normal admission requires its exact native qualification receipt.
+`release --recover` resumes the recorded release; `release --rollback` restores
+the recorded host/support pair with idle-state checks. The internal
+`release-reconcile` boot action performs verification only. See the
+[operator procedure](../../docs/guides/operator-setup.md#explicit-release-maintenance)
+for effects and recovery and the [qualification boundary](../../docs/architecture/release.md#host-update-ownership).
+No complete release pair is qualified yet.
 
 Terminal repair includes running and stopped Rocky 10.2 roots with empty managed
 terminal/factory state. A stopped Project remains stopped: native namespace access

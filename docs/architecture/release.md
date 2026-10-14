@@ -95,13 +95,21 @@ deployment. Development qualification admits the exact candidate without a recei
 only through its explicit fixture path. Normal upgrade admission and release
 delivery require the bound native receipt.
 
-Nonempty `UpgradeFrom` declarations remain refused. Explicit Project repair is
-implemented, but no release pair has qualified coordinated activation and rollback.
-Native locked staging can hold one explicitly staged deployment inactive; it does
-not by itself gate Zincati, ordinary native deployments or rollback. Soda currently
-has no proven admission integration across those boundaries. A service failure
-after boot is not an activation safeguard. See [Project maintenance](../reference/project-os.md#terminal-support)
-for the independent same-root repair contract.
+No release pair currently has a qualified upgrade claim. The explicit `release`
+maintenance operation closes admission before applying support or releasing the
+native finalization lock. It fixes all enrolled container identities, includes
+stopped roots, refuses active or uncertain work, and retains a durable operation
+record across interruption and reboot. Boot reconciliation checks actual host,
+Project and future-image identities before reopening admission; that additional
+readback is not the pre-activation safeguard. Explicit rollback restores both the
+retained native deployment and its support, requiring empty managed state again.
+
+These controls apply to this explicit workflow. They do not intercept arbitrary
+root use of rpm-ostree, upstream Zincati deployments or manual rollback. Zincati
+remains enabled and native FCOS owns deployment and activation. The integrated
+release-pair journey must pass before a transition is offered as supported. See
+[operator maintenance](../guides/operator-setup.md#explicit-release-maintenance) and the independent
+[Project repair contract](../reference/project-os.md#terminal-support).
 
 ## Architectures
 

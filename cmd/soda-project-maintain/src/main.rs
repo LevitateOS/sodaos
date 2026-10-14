@@ -13,6 +13,10 @@ mod network;
 mod options;
 mod project;
 mod release;
+mod release_inventory;
+mod release_operation;
+mod release_stage;
+mod release_target;
 mod release_validation;
 mod release_wire;
 mod sha256;
@@ -49,8 +53,10 @@ fn run() -> Result<(), String> {
         .collect();
     match argv.first().map(String::as_str) {
         Some("terminal-support") => return terminal_support::run(&argv[1..]),
+        Some("release") => return release_operation::run(&argv[1..]),
+        Some("release-reconcile") => return release_operation::reconcile_boot(&argv[1..]),
         Some("muse") => {}
-        _ => return Err("select muse or terminal-support maintenance".to_string()),
+        _ => return Err("select muse, terminal-support or release maintenance".to_string()),
     }
     let o = parse(&argv[1..])?;
     let c = load_config(&o.config)?;

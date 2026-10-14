@@ -15,3 +15,4 @@ sha2 = "=0.10.9"
 libc = "0.2"
 soda-host = { path = "../../lib/host" }
 soda-build-tools = { path = "../../lib/release-inputs" }
+soda-release-deliver = { path = "../../lib/soda-release-deliver" }

@@ -245,6 +245,7 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
     .collect();
     for name in [
         "soda-host.service",
+        "soda-project-release-reconcile.service",
         "soda-host.socket",
         "soda-identity.service",
         "soda-identity.socket",
