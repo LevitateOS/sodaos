@@ -1,0 +1,13 @@
+[Unit]
+Description=Initialize Soda Docker Project configuration
+After=systemd-tmpfiles-setup.service
+Before=soda-image-import.service
+ConditionPathExists=!/etc/soda/host.json
+
+[Service]
+Type=oneshot
+PassEnvironment=SODA_PROJECT_SUBNET
+UMask=0077
+ExecStart=/usr/bin/jq ".subnet = env.SODA_PROJECT_SUBNET" /usr/share/soda/defaults/host.example.json
+StandardOutput=file:/etc/soda/host.json
+RemainAfterExit=yes

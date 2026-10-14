@@ -1,6 +1,7 @@
 # Architecture overview
 
-Soda OS is a Fedora CoreOS appliance for software factories. People authorize
+Soda OS is a Fedora CoreOS appliance with a [direct Docker deployment](../guides/docker.md)
+for software factories. People authorize
 factory operation; Soda coordinates eligible issues through execution, review,
 correction and automatic native merge. Fountain supplies Forgejo collaboration
 and generic extension capabilities. Repository environments and Spaces support
@@ -15,6 +16,7 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Placement | Mechanism |
 | --- | --- |
 | Host | Fedora CoreOS, native rpm-ostree layering, Podman, systemd |
+| Docker deployment | Privileged Docker runtime with Fedora userspace, systemd and internal Podman; operator-maintained Linux host |
 | Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, restricted Soda project helper |
 | Appliance applications | Separate Podman containers for the maintained Forgejo extension host, Soda's Go API service and Caddy |
 | Persistent application data | Soda PostgreSQL database and a separate Forgejo volume (including installed extension packages) |

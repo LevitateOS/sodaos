@@ -1,7 +1,8 @@
 # Release architecture
 
-Soda ships as a **minimum-deviation Fedora CoreOS** appliance. An exact-source
-candidate carries the complete Soda payload; GitHub Releases owns public delivery.
+Soda ships as a **minimum-deviation Fedora CoreOS** appliance and has a direct
+[Docker runtime](#docker-runtime) deployment target. An exact-source candidate
+carries the complete Soda payload; GitHub Releases owns appliance delivery.
 
 This document owns the durable release model. How to run tools day-to-day lives in
 [development release workflow](../development/release.md) and
@@ -26,7 +27,8 @@ Users download one ISO. It automatically retrieves its hash-bound root filesyste
 from the same versioned GitHub release. The root filesystem contains the Soda
 runtime and application images; users do not download or assemble components.
 Installation requires internet access to GitHub. There is no Soda download server,
-registry channel, publication ledger or custom update-discovery service.
+appliance registry channel, publication ledger or custom update-discovery service.
+Docker delivery follows its own registry and qualification contract below.
 
 The fixed image catalog includes `canlang-runtime`, built from the same frozen
 Rocky base as Project OS and Dashboard using the admitted offline Canlang tools.
@@ -84,6 +86,9 @@ authority, key-usage and signature-algorithm policy remain with the installer.
 
 ## Host update ownership
 
+The following CoreOS update contract applies to appliance installations. The
+[Docker runtime](#docker-runtime) has a separate deployment lifecycle.
+
 The appliance follows Fedora CoreOS update mechanics (rpm-ostree / Zincati-aligned
 operation). Soda does not invent a parallel host updater for ordinary maintenance.
 First-install evidence does not qualify an upgrade or recovery path. Those paths
@@ -136,6 +141,27 @@ experimental selectors do not establish Soda support.
 
 Qualification requires native Linux x86_64 evidence. Cross-compilation, emulation
 and development checks on another host architecture do not qualify the appliance.
+
+## Docker runtime
+
+Docker is an additional direct deployment target for the complete Soda runtime.
+It uses the same candidate's Soda binaries and bundled application images on
+Fedora container userspace, with systemd and Podman inside the outer Docker
+container. It shares the Docker host kernel and requires native x86_64 Linux,
+rootful Docker Engine and cgroup v2. The [Docker guide](../guides/docker.md)
+owns deployment and build commands.
+
+The Docker image excludes CoreOS boot, disk installation and host-update
+services. The operator maintains the host OS; Docker owns container lifecycle.
+Persistent configuration, application data and writable Project roots survive
+container recreation. Replacing the Docker image is not a qualified appliance
+rpm-ostree transition or an implicitly supported retained-state upgrade.
+
+Registry delivery must bind an immutable Docker image digest to the verified
+candidate revision, bundled payload, resolved Fedora base, RPM inventory and
+corresponding source/notices. Docker qualification needs a fresh deployment,
+native browser/Project/factory checks, orderly shutdown and retained-state
+container recreation. Appliance ISO qualification alone does not qualify Docker.
 
 ## OCI metadata admission
 

@@ -6,6 +6,8 @@ Release model: [Release architecture](../architecture/release.md).
 Tool effects: [Native support](../development/native-support.md).
 Media details: [Installation media](media.md).
 
+For direct deployment on a Docker Engine host, use [Run Soda OS with Docker](docker.md).
+
 After installation and private operator setup, configure bounded work through the
 [factory operator interface](../reference/factory.md). The public
 [first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) connects

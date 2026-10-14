@@ -26,6 +26,8 @@ commands; [manual development](docs/guides/develop.md) is a separate path.
 
 Documentation index: [docs/README.md](docs/README.md).
 
+For direct container deployment, see [Run Soda OS with Docker](docs/guides/docker.md).
+
 ## System
 
 ```text

@@ -54,6 +54,21 @@ Soda service UID/GID values and native runner accounts are not developer host
 onboarding. The web process's privileges and human authorization are separate
 boundaries.
 
+## Docker deployment
+
+Direct Docker deployment runs the Soda runtime in a privileged container with
+host networking. Its operator must trust the runtime with Docker-host
+administrative authority. The outer container is not a security boundary from
+that host, and this mode does not claim the CoreOS appliance's SELinux dashboard
+confinement. Run it on a dedicated operator-managed Linux host.
+
+Soda's fixed host socket operations, native Forgejo identity, Project user
+mapping, role separation and broker custody remain application boundaries.
+Docker root/operator access remains distinct from developer membership. The
+host Docker socket and host root filesystem are not shared with the runtime.
+See [Docker deployment](../guides/docker.md) for the required runtime and
+persistence configuration.
+
 ## Factory authority boundary
 
 The factory runs only for a trusted team on one operator-managed appliance. Agent
