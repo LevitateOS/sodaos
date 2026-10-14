@@ -32,6 +32,10 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
             "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
         ),
         (
+            "system/containers/canlang/Containerfile",
+            "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
+        ),
+        (
             "system/host/services/forgejo.container",
             "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.10\n",
         ),
@@ -174,7 +178,7 @@ fn oracle_production_sequence() {
         assert_eq!(mode, 0o755, "{tool}");
     }
     let images = prod.images(&forgejo.to_string_lossy()).unwrap();
-    assert_eq!(images.len(), 6);
+    assert_eq!(images.len(), 7);
     let text = calls.lock().unwrap().join("\n");
     for needle in [
         "bun install --frozen-lockfile",
@@ -182,6 +186,7 @@ fn oracle_production_sequence() {
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-muse -- --arch x86_64 --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-tea -- --arch x86_64 --out ",
+        "cargo run --release --locked -p soda-release-assets --bin soda-stage-canlang -- --archive ",
         "cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context ",
         "bun scripts/build-soda-extension.ts --out ",
@@ -196,7 +201,8 @@ fn oracle_production_sequence() {
         host.display(),
         forgejo.display()
     )));
-    assert_eq!(text.matches(" save --format=oci-archive").count(), 6);
+    assert_eq!(text.matches(" save --uncompressed --format=oci-archive").count(), 7);
+    assert!(images.contains_key("canlang-runtime"));
     assert!(!text.contains(" push ") && !text.contains(" --rm ") && !text.contains("--replace"));
     assert!(images.contains_key("proxy"));
     assert!(!images.contains_key("caddy"));

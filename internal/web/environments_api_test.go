@@ -133,7 +133,7 @@ func TestIncompleteEnvironmentStillInspected(t *testing.T) {
 	calls := 0
 	s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		calls++
-		if r.URL.Path != "/inspect" {
+		if r.URL.Path != "/inspect" && r.URL.Path != "/terminal-support" {
 			t.Error("mutated incomplete environment")
 		}
 		return nil, errors.New("missing native container")
@@ -150,7 +150,7 @@ func TestIncompleteEnvironmentStillInspected(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if w.Code != 200 || calls != 1 || result.Environment.Provisioned || !result.NativeUnavailable || result.Observed != nil {
+	if w.Code != 200 || calls != 2 || result.Environment.Provisioned || !result.NativeUnavailable || result.Observed != nil {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }

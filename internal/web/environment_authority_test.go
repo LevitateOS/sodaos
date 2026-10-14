@@ -49,6 +49,9 @@ func TestEnvironmentAuthorityUsesCurrentNativeIdentity(t *testing.T) {
 				}
 			}
 			s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/terminal-support" {
+					return jsonNativeResponse(t, 200, `{"state":"ready"}`), nil
+				}
 				if r.URL.Path != "/inspect" {
 					t.Fatal("authority changed native state")
 				}

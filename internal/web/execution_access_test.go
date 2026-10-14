@@ -43,6 +43,9 @@ func TestProjectExecutionRequiresCurrentNativeWritePermission(t *testing.T) {
 	// Existing membership still permits inspection, but it cannot advertise
 	// execution when the native repository now grants read only.
 	s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path == "/terminal-support" {
+			return jsonNativeResponse(t, 200, `{"state":"ready"}`), nil
+		}
 		if r.URL.Path != "/inspect" {
 			t.Error("unexpected native read", r.URL.Path)
 		}

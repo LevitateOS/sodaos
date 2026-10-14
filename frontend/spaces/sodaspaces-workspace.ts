@@ -643,6 +643,7 @@ export class SodaSpaces extends LitElement {
     this.view = 'terminal';
     const space = this.selectedSpace;
     if (space && !this.projectRunnable(space)) void this.showManagement(this.project, 'journey');
+    else void restoreLocators(this.terminalsInput(), this.epoch, this.lifetime.signal);
     this.markViewed();
   };
   private renderDiscoveryRequests() {
@@ -798,6 +799,14 @@ export class SodaSpaces extends LitElement {
     if (!this.creation) return '';
     return creationForm(this.creationInput(), this.creation);
   }
+  private renderApplications() {
+    if (this.binding?.kind !== 'page') return '';
+    return html`<soda-applications
+      .request=${this.requestApplication}
+      .active=${this.activeSurface && !this.stale && !this.disposed}
+      .sessionKey=${this.binding.transport.generation}
+    ></soda-applications>`;
+  }
   private renderNavigation() {
     return html`<nav
       class="soda-workspace-navigation"
@@ -830,7 +839,7 @@ export class SodaSpaces extends LitElement {
       </div>
       ${this.renderProjectNavigation()} ${this.renderDiscoveryRequests()}
       ${renderMoreProjects(this.moreProjectsInput())} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
-      ${this.binding?.kind === 'page' ? html`<soda-applications .request=${this.requestApplication} .active=${this.activeSurface && !this.stale && !this.disposed} .sessionKey=${this.binding.transport.generation}></soda-applications>` : ''}
+      ${this.renderApplications()}
       ${this.binding?.kind === 'page' ? html`<button class="ui button soda-saved-plans" aria-pressed=${this.view === 'plans'} @click=${this.onShowPlans}>Saved plans</button>` : ''}
     </nav>`;
   }

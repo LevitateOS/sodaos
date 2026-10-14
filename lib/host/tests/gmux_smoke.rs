@@ -327,7 +327,9 @@ impl ExecBackend for ScriptBackend {
 
 #[test]
 fn native_clean_paths_reject_query_and_escapes() {
-    assert_eq!(NATIVE_CLEAN_PATHS.len(), 20);
+    assert_eq!(NATIVE_CLEAN_PATHS.len(), 22);
+    assert!(NATIVE_CLEAN_PATHS.contains(&"/application"));
+    assert!(NATIVE_CLEAN_PATHS.contains(&"/terminal-support"));
     for path in NATIVE_CLEAN_PATHS {
         let mut q = head("POST", path);
         q.has_query = true;
@@ -379,7 +381,9 @@ fn native_method_check_runs_after_clean_path_check() {
 
 #[test]
 fn mutation_gate_covers_exactly_the_go_paths() {
-    assert_eq!(ADMITTED_MUTATION_PATHS.len(), 7);
+    assert_eq!(ADMITTED_MUTATION_PATHS.len(), 8);
+    assert!(is_admitted_mutation_path("/application"));
+    assert!(!is_admitted_mutation_path("/terminal-support"));
     for path in ADMITTED_MUTATION_PATHS {
         assert!(is_admitted_mutation_path(path), "{path}");
     }
@@ -525,7 +529,7 @@ fn terminal_gate_caps_and_releases() {
 
 #[test]
 fn route_table_has_every_go_route() {
-    assert_eq!(ROUTE_TABLE.len(), 35);
+    assert_eq!(ROUTE_TABLE.len(), 37);
     let count = |prefix: &str| {
         ROUTE_TABLE
             .iter()
@@ -543,6 +547,8 @@ fn route_table_has_every_go_route() {
     );
     for path in [
         "/profile",
+        "/application",
+        "/terminal-support",
         "/create",
         "/inspect",
         "/os",

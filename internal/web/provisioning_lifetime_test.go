@@ -107,6 +107,8 @@ type inspectStub struct {
 func (s inspectStub) roundTrip(t *testing.T, profile project.Profile, lifecycle func(body map[string]any) (int, string)) roundTrip {
 	return func(req *http.Request) (*http.Response, error) {
 		switch req.URL.Path {
+		case "/terminal-support":
+			return jsonNativeResponse(t, 200, `{"state":"ready"}`), nil
 		case "/inspect":
 			if s.err {
 				return nil, errNativeGone

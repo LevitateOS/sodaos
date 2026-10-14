@@ -774,11 +774,14 @@ test('saved inventory lists states and separates empty from unavailable', async 
   await page.getByLabel('Describe what you want to build', {exact: true}).fill('Fresh draft');
   await page.getByRole('button', {name: 'Save draft', exact: true}).click();
   await page.getByText('Accepted tracker', {exact: true}).waitFor();
-  await page.getByText('Accepted', {exact: false}).first().waitFor();
+  await page
+    .locator('li', {hasText: 'Accepted tracker'})
+    .getByText(/^Accepted · 1 work items$/)
+    .waitFor();
   await page.getByText('Rejected planner', {exact: true}).waitFor();
-  await page.getByText('Rejected', {exact: false}).first().waitFor();
+  await page.locator('li', {hasText: 'Rejected planner'}).getByText('Rejected', {exact: true}).waitFor();
   await page.getByText('Abandoned board', {exact: true}).waitFor();
-  await page.getByText('Abandoned', {exact: false}).first().waitFor();
+  await page.locator('li', {hasText: 'Abandoned board'}).getByText('Abandoned', {exact: true}).waitFor();
   await page.getByText('Fresh draft', {exact: true}).waitFor();
   await resetIntent(page);
   await page.locator('li', {hasText: 'Fresh draft'}).getByRole('button', {name: 'Resume'}).click();

@@ -24,6 +24,7 @@ func TestEnvironmentReadPublicationRechecksNativeAuthority(t *testing.T) {
 	}{
 		{name: "detail/organization", changeAt: "organization"},
 		{name: "detail/helper", changeAt: "host"},
+		{name: "detail/terminal-support", changeAt: "terminal-support"},
 		{name: "detail/native-unavailable", changeAt: "host", nativeUnavailable: true},
 		{name: "detail/degraded-member", changeAt: "host", authorityUnavailable: true},
 		{name: "detail/operator", changeAt: "host", operator: true},
@@ -86,6 +87,9 @@ func TestEnvironmentReadPublicationRechecksNativeAuthority(t *testing.T) {
 					nativeCalls++
 					require.Equal(t, http.MethodPost, req.Method)
 					wantPath := "/inspect"
+					if req.URL.Path == "/terminal-support" && read.suffix == "" {
+						wantPath = "/terminal-support"
+					}
 					if read.suffix == "/connection" {
 						wantPath = "/connection"
 					}
@@ -93,9 +97,16 @@ func TestEnvironmentReadPublicationRechecksNativeAuthority(t *testing.T) {
 					var input project.Create
 					require.NoError(t, json.NewDecoder(req.Body).Decode(&input))
 					require.Equal(t, project.Create{ID: webTerminalProject}, input)
-					changeAuthority("host")
+					if wantPath == "/terminal-support" {
+						changeAuthority("terminal-support")
+					} else {
+						changeAuthority("host")
+					}
 					if read.nativeUnavailable {
 						return nil, errors.New("synthetic-private-helper-error")
+					}
+					if wantPath == "/terminal-support" {
+						return jsonNativeResponse(t, 200, `{"state":"ready"}`), nil
 					}
 					w := httptest.NewRecorder()
 					observed := project.Environment{ID: webTerminalProject, IP: "10.89.0.2", Running: true}
@@ -110,6 +121,9 @@ func TestEnvironmentReadPublicationRechecksNativeAuthority(t *testing.T) {
 				nativeAPIServeWithCallback(t, s, w, r, callback)
 				require.True(t, changed, "request never reached selected I/O boundary")
 				wantNative := 1
+				if read.suffix == "" {
+					wantNative = 2
+				}
 				if read.suffix == "/members" {
 					wantNative = 0
 				}

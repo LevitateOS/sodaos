@@ -148,7 +148,9 @@ for (const [order, first] of [
       assert.equal(await page.locator('[data-extension-panels]').isVisible(), false);
       await enter(page, 'Global Workspace', globalPath);
     }
-    await page.getByRole('button', {name: /^(Sessions|Projects)$/}).click();
+    await page.getByRole('button', {name: 'team/repo', exact: true}).click();
+    await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+    await page.getByLabel('Workspace options', {exact: true}).click();
     await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
     await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
     const terminal = await page.locator('soda-terminal').first().elementHandle();

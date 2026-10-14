@@ -53,10 +53,15 @@ test('local fixture supports the full journey, simulated IO, persistent reload a
   const writesBeforeReload = writes.length;
   output = '';
   await page.reload();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  await page.getByLabel('Workspace options', {exact: true}).click();
+  await page.locator('.soda-project-terminals .soda-session-list button').first().click();
   await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
   assert(output.includes('\r\nlocal-fixture\r\n'), 'reload lost mock terminal output');
   assert.equal(writes.length, writesBeforeReload, 'reload replayed a product write');
   await page.getByLabel('Start at', {exact: true}).selectOption('split');
+  await page.getByRole('button', {name: 'Work', exact: true}).waitFor({state: 'hidden'});
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.waitForFunction(
     () => document.querySelectorAll('.soda-workspace-terminal:not([hidden]) .is-connected').length === 2
   );
@@ -74,6 +79,7 @@ test('local fixture supports the full journey, simulated IO, persistent reload a
   await page.getByRole('link', {name: 'Reconnect to Forgejo', exact: true}).waitFor();
   assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).count(), 0);
   await page.getByRole('link', {name: 'Reconnect to Forgejo', exact: true}).click();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
   await page.getByRole('button', {name: 'New terminal', exact: true}).waitFor();
   const second = await browser.newPage();
   await second.goto(server.url.href);

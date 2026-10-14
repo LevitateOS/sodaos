@@ -12,9 +12,8 @@ import {browserZoomFixture} from './fixtures/browser-zoom.js';
 // transcribed from Fountain templates/extensions/{page,panels}.tmpl and
 // templates/base/{head,footer}.tmpl in the canonical Fountain source, the body
 // flex column from web_src/css/base.css, and the container rules are
-// served from Fountain's own CSS files, not retyped. The page mount
-// (.extension-page-mount, min-height only) stays content-sized; the
-// panels home (.extension-workspace-panels, flex:1 with a min-height
+// served from Fountain's own CSS files, not retyped. The shared owner has no
+// competing page mount; the panels home (.extension-workspace-panels, flex:1 with a min-height
 // floor) supplies definite host space. Soda invents no host height.
 
 const root = path.resolve(import.meta.dirname, '../..');
@@ -147,7 +146,7 @@ before(async () => {
       if (url.pathname === '/page')
         return new Response(
           shellHead('Spaces page') +
-            `<body><nav id="navbar">native</nav><div class="full height"><div role="main" aria-label="Spaces" class="page-content extensions"><div class="ui container"><section class="extension-page" aria-labelledby="extension-page-title"><h1 id="extension-page-title" class="ui dividing header">Spaces</h1><div class="extension-page-mount" data-extension-page><main></main></div></section></div></div></div><footer class="page-footer">native footer</footer><script type="module" src="/assets/workspace-fixture.js"></script></body>`,
+            `<body><nav id="navbar">native</nav><div class="full height"><div role="main" aria-label="Spaces" class="page-content extensions"><div class="ui container"><section class="extension-page extension-page-owner-presented" aria-labelledby="extension-page-title"><h1 id="extension-page-title" class="ui dividing header">Spaces</h1></section></div></div></div><aside id="extension-panels" class="extension-workspace-panels" data-extension-panels><section class="extension-workspace-panel"><main data-extension-panel></main></section></aside><footer class="page-footer">native footer</footer><script type="module" src="/assets/workspace-fixture.js"></script></body>`,
           html
         );
       // Fountain panels.tmpl via base/footer.tmpl: panels home after .full.height.
@@ -192,7 +191,7 @@ function trackErrors(t: TestContext, page: Page) {
 }
 
 test(
-  'F06 page container: workspace binds to the native ui container width at zoom 1 and 4',
+  'F06 page presentation: workspace uses the retained native panels allocation at zoom 1 and 4',
   {timeout: 60000},
   async (t) => {
     const page = await browser.context.newPage();
@@ -206,25 +205,30 @@ test(
       await window.workspaceFixture.api.ready;
       await window.workspaceFixture.api.refresh();
     });
-    await page.getByRole('button', {name: /^(Sessions|Projects)$/}).click();
+    await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
+    await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+    await page.getByLabel('Workspace options', {exact: true}).click();
     await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
     await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
     const at1x = await page.evaluate(() => {
-      const container = document.querySelector('.page-content.extensions .ui.container')!.getBoundingClientRect();
-      const mount = document.querySelector('.extension-page-mount')!.getBoundingClientRect();
+      const panel = document.querySelector('.extension-workspace-panel')!;
+      const container = panel.getBoundingClientRect();
+      const padding = getComputedStyle(panel);
+      const containerWidth = container.width - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+      const mount = document.querySelector('[data-extension-panel]')!.getBoundingClientRect();
       const terminal = document.querySelector('.soda-workspace-terminal:not([hidden])')!.getBoundingClientRect();
       return {
-        container: {w: Math.round(container.width), h: Math.round(container.height)},
+        container: {w: Math.round(containerWidth), h: Math.round(container.height)},
         mount: {w: Math.round(mount.width), h: Math.round(mount.height)},
         terminal: {w: Math.round(terminal.width), h: Math.round(terminal.height)},
         hOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        hostHeight: (document.querySelector('.extension-page-mount') as HTMLElement).style.height,
+        hostHeight: (document.querySelector('[data-extension-panel]') as HTMLElement).style.height,
       };
     });
     console.log('F06 page @1x', JSON.stringify(at1x));
-    // Fountain .page-content .ui.container caps at 1280px (100% - 2*32px margins).
+    // The retained panel supplies the available width after its native padding.
     assert(
-      at1x.container.w <= 1280 && at1x.container.w >= 1200,
+      at1x.container.w <= 1440 && at1x.container.w >= 1380,
       `native container width unexpected: ${at1x.container.w}`
     );
     assert(Math.abs(at1x.mount.w - at1x.container.w) <= 2, 'Soda mount does not bind to the native container width');
@@ -284,7 +288,9 @@ test('F06 panel container: Soda binds to the host-sized panels home at zoom 1 an
   // and the mount binds the height:100% Soda chain against it.
   assert(dims.aside.h >= 900, `panels home not host-sized: ${dims.aside.h}px`);
   assert(dims.mount.h >= 800, `panel mount not host-sized: ${dims.mount.h}px`);
-  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  await page.getByRole('button', {name: 'team/repo', exact: true}).click();
+  await page.getByRole('button', {name: 'Terminals', exact: true}).click();
+  await page.getByLabel('Workspace options', {exact: true}).click();
   await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor({state: 'attached'});
   const at1x = await page.evaluate(() => {

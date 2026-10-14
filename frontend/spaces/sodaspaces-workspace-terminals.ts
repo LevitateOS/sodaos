@@ -60,6 +60,9 @@ export function canRestorePane(
 export async function restoreSelectedPane(input: TerminalsInput, n: number, signal: AbortSignal, area: PaneArea) {
   const layout = input.readLayout();
   const entry = layout.entries.find((e) => e.key === area.pane.selected);
+  // Restoring the initial Work view must not reconnect an attachment that
+  // already started and later failed or was deliberately detached.
+  if (input.readSlots().some((slot) => slot.key === entry?.key && slot.terminal.started)) return;
   const space = input.readSpaces().find((s) => s.environment.id === entry?.environmentId);
   if (!canRestorePane(input, entry, space, n, signal)) return;
   const slot = await input.addSlot(space!, entry!);

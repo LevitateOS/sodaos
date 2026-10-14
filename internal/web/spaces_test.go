@@ -15,6 +15,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/coder/websocket"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
@@ -27,6 +28,10 @@ func spacesFixture(t *testing.T, member bool) (*Server, *atomic.Int32, *atomic.I
 	s.Config.OperatorID = 999
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nativeCalls.Add(1)
+		if r.URL.Path == "/terminal-support" {
+			_ = json.NewEncoder(w).Encode(host.TerminalSupport{State: "ready"})
+			return
+		}
 		if r.URL.Path == "/terminal" {
 			c, err := websocket.Accept(w, r, nil)
 			if err != nil {
@@ -113,7 +118,7 @@ func TestSpacesDeniedUnavailableAndDegradedOwnMembership(t *testing.T) {
 					}
 					return
 				}
-				expectedNative := int32(1)
+				expectedNative := int32(2) // Environment and terminal-support observations.
 				if status == 0 {
 					expectedNative++
 				} // Optional authorized Tailnet observation.

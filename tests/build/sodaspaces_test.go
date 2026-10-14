@@ -135,6 +135,8 @@ func TestSodaspacesActualStageRecipeWithSyntheticBuildInputs(t *testing.T) {
 	chmodTree(t, filepath.Join(checkout, "assets"))
 	copyTree(t, filepath.Join(RepoRoot, "frontend"), filepath.Join(checkout, "frontend"))
 	copyTree(t, filepath.Join(RepoRoot, "system", "host", "config"), filepath.Join(checkout, "system/host/config"))
+	copyTree(t, filepath.Join(RepoRoot, "system", "project"), filepath.Join(checkout, "system/project"))
+	WriteFile(t, filepath.Join(checkout, ".artifacts/canlang/canlang-tools-linux-x86_64.tar.gz"), []byte("synthetic Canlang archive; never executed"), 0o644)
 	copyTree(t, filepath.Join(RepoRoot, "system", "licenses"), filepath.Join(checkout, "system/licenses"))
 	// The branding payload manifest rides along inside the copied frontend/.
 	payloadSrc, err := os.ReadFile(filepath.Join(RepoRoot, "frontend/forgejo/payload.json"))

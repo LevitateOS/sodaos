@@ -233,7 +233,7 @@ soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-workspace[data-workspace-kind=page] .soda-project-directory .soda-project-group { margin: 0; }
 .soda-workspace .soda-project-directory .ui.button.soda-project-select { align-items: center; padding-block: var(--soda-space-3) !important; gap: var(--soda-space-2); }
 .soda-project-directory .soda-project-select-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; flex: 1; column-gap: var(--soda-space-2); }
-.soda-project-directory .soda-project-name { grid-column: 1 / -1; font: var(--soda-font-body); font-weight: 600; }
+.soda-project-directory .soda-project-name { grid-column: 1 / -1; font: var(--soda-font-label); }
 .soda-project-directory .soda-project-owner { min-width: 0; color: var(--soda-page-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .soda-project-directory .soda-project-status { font: var(--soda-font-caption); gap: var(--soda-space-1); }
 .soda-project-directory .soda-project-status::before { width: 6px; height: 6px; }
@@ -271,7 +271,7 @@ soda-project-work { display: block; min-width: 0; }
 .soda-work-state { padding: var(--soda-space-half) var(--soda-space-2); border: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-caption); }
 .soda-work-state[data-state=accepted] { color: var(--soda-page-text); background: var(--soda-page-hover); }
 .soda-work-repository { min-width: 0; overflow-wrap: anywhere; font: var(--soda-font-meta); color: var(--soda-page-muted); }
-.soda-work-item h3 { grid-column: 1; margin: 0; overflow-wrap: anywhere; font: var(--soda-font-body); font-weight: 600; }
+.soda-work-item h3 { grid-column: 1; margin: 0; overflow-wrap: anywhere; font: var(--soda-font-label); }
 .soda-work-item-actions { grid-column: 2; grid-row: 1 / 3; align-self: center; }
 .soda-workspace .soda-work-item-actions .ui.button { border-color: var(--soda-page-edge); text-transform: none; }
 .soda-workspace .ui.button.soda-work-more { margin-top: var(--soda-space-4); border-color: var(--soda-page-edge); }

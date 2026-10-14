@@ -123,7 +123,15 @@ fn oracle_production_sequence() {
                         pkg => vec![pkg],
                     };
                     for bin in bins {
-                        let dest = PathBuf::from(dir).join("target/release").join(bin);
+                        let configured_target = std::env::var_os("CARGO_TARGET_DIR")
+                            .map(PathBuf::from)
+                            .unwrap_or_else(|| PathBuf::from("target"));
+                        let target = if configured_target.is_absolute() {
+                            configured_target
+                        } else {
+                            PathBuf::from(dir).join(configured_target)
+                        };
+                        let dest = target.join("release").join(bin);
                         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
                         std::fs::write(&dest, fixture_elf()).unwrap();
                     }

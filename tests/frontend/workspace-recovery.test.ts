@@ -205,7 +205,7 @@ for (const status of [401, 403])
     await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
     await page.evaluate((status) => window.workspaceFixture.setStatus(status), status);
     await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
-    await page.getByRole('heading', {name: 'Project access changed'}).waitFor();
+    await page.getByRole('heading', {name: 'Could not load projects', exact: true}).waitFor();
     assert.equal(await page.getByRole('heading', {name: 'Configure project', exact: true}).count(), 0);
     assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).isEnabled(), true);
     assert.equal(

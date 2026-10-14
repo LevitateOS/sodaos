@@ -127,6 +127,7 @@ for (const theme of ['light', 'dark'])
 test('current native panels allocation preserves available Spaces width and quiet controls', async (t) => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'soda-light';
     // This case opts native chrome into the branding button contract while
     // leaving the retained mount in its separate native panels allocation.
     document.querySelector('.page-content')?.classList.add('soda-page');

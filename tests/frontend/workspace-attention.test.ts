@@ -105,7 +105,12 @@ test('stale metadata and late transport generations cannot claim cleanup or repl
   await page.evaluate(() =>
     window.workspaceFixture.sockets[0]?.onmessage?.({data: JSON.stringify({type: 'closed', reason: 'unavailable'})})
   );
-  await page.getByText('Attachment ended or unavailable.', {exact: false}).waitFor();
+  await page
+    .getByText(
+      'The terminal is unavailable. Retry or ask an appliance administrator to inspect it. No creation or input was replayed.',
+      {exact: true}
+    )
+    .waitFor();
   await page.getByRole('button', {name: 'Work', exact: true}).click();
   await peer.evaluate((socket) => socket?.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('late')})}));
   assert.equal(await page.locator('.soda-unread').count(), 0);

@@ -146,6 +146,7 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 			p = updated
 		}
 	}
+	terminalSupport := s.Host.TerminalSupport(r.Context(), p.ID)
 	if !s.requireListedSession(w, r, v) {
 		return
 	}
@@ -158,7 +159,7 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 		NativeUnavailable    bool                 `json:"native_unavailable"`
 		Login                string               `json:"login"`
 		Administrator        bool                 `json:"environment_administrator"`
-	}{s.Host.TerminalSupport(r.Context(), p.ID), reader.authorityUnavailable, reader.executionAllowed, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
+	}{terminalSupport, reader.authorityUnavailable, reader.executionAllowed, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
 }
 
 func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v store.Session) {
