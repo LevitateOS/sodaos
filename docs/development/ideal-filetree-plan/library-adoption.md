@@ -754,10 +754,11 @@ Decoded nonzero trailing archives/junk and duplicate wanted terminal members
 refuse. Raw descriptor size/hash, overlay/whiteout/ancestor policy and original
 signed bytes remain caller responsibilities. New USTAR output is deterministic;
 old Go writer hashes are historical observations, with no compatibility writer.
-The former 1 GiB decoded per-layer ceiling refused a current host OCI layer:
+The former 1 GiB decoded per-layer ceiling refused an earlier host OCI layer:
 its 1,029,793,481 compressed bytes decode to at least 1,293,400,576 bytes.
-The decoded layer ceiling is now 2 GiB; the 16 GiB image-wide decoded budget
-continues to bound aggregate expansion.
+That native join raised the ceiling to 2 GiB. The complete flattened host now
+consumes one layer, so per-layer admission uses the existing image-wide budgets
+shown below; aggregate expansion remains bounded across all layers.
 
 | Admitted format | Production bounds |
 | --- | --- |
