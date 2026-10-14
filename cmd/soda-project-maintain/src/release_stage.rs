@@ -195,15 +195,85 @@ pub(crate) fn discard_locked(commit: &str, deadline: Instant) -> Result<(), Stri
 // This intentionally requests native activation/reboot. The coordinator must
 // persist its mutation boundary and keep admission closed before invoking it.
 pub(crate) fn activate(commit: &str, deadline: Instant) -> Result<(), String> {
-    if !pending(&inspect(deadline)?, commit)? {
+    let before = inspect(deadline)?;
+    if !pending(&before, commit)? {
         return Err("exact target is not staged and locked".into());
+    }
+    let staged = before.staged.as_ref().ok_or("locked target unavailable")?;
+    let token = finalization_token(
+        &run("/usr/bin/rpm-ostree", &["status", "--json"], deadline)?,
+        staged,
+    )?;
+    if inspect(deadline)? != before {
+        return Err("locked target changed before native activation".into());
     }
     run(
         "/usr/bin/rpm-ostree",
-        &["finalize-deployment", commit],
+        &["finalize-deployment", &token],
         deadline,
     )?;
     Ok(())
+}
+
+// rpm-ostree authenticates finalization against the staged base identity:
+// an imported container's manifest digest, otherwise the base OSTree commit.
+// This also applies to container commits deployed manually from a rootfs repo;
+// their origin/refspec does not select which token rpm-ostree expects.
+fn finalization_token(bytes: &[u8], staged: &Deployment) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct BaseMetadata {
+        #[serde(rename = "ostree.manifest-digest")]
+        image_digest: Option<String>,
+    }
+    #[derive(Deserialize)]
+    struct Row {
+        checksum: String,
+        serial: u32,
+        osname: String,
+        #[serde(default)]
+        staged: bool,
+        #[serde(default)]
+        booted: bool,
+        #[serde(rename = "base-checksum")]
+        base_checksum: Option<String>,
+        #[serde(rename = "container-image-reference-digest")]
+        image_digest: Option<String>,
+        #[serde(rename = "base-commit-meta")]
+        base_metadata: BaseMetadata,
+    }
+    #[derive(Deserialize)]
+    struct Status {
+        deployments: Vec<Row>,
+    }
+    let status: Status =
+        serde_json::from_slice(bytes).map_err(|_| "native finalization identity unavailable")?;
+    if !staged.staged || !staged.finalization_locked || status.deployments.len() > 16 {
+        return Err("exact locked target required for native finalization".into());
+    }
+    let mut pending = status.deployments.iter().filter(|row| row.staged);
+    let row = pending
+        .next()
+        .ok_or("native finalization target unavailable")?;
+    if pending.next().is_some()
+        || row.booted
+        || row.osname != "fedora-coreos"
+        || row.checksum != staged.checksum
+        || row.serial != staged.serial
+        || !digest(&row.checksum)
+        || row.base_checksum.as_ref().is_some_and(|base| !digest(base))
+    {
+        return Err("native finalization target differs from locked deployment".into());
+    }
+    let metadata_digest = row.base_metadata.image_digest.as_ref();
+    match (row.image_digest.as_ref(), metadata_digest) {
+        (Some(image), Some(metadata))
+            if image == metadata && image.strip_prefix("sha256:").is_some_and(digest) =>
+        {
+            Ok(image.clone())
+        }
+        (None, None) => Ok(row.base_checksum.as_ref().unwrap_or(&row.checksum).clone()),
+        _ => Err("native container finalization identity is uncertain".into()),
+    }
 }
 
 fn trusted(path: &Path, limit: u64) -> Result<File, String> {
@@ -488,6 +558,82 @@ mod tests {
         value = observed();
         value["deployments"][0]["index"] = json!(1);
         assert!(state(&value).is_err());
+    }
+
+    fn finalization_status() -> Value {
+        json!({"deployments":[{
+            "checksum":"a".repeat(64),"serial":1,"osname":"fedora-coreos",
+            "staged":true,"booted":false,
+            "base-checksum":null,
+            "container-image-reference-digest":format!("sha256:{}", "c".repeat(64)),
+            "base-commit-meta":{"ostree.manifest-digest":format!("sha256:{}", "c".repeat(64))}
+        }]})
+    }
+
+    fn token(value: &Value, staged: &Deployment) -> Result<String, String> {
+        finalization_token(&serde_json::to_vec(value).unwrap(), staged)
+    }
+
+    #[test]
+    fn container_finalization_uses_native_manifest_for_oci_and_manual_deployments() {
+        let staged = state(&observed()).unwrap().staged.unwrap();
+        let mut value = finalization_status();
+        // Native OCI rebase and manual rootfs deploy both retain container
+        // commit metadata. The origin is irrelevant to native token selection.
+        for origin in ["ostree-unverified-image:oci-archive:/source.oci", ""] {
+            value["deployments"][0]["container-image-reference"] = json!(origin);
+            assert_eq!(
+                token(&value, &staged).unwrap(),
+                format!("sha256:{}", "c".repeat(64))
+            );
+        }
+    }
+
+    #[test]
+    fn noncontainer_finalization_uses_observed_base_commit() {
+        let staged = state(&observed()).unwrap().staged.unwrap();
+        let mut value = finalization_status();
+        value["deployments"][0]["container-image-reference-digest"] = Value::Null;
+        value["deployments"][0]["base-commit-meta"] = json!({});
+        assert_eq!(token(&value, &staged).unwrap(), "a".repeat(64));
+        value["deployments"][0]["base-checksum"] = json!("b".repeat(64));
+        assert_eq!(token(&value, &staged).unwrap(), "b".repeat(64));
+    }
+
+    #[test]
+    fn finalization_refuses_changed_or_uncertain_native_identity() {
+        let staged = state(&observed()).unwrap().staged.unwrap();
+        for (field, changed) in [
+            ("checksum", json!("b".repeat(64))),
+            ("serial", json!(2)),
+            ("staged", json!(false)),
+            ("booted", json!(true)),
+            ("osname", json!("other")),
+            ("base-checksum", json!("invalid")),
+            ("base-commit-meta", Value::Null),
+            ("container-image-reference-digest", Value::Null),
+            ("container-image-reference-digest", json!("sha256:invalid")),
+            (
+                "base-commit-meta",
+                json!({"ostree.manifest-digest":format!("sha256:{}", "d".repeat(64))}),
+            ),
+        ] {
+            let mut value = finalization_status();
+            value["deployments"][0][field] = changed;
+            assert!(token(&value, &staged).is_err(), "accepted changed {field}");
+        }
+        let mut value = finalization_status();
+        let duplicate = value["deployments"][0].clone();
+        value["deployments"].as_array_mut().unwrap().push(duplicate);
+        assert!(token(&value, &staged).is_err());
+        assert!(token(
+            &finalization_status(),
+            &Deployment {
+                finalization_locked: false,
+                ..staged
+            }
+        )
+        .is_err());
     }
 
     #[test]

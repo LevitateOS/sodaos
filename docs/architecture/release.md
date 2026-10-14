@@ -101,6 +101,10 @@ The existing public rootfs contains the complete host, application images and an
 OSTree repository inside its EROFS root. Explicit maintenance consumes the selected
 GitHub release's rootfs and metadata together; users do not assemble helpers.
 Native `ostree pull-local` and locked deployment retain FCOS activation ownership.
+Before finalization, the workflow rechecks the exact staged commit, serial and
+lock, then binds rpm-ostree's native base identity: the container manifest digest
+for an imported container commit, otherwise the base OSTree commit. This rule also
+applies when that container commit came from the public rootfs repository.
 Media records `DeploymentCommit` from that rootfs's actual deployment separately
 from `AssemblerImportCommit`; an assembler import identity cannot select a host
 deployment. Development qualification admits the exact candidate without a receipt
