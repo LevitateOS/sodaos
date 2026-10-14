@@ -1,5 +1,21 @@
 # SodaOS ideal file tree plan
 
+## Current Docker release reconciliation (2026-10-14)
+
+Resulting source is `76daa366822e0a135df961d7c9c21713da016bd3`, after merge `37076729` and a focused
+CLI-fixture correction. The [current duty ledger](coverage/maps/release-docker-current.md)
+accounts for all 76 selected paths, including main's native Project staging/rollback
+repairs and completed-plan retirement. Production dispatch, Docker packaging,
+provenance, CI admission, Compose installation and guided release consumers now
+exist within the retained Rust owners. Older claims that production dispatch is
+absent are superseded. Native collection and exact published-image qualification
+remain open; source integration does not establish production release readiness.
+
+This bounded update preserves older structural, catalog, full-body, review-input
+and native evidence scopes. Earlier Canlang/Project/frontend deltas and inventory
+gaps remain pending; the ledger records the accumulated range explicitly.
+Further restructuring remains deferred.
+
 This is the living plan for reorganizing the entire SodaOS repository by
 responsibility and decomposing oversized implementations into concrete concern
 files. It covers every tracked source, test, document, asset, manifest, hidden

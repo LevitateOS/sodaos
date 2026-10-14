@@ -1,5 +1,39 @@
 # Complete desired repository tree
 
+## Current Docker release targets (2026-10-14)
+
+The selected source is `76daa366`; [changed responsibilities](coverage/maps/release-docker-current.md)
+retain their existing package and process owners. These exact leaves supplement
+the historical tree pin. The completed `docs/development/project-runtime-upgrade-plan.md`
+has no successor plan; its contracts remain in release/operator guidance.
+
+| Retained exact target | Defining owner |
+| --- | --- |
+| `lib/release-inputs/src/reader/build.rs` | D01/D02/D07 |
+| `lib/release-inputs/src/reader/rpm.rs` | D01/D02/D07 |
+| `lib/soda-release-build/src/production_docker.rs` | D02/D03 |
+| `lib/soda-release-deliver/src/docker/mod.rs` | D05/D07 |
+| `lib/soda-release-deliver/src/docker/registry_tests.rs` | D01/D03/D05/D07/D09 |
+| `lib/soda-release-deliver/src/docker/source.rs` | D05/D07 |
+| `lib/soda-release-deliver/src/docker/tests.rs` | D01/D03/D05/D07/D09 |
+| `lib/soda-release-deliver/src/model/docker.rs` | D05/D07 |
+| `lib/soda-release-deliver/src/publish/qualification.rs` | D06/D07 |
+| `lib/soda-release-deliver/src/publish/registry.rs` | D09 |
+| `lib/soda-release-tools/src/release_start.rs` | D01/D07 |
+| `scripts/check-docker-packaging.sh` | H06/D07 |
+| `system/docker/network-scope.conf` | D03/H01/D11 |
+| `system/docker/project-scope.conf` | D03/H01/D11 |
+| `tests/build/ci_admission_test.go` | H06/D07 |
+| `system/docker/image-import.conf` | D03/H01/D11 |
+| `docs/guides/docker.md` | H06 |
+| `docs/development/ideal-filetree-plan/coverage/maps/release-docker-current.md` | H06 |
+| `system/docker/.dockerignore` | D03/H01/D11 |
+| `system/docker/Dockerfile` | D03/H01/D11 |
+| `system/docker/compose.yaml` | D03/H01/D11 |
+| `system/docker/soda-docker-init.service` | D03/H01/D11 |
+
+No new crate, daemon, language port or compatibility layer is proposed. Earlier unrelated tree reconciliation stays pending.
+
 ## Current incremental native target delta (2026-10-13)
 
 Committed Soda `5d281760..ac22514b`, paired with Fountain

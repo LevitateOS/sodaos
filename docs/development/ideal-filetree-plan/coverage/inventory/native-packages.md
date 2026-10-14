@@ -1,5 +1,23 @@
 # Tracked files: lib
 
+## Current Docker release leaves (2026-10-14)
+
+Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+
+| Current tracked path | Owner / disposition | Responsibility evidence |
+| --- | --- | --- |
+| [lib/release-inputs/src/reader/build.rs](../../../../../lib/release-inputs/src/reader/build.rs) | D01/D02/D07 / retained | Canonical completed build DTO and RPM/recipe readers; tools issues controller completion and delivery admits the exact build bytes. |
+| [lib/release-inputs/src/reader/rpm.rs](../../../../../lib/release-inputs/src/reader/rpm.rs) | D01/D02/D07 / retained | Canonical completed build DTO and RPM/recipe readers; tools issues controller completion and delivery admits the exact build bytes. |
+| [lib/soda-release-build/src/production_docker.rs](../../../../../lib/soda-release-build/src/production_docker.rs) | D02/D03 / retained | Frozen Fedora acquisition and production_docker consume the same admitted host config/payload, export OCI, capture packages/Compose and invoke delivery verification. |
+| [lib/soda-release-deliver/src/docker/mod.rs](../../../../../lib/soda-release-deliver/src/docker/mod.rs) | D05/D07 / retained | record/verify compare original source archives, runtime files, embedded OCI blobs, frozen labels, packages and Compose against the same admitted candidate. |
+| [lib/soda-release-deliver/src/docker/registry_tests.rs](../../../../../lib/soda-release-deliver/src/docker/registry_tests.rs) | D01/D03/D05/D07/D09 / retained | Verification remains with the changed source owner: production target/candidate reuse, exact archive provenance, native-evidence admission and publication/promotion effects. Fixture proof is not native qualification. |
+| [lib/soda-release-deliver/src/docker/source.rs](../../../../../lib/soda-release-deliver/src/docker/source.rs) | D05/D07 / retained | record/verify compare original source archives, runtime files, embedded OCI blobs, frozen labels, packages and Compose against the same admitted candidate. |
+| [lib/soda-release-deliver/src/docker/tests.rs](../../../../../lib/soda-release-deliver/src/docker/tests.rs) | D01/D03/D05/D07/D09 / retained | Verification remains with the changed source owner: production target/candidate reuse, exact archive provenance, native-evidence admission and publication/promotion effects. Fixture proof is not native qualification. |
+| [lib/soda-release-deliver/src/model/docker.rs](../../../../../lib/soda-release-deliver/src/model/docker.rs) | D05/D07 / retained | Distribution/BuildPurpose select outputs; DockerMetadata and FileIdentity bind source, candidate, payload, base, image/config/archive and Compose; production purpose constrains publication. |
+| [lib/soda-release-deliver/src/publish/qualification.rs](../../../../../lib/soda-release-deliver/src/publish/qualification.rs) | D06/D07 / retained | Distinct installation/persistence/Factory records; collect rechecks downloaded and retained execution files, funded Factory, ordered timestamps; atomic stamp/verify binds original evidence. |
+| [lib/soda-release-deliver/src/publish/registry.rs](../../../../../lib/soda-release-deliver/src/publish/registry.rs) | D09 / retained | Skopeo performs one digest-preserving version upload, anonymous observation/readback recovery and exact verified-digest promotion. |
+| [lib/soda-release-tools/src/release_start.rs](../../../../../lib/soda-release-tools/src/release_start.rs) | D01/D07 / retained | choices validates explicit inputs; workflow_output confines fresh artifacts; run preflights source/tool/config/CI/offline inputs then delegates build and prepare, stopping before publication. |
+
 Scoped saved-review delta at `cb8492909eef64718103940f733a13bcfe5b9b97` (2026-10-12): Release-image schema version tracks47; D05 metadata ownership is unchanged.
 
 [Inventory index](README.md) · [Coverage scope](../README.md).

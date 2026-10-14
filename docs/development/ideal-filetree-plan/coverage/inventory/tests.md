@@ -1,5 +1,13 @@
 # Tracked files: tests
 
+## Current Docker release leaves (2026-10-14)
+
+Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+
+| Current tracked path | Owner / disposition | Responsibility evidence |
+| --- | --- | --- |
+| [tests/build/ci_admission_test.go](../../../../../tests/build/ci_admission_test.go) | H06/D07 / retained | Required CI Docker packaging/admission checks; source checks do not qualify published runtime bytes. |
+
 Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
 the seven added paths below use the existing browser fixture/test owners.
 Changed Workspace/Terminal/panel/native-path/contract tests follow the callable

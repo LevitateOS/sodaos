@@ -1,5 +1,23 @@
 # Parallel implementation schedule
 
+## Current Docker release handoff (2026-10-14)
+
+The [current handoff](implementation-tasks.md#current-docker-release-handoff-2026-10-14)
+at `76daa366` retires duplicate implementation of the landed controller, packaging,
+metadata, CI, Compose and publisher flow. No new restructuring lane starts.
+C retains release-tools/build/image/deliver plus H06 CI; A retains actual
+Project/nested-runtime joins; B retains existing Factory/provider observations.
+C is the single writer for qualification DTO/admission changes, taking A/B native
+handoffs before changing the shared contract. A challenges the release boundary.
+
+When release work resumes, the critical path is minimal native prerequisites and
+collector joins → exact main CI and production candidate → immutable staging and
+anonymous digest readback → downloaded-byte native qualification → unchanged-digest
+promotion and observation. One operator owns heavy builds and Docker resources.
+Missing native collectors/evidence gate V; they do not reopen completed source
+ownership or require another release pipeline. Historical lanes and evidence
+below retain their original scope; earlier full-plan reconciliation stays pending.
+
 ## Fountain LTS integration (2026-10-13)
 
 The [source handoff](implementation-tasks.md#fountain-lts-handoff-2026-10-13) is

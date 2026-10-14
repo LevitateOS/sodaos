@@ -1,5 +1,19 @@
 # Coverage index
 
+## Current Docker release delta (2026-10-14)
+
+The [current ledger](maps/release-docker-current.md) maps all 76 selected paths
+in `1d398279..76daa366`, including all merged Docker work, main-side native repairs
+and the subsequent CLI fixture correction. Fifteen added Docker paths retain
+existing owners. The source tree has 2,888 tracked paths; this is a membership
+count, not renewed full-body coverage. The new H06 map is upkeep beyond that pin.
+
+Seven files newly cross the 400-line trigger and eighteen changed code files
+exceed it; their [bounded concern review](../decomposition/release-production.md#current-docker-release-concerns-2026-10-14)
+preserves unchanged owners. Earlier accumulated Canlang/Project/frontend changes
+since `68d82401` remain outside this scoped review, with historical inventory,
+structural, body, independent-review and native-evidence pins unchanged.
+
 ## Fountain LTS delta (2026-10-13)
 
 Scoped inputs are recorded in the [plan](../ideal-filetree-plan.md#scoped-fountain-lts-maintenance-2026-10-13).

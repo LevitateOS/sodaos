@@ -1,5 +1,13 @@
 # Tracked-file inventory index
 
+## Selected merge inventory (2026-10-14)
+
+Source `76daa366` contains **2,888 tracked paths**. The [selected release ledger](../maps/release-docker-current.md)
+maps all 76 changed paths; its fifteen added source/test/configuration leaves
+appear in the relevant inventories. Initial Docker inputs and the installation
+guide are also entered where older inventories lacked rows. Existing older gaps
+and full-body pins remain pending. The new map is H06 upkeep beyond this pin.
+
 Each current tracked path appears once. Kind and per-duty owner/disposition are
 separate; detailed mixed/oversized units link to current responsibility maps.
 Source snapshot, reuse and limits: [coverage index](../README.md).

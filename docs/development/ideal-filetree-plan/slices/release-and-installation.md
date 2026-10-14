@@ -1,5 +1,27 @@
 # Release and installation
 
+## Current Docker release model (2026-10-14)
+
+Source `76daa366` supersedes the production-refusal/absent-workflow claims in the
+historical `fde19669` first-principles assessment below. The [exact delta ledger](../coverage/maps/release-docker-current.md)
+records all selected source and main-side joins; old independent reviews retain
+their original pins and do not certify this revision.
+
+| Slice | Current source handoff and remaining evidence |
+| --- | --- |
+| D01/D02 | Production controller and guided preflight are implemented. Clean source/tool/worker identity, frozen Docker base and exact successful controller completion precede prepared production artifacts. Native worker proof retains its own scope. |
+| D03/D05 | Docker consumes the ordinary candidate payload once. Existing delivery verifies exact source, candidate/payload, runtime members/embedded blobs, packages, Compose, image/config identities and production purpose. Appliance and Docker packaging are independently selected. |
+| D06/D07 | Preparation and native qualification admission exist. The qualifier reads ordered retained installation, browser/Project, funded Factory and persistence observations from exact downloaded bytes. The complete native collector remains absent; fixtures and prior local runtime proofs do not close that gap. |
+| D09/D10 | Stage publishes selected unqualified immutable assets and verifies public GHCR identity anonymously; observation can finish partial local receipts without repeating upload. Promote rechecks every selected qualification and changes the exact verified digest. Docker-only promotion preserves the appliance recommendation. Public qualification/production promotion are not established by this merge. |
+| D11/P02/P11/H01 | Released Compose is the Docker installation path with persistent volumes and Docker-specific startup/shutdown scopes. Main's native Project staging/rollback/reconcile repairs remain applied for appliance installation. These are distinct installation paths with separate native evidence. |
+
+Current Docker order: source CI/preflight → common candidate and selected packaging
+→ byte verification and local prepare → immutable stage/public digest readback
+→ install the downloaded Compose/image and collect all native journeys → qualify
+→ promote the unchanged verified digest. Appliance-specific media and qualification
+join only when selected. No signing, runtime qualification or publication is
+performed by this planning refresh. Existing language/process owners remain.
+
 The [15.0.10 LTS input handoff](../coverage/README.md#fountain-lts-delta-2026-10-13)
 retains D02/D03's existing exact-source/toolchain and packaging owners. Source
 archive provenance follows the separate Fountain repository; source/consumer

@@ -1,5 +1,14 @@
 # Tracked files: docs
 
+## Current Docker release leaves (2026-10-14)
+
+Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+
+| Current tracked path | Owner / disposition | Responsibility evidence |
+| --- | --- | --- |
+| [docs/guides/docker.md](../../../../../docs/guides/docker.md) | H06 / retained | Current release, installation, native support and operator contracts/navigation; native proof remains distinct. |
+| [docs/development/ideal-filetree-plan/coverage/maps/release-docker-current.md](../../../../../docs/development/ideal-filetree-plan/coverage/maps/release-docker-current.md) | H06 / retained | Current release, installation, native support and operator contracts/navigation; native proof remains distinct. |
+
 Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
 the two added documentation leaves retain H06 upkeep and their explicitly scoped
 source/fixture evidence. The changed factory/correction plans and package guides

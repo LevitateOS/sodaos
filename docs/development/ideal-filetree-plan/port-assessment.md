@@ -1,5 +1,13 @@
 # Port assessment and cutovers
 
+## Current Docker packaging allocation
+
+At `76daa366`, packaging and release flow remain inside the existing Rust release
+owners and `system/docker` runtime definitions. No language port or new crate is
+needed. [Current ownership](package-ownership.md#docker-release-ownership-2026-10-14)
+and [concern inspection](decomposition/release-production.md#current-docker-release-concerns-2026-10-14)
+retain those boundaries; historical port and native evidence scopes below stand.
+
 The scoped native frontend delta at Soda `ac22514b` / Fountain `c72f5607b2`
 changes no language or process allocation. Removing the panel entry and generic
 consumer host/transport adapters is the current one-owner source cutover, not a

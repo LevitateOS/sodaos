@@ -1,5 +1,35 @@
 # Implementation task list
 
+## Current Docker release handoff (2026-10-14)
+
+At `76daa366`, [the selected source implementation](coverage/maps/release-docker-current.md)
+is merged: production controller/preflight, shared candidate Docker packaging,
+metadata/provenance, CI/admission, released Compose, registry stage/readback,
+qualification consumer, digest promotion and guided CLI. Do not schedule these
+landed source responsibilities again. M (ownership/structure) adds no new port;
+C (selected source behavior) is implemented with scoped checks; V (full published
+native qualification) remains open. Earlier completed receipts retain their exact
+source and development/qualification scope.
+
+Remaining dependency order uses the existing D06/C11 and D09/C10 owners:
+
+1. D06/C11: establish the smallest actual Docker host/runtime boundaries and join
+   existing installed browser/Project, funded Factory and persistence observations
+   to the qualifier's schema. The reader is implemented; a complete collector is
+   still missing. Reuse retained development evidence only for its stated scope.
+2. D01–D05/D09: after prerequisites and exact main CI, build selected production
+   bytes, prepare and stage once; anonymously record the public registry digest.
+3. D06/D07: follow the released installation path with the exact downloaded
+   Compose/image and capture installation, browser/Project, Factory and persistence
+   in order; validate all selected targets with the existing qualifier.
+4. D09: promote the qualified digest without rebuilding; observe the intended
+   Docker/appliance recommendation pointers and retain partial-effect evidence.
+
+These remaining native/release tasks describe readiness gates, not authorization
+to run them during merge upkeep. Source integration, publication and production
+readiness stay distinct. Earlier unrelated structural/correctness tasks remain
+at their separately recorded scope.
+
 ## Fountain LTS handoff (2026-10-13)
 
 The [scoped LTS delta](ideal-filetree-plan.md#scoped-fountain-lts-maintenance-2026-10-13)

@@ -1,5 +1,44 @@
 # Release production
 
+## Current Docker release concerns (2026-10-14)
+
+The [selected source ledger](../coverage/maps/release-docker-current.md) is pinned
+at `76daa366`. The 400-line trigger selects eighteen changed code files; seven
+are new crossings. This is a bounded concern review, not a new full-body census.
+Line counts include fixtures, tests, comments and blank lines. Current exact
+paths remain the target: these joins do not justify new crates, services or
+language ports. Later extraction, if selected, must preserve the listed private
+seams and actual callers; it is not started by this merge.
+
+| New crossing / lines | Inspected concerns and retained placement |
+| --- | --- |
+| `lib/soda-release-build/src/production/tests.rs` / 411 | One scripted production fixture plus existing sequence/failure cases and the new Docker candidate-reuse/export-refusal case. Keep with Production; the case explicitly checks no second compile and no metadata after a refused export. |
+| `lib/soda-release-deliver/src/docker/tests.rs` / 615 | Real tar/OCI and complete candidate fixture (including completed-build evidence); artifact recording/source/content/label/platform/purpose refusal cases. Keep the fixture and its private rebuild operations with Docker verification; no production visibility change for test access. |
+| `lib/soda-release-deliver/src/docker/registry_tests.rs` / 834 | Scripted GitHub/registry transport; public manifest readback; prepared/download/native observation fixture; upload/refusal/recovery; qualification/funding/order/file integrity; all-target promotion and status. These are distinct D07/D09 test groups within the existing owner, sharing one private real-byte fixture. They provide no native provider or public-registry evidence. |
+| `lib/soda-release-deliver/src/oci/mod.rs` / 472 | Existing archive/path dispatch plus same-descriptor image/labels/blob identities and selected-member scanning. Keep one canonical inspector; explicit verified-source member limits feed the existing aggregate-budget scanner in layers.rs. No Docker-specific duplicate parser. |
+| `lib/soda-release-deliver/src/publish/assets.rs` / 596 | Manifest/distribution shape; descriptor-based hashing/copy; selected output preparation; exact build-completion/media admission; final inventory/checksum revalidation. Keep representation and preparation at D07; acquisition/registry effects stay in registry.rs, native observations in qualification.rs. |
+| `lib/soda-release-deliver/src/publish/tests.rs` / 421 | Existing appliance transport fixture plus downloaded-file qualification/retry and read-only status/drift cases. Keep appliance checks under their publisher module; qualification is separate from promotion. |
+| `lib/soda-release-tools/src/release_start.rs` / 429 | About 320 production lines: explicit-input interaction, fresh-output confinement, source/tool/private config/CI/offline-input preflight, then delegated build/prepare; four descendant tests cover actual argument admission and path/interaction behavior. Keep the small guided entrypoint with tools; build and publication policy remain delegated. |
+
+Already-oversized selected units retain their owners after changed-seam inspection:
+`publish/mod.rs` (894) now coordinates target CI/staging, separate appliance
+qualification, all-target promotion and read-only status, delegating asset,
+registry and Docker-native record details; `oci/layers.rs` (762) propagates verified
+member limits while `oci/schema.rs` (1,032) exposes the existing labels.
+Image `build.rs` (499) and tools `pipeline.rs` (1,017) select outputs after one
+candidate; `build_cli.rs` (533) adds source preflight and final controller
+completion; worker `execution.rs` (578), `runtime.rs` (695) and `tests.rs` (988)
+retain worker custody while propagating selected inputs. Project
+`release_operation.rs` (728) closes the helper before unmount and uses the actual
+booted rollback serial; `release_stage.rs` (695) admits only bounded digest blob
+refs and preserves mutable image pointers. Their broader older body reviews are
+not renewed by inspecting these changed seams.
+
+No newly crossed unit is left without a concern disposition in this selected
+range. Earlier unrelated oversized-file/review gaps remain pending. Source
+inspection and fixture assertions do not qualify Docker installation, Projects,
+nested workloads, funded Factory, shutdown or persistent-state recreation.
+
 [Decomposition scope and baseline](README.md). This page groups historical
 source reviews; it does not retain obsolete implementations in the target.
 

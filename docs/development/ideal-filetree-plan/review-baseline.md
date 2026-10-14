@@ -1,5 +1,16 @@
 # Prepared slice audit review input baseline
 
+## Bounded release source reconciliation (2026-10-14)
+
+Resulting source `76daa366822e0a135df961d7c9c21713da016bd3` follows merge
+`37076729`. The [selected ledger](coverage/maps/release-docker-current.md) reconciles
+D01–D11/H01/H06 and changed P02/P11 source with current release architecture,
+workflow, Docker installation, native support and operator guidance. Production
+dispatch claims are corrected; native collection remains pending. Original
+review packet hashes were not revalidated, no independent full-slice audit was
+restarted and no native pin advanced. Earlier source/guidance drift stays pending;
+the historical manifests below retain their exact reproducibility scopes.
+
 The preparation sections below retain the historical 2026-10-05 review scope.
 Use the [current input baseline](#current-input-baseline-2026-10-07) for the
 2026-10-07 correctness and maintenance audit preparation.

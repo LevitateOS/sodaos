@@ -1,5 +1,17 @@
 # Package ownership and execution topology
 
+## Docker release ownership (2026-10-14)
+
+At `76daa366`, release-build packages the common candidate, release-image selects
+outputs, release-deliver verifies, admits and publishes, and release-tools owns the
+operator/controller flow. `lib/release-inputs` defines shared build/completion and
+RPM representations. The [ledger](coverage/maps/release-docker-current.md) maps
+new leaves and mixed duties. Acceptance owns native observations; delivery reads
+them and does not become a native driver. Docker runs existing systemd/Podman
+applications and Projects inside the outer container. No VM, sidecar, new crate
+or Go/Rust ownership move follows. Native collection and installed proof remain
+pending.
+
 ## Scoped native frontend boundary (2026-10-13)
 
 Soda `5d281760..ac22514b` and Fountain `6abafdb409..c72f5607b2` retain the

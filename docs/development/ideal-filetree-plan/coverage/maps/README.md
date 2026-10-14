@@ -1,5 +1,12 @@
 # Responsibility map index
 
+## Current selected release map
+
+[Docker release responsibilities](release-docker-current.md) covers the complete
+76-path selected delta at `76daa366`, including changed mixed duties and retired
+documentation. It supplements the historical map families below and is one H06
+upkeep leaf beyond the pinned 2,888-path source inventory.
+
 ### Responsibilities inside mixed and oversized files
 
 Current source `519b76bd` and authored documentation delta, 2026-10-07.

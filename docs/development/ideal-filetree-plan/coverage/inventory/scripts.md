@@ -1,5 +1,13 @@
 # Tracked files: scripts
 
+## Current Docker release leaves (2026-10-14)
+
+Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+
+| Current tracked path | Owner / disposition | Responsibility evidence |
+| --- | --- | --- |
+| [scripts/check-docker-packaging.sh](../../../../../scripts/check-docker-packaging.sh) | H06/D07 / retained | Required CI Docker packaging/admission checks; source checks do not qualify published runtime bytes. |
+
 Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):
 extension builder/maps remove the obsolete panel re-export graph and check affected package closure,
 assets and notices under the existing D03/H05 owners. The added branded

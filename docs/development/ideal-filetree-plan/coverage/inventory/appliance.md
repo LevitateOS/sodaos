@@ -1,5 +1,19 @@
 # Tracked files: system
 
+## Current Docker release leaves (2026-10-14)
+
+Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+
+| Current tracked path | Owner / disposition | Responsibility evidence |
+| --- | --- | --- |
+| [system/docker/network-scope.conf](../../../../../system/docker/network-scope.conf) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
+| [system/docker/project-scope.conf](../../../../../system/docker/project-scope.conf) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
+| [system/docker/image-import.conf](../../../../../system/docker/image-import.conf) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
+| [system/docker/.dockerignore](../../../../../system/docker/.dockerignore) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
+| [system/docker/Dockerfile](../../../../../system/docker/Dockerfile) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
+| [system/docker/compose.yaml](../../../../../system/docker/compose.yaml) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
+| [system/docker/soda-docker-init.service](../../../../../system/docker/soda-docker-init.service) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
+
 [Inventory index](README.md) · [Coverage scope](../README.md).
 
 Current path navigation reconciled at `63ace9cd` (2026-10-11); detailed symbol/body rows remain pinned to `519b76bd` unless a row says otherwise.
