@@ -66,6 +66,42 @@ impl Drop for ControllerRun {
 pub fn start_controller_run(o: &Options) -> Result<ControllerRun, String> {
     let start_ns = monotonic_ns()?;
     let argv = controller_argv(o, start_ns);
+    start_command(
+        &argv,
+        start_ns,
+        &o.out,
+        &format!("soda-candidate: {}", describe(o)),
+        o.non_interactive,
+    )
+}
+
+pub fn start_release_controller(
+    controller: &str,
+    args: &[String],
+    out: &str,
+    non_interactive: bool,
+) -> Result<ControllerRun, String> {
+    let start_ns = monotonic_ns()?;
+    let mut argv = vec![controller.to_owned()];
+    argv.extend_from_slice(args);
+    if unsafe { libc::geteuid() } != 0 {
+        argv.insert(0, "sudo".into());
+    }
+    start_command(
+        &argv,
+        start_ns,
+        out,
+        "soda-release: production build",
+        non_interactive,
+    )
+}
+fn start_command(
+    argv: &[String],
+    start_ns: i64,
+    out: &str,
+    description: &str,
+    non_interactive: bool,
+) -> Result<ControllerRun, String> {
     let mut command = Command::new(&argv[0]);
     command.args(&argv[1..]);
     if let Ok(cwd) = std::env::current_dir() {
@@ -75,12 +111,12 @@ pub fn start_controller_run(o: &Options) -> Result<ControllerRun, String> {
     command.stdin(Stdio::inherit());
     command.stdout(Stdio::inherit());
     command.stderr(Stdio::piped());
-    let tty = is_terminal(libc::STDERR_FILENO) && !o.non_interactive;
+    let tty = is_terminal(libc::STDERR_FILENO) && !non_interactive;
     let width = term_width(libc::STDERR_FILENO);
     let stderr_box: Box<dyn Write + Send> = Box::new(std::io::stderr());
     let view = Renderer::new(stderr_box, tty, width);
-    view.set_out_dir(&o.out);
-    view.note(&format!("soda-candidate: {}", describe(o)))?;
+    view.set_out_dir(out);
+    view.note(description)?;
     let mut child = command.spawn().map_err(|e| e.to_string())?;
     let child_stderr = child.stderr.take();
     if let Ok(pid) = i32::try_from(child.id()) {

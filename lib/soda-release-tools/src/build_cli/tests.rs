@@ -238,3 +238,15 @@ fn worker_failure_keeps_message_and_exit_1() {
     assert!(matches!(err, ToolError::Message(ref message) if message == "boom"));
     assert_eq!(build_exit_code(Some(&err)), 1);
 }
+
+#[test]
+fn preflight_cannot_be_used_as_a_worker_completion_boundary() {
+    let flags = BuildFlags {
+        preflight: true,
+        worker_build: true,
+        ..Default::default()
+    };
+    assert!(admit_build_dispatch(&flags)
+        .unwrap_err()
+        .contains("operator operation"));
+}

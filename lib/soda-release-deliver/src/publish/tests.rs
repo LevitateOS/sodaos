@@ -1,4 +1,7 @@
 use super::*;
+fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(), Error> {
+    super::stage_github(gh, manifest, directory, |_| Ok(()))
+}
 use assets::{write_json, Qualification, ISO_NAME, MAX_ASSET_BYTES};
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -56,6 +59,8 @@ fn fixture() -> (TempDir, Manifest) {
     let m = Manifest {
         format: 1,
         tag: "v0.1.0".to_owned(),
+        distribution: crate::model::Distribution::Appliance,
+        docker: None,
         soda_revision: "a".repeat(40),
         forgejo_revision: "b".repeat(40),
         iso: ISO_NAME.to_owned(),
@@ -221,14 +226,13 @@ fn promotion_requires_observed_revision_smoke_confirmation_and_actual_download()
         json(serde_json::json!({"databaseId":17})),
         remote(&m, &items, false, true, true),
         Ok(vec![]),
-        Ok(vec![]),
-        remote(&m, &items, false, false, true),
     ]);
     let downloaded = dir.path().join(ISO_NAME);
-    promote(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
+    qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
     assert_eq!(gh.calls.borrow()[5][1], "verify-asset");
-    assert!(gh.calls.borrow()[6].contains(&"--prerelease=false".to_owned()));
-    let receipt: Qualification = read_json(&dir.path().join("qualification.json")).unwrap();
+    assert_eq!(gh.calls.borrow().len(), 6);
+    let receipt: Qualification =
+        read_json(&dir.path().join("appliance-qualification.json")).unwrap();
     assert_eq!(receipt.soda_revision, m.soda_revision);
     assert_eq!(receipt.forgejo_revision, m.forgejo_revision);
     assert_eq!(receipt.observed_soda_revision, m.soda_revision);
@@ -238,12 +242,12 @@ fn promotion_requires_observed_revision_smoke_confirmation_and_actual_download()
     assert_eq!(receipt.boot, "passed");
     assert_eq!(receipt.applications, "passed");
     let gh = Script::new(vec![]);
-    assert!(promote(&gh, dir.path(), &downloaded, &"c".repeat(40), true).is_err());
+    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &"c".repeat(40), true).is_err());
     assert!(gh.calls.borrow().is_empty());
-    assert!(promote(&gh, dir.path(), &downloaded, &m.soda_revision, false).is_err());
+    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, false).is_err());
     assert!(gh.calls.borrow().is_empty());
     std::fs::write(dir.path().join(ISO_NAME), b"tampered").unwrap();
-    assert!(promote(&gh, dir.path(), &downloaded, &m.soda_revision, true).is_err());
+    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).is_err());
     assert!(gh.calls.borrow().is_empty());
 }
 #[test]

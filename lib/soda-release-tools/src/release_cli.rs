@@ -3,7 +3,7 @@ use clap::{Arg, ArgAction, Command};
 use soda_release_deliver::publish;
 use std::path::Path;
 
-fn command() -> Command {
+pub(crate) fn command() -> Command {
     let release_inputs = |action, help| {
         ["candidate", "tag", "notes", "out"]
             .into_iter()
@@ -14,34 +14,49 @@ fn command() -> Command {
     let prepare = release_inputs(
         "prepare",
         "Prepare the complete release bundle locally without publication",
+    )
+    .arg(
+        Arg::new("distribution")
+            .long("distribution")
+            .default_value("appliance")
+            .value_parser(["appliance", "docker", "all"]),
     );
-    let stage = release_inputs(
-        "stage",
-        "Publish an explicitly unqualified immutable prerelease",
-    );
-    let stage_docker = ["candidate", "auth-file", "out"].into_iter().fold(
-        Command::new("stage-docker")
-            .about("Publish an unqualified Docker version to GHCR and verify anonymous readback"),
-        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
-    );
-    let verify_docker = ["candidate", "out"].into_iter().fold(
-        Command::new("verify-docker")
-            .about("Record anonymous GHCR identity without uploading again"),
-        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
-    );
-    let promote = ["input", "downloaded-iso", "observed-revision"]
-        .into_iter()
-        .fold(
-            Command::new("promote")
-                .about("Promote unchanged bytes after native install/boot smoke checks"),
-            |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+    let stage = Command::new("stage")
+        .about("Stage every selected target as one unqualified immutable prerelease")
+        .arg(Arg::new("input").long("input").required(true).num_args(1))
+        .arg(Arg::new("auth-file").long("auth-file").num_args(1));
+    let verify_docker = Command::new("verify-docker")
+        .about("Finish public registry readback without repeating an upload")
+        .arg(Arg::new("input").long("input").required(true).num_args(1));
+    let promote = Command::new("promote")
+        .about("Promote the unchanged qualified digest and eligible recommendation pointers")
+        .arg(Arg::new("input").long("input").required(true).num_args(1))
+        .arg(Arg::new("auth-file").long("auth-file").num_args(1));
+    let status = Command::new("status")
+        .about("Inspect prepared inputs, remote state, blockers and next action without mutation")
+        .arg(Arg::new("input").long("input").required(true).num_args(1));
+    let qualify = Command::new("qualify")
+        .about("Validate exact installed evidence for every selected target")
+        .arg(Arg::new("input").long("input").required(true).num_args(1))
+        .args(
+            ["evidence", "downloaded-iso", "observed-revision"]
+                .map(|name| Arg::new(name).long(name).num_args(1)),
         )
         .arg(
             Arg::new("smoke-passed")
                 .long("smoke-passed")
-                .help("Confirm this downloaded ISO installed, booted without media, and all candidate images were present")
-                .action(ArgAction::SetTrue)
-                .required(true),
+                .action(ArgAction::SetTrue),
+        );
+    let start = Command::new("start")
+        .about("Guide a production build and local preparation; never publish or deploy")
+        .args(
+            ["distribution", "tag", "worker-config", "notes", "out"]
+                .map(|name| Arg::new(name).long(name).num_args(1)),
+        )
+        .arg(
+            Arg::new("non-interactive")
+                .long("non-interactive")
+                .action(ArgAction::SetTrue),
         );
     let qualify_upgrade = ["candidate", "evidence"].into_iter().fold(
         Command::new("qualify-upgrade")
@@ -52,9 +67,11 @@ fn command() -> Command {
         .subcommand_required(true)
         .subcommand(prepare)
         .subcommand(stage)
-        .subcommand(stage_docker)
         .subcommand(verify_docker)
         .subcommand(promote)
+        .subcommand(start)
+        .subcommand(status)
+        .subcommand(qualify)
         .subcommand(qualify_upgrade)
 }
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
@@ -76,25 +93,61 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
             .ok_or_else(|| format!("{name} required"))
     };
     match action {
-        "stage-docker" | "verify-docker" => {
-            let candidate = Path::new(get("candidate")?);
-            let out = Path::new(get("out")?);
-            let receipt = if action == "stage-docker" {
-                publish::registry::stage(
-                    &publish::Gh,
-                    &publish::registry::Skopeo,
-                    candidate,
-                    Path::new(get("auth-file")?),
-                    out,
-                )
+        "start" => crate::release_start::run(flags),
+        "stage" | "promote" => {
+            let out = Path::new(get("input")?);
+            let auth = flags
+                .get_one::<String>("auth-file")
+                .map(|file| Path::new(file));
+            let result = if action == "stage" {
+                publish::stage(&publish::Gh, &publish::registry::Skopeo, out, auth)
             } else {
-                publish::registry::verify(&publish::Gh, &publish::registry::Skopeo, candidate, out)
-            }
+                publish::promote(&publish::Gh, &publish::registry::Skopeo, out, auth)
+            };
+            result.map_err(|error| error.to_string())
+        }
+        "status" => {
+            let result = publish::status(
+                &publish::Gh,
+                &publish::registry::Skopeo,
+                Path::new(get("input")?),
+            )
             .map_err(|error| error.to_string())?;
             println!(
-                "Unqualified Docker candidate verified publicly: {}",
-                receipt.reference
+                "{}",
+                serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
             );
+            Ok(())
+        }
+        "verify-docker" => {
+            let input = Path::new(get("input")?);
+            publish::verify_registry(&publish::Gh, &publish::registry::Skopeo, input)
+                .map_err(|error| error.to_string())
+        }
+        "qualify" => {
+            let input = Path::new(get("input")?);
+            let manifest = publish::assets::load(input).map_err(|error| error.to_string())?;
+            if manifest.docker.is_some() {
+                publish::qualify_docker(
+                    &publish::Gh,
+                    &publish::registry::Skopeo,
+                    &manifest,
+                    input,
+                    Path::new(get("evidence")?),
+                )
+                .map_err(|error| error.to_string())?;
+            }
+            if manifest.has_appliance() {
+                publish::qualify_appliance(
+                    &publish::Gh,
+                    input,
+                    Path::new(get("downloaded-iso")?),
+                    get("observed-revision")?,
+                    flags.get_flag("smoke-passed"),
+                )
+                .map_err(|error| error.to_string())?;
+            }
+            println!("Required qualification receipts validated; use status before promotion.");
             Ok(())
         }
         "qualify-upgrade" => soda_release_deliver::upgrade::stamp(
@@ -103,29 +156,22 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         )
         .map(|_| ())
         .map_err(|e| e.to_string()),
-        "prepare" | "stage" => {
+        "prepare" => {
             let manifest = publish::prepare(
                 Path::new(get("candidate")?),
                 get("tag")?,
+                crate::release_start::distribution(get("distribution")?)?,
                 Path::new(get("notes")?),
                 Path::new(get("out")?),
             )
             .map_err(|e| e.to_string())?;
-            if action == "stage" {
-                publish::stage(&publish::Gh, &manifest, Path::new(get("out")?))
-                    .map_err(|e| e.to_string())
-            } else {
-                Ok(())
-            }
+            println!(
+                "Prepared {} at {}; no remote publication.",
+                manifest.tag,
+                get("out")?
+            );
+            Ok(())
         }
-        "promote" => publish::promote(
-            &publish::Gh,
-            Path::new(get("input")?),
-            Path::new(get("downloaded-iso")?),
-            get("observed-revision")?,
-            flags.get_flag("smoke-passed"),
-        )
-        .map_err(|e| e.to_string()),
         _ => Err("unknown release action".to_owned()),
     }
 }
@@ -139,43 +185,28 @@ pub fn main() {
 mod tests {
     use super::*;
     #[test]
-    fn release_cli_requires_exact_inputs_and_handles_help() {
+    fn commands_require_explicit_inputs() {
         assert!(run(["soda-release", "--help"].map(str::to_owned)).is_ok());
-        assert!(run(["soda-release", "prepare"].map(str::to_owned)).is_err());
-        assert!(run(["soda-release", "stage"].map(str::to_owned)).is_err());
-        assert!(run(["soda-release", "stage-docker"].map(str::to_owned)).is_err());
-        assert!(run(["soda-release", "verify-docker"].map(str::to_owned)).is_err());
-        assert!(run(["soda-release", "qualify-upgrade"].map(str::to_owned)).is_err());
-        assert!(run(["soda-release", "promote", "--input", "missing"].map(str::to_owned)).is_err());
-        for action in ["prepare", "stage"] {
+        for action in [
+            "prepare",
+            "stage",
+            "promote",
+            "qualify",
+            "status",
+            "verify-docker",
+        ] {
+            assert!(run(["soda-release", action].map(str::to_owned)).is_err());
+        }
+        for action in ["stage", "promote", "qualify", "status", "verify-docker"] {
             assert!(command()
-                .try_get_matches_from([
-                    "soda-release",
-                    action,
-                    "--candidate",
-                    "candidate",
-                    "--tag",
-                    "v0.1.0",
-                    "--notes",
-                    "notes.md",
-                    "--out",
-                    "new-release",
-                ])
+                .try_get_matches_from(["soda-release", action, "--input", "prepared"])
                 .is_ok());
         }
-        let promote = [
-            "soda-release",
-            "promote",
-            "--input",
-            "release",
-            "--downloaded-iso",
-            "download.iso",
-            "--observed-revision",
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        ];
-        assert!(command().try_get_matches_from(promote).is_err());
         assert!(command()
-            .try_get_matches_from(promote.into_iter().chain(["--smoke-passed"]))
-            .is_ok());
+            .try_get_matches_from(["soda-release", "stage", "--candidate", "candidate"])
+            .is_err());
+        assert!(command()
+            .try_get_matches_from(["soda-release", "stage-docker"])
+            .is_err());
     }
 }

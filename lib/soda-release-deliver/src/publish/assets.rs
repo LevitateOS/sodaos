@@ -1,5 +1,8 @@
 //! Exact release files and the bounded install/boot promotion receipt.
-use crate::{model::MediaBinding, Error};
+use crate::{
+    model::{Distribution, DockerMetadata, MediaBinding},
+    Error,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
@@ -8,12 +11,11 @@ use std::path::Path;
 
 pub const MAX_ASSET_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 pub const ISO_NAME: &str = "sodaos-x86_64.iso";
-const REQUIRED_METADATA: [&str; 8] = [
+const REQUIRED_METADATA: [&str; 7] = [
     "sodaos-source.tar",
     "fountain-source.tar",
     "payload.json",
     "candidate.json",
-    "media.json",
     "app-inputs.json",
     "packages.txt",
     "presentation.json",
@@ -32,6 +34,8 @@ pub struct Asset {
 pub struct Manifest {
     pub format: u32,
     pub tag: String,
+    pub distribution: Distribution,
+    pub docker: Option<DockerMetadata>,
     pub soda_revision: String,
     pub forgejo_revision: String,
     pub iso: String,
@@ -63,7 +67,7 @@ pub(super) fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T
         path.to_str().ok_or_else(|| failure("invalid path"))?,
         1 << 20,
     )?;
-    serde_json::from_slice(&bytes).map_err(|_| failure("release metadata refused"))
+    crate::json_serde::strict(&bytes).map_err(|_| failure("release metadata refused"))
 }
 pub(super) fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), Error> {
     let bytes =
@@ -142,6 +146,9 @@ fn copy_asset(source: &Path, out: &Path, name: &str) -> Result<Asset, Error> {
     })
 }
 impl Manifest {
+    pub fn has_appliance(&self) -> bool {
+        self.distribution != Distribution::Docker
+    }
     pub(super) fn asset(&self, name: &str) -> Result<&Asset, Error> {
         self.assets
             .iter()
@@ -158,9 +165,11 @@ impl Manifest {
             || !valid_tag(&self.tag)
             || !crate::buildx::is_revision(&self.soda_revision)
             || !crate::buildx::is_revision(&self.forgejo_revision)
-            || self.iso != ISO_NAME
             || self.notes.trim().is_empty()
-            || self.assets.len() != REQUIRED_METADATA.len() + 2 + usize::from(has_upgrade)
+            || self.assets.len()
+                != REQUIRED_METADATA.len()
+                    + 3 * (usize::from(self.has_appliance()) + usize::from(self.docker.is_some()))
+                    + usize::from(has_upgrade)
         {
             return Err(failure("release manifest refused"));
         }
@@ -174,10 +183,50 @@ impl Manifest {
                 return Err(failure("release asset inventory refused"));
             }
         }
-        self.asset(&self.iso)?;
-        let rootfs = self.asset(&self.rootfs)?;
-        if rootfs.name != format!("{}-rootfs.img", rootfs.sha256) {
-            return Err(failure("rootfs asset must be hash-named"));
+        if self.has_appliance() {
+            if self.iso != ISO_NAME {
+                return Err(failure("installer asset required"));
+            }
+            self.asset(&self.iso)?;
+            self.asset("media.json")?;
+            let rootfs = self.asset(&self.rootfs)?;
+            if rootfs.name != format!("{}-rootfs.img", rootfs.sha256) {
+                return Err(failure("rootfs asset must be hash-named"));
+            }
+        } else if !self.iso.is_empty() || !self.rootfs.is_empty() || has_upgrade {
+            return Err(failure("Docker-only release cannot carry appliance assets"));
+        }
+        if self.docker.is_some() != (self.distribution != Distribution::Appliance) {
+            return Err(failure("selected Docker binding required"));
+        }
+        if let Some(docker) = &self.docker {
+            docker.require_production()?;
+            if docker.distribution != self.distribution
+                || docker.release_tag != self.tag
+                || docker.soda_revision != self.soda_revision
+                || docker.forgejo_revision != self.forgejo_revision
+            {
+                return Err(failure("Docker binding differs from prepared release"));
+            }
+            for (name, identity) in [
+                ("sodaos-docker-compose.yaml", &docker.compose),
+                ("docker-packages.txt", &docker.packages),
+                ("sodaos-source.tar", &docker.soda_source),
+                ("fountain-source.tar", &docker.forgejo_source),
+            ] {
+                let asset = self.asset(name)?;
+                if asset.sha256 != identity.sha256 || asset.bytes != identity.bytes {
+                    return Err(failure("Docker release asset differs from binding"));
+                }
+            }
+            self.asset("docker.json")?;
+            if self.asset("candidate.json")?.sha256 != docker.candidate_sha256
+                || self.asset("payload.json")?.sha256 != docker.payload_sha256
+            {
+                return Err(failure(
+                    "Docker candidate/payload assets differ from binding",
+                ));
+            }
         }
         for name in REQUIRED_METADATA {
             self.asset(name)?;
@@ -214,6 +263,7 @@ impl Qualification {
 pub fn prepare(
     candidate: &Path,
     tag: &str,
+    distribution: Distribution,
     notes_path: &Path,
     out: &Path,
 ) -> Result<Manifest, Error> {
@@ -225,37 +275,20 @@ pub fn prepare(
         .to_str()
         .ok_or_else(|| failure("invalid candidate path"))?;
     let (payload, c, _) = crate::admission::load_admitted_candidate(candidate_path)?;
-    let media = MediaBinding::decode_lenient(&crate::document::read_file(
-        media_path
-            .to_str()
-            .ok_or_else(|| failure("invalid media path"))?,
-        1 << 20,
-    )?)
-    .map_err(|_| failure("media metadata refused"))?;
-    if !crate::model::valid_media_binding(&media, &payload, &c) || payload.architecture != "x86_64"
-    {
-        return Err(failure("media does not bind the x86_64 candidate"));
-    }
-    let rootfs = Path::new(&media.rootfs.path)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| failure("invalid rootfs path"))?
-        .to_owned();
-    if media.iso.path != "installer.iso"
-        || media.rootfs.path != rootfs
-        || rootfs != format!("{}-rootfs.img", media.rootfs.sha256)
-    {
-        return Err(failure(
-            "media must name the producer ISO and hash-bound rootfs",
-        ));
-    }
-    if media.rootfs_url
-        != format!("https://github.com/LevitateOS/sodaos/releases/download/{tag}/{rootfs}")
-    {
-        return Err(failure(
-            "media rootfs URL must name this exact GitHub tag and asset",
-        ));
-    }
+    let media = if distribution != Distribution::Docker {
+        Some(admit_media(&media_path, &payload, &c, tag)?)
+    } else {
+        None
+    };
+    let docker = if distribution != Distribution::Appliance {
+        let value = crate::docker::admit_publication(candidate_path)?;
+        if value.release_tag != tag || value.distribution != distribution {
+            return Err(failure("Docker build selection differs from release"));
+        }
+        Some(value)
+    } else {
+        None
+    };
     let notes = String::from_utf8(crate::document::read_file(
         notes_path
             .to_str()
@@ -267,19 +300,30 @@ pub fn prepare(
         return Err(failure("release notes required"));
     }
     fs::create_dir(out).map_err(|_| failure("new release output directory required"))?;
-    let parent = media_path
-        .parent()
-        .ok_or_else(|| failure("media parent required"))?;
-    let mut assets = vec![
-        copy_asset(&parent.join(&media.iso.path), out, ISO_NAME)?,
-        copy_asset(&parent.join(&media.rootfs.path), out, &rootfs)?,
-    ];
-    if assets[0].sha256 != media.iso.sha256
-        || assets[0].bytes != media.iso.bytes as u64
-        || assets[1].sha256 != media.rootfs.sha256
-        || assets[1].bytes != media.rootfs.bytes as u64
-    {
-        return Err(failure("media bytes differ from their recorded hashes"));
+    let mut assets = Vec::new();
+    if let Some((media, rootfs)) = &media {
+        let parent = media_path
+            .parent()
+            .ok_or_else(|| failure("media parent required"))?;
+        assets.push(copy_asset(&parent.join(&media.iso.path), out, ISO_NAME)?);
+        assets.push(copy_asset(&parent.join(&media.rootfs.path), out, rootfs)?);
+        if assets[0].sha256 != media.iso.sha256
+            || assets[0].bytes != media.iso.bytes as u64
+            || assets[1].sha256 != media.rootfs.sha256
+            || assets[1].bytes != media.rootfs.bytes as u64
+        {
+            return Err(failure("media bytes differ from recorded hashes"));
+        }
+        assets.push(copy_asset(&media_path, out, "media.json")?);
+    }
+    if docker.is_some() {
+        for (source, name) in [
+            (crate::docker::METADATA_PATH, "docker.json"),
+            (crate::docker::PACKAGES_PATH, "docker-packages.txt"),
+            (crate::docker::COMPOSE_PATH, "sodaos-docker-compose.yaml"),
+        ] {
+            assets.push(copy_asset(&candidate.join(source), out, name)?);
+        }
     }
     for (source, name) in [
         ("source.tar", "sodaos-source.tar"),
@@ -322,7 +366,6 @@ pub fn prepare(
             "Fountain source differs from the compiled candidate",
         ));
     }
-    assets.push(copy_asset(&media_path, out, "media.json")?);
     if !payload
         .upgrade_from
         .as_deref()
@@ -334,7 +377,10 @@ pub fn prepare(
         receipt.validate(
             &payload,
             &c,
-            &media,
+            &media
+                .as_ref()
+                .ok_or_else(|| failure("upgrade requires appliance media"))?
+                .0,
             &receipt.source_release,
             &receipt.source_support_sha256,
         )?;
@@ -349,13 +395,37 @@ pub fn prepare(
         tag: tag.to_owned(),
         soda_revision: payload.revision,
         forgejo_revision: c.forgejo_revision,
-        iso: ISO_NAME.to_owned(),
-        rootfs,
+        distribution,
+        docker,
+        iso: if media.is_some() {
+            ISO_NAME.to_owned()
+        } else {
+            String::new()
+        },
+        rootfs: media.map(|(_, rootfs)| rootfs).unwrap_or_default(),
         notes,
         assets,
     };
     manifest.validate()?;
     write_json(&out.join("release.json"), &manifest)?;
+    #[derive(Serialize)]
+    struct Operator {
+        candidate: String,
+    }
+    let bytes = serde_json::to_vec(&Operator {
+        candidate: fs::canonicalize(candidate)
+            .map_err(|_| failure("candidate path unavailable"))?
+            .to_string_lossy()
+            .into_owned(),
+    })
+    .map_err(|_| failure("operator request refused"))?;
+    crate::buildx::write_new(
+        out.join("operator.json")
+            .to_str()
+            .ok_or_else(Error::refused)?,
+        &bytes,
+        0o600,
+    )?;
     let mut sums: Vec<Asset> = manifest.assets.clone();
     sums.push(inspect(&out.join("release.json"), "release.json")?);
     let checksums = sums
@@ -366,9 +436,90 @@ pub fn prepare(
     Ok(manifest)
 }
 pub(super) fn inventory(manifest: &Manifest, directory: &Path) -> Result<Vec<Asset>, Error> {
-    let mut assets = manifest.assets.clone();
+    manifest.validate()?;
+    let mut assets = Vec::new();
+    for expected in &manifest.assets {
+        let actual = inspect(&directory.join(&expected.name), &expected.name)?;
+        if &actual != expected {
+            return Err(failure("prepared release asset changed"));
+        }
+        assets.push(actual);
+    }
+    if let Some(expected) = &manifest.docker {
+        let actual: DockerMetadata = read_json(&directory.join("docker.json"))?;
+        if &actual != expected {
+            return Err(failure("prepared Docker metadata changed"));
+        }
+    }
     for name in ["release.json", "SHA256SUMS"] {
         assets.push(inspect(&directory.join(name), name)?);
     }
     Ok(assets)
+}
+
+fn admit_media(
+    media_path: &Path,
+    payload: &crate::payload::Payload,
+    c: &crate::model::Candidate,
+    tag: &str,
+) -> Result<(MediaBinding, String), Error> {
+    let media = MediaBinding::decode_lenient(&crate::document::read_file(
+        media_path
+            .to_str()
+            .ok_or_else(|| failure("invalid media path"))?,
+        1 << 20,
+    )?)
+    .map_err(|_| failure("media metadata refused"))?;
+    if !crate::model::valid_media_binding(&media, &payload, &c) || payload.architecture != "x86_64"
+    {
+        return Err(failure("media does not bind the x86_64 candidate"));
+    }
+    let rootfs = Path::new(&media.rootfs.path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| failure("invalid rootfs path"))?
+        .to_owned();
+    if media.iso.path != "installer.iso"
+        || media.rootfs.path != rootfs
+        || rootfs != format!("{}-rootfs.img", media.rootfs.sha256)
+    {
+        return Err(failure(
+            "media must name the producer ISO and hash-bound rootfs",
+        ));
+    }
+    if media.rootfs_url
+        != format!("https://github.com/LevitateOS/sodaos/releases/download/{tag}/{rootfs}")
+    {
+        return Err(failure(
+            "media rootfs URL must name this exact GitHub tag and asset",
+        ));
+    }
+    Ok((media, rootfs))
+}
+
+pub fn load(directory: &Path) -> Result<Manifest, Error> {
+    let manifest: Manifest = read_json(&directory.join("release.json"))?;
+    inventory(&manifest, directory)?;
+    Ok(manifest)
+}
+pub(super) fn candidate(
+    directory: &Path,
+    manifest: &Manifest,
+) -> Result<std::path::PathBuf, Error> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Operator {
+        candidate: String,
+    }
+    let operator: Operator = read_json(&directory.join("operator.json"))?;
+    let path = std::path::PathBuf::from(operator.candidate);
+    if let Some(expected) = &manifest.docker {
+        let actual = crate::docker::admit_publication(path.to_str().ok_or_else(Error::refused)?)?;
+        if &actual != expected {
+            return Err(failure(
+                "local candidate differs from prepared Docker release",
+            ));
+        }
+    }
+    Ok(path)
 }

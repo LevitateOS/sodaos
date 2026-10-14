@@ -6,26 +6,24 @@ from [release-tools](../soda-release-tools/README.md).
 
 ## Boundaries
 
-- `publish::prepare` binds the current candidate, media, source archives and
-  provenance to a fresh local asset set and checks GitHub's per-file size limit.
-- `publish::stage` creates a missing tag at the CI-qualified built revision or
-  verifies the existing tag, uploads a complete draft, compares
-  remote sizes and hashes, then publishes an explicitly unqualified immutable
-  prerelease. It never overwrites an existing release.
-- `publish::promote` binds the operator's observed installed revision and explicit
-  install/boot/image smoke confirmation to the downloaded ISO, generates the
-  receipt, verifies the download through GitHub and promotes unchanged assets to latest.
-- `publish::registry::stage` admits production Docker artifacts and exact-source
-  `main` CI, refuses an existing GHCR version, uploads with preserved digests, and
-  records `registry.json` only after anonymous manifest and image readback match.
-  `publish::registry::verify` performs that readback without replaying an upload.
-  These operations never move `latest` or qualify the runtime.
+- `publish::prepare` binds one selected `appliance`, `docker` or `all` candidate
+  to a fresh exact public asset set; large registry archives and operator paths stay local.
+- `publish::stage` checks prepared bytes, exact-source CI and tag, uploads/reads back
+  the Docker version anonymously, then publishes the complete immutable GitHub prerelease.
+- `publish::qualify_appliance` retains the existing downloaded-ISO/native-smoke gate.
+  `publish::qualify_docker` verifies the actual public installation downloads, registry
+  identity and finalized native observations with the existing acceptance reader.
+- `publish::promote` rechecks all selected receipts and original evidence, preserves
+  the public image digest while moving Docker latest, and updates only eligible GitHub
+  recommendations. Docker-only promotion confirms appliance latest is unchanged.
+- `publish::status` observes identities, remote pointers, blockers and partial attempts
+  without mutation. Failed promotions retain their attempt marker and refuse replay.
 - `check::check_candidate` verifies native candidate archives and identities.
 - `docker::record` derives and writes Docker metadata once from the completed
   artifacts. `docker::verify` recomputes its binding; the candidate checker invokes
   it whenever a `docker/` artifact directory is present. `docker::admit_publication`
   additionally requires production purpose. These APIs do not build, publish or
-  qualify a runtime; the integrated producer and GHCR transport are separate work.
+  qualify a runtime; the integrated producer and GHCR transport are separate owners.
 - `upgrade` admits one complete downloaded release, validates its external native
   transition receipt, and stamps a receipt only from the fixed concrete native
   observation files. Prospective source declarations alone grant no upgrade
@@ -33,8 +31,9 @@ from [release-tools](../soda-release-tools/README.md).
 - `native` retains the restricted Skopeo boundary for local OCI artifact signing
   and verification. These packaging keys do not replace GitHub's release attestation.
 
-GitHub owns release immutability and publication state. Registry publication has
-no promotion channel, observed-authority database or publisher ledger. Failed or uncertain
+GitHub owns release immutability and publication state. Registry promotion moves
+only the qualified digest recommendation; it adds no observed-authority database
+or publisher ledger. Failed or uncertain
 publication is inspected before any retry; uploads never use clobbering.
 
 Staging and promotion both require the latest successful `CI` push run on `main`

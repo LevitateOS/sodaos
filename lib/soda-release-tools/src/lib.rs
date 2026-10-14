@@ -22,3 +22,4 @@ pub mod progress;
 pub mod worker;
 
 pub mod release_cli;
+pub mod release_start;

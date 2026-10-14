@@ -262,6 +262,7 @@ docker compose -f /ABS/PATH/TO/artifacts/docker/compose.yaml up -d
 Production `--distribution all` packages the same candidate for Docker and the
 appliance; supply the existing media inputs and a rootfs URL for the same release
 tag. The [release operator flow](../development/release.md#docker-release-operator-flow)
-owns the implemented `stage-docker`/`verify-docker` GHCR publication commands.
-Complete prepared-release staging, public-image qualification and Docker promotion
-remain pending. A locally built image is not a published or qualified Docker release.
+owns the guided `start`, `status`, `stage`, `verify-docker`, `qualify` and
+`promote` commands. Qualification exercises the exact staged candidate through this
+installation path on a fresh authorized host before its release can be recommended.
+A locally built image is not a published or qualified Docker release.

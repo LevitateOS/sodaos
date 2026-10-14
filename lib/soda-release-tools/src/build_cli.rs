@@ -44,6 +44,10 @@ fn command(name: &str) -> ClapCommand {
             "development",
             "select a development target; building never qualifies or publishes a release",
         ))
+        .arg(boolean(
+            "preflight",
+            "Validate source and admitted worker without starting a build",
+        ))
         .arg(value(
             "target",
             "development boundary: candidate, media or docker (requires --development)",
@@ -108,6 +112,7 @@ fn command(name: &str) -> ClapCommand {
 
 #[derive(Debug, Clone, Default)]
 pub struct BuildFlags {
+    pub preflight: bool,
     pub request: Request,
     pub worker_build: bool,
     pub worker_config: String,
@@ -183,6 +188,9 @@ pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
     };
     request.validate_target()?;
     Ok(BuildFlags {
+        preflight: matches.get_one::<String>("preflight").is_some_and(|value| {
+            matches!(value.as_str(), "true" | "1" | "t" | "T" | "TRUE" | "True")
+        }),
         request,
         worker_build: matches.get_one::<String>("worker-build").is_some_and(|v| {
             v == "true" || v == "1" || v == "t" || v == "T" || v == "TRUE" || v == "True"
@@ -222,6 +230,9 @@ pub fn admit_parent_dispatch(f: &BuildFlags) -> Result<(), String> {
 }
 
 pub fn admit_build_dispatch(f: &BuildFlags) -> Result<(), String> {
+    if f.preflight && f.worker_build {
+        return Err("preflight is an operator operation, not a worker completion boundary".into());
+    }
     if f.worker_build {
         admit_worker_build(f)
     } else {
@@ -427,6 +438,15 @@ pub fn run() -> Result<(), ToolError> {
     }
     watch_build_signals();
     sanitize_build_env(f.worker_build);
+    if f.preflight {
+        bind_build_source(&mut f.request).map_err(ToolError::msg)?;
+        worker::load_worker_config(&f.worker_config, &f.request).map_err(ToolError::msg)?;
+        println!(
+            "Admitted source {} at {} with worker configuration; no build started.",
+            f.request.source, f.request.revision
+        );
+        return Ok(());
+    }
     let mut progress = BuildProgress::new(&progress_title(&f.request)).map_err(ToolError::msg)?;
     let mut err: Option<ToolError> = None;
     if let Err(e) = bind_build_source(&mut f.request) {

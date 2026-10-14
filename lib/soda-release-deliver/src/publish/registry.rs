@@ -96,6 +96,18 @@ pub fn stage(
     out: &Path,
 ) -> Result<Publication, Error> {
     let metadata = docker::admit_publication(path(candidate)?)?;
+    stage_admitted(gh, registry, candidate, auth_file, out, &metadata)
+}
+
+pub(super) fn stage_admitted(
+    gh: &dyn GitHub,
+    registry: &dyn Registry,
+    candidate: &Path,
+    auth_file: &Path,
+    out: &Path,
+    metadata: &DockerMetadata,
+) -> Result<Publication, Error> {
+    metadata.require_production()?;
     let ci_run = check_source_ci(gh, &metadata.soda_revision, &metadata.forgejo_revision)?;
     let auth = std::fs::symlink_metadata(auth_file)
         .map_err(|_| Error::msg("restricted registry auth file required"))?;
@@ -156,6 +168,20 @@ fn record_public(
     ci_run: u64,
     out: &Path,
 ) -> Result<Publication, Error> {
+    let (receipt, raw) = observe_public(registry, metadata, ci_run)?;
+    let mut bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
+    bytes.push(b'\n');
+    write_new(path(&out.join("public-manifest.json"))?, &raw, 0o600)?;
+    write_new(path(&out.join("registry.json"))?, &bytes, 0o600)?;
+    Ok(receipt)
+}
+
+pub(super) fn observe_public(
+    registry: &dyn Registry,
+    metadata: &DockerMetadata,
+    ci_run: u64,
+) -> Result<(Publication, Vec<u8>), Error> {
+    metadata.require_production()?;
     let tag = format!("docker://{DOCKER_REPOSITORY}:{}", metadata.release_tag);
     let raw = run(registry, &["inspect", "--raw", "--no-creds", &tag])?;
     if hash_bytes(&raw) != metadata.image.manifest {
@@ -220,9 +246,70 @@ fn record_public(
         qualified: false,
         image,
     };
-    let mut bytes = serde_json::to_vec_pretty(&receipt).map_err(|_| Error::refused())?;
-    bytes.push(b'\n');
-    write_new(path(&out.join("public-manifest.json"))?, &raw, 0o600)?;
-    write_new(path(&out.join("registry.json"))?, &bytes, 0o600)?;
-    Ok(receipt)
+    Ok((receipt, raw))
+}
+
+pub(super) fn promote_digest(
+    registry: &dyn Registry,
+    metadata: &DockerMetadata,
+    auth_file: &Path,
+    directory: &Path,
+) -> Result<(), Error> {
+    let auth = std::fs::symlink_metadata(auth_file)
+        .map_err(|_| Error::msg("restricted registry auth file required"))?;
+    if !auth.is_file() || auth.mode() & 0o077 != 0 || auth.len() == 0 {
+        return Err(Error::msg("restricted regular registry auth file required"));
+    }
+    let digest = directory.join("recommended.digest");
+    run(
+        registry,
+        &[
+            "copy",
+            "--preserve-digests",
+            "--src-no-creds",
+            "--dest-authfile",
+            path(auth_file)?,
+            "--digestfile",
+            path(&digest)?,
+            &format!("docker://{}", metadata.reference()?),
+            &format!("docker://{DOCKER_REPOSITORY}:latest"),
+        ],
+    )?;
+    if std::fs::read_to_string(&digest)
+        .map_err(|_| Error::msg("promotion digest unavailable"))?
+        .trim()
+        != metadata.image.manifest
+    {
+        return Err(Error::msg(
+            "recommendation digest changed; inspect partial promotion",
+        ));
+    }
+    let raw = run(
+        registry,
+        &[
+            "inspect",
+            "--raw",
+            "--no-creds",
+            &format!("docker://{DOCKER_REPOSITORY}:latest"),
+        ],
+    )?;
+    if hash_bytes(&raw) != metadata.image.manifest {
+        return Err(Error::msg(
+            "latest does not identify qualified digest; inspect partial promotion",
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn latest_digest(registry: &dyn Registry) -> Result<String, Error> {
+    let raw = run(
+        registry,
+        &[
+            "inspect",
+            "--raw",
+            "--no-creds",
+            &format!("docker://{DOCKER_REPOSITORY}:latest"),
+        ],
+    )?;
+    Ok(hash_bytes(&raw))
 }
