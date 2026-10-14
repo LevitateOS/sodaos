@@ -13,4 +13,6 @@
 !.artifacts/native/*/project-tools/bin/**
 !.artifacts/native/*/project-tools/licenses
 !.artifacts/native/*/project-tools/licenses/**
+!.artifacts/native/*/project-tools/canlang
+!.artifacts/native/*/project-tools/canlang/**
 # No tools/, images/, rootfs/, runner archive, private fixture or cache exception.
