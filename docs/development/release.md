@@ -18,6 +18,137 @@ Each source-to-target pair requires its own native qualification receipt.
 | Guest/fixture behavior | `tools/acceptance` | `tests/installed` |
 | Publish/promote | `lib/soda-release-deliver` | `soda-release` in `lib/soda-release-tools` |
 
+## Docker release operator flow
+
+This section defines the **target interface to implement**, not commands already
+available. Today `soda-build` has development `candidate`/`media` boundaries and
+produces appliance media for production; `soda-release prepare`, `stage` and
+`promote` require appliance media. Docker packaging is currently the manual
+[builder procedure](../guides/docker.md#build-the-runtime-image). Adding these
+interfaces does not imply that any Docker image is published or qualified.
+The [release architecture](../architecture/release.md#distribution-targets)
+owns distribution identities and qualification requirements.
+
+### Select once and preflight
+
+Extend `soda-release` with a guided `start` entrypoint. The operator selects
+`appliance`, `docker`, or `all`, the version tag, release notes, admitted worker
+configuration and a fresh workflow output directory. The worker configuration
+identifies the Soda and Fountain sources and isolated build paths. Guided mode
+shows these inputs together and validates edits before execution; supplied flags
+pre-seed the same flow. Non-interactive mode requires complete explicit inputs.
+
+Before an expensive build, check clean committed source and the Fountain pin,
+the successful latest `main` push CI for that exact Soda revision, admitted
+controller/worker/toolchain setup, the locked offline Canlang input, supported
+native host and engine prerequisites, output freshness and available capacity.
+Report publisher authentication, repository/tag conflicts and known package
+visibility/access blockers. New GHCR packages default to private; first-time
+publication cannot complete staging until anonymous digest pulls succeed.
+Never infer publication access from a successful source CI run or registry name.
+
+Implementation and its local builds use the task's worktree. Extend worker
+admission to accept a clean, exact-revision linked Git worktree: resolve its Git
+metadata/common directory read-only, archive the selected worktree revision,
+and keep writable outputs, build cache and temporary state below that worktree's
+`.artifacts/`. Do not redirect a build to the canonical checkout to work around
+current admission. Release production still requires that exact revision to
+have passed `main` push CI. Worker admission is an existing prerequisite; `start`
+does not install accounts, grant sudo or admit an executable automatically.
+
+The proposed non-interactive entrypoint is:
+
+```sh
+# Target interface; not implemented yet. Substitute admitted paths and a new tag.
+soda-release start --distribution docker --tag v0.1.0 \
+  --worker-config /home/BUILD/worker.json \
+  --notes /home/BUILD/release-notes.md \
+  --out /home/BUILD/WORKTREE/.artifacts/releases/fresh-workflow \
+  --non-interactive
+```
+
+`start` delegates to the admitted `soda-build` and existing local preparation
+owners, then stops with an unqualified prepared release. It performs no remote
+publication or deployment. One non-secret request records selected inputs,
+source/target identities and artifact locations; credentials remain separate
+restricted inputs. Subsequent commands consume the prepared release instead of
+asking for the version and paths again. Reuse existing progress events and
+artifact/evidence files; do not introduce a publication database or resumable
+build engine. A failed build remains failed and retains its diagnostics.
+
+### Build and artifact handoff
+
+Add `--distribution appliance|docker|all` to `soda-build`, defaulting to
+`appliance` for its existing production callers. Keep `--target` as a development
+completion boundary, distinct from distribution selection. Docker/`all` builds
+also require `--release-tag`; `start` passes its selected tag to the builder so
+the outer image and its metadata carry the same version. For `all`, that tag
+must match the appliance's versioned rootfs URL.
+
+The completion boundaries are:
+
+| Purpose and selection | Completion boundary |
+| --- | --- |
+| Production `appliance` | Common candidate and existing production media |
+| Production `docker` | Common candidate and Docker runtime; no ISO or rootfs URL |
+| Production `all` | One common candidate, Docker runtime and production media |
+| Development `--target candidate` | Common candidate only; no deployment packaging |
+| Development `--target media` | Existing appliance media boundary; appliance distribution only |
+| Development `--target docker --distribution docker` | Common candidate and Docker packaging, explicitly non-qualifying |
+
+Reject media-only inputs for Docker-only/candidate requests and reject conflicting
+development selections before execution. Production `all` requires the existing
+versioned rootfs URL; `start` derives it from the selected tag. Packaging resolves
+its Fedora base and uses the Dockerfile from the same frozen source, consuming
+the verified candidate host archive without recompiling the Soda payload.
+The worker sees neither GitHub nor GHCR publication credentials.
+
+The proposed local artifact handoff is:
+
+| Artifact | Role |
+| --- | --- |
+| `artifacts/docker/image.oci` | Exact outer runtime OCI archive, retained locally |
+| `artifacts/docker/docker.json` | Docker identity/provenance binding defined by architecture |
+| `artifacts/docker/packages.txt` | Sorted actual outer-runtime RPM inventory |
+| `artifacts/docker/compose.yaml` | Exact Compose installation artifact from frozen source |
+
+Local release preparation checks those bytes and emits the existing prepared
+release directory with a manifest recording its selected distributions. Public
+Docker assets are named `docker.json`, `docker-packages.txt` and
+`sodaos-docker-compose.yaml`, beside shared metadata and both corresponding-source
+archives. The manifest records their hashes/sizes and the intended registry
+repository/version/digest. Only appliance selections require `media.json`, ISO
+and rootfs assets. Existing GitHub per-asset limits remain admission gates.
+
+### Stage, qualify and promote
+
+These command forms are the target additions to the existing `soda-release` CLI.
+Prepared input fixes the version, targets and shipping bytes; neither `stage`
+nor `promote` builds an image.
+
+| Step | Target interface and operator-visible result |
+| --- | --- |
+| Inspect | `soda-release status --input PREPARED`: show bound identities, completed local phases, publication observations, blockers and next action. No mutation. |
+| Stage | `soda-release stage --input PREPARED`: recheck source CI and all artifact identities; create/verify the exact Git tag, publish the Docker version image preserving its manifest digest, verify anonymous registry readback, then publish the complete GitHub asset set as an immutable unqualified prerelease. No recommendation changes. |
+| Exercise | Pull the staged digest without registry credentials and download that version's Compose file. Deploy to the explicitly selected fresh native host/volumes and run the required setup, browser, Project, nested-container, factory and persistence checks using the existing acceptance/installed owners. Private prerequisites stay outside public artifacts. |
+| Qualify | `soda-release qualify --input PREPARED --evidence FINALIZED_EVIDENCE`: validate independently observed identities and every required target observation, then stamp the bound local qualification receipt. This command does not deploy or turn an assertion into evidence. |
+| Promote | `soda-release promote --input PREPARED`: recheck exact source CI, frozen remote assets, registry/version digest and all selected qualification receipts; publish their safe summary in release notes and update only the eligible recommendation pointers. No image upload/rebuild. |
+
+Appliance-only and `all` requests retain the existing ISO download, installation
+and boot qualification gate. Docker requires its own exact-public-image receipt;
+the existing appliance `--smoke-passed` confirmation cannot stand in for it.
+`all` waits for both receipts. A Docker-only promotion leaves GitHub's latest ISO
+release unchanged. A prerelease version tag is discoverable but unqualified;
+only promotion may move `ghcr.io/levitateos/sodaos:latest`.
+
+Every phase reports the selected target, actual identities, completed checks,
+restricted diagnostics path and next command. Missing credentials, provider
+funding or host prerequisites identify the blocker without a fabricated pass.
+Same-image stop/start and recreation qualify persistence; changing versions or
+restoring backups is outside this receipt. On ambiguous remote writes, stop and
+inspect actual registry/GitHub state. Preserve partial attempts, do not clobber
+version tags, and do not silently retry or undo a recommendation change.
+
 ## Development vs qualification
 
 - Use the smallest applicable development target while iterating.

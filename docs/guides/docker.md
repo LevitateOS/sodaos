@@ -107,6 +107,10 @@ and qualification.
 This is release-builder work; users of a published runtime image do not build
 components. Begin with the complete verified x86_64 candidate produced by
 `soda-build`, including `host.oci`, its exact source archives and licensing data.
+The commands below are the current manual builder path. Integrated packaging,
+GHCR staging and promotion are defined in the
+[target release operator flow](../development/release.md#docker-release-operator-flow);
+they are not implemented commands or evidence of a published Docker release.
 Import its host image under a local builder name with Skopeo:
 
 ```sh

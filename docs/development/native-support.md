@@ -242,6 +242,11 @@ provides the concrete commands. The Rust `soda-release` entry point in
 `lib/soda-release-tools` delegates to `lib/soda-release-deliver` and the native
 `gh` client. It does not build, install an image, change host trust or reboot.
 
+These are the implemented appliance interfaces. The
+[Docker release operator flow](release.md#docker-release-operator-flow) specifies
+the distribution selector, worktree admission and prepared-input commands to
+implement; those planned flags and subcommands are not available in this CLI yet.
+
 | Operation | Inputs and effects |
 | --- | --- |
 | `stage` | Reads exact candidate/media/source artifacts, prepares a fresh asset directory, checks source CI and per-file size limits, creates or verifies the exact tag, uploads a draft, compares remote hashes and sizes, and publishes an immutable prerelease. Requires GitHub repository write access. |
