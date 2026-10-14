@@ -197,7 +197,7 @@ prune unrelated stores or modify retained appliances.
 `evidence/build.json` records purpose, requested/completed target, candidate hash
 (binding its payload and all application identities), host/payload identities and
 completed checks. Candidate-only output has no media path, live Ignition or packaging
-workspace. All current candidate checks and all five images remain; media-only tools
+workspace. All current candidate checks and all seven images remain; media-only tools
 and signing inputs are not required for that target.
 
 **Current completion boundary:** explicit development targets exit **0** on success

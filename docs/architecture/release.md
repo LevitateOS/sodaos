@@ -116,8 +116,7 @@ deployment. Development qualification admits the exact candidate without a recei
 only through its explicit fixture path. Normal upgrade admission and release
 delivery require the bound native receipt.
 
-No release pair currently has a qualified upgrade claim. The explicit `release`
-maintenance operation closes admission before applying support or releasing the
+The explicit `release` maintenance operation closes admission before applying support or releasing the
 native finalization lock. It fixes all enrolled container identities, includes
 stopped roots, refuses active or uncertain work, and retains a durable operation
 record across interruption and reboot. Boot reconciliation checks actual host,

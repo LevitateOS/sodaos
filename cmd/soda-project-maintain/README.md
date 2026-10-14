@@ -26,7 +26,6 @@ the recorded host/support pair with idle-state checks. The internal
 recovery copies before reopening admission. See the
 [operator procedure](../../docs/guides/operator-setup.md#explicit-release-maintenance)
 for effects and recovery and the [qualification boundary](../../docs/architecture/release.md#host-update-ownership).
-No complete release pair is qualified yet.
 
 Terminal repair includes running and stopped Rocky 10.2 roots with empty managed
 terminal/factory state. A stopped Project remains stopped: native namespace access

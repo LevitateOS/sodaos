@@ -4,9 +4,10 @@ How developers produce and qualify release candidates. Durable model:
 [Release architecture](../architecture/release.md). Tool contracts:
 [Native support](native-support.md).
 
-The [Project runtime upgrade implementation plan](project-runtime-upgrade-plan.md)
-defines the proposed work to preserve terminal support in retained Projects across
-host releases. It does not add a supported upgrade path until qualified.
+Retained-Project transitions follow the
+[release maintenance contract](../architecture/release.md#host-update-ownership)
+and [operator procedure](../guides/operator-setup.md#explicit-release-maintenance).
+Each source-to-target pair requires its own native qualification receipt.
 
 ## Pipeline map
 

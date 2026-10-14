@@ -83,9 +83,9 @@ admission, verification and human merge.
 
 ## Explicit release maintenance
 
-This workflow is implemented but awaits its complete native release-pair journey.
-No upgrade pair is currently qualified. A first-install release or a prospective
-`UpgradeFrom` declaration alone cannot authorize it. The
+Use this workflow only for a source-to-target pair with its exact native
+qualification receipt. A first-install release or a prospective `UpgradeFrom`
+declaration alone cannot authorize it. The
 [release contract](../architecture/release.md#host-update-ownership) owns this
 qualification boundary.
 
