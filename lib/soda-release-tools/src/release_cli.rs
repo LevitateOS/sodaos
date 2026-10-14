@@ -19,6 +19,16 @@ fn command() -> Command {
         "stage",
         "Publish an explicitly unqualified immutable prerelease",
     );
+    let stage_docker = ["candidate", "auth-file", "out"].into_iter().fold(
+        Command::new("stage-docker")
+            .about("Publish an unqualified Docker version to GHCR and verify anonymous readback"),
+        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+    );
+    let verify_docker = ["candidate", "out"].into_iter().fold(
+        Command::new("verify-docker")
+            .about("Record anonymous GHCR identity without uploading again"),
+        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+    );
     let promote = ["input", "downloaded-iso", "observed-revision"]
         .into_iter()
         .fold(
@@ -42,6 +52,8 @@ fn command() -> Command {
         .subcommand_required(true)
         .subcommand(prepare)
         .subcommand(stage)
+        .subcommand(stage_docker)
+        .subcommand(verify_docker)
         .subcommand(promote)
         .subcommand(qualify_upgrade)
 }
@@ -64,6 +76,27 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
             .ok_or_else(|| format!("{name} required"))
     };
     match action {
+        "stage-docker" | "verify-docker" => {
+            let candidate = Path::new(get("candidate")?);
+            let out = Path::new(get("out")?);
+            let receipt = if action == "stage-docker" {
+                publish::registry::stage(
+                    &publish::Gh,
+                    &publish::registry::Skopeo,
+                    candidate,
+                    Path::new(get("auth-file")?),
+                    out,
+                )
+            } else {
+                publish::registry::verify(&publish::Gh, &publish::registry::Skopeo, candidate, out)
+            }
+            .map_err(|error| error.to_string())?;
+            println!(
+                "Unqualified Docker candidate verified publicly: {}",
+                receipt.reference
+            );
+            Ok(())
+        }
         "qualify-upgrade" => soda_release_deliver::upgrade::stamp(
             Path::new(get("candidate")?),
             Path::new(get("evidence")?),
@@ -110,6 +143,8 @@ mod tests {
         assert!(run(["soda-release", "--help"].map(str::to_owned)).is_ok());
         assert!(run(["soda-release", "prepare"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "stage"].map(str::to_owned)).is_err());
+        assert!(run(["soda-release", "stage-docker"].map(str::to_owned)).is_err());
+        assert!(run(["soda-release", "verify-docker"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "qualify-upgrade"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "promote", "--input", "missing"].map(str::to_owned)).is_err());
         for action in ["prepare", "stage"] {

@@ -554,3 +554,6 @@ fn linked_artifacts_and_conflicting_platforms_are_refused() {
         .0
         .contains("revision mismatch"));
 }
+
+#[path = "registry_tests.rs"]
+mod registry_tests;

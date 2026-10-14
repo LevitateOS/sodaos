@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
 pub mod assets;
+pub mod registry;
 pub(crate) use assets::valid_tag;
 use assets::{inspect, inventory, read_json, Asset};
 pub use assets::{prepare, Manifest, Qualification};
@@ -119,6 +120,14 @@ fn check_tag(gh: &dyn GitHub, manifest: &Manifest, create_missing: bool) -> Resu
 /// Only main's latest push run for these exact sources can authorize delivery.
 /// PR merge commits and an older success hidden behind a failed rerun do not qualify.
 fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
+    check_source_ci(gh, &manifest.soda_revision, &manifest.forgejo_revision)
+}
+
+fn check_source_ci(
+    gh: &dyn GitHub,
+    soda_revision: &str,
+    forgejo_revision: &str,
+) -> Result<u64, Error> {
     #[derive(Deserialize)]
     struct FountainSource {
         revision: String,
@@ -131,15 +140,12 @@ fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
             "github.com",
             "--header",
             "Accept: application/vnd.github.raw+json",
-            &format!(
-                "{API}/contents/fountain-source.json?ref={}",
-                manifest.soda_revision
-            ),
+            &format!("{API}/contents/fountain-source.json?ref={}", soda_revision),
         ],
     )?;
     let fountain: FountainSource =
         serde_json::from_slice(&bytes).map_err(|_| Error::msg("Fountain source pin refused"))?;
-    if fountain.revision != manifest.forgejo_revision {
+    if fountain.revision != forgejo_revision {
         return Err(Error::msg(
             "built Fountain revision differs from the CI source pin",
         ));
@@ -162,7 +168,7 @@ fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
         gh,
         &format!(
             "{API}/actions/workflows/ci.yml/runs?head_sha={}&branch=main&event=push&per_page=1",
-            manifest.soda_revision
+            soda_revision
         ),
     )?;
     let Some(run) = runs
@@ -175,7 +181,7 @@ fn check_ci(gh: &dyn GitHub, manifest: &Manifest) -> Result<u64, Error> {
         ));
     };
     if run.id == 0
-        || run.head_sha != manifest.soda_revision
+        || run.head_sha != soda_revision
         || run.head_branch.as_deref() != Some("main")
         || run.event != "push"
         || run.path != ".github/workflows/ci.yml"

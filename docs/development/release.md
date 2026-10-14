@@ -30,6 +30,47 @@ published or qualified.
 The [release architecture](../architecture/release.md#distribution-targets)
 owns distribution identities and qualification requirements.
 
+### Publish a Docker candidate to GHCR
+
+`soda-release stage-docker` implements the registry publication boundary. It
+requires a verified production Docker candidate and the latest successful `main`
+push CI for its exact Soda revision and Fountain pin. It reads the version from
+`docker/docker.json`, refuses an existing registry version, and uses Skopeo's
+digest-preserving copy. Credentials stay in a restricted auth file outside the
+build worker and public artifacts.
+
+```sh
+set +x
+umask 077
+gh auth token | skopeo login --username "$(gh api user --jq .login)" \
+  --password-stdin --authfile /home/BUILD/registry-auth.json ghcr.io
+soda-release stage-docker --candidate /BUILD/artifacts \
+  --auth-file /home/BUILD/registry-auth.json \
+  --out /home/BUILD/WORKTREE/.artifacts/registry-publication
+```
+
+The output directory must be new. After upload, the command fetches the version's
+raw manifest and the digest-selected image without registry credentials. Only
+matching manifest/config digests, platform and source/base labels produce
+`registry.json`, which records the public digest, candidate/archive bindings and
+source CI run. This receipt records an **unqualified** candidate; it is not runtime
+qualification. This command does not move `latest`, create a Git tag or publish a
+GitHub release.
+
+New GHCR packages default to private. If upload succeeds but anonymous readback
+fails, inspect the package's visibility and uploaded digest before retrying.
+Make the package public in its GitHub package settings, then run the read-only
+registry operation below against the same candidate and retained output directory:
+
+```sh
+soda-release verify-docker --candidate /BUILD/artifacts \
+  --out /home/BUILD/WORKTREE/.artifacts/registry-publication
+```
+
+This never uploads again. An existing `registry.json` is not overwritten.
+Full prepared-release staging, public-image qualification and Docker promotion
+remain the subsequent interfaces described below.
+
 ### Select once and preflight
 
 Extend `soda-release` with a guided `start` entrypoint. The operator selects

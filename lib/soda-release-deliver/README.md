@@ -15,6 +15,11 @@ from [release-tools](../soda-release-tools/README.md).
 - `publish::promote` binds the operator's observed installed revision and explicit
   install/boot/image smoke confirmation to the downloaded ISO, generates the
   receipt, verifies the download through GitHub and promotes unchanged assets to latest.
+- `publish::registry::stage` admits production Docker artifacts and exact-source
+  `main` CI, refuses an existing GHCR version, uploads with preserved digests, and
+  records `registry.json` only after anonymous manifest and image readback match.
+  `publish::registry::verify` performs that readback without replaying an upload.
+  These operations never move `latest` or qualify the runtime.
 - `check::check_candidate` verifies native candidate archives and identities.
 - `docker::record` derives and writes Docker metadata once from the completed
   artifacts. `docker::verify` recomputes its binding; the candidate checker invokes
@@ -28,8 +33,8 @@ from [release-tools](../soda-release-tools/README.md).
 - `native` retains the restricted Skopeo boundary for local OCI artifact signing
   and verification. These packaging keys do not replace GitHub's release attestation.
 
-GitHub owns release immutability and publication state. There is no registry
-channel, observed-authority database or publisher ledger. Failed or uncertain
+GitHub owns release immutability and publication state. Registry publication has
+no promotion channel, observed-authority database or publisher ledger. Failed or uncertain
 publication is inspected before any retry; uploads never use clobbering.
 
 Staging and promotion both require the latest successful `CI` push run on `main`
