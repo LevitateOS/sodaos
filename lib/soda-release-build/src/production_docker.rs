@@ -30,7 +30,12 @@ impl Production {
             ));
         }
         let mut inputs = self.inputs.clone();
-        self.pull_resolved_input(&requested, "", "amd64", &mut inputs)?;
+        self.pull_resolved_input(
+            &requested,
+            "",
+            crate::files::oci_architecture(&self.arch)?,
+            &mut inputs,
+        )?;
         self.inputs = inputs;
         Ok(())
     }
@@ -47,7 +52,9 @@ impl Production {
         self.validate()?;
         if ![Distribution::Docker, Distribution::All].contains(&distribution)
             || !soda_build_tools::reader::settings::release_tag(release_tag)
-            || release_tag.eq_ignore_ascii_case("latest")
+            || ["latest", "latest-arm64"]
+                .iter()
+                .any(|tag| release_tag.eq_ignore_ascii_case(tag))
         {
             return Err(Error::msg(
                 "explicit Docker distribution and version required",
@@ -79,6 +86,10 @@ impl Production {
         let recipe_hash = hash_file(&recipe)?;
         let context = PathBuf::from(&self.source).join("system/docker");
         let args = vec![
+            format!(
+                "--build-arg=TARGETARCH={}",
+                crate::files::oci_architecture(&self.arch)?
+            ),
             format!("--build-arg=SODA_BASE_IMAGE={}", candidate.host.config),
             format!("--label=org.opencontainers.image.version={release_tag}"),
             format!(

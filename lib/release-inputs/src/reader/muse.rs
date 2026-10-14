@@ -37,7 +37,8 @@ fn valid_muse_version(version: &str) -> bool {
 pub fn valid_muse_artifact(version: &str, arch: &str, artifact: &MuseArtifact) -> bool {
     let expected = match arch {
         "x86_64" => "muse-x86-linux",
-        _ => "",
+        "aarch64" => "muse-aarch64-linux",
+        _ => return false,
     };
     artifact.file == expected
         && is_digest(&artifact.sha256)
@@ -84,13 +85,20 @@ mod tests {
         assert!(!valid_muse_artifact("1.2.3-4.5", "x86_64", &good));
         assert!(!valid_muse_artifact("1.2.3-R4", "x86_64", &good));
         assert!(!valid_muse_artifact("v1.2.3-R4.5", "x86_64", &good));
-        // Unknown architectures expect an empty filename, matching Go's
-        // map lookup that yields "" for missing keys.
         assert!(!valid_muse_artifact("1.2.3-R4.5", "aarch64", &good));
         let empty_file = MuseArtifact {
             file: String::new(),
             ..artifact()
         };
-        assert!(valid_muse_artifact("1.2.3-R4.5", "aarch64", &empty_file));
+        assert!(!valid_muse_artifact("1.2.3-R4.5", "aarch64", &empty_file));
+        assert!(!valid_muse_artifact("1.2.3-R4.5", "unknown", &empty_file));
+        assert!(valid_muse_artifact(
+            "1.2.3-R4.5",
+            "aarch64",
+            &MuseArtifact {
+                file: "muse-aarch64-linux".into(),
+                ..artifact()
+            }
+        ));
     }
 }

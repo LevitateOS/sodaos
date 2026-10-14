@@ -59,11 +59,11 @@ fn admission_order_matches_go() {
     let f = ArtifactFlags::default();
     assert_eq!(
         run_artifact_action("inspect-oci", &f).unwrap_err(),
-        "expected x86_64"
+        "expected x86_64 or aarch64"
     );
     assert_eq!(
         run_artifact_action("fetch-coreos", &f).unwrap_err(),
-        "expected x86_64"
+        "expected x86_64 or aarch64"
     );
     let f = ArtifactFlags {
         arch: "x86_64".to_owned(),
@@ -314,8 +314,8 @@ fn butane_process_failure_and_timeout_are_reaped_before_output_cleanup() {
 #[test]
 fn inspect_error_paths() {
     assert_eq!(
-        inspect_artifact_oci("/nonexistent", "aarch64", "").unwrap_err(),
-        "expected x86_64"
+        inspect_artifact_oci("/nonexistent", "riscv64", "").unwrap_err(),
+        "expected x86_64 or aarch64"
     );
     assert_eq!(
         inspect_artifact_oci("/nonexistent", "x86_64", "abc").unwrap_err(),
@@ -428,11 +428,11 @@ fn fetch_admission_errors_without_network() {
     let f = ArtifactFlags::default();
     assert_eq!(
         run_artifact_action("fetch-coreos", &f).unwrap_err(),
-        "expected x86_64"
+        "expected x86_64 or aarch64"
     );
     assert_eq!(
         run_artifact_action("fetch-coreos-iso", &f).unwrap_err(),
-        "expected x86_64"
+        "expected x86_64 or aarch64"
     );
     let f = ArtifactFlags {
         arch: "x86_64".to_owned(),

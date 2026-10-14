@@ -94,11 +94,7 @@ impl<'de> Deserialize<'de> for File {
 
 /// Maps a Soda architecture name to its OCI form.
 pub fn oci_architecture(arch: &str) -> Result<&'static str, Error> {
-    if arch == "x86_64" {
-        Ok("amd64")
-    } else {
-        Err(Error::msg("expected x86_64"))
-    }
+    soda_build_tools::reader::oci_architecture(arch).map_err(|error| Error::msg(error.0))
 }
 
 /// Lowercase hex SHA-256 digest shape.
@@ -113,8 +109,8 @@ pub fn is_revision(s: &str) -> bool {
 
 /// Requires the matching native Linux runtime.
 pub fn require_native(arch: &str) -> Result<(), Error> {
-    let want = oci_architecture(arch)?;
-    if !cfg!(target_os = "linux") || std::env::consts::ARCH != "x86_64" || want != "amd64" {
+    oci_architecture(arch)?;
+    if !cfg!(target_os = "linux") || std::env::consts::ARCH != arch {
         return Err(Error::msg("matching-native Linux required"));
     }
     Ok(())

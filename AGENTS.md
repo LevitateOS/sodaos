@@ -151,8 +151,9 @@ justify keeping obsolete implementations alive.
   screenshots or evidence, or request a developer's private SSH key for onboarding.
   Full container inspection and provisioning outputs can contain secrets.
 - Distinguish authored checks, local tests, native builds and installed evidence.
-  SodaOS targets x86_64 only; [Release architecture](docs/architecture/release.md#architectures)
-  owns platform scope. Cross-compilation/emulation is not native proof.
+  [Release architecture](docs/architecture/release.md#architectures) owns platform
+  scope and the required evidence for each target. Cross-compilation/emulation is
+  not native proof.
 
 ## Code and tooling
 
@@ -211,7 +212,7 @@ Native candidate production uses `soda-build` from `lib/soda-release-tools`;
 follow the [native support guide](docs/development/native-support.md) for its
 admitted inputs and effects.
 
-`ARCH` is `x86_64`, as defined by [platform scope](docs/architecture/release.md#architectures).
+`ARCH` is `x86_64` or `aarch64`, as defined by [platform scope](docs/architecture/release.md#architectures).
 Read the deployment/support guides before using install/activation, provisioning,
 VM tools or `tests/installed/`; they can change real state. Provisioning output
 contains sensitive password hashes.

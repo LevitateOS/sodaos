@@ -75,7 +75,7 @@ fn release_payload_accept_and_reject() {
         ),
         ("id", valid.replacen(".soda-bbbbbbbbbbbb", ".soda-cccccccccccc", 1)),
         ("coreos", valid.replacen("41.20250101.3.0", "41.1", 1)),
-        ("arch", valid.replacen("\"x86_64\"", "\"aarch64\"", 1)),
+        ("arch", valid.replacen("\"x86_64\"", "\"riscv64\"", 1)),
         ("prefix", valid.replacen("ghcr.io/test/soda", "docker.io/test/soda", 1)),
         ("schema", valid.replacen("\"Schema\":1", "\"Schema\":0", 1)),
         (
@@ -168,6 +168,7 @@ fn release_payload_accept_and_reject() {
 fn release_images_apply_and_conflict() {
     let dir = TestDir::make("relapply");
     let (valid, project_cfg, tailnet_cfg) = valid_release_json();
+    let valid = valid.replace("\"x86_64\"", &format!("{:?}", std::env::consts::ARCH));
     let path = dir.path("release.json");
     fs::write(&path, &valid).unwrap();
     let mut c = Config::default();
@@ -187,4 +188,25 @@ fn release_images_apply_and_conflict() {
         apply_release_images(&mut c, &dir.path("missing.json")).unwrap_err(),
         "immutable appliance image defaults unavailable"
     );
+}
+
+#[test]
+fn foreign_release_is_readable_but_never_changes_native_image_selection() {
+    let dir = TestDir::make("release-foreign-arch");
+    let (valid, _, _) = valid_release_json();
+    let foreign = if std::env::consts::ARCH == "x86_64" {
+        "aarch64"
+    } else {
+        "x86_64"
+    };
+    let path = dir.path("release.json");
+    fs::write(&path, valid.replace("\"x86_64\"", &format!("{foreign:?}"))).unwrap();
+    assert_eq!(load_release_payload(&path).unwrap().architecture, foreign);
+    let mut config = Config::default();
+    assert_eq!(
+        apply_release_images(&mut config, &path).unwrap_err(),
+        "immutable appliance image defaults unavailable"
+    );
+    assert!(config.image.is_empty());
+    assert!(config.tailnet_image.is_empty());
 }

@@ -320,7 +320,7 @@ impl ImageProduction for RealProduction {
     }
 
     fn resolve_core_os(&self) -> Result<ResolvedCoreOS, ImageError> {
-        coreos_stream::resolve_coreos().map_err(build_err)
+        coreos_stream::resolve_coreos(&self.inner.arch).map_err(build_err)
     }
 
     fn read_live_inputs(&self, path: &str) -> Result<LiveInputs, ImageError> {

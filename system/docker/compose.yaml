@@ -2,7 +2,7 @@ name: sodaos
 services:
   soda:
     image: ${SODA_IMAGE:?Set SODA_IMAGE to the selected Docker runtime image}
-    platform: linux/amd64
+    # The release's immutable image digest selects the verified architecture.
     privileged: true
     userns_mode: host
     cgroup: private

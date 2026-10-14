@@ -12,6 +12,7 @@
 //! controller-resolved live-input handoff consumed by the isolated build.
 
 pub mod build;
+pub mod canlang;
 pub mod forgejo;
 pub mod image;
 pub mod muse;
@@ -37,10 +38,10 @@ impl std::error::Error for Error {}
 
 /// Maps a Soda architecture name to its OCI form (`files.go`).
 pub fn oci_architecture(arch: &str) -> Result<&'static str, Error> {
-    if arch == "x86_64" {
-        Ok("amd64")
-    } else {
-        Err(Error("expected x86_64".to_string()))
+    match arch {
+        "x86_64" => Ok("amd64"),
+        "aarch64" => Ok("arm64"),
+        _ => Err(Error("expected x86_64 or aarch64".to_string())),
     }
 }
 
@@ -65,14 +66,12 @@ mod tests {
     #[test]
     fn architecture_names() {
         assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-        assert_eq!(
-            oci_architecture("aarch64").unwrap_err(),
-            Error("expected x86_64".to_string())
-        );
+        assert_eq!(oci_architecture("aarch64").unwrap(), "arm64");
         assert_eq!(
             oci_architecture("amd64").unwrap_err(),
-            Error("expected x86_64".to_string())
+            Error("expected x86_64 or aarch64".to_string())
         );
+        assert!(oci_architecture("arm64").is_err());
     }
 
     #[test]

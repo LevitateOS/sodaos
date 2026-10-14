@@ -51,9 +51,13 @@ fn oci(
     base: &str,
     labels: &BTreeMap<String, String>,
 ) -> FixtureImage {
+    let architecture = labels
+        .get("io.fixture.architecture")
+        .map(String::as_str)
+        .unwrap_or("amd64");
     let layer = tar(files, None);
     let config = serde_json::to_vec(&json!({
-        "os":"linux", "architecture":"amd64", "config":{"Labels":labels},
+        "os":"linux", "architecture":architecture, "config":{"Labels":labels},
         "rootfs":{"type":"layers", "diff_ids":[hash_bytes(&layer)]}
     }))
     .unwrap();
@@ -80,7 +84,7 @@ fn oci(
         image: Image {
             manifest: hash_bytes(&manifest),
             config: hash_bytes(&config),
-            architecture: "amd64".into(),
+            architecture: architecture.into(),
             revision: labels["org.opencontainers.image.revision"].clone(),
             source: "https://github.com/LevitateOS/sodaos".into(),
             base_name: base.into(),
@@ -118,6 +122,24 @@ struct Fixture {
 
 impl Fixture {
     fn new(purpose: BuildPurpose) -> Self {
+        Self::with_architecture(purpose, "x86_64")
+    }
+    fn with_architecture(purpose: BuildPurpose, architecture: &str) -> Self {
+        let release_tag = if architecture == "aarch64" {
+            "v0.1.0-aarch64"
+        } else {
+            "v0.1.0"
+        };
+        let labels = |base: &str, name: &str| {
+            let mut value = labels(base, name);
+            value.insert(
+                "io.fixture.architecture".into(),
+                crate::buildx::oci_architecture(architecture)
+                    .unwrap()
+                    .into(),
+            );
+            value
+        };
         let build = TempDir::new().unwrap();
         let dir = TempDir::new_in(build.path()).unwrap();
         std::fs::create_dir(dir.path().join("docker")).unwrap();
@@ -126,6 +148,19 @@ impl Fixture {
             serde_json::from_str(include_str!("../../tests/goldens/deliver.json")).unwrap();
         let mut p: Payload = serde_json::from_str(golden["payload"].as_str().unwrap()).unwrap();
         let mut c: Candidate = serde_json::from_str(golden["candidate"].as_str().unwrap()).unwrap();
+        p.architecture = architecture.into();
+        c.architecture = architecture.into();
+        let hash = c
+            .content_sha256
+            .remove("host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz")
+            .unwrap();
+        c.content_sha256.insert(
+            format!(
+                "host:/usr/share/soda/canlang-tools/{}",
+                soda_build_tools::reader::canlang::archive_filename(architecture).unwrap()
+            ),
+            hash,
+        );
         let mut source = BTreeMap::new();
         for name in source::SOURCE_FILES {
             source.insert(name.into(), format!("fixture {name}\n").into_bytes());
@@ -151,7 +186,7 @@ impl Fixture {
 
         let terminal = b"fixture terminal".to_vec();
         p.project_support.sha256 = identity(&terminal).sha256;
-        let host_packages = b"coreos 0:1-1.x86_64\n".to_vec();
+        let host_packages = format!("coreos 0:1-1.{architecture}\n").into_bytes();
         p.host_packages_sha256 = identity(&host_packages).sha256;
         let mut all = BTreeMap::new();
         for (name, digest) in &mut c.content_sha256 {
@@ -251,9 +286,10 @@ impl Fixture {
         ] {
             host_files.insert(installed.into(), source[input].clone());
         }
-        let packages = b"podman 0:5.4.0-1.x86_64\nsystemd 0:257-1.x86_64\n";
+        let packages = format!("podman 0:5.4.0-1.{architecture}\nsystemd 0:257-1.{architecture}\n")
+            .into_bytes();
         host_files.insert(PACKAGES_INSTALLED.into(), packages.to_vec());
-        std::fs::write(dir.path().join(PACKAGES_PATH), packages).unwrap();
+        std::fs::write(dir.path().join(PACKAGES_PATH), &packages).unwrap();
         std::fs::write(
             dir.path().join(COMPOSE_PATH),
             &source["system/docker/compose.yaml"],
@@ -266,7 +302,7 @@ impl Fixture {
         let mut runtime_labels = labels(&base, "docker");
         for (name, value) in [
             ("io.soda.runtime", "docker".into()),
-            ("org.opencontainers.image.version", "v0.1.0".into()),
+            ("org.opencontainers.image.version", release_tag.into()),
             (
                 "io.soda.build-purpose",
                 if purpose == BuildPurpose::Production {
@@ -290,7 +326,7 @@ impl Fixture {
             dir,
             _build: build,
             request: DockerRequest {
-                release_tag: "v0.1.0".into(),
+                release_tag: release_tag.into(),
                 purpose,
                 distribution: Distribution::Docker,
                 fedora_base: base,
@@ -309,7 +345,7 @@ impl Fixture {
         std::fs::create_dir(&output).unwrap();
         let result = soda_build_tools::reader::build::BuildResult {
             revision: metadata.soda_revision.clone(),
-            architecture: "x86_64".into(),
+            architecture: metadata.architecture.clone(),
             candidate: self
                 .dir
                 .path()

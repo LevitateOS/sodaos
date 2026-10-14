@@ -202,6 +202,7 @@ fn docker_packaging_reuses_host_and_refuses_an_unverified_export() {
     assert_eq!(calls.matches(" build ").count(), 1);
     assert_eq!(calls.matches(" save ").count(), 1);
     for arg in [
+        "--build-arg=TARGETARCH=amd64".into(),
         format!("--build-arg=SODA_BASE_IMAGE={}", candidate.host.config),
         format!(
             "--build-arg=BASE_IMAGE=registry.fedoraproject.org/fedora@sha256:{}",
@@ -255,7 +256,7 @@ fn oracle_production_sequence() {
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-muse -- --arch x86_64 --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-fetch-tea -- --arch x86_64 --out ",
-        "cargo run --release --locked -p soda-release-assets --bin soda-stage-canlang -- --archive ",
+        "cargo run --release --locked -p soda-release-assets --bin soda-stage-canlang -- --arch x86_64 --archive ",
         "cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context ",
         "bun scripts/build-soda-extension.ts --out ",

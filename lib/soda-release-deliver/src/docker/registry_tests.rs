@@ -58,7 +58,7 @@ fn readback(fixture: &Fixture, metadata: &DockerMetadata) -> Vec<Result<Vec<u8>,
         &fixture.runtime_labels,
     );
     let manifest = image.blobs[&format!("blobs/sha256/{}", &metadata.image.manifest[7..])].clone();
-    vec![Ok(manifest), Ok(serde_json::to_vec(&json!({"Digest":metadata.image.manifest,"Architecture":"amd64","Os":"linux","Labels":fixture.runtime_labels})).unwrap())]
+    vec![Ok(manifest), Ok(serde_json::to_vec(&json!({"Digest":metadata.image.manifest,"Architecture":metadata.image.architecture,"Os":"linux","Labels":fixture.runtime_labels})).unwrap())]
 }
 fn auth(dir: &Path) -> std::path::PathBuf {
     let path = dir.join("registry-auth.json");
@@ -242,7 +242,7 @@ fn prepared(fixture: &Fixture) -> (std::path::PathBuf, crate::publish::Manifest,
         let rootfs = format!("{}-rootfs.img", identity(b"rootfs").sha256);
         std::fs::write(root.join("media/installer.iso"), b"iso").unwrap();
         std::fs::write(root.join("media").join(&rootfs), b"rootfs").unwrap();
-        let document = json!({"Revision":metadata.soda_revision,"Architecture":"x86_64","HostManifest":metadata.host_manifest,"PayloadSHA256":metadata.payload_sha256,"RootfsURL":format!("https://github.com/LevitateOS/sodaos/releases/download/v0.1.0/{rootfs}"),"ISO":{"Path":"installer.iso","SHA256":identity(b"iso").sha256,"Bytes":3},"Rootfs":{"Path":rootfs,"SHA256":identity(b"rootfs").sha256,"Bytes":6}});
+        let document = json!({"Revision":metadata.soda_revision,"Architecture":metadata.architecture,"HostManifest":metadata.host_manifest,"PayloadSHA256":metadata.payload_sha256,"RootfsURL":format!("https://github.com/LevitateOS/sodaos/releases/download/{}/{rootfs}",metadata.release_tag),"ISO":{"Path":"installer.iso","SHA256":identity(b"iso").sha256,"Bytes":3},"Rootfs":{"Path":rootfs,"SHA256":identity(b"rootfs").sha256,"Bytes":6}});
         std::fs::write(
             root.join("media/media.json"),
             serde_json::to_vec(&document).unwrap(),
@@ -252,7 +252,7 @@ fn prepared(fixture: &Fixture) -> (std::path::PathBuf, crate::publish::Manifest,
     let output = root.join("prepared");
     let manifest = crate::publish::prepare(
         root,
-        "v0.1.0",
+        &metadata.release_tag,
         fixture.request.distribution,
         &root.join("notes.md"),
         &output,
@@ -271,7 +271,20 @@ fn evidence(
     std::fs::create_dir(root.join("downloads")).unwrap();
     let payload: Payload =
         serde_json::from_slice(&std::fs::read(output.join("payload.json")).unwrap()).unwrap();
-    let native = json!({"target":"soda-qualification","tag":manifest.tag,"registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"compose_sha256":metadata.compose.sha256,"candidate_sha256":metadata.candidate_sha256,"payload_sha256":metadata.payload_sha256,"soda_revision":metadata.soda_revision,"forgejo_revision":metadata.forgejo_revision,"application_configs":payload.images.iter().map(|(name,image)|(name.clone(),image.config.clone())).collect::<BTreeMap<_,_>>(),"os":"linux","architecture":"x86_64","rootful":true,"cgroup_version":2,"host_network":true,"fresh_volumes":true,"outer_id":"a".repeat(64)});
+    let host_platform = if manifest.architecture == "aarch64" {
+        "darwin/arm64"
+    } else {
+        "linux/amd64"
+    };
+    let runtime = if manifest.architecture == "aarch64" {
+        "docker-desktop"
+    } else {
+        "docker-engine"
+    };
+    let host_readback = serde_json::to_vec(&json!({"platform":host_platform})).unwrap();
+    let runtime_readback =
+        serde_json::to_vec(&json!({"platform":metadata.platform,"runtime":runtime})).unwrap();
+    let native = json!({"target":"soda-qualification","tag":manifest.tag,"registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"compose_sha256":metadata.compose.sha256,"candidate_sha256":metadata.candidate_sha256,"payload_sha256":metadata.payload_sha256,"soda_revision":metadata.soda_revision,"forgejo_revision":metadata.forgejo_revision,"application_configs":payload.images.iter().map(|(name,image)|(name.clone(),image.config.clone())).collect::<BTreeMap<_,_>>(),"os":"linux","architecture":manifest.architecture,"host_platform":host_platform,"runtime":runtime,"host_readback_sha256":identity(&host_readback).sha256,"runtime_readback_sha256":identity(&runtime_readback).sha256,"rootful":true,"cgroup_version":2,"host_network":true,"fresh_volumes":true,"outer_id":"a".repeat(64)});
     let persistence = json!({"target":"soda-qualification","registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"outer_before":"a".repeat(64),"outer_after":"b".repeat(64),"project_before":"c".repeat(64),"project_after":"c".repeat(64),"protected_before_sha256":"d".repeat(64),"protected_after_sha256":"d".repeat(64)});
     let factory = json!({"provider_execution_sha256":identity(b"native observation").sha256,"repository_id":1,"issue_id":2,"pull_request_id":3,"coder_actor":4,"reviewer_actor":5,"reviewed_head":"f".repeat(40),"merged_candidate_head":"f".repeat(40),"required_checks":{"CI":"success"},"elapsed_ms":1000,"funding_limit_ms":2000});
     let artifacts = manifest
@@ -312,6 +325,15 @@ fn evidence(
         let mut files = BTreeMap::new();
         std::fs::write(folder.join("stdout.txt"), b"native observation").unwrap();
         files.insert("stdout.txt".into(), identity(b"native observation").sha256);
+        if kind == "installation" {
+            for (name, bytes) in [
+                ("host.json", &host_readback),
+                ("runtime.json", &runtime_readback),
+            ] {
+                std::fs::write(folder.join(name), bytes).unwrap();
+                files.insert(name.into(), identity(bytes).sha256);
+            }
+        }
         if kind != "browser_project" {
             let body = serde_json::to_vec(match kind {
                 "installation" => &native,
@@ -326,7 +348,7 @@ fn evidence(
             owner: "P11".into(),
             requested_revision: manifest.soda_revision.clone(),
             tool_revision: manifest.soda_revision.clone(),
-            requested_architecture: "x86_64".into(),
+            requested_architecture: manifest.architecture.clone(),
             target: "soda-qualification".into(),
             client_platform: "linux/amd64".into(),
             action: "exec".into(),
@@ -382,7 +404,8 @@ fn promotion_gh(
     ]);
     if manifest.has_appliance() {
         replies.push_back(Ok(vec![]));
-    } else {
+    }
+    if !manifest.recommends_appliance() {
         replies.push_back(Ok(b"{\"id\":11,\"tag_name\":\"v0.0.1\",\"draft\":false,\"prerelease\":false,\"immutable\":true,\"assets\":[]}".to_vec()));
     }
     replies.push_back(if fail_edit {
@@ -394,7 +417,7 @@ fn promotion_gh(
         Ok(b"{\"databaseId\":17}".to_vec()),
         remote(manifest, output, false),
     ]);
-    replies.push_back(if manifest.has_appliance(){remote(manifest,output,false)}else{Ok(b"{\"id\":11,\"tag_name\":\"v0.0.1\",\"draft\":false,\"prerelease\":false,\"immutable\":true,\"assets\":[]}".to_vec())});
+    replies.push_back(if manifest.recommends_appliance(){remote(manifest,output,false)}else{Ok(b"{\"id\":11,\"tag_name\":\"v0.0.1\",\"draft\":false,\"prerelease\":false,\"immutable\":true,\"assets\":[]}".to_vec())});
     Commands::new(replies.into(), "")
 }
 #[test]
@@ -554,6 +577,10 @@ fn all_moves_both_recommendations_only_after_both_qualifications() {
     crate::publish::qualification::stamp(&manifest, &output, &root).unwrap();
     let receipt = crate::publish::Qualification {
         format: 1,
+        architecture: manifest.architecture.clone(),
+        host_platform: "linux/amd64".into(),
+        runtime: "native-linux".into(),
+        platform_observation: None,
         soda_revision: manifest.soda_revision.clone(),
         forgejo_revision: manifest.forgejo_revision.clone(),
         iso_sha256: identity(b"iso").sha256,
@@ -831,4 +858,72 @@ fn preparation_requires_completed_exact_production_build_and_valid_checksums() {
     .is_err());
     std::fs::write(output.join("SHA256SUMS"), b"changed checksums").unwrap();
     assert!(crate::publish::assets::load(&output).is_err());
+}
+
+#[test]
+fn arm_docker_preserves_native_identity_and_promotes_its_own_recommendation() {
+    let fixture = Fixture::with_architecture(BuildPurpose::Production, "aarch64");
+    let (output, manifest, metadata) = prepared(&fixture);
+    assert_eq!(manifest.architecture, "aarch64");
+    assert_eq!(metadata.image.architecture, "arm64");
+    assert_eq!(metadata.platform, "linux/arm64");
+    assert_eq!(metadata.recommendation_tag().unwrap(), "latest-arm64");
+    assert!(!manifest.recommends_appliance());
+    let root = evidence(&fixture, &output, &manifest, &metadata);
+    let receipt = crate::publish::qualification::stamp(&manifest, &output, &root).unwrap();
+    assert_eq!(receipt.native.host_platform, "darwin/arm64");
+    assert_eq!(receipt.native.runtime, "docker-desktop");
+    let mut responses = readback(&fixture, &metadata);
+    responses.extend([Ok(vec![]), readback(&fixture, &metadata).remove(0)]);
+    let registry = Commands::new(responses, &metadata.image.manifest);
+    let gh = promotion_gh(&metadata, &manifest, &output, false);
+    crate::publish::promote(&gh, &registry, &output, Some(&auth(fixture.dir.path()))).unwrap();
+    assert!(registry
+        .calls
+        .borrow()
+        .iter()
+        .find(|args| args[0] == "copy")
+        .unwrap()
+        .last()
+        .unwrap()
+        .ends_with(":latest-arm64"));
+    assert!(gh
+        .calls
+        .borrow()
+        .iter()
+        .any(|args| args.contains(&"--latest=false".into())));
+}
+
+#[test]
+fn arm_linux_server_observation_does_not_qualify_docker_desktop() {
+    let fixture = Fixture::with_architecture(BuildPurpose::Production, "aarch64");
+    let (output, manifest, metadata) = prepared(&fixture);
+    let root = evidence(&fixture, &output, &manifest, &metadata);
+    let file = root.join("installation/native.json");
+    let mut native: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    native["host_platform"] = json!("linux/arm64");
+    native["runtime"] = json!("docker-engine");
+    let bytes = serde_json::to_vec(&native).unwrap();
+    std::fs::write(&file, &bytes).unwrap();
+    let file = root.join("installation/observation.json");
+    let mut observation: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    observation["Files"]["native.json"] = json!(identity(&bytes).sha256);
+    std::fs::write(file, serde_json::to_vec(&observation).unwrap()).unwrap();
+    assert!(crate::publish::qualification::stamp(&manifest, &output, &root).is_err());
+}
+
+#[test]
+fn arm_all_prepares_an_arm_iso_without_changing_x86_recommendation() {
+    let mut fixture = Fixture::with_architecture(BuildPurpose::Production, "aarch64");
+    fixture.request.distribution = Distribution::All;
+    fixture
+        .runtime_labels
+        .insert("io.soda.distribution".into(), "all".into());
+    fixture.rebuild();
+    let (output, manifest, metadata) = prepared(&fixture);
+    assert_eq!(manifest.iso, "sodaos-aarch64.iso");
+    assert_eq!(manifest.architecture, metadata.architecture);
+    assert!(manifest.has_appliance());
+    assert!(!manifest.recommends_appliance());
+    assert!(output.join(&manifest.iso).is_file());
 }

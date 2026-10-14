@@ -238,7 +238,7 @@ pub fn phase_request(
     if !soda_build_tools::reader::is_revision(&request.revision) {
         return Err(value_error("full revision required"));
     }
-    if request.architecture != "x86_64"
+    if soda_build_tools::reader::oci_architecture(&request.architecture).is_err()
         || platform.os != "linux"
         || platform.arch != request.architecture
     {

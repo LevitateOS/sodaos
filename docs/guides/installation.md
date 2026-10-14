@@ -19,9 +19,17 @@ require explicit task approval. This guide is not that approval.
 
 ## Install from release media
 
-Use the selected release's verified x86-64 installation media for a PC or VM.
-Write it to the intended USB device or attach it as VM optical media, then boot
-its console. The installer supplies the matching Soda components and renders
+Select verified installation media for the intended machine: `sodaos-x86_64.iso`
+for an x86-64 PC or VM, or `sodaos-aarch64.iso` for an ARM64 UTM guest on an
+Apple Silicon Mac. The ARM64 appliance target is the UTM VM; generic ARM server
+installation is outside its scope. Follow the [UTM media selection](media.md#arm64-in-utm-on-apple-silicon)
+for the M4 MacBook Air.
+
+The source accepts both architectures. An ARM64 build and M4 installation still
+require qualification before an ARM64 release can be recommended; select a
+release whose evidence covers that architecture and installation target.
+Write the verified ISO to the intended USB device or attach it as VM optical
+media, then boot its console. The installer supplies the matching Soda components and renders
 the machine's provisioning from the reviewed choices. End users do not prepare
 Butane/Ignition, build application images or generate password hashes.
 
@@ -44,9 +52,13 @@ developers, not prerequisites for installing a downloaded release.
 
 ## Prepare the builder
 
-Use a native `x86_64` builder under the
-[platform scope](../architecture/release.md#architectures). Install the pinned Go,
-Rust and Bun toolchains and native Podman. From the repository root:
+Use matching native Linux: `x86_64` to build x86-64 output, or `aarch64` to build
+ARM64 output, under the [platform scope](../architecture/release.md#architectures).
+Install the pinned Go, Rust and Bun toolchains and native Podman. macOS itself is
+not a Linux builder, and emulated x86-64 execution does not qualify ARM64 output.
+The ISO packaging step also needs usable `/dev/kvm` and `/dev/fuse`; a UTM guest
+being able to boot does not establish that it can run the Assembler's nested VM.
+From the repository root:
 
 ```sh
 bun install --frozen-lockfile
@@ -65,6 +77,12 @@ candidate snapshots its exact HEAD and embeds its patched binary. The separate
 `extension` image carries the Soda package installed by
 `soda-extension-install.service` before an activated Forgejo starts. An install
 failure blocks Forgejo startup.
+
+ARM64 candidates additionally require an admitted native Canlang archive at
+`.artifacts/canlang/canlang-tools-linux-aarch64.tar.gz` and its verified source
+lock at `system/project/canlang-release-aarch64.json`. The ARM64 lock is not yet
+supplied. Produce and verify that native dependency before starting a candidate;
+renaming the x86-64 archive or copying its lock cannot satisfy ARM64 admission.
 
 ## Install developer candidates
 

@@ -47,6 +47,14 @@ pub(super) fn build_layout(
     root: &Path,
     tags: &[(&str, String)],
 ) -> (PathBuf, HashMap<String, LayoutImage>) {
+    build_layout_for_arch(root, tags, "amd64")
+}
+
+pub(super) fn build_layout_for_arch(
+    root: &Path,
+    tags: &[(&str, String)],
+    architecture: &str,
+) -> (PathBuf, HashMap<String, LayoutImage>) {
     let layout = root.join("layout");
     fs::create_dir_all(layout.join("blobs").join("sha256")).expect("layout dirs");
     let mut descriptors = Vec::new();
@@ -55,7 +63,9 @@ pub(super) fn build_layout(
         let layer_bytes = format!("inert layer {tag}\n").repeat(64).into_bytes();
         let (layer_digest, layer_size) = write_blob(&layout, &layer_bytes);
         let config_json = [
-            "{\"os\":\"linux\",\"architecture\":\"amd64\",\"rootfs\":{\"type\":\"layers\",\"diff_ids\":[\"",
+            "{\"os\":\"linux\",\"architecture\":\"",
+            architecture,
+            "\",\"rootfs\":{\"type\":\"layers\",\"diff_ids\":[\"",
             &layer_digest,
             "\"]},\"config\":{\"Labels\":{\"org.opencontainers.image.revision\":\"",
             revision,

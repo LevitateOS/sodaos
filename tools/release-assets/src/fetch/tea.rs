@@ -149,9 +149,11 @@ fn valid_elf64(body: &[u8], machine: u16) -> bool {
 
 /// Stage Tea for `arch` into `out`; returns the stdout line.
 pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, String> {
-    if arch != "x86_64" {
-        return Err("Tea staging supports x86_64 only".to_string());
-    }
+    let (platform, machine) = match arch {
+        "x86_64" => ("amd64", 62),
+        "aarch64" => ("arm64", 183),
+        _ => return Err("Tea staging supports x86_64 or aarch64".to_string()),
+    };
     let binary = out.join("bin/tea");
     let license_file = out.join("licenses/tea/LICENSE");
     if std::fs::symlink_metadata(&binary).is_ok()
@@ -161,7 +163,7 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
     }
     let tag = latest_tag(endpoints)?;
     let version = &tag[1..];
-    let filename = format!("tea-{version}-linux-amd64");
+    let filename = format!("tea-{version}-linux-{platform}");
     let base = format!("{}/{version}", endpoints.dl_base);
     let sums_url = format!("{base}/checksums.txt");
     let sums = download(&sums_url, META_LIMIT)?;
@@ -172,7 +174,7 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
     if body.len() as u64 > BINARY_LIMIT || crate::fetch::sha256_hex(&body) != expected {
         return Err("Tea binary checksum mismatch".to_string());
     }
-    if !valid_elf64(&body, 62) {
+    if !valid_elf64(&body, machine) {
         return Err("Tea binary is not ELF64 for the requested architecture".to_string());
     }
     let license = download(

@@ -219,6 +219,45 @@ jobs:
           RUST_TEST_THREADS: '1'
         run: cargo test --workspace --locked --no-fail-fast
 
+  arm64:
+    name: ARM64 source checks
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: sodaos
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Verify native ARM Linux and prepare workspace temporary storage
+        run: |
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+          mkdir -p .artifacts/arm64-ci/tmp
+          echo "TMPDIR=$PWD/.artifacts/arm64-ci/tmp" >> "$GITHUB_ENV"
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: sodaos/go.mod
+          cache: false
+      - name: Set up the repository-selected Rust toolchain
+        run: rustup toolchain install --profile minimal --no-self-update
+      - name: Cache locked Cargo downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
+      - name: Compile native ARM programs and test architecture admission
+        run: |
+          cargo check --workspace --all-targets --locked
+          cargo test --locked -p soda-build-tools --lib
+          go build ./cmd/...
+
   packaging:
     name: Docker packaging
     runs-on: ubuntu-24.04
@@ -248,7 +287,7 @@ jobs:
     name: CI
     runs-on: ubuntu-24.04
     timeout-minutes: 2
-    needs: [go, browser, rust, packaging]
+    needs: [go, browser, rust, arm64, packaging]
     if: ${{ always() }}
     steps:
       - name: Require all source jobs to pass
@@ -256,9 +295,11 @@ jobs:
           GO_RESULT: ${{ needs.go.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
           RUST_RESULT: ${{ needs.rust.result }}
+          ARM64_RESULT: ${{ needs.arm64.result }}
           PACKAGING_RESULT: ${{ needs.packaging.result }}
         run: |
           test "$GO_RESULT" = success
           test "$BROWSER_RESULT" = success
           test "$RUST_RESULT" = success
+          test "$ARM64_RESULT" = success
           test "$PACKAGING_RESULT" = success

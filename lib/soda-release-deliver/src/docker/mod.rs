@@ -63,15 +63,16 @@ fn file_identity(root: &Root, path: &str) -> Result<FileIdentity, Error> {
 fn inspect(
     root: &Root,
     path: &str,
+    architecture: &str,
     revision: &str,
     paths: &[String],
 ) -> Result<InspectedContent, Error> {
     let (mut file, _) = open_layout_entry(root, path)?;
     file.rewind().map_err(|_| Error::refused())?;
     if paths.is_empty() {
-        return inspect_oci_file(&mut file, "x86_64", revision);
+        return inspect_oci_file(&mut file, architecture, revision);
     }
-    inspect_oci_file_content(&mut file, "x86_64", revision, paths)
+    inspect_oci_file_content(&mut file, architecture, revision, paths)
 }
 
 fn check_sources(
@@ -195,7 +196,7 @@ fn bundled_blobs(root: &Root, p: &Payload) -> Result<BundledBlobs, Error> {
             )));
         }
         let revision = if name == "proxy" { "" } else { &p.revision };
-        let observed = inspect(root, &path, revision, &[])?;
+        let observed = inspect(root, &path, &p.architecture, revision, &[])?;
         if observed.image.manifest != expected.manifest || observed.image.config != expected.config
         {
             return Err(Error::msg(format!(
@@ -247,7 +248,7 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
         .iter()
         .map(|name| format!("/usr/share/soda/images/{name}"))
         .collect();
-    let host = inspect(&root, "host.oci", &p.revision, &shared)?;
+    let host = inspect(&root, "host.oci", &p.architecture, &p.revision, &shared)?;
     if host.image != c.host {
         return Err(Error::msg(
             "Docker source host identity differs from candidate",
@@ -261,7 +262,7 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
     let (mut file, _) = open_layout_entry(&root, IMAGE_PATH)?;
     let image = crate::oci::inspect_oci_file_content_with_limits(
         &mut file,
-        "x86_64",
+        &p.architecture,
         &p.revision,
         &paths,
         &blobs.member_limits,
@@ -273,7 +274,11 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
         purpose: request.purpose,
         release_tag: request.release_tag.clone(),
         architecture: p.architecture.clone(),
-        platform: "linux/amd64".into(),
+        platform: format!(
+            "linux/{}",
+            crate::buildx::oci_architecture(&p.architecture)
+                .map_err(|error| Error::msg(error.0))?
+        ),
         soda_revision: p.revision,
         forgejo_revision: c.forgejo_revision,
         soda_source: file_identity(&root, "source.tar")?,

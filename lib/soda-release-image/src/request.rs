@@ -83,7 +83,9 @@ impl Request {
         }
         if self.wants_docker() {
             if !soda_build_tools::reader::settings::release_tag(&self.release_tag)
-                || self.release_tag.eq_ignore_ascii_case("latest")
+                || ["latest", "latest-arm64"]
+                    .iter()
+                    .any(|tag| self.release_tag.eq_ignore_ascii_case(tag))
             {
                 return Err(Error::msg(
                     "Docker packaging requires an explicit version --release-tag",

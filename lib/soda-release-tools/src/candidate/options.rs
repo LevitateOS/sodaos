@@ -39,7 +39,7 @@ fn command() -> ClapCommand {
             "worker-config",
             "restricted worker configuration (asked when empty)",
         ))
-        .arg(value("arch", "matching native x86_64").default_value(ARCH_DEFAULT))
+        .arg(value("arch", "matching native x86_64 or aarch64").default_value(ARCH_DEFAULT))
         .arg(value(
             "out",
             "fresh output below .artifacts/releases (asked when empty)",
@@ -75,23 +75,15 @@ fn command() -> ClapCommand {
         )
 }
 
-// The `--arch` default is the native arch, always `x86_64` on the only
-// supported platform; parse fails before specs exist anywhere else.
-const ARCH_DEFAULT: &str = "x86_64";
+const ARCH_DEFAULT: &str = std::env::consts::ARCH;
 
 pub fn usage() -> String {
     command().render_help().to_string()
 }
 
 pub fn native_arch() -> Result<String, String> {
-    if std::env::consts::ARCH == "x86_64" {
-        Ok("x86_64".to_owned())
-    } else {
-        Err(format!(
-            "unsupported native {}: build requires matching x86_64",
-            std::env::consts::ARCH
-        ))
-    }
+    crate::digest::oci_architecture(std::env::consts::ARCH)?;
+    Ok(std::env::consts::ARCH.to_owned())
 }
 
 pub fn validate_mode_flag(mode: &str) -> Result<(), String> {
@@ -102,10 +94,7 @@ pub fn validate_mode_flag(mode: &str) -> Result<(), String> {
 }
 
 pub fn validate_arch_flag(arch: &str) -> Result<(), String> {
-    if arch != "x86_64" {
-        return Err("matching native x86_64 required".to_owned());
-    }
-    Ok(())
+    crate::digest::require_native(arch)
 }
 
 pub fn parse_options(args: &[String]) -> Result<Options, String> {

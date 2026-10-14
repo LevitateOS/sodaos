@@ -8,7 +8,7 @@ use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
-const ARCHIVE: &str = "canlang-tools-linux-x86_64.tar.gz";
+use soda_build_tools::reader::canlang::{archive_filename, release_path};
 
 /// Existing admitted reference/license assets copied by the runtime recipe.
 pub(crate) fn runtime_content(native: &str) -> Result<Vec<(String, String)>, Error> {
@@ -45,16 +45,23 @@ struct ArchiveReference {
     sha256: String,
 }
 
-pub(crate) fn carry_tools(source: &Path, snapshot: &Path) -> Result<(), Error> {
-    let manifest = snapshot.join("system/project/canlang-release.json");
+pub(crate) fn carry_tools(source: &Path, snapshot: &Path, arch: &str) -> Result<(), Error> {
+    let archive_name = archive_filename(arch).map_err(|error| Error::msg(error.0))?;
+    let manifest_path = release_path(arch).map_err(|error| Error::msg(error.0))?;
+    let manifest = snapshot.join(manifest_path);
     // Narrow snapshots used by unit callers need no Project tool input. The
     // production asset owner independently requires the complete manifest.
     if !manifest.exists() {
-        return Ok(());
+        if arch == "x86_64" && !snapshot.join("system/project/Containerfile").exists() {
+            return Ok(());
+        }
+        return Err(Error::msg(format!(
+            "verified Canlang release lock unavailable for {arch}: {manifest_path}"
+        )));
     }
     let input: ArchiveReference = serde_json::from_reader(File::open(manifest)?)
         .map_err(|_| Error::msg("invalid Canlang archive reference"))?;
-    if input.archive_filename != ARCHIVE
+    if input.archive_filename != archive_name
         || input.sha256.len() != 64
         || !input
             .sha256
@@ -66,7 +73,7 @@ pub(crate) fn carry_tools(source: &Path, snapshot: &Path) -> Result<(), Error> {
     let mut archive = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW)
-        .open(source.join(".artifacts/canlang").join(ARCHIVE))
+        .open(source.join(".artifacts/canlang").join(archive_name))
         .map_err(|_| {
             Error::msg(
                 "stage the exact Canlang tools archive under .artifacts/canlang before building",
@@ -78,7 +85,7 @@ pub(crate) fn carry_tools(source: &Path, snapshot: &Path) -> Result<(), Error> {
     }
     let directory = snapshot.join(".artifacts/canlang");
     fs::create_dir_all(&directory)?;
-    let out = directory.join(ARCHIVE);
+    let out = directory.join(archive_name);
     let mut target = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -110,38 +117,50 @@ mod tests {
     use super::*;
     #[test]
     fn carries_only_exact_locked_public_bytes_into_snapshot() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("canlang-input-{}-{stamp}", std::process::id()));
-        let source = root.join("source");
-        let snapshot = root.join("snapshot");
-        fs::create_dir_all(source.join(".artifacts/canlang")).unwrap();
-        fs::create_dir_all(snapshot.join("system/project")).unwrap();
-        let bytes = b"locked generated public tools input";
-        let path = source.join(".artifacts/canlang").join(ARCHIVE);
-        fs::write(&path, bytes).unwrap();
-        let manifest = serde_json::json!({"archiveFilename":ARCHIVE, "sha256":crate::sys::hex_bytes(&Sha256::digest(bytes))});
-        fs::write(
-            snapshot.join("system/project/canlang-release.json"),
-            manifest.to_string(),
-        )
-        .unwrap();
-        carry_tools(&source, &snapshot).unwrap();
-        assert_eq!(
-            fs::read(snapshot.join(".artifacts/canlang").join(ARCHIVE)).unwrap(),
-            bytes
-        );
-        assert!(carry_tools(&source, &snapshot).is_err());
-        fs::remove_file(snapshot.join(".artifacts/canlang").join(ARCHIVE)).unwrap();
-        fs::write(&path, b"different input").unwrap();
-        assert!(carry_tools(&source, &snapshot)
-            .unwrap_err()
-            .to_string()
-            .contains("checksum"));
-        assert!(!snapshot.join(".artifacts/canlang").join(ARCHIVE).exists());
-        fs::remove_dir_all(root).unwrap();
+        for arch in ["x86_64", "aarch64"] {
+            let archive_name = archive_filename(arch).unwrap();
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root =
+                std::env::temp_dir().join(format!("canlang-input-{}-{stamp}", std::process::id()));
+            let source = root.join("source");
+            let snapshot = root.join("snapshot");
+            fs::create_dir_all(source.join(".artifacts/canlang")).unwrap();
+            fs::create_dir_all(snapshot.join("system/project")).unwrap();
+            if arch == "aarch64" {
+                assert!(carry_tools(&source, &snapshot, arch)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("release lock unavailable for aarch64"));
+            }
+            let bytes = b"locked generated public tools input";
+            let path = source.join(".artifacts/canlang").join(archive_name);
+            fs::write(&path, bytes).unwrap();
+            let manifest = serde_json::json!({"archiveFilename":archive_name, "sha256":crate::sys::hex_bytes(&Sha256::digest(bytes))});
+            fs::write(
+                snapshot.join(release_path(arch).unwrap()),
+                manifest.to_string(),
+            )
+            .unwrap();
+            carry_tools(&source, &snapshot, arch).unwrap();
+            assert_eq!(
+                fs::read(snapshot.join(".artifacts/canlang").join(archive_name)).unwrap(),
+                bytes
+            );
+            assert!(carry_tools(&source, &snapshot, arch).is_err());
+            fs::remove_file(snapshot.join(".artifacts/canlang").join(archive_name)).unwrap();
+            fs::write(&path, b"different input").unwrap();
+            assert!(carry_tools(&source, &snapshot, arch)
+                .unwrap_err()
+                .to_string()
+                .contains("checksum"));
+            assert!(!snapshot
+                .join(".artifacts/canlang")
+                .join(archive_name)
+                .exists());
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 }

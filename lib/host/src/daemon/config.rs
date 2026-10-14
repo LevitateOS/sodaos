@@ -209,7 +209,9 @@ fn selected_canlang_runtime(
         let tools: Tools =
             serde_json::from_slice(&body).map_err(|_| "invalid Canlang tools reference")?;
         if !soda_build_tools::reader::is_revision(&tools.source_revision)
-            || tools.archive_filename != "canlang-tools-linux-x86_64.tar.gz"
+            || tools.archive_filename
+                != soda_build_tools::reader::canlang::archive_filename(std::env::consts::ARCH)
+                    .map_err(|error| error.0)?
             || tools
                 .versions
                 .keys()
@@ -238,7 +240,7 @@ fn selected_canlang_runtime(
 fn host_payload_architecture_is_native(architecture: &str) -> bool {
     soda_build_tools::reader::oci_architecture(architecture).is_ok()
         && cfg!(target_os = "linux")
-        && std::env::consts::ARCH == "x86_64"
+        && std::env::consts::ARCH == architecture
 }
 
 /// `filepath.Base`: trailing slashes stripped, then the final element.

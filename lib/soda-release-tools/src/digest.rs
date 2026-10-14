@@ -20,15 +20,12 @@ pub fn is_signer(s: &str) -> bool {
 
 /// anywhere
 pub fn oci_architecture(arch: &str) -> Result<&'static str, String> {
-    if arch == "x86_64" {
-        return Ok("amd64");
-    }
-    Err("expected x86_64".to_owned())
+    soda_build_tools::reader::oci_architecture(arch).map_err(|error| error.0)
 }
 
 pub fn require_native(arch: &str) -> Result<(), String> {
-    let native = oci_architecture(arch)?;
-    if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") && native == "amd64" {
+    oci_architecture(arch)?;
+    if cfg!(target_os = "linux") && arch == std::env::consts::ARCH {
         return Ok(());
     }
     Err("matching-native Linux required".to_owned())
@@ -80,10 +77,13 @@ mod tests {
     #[test]
     fn native_arch_admission() {
         assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-        assert_eq!(oci_architecture("aarch64").unwrap_err(), "expected x86_64");
-        if cfg!(target_arch = "x86_64") && cfg!(target_os = "linux") {
-            assert!(require_native("x86_64").is_ok());
+        assert_eq!(oci_architecture("aarch64").unwrap(), "arm64");
+        assert!(oci_architecture("arm64").is_err());
+        for arch in ["x86_64", "aarch64"] {
+            assert_eq!(
+                require_native(arch).is_ok(),
+                cfg!(target_os = "linux") && arch == std::env::consts::ARCH
+            );
         }
-        assert!(require_native("aarch64").is_err());
     }
 }

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use soda_release_assets::fetch::{flag_token, tea};
 
-const USAGE: &str = "usage: soda-fetch-tea --arch x86_64 [--out DIR]";
+const USAGE: &str = "usage: soda-fetch-tea --arch x86_64|aarch64 [--out DIR]";
 
 fn parse(args: &[String]) -> Result<(String, Option<PathBuf>), String> {
     let mut arch: Option<String> = None;

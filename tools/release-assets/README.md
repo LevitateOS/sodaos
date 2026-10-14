@@ -14,17 +14,17 @@ cargo run -p soda-release-assets --bin soda-stage -- --help
 
 | Binary | Inputs and result |
 | --- | --- |
-| `soda-fetch-muse` | `--arch x86_64 --out ABSOLUTE_FILE`, optionally `--manifest FILE`; download a size/checksum-pinned native Muse executable. Default manifest: `system/project/muse-release.json`. |
-| `soda-fetch-tea` | `--arch x86_64 [--out DIR]`; fetch Tea and its license into `bin/tea` and `licenses/tea/LICENSE`. Default output: `.artifacts/native/x86_64/project-tools`. |
+| `soda-fetch-muse` | `--arch x86_64\|aarch64 --out ABSOLUTE_FILE`, optionally `--manifest FILE`; download a size/checksum-pinned native Muse executable. Default manifest: `system/project/muse-release.json`. |
+| `soda-fetch-tea` | `--arch x86_64\|aarch64 [--out DIR]`; fetch Tea and its license into `bin/tea` and `licenses/tea/LICENSE`. Default output: `.artifacts/native/ARCH/project-tools`. |
 | `soda-fetch-terminal` | `--out DIR`; fetch the exact browser terminal files pinned in `terminal-assets.lock.json`. |
-| `soda-stage-canlang` | `--archive FILE --out DIR [--manifest FILE]`; admit an already produced offline Linux x86_64 Canlang tools archive into `DIR/canlang`. Default manifest: `system/project/canlang-release.json`. No download or compilation. |
+| `soda-stage-canlang` | `--arch x86_64\|aarch64 --archive FILE --out DIR [--manifest FILE]`; admit an already produced offline native Linux Canlang tools archive into `DIR/canlang`. No download or compilation. |
 | `soda-forgejo-locales` | `(--native FILE \| --lock FILE) [--additions FILE] --out FILE`; merge a complete native Forgejo INI catalog with Soda additions into a new file. |
-| `soda-stage` | `--arch x86_64 --host-context DIR --forgejo-context DIR`; copy existing native outputs, configuration and branding into prepared build contexts. |
+| `soda-stage` | `--arch x86_64\|aarch64 --host-context DIR --forgejo-context DIR`; copy existing native outputs, configuration and branding into prepared build contexts. |
 | `soda-render-provisioning` | Public operator key and private password-hash/optional host-key files; write a private Butane document with `--out ABSOLUTE_FILE`. |
 | `soda-render-terminal-logo` | Read the canonical emblem and regenerate terminal marks, or use `--check` to verify existing marks. |
 
-Fetching needs network access. Staging requires native x86_64 Linux, existing
-`.artifacts/native/x86_64` build outputs, a real host context with `rootfs/`, and
+Fetching needs network access. Staging requires matching native Linux, existing
+`.artifacts/native/ARCH` build outputs, a real host context with `rootfs/`, and
 a Forgejo context whose `forgejo/` destination does not yet exist. Staging
 prints the host rootfs path on success; it does not build or install the result.
 
@@ -53,6 +53,12 @@ release lock with its tested archive; a Git revision alone does not identify
 dirty producer bytes. `tools.json` records that provenance and file inventory.
 Do not substitute an archive or change the lock merely to make admission pass.
 
+`--arch aarch64` selects `system/project/canlang-release-aarch64.json` and
+`canlang-tools-linux-aarch64.tar.gz`. This lock must come from the owning
+Canlang producer's actual ARM Linux tools archive; absent release inputs block
+that target. The source lock is selected by architecture, while the installed
+host always receives its selected lock as `canlang-tools/release.json`.
+
 Supply the selected public archive at the canonical source input path, then
 stage it into a fresh tool destination:
 
@@ -62,12 +68,15 @@ mkdir -p "$PWD/.artifacts/canlang"
 cp /home/soda-builder/canlang/output/tools/canlang-tools-linux-x86_64.tar.gz \
   "$PWD/.artifacts/canlang/canlang-tools-linux-x86_64.tar.gz"
 cargo run --locked -p soda-release-assets --bin soda-stage-canlang -- \
+  --arch x86_64 \
   --archive "$PWD/.artifacts/canlang/canlang-tools-linux-x86_64.tar.gz" \
   --out "$PWD/.artifacts/native/x86_64/project-tools"
 ```
 
 Admission checks the archive checksum against Soda's lock, pinned versions,
-the `canlang.tools.v1` producer identity, required commands and native binaries.
+the `canlang.tools.v1` producer identity/platform, required commands and native binaries.
+Compiler, Node and Bun must be matching ELF64 executables; every bundled ELF,
+including workerd and native Node extensions, must match the selected architecture.
 It rejects traversal, duplicate paths, links, special files, oversized inputs
 and an occupied `OUT/canlang`. It does not remove or replace existing staged
 tools. `--manifest ABSOLUTE_FILE` explicitly selects a different reviewed lock;

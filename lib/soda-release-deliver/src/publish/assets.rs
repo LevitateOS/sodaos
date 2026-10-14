@@ -10,7 +10,10 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 pub const MAX_ASSET_BYTES: u64 = 2 * 1024 * 1024 * 1024;
-pub const ISO_NAME: &str = "sodaos-x86_64.iso";
+pub fn iso_name(architecture: &str) -> Result<String, Error> {
+    crate::buildx::oci_architecture(architecture).map_err(|error| Error::msg(error.0))?;
+    Ok(format!("sodaos-{architecture}.iso"))
+}
 const REQUIRED_METADATA: [&str; 7] = [
     "sodaos-source.tar",
     "fountain-source.tar",
@@ -35,6 +38,7 @@ pub struct Manifest {
     pub format: u32,
     pub tag: String,
     pub distribution: Distribution,
+    pub architecture: String,
     pub docker: Option<DockerMetadata>,
     pub soda_revision: String,
     pub forgejo_revision: String,
@@ -48,6 +52,10 @@ pub struct Manifest {
 #[serde(deny_unknown_fields)]
 pub struct Qualification {
     pub format: u32,
+    pub architecture: String,
+    pub host_platform: String,
+    pub runtime: String,
+    pub platform_observation: Option<crate::model::FileIdentity>,
     pub soda_revision: String,
     pub forgejo_revision: String,
     pub iso_sha256: String,
@@ -146,6 +154,9 @@ fn copy_asset(source: &Path, out: &Path, name: &str) -> Result<Asset, Error> {
     })
 }
 impl Manifest {
+    pub fn recommends_appliance(&self) -> bool {
+        self.has_appliance() && self.architecture == "x86_64"
+    }
     pub fn has_appliance(&self) -> bool {
         self.distribution != Distribution::Docker
     }
@@ -156,6 +167,7 @@ impl Manifest {
             .ok_or_else(|| failure("required release asset missing"))
     }
     pub(super) fn validate(&self) -> Result<(), Error> {
+        crate::buildx::oci_architecture(&self.architecture).map_err(|error| Error::msg(error.0))?;
         let mut names = std::collections::BTreeSet::new();
         let has_upgrade = self
             .assets
@@ -184,7 +196,7 @@ impl Manifest {
             }
         }
         if self.has_appliance() {
-            if self.iso != ISO_NAME {
+            if self.iso != iso_name(&self.architecture)? {
                 return Err(failure("installer asset required"));
             }
             self.asset(&self.iso)?;
@@ -202,6 +214,7 @@ impl Manifest {
         if let Some(docker) = &self.docker {
             docker.require_production()?;
             if docker.distribution != self.distribution
+                || docker.architecture != self.architecture
                 || docker.release_tag != self.tag
                 || docker.soda_revision != self.soda_revision
                 || docker.forgejo_revision != self.forgejo_revision
@@ -239,6 +252,13 @@ impl Qualification {
         let iso = manifest.asset(&manifest.iso)?;
         let rootfs = manifest.asset(&manifest.rootfs)?;
         if self.format != 1
+            || self.architecture != manifest.architecture
+            || (self.architecture == "x86_64"
+                && (self.host_platform != "linux/amd64" || self.runtime != "native-linux"))
+            || (self.architecture == "aarch64"
+                && (self.host_platform != "darwin/arm64"
+                    || self.runtime != "utm"
+                    || self.platform_observation.is_none()))
             || self.soda_revision != manifest.soda_revision
             || self.forgejo_revision != manifest.forgejo_revision
             || self.observed_soda_revision != manifest.soda_revision
@@ -306,7 +326,11 @@ pub fn prepare(
         let parent = media_path
             .parent()
             .ok_or_else(|| failure("media parent required"))?;
-        assets.push(copy_asset(&parent.join(&media.iso.path), out, ISO_NAME)?);
+        assets.push(copy_asset(
+            &parent.join(&media.iso.path),
+            out,
+            &iso_name(&payload.architecture)?,
+        )?);
         assets.push(copy_asset(&parent.join(&media.rootfs.path), out, rootfs)?);
         if assets[0].sha256 != media.iso.sha256
             || assets[0].bytes != media.iso.bytes as u64
@@ -397,9 +421,10 @@ pub fn prepare(
         soda_revision: payload.revision,
         forgejo_revision: c.forgejo_revision,
         distribution,
+        architecture: payload.architecture.clone(),
         docker,
         iso: if media.is_some() {
-            ISO_NAME.to_owned()
+            iso_name(&payload.architecture)?
         } else {
             String::new()
         },
@@ -511,7 +536,7 @@ fn admit_build(
         || result.completed_target != completed
         || result.distribution != selected
         || result.revision != payload.revision
-        || result.architecture != "x86_64"
+        || result.architecture != payload.architecture
         || result.host_manifest != candidate.host.manifest
         || result.payload_sha256 != candidate.payload_sha256
         || result.candidate_sha256 != actual.sha256
@@ -541,9 +566,10 @@ fn admit_media(
         1 << 20,
     )?)
     .map_err(|_| failure("media metadata refused"))?;
-    if !crate::model::valid_media_binding(&media, &payload, &c) || payload.architecture != "x86_64"
-    {
-        return Err(failure("media does not bind the x86_64 candidate"));
+    if !crate::model::valid_media_binding(&media, &payload, &c) {
+        return Err(failure(
+            "media does not bind the selected candidate architecture",
+        ));
     }
     let rootfs = Path::new(&media.rootfs.path)
         .file_name()

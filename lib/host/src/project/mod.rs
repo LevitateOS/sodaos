@@ -232,7 +232,7 @@ fn go_arch() -> &'static str {
     match std::env::consts::ARCH {
         "x86_64" => "amd64",
         "aarch64" => "arm64",
-        // SodaOS targets x86_64 only; anything else compares unequal to the
+        // Unsupported architectures compare unequal to the
         // podman architecture exactly like the Go build would.
         _ => std::env::consts::ARCH,
     }

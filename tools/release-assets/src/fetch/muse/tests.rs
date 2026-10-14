@@ -172,8 +172,8 @@ fn unknown_architecture_is_refused() {
     let fixture = Fixture::start(b"verified native bytes".to_vec());
     let dest = fixture.scratch.path.join("bin/muse");
     assert_eq!(
-        fetch_muse(&fixture.manifest, "aarch64", &dest, &fixture.base).unwrap_err(),
-        "expected x86_64"
+        fetch_muse(&fixture.manifest, "riscv64", &dest, &fixture.base).unwrap_err(),
+        "expected x86_64 or aarch64"
     );
     assert!(fixture.server.seen().is_empty());
     assert!(!dest.exists());

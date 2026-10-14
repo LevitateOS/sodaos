@@ -22,7 +22,7 @@ fn layout_preserves_identities_and_counts() {
     }
     assert_eq!(
         inspect_oci_layout(&layout, "aarch64", &revisions).unwrap_err(),
-        "expected x86_64"
+        "OCI must be linux/arm64"
     );
     let wrong: HashMap<String, String> = digests
         .values()
@@ -31,6 +31,27 @@ fn layout_preserves_identities_and_counts() {
     assert!(inspect_oci_layout(&layout, "x86_64", &wrong)
         .unwrap_err()
         .contains("revision mismatch"));
+}
+
+#[test]
+fn arm_layout_preserves_bound_bytes_and_refuses_x86_selection() {
+    let root = test_root("layout-arm");
+    let revision = repeat('a', 40);
+    let (layout, digests) =
+        build_layout_for_arch(&root, &[("project-os", revision.clone())], "arm64");
+    let revisions = digests
+        .values()
+        .map(|image| (image.config.clone(), revision.clone()))
+        .collect();
+    let admitted = inspect_oci_layout(&layout, "aarch64", &revisions).unwrap();
+    assert_eq!(
+        admitted[&digests["project-os"].config].architecture,
+        "arm64"
+    );
+    assert_eq!(
+        inspect_oci_layout(&layout, "x86_64", &revisions).unwrap_err(),
+        "OCI must be linux/amd64"
+    );
 }
 
 fn mutate_layout(root: &Path, kind: &str) -> (PathBuf, HashMap<String, String>) {

@@ -20,8 +20,8 @@ Each source-to-target pair requires its own native qualification receipt.
 
 ## Guided release operator flow
 
-The same prepared release carries its selected `appliance`, `docker` or
-`all` targets through build, stage, qualification and promotion. The
+The same prepared release carries one selected architecture and its `appliance`,
+`docker` or `all` targets through build, stage, qualification and promotion. The
 [release architecture](../architecture/release.md#distribution-targets) owns
 artifact identities and required native qualification; the
 [Docker installation guide](../guides/docker.md) owns the user path.
@@ -29,9 +29,13 @@ artifact identities and required native qualification; the
 ### 1. Select and preflight
 
 Run `soda-release start` from the clean committed checkout or admitted worktree.
-The guided overview shows distribution, exact version, restricted worker config,
-notes and fresh workflow output together; edit a field by number and use `go`.
+The guided overview shows distribution, architecture, exact version, restricted
+worker config, notes and fresh workflow output together; edit a field by number
+and use `go`.
 Flags preseed the same flow. `--non-interactive` requires every input.
+Set `--arch x86_64` or `--arch aarch64`; the default is the controller architecture.
+Production builds require a native Linux worker of that architecture. An x86_64
+worker cannot produce qualifying ARM artifacts by selecting `aarch64`.
 
 The admitted worker identifies its source, Fountain checkout, controller, cache,
 tools and output parent. The selected Source must be the current checkout, with
@@ -59,12 +63,18 @@ or creating an attempt. Build failures remain failed, with retained diagnostics.
 
 ```sh
 sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release start \
-  --distribution docker --tag v0.1.2-rc.1 \
+  --distribution docker --arch x86_64 --tag v0.1.2-rc.1 \
   --worker-config /home/BUILD/worker.json \
   --notes /home/BUILD/notes.md \
   --out /home/BUILD/WORKTREE/.artifacts/releases/workflow \
   --non-interactive
 ```
+
+For the Apple Silicon release, run the same flow on an admitted native Linux ARM64
+worker with `--arch aarch64 --tag v0.1.2-rc.1-aarch64`. Select `appliance` for the
+UTM ISO, `docker` for Docker Desktop, or `all` for both. Each architecture needs a
+distinct immutable GitHub/GHCR version tag. `latest` and `latest-arm64` are reserved
+recommendation names and are refused as version tags.
 
 ### 2. Build and prepare once
 
@@ -77,11 +87,13 @@ The workflow's private `request.json` records selected inputs, source identities
 and actual output paths. The build lives under the worker OutputParent with a
 fresh workflow-derived name; its prepared directory is `WORKFLOW/release`.
 Preparation requires the successful completed production build and verifies the
-source archives, exact target artifacts and generated checksums. Docker public
-assets are `docker.json`, `docker-packages.txt` and
+source archives, exact target artifacts and generated checksums. The producer,
+candidate and each selected artifact must agree on the release architecture;
+`release.json` binds that architecture. Docker public assets are `docker.json`, `docker-packages.txt` and
 `sodaos-docker-compose.yaml`, beside shared provenance and both source archives.
-Appliance/all add media metadata, ISO and hash-named rootfs. All GitHub assets must
-fit the existing per-asset limit. The large Docker OCI archive stays local;
+Appliance/all add media metadata, `sodaos-x86_64.iso` or `sodaos-aarch64.iso`, and
+the hash-named rootfs. All GitHub assets must fit the existing per-asset limit.
+The large Docker OCI archive stays local;
 private `operator.json` points to its verified candidate and is never uploaded.
 
 Start stops with an **unqualified local prepared release**. It never publishes or
@@ -123,7 +135,7 @@ hashes before publication. Docker uses Skopeo's digest-preserving OCI upload to
 its digest-selected config anonymously. Only matching source/base/platform and
 manifest/config identities produce the local `registry/registry.json` receipt.
 Stage publishes the complete asset set as one immutable unqualified GitHub prerelease.
-It does not move either recommendation pointer.
+It does not move any recommendation pointer.
 
 First-time GHCR packages default to private. If upload succeeds but public readback
 fails, inspect the uploaded version and change its package visibility in GitHub.
@@ -173,8 +185,25 @@ qualification attempt. Missing collectors or access block qualification.
 The installation check must emit `installation/native.json` as retained, hashed
 observation output. It records the actual pulled manifest/config, installed
 Soda/Fountain revisions, candidate/payload/Compose hashes, bundled application
-config IDs, native Linux/x86_64 rootful/cgroup-v2/host-network/fresh-volume facts,
-and the initial outer container ID. The persistence check must later emit its own
+config IDs, native Linux daemon architecture, rootful/cgroup-v2/host-network/fresh-volume
+facts and the initial outer container ID. Both architectures also require these
+host fields:
+
+| Field | x86_64 release | aarch64 release |
+| --- | --- | --- |
+| `os` | `linux` | `linux` |
+| `architecture` | `x86_64` | `aarch64` |
+| `host_platform` | `linux/amd64` | `darwin/arm64` |
+| `runtime` | `docker-engine` | `docker-desktop` |
+| `host_readback_sha256` | SHA-256 of retained Linux host readback | SHA-256 of retained Apple Silicon macOS host readback |
+| `runtime_readback_sha256` | SHA-256 of retained Docker runtime readback | SHA-256 of retained Docker Desktop/Linux ARM64 runtime readback |
+
+The two readback hashes must be distinct and identify actual files retained by the
+installation observation, other than `native.json`. The observation hashes that
+file as well. Values must come from checks of the actual host and runtime; a Linux
+ARM server cannot satisfy the Docker Desktop requirement.
+
+The persistence check must later emit its own
 `persistence/native.json`, binding the same target/image and initial container ID
 to before/after outer and Project IDs and protected-state hashes. Outer identity
 must change on recreation; Project identity and protected state must remain equal.
@@ -188,9 +217,46 @@ installation/browser/factory/persistence order, and start after immutable public
 factory checks. These files must come from native readbacks. Exact strict
 field names live in [the qualification reader](../../lib/soda-release-deliver/src/publish/qualification.rs).
 
-Appliance/all also download the actual staged ISO, perform the existing fresh
-native disk install/reboot/image smoke and retain its independently read Soda revision.
-Missing provider, target or installation prerequisites are blockers.
+The acceptance process controller is Linux-only. For ARM qualification, its
+`client_platform` may be `linux/amd64` or `linux/arm64`; it may run actual checks
+through SSH to the Mac and installed guest or Docker runtime. Keep
+`requested_architecture=aarch64` and the exact requested Soda revision. The
+collector's platform does not replace the native Mac host evidence. x86_64
+qualification retains its `linux/amd64` controller requirement.
+
+Appliance/all also download the actual staged ISO, perform a fresh native disk
+install/reboot/image smoke and retain its independently read Soda revision.
+For ARM this means `sodaos-aarch64.iso` installed in UTM on Apple Silicon, with
+native acceleration, followed by boot without installation media. Finalize its
+check with `soda-acceptance` as an `observation.json`, binding the downloaded ISO
+with `--artifact-file`. The check must retain an adjacent, hashed `native.json`
+with this exact schema:
+
+```json
+{
+  "target": "utm-arm64-release",
+  "host_platform": "darwin/arm64",
+  "runtime": "utm",
+  "accelerator": "hvf",
+  "guest_platform": "linux/arm64",
+  "virtual_machine_id": "ACTUAL_UTM_VM_ID",
+  "soda_revision": "FULL_INSTALLED_SODA_REVISION",
+  "iso_sha256": "DOWNLOADED_ISO_SHA256",
+  "host_readback_sha256": "RETAINED_MAC_HOST_READBACK_SHA256",
+  "guest_readback_sha256": "RETAINED_INSTALLED_GUEST_READBACK_SHA256"
+}
+```
+
+Replace the placeholders with actual readbacks. `accelerator` admits `hvf` or
+`apple-virtualization`. Host and guest readback hashes must be distinct and name
+retained files other than `native.json`; the ISO hash must match the selected
+release asset. The finalized observation must match `target`, architecture and
+Soda revision, record the actual successful `exec` invocation and clean tool SHA,
+and begin after immutable publication. Keep its original files: qualification,
+status and promotion re-read them. This is target evidence collected from Linux,
+not a requirement to run the acceptance process controller on macOS.
+The [appliance observation reader](../../lib/soda-release-deliver/src/publish/appliance.rs)
+owns admission. Missing provider, target or installation prerequisites are blockers.
 
 ### 5. Qualify without moving recommendations
 
@@ -207,6 +273,20 @@ it never deploys or replaces failed observations. Repeating qualification verifi
 the same retained evidence; changed evidence requires investigation. Appliance/all supply
 `--downloaded-iso`, `--observed-revision` and the existing `--smoke-passed`
 confirmation as well, creating their separate appliance receipt. All requires both.
+ARM appliance/all additionally require `--platform-evidence` pointing to the
+finalized UTM observation; the smoke flag alone cannot qualify the Mac target.
+For an ARM appliance-only release:
+
+```sh
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release qualify \
+  --input /home/BUILD/ARM-WORKFLOW/release \
+  --downloaded-iso /home/BUILD/downloads/sodaos-aarch64.iso \
+  --observed-revision FULL_REVISION_READ_FROM_INSTALLED_GUEST --smoke-passed \
+  --platform-evidence /home/BUILD/utm-evidence/observation.json
+```
+
+For ARM `all`, supply `--evidence /home/BUILD/finalized-docker-evidence` in the same
+command. Both independent target receipts must qualify the selected release.
 
 ### 6. Promote the unchanged qualified digest
 
@@ -220,13 +300,15 @@ sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release promote \
 
 Promotion rechecks current CI, immutable remote assets, version digest, original
 qualification observations and every selected target before changing anything.
-It copies the existing public digest to GHCR latest with preserved bytes and verifies
-anonymous latest readback. Docker-only uses `--latest=false` for GitHub and confirms
-the existing appliance latest pointer is unchanged. Appliance/all may update the ISO
-recommendation only after their required qualification. No rebuild or re-encoding occurs.
+It copies the existing public digest to GHCR `latest` for x86_64 or `latest-arm64`
+for aarch64, preserving the bytes, then verifies anonymous recommendation readback.
+Docker-only and every ARM release use `--latest=false` for GitHub and confirm that
+the existing global appliance latest pointer is unchanged. Only qualified x86_64
+appliance/all releases may update that ISO recommendation. ARM ISO downloads use
+their distinct versioned release URL. No rebuild or re-encoding occurs.
 
 Only safe qualification summaries enter editable release notes; private evidence
-paths/captures never become release assets. Docker-only promotion also preserves
+paths/captures never become release assets. Docker-only and ARM promotion also preserve
 an absent appliance recommendation. GitHub and GHCR mutations are not atomic.
 Promotion records its attempt before the first recommendation change and completion
 after readback. A failure retains partial state and instructs the operator to use
@@ -239,6 +321,12 @@ status; the command refuses replay and never rolls recommendations back automati
 - Retained artifacts may support explicitly non-qualifying development checks.
 - Use the bounded first-install qualification defined in the
   [release architecture](../architecture/release.md#public-distribution).
+
+ARM source support and fixture checks do not establish a released native image.
+Actual native ARM production builds and qualification of the published bytes on
+the M4 remain required before ARM recommendation. Until those journeys complete,
+neither UTM nor Docker Desktop is qualified by the implementation alone; generic
+ARM server qualification remains outside this release scope.
 
 `project-terminal` is compiled once during production asset staging. Host assembly
 copies that artifact to its runtime and maintenance paths and checks its digest
@@ -289,10 +377,18 @@ assembler's separate import commit.
 ### Offline Canlang input
 
 Before the candidate producer takes its Git source snapshot, select and commit
-`system/project/canlang-release.json` and supply its exact public
-`canlang-tools-linux-x86_64.tar.gz` beneath the canonical source checkout's
-`.artifacts/canlang/`. The Canlang producer owns the compiler/platform/dependency
-archive, internal inventory and release lock; Soda owns selection and checksum
+the matching Canlang lock and supply its exact public archive beneath the selected
+source checkout's `.artifacts/canlang/`:
+
+| Architecture | Committed lock | Public archive |
+| --- | --- | --- |
+| `x86_64` | `system/project/canlang-release.json` | `canlang-tools-linux-x86_64.tar.gz` |
+| `aarch64` | `system/project/canlang-release-aarch64.json` | `canlang-tools-linux-aarch64.tar.gz` |
+
+A missing ARM lock or native archive blocks the ARM build. An x86_64 archive or an
+invented ARM checksum cannot replace those producer inputs. The Canlang producer
+owns the compiler/platform/dependency archive, internal inventory and release lock;
+Soda owns selection and checksum
 admission. Archive bytes stay a generated public build input, not a second app
 manifest or an untracked source/credential exception.
 
@@ -329,15 +425,17 @@ access and receives no release keys or publication credentials.
 
 The required `CI` result includes the Docker packaging job. It runs
 `bash scripts/check-docker-packaging.sh`: checksum-pinned [Hadolint](https://github.com/hadolint/hadolint)
-checks the Dockerfile, and Compose's parser verifies the supported platform,
-runtime settings and persistent volumes. The Rust workspace job covers Docker
-metadata/provenance, candidate reuse, development/publication refusal and worker
+checks the Dockerfile, and Compose's parser verifies runtime settings and persistent
+volumes. Compose leaves architecture selection to the pinned image digest. The Rust
+workspace job covers Docker metadata/provenance, candidate reuse, development/publication refusal and worker
 and CLI admission. New release components add their checks to these gates as
 they land. These source/fixture checks build no OS image and do not replace
 native qualification of the published image.
 
 Choose the release tag before building: the installer embeds the exact versioned
-GitHub rootfs URL. For example, with tag `v0.1.0`:
+GitHub rootfs URL. The following manual appliance example uses x86_64 and tag
+`v0.1.0`; the [guided flow](#guided-release-operator-flow) covers ARM selection and
+its separate UTM evidence requirements:
 
 ```sh
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
@@ -442,7 +540,8 @@ notes. Verify separately that the SodaOS source archive contains the Soda extens
 package/backend sources and that the host image carries `LICENSE` and
 `NOTICE` under `/usr/share/licenses/soda/`. Bind both source archives, the runtime image and the separately built
 package/image in the candidate inventory, then repeat the affected native installed
-journeys on native `x86_64` under the [platform scope](../architecture/release.md#architectures).
+journeys on the selected native architecture and deployment target under the
+[platform scope](../architecture/release.md#architectures).
 The candidate also records the native architecture and hashes of the patched
 Forgejo executable, separate package files and host service definitions. The host
 image carries the same inventory at `/usr/share/soda/host-image/content.json` for

@@ -14,8 +14,7 @@ mod observation;
 pub use handoff::{handoff, hashes, read_observation};
 pub use observation::{observation_from_json, observation_json, Observation};
 
-/// Candidate architecture gate: only `x86_64` is admitted, reported as
-/// its OCI name. Mirrors `OCIArchitecture`.
+/// Candidate architecture gate, reported using the canonical OCI name.
 pub fn oci_architecture(arch: &str) -> Result<String, Error> {
     soda_build_tools::reader::oci_architecture(arch)
         .map(|name| name.to_string())

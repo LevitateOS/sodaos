@@ -19,7 +19,7 @@ pub(crate) fn validate_release_payload(
         || !is_hex_string(revision, 40)
         || id != format!("{coreos}.soda-{}", &revision[..12])
         || !valid_coreos_version(coreos)
-        || architecture != "x86_64"
+        || soda_build_tools::reader::oci_architecture(architecture).is_err()
         || !valid_repository_prefix(repository_prefix)
         || schema < 1
         || !is_hex_string(presentation, 64)

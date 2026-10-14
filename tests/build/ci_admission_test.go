@@ -27,7 +27,7 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 	Require(t, workflow.Jobs["packaging"].If == "", "packaging must run for every source CI event")
 	env := os.Environ()
 	for job, key := range map[string]string{
-		"go": "GO_RESULT", "browser": "BROWSER_RESULT", "rust": "RUST_RESULT", "packaging": "PACKAGING_RESULT",
+		"go": "GO_RESULT", "browser": "BROWSER_RESULT", "rust": "RUST_RESULT", "arm64": "ARM64_RESULT", "packaging": "PACKAGING_RESULT",
 	} {
 		Require(t, slices.Contains(gate.Needs, job), "CI does not require %s", job)
 		_, exists := workflow.Jobs[job]
@@ -39,7 +39,7 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 		return Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", "-eu", "-c", gate.Steps[0].Run)
 	}
 	Require(t, run(env).Code == 0, "successful source jobs should pass CI")
-	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT"} {
+	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "ARM64_RESULT", "PACKAGING_RESULT"} {
 		for _, result := range []string{"failure", "cancelled", "skipped", ""} {
 			t.Run(key+"/"+result, func(t *testing.T) {
 				Check(t, run(SetEnv(env, key, result)).Code != 0, "CI admitted %s=%q", key, result)

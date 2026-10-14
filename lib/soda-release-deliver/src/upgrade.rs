@@ -110,10 +110,15 @@ impl Qualification {
 }
 
 impl NativeEvidence {
-    fn validate(&self, kind: &str, receipt: &Qualification) -> Result<(), Error> {
+    fn validate(
+        &self,
+        kind: &str,
+        receipt: &Qualification,
+        architecture: &str,
+    ) -> Result<(), Error> {
         if self.format != 1
             || self.kind != kind
-            || self.native_architecture != "x86_64"
+            || self.native_architecture != architecture
             || self.source_release != receipt.source_release
             || self.source_support_sha256 != receipt.source_support_sha256
             || self.target_payload_sha256 != receipt.target_payload_sha256
@@ -198,7 +203,7 @@ pub fn stamp(
     for kind in KINDS {
         let body = crate::buildx::read_at(&evidence_root, &format!("{kind}.json"), 1 << 20)?;
         let observed: NativeEvidence = crate::json_serde::strict(&body).map_err(|_| refused())?;
-        observed.validate(kind, &receipt)?;
+        observed.validate(kind, &receipt, &payload.architecture)?;
         receipt.evidence.insert(
             kind.to_owned(),
             EvidenceFile {
@@ -314,15 +319,36 @@ mod tests {
     use super::*;
 
     fn fixture() -> tempfile::TempDir {
+        fixture_for_arch("x86_64")
+    }
+
+    fn fixture_for_arch(architecture: &str) -> tempfile::TempDir {
         let dir = tempfile::TempDir::new().unwrap();
         let golden: serde_json::Value =
             serde_json::from_str(include_str!("../tests/goldens/deliver.json")).unwrap();
         let mut payload: Payload =
             serde_json::from_str(golden["payload"].as_str().unwrap()).unwrap();
+        payload.architecture = architecture.into();
         payload.upgrade_from = Some(vec!["43.20260101.3.0.soda-cccccccccccc".into()]);
         let bytes = serde_json::to_vec_pretty(&payload).unwrap();
         let mut candidate: Candidate =
             serde_json::from_str(golden["candidate"].as_str().unwrap()).unwrap();
+        candidate.architecture = architecture.into();
+        candidate.host.architecture = crate::buildx::oci_architecture(architecture)
+            .unwrap()
+            .into();
+        let archive_prefix = "host:/usr/share/soda/canlang-tools/";
+        let archive_hash = candidate
+            .content_sha256
+            .remove(&format!(
+                "{archive_prefix}canlang-tools-linux-x86_64.tar.gz"
+            ))
+            .unwrap();
+        let archive_name =
+            soda_build_tools::reader::canlang::archive_filename(architecture).unwrap();
+        candidate
+            .content_sha256
+            .insert(format!("{archive_prefix}{archive_name}"), archive_hash);
         candidate.payload_sha256 = crate::hash_bytes(&bytes)
             .trim_start_matches("sha256:")
             .into();
@@ -338,7 +364,7 @@ mod tests {
             .to_owned();
         let media = MediaBinding {
             revision: payload.revision.clone(),
-            architecture: "x86_64".into(),
+            architecture: architecture.into(),
             host_manifest: candidate.host.manifest.clone(),
             payload_sha256: candidate.payload_sha256.clone(),
             deployment_commit: "9".repeat(64),
@@ -357,7 +383,7 @@ mod tests {
             let evidence = NativeEvidence {
                 format: 1,
                 kind: kind.into(),
-                native_architecture: "x86_64".into(),
+                native_architecture: architecture.into(),
                 source_release: payload.upgrade_from.as_ref().unwrap()[0].clone(),
                 source_support_sha256: "2".repeat(64),
                 target_payload_sha256: candidate.payload_sha256.clone(),
@@ -402,6 +428,34 @@ mod tests {
             .unwrap();
         }
         dir
+    }
+
+    #[test]
+    fn upgrade_evidence_must_match_the_admitted_target_architecture() {
+        for (architecture, foreign) in [("x86_64", "aarch64"), ("aarch64", "x86_64")] {
+            let dir = fixture_for_arch(architecture);
+            let evidence_path = dir.path().join("evidence/interrupted_recovery.json");
+            let mut evidence: NativeEvidence =
+                serde_json::from_slice(&fs::read(&evidence_path).unwrap()).unwrap();
+            evidence.native_architecture = foreign.into();
+            fs::write(
+                &evidence_path,
+                serde_json::to_vec_pretty(&evidence).unwrap(),
+            )
+            .unwrap();
+            assert!(stamp(dir.path(), &dir.path().join("evidence")).is_err());
+            assert!(!dir.path().join(QUALIFICATION_FILE).exists());
+            evidence.native_architecture = architecture.into();
+            fs::write(evidence_path, serde_json::to_vec_pretty(&evidence).unwrap()).unwrap();
+            let receipt = stamp(dir.path(), &dir.path().join("evidence")).unwrap();
+            let admitted = admit_directory(
+                dir.path(),
+                &receipt.source_release,
+                &receipt.source_support_sha256,
+            )
+            .unwrap();
+            assert_eq!(admitted.payload.architecture, architecture);
+        }
     }
 
     #[test]

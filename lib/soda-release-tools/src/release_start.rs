@@ -15,7 +15,14 @@ pub fn distribution(value: &str) -> Result<Distribution, String> {
         _ => Err("select appliance, docker or all".into()),
     }
 }
-const FIELDS: [&str; 5] = ["distribution", "tag", "worker-config", "notes", "out"];
+const FIELDS: [&str; 6] = [
+    "distribution",
+    "tag",
+    "worker-config",
+    "notes",
+    "out",
+    "arch",
+];
 fn choices(
     flags: &ArgMatches,
     input: &mut dyn BufRead,
@@ -66,7 +73,7 @@ fn choices(
                         .ok()
                         .and_then(|index| FIELDS.get(index.wrapping_sub(1)))
                     else {
-                        writeln!(output, "Choose a field number 1-5, go or quit.")
+                        writeln!(output, "Choose a field number 1-6, go or quit.")
                             .map_err(|error| error.to_string())?;
                         continue;
                     };
@@ -91,8 +98,11 @@ fn validate(values: &BTreeMap<String, String>) -> Result<(), String> {
         }
     }
     distribution(&values["distribution"])?;
+    crate::digest::oci_architecture(&values["arch"])?;
     if !soda_build_tools::reader::settings::release_tag(&values["tag"])
-        || values["tag"].eq_ignore_ascii_case("latest")
+        || ["latest", "latest-arm64"]
+            .iter()
+            .any(|tag| values["tag"].eq_ignore_ascii_case(tag))
     {
         return Err("exact version tag required".into());
     }
@@ -164,9 +174,7 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
     if cwd.to_str() != Some(config.source.as_str()) {
         return Err("run start from the worker's selected clean checkout or worktree".into());
     }
-    if std::env::consts::OS != "linux" || crate::candidate::native_arch()? != "x86_64" {
-        return Err("native Linux x86_64 build host required".into());
-    }
+    crate::digest::require_native(&values["arch"])?;
     let revision = crate::build_cli::controller_revision()?;
     crate::build_cli::check_source_revision(&config.source, &revision)?;
     let forgejo = crate::build_cli::forgejo_checkout_revision(&config.forgejo_source)?;
@@ -199,6 +207,7 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         forgejo_source: config.forgejo_source.clone(),
         out: build.to_string_lossy().into_owned(),
         distribution: values["distribution"].clone(),
+        arch: values["arch"].clone(),
         ..Default::default()
     };
     if !crate::worker::valid_worker_task_paths(&config, &request) {
@@ -214,20 +223,20 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         sha256: String,
     }
     let lock: Canlang = serde_json::from_slice(
-        &std::fs::read(cwd.join("system/project/canlang-release.json"))
-            .map_err(|e| e.to_string())?,
+        &std::fs::read(cwd.join(soda_build_tools::reader::canlang::release_path(&values["arch"]).map_err(|error| error.0)?))
+            .map_err(|_| format!("verified {} Canlang release lock is missing; produce and pin its native tools archive first", values["arch"]))?,
     )
     .map_err(|e| e.to_string())?;
-    let archive = cwd
-        .join(".artifacts/canlang")
-        .join("canlang-tools-linux-x86_64.tar.gz");
+    let filename = soda_build_tools::reader::canlang::archive_filename(&values["arch"])
+        .map_err(|error| error.0)?;
+    let archive = cwd.join(".artifacts/canlang").join(filename);
     if !std::fs::symlink_metadata(&archive)
         .map_err(|_| "locked offline Canlang archive is missing")?
         .is_file()
     {
         return Err("locked offline Canlang archive must be a regular file".into());
     }
-    if lock.archive_filename != "canlang-tools-linux-x86_64.tar.gz"
+    if lock.archive_filename != filename
         || crate::digest::hash_file(
             cwd.join(".artifacts/canlang")
                 .join(&lock.archive_filename)
@@ -261,7 +270,7 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         "--worker-config".into(),
         values["worker-config"].clone(),
         "--arch".into(),
-        "x86_64".into(),
+        values["arch"].clone(),
         "--distribution".into(),
         values["distribution"].clone(),
         "--out".into(),
@@ -367,6 +376,35 @@ mod tests {
                 .unwrap_err()
                 .contains("distribution required")
         );
+    }
+    #[test]
+    fn guided_arm_inputs_keep_explicit_architecture() {
+        let flags = crate::release_cli::command()
+            .try_get_matches_from([
+                "soda-release",
+                "start",
+                "--distribution",
+                "all",
+                "--arch",
+                "aarch64",
+                "--tag",
+                "v1.0.0-aarch64",
+                "--worker-config",
+                "/home/build/worker.json",
+                "--notes",
+                "/home/build/notes.md",
+                "--out",
+                "/home/build/workflow",
+                "--non-interactive",
+            ])
+            .unwrap();
+        let (_, flags) = flags.subcommand().unwrap();
+        let values = choices(flags, &mut std::io::Cursor::new(b""), &mut Vec::new()).unwrap();
+        assert_eq!(values["arch"], "aarch64");
+        assert_eq!(values["distribution"], "all");
+        let mut unsupported = values;
+        unsupported.insert("arch".into(), "armv7".into());
+        assert!(validate(&unsupported).is_err());
     }
     #[test]
     fn guided_overview_edits_and_preserves_explicit_inputs() {

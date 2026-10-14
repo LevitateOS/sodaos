@@ -73,6 +73,7 @@ pub fn extract_build_snapshot(
     source: &str,
     out: &str,
     revision: &str,
+    arch: &str,
     runner: &Runner,
 ) -> Result<String, Error> {
     let snapshot = sys::join(&[out, "work/source"]);
@@ -105,6 +106,7 @@ pub fn extract_build_snapshot(
     crate::canlang::carry_tools(
         std::path::Path::new(source),
         std::path::Path::new(&snapshot),
+        arch,
     )?;
     Ok(snapshot)
 }
@@ -211,6 +213,7 @@ mod tests {
             source.to_str().unwrap(),
             out.to_str().unwrap(),
             &revision,
+            "x86_64",
             &runner,
         )
         .unwrap();
@@ -249,7 +252,13 @@ pub fn setup_build_workspace(
     init_build_directories(&request.out)?;
     progress.create_log(&sys::join(&[&request.out, "logs/timing.log"]))?;
     let close_log = open_log(&sys::join(&[&request.out, "logs/build.log"]))?;
-    let snapshot = match extract_build_snapshot(&request.source, &request.out, revision, runner) {
+    let snapshot = match extract_build_snapshot(
+        &request.source,
+        &request.out,
+        revision,
+        &request.arch,
+        runner,
+    ) {
         Ok(snapshot) => snapshot,
         Err(e) => {
             let _ = close_log.close();

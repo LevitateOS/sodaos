@@ -65,7 +65,7 @@ fn oracle_forgejo_toolchain_semantics_and_determinism() {
 #[test]
 fn oracle_misc_vectors() {
     assert!(
-        soda_release_build::files::oci_architecture("aarch64").is_err(),
+        soda_release_build::files::oci_architecture("armv7").is_err(),
         "misc-oci-arch"
     );
     assert_eq!(

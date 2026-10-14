@@ -5,6 +5,7 @@ ARG BASE_IMAGE=registry.fedoraproject.org/fedora:44
 FROM ${SODA_BASE_IMAGE} AS appliance
 
 FROM ${BASE_IMAGE}
+ARG TARGETARCH
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY --from=appliance /etc/yum.repos.d/tailscale.repo /etc/yum.repos.d/tailscale.repo
 RUN dnf -y install systemd podman fuse-overlayfs iproute procps-ng \
@@ -34,7 +35,8 @@ COPY image-import.conf /usr/lib/systemd/system/soda-image-import.service.d/docke
 COPY project-scope.conf /usr/lib/systemd/system/libpod-.scope.d/soda-docker.conf
 COPY network-scope.conf /usr/lib/systemd/system/run-.scope.d/soda-docker.conf
 
-RUN test "$(uname -m)" = x86_64 && \
+RUN case "$(uname -m)" in x86_64) native=amd64;; aarch64) native=arm64;; *) exit 1;; esac && \
+    test "$native" = "$TARGETARCH" && \
     test -f /usr/share/soda/release.json && \
     test -f /usr/share/soda/images/index.json && \
     systemd-sysusers && systemd-tmpfiles --create && \

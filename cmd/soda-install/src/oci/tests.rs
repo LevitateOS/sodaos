@@ -5,6 +5,23 @@ use std::collections::BTreeMap;
 use crate::buildx;
 
 #[test]
+fn arm_layout_requires_the_matching_installer_architecture() {
+    let dir = tempfile::tempdir().unwrap();
+    let layout = dir.path().to_str().unwrap();
+    let revision = "a".repeat(40);
+    let reference = add_image(layout, "arm-image", "arm64", &revision);
+    let revisions = BTreeMap::from([(reference.clone(), revision)]);
+    let got = inspect_oci_layout(layout, "aarch64", &revisions).unwrap();
+    assert_eq!(got.images[&reference].architecture, "arm64");
+    assert_eq!(
+        inspect_oci_layout(layout, "x86_64", &revisions)
+            .unwrap_err()
+            .to_string(),
+        "OCI must be linux/amd64"
+    );
+}
+
+#[test]
 fn layout_preserves_identities_and_counts_once() {
     let (dir, revisions) = layout_fixture();
     let got = inspect_oci_layout(&dir, "x86_64", &revisions).unwrap();
@@ -27,7 +44,7 @@ fn layout_preserves_identities_and_counts_once() {
         inspect_oci_layout(&dir, "aarch64", &revisions)
             .unwrap_err()
             .to_string(),
-        "expected x86_64"
+        "OCI must be linux/arm64"
     );
     let wrong: BTreeMap<String, String> = revisions
         .keys()

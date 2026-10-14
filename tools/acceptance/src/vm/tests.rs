@@ -8,7 +8,7 @@ use crate::qmp::QmpClient;
 fn fixture_config() -> VmConfig {
     VmConfig {
         name: "soda-native-fixture".to_string(),
-        architecture: "x86_64".to_string(),
+        architecture: std::env::consts::ARCH.to_string(),
         base_receipt: "/private/receipt.json".to_string(),
         ignition: "/private/input.ign".to_string(),
         qemu: "/private/qemu".to_string(),
@@ -57,6 +57,20 @@ fn vm_arguments_retain_disk_and_native_isolation() {
         !args.contains("-daemonize") && !args.contains("tap,"),
         "{args}"
     );
+}
+
+#[test]
+fn vm_machine_follows_architecture_and_retains_kvm_host_cpu() {
+    for (architecture, machine) in [("x86_64", "q35,accel=kvm"), ("aarch64", "virt,accel=kvm")] {
+        let config = VmConfig {
+            architecture: architecture.into(),
+            ..fixture_config()
+        };
+        let args = config.args();
+        let value = |flag: &str| args.windows(2).find(|pair| pair[0] == flag).unwrap()[1].as_str();
+        assert_eq!(value("-machine"), machine);
+        assert_eq!(value("-cpu"), "host");
+    }
 }
 
 #[test]

@@ -25,7 +25,7 @@ jq -e --arg image "$image" '
   (.services | keys) == ["soda"] and
   (.volumes | keys) == ["config", "home", "state"] and
   (.services.soda |
-    .image == $image and .platform == "linux/amd64" and
+    .image == $image and .platform == null and
     .privileged == true and .userns_mode == "host" and
     .network_mode == "host" and .cgroup == "private" and
     .command == null and .entrypoint == null and

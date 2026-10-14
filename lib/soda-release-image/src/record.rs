@@ -15,7 +15,11 @@ use crate::sys;
 /// These are the actual bytes staged into the host and component images. The
 /// archive identities in the payload bind the images; this inventory names
 /// the fork, independent package, and host service inputs within those images.
-pub fn candidate_content(out: &str, native: &str) -> Result<Vec<(String, String)>, Error> {
+pub fn candidate_content(
+    out: &str,
+    native: &str,
+    arch: &str,
+) -> Result<Vec<(String, String)>, Error> {
     let root = sys::dir_name(out);
     let mut paths: Vec<(String, String)> = [
         (
@@ -68,7 +72,9 @@ pub fn candidate_content(out: &str, native: &str) -> Result<Vec<(String, String)
     .map(|(a, b)| (a.to_string(), b))
     .collect();
     paths.extend(crate::canlang::runtime_content(native)?);
-    for name in ["release.json", "canlang-tools-linux-x86_64.tar.gz"] {
+    let archive_name = soda_build_tools::reader::canlang::archive_filename(arch)
+        .map_err(|error| Error::msg(error.0))?;
+    for name in ["release.json", archive_name] {
         let installed = format!("/usr/share/soda/canlang-tools/{name}");
         paths.push((
             format!("host:{installed}"),
@@ -105,7 +111,7 @@ pub fn candidate_content(out: &str, native: &str) -> Result<Vec<(String, String)
         let hash = sys::hash_file(&path)?;
         files.push((name, hash));
     }
-    if !model::valid_candidate_content(&files) {
+    if !model::valid_candidate_content(&files, arch) {
         return Err(Error::msg("incomplete candidate content inventory"));
     }
     Ok(files)
@@ -120,8 +126,13 @@ pub fn content_inventory_bytes(files: &[(String, String)]) -> Result<Vec<u8>, Er
     Ok(data.into_bytes())
 }
 
-pub fn write_content_inventory(context: &str, out: &str, native: &str) -> Result<(), Error> {
-    let files = candidate_content(out, native)?;
+pub fn write_content_inventory(
+    context: &str,
+    out: &str,
+    native: &str,
+    arch: &str,
+) -> Result<(), Error> {
+    let files = candidate_content(out, native, arch)?;
     let data = content_inventory_bytes(&files)?;
     files::owned_write(
         &sys::join(&[context, "rootfs/usr/share/soda/host-image/content.json"]),
@@ -254,7 +265,7 @@ pub fn record_candidate_inputs(
     let toolchain_text = sys::read_json_build_text(&sys::join(&[out, "forgejo-toolchain.json"]))?;
     record.forgejo_toolchain = model::ForgejoToolchain::parse(&toolchain_text)?;
     record.forgejo_toolchain.validate()?;
-    record.content_sha256 = candidate_content(out, native)?;
+    record.content_sha256 = candidate_content(out, native, &record.architecture)?;
     verify_embedded_content_inventory(out, &record.content_sha256)?;
     record.payload_sha256 = sys::hash_file(&sys::join(&[out, "payload.json"]))?;
     Ok(())
@@ -308,7 +319,8 @@ mod tests {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, bytes).unwrap();
         }
-        let content = candidate_content(out.to_str().unwrap(), native.to_str().unwrap()).unwrap();
+        let content =
+            candidate_content(out.to_str().unwrap(), native.to_str().unwrap(), "x86_64").unwrap();
         assert!(content.contains(&(
             "dashboard:/usr/local/bin/soda-dashboard".to_string(),
             files::hash_bytes(b"dashboard")

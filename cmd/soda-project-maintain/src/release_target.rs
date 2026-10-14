@@ -183,16 +183,25 @@ fn source_support_binding(
     Ok(())
 }
 
-pub(crate) fn installed_source(deadline: Instant) -> Result<InstalledSource, String> {
-    if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-        return Err("release maintenance requires native Linux x86_64".into());
+fn require_native_architecture(architecture: &str) -> Result<(), String> {
+    if soda_build_tools::reader::oci_architecture(architecture).is_err()
+        || !cfg!(target_os = "linux")
+        || architecture != std::env::consts::ARCH
+    {
+        return Err("release maintenance requires matching-native Linux architecture".into());
     }
+    Ok(())
+}
+
+pub(crate) fn installed_source(deadline: Instant) -> Result<InstalledSource, String> {
+    require_native_architecture(std::env::consts::ARCH)?;
     if soda_host::terminal::agent_program_path() != DESTINATION {
         return Err("release maintenance refuses a terminal helper environment override".into());
     }
     let bytes = fixed_root_file(Path::new(crate::RELEASE_PATH), 4 << 20)?;
     let admitted = crate::release::load_release_payload(crate::RELEASE_PATH)
         .map_err(|_| "installed release provenance unavailable")?;
+    require_native_architecture(&admitted.architecture)?;
     let payload: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|_| "installed release provenance unavailable")?;
     let release_id = payload
@@ -358,6 +367,7 @@ pub(crate) fn admit(
             target.rootfs,
         )
     };
+    require_native_architecture(&payload.architecture)?;
     Ok(Target {
         payload,
         candidate,
@@ -428,6 +438,22 @@ pub(crate) fn verify_project_image(
 mod tests {
     use super::*;
     use std::os::unix::fs::{symlink, PermissionsExt};
+
+    #[test]
+    fn release_source_and_target_must_match_the_native_architecture() {
+        require_native_architecture(std::env::consts::ARCH).unwrap();
+        let foreign = if std::env::consts::ARCH == "x86_64" {
+            "aarch64"
+        } else {
+            "x86_64"
+        };
+        for architecture in [foreign, "riscv64", ""] {
+            assert_eq!(
+                require_native_architecture(architecture).unwrap_err(),
+                "release maintenance requires matching-native Linux architecture"
+            );
+        }
+    }
 
     #[test]
     fn github_tag_is_bound_to_the_fixed_repository_and_exact_rootfs() {

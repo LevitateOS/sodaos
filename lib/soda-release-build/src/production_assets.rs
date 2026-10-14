@@ -133,10 +133,13 @@ impl Production {
                 "--bin".to_string(),
                 "soda-stage-canlang".to_string(),
                 "--".to_string(),
+                "--arch".to_string(),
+                self.arch.clone(),
                 "--archive".to_string(),
                 format!(
-                    "{}/.artifacts/canlang/canlang-tools-linux-x86_64.tar.gz",
-                    self.source
+                    "{}/.artifacts/canlang/{}",
+                    self.source,
+                    soda_build_tools::reader::canlang::archive_filename(&self.arch)?
                 ),
                 "--out".to_string(),
                 format!("{native}/project-tools"),

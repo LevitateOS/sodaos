@@ -60,6 +60,11 @@ pub fn load_base_from_file(
 pub fn base_from_resolved(arch: &str, resolved: &ResolvedCoreOS) -> Result<Base, Error> {
     model::oci_architecture(arch)?;
     valid_resolved_coreos(resolved).map_err(|error| Error(error.0))?;
+    if !resolved.container.contains_key(arch) {
+        return Err(Error::msg(
+            "resolved CoreOS architecture differs from requested target",
+        ));
+    }
     Ok(Base {
         release: resolved.release.clone(),
         metadata_url: resolved.metadata_url.clone(),

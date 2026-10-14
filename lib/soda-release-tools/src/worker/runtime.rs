@@ -565,7 +565,7 @@ pub fn resolve_live_inputs(c: &WorkerConfig, r: &mut Request) -> Result<(), Stri
     use soda_build_tools::reader::stream::LiveInputs;
     use soda_release_build::coreos_stream::{resolve_coreos, resolve_tailnet_inputs};
     use soda_release_build::live_inputs::write_live_inputs;
-    let coreos = resolve_coreos().map_err(|e| e.to_string())?;
+    let coreos = resolve_coreos(&r.arch).map_err(|e| e.to_string())?;
     let tailnet = resolve_tailnet_inputs(&r.arch).map_err(|e| e.to_string())?;
     let (controller, worker) = live_inputs_paths(&c.source, &c.output_parent, &r.out)?;
     write_live_inputs(Path::new(&controller), &LiveInputs { coreos, tailnet })

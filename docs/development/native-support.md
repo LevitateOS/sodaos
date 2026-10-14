@@ -55,6 +55,14 @@ Retained `.artifacts/native/` trees may still be read by maintenance tools.
 
 Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, occupied output or simultaneous build is refused; there is no automatic removal of earlier artifacts. `GOTOOLCHAIN=local` prevents implicit toolchain installation.
 
+Select `--arch x86_64` or `--arch aarch64` to match that Linux builder; OCI
+architecture names are `amd64` and `arm64`. The ARM build consumes the same
+candidate pipeline and requires a verified Linux ARM64 Canlang tools archive and
+its architecture-specific release lock. Media assembly additionally requires the
+native CoreOS Assembler prerequisites, including KVM and FUSE. Building on Linux
+does not qualify UTM or Docker Desktop on macOS; their evidence requirements
+belong to the [release workflow](release.md).
+
 ```sh
 # After soda-build writes candidate artifacts:
 bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
@@ -391,7 +399,11 @@ Invoke `/path/to/soda-acceptance vm --owner P03 --config FILE --target soda-nati
 
 Work/evidence must be disjoint fresh directories. Preflight checks matching Linux/KVM, tools, trust, paths and loopback port before creating VM state (private diagnostic evidence may exist on preflight failure). The overlay grows only the new disk, never the base. Orderly shutdown and owned process-group termination are bounded independently. Disks/NVRAM remain for inspection, including on failure; no PID-file adoption, global cleanup, project replacement, bridge/tap/firewall setup or persistent `soda-test` adoption occurs.
 
-Use the native `x86_64` target under the [platform scope](../architecture/release.md#architectures). Firmware/`fw_cfg` boot behavior and final filesystem capacity still need actual native observation.
+The `vm` helper uses native Linux KVM under the
+[platform scope](../architecture/release.md#architectures); it does not launch
+UTM on macOS. Firmware/`fw_cfg` boot behavior and final filesystem capacity still
+need actual native observation. ARM Mac qualification follows the UTM installation
+path and retains separate Mac host and Linux guest readbacks.
 
 ## Installed substrate and retained integrations
 

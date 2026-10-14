@@ -17,7 +17,7 @@ fn owner_and_shape_gates() {
         assert!(!valid_owner(owner), "{owner}");
     }
     assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-    assert!(oci_architecture("aarch64").is_err());
+    assert_eq!(oci_architecture("aarch64").unwrap(), "arm64");
     assert!(revision(&"a".repeat(40)));
     assert!(!revision(&"a".repeat(39)));
     assert!(!revision(&"A".repeat(40)));

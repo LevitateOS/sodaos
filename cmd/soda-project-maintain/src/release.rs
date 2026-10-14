@@ -10,11 +10,8 @@ pub(crate) fn apply_release_images(c: &mut Config, path: &str) -> Result<(), Str
     }
     let failed = String::from("immutable appliance image defaults unavailable");
     let payload = load_release_payload(path).map_err(|_| failed.clone())?;
-    // RequireNative: x86_64 payload on a linux/amd64 binary only.
-    if payload.architecture != "x86_64"
-        || !cfg!(target_arch = "x86_64")
-        || !cfg!(target_os = "linux")
-    {
+    // A valid release for another architecture cannot select native Project images.
+    if payload.architecture != std::env::consts::ARCH || !cfg!(target_os = "linux") {
         return Err(failed);
     }
     let project = payload

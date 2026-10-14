@@ -120,7 +120,12 @@ impl VmConfig {
             "-name".to_string(),
             self.name.clone(),
             "-machine".to_string(),
-            "q35,accel=kvm".to_string(),
+            if self.architecture == "aarch64" {
+                "virt,accel=kvm"
+            } else {
+                "q35,accel=kvm"
+            }
+            .to_string(),
             "-cpu".to_string(),
             "host".to_string(),
             "-smp".to_string(),

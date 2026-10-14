@@ -15,8 +15,9 @@ This document owns the durable release model. How to run tools day-to-day lives 
    from that candidate.
 3. **Stage** publishes the complete selected asset set as an immutable GitHub
    prerelease and, for Docker, a versioned GHCR image.
-4. **Qualify and promote** tests those public bytes on native x86_64, then makes
-   the unchanged release the default download.
+4. **Qualify and promote** tests those public bytes on the selected native
+   [platform](#architectures), then updates its eligible recommendation pointers
+   without changing the release bytes.
 
 Building or staging alone does not qualify a release. A failed build or failed
 installation cannot become successful by changing its label. Experimental
@@ -27,8 +28,12 @@ host-image tooling does not replace native FCOS installation and updating.
 The release request selects `appliance`, `docker`, or `all` before building.
 `all` selects both distributions from one source snapshot and common candidate;
 it does not rebuild Soda programs or bundled application images for Docker.
-The target set and source revisions are fixed for the release tag. Adding a
-distribution or changing shipping bytes requires a new release tag.
+Each release has one architecture. The architecture, target set and source revisions
+are fixed for the release tag and bound through the producer, candidate, media and
+Docker metadata. Adding a distribution, changing architecture or changing shipping
+bytes requires a new release tag. Use distinct version tags for each architecture,
+for example `v0.1.2-rc.1` and `v0.1.2-rc.1-aarch64`; there is no combined
+multiarchitecture OCI index or release asset set.
 
 An appliance release includes its ISO and hash-bound rootfs. A Docker-only
 release includes the complete runtime image and its installation metadata;
@@ -162,22 +167,42 @@ release-pair journey must pass before a transition is offered as supported. See
 
 ## Architectures
 
-SodaOS supports **x86_64 only**. AArch64/ARM64 is unsupported and excluded from
-current implementation, build, delivery and qualification scope. Supporting it
-requires a future explicit product decision; upstream platform support or existing
-experimental selectors do not establish Soda support.
+Release targets use the following native platform contracts:
 
-Qualification requires native Linux x86_64 evidence. Cross-compilation, emulation
-and development checks on another host architecture do not qualify the appliance.
+| Release architecture | Appliance qualification target | Docker qualification target | OCI platform |
+| --- | --- | --- | --- |
+| `x86_64` | Native Linux x86_64 installation, including native KVM | Rootful Docker Engine on Linux x86_64 | `linux/amd64` |
+| `aarch64` | UTM on Apple Silicon, with a native Linux ARM64 guest | Docker Desktop on macOS ARM64, with a Linux ARM64 daemon | `linux/arm64` |
+
+The ARM64 scope is the Apple Silicon M4 installation path. Generic ARM server
+qualification is deferred; a Linux ARM server observation cannot establish UTM
+or Docker Desktop support. UTM qualification requires its actual Apple Silicon
+host, VM identity and native accelerator (`hvf` or `apple-virtualization`), together
+with the installed guest and downloaded ISO identities.
+
+Production builds require a native Linux worker matching the selected architecture,
+including architecture-matched offline dependencies. Cross-compilation, emulation,
+source checks and fixture tests are not native build or installed qualification
+evidence. Each architecture needs a successful native candidate build, and every
+selected distribution needs qualification of its published bytes before recommendation.
+
+The acceptance controller runs on Linux. For ARM targets it may collect checks
+from Linux amd64 or arm64, including through SSH to the Mac and its guest or runtime.
+Its client platform identifies the collector, not the deployment host. Retained,
+hashed host and guest/runtime readbacks must establish the actual target platform.
+The [release workflow](../development/release.md#4-exercise-the-actual-public-installation-bytes)
+owns those observation formats and commands.
 
 ## Docker runtime
 
 Docker is an additional direct deployment target for the complete Soda runtime.
 It uses the same candidate's Soda binaries and bundled application images on
 Fedora container userspace, with systemd and Podman inside the outer Docker
-container. It shares the Docker host kernel and requires native x86_64 Linux,
-rootful Docker Engine and cgroup v2. The [Docker guide](../guides/docker.md)
-owns deployment and build commands.
+container. It shares the Linux Docker daemon's kernel and requires rootful
+operation and cgroup v2. On macOS ARM64 that daemon runs inside Docker Desktop's
+Linux VM; the Soda runtime is still the outer container running nested Podman.
+The [platform table](#architectures) defines the native qualification targets.
+The [Docker guide](../guides/docker.md) owns deployment and build commands.
 
 The Docker image excludes CoreOS boot, disk installation and host-update
 services. The operator maintains the host OS; Docker owns container lifecycle.
@@ -187,9 +212,9 @@ rpm-ostree transition or an implicitly supported retained-state upgrade.
 
 ### Docker artifact identity
 
-The Docker binding identifies the release tag and native platform (`x86_64`,
-OCI `linux/amd64`), exact Soda/Fountain source revisions and archive hashes,
-shared candidate and payload hashes, and the source host manifest/archive hash.
+The Docker binding identifies the release tag and selected native architecture
+with its corresponding OCI platform, exact Soda/Fountain source revisions and
+archive hashes, shared candidate and payload hashes, and the source host manifest/archive hash.
 It also binds the resolved Fedora base manifest digest, Docker recipe hash,
 outer image manifest and config digests, exported OCI archive hash/size, RPM
 inventory hash, and distributed Compose file hash/size. The common candidate
@@ -225,15 +250,17 @@ Staging publishes an explicitly unqualified prerelease with the Docker binding,
 exact Compose file, RPM inventory, source archives and shared release metadata.
 Qualification receipts are retained locally and incorporated into the editable
 release notes during promotion; immutable release assets cannot be appended later.
-The `latest` Docker tag is a recommendation pointer moved only to a qualified
-version's unchanged digest. Installation uses that version's Compose file and
-pins its recorded image digest.
+Docker recommendation tags are `latest` for x86_64 and `latest-arm64` for aarch64.
+Both names are reserved and cannot serve as version tags. Each moves only to a
+qualified version's unchanged digest. Installation uses that version's Compose
+file and pins its recorded image digest; the digest selects the architecture.
 
-GitHub's latest release remains the appliance ISO download pointer. Promoting
-Docker-only releases must not change it. An `all` release can update both
-recommendations only after both distributions qualify; one passing target cannot
-promote a partially qualified release. Qualification records evidence without
-changing either recommendation. GHCR and GitHub changes are not atomic:
+GitHub's global latest release remains the x86_64 appliance ISO download pointer.
+Docker-only and all ARM releases preserve its existing value, including its absence.
+ARM appliances use their versioned download URLs. An `all` release can update its
+eligible recommendations only after both distributions of that architecture qualify;
+one passing target cannot promote a partially qualified release. Qualification
+records evidence without changing recommendations. GHCR and GitHub changes are not atomic:
 partial publication or promotion must report observed remote state, retain its
 artifacts and refuse blind retry, overwrite or rollback of recommendation pointers.
 
@@ -243,6 +270,11 @@ One fresh deployment on the supported native Docker host uses the publicly
 downloaded Compose file and anonymously pulled registry digest, with new runtime
 volumes. Independent readback binds the pulled manifest/config, installed Soda
 revision, shared payload/application identities and host platform to the release.
+The installation observation binds both the actual host platform and runtime:
+Linux amd64 with Docker Engine, or macOS arm64 with Docker Desktop. Distinct retained
+host and runtime readback files support these facts; a Linux arm64 daemon alone
+cannot establish the macOS target. The [workflow](../development/release.md#4-exercise-the-actual-public-installation-bytes)
+defines the required fields for both architectures.
 Required observations cover:
 
 - Initial image import, service readiness, operator setup and HTTPS activation.

@@ -39,8 +39,13 @@ pub(crate) fn command() -> Command {
         .about("Validate exact installed evidence for every selected target")
         .arg(Arg::new("input").long("input").required(true).num_args(1))
         .args(
-            ["evidence", "downloaded-iso", "observed-revision"]
-                .map(|name| Arg::new(name).long(name).num_args(1)),
+            [
+                "evidence",
+                "downloaded-iso",
+                "observed-revision",
+                "platform-evidence",
+            ]
+            .map(|name| Arg::new(name).long(name).num_args(1)),
         )
         .arg(
             Arg::new("smoke-passed")
@@ -49,6 +54,12 @@ pub(crate) fn command() -> Command {
         );
     let start = Command::new("start")
         .about("Guide a production build and local preparation; never publish or deploy")
+        .arg(
+            Arg::new("arch")
+                .long("arch")
+                .num_args(1)
+                .default_value(std::env::consts::ARCH),
+        )
         .args(
             ["distribution", "tag", "worker-config", "notes", "out"]
                 .map(|name| Arg::new(name).long(name).num_args(1)),
@@ -134,6 +145,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
             let input = Path::new(get("input")?);
             let manifest = publish::assets::load(input).map_err(|error| error.to_string())?;
             qualification_inputs(flags, manifest.distribution)?;
+            if manifest.architecture == "aarch64"
+                && manifest.has_appliance()
+                && flags
+                    .get_one::<String>("platform-evidence")
+                    .is_none_or(String::is_empty)
+            {
+                return Err("--platform-evidence required for ARM64 UTM qualification before any qualification is recorded".into());
+            }
             if manifest.docker.is_some() {
                 publish::qualify_docker(
                     &publish::Gh,
@@ -151,6 +170,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
                     Path::new(get("downloaded-iso")?),
                     get("observed-revision")?,
                     flags.get_flag("smoke-passed"),
+                    flags.get_one::<String>("platform-evidence").map(Path::new),
                 )
                 .map_err(|error| error.to_string())?;
             }

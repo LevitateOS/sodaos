@@ -1,4 +1,4 @@
-//! Native executable admission (`elf.go`): 64-bit little-endian x86-64
+//! Native executable admission (`elf.go`): 64-bit little-endian x86-64/ARM64
 //! executables or shared objects only.
 
 use crate::{io_error, Error};
@@ -8,9 +8,11 @@ use std::path::Path;
 
 /// Verifies a natively executable artifact for the architecture.
 pub fn inspect_elf(path: &Path, arch: &str) -> Result<(), Error> {
-    if arch != "x86_64" {
-        return Err(Error::msg("unknown native architecture"));
-    }
+    let machine = match arch {
+        "x86_64" => 62,
+        "aarch64" => 183,
+        _ => return Err(Error::msg("unknown native architecture")),
+    };
     let mut file = std::fs::File::open(path).map_err(|e| io_error("open", path, e))?;
     let mut data = [0; HEADER_LEN];
     if let Err(error) = file.read_exact(&mut data) {
@@ -20,15 +22,15 @@ pub fn inspect_elf(path: &Path, arch: &str) -> Result<(), Error> {
             io_error("read", path, error)
         });
     }
-    if !is_native_executable(&data) {
+    if !is_native_executable(&data, machine) {
         return Err(Error::msg("native executable format/platform mismatch"));
     }
     Ok(())
 }
 
-fn is_native_executable(data: &[u8]) -> bool {
+fn is_native_executable(data: &[u8], machine: u16) -> bool {
     elf64_le_header(data)
-        .is_some_and(|header| header.machine == 62 && matches!(header.file_type, 2 | 3))
+        .is_some_and(|header| header.machine == machine && matches!(header.file_type, 2 | 3))
 }
 
 #[cfg(test)]
@@ -54,6 +56,16 @@ pub(crate) mod tests {
         assert!(inspect_elf(&good, "x86_64").is_ok());
         assert_eq!(
             inspect_elf(&good, "aarch64").unwrap_err().message(),
+            "native executable format/platform mismatch"
+        );
+        let arm = dir.join("arm");
+        let mut bytes = fixture_elf();
+        bytes[18..20].copy_from_slice(&183u16.to_le_bytes());
+        std::fs::write(&arm, bytes).unwrap();
+        assert!(inspect_elf(&arm, "aarch64").is_ok());
+        assert!(inspect_elf(&arm, "x86_64").is_err());
+        assert_eq!(
+            inspect_elf(&arm, "arm64").unwrap_err().message(),
             "unknown native architecture"
         );
         let bad = dir.join("bad");

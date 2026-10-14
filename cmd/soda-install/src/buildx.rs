@@ -10,10 +10,9 @@ use crate::errors::{self, Error};
 pub const JSON_LIMIT: u64 = 4 << 20;
 
 pub fn oci_architecture(arch: &str) -> Result<String, Error> {
-    if arch == "x86_64" {
-        return Ok("amd64".to_string());
-    }
-    Err(Error::msg("expected x86_64"))
+    soda_build_tools::reader::oci_architecture(arch)
+        .map(str::to_owned)
+        .map_err(|error| Error::msg(error.0))
 }
 
 pub fn digest(s: &str) -> bool {
@@ -203,9 +202,10 @@ mod tests {
         assert!(revision(&"a".repeat(40)));
         assert!(!revision("dirty"));
         assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
+        assert_eq!(oci_architecture("aarch64").unwrap(), "arm64");
         assert_eq!(
             oci_architecture("armv7").unwrap_err().to_string(),
-            "expected x86_64"
+            "expected x86_64 or aarch64"
         );
     }
 

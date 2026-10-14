@@ -25,7 +25,7 @@ sudo /usr/libexec/soda/soda-image-import
 
 ## Inputs and effects
 
-- Requires native Linux x86_64, `/usr/bin/podman`, installed release metadata at
+- Requires native Linux matching the x86_64 or aarch64 payload, `/usr/bin/podman`, installed release metadata at
   `/usr/share/soda/release.json`, and its OCI layout at `/usr/share/soda/images`.
 - Validates the bundled content and its release bindings before importing images
   for dashboard, Forgejo, extension, proxy, Project OS and Tailnet.

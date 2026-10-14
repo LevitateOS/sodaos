@@ -23,25 +23,73 @@ fn stream_doc(iso_location: &str) -> String {
 #[test]
 fn stream_build_parses_release_and_triples() {
     let location = "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/41.20250101.3.0/x86_64/fedora-coreos-41.20250101.3.0-live.x86_64.iso";
-    let (release, iso, qemu) = resolve_stream_build(stream_doc(location).as_bytes()).unwrap();
+    let (release, iso, qemu) =
+        resolve_stream_build(stream_doc(location).as_bytes(), "x86_64").unwrap();
     assert_eq!(release, "41.20250101.3.0");
     assert_eq!(iso.url, location);
     assert_eq!(iso.signature_url, format!("{location}.sig"));
     assert_eq!(qemu.uncompressed_sha256, "c".repeat(64));
-    assert!(resolve_stream_build(b"not json").is_err());
-    assert!(resolve_stream_build(br#"{"architectures": {}}"#).is_err());
-    let err =
-        resolve_stream_build(stream_doc("https://example.test/no-builds/segment.iso").as_bytes())
-            .err()
-            .unwrap();
+    assert!(resolve_stream_build(b"not json", "x86_64").is_err());
+    assert!(resolve_stream_build(br#"{"architectures": {}}"#, "x86_64").is_err());
+    let err = resolve_stream_build(
+        stream_doc("https://example.test/no-builds/segment.iso").as_bytes(),
+        "x86_64",
+    )
+    .err()
+    .unwrap();
     assert_eq!(
         err.to_string(),
         "stable stream x86_64 ISO location names no release"
     );
-    let err = resolve_stream_build(br#"{"architectures": {"x86_64": {"artifacts": {}}}}"#)
-        .err()
-        .unwrap();
+    let err = resolve_stream_build(
+        br#"{"architectures": {"x86_64": {"artifacts": {}}}}"#,
+        "x86_64",
+    )
+    .err()
+    .unwrap();
     assert_eq!(err.to_string(), "stable stream lacks x86_64 live ISO");
+}
+
+#[test]
+fn coreos_inputs_follow_selected_architecture_without_falling_back() {
+    let location = "https://builds.test/builds/41.20250101.3.0/x86_64/fedora-coreos-41.20250101.3.0-live.x86_64.iso";
+    let x86 = stream_doc(location);
+    let arm = x86
+        .replace("x86_64", "aarch64")
+        .replace(&"c".repeat(64), &"d".repeat(64));
+    let mut mixed: serde_json::Value = serde_json::from_str(&x86).unwrap();
+    let arm_value: serde_json::Value = serde_json::from_str(&arm).unwrap();
+    mixed["architectures"]["aarch64"] = arm_value["architectures"]["aarch64"].clone();
+    let index = serde_json::json!({"manifests":[
+        {"platform":{"architecture":"amd64"},"digest":format!("sha256:{}", "1".repeat(64))},
+        {"platform":{"architecture":"arm64"},"digest":format!("sha256:{}", "2".repeat(64))}
+    ]});
+    for (arch, expected_hash, manifest_hash) in [("x86_64", 'c', '1'), ("aarch64", 'd', '2')] {
+        let (_, iso, qemu) =
+            resolve_stream_build(&serde_json::to_vec(&mixed).unwrap(), arch).unwrap();
+        assert!(iso.url.ends_with(&format!("-live.{arch}.iso")));
+        assert!(qemu.url.ends_with(&format!("-qemu.{arch}.qcow2.xz")));
+        assert_eq!(
+            qemu.uncompressed_sha256,
+            expected_hash.to_string().repeat(64)
+        );
+        assert_eq!(
+            registry_digest(&serde_json::to_vec(&index).unwrap(), "quay.io", arch).unwrap(),
+            format!(
+                "quay.io/fedora/fedora-coreos@sha256:{}",
+                manifest_hash.to_string().repeat(64)
+            )
+        );
+    }
+    assert!(resolve_stream_build(x86.as_bytes(), "aarch64").is_err());
+    assert!(resolve_stream_build(arm.as_bytes(), "x86_64").is_err());
+    let only_x86 = serde_json::json!({"manifests":[index["manifests"][0]]});
+    assert!(registry_digest(
+        &serde_json::to_vec(&only_x86).unwrap(),
+        "quay.io",
+        "aarch64"
+    )
+    .is_err());
 }
 
 #[test]
@@ -177,5 +225,5 @@ fn resolve_gate_rejects_plain_http_stream() {
     let err = resolve_qemu(&Phase::background(), "x86_64").err().unwrap();
     std::env::remove_var("SODA_COREOS_STREAM_URL");
     assert_eq!(err.to_string(), "CoreOS stream URL must be HTTPS");
-    assert!(resolve_qemu(&Phase::background(), "aarch64").is_err());
+    assert!(resolve_qemu(&Phase::background(), "riscv64").is_err());
 }

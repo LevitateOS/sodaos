@@ -14,9 +14,14 @@ pub fn base_options() -> Options {
 }
 
 #[test]
-fn arch_flag_admits_only_x86_64() {
-    assert!(validate_arch_flag("x86_64").is_ok());
-    for arch in ["", "aarch64", "amd64", "arm64"] {
+fn arch_flag_requires_matching_native_linux() {
+    for arch in ["x86_64", "aarch64"] {
+        assert_eq!(
+            validate_arch_flag(arch).is_ok(),
+            cfg!(target_os = "linux") && arch == std::env::consts::ARCH
+        );
+    }
+    for arch in ["", "riscv64", "amd64", "arm64"] {
         assert!(validate_arch_flag(arch).is_err(), "{arch}");
     }
 }

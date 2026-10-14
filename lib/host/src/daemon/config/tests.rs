@@ -153,7 +153,12 @@ fn selected_canlang_tools_reference_refuses_missing_unsafe_or_invalid_files() {
 
 #[test]
 fn host_payload_architecture_matches_native_policy() {
-    assert!(host_payload_architecture_is_native("x86_64"));
+    for arch in ["x86_64", "aarch64"] {
+        assert_eq!(
+            host_payload_architecture_is_native(arch),
+            cfg!(target_os = "linux") && arch == std::env::consts::ARCH
+        );
+    }
     assert!(!host_payload_architecture_is_native(""));
     assert!(!host_payload_architecture_is_native("X86_64"));
 }

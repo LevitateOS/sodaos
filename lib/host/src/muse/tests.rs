@@ -23,9 +23,7 @@ fn deadline() -> Instant {
 
 fn test_tmp(slug: &str) -> std::path::PathBuf {
     let n = TMP_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("target/tmp/muse-tests")
-        .join(format!("t26m-{}-{n}-{slug}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("t26m-{}-{n}-{slug}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }

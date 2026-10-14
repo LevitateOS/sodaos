@@ -64,7 +64,7 @@ fn command(name: &str) -> ClapCommand {
             "media-compression",
             "fast: development media only; changes host compression metadata (default: upstream)",
         ))
-        .arg(value("arch", "matching native x86_64"))
+        .arg(value("arch", "matching native x86_64 or aarch64"))
         .arg(value(
             "upgrade-from",
             "prospective source release ID; native qualification is separate",

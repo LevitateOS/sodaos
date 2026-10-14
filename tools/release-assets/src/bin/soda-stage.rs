@@ -6,8 +6,9 @@ use std::path::PathBuf;
 use soda_release_assets::render::{source_root, split_flag, stage};
 
 const PROG: &str = "soda-stage";
-const USAGE: &str = "usage: soda-stage --arch x86_64 --host-context DIR --forgejo-context DIR";
-const HELP: &str = "usage: soda-stage --arch x86_64 --host-context DIR --forgejo-context DIR\n\nStage existing native build outputs plus configuration; does not build or install.\n\noptions:\n  --arch x86_64        native architecture (only x86_64)\n  --host-context DIR     prepared host context holding rootfs/\n  --forgejo-context DIR  fresh Forgejo context for the presentation\n";
+const USAGE: &str =
+    "usage: soda-stage --arch x86_64|aarch64 --host-context DIR --forgejo-context DIR";
+const HELP: &str = "usage: soda-stage --arch x86_64|aarch64 --host-context DIR --forgejo-context DIR\n\nStage existing native build outputs plus configuration; does not build or install.\n\noptions:\n  --arch x86_64|aarch64  native Linux architecture\n  --host-context DIR     prepared host context holding rootfs/\n  --forgejo-context DIR  fresh Forgejo context for the presentation\n";
 
 struct Args {
     arch: String,
@@ -72,7 +73,7 @@ fn parse(args: &[OsString]) -> Args {
                     }
                 };
                 match name.as_str() {
-                    // Non-UTF-8 can never equal x86_64; it falls out below
+                    // Non-UTF-8 can never equal a supported architecture; it falls out below
                     // as an invalid choice, like argparse's failed test.
                     "arch" => arch = Some(value.to_string_lossy().into_owned()),
                     "host-context" => host_context = Some(PathBuf::from(value)),
@@ -105,9 +106,9 @@ fn parse(args: &[OsString]) -> Args {
         ));
     }
     let arch = arch.unwrap();
-    if arch != "x86_64" {
+    if !["x86_64", "aarch64"].contains(&arch.as_str()) {
         refusal(format!(
-            "argument --arch: invalid choice: '{arch}' (choose from x86_64)"
+            "argument --arch: invalid choice: '{arch}' (choose from x86_64, aarch64)"
         ));
     }
     Args {

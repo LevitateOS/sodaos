@@ -306,8 +306,8 @@ fn release_from_location(location: &str) -> Option<String> {
     }
 }
 
-fn image_at(doc: &JsonValue, artifact: &str, format: &str) -> Option<CoreOSImage> {
-    let entry = doc.get("architectures")?.get("x86_64")?;
+fn image_at(doc: &JsonValue, arch: &str, artifact: &str, format: &str) -> Option<CoreOSImage> {
+    let entry = doc.get("architectures")?.get(arch)?;
     let disk = entry
         .get("artifacts")?
         .get(artifact)?
@@ -334,29 +334,31 @@ fn image_at(doc: &JsonValue, artifact: &str, format: &str) -> Option<CoreOSImage
     })
 }
 
-/// Parse one stable-stream document into the release and the x86_64
+/// Parse one stable-stream document into the release and the selected architecture's
 /// ISO/QEMU triples. Mirrors `resolveStreamBuild`.
-pub fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage), Error> {
+pub fn resolve_stream_build(
+    data: &[u8],
+    arch: &str,
+) -> Result<(String, CoreOSImage, CoreOSImage), Error> {
+    oci_architecture(arch).map_err(|err| Error::msg(err.to_string()))?;
     let text =
         std::str::from_utf8(data).map_err(|_| Error::msg("invalid CoreOS stream document"))?;
     let doc = JsonValue::parse(text).map_err(|_| Error::msg("invalid CoreOS stream document"))?;
-    if doc
-        .get("architectures")
-        .and_then(|v| v.get("x86_64"))
-        .is_none()
-    {
-        return Err(Error::msg("stable stream lacks architecture x86_64"));
+    if doc.get("architectures").and_then(|v| v.get(arch)).is_none() {
+        return Err(Error::msg(format!(
+            "stable stream lacks architecture {arch}"
+        )));
     }
-    let Some(iso) = image_at(&doc, "metal", "iso") else {
-        return Err(Error::msg("stable stream lacks x86_64 live ISO"));
+    let Some(iso) = image_at(&doc, arch, "metal", "iso") else {
+        return Err(Error::msg(format!("stable stream lacks {arch} live ISO")));
     };
     let Some(release) = release_from_location(&iso.url) else {
-        return Err(Error::msg(
-            "stable stream x86_64 ISO location names no release",
-        ));
+        return Err(Error::msg(format!(
+            "stable stream {arch} ISO location names no release"
+        )));
     };
-    let Some(qemu) = image_at(&doc, "qemu", "qcow2.xz") else {
-        return Err(Error::msg("stable stream lacks x86_64 qemu image"));
+    let Some(qemu) = image_at(&doc, arch, "qemu", "qcow2.xz") else {
+        return Err(Error::msg(format!("stable stream lacks {arch} qemu image")));
     };
     valid_stream_images(&release, &iso, &qemu).map_err(|err| Error::msg(err.to_string()))?;
     Ok((release, iso, qemu))
@@ -377,9 +379,10 @@ pub fn registry_endpoint(registry: &str) -> Result<(String, String), Error> {
     ))
 }
 
-/// Read the container manifest index and return the x86_64 digest-pinned
+/// Read the container manifest index and return the selected architecture's digest-pinned
 /// ref. Mirrors `resolveRegistryDigests`.
-pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
+pub fn resolve_registry_digest(phase: &Phase, arch: &str) -> Result<String, Error> {
+    oci_architecture(arch).map_err(|err| Error::msg(err.to_string()))?;
     let registry = registry_url();
     let (endpoint, host) = registry_endpoint(&registry)?;
     let extra = vec![
@@ -409,8 +412,12 @@ pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
             "container registry HTTP failure: {shown}"
         )));
     }
-    let text =
-        std::str::from_utf8(&body).map_err(|_| Error::msg("container index is malformed"))?;
+    registry_digest(&body, &host, arch)
+}
+
+fn registry_digest(body: &[u8], host: &str, arch: &str) -> Result<String, Error> {
+    let oci_arch = oci_architecture(arch).map_err(|err| Error::msg(err.to_string()))?;
+    let text = std::str::from_utf8(body).map_err(|_| Error::msg("container index is malformed"))?;
     let index = JsonValue::parse(text).map_err(|_| Error::msg("container index is malformed"))?;
     // Missing/null `manifests` decodes to no entries, like Go: the
     // lookup below then reports the lacking architecture.
@@ -419,7 +426,6 @@ pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
         Some(JsonValue::Array(manifests)) => manifests.as_slice(),
         Some(_) => return Err(Error::msg("container index is malformed")),
     };
-    let oci_arch = oci_architecture("x86_64").map_err(|err| Error::msg(err.to_string()))?;
     let mut found = String::new();
     for manifest in manifests {
         let JsonValue::Object(_) = manifest else {
@@ -439,18 +445,26 @@ pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
             continue;
         }
         let Some(digest) = manifest.get("digest").and_then(|v| v.as_str()) else {
-            return Err(Error::msg("container index x86_64 digest is malformed"));
+            return Err(Error::msg(format!(
+                "container index {arch} digest is malformed"
+            )));
         };
         let Some(hex) = digest.strip_prefix("sha256:") else {
-            return Err(Error::msg("container index x86_64 digest is malformed"));
+            return Err(Error::msg(format!(
+                "container index {arch} digest is malformed"
+            )));
         };
         if !is_digest(hex) {
-            return Err(Error::msg("container index x86_64 digest is malformed"));
+            return Err(Error::msg(format!(
+                "container index {arch} digest is malformed"
+            )));
         }
         found = digest.to_string();
     }
     if found.is_empty() {
-        return Err(Error::msg("container index lacks architecture x86_64"));
+        return Err(Error::msg(format!(
+            "container index lacks architecture {arch}"
+        )));
     }
     Ok(format!("{host}/{CONTAINER_REPO}@{found}"))
 }
@@ -472,8 +486,8 @@ pub fn resolve_qemu(phase: &Phase, arch: &str) -> Result<(String, CoreOSImage), 
         };
         return Err(Error::msg(format!("live input HTTP failure: {shown}")));
     }
-    let (release, _, qemu) = resolve_stream_build(&body)?;
-    let _ = resolve_registry_digest(phase)?;
+    let (release, _, qemu) = resolve_stream_build(&body, arch)?;
+    let _ = resolve_registry_digest(phase, arch)?;
     let _ = stream_release_url(&url, &release)?;
     Ok((release, qemu))
 }

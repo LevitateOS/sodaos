@@ -8,9 +8,15 @@ lifecycle; the operator owns the host operating system.
 
 ## Host requirements
 
-Use a dedicated x86_64 Linux Docker Engine host with cgroup v2 and Compose 2.17 or
-later, including the [bounded startup wait](https://github.com/docker/compose/blob/v2.17.0/cmd/compose/up.go).
-Rootless Docker and Docker Desktop are outside this deployment contract.
+The Linux deployment target uses a dedicated native `x86_64` Docker Engine host
+with cgroup v2 and Compose 2.17 or later, including the
+[bounded startup wait](https://github.com/docker/compose/blob/v2.17.0/cmd/compose/up.go).
+The source supports `linux/amd64` and `linux/arm64` packaging. A production
+installation requires a published image qualified on its matching architecture;
+ARM64 source support alone does not establish that qualification. Rootless Docker
+is outside this deployment contract. Docker Desktop on Apple Silicon remains a
+[development qualification target](#docker-desktop-on-apple-silicon).
+Generic ARM Linux server qualification is deferred.
 Allow capacity for the runtime, retained Projects, nested workloads and backups.
 The complete payload occupies several gigabytes before Project data is created.
 
@@ -29,18 +35,40 @@ Project subnet that do not conflict with the host's LAN, Docker or VPN networks.
 
 Install Docker Engine with its Compose plugin, plus `curl`, `jq`, coreutils
 and OpenSSL on the host. Run the commands below on that host with access to its
-rootful Docker daemon. Check `docker info` for Linux, x86_64, cgroup version 2
-and absence of rootless mode, and `docker compose version` for the Compose version.
+rootful Docker daemon. Check `docker info` for Linux, the selected native
+architecture, cgroup version 2 and absence of rootless mode, and
+`docker compose version` for the Compose version.
 
 The selected browser HTTPS/Git ports and Cockpit port 9090 must be available on
 the host. Forgejo initially uses loopback ports 3000 and 2222. NetworkManager,
 DNS, kernel auditing and sysctl initialization are managed by Docker/the host,
 not started inside the runtime.
 
+## Docker Desktop on Apple Silicon
+
+Select the release's `linux/arm64` image for an M4 Mac. Docker Desktop runs Linux
+containers inside its Linux VM; the native ARM64 image must still meet Soda's
+privileged systemd/Podman, cgroup and persistence requirements there.
+
+Docker Desktop 4.34 or later offers host networking through **Settings → Resources
+→ Network → Enable host networking**. It requires Linux containers and Enhanced
+Container Isolation to be disabled. Desktop's host networking supports TCP/UDP
+and does not let container processes bind directly to the Mac's interface
+addresses. See [Docker's host networking requirements and limitations](https://docs.docker.com/engine/network/drivers/host/#docker-desktop).
+
+The Linux installation commands below bind Soda to an address assigned to the
+Docker host. Applying them to the Mac's private LAN address is not a verified
+Desktop setup. Private browser activation, client access to Project subnets,
+nested containers and persistent-state recreation need M4 Desktop qualification
+before this can be an end-user installation path. Enabling host networking alone
+does not resolve those requirements.
+
 ## Install a released image
 
 Choose an exact release from [GitHub releases](https://github.com/LevitateOS/sodaos/releases)
-whose notes confirm Docker qualification. It must supply `docker.json`,
+whose notes confirm Docker qualification for your host architecture. Each release
+tag and immutable manifest digest identifies one architecture; the installation
+does not use a multi-architecture image index. It must supply `docker.json`,
 `sodaos-docker-compose.yaml` and the public GHCR image identified in that metadata.
 GitHub's latest release is the appliance ISO recommendation; select the Docker
 tag explicitly. Production packaging or a prerelease tag alone is not qualification.
@@ -58,13 +86,20 @@ mkdir -m 0700 /home/sodaos
 cd /home/sodaos
 release_tag=REPLACE_WITH_QUALIFIED_DOCKER_TAG
 release_url="https://github.com/LevitateOS/sodaos/releases/download/$release_tag"
+test "$(docker info --format '{{.OSType}}')" = linux
+case "$(docker info --format '{{.Architecture}}')" in
+  x86_64|amd64) release_arch=x86_64; image_arch=amd64 ;;
+  aarch64|arm64) release_arch=aarch64; image_arch=arm64 ;;
+  *) printf '%s\n' 'A native x86_64 or aarch64 Docker host is required' >&2; exit 1 ;;
+esac
 curl --fail --show-error --location "$release_url/docker.json" -o docker.json
 curl --fail --show-error --location "$release_url/sodaos-docker-compose.yaml" -o compose.yaml
 
-jq -e --arg tag "$release_tag" '
+jq -e --arg tag "$release_tag" --arg arch "$release_arch" --arg image_arch "$image_arch" '
   .Format == 1 and .Purpose == "production" and
   (.Distribution == "docker" or .Distribution == "all") and
-  .ReleaseTag == $tag and .Architecture == "x86_64" and .Platform == "linux/amd64" and
+  .ReleaseTag == $tag and .Architecture == $arch and
+  .Platform == ("linux/" + $image_arch) and .Image.Architecture == $image_arch and
   (.Image.Manifest | test("^sha256:[0-9a-f]{64}$")) and
   (.Compose.SHA256 | test("^[0-9a-f]{64}$")) and
   (.Compose.Bytes > 0 and .Compose.Bytes == (.Compose.Bytes | floor))
@@ -76,7 +111,9 @@ test "$(wc -c < compose.yaml)" -eq "$(jq -r '.Compose.Bytes' docker.json)"
 Continue only if the downloads and every check succeed. The Compose hash binds
 this file to the selected GitHub release. The pull below checks the image against
 its registry manifest digest. Retain the downloaded metadata and unedited Compose
-file alongside the installation's configuration.
+file alongside the installation's configuration. A release for the other
+architecture must fail these checks; do not bypass them by forcing an emulated
+platform in Compose.
 
 Select a valid, non-overlapping Project subnet before the first start. Save the
 image digest and subnet in `.env` so restarts and recreation use the same choices:
@@ -226,6 +263,9 @@ This is release-builder work; users of a published runtime image do not build
 components. Run the admitted controller from its clean committed checkout or
 linked worktree, with its matching worker configuration. See [native build
 admission](../development/native-support.md#local-host-content-image-candidate) for setup and custody.
+The selected architecture must match the native Linux builder. ARM64 builds need
+the [verified ARM64 Canlang dependency](installation.md#prepare-the-builder);
+without its lock and native archive there is no complete ARM64 candidate to package.
 
 ```sh
 # Docker-only production packaging: no media authority or rootfs URL.
@@ -234,6 +274,8 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --out /OUTPUT_PARENT/UNIQUE --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
 # For development, add --development --target docker to the same command.
+# On a prepared native ARM64 Linux builder, use --arch aarch64 and a distinct
+# release tag, for example v0.1.0-aarch64.
 ```
 
 The builder freezes the Fedora base digest before compiling, produces the normal

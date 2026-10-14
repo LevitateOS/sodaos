@@ -1,6 +1,44 @@
 use super::*;
 
 #[test]
+fn frozen_arm_coreos_base_requires_matching_target() {
+    use soda_build_tools::reader::stream::CoreOSImage;
+    let image = CoreOSImage {
+        url: "https://builds.test/aarch64/live.iso".to_string(),
+        signature_url: "https://builds.test/aarch64/live.iso.sig".to_string(),
+        sha256: "a".repeat(64),
+        uncompressed_sha256: "b".repeat(64),
+    };
+    let pinned = format!("quay.io/fedora/fedora-coreos@sha256:{}", "c".repeat(64));
+    let coreos = ResolvedCoreOS {
+        release: "44.20260901.1.0".to_string(),
+        metadata_url: "https://builds.test/prod/streams/stable/builds/44.20260901.1.0/release.json"
+            .to_string(),
+        container: [("aarch64".to_string(), pinned.clone())].into(),
+        iso: [("aarch64".to_string(), image.clone())].into(),
+        qemu: [(
+            "aarch64".to_string(),
+            CoreOSImage {
+                url: "https://builds.test/aarch64/image.qcow2.xz".to_string(),
+                signature_url: "https://builds.test/aarch64/image.qcow2.xz.sig".to_string(),
+                ..image
+            },
+        )]
+        .into(),
+    };
+    assert_eq!(
+        base_from_resolved("aarch64", &coreos)
+            .unwrap()
+            .image("aarch64"),
+        pinned
+    );
+    assert_eq!(
+        base_from_resolved("x86_64", &coreos).unwrap_err().0,
+        "resolved CoreOS architecture differs from requested target"
+    );
+}
+
+#[test]
 fn host_context_delivers_avatar_dependency_notices() {
     let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let output = std::env::temp_dir().join(format!(
@@ -179,7 +217,7 @@ fn oracle_base_inputs_require_exact_revision() {
     let stub = Stub;
     assert_eq!(
         load_base(&stub, "not-an-arch").unwrap_err().0,
-        "expected x86_64"
+        "expected x86_64 or aarch64"
     );
     assert_eq!(
         finish_base_inputs("/nonexistent", "short", Base::default())

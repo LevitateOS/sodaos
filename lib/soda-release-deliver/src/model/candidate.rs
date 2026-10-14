@@ -57,7 +57,7 @@ fn valid_candidate_host(c: &Candidate, p: &Payload, arch: &str) -> bool {
 fn valid_candidate_provenance(c: &Candidate, p: &Payload, payload: &[u8]) -> bool {
     valid_candidate_source(c, p, payload)
         && valid_candidate_build(c, p)
-        && valid_candidate_content(&c.content_sha256)
+        && valid_candidate_content(&c.content_sha256, &p.architecture)
         && !c.migration.is_empty()
         && !c.notes.is_empty()
 }
@@ -78,8 +78,13 @@ fn valid_candidate_build(c: &Candidate, p: &Payload) -> bool {
 }
 
 /// `ValidCandidateContent`: exact required content bindings plus assets.
-pub fn valid_candidate_content(files: &BTreeMap<String, String>) -> bool {
+pub fn valid_candidate_content(files: &BTreeMap<String, String>, architecture: &str) -> bool {
+    let Ok(filename) = soda_build_tools::reader::canlang::archive_filename(architecture) else {
+        return false;
+    };
+    let archive = format!("host:/usr/share/soda/canlang-tools/{filename}");
     if !required_candidate_content(files)
+        || !files.get(&archive).is_some_and(|hash| is_digest(hash))
         || files.get("forgejo:/usr/local/bin/gitea") != files.get("extension:/usr/local/bin/gitea")
     {
         return false;
@@ -102,7 +107,7 @@ pub fn valid_candidate_content(files: &BTreeMap<String, String>) -> bool {
             }
             continue;
         }
-        if !known_candidate_content_name(file) {
+        if file != &archive && !known_candidate_content_name(file) {
             return false;
         }
     }
@@ -121,7 +126,6 @@ fn required_candidate_content(files: &BTreeMap<String, String>) -> bool {
         "host:/usr/share/containers/systemd/soda-dashboard.container",
         "host:/usr/lib/systemd/system/soda-extension-install.service",
         "host:/usr/share/soda/canlang-tools/release.json",
-        "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
         "canlang-runtime:/opt/canlang/tools.json",
         "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
         "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
@@ -188,7 +192,6 @@ fn known_candidate_content_name(file: &str) -> bool {
             | "host:/usr/share/containers/systemd/soda-dashboard.container"
             | "host:/usr/lib/systemd/system/soda-extension-install.service"
             | "host:/usr/share/soda/canlang-tools/release.json"
-            | "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz"
             | "canlang-runtime:/opt/canlang/tools.json"
     )
 }

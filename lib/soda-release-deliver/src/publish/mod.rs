@@ -3,6 +3,7 @@ use crate::Error;
 use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
+mod appliance;
 pub mod assets;
 pub mod qualification;
 pub mod registry;
@@ -283,6 +284,7 @@ fn record_verified(path: &Path, bytes: &[u8]) -> Result<(), Error> {
 #[serde(deny_unknown_fields)]
 struct ApplianceEvidence {
     downloaded: std::path::PathBuf,
+    platform_evidence: Option<std::path::PathBuf>,
 }
 
 fn appliance_evidence(
@@ -298,7 +300,49 @@ fn appliance_evidence(
     }
     let downloaded = inspect(&input.downloaded, &manifest.iso)?;
     receipt.validate(manifest, &downloaded)?;
+    if manifest.architecture == "aarch64" {
+        let platform = input
+            .platform_evidence
+            .as_deref()
+            .ok_or_else(|| Error::msg("native UTM platform evidence required"))?;
+        if !platform.is_absolute()
+            || receipt.platform_observation.as_ref()
+                != Some(&appliance::observe(manifest, platform, None)?)
+        {
+            return Err(Error::msg(
+                "retained ARM appliance platform observation changed",
+            ));
+        }
+    }
     Ok((receipt, input.downloaded))
+}
+
+fn appliance_publication(
+    directory: &Path,
+    manifest: &Manifest,
+    published: &Release,
+) -> Result<(), Error> {
+    if manifest.architecture != "aarch64" {
+        return Ok(());
+    }
+    if published.draft || !published.immutable {
+        return Err(Error::refused());
+    }
+    let input: ApplianceEvidence = read_json(&directory.join("appliance-evidence.json"))?;
+    appliance::observe(
+        manifest,
+        input
+            .platform_evidence
+            .as_deref()
+            .ok_or_else(Error::refused)?,
+        Some(
+            published
+                .published_at
+                .as_deref()
+                .ok_or_else(Error::refused)?,
+        ),
+    )?;
+    Ok(())
 }
 
 /// Upload a complete draft, verify its inventory, and expose it as an unqualified
@@ -414,6 +458,7 @@ pub fn qualify_appliance(
     downloaded_iso: &Path,
     observed_revision: &str,
     smoke_passed: bool,
+    platform_evidence: Option<&Path>,
 ) -> Result<(), Error> {
     if !smoke_passed {
         return Err(Error::msg(
@@ -424,8 +469,33 @@ pub fn qualify_appliance(
     let downloaded = inspect(downloaded_iso, &manifest.iso)?;
     let downloaded_iso = std::fs::canonicalize(downloaded_iso)
         .map_err(|_| Error::msg("downloaded ISO unavailable"))?;
+    let platform_observation = if manifest.architecture == "aarch64" {
+        Some(appliance::observe(
+            &manifest,
+            platform_evidence.ok_or_else(|| {
+                Error::msg("--platform-evidence required for native UTM qualification")
+            })?,
+            None,
+        )?)
+    } else {
+        None
+    };
     let receipt = Qualification {
         format: 1,
+        architecture: manifest.architecture.clone(),
+        host_platform: if manifest.architecture == "aarch64" {
+            "darwin/arm64"
+        } else {
+            "linux/amd64"
+        }
+        .into(),
+        runtime: if manifest.architecture == "aarch64" {
+            "utm"
+        } else {
+            "native-linux"
+        }
+        .into(),
+        platform_observation,
         soda_revision: manifest.soda_revision.clone(),
         forgejo_revision: manifest.forgejo_revision.clone(),
         iso_sha256: manifest.asset(&manifest.iso)?.sha256.clone(),
@@ -448,6 +518,13 @@ pub fn qualify_appliance(
     let assets = inventory(&manifest, directory)?;
     check_inventory(&current, &manifest, &assets)?;
     verify_release(gh, &manifest.tag)?;
+    if manifest.architecture == "aarch64" {
+        appliance::observe(
+            &manifest,
+            platform_evidence.ok_or_else(Error::refused)?,
+            Some(current.published_at.as_deref().ok_or_else(Error::refused)?),
+        )?;
+    }
     command(
         gh,
         &[
@@ -461,6 +538,10 @@ pub fn qualify_appliance(
     )?;
     let bytes = serde_json::to_vec(&ApplianceEvidence {
         downloaded: downloaded_iso,
+        platform_evidence: platform_evidence
+            .map(std::fs::canonicalize)
+            .transpose()
+            .map_err(|_| Error::msg("platform evidence unavailable"))?,
     })
     .map_err(|_| Error::refused())?;
     record_verified(&directory.join("appliance-evidence.json"), &bytes)?;
@@ -563,6 +644,9 @@ pub fn promote(
     let assets = inventory(&manifest, directory)?;
     check_inventory(&current, &manifest, &assets)?;
     verify_release(gh, &manifest.tag)?;
+    if manifest.has_appliance() {
+        appliance_publication(directory, &manifest, &current)?;
+    }
     if let Some(downloaded) = &downloaded_iso {
         command(
             gh,
@@ -588,7 +672,7 @@ pub fn promote(
         )?;
         registry::observe_public(registry, metadata, ci_run)?;
     }
-    let prior_appliance_latest = if !manifest.has_appliance() {
+    let prior_appliance_latest = if !manifest.recommends_appliance() {
         latest_release(gh)?.map(|release| release.id)
     } else {
         None
@@ -602,7 +686,7 @@ pub fn promote(
         registry::promote_digest(registry, metadata, auth.ok_or_else(Error::refused)?, directory)
             .map_err(|_| Error::msg("Docker recommendation may have changed; inspect partial promotion with status before any further mutation"))?;
     }
-    command(gh, &["release", "edit", &manifest.tag, "--repo", REPOSITORY, "--verify-tag", "--prerelease=false", if manifest.has_appliance() { "--latest=true" } else { "--latest=false" }, "--notes-file", notes.to_str().ok_or_else(Error::refused)?])
+    command(gh, &["release", "edit", &manifest.tag, "--repo", REPOSITORY, "--verify-tag", "--prerelease=false", if manifest.recommends_appliance() { "--latest=true" } else { "--latest=false" }, "--notes-file", notes.to_str().ok_or_else(Error::refused)?])
         .map_err(|_| Error::msg("GitHub promotion failed after recommendation update; inspect status, do not replay or roll back"))?;
     let after = release(gh, &manifest.tag)?;
     if after.id != current.id || after.draft || after.prerelease || !after.immutable {
@@ -611,7 +695,7 @@ pub fn promote(
         ));
     }
     check_inventory(&after, &manifest, &assets)?;
-    if manifest.has_appliance() {
+    if manifest.recommends_appliance() {
         let latest: Release = api(gh, &format!("{API}/releases/latest"))?;
         if latest.id != current.id {
             return Err(Error::msg(
@@ -619,7 +703,7 @@ pub fn promote(
             ));
         }
     } else if latest_release(gh)?.map(|release| release.id) != prior_appliance_latest {
-        return Err(Error::msg("Docker promotion changed the appliance latest pointer; inspect partial promotion without rollback"));
+        return Err(Error::msg("promotion changed the x86 appliance latest pointer; inspect partial promotion without rollback"));
     }
     crate::buildx::write_new(
         directory
@@ -687,7 +771,19 @@ pub fn status(
     if let Some(Err(error)) = &docker {
         blockers.push(error.0.clone());
     }
-    let appliance = !manifest.has_appliance() || appliance_evidence(directory, &manifest).is_ok();
+    let appliance = !manifest.has_appliance()
+        || (|| -> Result<(), Error> {
+            appliance_evidence(directory, &manifest)?;
+            if manifest.architecture == "aarch64" {
+                appliance_publication(
+                    directory,
+                    &manifest,
+                    remote.as_ref().map_err(|_| Error::refused())?,
+                )?;
+            }
+            Ok(())
+        })()
+        .is_ok();
     let docker_qualified = manifest.docker.is_none()
         || (|| -> Result<(), Error> {
             qualification::verify(&manifest, directory)?;
@@ -725,14 +821,14 @@ pub fn status(
             None
         }
     };
-    let docker_latest = if manifest.docker.is_some() {
-        registry::latest_digest(registry).ok()
+    let docker_latest = if let Some(metadata) = &manifest.docker {
+        registry::latest_digest(registry, metadata).ok()
     } else {
         None
     };
     let promotion_complete = directory.join("promotion-complete.json").exists();
     if promotion_complete
-        && manifest.has_appliance()
+        && manifest.recommends_appliance()
         && github_latest.as_deref() != Some(manifest.tag.as_str())
     {
         blockers.push("appliance recommendation no longer matches this release".into());
@@ -772,7 +868,7 @@ pub fn status(
         "promote"
     };
     Ok(
-        serde_json::json!({"tag":manifest.tag,"distribution":manifest.distribution,"soda_revision":manifest.soda_revision,"publication":publication,"github_latest":github_latest,"docker_latest_digest":docker_latest,"appliance_qualified":if manifest.has_appliance(){Some(appliance)}else{None},"docker_qualified":if manifest.docker.is_some(){Some(docker_qualified)}else{None},"promotion_complete":promotion_complete,"blockers":blockers,"next_action":next}),
+        serde_json::json!({"tag":manifest.tag,"distribution":manifest.distribution,"architecture":manifest.architecture,"soda_revision":manifest.soda_revision,"publication":publication,"github_latest":github_latest,"docker_recommendation_tag":manifest.docker.as_ref().map(|metadata|metadata.recommendation_tag()).transpose()?,"docker_latest_digest":docker_latest,"appliance_qualified":if manifest.has_appliance(){Some(appliance)}else{None},"docker_qualified":if manifest.docker.is_some(){Some(docker_qualified)}else{None},"promotion_complete":promotion_complete,"blockers":blockers,"next_action":next}),
     )
 }
 #[cfg(test)]

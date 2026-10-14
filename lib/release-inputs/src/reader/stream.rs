@@ -39,7 +39,7 @@ fn valid_release(release: &str) -> bool {
     }
 }
 
-/// Shape rules for the stream-resolved x86_64 ISO/QEMU triples.
+/// Shape rules for the stream-resolved ISO/QEMU triples.
 pub fn valid_stream_images(
     release: &str,
     iso: &CoreOSImage,
@@ -53,18 +53,14 @@ pub fn valid_stream_images(
         || iso.signature_url != format!("{}.sig", iso.url)
         || !is_digest(&iso.sha256)
     {
-        return Err(Error(
-            "stable stream x86_64 live ISO is malformed".to_string(),
-        ));
+        return Err(Error("stable stream live ISO is malformed".to_string()));
     }
     if !https_url(&qemu.url)
         || !https_url(&qemu.signature_url)
         || !is_digest(&qemu.sha256)
         || !is_digest(&qemu.uncompressed_sha256)
     {
-        return Err(Error(
-            "stable stream x86_64 qemu image is malformed".to_string(),
-        ));
+        return Err(Error("stable stream qemu image is malformed".to_string()));
     }
     Ok(())
 }
@@ -151,14 +147,21 @@ pub struct ResolvedCoreOS {
 }
 
 pub fn valid_resolved_coreos(resolved: &ResolvedCoreOS) -> Result<(), Error> {
+    if resolved.container.len() != 1 {
+        return Err(Error(
+            "one supported CoreOS base architecture required".to_string(),
+        ));
+    }
+    let (arch, entry) = resolved.container.first_key_value().unwrap();
+    super::oci_architecture(arch)?;
     let iso = resolved
         .iso
-        .get("x86_64")
-        .ok_or_else(|| Error("stable stream x86_64 live ISO is malformed".to_string()))?;
+        .get(arch)
+        .ok_or_else(|| Error(format!("stable stream lacks {arch} live ISO")))?;
     let qemu = resolved
         .qemu
-        .get("x86_64")
-        .ok_or_else(|| Error("stable stream x86_64 qemu image is malformed".to_string()))?;
+        .get(arch)
+        .ok_or_else(|| Error(format!("stable stream lacks {arch} qemu image")))?;
     valid_stream_images(&resolved.release, iso, qemu)?;
     if !https_url(&resolved.metadata_url)
         || !resolved
@@ -169,16 +172,6 @@ pub fn valid_resolved_coreos(resolved: &ResolvedCoreOS) -> Result<(), Error> {
             "resolved CoreOS metadata URL is malformed".to_string(),
         ));
     }
-    if resolved.container.len() != 1 {
-        return Err(Error("x86_64 base digest required".to_string()));
-    }
-    // Go indexes Container["x86_64"]; a lone entry under another key yields
-    // "" and fails the cut below.
-    let entry = resolved
-        .container
-        .get("x86_64")
-        .map(String::as_str)
-        .unwrap_or("");
     let (host, digest) = match entry.split_once("/fedora/fedora-coreos@sha256:") {
         Some(pair) => pair,
         None => {
@@ -254,7 +247,7 @@ mod tests {
         };
         assert_eq!(
             valid_stream_images("41.20250101.3.0", &http_iso, &qemu()).unwrap_err(),
-            Error("stable stream x86_64 live ISO is malformed".to_string())
+            Error("stable stream live ISO is malformed".to_string())
         );
         let bad_sig = CoreOSImage {
             signature_url: "https://example.test/other.sig".to_string(),
@@ -262,7 +255,7 @@ mod tests {
         };
         assert_eq!(
             valid_stream_images("41.20250101.3.0", &bad_sig, &qemu()).unwrap_err(),
-            Error("stable stream x86_64 live ISO is malformed".to_string())
+            Error("stable stream live ISO is malformed".to_string())
         );
         let bad_qemu = CoreOSImage {
             uncompressed_sha256: "short".to_string(),
@@ -270,7 +263,7 @@ mod tests {
         };
         assert_eq!(
             valid_stream_images("41.20250101.3.0", &iso(), &bad_qemu).unwrap_err(),
-            Error("stable stream x86_64 qemu image is malformed".to_string())
+            Error("stable stream qemu image is malformed".to_string())
         );
     }
 
@@ -319,6 +312,28 @@ mod tests {
     }
 
     #[test]
+    fn arm_coreos_requires_consistent_selected_input_keys() {
+        let mut arm = resolved();
+        let image = arm.container.remove("x86_64").unwrap();
+        arm.container.insert("aarch64".into(), image);
+        let mut iso = arm.iso.remove("x86_64").unwrap();
+        iso.url = iso.url.replace("x86_64", "aarch64");
+        iso.signature_url = iso.signature_url.replace("x86_64", "aarch64");
+        arm.iso.insert("aarch64".into(), iso);
+        let mut qemu = arm.qemu.remove("x86_64").unwrap();
+        qemu.url = qemu.url.replace("x86_64", "aarch64");
+        qemu.signature_url = qemu.signature_url.replace("x86_64", "aarch64");
+        arm.qemu.insert("aarch64".into(), qemu);
+        assert!(valid_resolved_coreos(&arm).is_ok());
+        let qemu = arm.qemu.remove("aarch64").unwrap();
+        arm.qemu.insert("x86_64".into(), qemu);
+        assert!(valid_resolved_coreos(&arm).is_err());
+        let image = arm.container.remove("aarch64").unwrap();
+        arm.container.insert("armv7".into(), image);
+        assert!(valid_resolved_coreos(&arm).is_err());
+    }
+
+    #[test]
     fn resolved_coreos_requires_metadata_and_pinned_base() {
         assert!(valid_resolved_coreos(&resolved()).is_ok());
         let mut extra_arch = resolved();
@@ -338,7 +353,7 @@ mod tests {
         );
         assert_eq!(
             valid_resolved_coreos(&two_entries).unwrap_err(),
-            Error("x86_64 base digest required".to_string())
+            Error("one supported CoreOS base architecture required".to_string())
         );
         let mut wrong_key = resolved();
         wrong_key.container.remove("x86_64");
@@ -348,7 +363,7 @@ mod tests {
         );
         assert_eq!(
             valid_resolved_coreos(&wrong_key).unwrap_err(),
-            Error("digest-pinned CoreOS base required".to_string())
+            Error("stable stream lacks aarch64 live ISO".to_string())
         );
         let mut bad_digest = resolved();
         *bad_digest.container.get_mut("x86_64").unwrap() =

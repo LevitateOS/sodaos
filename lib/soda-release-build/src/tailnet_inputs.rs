@@ -21,7 +21,7 @@ pub fn resolve_tailnet_inputs_with<T: HttpTransport>(
     arch: &str,
 ) -> Result<TailnetInputs, Error> {
     let platform = oci_architecture(arch)?.to_string();
-    let version = latest_tailnet_release_with(transport)?;
+    let version = latest_tailnet_release_with(transport, &platform)?;
     let checksum_url = format!(
         "{index}tailscale_{version}_{platform}.tgz.sha256",
         index = tailnet_index_url()
@@ -38,15 +38,16 @@ pub fn resolve_tailnet_inputs_with<T: HttpTransport>(
     Ok(inputs)
 }
 
-/// Scans for `tailscale_<major>.<minor>.<patch>_amd64.tgz` releases and
+/// Scans for `tailscale_<major>.<minor>.<patch>_<platform>.tgz` releases and
 /// returns the newest version (original digit strings).
-fn latest_tailnet_release(text: &str) -> Result<String, Error> {
+fn latest_tailnet_release(text: &str, platform: &str) -> Result<String, Error> {
     let bytes = text.as_bytes();
+    let suffix = format!("_{platform}.tgz");
     let mut best: [i64; 3] = [0, 0, 0];
     let mut version = String::new();
     let mut i = 0;
     while i < bytes.len() {
-        match parse_tailnet_release_at(bytes, i) {
+        match parse_tailnet_release_at(bytes, i, suffix.as_bytes()) {
             Some((end, parts)) => {
                 let mut nums = [0i64; 3];
                 for (slot, part) in parts.iter().enumerate() {
@@ -73,7 +74,11 @@ fn latest_tailnet_release(text: &str) -> Result<String, Error> {
     Ok(version)
 }
 
-fn parse_tailnet_release_at(bytes: &[u8], start: usize) -> Option<(usize, [String; 3])> {
+fn parse_tailnet_release_at(
+    bytes: &[u8],
+    start: usize,
+    suffix: &[u8],
+) -> Option<(usize, [String; 3])> {
     let mut i = start;
     if bytes.get(i..i + 10)? != b"tailscale_" {
         return None;
@@ -96,16 +101,19 @@ fn parse_tailnet_release_at(bytes: &[u8], start: usize) -> Option<(usize, [Strin
             i += 1;
         }
     }
-    if bytes.get(i..i + 10)? != b"_amd64.tgz" {
+    if bytes.get(i..i + suffix.len())? != suffix {
         return None;
     }
-    i += 10;
+    i += suffix.len();
     Some((i, parts))
 }
 
-fn latest_tailnet_release_with<T: HttpTransport>(transport: &T) -> Result<String, Error> {
+fn latest_tailnet_release_with<T: HttpTransport>(
+    transport: &T,
+    platform: &str,
+) -> Result<String, Error> {
     let raw = fetch_capped_text(transport, &tailnet_index_url(), 1 << 20)?;
-    latest_tailnet_release(&raw)
+    latest_tailnet_release(&raw, platform)
 }
 
 fn latest_tailnet_base_tag_with<T: HttpTransport>(transport: &T) -> Result<String, Error> {
@@ -223,9 +231,12 @@ mod tests {
         // Oracle: latestTailnetRelease newest-stable selection.
         let index =
             "tailscale_1.98.1_amd64.tgz\ntailscale_1.98.2_amd64.tgz\ntailscale_1.98.10_amd64.tgz\n";
-        assert_eq!(latest_tailnet_release(index).unwrap(), "1.98.10");
+        assert_eq!(latest_tailnet_release(index, "amd64").unwrap(), "1.98.10");
+        let mixed = format!("{index}tailscale_1.98.3_arm64.tgz\n");
+        assert_eq!(latest_tailnet_release(&mixed, "arm64").unwrap(), "1.98.3");
+        assert!(latest_tailnet_release(index, "arm64").is_err());
         assert_eq!(
-            latest_tailnet_release("nothing here")
+            latest_tailnet_release("nothing here", "amd64")
                 .unwrap_err()
                 .message(),
             "no Tailnet release in upstream index"

@@ -25,8 +25,11 @@ cargo run -p soda-acceptance --bin soda-acceptance -- exec --help
 
 ## Collect an observation
 
-Execution actions require an admitted owner, full commit revision, `x86_64`
-architecture, non-secret target name and a fresh private evidence directory.
+Execution actions require an admitted owner, full commit revision, `x86_64` or
+`aarch64` target architecture, non-secret target name and a fresh private evidence
+directory. The process controller runs on Linux; ARM Mac qualification must also
+retain actual Mac and guest/runtime readbacks under the
+[release contract](../../docs/development/release.md#4-exercise-the-actual-public-installation-bytes).
 For example, with an already prepared pinned SSH connection file:
 
 ```sh

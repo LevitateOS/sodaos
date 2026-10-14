@@ -205,7 +205,7 @@ fn valid_candidate_provenance(
 ) -> bool {
     valid_candidate_source(candidate, payload, payload_bytes)
         && valid_candidate_build(candidate, payload)
-        && valid_candidate_content(&candidate.content_sha256)
+        && valid_candidate_content(&candidate.content_sha256, &candidate.architecture)
         && !candidate.migration.is_empty()
         && !candidate.notes.is_empty()
 }
@@ -228,7 +228,7 @@ fn valid_candidate_build(candidate: &Candidate, payload: &Payload) -> bool {
         && candidate.architecture == payload.architecture
 }
 
-const REQUIRED_CANDIDATE_CONTENT: [&str; 16] = [
+const REQUIRED_CANDIDATE_CONTENT: [&str; 15] = [
     "dashboard:/usr/local/bin/soda-dashboard",
     "forgejo:/usr/local/bin/gitea",
     "extension:/usr/local/bin/gitea",
@@ -239,7 +239,6 @@ const REQUIRED_CANDIDATE_CONTENT: [&str; 16] = [
     "host:/usr/share/containers/systemd/soda-dashboard.container",
     "host:/usr/lib/systemd/system/soda-extension-install.service",
     "host:/usr/share/soda/canlang-tools/release.json",
-    "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
     "canlang-runtime:/opt/canlang/tools.json",
     "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
     "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
@@ -247,7 +246,14 @@ const REQUIRED_CANDIDATE_CONTENT: [&str; 16] = [
     "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
 ];
 
-pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
+pub fn valid_candidate_content(files: &[(String, String)], arch: &str) -> bool {
+    let Ok(archive_name) = soda_build_tools::reader::canlang::archive_filename(arch) else {
+        return false;
+    };
+    let archive_path = format!("host:/usr/share/soda/canlang-tools/{archive_name}");
+    if !is_digest(&content_get(files, &archive_path)) {
+        return false;
+    }
     for path in REQUIRED_CANDIDATE_CONTENT {
         if !is_digest(&content_get(files, path)) {
             return false;
@@ -276,7 +282,7 @@ pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
             }
             continue;
         }
-        if !REQUIRED_CANDIDATE_CONTENT.contains(&file.as_str()) {
+        if file != &archive_path && !REQUIRED_CANDIDATE_CONTENT.contains(&file.as_str()) {
             return false;
         }
     }
@@ -293,4 +299,31 @@ fn valid_candidate_asset_name(name: &str) -> bool {
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn candidate_content_binds_the_canlang_archive_to_architecture() {
+        for (arch, other) in [("x86_64", "aarch64"), ("aarch64", "x86_64")] {
+            let mut files: Vec<_> = REQUIRED_CANDIDATE_CONTENT
+                .iter()
+                .map(|path| (path.to_string(), "a".repeat(64)))
+                .collect();
+            let archive = soda_build_tools::reader::canlang::archive_filename(arch).unwrap();
+            files.push((
+                format!("host:/usr/share/soda/canlang-tools/{archive}"),
+                "a".repeat(64),
+            ));
+            files.push((
+                "extension:/usr/share/soda/extension/assets/app.js".to_string(),
+                "b".repeat(64),
+            ));
+            assert!(valid_candidate_content(&files, arch));
+            assert!(!valid_candidate_content(&files, other));
+            assert!(!valid_candidate_content(&files, "armv7"));
+        }
+    }
 }

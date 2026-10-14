@@ -35,6 +35,10 @@ pub struct NativeDocker {
     pub application_configs: BTreeMap<String, String>,
     pub os: String,
     pub architecture: String,
+    pub host_platform: String,
+    pub runtime: String,
+    pub host_readback_sha256: String,
+    pub runtime_readback_sha256: String,
     pub rootful: bool,
     pub cgroup_version: u32,
     pub host_network: bool,
@@ -113,7 +117,15 @@ impl DockerQualification {
             || native.application_configs != configs
             || native.target.is_empty()
             || native.os != "linux"
-            || native.architecture != "x86_64"
+            || native.architecture != manifest.architecture
+            || !docker_host_matches(
+                &manifest.architecture,
+                &native.host_platform,
+                &native.runtime,
+            )
+            || !is_digest(&native.host_readback_sha256)
+            || !is_digest(&native.runtime_readback_sha256)
+            || native.host_readback_sha256 == native.runtime_readback_sha256
             || !native.rootful
             || native.cgroup_version != 2
             || !native.host_network
@@ -202,10 +214,10 @@ fn collect(
             || observation.tool_dirty
             || !crate::buildx::is_revision(&observation.tool_revision)
             || observation.requested_revision != manifest.soda_revision
-            || observation.requested_architecture != "x86_64"
+            || observation.requested_architecture != manifest.architecture
             || !soda_acceptance::report::valid_owner(&observation.owner)
             || observation.target != native.target
-            || observation.client_platform != "linux/amd64"
+            || !control_platform(&observation.client_platform, &manifest.architecture)
             || observation.action != "exec"
             || observation
                 .invocation
@@ -268,6 +280,24 @@ fn collect(
                 "factory execution digest must identify retained execution evidence",
             ));
         }
+        if kind == "installation"
+            && ![
+                &native.host_readback_sha256,
+                &native.runtime_readback_sha256,
+            ]
+            .iter()
+            .all(|expected| {
+                observation.files.as_ref().is_some_and(|files| {
+                    files
+                        .iter()
+                        .any(|(path, hash)| path != "native.json" && hash == *expected)
+                })
+            })
+        {
+            return Err(Error::msg(
+                "Docker host and daemon facts require retained readback evidence",
+            ));
+        }
         observations.insert(
             kind.into(),
             FileIdentity {
@@ -285,6 +315,17 @@ fn collect(
     };
     receipt.validate(manifest, release)?;
     Ok(receipt)
+}
+
+fn docker_host_matches(architecture: &str, host: &str, runtime: &str) -> bool {
+    matches!(
+        (architecture, host, runtime),
+        ("x86_64", "linux/amd64", "docker-engine") | ("aarch64", "darwin/arm64", "docker-desktop")
+    )
+}
+
+pub(super) fn control_platform(platform: &str, architecture: &str) -> bool {
+    platform == "linux/amd64" || (architecture == "aarch64" && platform == "linux/arm64")
 }
 pub fn stamp(
     manifest: &Manifest,

@@ -68,10 +68,11 @@ pub struct DockerMetadata {
 
 impl DockerMetadata {
     pub fn validate(&self) -> Result<(), Error> {
+        let architecture = crate::buildx::oci_architecture(&self.architecture)
+            .map_err(|error| Error::msg(error.0))?;
         if self.format != 1
             || self.distribution == Distribution::Appliance
-            || self.architecture != "x86_64"
-            || self.platform != "linux/amd64"
+            || self.platform != format!("linux/{architecture}")
             || !valid_docker_tag(&self.release_tag)
             || !is_revision(&self.soda_revision)
             || !is_revision(&self.forgejo_revision)
@@ -101,7 +102,7 @@ impl DockerMetadata {
         if !is_digest_ref(&self.host_manifest)
             || !is_digest_ref(&self.image.manifest)
             || !is_digest_ref(&self.image.config)
-            || self.image.architecture != "amd64"
+            || self.image.architecture != architecture
             || self.image.revision != self.soda_revision
             || self.image.source != "https://github.com/LevitateOS/sodaos"
             || self.image.base_name != self.fedora_base
@@ -125,6 +126,15 @@ impl DockerMetadata {
         Ok(format!("{DOCKER_REPOSITORY}@{}", self.image.manifest))
     }
 
+    pub fn recommendation_tag(&self) -> Result<&'static str, Error> {
+        self.validate()?;
+        Ok(if self.architecture == "aarch64" {
+            "latest-arm64"
+        } else {
+            "latest"
+        })
+    }
+
     /// Match an independently inspected registry image after upload/download.
     /// The registry transport must obtain this observation anonymously.
     pub fn verify_registry(&self, observed: &Image) -> Result<(), Error> {
@@ -139,7 +149,10 @@ impl DockerMetadata {
 }
 
 pub(crate) fn valid_docker_tag(tag: &str) -> bool {
-    crate::publish::valid_tag(tag) && !tag.eq_ignore_ascii_case("latest")
+    crate::publish::valid_tag(tag)
+        && !["latest", "latest-arm64"]
+            .iter()
+            .any(|reserved| tag.eq_ignore_ascii_case(reserved))
 }
 
 pub(crate) fn fedora_digest(reference: &str) -> Result<&str, Error> {

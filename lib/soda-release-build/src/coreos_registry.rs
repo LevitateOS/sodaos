@@ -1,5 +1,5 @@
 //! CoreOS container-registry resolution: image-index request,
-//! bounded body decode and matching x86_64 digest selection.
+//! bounded body decode and selected-architecture digest selection.
 
 use crate::coreos::https_url;
 use crate::files::{is_digest, oci_architecture};
@@ -17,7 +17,9 @@ const COREOS_CONTAINER_TAG: &str = "stable";
 pub(crate) fn resolve_registry_digests_with<T: HttpTransport>(
     transport: &T,
     registry: &str,
+    arch: &str,
 ) -> Result<HashMap<String, String>, Error> {
+    let oci_arch = oci_architecture(arch)?;
     if !https_url(registry) {
         return Err(Error::msg("container registry URL must be HTTPS"));
     }
@@ -61,7 +63,6 @@ pub(crate) fn resolve_registry_digests_with<T: HttpTransport>(
     let text = String::from_utf8_lossy(&data);
     let index: ManifestIndex =
         serde_json::from_str(&text).map_err(|_| Error::msg("invalid container index"))?;
-    let oci_arch = oci_architecture("x86_64")?;
     let mut found = String::new();
     for manifest in &index.manifests {
         if manifest.platform.architecture != oci_arch {
@@ -70,16 +71,22 @@ pub(crate) fn resolve_registry_digests_with<T: HttpTransport>(
         let digest = &manifest.digest;
         match digest.strip_prefix("sha256:") {
             Some(hex) if is_digest(hex) => {}
-            _ => return Err(Error::msg("container index x86_64 digest is malformed")),
+            _ => {
+                return Err(Error::msg(format!(
+                    "container index {arch} digest is malformed"
+                )))
+            }
         }
         found = digest.clone();
     }
     if found.is_empty() {
-        return Err(Error::msg("container index lacks architecture x86_64"));
+        return Err(Error::msg(format!(
+            "container index lacks architecture {arch}"
+        )));
     }
     let mut digests = HashMap::new();
     digests.insert(
-        "x86_64".to_string(),
+        arch.to_string(),
         format!("{host}/{COREOS_CONTAINER_REPO}@{found}"),
     );
     Ok(digests)

@@ -1,6 +1,8 @@
 stage=$1
 digest=$2
-test "$(uname -m)" = x86_64
+arch=$3
+case "$arch" in x86_64|aarch64) ;; *) exit 1;; esac
+test "$(uname -m)" = "$arch"
 test -d "$stage" && test ! -L "$stage"
 test -f "$stage/archive.tar.gz" && test ! -L "$stage/archive.tar.gz"
 printf '%s  %s\n' "$digest" "$stage/archive.tar.gz" | sha256sum -c - >/dev/null

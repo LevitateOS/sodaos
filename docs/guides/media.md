@@ -23,6 +23,29 @@ the same versioned GitHub release. Internet access to GitHub is required during
 installation. The runtime and bundled application images arrive together; there
 are no separate components for the user to download or assemble.
 
+## ARM64 in UTM on Apple Silicon
+
+The ARM64 appliance target is a hardware-virtualized Linux VM in UTM on the M4
+MacBook Air. Its published installer name is `sodaos-aarch64.iso`; the source
+producer and installer select matching ARM64 CoreOS inputs and Soda payloads.
+This path requires a native ARM64 build and completed M4 installation qualification
+before it is a recommended release. Generic ARM server installation is deferred.
+
+For that qualification, use UTM's **Virtualize → Linux** creation flow and select
+the verified ARM64 Soda ISO as the boot image. UTM uses Apple Silicon hardware
+virtualization for ARM64 guests. The [UTM Linux wizard](https://docs.getutm.app/guides/ubuntu/#creating-a-new-virtual-machine)
+describes ISO selection; [UTM's platform overview](https://mac.getutm.app/)
+explains its native virtualization and emulation modes. An x86-64 ISO running
+under emulation cannot qualify the ARM64 target.
+
+Give the guest a dedicated virtual installation disk and network access to the
+same release's authenticated rootfs asset on GitHub. Follow the Soda console's
+disk review and erase confirmation, then detach the installer ISO before booting
+the installed guest. Choose a guest private address reachable from the Mac for
+operator setup; browser access and Project subnet routing require verification
+in the selected UTM network mode. Successful ISO boot alone does not establish
+that these installed paths work.
+
 ## Branding
 
 ISO boot menus display SodaOS installer identity through same-length text
@@ -66,8 +89,9 @@ customization tool has its own recorded version, which customization must match;
 it can differ from the installer delivered in the candidate OS. A missing,
 malformed or different version refuses the corresponding handoff.
 
-Validate media and installation on native `x86_64` under the
-[platform scope](../architecture/release.md#architectures). Diskless boot evidence does
+Validate media and installation on the selected native architecture under the
+[platform scope](../architecture/release.md#architectures): `x86_64` for the PC/VM
+target, or `aarch64` for the ARM64 UTM target. Diskless boot evidence does
 not substitute for fresh-disk installation proof. Candidate identity, download
 integrity and complete local payload availability must hold before installation
 finishes for network-install media.

@@ -164,7 +164,7 @@ impl Production {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             _ => return Err(Error::msg("occupied image input record")),
         }
-        let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
+        let platform = oci_architecture(&self.arch)?.to_string();
         let (rocky, forgejo, proxy) = self.recipe_image_refs()?;
         let tailnet = self.live_tailnet_inputs()?;
         let tail_base = tailnet.base.clone();

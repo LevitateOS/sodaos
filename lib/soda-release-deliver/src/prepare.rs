@@ -189,13 +189,15 @@ mod tests {
         .into_iter()
         .map(|path| (path.to_string(), "a".repeat(64)))
         .collect();
-        assert!(crate::model::valid_candidate_content(&content));
+        assert!(crate::model::valid_candidate_content(&content, "x86_64"));
         let with_inventory = candidate_content_with_embedded_inventory(&content).unwrap();
         let files: Vec<(String, String)> = content
             .iter()
             .map(|(path, digest)| (path.clone(), digest.clone()))
             .collect();
-        assert!(soda_release_image::model::valid_candidate_content(&files));
+        assert!(soda_release_image::model::valid_candidate_content(
+            &files, "x86_64"
+        ));
         let bytes = soda_release_image::record::content_inventory_bytes(&files).unwrap();
         assert!(std::str::from_utf8(&bytes)
             .unwrap()

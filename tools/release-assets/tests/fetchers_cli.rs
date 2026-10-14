@@ -64,7 +64,10 @@ fn tea_help_and_usage() {
     let scratch = TempDir::new("tea-cli");
     let (code, out, _) = run(&tea_bin(), &scratch.path, &["--help"]);
     assert_eq!(code, 0);
-    assert_eq!(out, "usage: soda-fetch-tea --arch x86_64 [--out DIR]\n");
+    assert_eq!(
+        out,
+        "usage: soda-fetch-tea --arch x86_64|aarch64 [--out DIR]\n"
+    );
     for args in [
         vec![],
         vec!["--arch"],
@@ -84,10 +87,10 @@ fn tea_rejects_foreign_arch_offline() {
     let (code, _, err) = run(
         &tea_bin(),
         &scratch.path,
-        &["--arch", "aarch64", "--out", "output"],
+        &["--arch", "riscv64", "--out", "output"],
     );
     assert_eq!(code, 1);
-    assert_eq!(err, "Tea staging supports x86_64 only\n");
+    assert_eq!(err, "Tea staging supports x86_64 or aarch64\n");
     assert!(!scratch.path.join("output").exists());
 }
 
@@ -139,7 +142,7 @@ fn muse_help_usage_and_offline_refusals() {
         &scratch.path,
         &[
             "--arch",
-            "aarch64",
+            "riscv64",
             "--out",
             dest.to_str().unwrap(),
             "--manifest",
@@ -147,7 +150,7 @@ fn muse_help_usage_and_offline_refusals() {
         ],
     );
     assert_eq!(code, 1);
-    assert_eq!(err, "soda-fetch-muse: expected x86_64\n");
+    assert_eq!(err, "soda-fetch-muse: expected x86_64 or aarch64\n");
     assert!(!dest.exists());
     // Trailing positionals are ignored like the Go flag owner.
     let (code, _, err) = run(&muse_bin(), &scratch.path, &["stray", "--out", "relative"]);

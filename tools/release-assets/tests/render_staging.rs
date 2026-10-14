@@ -18,17 +18,17 @@ fn stage_help_and_usage() {
     assert_eq!(code, 0);
     assert!(
         out.starts_with(
-            "usage: soda-stage --arch x86_64 --host-context DIR --forgejo-context DIR\n"
+            "usage: soda-stage --arch x86_64|aarch64 --host-context DIR --forgejo-context DIR\n"
         ),
         "{out}"
     );
     for args in [
         vec![],
-        vec!["--arch", "x86_64"],
+        vec!["--arch", std::env::consts::ARCH],
         vec!["--arch"],
         vec![
             "--arch",
-            "x86_64",
+            std::env::consts::ARCH,
             "--host-context",
             "h",
             "--forgejo-context",
@@ -37,7 +37,7 @@ fn stage_help_and_usage() {
         ],
         vec![
             "--arch",
-            "x86_64",
+            std::env::consts::ARCH,
             "--host-context",
             "h",
             "--forgejo-context",
@@ -45,7 +45,7 @@ fn stage_help_and_usage() {
             "--bogus",
             "x",
         ],
-        vec!["-arch", "x86_64"],
+        vec!["-arch", std::env::consts::ARCH],
     ] {
         let (code, _, err) = run(&stage_bin(), &scratch.path, &args);
         assert_eq!(code, 2, "{args:?}");
@@ -57,7 +57,7 @@ fn stage_help_and_usage() {
         &scratch.path,
         &[
             "--arch",
-            "aarch64",
+            "riscv64",
             "--host-context",
             "h",
             "--forgejo-context",
@@ -66,7 +66,7 @@ fn stage_help_and_usage() {
     );
     assert_eq!(code, 2);
     assert!(
-        err.ends_with("argument --arch: invalid choice: 'aarch64' (choose from x86_64)\n"),
+        err.ends_with("argument --arch: invalid choice: 'riscv64' (choose from x86_64, aarch64)\n"),
         "{err}"
     );
 }
@@ -82,7 +82,7 @@ fn stage_refuses_bad_contexts_before_touching_the_tree() {
         &scratch.path,
         &[
             "--arch",
-            "x86_64",
+            std::env::consts::ARCH,
             "--host-context",
             host.to_str().unwrap(),
             "--forgejo-context",
@@ -97,7 +97,7 @@ fn stage_refuses_bad_contexts_before_touching_the_tree() {
         &scratch.path,
         &[
             "--arch",
-            "x86_64",
+            std::env::consts::ARCH,
             "--host-context",
             "relative",
             "--forgejo-context",
@@ -120,7 +120,7 @@ fn stage_refuses_bad_contexts_before_touching_the_tree() {
         &scratch.path,
         &[
             "--arch",
-            "x86_64",
+            std::env::consts::ARCH,
             "--host-context",
             host.to_str().unwrap(),
             "--forgejo-context",
@@ -139,7 +139,7 @@ fn stage_refuses_bad_contexts_before_touching_the_tree() {
         &scratch.path,
         &[
             "--arch",
-            "x86_64",
+            std::env::consts::ARCH,
             "--host-context",
             host.to_str().unwrap(),
             "--forgejo-context",
@@ -164,7 +164,7 @@ fn stage_reports_a_missing_checkout_root() {
         &scratch.path,
         &[
             "--arch",
-            "x86_64",
+            std::env::consts::ARCH,
             "--host-context",
             host.to_str().unwrap(),
             "--forgejo-context",

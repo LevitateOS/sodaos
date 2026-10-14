@@ -82,12 +82,27 @@ fn sha256_matches_fips_vectors_streamed_and_oneshot() {
 }
 
 #[test]
-fn native_platform_matches_go_checks() {
+fn native_platform_accepts_matching_payload_and_refuses_foreign_execution() {
     assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-    assert_eq!(oci_architecture("aarch64").unwrap_err(), "expected x86_64");
-    assert_eq!(oci_architecture("").unwrap_err(), "expected x86_64");
-    assert!(require_native("x86_64").is_ok());
-    assert_eq!(require_native("armv7").unwrap_err(), "expected x86_64");
+    assert_eq!(oci_architecture("aarch64").unwrap(), "arm64");
+    assert_eq!(
+        oci_architecture("").unwrap_err(),
+        "expected x86_64 or aarch64"
+    );
+    assert!(require_native(std::env::consts::ARCH).is_ok());
+    let foreign = if std::env::consts::ARCH == "x86_64" {
+        "aarch64"
+    } else {
+        "x86_64"
+    };
+    assert_eq!(
+        require_native(foreign).unwrap_err(),
+        "matching-native Linux required"
+    );
+    assert_eq!(
+        require_native("armv7").unwrap_err(),
+        "expected x86_64 or aarch64"
+    );
 }
 
 #[test]

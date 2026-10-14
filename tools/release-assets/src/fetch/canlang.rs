@@ -1,9 +1,9 @@
 //! Admit a locally produced Canlang tool archive; startup never fetches packages.
 use flate2::read::GzDecoder;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Component, Path};
 
 #[derive(Deserialize)]
@@ -15,7 +15,7 @@ pub struct Release {
     pub versions: Versions,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Versions {
     pub compiler: String,
@@ -25,9 +25,13 @@ pub struct Versions {
     pub workerd: String,
 }
 
-pub fn stage(manifest: &Path, archive: &Path, out: &Path) -> Result<(), String> {
+pub fn stage(manifest: &Path, archive: &Path, out: &Path, arch: &str) -> Result<(), String> {
+    let filename =
+        soda_build_tools::reader::canlang::archive_filename(arch).map_err(|error| error.0)?;
     let release: Release =
-        serde_json::from_reader(File::open(manifest).map_err(|e| e.to_string())?)
+        serde_json::from_reader(File::open(manifest).map_err(|error| {
+            format!("Canlang {arch} release pin unavailable at {}: {error}; supply the verified native tools release before building", manifest.display())
+        })?)
             .map_err(|e| format!("invalid Canlang release: {e}"))?;
     if release.source_revision.len() != 40
         || !release
@@ -36,7 +40,7 @@ pub fn stage(manifest: &Path, archive: &Path, out: &Path) -> Result<(), String> 
             .all(|b| b.is_ascii_hexdigit())
         || release.sha256.len() != 64
         || !release.sha256.bytes().all(|b| b.is_ascii_hexdigit())
-        || Path::new(&release.archive_filename).components().count() != 1
+        || release.archive_filename != filename
         || archive.file_name().and_then(|s| s.to_str()) != Some(&release.archive_filename)
         || !release.versions.compiler.starts_with("can 0.1.0 ")
         || release.versions.node != "v24.21.0"
@@ -93,6 +97,9 @@ pub fn stage(manifest: &Path, archive: &Path, out: &Path) -> Result<(), String> 
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         entry.unpack(&target).map_err(|e| e.to_string())?;
+        if kind.is_file() {
+            verify_elf(&target, arch, false)?;
+        }
         let mode =
             if kind.is_dir() || entry.header().mode().map_err(|e| e.to_string())? & 0o111 != 0 {
                 0o755
@@ -109,6 +116,7 @@ pub fn stage(manifest: &Path, archive: &Path, out: &Path) -> Result<(), String> 
         "bin/can-soda",
         "libexec/node",
         "libexec/bun",
+        "compiler/target/release/can",
         "tools.json",
     ] {
         if !root.join(file).is_file() {
@@ -118,10 +126,46 @@ pub fn stage(manifest: &Path, archive: &Path, out: &Path) -> Result<(), String> 
     let tools: serde_json::Value =
         serde_json::from_reader(File::open(root.join("tools.json")).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
-    if tools["schema"] != "canlang.tools.v1" || tools["sourceRevision"] != release.source_revision {
+    if tools["schema"] != "canlang.tools.v1"
+        || tools["sourceRevision"] != release.source_revision
+        || tools["platform"] != format!("linux-{arch}")
+        || tools["versions"]
+            != serde_json::to_value(&release.versions).map_err(|error| error.to_string())?
+    {
         return Err("Canlang producer identity mismatch".into());
     }
+    for file in ["compiler/target/release/can", "libexec/node", "libexec/bun"] {
+        verify_elf(&root.join(file), arch, true)?;
+    }
     std::fs::rename(root, destination).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Inspect every delivered ELF (including workerd and native Node extensions),
+/// and require the compiler/interpreters to actually be native executables.
+fn verify_elf(path: &Path, arch: &str, required: bool) -> Result<(), String> {
+    let mut header = Vec::new();
+    File::open(path)
+        .map_err(|error| error.to_string())?
+        .take(soda_build_tools::elf::HEADER_LEN as u64)
+        .read_to_end(&mut header)
+        .map_err(|error| error.to_string())?;
+    if !required && !header.starts_with(b"\x7fELF") {
+        return Ok(());
+    }
+    let machine = match arch {
+        "x86_64" => 62,
+        "aarch64" => 183,
+        _ => return Err("unsupported Canlang architecture".into()),
+    };
+    if !soda_build_tools::elf::elf64_le_header(&header)
+        .is_some_and(|header| header.machine == machine && matches!(header.file_type, 2 | 3))
+    {
+        return Err(format!(
+            "Canlang ELF does not match {arch}: {}",
+            path.display()
+        ));
+    }
     Ok(())
 }
 
@@ -131,8 +175,15 @@ mod tests {
     use flate2::{write::GzEncoder, Compression};
     use std::io::Write;
 
-    fn fixture(root: &Path, link: bool) -> (std::path::PathBuf, std::path::PathBuf) {
-        let archive = root.join("canlang-tools.tar.gz");
+    fn fixture(
+        root: &Path,
+        link: bool,
+        arch: &str,
+        machine: u16,
+    ) -> (std::path::PathBuf, std::path::PathBuf) {
+        let filename = soda_build_tools::reader::canlang::archive_filename(arch).unwrap();
+        let archive = root.join(filename);
+        let versions = serde_json::json!({"compiler": "can 0.1.0 (fixture)", "node": "v24.21.0", "bun": "1.4.2", "miniflare": "4.20260730.0", "workerd": "1.20260730.1"});
         let mut builder = tar::Builder::new(GzEncoder::new(
             File::create(&archive).unwrap(),
             Compression::default(),
@@ -144,22 +195,30 @@ mod tests {
             "canlang/bin/can-soda",
             "canlang/libexec/node",
             "canlang/libexec/bun",
+            "canlang/compiler/target/release/can",
+            "canlang/lib/node_modules/workerd/bin/workerd",
             "canlang/tools.json",
         ] {
             let content = if name.ends_with("tools.json") {
-                format!(
-                    "{{\"schema\":\"canlang.tools.v1\",\"sourceRevision\":\"{}\"}}",
-                    "a".repeat(40)
-                )
+                serde_json::to_vec(&serde_json::json!({"schema":"canlang.tools.v1", "sourceRevision":"a".repeat(40), "platform":format!("linux-{arch}"), "versions":versions})).unwrap()
+            } else if name.contains("/libexec/")
+                || name.contains("/target/")
+                || name.ends_with("/workerd")
+            {
+                let mut bytes = vec![0; 64];
+                bytes[..6].copy_from_slice(b"\x7fELF\x02\x01");
+                bytes[16..18].copy_from_slice(&2u16.to_le_bytes());
+                bytes[18..20].copy_from_slice(&machine.to_le_bytes());
+                bytes
             } else {
-                "fixture".to_string()
+                b"fixture".to_vec()
             };
             let mut header = tar::Header::new_gnu();
             header.set_size(content.len() as u64);
             header.set_mode(0o755);
             header.set_cksum();
             builder
-                .append_data(&mut header, name, content.as_bytes())
+                .append_data(&mut header, name, content.as_slice())
                 .unwrap();
         }
         if link {
@@ -176,8 +235,7 @@ mod tests {
         builder.into_inner().unwrap().finish().unwrap();
         let digest = super::super::sha256_hex(&std::fs::read(&archive).unwrap());
         let manifest = root.join("release.json");
-        let release = serde_json::json!({"sourceRevision": "a".repeat(40), "archiveFilename": "canlang-tools.tar.gz", "sha256": digest,
-            "versions": {"compiler": "can 0.1.0 (fixture)", "node": "v24.21.0", "bun": "1.4.2", "miniflare": "4.20260730.0", "workerd": "1.20260730.1"}});
+        let release = serde_json::json!({"sourceRevision": "a".repeat(40), "archiveFilename": filename, "sha256": digest, "versions": versions});
         File::create(&manifest)
             .unwrap()
             .write_all(release.to_string().as_bytes())
@@ -188,10 +246,10 @@ mod tests {
     #[test]
     fn admits_exact_archive_and_preserves_occupied_output() {
         let dir = tempfile::tempdir().unwrap();
-        let (manifest, archive) = fixture(dir.path(), false);
+        let (manifest, archive) = fixture(dir.path(), false, "x86_64", 62);
         let out = dir.path().join("tools");
-        stage(&manifest, &archive, &out).unwrap();
-        assert!(stage(&manifest, &archive, &out)
+        stage(&manifest, &archive, &out, "x86_64").unwrap();
+        assert!(stage(&manifest, &archive, &out, "x86_64")
             .unwrap_err()
             .contains("occupied"));
         assert_eq!(
@@ -203,9 +261,9 @@ mod tests {
     #[test]
     fn rejects_links_without_promoting_partial_output() {
         let dir = tempfile::tempdir().unwrap();
-        let (manifest, archive) = fixture(dir.path(), true);
+        let (manifest, archive) = fixture(dir.path(), true, "x86_64", 62);
         let out = dir.path().join("tools");
-        assert!(stage(&manifest, &archive, &out)
+        assert!(stage(&manifest, &archive, &out, "x86_64")
             .unwrap_err()
             .contains("links"));
         assert!(!out.join("canlang").exists());
@@ -214,15 +272,49 @@ mod tests {
     #[test]
     fn rejects_changed_bytes_before_unpacking() {
         let dir = tempfile::tempdir().unwrap();
-        let (manifest, archive) = fixture(dir.path(), false);
+        let (manifest, archive) = fixture(dir.path(), false, "x86_64", 62);
         std::fs::OpenOptions::new()
             .append(true)
             .open(&archive)
             .unwrap()
             .write_all(b"changed")
             .unwrap();
-        assert!(stage(&manifest, &archive, &dir.path().join("tools"))
-            .unwrap_err()
-            .contains("checksum"));
+        assert!(
+            stage(&manifest, &archive, &dir.path().join("tools"), "x86_64")
+                .unwrap_err()
+                .contains("checksum")
+        );
+    }
+
+    #[test]
+    fn arm_release_requires_native_arm_bytes_before_promotion() {
+        for machine in [62, 183] {
+            let dir = tempfile::tempdir().unwrap();
+            let (manifest, archive) = fixture(dir.path(), false, "aarch64", machine);
+            let out = dir.path().join("tools");
+            let result = stage(&manifest, &archive, &out, "aarch64");
+            if machine == 183 {
+                result.unwrap();
+                assert!(out.join("canlang/compiler/target/release/can").is_file());
+            } else {
+                assert!(result.unwrap_err().contains("ELF does not match aarch64"));
+                assert!(!out.join("canlang").exists());
+            }
+        }
+    }
+
+    #[test]
+    fn absent_arm_lock_reports_the_required_dependency_without_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("tools");
+        let error = stage(
+            &dir.path().join("absent.json"),
+            &dir.path().join("archive"),
+            &out,
+            "aarch64",
+        )
+        .unwrap_err();
+        assert!(error.contains("Canlang aarch64 release pin unavailable"));
+        assert!(!out.exists());
     }
 }

@@ -32,6 +32,7 @@ struct StreamDocument {
 }
 struct ArchitectureMap {
     x86_64: Option<RawJson>,
+    aarch64: Option<RawJson>,
 }
 struct ArchitectureEntry {
     artifacts: Option<RawJson>,
@@ -82,7 +83,7 @@ macro_rules! raw_object {
 }
 
 raw_object!(StreamDocument, StreamDocumentVisitor, "stable stream object", { architectures => "architectures" });
-raw_object!(ArchitectureMap, ArchitectureMapVisitor, "architecture map", { x86_64 => "x86_64" });
+raw_object!(ArchitectureMap, ArchitectureMapVisitor, "architecture map", { x86_64 => "x86_64", aarch64 => "aarch64" });
 raw_object!(ArchitectureEntry, ArchitectureEntryVisitor, "architecture entry", { artifacts => "artifacts" });
 raw_object!(ArtifactMap, ArtifactMapVisitor, "artifact map", { metal => "metal", qemu => "qemu" });
 raw_object!(Artifact, ArtifactVisitor, "artifact object", { formats => "formats" });
@@ -138,24 +139,33 @@ pub fn tailnet_base_tags_url() -> String {
     }
 }
 
-/// Parses one stable-stream document into release + x86_64 ISO/QEMU triples.
-fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage), Error> {
+/// Parses one stable-stream document into release + selected-architecture ISO/QEMU triples.
+fn resolve_stream_build(
+    data: &[u8],
+    arch: &str,
+) -> Result<(String, CoreOSImage, CoreOSImage), Error> {
+    oci_architecture(arch)?;
     let text = String::from_utf8_lossy(data);
     let doc: StreamDocument =
         serde_json::from_str(&text).map_err(|_| Error::msg("invalid stable stream document"))?;
     let archs = decode_raw::<ArchitectureMap>(doc.architectures)
         .map_err(|_| Error::msg("invalid stable stream document"))?
-        .ok_or_else(|| Error::msg("stable stream lacks architecture x86_64"))?;
-    let entry = decode_raw::<ArchitectureEntry>(archs.x86_64)
+        .ok_or_else(|| Error::msg(format!("stable stream lacks architecture {arch}")))?;
+    let selected = match arch {
+        "x86_64" => archs.x86_64,
+        "aarch64" => archs.aarch64,
+        _ => unreachable!(),
+    };
+    let entry = decode_raw::<ArchitectureEntry>(selected)
         .map_err(|_| Error::msg("invalid stable stream document"))?
-        .ok_or_else(|| Error::msg("stable stream lacks architecture x86_64"))?;
+        .ok_or_else(|| Error::msg(format!("stable stream lacks architecture {arch}")))?;
     let artifacts = decode_raw::<ArtifactMap>(entry.artifacts)
         .map_err(|_| Error::msg("invalid stable stream document"))?;
     let disk = |artifact: &str, format: &str| -> Result<CoreOSImage, Error> {
         let missing = if artifact == "metal" {
-            "stable stream lacks x86_64 live ISO".to_string()
+            format!("stable stream lacks {arch} live ISO")
         } else {
-            format!("stable stream lacks x86_64 {artifact} image")
+            format!("stable stream lacks {arch} {artifact} image")
         };
         let no_artifact = || Error::msg(missing.clone());
         let art_raw = artifacts
@@ -207,8 +217,11 @@ fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage
         })
     };
     let iso = disk("metal", "iso")?;
-    let release = stream_release_from_location(&iso.url)
-        .ok_or_else(|| Error::msg("stable stream x86_64 ISO location names no release"))?;
+    let release = stream_release_from_location(&iso.url).ok_or_else(|| {
+        Error::msg(format!(
+            "stable stream {arch} ISO location names no release"
+        ))
+    })?;
     let qemu = disk("qemu", "qcow2.xz")?;
     soda_build_tools::reader::stream::valid_stream_images(&release, &iso, &qemu)?;
     Ok((release, iso, qemu))
@@ -249,7 +262,7 @@ pub fn resolve_coreos_iso_with<T: HttpTransport>(
     arch: &str,
 ) -> Result<(String, CoreOSImage), Error> {
     oci_architecture(arch)?;
-    let resolved = resolve_coreos_with(transport)?;
+    let resolved = resolve_coreos_with(transport, arch)?;
     match resolved.iso.get(arch) {
         Some(img) => Ok((resolved.release.clone(), img.clone())),
         None => Err(Error::msg(format!("stable stream lacks {arch} live ISO"))),
@@ -266,7 +279,7 @@ pub fn resolve_coreos_qemu_with<T: HttpTransport>(
     arch: &str,
 ) -> Result<(String, CoreOSImage), Error> {
     oci_architecture(arch)?;
-    let resolved = resolve_coreos_with(transport)?;
+    let resolved = resolve_coreos_with(transport, arch)?;
     match resolved.qemu.get(arch) {
         Some(img) => Ok((resolved.release.clone(), img.clone())),
         None => Err(Error::msg(format!("stable stream lacks {arch} qemu image"))),
@@ -275,23 +288,27 @@ pub fn resolve_coreos_qemu_with<T: HttpTransport>(
 
 /// Current stable build: release, live-ISO, and qemu locations from the
 /// stream, container digests from the registry.
-pub fn resolve_coreos() -> Result<ResolvedCoreOS, Error> {
-    resolve_coreos_with(&UreqTransport)
+pub fn resolve_coreos(arch: &str) -> Result<ResolvedCoreOS, Error> {
+    resolve_coreos_with(&UreqTransport, arch)
 }
 
-pub fn resolve_coreos_with<T: HttpTransport>(transport: &T) -> Result<ResolvedCoreOS, Error> {
+pub fn resolve_coreos_with<T: HttpTransport>(
+    transport: &T,
+    arch: &str,
+) -> Result<ResolvedCoreOS, Error> {
+    oci_architecture(arch)?;
     let stream_url = coreos_stream_url();
     if !https_url(&stream_url) {
         return Err(Error::msg("CoreOS stream URL must be HTTPS"));
     }
     let data = fetch_capped_json(transport, &stream_url, 8 << 20)?;
-    let (release, iso, qemu) = resolve_stream_build(&data)?;
-    let digests = resolve_registry_digests_with(transport, &coreos_registry())?;
+    let (release, iso, qemu) = resolve_stream_build(&data, arch)?;
+    let digests = resolve_registry_digests_with(transport, &coreos_registry(), arch)?;
     let meta: String = soda_build_tools::reader::stream::stream_release_url(&stream_url, &release)?;
     let mut iso_map = BTreeMap::new();
-    iso_map.insert("x86_64".to_string(), iso);
+    iso_map.insert(arch.to_string(), iso);
     let mut qemu_map = BTreeMap::new();
-    qemu_map.insert("x86_64".to_string(), qemu);
+    qemu_map.insert(arch.to_string(), qemu);
     Ok(ResolvedCoreOS {
         release,
         metadata_url: meta,
@@ -335,25 +352,52 @@ pub(crate) mod tests {
     #[test]
     fn oracle_stream_build_parsing() {
         // Oracle: resolveStreamBuild over the Go fixture document.
-        let (release, iso, qemu) = resolve_stream_build(stream_doc().as_bytes()).unwrap();
+        let (release, iso, qemu) = resolve_stream_build(stream_doc().as_bytes(), "x86_64").unwrap();
         assert_eq!(release, "44.20260901.1.0");
         assert!(iso.url.ends_with(".iso"));
         assert_eq!(iso.signature_url, format!("{}.sig", iso.url));
         assert_eq!(qemu.uncompressed_sha256, "b".repeat(64));
-        assert!(resolve_stream_build(b"{}").is_err());
-        assert!(resolve_stream_build(b"not json").is_err());
+        assert!(resolve_stream_build(b"{}", "x86_64").is_err());
+        assert!(resolve_stream_build(b"not json", "x86_64").is_err());
     }
 
     #[test]
     fn stream_disk_aliases_validate_only_the_final_source_spelling() {
         let good = stream_doc().replace("\"location\":\"", "\"location\":false,\"Location\":\"");
-        assert!(resolve_stream_build(good.as_bytes()).is_ok());
+        assert!(resolve_stream_build(good.as_bytes(), "x86_64").is_ok());
 
         let bad = stream_doc().replace("\",\"sha256\":", "\",\"LOCATION\":false,\"sha256\":");
         assert_eq!(
-            resolve_stream_build(bad.as_bytes()).unwrap_err().message(),
+            resolve_stream_build(bad.as_bytes(), "x86_64")
+                .unwrap_err()
+                .message(),
             "invalid stable stream document"
         );
+    }
+
+    #[test]
+    fn selected_architecture_is_required_in_stream_and_registry() {
+        let stream = stream_doc().replace("x86_64", "aarch64");
+        let (release, iso, _) = resolve_stream_build(stream.as_bytes(), "aarch64").unwrap();
+        assert_eq!(release, "44.20260901.1.0");
+        assert!(iso.url.ends_with(".aarch64.iso"));
+        assert!(resolve_stream_build(stream.as_bytes(), "x86_64").is_err());
+        assert!(resolve_stream_build(stream_doc().as_bytes(), "aarch64").is_err());
+        let arm_index = index_doc().replace("amd64", "arm64");
+        for (arch, expected) in [("aarch64", true), ("x86_64", false)] {
+            let stub = Stub::new(&[(
+                "/v2/fedora/fedora-coreos/manifests/stable",
+                200,
+                None,
+                arm_index.as_bytes(),
+            )]);
+            let result = resolve_registry_digests_with(&stub, "https://stub.test", arch);
+            assert_eq!(result.is_ok(), expected);
+            if let Ok(images) = result {
+                assert_eq!(images.len(), 1);
+                assert!(images.contains_key(arch));
+            }
+        }
     }
 
     #[test]
@@ -375,7 +419,7 @@ pub(crate) mod tests {
             "https://stub.test/streams/stable.json",
         );
         std::env::set_var("SODA_COREOS_REGISTRY", "https://stub.test");
-        let resolved = resolve_coreos_with(&stub).unwrap();
+        let resolved = resolve_coreos_with(&stub, "x86_64").unwrap();
         std::env::remove_var("SODA_COREOS_STREAM_URL");
         std::env::remove_var("SODA_COREOS_REGISTRY");
         assert_eq!(resolved.release, "44.20260901.1.0");

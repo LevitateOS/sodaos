@@ -29,28 +29,43 @@ fn full_content() -> BTreeMap<String, String> {
 
 #[test]
 fn candidate_content_rules() {
-    assert!(valid_candidate_content(&full_content()));
+    assert!(valid_candidate_content(&full_content(), "x86_64"));
     let mut missing_asset = full_content();
     missing_asset.remove("extension:/usr/share/soda/extension/assets/entry.js");
-    assert!(!valid_candidate_content(&missing_asset));
+    assert!(!valid_candidate_content(&missing_asset, "x86_64"));
     let mut unknown = full_content();
     unknown.insert("host:/etc/passwd".to_string(), "b".repeat(64));
-    assert!(!valid_candidate_content(&unknown));
+    assert!(!valid_candidate_content(&unknown, "x86_64"));
     let mut mismatch = full_content();
     mismatch.insert("extension:/usr/local/bin/gitea".to_string(), "b".repeat(64));
-    assert!(!valid_candidate_content(&mismatch));
+    assert!(!valid_candidate_content(&mismatch, "x86_64"));
     let mut bad_digest = full_content();
     bad_digest.insert(
         "dashboard:/usr/local/bin/soda-dashboard".to_string(),
         "zzz".to_string(),
     );
-    assert!(!valid_candidate_content(&bad_digest));
+    assert!(!valid_candidate_content(&bad_digest, "x86_64"));
     let mut bad_asset = full_content();
     bad_asset.insert(
         "extension:/usr/share/soda/extension/assets/../escape".to_string(),
         "a".repeat(64),
     );
-    assert!(!valid_candidate_content(&bad_asset));
+    assert!(!valid_candidate_content(&bad_asset, "x86_64"));
+}
+
+#[test]
+fn candidate_content_requires_the_selected_canlang_architecture() {
+    let mut content = full_content();
+    assert!(!valid_candidate_content(&content, "aarch64"));
+    let hash = content
+        .remove("host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz")
+        .unwrap();
+    content.insert(
+        "host:/usr/share/soda/canlang-tools/canlang-tools-linux-aarch64.tar.gz".into(),
+        hash,
+    );
+    assert!(valid_candidate_content(&content, "aarch64"));
+    assert!(!valid_candidate_content(&content, "x86_64"));
 }
 
 #[test]

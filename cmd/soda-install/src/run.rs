@@ -148,6 +148,8 @@ pub fn read_media_identity(path: &str) -> Result<MediaIdentity, Error> {
 pub fn architecture() -> String {
     if cfg!(target_arch = "x86_64") {
         "x86_64".to_string()
+    } else if cfg!(target_arch = "aarch64") {
+        "aarch64".to_string()
     } else {
         "unsupported".to_string()
     }
@@ -278,6 +280,10 @@ mod tests {
             );
         }
         assert!(media.validate("44.20260817.3.2", "aarch64").is_err());
+        let mut arm_media = media.clone();
+        arm_media.architecture = "aarch64".to_string();
+        arm_media.validate("44.20260817.3.2", "aarch64").unwrap();
+        assert!(arm_media.validate("44.20260817.3.2", "x86_64").is_err());
         let mut bad = media.clone();
         bad.revision = "unreviewed".to_string();
         assert!(bad.validate("44.20260817.3.2", "x86_64").is_err());

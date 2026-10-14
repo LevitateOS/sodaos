@@ -21,10 +21,14 @@ struct Fixture {
 
 impl Fixture {
     fn start() -> Fixture {
+        Self::for_platform("amd64", 62)
+    }
+
+    fn for_platform(platform: &str, machine: u16) -> Fixture {
         let mut routes: HashMap<String, (u16, Vec<u8>)> = HashMap::new();
-        let binary = elf_body(62);
+        let binary = elf_body(machine);
         let license = b"fixture license\n".to_vec();
-        let filename = format!("tea-{VERSION}-linux-amd64");
+        let filename = format!("tea-{VERSION}-linux-{platform}");
         let sums = format!("{}  {filename}\n", crate::fetch::sha256_hex(&binary));
         routes.insert(
             "/api/releases/latest".to_string(),
@@ -147,11 +151,36 @@ fn unsupported_architecture_is_refused_without_fetch() {
     let scratch = TempDir::new("tea-arch");
     let out = scratch.path.join("output");
     assert_eq!(
-        fetch("aarch64", &out, &fixture.endpoints).unwrap_err(),
-        "Tea staging supports x86_64 only"
+        fetch("riscv64", &out, &fixture.endpoints).unwrap_err(),
+        "Tea staging supports x86_64 or aarch64"
     );
     assert!(fixture.server.seen().is_empty());
     assert!(!out.exists());
+}
+
+#[test]
+fn arm_download_selects_arm64_and_refuses_a_pinned_x86_binary() {
+    for machine in [62, 183] {
+        let fixture = Fixture::for_platform("arm64", machine);
+        let scratch = TempDir::new("tea-arm");
+        let out = scratch.path.join("output");
+        let result = fetch("aarch64", &out, &fixture.endpoints);
+        if machine == 183 {
+            result.unwrap();
+            assert_eq!(std::fs::read(out.join("bin/tea")).unwrap(), fixture.binary);
+        } else {
+            assert_eq!(
+                result.unwrap_err(),
+                "Tea binary is not ELF64 for the requested architecture"
+            );
+            assert!(!out.exists());
+        }
+        assert!(fixture
+            .server
+            .seen()
+            .iter()
+            .any(|request| request.target.ends_with("linux-arm64")));
+    }
 }
 
 #[test]

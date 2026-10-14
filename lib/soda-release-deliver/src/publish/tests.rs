@@ -2,7 +2,8 @@ use super::*;
 fn stage(gh: &dyn GitHub, manifest: &Manifest, directory: &Path) -> Result<(), Error> {
     super::stage_github(gh, manifest, directory, |_| Ok(()))
 }
-use assets::{write_json, Qualification, ISO_NAME, MAX_ASSET_BYTES};
+use assets::{write_json, Qualification, MAX_ASSET_BYTES};
+const ISO_NAME: &str = "sodaos-x86_64.iso";
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use tempfile::TempDir;
@@ -60,6 +61,7 @@ fn fixture() -> (TempDir, Manifest) {
         format: 1,
         tag: "v0.1.0".to_owned(),
         distribution: crate::model::Distribution::Appliance,
+        architecture: "x86_64".into(),
         docker: None,
         soda_revision: "a".repeat(40),
         forgejo_revision: "b".repeat(40),
@@ -102,7 +104,7 @@ fn remote(
     immutable: bool,
 ) -> Result<Vec<u8>, Error> {
     json(
-        serde_json::json!({"id":17,"tag_name":m.tag,"draft":draft,"prerelease":prerelease,"immutable":immutable,"assets":assets.iter().map(|a|serde_json::json!({"name":a.name,"size":a.bytes,"digest":format!("sha256:{}",a.sha256),"state":"uploaded"})).collect::<Vec<_>>() }),
+        serde_json::json!({"id":17,"tag_name":m.tag,"draft":draft,"prerelease":prerelease,"immutable":immutable,"published_at":"2026-10-13T00:00:00Z","assets":assets.iter().map(|a|serde_json::json!({"name":a.name,"size":a.bytes,"digest":format!("sha256:{}",a.sha256),"state":"uploaded"})).collect::<Vec<_>>() }),
     )
 }
 #[test]
@@ -237,7 +239,7 @@ fn promotion_requires_observed_revision_smoke_confirmation_and_actual_download()
         Ok(vec![]),
     ]);
     let downloaded = dir.path().join(ISO_NAME);
-    qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
+    qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true, None).unwrap();
     assert_eq!(gh.calls.borrow()[5][1], "verify");
     assert_eq!(gh.calls.borrow()[6][1], "verify-asset");
     assert_eq!(gh.calls.borrow().len(), 7);
@@ -252,12 +254,14 @@ fn promotion_requires_observed_revision_smoke_confirmation_and_actual_download()
     assert_eq!(receipt.boot, "passed");
     assert_eq!(receipt.applications, "passed");
     let gh = Script::new(vec![]);
-    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &"c".repeat(40), true).is_err());
+    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &"c".repeat(40), true, None).is_err());
     assert!(gh.calls.borrow().is_empty());
-    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, false).is_err());
+    assert!(
+        qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, false, None).is_err()
+    );
     assert!(gh.calls.borrow().is_empty());
     std::fs::write(dir.path().join(ISO_NAME), b"tampered").unwrap();
-    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).is_err());
+    assert!(qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true, None).is_err());
     assert!(gh.calls.borrow().is_empty());
 }
 #[test]
@@ -313,6 +317,7 @@ fn appliance_qualification_repeats_verified_readback_and_finishes_partial_receip
     std::fs::copy(dir.path().join(ISO_NAME), &downloaded).unwrap();
     let evidence = serde_json::to_vec(&ApplianceEvidence {
         downloaded: downloaded.clone(),
+        platform_evidence: None,
     })
     .unwrap();
     record_verified(&dir.path().join("appliance-evidence.json"), &evidence).unwrap();
@@ -326,7 +331,7 @@ fn appliance_qualification_repeats_verified_readback_and_finishes_partial_receip
             Ok(vec![]),
             Ok(vec![]),
         ]);
-        qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
+        qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true, None).unwrap();
         assert!(gh.replies.borrow().is_empty());
     }
     appliance_evidence(dir.path(), &m).unwrap();
@@ -398,7 +403,7 @@ fn status_rechecks_downloaded_appliance_evidence_and_recommendation() {
         Ok(vec![]),
         Ok(vec![]),
     ]);
-    qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true).unwrap();
+    qualify_appliance(&gh, dir.path(), &downloaded, &m.soda_revision, true, None).unwrap();
     std::fs::remove_file(downloaded).unwrap();
     std::fs::write(dir.path().join("promotion-complete.json"), b"{}").unwrap();
     let gh = Script::new(vec![
@@ -418,4 +423,130 @@ fn status_rechecks_downloaded_appliance_evidence_and_recommendation() {
         .iter()
         .any(|value| value.as_str()
             == Some("appliance recommendation no longer matches this release")));
+}
+
+#[test]
+fn arm_appliance_requires_retained_native_utm_evidence() {
+    let (dir, mut manifest) = fixture();
+    let previous = manifest.iso.clone();
+    manifest.architecture = "aarch64".into();
+    manifest.tag = "v0.1.0-aarch64".into();
+    manifest.iso = assets::iso_name(&manifest.architecture).unwrap();
+    std::fs::rename(dir.path().join(&previous), dir.path().join(&manifest.iso)).unwrap();
+    manifest
+        .assets
+        .iter_mut()
+        .find(|asset| asset.name == previous)
+        .unwrap()
+        .name = manifest.iso.clone();
+    write_json(&dir.path().join("release.json"), &manifest).unwrap();
+    assets::write_checksums(&manifest, dir.path()).unwrap();
+    let downloaded = dir.path().join(&manifest.iso);
+    assert!(qualify_appliance(
+        &Script::new(vec![]),
+        dir.path(),
+        &downloaded,
+        &manifest.soda_revision,
+        true,
+        None
+    )
+    .is_err());
+
+    let evidence = dir.path().join("platform");
+    std::fs::create_dir(&evidence).unwrap();
+    let host = b"Apple Silicon host readback";
+    let guest = b"UTM native ARM guest readback";
+    std::fs::write(evidence.join("host.txt"), host).unwrap();
+    std::fs::write(evidence.join("guest.txt"), guest).unwrap();
+    let native = serde_json::json!({"target":"soda-utm-test","host_platform":"darwin/arm64","runtime":"utm","accelerator":"hvf","guest_platform":"linux/arm64","virtual_machine_id":"fixture-vm","soda_revision":manifest.soda_revision,"iso_sha256":manifest.asset(&manifest.iso).unwrap().sha256,"host_readback_sha256":crate::hash_bytes(host)[7..],"guest_readback_sha256":crate::hash_bytes(guest)[7..]});
+    let bytes = serde_json::to_vec(&native).unwrap();
+    std::fs::write(evidence.join("native.json"), &bytes).unwrap();
+    let mut observation = soda_acceptance::report::Observation {
+        owner: "P11".into(),
+        requested_revision: manifest.soda_revision.clone(),
+        tool_revision: manifest.soda_revision.clone(),
+        requested_architecture: "aarch64".into(),
+        target: "soda-utm-test".into(),
+        client_platform: "linux/amd64".into(),
+        action: "exec".into(),
+        invocation: Some(vec!["native-utm-readback".into()]),
+        outcome: "completed".into(),
+        execution: "completed".into(),
+        evidence: "completed".into(),
+        exit_code: Some(0),
+        started: "2026-10-14T00:00:00Z".into(),
+        finished: "2026-10-14T00:00:01Z".into(),
+        files: Some(std::collections::BTreeMap::from([
+            ("host.txt".into(), crate::hash_bytes(host)[7..].into()),
+            ("guest.txt".into(), crate::hash_bytes(guest)[7..].into()),
+            ("native.json".into(), crate::hash_bytes(&bytes)[7..].into()),
+        ])),
+        artifacts: Some(std::collections::BTreeMap::from([(
+            manifest.iso.clone(),
+            manifest.asset(&manifest.iso).unwrap().sha256.clone(),
+        )])),
+        ..Default::default()
+    };
+    let path = evidence.join("observation.json");
+    std::fs::write(
+        &path,
+        serde_json::to_vec(&soda_acceptance::report::observation_json(&observation)).unwrap(),
+    )
+    .unwrap();
+    let items = inventory(&manifest, dir.path()).unwrap();
+    let gh = Script::new(vec![
+        tag(&manifest),
+        fountain(&manifest),
+        ci(&manifest),
+        json(serde_json::json!({"databaseId":17})),
+        remote(&manifest, &items, false, true, true),
+        Ok(vec![]),
+        Ok(vec![]),
+    ]);
+    qualify_appliance(
+        &gh,
+        dir.path(),
+        &downloaded,
+        &manifest.soda_revision,
+        true,
+        Some(&path),
+    )
+    .unwrap();
+    let (receipt, _) = appliance_evidence(dir.path(), &manifest).unwrap();
+    assert_eq!(receipt.host_platform, "darwin/arm64");
+    assert_eq!(receipt.runtime, "utm");
+    assert!(receipt.platform_observation.is_some());
+
+    let mut future: serde_json::Value =
+        serde_json::from_slice(&remote(&manifest, &items, false, true, true).unwrap()).unwrap();
+    future["published_at"] = serde_json::json!("2026-10-15T00:00:00Z");
+    let gh = Script::new(vec![
+        fountain(&manifest),
+        ci(&manifest),
+        json(serde_json::json!({"databaseId":17})),
+        json(future),
+        tag(&manifest),
+        Ok(vec![]),
+        Err(Error::msg("GitHub resource not found")),
+    ]);
+    let report = status(&gh, &NoRegistry, dir.path()).unwrap();
+    assert_eq!(report["appliance_qualified"], false);
+    assert_eq!(report["next_action"], "qualify");
+
+    let mut native = native;
+    native["host_platform"] = serde_json::json!("linux/arm64");
+    let bytes = serde_json::to_vec(&native).unwrap();
+    std::fs::write(evidence.join("native.json"), &bytes).unwrap();
+    observation
+        .files
+        .as_mut()
+        .unwrap()
+        .insert("native.json".into(), crate::hash_bytes(&bytes)[7..].into());
+    std::fs::write(
+        &path,
+        serde_json::to_vec(&soda_acceptance::report::observation_json(&observation)).unwrap(),
+    )
+    .unwrap();
+    assert!(appliance::observe(&manifest, &path, None).is_err());
+    assert!(appliance_evidence(dir.path(), &manifest).is_err());
 }

@@ -18,15 +18,21 @@ fn unique() -> u64 {
 #[test]
 fn validators_match_go() {
     assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
+    assert_eq!(oci_architecture("aarch64").unwrap(), "arm64");
     assert_eq!(
-        oci_architecture("aarch64").unwrap_err().message(),
-        "expected x86_64"
+        oci_architecture("armv7").unwrap_err().message(),
+        "expected x86_64 or aarch64"
     );
     assert!(is_digest(&"a".repeat(64)));
     assert!(!is_digest(&"A".repeat(64)));
     assert!(is_revision(&"b".repeat(40)));
     assert!(!is_revision("dirty"));
-    require_native("x86_64").unwrap();
+    for arch in ["x86_64", "aarch64"] {
+        assert_eq!(
+            require_native(arch).is_ok(),
+            cfg!(target_os = "linux") && std::env::consts::ARCH == arch
+        );
+    }
     assert!(require_native("other").is_err());
 }
 

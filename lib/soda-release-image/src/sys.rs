@@ -298,13 +298,12 @@ mod json_tests {
     }
 }
 
-/// `build.RequireNative`: x86_64 Linux only.
+/// Admit a supported architecture only on its matching native Linux runtime.
 pub fn require_native(arch: &str) -> Result<(), Error> {
-    let oci =
-        soda_build_tools::reader::oci_architecture(arch).map_err(|e| Error::msg(e.to_string()))?;
+    soda_build_tools::reader::oci_architecture(arch).map_err(|e| Error::msg(e.to_string()))?;
     // D01-F1: Rust target arch and OCI arch are separate namespaces; each
     // is validated against its own supported value.
-    if std::env::consts::OS != "linux" || std::env::consts::ARCH != "x86_64" || oci != "amd64" {
+    if std::env::consts::OS != "linux" || std::env::consts::ARCH != arch {
         return Err(Error::msg("matching-native Linux required"));
     }
     Ok(())
@@ -944,10 +943,15 @@ mod tests {
     }
 
     #[test]
-    fn require_native_accepts_matching_x86_64_linux() {
+    fn require_native_accepts_only_matching_linux_architecture() {
         // D01-F1: Rust target arch and OCI arch are separate namespaces;
-        // matching-native x86_64 Linux must pass, anything else must fail.
-        assert!(require_native("x86_64").is_ok());
+        // The matching native Linux architecture must pass; cross builds fail.
+        for arch in ["x86_64", "aarch64"] {
+            assert_eq!(
+                require_native(arch).is_ok(),
+                std::env::consts::OS == "linux" && std::env::consts::ARCH == arch
+            );
+        }
         assert!(require_native("amd64").is_err());
         assert!(require_native("arm64").is_err());
         assert!(require_native("").is_err());

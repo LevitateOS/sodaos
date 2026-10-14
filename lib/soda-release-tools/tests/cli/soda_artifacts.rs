@@ -13,7 +13,7 @@ fn artifacts_dispatch_matches_go() {
             vec!["bogus-action"],
             "invalid artifact command flags\n",
         ),
-        (vec!["inspect-oci"], "expected x86_64\n"),
+        (vec!["inspect-oci"], "expected x86_64 or aarch64\n"),
         (
             vec!["inspect-oci", "--arch", "x86_64", "--source", "/nope", "--revision", "abc"],
             "full source revision required\n",
@@ -35,8 +35,8 @@ fn artifacts_dispatch_matches_go() {
             "full trusted signer fingerprint required\n",
         ),
         (
-            vec!["fetch-coreos-iso", "--arch", "aarch64"],
-            "expected x86_64\n",
+            vec!["fetch-coreos-iso", "--arch", "riscv64"],
+            "expected x86_64 or aarch64\n",
         ),
     ] {
         let (code, out, err) = run(&artifacts_bin(), &scratch.path, &args);

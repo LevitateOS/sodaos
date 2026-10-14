@@ -11,12 +11,14 @@ from [release-tools](../soda-release-tools/README.md).
   set; large registry archives and operator paths stay local.
 - `publish::stage` checks prepared bytes, exact-source CI and tag, uploads/reads back
   the Docker version anonymously, then publishes the complete immutable GitHub prerelease.
-- `publish::qualify_appliance` retains the existing downloaded-ISO/native-smoke gate.
+- `publish::qualify_appliance` verifies the downloaded ISO and native smoke;
+  ARM additionally requires retained Apple Silicon host and UTM guest evidence.
   `publish::qualify_docker` verifies the actual public installation downloads, registry
   identity and finalized native observations with the existing acceptance reader.
 - `publish::promote` rechecks all selected receipts and original evidence, preserves
   the public image digest while moving Docker latest, and updates only eligible GitHub
-  recommendations. Docker-only promotion confirms appliance latest is unchanged.
+  recommendations. Docker-only and ARM promotion leave the global appliance latest
+  unchanged; ARM Docker promotion moves `latest-arm64`.
 - `publish::status` observes identities, remote pointers, blockers and partial attempts
   without mutation. Failed promotions retain their attempt marker and refuse replay.
 - `check::check_candidate` verifies native candidate archives and identities.
@@ -64,8 +66,8 @@ document: the verifier reads fixed paths beneath the candidate directory.
 
 | Fields | Binding |
 | --- | --- |
-| `Format`, `Distribution`, `Purpose`, `ReleaseTag` | Format 1, `docker`/`all`, `development`/`production`, and an exact non-`latest` version tag |
-| `Architecture`, `Platform` | Native `x86_64` and OCI `linux/amd64` |
+| `Format`, `Distribution`, `Purpose`, `ReleaseTag` | Format 1, `docker`/`all`, `development`/`production`, and an exact version tag excluding `latest` and `latest-arm64` |
+| `Architecture`, `Platform` | Matching `x86_64` / `linux/amd64` or `aarch64` / `linux/arm64` |
 | `SodaRevision`, `ForgejoRevision`, `SodaSource`, `ForgejoSource` | Exact revisions and hashes/sizes of `source.tar` and `forgejo-source.tar`; archive commit IDs and the archived Fountain pin must match |
 | `CandidateSHA256`, `PayloadSHA256`, `HostManifest`, `HostArchiveSHA256` | The admitted common candidate and payload plus its verified source host |
 | `FedoraBase`, `Recipe` | `registry.fedoraproject.org/fedora@sha256:...` and the Dockerfile's hash/size from the Soda source archive |

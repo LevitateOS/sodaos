@@ -398,8 +398,8 @@ mod tests {
         let err = inspect_oci_content("/nonexistent.oci", "x86_64", "", &["relative".to_string()])
             .unwrap_err();
         assert_eq!(err, Error::msg("absolute clean OCI member paths required"));
-        let err = inspect_oci("/nonexistent.oci", "aarch64", "").unwrap_err();
-        assert_eq!(err, Error::msg("expected x86_64"));
+        let err = inspect_oci("/nonexistent.oci", "riscv64", "").unwrap_err();
+        assert_eq!(err, Error::msg("expected x86_64 or aarch64"));
         let err = inspect_oci("/nonexistent.oci", "x86_64", "short").unwrap_err();
         assert_eq!(err, Error::msg("full source revision required"));
     }

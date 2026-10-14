@@ -54,7 +54,10 @@ fn payload_validation_matrix() {
     assert!(bad.validate().is_err());
     let mut bad = fixture();
     bad.architecture = "armv7".to_string();
-    assert_eq!(bad.validate().unwrap_err().to_string(), "expected x86_64");
+    assert_eq!(
+        bad.validate().unwrap_err().to_string(),
+        "expected x86_64 or aarch64"
+    );
     let mut bad = fixture();
     bad.presentation_sha256 = String::new();
     assert!(bad.validate().is_err());

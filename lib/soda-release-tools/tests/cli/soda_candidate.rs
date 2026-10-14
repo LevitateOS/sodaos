@@ -46,8 +46,15 @@ fn candidate_flag_errors_refuse_before_admission() {
             "soda-candidate: --mode accepts candidate or media\n",
         ),
         (
-            vec!["--arch", "aarch64"],
-            "soda-candidate: matching native x86_64 required\n",
+            vec![
+                "--arch",
+                if cfg!(target_arch = "aarch64") {
+                    "x86_64"
+                } else {
+                    "aarch64"
+                },
+            ],
+            "soda-candidate: matching-native Linux required\n",
         ),
         (
             vec!["--non-interactive"],

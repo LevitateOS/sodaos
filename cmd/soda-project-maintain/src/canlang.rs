@@ -49,7 +49,9 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
         serde_json::from_slice(&bytes).map_err(|_| "invalid Canlang maintenance release")?;
     if !crate::release_validation::is_hex_string(&release.sha256, 64)
         || !crate::release_validation::is_hex_string(&release.source_revision, 40)
-        || release.archive_filename != "canlang-tools-linux-x86_64.tar.gz"
+        || release.archive_filename
+            != soda_build_tools::reader::canlang::archive_filename(std::env::consts::ARCH)
+                .map_err(|error| error.0)?
         || release.versions["node"] != "v24.21.0"
         || release.versions["bun"] != "1.4.2"
         || release.versions["miniflare"] != "4.20260730.0"
@@ -115,6 +117,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
             "canlang-maintain",
             &staging,
             &release.sha256,
+            std::env::consts::ARCH,
         ],
         deadline,
     )?;

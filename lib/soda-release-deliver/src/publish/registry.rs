@@ -288,7 +288,10 @@ pub(super) fn promote_digest(
             "--digestfile",
             path(&digest)?,
             &format!("docker://{}", metadata.reference()?),
-            &format!("docker://{DOCKER_REPOSITORY}:latest"),
+            &format!(
+                "docker://{DOCKER_REPOSITORY}:{}",
+                metadata.recommendation_tag()?
+            ),
         ],
     )?;
     if std::fs::read_to_string(&digest)
@@ -306,7 +309,10 @@ pub(super) fn promote_digest(
             "inspect",
             "--raw",
             "--no-creds",
-            &format!("docker://{DOCKER_REPOSITORY}:latest"),
+            &format!(
+                "docker://{DOCKER_REPOSITORY}:{}",
+                metadata.recommendation_tag()?
+            ),
         ],
     )?;
     if hash_bytes(&raw) != metadata.image.manifest {
@@ -317,14 +323,20 @@ pub(super) fn promote_digest(
     Ok(())
 }
 
-pub(super) fn latest_digest(registry: &dyn Registry) -> Result<String, Error> {
+pub(super) fn latest_digest(
+    registry: &dyn Registry,
+    metadata: &DockerMetadata,
+) -> Result<String, Error> {
     let raw = run(
         registry,
         &[
             "inspect",
             "--raw",
             "--no-creds",
-            &format!("docker://{DOCKER_REPOSITORY}:latest"),
+            &format!(
+                "docker://{DOCKER_REPOSITORY}:{}",
+                metadata.recommendation_tag()?
+            ),
         ],
     )?;
     Ok(hash_bytes(&raw))

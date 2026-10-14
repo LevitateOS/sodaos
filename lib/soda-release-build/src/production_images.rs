@@ -42,7 +42,7 @@ impl Production {
         pinned: &str,
         args: &[String],
     ) -> Result<String, Error> {
-        let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
+        let platform = oci_architecture(&self.arch)?.to_string();
         let iid = PathBuf::from(&self.out).join(format!("{name}.iid"));
         let base_digest = pinned.split_once('@').map(|(_, d)| d).unwrap_or(pinned);
         let mut cmd = vec![
@@ -234,7 +234,7 @@ impl Production {
         archives: &Path,
         inputs: &[ResolvedInput],
     ) -> Result<HashMap<String, ProducedImage>, Error> {
-        let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
+        let platform = oci_architecture(&self.arch)?.to_string();
         let mut result: HashMap<String, ProducedImage> = HashMap::new();
         let pull = |reference: &str, iid_name: &str| -> Result<(String, String), Error> {
             self.pull_frozen_image(inputs, reference, iid_name)
