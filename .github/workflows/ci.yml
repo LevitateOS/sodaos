@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
@@ -28,7 +29,26 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  reuse:
+    name: Exact commit CI admission
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      reused: ${{ steps.check.outputs.reused }}
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Reuse completed qualification for this main commit
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/ci-reuse.sh
+
   go:
+    needs: [reuse]
+    if: ${{ needs.reuse.outputs.reused != 'true' }}
     name: Go and source guards
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -101,6 +121,8 @@ jobs:
           bun run check:source go
 
   browser:
+    needs: [reuse]
+    if: ${{ needs.reuse.outputs.reused != 'true' }}
     name: TypeScript and browser checks
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -166,6 +188,8 @@ jobs:
         run: bun run check:source browser
 
   rust:
+    needs: [reuse]
+    if: ${{ needs.reuse.outputs.reused != 'true' }}
     name: Rust workspace tests
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -214,12 +238,15 @@ jobs:
       - name: Install locked source dependencies
         run: bun install --frozen-lockfile
       - name: Run Rust tests including Docker provenance, packaging and admission contracts
-        # TCP fixture shutdown/rebind checks require isolated test lifetimes.
-        env:
-          RUST_TEST_THREADS: '1'
-        run: cargo test --workspace --locked --no-fail-fast
+        # Only the controller crate's process-environment and TCP lifetime
+        # fixtures require serialization; other workspace tests stay parallel.
+        run: |
+          cargo test --workspace --exclude soda-release-tools --locked --no-fail-fast
+          cargo test -p soda-release-tools --locked --no-fail-fast -- --test-threads=1
 
   packaging:
+    needs: [reuse]
+    if: ${{ needs.reuse.outputs.reused != 'true' }}
     name: Docker packaging
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -248,17 +275,22 @@ jobs:
     name: CI
     runs-on: ubuntu-24.04
     timeout-minutes: 2
-    needs: [go, browser, rust, packaging]
+    needs: [reuse, go, browser, rust, packaging]
     if: ${{ always() }}
     steps:
       - name: Require all source jobs to pass
         env:
+          REUSE_RESULT: ${{ needs.reuse.result }}
+          REUSED_CHECKS: ${{ needs.reuse.outputs.reused }}
           GO_RESULT: ${{ needs.go.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
           RUST_RESULT: ${{ needs.rust.result }}
           PACKAGING_RESULT: ${{ needs.packaging.result }}
         run: |
-          test "$GO_RESULT" = success
-          test "$BROWSER_RESULT" = success
-          test "$RUST_RESULT" = success
-          test "$PACKAGING_RESULT" = success
+          test "$REUSE_RESULT" = success
+          expected=success
+          if test "$REUSED_CHECKS" = true; then expected=skipped; fi
+          test "$GO_RESULT" = "$expected"
+          test "$BROWSER_RESULT" = "$expected"
+          test "$RUST_RESULT" = "$expected"
+          test "$PACKAGING_RESULT" = "$expected"
