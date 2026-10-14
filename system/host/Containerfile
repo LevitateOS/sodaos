@@ -42,7 +42,7 @@ RUN test ! -s /etc/subuid && test ! -s /etc/subgid && \
     printf 'containers:1000000:268435456\n' > /etc/subuid && \
     cp /etc/subuid /etc/subgid && \
     ostree container commit && \
-    rm -rf /sysroot
+    find /sysroot -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 
 ARG PAYLOAD_SCOPE=host-content-only
 LABEL org.opencontainers.image.title="SodaOS appliance candidate" \
