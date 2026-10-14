@@ -124,6 +124,53 @@ scope ([Product scope](../product/scope.md)).
 Project execution admission follows the current repository-write policy in
 [Projects](../product/projects.md#explicit-joining).
 
+### Terminal support
+
+The host, new-Project image and explicit maintenance payload share exactly one
+`project-terminal` artifact. Its digest and fixed paths are bound to the selected
+Project image in the release's `ProjectSupport` metadata. Existing containers keep
+their original roots and creation labels when an image is imported.
+
+Run from an appliance root terminal, using the installed complete release:
+
+```sh
+/usr/libexec/soda/soda-project-maintain terminal-support --project p0123456789abcdef01234567 --check
+/usr/libexec/soda/soda-project-maintain terminal-support --project p0123456789abcdef01234567
+```
+
+`--check` observes the exact container and support bytes without installing them.
+The repair operation holds the host's shared admission exclusion, reinspects the
+same container, and refuses active or uncertain managed terminal/factory work.
+Disconnected terminals and outstanding reservations remain managed work. The
+implemented transition requires a running Rocky 10.2 root with empty managed
+terminal/factory state. It checks tmux and terminfo and executes the staged helper's
+read-only account/state path before replacement. Nonempty retained state and stopped
+roots refuse explicitly; the tool never starts a stopped Project to inspect it.
+A matching helper is a no-op. No distribution or package update is part of this
+operation; Muse maintenance remains a separate subcommand.
+
+The tool preserves the previous file, mode and owner beside the helper, stages on
+the same filesystem, atomically renames the single verified file, and reads it back.
+The durable host record under `/var/lib/soda/project-maintenance/` binds the exact
+container, release and old/new digests. An interruption leaves managed admission
+closed. Rerun the same command to inspect actual state and finish the forward repair;
+changed identities, unreadable records or unexpected bytes remain blocked for
+operator investigation. Do not delete a record to force admission or restore old
+terminal/broker state over later writes. Saved previous bytes are recovery inputs,
+not an admitted automatic downgrade.
+
+`--development-installed-host` is an explicitly unqualified repair for an already
+upgraded development appliance whose older release lacks the bundled maintenance
+input. It selects only the fixed, admitted installed host helper; it accepts no
+caller-supplied program, digest or download. Verify the installed release and helper
+against their native deployment provenance before using it. This does not qualify
+that older release's upgrades or turn development overlays into release media.
+
+Opening a terminal, refreshing, starting a Project and importing an image never
+install support. See [terminal readiness](terminal.md) for member-visible states
+and [release ownership](../architecture/release.md#host-update-ownership) for the
+separate activation limitation.
+
 ## Muse subscription access
 
 The normal `muse` command uses the [Identity Broker](credentials.md#normal-muse-command)
@@ -137,7 +184,7 @@ Nested services require the explicit [Compose opt-in](../guides/project-services
 Update an existing running project explicitly from the appliance:
 
 ```sh
-sudo /usr/libexec/soda/soda-muse-maintain --project p0123456789abcdef01234567
+sudo /usr/libexec/soda/soda-project-maintain muse --project p0123456789abcdef01234567
 ```
 
 Maintenance replaces only the three public Muse tools and attaches the dedicated

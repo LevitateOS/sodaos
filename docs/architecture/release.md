@@ -33,6 +33,15 @@ host copies and compiler debug/symbol data, then admission checks the actual byt
 estimated compression savings never authorize an upload. The release includes the
 exact Soda and Fountain source archives, package inventory, provenance and checksums.
 
+The release payload binds `ProjectSupport` to the SHA-256 of `project-terminal`,
+its fixed destination, its maintenance copy inside the host root filesystem and
+the exact `project-os` image configuration. The producer compiles this helper once
+and stages those bytes into all three uses. Candidate assembly reads back the
+helper from both built images; delivery checks the corresponding OCI content.
+The maintenance input ships inside the complete release and requires no separate
+user download. These artifact checks establish byte identity, not a qualified
+host upgrade or retained-Project transition.
+
 Enable GitHub immutable releases before staging. Prepare a draft, upload all assets,
 compare GitHub's inventory with local sizes and hashes, and publish it as a
 prerelease. A network installer can then be tested against its real anonymous
@@ -67,6 +76,14 @@ The appliance follows Fedora CoreOS update mechanics (rpm-ostree / Zincati-align
 operation). Soda does not invent a parallel host updater for ordinary maintenance.
 First-install evidence does not qualify an upgrade or recovery path. Those paths
 need their own evidence before being offered as supported release operations.
+
+Nonempty `UpgradeFrom` declarations remain refused. Explicit Project repair is
+implemented, but no release pair has qualified coordinated activation and rollback.
+Native locked staging can hold one explicitly staged deployment inactive; it does
+not by itself gate Zincati, ordinary native deployments or rollback. Soda currently
+has no proven admission integration across those boundaries. A service failure
+after boot is not an activation safeguard. See [Project maintenance](../reference/project-os.md#terminal-support)
+for the independent same-root repair contract.
 
 ## Architectures
 

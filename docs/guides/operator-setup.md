@@ -68,6 +68,12 @@ native Forgejo SSH keys or HTTPS tokens, independently of Soda development-acces
 Existing installations use [credential maintenance](../reference/credentials.md),
 not rerunning setup. Console guidance: [Operator console welcome](../design/console-welcome.md).
 
+For retained Projects reporting a terminal support mismatch, use the explicit
+[same-root terminal maintenance procedure](../reference/project-os.md#terminal-support)
+from the installed complete release. Signing in again or importing a Project image
+does not repair retained support. Host activation remains subject to the separate
+[release qualification boundary](../architecture/release.md#host-update-ownership).
+
 After browser access is configured, prepare the private repository, publishing and
 review actors, selected agent profile and protected factory configuration through
 the [factory operator reference](../reference/factory.md). A repository, project

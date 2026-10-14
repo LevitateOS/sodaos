@@ -25,6 +25,16 @@ host releases. It does not add a supported upgrade path until qualified.
 - Use the bounded first-install qualification defined in the
   [release architecture](../architecture/release.md#public-distribution).
 
+`project-terminal` is compiled once during production asset staging. Host assembly
+copies that artifact to its runtime and maintenance paths and checks its digest
+against the selected built Project image. The release payload's `ProjectSupport`
+binding follows the same candidate through media and GitHub delivery; delivery
+also inspects the helper content in the host and Project OCI archives. Source CI
+runs the focused artifact staging regression with the existing Rust workspace
+tests. Retained-Project repair and native upgrade qualification remain separate
+from fresh-install qualification; a nonempty `UpgradeFrom` is still refused until
+native activation and recovery are qualified.
+
 ## Build once, stage, install, promote
 
 Use clean committed Soda and Fountain sources and the admitted native build worker.

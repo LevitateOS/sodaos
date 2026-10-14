@@ -91,6 +91,34 @@ Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
 
+### Terminal readiness and errors
+
+Environment detail and each Spaces inventory row include
+`terminal_support: {state}`. States are `ready`, `support_mismatch`,
+`inspection_unavailable` and `maintenance_in_progress`; their meaning and native
+observation boundary belong to the
+[terminal contract](terminal.md#installed-support-readiness). They do not replace
+the observed running state, provisioning result or current execution authority.
+Members receive no expected/observed helper digests.
+
+Terminal reservation and exact-session operations preserve bounded native support
+failures in the JSON error envelope. The same support codes can appear as the
+`reason` of a native terminal `closed` frame after WebSocket upgrade:
+
+| HTTP status / code | Required interpretation |
+| --- | --- |
+| 503 `terminal_support_mismatch` | Administrator maintenance is required. No reservation or shell is admitted through the mismatch. |
+| 503 `terminal_support_unavailable` | Compatibility could not be inspected; retry or request operator inspection. |
+| 503 `project_maintenance` | Managed admission is temporarily closed for maintenance or recovery. |
+| 503 `terminal_unavailable` | Transport or the exact native outcome is unavailable; inspect the original locator without replaying creation. |
+| 403 `session_changed`, 409 `extension_session_changed` | Refresh the current native page; this is a session-generation change. |
+| 403 `membership_required`, `repository_write_required` | Existing Project membership and current repository write authority are required. |
+| 401 | Native authentication is unavailable; use Fountain's normal login flow. |
+
+Browser messages use status and bounded code, never native stderr or arbitrary
+response text. Support inspection and terminal actions do not install helpers,
+start stopped Projects or replay Project creation.
+
 Deleting a saved development key accepts a JSON body with `confirm_last: true`
 when the actor explicitly confirms removal. If that key is the final saved key,
 unconfirmed deletion returns HTTP 409. The Store checks this within the deletion

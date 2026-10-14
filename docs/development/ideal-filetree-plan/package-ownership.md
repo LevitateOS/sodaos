@@ -125,6 +125,13 @@ The following recommendations are design proposals for the owner to assess.
 
 ### Recommended package changes
 
+Project runtime support maintenance is owned by `cmd/soda-project-maintain`,
+the shared successor to `cmd/soda-muse-maintain`. Its explicit `muse` operation
+retains public-tool and launch-interface effects; `terminal-support` only repairs
+the terminal helper in the retained root. The host owns shared managed-work
+admission in `lib/host/src/project/admission.rs`; maintenance consumes that owner.
+This adds no daemon and does not extend the Canlang tooling plan's product scope.
+
 | Current ownership | Proposed ownership | Reason and implementation closure |
 | --- | --- | --- |
 | `internal/forgejo/publish` | Retain `internal/forgejo/publish`; predecessor `internal/host/publish` retired | B07.M's publication move and operation/observation/validation/push/receipt plus test splits landed in `33682cfc`; its merge-completion split landed in `6cb54cf9`. Direct callers and architecture assertions name the successor, with one `BackgroundOperations`/`StatusError` owner. Native effects, F09/F10/F12 corrections and Q5 remain separate; see current reconciliation in [G04](reviews/G04.md) and [G07](reviews/G07.md). |

@@ -5,10 +5,36 @@ compatibility between the host and those Projects. A successful upgrade must lea
 existing Projects usable, with their accounts, files and container identities intact.
 Users receive one release and one operator workflow; they do not assemble helpers.
 
-This is a proposed implementation sequence, not an implemented upgrade contract.
-It covers the diagnosed terminal mismatch, its error reporting, explicit Project
-maintenance, release activation and bounded qualification. Implementation and VM
-changes have not started under this plan.
+This plan remains open for coordinated activation and release qualification; it is
+not a supported upgrade contract. The implemented repair and readiness contracts
+are owned by [Project OS](../reference/project-os.md#terminal-support),
+[Terminal](../reference/terminal.md), [API](../reference/api.md) and
+[Release](../architecture/release.md#host-update-ownership).
+
+Implementation boundary:
+
+- U01 demonstrated native locked staging, interrupted restart, explicit activation
+  and rollback on a disposable FCOS fixture with Zincati active. Locked staging
+  disappeared after interrupted restart, requiring actual native-state inspection.
+  This proves the explicit primitive, not admission integration with ordinary
+  native activation, rollback or Zincati. Supported upgrades remain refused.
+- U02 binds one compiled helper to all three uses and verifies assembled/archive
+  bytes in the build and delivery paths. Focused mismatched-copy regressions pass;
+  a fresh complete candidate has not been built or release-qualified here.
+- U03/U06 implement bounded readiness and typed errors through Rust, Go and the
+  browser, with focused path and authentication/no-replay regressions.
+- U04 implements explicit running-root repair, shared admission, atomic replacement
+  and interrupted-record reconciliation. The admitted transition requires empty
+  managed state on Rocky 10.2. Stopped or nonempty/uncertain roots refuse explicitly.
+- U05 remains unimplemented pending proven activation/admission integration and a
+  transition that admits all enrolled roots. No post-boot guard substitutes for it.
+- U07 demonstrated old-binary repair and interruption recovery with native fixtures,
+  and repaired all three protected development-VM roots with preservation checks.
+  Native login, one terminal creation, a harmless command, same-shell reconnect
+  and End of only that test-owned terminal passed. This is not upgrade qualification.
+- U08 integrates artifact metadata, consumers, source CI coverage and owning
+  documentation. Upgrade declarations, the complete release-pair journey and public
+  upgrade claims remain withheld. No publication, push or merge is part of this work.
 
 ## Problem and current ownership
 
@@ -28,7 +54,7 @@ The source baseline for this plan is Soda `455a2f16`. Current ownership is:
 | Existing Projects | [image import](../../cmd/soda-image-import/src/import.rs) imports images without replacing workloads. The [Project unit](../../system/host/services/soda-project@.service) starts the original container. Neither updates its helper. |
 | Compatibility refusal | [native.rs](../../lib/host/src/terminal/native.rs) supplies the host helper hash; [term_create.rs](../../cmd/soda-project-terminal/src/term_create.rs) verifies the Project helper before reservation. |
 | Error propagation | The Project agent, [Go terminal client](../../internal/host/terminal_client.go), [terminal API](../../internal/web/api/extension_terminal.go) and [browser attachment](../../frontend/spaces/sodaspaces-terminal-attachment.ts) successively lose the specific failure. |
-| Explicit maintenance precedent | [soda-muse-maintain](../../cmd/soda-muse-maintain/README.md) installs admitted public tools into the same retained Project root. No terminal-support maintenance operation exists. |
+| Explicit maintenance | [soda-project-maintain](../../cmd/soda-project-maintain/README.md) owns the moved Muse operation and explicit terminal-support repair in the same retained root. |
 | Host deployment | [Release architecture](../architecture/release.md#host-update-ownership) retains native FCOS ownership. Current payload readers reject qualified upgrade paths; `soda-activate` is initial browser/Git setup, not a host upgrader. |
 
 The missing contract is coordinated maintenance of persistent Project support
