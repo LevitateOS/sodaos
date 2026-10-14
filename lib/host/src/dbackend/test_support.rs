@@ -3,6 +3,7 @@ use crate::project;
 
 pub(in crate::dbackend) fn test_config() -> BackendConfig {
     BackendConfig {
+        canlang_runtime: None,
         project: project::Config {
             muse_socket: "/run/soda-test-muse.sock".to_string(),
             image: "sha256:0000000000000000000000000000000000000000000000000000000000000000"

@@ -191,6 +191,8 @@ func extensionProductRoute(r *http.Request) bool {
 		return len(parts) == 1 && r.Method == http.MethodGet
 	case "environments":
 		return extensionEnvironmentRoute(parts, r.Method)
+	case "applications":
+		return extensionApplicationRoute(parts, r.Method)
 	case "identity":
 		return extensionIdentityRoute(parts, r.Method)
 	case "settings":

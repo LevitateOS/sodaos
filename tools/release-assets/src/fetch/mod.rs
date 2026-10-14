@@ -8,6 +8,7 @@
 //! errors, malformed-input details) differs.
 
 pub mod muse;
+pub mod canlang;
 pub mod tea;
 pub mod terminal;
 

@@ -12,6 +12,8 @@ This document owns authority, identity and privilege boundaries for Soda OS.
 | Organization owner/admin | Organization Forgejo authority only |
 | Repository owner | May create that repository's project; not host access |
 | Project member | Project-local Linux account after confirmed Join |
+| Recorded application administrator | Explicit Inspect/Start/confirmed Stop for the assigned private application; install/image replacement remain operator-only |
+| Canlang application owner/member | App-local team, session, operation and MCP rights; no Soda deployment authority |
 
 These authorities are not interchangeable. Owning a repository does not grant
 appliance access. Arbitrary site or organization administrators are not project
@@ -23,6 +25,9 @@ root. Setup tokens are not ordinary acting-user credentials.
   and collaboration.
 - **Soda** owns preferences, development-access public keys, environment membership
   and product grants, plus factory execution identity and run-scoped authority.
+- **Canlang applications** own their separately bootstrapped account/team/session
+  stores. Forgejo sessions, repository ownership and Identity Broker credentials
+  are not app identities; app membership does not grant deployment authority.
 - **The installed Soda extension** carries only the live native actor and bounded
   request authority needed by the current browser operation. The Soda service
   checks its product policy and does not receive Forgejo cookies or session IDs.
@@ -33,6 +38,15 @@ Stable Forgejo identity binds project membership to its original Linux login.
 Native rename or transfer does not silently remap Linux users, ownership or already
 installed keys. Web administration and native wheel/SSH rights are not automatically
 synchronized on transfer; see [Project OS](../reference/project-os.md).
+
+Private applications use a hostname distinct from Forgejo and explicit native
+image/data/generation references. Opening their inventory or navigating Spaces
+does not deploy, inspect native state or start a writer. Operator registration
+and installation, administrator lifecycle actions and app use are separate
+authorizations. Desired references do not establish observed readiness; failed
+or interrupted native outcomes remain unknown until explicit inspection. See
+[application administration](../reference/api.md#application-administration) and
+[Canlang applications](../guides/canlang-applications.md).
 
 ## Runtime identities
 

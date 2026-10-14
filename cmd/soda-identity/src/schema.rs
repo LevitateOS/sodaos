@@ -3,12 +3,15 @@
 // drift test below re-extracts the Go literals at test time and
 // fails on any difference, so a Go schema change forces a
 // regeneration of this file in the same patch.
-pub const SCHEMA_VERSION: i64 = 47;
+pub const SCHEMA_VERSION: i64 = 48;
 
 pub const STATEMENTS: &[&str] = &[
     r#"CREATE TABLE factory_activity_settings(repository BIGINT PRIMARY KEY CHECK(repository>0), revision BIGINT NOT NULL CHECK(revision>0), actor_id BIGINT NOT NULL CHECK(actor_id>0), data JSONB NOT NULL)"#,
     r#"CREATE TABLE schema_version(version INTEGER PRIMARY KEY)"#,
-    r#"INSERT INTO schema_version(version) VALUES(47)"#,
+    r#"INSERT INTO schema_version(version) VALUES(48)"#,
+    r#"CREATE TABLE applications(id TEXT PRIMARY KEY, administrator_id BIGINT NOT NULL CHECK(administrator_id>0), name TEXT NOT NULL, data_id TEXT NOT NULL UNIQUE, owner_team TEXT NOT NULL, origin TEXT NOT NULL UNIQUE, hostname TEXT NOT NULL UNIQUE, port INTEGER NOT NULL UNIQUE CHECK(port>=20000 AND port<30000), revision BIGINT NOT NULL CHECK(revision>0), observation JSONB CHECK(observation IS NULL OR octet_length(observation::text)<=2048))"#,
+    r#"CREATE TABLE application_revisions(application_id TEXT NOT NULL REFERENCES applications(id), revision BIGINT NOT NULL CHECK(revision>0), spec JSONB NOT NULL CHECK(octet_length(spec::text)<=4096), PRIMARY KEY(application_id,revision))"#,
+    r#"ALTER TABLE applications ADD FOREIGN KEY(id,revision) REFERENCES application_revisions(application_id,revision) DEFERRABLE INITIALLY DEFERRED"#,
     r#"CREATE TABLE factory_departments(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), data JSONB NOT NULL)"#,
     r#"CREATE TABLE factory_intent_heads(id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL CHECK(owner_id>0), revision TEXT NOT NULL)"#,
     r#"CREATE TABLE factory_intent_revisions(id TEXT PRIMARY KEY, intent TEXT NOT NULL REFERENCES factory_intent_heads(id), data JSONB NOT NULL)"#,
@@ -112,6 +115,16 @@ PRIMARY KEY(source,repository,issue), CHECK((cursor_repository=0)=(cursor_issue=
 BEGIN
   RAISE EXCEPTION 'soda: % is immutable', TG_TABLE_NAME;
 END $$ LANGUAGE plpgsql"#,
+    r#"CREATE OR REPLACE FUNCTION soda_guard_application() RETURNS trigger AS $$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id OR NEW.administrator_id IS DISTINCT FROM OLD.administrator_id
+    OR NEW.name IS DISTINCT FROM OLD.name OR NEW.data_id IS DISTINCT FROM OLD.data_id
+    OR NEW.owner_team IS DISTINCT FROM OLD.owner_team OR NEW.origin IS DISTINCT FROM OLD.origin
+    OR NEW.hostname IS DISTINCT FROM OLD.hostname OR NEW.port IS DISTINCT FROM OLD.port
+    OR (NEW.revision <> OLD.revision AND NEW.revision-1 <> OLD.revision)
+  THEN RAISE EXCEPTION 'application identity is immutable'; END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql"#,
     r#"CREATE OR REPLACE FUNCTION soda_guard_creation_profile() RETURNS trigger AS $$
 BEGIN
   IF NEW.creation_profile IS DISTINCT FROM OLD.creation_profile THEN
@@ -170,6 +183,9 @@ BEGIN
   RETURN NEW;
 END $$ LANGUAGE plpgsql"#,
     r#"CREATE TRIGGER immutable_creation_profile BEFORE UPDATE OF creation_profile ON projects FOR EACH ROW EXECUTE FUNCTION soda_guard_creation_profile()"#,
+    r#"CREATE TRIGGER application_identity_immutable BEFORE UPDATE ON applications FOR EACH ROW EXECUTE FUNCTION soda_guard_application()"#,
+    r#"CREATE TRIGGER application_revision_immutable_update BEFORE UPDATE ON application_revisions FOR EACH ROW EXECUTE FUNCTION soda_reject_immutable()"#,
+    r#"CREATE TRIGGER application_revision_immutable_delete BEFORE DELETE ON application_revisions FOR EACH ROW EXECUTE FUNCTION soda_reject_immutable()"#,
     r#"CREATE TRIGGER factory_run_binding_immutable BEFORE UPDATE ON factory_runs FOR EACH ROW EXECUTE FUNCTION soda_guard_run_binding()"#,
     r#"CREATE TRIGGER factory_command_immutable BEFORE UPDATE ON factory_commands FOR EACH ROW EXECUTE FUNCTION soda_guard_command()"#,
     r#"CREATE TRIGGER factory_dispatch_reg_immutable_update BEFORE UPDATE ON factory_dispatch_regs FOR EACH ROW EXECUTE FUNCTION soda_reject_immutable()"#,
@@ -193,6 +209,8 @@ END $$ LANGUAGE plpgsql"#,
 ];
 
 pub const VERIFY_QUERIES: &[&str] = &[
+    r#"SELECT id,administrator_id,name,data_id,owner_team,origin,hostname,port,revision,observation FROM applications LIMIT 0"#,
+    r#"SELECT application_id,revision,spec FROM application_revisions LIMIT 0"#,
     r#"SELECT repository,revision,actor_id,data FROM factory_activity_settings LIMIT 0"#,
     r#"SELECT id,login,name FROM users LIMIT 0"#,
     r#"SELECT id,user_id,public,fingerprint FROM keys LIMIT 0"#,
@@ -243,6 +261,15 @@ pub const VERIFY_TRIGGERS: &[(&str, &str)] = &[
     ("immutable_creation_profile", "projects"),
     ("preparation_refs_immutable", "project_preparations"),
     ("identity_execution_immutable", "identity_executions"),
+    ("application_identity_immutable", "applications"),
+    (
+        "application_revision_immutable_update",
+        "application_revisions",
+    ),
+    (
+        "application_revision_immutable_delete",
+        "application_revisions",
+    ),
 ];
 
 #[cfg(test)]

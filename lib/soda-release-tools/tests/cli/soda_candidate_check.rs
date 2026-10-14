@@ -210,6 +210,34 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
             "host:/usr/lib/systemd/system/soda-extension-install.service",
             b"[Service]\nType=oneshot\n",
         ),
+        (
+            "host:/usr/share/soda/canlang-tools/release.json",
+            b"fixture Canlang input",
+        ),
+        (
+            "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
+            b"fixture Canlang input",
+        ),
+        (
+            "canlang-runtime:/opt/canlang/tools.json",
+            b"fixture Canlang input",
+        ),
+        (
+            "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
+            b"fixture Canlang input",
+        ),
+        (
+            "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
+            b"fixture Canlang input",
+        ),
+        (
+            "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
+            b"fixture Canlang input",
+        ),
+        (
+            "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
+            b"fixture Canlang input",
+        ),
     ];
     let content: BTreeMap<String, String> = content_values
         .iter()
@@ -224,8 +252,9 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
         "proxy",
         "project-os",
         "tailnet",
+        "canlang-runtime",
     ] {
-        let files: Vec<(&str, &[u8])> = content_values
+        let mut files: Vec<(&str, &[u8])> = content_values
             .iter()
             .filter_map(|(path, bytes)| {
                 path.split_once(':')
@@ -233,6 +262,12 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
                     .map(|(_, member)| (member, *bytes))
             })
             .collect();
+        if name == "project-os" {
+            files.push((
+                "/usr/libexec/soda/project-terminal",
+                b"fixture terminal support",
+            ));
+        }
         let image_revision = if name == "proxy" { "" } else { &revision };
         let archive = oci_archive(image_revision, name, &base, &files);
         let archive_path = images_dir.join(format!("{name}.oci"));
@@ -251,6 +286,9 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
         });
     }
 
+    payload["ProjectSupport"]["SHA256"] = sha256_hex(b"fixture terminal support").into();
+    payload["ProjectSupport"]["ProjectImage"] = payload["Images"]["project-os"]["Config"].clone();
+
     let inventory = serde_json::to_vec_pretty(&content).unwrap();
     let mut inventory = inventory;
     inventory.push(b'\n');
@@ -263,6 +301,14 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
         })
         .collect();
     host_files.push(("/usr/share/soda/host-image/content.json", &inventory));
+    host_files.push((
+        "/usr/libexec/soda/project-terminal",
+        b"fixture terminal support",
+    ));
+    host_files.push((
+        "/usr/share/soda/project-support/project-terminal",
+        b"fixture terminal support",
+    ));
     let host_archive = oci_archive(&revision, "host", &base, &host_files);
     let host_path = dir.path.join("host.oci");
     fs::write(&host_path, &host_archive).unwrap();

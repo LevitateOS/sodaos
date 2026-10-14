@@ -35,13 +35,14 @@ pub(crate) fn validate_release_payload(
     if host.is_empty() || host.contains('/') || !is_hex_string(rest, 64) {
         return Err(());
     }
-    const NAMES: [&str; 6] = [
+    const NAMES: [&str; 7] = [
         "dashboard",
         "forgejo",
         "extension",
         "proxy",
         "project-os",
         "tailnet",
+        "canlang-runtime",
     ];
     if images.len() != NAMES.len() {
         return Err(());

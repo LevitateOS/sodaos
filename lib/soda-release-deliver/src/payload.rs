@@ -12,13 +12,14 @@ pub use soda_build_tools::project_support::ProjectSupport;
 pub const PATH: &str = "/usr/share/soda/release.json";
 pub const IMAGES_PATH: &str = "/usr/share/soda/images";
 
-pub const NAMES: [&str; 6] = [
+pub const NAMES: [&str; 7] = [
     "dashboard",
     "forgejo",
     "extension",
     "proxy",
     "project-os",
     "tailnet",
+    "canlang-runtime",
 ];
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]

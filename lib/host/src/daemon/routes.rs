@@ -14,6 +14,7 @@ use super::websocket::websocket_upgrade_response;
 /// Every route the daemon serves: 5 identity, 6 tailnet, 1 terminal,
 /// 9 project, 6 prepare, and 8 factory.
 pub const ROUTE_TABLE: &[(&str, &str)] = &[
+    ("POST", "/application"),
     ("POST", "/identity/launch"),
     ("POST", "/identity/validate"),
     ("POST", "/identity/stop"),
@@ -175,6 +176,7 @@ fn dispatch_native<B: ExecBackend + ?Sized>(
         None
     };
     let result = match head.path.as_str() {
+        "/application" => backend.application(body),
         "/profile" => backend.profile(body),
         "/create" => backend.create(body),
         "/inspect" => backend.inspect(body),

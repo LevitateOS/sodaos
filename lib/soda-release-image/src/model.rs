@@ -27,18 +27,19 @@ pub use url::{https_url, is_loopback_addr, parse_url, UrlParts};
 pub const DELIVER_PATH: &str = "/usr/share/soda/release.json";
 pub const DELIVER_IMAGES_PATH: &str = "/usr/share/soda/images";
 /// `deliver.Names`, in order.
-pub const NAMES: [&str; 6] = [
+pub const NAMES: [&str; 7] = [
     "dashboard",
     "forgejo",
     "extension",
     "proxy",
     "project-os",
     "tailnet",
+    "canlang-runtime",
 ];
 pub const FORGEJO_COMPILER_IMAGE: &str =
     "docker.io/library/golang@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade";
 /// `store.SchemaVersion()`.
-pub const SCHEMA_VERSION: i64 = 47;
+pub const SCHEMA_VERSION: i64 = 48;
 pub const SODA_SOURCE: &str = "https://github.com/LevitateOS/sodaos";
 
 pub fn is_revision(s: &str) -> bool {

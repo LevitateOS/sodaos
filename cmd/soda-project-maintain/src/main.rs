@@ -1,7 +1,8 @@
-// soda-project-maintain installs public Muse tools and restores a live project interface.
+// soda-project-maintain performs explicit retained Project tool and release maintenance.
 use std::time::{Duration, Instant};
 
 mod archive;
+mod canlang;
 mod command;
 mod config;
 mod config_validation;
@@ -55,8 +56,11 @@ fn run() -> Result<(), String> {
         Some("terminal-support") => return terminal_support::run(&argv[1..]),
         Some("release") => return release_operation::run(&argv[1..]),
         Some("release-reconcile") => return release_operation::reconcile_boot(&argv[1..]),
+        Some("canlang") => return canlang::run(&argv[1..]),
         Some("muse") => {}
-        _ => return Err("select muse, terminal-support or release maintenance".to_string()),
+        _ => {
+            return Err("select muse, canlang, terminal-support or release maintenance".to_string())
+        }
     }
     let o = parse(&argv[1..])?;
     let c = load_config(&o.config)?;

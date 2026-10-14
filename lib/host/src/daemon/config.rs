@@ -25,6 +25,8 @@ mod tests;
 /// Daemon runtime config (`host.Config`); JSON names match Go exactly.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Config {
+    /// Derived only from the selected release; not an operator JSON override.
+    pub canlang_runtime: Option<crate::application::ReleaseBinding>,
     pub muse_sha256: String,
     pub muse_version: String,
     pub muse_socket: String,
@@ -159,10 +161,78 @@ fn apply_release_images(c: &mut Config, release_path: &str) -> Result<(), String
         );
     }
     c.image = project_image.to_string();
+    let tools = std::path::Path::new(release_path)
+        .parent()
+        .unwrap_or(std::path::Path::new("/"))
+        .join("canlang-tools/release.json");
+    c.canlang_runtime = Some(selected_canlang_runtime(&payload, &tools)?);
     if c.tailnet_management {
         c.tailnet_image = companion_image.to_string();
     }
     Ok(())
+}
+
+fn selected_canlang_runtime(
+    payload: &soda_release_deliver::Payload,
+    tools: &std::path::Path,
+) -> Result<crate::application::ReleaseBinding, String> {
+    use std::io::Read;
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct Tools {
+        source_revision: String,
+        archive_filename: String,
+        sha256: String,
+        versions: std::collections::BTreeMap<String, String>,
+    }
+    let read = || -> Result<crate::application::ReleaseBinding, String> {
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(tools)
+            .map_err(|_| "Canlang tools reference unavailable")?;
+        let stat = file
+            .metadata()
+            .map_err(|_| "Canlang tools reference unavailable")?;
+        if !stat.is_file()
+            || stat.len() > 65536
+            || stat.mode() & 0o022 != 0
+            || stat.uid() != unsafe { libc::geteuid() }
+        {
+            return Err("unsafe Canlang tools reference".into());
+        }
+        let mut body = Vec::new();
+        file.take(65537)
+            .read_to_end(&mut body)
+            .map_err(|_| "Canlang tools reference unavailable")?;
+        let tools: Tools =
+            serde_json::from_slice(&body).map_err(|_| "invalid Canlang tools reference")?;
+        if !soda_build_tools::reader::is_revision(&tools.source_revision)
+            || tools.archive_filename != "canlang-tools-linux-x86_64.tar.gz"
+            || tools
+                .versions
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                != ["bun", "compiler", "miniflare", "node", "workerd"]
+            || tools.versions.values().any(|version| version.is_empty())
+        {
+            return Err("invalid Canlang tools reference".into());
+        }
+        let selected = crate::application::ReleaseBinding {
+            image: payload
+                .images
+                .get("canlang-runtime")
+                .ok_or("selected Canlang runtime unavailable")?
+                .config
+                .clone(),
+            tools_sha256: tools.sha256,
+        };
+        selected.validate()?;
+        Ok(selected)
+    };
+    read()
 }
 
 fn host_payload_architecture_is_native(architecture: &str) -> bool {

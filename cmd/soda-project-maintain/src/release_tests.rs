@@ -18,6 +18,7 @@ fn valid_release_json() -> (String, String, String) {
         "proxy",
         "project-os",
         "tailnet",
+        "canlang-runtime",
     ]
     .iter()
     .enumerate()

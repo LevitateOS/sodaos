@@ -28,6 +28,18 @@ runtime and application images; users do not download or assemble components.
 Installation requires internet access to GitHub. There is no Soda download server,
 registry channel, publication ledger or custom update-discovery service.
 
+The fixed image catalog includes `canlang-runtime`, built from the same frozen
+Rocky base as Project OS and Dashboard using the admitted offline Canlang tools.
+Its configuration, manifest and archive digest enter the existing payload and
+shared OCI layout; installation imports it into local Podman storage with the
+other release images. Candidate content checks bind its tool inventory and
+license files, and the host's exact Canlang tool archive and release reference.
+Applications supply an already compiled portable bundle in a separate image;
+appliance activation neither compiles an application nor downloads runtime
+dependencies. New installs and replacements must name the selected release's
+runtime image and tool digest. Existing application generations retain their
+stored references for inspection, start and stop across an appliance update.
+
 Every asset must be smaller than GitHub's 2 GiB limit. Packaging removes unused
 host copies and compiler debug/symbol data, then admission checks the actual bytes;
 estimated compression savings never authorize an upload. The release includes the

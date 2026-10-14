@@ -62,6 +62,33 @@ assembler's separate import commit.
 
 ## Build once, stage, install, promote
 
+### Offline Canlang input
+
+Before the candidate producer takes its Git source snapshot, select and commit
+`system/project/canlang-release.json` and supply its exact public
+`canlang-tools-linux-x86_64.tar.gz` beneath the canonical source checkout's
+`.artifacts/canlang/`. The Canlang producer owns the compiler/platform/dependency
+archive, internal inventory and release lock; Soda owns selection and checksum
+admission. Archive bytes stay a generated public build input, not a second app
+manifest or an untracked source/credential exception.
+
+The snapshot owner copies that one file using the committed snapshot lock and
+rejects missing, linked, oversized or checksum-mismatched input. The asset owner
+then invokes `soda-stage-canlang` before the Project and runtime images consume the staged
+tools, and includes the same public lock/archive in the host maintenance
+payload. Exact commands and refusals belong to
+[release assets](../../tools/release-assets/README.md#admit-offline-canlang-tools).
+Existing retained Projects receive tools only through
+[explicit Canlang maintenance](../../cmd/soda-project-maintain/README.md#canlang-tools).
+
+This handoff does not authorize a build, installation or publication. Native
+development evidence for the offline runtime is distinct from G3 appliance and
+production qualification. The named runtime image follows the existing image
+catalog, OCI export and offline import owners described in
+[release architecture](../architecture/release.md#public-distribution).
+Complete appliance delivery still requires matching source and release
+qualification; application images remain separately assembled artifacts.
+
 Use clean committed Soda and Fountain sources and the admitted native build worker.
 The Fountain checkout must match `fountain-source.json` in that Soda revision.
 Push Soda to `main` and wait for its `CI` workflow to pass before the expensive

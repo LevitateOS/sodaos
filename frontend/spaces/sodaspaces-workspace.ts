@@ -76,6 +76,7 @@ import type {OverviewScope} from './sodaspaces-factory-progress-view.js';
 import type {SodaIntent} from './sodaspaces-intent.js';
 import type {SavedRequest} from './sodaspaces-intent-response.js';
 import './sodaspaces-project-work.js';
+import './sodaspaces-applications.js';
 import type {SodaProjectWork} from './sodaspaces-project-work.js';
 import {
   attentionRows,
@@ -829,9 +830,12 @@ export class SodaSpaces extends LitElement {
       </div>
       ${this.renderProjectNavigation()} ${this.renderDiscoveryRequests()}
       ${renderMoreProjects(this.moreProjectsInput())} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
+      ${this.binding?.kind === 'page' ? html`<soda-applications .request=${this.requestApplication} .active=${this.activeSurface && !this.stale && !this.disposed} .sessionKey=${this.binding.transport.generation}></soda-applications>` : ''}
       ${this.binding?.kind === 'page' ? html`<button class="ui button soda-saved-plans" aria-pressed=${this.view === 'plans'} @click=${this.onShowPlans}>Saved plans</button>` : ''}
     </nav>`;
   }
+  private requestApplication = (path: string, body?: Record<string, unknown>, signal?: AbortSignal) =>
+    this.api(path, body, signal);
   private renderProjectNavigation() {
     if (this.binding?.kind === 'page')
       return renderProjectDirectory({

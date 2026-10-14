@@ -66,6 +66,9 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/plan?limit=1..20` | Recorded plan and recent priority comparisons for one native issue (optional before_unix/before_snapshot cursor) |
 | POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; issues and comments queue readiness assessment) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
+| GET/POST | `/api/applications` | Stored application inventory / operator-admitted initial references and administrator grant |
+| GET | `/api/applications/{id}` | Administrator/operator stored application references and last observation |
+| POST | `/api/applications/{id}/actions` | Explicit operator Install/image replacement or administrator/operator Inspect/Start/confirmed Stop |
 | GET/POST | `/api/environments` | List / create environments |
 | GET | `/api/environments/{id}` | Environment detail |
 | POST | `/api/environments/{id}/join` | Explicit Join |
@@ -90,6 +93,43 @@ paths are private service routes, not public URLs to call directly:
 Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
+
+### Application administration
+
+Initial POST accepts `{application: Spec, administrator_id: positive Forgejo ID}`.
+`Spec` is the canonical mechanical reference in `internal/application`; its
+artifact/bundle/tool digests and image IDs identify admitted bytes, not an app
+manifest. Only the configured Soda operator can register references. Registration
+reserves the hostname, loopback port and private data identity without native
+effects. Canlang's stopped bootstrap must provision that data separately; no
+passwords, provider secrets or app-local users are accepted here.
+
+GET returns `{application, administrator_id: string, observation: null|Observation,
+operator: boolean}`; the string preserves the stable administrator ID exactly.
+Inventory is `{applications: [...], complete: boolean}` with at most32 rows.
+Only assigned administrators see their records; the configured operator sees
+the bounded appliance inventory. Reads do not inspect/install/start native
+resources. Apps require a hostname distinct from Forgejo, since cookies ignore
+ports. Sessions and app identities grant separate authority.
+
+Actions accept `{action, revision, expected_container, confirm_stop,
+replacement?: Spec}` with no query parameters or unknown fields. Install is
+operator-only, revision1, empty expected container, unobserved initial record.
+Inspect is explicit and accepts an empty generation only while state is unknown.
+Start/Stop require the exact current observed container. Stop requires
+`confirm_stop: true`; other actions require false except image replacement.
+Replacement requires the operator, `confirm_stop: true`, next revision, unchanged
+identity/admin/data/team/origin/port and the same artifact/bundle. It creates a
+stopped new container; Start remains separate. Semantic upgrades are refused
+before native effects pending migration qualification.
+
+Before an admitted native call, the last observation becomes durably unknown.
+Only exact matching native references/generation can restore it through CAS.
+Failed/interrupted calls return `native_outcome_unconfirmed`; refresh reads
+stored uncertainty and never retries. Explicit Inspect can recover current
+native evidence. Previous immutable Specs remain available to operator recovery;
+failed replacement never fabricates a rollback or readiness. Local HTTP and
+browser tests do not certify an installed appliance.
 
 ### Terminal readiness and errors
 

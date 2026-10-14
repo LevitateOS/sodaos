@@ -9,6 +9,7 @@ ContainerName=soda-proxy
 Network=host
 Volume=/etc/soda/proxy.Caddyfile:/etc/caddy/Caddyfile:ro,Z
 Volume=/etc/soda/tls:/etc/soda/tls:ro,Z
+Volume=/home/soda-applications/routes:/home/soda-applications/routes:ro,Z
 Volume=/var/lib/soda/proxy:/data:Z
 EnvironmentFile=/etc/soda/proxy.env
 

@@ -22,6 +22,20 @@ configured HTTPS origin. Public `/-/soda/` routes serve the avatar provider.
 Git authentication uses native Forgejo SSH keys or HTTPS tokens, independently of
 Soda development-access public keys.
 
+## Private Canlang application endpoints
+
+Each self-hosted application uses an explicitly configured hostname and HTTPS
+origin separate from Forgejo. Use the appliance's existing local/supplied TLS
+policy; the operator configures DNS and client trust. Do not infer a route from
+a container address or host Tailnet enrollment. App reachability requires a
+real client check before qualification.
+
+Application cookies and authorization stay with that application. Never forward
+Forgejo cookies or Identity Broker credentials into an app. Private network
+access does not replace Canlang user/team/session authorization. Production
+application lifetime is independent of the development Project; viewing an app
+does not start it or deploy a revision.
+
 ## Cockpit
 
 Cockpit listens on all interfaces and is root/operator-only. Do not silently expose host

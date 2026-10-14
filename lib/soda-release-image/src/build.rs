@@ -100,6 +100,7 @@ pub fn extract_build_snapshot(
             "--same-permissions".to_string(),
         ],
     )?;
+    crate::canlang::carry_tools(std::path::Path::new(source), std::path::Path::new(&snapshot))?;
     Ok(snapshot)
 }
 

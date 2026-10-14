@@ -45,13 +45,14 @@ const PODMAN: &str = "/usr/bin/podman";
 const IMPORT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SIGINT: i32 = 2;
 const SIGTERM: i32 = 15;
-const NAMES: [&str; 6] = [
+const NAMES: [&str; 7] = [
     "dashboard",
     "forgejo",
     "extension",
     "proxy",
     "project-os",
     "tailnet",
+    "canlang-runtime",
 ];
 
 fn main() {

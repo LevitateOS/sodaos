@@ -17,6 +17,7 @@ cargo run -p soda-release-assets --bin soda-stage -- --help
 | `soda-fetch-muse` | `--arch x86_64 --out ABSOLUTE_FILE`, optionally `--manifest FILE`; download a size/checksum-pinned native Muse executable. Default manifest: `system/project/muse-release.json`. |
 | `soda-fetch-tea` | `--arch x86_64 [--out DIR]`; fetch Tea and its license into `bin/tea` and `licenses/tea/LICENSE`. Default output: `.artifacts/native/x86_64/project-tools`. |
 | `soda-fetch-terminal` | `--out DIR`; fetch the exact browser terminal files pinned in `terminal-assets.lock.json`. |
+| `soda-stage-canlang` | `--archive FILE --out DIR [--manifest FILE]`; admit an already produced offline Linux x86_64 Canlang tools archive into `DIR/canlang`. Default manifest: `system/project/canlang-release.json`. No download or compilation. |
 | `soda-forgejo-locales` | `(--native FILE \| --lock FILE) [--additions FILE] --out FILE`; merge a complete native Forgejo INI catalog with Soda additions into a new file. |
 | `soda-stage` | `--arch x86_64 --host-context DIR --forgejo-context DIR`; copy existing native outputs, configuration and branding into prepared build contexts. |
 | `soda-render-provisioning` | Public operator key and private password-hash/optional host-key files; write a private Butane document with `--out ABSOLUTE_FILE`. |
@@ -40,6 +41,55 @@ cargo run -p soda-release-assets --bin soda-render-terminal-logo -- --check
 Fetchers verify their selected upstream inputs and reuse matching staged bytes
 where supported. Run the logo renderer without `--check` only when you intend
 to rewrite the committed files in `assets/branding/terminal/`.
+
+## Admit offline Canlang tools
+
+Canlang's owning `scripts/pack-tools.mjs` produces
+`canlang-tools-linux-x86_64.tar.gz`, `canlang-release.json` and the archive's
+`tools.json` inventory. Soda's selected `system/project/canlang-release.json`
+pins the archive filename, SHA256, Canlang source revision and exact compiler,
+Node, Bun, Miniflare and workerd versions. Review and select the producer's
+release lock with its tested archive; a Git revision alone does not identify
+dirty producer bytes. `tools.json` records that provenance and file inventory.
+Do not substitute an archive or change the lock merely to make admission pass.
+
+Supply the selected public archive at the canonical source input path, then
+stage it into a fresh tool destination:
+
+```sh
+# Copy the selected Canlang producer archive here before building a snapshot.
+mkdir -p "$PWD/.artifacts/canlang"
+cp /home/soda-builder/canlang/output/tools/canlang-tools-linux-x86_64.tar.gz \
+  "$PWD/.artifacts/canlang/canlang-tools-linux-x86_64.tar.gz"
+cargo run --locked -p soda-release-assets --bin soda-stage-canlang -- \
+  --archive "$PWD/.artifacts/canlang/canlang-tools-linux-x86_64.tar.gz" \
+  --out "$PWD/.artifacts/native/x86_64/project-tools"
+```
+
+Admission checks the archive checksum against Soda's lock, pinned versions,
+the `canlang.tools.v1` producer identity, required commands and native binaries.
+It rejects traversal, duplicate paths, links, special files, oversized inputs
+and an occupied `OUT/canlang`. It does not remove or replace existing staged
+tools. `--manifest ABSOLUTE_FILE` explicitly selects a different reviewed lock;
+the normal release build uses the source revision's default lock.
+
+Commit the selected Soda lock before starting a Git snapshot build. The image
+owner carries only the exact checksum-matching public archive from
+`.artifacts/canlang/` into that snapshot, since Git archives omit generated
+inputs. Missing or mismatched bytes fail before asset staging. The production
+asset owner runs the same admission and supplies `project-tools/canlang` to
+the Project and Canlang runtime recipes. The Project installs `/opt/canlang` and the four commands
+`can`, `can-dev`, `can-platform` and `can-soda`. It also stages the admitted
+archive and lock under `/usr/share/soda/canlang-tools` for explicit retained
+Project maintenance. No Canlang checkout or startup dependency download is
+part of the installed developer workflow.
+
+This admission prepares development tools; it does not qualify an appliance,
+application or production image. The runtime enters the existing fixed image
+catalog; complete appliance delivery still requires the
+release owners' native qualification. See
+[retained Project maintenance](../../cmd/soda-project-maintain/README.md#canlang-tools)
+and [release handoff](../../docs/development/release.md#offline-canlang-input).
 
 ## Prepare private provisioning
 

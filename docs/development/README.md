@@ -83,13 +83,17 @@ x86_64 candidate qualification before the implementation goal is complete. The
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.
 
-## Canlang application integration planning
+## Canlang application integration
 
 The [Canlang and Soda OS implementation plan](canlang-soda-os-implementation-plan.md)
-covers the proposed private application target, Rocky development and production
-environments, local service feasibility, recovery, proof gates and 32 ordered tasks
-across seven implementation lanes. Implementation is deferred; the proposal does
-not change current product scope or authorize deployment.
+covers the adopted private application target, Rocky development and production
+environments, [runtime requirements](canlang-soda-os-implementation-plan.md#runtime-and-environment-requirements),
+[code ownership and placement](canlang-soda-os-implementation-plan.md#code-ownership-and-placement),
+local service inventory, recovery, proof gates and remaining ordered tasks.
+The [application guide](../guides/canlang-applications.md) owns developer/operator
+procedures. Native runtime and installed tools have local evidence; appliance and
+release qualification remain separate. Local implementation does not authorize
+publication or deployment to an existing appliance.
 
 ## Permissions
 

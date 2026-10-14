@@ -27,3 +27,6 @@
 		reverse_proxy 127.0.0.1:3000
 	}
 }
+
+# Fixed app sites are installed by the native application owner.
+import /home/soda-applications/routes/*.caddy

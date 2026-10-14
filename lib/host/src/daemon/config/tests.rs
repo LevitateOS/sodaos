@@ -93,6 +93,14 @@ fn golden_release_overlay() {
     assert_eq!(c.image, PROJECT_IMAGE);
     assert_eq!(c.tailnet_image, TAILNET_IMAGE);
     assert!(c.tailnet_management);
+    assert_eq!(
+        c.canlang_runtime.as_ref().unwrap().image,
+        format!("sha256:{}", "3".repeat(64))
+    );
+    assert_eq!(
+        c.canlang_runtime.as_ref().unwrap().tools_sha256,
+        "4".repeat(64)
+    );
     // Without management the companion image stays empty.
     let c = load_config(&golden("overlay-nomgmt.json"), &release).unwrap();
     assert_eq!(c.image, PROJECT_IMAGE);
@@ -116,6 +124,31 @@ fn golden_release_overlay() {
     // An empty release path disables the overlay entirely.
     let c = load_config(&golden("valid-minimal.json"), "").unwrap();
     assert_eq!(c.image, "img");
+}
+
+#[test]
+fn selected_canlang_tools_reference_refuses_missing_unsafe_or_invalid_files() {
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    let root = std::env::temp_dir().join(format!("soda-canlang-catalog-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir(&root).unwrap();
+    let path = root.join("release.json");
+    let payload = soda_release_deliver::payload::load(&golden("release.json")).unwrap();
+    assert!(selected_canlang_runtime(&payload, &path).is_err());
+    let valid = std::fs::read(golden("canlang-tools/release.json")).unwrap();
+    std::fs::write(&path, &valid).unwrap();
+    assert!(selected_canlang_runtime(&payload, &path).is_ok());
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666)).unwrap();
+    assert!(selected_canlang_runtime(&payload, &path).is_err());
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::write(&path, b"{\"sha256\":\"latest\"}").unwrap();
+    assert!(selected_canlang_runtime(&payload, &path).is_err());
+    std::fs::remove_file(&path).unwrap();
+    let target = root.join("other.json");
+    std::fs::write(&target, &valid).unwrap();
+    symlink(&target, &path).unwrap();
+    assert!(selected_canlang_runtime(&payload, &path).is_err());
+    std::fs::remove_dir_all(&root).unwrap();
 }
 
 #[test]

@@ -1,0 +1,180 @@
+//! Fixed private application sites in the existing appliance Caddy configuration.
+use super::wire::Spec;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::path::{Path, PathBuf};
+
+const ROUTES: &str = "/home/soda-applications/routes";
+
+fn body(spec: &Spec) -> Result<String, String> {
+    spec.validate()?;
+    Ok(format!("{} {{\n\tbind {{$SODA_BIND}}\n\ttls {{$SODA_TLS:/etc/soda/tls/cert.pem /etc/soda/tls/key.pem}}\n\treverse_proxy 127.0.0.1:{}\n}}\n", spec.origin, spec.port))
+}
+
+fn directory(path: &Path, owner: u32) -> Result<(), String> {
+    let meta = fs::symlink_metadata(path).map_err(|_| "application routes are unavailable")?;
+    if !meta.is_dir()
+        || meta.file_type().is_symlink()
+        || meta.uid() != owner
+        || meta.mode() & 0o077 != 0
+        || fs::canonicalize(path).map_err(|_| "application routes are unavailable")? != path
+    {
+        return Err("application routes require a private canonical operator directory".into());
+    }
+    Ok(())
+}
+
+fn current(path: &Path, expected: &[u8], owner: u32) -> Result<(), String> {
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|_| "application route is unavailable")?;
+    let meta = file
+        .metadata()
+        .map_err(|_| "application route is unavailable")?;
+    if !meta.is_file()
+        || meta.uid() != owner
+        || meta.mode() & 0o077 != 0
+        || meta.nlink() != 1
+        || meta.len() != expected.len() as u64
+    {
+        return Err("application route ownership or content differs".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(expected.len() as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "application route is unavailable")?;
+    if bytes != expected {
+        return Err("application route differs from admitted origin or backend".into());
+    }
+    Ok(())
+}
+
+fn path(root: &Path, spec: &Spec, owner: u32) -> Result<(PathBuf, String), String> {
+    let content = body(spec)?;
+    directory(root, owner)?;
+    Ok((root.join(format!("{}.caddy", spec.id)), content))
+}
+
+fn install_at(root: &Path, spec: &Spec, owner: u32) -> Result<(), String> {
+    let (route, content) = path(root, spec, owner)?;
+    match fs::symlink_metadata(&route) {
+        Ok(_) => return current(&route, content.as_bytes(), owner),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err("application route is unavailable".into()),
+    }
+    let mut nonce = [0u8; 12];
+    getrandom::fill(&mut nonce).map_err(|_| "application route randomness is unavailable")?;
+    let pending = root.join(format!(
+        ".{}.{}.pending",
+        spec.id,
+        crate::sha256::hex_lower(&nonce)
+    ));
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&pending)
+            .map_err(|_| "application route staging failed")?;
+        file.write_all(content.as_bytes())
+            .map_err(|_| "application route staging failed")?;
+        file.sync_all()
+            .map_err(|_| "application route staging failed")?;
+        // An atomic hard link publishes complete bytes without replacing an
+        // existing route. The pending name does not match Caddy's import glob.
+        fs::hard_link(&pending, &route)
+            .map_err(|_| "application route already exists or publication failed")?;
+        fs::remove_file(&pending).map_err(|_| "application route publication failed")?;
+        File::open(root)
+            .and_then(|file| file.sync_all())
+            .map_err(|_| "application route directory sync failed")?;
+        current(&route, content.as_bytes(), owner)
+    })();
+    let _ = fs::remove_file(&pending);
+    result
+}
+
+pub(super) fn install(spec: &Spec) -> Result<(), String> {
+    install_at(&super::home_path(Path::new(ROUTES))?, spec, 0)
+}
+
+pub(super) fn verify(spec: &Spec) -> Result<(), String> {
+    let (route, content) = path(&super::home_path(Path::new(ROUTES))?, spec, 0)?;
+    current(&route, content.as_bytes(), 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    struct Fixture(PathBuf);
+    impl Fixture {
+        fn new() -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "soda-app-routes-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            fs::create_dir(&root).unwrap();
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+            Self(root)
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+    fn spec() -> Spec {
+        super::super::tests::spec()
+    }
+    // The finite native Caddy witness consumes bytes from this actual owner,
+    // rather than maintaining a second route formatter in its test driver.
+    #[test]
+    fn emit_native_caddy_witness_route() {
+        let Some(root) = std::env::var_os("SODA_CADDY_WITNESS_ROUTES") else {
+            return;
+        };
+        let root = PathBuf::from(root);
+        assert!(root.starts_with("/home"));
+        let mut input = spec();
+        input.origin = "https://board.soda.test:24443".into();
+        install_at(&root, &input, unsafe { libc::geteuid() }).unwrap();
+    }
+    #[test]
+    fn publishes_exact_site_and_refuses_changed_backend_or_link() {
+        let root = Fixture::new();
+        let owner = unsafe { libc::geteuid() };
+        let spec = spec();
+        install_at(&root.0, &spec, owner).unwrap();
+        install_at(&root.0, &spec, owner).unwrap();
+        let route = root.0.join(format!("{}.caddy", spec.id));
+        assert_eq!(fs::read_to_string(&route).unwrap(), "https://board.soda.test {\n\tbind {$SODA_BIND}\n\ttls {$SODA_TLS:/etc/soda/tls/cert.pem /etc/soda/tls/key.pem}\n\treverse_proxy 127.0.0.1:22000\n}\n");
+        let mut changed = spec.clone();
+        changed.port += 1;
+        assert!(install_at(&root.0, &changed, owner)
+            .unwrap_err()
+            .contains("differs"));
+        fs::remove_file(&route).unwrap();
+        symlink("/dev/null", &route).unwrap();
+        assert!(install_at(&root.0, &spec, owner).is_err());
+    }
+    #[test]
+    fn refuses_config_injection_loose_permissions_and_foreign_owner() {
+        let root = Fixture::new();
+        let owner = unsafe { libc::geteuid() };
+        let mut spec = spec();
+        spec.origin = "https://board.soda.test\n}\n:443 {".into();
+        assert!(install_at(&root.0, &spec, owner).is_err());
+        assert!(install_at(&root.0, &self::spec(), owner.wrapping_add(1)).is_err());
+        fs::set_permissions(&root.0, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(install_at(&root.0, &self::spec(), owner).is_err());
+    }
+}

@@ -96,6 +96,12 @@ pub fn valid_candidate_content(files: &BTreeMap<String, String>) -> bool {
             assets += 1;
             continue;
         }
+        if let Some(name) = file.strip_prefix("canlang-runtime:/usr/share/licenses/canlang/") {
+            if !valid_candidate_asset_name(name) {
+                return false;
+            }
+            continue;
+        }
         if !known_candidate_content_name(file) {
             return false;
         }
@@ -114,6 +120,13 @@ fn required_candidate_content(files: &BTreeMap<String, String>) -> bool {
         "host:/usr/share/containers/systemd/forgejo.container",
         "host:/usr/share/containers/systemd/soda-dashboard.container",
         "host:/usr/lib/systemd/system/soda-extension-install.service",
+        "host:/usr/share/soda/canlang-tools/release.json",
+        "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
+        "canlang-runtime:/opt/canlang/tools.json",
+        "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
+        "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
+        "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
+        "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
     ] {
         match files.get(path) {
             Some(hash) if is_digest(hash) => {}
@@ -174,6 +187,9 @@ fn known_candidate_content_name(file: &str) -> bool {
             | "host:/usr/share/containers/systemd/forgejo.container"
             | "host:/usr/share/containers/systemd/soda-dashboard.container"
             | "host:/usr/lib/systemd/system/soda-extension-install.service"
+            | "host:/usr/share/soda/canlang-tools/release.json"
+            | "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz"
+            | "canlang-runtime:/opt/canlang/tools.json"
     )
 }
 

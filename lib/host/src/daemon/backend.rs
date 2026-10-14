@@ -56,6 +56,9 @@ pub struct TerminalSession {
 // and the six tailnet actions share `tailnet` (Go's `dispatchTailnetAction`).
 // Everything takes opaque bodies so sibling wire types stay sibling-owned.
 pub trait ExecBackend: Send + Sync {
+    fn application(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
     // -- project routes (daemon.go dispatchProfile/dispatchCreate/
     //    dispatchCreateTargeted/dispatchMutation) --
     fn profile(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;

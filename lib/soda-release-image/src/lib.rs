@@ -14,6 +14,7 @@
 #![allow(clippy::too_many_arguments)]
 
 pub mod build;
+mod canlang;
 pub mod build_candidate;
 pub mod build_compile;
 pub mod build_context;

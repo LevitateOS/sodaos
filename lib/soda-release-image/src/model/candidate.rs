@@ -228,7 +228,7 @@ fn valid_candidate_build(candidate: &Candidate, payload: &Payload) -> bool {
         && candidate.architecture == payload.architecture
 }
 
-const REQUIRED_CANDIDATE_CONTENT: [&str; 9] = [
+const REQUIRED_CANDIDATE_CONTENT: [&str; 16] = [
     "dashboard:/usr/local/bin/soda-dashboard",
     "forgejo:/usr/local/bin/gitea",
     "extension:/usr/local/bin/gitea",
@@ -238,6 +238,13 @@ const REQUIRED_CANDIDATE_CONTENT: [&str; 9] = [
     "host:/usr/share/containers/systemd/forgejo.container",
     "host:/usr/share/containers/systemd/soda-dashboard.container",
     "host:/usr/lib/systemd/system/soda-extension-install.service",
+    "host:/usr/share/soda/canlang-tools/release.json",
+    "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
+    "canlang-runtime:/opt/canlang/tools.json",
+    "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
+    "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
+    "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
+    "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
 ];
 
 pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
@@ -261,6 +268,12 @@ pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
                 return false;
             }
             assets += 1;
+            continue;
+        }
+        if let Some(name) = file.strip_prefix("canlang-runtime:/usr/share/licenses/canlang/") {
+            if !valid_candidate_asset_name(name) {
+                return false;
+            }
             continue;
         }
         if !REQUIRED_CANDIDATE_CONTENT.contains(&file.as_str()) {

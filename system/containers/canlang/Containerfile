@@ -1,0 +1,16 @@
+# The existing asset owner must admit the offline Canlang closure first.
+ARG BASE_IMAGE=quay.io/rockylinux/rockylinux:10.2
+FROM ${BASE_IMAGE}
+ARG ARTIFACT_DIR
+RUN groupadd --gid 10000 app-runtime && \
+    useradd --system --uid 10000 --gid 10000 --no-create-home --home-dir /home/app --shell /sbin/nologin app-runtime
+COPY ${ARTIFACT_DIR}/project-tools/canlang/lib/ /opt/canlang/lib/
+COPY ${ARTIFACT_DIR}/project-tools/canlang/libexec/node /opt/canlang/libexec/node
+COPY ${ARTIFACT_DIR}/project-tools/canlang/bin/node /opt/canlang/bin/node
+COPY ${ARTIFACT_DIR}/project-tools/canlang/bin/can-soda /opt/canlang/bin/can-soda
+COPY ${ARTIFACT_DIR}/project-tools/canlang/licenses/ /usr/share/licenses/canlang/
+COPY ${ARTIFACT_DIR}/project-tools/canlang/tools.json /opt/canlang/tools.json
+ENV HOME=/home/app TMPDIR=/home/app-state/tmp
+USER 10000:10000
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/opt/canlang/bin/can-soda", "serve", "--host", "0.0.0.0", "--port", "8080", "--data", "/home/app-state", "--bundle", "/opt/application/bundle.json"]

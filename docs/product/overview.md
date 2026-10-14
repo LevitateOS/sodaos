@@ -17,7 +17,11 @@ Soda supplies the integration that creates project environments, membership, acc
 keys, managed terminals, local CI integration and agent execution.
 Developers do not receive individual Linux accounts on the host.
 
-Public Internet hosting and a production hosting platform are outside this product.
+Public Internet hosting and general production hosting are outside this product.
+The adopted private Canlang application scope is a narrow extension for trusted
+small teams: workerd applications have an appliance-managed lifetime separate
+from their development Project, app-local identity and explicit administration.
+It does not grant factory merge authority permission to deploy an application.
 Private LAN access and optional Tailscale access are in scope. Trying Soda or using
 its baseline services must not require buying or owning a domain.
 

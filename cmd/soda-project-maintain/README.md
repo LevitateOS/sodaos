@@ -1,6 +1,7 @@
 # soda-project-maintain
 
-`soda-project-maintain` provides explicit `muse`, `terminal-support` and `release` operations.
+`soda-project-maintain` provides explicit `muse`, `canlang`, `terminal-support`
+and `release` operations.
 Muse installs packaged public tools and restores the launch interface.
 Terminal support repairs one admitted helper in an idle retained root.
 It operates on the project's retained container and requires appliance root.
@@ -72,6 +73,51 @@ It attaches the dedicated public launch directory at
 `/run/soda-muse-interface` with restricted mount permissions. Accounts, checkouts,
 volumes and unrelated installed tools remain in the same project root.
 Credentials are not included in the public tool payload.
+
+## Canlang tools
+
+Use the exact retained Project identity on an appliance that already carries
+the selected public Canlang maintenance payload:
+
+```sh
+sudo /usr/libexec/soda/soda-project-maintain \
+  canlang --project p0123456789abcdef01234567
+```
+
+This command accepts only `--project ID`; it has no `--check`, `--tools`,
+`--config`, development override or download path. It verifies the root-owned
+lock and archive, neither group/world writable, in `/usr/share/soda/canlang-tools` against the
+selected source revision, pinned runtime versions and archive SHA256. Their
+release input owner is
+[`soda-stage-canlang`](../../tools/release-assets/README.md#admit-offline-canlang-tools).
+
+The Project must already be running. Maintenance waits briefly for running
+state and verifies its retained container identity/incarnation around staging;
+it does not start a stopped Project. This differs from the separate
+terminal-support repair's admitted stopped-root path.
+
+Stop `can-dev` previews, compilers and platform commands before maintenance.
+Any process whose executable resolves beneath `/opt/canlang` causes refusal,
+including the shipped Node/Bun runtime used by tool commands. Maintenance
+does not kill those processes or silently stop previews. It also refuses
+foreign files at the four `/usr/local/bin` command destinations or a linked
+tool root.
+
+Verified bytes are staged privately beneath `/home` in the same retained
+Project, then `/opt/canlang` is replaced by a directory rename. Existing tool
+bytes remain at `/opt/.canlang-before-ARCHIVE_SHA256` for explicit operator
+inspection/cleanup; an occupied previous destination blocks another attempt.
+If the new-directory rename fails, the old directory is restored. Other
+interruptions are retained for inspection, not automatic replay or a promised
+complete rollback.
+
+Only the installed tools and their four command symlinks are changed. Project
+accounts, checkouts, credentials, files and volumes remain in the same root.
+Canlang preview/example state is outside the tool installation and is not
+reset or copied by maintenance. Startup does not run this installation; a
+release upgrade or retained Project tooling refresh is an explicit operator
+action. Local package/workflow checks do not qualify this maintenance on an
+installed appliance or a production application image.
 
 Returns `0` on completion and `1` with a prefixed stderr diagnostic on failure.
 When Muse is disabled, `--bind-only` returns successfully without attaching it;

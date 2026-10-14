@@ -114,6 +114,7 @@ fn tailnet_deadline() -> Instant {
 /// Inputs the binary derives from the daemon config. Kept minimal: the mux
 /// owns transport admission, the runtimes own execution.
 pub struct BackendConfig {
+    pub canlang_runtime: Option<crate::application::ReleaseBinding>,
     pub project: project::Config,
     pub codex_harness: String,
     pub codex_harness_sha256: String,
@@ -150,6 +151,7 @@ type Factory = factory::Factory<project::Native, TerminalSeam, crate::iclient::B
 /// factory opens lazily like Go's `factoryRun` so a broken receipt root
 /// degrades factory routes to 503 instead of refusing startup.
 pub struct DaemonBackend {
+    canlang_runtime: Option<crate::application::ReleaseBinding>,
     project: project::Runtime<project::Native>,
     terminal: terminal::Service<project::Native>,
     factory: OnceLock<Result<Factory, String>>,
@@ -169,6 +171,7 @@ impl DaemonBackend {
     pub fn open(cfg: BackendConfig, factory_state_dir: &str) -> Self {
         let broker_socket = cfg.broker_socket.clone();
         DaemonBackend {
+            canlang_runtime: cfg.canlang_runtime,
             project: project::Runtime {
                 exec: project::Native,
                 config: cfg.project.clone(),

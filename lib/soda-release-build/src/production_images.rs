@@ -117,8 +117,12 @@ impl Production {
             &PathBuf::from(&self.source).join("system/containers/dashboard/Containerfile"),
         )
         .map_err(|e| Error::msg(e.to_string()))?;
-        if rocky != dashboard {
-            return Err(Error::msg("dashboard and Project OS base owners disagree"));
+        let canlang = recipe_base(
+            &PathBuf::from(&self.source).join("system/containers/canlang/Containerfile"),
+        )
+        .map_err(|e| Error::msg(e.to_string()))?;
+        if rocky != dashboard || rocky != canlang {
+            return Err(Error::msg("Rocky component base owners disagree"));
         }
         let (_, pinned) = pull(&rocky, "base")?;
         let native_rel = lexical_rel(Path::new(&self.source), Path::new(&self.native));
@@ -135,11 +139,11 @@ impl Production {
         build: BuildFn,
         export: ExportFn,
     ) -> Result<(), Error> {
-        for name in ["dashboard", "project-os"] {
-            let file = if name == "project-os" {
-                "system/project/Containerfile"
-            } else {
-                "system/containers/dashboard/Containerfile"
+        for name in ["dashboard", "project-os", "canlang-runtime"] {
+            let file = match name {
+                "project-os" => "system/project/Containerfile",
+                "canlang-runtime" => "system/containers/canlang/Containerfile",
+                _ => "system/containers/dashboard/Containerfile",
             };
             let id = build(
                 name,

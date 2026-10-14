@@ -14,6 +14,13 @@ fn full_content() -> BTreeMap<String, String> {
         "host:/usr/share/containers/systemd/forgejo.container",
         "host:/usr/share/containers/systemd/soda-dashboard.container",
         "host:/usr/lib/systemd/system/soda-extension-install.service",
+        "host:/usr/share/soda/canlang-tools/release.json",
+        "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
+        "canlang-runtime:/opt/canlang/tools.json",
+        "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
+        "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
+        "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
+        "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
     ]
     .iter()
     .map(|n| (n.to_string(), "a".repeat(64)))

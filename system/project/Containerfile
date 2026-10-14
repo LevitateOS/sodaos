@@ -34,6 +34,13 @@ COPY ${ARTIFACT_DIR}/project-tools/bin/soda-identity-compose /usr/local/bin/soda
 COPY ${ARTIFACT_DIR}/project-tools/bin/muse-native /usr/local/libexec/soda/muse
 COPY ${ARTIFACT_DIR}/project-tools/bin/tea /usr/local/bin/tea
 COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/licenses/tea/LICENSE
+# Complete native compiler, platform, catalogs and locked local workerd providers.
+# The release asset owner admits this offline tool closure before image creation.
+COPY ${ARTIFACT_DIR}/project-tools/canlang/ /opt/canlang/
+RUN ln -s /opt/canlang/bin/can /usr/local/bin/can && \
+    ln -s /opt/canlang/bin/can-platform /usr/local/bin/can-platform && \
+    ln -s /opt/canlang/bin/can-dev /usr/local/bin/can-dev && \
+    ln -s /opt/canlang/bin/can-soda /usr/local/bin/can-soda
 COPY system/project/rootfs/ /
 # Same fixed program the host daemon verifies; never downloaded or installed on Open.
 COPY ${ARTIFACT_DIR}/project-tools/bin/project-terminal /usr/libexec/soda/project-terminal

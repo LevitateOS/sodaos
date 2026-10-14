@@ -211,6 +211,18 @@ pub fn inspect_candidate_files(
     production: &dyn Production,
 ) -> Result<(), Error> {
     let empty = model::ProducedImage::default();
+    for (name, staged) in crate::canlang::runtime_content(production.native())? {
+        let installed = name
+            .strip_prefix("canlang-runtime:")
+            .expect("runtime content owner");
+        inspect_packaged_digest(
+            out,
+            &images.get("canlang-runtime").unwrap_or(&empty).config,
+            &sys::hash_file(&staged)?,
+            installed,
+            production,
+        )?;
+    }
     inspect_packaged_file(
         out,
         &images.get("forgejo").unwrap_or(&empty).config.clone(),

@@ -1,0 +1,16 @@
+[Unit]
+Description=Private Canlang application %i
+After=network-online.target soda-host.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/podman start --attach soda-canlang-%i
+ExecStop=/usr/bin/podman stop --time 20 soda-canlang-%i
+ExecStopPost=/usr/bin/podman stop --ignore --time 20 soda-canlang-%i
+Restart=on-failure
+TimeoutStopSec=40
+KillMode=none
+
+[Install]
+WantedBy=multi-user.target

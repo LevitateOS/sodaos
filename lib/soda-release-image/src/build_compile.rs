@@ -6,7 +6,7 @@ use crate::error::Error;
 use crate::foreign::Production;
 use crate::sys;
 
-const RUNTIME_COMMANDS: [(&str, &str); 9] = [
+const RUNTIME_COMMANDS: [(&str, &str); 10] = [
     ("soda-identity-compose", "soda-identity-compose"),
     ("soda-factory", "soda-factory"),
     ("soda-setup", "soda-setup"),
@@ -15,6 +15,7 @@ const RUNTIME_COMMANDS: [(&str, &str); 9] = [
     ("soda-project-maintain", "soda-project-maintain"),
     ("soda-identity", "soda-identity"),
     ("soda-host", "soda-host"),
+    ("soda-host", "soda-canlang-storage"),
     // The retired Go tailnet command is now a second soda-host binary.
     ("soda-host", "soda-forgejo-tailnet"),
 ];
@@ -300,6 +301,7 @@ mod tests {
             ("soda-project-maintain", "soda-project-maintain"),
             ("soda-identity", "soda-identity"),
             ("soda-host", "soda-host"),
+            ("soda-host", "soda-canlang-storage"),
             ("soda-host", "soda-forgejo-tailnet"),
             ("soda-release-tools", "soda-artifacts"),
             ("soda-acceptance", "soda-acceptance"),

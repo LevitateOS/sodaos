@@ -47,6 +47,28 @@ impl DaemonBackend {
 }
 
 impl ExecBackend for DaemonBackend {
+    fn application(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let request: crate::application::Request =
+            json::decode_strict_as(body).map_err(|e| internal(e.0))?;
+        let runtime = crate::application::Runtime {
+            exec: project::Native,
+            release: self.canlang_runtime.clone(),
+        };
+        let observed = runtime
+            .operate(&request, native_deadline())
+            .map_err(|reason| {
+                // The application runtime returns bounded fixed diagnostics. Keep
+                // operator detail private; never log request bodies or subprocess output.
+                let safe: String = reason
+                    .chars()
+                    .take(256)
+                    .flat_map(char::escape_default)
+                    .collect();
+                eprintln!("native application failed: {safe}");
+                internal(reason)
+            })?;
+        serde_json::to_vec(&observed).map_err(|_| BackendError::Internal)
+    }
     fn profile(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         decode_empty(body)?;
         let out = self

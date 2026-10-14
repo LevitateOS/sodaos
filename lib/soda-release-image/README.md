@@ -46,6 +46,13 @@ establish qualification or production signing authority. Content inventory
 records exact files, modes and links; it is integrity evidence rather than a
 native acceptance receipt. The library does not install or publish the result.
 
+The fixed payload includes the `canlang-runtime` image. Existing image/media
+staging carries its exact OCI identity into the shared offline layout. Candidate
+content verification reads back the runtime's shipped tool inventory and
+attribution files, together with the host's admitted Canlang archive and lock.
+This source integration does not qualify a complete appliance image or an
+upgrade; native component evidence and full release qualification remain distinct.
+
 The [release architecture](../../docs/architecture/release.md) owns the candidate,
 trust and platform contract. See [release workflow](../../docs/development/release.md)
 for qualification and [installation](../../docs/guides/installation.md) for

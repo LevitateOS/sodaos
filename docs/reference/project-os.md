@@ -22,6 +22,7 @@ independent machines, new account systems or a second development product.
 | Personal checkouts, editors, mise workflows | [Develop](../guides/develop.md) |
 | Nested workloads and project networking | [Project services](../guides/project-services.md) |
 | Packaged forge CLIs | [Project CLIs](../guides/project-clis.md) |
+| Packaged Canlang tools, retained preview and examples | [Canlang applications](../guides/canlang-applications.md) |
 | Managed terminal lifetime | [Terminal](terminal.md) |
 | Spaces presentation | [Spaces](../product/spaces.md), [Spaces UX](../design/spaces-ux.md) |
 
@@ -38,6 +39,7 @@ wires the non-preference foundation.
 | Native account/home/group setup, locale, shell startup, permissions, CA trust | Personal dotfiles, preferred shell, appearance |
 | Working terminal, tmux, basic editor/pager, diagnostics | Preferred editor/IDE, keybindings, theme |
 | Git, packaged forge CLIs, pinned Muse launcher and CLI, shared mise, standard build/debug tools | Repository language versions, build commands, trust decisions |
+| Matched offline Canlang compiler, platform/runtime closure, catalog, example testkit and LSP | Application source, editor connection, development owner and preview state |
 | Native workload engine, Compose support, storage and access integration | Which services to run and how they are configured |
 
 Missing standard build prerequisites are a packaging gap, not a task for each project
@@ -123,6 +125,13 @@ scope ([Product scope](../product/scope.md)).
 
 Project execution admission follows the current repository-write policy in
 [Projects](../product/projects.md#explicit-joining).
+
+Canlang tools have a separately pinned archive and explicit `canlang --project`
+maintenance through the existing host helper. It updates only the admitted
+tools/public links in the retained root and refuses active tool processes;
+accounts, checkouts and preview data remain. See the
+[maintenance command](../../cmd/soda-project-maintain/README.md) and
+[application guide](../guides/canlang-applications.md).
 
 ### Terminal support
 

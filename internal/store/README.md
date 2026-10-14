@@ -6,6 +6,15 @@ development keys, Projects, membership, preparation decisions and factory
 ledgers. Operators configure the database through appliance setup; end users
 use product APIs and controls rather than direct SQL.
 
+Application administration uses canonical `application.Record` references.
+`CreateApplication` persists an operator-admitted administrator grant and an
+unknown initial native state. `ReplaceApplication` serializes revision CAS and
+retains immutable prior specs for recovery. `ObserveApplication` requires both
+the exact current references and the expected prior observation; a nil result
+records uncertainty. The store reserves distinct app hostnames, loopback ports
+and private data identities. Canlang keeps its descriptor, application users,
+credentials and binding configuration; none are copied into these records.
+
 ## Open the production store
 
 The dashboard loads the DSN from its restricted `database_dsn_file` and uses:

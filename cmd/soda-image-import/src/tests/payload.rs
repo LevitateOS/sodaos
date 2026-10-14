@@ -10,7 +10,7 @@ fn payload_decode_is_strict_like_disallow_unknown_fields() {
     let valid = payload_json_for(&HashMap::new());
     let payload = decode(&valid).expect("valid payload");
     assert!(payload.validate().is_ok());
-    assert_eq!(payload.images.len(), 6);
+    assert_eq!(payload.images.len(), NAMES.len());
     // Trailing data rejected, like the Go payload test's suffix.
     assert!(decode(&format!("{valid} {{\"unexpected\":true}}")).is_err());
     // Unknown top-level and nested fields rejected.
@@ -123,7 +123,7 @@ fn payload_load_enforces_regular_bounded_input() {
     fs::write(&path, &json).expect("write release");
     let loaded = Payload::load(&path).expect("load");
     assert!(loaded.validate().is_ok());
-    assert_eq!(loaded.images.len(), 6);
+    assert_eq!(loaded.images.len(), NAMES.len());
     assert!(Payload::load(&root.join("missing.json")).is_err());
     fs::write(&path, format!("{json} {{\"unexpected\":true}}")).expect("trailing");
     assert!(Payload::load(&path).is_err());

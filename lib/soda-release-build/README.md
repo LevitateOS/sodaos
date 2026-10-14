@@ -36,6 +36,13 @@ the [native support guide](../../docs/development/native-support.md#local-host-c
 Production requires explicit execution hooks and frozen inputs. Do not treat
 constructing a default `Production` value as an executable build configuration.
 
+`production_images` builds the named `canlang-runtime` role from the already
+admitted `project-tools/canlang` closure. Its Rocky base must agree with the
+Project and Dashboard recipes; their shared upstream input is frozen once.
+The normal OCI export records the resulting image and archive digests. Canlang
+tool compilation and per-application builds are separate producers, not steps
+performed during appliance startup.
+
 CoreOS retrieval resolves the stable stream live, downloads content and checks
 hashes and a GnuPG signature against an independently trusted keyring and signer.
 It creates a fresh output directory, retaining failures for inspection. A

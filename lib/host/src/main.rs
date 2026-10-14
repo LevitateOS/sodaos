@@ -68,6 +68,8 @@ impl MainError {
 }
 
 struct Flags {
+    fixture_runtime_image: String,
+    fixture_tools_sha256: String,
     config: String,
     release: String,
     listen_path: String,
@@ -83,7 +85,9 @@ fn usage() -> String {
      release file (default /usr/share/soda/release.json); an empty value\n\
      disables the release overlay for test fixtures. --listen-path binds\n\
      the Unix socket directly instead of taking activation (fixtures);\n\
-     it still requires root.\n"
+     it still requires root. Canlang install/replace fixtures additionally require\n\
+     --fixture-canlang-runtime sha256:ID and --fixture-canlang-tools SHA256.\n\
+     These explicit pins are accepted only with --release=.\n"
         .to_string()
 }
 
@@ -91,6 +95,8 @@ fn usage() -> String {
 /// single `-h`. Unknown flags and missing values are parse errors.
 fn parse_flags(args: &[String]) -> Result<Flags, String> {
     let mut flags = Flags {
+        fixture_runtime_image: String::new(),
+        fixture_tools_sha256: String::new(),
         config: DEFAULT_CONFIG.to_string(),
         release: RELEASE_CONFIG.to_string(),
         listen_path: String::new(),
@@ -130,6 +136,8 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
             }
         };
         match name {
+            "fixture-canlang-runtime" => flags.fixture_runtime_image = value,
+            "fixture-canlang-tools" => flags.fixture_tools_sha256 = value,
             "config" => flags.config = value,
             "release" => flags.release = value,
             "listen-path" => flags.listen_path = value,
@@ -138,6 +146,16 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
             _ => return Err(format!("flag provided but not defined: -{name}")),
         }
         i += 1;
+    }
+    if !flags.fixture_runtime_image.is_empty() || !flags.fixture_tools_sha256.is_empty() {
+        if !flags.release.is_empty() || !flags.tailnet_action.is_empty() {
+            return Err("Canlang fixture references require --release= and the daemon path".into());
+        }
+        soda_host::application::ReleaseBinding {
+            image: flags.fixture_runtime_image.clone(),
+            tools_sha256: flags.fixture_tools_sha256.clone(),
+        }
+        .validate()?;
     }
     Ok(flags)
 }
@@ -196,6 +214,7 @@ fn run_tailnet_action(
 fn open_backend(config: &config::Config) -> DaemonBackend {
     DaemonBackend::open(
         BackendConfig {
+            canlang_runtime: config.canlang_runtime.clone(),
             project: project::Config {
                 muse_socket: config.muse_socket.clone(),
                 image: config.image.clone(),
@@ -395,8 +414,21 @@ fn run() -> Result<(), MainError> {
     if !flags.project.is_empty() || !flags.positionals.is_empty() {
         return Err(MainError::Other("invalid Tailnet request".to_string()));
     }
-    let config = config::load_config(&flags.config, &flags.release)
+    let mut config = config::load_config(&flags.config, &flags.release)
         .map_err(|e| MainError::Other(format!("invalid host configuration: {e}")))?;
+    if !flags.fixture_runtime_image.is_empty() || !flags.fixture_tools_sha256.is_empty() {
+        if !flags.release.is_empty() || !flags.tailnet_action.is_empty() {
+            return Err(MainError::Other(
+                "Canlang fixture references require --release=".into(),
+            ));
+        }
+        let selected = soda_host::application::ReleaseBinding {
+            image: flags.fixture_runtime_image,
+            tools_sha256: flags.fixture_tools_sha256,
+        };
+        selected.validate().map_err(MainError::Other)?;
+        config.canlang_runtime = Some(selected);
+    }
     serve_host_socket(config, &flags.listen_path)
 }
 
@@ -436,6 +468,24 @@ mod tests {
         assert!(parse_flags(&args(&["--release"])).is_err());
         assert!(parse_flags(&args(&["--listen-path"])).is_err());
         assert!(parse_flags(&args(&["-h"])).is_err());
+        let image = format!("sha256:{}", "a".repeat(64));
+        let tools = "b".repeat(64);
+        assert!(parse_flags(&args(&[
+            "--release=",
+            "--fixture-canlang-runtime",
+            &image,
+            "--fixture-canlang-tools",
+            &tools
+        ]))
+        .is_ok());
+        assert!(parse_flags(&args(&[
+            "--fixture-canlang-runtime",
+            &image,
+            "--fixture-canlang-tools",
+            &tools
+        ]))
+        .is_err());
+        assert!(parse_flags(&args(&["--release=", "--fixture-canlang-runtime", &image])).is_err());
     }
 
     #[test]

@@ -23,6 +23,10 @@ d /run/soda/postgres 0755 999 999 -
 # at the protocol layer (native authority + bridge peers), not on these bits.
 d /run/soda/extension 3773 root soda-extension-ipc -
 d /home/soda-identity 0700 soda-identity soda -
+d /home/soda-applications 0755 root root -
+d /home/soda-applications/routes 0700 root root -
+d /home/soda-applications/data 0700 root root -
+d /home/soda-applications/backups 0700 root root -
 d /run/soda/identity 0750 soda-identity soda -
 d /run/soda-tailnet 0700 root root -
 d /run/soda/operator 0700 soda root -

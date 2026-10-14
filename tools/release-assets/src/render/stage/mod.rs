@@ -76,6 +76,10 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
             Some(0o755),
         )?;
     }
+    copy(stage, &source.join("system/project/canlang-release.json"),
+        "/usr/share/soda/canlang-tools/release.json", Some(0o644))?;
+    copy(stage, &source.join(".artifacts/canlang/canlang-tools-linux-x86_64.tar.gz"),
+        "/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz", Some(0o644))?;
     // Config-root branding avoids immutable /usr/share and native package conflicts.
     let brand = stage.join("etc/cockpit/branding");
     mkdir_fresh(&brand)?;

@@ -36,6 +36,10 @@ Ordinary members consume those installations. Nested databases and app container
 follow [Project services](project-services.md). Packaged `tea`/`gh` follow
 [Project CLIs](project-clis.md).
 
+Packaged Canlang compiler, preview/examples and LSP follow
+[Canlang applications](canlang-applications.md#develop-inside-a-project). The full
+self-hosted target uses separate application state and credentials.
+
 ## Profiles and desktop
 
 Headless profiles are terminal-first. KDE profiles add an account-owned graphical

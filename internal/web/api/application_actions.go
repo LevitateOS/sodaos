@@ -1,0 +1,165 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/application"
+	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
+)
+
+type applicationAction struct {
+	Action            string            `json:"action"`
+	Revision          int64             `json:"revision"`
+	ExpectedContainer string            `json:"expected_container"`
+	ConfirmStop       bool              `json:"confirm_stop"`
+	Replacement       *application.Spec `json:"replacement"`
+}
+
+func (s *API) acquireApplicationMutation(w http.ResponseWriter, id string) (func(), bool) {
+	s.applicationMu.Lock()
+	defer s.applicationMu.Unlock()
+	if s.applicationPending == nil {
+		s.applicationPending = make(map[string]bool)
+	}
+	if s.applicationPending[id] {
+		auth.JSONError(w, 409, "application_pending", "An application operation is pending; inspect its recorded outcome.")
+		return nil, false
+	}
+	s.applicationPending[id] = true
+	return func() { s.applicationMu.Lock(); delete(s.applicationPending, id); s.applicationMu.Unlock() }, true
+}
+
+func admitApplicationAction(record application.Record, in applicationAction) (application.Request, error) {
+	request := application.Request{Application: record.Application, Action: in.Action, ExpectedContainer: in.ExpectedContainer}
+	if in.Revision != record.Application.Revision {
+		return request, errors.New("application action differs from current admission")
+	}
+	stopping := in.Action == "stop" || in.Action == "replace"
+	if in.ConfirmStop != stopping || (in.Action == "replace") != (in.Replacement != nil) {
+		return request, errors.New("application action differs from current admission")
+	}
+	if err := admitApplicationGeneration(record, in); err != nil {
+		return request, err
+	}
+	return admitApplicationReplacement(record, in, request)
+}
+
+func admitApplicationGeneration(record application.Record, in applicationAction) error {
+	if in.Action == "install" {
+		if record.Application.Revision != 1 || record.Observation != nil {
+			return errors.New("application action differs from current admission")
+		}
+	} else {
+		if record.Observation == nil {
+			if in.Action != "inspect" || in.ExpectedContainer != "" {
+				return errors.New("application action differs from current admission")
+			}
+		} else if in.ExpectedContainer != record.Observation.Container {
+			return errors.New("application action differs from current admission")
+		}
+	}
+	return nil
+}
+
+func admitApplicationReplacement(record application.Record, in applicationAction, request application.Request) (application.Request, error) {
+	if in.Replacement != nil {
+		if err := record.Application.Replacement(*in.Replacement); err != nil {
+			return request, err
+		}
+		// The current native target qualifies image replacement of the exact
+		// artifact/bundle only; reject semantic upgrades before any effect.
+		if in.Replacement.ArtifactSHA256 != record.Application.ArtifactSHA256 || in.Replacement.BundleSHA256 != record.Application.BundleSHA256 {
+			return request, errors.New("application action differs from current admission")
+		}
+		request.Application = *in.Replacement
+	}
+	return request, request.Validate()
+}
+
+func (s *API) apiApplicationAction(w http.ResponseWriter, r *http.Request, v store.Session) {
+	record, request, ok := s.admitApplicationOperation(w, r, v)
+	if !ok {
+		return
+	}
+	release, ok := s.acquireApplicationMutation(w, record.Application.ID)
+	if !ok {
+		return
+	}
+	defer release()
+	if !s.checkLifecycleSession(w, r, v) {
+		return
+	}
+	if s.Host == nil {
+		auth.JSONError(w, 503, "native_unavailable", "Application host is unavailable.")
+		return
+	}
+	s.performApplicationOperation(w, r, v, record, request)
+}
+
+func (s *API) admitApplicationOperation(w http.ResponseWriter, r *http.Request, v store.Session) (application.Record, application.Request, bool) {
+	var empty application.Record
+	var noRequest application.Request
+	if !applicationNoQuery(w, r) {
+		return empty, noRequest, false
+	}
+	record, ok := s.loadApplication(w, r, v)
+	if !ok {
+		return empty, noRequest, false
+	}
+	var in applicationAction
+	if !auth.DecodeAPIObject(w, r, &in) {
+		return empty, noRequest, false
+	}
+	if !s.authorizeApplicationAction(w, r, v, in.Action) {
+		return empty, noRequest, false
+	}
+	request, err := admitApplicationAction(record, in)
+	if err != nil {
+		auth.JSONError(w, 409, "application_action_conflict", "Use the current revision/container, and explicitly confirm Stop or image replacement. Semantic upgrades are not qualified.")
+		return empty, noRequest, false
+	}
+	if !s.applicationOriginAllowed(request.Application) {
+		auth.JSONError(w, 409, "application_origin_conflict", "Application and Forgejo require distinct hostnames.")
+		return empty, noRequest, false
+	}
+	return record, request, true
+}
+
+func (s *API) authorizeApplicationAction(w http.ResponseWriter, r *http.Request, v store.Session, action string) bool {
+	if action == "install" || action == "replace" {
+		return s.authorizeOperator(w, r, v)
+	}
+	return true
+}
+
+func (s *API) performApplicationOperation(w http.ResponseWriter, r *http.Request, v store.Session, record application.Record, request application.Request) {
+	ctx, cancel := operationContext(r.Context(), 4*time.Minute)
+	defer cancel()
+	// Clear observed readiness durably before invoking native work. A lost
+	// reply or process crash leaves unknown, including interrupted inspection.
+	if err := s.Store.ObserveApplication(ctx, record.Application.ID, record.AdministratorID, record.Application.Revision, record.Observation, nil); err != nil {
+		auth.JSONError(w, 409, "application_state_changed", "Application references or observation changed; inspect again.")
+		return
+	}
+	if request.Action == "replace" {
+		if err := s.Store.ReplaceApplication(ctx, record.AdministratorID, record.Application.Revision, request.Application); err != nil {
+			auth.JSONError(w, 409, "application_state_changed", "Replacement references changed; inspect again.")
+			return
+		}
+	}
+	result, err := s.Host.Application(ctx, request)
+	if err != nil {
+		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native outcome is unknown. Inspect before acting again; desired references do not prove readiness.")
+		return
+	}
+	if err := s.Store.ObserveApplication(ctx, record.Application.ID, record.AdministratorID, request.Application.Revision, nil, &result); err != nil {
+		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native outcome could not be recorded. Inspect before acting again.")
+		return
+	}
+	record.Application = request.Application
+	record.Observation = &result
+	auth.JSONResponse(w, 200, appView(record, s.applicationOperator(v)))
+}

@@ -161,6 +161,12 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		method, path string
 		allowed      bool
 	}{
+		{http.MethodGet, "/applications", true},
+		{http.MethodPost, "/applications", true},
+		{http.MethodGet, "/applications/a111111111111111111111111", true},
+		{http.MethodPost, "/applications/a111111111111111111111111/actions", true},
+		{http.MethodGet, "/applications/a111111111111111111111111/actions", false},
+		{http.MethodDelete, "/applications/a111111111111111111111111", false},
 		{http.MethodGet, "/repositories", true},
 		{http.MethodGet, "/repositories/12/profiles", true},
 		{http.MethodGet, "/repositories/12/factory", true},

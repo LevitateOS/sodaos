@@ -25,6 +25,15 @@ to `/usr/share/soda/release.json` and overlays installed release metadata.
 `--listen-path PATH` binds a socket directly for fixtures and still requires
 root. An empty `--release` disables the overlay for fixtures.
 
+Canlang install and replacement admit the runtime image from the selected
+release catalog and the tool digest from its host `canlang-tools/release.json`.
+They refuse missing or differing references before native effects. Existing
+application generations can still be inspected, started and stopped after
+the appliance's selected runtime changes. Fixture install/replacement requires
+both `--fixture-canlang-runtime sha256:ID` and `--fixture-canlang-tools SHA256`,
+accepted only with `--release=`. The fixed reference guard does not interpret
+application semantics or provider configuration.
+
 The `--tailnet-action run|stop --project ID` form operates a project's companion
 lifecycle and is used by the installed service wiring. Preparation failures exit
 `78` and require observation before an explicit retry; other runtime failures

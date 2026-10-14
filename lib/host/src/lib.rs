@@ -5,6 +5,7 @@
 //! and exit statuses match the Go implementation byte for byte.
 
 pub mod account;
+pub mod application;
 pub mod daemon;
 pub mod dbackend;
 pub mod domain;

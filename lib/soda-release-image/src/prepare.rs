@@ -251,6 +251,7 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
         "soda-identity.socket",
         "soda-identity-runtime.socket",
         "soda-project@.service",
+        "soda-canlang@.service",
         "soda-tailnet@.service",
         "soda-console.service",
         "soda-extension-install.service",

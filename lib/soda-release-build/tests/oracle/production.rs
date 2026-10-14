@@ -38,6 +38,10 @@ fn oracle_production_sequence() {
             "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
         ),
         (
+            "system/containers/canlang/Containerfile",
+            "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
+        ),
+        (
             "system/host/services/forgejo.container",
             "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.10\n",
         ),
@@ -154,7 +158,7 @@ fn oracle_production_sequence() {
     prod.resolve_inputs().unwrap();
     prod.assets(&host, &forgejo).unwrap();
     let images = prod.images(&forgejo).unwrap();
-    assert_eq!(images.len(), 6);
+    assert_eq!(images.len(), 7);
     let root_str = root.to_string_lossy().into_owned();
     let normalized: Vec<String> = calls
         .lock()

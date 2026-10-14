@@ -31,13 +31,15 @@ type API struct {
 	// durable reservation. Tests with a fake native host supply an explicit gate.
 	ProjectCreationAdmission func() (func(), error)
 
-	terminalMu       sync.Mutex
-	SpacesSlots      chan struct{}
-	RepositorySlots  chan struct{}
-	TerminalPeers    map[*http.Request]*TerminalPeer
-	TerminalStopping map[string]bool
-	terminalClosed   bool
-	terminalWG       sync.WaitGroup
+	terminalMu         sync.Mutex
+	applicationMu      sync.Mutex
+	applicationPending map[string]bool
+	SpacesSlots        chan struct{}
+	RepositorySlots    chan struct{}
+	TerminalPeers      map[*http.Request]*TerminalPeer
+	TerminalStopping   map[string]bool
+	terminalClosed     bool
+	terminalWG         sync.WaitGroup
 }
 
 // TerminalPeer is a native extension operation or stream tracked for lifecycle cancellation.

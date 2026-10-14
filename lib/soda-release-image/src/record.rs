@@ -65,6 +65,18 @@ pub fn candidate_content(out: &str, native: &str) -> Result<Vec<(String, String)
     .into_iter()
     .map(|(a, b)| (a.to_string(), b))
     .collect();
+    paths.extend(crate::canlang::runtime_content(native)?);
+    for name in ["release.json", "canlang-tools-linux-x86_64.tar.gz"] {
+        let installed = format!("/usr/share/soda/canlang-tools/{name}");
+        paths.push((
+            format!("host:{installed}"),
+            sys::join(&[
+                &root,
+                "work/host-context/rootfs",
+                installed.trim_start_matches('/'),
+            ]),
+        ));
+    }
     let assets = sys::join(&[out, "extension-context/extension/assets"]);
     sys::walk(&assets, |path, is_dir, _| {
         if is_dir {
@@ -271,6 +283,13 @@ mod tests {
             (dir.join("work/host-context/rootfs/usr/share/containers/systemd/forgejo.container"), b"forgejo unit"),
             (dir.join("work/host-context/rootfs/usr/share/containers/systemd/soda-dashboard.container"), b"dashboard unit"),
             (dir.join("work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service"), b"extension unit"),
+            (dir.join("work/host-context/rootfs/usr/share/soda/canlang-tools/release.json"), b"tools reference"),
+            (dir.join("work/host-context/rootfs/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz"), b"admitted archive"),
+            (native.join("project-tools/canlang/tools.json"), b"tools inventory"),
+            (native.join("project-tools/canlang/licenses/Canlang-LICENSE"), b"Canlang attribution"),
+            (native.join("project-tools/canlang/licenses/Node-LICENSE"), b"Node attribution"),
+            (native.join("project-tools/canlang/licenses/Bun-LICENSE.md"), b"Bun attribution"),
+            (native.join("project-tools/canlang/licenses/compiler/THIRD-PARTY-NOTICES.txt"), b"compiler attribution"),
         ] {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, bytes).unwrap();

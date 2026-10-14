@@ -28,6 +28,8 @@ The handlers provide:
 - Factory policy/grants, acceptance, lifecycle actions, recorded state and
   read-only run output.
 - Operator Tailnet settings and authorized project Tailnet operations.
+- Application references and stored inventory, operator registration/install/image
+  replacement, and explicit administrator Inspect/Start/confirmed Stop.
 
 The exact methods, routes and request contracts belong to
 [HTTP API](../../../docs/reference/api.md). Browser clients use Forgejo's native
@@ -41,6 +43,16 @@ operations. Protected calls verify the live actor, contribution, repository
 authority and session generation; mutations also check same-origin context.
 Operator actions require the configured stable Soda operator ID. Displayed IDs
 and browser-supplied labels do not establish authority.
+
+Application administration uses a separate stable Forgejo administrator grant;
+app-local users are not Soda administrators. GET inventory/detail is passive.
+Explicit native actions recheck the live session, current reference revision and
+container generation. Stop and replacement require confirmation. The current
+replacement path keeps the exact artifact/bundle, produces a stopped container,
+and retains prior Specs. Unknown outcomes clear readiness before native work;
+GET never retries them. Data must already be provisioned by Canlang's private
+bootstrap boundary. App and Forgejo hostnames must differ even when their ports
+differ. No Canlang credentials or provider configuration enter this API/store.
 
 The API maintains bounded terminal peer state. Call `CloseTerminals()` while
 draining the server to cancel and join those peers. Native lifecycle and

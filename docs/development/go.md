@@ -14,6 +14,7 @@ remain in [architecture](../architecture/overview.md).
 | If you are adding… | It goes in… |
 | --- | --- |
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
+| Admitted application artifact/image/data references, administrator grant and native observations | `application` — pure wire/domain records; Canlang owns semantics and bindings |
 | Supervised factory runs: status/stop/reconcile coordinator plus pause/resume/retry/takeover lifecycle controls and readiness intake/reconciliation/assessment | `factory/control`; `rust/soda-factory` is a thin client of its private operator endpoint |
 | Run identity, outcome, display bindings and operator/control command records | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
@@ -91,6 +92,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | --- | --- | --- | --- |
 | `acceptance` | Outside support VM/evidence checks | Product HTTP, PostgreSQL store, install UX | `tools/soda-acceptance` |
 | `archcheck` | Package-topology boundary tests | Product behavior | `arch_test.go` |
+| `application` | Exact admitted application references, administrator grant, replacement and observation validation | Canlang descriptor/provider semantics, runtime, HTTP, SQL | `reference.go`, `administration.go` |
 | `avatar` | Robot SVG render | Identity lookup | `avatar.go` |
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
@@ -120,6 +122,29 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `web/auth` | Native extension identity, profiles and account keys | Environment/terminal APIs | `service.go`, `provider.go` |
 
 ## Cross-cut owners
+
+### Application administration placement
+
+`application` mirrors the mechanical native request/observation contract in
+`lib/host/src/application/wire.rs`. `store` owns current application references,
+immutable revision history and observation CAS. A replacement preserves the
+administrator, application name/identity, owner team, private data, origin and
+port. Unknown native outcomes remain a nullable observation; desired image
+references never imply readiness. Applications reserve distinct hostnames,
+private data identities and loopback ports in the shared store.
+
+An operator admits the initial administrator grant. Existing records are read
+and changed only for that stable Forgejo identity. App-local users and bootstrap
+credentials remain in Canlang; they do not grant Soda administration. The Rust
+host executes against admitted image labels and preprovisioned private data.
+`host.Client` sends the canonical native request and validates confirmed
+observations. `web/api` admits live native-extension actors: operator registration,
+install and image replacement, or the stored administrator's inspect/start/stop.
+It records unknown state before native effects, serializes local actions and
+uses store CAS to publish matching outcomes. Spaces shows subordinate app
+controls; navigation never installs or starts an app. Local HTTP and browser
+tests do not constitute installed-appliance qualification. Domain records have
+no transport, runtime, provider configuration or database dependencies.
 
 ### Factory interface placement
 

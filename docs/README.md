@@ -33,6 +33,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Develop in a project](guides/develop.md) | SSH, Git, tools, everyday project use |
 | [Project services](guides/project-services.md) | Nested workloads inside a project |
 | [Project CLIs](guides/project-clis.md) | Packaged forge CLIs in projects |
+| [Canlang applications](guides/canlang-applications.md) | Installed development tools, private app lifecycle/access and stopped recovery |
 | [Local testing](guides/local-testing.md) | Local fixture host access |
 | [User handbook](public/10-Start-here/10-index.md) | Release-day operator/developer handbook |
 
@@ -56,7 +57,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Ideal file tree plan](development/ideal-filetree-plan/ideal-filetree-plan.md) | Living restructuring proposal and post-merge maintenance |
 | [Factory implementation plan](development/factory-implementation-plan.md) | Active factory source baseline and [end-to-end UX tasks, parallel lanes and dependencies](development/factory-implementation-plan.md#end-to-end-ux-implementation-tasks) |
 | [Native frontend correction tasks](development/native-frontend-correction-tasks.md) | Fountain/Soda correction tasks, parallel lanes, physical writers, partial handoffs and installed acceptance |
-| [Canlang and Soda OS implementation plan](development/canlang-soda-os-implementation-plan.md) | Proposed private Canlang application hosting, feasibility and ordered parallel tasks |
+| [Canlang and Soda OS implementation plan](development/canlang-soda-os-implementation-plan.md) | Current local evidence, dependency gates and remaining implementation/qualification tasks |
 | [Go ownership](development/go.md) | Package placement and house style |
 | [Go packages](development/go-packages.md) | Package file/role convention |
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |

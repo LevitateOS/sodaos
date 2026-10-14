@@ -16,6 +16,10 @@ name = "soda-fetch-tea"
 path = "src/bin/soda-fetch-tea.rs"
 
 [[bin]]
+name = "soda-stage-canlang"
+path = "src/bin/soda-stage-canlang.rs"
+
+[[bin]]
 name = "soda-fetch-terminal"
 path = "src/bin/soda-fetch-terminal.rs"
 
