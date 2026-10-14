@@ -82,6 +82,8 @@ pub use self::native::{
 
 mod support;
 pub use self::support::{SupportObservation, MISMATCH, UNAVAILABLE};
+mod support_root;
+pub use self::support_root::stopped_namespace_argv;
 
 mod stream;
 

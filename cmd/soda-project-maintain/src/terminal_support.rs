@@ -9,12 +9,12 @@ use serde::{Deserialize, Serialize};
 use soda_build_tools::project_support::{ProjectSupport, DESTINATION};
 use soda_host::project::admission;
 
-use crate::command::{podman, podman_streamed};
 use crate::filesystem::{open_tool, verify_native};
-use crate::project::{confirm_project, inspect_project, Observation};
+use crate::project::Observation;
 use crate::release_validation::is_hex_string;
+use crate::support_root::Root;
 
-const SCRIPT: &str = include_str!("terminal_support.sh");
+pub(crate) const SCRIPT: &str = include_str!("terminal_support.sh");
 const PREVIOUS: &str = "/usr/libexec/soda/.project-terminal.previous-";
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -28,7 +28,7 @@ struct Operation {
     previous: String,
 }
 
-fn trusted_read(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
+pub(crate) fn trusted_read(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
     let file = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
@@ -120,28 +120,13 @@ fn target(development: bool) -> Result<(String, String, String), String> {
     Ok((release, support.payload_path, support.sha256))
 }
 
-fn guest(
-    target: &Observation,
+pub(crate) fn guest(
+    target: &Root,
     action: &str,
     expected: &str,
     deadline: Instant,
 ) -> Result<String, String> {
-    confirm_project(target, deadline)?;
-    let out = podman(
-        &[
-            "exec",
-            "--user",
-            "0:0",
-            &target.id,
-            "/bin/bash",
-            "-ceu",
-            SCRIPT,
-            "terminal-support",
-            action,
-            expected,
-        ],
-        deadline,
-    )?;
+    let out = target.run(SCRIPT, &[action, expected], deadline)?;
     let text = String::from_utf8(out).map_err(|_| "invalid support observation")?;
     let hash = text.trim();
     if !is_hex_string(hash, 64) {
@@ -199,24 +184,11 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
     }
     verify_native(&source, &digest)?;
     let _guard = admission::exclusive()?;
+    if fs::symlink_metadata(Path::new(admission::DIRECTORY).join("operation.json")).is_ok() {
+        return Err("release maintenance is in progress; use release recovery".into());
+    }
     let deadline = Instant::now() + Duration::from_secs(90);
-    let target = inspect_project(&format!("soda-{}", o.project), &o.project, deadline)?;
-    if !target.running || target.pid <= 0 {
-        return Err("stopped Project: runtime/state compatibility cannot be established without starting workloads; no files changed".into());
-    }
-    // Reuse the terminal host's full isolation gate for this exact retained root.
-    let svc = soda_host::terminal::Service {
-        exec: soda_host::project::Native,
-        codex_harness: String::new(),
-        codex_harness_sha256: String::new(),
-        codex_harness_version: String::new(),
-        muse_harness: String::new(),
-        muse_harness_sha256: String::new(),
-        muse_harness_version: String::new(),
-    };
-    if svc.project_container(&o.project, true, deadline)? != target.id {
-        return Err("Project identity changed".into());
-    }
+    let target = Root::open(&o.project, deadline)?;
     let actual = guest(&target, "observe", &digest, deadline)?;
     let marker = admission::marker_path(&o.project);
     let record = match fs::symlink_metadata(&marker) {
@@ -225,7 +197,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
                 .map_err(|_| {
                     "interrupted maintenance record unreadable; admission remains closed"
                 })?;
-            reconcile(&record, &target, &release, &digest, &actual)?;
+            reconcile(&record, &target.observation, &release, &digest, &actual)?;
             Some(record)
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
@@ -250,7 +222,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
                 "read-only preflight; runtime compatibility checked only during maintenance"
             }
         );
-        return Ok(());
+        return target.close();
     }
     if actual != digest {
         // Prove idle before recording an operation; an ordinary busy refusal closes no admission.
@@ -259,7 +231,7 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
         })?;
         let record = record.unwrap_or(Operation {
             project: o.project.clone(),
-            container: target.id.clone(),
+            container: target.observation.id.clone(),
             release,
             old_sha256: actual.clone(),
             target_sha256: digest.clone(),
@@ -269,34 +241,18 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
             save(&marker, &record)?;
         }
         // Staging and replacement share the guest terminal/factory exclusion; interruption leaves the marker.
-        let feeds = vec![("project-terminal".to_string(), source.fd, source.size)];
-        podman_streamed(
-            feeds,
-            &[
-                "exec",
-                "--user",
-                "0:0",
-                "-i",
-                &target.id,
-                "/bin/bash",
-                "-ceu",
-                SCRIPT,
-                "terminal-support",
-                "install",
-                &digest,
-                &record.old_sha256,
-            ],
-            deadline,
-        )
-        .map_err(|e| {
-            format!(
+        target
+            .install(SCRIPT, &digest, &record.old_sha256, &source, deadline)
+            .map_err(|e| {
+                format!(
                 "{e}; rerun the same maintenance to reconcile; managed admission remains closed"
             )
-        })?;
+            })?;
     }
     if guest(&target, "observe", &digest, deadline)? != digest {
         return Err("support replacement unconfirmed; admission remains closed".into());
     }
+    target.close()?;
     if marker.exists() {
         fs::remove_file(&marker)
             .map_err(|_| "verified support, but admission record removal failed")?;

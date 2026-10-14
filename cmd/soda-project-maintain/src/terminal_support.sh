@@ -17,20 +17,28 @@ if test "$action" = observe; then printf '%s\n' "$actual"; exit; fi
 # A running but disconnected session, reservation, subscription or factory state is
 # never taken as idle. Only the proven empty-managed-state transition is admitted.
 idle() {
- safe /run/soda-terminals
- test -d /run/soda-terminals
- test -z "$(find /run/soda-terminals -mindepth 1 -maxdepth 1 -print -quit)"
+ if test -e /run/soda-terminals; then
+  safe /run/soda-terminals
+  test -d /run/soda-terminals
+  test -z "$(find /run/soda-terminals -mindepth 1 -maxdepth 1 -print -quit)"
+ else
+  test "${SODA_STOPPED:-0}" = 1
+ fi
  if test -e /var/lib/soda/factory; then
   safe /var/lib/soda/factory
   test -d /var/lib/soda/factory
   test -z "$(find /var/lib/soda/factory -mindepth 1 -maxdepth 1 -print -quit)"
  fi
- test -z "$(systemctl list-units --all --no-legend --plain 'soda-terminal-*' 'soda-factory-*')"
+ if test "${SODA_STOPPED:-0}" != 1; then
+  test -z "$(systemctl list-units --all --no-legend --plain 'soda-terminal-*' 'soda-factory-*')"
+ fi
 }
 # The guest broker and terminal controls lock this same stable directory. The
 # host admission lock also covers factory and identity effects throughout.
-exec 9</run/soda-terminals
-flock -n -x 9
+if test -d /run/soda-terminals; then
+ exec 9</run/soda-terminals
+ flock -n -x 9
+fi
 idle
 if test "$action" = idle; then printf '%s\n' "$actual"; exit; fi
 test "$action" = install

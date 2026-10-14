@@ -17,6 +17,7 @@ mod release_validation;
 mod release_wire;
 mod sha256;
 mod stage;
+mod support_root;
 mod terminal_support;
 #[cfg(test)]
 mod test_support;

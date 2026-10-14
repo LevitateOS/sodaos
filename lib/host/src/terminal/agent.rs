@@ -84,11 +84,26 @@ impl<E: Executor> Service<E> {
         require_running: bool,
         deadline: Instant,
     ) -> Result<String, String> {
+        self.project_inspection(id, require_running, deadline)
+            .map(|inspection| inspection.id)
+    }
+
+    /// Read the exact retained identity and validated isolation/mappings.
+    pub fn project_inspection(
+        &self,
+        id: &str,
+        require_running: bool,
+        deadline: Instant,
+    ) -> Result<TerminalInspection, String> {
         if !domain::valid_id(id) {
             return Err("invalid project".to_string());
         }
         let argv = inspect_argv(&format!("soda-{id}"));
-        let data = match self.podman_owned(&[], &argv, deadline) {
+        let args: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let data = match self
+            .exec
+            .run_bounded(&[], "/usr/bin/podman", &args, deadline, 4096, 1024)
+        {
             Ok(data) if data.len() <= 4096 => data,
             _ => return Err("terminal inspection unavailable".to_string()),
         };
@@ -97,7 +112,7 @@ impl<E: Executor> Service<E> {
         if !terminal_target_ready(&v, id, require_running) {
             return Err("terminal target not ready or isolated".to_string());
         }
-        Ok(v.id)
+        Ok(v)
     }
 
     /// `Service.factoryProjectContainer`: supervised factory runs bind the

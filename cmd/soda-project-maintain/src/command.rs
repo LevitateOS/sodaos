@@ -7,11 +7,14 @@ use std::time::{Duration, Instant};
 use super::archive::feed_archive;
 
 pub(crate) fn podman(args: &[&str], deadline: Instant) -> Result<Vec<u8>, String> {
-    let mut cmd = Command::new("podman");
-    cmd.arg("--remote=false");
-    for a in args {
-        cmd.arg(a);
-    }
+    let mut native_args = vec!["--remote=false"];
+    native_args.extend_from_slice(args);
+    run("podman", &native_args, deadline)
+}
+
+pub(crate) fn run(program: &str, args: &[&str], deadline: Instant) -> Result<Vec<u8>, String> {
+    let mut cmd = Command::new(program);
+    cmd.args(args);
     cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::null());
@@ -26,6 +29,17 @@ pub(crate) fn podman(args: &[&str], deadline: Instant) -> Result<Vec<u8>, String
 // return path; a podman failure wins over the archive result.
 pub(crate) fn podman_streamed(
     feeds: Vec<(String, RawFd, u64)>,
+    args: &[&str],
+    deadline: Instant,
+) -> Result<(), String> {
+    let mut native_args = vec!["--remote=false"];
+    native_args.extend_from_slice(args);
+    streamed(feeds, "podman", &native_args, deadline)
+}
+
+pub(crate) fn streamed(
+    feeds: Vec<(String, RawFd, u64)>,
+    program: &str,
     args: &[&str],
     deadline: Instant,
 ) -> Result<(), String> {
@@ -89,11 +103,8 @@ pub(crate) fn podman_streamed(
         interrupt_fd: Some(interrupt_fd),
         thread: Some(feeder_thread),
     };
-    let mut cmd = Command::new("podman");
-    cmd.arg("--remote=false");
-    for a in args {
-        cmd.arg(a);
-    }
+    let mut cmd = Command::new(program);
+    cmd.args(args);
     cmd.stdin(Stdio::from(reader));
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::null());

@@ -1,5 +1,5 @@
 //! Bounded observation of installed support bytes; never invokes a legacy helper.
-use super::{agent_program_hash, Service};
+use super::{agent_program_hash, Service, TerminalInspection};
 use crate::project::{admission, Executor};
 use std::time::{Duration, Instant};
 
@@ -96,20 +96,23 @@ impl<E: Executor> Service<E> {
             512,
             1024,
         );
-        let observed = data
-            .ok()
-            .filter(|data| data.len() <= 512)
-            .and_then(|data| observed_digest(&data));
-        let state = match observed.as_deref() {
-            Some(value) if value == expected => "ready",
-            Some(_) => "support_mismatch",
-            None => "inspection_unavailable",
-        };
-        SupportObservation {
-            state,
-            expected_sha256: Some(expected.to_string()),
-            observed_sha256: observed,
-        }
+        support_result(data, expected)
+    }
+
+    fn stopped_support_against(
+        &self,
+        inspection: &TerminalInspection,
+        expected: &str,
+        deadline: Instant,
+    ) -> SupportObservation {
+        let data = self.in_stopped_root(
+            inspection,
+            &["/usr/bin/sh", "-c", SUPPORT_INSPECT],
+            deadline,
+            512,
+            1024,
+        );
+        support_result(data, expected)
     }
 
     pub fn terminal_support(&self, project: &str, deadline: Instant) -> SupportObservation {
@@ -125,12 +128,33 @@ impl<E: Executor> Service<E> {
             }
             Err(_) => return SupportObservation::unavailable(),
         };
-        // A stopped root is explicitly unknown until a native read-only mount
-        // mechanism has been qualified. Observation never starts a Project.
-        let Ok(container) = self.project_container(project, true, deadline) else {
+        let Ok(inspection) = self.project_inspection(project, false, deadline) else {
             return SupportObservation::unavailable();
         };
-        self.support_in_container(&container, deadline)
+        if inspection.running {
+            return self.support_in_container(&inspection.id, deadline);
+        }
+        let Ok(expected) = agent_program_hash(0) else {
+            return SupportObservation::unavailable();
+        };
+        self.stopped_support_against(&inspection, &expected, deadline)
+    }
+}
+
+fn support_result(data: Result<Vec<u8>, String>, expected: &str) -> SupportObservation {
+    let observed = data
+        .ok()
+        .filter(|data| data.len() <= 512)
+        .and_then(|data| observed_digest(&data));
+    let state = match observed.as_deref() {
+        Some(value) if value == expected => "ready",
+        Some(_) => "support_mismatch",
+        None => "inspection_unavailable",
+    };
+    SupportObservation {
+        state,
+        expected_sha256: Some(expected.to_string()),
+        observed_sha256: observed,
     }
 }
 

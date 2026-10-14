@@ -17,6 +17,14 @@ sudo /usr/libexec/soda/soda-project-maintain terminal-support --project p0123456
 for an unqualified development repair. Normal repair consumes the complete installed
 release's bundled input and metadata. Neither operation upgrades the host.
 
+Terminal repair includes running and stopped Rocky 10.2 roots with empty managed
+terminal/factory state. A stopped Project remains stopped: native namespace access
+uses its exact retained root and existing UID/GID mappings. The compatibility probe
+uses temporary private runtime mounts, without starting init or user workloads.
+Container identity and runtime state are checked around the operation; the exact
+root is unmounted afterward. Unknown state, active work or uncertain cleanup blocks
+completion. The same container, accounts, keys, files and volumes are preserved.
+
 ## Normal use
 
 Choose the exact project ID from Soda, then run on the appliance:
@@ -27,7 +35,7 @@ sudo /usr/libexec/soda/soda-project-maintain \
 ```
 
 The ID has the form `p` followed by 24 lowercase hexadecimal characters.
-The command checks the matching project container's identity and waits briefly
+The Muse operation checks the matching project container's identity and waits briefly
 for it to be running. It does not start a stopped project.
 
 | Option | Meaning |

@@ -142,10 +142,15 @@ Run from an appliance root terminal, using the installed complete release:
 The repair operation holds the host's shared admission exclusion, reinspects the
 same container, and refuses active or uncertain managed terminal/factory work.
 Disconnected terminals and outstanding reservations remain managed work. The
-implemented transition requires a running Rocky 10.2 root with empty managed
+implemented transition requires a Rocky 10.2 root with empty managed
 terminal/factory state. It checks tmux and terminfo and executes the staged helper's
-read-only account/state path before replacement. Nonempty retained state and stopped
-roots refuse explicitly; the tool never starts a stopped Project to inspect it.
+read-only account/state path before replacement. Nonempty managed state refuses
+explicitly. Running roots use native container execution. Stopped roots use their
+exact mounted container root and validated UID/GID mappings in a native user
+namespace; the compatibility probe also uses private mount/PID namespaces and
+temporary runtime mounts. It never starts container init or user workloads.
+Observation and repair recheck the exact container and stopped state and unmount
+that same root afterward. Unreadable roots or uncertain cleanup remain blocked.
 A matching helper is a no-op. No distribution or package update is part of this
 operation; Muse maintenance remains a separate subcommand.
 
