@@ -160,9 +160,11 @@ All seven runtime images use ordinary Podman through one shared OCI layout.
 Podman exports uncompressed OCI layers so native EROFS can compress and deduplicate
 shared files across images once; image configs, diffIDs and filesystem contents
 stay identical. The copier preserves these exact exported descriptors.
-The host producer uses Podman's `--squash-all` before export. Its final filesystem
-and base provenance remain intact; replaced files from intermediate build layers
-do not enter the public rootfs's OSTree import cache.
+The host producer uses Podman's `--squash-all` before export and removes the
+inherited `/sysroot` encoding cache and `ostree.commit`/`ostree.final-diffid` labels,
+following the [upstream plain-image conversion](https://github.com/coreos/chunkah#compatibility-with-bootable-bootc-images).
+Runtime files and base provenance remain intact; native OSTree imports the plain
+filesystem instead of requiring base chunks that flattening removed.
 Obsolete payload
 readers and storage selectors are removed. No bootc installer, update engine, bound storage,
 lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inherited

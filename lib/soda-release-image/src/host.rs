@@ -167,6 +167,8 @@ pub fn build_host_image(
             "build".to_string(),
             "--pull=never".to_string(),
             "--squash-all".to_string(),
+            "--unsetlabel=ostree.commit".to_string(),
+            "--unsetlabel=ostree.final-diffid".to_string(),
             "--rm=false".to_string(),
             format!("--platform=linux/{platform}"),
             format!("--build-arg=BASE_IMAGE={pinned}"),

@@ -28,8 +28,7 @@ pub const MAX_OCI_IMAGE_COMPRESSED_BYTES: u64 = 4 << 30;
 pub const MAX_OCI_LAYER_BYTES: u64 = MAX_OCI_IMAGE_LAYER_BYTES;
 pub const MAX_OCI_LAYER_COMPRESSED_BYTES: u64 = MAX_OCI_IMAGE_COMPRESSED_BYTES;
 pub const MAX_OCI_MEMBER_BYTES: u64 = 512 << 20;
-// The measured complete host has 102,132 filesystem entries after flattening.
-const MAX_OCI_LAYER_ENTRIES: usize = 125_000;
+const MAX_OCI_LAYER_ENTRIES: usize = 100_000;
 
 struct BoundedReader<'a, R: ?Sized> {
     inner: &'a mut R,

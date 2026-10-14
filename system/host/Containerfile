@@ -36,10 +36,13 @@ COPY rootfs/ /
 # no alternative installer/updater or additional application image store.
 # Rootful Podman allocates each project's --userns=auto range from this pool.
 # The pinned base has empty mapping files; reject changed defaults for review.
+# Export a plain filesystem: the inherited OSTree encoding cache is build
+# transport, and the caller removes its stale chunk-layout labels before squashing.
 RUN test ! -s /etc/subuid && test ! -s /etc/subgid && \
     printf 'containers:1000000:268435456\n' > /etc/subuid && \
     cp /etc/subuid /etc/subgid && \
-    ostree container commit
+    ostree container commit && \
+    rm -rf /sysroot
 
 ARG PAYLOAD_SCOPE=host-content-only
 LABEL org.opencontainers.image.title="SodaOS appliance candidate" \
