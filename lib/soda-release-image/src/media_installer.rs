@@ -30,19 +30,21 @@ pub fn inspect_rootfs_deployment(
 ) -> Result<String, Error> {
     let script = r#"set -euo pipefail
 scratch=/out/media/rootfs-readback
-mkdir "$scratch" "$scratch/mount"
+mkdir "$scratch"
 cpio --quiet --extract --to-stdout root.erofs < "/out/media/$1" > "$scratch/root.erofs"
 test -s "$scratch/root.erofs"
-mount -t erofs -o ro,loop,nodev,nosuid,noexec "$scratch/root.erofs" "$scratch/mount"
-trap 'umount "$scratch/mount"' EXIT
-status=$(ostree admin --sysroot="$scratch/mount" status --json)
-commit=$(jq -er 'if (.deployments|length)==1 then .deployments[0].checksum else error("ambiguous rootfs deployment") end' <<< "$status")
-serial=$(jq -er '.deployments[0].serial' <<< "$status")
-stateroot=$(jq -er '.deployments[0].stateroot' <<< "$status")
-test "$stateroot" = fedora-coreos
-deployment="$scratch/mount/ostree/deploy/$stateroot/deploy/$commit.$serial"
-printf '%s\n' "$commit"
-sha256sum "$deployment/usr/share/soda/release.json" "$deployment/usr/libexec/soda/project-terminal" "$deployment/usr/share/soda/project-support/project-terminal" | cut -d ' ' -f 1
+# The pinned erofs-utils reads paths directly without kernel mounts or loop
+# devices. Require one deployment directory; never infer its checksum from the
+# assembler's distinct import commit or from the host OCI manifest.
+listing=$(dump.erofs --ls --path=/ostree/deploy/fedora-coreos/deploy "$scratch/root.erofs")
+mapfile -t deployments < <(awk '$2==2 && $3!="." && $3!=".." {print $3}' <<< "$listing")
+test "${#deployments[@]}" = 1
+deployment=${deployments[0]}
+[[ $deployment =~ ^([0-9a-f]{64})\.([0-9]+)$ ]]
+printf '%s\n' "${BASH_REMATCH[1]}"
+for selected in usr/share/soda/release.json usr/libexec/soda/project-terminal usr/share/soda/project-support/project-terminal; do
+ dump.erofs --cat --path="/ostree/deploy/fedora-coreos/deploy/$deployment/$selected" "$scratch/root.erofs" | sha256sum | cut -d ' ' -f 1
+done
 "#;
     let observed = production.capture(
         root,
@@ -54,7 +56,7 @@ sha256sum "$deployment/usr/share/soda/release.json" "$deployment/usr/libexec/sod
             "--pull=never".into(),
             "--network=none".into(),
             "--read-only".into(),
-            "--privileged".into(),
+            "--cap-drop=all".into(),
             "--security-opt=label=disable".into(),
             format!("--volume={artifacts}:/out:rw"),
             "--entrypoint=/bin/bash".into(),
