@@ -73,11 +73,17 @@ worker policy. Account/helper installation requires applicable task approval.
 The measured development-candidate path took **5m30s warm / 8m29s cold** on the selected
 four-CPU x86_64 worker; [receipts](release.md)
 state that scope. The optional `--media-compression fast` flag applies only to
-`--development --target media`: it changes the development host's compression metadata
-to EROFS/LZMA level 1, not production defaults. The bounded comparison reduced media
-build time from **21m24s to 18m35s**, with a **2.85% larger rootfs** and unchanged ISO
-size. Native readback and a diskless fast-media boot passed; see the
-[owning plan](release.md) for scope/measurements.
+`--development --target media`: it selects the upstream EROFS/LZMA level 1,
+fragments and 1 MiB cluster profile. It does not qualify production media.
+
+Normal candidate production admits the reviewed upstream EROFS settings, then
+freezes LZMA level 6, fragments, global deduplication and 64 KiB clusters into
+the host's `image.json`. Native compression hints store existing `.xz` and `.gz`
+files unchanged; initramfs remains compressed so its boot/deployment copies can
+share storage. The hints ship beside `image.json` and native osbuild reads them
+from its existing `deployed-tree` input. No extra stage mount or codec is used.
+Complete media, including both installer osmet records, must still fit the
+GitHub asset limit and pass the [release qualification](release.md).
 
 The configuration names `Executable`, canonical `Source`, the separate clean committed
 `ForgejoSource`, an existing private
@@ -148,15 +154,19 @@ assets when run directly. Native page/provider journeys still belong to their
 separately authorized qualification drivers.
 
 P1–P6 builds runtime programs, the installer console and support tools once; stages
-vendor assets directly; builds/exports five apps and the native FCOS host; then
+vendor assets directly; builds/exports seven runtime images and the native FCOS host; then
 checks ELF/OCI identities, RPM inventory, embedded shared blobs and native Quadlets.
-All five images use ordinary Podman through one shared OCI layout. Obsolete payload
+All seven runtime images use ordinary Podman through one shared OCI layout.
+Podman exports uncompressed OCI layers so native EROFS can compress and deduplicate
+shared files across images once; image configs, diffIDs and filesystem contents
+stay identical. The copier preserves these exact exported descriptors.
+Obsolete payload
 readers and storage selectors are removed. No bootc installer, update engine, bound storage,
 lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inherited
 packages/bootable-container labels are not a Soda bootc integration.
 
 Outputs occupy `work/`, `artifacts/`, `evidence/`, `release/` and `logs/`.
-`artifacts/` contains the six OCI archives (five under `images/`), tool binaries and
+`artifacts/` contains the eight OCI archives (seven under `images/`), tool binaries and
 hashes, payload/candidate identities and frozen app provenance. The once-compiled
 installer is also embedded in the host; native checks bind it to the exported tool.
 For media requests, floating upstream Butane produces public `destination.ign`

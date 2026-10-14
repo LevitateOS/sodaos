@@ -74,7 +74,10 @@ fn oracle_media_compression() {
         serde_json::to_string(def).unwrap()
     ));
     compression::set_media_compression(&mut cfg_prod, "").unwrap();
-    assert_eq!(rootfs_options(&cfg_prod), def);
+    assert_eq!(
+        rootfs_options(&cfg_prod),
+        compression::RELEASE_ROOTFS_OPTIONS
+    );
     let mut cfg_fast = image_config(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
         serde_json::to_string(def).unwrap()

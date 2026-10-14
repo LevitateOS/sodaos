@@ -53,10 +53,24 @@ pub fn freeze_base_image_config(
             "/usr/share/coreos-assembler/image.json".to_string(),
         ],
     )?;
-    let image_data = freeze_image_config(&metadata, prefix, compression)?;
+    freeze_context_image_config(context_dir, &metadata, prefix, compression)
+}
+
+fn freeze_context_image_config(
+    context_dir: &str,
+    metadata: &str,
+    prefix: &str,
+    compression: &str,
+) -> Result<(), Error> {
+    let image_data = freeze_image_config(metadata, prefix, compression)?;
     files::owned_write(
-        &sys::join(&[context_dir, "rootfs/usr/share/coreos-assembler/image.json"]),
+        &sys::join(&[context_dir, "rootfs", compression::IMAGE_CONFIG_PATH]),
         image_data.as_bytes(),
+        0o644,
+    )?;
+    files::owned_write(
+        &sys::join(&[context_dir, "rootfs", compression::HINTS_IMAGE_PATH]),
+        compression::RELEASE_COMPRESSION_HINTS.as_bytes(),
         0o644,
     )
 }

@@ -9,7 +9,8 @@ fn freezing_image_config_preserves_unknown_values_and_replaces_selected_fields()
         "}".repeat(140)
     );
     let input = format!(
-        r#"{{"z":1e2,"container-imgref":"old","unknown":{{"number":1e2,"negative_zero":-0,"items":[1.0]}},"opaque":{opaque},"bootc-install-to-fs":true,"a":-0}}"#
+        r#"{{"z":1e2,"container-imgref":"old","unknown":{{"number":1e2,"negative_zero":-0,"items":[1.0]}},"opaque":{opaque},"bootc-install-to-fs":true,"a":-0,"live-rootfs-fstype":"erofs","live-rootfs-fsoptions":"{}"}}"#,
+        compression::DEFAULT_ROOTFS_OPTIONS
     );
     let got = freeze_image_config(&input, "ghcr.io/example/sodaos", "").unwrap();
     assert!(got.ends_with('\n'));
@@ -24,7 +25,7 @@ fn freezing_image_config_preserves_unknown_values_and_replaces_selected_fields()
     .map(|key| got.find(key).unwrap());
     assert!(key_positions.windows(2).all(|pair| pair[0] < pair[1]));
     let parsed: BTreeMap<String, Box<RawValue>> = serde_json::from_str(got.trim_end()).unwrap();
-    assert_eq!(parsed.len(), 6);
+    assert_eq!(parsed.len(), 8);
     assert_eq!(parsed["a"].get(), "-0");
     assert_eq!(parsed["z"].get(), "1e2");
     assert_eq!(parsed["opaque"].get(), opaque.as_str());
@@ -37,6 +38,35 @@ fn freezing_image_config_preserves_unknown_values_and_replaces_selected_fields()
         "ostree-image-signed:docker://ghcr.io/example/sodaos-host:candidate"
     );
     assert_eq!(parsed["bootc-install-to-fs"].get(), "false");
+}
+
+#[test]
+fn production_context_freezes_selected_profile_and_its_native_input() {
+    let dir = std::env::temp_dir().join(format!("sri-rootfs-profile-{}", std::process::id()));
+    fs::create_dir(&dir).unwrap();
+    let upstream = format!(
+        r#"{{"live-rootfs-fstype":"erofs","live-rootfs-fsoptions":"{}"}}"#,
+        compression::DEFAULT_ROOTFS_OPTIONS
+    );
+    freeze_context_image_config(dir.to_str().unwrap(), &upstream, "example.invalid/soda", "")
+        .unwrap();
+    let config: serde_json::Value = serde_json::from_slice(
+        &fs::read(dir.join("rootfs").join(compression::IMAGE_CONFIG_PATH)).unwrap(),
+    )
+    .unwrap();
+    let options = config["live-rootfs-fsoptions"].as_str().unwrap();
+    assert_eq!(options, compression::RELEASE_ROOTFS_OPTIONS);
+    let hints = options
+        .split_whitespace()
+        .find_map(|arg| arg.strip_prefix("--compress-hints="))
+        .unwrap()
+        .strip_prefix("/run/osbuild/inputs/deployed-tree/")
+        .unwrap();
+    assert_eq!(
+        fs::read(dir.join("rootfs").join(hints)).unwrap(),
+        b"0 [.]((xz)|(gz))$\n"
+    );
+    fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]

@@ -91,6 +91,9 @@ impl Production {
             &[
                 "--remote=false".to_string(),
                 "save".to_string(),
+                // EROFS compresses the complete release once and can deduplicate
+                // shared application bytes while preserving OCI configs/diffIDs.
+                "--uncompressed".to_string(),
                 "--format=oci-archive".to_string(),
                 "--output".to_string(),
                 file.to_string_lossy().into_owned(),

@@ -1,4 +1,4 @@
-//! `media_compression.go`: development fast-rootfs admission + readback.
+//! Admit upstream media settings and select the native release profile.
 
 use serde_json::value::{to_raw_value, RawValue};
 use std::collections::BTreeMap;
@@ -7,9 +7,15 @@ use std::fs;
 use crate::error::Error;
 use crate::sys;
 
+// Expected upstream input; the normal producer selects RELEASE_ROOTFS_OPTIONS.
 pub const DEFAULT_ROOTFS_OPTIONS: &str = "-zlzma,level=6 -Efragments -C1048576 --quiet";
+pub const RELEASE_ROOTFS_OPTIONS: &str = "-zlzma,level=6 -Efragments,dedupe -C65536 --compress-hints=/run/osbuild/inputs/deployed-tree/usr/share/coreos-assembler/soda-erofs-compress.hints --quiet";
 pub const FAST_ROOTFS_OPTIONS: &str = "-zlzma,level=1 -Efragments -C1048576 --quiet";
 pub const IMAGE_CONFIG_PATH: &str = "usr/share/coreos-assembler/image.json";
+pub const HINTS_IMAGE_PATH: &str = "usr/share/coreos-assembler/soda-erofs-compress.hints";
+// Keep initramfs compressed: plain storage loses sharing between its two
+// separate boot/deployment copies. Existing compressed archives are stored as-is.
+pub const RELEASE_COMPRESSION_HINTS: &str = "0 [.]((xz)|(gz))$\n";
 
 fn parse_image_config(text: &str) -> Result<BTreeMap<String, Box<RawValue>>, Error> {
     serde_json::from_str(text).map_err(|_| Error::msg("invalid JSON"))
@@ -48,20 +54,22 @@ pub fn set_media_compression(
     config: &mut BTreeMap<String, Box<RawValue>>,
     mode: &str,
 ) -> Result<(), Error> {
-    if mode.is_empty() {
-        return Ok(()); // production and ordinary development preserve upstream defaults
-    }
-    if mode != "fast"
+    if !matches!(mode, "" | "fast")
         || exact_string(config, "live-rootfs-fstype").as_deref() != Some("erofs")
         || exact_string(config, "live-rootfs-fsoptions").as_deref() != Some(DEFAULT_ROOTFS_OPTIONS)
     {
         return Err(Error::msg(
-            "fast media requires the reviewed upstream EROFS/LZMA defaults",
+            "media requires the reviewed upstream EROFS/LZMA defaults",
         ));
     }
     config.insert(
         "live-rootfs-fsoptions".to_string(),
-        to_raw_value(FAST_ROOTFS_OPTIONS).expect("serializing a string cannot fail"),
+        to_raw_value(if mode == "fast" {
+            FAST_ROOTFS_OPTIONS
+        } else {
+            RELEASE_ROOTFS_OPTIONS
+        })
+        .expect("serializing a string cannot fail"),
     );
     Ok(())
 }
@@ -97,15 +105,23 @@ mod tests {
             serde_json::to_string(DEFAULT_ROOTFS_OPTIONS).unwrap()
         ));
         set_media_compression(&mut config, "").unwrap();
-        assert_eq!(settings(&config).unwrap().1, DEFAULT_ROOTFS_OPTIONS);
+        assert_eq!(settings(&config).unwrap().1, RELEASE_ROOTFS_OPTIONS);
+        let mut config = parsed_config(&format!(
+            "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
+            serde_json::to_string(DEFAULT_ROOTFS_OPTIONS).unwrap()
+        ));
         set_media_compression(&mut config, "fast").unwrap();
         assert_eq!(settings(&config).unwrap().1, FAST_ROOTFS_OPTIONS);
 
         let mut config = parsed_config(r#"{"live-rootfs-fstype":"xfs"}"#);
         assert_eq!(
             set_media_compression(&mut config, "fast").unwrap_err().0,
-            "fast media requires the reviewed upstream EROFS/LZMA defaults"
+            "media requires the reviewed upstream EROFS/LZMA defaults"
         );
+        assert!(set_media_compression(&mut config, "").is_err());
+        let mut config =
+            parsed_config(r#"{"live-rootfs-fstype":"erofs","live-rootfs-fsoptions":"unreviewed"}"#);
+        assert!(set_media_compression(&mut config, "").is_err());
         let mut config = parsed_config(&format!(
             "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
             serde_json::to_string(DEFAULT_ROOTFS_OPTIONS).unwrap()
