@@ -1,12 +1,23 @@
-//! Thin operator entrypoint for GitHub staging and exact install/boot promotion.
+//! Thin operator entrypoint for local preparation, GitHub staging and promotion.
 use clap::{Arg, ArgAction, Command};
 use soda_release_deliver::publish;
 use std::path::Path;
 
 fn command() -> Command {
-    let stage = ["candidate", "tag", "notes", "out"].into_iter().fold(
-        Command::new("stage").about("Publish an explicitly unqualified immutable prerelease"),
-        |c, name| c.arg(Arg::new(name).long(name).required(true).num_args(1)),
+    let release_inputs = |action, help| {
+        ["candidate", "tag", "notes", "out"]
+            .into_iter()
+            .fold(Command::new(action).about(help), |c, name| {
+                c.arg(Arg::new(name).long(name).required(true).num_args(1))
+            })
+    };
+    let prepare = release_inputs(
+        "prepare",
+        "Prepare the complete release bundle locally without publication",
+    );
+    let stage = release_inputs(
+        "stage",
+        "Publish an explicitly unqualified immutable prerelease",
     );
     let promote = ["input", "downloaded-iso", "observed-revision"]
         .into_iter()
@@ -29,6 +40,7 @@ fn command() -> Command {
     );
     Command::new("soda-release")
         .subcommand_required(true)
+        .subcommand(prepare)
         .subcommand(stage)
         .subcommand(promote)
         .subcommand(qualify_upgrade)
@@ -58,7 +70,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
         )
         .map(|_| ())
         .map_err(|e| e.to_string()),
-        "stage" => {
+        "prepare" | "stage" => {
             let manifest = publish::prepare(
                 Path::new(get("candidate")?),
                 get("tag")?,
@@ -66,8 +78,12 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
                 Path::new(get("out")?),
             )
             .map_err(|e| e.to_string())?;
-            publish::stage(&publish::Gh, &manifest, Path::new(get("out")?))
-                .map_err(|e| e.to_string())
+            if action == "stage" {
+                publish::stage(&publish::Gh, &manifest, Path::new(get("out")?))
+                    .map_err(|e| e.to_string())
+            } else {
+                Ok(())
+            }
         }
         "promote" => publish::promote(
             &publish::Gh,
@@ -92,9 +108,26 @@ mod tests {
     #[test]
     fn release_cli_requires_exact_inputs_and_handles_help() {
         assert!(run(["soda-release", "--help"].map(str::to_owned)).is_ok());
+        assert!(run(["soda-release", "prepare"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "stage"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "qualify-upgrade"].map(str::to_owned)).is_err());
         assert!(run(["soda-release", "promote", "--input", "missing"].map(str::to_owned)).is_err());
+        for action in ["prepare", "stage"] {
+            assert!(command()
+                .try_get_matches_from([
+                    "soda-release",
+                    action,
+                    "--candidate",
+                    "candidate",
+                    "--tag",
+                    "v0.1.0",
+                    "--notes",
+                    "notes.md",
+                    "--out",
+                    "new-release",
+                ])
+                .is_ok());
+        }
         let promote = [
             "soda-release",
             "promote",

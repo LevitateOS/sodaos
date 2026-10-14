@@ -122,8 +122,21 @@ Staging enforces the 2 GiB per-asset limit before upload.
 The isolated worker uses a local artifact-signing key for authenticated packaging;
 GitHub authenticates distribution separately.
 
-Enable immutable releases once in the repository settings. With the installed
-`gh` client authenticated for this repository, prepare release notes and stage:
+For local release preparation without publication, supply release notes and a
+new output directory:
+
+```sh
+soda-release prepare --candidate /BUILD/artifacts \
+  --tag v0.1.0 \
+  --notes /PRIVATE/candidate-notes.md --out /PRIVATE/new-release
+```
+
+This checks and copies the complete bound asset set using the same preparation
+as `stage`, including asset limits and any required upgrade qualification receipt.
+It does not contact GitHub, create a tag, publish, or qualify the release.
+
+To publish, enable immutable releases once in the repository settings. With the
+installed `gh` client authenticated for this repository, use a new output directory:
 
 ```sh
 soda-release stage --candidate /BUILD/artifacts \
