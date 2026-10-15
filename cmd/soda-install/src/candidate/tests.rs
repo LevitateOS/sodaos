@@ -109,15 +109,27 @@ fn authenticates_thin_media_without_bundled_images() {
 #[test]
 fn destination_keeps_password_only_provisioning() {
     let template = br#"{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}"#;
-    let factory =
-        br#"{"network":"soda-projects","bridge":"soda0","subnet":"","tailnet_management":false}"#;
+    let defaults_root = tempfile::tempdir().unwrap();
+    let config = defaults_root.path().join("etc/soda");
+    std::fs::create_dir_all(&config).unwrap();
+    for name in ["forgejo.env", "proxy.Caddyfile"] {
+        std::fs::write(config.join(name), b"").unwrap();
+    }
+    soda_release_image::complete::write_factory_defaults(defaults_root.path().to_str().unwrap())
+        .unwrap();
+    let factory = std::fs::read(
+        defaults_root
+            .path()
+            .join("usr/share/soda/defaults/host.example.json"),
+    )
+    .unwrap();
     let choices = DiskInstallChoices {
         hostname: "soda-tester".to_string(),
         password_hash: format!("$6$salt${}", "a".repeat(86)),
         subnet: "10.89.0.0/24".to_string(),
         ..DiskInstallChoices::default()
     };
-    let data = candidate_destination(template, factory, &choices).unwrap();
+    let data = candidate_destination(template, &factory, &choices).unwrap();
     let value: serde_json::Value = serde_json::from_slice(&data).unwrap();
     let passwd = value.get("passwd").unwrap();
     let users = passwd.get("users").unwrap().as_array().unwrap();
@@ -162,6 +174,7 @@ fn destination_keeps_password_only_provisioning() {
             );
             assert!(machine.get("image").is_none());
             assert!(machine.get("tailnet_image").is_none());
+            assert!(machine.get("tailnet_management").is_none());
         }
     }
     assert!(seen);
@@ -170,20 +183,27 @@ fn destination_keeps_password_only_provisioning() {
     assert!(!text.contains("soda-install continue"));
     assert!(candidate_destination(
         br#"{"ignition":{"version":"3.5.0"},"storage":{"files":[{"path":"/etc/soda/host.json"}]}}"#,
-        factory,
+        &factory,
         &choices
     )
     .is_err());
     assert!(candidate_destination(template, br#"{"subnet":"10.0.0.0/24"}"#, &choices).is_err());
     assert!(candidate_destination(
         template,
-        br#"{"network":"first","network":"last","bridge":"soda0","subnet":"","tailnet_management":false}"#,
+        br#"{"network":"first","network":"last","bridge":"soda0","subnet":""}"#,
         &choices,
-    ).is_err());
+    )
+    .is_err());
 
+    assert!(candidate_destination(
+        template,
+        br#"{"network":"soda-projects","bridge":"soda0","subnet":"","tailnet_management":false}"#,
+        &choices
+    )
+    .is_err());
     let escaped = candidate_destination(
         template,
-        br#"{"network":"<>&","bridge":"soda0","subnet":"","tailnet_management":false}"#,
+        br#"{"network":"<>&","bridge":"soda0","subnet":""}"#,
         &choices,
     )
     .unwrap();
@@ -200,6 +220,6 @@ fn destination_keeps_password_only_provisioning() {
             .unwrap();
     assert_eq!(
         String::from_utf8(machine).unwrap(),
-        r#"{"bridge":"soda0","network":"\u003c\u003e\u0026","subnet":"10.89.0.0/24","tailnet_management":false}"#
+        r#"{"bridge":"soda0","network":"\u003c\u003e\u0026","subnet":"10.89.0.0/24"}"#
     );
 }

@@ -70,7 +70,6 @@ struct MachineDefaults {
     bridge: String,
     network: String,
     subnet: String,
-    tailnet_management: bool,
 }
 
 fn rewrite_candidate_host_file(
@@ -107,7 +106,7 @@ pub fn candidate_destination(
     let factory_text = String::from_utf8_lossy(factory);
     let mut defaults: MachineDefaults = serde_json::from_str(&factory_text)
         .map_err(|_| Error::msg("invalid native machine defaults"))?;
-    if !defaults.subnet.is_empty() || defaults.tailnet_management {
+    if !defaults.subnet.is_empty() {
         return Err(Error::msg("invalid native machine defaults"));
     }
     if defaults.bridge.is_empty() || defaults.network.is_empty() {
