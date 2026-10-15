@@ -1,0 +1,267 @@
+name: Deep regression CI
+
+on:
+  push:
+    branches: [main]
+    # Qualify a commit before pushing it to protected main without a new branch.
+    tags: ['ci/soda-full-*']
+  pull_request:
+  workflow_dispatch:
+  merge_group:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deep-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GOTOOLCHAIN: local
+  GOWORK: 'off'
+  GOFLAGS: -mod=readonly
+  CGO_ENABLED: '0'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  go:
+    name: Go and source guards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: sodaos
+    services:
+      postgres:
+        image: postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env:
+          POSTGRES_PASSWORD: soda-ci-fixture
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 6
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Read Fountain source pin
+        id: fountain
+        run: |
+          jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
+          jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
+          # Unix sockets have a 108-byte path limit; keep test scratch short.
+          ci_tmp=$(mktemp -d "$HOME/t.XXXXXX")
+          echo "TMPDIR=$ci_tmp" >> "$GITHUB_ENV"
+      - name: Check out the selected Fountain source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ steps.fountain.outputs.repository }}
+          ref: ${{ steps.fountain.outputs.revision }}
+          path: forgejo-ext
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: sodaos/go.mod
+          cache-dependency-path: sodaos/go.sum
+      - name: Set up Bun from package.json
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: sodaos/package.json
+      - name: Set up the repository-selected Rust toolchain
+        run: rustup toolchain install --profile minimal --no-self-update
+      - name: Cache locked Cargo downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install locked source dependencies
+        run: bun install --frozen-lockfile
+      - name: Run Go checks with PostgreSQL
+        env:
+          SODA_PG_HOST: 127.0.0.1
+          SODA_PG_PORT: '5432'
+        run: |
+          umask 077
+          export SODA_PG_SUPER_PASSWORD_FILE="$TMPDIR/postgres.passwd"
+          printf '%s' 'soda-ci-fixture' > "$SODA_PG_SUPER_PASSWORD_FILE"
+          test -s "$SODA_PG_SUPER_PASSWORD_FILE"
+          bun run check:source go
+
+  browser:
+    name: TypeScript and browser checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sodaos
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Read Fountain source pin
+        id: fountain
+        run: |
+          jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
+          jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
+          ci_tmp=$(mktemp -d "$HOME/t.XXXXXX")
+          echo "TMPDIR=$ci_tmp" >> "$GITHUB_ENV"
+      - name: Check out the selected Fountain source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ${{ steps.fountain.outputs.repository }}
+          ref: ${{ steps.fountain.outputs.revision }}
+          path: forgejo-ext
+          persist-credentials: false
+      - name: Set up Bun from package.json
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: sodaos/package.json
+      - name: Set up the repository-selected Rust toolchain
+        run: rustup toolchain install --profile minimal --no-self-update
+      - name: Cache locked Cargo downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install locked browser tooling
+        run: |
+          bun install --frozen-lockfile
+          bun --bun node_modules/playwright/cli.js install --with-deps chromium
+      - name: Install Fountain browser fixture dependencies
+        working-directory: forgejo-ext
+        # Bun imports the exact checkout's upstream lock without running scripts.
+        run: bun install --frozen-lockfile --ignore-scripts --no-progress
+      - name: Enable the Chromium sandbox on Ubuntu
+        run: |
+          # Ubuntu restricts user namespaces for downloaded Chromium binaries.
+          # Admit only Playwright's browsers; retain Chromium's own sandbox.
+          sudo tee /etc/apparmor.d/soda-ci-playwright >/dev/null <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile soda-ci-playwright "$HOME/.cache/ms-playwright/**/chrome{,-headless-shell}" flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser --replace /etc/apparmor.d/soda-ci-playwright
+          bun -e "import {chromium} from 'playwright'; const browser = await chromium.launch({headless: true, chromiumSandbox: true}); await browser.close();"
+      - name: Run TypeScript and browser checks
+        run: bun run check:source browser
+
+  rust:
+    name: Rust workspace tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: sodaos
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Read Fountain source pin
+        id: fountain
+        run: |
+          jq -e 'keys == ["repository", "revision"] and (.repository | test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")) and (.revision | test("^[0-9a-f]{40}$"))' fountain-source.json >/dev/null
+          jq -r '"repository=\(.repository)\nrevision=\(.revision)"' fountain-source.json >> "$GITHUB_OUTPUT"
+          ci_tmp=$(mktemp -d "$HOME/t.XXXXXX")
+          echo "TMPDIR=$ci_tmp" >> "$GITHUB_ENV"
+      - name: Check out the selected Fountain source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ steps.fountain.outputs.repository }}
+          ref: ${{ steps.fountain.outputs.revision }}
+          path: forgejo-ext
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: sodaos/go.mod
+          cache: false
+      - name: Set up Bun from package.json
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: sodaos/package.json
+      - name: Set up the repository-selected Rust toolchain
+        run: rustup toolchain install --profile minimal --no-self-update
+      - name: Cache locked Cargo downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('sodaos/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install locked source dependencies
+        run: bun install --frozen-lockfile
+      - name: Run Rust tests including Docker provenance, packaging and admission contracts
+        # Only the controller crate's process-environment and TCP lifetime
+        # fixtures require serialization; other workspace tests stay parallel.
+        run: |
+          cargo test --workspace --exclude soda-release-tools --locked --no-fail-fast
+          cargo test -p soda-release-tools --locked --no-fail-fast -- --test-threads=1
+
+  packaging:
+    name: Docker packaging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: sodaos
+    steps:
+      - name: Check out Soda
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sodaos
+          persist-credentials: false
+      - name: Install verified Dockerfile linter
+        run: |
+          mkdir -p .artifacts/docker-ci/tools
+          curl --fail --silent --show-error --location \
+            https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-x86_64 \
+            --output .artifacts/docker-ci/tools/hadolint
+          printf '%s\n' 'c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507  .artifacts/docker-ci/tools/hadolint' | sha256sum --check
+          chmod 0755 .artifacts/docker-ci/tools/hadolint
+          echo "$PWD/.artifacts/docker-ci/tools" >> "$GITHUB_PATH"
+      - name: Check Dockerfile and Compose deployment contract
+        run: bash scripts/check-docker-packaging.sh
+
+  ci:
+    name: Deep CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    needs: [go, browser, rust, packaging]
+    if: ${{ always() }}
+    steps:
+      - name: Require all source jobs to pass
+        env:
+          GO_RESULT: ${{ needs.go.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          PACKAGING_RESULT: ${{ needs.packaging.result }}
+        run: |
+          expected=success
+          test "$GO_RESULT" = "$expected"
+          test "$BROWSER_RESULT" = "$expected"
+          test "$RUST_RESULT" = "$expected"
+          test "$PACKAGING_RESULT" = "$expected"

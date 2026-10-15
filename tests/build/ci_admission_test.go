@@ -2,6 +2,7 @@ package build
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,6 +32,7 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 	env := os.Environ()
 	env = SetEnv(env, "REUSE_RESULT", "success")
 	env = SetEnv(env, "REUSED_CHECKS", "false")
+	env = SetEnv(env, "GATE_STARTED_AT", fmt.Sprint(time.Now().Unix()))
 	for job, key := range map[string]string{
 		"go": "GO_RESULT", "browser": "BROWSER_RESULT", "rust": "RUST_RESULT", "packaging": "PACKAGING_RESULT",
 	} {
@@ -46,6 +48,12 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 		return Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", "-eu", "-c", gate.Steps[0].Run)
 	}
 	Require(t, run(env).Code == 0, "successful source jobs should pass CI")
+	for _, started := range []string{fmt.Sprint(time.Now().Unix() - 300), fmt.Sprint(time.Now().Unix() + 60), "", "invalid"} {
+		Check(t, run(SetEnv(append([]string(nil), env...), "GATE_STARTED_AT", started)).Code != 0, "CI admitted expired/invalid time %q", started)
+	}
+	for _, reused := range []string{"", "invalid"} {
+		Check(t, run(SetEnv(append([]string(nil), env...), "REUSED_CHECKS", reused)).Code != 0, "CI admitted invalid reuse decision")
+	}
 	reused := SetEnv(append([]string(nil), env...), "REUSED_CHECKS", "true")
 	for _, key := range []string{"GO_RESULT", "BROWSER_RESULT", "RUST_RESULT", "PACKAGING_RESULT"} {
 		reused = SetEnv(reused, key, "skipped")
@@ -64,7 +72,7 @@ func TestCIRequiresDockerPackagingAndRefusesIncompleteJobs(t *testing.T) {
 
 func TestCIReuseRequiresTheLatestSuccessfulExactTagRun(t *testing.T) {
 	sha := strings.Repeat("a", 40)
-	valid := map[string]any{"id": 23, "head_sha": sha, "head_branch": "ci/soda-main-" + sha[:12], "event": "push", "path": ".github/workflows/ci.yml", "status": "completed", "conclusion": "success"}
+	valid := map[string]any{"id": 23, "head_sha": sha, "head_branch": "ci/soda-main-" + sha, "event": "push", "path": ".github/workflows/ci.yml", "status": "completed", "conclusion": "success"}
 	cases := []struct {
 		name, field string
 		value       any
@@ -96,10 +104,10 @@ func TestCIReuseRequiresTheLatestSuccessfulExactTagRun(t *testing.T) {
 			}
 			reply := filepath.Join(dir, "reply.json")
 			Require(t, os.WriteFile(reply, body, 0o600) == nil, "write CI fixture")
-			Require(t, os.WriteFile(filepath.Join(dir, "gh"), []byte("#!/bin/sh\nif test \"${CI_API_FAILED:-}\" = true; then exit 1; fi\ncat \"$CI_REPLY\"\n"), 0o700) == nil, "write gh fixture")
+			Require(t, os.WriteFile(filepath.Join(dir, "gh"), []byte("#!/bin/sh\ncase \"$2\" in */attempts/*) date -u +%Y-%m-%dT%H:%M:%SZ; exit 0 ;; esac\nif test \"${CI_API_FAILED:-}\" = true; then exit 1; fi\ncat \"$CI_REPLY\"\n"), 0o700) == nil, "write gh fixture")
 			output := filepath.Join(dir, "output")
 			env := os.Environ()
-			for key, value := range map[string]string{"PATH": dir + ":" + os.Getenv("PATH"), "TMPDIR": dir, "GITHUB_EVENT_NAME": "push", "GITHUB_REF": "refs/heads/main", "GITHUB_RUN_ATTEMPT": "1", "GITHUB_SHA": sha, "GITHUB_REPOSITORY": "example/sodaos", "GITHUB_OUTPUT": output, "CI_REPLY": reply} {
+			for key, value := range map[string]string{"PATH": dir + ":" + os.Getenv("PATH"), "TMPDIR": dir, "GITHUB_RUN_ID": "42", "GITHUB_EVENT_NAME": "push", "GITHUB_REF": "refs/heads/main", "GITHUB_RUN_ATTEMPT": "1", "GITHUB_SHA": sha, "GITHUB_REPOSITORY": "example/sodaos", "GITHUB_OUTPUT": output, "CI_REPLY": reply} {
 				env = SetEnv(env, key, value)
 			}
 			if tc.name == "api-error" {
@@ -111,7 +119,7 @@ func TestCIReuseRequiresTheLatestSuccessfulExactTagRun(t *testing.T) {
 				result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 10 * time.Second}, "/bin/bash", "scripts/ci-reuse.sh")
 				Require(t, result.Code == 0, "reuse decision failed: %s", result.Stderr)
 				got, err := os.ReadFile(output)
-				Require(t, err == nil && string(got) == "reused="+expected+"\n", "unexpected reuse result: %s", got)
+				Require(t, err == nil && strings.HasPrefix(string(got), "started_at=") && strings.HasSuffix(string(got), "\nreused="+expected+"\n"), "unexpected reuse result: %s", got)
 			}
 			expected := "false"
 			if tc.name == "passed" {
@@ -119,7 +127,7 @@ func TestCIReuseRequiresTheLatestSuccessfulExactTagRun(t *testing.T) {
 			}
 			check(expected)
 			if tc.name == "passed" {
-				for key, value := range map[string]string{"GITHUB_EVENT_NAME": "pull_request", "GITHUB_REF": "refs/tags/ci/soda-main-" + sha[:12], "GITHUB_RUN_ATTEMPT": "2"} {
+				for key, value := range map[string]string{"GITHUB_EVENT_NAME": "pull_request", "GITHUB_REF": "refs/tags/ci/soda-main-" + sha, "GITHUB_RUN_ATTEMPT": "2"} {
 					original := append([]string(nil), env...)
 					env = SetEnv(env, key, value)
 					check("false")
@@ -127,5 +135,20 @@ func TestCIReuseRequiresTheLatestSuccessfulExactTagRun(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPushCommandEnforcesFiveMinuteMaximum(t *testing.T) {
+	dir := t.TempDir()
+	WriteFile(t, filepath.Join(dir, "git"), []byte("#!/bin/sh\nsleep 60\n"), 0o700)
+	env := SetEnv(os.Environ(), "PATH", dir+":"+os.Getenv("PATH"))
+	env = SetEnv(env, "SODA_PUSH_BOUNDED", "")
+	env = SetEnv(env, "SODA_PUSH_TIMEOUT_SECONDS", "2")
+	started := time.Now()
+	result := Run(t, RunOpt{Cwd: RepoRoot, Env: env, Timeout: 5 * time.Second}, "/bin/bash", "scripts/push.sh")
+	Check(t, result.Code != 0 && time.Since(started) < 3*time.Second && strings.Contains(result.Stderr, "Push budget expired"), "publisher failed to bound network wait: %+v", result)
+	for _, budget := range []string{"0", "301", "invalid"} {
+		result := Run(t, RunOpt{Cwd: RepoRoot, Env: SetEnv(env, "SODA_PUSH_TIMEOUT_SECONDS", budget), Timeout: 5 * time.Second}, "/bin/bash", "scripts/push.sh")
+		Check(t, result.Code != 0, "publisher admitted budget %q", budget)
 	}
 }

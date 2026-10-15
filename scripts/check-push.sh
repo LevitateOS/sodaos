@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Focused push contracts; complete native/cross-language suites live in deep CI.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+[[ $# == 1 ]] || exit 2
+export GOWORK=off GOFLAGS=-mod=readonly CGO_ENABLED=0 GOTOOLCHAIN=local GOOS=linux
+case $1 in
+  core|store|web)
+    pinned=$(sed -n 's/^go //p' go.mod)
+    [[ $(go version) == "go version go$pinned linux/amd64" ]]
+    : "${SODA_PG_HOST:?Disposable PostgreSQL is required}"
+    : "${SODA_PG_PORT:?Disposable PostgreSQL is required}"
+    [[ -s ${SODA_PG_SUPER_PASSWORD_FILE:?Restricted PostgreSQL password file is required} ]]
+    case $1 in
+      core)
+        go mod verify
+        listed=$(go list ./cmd/... ./internal/... ./tools/...)
+        mapfile -t packages < <(printf '%s\n' "$listed" | \
+          grep -vE '/(internal/(store|web(/.*)?|factory/control|identity/client)|tools/soda-installed-probes)$')
+        (( ${#packages[@]} > 0 ))
+        go test -count=1 "${packages[@]}"
+        go test -count=1 ./tests/build -run '^(TestCI|TestSource|TestPush)'
+        bash scripts/check-sql-locality.sh
+        bash scripts/check-no-npm.sh
+        bash scripts/check-no-python.sh
+        ;;
+      store) go test -count=1 ./internal/store ;;
+      web) go test -count=1 ./internal/web/... ;;
+    esac
+    ;;
+  browser)
+    [[ $(bun --version) == $(bun -p "require('./package.json').packageManager.split('@')[1]") ]]
+    bun run typecheck
+    bun test tests/forgejo/presentation/form-source.test.ts \
+      tests/forgejo/presentation/settings-source.test.ts \
+      tests/forgejo/presentation/repository-settings-source.test.ts \
+      tests/forgejo/presentation/inventory.test.ts
+    ;;
+  rust)
+    cargo test --locked -p soda-wire-time -p soda-unix-http -p soda-build-tools --lib
+    ;;
+  *) exit 2 ;;
+esac

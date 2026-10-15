@@ -2,9 +2,13 @@
 # A protected-main push can reuse the exact commit's completed qualification tag.
 # PRs, tag pushes and explicit reruns always execute the source suites.
 set -euo pipefail
+attempt=${GITHUB_RUN_ATTEMPT:-1}
+[[ $attempt =~ ^[1-9][0-9]*$ ]]
+started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$attempt" --jq .run_started_at)
+printf 'started_at=%s\n' "$(date --date="$started" +%s)" >> "$GITHUB_OUTPUT"
 reused=false
 if [[ ${GITHUB_EVENT_NAME:-} == push && ${GITHUB_REF:-} == refs/heads/main && ${GITHUB_RUN_ATTEMPT:-} == 1 && ${GITHUB_SHA:-} =~ ^[0-9a-f]{40}$ ]]; then
-  tag="ci/soda-main-${GITHUB_SHA:0:12}"
+  tag="ci/soda-main-$GITHUB_SHA"
   result=$(mktemp "${TMPDIR:-$HOME}/soda-ci-reuse.XXXXXXXX")
   trap 'rm -f "$result"' EXIT
   if gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=$tag&event=push&per_page=1" > "$result"; then

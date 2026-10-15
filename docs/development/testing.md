@@ -37,33 +37,49 @@ for asset tooling, but does not require Go or PostgreSQL.
 
 ### GitHub CI
 
-The [CI workflow](../../.github/workflows/ci.yml) runs on pull requests, pushes to
-`main`, merge groups and manual dispatch. Three independent Linux jobs run Go and
-source guards, TypeScript and browser checks, and Rust workspace tests. Browser
-feedback does not wait for the database suites. The Go job starts PostgreSQL 17 and
-passes the restricted fixture password file so database tests cannot silently
-skip for lack of a fixture. Browser fixtures use the repository-selected Playwright
-Chromium. No job starts an appliance or contacts an AI provider.
-On Ubuntu, a scoped AppArmor profile admits Playwright's Chromium binaries to
-user namespaces so the browser sandbox remains enabled. Its launch preflight
-runs before the browser suite.
+The required [push workflow](../../.github/workflows/ci.yml) runs on pull requests,
+main pushes, merge groups, manual dispatch and immutable
+`ci/soda-main-FULL_COMMIT_SHA` tags. After committing a clean candidate, run:
 
-All three jobs check out the exact Fountain source from
-[`fountain-source.json`](../../fountain-source.json) beside Soda as `forgejo-ext`.
-The browser job installs Fountain's fixture dependencies through Bun's frozen
-upstream-lock import, with dependency scripts disabled.
-Go and Bun versions come from their manifests; Rust follows `rust-toolchain.toml`.
-Actions are pinned to full commit hashes, with grouped Dependabot updates.
-Outdated runs on the same PR/ref are cancelled. The required `CI` result fails
-unless all three jobs succeeded, including when a dependency job failed or was skipped.
-The protected `main` branch requires this check from GitHub Actions and requires
-the candidate to be up to date with `main`; the rule also applies to administrators.
-Use a branch and pull request for subsequent changes. No separate reviewer
-approval is required by this CI policy.
+```sh
+bash scripts/push.sh
+```
 
-Source CI does not rebuild the OS. The local build, public download smoke and
-immutable publication remain the [release workflow](release.md). Use focused local
-checks during implementation; let one hosted run exercise the workflow itself.
+The command qualifies that exact SHA, verifies its workflow and GitHub Actions
+app, and ordinarily fast-forwards protected main after success. The complete
+command, including network waits and publication, has a hard **300-second limit**.
+A shorter `SODA_PUSH_TIMEOUT_SECONDS` is allowed; values above 300 are refused.
+If a timeout interrupts publication, inspect origin before retrying. Never move
+a qualification tag to different bytes or bypass protection after a failure.
+
+The required `CI` aggregate rejects missing, failed, cancelled or unexpected
+skipped jobs, invalid reuse decisions, and qualification ages of 300 seconds or
+more. Each check job has a four-minute limit. Queue delays do not qualify a commit.
+Main admission reuses only its identical full SHA's latest successful push-tag
+run of this workflow; tag runs, PRs and reruns execute fresh checks. No path filter
+exempts source. Compiler/download caches do not replace `go test -count=1`.
+
+| Push lane | Blocking scope |
+| --- | --- |
+| Go | Parallel core, Store and Web suites: Go command/internal/tool packages except native factory-control, identity-client and installed-probe integrations; focused CI/source-driver contracts, module integrity, SQL locality, no-npm and no-Python guards. All three jobs must pass. |
+| PostgreSQL | Every Go job receives PostgreSQL 17 and a required restricted fixture password file; Store/Web tests execute against real disposable databases. |
+| Browser source | Full strict TypeScript/Lit analysis and fixtures; native form, personal/repository settings and presentation-inventory source contracts. |
+| Rust | Wire-time, Unix HTTP and release-input foundation library tests with the committed lock. |
+| Packaging | Checksum-pinned Hadolint, Compose deployment and readiness contracts. |
+
+The protected main branch still requires `CI` from GitHub Actions, an up-to-date
+candidate and administrator enforcement; force pushes and deletion stay disabled.
+No additional reviewer approval is required by this policy.
+
+The separate [deep workflow](../../.github/workflows/deep-ci.yml), required for
+full regression/release evidence, preserves the complete previous Go, real
+Chromium, Rust workspace and packaging suites. It runs on main pushes, PRs,
+merge groups, dispatch and `ci/soda-full-*` tags under `Deep CI`. **It does not
+block routine pushes.** It always runs its suites independently of push-receipt
+reuse. A fast push pass does not prove native integration or release qualification.
+It checks out the exact Fountain source pin and retains mandatory PostgreSQL and
+Chromium sandbox setup. Source CI does not rebuild the OS; native builds and
+publication remain the [release workflow](release.md).
 
 ## Native stage
 
