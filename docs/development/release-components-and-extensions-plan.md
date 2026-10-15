@@ -501,7 +501,11 @@ required-package catalog/cache contract; its focused repair is committed separat
   generic optional packages; actual TLS acquisition/backend tests cover both
   controller bindings. Terminal acquisition errors remain observable after
   definite pre-effect failure. The canonical lifecycle package passes; final
-  native acceptance still requires the new component image.
+  native acceptance now also passes against the new committed component:
+  actual Soda controller, official host daemon, backend-loss cleanup, unknown
+  resource preservation and explicit retry. The actual image/config and source
+  archives are sealed as fixture-only Fountain 15.0.10-fountain.3; this remains
+  component evidence rather than accepted Source/Target appliance qualification.
 - [ ] **F04 — Admin UI + maintenance contract.** F; F03. REOPENED 2026-10-15 (REVIEW-026, maintenance-guard item):
   native admin routes (401/403/Origin/CAS, 4KiB forms, 303 CAS wiring),
   manager-control snapshot/reconcile/cache endpoints, actual middleware
@@ -517,8 +521,12 @@ required-package catalog/cache contract; its focused repair is committed separat
   now uses one catalog/installed inventory with durable form pins, keeps cleanup
   actions on failed rows, and reloads server-rendered controls after observed
   state/generation changes. Canonical router tests, actual template rendering,
-  five browser tests and lint pass. A new committed component image is building;
-  native UI acceptance and shipping qualification remain open.
+  five browser tests, TypeScript and lint pass. The new image passes startup,
+  assets, required extension handshake and persistent restart. Trusted native
+  admin enable/disable automatically refresh Settings/actions/pins, failed cleanup
+  stops polling, failed-backend Disable works, and real member requests are denied.
+  No template override supplies these fixes. Private Project data/states survive;
+  joint fresh-media and maintenance qualification remain open.
 - [x] **T01 — Required controller + exact authority.** T; R01, F03, T00. CLOSED 2026-10-15:
   controller→Go-route→Rust-RPC with exact SDK tuple/callback, ForwardUnix
   seam consumed, bad authority zero effects (Lifecycle tests PASS rerun by
@@ -623,8 +631,10 @@ required-package catalog/cache contract; its focused repair is committed separat
   The other Fountain writer has completed. Its work was preserved, and local
   commits `4b71adac9d`/`a4fd2221f1` repair lifecycle, acquisition and generic UI
   status/actions. A new component is being built from that exact committed
-  source; native checks against those shipping bytes and qualification remain
-  open. The older fixture image is not evidence for the new component.
+  source and has passed the above native component/UI/failure checks. Exact
+  component metadata and source archives are prepared for a fresh Source run;
+  joint appliance/maintenance qualification remains open. The older failed
+  fixture is retained solely as a diagnostic host, not an accepted baseline.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
