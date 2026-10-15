@@ -141,6 +141,10 @@ pub fn configure_complete_systemd(source: &str, root: &str) -> Result<(), Error>
             "system/host/image/retained-images.conf",
             "usr/lib/systemd/system/soda-host.service.d/10-images.conf",
         ),
+        (
+            "system/host/image/retained-images.conf",
+            "usr/lib/systemd/system/soda-host.socket.d/10-images.conf",
+        ),
     ];
     pairs.sort();
     for (from, to) in pairs {
@@ -211,6 +215,39 @@ pub fn complete(source: &str, context: &str, payload: &model::Payload) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn image_acquisition_gates_host_socket_and_service() {
+        let dir = std::env::temp_dir().join(format!("sri-order-{}", std::process::id()));
+        let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let systemd = dir.join("usr/lib/systemd/system");
+        fs::create_dir_all(&systemd).unwrap();
+        fs::write(
+            systemd.join("soda-project@.service"),
+            "[Unit]\nDescription=Project\n",
+        )
+        .unwrap();
+        configure_complete_systemd(source.to_str().unwrap(), dir.to_str().unwrap()).unwrap();
+        // A listening socket with only its service gated repeatedly activates a
+        // failed dependency and hits systemd's trigger limit during acquisition.
+        for name in [
+            "soda-host.socket.d/10-images.conf",
+            "soda-host.service.d/10-images.conf",
+            "soda-project@.service",
+        ] {
+            let text = fs::read_to_string(systemd.join(name)).unwrap();
+            assert!(
+                text.contains("Requires=soda-image-import.service"),
+                "{name}"
+            );
+            assert!(text.contains("After=soda-image-import.service"), "{name}");
+        }
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn oracle_complete_refuses_before_payload() {
