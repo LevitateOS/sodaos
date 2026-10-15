@@ -48,7 +48,8 @@ The existing build now pulls the unchanged selected Forgejo/Caddy references for
 
 `soda-build` produces unqualified release media by default. Production distribution
 selection packages the appliance, Docker runtime or both from the same candidate.
-Its explicit development targets stop at candidate, media or Docker;
+Its explicit development targets stop at candidate, media, Docker, or the
+combined `all` target (`--development --target all --distribution all`);
 `soda-candidate` remains a development wrapper. Publication and qualification
 belong to `soda-release`.
 Retained `.artifacts/native/` trees may still be read by maintenance tools.
@@ -143,8 +144,26 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --rootfs-base-url http://FIXTURE_ADDRESS:PORT \
   --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
-# For faster installer iteration, add --media-compression fast to the media command.
-# This selects a distinct development host/ISO, not production qualification.
+# Source fixture S: installer development with the v4 release tag the native
+# package URLs need. Stays purpose=development; never qualifies or publishes.
+sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
+  --arch x86_64 --out /OUTPUT_PARENT/S_UNIQUE --development --target media \
+  --rootfs-base-url http://FIXTURE_ADDRESS:PORT --release-tag vFIXTURE.0-dev \
+  --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
+
+# Combined target T: one shared candidate feeds both local media and Docker
+# fixtures. Requires --development --target all --distribution all, the same
+# fixed release tag, an explicit reachable fixture rootfs base, and
+# --upgrade-from with the S fixture candidate ID for Docker provenance.
+sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
+  --arch x86_64 --out /OUTPUT_PARENT/T_UNIQUE --development --target all \
+  --distribution all --rootfs-base-url http://FIXTURE_ADDRESS:PORT \
+  --release-tag vFIXTURE.0-dev --upgrade-from S_CANDIDATE_ID \
+  --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
+
+# --media-compression fast remains admitted for development iteration, but it
+# selects the same frozen level-1/fragments/1MiB release profile: the
+# fast-vs-release split is removed, not retained as a hidden mode.
 ```
 
 `soda-candidate` (`lib/soda-release-tools`, [operator guide](../guides/soda-candidate.md)) wraps the same admitted controller: one overview screen
@@ -161,9 +180,13 @@ publication remain separately owned and grant-scoped as below.
 Substitute the operator-admitted absolute paths and explicit URL. Omitting
 `--development` builds the selected release packaging without publishing or
 installing. `--distribution` defaults to `appliance`; `docker` skips media
-authority and ISO/rootfs tooling, and `all` packages the same candidate for both.
-Docker packaging requires an explicit `--release-tag`; for `all`, the rootfs URL
-must name that same GitHub release tag. See the [Docker builder procedure](../guides/docker.md#build-the-runtime-image).
+authority and ISO/rootfs tooling, and production `all` packages the same
+candidate for both. Docker packaging requires an explicit `--release-tag`;
+for production `all`, the rootfs URL must name that same GitHub release tag,
+while development `all` uses an explicit reachable fixture base instead.
+Development `all` pairs only with `--development --target all
+--distribution all`, carries the v4 tag for native package URLs, and stays
+`purpose=development`. See the [Docker builder procedure](../guides/docker.md#build-the-runtime-image).
 Target flags select development boundaries, and candidate mode refuses media-only inputs. Development
 cannot select publication/final signing.
 Source commands run only inside the separate systemd worker:

@@ -261,7 +261,7 @@ the separate release work is not evidence that new extension management is ready
 
 ## Execution contract
 
-Plan version: **RCX-1**. The implementation coordinator owns this checklist;
+Plan version: **RCX-2 (adopted 2026-10-15; supersedes all RCX-1 interfaces below)**. Frozen contracts live in `.artifacts/release-design-refinement/` (`RCX-2.md` `7c5d8d3c`, `release-design.md` `547bfb7f`, `fountain-design.md` `68d110aa`, `tailnet-design.md` `facb7eeb`, `contract-examples.json` `83208f74`, `packets.json` `f322de0e`); those documents own their interfaces, this checklist owns execution order only. The implementation coordinator owns this checklist;
 Codex owns independent review, monitoring and closure. The maximum parallelism is
 **three implementation lanes**, using **one Muse coordinator with native
 subagents**. Queue within the actual native limit. Use the canonical Soda and
@@ -298,113 +298,65 @@ a stopped host. These are source findings, not public-release or native runtime
 qualification receipts. Refresh both Git bases and active writer ownership at
 launch; a clean checkout does not establish that another chat has released it.
 
-### I1: release component contract
+### I1: release component contract (RCX-2)
 
-Replace the obsolete payload format and all strict readers together. No legacy
-reader or compatibility branch is required for this unreleased format. Preserve
-the existing release and `ProjectSupport` identity/verification owners.
+One canonical Payload v4 in `lib/release-inputs` (existing `soda-build-tools`
+crate, no new crate): `Format=4`, six fixed required roles
+(`dashboard`, `forgejo`, `proxy`, `postgres`, `project-os`, `canlang-runtime`)
+as a fixed struct (no string maps), `ExtensionCatalog` version 1 with exactly
+`soda` (required, no controller) then `tailnet` (optional,
+`lifecycle_controller="soda"`), `OptionalExtensions.tailnet` binding the
+official image, digest DAG packages-then-payload-then-host, no cycles. Native
+packages are deterministic gzip-1 USTAR archives (≤512 MiB); fixed fast profile
+`-zlzma,level=1 -Efragments -C1048576 --quiet`, no global dedupe; complete CPIO
+≤2,013,265,920 bytes. Importer gains only
+`soda-image-import ensure --payload ABS --set required|tailnet`; units run by
+exact config ID with `Pull=never` after the importer. Maintenance uses the one
+directory-inode flock with SH (mutations) / EX (updater), version-neutral intent
+snapshot, offline `prepare`, reconcile-after-EX-drop. Full contract owns in
+`release-design.md`; implement exactly it, no alternate codec, format, solver,
+cache, or downloader.
 
-| Record | Required semantic fields and rules |
-| --- | --- |
-| Release | Schema version, Soda version/source, architecture, required image roles, required packages and optional extension catalog |
-| OCI component | Stable role, complete registry reference pinned by manifest digest, expected image configuration digest, platform and provenance owner/source |
-| Extension package | ID, version, HTTPS asset URL, bytes, SHA-256, compatible Fountain release/SDK contract, required flag and manifest-declared capabilities |
-| Optional binding | Extension ID plus its compatible package and exact dependency identities; presence in the catalog does not select it for acquisition |
-| Provenance | Soda-built components bind Soda source; Fountain binds its own release/source; upstream Caddy/Postgres/Tailscale bind admitted upstream identities |
+### I2: Fountain package and lifecycle contract (RCX-2)
 
-Registry references need not share Soda's repository prefix. Archive checksums
-remain local build evidence where relevant, not invented runtime inputs for an
-image obtained from a registry. Finalize registry blob compression before sealing
-manifest digests. Reuse ordinary Podman transfer/cache and the existing registry
-publisher's digest checks; consume independently published upstream images in
-place. A small Soda Fountain presentation layer, if needed, is a Soda-built
-component with the upstream base digest recorded.
+One owner for requested state: `.intents/<id>.json` (schema, UUID, decimal
+generation, desired boolean, pending `activate`/`deactivate`/null) with
+generation-CAS + fsync before effects; no `.disabled`/`.lifecycle` authorities.
+One `PackageStore` (lock-bearing, shared CLI/manager), streamed verified
+acquisition into the SHA cache, atomic receipt/intent, required bootstrap.
+Real private-IPC controller dispatch with opaque lifecycle authority
+(`observe|activate|deactivate`, exact tuple pin, bounded deadlines,
+failed-enable cleanup exception only); nil teardown hooks removed. Boot is
+required-bootstrap then async optional reconcile; maintenance uses the shared
+inode guard with manager SH/EX discipline and cache/offline-prepare contract.
+Native admin routes with origin/admin checks, exact error codes, 2s status
+refresh. Full contract owns in `fountain-design.md` with wire fixtures in
+`contract-examples.json`; implement exactly them, no second enabled-state owner,
+no in-process teardown substitute, no jobs framework.
 
-The release lane owns the canonical payload serialization and matching producer,
-installer, importer and maintenance readers. Publish its exact types and a
-minimal fixture in R01 before Tailnet changes its payload readers. Required core
-acquisition precedes readiness; failed acquisition is retryable without repeating
-completed setup. Existing exact cached content must permit an offline restart.
+### I3: authority, host effects and maintenance (RCX-2)
 
-### I2: Fountain package and lifecycle contract
-
-Use one gzip-compressed archive of Fountain's native package directory (manifest,
-executable and assets), with a stable root layout and SHA-256/size in the trusted
-catalog. Extraction must remain inside the staging directory; validate the
-existing manifest/executable rules before activation. The administrator chooses
-among the release's declared packages; this scope does not add arbitrary URL
-installation, a marketplace or a generic package solver.
-
-Fountain owns the catalog reader, acquisition, installation identity and durable
-requested enablement. Reuse its installation UUID, separate private data, manager
-admission controls and package locking. Required Soda integration and optional
-Tailnet are distinct package identities. Optional package failure must not prevent
-Forge or required Soda integration from starting.
-
-Extend the SDK with three logical lifecycle operations: **observe**, **activate**
-and **deactivate**. Each request identifies the installed package/version and
-operation; results identify the operation and report observed state, progress and
-a bounded error. Fountain alone persists requested state. Distinguish disabled,
-activating, enabled, deactivating and failed/unconfirmed outcomes. Enrollment is
-separate: enabled and awaiting sign-in is a successful installation outcome.
-
-Fountain can run a package's control/lifecycle handler while ordinary contribution
-admission is closed. Activation opens ordinary admission only after successful
-effects and observation. Disable first closes new admission, then invokes external
-teardown and verifies it before stopping the backend and reporting completion.
-Keep observation/cleanup reachable after a failed or interrupted operation. On
-restart observe existing effects before retrying them; do not add an independent
-Soda enablement authority or an elaborate general-purpose workflow engine.
-
-Use live package activation through Fountain's manager; no whole-Fountain restart
-or administrator CLI step is part of the enable/disable journey. F01 must prove
-the package lock, required-package isolation and external teardown boundary with
-the existing SDK fixture before T02 integrates. F01 publishes actual SDK types,
-catalog shape, native admin route and a wire fixture; downstreams import those
-definitions instead of creating parallel DTOs. These implementation identifiers
-may follow existing conventions; the semantics above are fixed.
-
-### I3: authority, host effects and maintenance
-
-Native Fountain site-admin authentication and CSRF protections authorize lifecycle
-actions initiated by a user. Background observation/reconciliation uses the
-authenticated manager service identity and previously admitted installation
-state, including after restart without an active administrator session. It must
-not invent an admin actor or authorize new user requests through that service path.
-Soda revalidates authenticated SDK actor authority and exact extension
-identity/capability through its existing bridge. Do not trust browser-supplied
-actor headers. Preserve existing Project-specific authorization; this work does
-not broaden unrelated configured-operator operations.
-
-Soda's Rust host service admits only declared Tailnet effects and reports observed
-dependency, host-daemon and Project-companion state. Fountain/extension processes
-receive no root shell, general container socket or arbitrary host command API.
-The official-image probe fixes the digest, executable paths, sockets, namespaces,
-devices and persistent state locations consumed by this restricted implementation.
-
-Closing Tailnet admission must not disable stop/observation. The current
-`run_tailnet_action` returns early for both run and stop when management is false;
-remove that coupling as part of T02. Disable preserves credentials, configuration,
-Project files and verified cached images. Clearly display network loss before an
-admin disables the connection they are using; LAN remains available.
-
-Fountain provides an authenticated snapshot of enabled extension IDs/versions to
-maintenance. Before FCOS activation, acquire the target's required components and
-compatible dependencies for those extensions. Serialize an enablement change
-against this maintenance selection/activation interval using the existing
-maintenance exclusion boundary; fail visibly if a stable selection cannot be
-established. Never use a second desired-state file as authority. Retain inputs
-needed by the previous deployment and existing Projects. R and T acknowledge this
-handoff together in I01.
+Native site admin + origin protection for browser changes; short-lived manager
+lifecycle authority for effect calls; no invented actor or UID-only plugin
+authorization. Required `soda` controller fronts optional `tailnet` through the
+exact private route even when Tailnet's backend is absent; cleanup stays callable
+then. Operational grant is ephemeral (`/run/soda-tailnet/admission.json`),
+closed on boot/failure, never default-open; no second durable enabled owner.
+Disable drains admitted starts, stops host + all companions, verifies, preserves
+credentials/cache/config/Projects; failed stop stays closed and unconfirmed.
+Package IDs fixed: required `soda`, optional `tailnet` (draft `soda-tailnet`
+renamed, no alias), image role `tailscale`. Full contract owns in
+`tailnet-design.md`; implement exactly it, no custom distribution, no security
+model substitution.
 
 ### Lanes and exclusive ownership
 
 | Lane | Tasks and owned paths | Inputs, exclusions and join |
 | --- | --- | --- |
-| R — release | R00–R02; `lib/soda-release-build/`, `lib/soda-release-image/`, `lib/soda-release-deliver/`, `cmd/soda-install/`, `cmd/soda-image-import/`, release-facing `cmd/soda-project-maintain/`, `system/docker/`, `system/host/Containerfile`, `system/host/provisioning/`, `system/host/image/`, old `system/containers/tailnet/` | Own payload cutover, removal of bundled image bodies/RPMs, packaging and dependency acquisition. Consume F01 package contract and T00 official-image receipt. Do not edit Tailnet runtime/config readers owned by T. |
-| F — Fountain | F00–F02; Fountain `modules/extensions/`, `services/extensions/`, `sdk/`, native admin routes/templates/navigation, related extension fixtures and `docs/fountain-release.md` | Use released ownership of Fountain checkout. Preserve the other chat's release work; change its smoke fixture/metadata only where the new extension contract requires it. No Soda edits. |
-| T — optional Tailnet | T00–T02; `lib/host/src/tailnet/`, `tcontrol*.rs`, Tailnet portions of `dbackend/`, `daemon/` and `main.rs`; `internal/tailnet/`, Tailnet host/API/auth bridge callers, `cmd/soda-extension/`, `frontend/tailnet/`, extension manifests/assets and Tailnet service/start hooks | Own split of required Soda versus optional Tailnet package contents. Consume F01 SDK and R01 payload types. R owns removal of old image producer/Containerfile; transfer that exact file reservation before deletion. |
-| Coordinator | P00, I01–I03, this checklist, shared root manifests/locks, final owning-doc updates and Git index operations | Reserve any newly discovered shared file before edits. Integrate native handoffs in place; no cherry-picking between shared-checkout workers. Codex alone owns V01/C01. |
+| R — release | R00–R03; same paths (payload/producer/importer/maintenance owners in `release-design.md`) | Own Payload v4 cutover, package/image production, thin host/Docker, maintenance. Consume F01/F02/F04 and T02/T03 handoffs per packet deps. Do not edit Tailnet runtime/config readers owned by T. |
+| F — Fountain | F01–F04; Fountain `modules/extensions/`, `services/extensions/`, `sdk/`, `sdk/lifecycle_client.go`, `routers/web/extensions/`, native admin routes/templates/navigation, `web_src/js/features/admin-extensions.ts`, related extension fixtures and `docs/fountain-release.md` | Use released ownership of Fountain checkout. Preserve the other chat's release work; change its smoke fixture/metadata only where the new extension contract requires it. No Soda edits. |
+| T — optional Tailnet | T00–T03; `lib/host/src/tailnet/` + new `tailnet/lifecycle.rs`, `tcontrol*.rs` + `tcontrol_wire.rs`, Tailnet portions of `dbackend/`, `daemon/` and `main.rs`; `internal/tailnet/`, bridge callers, `cmd/soda-extension --package-id`, `frontend/tailnet/`, `system/containers/extension/` manifests/assets, Tailnet service/start hooks | Own required-controller/optional-package split and restricted effects. Consume F03/F04 SDK and R01 payload types. R owns release-file removals; transfer exact file reservations before deletion. |
+| Coordinator | D00 (with Codex), I01, Q01, this checklist, shared root manifests/locks, final owning-doc updates and Git index operations | Reserve any newly discovered shared file before edits. Integrate native handoffs in place; no cherry-picking between shared-checkout workers. Codex alone owns D00 review and C01. |
 
 R owns maintenance payload/default readers; T owns `lib/host/src/daemon/config.rs`
 and the extension manifest. Changes to shared root manifests/locks are proposed
@@ -420,112 +372,141 @@ active command handles and explicit writer release. The coordinator accepts that
 exact handoff before the worker completes its native goal; parent integration and
 Codex review remain separate. No task is complete merely because it was assigned.
 
-- [ ] **P00 — Establish bases and reservations.** Coordinator; no prerequisites.
-  Refresh both checkouts, existing goals/writers and preserved release requests;
-  record actual bases and dirty inputs. Confirm Fountain ownership release before
-  assigning F. Resolve tool/state/temp locations under `/home`, protected VM/state
-  and exact disposable test targets. Freeze RCX-1 inputs and per-file reservations.
-  Acceptance: acknowledged roster/inputs; no competing writers (RQ08).
-- [ ] **R00 — Prove host-only packing.** R; P00. Inventory retained audit/native
-  inputs, use the actual assembler/EROFS version and a development-only host tree.
-  Remove application bodies from visible files and retained OSTree content; check
-  metadata/boot compatibility. Complete the cheapest promising fast-profile pack,
-  including installation metadata, and record elapsed time, bytes, headroom and
-  integrity. Compare another profile only if the first result leaves a material
-  decision unresolved. Gate the broad packaging rewrite on this evidence; an
-  incomplete output or estimate fails acceptance (RQ01/RQ08).
-- [ ] **T00 — Prove the official Tailscale image.** T; P00; parallel with R00/F00.
-  Pin native amd64 upstream content; reuse cached inputs. Check actual host and
-  Project entrypoints, LocalAPI, namespace/device/socket behavior, teardown and
-  persistent host state, including nested Docker constraints. Use disposable
-  fixtures; no ISO build. Record credential-free proof separately from later
-  enrollment/reachability proof. Release exact invocation contract (RQ03/RQ04).
-- [ ] **F00 — Bind the existing Fountain release interface.** F; P00 and Fountain
-  writer release. Inspect its current release docs/metadata and SDK. Identify exact
-  candidate source and reusable build inputs, package directory rules and image
-  entrypoints. Record whether a public release exists; local source is insufficient.
-  Acceptance: pinned source/SDK and downstream input contract, no rebuild of an
-  unchanged Fountain artifact (RQ02/RQ08).
-- [ ] **F01 — Implement and prove generic lifecycle.** F; F00. Implement I2 with
-  native admin settings, trusted package acquisition, live manager operations,
-  locking, persistent intent and failure/observation handling. Extend existing
-  package/SDK/router fixtures for admin/CSRF, denied actors, download failure,
-  live disable/re-enable, interrupted effects and required-package isolation.
-  Publish the exact SDK/catalog/maintenance snapshot contracts and real fixture
-  result before T02/R02 use them (RQ05/RQ06/RQ07).
-- [ ] **R01 — Cut over component identities.** R; R00, F00. Implement I1 across
-  producer/content verifier and all strict consumers. Keep Project support and
-  provenance checks; remove seven-image/common-prefix assumptions. Acknowledge
-  F01's final package fields before sealing shared types: **F01 is a completion
-  prerequisite**. Verify digest-preserving
-  registry round-trip and rejection of wrong digest/platform/source fixtures.
-  Release canonical types for T02 (RQ01/RQ02/RQ07).
-- [ ] **R02 — Make host and Docker thin.** R; R01, F01, T00 to start; **T02's
-  package/runtime handoff is required to finish**. Prepare/build complete
-  components, consume Fountain base, package Soda extensions, remove app bodies
-  and default Tailscale packaging/services, wire core acquisition and update
-  prefetch. Use R00's measured fast profile and per-asset size guard. Verify local
-  component startup, exact cached restart and selected dependency acquisition;
-  preserve rollback/Project guards. No full ISO until I01 (RQ01/RQ02/RQ03/RQ07).
-- [ ] **T01 — Separate declaration and policy.** T; T00. Split optional Tailnet
-  identity/page from required Soda; define restricted effects and replace
-  configured-operator Tailnet authorization with verified native admin authority.
-  Separate admission from cleanup; preserve Project policy. Author against I2/I3
-  but wait for F01/R01 before binding concrete wire types (RQ03/RQ04/RQ06).
-- [ ] **T02 — Connect lifecycle to actual runtimes.** T; T01, F01, R01. Implement
-  observe/start/stop through admitted host operations; enable downloads exact
-  upstream content and disable stops host/all Project companions. Handle failed
-  and interrupted effects, retain data/cache, and expose truthful status through
-  Fountain. Verify native effects and bridge authorization using existing focused
-  drivers. Release package contents and runtime contracts to R02 (RQ04–RQ07).
-- [ ] **F02 — Qualify the new Fountain contract.** F; F01. Extend its existing
-  disposable image smoke fixture to exercise optional download/live lifecycle
-  with the required extension still running. Bind source, SDK and tested image
-  metadata. Local candidate may unblock local integration; public consumption
-  requires the matching published immutable release. No publication is implied
-  by this task (RQ02/RQ05/RQ08).
-- [ ] **I01 — Join released lanes and run component acceptance.** Coordinator;
-  R02/T02/F02 accepted with writers/commands released. Verify browser-to-host
-  lifecycle, stable maintenance selection, failure results and artifact identities
-  together. Run affected source checks using pinned tools; update owning docs.
-  Commit coherent scopes serially and record exact candidate revisions. Only
-  passing interfaces and component checks release the full-build gate (RQ01–RQ08).
-- [ ] **I02 — Validate native appliance and Docker integration.** Coordinator;
-  I01. Build a fixed native candidate, record rootfs/ISO/image sizes and timings, and use
-  existing fresh-install/Docker/maintenance drivers. Prove LAN readiness, no default
-  Tailnet payload or pulls, admin enable/sign-in, host and Project connectivity,
-  complete disable, preserved data, offline cached restart, and enabled/disabled
-  update plus rollback. Use exact isolated targets recorded by P00; preserve
-  `sodaos-local`. A driver-only repair does not automatically require rebuilding
-  unchanged shipping bytes. Unpublished fixture inputs make these development
-  integration receipts, not public-release qualification. A later change to URL
-  bindings or dependency bytes requires a new candidate; do not promise reuse
-  of incompatible fixture bytes. Record each scenario's evidence (RQ01–RQ08).
-- [ ] **I03 — Verify public-hosting qualification when available.** Coordinator;
-  I02 and actual public immutable components. Check anonymous pulls/assets for
-  the exact candidate, final per-file limits, source and manifest consistency.
-  Perform the fresh native ISO install/boot and fresh Docker deployment with those
-  actual public identities; bind readiness and lifecycle receipts to their exact
-  bytes. Reuse I02 evidence only where its inputs are identical. Publication is a
-  distinct authorized action; do not push,
-  publish or change package visibility to manufacture this prerequisite. Local
-  registry evidence does not complete this task. Report a precise external gate
-  if public inputs are unavailable (RQ01/RQ02/RQ08).
-- [ ] **V01 — Independent acceptance and repairs.** Codex; affected integrated
-  scope and command/writer release. Independently inspect artifact contents and
-  digests, actual default absence, native admin/forged-actor denial, failed-stop
-  truthfulness and update selection. Reuse relevant native receipts and perform
-  bounded independent probes where critical invariants lack evidence. Route
-  defects through the coordinator with exact acceptance failures, verify repair
-  receipt/progress and renewed handoff. Record I03's external gate separately;
-  do not label overall qualification complete while it remains open.
-- [ ] **C01 — Close exact owned resources.** Codex; accepted results/repairs and
-  reported remaining gates. Preserve commits/evidence and any reserved candidate;
-  reconcile commands/viewers, close only released
-  run resources and retire the matching heartbeat when no local follow-up remains.
-  If I03 is externally gated, record implementation delivered/qualification pending
-  rather than completed qualification. Absorb completed design into owning docs
-  and remove the plan only when its remaining work is resolved.
+- [x] **D00 — Adoption/writer checkpoint.** Codex review + coordinator adoption.
+  Bases `505cf545`/`c500bd92`, 10 Soda + 16 Fountain dirty files checkpointed
+  (`adoption-rcx2/` tars/patches), no live commands. Prior work mapped, preserved.
+- [ ] **R00 — Coherent retained-host derivative (G-R).** R; D00. Run the one
+  fixed recipe in `release-design.md`: retained host OCI → ostree commit with
+  regenerated closure + fresh osmet, exact assembler 1.9.4, fixed fast profile,
+  complete CPIO ≤2,013,265,920 bytes, pack ≤300s. Old exact-compressor result is
+  a size/codec estimate only (OSTree refs removed, osmet stale). No codec sweep,
+  no production rebuild. Broad release rewrites wait for this gate.
+  FAILED 2026-10-15 (`ostree container commit` refused: retained base already
+  finalized, empty /sysroot, dangling /ostree; evidence build-failure.txt) —
+  returned to Codex, NOT passed. Amendment 1 (`adoption-rcx2/
+  g-r-recipe-amendment-1.md` + assembler cmd-import/cmdlib readbacks): OMIT
+  only the repeated finalizer; derivative removes images + flips fsoptions +
+  asserts empty sysroot; assembler import path owns the fresh OSTree closure;
+  distinct amended outputs, no duplicate loads, all gates retained. Amended
+  R00 DISPATCHED 2026-10-15 (worker 01a13d3e, T lane free + heavy slot free
+  after T00g3 release; reuses existing task store after no-live-owner check;
+  R01 continues disjointly).
+  TIMING-016: 357.90s is aggregate live-stage (osmet×2+EROFS+initramfs/ISO
+  in pack.log 861–1332), NOT demonstrated rootfs-only time — speed gate
+  UNPROVEN (neither pass nor fail), open for Codex decision. CPIO size
+  facts stand independently.
+  TIMING-PROBE: isolated rootfs+CPIO 149.45s (mkfs 147.22 + CPIO 2.23,
+  native epoch clock, timeout-300 never fired) ≤300s PASS; host-decode
+  FSCK_EXIT=1 confirmed from retained log (observer/policy deviation,
+  guest-reader PASS stands). R02 RELEASED on R00+R01+F02.
+- [ ] **T00 — Fixed guest probe (G-T).** T; D00. v0.1.1-guest recipe in
+  `tailnet-design.md` §10: actual Project userns, persistent host node, nested
+  Docker, direct LocalAPI with exact caller. Retained: official digest
+  `sha256:9969…`, exact-caller 200, digest-pinned execution. No workstation
+  subuid/root-disk changes; no ISO build.
+  STATE 2026-10-15: image-physics evidence complete (userns/socket/stop/
+  persistence/nested, exact 200, full cleanup) BUT checkbox stays OPEN:
+  (a) step-9 used an alias tag after the specified Host.Config FROM failed
+  in the disposable legacy Docker builder ONLY (pull denial; exact failure +
+  readbacks preserved) — intermediately misread as a production-caller
+  failure, WITHDRAWN per REFERENCE-011: the production path builds via
+  PODMAN (production_images.rs build_image line 71), and the retained-host
+  R00 build already reached RUN STEP3 with Podman FROM 418ad724, proving
+  config resolution in the production builder. R02 keeps normal
+  identity/build acceptance, no tag fallback, no special repair;
+  (b) fixture VM intentionally retained running for T02 (deviation from
+  §10 clean-shutdown, reported); (c) one workstation-/tmp scratch use
+  recorded (guest /tmp is /home-backed and allowed). Product qualification
+  remains open; DO NOT repeat the fixture assembly merely to relabel it.
+- [x] **F01 — Strict SDK freeze.** F; D00. Exact catalog/manifest/lifecycle
+  types + registration + opaque authority from `fountain-design.md` §2/§5 with
+  strict decode tests and one wire fixture (`contract-examples.json` tuples:
+  controller/instance/UUID/generation/pin/deadline, distinct authority).
+  Draft scaffold reusable; wire must match exactly.
+  CLOSED 2026-10-15: frozen SDK + strict tests + one wire fixture PASS
+  (`TestFrozenContractExamplesWire` vs @`83208f74`, clock 1792100000;
+  independently rerun by coordinator under pinned Go 1.26.9); full
+  sdk/modules/routers suites green; no tailnet.* capabilities, no second
+  enabled owner, no teardown hooks. Limitation: G-F live-process proof stays
+  F03; manager/admin runtime behavior unchanged (F03/F04 rebuild targets).
+  Residual repaired 2026-10-15 (REVIEW-005): wire fixture now reads repo-local
+  `sdk/testdata/rcx2-contract-examples.json` (byte-identical, sha
+  `83208f74…`); no external-checkout path in tracked source; test PASS
+  rerun pinned. F02/other writers preserved (coordinator-reserved paths).
+- [x] **R01 — Canonical Payload v4.** R; F01. ACCEPTED 2026-10-15 with ONE
+  residual REVIEW-010 CLOSED 2026-10-15 (concurrent drain + enforced 256KiB
+  bound + reap on all paths; focused fake-podman regression PASS,
+  independently rerun by coordinator). Otherwise:
+  `lib/release-inputs` v4 types, all producers/readers/fixtures cut over
+  together, `ensure --payload ABS --set required|tailnet` for the two trusted
+  callers. Preserve ProjectSupport. No v3 compatibility branch.
+- [x] **F02 — Locked store + verified acquisition.** F; F01. CLOSED 2026-10-15:
+  one lock-bearing PackageStore (manager+CLI, bypass deleted), streamed
+  SHA-verified acquisition, required bootstrap, sole durable .intents CAS,
+  exact 5-route shell + explicit offline prepare; suites green pinned
+  (modules independently rerun by coordinator). F03 owns dispatch/ordering.
+  RESIDUAL OPEN 2026-10-15 (REVIEW-026): production gaps in store/intent
+  owners under repair by fresh worker (checkpoint preserved). One `PackageStore`,
+  streamed acquisition with redirect/tar limits, verified SHA cache + receipt,
+  required bootstrap; CLI and manager share the implementation. Replace
+  `.disabled`+`.lifecycle` with sole durable `.intents` generation-CAS + fsync.
+- [ ] **F03 — Real controller + G-F proof.** F; F02. REOPENED 2026-10-15 (REVIEW-026):
+  integrated in existing owners (parallel package removed, checkpoint
+  retained); 009 strict-intent/rollback/same-generation + 012 fail-closed +
+  017 decoded-key + 018 null-boolean repairs green pinned; G-F proven with 9
+  live-process tests. Controller dispatch,
+  distinct admission tokens, callback validation, single mutation slot, exact
+  recovery ordering IN EXISTING manager/lifecycle/callback owners (no parallel
+  f03dispatch package; checkpointed work integrates where it belongs). Prove
+  G-F with live fixture processes over real private sockets (no nil hooks/DTOs);
+  CLOSED 2026-10-15: integrated in existing owners (parallel package removed),
+  009/012/017 implemented, G-F proven with 9 live-process tests green pinned.
+  retain the observeLocked deadlock fix, release map mutex around external work;
+  boot async. Section-7 rendering/settings framework DEFERRED to F04 (F03 only
+  the authenticated manager callbacks it needs).
+- [ ] **F04 — Admin UI + maintenance contract.** F; F03. REOPENED 2026-10-15 (REVIEW-026, maintenance-guard item):
+  native admin routes (401/403/Origin/CAS, 4KiB forms, 303 CAS wiring),
+  manager-control snapshot/reconcile/cache endpoints, actual middleware
+  tests + tsc/eslint clean, all suites green pinned (routers independently
+  rerun by coordinator). All four Fountain packets complete. Native admin routes
+  with registered Origin/CAS/catalog guarding, rendered states/progress,
+  snapshot/reconcile + same-inode SH/EX guard. Test actual middleware.
+- [x] **T01 — Required controller + exact authority.** T; R01, F03, T00. CLOSED 2026-10-15:
+  controller→Go-route→Rust-RPC with exact SDK tuple/callback, ForwardUnix
+  seam consumed, bad authority zero effects (Lifecycle tests PASS rerun by
+  coordinator). T02 needs T01 ONLY (frozen packet dependency; final
+  cross-process/native product acceptance waits for repaired F path +
+  combined I01 integration, which is not a reason to idle independent
+  implementation). T01 checkpoint: tmp/t01-release.patch + t01-release-new
+  tarball. Note: old system/containers/tailnet/Containerfile removal landed
+  via T lane without recorded R reservation transfer; end state intended,
+  no revert.
+  Soda controller → authenticated private service → bounded Rust host RPC.
+  Remove static default-open admission; ephemeral grant closed on boot/failure;
+  start-drain/stop-only teardown preserving credentials. No second intent owner.
+- [ ] **T02 — Boot-closed runtime integration.** T; T01. Serialized
+  start/drain/stop, persistent host official-image runtime + Project companions,
+  stop failures closed and unconfirmed. Preserve data.
+- [ ] **T03 — Tailnet package split.** T; T02, F04. Package renamed to
+  `tailnet` (no alias), exact two capabilities, admin-only page, live native
+  admin mapping, enabled-but-unenrolled UI, connection-loss confirmation.
+- [ ] **R02 — Thin host/Docker + dev target.** R; R00, R01, F02. Separate
+  package/image production, ordered boot, obsolete bundle/installer paths
+  removed; final native packages use T03 contents at I01.
+- [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
+  source/target bindings, enabled-only prefetch, cached restart, rollback
+  retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
+- [ ] **I01 — Integrate + joint native candidate.** Coordinator; R03, T03, G-F.
+  Pin SDK/Fountain candidate, smallest combined tests + private-socket/lock
+  checks; admit the distinct v4 maintenance source fixture; one joint target.
+- [ ] **Q01 — Native ISO + Docker journeys.** Coordinator; I01, v4 source
+  fixture. Fresh install/enable/disable/failure/restart/update + rollback with
+  per-stage timings; G-P anonymous availability reported separately. Local
+  fixture passes are development evidence only, never public qualification.
+- [ ] **C01 — Independent acceptance and close.** Codex; Q01. Critical-boundary
+  acceptance, findings resolved, owning docs verified, exact qualified revisions
+  reported. No push, publishing or merge. Absorb completed design into owning
+  docs and remove the plan only when its remaining work is resolved.
 
 ### Run records, supervision and cost controls
 
