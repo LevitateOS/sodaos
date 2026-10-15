@@ -517,7 +517,11 @@ Fountain CI/lint edits are preserved; no new Fountain writes are being made.
   unqualified until integration.
 - [ ] **R02 — Thin host/Docker + dev target.** R; R00, R01, F02. Separate
   package/image production, ordered boot, obsolete bundle/installer paths
-  removed; final native packages use T03 contents at I01.
+  removed; final native packages use T03 contents at I01. Fountain release
+  admission, SDK source pin, real pipeline hooks and actual base attribution
+  are now wired. Native probes verified official manifest/config identity and
+  corrected Skopeo transport plus gzip export of a new layer. Registry roundtrip,
+  current Fountain-image startup and combined candidate qualification remain open.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.

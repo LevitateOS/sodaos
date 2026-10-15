@@ -117,8 +117,9 @@ Large media copies use copy-on-write where supported, with ordinary copying as
 the fallback and unchanged hash verification. Retain these caches independently
 of disposable attempts under the [active-release cleanup contract](release.md#guided-release-operator-flow).
 
-The configuration names `Executable`, exact checkout `Source`, the separate clean committed
-`ForgejoSource`, an existing private
+The configuration names `Executable`, exact checkout `Source`, canonical
+`ForgejoSource` for the local SDK dependency, `FountainReleaseURL` for the selected
+immutable HTTPS `/vVERSION/release.json`, and an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
 `MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
 `soda-build-worker`; setup stages pinned Go, the repository-selected stable Rust
@@ -129,6 +130,20 @@ binds stay read-only. The worker cache SELinux type permits execution of Cargo's
 build scripts and proc macros inside that same sandbox. The executable and its
 parents are root-owned and not group/world writable, and its bytes must equal the
 running dispatcher. The internal `--worker-build` stage refuses other identities.
+
+Fountain is an independent image input. The controller verifies schema-1 release
+metadata against `fountain-source.json`, streams and hashes both corresponding
+source archives, and freezes their URLs, byte sizes, hashes and protocols with
+CoreOS inputs. The worker verifies Fountain's manifest/config, platform and
+version/revision labels before building the Soda presentation layer. It does not
+compile Fountain. Local SDK bytes must match that selected source commit;
+unrelated checkout changes are preserved and do not select different image bytes.
+The retired Tailscale archive/alpine-base resolver is removed; the official image
+pin joins the ordinary platform-scoped OCI inputs.
+
+Built application and host images export through Skopeo's image-ID transport
+with OCI gzip level 1 before recording manifest digests. A local archive check
+or unpublished fixture does not qualify anonymous immutable public downloads.
 
 The operator runs the admitted executable as root from the configured checkout:
 
