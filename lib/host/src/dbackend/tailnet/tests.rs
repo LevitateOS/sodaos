@@ -210,20 +210,21 @@ fn lifecycle_prepare_without_payload_is_unavailable() {
 }
 
 #[test]
-fn lifecycle_report_answers_facts_without_effects() {
-    // No daemon answers on the scratch socket, so every operation
-    // reports a valid stopped observation with no grant.
-    let backend = backend_with_scratch_tailnet("lifecycle-report");
+fn lifecycle_failure_wire_preserves_the_sdk_contract_without_native_effects() {
     for operation in ["observe", "activate", "deactivate"] {
         let body = lifecycle_body(operation);
-        let rendered = backend.tailnet("lifecycle", &body).expect(operation);
-        let call: crate::tcontrol_wire::LifecycleCall =
-            crate::json::decode_strict_as(&body).expect("call must decode");
-        let observation = decode_lifecycle_observation(&rendered);
-        crate::tcontrol_wire::validate_lifecycle_observation(&observation, &call)
-            .expect("report must validate");
-        assert!(observation.detail.len() <= 256);
+        let call = crate::tcontrol_wire::decode_lifecycle_call(&body).unwrap();
+        let observation = crate::tailnet_lifecycle::failed_observation(&call);
+        let rendered = crate::tcontrol_wire::encode_lifecycle_observation(&observation);
+        let decoded = decode_lifecycle_observation(rendered.as_bytes());
+        crate::tcontrol_wire::validate_lifecycle_observation(&decoded, &call).unwrap();
+        assert_eq!(decoded.state, "unknown");
+        assert!(!decoded.admission_ready);
+        assert_eq!(decoded.error.unwrap().code, "effect_failed");
     }
-    let err = backend.tailnet("lifecycle", b"{}").unwrap_err();
-    assert!(matches!(err, BackendError::Invalid));
+    let backend = backend_with_scratch_tailnet("lifecycle-invalid");
+    assert!(matches!(
+        backend.tailnet("lifecycle", b"{}"),
+        Err(BackendError::Invalid)
+    ));
 }

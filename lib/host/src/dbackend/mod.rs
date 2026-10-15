@@ -160,6 +160,7 @@ pub struct DaemonBackend {
     factory: OnceLock<Result<Factory, String>>,
     broker: crate::iclient::BrokerClient,
     tailnet: tcontrol::Control<project::Native>,
+    tailnet_host: crate::tailnet_host::HostRuntime<project::Native>,
     companion:
         crate::tailnet_companion::Companion<project::Native, tcontrol::Control<project::Native>>,
     pops: crate::pops::Ops<project::Native>,
@@ -191,10 +192,17 @@ impl DaemonBackend {
             },
             factory: OnceLock::new(),
             broker: crate::iclient::BrokerClient::new(&broker_socket),
-            tailnet: tcontrol::Control::new(project::Native, tcontrol::Options::default()),
+            tailnet_host: crate::tailnet_host::HostRuntime::new(project::Native),
+            tailnet: tcontrol::Control::new_project_control(
+                project::Native,
+                tcontrol::Options::default(),
+            ),
             companion: crate::tailnet_companion::Companion {
                 exec: project::Native,
-                tailnet: tcontrol::Control::new(project::Native, tcontrol::Options::default()),
+                tailnet: tcontrol::Control::new_project_control(
+                    project::Native,
+                    tcontrol::Options::default(),
+                ),
                 image: cfg.tailnet_image.clone(),
                 enabled_check: None,
             },

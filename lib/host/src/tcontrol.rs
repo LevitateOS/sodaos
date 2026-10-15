@@ -46,10 +46,8 @@ pub struct Options {
     pub uid: u32,
     /// Companion runtime configured (mirrors `NewProjectControl`).
     pub runtime: bool,
-    /// Tailscaled LocalAPI socket (`/var/run/tailscale/tailscaled.sock`).
+    /// Private owned-host LocalAPI socket.
     pub socket: PathBuf,
-    /// Tailscale CLI (`/usr/bin/tailscale`).
-    pub cli: String,
     /// Soda libexec dir (`/usr/libexec/soda`).
     pub libexec: String,
     /// Host curl binary for provider HTTPS (`/usr/bin/curl`).
@@ -63,7 +61,6 @@ impl Default for Options {
             uid: 0,
             runtime: false,
             socket: PathBuf::from(native::HOST_SOCKET),
-            cli: native::DEFAULT_CLI.to_string(),
             libexec: native::DEFAULT_LIBEXEC.to_string(),
             curl: provider::DEFAULT_CURL.to_string(),
         }
@@ -76,10 +73,10 @@ pub struct Control<E: Executor = NativeExec> {
     exec: E,
     policy: policy::PolicyStore,
     socket: PathBuf,
-    cli: String,
     libexec: String,
     curl: String,
     /// Test seam: canned LocalAPI `(status, body)` rounds.
+    pub(crate) cli_stub: Option<Box<native::CliTransport>>,
     pub(crate) local_stub: Option<Box<native::Transport>>,
     /// Test seam: canned provider `(status, body)` rounds.
     pub(crate) provider_stub: Option<Box<provider::ProviderTransport>>,
@@ -94,9 +91,9 @@ impl<E: Executor> Control<E> {
             exec,
             policy: policy::PolicyStore::new(opts.state_dir, opts.uid, opts.runtime),
             socket: opts.socket,
-            cli: opts.cli,
             libexec: opts.libexec,
             curl: opts.curl,
+            cli_stub: None,
             local_stub: None,
             provider_stub: None,
         }
@@ -109,6 +106,13 @@ impl<E: Executor> Control<E> {
         let mut opts = opts;
         opts.runtime = true;
         Self::new(exec, opts)
+    }
+
+    fn cli_round_trip(&self, args: &[String], deadline: Instant) -> Result<Vec<u8>, String> {
+        if let Some(stub) = &self.cli_stub {
+            return stub(args, deadline);
+        }
+        crate::tailnet_host::HostRuntime::new(&self.exec).cli(args, deadline)
     }
 
     fn local_round_trip(
@@ -164,13 +168,6 @@ impl<E: Executor> Control<E> {
         native::observe(&self.transport(), deadline)
     }
 
-    /// True when the host daemon answers owned-resource inspection. The
-    /// lifecycle observer uses this factual signal; T02 cross-checks
-    /// records, image and grants before adopting anything as running.
-    pub fn host_present(&self, deadline: Instant) -> bool {
-        self.observe(deadline).is_ok()
-    }
-
     /// JSON bytes of the settings view, same shape as Go `Control.Settings`.
     pub fn settings(&self, deadline: Instant) -> Result<Vec<u8>, String> {
         let enrollment = self.policy.enrollment(deadline)?;
@@ -224,30 +221,24 @@ impl<E: Executor> Control<E> {
             return Err(wire::err_unconfirmed());
         }
         let transport = self.transport();
-        let socket = self.socket.as_path();
+        let cli = |args: &[String], end: Instant| self.cli_round_trip(args, end);
         let (selected, action_err) = match r.action.as_str() {
             "signin" => (
                 String::new(),
-                native::execute_signin(
-                    &transport, &self.exec, &self.cli, socket, &before, deadline,
-                )
-                .err(),
+                native::execute_signin(&transport, &cli, &before, deadline).err(),
             ),
             "logout" => (
                 String::new(),
                 native::execute_logout(&transport, deadline).err(),
             ),
-            "exit-node" => match native::execute_exit_node(
-                &self.exec, &self.cli, socket, &r, &before, deadline,
-            ) {
+            "exit-node" => match native::execute_exit_node(&cli, &r, &before, deadline) {
                 Ok(id) => (id, None),
                 Err(e) if e.contains("conflict") => return Err(e),
                 Err(e) => (String::new(), Some(e)),
             },
             "advertise-exit-node" => (
                 String::new(),
-                native::execute_advertise_exit_node(&self.exec, &self.cli, socket, &r, deadline)
-                    .err(),
+                native::execute_advertise_exit_node(&cli, &r, deadline).err(),
             ),
             "refresh-forgejo" => (
                 String::new(),
@@ -311,12 +302,12 @@ impl<E: Executor> Control<E> {
 
     /// Read the local node's authoritative Tailscale status via the CLI.
     pub fn cli_status(&self, deadline: Instant) -> Result<native::CliStatus, String> {
-        native::cli_status(&self.exec, &self.cli, deadline)
+        native::cli_status(&|args, end| self.cli_round_trip(args, end), deadline)
     }
 
     /// Resolve the advertised host and IPv4 address used by Forgejo.
     pub fn cli_endpoint(&self, deadline: Instant) -> Result<native::CliEndpoint, String> {
-        native::cli_endpoint(&self.exec, &self.cli, deadline)
+        native::cli_endpoint(&|args, end| self.cli_round_trip(args, end), deadline)
     }
 }
 

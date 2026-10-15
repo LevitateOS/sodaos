@@ -62,7 +62,14 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         if !valid_project_id(id) {
             return Err(ERR_INVALID.to_string());
         }
-        // The unit is conditioned on an existing runtime record; no scan.
+        let path = std::path::Path::new(RUNTIME_ROOT)
+            .join(id)
+            .join("current.json");
+        match std::fs::symlink_metadata(path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(_) => return Err(ERR_UNCONFIRMED.into()),
+            Ok(_) => {}
+        }
         let files = open_runtime_project(RUNTIME_ROOT, id, deadline)?;
         let run = files.current()?;
         if run.target.project != id {

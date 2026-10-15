@@ -37,7 +37,6 @@ pub struct Config {
     pub muse_harness: String,
     pub muse_harness_sha256: String,
     pub muse_harness_version: String,
-    pub tailnet_management: bool,
     /// Trusted tailnet package version from the selected release payload.
     /// Derived only from the selected release; not an operator JSON
     /// override. Empty means no trusted release was loaded.
@@ -99,12 +98,6 @@ impl<'de> Deserialize<'de> for Config {
                     string_field!("network", network);
                     string_field!("subnet", subnet);
                     string_field!("bridge", bridge);
-                    if key.eq_ignore_ascii_case("tailnet_management") {
-                        if let Some(value) = map.next_value::<Option<bool>>()? {
-                            config.tailnet_management = value;
-                        }
-                        continue;
-                    }
                     return Err(de::Error::unknown_field(
                         &key,
                         &[
@@ -118,7 +111,6 @@ impl<'de> Deserialize<'de> for Config {
                             "muse_harness",
                             "muse_harness_sha256",
                             "muse_harness_version",
-                            "tailnet_management",
                             "tailnet_image",
                             "image",
                             "network",
@@ -191,9 +183,7 @@ fn apply_release_images(c: &mut Config, release_path: &str) -> Result<(), String
         .unwrap_or(std::path::Path::new("/"))
         .join("canlang-tools/release.json");
     c.canlang_runtime = Some(selected_canlang_runtime(&payload, &tools)?);
-    if c.tailnet_management {
-        c.tailnet_image = companion_image.to_string();
-    }
+    c.tailnet_image = companion_image.to_string();
     Ok(())
 }
 
@@ -334,9 +324,7 @@ fn valid_tailnet_image(c: &Config) -> bool {
     if c.tailnet_image.is_empty() {
         return true;
     }
-    c.tailnet_management
-        && c.tailnet_image.starts_with("sha256:")
-        && domain::valid_image_ref(&c.tailnet_image)
+    c.tailnet_image.starts_with("sha256:") && domain::valid_image_ref(&c.tailnet_image)
 }
 
 /// `validNetworkNames` (`networkName` is `domain::valid_login`'s regex).

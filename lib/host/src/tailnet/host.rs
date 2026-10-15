@@ -100,6 +100,7 @@ impl<E: Executor> HostRuntime<E> {
         // immutable daemon arguments and the locally recorded image must agree.
         if !valid_image_id(&record.image)
             || !crate::tcontrol_wire::valid_lifecycle_uuid(&record.installation_id)
+            || record.generation == "0"
             || !crate::tcontrol_wire::valid_lifecycle_generation(&record.generation)
         {
             return Err(conflict());
@@ -259,7 +260,7 @@ impl<E: Executor> HostRuntime<E> {
         Ok(())
     }
 
-    pub(crate) fn ensure(
+    pub fn ensure(
         &self,
         grant: &Grant,
         _starts: &StartGuard,
@@ -381,6 +382,17 @@ impl<E: Executor> HostRuntime<E> {
             Err(_) => return Err(unconfirmed()),
         }
         Ok(()) // Preserve host credentials, policy, ownership receipt and image cache.
+    }
+
+    pub fn wait(&self, cid: &str, deadline: Instant) -> Result<(), String> {
+        if !valid_container_id(cid) {
+            return Err(conflict());
+        }
+        let output = podman(&self.exec, &["wait".into(), cid.into()], deadline)?;
+        if output.strip_suffix(b"\n").unwrap_or(&output) != b"0" {
+            return Err(unconfirmed());
+        }
+        Ok(())
     }
 
     pub fn cli(&self, args: &[String], deadline: Instant) -> Result<Vec<u8>, String> {

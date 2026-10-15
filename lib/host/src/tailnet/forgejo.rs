@@ -18,7 +18,6 @@ use soda_host::tcontrol_native;
 const DEADLINE_SECS: u64 = 90;
 const PODMAN: &str = "/usr/bin/podman";
 const SYSTEMCTL: &str = "/usr/bin/systemctl";
-const TAILSCALE_CLI: &str = tcontrol_native::DEFAULT_CLI;
 const FORGEJO_CONTAINER: &str = "soda-forgejo";
 const FORGEJO_ENV: &str = "/etc/soda/forgejo.env";
 const SSH_DOMAIN_KEY: &str = "FORGEJO__server__SSH_DOMAIN=";
@@ -36,7 +35,8 @@ pub fn run(exec: &dyn Executor) -> Result<(), String> {
     // retired helper is unproved; further diagnostics come from the shared
     // observer, never subprocess stderr.
     let status_exec = NativeStatusOnly;
-    let endpoint = tcontrol_native::cli_endpoint(&status_exec, TAILSCALE_CLI, deadline)?;
+    let runtime = soda_host::tailnet_host::HostRuntime::new(&status_exec);
+    let endpoint = tcontrol_native::cli_endpoint(&|args, end| runtime.cli(args, end), deadline)?;
     // Do not advertise a Tailnet address while the native port only binds a LAN IP.
     // Raw inspection may contain credentials; never print it or include it in errors.
     let live = inspect_forgejo(exec, deadline)?;
@@ -1420,13 +1420,15 @@ mod tests {
         let cli = stub_cli(&env, "tailscale", "echo SECRET=never-log >&2\nexit 3");
         let exec = NativeStatusOnly;
         let deadline = Instant::now() + Duration::from_secs(30);
-        let err = tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap_err();
-        assert_eq!(
-            err,
-            format!(
-                "unavailable: tailscale status is unavailable: {cli} status --json: exit status 3"
-            )
-        );
+        let err = tcontrol_native::cli_endpoint(
+            &|args, end| {
+                let refs: Vec<_> = args.iter().map(String::as_str).collect();
+                exec.run(&[], &cli, &refs, end)
+            },
+            deadline,
+        )
+        .unwrap_err();
+        assert_eq!(err, soda_host::tcontrol_wire::err_unavailable());
         assert!(!err.contains("SECRET"), "stderr leaked: {err}");
     }
 
@@ -1446,7 +1448,14 @@ mod tests {
             ),
         ] {
             let cli = stub_cli(&env, "tailscale", &format!("printf '%s' '{doc}'"));
-            let endpoint = tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap();
+            let endpoint = tcontrol_native::cli_endpoint(
+                &|args, end| {
+                    let refs: Vec<_> = args.iter().map(String::as_str).collect();
+                    exec.run(&[], &cli, &refs, end)
+                },
+                deadline,
+            )
+            .unwrap();
             assert_eq!(endpoint.identity, identity);
             assert_eq!(endpoint.ipv4, "100.88.77.66");
         }
@@ -1467,10 +1476,15 @@ exit 1"#,
         let exec = NativeStatusOnly;
         let deadline = Instant::now() + Duration::from_secs(30);
         assert_eq!(
-            tcontrol_native::cli_endpoint(&exec, &cli, deadline).unwrap_err(),
-            format!(
-                "unavailable: tailscale status is unavailable: {cli} status --json: exit status 1"
+            tcontrol_native::cli_endpoint(
+                &|args, end| {
+                    let refs: Vec<_> = args.iter().map(String::as_str).collect();
+                    exec.run(&[], &cli, &refs, end)
+                },
+                deadline
             )
+            .unwrap_err(),
+            soda_host::tcontrol_wire::err_unavailable()
         );
     }
 

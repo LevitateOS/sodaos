@@ -80,6 +80,12 @@ pub fn admit(project: Option<&str>) -> Result<AdmissionGuard, String> {
     admit_at(Path::new(DIRECTORY), project, 0)
 }
 
+/// Cleanup shares the same inode exclusion but never treats a retained
+/// operation marker as authority to skip stopping an owned resource.
+pub fn cleanup_guard() -> Result<AdmissionGuard, String> {
+    lock(Path::new(DIRECTORY), false, 0)
+}
+
 pub fn exclusive() -> Result<AdmissionGuard, String> {
     lock(Path::new(DIRECTORY), true, 0)
 }

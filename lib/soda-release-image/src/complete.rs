@@ -122,7 +122,7 @@ pub fn write_factory_defaults(root: &str) -> Result<(), Error> {
     }
     // Machine setup must supply the explicit private subnet. Images are not saved
     // here: the vendor helper reads their immutable IDs from the release owner.
-    let example = b"{\n  \"network\": \"soda-projects\",\n  \"bridge\": \"soda0\",\n  \"subnet\": \"\",\n  \"tailnet_management\": false\n}\n";
+    let example = b"{\n  \"network\": \"soda-projects\",\n  \"bridge\": \"soda0\",\n  \"subnet\": \"\"\n}\n";
     files::owned_write(
         &sys::join(&[root, "usr/share/soda/defaults/host.example.json"]),
         example,

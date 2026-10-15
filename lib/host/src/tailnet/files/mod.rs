@@ -228,7 +228,8 @@ mod run;
 mod keys;
 
 pub use keys::{
-    read_companion_record, retire_companion_record, retire_pending_run_key, retire_run_key, write_companion_record, write_run_key,
+    read_companion_record, retire_companion_record, retire_pending_run_key, retire_run_key,
+    write_companion_record, write_run_key,
 };
 
 mod resolver;
@@ -239,5 +240,5 @@ pub use resolver::validate_run_resolver;
 mod tests;
 
 mod owned;
-pub(crate) use owned::OwnedState;
 pub use owned::OwnedLock;
+pub(crate) use owned::OwnedState;

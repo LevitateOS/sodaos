@@ -228,6 +228,29 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         Ok(rec.id)
     }
 
+    /// Supervision adopts only the existing exact child for the current run.
+    /// It performs no create, enrollment or ordinary admission bypass.
+    pub fn adopt_running(&self, id: &str, deadline: Instant) -> Result<Option<String>, String> {
+        if !crate::tailnet_domain::valid_project_id(id) {
+            return Err(crate::tailnet_domain::ERR_INVALID.into());
+        }
+        let path = std::path::Path::new(RUNTIME_ROOT)
+            .join(id)
+            .join("current.json");
+        match std::fs::symlink_metadata(path) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(ERR_UNAVAILABLE.into()),
+            Ok(_) => {}
+        }
+        let files = open_runtime_project(RUNTIME_ROOT, id, deadline)?;
+        let saved = files.current()?;
+        if project_run(&self.exec, id, deadline)? != saved {
+            return Ok(None);
+        }
+        let owned = self.inspect_companion(&saved, deadline)?;
+        Ok(owned.running.then_some(owned.id))
+    }
+
     /// Prepares one exact run. Only systemd/native explicit activation calls
     /// it; HTTP reads and browser focus never enter this path.
     pub fn start_tailnet(&self, id: &str, deadline: Instant) -> Result<String, String> {
@@ -242,6 +265,7 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         if initial.image != self.image {
             return Err(ERR_UNAVAILABLE.to_string());
         }
+        let _maintenance = crate::project::admission::admit(Some(id))?;
         let starts = store.start_lock(deadline)?;
         let grant = store.admit(&self.image, deadline)?;
         self.start_tailnet_admitted(id, &grant, &starts, deadline)

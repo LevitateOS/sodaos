@@ -6,7 +6,7 @@ use crate::tailnet_domain::{project_has_node, project_status};
 use std::cell::RefCell;
 
 #[test]
-fn disable_flow_marks_runtime_unconfirmed() {
+fn disable_without_runtime_remains_a_clean_stop() {
     let id = project_id();
     let id_clone = id.clone();
     let exec = MockExec::with_handler(move |cmd, args| {
@@ -27,9 +27,8 @@ fn disable_flow_marks_runtime_unconfirmed() {
     let view = c
         .observe_project_tailnet(&test_request("disable"), &"c".repeat(64), deadline())
         .unwrap();
-    // systemctl accepted the stop, then the missing runtime record
-    // overwrote the outcome.
-    assert_eq!(view.outcome, "runtime-unconfirmed");
+    // There is no child to stop; missing optional runtime is a clean no-op.
+    assert_eq!(view.outcome, "queued");
     // The parent container is confirmed stopped.
     assert_eq!(view.state, "stopped");
     let calls = c.exec.calls();
@@ -47,7 +46,7 @@ fn disable_flow_marks_runtime_unconfirmed() {
     // Queueing the disable directly behaves the same.
     let mut direct = test_view();
     c.queue_project_tailnet_disable(&id, &mut direct, deadline());
-    assert_eq!(direct.outcome, "runtime-unconfirmed");
+    assert_eq!(direct.outcome, "queued");
 }
 
 #[test]

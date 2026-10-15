@@ -49,6 +49,7 @@ impl OwnedCompanion {
             && self.image.starts_with("sha256:")
             && valid_image_id(&self.image)
             && crate::tcontrol_wire::valid_lifecycle_uuid(&self.installation_id)
+            && self.generation != "0"
             && crate::tcontrol_wire::valid_lifecycle_generation(&self.generation)
     }
 }
@@ -257,6 +258,7 @@ pub fn companion_container_args(
         || !image.starts_with("sha256:")
         || !valid_image_id(image)
         || !crate::tcontrol_wire::valid_lifecycle_uuid(installation)
+        || generation == "0"
         || !crate::tcontrol_wire::valid_lifecycle_generation(generation)
     {
         return Err(ERR_INVALID.to_string());

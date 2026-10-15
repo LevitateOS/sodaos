@@ -1,19 +1,5 @@
-//! Tailnet lifecycle owner (RCX-2 T01): trusted-pin validation, bounded
-//! dependency acquisition, and factual observation rendering for the strict
-//! `POST /tailnet/prepare` and `POST /tailnet/lifecycle` host endpoints.
-//!
-//! Authority stays with Fountain's manager and is verified by the Go
-//! service before this hop; this owner only matches the verified tuple
-//! against the trusted release pin, runs the selected dependency
-//! acquisition, and reports facts. Rejected, replayed, wrong-variant or
-//! unbound authority never reaches an effect: the mux validates before
-//! dispatch, and every fallible step maps to a bounded wire error.
-//!
-//! T02 owns the operational grant, boot-closed admission, start
-//! serialization and drain, host/project runtime integration, and the
-//! generation-bound run records. Until then activation reports facts
-//! without claiming them: a present-but-unverified host is unknown, never
-//! running, and admission is never ready.
+//! Tailnet lifecycle: trusted dependency acquisition and exact-owned runtime composition.
+//! Fountain owns durable intent; this owner reports facts and bounds native effects.
 
 use crate::tcontrol_wire::{self, LifecycleCall};
 use std::time::Instant;
@@ -142,44 +128,19 @@ fn observation_for(
     }
 }
 
-/// Report stopped: no host node answers owned-resource inspection.
-/// Admission is never ready here; the T02 grant owns readiness.
-pub fn stopped_observation(call: &LifecycleCall) -> Vec<u8> {
-    let detail = "No host node answers inspection; project companions join enumeration in T02.";
-    tcontrol_wire::encode_lifecycle_observation(&observation_for(
-        call,
-        tcontrol_wire::LIFECYCLE_STOPPED,
-        detail,
-    ))
-    .into_bytes()
-}
-
-/// Report unknown: a host node answers but ownership, image and generation
-/// are unverified without T02 records, so the runtime is genuinely
-/// incomplete evidence, never adopted as running.
-pub fn unknown_observation(call: &LifecycleCall) -> Vec<u8> {
-    let detail = "A host node answers but ownership is unverified; retry after T02 enumeration.";
-    tcontrol_wire::encode_lifecycle_observation(&observation_for(
+/// Render an incomplete native operation using the SDK lifecycle error domain,
+/// which is distinct from Fountain's browser/manager result error vocabulary.
+pub(crate) fn failed_observation(call: &LifecycleCall) -> tcontrol_wire::LifecycleObservation {
+    let mut observation = observation_for(
         call,
         tcontrol_wire::LIFECYCLE_UNKNOWN,
-        detail,
-    ))
-    .into_bytes()
-}
-
-/// Report prepared: the selected dependency is verified locally. Prepare
-/// never opens admission and never starts a daemon.
-pub fn prepared_observation(call: &LifecycleCall, host_present: bool) -> Vec<u8> {
-    if host_present {
-        return unknown_observation(call);
-    }
-    let detail = "Selected dependency verified locally; admission never opens here.";
-    tcontrol_wire::encode_lifecycle_observation(&observation_for(
-        call,
-        tcontrol_wire::LIFECYCLE_STOPPED,
-        detail,
-    ))
-    .into_bytes()
+        "Lifecycle work is incomplete; admission stays closed and explicit retry is required.",
+    );
+    observation.error = Some(tcontrol_wire::LifecycleError {
+        code: "effect_failed".into(),
+        message: "Native lifecycle work is unconfirmed.".into(),
+    });
+    observation
 }
 
 #[cfg(test)]
@@ -278,21 +239,16 @@ mod tests {
     }
 
     #[test]
-    fn observations_are_stopped_or_unknown_without_grant() {
+    fn incomplete_observation_uses_sdk_error_domain() {
         let call = test_call();
-        let stopped = stopped_observation(&call);
-        let observation: tcontrol_wire::LifecycleObservation =
-            crate::json::decode_strict_as(&stopped).expect("stopped must decode");
-        assert_eq!(observation.state, "stopped");
-        assert!(observation.effect_generation.is_none());
-        assert!(!observation.admission_ready);
-        assert!(observation.error.is_none());
-        tcontrol_wire::validate_lifecycle_observation(&observation, &call).expect("valid");
-        let unknown = unknown_observation(&call);
-        let observation: tcontrol_wire::LifecycleObservation =
-            crate::json::decode_strict_as(&unknown).expect("unknown must decode");
+        let observation = failed_observation(&call);
         assert_eq!(observation.state, "unknown");
         assert!(!observation.admission_ready);
+        assert_eq!(observation.error.as_ref().unwrap().code, "effect_failed");
         tcontrol_wire::validate_lifecycle_observation(&observation, &call).expect("valid");
     }
 }
+
+#[path = "lifecycle/runtime.rs"]
+mod runtime;
+pub use runtime::Runtime;

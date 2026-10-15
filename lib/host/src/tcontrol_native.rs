@@ -17,8 +17,7 @@ use crate::tcontrol_wire as wire;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 
-pub const HOST_SOCKET: &str = "/var/run/tailscale/tailscaled.sock";
-pub const DEFAULT_CLI: &str = "/usr/bin/tailscale";
+pub const HOST_SOCKET: &str = crate::tailnet_host::HOST_SOCKET;
 pub const DEFAULT_LIBEXEC: &str = "/usr/libexec/soda";
 /// Native LocalAPI body cap (`responseLimit` in control.go).
 pub const RESPONSE_LIMIT: usize = 65536;
@@ -37,6 +36,11 @@ pub type Transport =
 /// stub, with no auto-trait bounds and no `'static` requirement.
 pub type RoundTrip<'a> =
     &'a (dyn Fn(&str, &str, Option<&[u8]>, Instant) -> Result<(u16, Vec<u8>), String> + 'a);
+
+/// Image-contained CLI transport. The production owner resolves and verifies
+/// the exact owned CID before exec; request code cannot choose an executable.
+pub type CliTransport = dyn Fn(&[String], Instant) -> Result<Vec<u8>, String> + Send + Sync;
+pub type CliRoundTrip<'a> = &'a (dyn Fn(&[String], Instant) -> Result<Vec<u8>, String> + 'a);
 
 /// Apply Go's `request` rules: status must be 200/204 and the body capped.
 pub fn finish_local(status: u16, body: &[u8]) -> Result<Vec<u8>, String> {
@@ -797,15 +801,9 @@ fn split_json_values(data: &[u8]) -> Result<Vec<Vec<u8>>, String> {
 
 // ---------- Host actions ----------
 
-fn socket_arg(socket: &Path) -> String {
-    format!("--socket={}", socket.display())
-}
-
 pub fn execute_signin(
     transport: RoundTrip<'_>,
-    exec: &dyn crate::project::Executor,
-    cli: &str,
-    socket: &Path,
+    cli: CliRoundTrip<'_>,
     before: &wire::HostView,
     deadline: Instant,
 ) -> Result<(), String> {
@@ -828,8 +826,15 @@ pub fn execute_signin(
         }
     } else {
         let wait = deadline.min(Instant::now() + UP_TIMEOUT);
-        let arg = socket_arg(socket);
-        let data = run_command(exec, cli, &[&arg, "up", "--json", "--timeout=5s"], wait)?;
+        let data = cli(
+            &[
+                "up".into(),
+                "--json".into(),
+                "--timeout=5s".into(),
+                "--accept-dns=false".into(),
+            ],
+            wait,
+        )?;
         decode_up_notifications(&data)
     }
 }
@@ -853,9 +858,7 @@ pub fn find_available_exit_node(peers: &[wire::Peer], target_ip: &str) -> Option
 }
 
 pub fn execute_exit_node(
-    exec: &dyn crate::project::Executor,
-    cli: &str,
-    socket: &Path,
+    cli: CliRoundTrip<'_>,
     r: &wire::HostRequest,
     before: &wire::HostView,
     deadline: Instant,
@@ -868,25 +871,21 @@ pub fn execute_exit_node(
             None => return Err(wire::err_conflict()),
         }
     }
-    let arg = socket_arg(socket);
     let set_ip = format!("--exit-node={want}");
     let lan = r.allow_lan.unwrap_or(false);
     let set_lan = format!("--exit-node-allow-lan-access={lan}");
-    run_command(exec, cli, &[&arg, "set", &set_ip, &set_lan], deadline)?;
+    cli(&["set".into(), set_ip, set_lan], deadline)?;
     Ok(selected)
 }
 
 pub fn execute_advertise_exit_node(
-    exec: &dyn crate::project::Executor,
-    cli: &str,
-    socket: &Path,
+    cli: CliRoundTrip<'_>,
     r: &wire::HostRequest,
     deadline: Instant,
 ) -> Result<(), String> {
-    let arg = socket_arg(socket);
     let flag = r.advertise.unwrap_or(false);
     let set = format!("--advertise-exit-node={flag}");
-    run_command(exec, cli, &[&arg, "set", &set], deadline)?;
+    cli(&["set".into(), set], deadline)?;
     Ok(())
 }
 
@@ -1144,30 +1143,15 @@ fn parse_cli_status(data: &[u8]) -> Result<CliStatus, String> {
 }
 
 /// Read the local node's authoritative Tailscale status via the CLI.
-pub fn cli_status(
-    exec: &dyn crate::project::Executor,
-    cli: &str,
-    deadline: Instant,
-) -> Result<CliStatus, String> {
-    let output = match exec.run(&[], cli, &["status", "--json"], deadline) {
-        Ok(out) => out,
-        Err(e) => {
-            return Err(format!(
-                "{}: {cli} status --json: {e}",
-                wire::err_unavailable()
-            ))
-        }
-    };
+pub fn cli_status(cli: CliRoundTrip<'_>, deadline: Instant) -> Result<CliStatus, String> {
+    let output =
+        cli(&["status".into(), "--json".into()], deadline).map_err(|_| wire::err_unavailable())?;
     parse_cli_status(&output)
 }
 
 /// Resolve the advertised host and IPv4 address used by Forgejo.
-pub fn cli_endpoint(
-    exec: &dyn crate::project::Executor,
-    cli: &str,
-    deadline: Instant,
-) -> Result<CliEndpoint, String> {
-    let status = cli_status(exec, cli, deadline)?;
+pub fn cli_endpoint(cli: CliRoundTrip<'_>, deadline: Instant) -> Result<CliEndpoint, String> {
+    let status = cli_status(cli, deadline)?;
     if status.backend_state != "Running" || status.expired {
         return Err(wire::err_not_enrolled());
     }

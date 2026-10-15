@@ -74,12 +74,13 @@ struct Flags {
     release: String,
     listen_path: String,
     tailnet_action: String,
+    tailnet_host_action: String,
     project: String,
     positionals: Vec<String>,
 }
 
 fn usage() -> String {
-    "Usage: soda-host [--config PATH] [--release PATH] [--listen-path PATH] [--tailnet-action run|stop --project ID]\n\n\
+    "Usage: soda-host [--config PATH] [--release PATH] [--listen-path PATH] [--tailnet-action run|stop --project ID] [--tailnet-host-action run|stop]\n\n\
      Installed privileged host daemon: serves the root:soda Unix operation\n\
      socket under systemd socket activation. --release selects the appliance\n\
      release file (default /usr/share/soda/release.json); an empty value\n\
@@ -101,6 +102,7 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
         release: RELEASE_CONFIG.to_string(),
         listen_path: String::new(),
         tailnet_action: String::new(),
+        tailnet_host_action: String::new(),
         project: String::new(),
         positionals: Vec::new(),
     };
@@ -142,13 +144,17 @@ fn parse_flags(args: &[String]) -> Result<Flags, String> {
             "release" => flags.release = value,
             "listen-path" => flags.listen_path = value,
             "tailnet-action" => flags.tailnet_action = value,
+            "tailnet-host-action" => flags.tailnet_host_action = value,
             "project" => flags.project = value,
             _ => return Err(format!("flag provided but not defined: -{name}")),
         }
         i += 1;
     }
     if !flags.fixture_runtime_image.is_empty() || !flags.fixture_tools_sha256.is_empty() {
-        if !flags.release.is_empty() || !flags.tailnet_action.is_empty() {
+        if !flags.release.is_empty()
+            || !flags.tailnet_action.is_empty()
+            || !flags.tailnet_host_action.is_empty()
+        {
             return Err("Canlang fixture references require --release= and the daemon path".into());
         }
         soda_host::application::ReleaseBinding {
@@ -182,19 +188,45 @@ fn run_tailnet_action(
         // Go `tailnet.ErrInvalid`.
         return Err(MainError::Other("invalid Tailnet request".to_string()));
     }
+    let companion = soda_host::tailnet_companion::Companion {
+        exec: project::Native,
+        tailnet: soda_host::tcontrol::Control::new_project_control(
+            project::Native,
+            soda_host::tcontrol::Options::default(),
+        ),
+        image: String::new(),
+        enabled_check: None,
+    };
+    let phase = Instant::now() + Duration::from_secs(45);
+    if action == "stop" {
+        return companion
+            .stop_tailnet(
+                project_id,
+                phase.min(Instant::now() + Duration::from_secs(30)),
+            )
+            .map_err(MainError::Other);
+    }
+    install_signal_handlers();
+    if let Some(cid) = companion
+        .adopt_running(project_id, phase)
+        .map_err(MainError::Other)?
+    {
+        return companion
+            .wait_tailnet(&cid, Instant::now() + Duration::from_secs(365 * 24 * 3600))
+            .map_err(MainError::Other);
+    }
+    if soda_host::tailnet_admission::GrantStore::default()
+        .read()
+        .is_err()
+    {
+        return Ok(());
+    }
     let config = config::load_config(config_path, release_path)
-        .map_err(|_| MainError::Other("tailnet unavailable".to_string()))?;
-    if !config.tailnet_management || config.tailnet_image.is_empty() {
+        .map_err(|_| MainError::Other("tailnet unavailable".into()))?;
+    if config.tailnet_image.is_empty() {
         return Ok(());
     }
     let backend = open_backend(&config);
-    let phase = Instant::now() + Duration::from_secs(45);
-    if action == "stop" {
-        let bounded = phase.min(Instant::now() + Duration::from_secs(30));
-        return backend
-            .companion_stop(project_id, bounded)
-            .map_err(MainError::Other);
-    }
     // Go cancels the phase timeout once the run starts, then waits on the
     // signal context. The wait below observes a distant horizon; signal
     // handlers terminate the process promptly at the OS level.
@@ -207,6 +239,53 @@ fn run_tailnet_action(
             "tailnet preparation unconfirmed; observe and explicitly retry: {e}"
         ))),
     }
+}
+
+fn run_tailnet_host_action(
+    config_path: &str,
+    release_path: &str,
+    action: &str,
+    positionals: usize,
+) -> Result<(), MainError> {
+    if !is_root() || !matches!(action, "run" | "stop") || positionals != 0 {
+        return Err(MainError::Other("invalid Tailnet request".into()));
+    }
+    let runtime = soda_host::tailnet_host::HostRuntime::new(project::Native);
+    let deadline = Instant::now() + Duration::from_secs(45);
+    if action == "stop" {
+        return runtime.stop(None, deadline).map_err(MainError::Other);
+    }
+    install_signal_handlers();
+    if let Some(process) = runtime
+        .inspect(None, deadline)
+        .map_err(MainError::Other)?
+        .filter(|p| p.running)
+    {
+        return runtime
+            .wait(
+                &process.record.id,
+                Instant::now() + Duration::from_secs(365 * 24 * 3600),
+            )
+            .map_err(MainError::Other);
+    }
+    let store = soda_host::tailnet_admission::GrantStore::default();
+    if store.read().is_err() {
+        return Ok(());
+    }
+    let config = config::load_config(config_path, release_path)
+        .map_err(|_| MainError::Other("tailnet unavailable".into()))?;
+    let _maintenance = soda_host::project::admission::admit(None).map_err(MainError::Other)?;
+    let starts = store.start_lock(deadline).map_err(MainError::Other)?;
+    let grant = store
+        .admit(&config.tailnet_image, deadline)
+        .map_err(|e| MainError::TailnetPreparation(e))?;
+    let cid = runtime
+        .ensure(&grant, &starts, deadline)
+        .map_err(MainError::Other)?;
+    drop(starts);
+    runtime
+        .wait(&cid, Instant::now() + Duration::from_secs(365 * 24 * 3600))
+        .map_err(MainError::Other)
 }
 
 // -- serve path (`serveHostSocket`) --
@@ -250,6 +329,9 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
             "requires root and the soda-host systemd Unix socket".to_string(),
         ));
     }
+    soda_host::tailnet_admission::GrantStore::default()
+        .close()
+        .map_err(MainError::Other)?;
     let listener = if listen_path.is_empty() {
         if std::env::var("LISTEN_PID").unwrap_or_default() != std::process::id().to_string()
             || std::env::var("LISTEN_FDS").unwrap_or_default() != "1"
@@ -268,7 +350,6 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
         Arc::clone(&backend),
         DaemonConfig {
             image: config.image.clone(),
-            tailnet_management: config.tailnet_management,
             tailnet_package_version: config.tailnet_package_version.clone(),
             tailnet_package_sha256: config.tailnet_package_sha256.clone(),
             release_payload: config.release_payload.clone(),
@@ -406,6 +487,17 @@ fn run() -> Result<(), MainError> {
             std::process::exit(2);
         }
     };
+    if !flags.tailnet_host_action.is_empty() {
+        if !flags.tailnet_action.is_empty() || !flags.project.is_empty() {
+            return Err(MainError::Other("invalid Tailnet request".into()));
+        }
+        return run_tailnet_host_action(
+            &flags.config,
+            &flags.release,
+            &flags.tailnet_host_action,
+            flags.positionals.len(),
+        );
+    }
     if !flags.tailnet_action.is_empty() {
         return run_tailnet_action(
             &flags.config,
@@ -421,7 +513,10 @@ fn run() -> Result<(), MainError> {
     let mut config = config::load_config(&flags.config, &flags.release)
         .map_err(|e| MainError::Other(format!("invalid host configuration: {e}")))?;
     if !flags.fixture_runtime_image.is_empty() || !flags.fixture_tools_sha256.is_empty() {
-        if !flags.release.is_empty() || !flags.tailnet_action.is_empty() {
+        if !flags.release.is_empty()
+            || !flags.tailnet_action.is_empty()
+            || !flags.tailnet_host_action.is_empty()
+        {
             return Err(MainError::Other(
                 "Canlang fixture references require --release=".into(),
             ));

@@ -31,7 +31,6 @@ fn golden_valid_configs() {
         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     );
     assert_eq!(c.codex_harness_version, "0.153.4");
-    assert!(c.tailnet_management);
     // No trusted release was loaded: lifecycle pins and payload stay empty.
     assert!(c.tailnet_package_version.is_empty());
     assert!(c.tailnet_package_sha256.is_empty());
@@ -52,7 +51,6 @@ fn golden_valid_configs() {
     assert_eq!(c.network, "soda-net");
     assert_eq!(c.subnet, "10.89.0.0/24");
     assert_eq!(c.bridge, "soda-br0");
-    assert!(!c.tailnet_management);
     assert!(c.muse_sha256.is_empty());
     assert!(c.codex_harness.is_empty());
 }
@@ -62,7 +60,6 @@ fn golden_decode_errors() {
     // The config reader rejects unknown fields and malformed typed values.
     let err = load_config(&golden("unknown-field.json"), "").unwrap_err();
     assert!(!err.is_empty());
-    assert!(load_config(&golden("bad-type-bool.json"), "").is_err());
     assert!(load_config(&golden("bad-type-string.json"), "").is_err());
     // Empty input is rejected at the config read boundary.
     assert!(!load_config(&golden("empty.json"), "")
@@ -96,7 +93,6 @@ fn golden_release_overlay() {
     let c = load_config(&golden("overlay-base.json"), &release).unwrap();
     assert_eq!(c.image, PROJECT_IMAGE);
     assert_eq!(c.tailnet_image, TAILNET_IMAGE);
-    assert!(c.tailnet_management);
     // The release overlay also pins the lifecycle package identity and
     // records the trusted payload path; empty release input leaves all
     // three empty so lifecycle prepare stays unavailable.
@@ -111,10 +107,6 @@ fn golden_release_overlay() {
         c.canlang_runtime.as_ref().unwrap().tools_sha256,
         "4".repeat(64)
     );
-    // Without management the companion image stays empty.
-    let c = load_config(&golden("overlay-nomgmt.json"), &release).unwrap();
-    assert_eq!(c.image, PROJECT_IMAGE);
-    assert!(c.tailnet_image.is_empty());
     // Saved selections conflicting with the release fail loudly.
     for name in ["conflict-image.json", "conflict-tailnet.json"] {
         assert_eq!(
@@ -186,7 +178,6 @@ fn golden_validators() {
         ("identity-relative-harness.json", IDENTITY),
         ("identity-bad-sha.json", IDENTITY),
         ("identity-bad-version.json", STAGED),
-        ("tailnet-no-mgmt.json", TAILNET),
         ("tailnet-bad-ref.json", TAILNET),
         ("bad-network.json", NATIVE),
         ("bad-bridge.json", NATIVE),

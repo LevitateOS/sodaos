@@ -962,7 +962,7 @@ fn tailnet_error_mapping_matches_go() {
 }
 
 #[test]
-fn tailnet_success_has_no_trailing_newline_and_disabled_is_503() {
+fn tailnet_success_has_no_trailing_newline() {
     let backend = ScriptBackend::ok(b"{\"saved\":true}");
     let gate = AdmissionGate::new();
     let terminal_gate = TerminalGate::new();
@@ -996,21 +996,6 @@ fn tailnet_success_has_no_trailing_newline_and_disabled_is_503() {
     )
     .into_response();
     assert_eq!(status_of(&response), 502);
-
-    let mut config = DaemonConfig::all_enabled();
-    config.tailnet_management = false;
-    let response = dispatch(
-        &backend,
-        &config,
-        &gate,
-        &terminal_gate,
-        &head("POST", "/tailnet/settings"),
-        b"{}",
-        true,
-    )
-    .into_response();
-    assert_eq!(status_of(&response), 503);
-    assert_eq!(body_of(&response), b"Tailnet management disabled\n");
 
     let response = dispatch_stub("POST", "/tailnet/bogus", b"{}");
     assert_eq!(status_of(&response), 404);

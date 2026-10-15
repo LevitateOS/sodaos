@@ -33,7 +33,9 @@ fn state(value: &serde_json::Value) -> ManagerState {
 fn ordinary_start_requires_current_manager_and_service_epoch() {
     let image = format!("sha256:{}", "a".repeat(64));
     let mut value = document();
-    let grant = state(&value).activation_grant(&call(), &image).unwrap();
+    let grant = state(&value)
+        .activation_grant(&call(), &image, &"c".repeat(64))
+        .unwrap();
     assert!(
         !state(&value).admits(&grant, &image),
         "activation alone cannot open ordinary admission"
@@ -42,7 +44,9 @@ fn ordinary_start_requires_current_manager_and_service_epoch() {
     value["admission_open"] = true.into();
     assert!(state(&value).admits(&grant, &image));
     assert!(
-        state(&value).activation_grant(&call(), &image).is_err(),
+        state(&value)
+            .activation_grant(&call(), &image, &"c".repeat(64))
+            .is_err(),
         "no stable-intent lifecycle bypass"
     );
     for (key, replacement) in [
@@ -128,7 +132,7 @@ fn closing_grant_precedes_drain_and_shared_start_exclusion() {
     };
     let image = format!("sha256:{}", "a".repeat(64));
     let grant = state(&document())
-        .activation_grant(&call(), &image)
+        .activation_grant(&call(), &image, &"c".repeat(64))
         .unwrap();
     store.publish(&grant).unwrap();
     assert_eq!(store.read().unwrap().generation, "7");

@@ -32,7 +32,7 @@ fn lifecycle_remaining(
 fn lifecycle_observe_deadline(
     call: &crate::tcontrol_wire::LifecycleCall,
 ) -> Result<Instant, BackendError> {
-    lifecycle_deadline(call, 20)
+    lifecycle_deadline(call, 10)
 }
 
 use super::{decode_empty_or_null, DaemonBackend};
@@ -271,6 +271,31 @@ fn encode_project_view(view: &crate::tailnet_domain::ProjectView) -> String {
 }
 
 impl DaemonBackend {
+    pub(super) fn admit_tailnet_start(
+        &self,
+        deadline: Instant,
+    ) -> Result<
+        (
+            crate::project::admission::AdmissionGuard,
+            crate::tailnet_admission::StartGuard,
+        ),
+        BackendError,
+    > {
+        let maintenance =
+            crate::project::admission::admit(None).map_err(|_| BackendError::Unavailable)?;
+        let store = crate::tailnet_admission::GrantStore::default();
+        if store.read().is_err() {
+            return Err(BackendError::Unavailable);
+        }
+        let starts = store
+            .start_lock(deadline)
+            .map_err(|_| BackendError::Unavailable)?;
+        store
+            .admit(&self.companion.image, deadline)
+            .map_err(|_| BackendError::Unavailable)?;
+        Ok((maintenance, starts))
+    }
+
     /// Lifecycle prepare: strict-decode the activate tuple, clip the
     /// importer run to the call's remaining whole-operation budget, verify
     /// the selected dependency locally, then report facts. Prepare never
@@ -289,6 +314,8 @@ impl DaemonBackend {
         if release_payload.is_empty() || !release_payload.starts_with('/') {
             return Err(BackendError::Unavailable);
         }
+        let _maintenance =
+            crate::project::admission::admit(None).map_err(|_| BackendError::Unavailable)?;
         crate::tailnet_lifecycle::ensure_tailnet_dependency(
             crate::tailnet_lifecycle::IMAGE_IMPORT_BINARY,
             release_payload,
@@ -296,10 +323,14 @@ impl DaemonBackend {
         )
         .map_err(|_| BackendError::Unavailable)?;
         let observe = lifecycle_observe_deadline(&call)?;
-        Ok(crate::tailnet_lifecycle::prepared_observation(
-            &call,
-            self.tailnet.host_present(observe),
-        ))
+        let runtime = crate::tailnet_lifecycle::Runtime {
+            host: &self.tailnet_host,
+            companion: &self.companion,
+            payload: release_payload,
+        };
+        let mut observation = runtime.observe(&call, observe);
+        observation.admission_ready = false;
+        Ok(crate::tcontrol_wire::encode_lifecycle_observation(&observation).into_bytes())
     }
 
     /// Lifecycle observe/activate/deactivate report: strict-decode the
@@ -316,12 +347,21 @@ impl DaemonBackend {
         {
             return Err(BackendError::Invalid);
         }
-        let deadline = lifecycle_observe_deadline(&call)?;
-        if self.tailnet.host_present(deadline) {
-            Ok(crate::tailnet_lifecycle::unknown_observation(&call))
-        } else {
-            Ok(crate::tailnet_lifecycle::stopped_observation(&call))
-        }
+        let cap = match operation {
+            "observe" => 10,
+            "activate" => 300,
+            _ => 120,
+        };
+        let deadline = lifecycle_deadline(&call, cap)?;
+        let runtime = crate::tailnet_lifecycle::Runtime {
+            host: &self.tailnet_host,
+            companion: &self.companion,
+            payload: &self.release_payload,
+        };
+        Ok(
+            crate::tcontrol_wire::encode_lifecycle_observation(&runtime.apply(&call, deadline))
+                .into_bytes(),
+        )
     }
 
     /// `executeTailnetProjectOrPolicy`: strict decode, validation, the
@@ -338,6 +378,11 @@ impl DaemonBackend {
         if action == "policy" && req.action != "inspect" {
             return Err(BackendError::Invalid);
         }
+        let _admission = if matches!(req.action.as_str(), "enable" | "retry") {
+            Some(self.admit_tailnet_start(deadline)?)
+        } else {
+            None
+        };
         let cid = self
             .project
             .project_container(&req.project, false, deadline)

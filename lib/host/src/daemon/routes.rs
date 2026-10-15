@@ -66,7 +66,6 @@ pub struct DaemonConfig {
     /// Appliance project image (`Config.Image`), stamped onto harness pins.
     pub image: String,
     /// False when tailnet management is disabled (Go: `d.Tailnet == nil`).
-    pub tailnet_management: bool,
     /// Trusted tailnet package version from the selected release payload.
     /// Empty means no trusted release was loaded; lifecycle prepare and
     /// apply are then unavailable, never default-open.
@@ -88,7 +87,6 @@ impl DaemonConfig {
     pub fn all_enabled() -> DaemonConfig {
         DaemonConfig {
             image: String::new(),
-            tailnet_management: true,
             tailnet_package_version: String::new(),
             tailnet_package_sha256: String::new(),
             release_payload: String::new(),
@@ -280,9 +278,6 @@ fn dispatch_tailnet<B: ExecBackend + ?Sized>(
         Err(404) => return tailnet_response(not_found_response()),
         Err(_) => return tailnet_response(error_response(400, "invalid Tailnet operation")),
     };
-    if !config.tailnet_management {
-        return tailnet_response(error_response(503, "Tailnet management disabled"));
-    }
     if action == "prepare" || action == "lifecycle" {
         if let Err(status) = validate_lifecycle_call(config, action, body, body_complete) {
             return tailnet_response(error_response(status, tailnet_unavailable()));

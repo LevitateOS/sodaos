@@ -1,0 +1,19 @@
+[Unit]
+Description=Optional Soda host Tailnet daemon
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+ExecStart=/usr/local/libexec/soda/soda-host --tailnet-host-action=run
+ExecStop=/usr/local/libexec/soda/soda-host --tailnet-host-action=stop
+Restart=on-failure
+RestartPreventExitStatus=78
+RestartSec=2
+TimeoutStartSec=45
+TimeoutStopSec=35
+KillMode=control-group
+UMask=0077
+StandardOutput=null
+StandardError=journal

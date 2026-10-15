@@ -342,7 +342,7 @@ fn stop_tailnet_validates_and_needs_state() {
     );
     assert!(c.exec.calls().is_empty());
     // No runtime record exists in the test environment.
-    assert!(c.stop_tailnet(&project_id(), deadline()).is_err());
+    assert!(c.stop_tailnet(&project_id(), deadline()).is_ok());
     // Missing owned-child state cannot authorize cleanup, independently of a live parent.
     let exec = MockExec::with_handler(|_, _| {
         Ok(project_inspect_json(&project_id(), &"f".repeat(64), true))

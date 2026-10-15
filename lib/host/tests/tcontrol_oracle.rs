@@ -21,6 +21,9 @@ mod sha256 {
 mod tailnet_companion {
     pub use soda_host::tailnet_companion::*;
 }
+mod tailnet_host {
+    pub use soda_host::tailnet_host::*;
+}
 mod tailnet_domain {
     pub use soda_host::tailnet_domain::*;
 }
@@ -1404,6 +1407,13 @@ struct FakeExec {
     f: Box<FakeRun>,
 }
 
+fn image_cli(exec: &dyn Executor) -> impl Fn(&[String], Instant) -> Result<Vec<u8>, String> + '_ {
+    move |args, deadline| {
+        let refs: Vec<_> = args.iter().map(String::as_str).collect();
+        exec.run(&[], "owned-image-cli", &refs, deadline)
+    }
+}
+
 impl Executor for FakeExec {
     fn run(
         &self,
@@ -1569,15 +1579,7 @@ fn native_signin_reauth_preserves_prefs() {
     });
     let (before, _) = native::observe(&t, soon(5000)).unwrap();
     let exec = boom_exec();
-    native::execute_signin(
-        &t,
-        &exec,
-        native::DEFAULT_CLI,
-        std::path::Path::new(native::HOST_SOCKET),
-        &before,
-        soon(5000),
-    )
-    .unwrap();
+    native::execute_signin(&t, &image_cli(&exec), &before, soon(5000)).unwrap();
     assert_eq!(patches.load(Ordering::SeqCst), 1);
     assert_eq!(logins.load(Ordering::SeqCst), 1);
     // Readback is pending while the auth URL is live.
@@ -1638,12 +1640,10 @@ fn native_exit_node_and_logout_confirm() {
             f: Box::new({
                 let (mutations, changed) = (mutations.clone(), changed.clone());
                 move |_, cmd: &str, args: &[&str], _| {
-                    assert_eq!(cmd, native::DEFAULT_CLI);
-                    let sock = format!("--socket={}", native::HOST_SOCKET);
+                    assert_eq!(cmd, "owned-image-cli");
                     assert_eq!(
                         args,
                         &[
-                            sock.as_str(),
                             "set",
                             "--exit-node=100.64.0.2",
                             "--exit-node-allow-lan-access=true"
@@ -1667,15 +1667,7 @@ fn native_exit_node_and_logout_confirm() {
         if action == "exit-node" {
             req.exit_node = Some("100.64.0.2".to_string());
             req.allow_lan = Some(true);
-            let socket = std::path::Path::new(native::HOST_SOCKET);
-            match native::execute_exit_node(
-                &exec,
-                native::DEFAULT_CLI,
-                socket,
-                &req,
-                &before,
-                soon(5000),
-            ) {
+            match native::execute_exit_node(&image_cli(&exec), &req, &before, soon(5000)) {
                 Ok(id) => {
                     selected = id;
                     action_err = None;
@@ -1712,16 +1704,8 @@ fn native_offline_exit_conflicts_and_retained_id_stays_unconfirmed() {
         ..Default::default()
     };
     let exec = boom_exec();
-    let socket = std::path::Path::new(native::HOST_SOCKET);
-    let e = native::execute_exit_node(
-        &exec,
-        native::DEFAULT_CLI,
-        socket,
-        &req,
-        &before,
-        soon(5000),
-    )
-    .expect_err("offline selected");
+    let e = native::execute_exit_node(&image_cli(&exec), &req, &before, soon(5000))
+        .expect_err("offline selected");
     assert!(e.contains("conflict"), "{e}");
     // Clear with a retained native ID: command runs, readback unconfirmed.
     let prefs = NATIVE_PREFS.replacen(r#""ExitNodeID":"""#, r#""ExitNodeID":"peer""#, 1);
@@ -1737,20 +1721,12 @@ fn native_offline_exit_conflicts_and_retained_id_stays_unconfirmed() {
     };
     let exec = FakeExec {
         f: Box::new(|_, cmd, args, _| {
-            assert_eq!(cmd, native::DEFAULT_CLI);
+            assert_eq!(cmd, "owned-image-cli");
             assert!(args.iter().any(|a| a.contains("--exit-node=")));
             Ok(Vec::new())
         }),
     };
-    let selected = native::execute_exit_node(
-        &exec,
-        native::DEFAULT_CLI,
-        socket,
-        &req,
-        &before,
-        soon(5000),
-    )
-    .unwrap();
+    let selected = native::execute_exit_node(&image_cli(&exec), &req, &before, soon(5000)).unwrap();
     let result = native::readback_host_action(&t, &req, &selected, None, soon(5000));
     assert_eq!(result.outcome, "unconfirmed");
 }
@@ -1914,24 +1890,20 @@ fn native_run_status_validate() {
 
 #[test]
 fn native_cli_client_vectors() {
-    let status_exec = |output: &'static str| FakeExec {
-        f: Box::new(move |stdin, cmd, args, _| {
-            assert!(stdin.is_empty());
+    let status_exec = |output: &'static str| -> Box<native::CliTransport> {
+        Box::new(move |args, _| {
             assert_eq!(args, ["status", "--json"]);
-            assert_eq!(cmd, "/bin/tailscale");
             Ok(output.as_bytes().to_vec())
-        }),
+        })
     };
     let status = native::cli_status(
         &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net."}}"#),
-        "/bin/tailscale",
         soon(5000),
     )
     .unwrap();
     assert_eq!(status.identity, "atlas.example.ts.net");
     let endpoint = native::cli_endpoint(
         &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["fd7a:115c:a1e0::1","100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}"#),
-        "/bin/tailscale",
         soon(5000),
     )
     .unwrap();
@@ -1943,8 +1915,7 @@ fn native_cli_client_vectors() {
                 format!(r#"{{"BackendState":"Running","Self":{{"DNSName":"{dns}","TailscaleIPs":["100.88.77.66"]}}}}"#)
                     .into_boxed_str(),
             )),
-            "/bin/tailscale",
-            soon(5000),
+                soon(5000),
         )
         .unwrap();
         assert_eq!(endpoint.identity, "100.88.77.66");
@@ -1965,33 +1936,30 @@ fn native_cli_client_vectors() {
             "not enrolled",
         ),
     ] {
-        let e = native::cli_endpoint(&status_exec(output), "/bin/tailscale", soon(5000))
-            .expect_err("advertised");
+        let e = native::cli_endpoint(&status_exec(output), soon(5000)).expect_err("advertised");
         assert!(e.contains(want), "{e}");
     }
     for bad in ["", "{}", r#"{"BackendState":"Running""#, "{} {}"] {
-        assert!(native::cli_status(&status_exec(bad), "/bin/tailscale", soon(5000)).is_err());
+        assert!(native::cli_status(&status_exec(bad), soon(5000)).is_err());
     }
     let status = native::cli_status(
         &status_exec(r#"{"BackendState":"NeedsLogin","AuthURL":"https://fixture.invalid/auth"}"#),
-        "/bin/tailscale",
         soon(5000),
     )
     .unwrap();
     assert!(status.auth_pending);
     assert!(native::cli_status(
         &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"atlas.local"}}"#),
-        "/bin/tailscale",
         soon(5000)
     )
     .is_err());
-    // CLI failures carry the native diagnostic, like Go.
+    // CLI failures expose only the bounded unavailable summary.
     let exec = FakeExec {
         f: Box::new(|_, _, _, _| Err("exit 7: daemon unavailable".to_string())),
     };
-    let e = native::cli_status(&exec, "/bin/tailscale", soon(5000)).expect_err("accepted");
+    let e = native::cli_status(&image_cli(&exec), soon(5000)).expect_err("accepted");
     assert!(
-        e.contains("unavailable") && e.contains("daemon unavailable"),
+        e.contains("unavailable") && !e.contains("daemon unavailable"),
         "{e}"
     );
 }
@@ -2369,7 +2337,6 @@ fn control_options(name: &str, runtime: bool) -> (control::Options, PathBuf) {
             uid: policy::current_uid(),
             runtime,
             socket: parent.join("sock"),
-            cli: "/usr/bin/tailscale".to_string(),
             libexec: "/usr/libexec/soda".to_string(),
             curl: "/usr/bin/curl".to_string(),
         },
@@ -2482,21 +2449,16 @@ fn control_host_action_cycle() {
     );
     // Confirmed mutation with a failing readback: confirmed + unavailable.
     let (opts, _) = control_options("control-host2", false);
-    let c = control::Control::new(
-        FakeExec {
-            f: Box::new(|_, cmd, args, _| {
-                assert_eq!(cmd, "/usr/bin/tailscale");
-                assert_eq!(args[1], "set");
-                Ok(Vec::new())
-            }),
-        },
-        opts,
-    );
+    let c = control::Control::new(boom_exec(), opts);
     // First observe succeeds, then the daemon goes away.
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc;
     let reads = Arc::new(AtomicU32::new(0));
     let mut c = c;
+    c.cli_stub = Some(Box::new(|args, _| {
+        assert_eq!(args[0], "set");
+        Ok(Vec::new())
+    }));
     c.local_stub = Some(Box::new({
         let reads = reads.clone();
         move |method: &str, path: &str, _body: Option<&[u8]>, _d: Instant| {
@@ -2968,14 +2930,11 @@ fn control_failed_enrollment_can_be_explicitly_retried() {
 #[test]
 fn control_cli_passthrough() {
     let (opts, _) = control_options("control-cli", false);
-    let c = control::Control::new(
-        FakeExec {
-            f: Box::new(|_, _, _, _| {
-                Ok(br#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}"#.to_vec())
-            }),
-        },
-        opts,
-    );
+    let mut c = control::Control::new(boom_exec(), opts);
+    c.cli_stub = Some(Box::new(|args, _| {
+        assert_eq!(args, ["status", "--json"]);
+        Ok(br#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}"#.to_vec())
+    }));
     let status = c.cli_status(soon(5000)).unwrap();
     assert_eq!(status.identity, "atlas.example.ts.net");
     let endpoint = c.cli_endpoint(soon(5000)).unwrap();

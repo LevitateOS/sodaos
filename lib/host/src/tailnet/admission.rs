@@ -110,6 +110,18 @@ pub struct Grant {
     pub service_epoch: ServiceEpoch,
 }
 
+impl Grant {
+    pub fn matches_call(&self, call: &LifecycleCall, image: &str) -> bool {
+        self.installation_id == call.installation_id
+            && self.generation == call.generation
+            && self.controller_instance_id == call.controller_instance_id
+            && self.package_version == call.package_version
+            && self.package_sha256 == call.package_sha256
+            && self.image == image
+            && self.service_epoch.live()
+    }
+}
+
 impl ManagerState {
     fn matches(&self, grant: &Grant) -> bool {
         self.controller_id == "soda"
@@ -127,7 +139,12 @@ impl ManagerState {
 
     // This is used only inside the verified lifecycle-owned activation, never
     // as an ordinary helper option or token file. Pending activation is required.
-    pub fn activation_grant(&self, call: &LifecycleCall, image: &str) -> Result<Grant, String> {
+    pub fn activation_grant(
+        &self,
+        call: &LifecycleCall,
+        image: &str,
+        expected_catalog: &str,
+    ) -> Result<Grant, String> {
         let grant = Grant {
             installation_id: call.installation_id.clone(),
             generation: call.generation.clone(),
@@ -142,6 +159,8 @@ impl ManagerState {
             || call.package_id != "tailnet"
             || call.operation != "activate"
             || !crate::tailnet_domain::valid_image_id(image)
+            || self.catalog_sha256 != expected_catalog
+            || call.generation == "0"
             || self.catalog_sha256.len() != 64
             || !self
                 .catalog_sha256
