@@ -506,7 +506,7 @@ pub(super) fn write_checksums(manifest: &Manifest, directory: &Path) -> Result<(
         .map_err(|_| failure("cannot write checksums"))
 }
 
-fn admit_build(
+pub(super) fn admit_build(
     directory: &Path,
     payload: &crate::payload::Payload,
     candidate: &crate::model::Candidate,

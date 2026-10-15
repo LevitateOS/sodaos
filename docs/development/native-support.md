@@ -340,8 +340,8 @@ or reboot.
 | `start` | Preflights exact committed source and CI, admitted worker configuration and local inputs, then builds once and prepares a private release directory. `--preflight` stops before creating an attempt. |
 | `prepare` | Requires a completed production build receipt and verifies all selected candidate artifacts before copying the public asset set. No network mutation. |
 | `status` | Rechecks local evidence and remote publication/recommendation state; reports blockers and the next action without mutation. |
-| `stage` | Reads the prepared release, checks source CI and immutable-release settings, creates or verifies its tag, uploads/verifies the Docker digest where selected, and publishes the complete immutable GitHub prerelease. |
-| `verify-docker` | Repeats anonymous registry readback and completes matching local verification records without another upload. |
+| `stage` | Reads the prepared release, checks source CI and immutable-release settings, creates or verifies its tag, uploads/verifies four Soda application images plus the outer Docker image where selected, checks upstream image availability, and publishes the complete immutable GitHub prerelease. |
+| `verify-images` | Repeats anonymous registry readback and completes matching local verification records without another upload. |
 | `qualify` | Verifies the exact public downloads and selected targets' native evidence, retaining bound private receipts without moving recommendations. |
 | `promote` | Rechecks receipts, original evidence and immutable public assets; moves Docker latest to the same digest and updates eligible GitHub recommendations. Docker-only preserves the appliance recommendation. |
 

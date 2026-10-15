@@ -132,7 +132,7 @@ reported as a blocker, never as qualification.
 ### 3. Stage the complete unqualified candidate
 
 Keep publication credentials outside the worker. Supply a restricted registry auth
-file for Docker/all. An existing authenticated gh account with package write access
+file for every distribution. An existing authenticated gh account with package write access
 can create one without putting the token in argv or logs:
 
 ```sh
@@ -146,7 +146,15 @@ sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release stage \
 ```
 
 Stage rechecks exact-source main CI, tag, remote release conflicts and all local
-hashes before publication. Docker uses Skopeo's digest-preserving OCI upload to
+hashes before publication. Every distribution uses Skopeo's digest-preserving
+upload for `sodaos-dashboard`, `sodaos-forgejo`, `sodaos-project-os` and
+`sodaos-canlang-runtime` under `ghcr.io/levitateos`, with the exact release tag.
+Anonymous readback binds each tag and digest to Payload v4's manifest/config and
+native platform. Proxy, PostgreSQL, the independent Fountain release and optional
+Tailscale are checked anonymously at their upstream digests and are never republished.
+The `components/public.json` receipt records successful readback; a partial attempt
+requires inspection and `verify-images` rather than another upload.
+Docker also uploads to
 `ghcr.io/levitateos/sodaos:VERSION`, then reads the raw version manifest and
 its digest-selected config anonymously. Only matching source/base/platform and
 manifest/config identities produce the local `registry/registry.json` receipt.
@@ -158,7 +166,7 @@ fails, inspect the uploaded version and change its package visibility in GitHub.
 Then finish readback without another upload:
 
 ```sh
-sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release verify-docker \
+sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release verify-images \
   --input /home/BUILD/WORKFLOW/release
 sudo --preserve-env=GH_CONFIG_DIR,TMPDIR /ADMITTED/soda-release status \
   --input /home/BUILD/WORKFLOW/release

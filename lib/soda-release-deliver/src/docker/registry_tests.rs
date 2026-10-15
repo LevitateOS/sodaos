@@ -2,12 +2,14 @@ use super::*;
 use crate::publish::{registry, GitHub};
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::Path;
 
 struct Commands {
     replies: RefCell<VecDeque<Result<Vec<u8>, Error>>>,
     calls: RefCell<Vec<Vec<String>>>,
     digest: String,
+    components: BTreeMap<String, (Vec<u8>, Vec<u8>)>,
 }
 impl Commands {
     fn new(replies: Vec<Result<Vec<u8>, Error>>, digest: &str) -> Self {
@@ -15,12 +17,87 @@ impl Commands {
             replies: RefCell::new(replies.into()),
             calls: RefCell::new(vec![]),
             digest: digest.into(),
+            components: BTreeMap::new(),
         }
+    }
+    fn with_components(mut self, fixture: &Fixture) -> Self {
+        let payload: Payload = serde_json::from_slice(
+            &std::fs::read(fixture.dir.path().join("payload.json")).unwrap(),
+        )
+        .unwrap();
+        let mut inputs: Vec<_> = crate::payload::Role::iter()
+            .map(|role| {
+                let image = role.binding(&payload.images);
+                (
+                    role.name().to_string(),
+                    image.reference.clone(),
+                    image.manifest.clone(),
+                )
+            })
+            .collect();
+        inputs.push((
+            "fountain".into(),
+            payload.fountain.image.clone(),
+            payload.fountain.image.split('@').nth(1).unwrap().into(),
+        ));
+        let image = &payload.optional_extensions.tailnet.images.tailscale;
+        inputs.push((
+            "tailscale".into(),
+            image.reference.clone(),
+            image.manifest.clone(),
+        ));
+        for (name, reference, digest) in inputs {
+            let file =
+                std::fs::File::open(fixture.dir.path().join(format!("images/{name}.oci"))).unwrap();
+            let mut archive = tar::Archive::new(file);
+            let mut raw = vec![];
+            for entry in archive.entries().unwrap() {
+                let mut entry = entry.unwrap();
+                if entry.path().unwrap().as_ref()
+                    == Path::new(&format!("blobs/sha256/{}", &digest[7..]))
+                {
+                    entry.read_to_end(&mut raw).unwrap();
+                }
+            }
+            assert!(!raw.is_empty());
+            let observed =
+                serde_json::to_vec(&json!({"Digest":digest,"Architecture":"amd64","Os":"linux"}))
+                    .unwrap();
+            if ["dashboard", "forgejo", "project-os", "canlang-runtime"].contains(&name.as_str()) {
+                self.components.insert(
+                    format!(
+                        "docker://{}:{}",
+                        reference.split('@').next().unwrap(),
+                        payload.release_tag
+                    ),
+                    (raw.clone(), observed.clone()),
+                );
+            }
+            self.components
+                .insert(format!("docker://{reference}"), (raw, observed));
+        }
+        self
     }
     fn run(&self, args: &[String]) -> Result<Vec<u8>, Error> {
         self.calls.borrow_mut().push(args.to_vec());
+        if args.first().map(String::as_str) == Some("inspect") {
+            if let Some((raw, observed)) = self.components.get(args.last().unwrap()) {
+                assert!(args.contains(&"--no-creds".into()));
+                return Ok(if args.contains(&"--raw".into()) {
+                    raw
+                } else {
+                    observed
+                }
+                .clone());
+            }
+        }
         if args.first().map(String::as_str) == Some("copy") {
             let index = args.iter().position(|arg| arg == "--digestfile").unwrap();
+            if let Some((_, observed)) = self.components.get(args.last().unwrap()) {
+                let identity: Value = serde_json::from_slice(observed).unwrap();
+                std::fs::write(&args[index + 1], identity["Digest"].as_str().unwrap()).unwrap();
+                return Ok(vec![]);
+            }
             std::fs::write(&args[index + 1], &self.digest).unwrap();
         }
         self.replies
@@ -28,6 +105,105 @@ impl Commands {
             .pop_front()
             .expect("unexpected command")
     }
+}
+
+#[test]
+fn complete_staging_publishes_four_apps_and_outer_then_verifies_without_uploads() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, manifest, metadata) = prepared(&fixture);
+    let mut replies: Vec<_> = ci(&metadata, true)
+        .replies
+        .into_inner()
+        .into_iter()
+        .take(2)
+        .collect();
+    replies.extend([
+        Ok(br#"{"enabled":true}"#.to_vec()),
+        Err(Error::msg("GitHub resource not found")),
+        Ok(serde_json::to_vec(&json!({"ref":format!("refs/tags/{}",manifest.tag),"object":{"type":"commit","sha":manifest.soda_revision}})).unwrap()),
+    ]);
+    for _ in 0..4 {
+        replies.push(Err(Error::msg("GitHub resource not found")));
+    }
+    replies.extend(ci(&metadata, true).replies.into_inner());
+    let mut inventory = manifest.assets.clone();
+    for name in ["release.json", "SHA256SUMS"] {
+        let bytes = std::fs::read(output.join(name)).unwrap();
+        inventory.push(crate::publish::assets::Asset {
+            name: name.into(),
+            sha256: identity(&bytes).sha256,
+            bytes: bytes.len() as u64,
+        });
+    }
+    let remote = |draft: bool| {
+        Ok(serde_json::to_vec(&json!({"id":17,"tag_name":manifest.tag,"draft":draft,"prerelease":true,"immutable":!draft,"assets":inventory.iter().map(|asset|json!({"name":asset.name,"size":asset.bytes,"digest":format!("sha256:{}",asset.sha256),"state":"uploaded"})).collect::<Vec<_>>()})).unwrap())
+    };
+    replies.extend([
+        Ok(vec![]),
+        Ok(vec![]),
+        Ok(br#"{"databaseId":17}"#.to_vec()),
+        remote(true),
+        Ok(vec![]),
+        Ok(br#"{"databaseId":17}"#.to_vec()),
+        remote(false),
+        Ok(vec![]),
+    ]);
+    let gh = Commands::new(replies, "");
+    let mut observations = vec![Ok(vec![])]; // Outer upload; four app copies are handled independently.
+    observations.extend(readback(&fixture, &metadata));
+    let registry = Commands::new(observations, &metadata.image.manifest).with_components(&fixture);
+    crate::publish::stage(&gh, &registry, &output, Some(&auth(fixture.dir.path()))).unwrap();
+    assert!(gh.replies.borrow().is_empty());
+    let copies: Vec<_> = registry
+        .calls
+        .borrow()
+        .iter()
+        .filter(|args| args[0] == "copy")
+        .cloned()
+        .collect();
+    assert_eq!(copies.len(), 5);
+    for role in ["dashboard", "forgejo", "project-os", "canlang-runtime"] {
+        assert!(copies.iter().any(|args| args.last().unwrap()
+            == &format!("docker://ghcr.io/levitateos/sodaos-{role}:v0.1.0")));
+    }
+    assert!(copies
+        .iter()
+        .all(|args| args.contains(&"--preserve-digests".into())));
+    assert!(output.join("components/public.json").is_file());
+    let mut ci_replies: Vec<_> = ci(&metadata, true)
+        .replies
+        .into_inner()
+        .into_iter()
+        .take(2)
+        .collect();
+    ci_replies.extend(ci(&metadata, true).replies.into_inner().into_iter().take(2));
+    let gh = Commands::new(ci_replies, "");
+    let registry = Commands::new(readback(&fixture, &metadata), "").with_components(&fixture);
+    crate::publish::verify_registry(&gh, &registry, &output).unwrap();
+    assert!(registry
+        .calls
+        .borrow()
+        .iter()
+        .all(|args| args[0] == "inspect"));
+}
+
+#[test]
+fn component_staging_requires_auth_and_preserves_partial_attempt_without_remote_mutation() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, _, _) = prepared(&fixture);
+    let gh = Commands::new(vec![], "");
+    let registry = Commands::new(vec![], "");
+    assert!(crate::publish::stage(&gh, &registry, &output, None).is_err());
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(output.join("components"))
+        .unwrap();
+    let error = crate::publish::stage(&gh, &registry, &output, Some(&auth(fixture.dir.path())))
+        .unwrap_err();
+    assert!(error.0.contains("already attempted"));
+    assert!(output.join("components").is_dir());
+    assert!(gh.calls.borrow().is_empty());
+    assert!(registry.calls.borrow().is_empty());
 }
 impl GitHub for Commands {
     fn run(&self, args: &[String]) -> Result<Vec<u8>, Error> {
@@ -429,7 +605,7 @@ fn qualified_docker_promotes_only_verified_digest_and_keeps_appliance_latest() {
     let mut responses = readback(&fixture, &metadata);
     responses.push(Ok(vec![]));
     responses.push(readback(&fixture, &metadata).remove(0));
-    let registry = Commands::new(responses, &metadata.image.manifest);
+    let registry = Commands::new(responses, &metadata.image.manifest).with_components(&fixture);
     let gh = promotion_gh(&metadata, &manifest, &output, false);
     crate::publish::promote(&gh, &registry, &output, Some(&auth(fixture.dir.path()))).unwrap();
     let calls = registry.calls.borrow();
@@ -453,7 +629,7 @@ fn docker_promotion_preserves_an_absent_appliance_recommendation() {
     crate::publish::qualification::stamp(&manifest, &output, &root).unwrap();
     let mut responses = readback(&fixture, &metadata);
     responses.extend([Ok(vec![]), readback(&fixture, &metadata).remove(0)]);
-    let registry = Commands::new(responses, &metadata.image.manifest);
+    let registry = Commands::new(responses, &metadata.image.manifest).with_components(&fixture);
     let gh = promotion_gh(&metadata, &manifest, &output, false);
     for reply in gh.replies.borrow_mut().iter_mut() {
         if reply
@@ -526,7 +702,7 @@ fn partial_promotion_is_retained_and_cannot_be_replayed() {
     crate::publish::qualification::stamp(&manifest, &output, &root).unwrap();
     let mut replies = readback(&fixture, &metadata);
     replies.extend([Ok(vec![]), readback(&fixture, &metadata).remove(0)]);
-    let registry = Commands::new(replies, &metadata.image.manifest);
+    let registry = Commands::new(replies, &metadata.image.manifest).with_components(&fixture);
     let gh = promotion_gh(&metadata, &manifest, &output, true);
     let auth = auth(fixture.dir.path());
     assert!(
@@ -583,7 +759,7 @@ fn all_moves_both_recommendations_only_after_both_qualifications() {
     .unwrap();
     let mut replies = readback(&fixture, &metadata);
     replies.extend([Ok(vec![]), readback(&fixture, &metadata).remove(0)]);
-    let registry = Commands::new(replies, &metadata.image.manifest);
+    let registry = Commands::new(replies, &metadata.image.manifest).with_components(&fixture);
     let gh = promotion_gh(&metadata, &manifest, &output, false);
     crate::publish::promote(&gh, &registry, &output, Some(&auth(fixture.dir.path()))).unwrap();
     assert!(gh
@@ -626,9 +802,10 @@ fn status_reports_partial_registry_readback_without_mutation() {
             Err(Error::msg("latest absent")),
         ],
         "",
-    );
+    )
+    .with_components(&fixture);
     let report = crate::publish::status(&gh, &registry, &output).unwrap();
-    assert_eq!(report["next_action"], "verify-docker");
+    assert_eq!(report["next_action"], "verify-images");
     assert_eq!(report["appliance_qualified"], Value::Null);
     assert_eq!(report["docker_qualified"], false);
     assert!(!output.join("docker-qualification.json").exists());
@@ -665,7 +842,7 @@ fn status_refuses_qualification_from_before_immutable_publication() {
     let gh = Commands::new(replies.into(), "");
     let mut replies = readback(&fixture, &metadata);
     replies.push(readback(&fixture, &metadata).remove(0));
-    let registry = Commands::new(replies, "");
+    let registry = Commands::new(replies, "").with_components(&fixture);
     let report = crate::publish::status(&gh, &registry, &output).unwrap();
     assert_eq!(report["docker_qualified"], false);
     assert_eq!(report["next_action"], "qualify");

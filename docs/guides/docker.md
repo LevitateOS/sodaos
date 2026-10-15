@@ -268,7 +268,7 @@ docker compose -f /ABS/PATH/TO/artifacts/docker/compose.yaml up -d
 Production `--distribution all` packages the same candidate for Docker and the
 appliance; supply the existing media inputs and a rootfs URL for the same release
 tag. The [release operator flow](../development/release.md#guided-release-operator-flow)
-owns the guided `start`, `status`, `stage`, `verify-docker`, `qualify` and
+owns the guided `start`, `status`, `stage`, `verify-images`, `qualify` and
 `promote` commands. Qualification exercises the exact staged candidate through this
 installation path on a fresh authorized host before its release can be recommended.
 A locally built image is not a published or qualified Docker release.

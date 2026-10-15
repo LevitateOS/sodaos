@@ -33,7 +33,7 @@ impl Registry for Skopeo {
         Ok(result.stdout)
     }
 }
-fn run(registry: &dyn Registry, args: &[&str]) -> Result<Vec<u8>, Error> {
+pub(super) fn run(registry: &dyn Registry, args: &[&str]) -> Result<Vec<u8>, Error> {
     registry.run(
         &args
             .iter()
@@ -41,7 +41,7 @@ fn run(registry: &dyn Registry, args: &[&str]) -> Result<Vec<u8>, Error> {
             .collect::<Vec<_>>(),
     )
 }
-fn path(path: &Path) -> Result<&str, Error> {
+pub(super) fn path(path: &Path) -> Result<&str, Error> {
     path.to_str().ok_or_else(Error::refused)
 }
 
@@ -61,15 +61,16 @@ pub struct Publication {
     pub image: Image,
 }
 
-fn authenticated_tag_absent(
+pub(super) fn authenticated_tag_absent(
     gh: &dyn GitHub,
     registry: &dyn Registry,
     tag: &str,
     auth_file: &Path,
+    package: &str,
 ) -> Result<(), Error> {
     // A first-time package has no registry read namespace yet. GitHub's
     // authenticated 404 is distinct from an ambiguous registry auth failure.
-    match api::<serde_json::Value>(gh, PACKAGE) {
+    match api::<serde_json::Value>(gh, package) {
         Err(error) if error.0 == "GitHub resource not found" => return Ok(()),
         Err(error) => return Err(error),
         Ok(_) => (),
@@ -81,7 +82,7 @@ fn authenticated_tag_absent(
         Err(error) if error.0 == "registry version not found" => Ok(()),
         Err(error) => Err(error),
         Ok(_) => Err(Error::msg(
-            "Docker version already exists; verify it instead of overwriting it",
+            "Image version already exists; verify it instead of overwriting it",
         )),
     }
 }
@@ -115,7 +116,7 @@ pub(super) fn stage_admitted(
         return Err(Error::msg("restricted regular registry auth file required"));
     }
     let tag = format!("docker://{DOCKER_REPOSITORY}:{}", metadata.release_tag);
-    authenticated_tag_absent(gh, registry, &tag, auth_file)?;
+    authenticated_tag_absent(gh, registry, &tag, auth_file, PACKAGE)?;
     std::fs::DirBuilder::new()
         .mode(0o700)
         .create(out)

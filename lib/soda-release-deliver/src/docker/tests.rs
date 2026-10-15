@@ -126,6 +126,16 @@ impl Fixture {
             serde_json::from_str(include_str!("../../tests/goldens/deliver.json")).unwrap();
         let mut p: Payload = serde_json::from_str(golden["payload"].as_str().unwrap()).unwrap();
         let mut c: Candidate = serde_json::from_str(golden["candidate"].as_str().unwrap()).unwrap();
+        c.repository_prefix = crate::model::DOCKER_REPOSITORY.into();
+        for role in [
+            crate::payload::Role::Dashboard,
+            crate::payload::Role::Forgejo,
+            crate::payload::Role::ProjectOs,
+            crate::payload::Role::CanlangRuntime,
+        ] {
+            let image = role.binding_mut(&mut p.images);
+            image.reference = format!("{}-{}@{}", c.repository_prefix, role.name(), image.manifest);
+        }
         p.release_tag = "v0.1.0".into();
         for package in &mut p.extension_catalog.packages {
             package.version = "0.1.0".into();
@@ -163,6 +173,29 @@ impl Fixture {
         );
         std::fs::write(dir.path().join("forgejo-source.tar"), &fountain).unwrap();
         c.forgejo_source_sha256 = identity(&fountain).sha256;
+
+        // Independently released upstream inputs also need real manifests for
+        // anonymous publication readback, without publishing them as Soda images.
+        for name in ["fountain", "tailscale"] {
+            let image = oci(&BTreeMap::new(), &p.base, &labels(&p.base, name));
+            if name == "fountain" {
+                let repo = p.fountain.image.split('@').next().unwrap();
+                p.fountain.image = format!("{repo}@{}", image.image.manifest);
+                p.fountain.image_config = image.image.config.clone();
+                if let soda_build_tools::payload::ImageProvenance::Soda { base, .. } =
+                    &mut p.images.forgejo.provenance
+                {
+                    *base = p.fountain.image.clone();
+                }
+            } else {
+                let binding = &mut p.optional_extensions.tailnet.images.tailscale;
+                let repo = binding.reference.split('@').next().unwrap();
+                binding.reference = format!("{repo}@{}", image.image.manifest);
+                binding.manifest = image.image.manifest.clone();
+                binding.config = image.image.config.clone();
+            }
+            std::fs::write(dir.path().join(format!("images/{name}.oci")), &image.bytes).unwrap();
+        }
 
         let terminal = b"fixture terminal".to_vec();
         p.project_support.sha256 = identity(&terminal).sha256;

@@ -97,6 +97,51 @@ fn ci_run(m: &Manifest) -> serde_json::Value {
 fn ci(m: &Manifest) -> Result<Vec<u8>, Error> {
     json(serde_json::json!({"workflow_runs":[ci_run(m)]}))
 }
+
+#[test]
+fn preflight_checks_four_application_packages_for_every_distribution() {
+    let (_, manifest) = fixture();
+    for distribution in [
+        crate::model::Distribution::Appliance,
+        crate::model::Distribution::Docker,
+    ] {
+        let mut replies = vec![
+            fountain(&manifest),
+            ci(&manifest),
+            json(serde_json::json!({"enabled":true})),
+            Err(Error::msg("GitHub resource not found")),
+            Err(Error::msg("GitHub resource not found")),
+        ];
+        let mut packages = vec![
+            "sodaos-dashboard",
+            "sodaos-forgejo",
+            "sodaos-project-os",
+            "sodaos-canlang-runtime",
+        ];
+        if distribution == crate::model::Distribution::Docker {
+            packages.push("sodaos");
+        }
+        replies.extend(
+            packages
+                .iter()
+                .map(|_| json(serde_json::json!({"visibility":"public"}))),
+        );
+        let gh = Script::new(replies);
+        preflight(
+            &gh,
+            &manifest.soda_revision,
+            &manifest.forgejo_revision,
+            &manifest.tag,
+            distribution,
+        )
+        .unwrap();
+        assert!(gh.replies.borrow().is_empty());
+        for package in packages {
+            assert!(gh.calls.borrow().iter().any(|args| args.last().unwrap()
+                == &format!("orgs/LevitateOS/packages/container/{package}")));
+        }
+    }
+}
 fn remote(
     m: &Manifest,
     assets: &[Asset],

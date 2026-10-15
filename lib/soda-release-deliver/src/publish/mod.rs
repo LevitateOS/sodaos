@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
 pub mod assets;
+mod components;
 pub mod qualification;
 pub mod registry;
 pub(crate) use assets::valid_tag;
@@ -476,9 +477,11 @@ pub fn stage(
     auth: Option<&Path>,
 ) -> Result<(), Error> {
     let manifest = assets::load(directory)?;
-    if manifest.docker.is_some() && !directory.join("registry/registry.json").exists() {
+    if !directory.join("components/public.json").exists()
+        || (manifest.docker.is_some() && !directory.join("registry/registry.json").exists())
+    {
         let auth =
-            auth.ok_or_else(|| Error::msg("registry auth file required before Docker staging"))?;
+            auth.ok_or_else(|| Error::msg("registry auth file required before image staging"))?;
         use std::os::unix::fs::MetadataExt;
         let st = std::fs::symlink_metadata(auth).map_err(|_| Error::refused())?;
         if !st.is_file() || st.mode() & 0o077 != 0 || st.len() == 0 {
@@ -486,8 +489,12 @@ pub fn stage(
                 "restricted registry auth file required before staging",
             ));
         }
-        if directory.join("registry").exists() {
-            return Err(Error::msg("registry upload was already attempted; run verify-docker and inspect remote state instead of replaying it"));
+        if (directory.join("registry").exists()
+            && !directory.join("registry/registry.json").exists())
+            || (directory.join("components").exists()
+                && !directory.join("components/public.json").exists())
+        {
+            return Err(Error::msg("registry upload was already attempted; run verify-images and inspect remote state instead of replaying it"));
         }
     }
     let candidate = if manifest.docker.is_some() {
@@ -496,6 +503,7 @@ pub fn stage(
         None
     };
     stage_github(gh, &manifest, directory, |ci_run| {
+        components::stage(gh, registry, directory, &manifest, auth)?;
         if let Some(metadata) = &manifest.docker {
             let output = directory.join("registry");
             if output.join("registry.json").exists() {
@@ -588,6 +596,7 @@ pub fn promote(
         )?;
         registry::observe_public(registry, metadata, ci_run)?;
     }
+    components::observe_public(registry, directory, &manifest)?;
     let prior_appliance_latest = if !manifest.has_appliance() {
         latest_release(gh)?.map(|release| release.id)
     } else {
@@ -644,6 +653,10 @@ pub fn status(
         registry::observe_public(registry, metadata, ci.as_ref().copied().unwrap_or(0))
     });
     let mut blockers = Vec::new();
+    let components = components::observe_public(registry, directory, &manifest);
+    if let Err(error) = &components {
+        blockers.push(error.0.clone());
+    }
     if let Err(error) = &ci {
         blockers.push(error.0.clone());
     }
@@ -758,14 +771,18 @@ pub fn status(
         "inspect recommendation state"
     } else if publication == "published release" {
         "inspect existing promotion"
-    } else if directory.join("registry").exists()
-        && !directory.join("registry/registry.json").exists()
+    } else if (directory.join("registry").exists()
+        && !directory.join("registry/registry.json").exists())
+        || (directory.join("components").exists()
+            && !directory.join("components/public.json").exists())
     {
-        "verify-docker"
+        "verify-images"
     } else if publication == "not observed" {
         "stage"
     } else if !docker_available {
         "inspect public Docker image"
+    } else if components.is_err() {
+        "inspect public component images"
     } else if !appliance || !docker_qualified {
         "qualify"
     } else {
@@ -784,8 +801,12 @@ pub fn verify_registry(
     directory: &Path,
 ) -> Result<(), Error> {
     let manifest = assets::load(directory)?;
-    let candidate = assets::candidate(directory, &manifest)?;
-    registry::verify(gh, registry, &candidate, &directory.join("registry"))?;
+    check_ci(gh, &manifest)?;
+    components::verify(registry, directory, &manifest)?;
+    if manifest.docker.is_some() {
+        let candidate = assets::candidate(directory, &manifest)?;
+        registry::verify(gh, registry, &candidate, &directory.join("registry"))?;
+    }
     Ok(())
 }
 
@@ -820,8 +841,18 @@ pub fn preflight(
         Err(error) if error.0 == "GitHub resource not found" => (),
         Err(error) => return Err(error),
     }
+    let mut packages = vec![
+        "sodaos-dashboard",
+        "sodaos-forgejo",
+        "sodaos-project-os",
+        "sodaos-canlang-runtime",
+    ];
     if distribution != crate::model::Distribution::Appliance {
-        let package = api::<serde_json::Value>(gh, "orgs/LevitateOS/packages/container/sodaos");
+        packages.push("sodaos");
+    }
+    for name in packages {
+        let package =
+            api::<serde_json::Value>(gh, &format!("orgs/LevitateOS/packages/container/{name}"));
         match package {
             Ok(value) if value.get("visibility").and_then(|v|v.as_str())!=Some("public")=>return Err(Error::msg("GHCR package must be public before staging; change its package visibility")),
             Ok(_) =>(),Err(error) if error.0=="GitHub resource not found"=>eprintln!("GHCR package does not exist; first upload requires public visibility before anonymous verification."),Err(error)=>return Err(error),

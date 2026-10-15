@@ -25,7 +25,7 @@ pub(crate) fn command() -> Command {
         .about("Stage every selected target as one unqualified immutable prerelease")
         .arg(Arg::new("input").long("input").required(true).num_args(1))
         .arg(Arg::new("auth-file").long("auth-file").num_args(1));
-    let verify_docker = Command::new("verify-docker")
+    let verify_images = Command::new("verify-images")
         .about("Finish public registry readback without repeating an upload")
         .arg(Arg::new("input").long("input").required(true).num_args(1));
     let promote = Command::new("promote")
@@ -73,7 +73,7 @@ pub(crate) fn command() -> Command {
         .subcommand_required(true)
         .subcommand(prepare)
         .subcommand(stage)
-        .subcommand(verify_docker)
+        .subcommand(verify_images)
         .subcommand(promote)
         .subcommand(start)
         .subcommand(status)
@@ -125,7 +125,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
             );
             Ok(())
         }
-        "verify-docker" => {
+        "verify-images" => {
             let input = Path::new(get("input")?);
             publish::verify_registry(&publish::Gh, &publish::registry::Skopeo, input)
                 .map_err(|error| error.to_string())
@@ -227,11 +227,11 @@ mod tests {
             "promote",
             "qualify",
             "status",
-            "verify-docker",
+            "verify-images",
         ] {
             assert!(run(["soda-release", action].map(str::to_owned)).is_err());
         }
-        for action in ["stage", "promote", "qualify", "status", "verify-docker"] {
+        for action in ["stage", "promote", "qualify", "status", "verify-images"] {
             assert!(command()
                 .try_get_matches_from(["soda-release", action, "--input", "prepared"])
                 .is_ok());
