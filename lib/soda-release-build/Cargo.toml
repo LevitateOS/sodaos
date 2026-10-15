@@ -17,7 +17,7 @@ serde_json = { version = "=1.0.151", features = ["raw_value"] }
 soda-build-tools = { path = "../release-inputs" }
 libc = "0.2"
 sha2 = "0.10"
-ureq = { version = "2", default-features = false, features = ["tls"] }
+ureq = { version = "2", default-features = false, features = ["tls", "native-certs"] }
 
 [dev-dependencies]
 tar = "0.4"

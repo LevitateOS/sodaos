@@ -46,7 +46,9 @@ pub trait HttpTransport {
     ) -> Result<HttpResponse, Error>;
 }
 
-/// Production transport over ureq with rustls roots.
+/// Production transport over ureq with rustls and the operator's native CA store.
+/// This also permits an explicitly trusted development HTTPS asset fixture;
+/// hostname and certificate verification stay enabled for every request.
 pub struct UreqTransport;
 
 impl HttpTransport for UreqTransport {
