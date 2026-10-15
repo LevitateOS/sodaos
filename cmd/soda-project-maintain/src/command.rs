@@ -24,6 +24,25 @@ pub(crate) fn run(program: &str, args: &[&str], deadline: Instant) -> Result<Vec
     wait_output(child, deadline)
 }
 
+/// The importer owns Podman children; cancellation retires its whole group.
+pub(crate) fn run_group(
+    program: &str,
+    args: &[&str],
+    deadline: Instant,
+) -> Result<Vec<u8>, String> {
+    use std::os::unix::process::CommandExt;
+    let child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .map_err(|_| "project maintenance command failed")?;
+    let group = child.id() as i32;
+    wait_output_owned(child, deadline, Some(group))
+}
+
 // podman_streamed feeds the local tar archive through an interruptible
 // socketpair while podman consumes it. The owner joins that feeder on every
 // return path; a podman failure wins over the archive result.
@@ -166,8 +185,15 @@ impl Drop for FeederOwner {
 }
 
 pub(crate) fn wait_output(
+    child: std::process::Child,
+    deadline: Instant,
+) -> Result<Vec<u8>, String> {
+    wait_output_owned(child, deadline, None)
+}
+fn wait_output_owned(
     mut child: std::process::Child,
     deadline: Instant,
+    group: Option<i32>,
 ) -> Result<Vec<u8>, String> {
     // Nonblocking reads share the wait loop, so a descendant retaining
     // stdout cannot strand an unowned reader after the direct child exits.
@@ -178,6 +204,11 @@ pub(crate) fn wait_output(
         if flags < 0
             || unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0
         {
+            if let Some(group) = group {
+                unsafe {
+                    libc::killpg(group, libc::SIGKILL);
+                }
+            }
             let _ = child.kill();
             let _ = child.wait();
             return Err(failed);
@@ -190,6 +221,11 @@ pub(crate) fn wait_output(
     loop {
         let now = Instant::now();
         if now >= deadline {
+            if let Some(group) = group {
+                unsafe {
+                    libc::killpg(group, libc::SIGKILL);
+                }
+            }
             let _ = child.kill();
             let _ = child.wait();
             return Err(failed);
@@ -202,6 +238,11 @@ pub(crate) fn wait_output(
                 }
                 Ok(None) => {}
                 Err(_) => {
+                    if let Some(group) = group {
+                        unsafe {
+                            libc::killpg(group, libc::SIGKILL);
+                        }
+                    }
                     let _ = child.kill();
                     let _ = child.wait();
                     return Err(failed);
@@ -219,6 +260,11 @@ pub(crate) fn wait_output(
                 Ok(n) => {
                     const OUTPUT_LIMIT: usize = 8 << 20;
                     if out.len().saturating_add(n) > OUTPUT_LIMIT {
+                        if let Some(group) = group {
+                            unsafe {
+                                libc::killpg(group, libc::SIGKILL);
+                            }
+                        }
                         let _ = child.kill();
                         let _ = child.wait();
                         return Err(failed);
@@ -228,6 +274,11 @@ pub(crate) fn wait_output(
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
                 Err(_) => {
+                    if let Some(group) = group {
+                        unsafe {
+                            libc::killpg(group, libc::SIGKILL);
+                        }
+                    }
                     let _ = child.kill();
                     let _ = child.wait();
                     return Err(failed);
@@ -240,12 +291,22 @@ pub(crate) fn wait_output(
         if let Some(status) = child_status {
             if eof {
                 if !status.success() {
+                    if let Some(group) = group {
+                        unsafe {
+                            libc::killpg(group, libc::SIGKILL);
+                        }
+                    }
                     return Err(failed);
                 }
                 return Ok(out);
             }
             if exited_at.is_some_and(|at| now.duration_since(at) >= Duration::from_secs(2)) {
                 stdout.take();
+                if let Some(group) = group {
+                    unsafe {
+                        libc::killpg(group, libc::SIGKILL);
+                    }
+                }
                 return Err(failed);
             }
         }
@@ -328,5 +389,34 @@ mod custody_tests {
         };
         start_seen.recv_timeout(Duration::from_secs(1)).unwrap();
         assert_eq!(feeder.finish().unwrap_err(), "blocked feeder interrupted");
+    }
+}
+
+#[cfg(test)]
+mod acquisition_cancellation_tests {
+    use super::*;
+    #[test]
+    fn importer_deadline_stops_descendants_before_returning() {
+        let dir = crate::test_support::TestDir::make("importer-cancellation");
+        let path = dir.path("child.pid");
+        assert!(run_group(
+            "/bin/sh",
+            &[
+                "-c",
+                "sleep 30 & child=$!; printf '%s' \"$child\" > \"$1\"; wait",
+                "probe",
+                &path
+            ],
+            Instant::now() + Duration::from_millis(300)
+        )
+        .is_err());
+        let pid = fs::read_to_string(path).unwrap();
+        let state = fs::read_to_string(format!("/proc/{pid}/stat"));
+        if let Ok(state) = state {
+            assert!(
+                state.rsplit_once(") ").unwrap().1.starts_with('Z'),
+                "descendant still executing"
+            );
+        }
     }
 }

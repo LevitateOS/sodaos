@@ -369,31 +369,9 @@ pub(crate) fn admit(
     })
 }
 
-/// Verify the complete embedded layout, then inspect only the exact future
-/// Project image. This imports image content without changing retained roots.
-pub(crate) fn verify_project_image(
-    root: &str,
-    target: &Target,
-    deadline: Instant,
-) -> Result<(), String> {
-    if Instant::now() >= deadline {
-        return Err("target image inspection timed out".into());
-    }
-    let images = Path::new(root).join("usr/share/soda/images");
-    let images = images.to_str().ok_or("embedded image path unavailable")?;
-    soda_release_deliver::content::verify_content(&target.payload, images)
-        .map_err(|_| "embedded OCI content differs from the selected release")?;
-    if Instant::now() >= deadline {
-        return Err("target image inspection timed out".into());
-    }
+/// Inspect the exact future Project image after selected release acquisition.
+pub(crate) fn verify_project_image(target: &Target, deadline: Instant) -> Result<(), String> {
     let support = &target.payload.project_support;
-    let source = format!("oci:{images}:{}", support.project_image);
-    crate::command::run(
-        "/usr/bin/podman",
-        &["--remote=false", "pull", "--retry=0", &source],
-        deadline,
-    )
-    .map_err(|_| "exact future Project image import unconfirmed")?;
     let observed = crate::command::run(
         "/usr/bin/podman",
         &[

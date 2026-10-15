@@ -48,6 +48,7 @@ struct Operation {
     rollback: bool,
     phase: String,
     projects: Vec<Project>,
+    extensions: crate::release_extensions::Frozen,
 }
 
 impl Operation {
@@ -79,8 +80,20 @@ impl Operation {
     }
     fn validate(&self) -> Result<(), String> {
         use crate::release::is_hex_string;
-        if self.format != 1
-            || self.source_release == self.target_release
+        if self.format != 2 {
+            return Err("unsupported release operation format; expected 2".into());
+        }
+        self.extensions.validate()?;
+        if self.source_release != self.extensions.source.id
+            || self.target_release != self.extensions.target.id
+            || self.source_sha256 != self.extensions.source.project_support.sha256
+            || self.target_sha256 != self.extensions.target.project_support.sha256
+            || self.source_project_image != self.extensions.source.project_support.project_image
+            || self.target_project_image != self.extensions.target.project_support.project_image
+        {
+            return Err(CLOSED.into());
+        }
+        if self.source_release == self.target_release
             || self.source_deployment == self.target_deployment
             || ![
                 &self.source_deployment,
@@ -104,6 +117,7 @@ impl Operation {
                 "admitted"
                     | "host_locked"
                     | "helpers_verified"
+                    | "extensions_prepared"
                     | "activation_requested"
                     | "complete"
             )
@@ -136,8 +150,16 @@ fn path(name: &str) -> PathBuf {
     Path::new(admission::DIRECTORY).join(name)
 }
 fn load(name: &str) -> Result<Operation, String> {
-    let record: Operation =
-        serde_json::from_slice(&trusted_read(&path(name), 1 << 20)?).map_err(|_| CLOSED)?;
+    let bytes = trusted_read(&path(name), 1 << 20)?;
+    #[derive(Deserialize)]
+    struct Format {
+        format: u32,
+    }
+    let format: Format = serde_json::from_slice(&bytes).map_err(|_| CLOSED)?;
+    if format.format != 2 {
+        return Err("unsupported release operation format; expected 2".into());
+    }
+    let record: Operation = soda_host::json::decode_strict_as(&bytes).map_err(|_| CLOSED)?;
     record.validate()?;
     Ok(record)
 }
@@ -193,6 +215,9 @@ fn phase(record: &mut Operation, value: &str) -> Result<(), String> {
     save(record, false)
 }
 fn finish(mut record: Operation, deadline: Instant) -> Result<(), String> {
+    record
+        .extensions
+        .verify_packages(record.rollback, deadline)?;
     // The retained native source deployment supplies coordinated rollback.
     // Project-local copies are only needed until this verified finish boundary.
     release_inventory::revalidate(&record.entries(), deadline)?;
@@ -214,7 +239,7 @@ fn finish(mut record: Operation, deadline: Instant) -> Result<(), String> {
     fs::rename(path(RECORD), path(LAST)).map_err(|_| CLOSED)?;
     sync_directory()?;
     println!(
-        "Release {} verified; Project admission reopened{}",
+        "Release {} core verified; extension readiness follows maintenance lock release{}",
         record.expected().0,
         if record.qualification_fixture {
             " (development qualification fixture; no supported release claim)"
@@ -395,31 +420,96 @@ fn verify_active(record: &Operation, deadline: Instant) -> Result<(), String> {
     future_image(image, digest, deadline)
 }
 
-pub(crate) fn reconcile_boot(args: &[String]) -> Result<(), String> {
-    if !args.is_empty() {
-        return Err("release-reconcile takes no arguments".into());
+#[derive(Debug)]
+pub(crate) enum Failure {
+    BeforeCommit(String),
+    CoreCommitted(String),
+}
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BeforeCommit(message) => write!(f, "{message}"),
+            Self::CoreCommitted(message) => write!(
+                f,
+                "core release committed; extension readiness incomplete: {message}"
+            ),
+        }
     }
-    let _guard = admission::exclusive()?;
-    match fs::symlink_metadata(path(RECORD)) {
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(_) => return Err(CLOSED.into()),
-        Ok(_) => {}
+}
+impl Failure {
+    pub(crate) fn exit_code(&self) -> i32 {
+        if matches!(self, Self::CoreCommitted(_)) {
+            75
+        } else {
+            1
+        }
     }
-    let record = load(RECORD)?;
-    no_other_repairs()?;
-    let deadline = Instant::now() + Duration::from_secs(120);
-    verify_active(&record, deadline)?;
-    finish(record, deadline)
 }
 
-pub(crate) fn run(args: &[String]) -> Result<(), String> {
+fn post_commit(record: Option<Operation>) -> Result<(), Failure> {
+    let deadline = Instant::now() + Duration::from_secs(300);
+    let (frozen, rollback) = if let Some(record) = record {
+        (record.extensions, record.rollback)
+    } else {
+        let payload = soda_release_deliver::payload::load(crate::RELEASE_PATH)
+            .map_err(|_| Failure::CoreCommitted("current release unavailable".into()))?;
+        (
+            crate::release_extensions::Frozen::capture(&payload, deadline)
+                .map_err(Failure::CoreCommitted)?,
+            false,
+        )
+    };
+    crate::release_extensions::reconcile(&frozen, rollback, deadline)
+        .map_err(Failure::CoreCommitted)
+}
+
+pub(crate) fn reconcile_boot(args: &[String]) -> Result<(), Failure> {
+    let finalized = (|| -> Result<Option<Operation>, String> {
+        if !args.is_empty() {
+            return Err("release-reconcile takes no arguments".into());
+        }
+        let _guard = admission::exclusive()?;
+        match fs::symlink_metadata(path(RECORD)) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return match fs::symlink_metadata(path(LAST)) {
+                    Ok(_) => Ok(Some(load(LAST)?)),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                    Err(_) => Err(CLOSED.into()),
+                }
+            }
+            Err(_) => return Err(CLOSED.into()),
+            Ok(_) => {}
+        }
+        let record = load(RECORD)?;
+        no_other_repairs()?;
+        let deadline = Instant::now() + Duration::from_secs(120);
+        verify_active(&record, deadline)?;
+        finish(record.clone(), deadline)?;
+        Ok(Some(record))
+    })()
+    .map_err(Failure::BeforeCommit)?;
+    // All exclusive guards have been dropped before normal manager reconciliation.
+    post_commit(finalized)
+}
+
+pub(crate) fn run(args: &[String]) -> Result<(), Failure> {
     run_operation(args).map_err(|error| {
-        if fs::symlink_metadata(path(RECORD)).is_ok() {
+        Failure::BeforeCommit(if fs::symlink_metadata(path(RECORD)).is_ok() {
             format!("{error}; {CLOSED}")
         } else {
             error
+        })
+    })?;
+    if !args.iter().any(|a| a == "--check") {
+        match fs::symlink_metadata(path(RECORD)) {
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                post_commit(Some(load(LAST).map_err(Failure::CoreCommitted)?))?
+            }
+            Err(_) => return Err(Failure::BeforeCommit(CLOSED.into())),
         }
-    })
+    }
+    Ok(())
 }
 fn run_operation(args: &[String]) -> Result<(), String> {
     let o = options(args)?;
@@ -477,6 +567,7 @@ fn run_operation(args: &[String]) -> Result<(), String> {
             || r.target_deployment != target.media.deployment_commit
             || r.target_sha256 != target.payload.project_support.sha256
             || r.target_payload_sha256 != target.candidate.payload_sha256
+            || r.extensions.target != target.payload
             || r.entries() != entries
         {
             return Err(CLOSED.into());
@@ -484,7 +575,8 @@ fn run_operation(args: &[String]) -> Result<(), String> {
         r
     } else {
         Operation {
-            format: 1,
+            format: 2,
+            extensions: crate::release_extensions::Frozen::capture(&target.payload, deadline)?,
             source_release: target.source.release_id.clone(),
             target_release: target.payload.id.clone(),
             source_deployment: state.booted.checksum.clone(),
@@ -524,7 +616,12 @@ fn run_operation(args: &[String]) -> Result<(), String> {
         target.qualification_scope()
     );
     let content = release_stage::StagedContent::open(&target, deadline)?;
-    crate::release_target::verify_project_image(&content.root, &target, deadline)?;
+    if !o.recover {
+        record.extensions.prefetch(deadline)?;
+    }
+    record.extensions.retained(false, deadline)?;
+    record.extensions.retained(true, deadline)?;
+    crate::release_target::verify_project_image(&target, deadline)?;
     future_image(
         &record.source_project_image,
         &record.source_sha256,
@@ -567,6 +664,8 @@ fn run_operation(args: &[String]) -> Result<(), String> {
     drop(helper);
     content.close(deadline)?;
     release_inventory::revalidate(&entries, deadline)?;
+    record.extensions.prepare(false, deadline)?;
+    phase(&mut record, "extensions_prepared")?;
     phase(&mut record, "activation_requested")?;
     println!("Projects verified; requesting native activation of {}. Admission remains closed through boot verification.",record.target_release);
     release_stage::activate(&record.target_deployment, deadline)
@@ -575,6 +674,12 @@ fn run_operation(args: &[String]) -> Result<(), String> {
 fn rollback(deadline: Instant) -> Result<(), String> {
     let pending = fs::symlink_metadata(path(RECORD)).is_ok();
     let mut record = load(if pending { RECORD } else { LAST })?;
+    if !pending {
+        record
+            .extensions
+            .same_intent(&crate::release_extensions::snapshot(deadline)?)?;
+    }
+    record.extensions.retained(true, deadline)?;
     let state = release_stage::inspect(deadline)?;
     if state.booted.checksum != record.source_deployment
         && state.booted.checksum != record.target_deployment
@@ -616,12 +721,20 @@ fn rollback(deadline: Instant) -> Result<(), String> {
             release_stage::discard_locked(&record.target_deployment, deadline)?;
         }
         replace(&record, &helper, deadline)?;
+        record.extensions.prepare(true, deadline)?;
+        crate::command::run(
+            "/usr/bin/systemctl",
+            &["start", "forgejo.service"],
+            deadline,
+        )?;
         verify_active(&record, deadline)?;
         return finish(record, deadline);
     }
     release_stage::stage_retained(&record.source_deployment, deadline)?;
     phase(&mut record, "host_locked")?;
     replace(&record, &helper, deadline)?;
+    record.extensions.prepare(true, deadline)?;
+    phase(&mut record, "extensions_prepared")?;
     phase(&mut record, "activation_requested")?;
     release_stage::activate(&record.source_deployment, deadline)
 }
@@ -630,18 +743,19 @@ fn rollback(deadline: Instant) -> Result<(), String> {
 mod tests {
     use super::*;
     fn record() -> Operation {
+        let extensions = crate::release_extensions::fixture();
         Operation {
-            format: 1,
-            source_release: "source".into(),
-            target_release: "target".into(),
+            format: 2,
+            source_release: extensions.source.id.clone(),
+            target_release: extensions.target.id.clone(),
             source_deployment: "1".repeat(64),
             source_serial: 0,
             target_deployment: "2".repeat(64),
-            source_sha256: "3".repeat(64),
-            target_sha256: "4".repeat(64),
+            source_sha256: extensions.source.project_support.sha256.clone(),
+            target_sha256: extensions.target.project_support.sha256.clone(),
             target_payload_sha256: "5".repeat(64),
-            source_project_image: format!("sha256:{}", "6".repeat(64)),
-            target_project_image: format!("sha256:{}", "7".repeat(64)),
+            source_project_image: extensions.source.project_support.project_image.clone(),
+            target_project_image: extensions.target.project_support.project_image.clone(),
             release_directory: "/var/home/release".into(),
             qualification_fixture: false,
             rollback: false,
@@ -649,13 +763,14 @@ mod tests {
             projects: vec![Project {
                 project_id: format!("p{}", "0".repeat(24)),
                 container_id: "8".repeat(64),
-                old_sha256: "3".repeat(64),
-                new_sha256: "4".repeat(64),
+                old_sha256: extensions.source.project_support.sha256.clone(),
+                new_sha256: extensions.target.project_support.sha256.clone(),
                 previous: format!(
                     "/usr/libexec/soda/.project-terminal.previous-{}",
-                    "3".repeat(64)
+                    extensions.source.project_support.sha256
                 ),
             }],
+            extensions,
         }
     }
     #[test]
@@ -691,8 +806,8 @@ mod tests {
     #[test]
     fn interrupted_journal_write_preserves_committed_boundary_and_can_resume() {
         use std::os::unix::fs::{symlink, PermissionsExt};
-        let dir = std::env::temp_dir().join(format!("soda-release-journal-{}", std::process::id()));
-        fs::create_dir(&dir).unwrap();
+        let fixture = crate::test_support::TestDir::make("release-journal");
+        let dir = fixture.0.clone();
         let owner = unsafe { libc::geteuid() };
         let mut r = record();
         save_at(&dir, &r, true, owner).unwrap();

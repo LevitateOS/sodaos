@@ -31,7 +31,7 @@ pub struct ManagerState {
     pub entry: Entry,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Entry {
     pub package_id: String,

@@ -1917,6 +1917,7 @@ dependencies = [
  "soda-build-tools",
  "soda-host",
  "soda-release-deliver",
+ "soda-unix-http",
  "tar",
 ]
 

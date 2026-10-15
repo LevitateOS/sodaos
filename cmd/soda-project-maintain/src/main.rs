@@ -14,6 +14,7 @@ mod network;
 mod options;
 mod project;
 mod release;
+mod release_extensions;
 mod release_inventory;
 mod release_operation;
 mod release_stage;
@@ -37,24 +38,36 @@ const MUSE_VERSION: &str = "1.4.0-R4161.1";
 const RELEASE_PATH: &str = "/usr/share/soda/release.json";
 
 fn main() {
-    if let Err(e) = run() {
+    let argv: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    if unsafe { libc::geteuid() } == 0 {
+        let release = match argv.first().map(String::as_str) {
+            Some("release") => Some(release_operation::run(&argv[1..])),
+            Some("release-reconcile") => Some(release_operation::reconcile_boot(&argv[1..])),
+            _ => None,
+        };
+        if let Some(result) = release {
+            if let Err(error) = result {
+                eprintln!("soda-project-maintain: {error}");
+                std::process::exit(error.exit_code());
+            }
+            return;
+        }
+    }
+    if let Err(e) = run(&argv) {
         eprintln!("soda-project-maintain: {e}");
         std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), String> {
+fn run(argv: &[String]) -> Result<(), String> {
     if unsafe { libc::geteuid() } != 0 {
         return Err(String::from("project maintenance requires root"));
     }
-    let argv: Vec<String> = std::env::args_os()
-        .skip(1)
-        .map(|a| a.to_string_lossy().into_owned())
-        .collect();
     match argv.first().map(String::as_str) {
         Some("terminal-support") => return terminal_support::run(&argv[1..]),
-        Some("release") => return release_operation::run(&argv[1..]),
-        Some("release-reconcile") => return release_operation::reconcile_boot(&argv[1..]),
         Some("canlang") => return canlang::run(&argv[1..]),
         Some("muse") => {}
         _ => {
