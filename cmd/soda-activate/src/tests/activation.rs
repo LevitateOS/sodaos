@@ -5,7 +5,45 @@ use super::fixtures::*;
 
 use crate::activation::activate;
 use crate::cli::CliArgs;
-use crate::system::{ActivateError, usage};
+use crate::system::{usage, ActivateError};
+
+#[test]
+fn first_activation_preserves_already_bootstrapped_required_package_state() {
+    let fx = fixture(
+        &dashboard(
+            "https://192.168.2.100",
+            "/run/soda/identity/admin.sock",
+            "42",
+        ),
+        "",
+    );
+    let extensions = fx.paths.var_lib.join("forgejo/gitea/extensions");
+    let retained = [
+        "soda/.fountain-package.json",
+        ".cache/packages/source.tar.gz",
+        ".installations/soda",
+        ".intents/soda.json",
+        ".data/soda/state.json",
+    ];
+    for name in retained {
+        let path = extensions.join(name);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, format!("retained {name}")).unwrap();
+    }
+    activate(
+        &cli("192.168.2.100", true, &fx.temp),
+        &fx.paths,
+        &mut FakeSys::new(),
+        &mut Vec::new(),
+    )
+    .unwrap();
+    for name in retained {
+        assert_eq!(
+            fs::read_to_string(extensions.join(name)).unwrap(),
+            format!("retained {name}")
+        );
+    }
+}
 
 #[test]
 fn first_activation_derives_provider_from_forgejo_origin() {

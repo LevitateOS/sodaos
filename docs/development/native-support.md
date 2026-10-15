@@ -131,6 +131,9 @@ CoreOS inputs. The worker verifies Fountain's manifest/config, platform and
 version/revision labels before building the Soda presentation layer. It does not
 compile Fountain. Local SDK bytes must match that selected source commit;
 unrelated checkout changes are preserved and do not select different image bytes.
+The trusted catalog bind from immutable `/usr/share/soda/extensions/catalog.json`
+is read-only without Podman relabel flags. Native SELinux permits that read with
+the existing OS label; `:Z` would try to write an xattr on read-only `/usr`.
 The retired Tailscale archive/alpine-base resolver is removed; the official image
 pin joins the ordinary platform-scoped OCI inputs.
 

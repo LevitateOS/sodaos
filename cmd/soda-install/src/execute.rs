@@ -120,9 +120,9 @@ fn destination_for_media(
 }
 
 fn print_disk_complete(console: &Console) {
-    console.print("SodaOS disk installation completed with the bundled application images local.");
+    console.print("SodaOS disk installation completed.");
     console.print("Remove installation media, then confirm the reboot prompt below; log in locally as root with your password.");
-    console.print("Native startup imports the included images before starting their services.");
+    console.print("First startup downloads the required application images and Soda package before service readiness; keep ordinary network access available.");
     console.print("SSH password access is enabled; log in as root over SSH with your password.");
     console.print(
         format_args!(

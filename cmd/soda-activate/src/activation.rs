@@ -7,7 +7,7 @@ use std::path::Path;
 use crate::cli::CliArgs;
 use crate::forgejo_env::rewrite_forgejo_env;
 use crate::origin::{activate_rejects_ip, check_browser_origin, origin_host_port};
-use crate::system::{ActivateError, Paths, Sys, runtime, usage};
+use crate::system::{runtime, usage, ActivateError, Paths, Sys};
 
 const MAX_DASHBOARD_BYTES: usize = 64 * 1024;
 
@@ -149,7 +149,7 @@ pub(crate) fn activate(
         }
     }
     let extension_data = extension_root.join(".data");
-    fs::create_dir(&extension_root).map_err(|e| runtime(e.to_string()))?;
+    fs::create_dir_all(&extension_root).map_err(|e| runtime(e.to_string()))?;
     sys.chown(&extension_root, 1000, 1000)
         .map_err(|e| runtime(e.to_string()))?;
     fs::set_permissions(&extension_root, fs::Permissions::from_mode(0o700))
@@ -159,7 +159,7 @@ pub(crate) fn activate(
             "Forgejo extension data path must not contain symlinks",
         ));
     }
-    fs::create_dir(&extension_data).map_err(|e| runtime(e.to_string()))?;
+    fs::create_dir_all(&extension_data).map_err(|e| runtime(e.to_string()))?;
     sys.chown(&extension_data, 1000, 1000)
         .map_err(|e| runtime(e.to_string()))?;
     fs::set_permissions(&extension_data, fs::Permissions::from_mode(0o700))

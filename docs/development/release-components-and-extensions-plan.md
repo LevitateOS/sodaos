@@ -543,8 +543,33 @@ required-package catalog/cache contract; its focused repair is committed separat
   separate package/release files, and no longer require embedded application blobs.
   Producer receipts now retain the repository prefix, role-keyed archives and the
   real source-archive hash; the recorded-candidate and CLI regression checks pass.
-  Combined candidate
-  qualification remains open; these development fixtures are unpublished.
+  The CoreOS resolver now selects the stream's versioned container and checks
+  actual OS identity before and after host construction; native positive/negative
+  checks pass. Publication stages four fixed Soda application repositories for
+  every distribution, checks upstream availability and supports readback without
+  replaying uploads (90 delivery tests, six oracle checks and two CLI checks).
+  Installed drivers now consume Payload v4 and verify required native package
+  bytes against the admitted cache/receipt (14 focused checks). Source `f81fd74c`
+  packs a 1,385,284,608-byte complete rootfs in 170.13 seconds and authenticates in
+  the actual ISO, but refuses before disk writes because the installer still
+  required the retired machine boolean. `eba805ee` corrects that reader; all 113
+  installer tests pass, now using the real producer defaults. Its fresh Source
+  build completed in 22m24s (1,384,365,056-byte rootfs, 165.63 seconds packing),
+  installed to the real fixture disk and booted. Required-image acquisition
+  succeeds with fixture routing, but Fountain startup exposed an immutable
+  catalog `:Z` relabel attempt. The read-only bind without relabel passes a small
+  native SELinux-enforcing check; fix the unit and use the retained failed fixture
+  for non-qualifying startup/lifecycle probes before another build. The completion
+  screen's stale bundled-image wording is also corrected. No functional Source
+  baseline or joint target has passed; combined qualification remains open and
+  these fixtures are unpublished.
+  The retained fixture now passes required-package acquisition, six acquired
+  config/runtime checks, exact native package cache/file readback, native ordering
+  and fully trusted HTTPS administrator login with Tailnet absent. Activation
+  also needed to accept the directories already created by required bootstrap;
+  14 activation tests and a native state-hash preservation check pass with that
+  correction. These probes use explicit diagnostic overlays and do not accept
+  the failed candidate as the maintenance Source baseline.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
@@ -554,6 +579,10 @@ required-package catalog/cache contract; its focused repair is committed separat
   offline in the Soda overlay, preserves UUID/intent/receipt, and rejects a missing
   cache before changing those identities. Complete native Source-S/Target-T
   transition and recovery remain open.
+  Project maintenance also rejects the retired machine Tailnet boolean/image
+  selectors and reads only its Project image from Payload v4; 43 native unit
+  checks pass. This cleanup is separate from the frozen Source `eba805ee` build
+  and is included in the subsequent target scope.
 - [ ] **I01 — Integrate + joint native candidate.** Coordinator; R03, T03, G-F.
   Pin SDK/Fountain candidate, smallest combined tests + private-socket/lock
   checks; admit the distinct v4 maintenance source fixture; one joint target.
