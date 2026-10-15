@@ -17,9 +17,8 @@
 //! Final Tailnet package *contents* land with T03 at I01; this module owns
 //! the staging contract and fails closed until that source directory exists.
 
-use std::collections::HashMap;
+use std::collections::BTreeSet;
 use std::fs;
-use std::io::Write;
 
 use crate::error::Error;
 use crate::extension;
@@ -112,13 +111,34 @@ struct PackageManifest {
     capabilities: Vec<String>,
 }
 
-fn read_package_manifest(dir: &str) -> Result<(PackageManifest, Vec<u8>), Error> {
+fn read_package_manifest(
+    dir: &str,
+    release_tag: &str,
+) -> Result<(PackageManifest, Vec<u8>), Error> {
     let data = fs::read(sys::join(&[dir, "extension.json"]))?;
     if data.len() as u64 > MAX_MANIFEST_BYTES {
         return Err(Error::msg("oversized package manifest"));
     }
-    let value: serde_json::Value =
+    let mut value: serde_json::Value =
         serde_json::from_slice(&data).map_err(|_| Error::msg("invalid package manifest"))?;
+    let version = release_tag.strip_prefix('v').unwrap_or(release_tag);
+    if version.is_empty()
+        || version.len() > 64
+        || !version.as_bytes()[0].is_ascii_alphanumeric()
+        || !version
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'+' | b'-'))
+    {
+        return Err(Error::msg("invalid package release version"));
+    }
+    value
+        .as_object_mut()
+        .ok_or_else(|| Error::msg("package manifest must be an object"))?
+        .insert(
+            "version".to_string(),
+            serde_json::Value::String(version.to_string()),
+        );
+    let data = serde_json::to_vec_pretty(&value).map_err(|e| Error::msg(e.to_string()))?;
     let string = |name: &str| {
         value
             .get(name)
@@ -233,94 +253,85 @@ fn check_entry_path(path: &str, top_level_dot: bool) -> Result<(), Error> {
     Ok(())
 }
 
-fn ustar_header(name: &str, mode: u32, size: u64, timestamp: u64, dir: bool) -> [u8; 512] {
-    let mut header = [0u8; 512];
-    let bytes = name.as_bytes();
-    header[..bytes.len()].copy_from_slice(bytes);
-    let mut octal = |value: u64, start: usize, len: usize| {
-        let text = format!("{:o}", value);
-        let field = format!("{:0>width$} ", text, width = len - 1);
-        header[start..start + len].copy_from_slice(&field.as_bytes()[..len]);
-    };
-    octal(mode as u64, 100, 8);
-    octal(0, 108, 8);
-    octal(0, 116, 8);
-    octal(size, 124, 12);
-    octal(timestamp, 136, 12);
-    header[156] = if dir { b'5' } else { b'0' };
-    header[257..263].copy_from_slice(b"ustar\0");
-    header[263..265].copy_from_slice(b"00");
-    header[265..269].copy_from_slice(b"root");
-    header[297..301].copy_from_slice(b"root");
-    let checksum: u32 = header.iter().map(|b| *b as u32).sum::<u32>() + 8 * 32;
-    let field = format!("{:06o}\0 ", checksum);
-    header[148..156].copy_from_slice(&field.as_bytes()[..8]);
-    header
-}
-
-/// Seal one staged file list into deterministic gzip-1 USTAR bytes.
+/// Seal sorted package entries using the upstream USTAR writer. Header path
+/// limits and prefix encoding are checked by tar, never silently truncated.
 pub fn seal_package(files: &[(String, u32, Vec<u8>)], timestamp: u64) -> Result<Vec<u8>, Error> {
-    if files.is_empty() || files.len() > MAX_ARCHIVE_ENTRIES {
-        return Err(Error::msg("invalid package entry count"));
+    if files.is_empty() || files.len() > MAX_ARCHIVE_ENTRIES || timestamp == 0 {
+        return Err(Error::msg("invalid package entries or timestamp"));
     }
-    if timestamp == 0 {
-        return Err(Error::msg("deterministic package timestamp required"));
-    }
-    let mut tar = Vec::new();
-    let mut dirs: Vec<String> = Vec::new();
-    let mut extracted: u64 = 0;
-    for (path, _mode, data) in files {
+    let mut dirs = BTreeSet::new();
+    let mut names = BTreeSet::new();
+    let mut extracted = 0u64;
+    for (path, _, data) in files {
         check_entry_path(path, true)?;
-        extracted += data.len() as u64;
+        if !names.insert(path.as_str()) {
+            return Err(Error::msg("duplicate package path"));
+        }
+        extracted = extracted
+            .checked_add(data.len() as u64)
+            .ok_or_else(|| Error::msg("package size overflow"))?;
         if extracted > MAX_ARCHIVE_BYTES {
             return Err(Error::msg("package exceeds Fountain archive cap"));
         }
-        let components: Vec<&str> = path.split('/').collect();
-        let mut parent = String::new();
-        for (i, component) in components.iter().enumerate() {
-            if i + 1 == components.len() {
-                break;
-            }
-            if !parent.is_empty() {
-                parent.push('/');
-            }
-            parent.push_str(component);
-            if !dirs.contains(&parent) {
-                dirs.push(parent.clone());
-            }
+        let mut parent = std::path::Path::new(path).parent();
+        while let Some(dir) = parent.filter(|p| !p.as_os_str().is_empty()) {
+            let dir = dir
+                .to_str()
+                .ok_or_else(|| Error::msg("invalid package path"))?;
+            dirs.insert(dir.to_string());
+            parent = std::path::Path::new(dir).parent();
         }
     }
-    dirs.sort();
+    if files.len() + dirs.len() > MAX_ARCHIVE_ENTRIES {
+        return Err(Error::msg("package exceeds Fountain entry cap"));
+    }
+    if dirs.iter().any(|dir| names.contains(dir.as_str())) {
+        return Err(Error::msg("package file conflicts with directory"));
+    }
+    let encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::new(1));
+    let mut archive = tar::Builder::new(encoder);
+    let mut append = |path: &str, mode: u32, data: &[u8], directory: bool| -> Result<(), Error> {
+        let mut header = tar::Header::new_ustar();
+        header
+            .set_path(path)
+            .map_err(|e| Error::msg(e.to_string()))?;
+        header.set_entry_type(if directory {
+            tar::EntryType::Directory
+        } else {
+            tar::EntryType::Regular
+        });
+        header.set_mode(if directory {
+            0o755
+        } else if mode & 0o111 != 0 {
+            0o755
+        } else {
+            0o644
+        });
+        header.set_uid(0);
+        header.set_gid(0);
+        header.set_mtime(timestamp);
+        header.set_size(data.len() as u64);
+        header.set_cksum();
+        archive
+            .append(&header, data)
+            .map_err(|e| Error::msg(e.to_string()))
+    };
     for dir in &dirs {
-        check_entry_path(dir, true)?;
-        tar.extend_from_slice(&ustar_header(dir, 0o755, 0, timestamp, true));
+        append(dir, 0o755, &[], true)?;
     }
-    let mut names: HashMap<&str, bool> = HashMap::new();
-    for (path, mode, data) in files {
-        if names.insert(path.as_str(), true).is_some() {
-            return Err(Error::msg(format!("duplicate package path: {path}")));
-        }
-        tar.extend_from_slice(&ustar_header(
-            path,
-            *mode,
-            data.len() as u64,
-            timestamp,
-            false,
-        ));
-        tar.extend_from_slice(data);
-        let pad = (512 - data.len() % 512) % 512;
-        tar.extend(std::iter::repeat(0).take(pad));
+    let mut sorted: Vec<_> = files.iter().collect();
+    sorted.sort_by(|a, b| a.0.cmp(&b.0));
+    for (path, mode, data) in sorted {
+        append(path, *mode, data, false)?;
     }
-    tar.extend(std::iter::repeat(0).take(1024));
-    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::new(1));
-    encoder
-        .write_all(&tar)
+    let encoder = archive
+        .into_inner()
         .map_err(|e| Error::msg(e.to_string()))?;
-    let archive = encoder.finish().map_err(|e| Error::msg(e.to_string()))?;
-    if archive.len() as u64 > MAX_ARCHIVE_BYTES {
+    let bytes = encoder.finish().map_err(|e| Error::msg(e.to_string()))?;
+    if bytes.len() as u64 > MAX_ARCHIVE_BYTES {
         return Err(Error::msg("package exceeds Fountain archive cap"));
     }
-    Ok(archive)
+    Ok(bytes)
 }
 
 fn finish_staged_package(
@@ -363,7 +374,7 @@ pub fn stage_soda_package(
     release_tag: &str,
 ) -> Result<StagedPackage, Error> {
     let origin = sys::join(&[source, "system/containers/extension"]);
-    let (manifest, manifest_bytes) = read_package_manifest(&origin)?;
+    let (manifest, manifest_bytes) = read_package_manifest(&origin, release_tag)?;
     if manifest.id != model::SODA_PACKAGE_ID {
         return Err(Error::msg("soda package manifest carries the wrong id"));
     }
@@ -424,7 +435,7 @@ pub fn stage_tailnet_package(
             "tailnet package contents pending T03: no system/containers/extension/tailnet-package source",
         ));
     }
-    let (manifest, manifest_bytes) = read_package_manifest(&staged)?;
+    let (manifest, manifest_bytes) = read_package_manifest(&staged, release_tag)?;
     if manifest.id != model::TAILNET_PACKAGE_ID {
         return Err(Error::msg("tailnet package manifest carries the wrong id"));
     }
@@ -516,7 +527,6 @@ pub fn record_extension_catalog(
 /// carry no local archive checksum.
 pub fn record_upstream_binding(
     payload: &mut model::Payload,
-    prefix: &str,
     role: model::Role,
     config: &str,
     manifest: &str,
@@ -529,7 +539,18 @@ pub fn record_upstream_binding(
     if !model::prefixed_digest(config) || !model::prefixed_digest(manifest) {
         return Err(Error::msg("upstream binding requires digest identities"));
     }
-    let reference = format!("{prefix}-{}@{manifest}", role.name());
+    let repository = requested.split('@').next().unwrap_or(requested);
+    let repository = match repository.rfind(':') {
+        Some(colon) if colon > repository.rfind('/').unwrap_or(0) => &repository[..colon],
+        _ => repository,
+    };
+    if repository.is_empty()
+        || repository.contains(char::is_whitespace)
+        || repository.contains("://")
+    {
+        return Err(Error::msg("invalid admitted upstream repository"));
+    }
+    let reference = format!("{repository}@{manifest}");
     *role.binding_mut(&mut payload.images) = model::PayloadImage {
         reference,
         manifest: manifest.to_string(),
@@ -623,8 +644,8 @@ mod tests {
             let mtime = field(136, 12);
             assert_eq!(&header[257..263], b"ustar\0", "USTAR magic, no GNU/PAX");
             assert_eq!(&header[263..265], b"00");
-            assert_eq!(&header[108..116], b"0000000 ", "uid 0");
-            assert_eq!(&header[116..124], b"0000000 ", "gid 0");
+            assert_eq!(field(108, 8), 0, "uid 0");
+            assert_eq!(field(116, 8), 0, "gid 0");
             let stored = field(148, 8);
             let computed: u64 = header.iter().map(|b| *b as u64).sum::<u64>() + 8 * 32
                 - header[148..156].iter().map(|b| *b as u64).sum::<u64>();
@@ -634,6 +655,36 @@ mod tests {
             offset += 512 + (size as usize).div_ceil(512) * 512;
         }
         entries
+    }
+
+    #[test]
+    fn sealer_preserves_ustar_prefix_and_counts_directories() {
+        let path = format!("assets/{}/{}.js", "d".repeat(80), "f".repeat(40));
+        let bytes = seal_package(&[(path.clone(), 0o644, b"asset".to_vec())], 7).unwrap();
+        let decoded = gunzip(&bytes);
+        let mut archive = tar::Archive::new(decoded.as_slice());
+        let names: Vec<_> = archive
+            .entries()
+            .unwrap()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                assert_eq!(entry.header().as_bytes()[257..263], *b"ustar\0");
+                entry.path().unwrap().to_string_lossy().into_owned()
+            })
+            .collect();
+        assert!(names.contains(&path));
+        let files: Vec<_> = (0..5001)
+            .map(|n| (format!("assets/d{n}/f"), 0o644, vec![1]))
+            .collect();
+        assert!(
+            seal_package(&files, 7).is_err(),
+            "directories count toward the entry cap"
+        );
+        let collision = vec![
+            ("assets".to_string(), 0o644, vec![]),
+            ("assets/app.js".to_string(), 0o644, vec![]),
+        ];
+        assert!(seal_package(&collision, 7).is_err());
     }
 
     fn fixture_files() -> Vec<(String, u32, Vec<u8>)> {
@@ -812,7 +863,6 @@ mod tests {
         let requested = format!("example.invalid/proxy@{manifest}");
         record_upstream_binding(
             &mut payload,
-            "ghcr.io/e/sodaos",
             model::Role::Proxy,
             &config,
             &manifest,
@@ -820,14 +870,10 @@ mod tests {
         )
         .unwrap();
         let bound = model::Role::Proxy.binding(&payload.images);
-        assert_eq!(
-            bound.reference,
-            format!("ghcr.io/e/sodaos-proxy@{manifest}")
-        );
+        assert_eq!(bound.reference, format!("example.invalid/proxy@{manifest}"));
         assert_eq!(bound.platform, "linux/amd64");
         assert!(record_upstream_binding(
             &mut payload,
-            "ghcr.io/e/sodaos",
             model::Role::Dashboard,
             &config,
             &manifest,

@@ -384,7 +384,6 @@ pub fn complete_candidate(
         };
         native_package::record_upstream_binding(
             &mut payload,
-            prefix,
             role,
             &image.config,
             &image.manifest,
@@ -603,7 +602,7 @@ mod tests {
         fs::create_dir_all(&out).unwrap();
         let mut payload = model::Payload::default();
         let release = native_package::ReleaseInputs {
-            release_tag: "v0.1.0".to_string(),
+            release_tag: "v0.0.0-dev-123456789abc".to_string(),
             fountain: model::FountainRelease {
                 version: "9.9".to_string(),
                 image: "example.invalid/fountain@sha256:".to_string() + &"a".repeat(64),
@@ -627,7 +626,28 @@ mod tests {
             &release,
         )
         .unwrap();
-        assert_eq!(payload.release_tag, "v0.1.0");
+        assert_eq!(payload.release_tag, "v0.0.0-dev-123456789abc");
+        for package in [&packages.soda, &packages.tailnet] {
+            assert_eq!(package.version, "0.0.0-dev-123456789abc");
+            let decoder = flate2::read::GzDecoder::new(package.archive.as_slice());
+            let mut archive = tar::Archive::new(decoder);
+            let mut manifest = archive
+                .entries()
+                .unwrap()
+                .map(Result::unwrap)
+                .find(|entry| entry.path().unwrap() == std::path::Path::new("extension.json"))
+                .unwrap();
+            let value: serde_json::Value = serde_json::from_reader(&mut manifest).unwrap();
+            assert_eq!(value["version"], package.version);
+        }
+        let source_manifest: serde_json::Value = serde_json::from_slice(
+            &fs::read(
+                std::path::Path::new(&source).join("system/containers/extension/extension.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(source_manifest["version"], "0.1.0");
         assert_eq!(payload.fountain.version, "9.9");
         assert_eq!(payload.extension_catalog.packages.len(), 2);
         assert!(out.join("packages").join(&packages.soda.filename).is_file());
