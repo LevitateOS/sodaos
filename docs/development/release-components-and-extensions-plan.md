@@ -372,6 +372,17 @@ active command handles and explicit writer release. The coordinator accepts that
 exact handoff before the worker completes its native goal; parent integration and
 Codex review remain separate. No task is complete merely because it was assigned.
 
+Current execution is owned directly by Codex under the active RCX-2 completion
+goal, following the owner's takeover instruction after Muse exhausted its quota.
+Existing implementation checkpoints remain preserved. The first direct repair
+commits are `07a95849` (producer archives, upstream references and staged
+versions) and `0fa7d524d4` (bootstrap, lifecycle observation and shutdown).
+Release-image tests and the affected Fountain suites pass; the live F026
+controller tests also pass under the race detector. This is component evidence,
+not complete packet or public/native qualification. Fountain's synchronous
+optional-backend startup still needs to move behind core readiness; remaining
+T02/T03/R03 and producer integration remain open below.
+
 - [x] **D00 — Adoption/writer checkpoint.** Codex review + coordinator adoption.
   Bases `505cf545`/`c500bd92`, 10 Soda + 16 Fountain dirty files checkpointed
   (`adoption-rcx2/` tars/patches), no live commands. Prior work mapped, preserved.
