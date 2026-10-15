@@ -179,14 +179,36 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
     let images_dir = dir.path.join("images");
     fs::create_dir_all(&images_dir).unwrap();
 
+    for package in payload["ExtensionCatalog"]["packages"]
+        .as_array_mut()
+        .unwrap()
+    {
+        package["sha256"] = sha256_hex(b"fixture component").into();
+        package["size"] = serde_json::json!(b"fixture component".len());
+    }
+    let canonical: soda_build_tools::payload::PayloadV4 =
+        serde_json::from_value(payload.clone()).unwrap();
+    let catalog = canonical.projected_catalog_bytes().unwrap();
+    let proof = serde_json::to_vec(&canonical.fountain).unwrap();
+    fs::create_dir_all(dir.path.join("packages")).unwrap();
+    fs::write(dir.path.join("packages/catalog.json"), &catalog).unwrap();
     let content_values: Vec<(&str, &[u8])> = soda_build_tools::reader::candidate::REQUIRED_CONTENT
         .iter()
         .copied()
         .chain([
-            "package:soda-extension-0.1.0-linux-x86_64.tar.gz",
-            "package:tailnet-extension-0.1.0-linux-x86_64.tar.gz",
+            "package:soda-extension-0.0.0-golden-linux-x86_64.tar.gz",
+            "package:tailnet-extension-0.0.0-golden-linux-x86_64.tar.gz",
         ])
-        .map(|name| (name, b"fixture component".as_slice()))
+        .map(|name| {
+            (
+                name,
+                match name {
+                    "host:/usr/share/soda/extensions/catalog.json" => catalog.as_slice(),
+                    "release:fountain-release.json" => proof.as_slice(),
+                    _ => b"fixture component".as_slice(),
+                },
+            )
+        })
         .collect();
     for (name, bytes) in &content_values {
         if let Some(package) = name.strip_prefix("package:") {

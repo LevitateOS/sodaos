@@ -1,5 +1,5 @@
 //! Candidate archive and installed-content integrity checks.
-use crate::buildx::{hash_at, Image as BuildImage, Root};
+use crate::buildx::{hash_at, open_layout_entry, read_at, Image as BuildImage, Root};
 use crate::model::Candidate;
 use crate::oci::{inspect_oci, inspect_oci_content};
 use crate::payload::{Payload, Role};
@@ -126,6 +126,41 @@ fn candidate_image_inputs(
     }
 }
 
+/// Bind the separately delivered package bytes and normalized Fountain proof
+/// to the exact payload consumed by the installed host.
+fn verify_candidate_packages(root: &Root, p: &Payload, c: &Candidate) -> Result<(), Error> {
+    let catalog = p
+        .projected_catalog_bytes()
+        .map_err(|e| Error::msg(e.to_string()))?;
+    if read_at(root, "packages/catalog.json", 1 << 20)? != catalog
+        || c.content_sha256
+            .get("host:/usr/share/soda/extensions/catalog.json")
+            != Some(&hash_bytes(&catalog)[7..].to_string())
+    {
+        return Err(Error::at("candidate extension catalog"));
+    }
+    let proof: soda_build_tools::payload::FountainRelease =
+        crate::json_serde::strict(&read_at(root, "fountain-release.json", 1 << 20)?)?;
+    if proof != p.fountain || proof.source_revision != c.forgejo_revision {
+        return Err(Error::at("candidate Fountain release"));
+    }
+    for package in &p.extension_catalog.packages {
+        let filename = format!(
+            "{}-extension-{}-linux-x86_64.tar.gz",
+            package.id, package.version
+        );
+        let path = format!("packages/{filename}");
+        let (_, size) = open_layout_entry(root, &path)?;
+        if size as u64 != package.size
+            || hash_at(root, &path)? != package.sha256
+            || c.content_sha256.get(&format!("package:{filename}")) != Some(&package.sha256)
+        {
+            return Err(Error::at("candidate native package"));
+        }
+    }
+    Ok(())
+}
+
 /// `VerifyCandidateImages`: shared native archive/identity check.
 pub fn verify_candidate_images(
     root: &Root,
@@ -182,6 +217,7 @@ pub fn verify_candidate_images(
         )?;
         files.insert(path, hash);
     }
+    verify_candidate_packages(root, p, c)?;
     for (name, expected) in &c.content_sha256 {
         let path = if let Some(name) = name.strip_prefix("package:") {
             format!("packages/{name}")

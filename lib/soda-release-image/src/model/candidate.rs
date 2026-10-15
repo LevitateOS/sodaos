@@ -244,6 +244,7 @@ fn valid_candidate_build(candidate: &Candidate, payload: &Payload) -> bool {
     let release_proof_mode =
         toolchain.compiler_image.is_empty() && toolchain.apk_packages.is_empty();
     is_revision(&candidate.forgejo_revision)
+        && candidate.forgejo_revision == payload.fountain.source_revision
         && is_digest(&candidate.forgejo_source_sha256)
         && (toolchain.validate().is_ok() || release_proof_mode)
         && candidate.architecture == payload.architecture
@@ -261,6 +262,10 @@ mod tests {
     fn proof_candidate() -> (Candidate, Payload) {
         let payload = Payload {
             architecture: "x86_64".to_string(),
+            fountain: super::super::FountainRelease {
+                source_revision: "a".repeat(40),
+                ..super::super::FountainRelease::default()
+            },
             ..Payload::default()
         };
         let candidate = Candidate {
@@ -291,6 +296,9 @@ mod tests {
         let mut bad_revision = candidate.clone();
         bad_revision.forgejo_revision = "short".to_string();
         assert!(!valid_candidate_build(&bad_revision, &payload));
+        let mut wrong_source = payload.clone();
+        wrong_source.fountain.source_revision = "d".repeat(40);
+        assert!(!valid_candidate_build(&candidate, &wrong_source));
     }
 
     #[test]

@@ -83,6 +83,7 @@ fn valid_candidate_source(c: &Candidate, p: &Payload, payload: &[u8]) -> bool {
 
 fn valid_candidate_build(c: &Candidate, p: &Payload) -> bool {
     is_revision(&c.forgejo_revision)
+        && c.forgejo_revision == p.fountain.source_revision
         && is_digest(&c.forgejo_source_sha256)
         && ((c.forgejo_toolchain.compiler_image.is_empty()
             && c.forgejo_toolchain.apk_packages.is_empty())

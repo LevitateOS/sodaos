@@ -153,10 +153,22 @@ impl Fixture {
         p.project_support.sha256 = identity(&terminal).sha256;
         let host_packages = b"coreos 0:1-1.x86_64\n".to_vec();
         p.host_packages_sha256 = identity(&host_packages).sha256;
+        let package_bytes = b"fixture package";
+        for package in &mut p.extension_catalog.packages {
+            package.sha256 = identity(package_bytes).sha256;
+            package.size = package_bytes.len() as u64;
+        }
+        let catalog = p.projected_catalog_bytes().unwrap();
+        std::fs::create_dir_all(dir.path().join("packages")).unwrap();
+        std::fs::write(dir.path().join("packages/catalog.json"), &catalog).unwrap();
         let mut all = BTreeMap::new();
         for (name, digest) in &mut c.content_sha256 {
-            let bytes = if name.ends_with("/usr/local/bin/gitea") {
-                b"shared Fountain binary".to_vec()
+            let bytes = if name.starts_with("package:") {
+                package_bytes.to_vec()
+            } else if name == "release:fountain-release.json" {
+                serde_json::to_vec(&p.fountain).unwrap()
+            } else if name == "host:/usr/share/soda/extensions/catalog.json" {
+                catalog.clone()
             } else {
                 format!("fixture {name}").into_bytes()
             };
@@ -404,6 +416,10 @@ fn changed_shipping_bytes_and_source_files_are_refused() {
         "payload.json",
         "candidate.json",
         "images/dashboard.oci",
+        "packages/catalog.json",
+        "packages/soda-extension-0.0.0-golden-linux-x86_64.tar.gz",
+        "packages/tailnet-extension-0.0.0-golden-linux-x86_64.tar.gz",
+        "fountain-release.json",
         IMAGE_PATH,
         PACKAGES_PATH,
         COMPOSE_PATH,
