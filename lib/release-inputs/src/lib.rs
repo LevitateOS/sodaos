@@ -5,6 +5,7 @@
 //! builds; the `trust-key` feature enables the shared P-256 admission adapter.
 
 pub mod elf;
+pub mod payload;
 pub mod project_support;
 pub mod reader;
 
