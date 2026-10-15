@@ -63,6 +63,7 @@ func New(c config.Config, db *store.Store) *Server {
 	s.Coordinator.Priority = &control.PriorityJudgments{Journal: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}, MaxCalls: 16}
 	if c.BackgroundServiceConfigured() {
 		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
+		s.API.ExtensionManager = background
 		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
 			c.ForgejoBackgroundCredentialFile, client)
 		observer.ShareBackground(background)

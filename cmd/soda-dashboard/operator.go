@@ -16,7 +16,7 @@ import (
 // outside Projects and the Fountain extension host. Only the configured OS
 // peer UID may connect; its identity becomes the command principal, never a
 // native human author.
-func operatorHTTPServer(socket string, uid uint32, coordinator *control.Coordinator, projects http.Handler) (*http.Server, net.Listener, error) {
+func operatorHTTPServer(socket string, uid uint32, coordinator *control.Coordinator, operations http.Handler) (*http.Server, net.Listener, error) {
 	if !filepath.IsAbs(socket) {
 		return nil, nil, errors.New("operator socket must be an absolute path")
 	}
@@ -44,8 +44,9 @@ func operatorHTTPServer(socket string, uid uint32, coordinator *control.Coordina
 	principal := fmt.Sprintf("os-uid:%d", uid)
 	mux := http.NewServeMux()
 	mux.Handle(control.OperatorPath, coordinator.OperatorHandler())
-	if projects != nil {
-		mux.Handle("/operator/projects", projects)
+	if operations != nil {
+		mux.Handle("/operator/projects", operations)
+		mux.Handle("/operator/extensions/", operations)
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mux.ServeHTTP(w, r.WithContext(control.WithOperatorPrincipal(r.Context(), principal)))

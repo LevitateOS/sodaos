@@ -7,17 +7,84 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory/control"
+	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
+
+func TestOperatorExtensionManagerBridge(t *testing.T) {
+	root, err := os.MkdirTemp(os.TempDir(), "op-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	callback := filepath.Join(root, "fountain.sock")
+	listener, err := net.Listen("unix", callback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	fountain := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.URL.Path != "/v1/extensions/manager/state" {
+			t.Error("unexpected callback path", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusLocked)
+		_, _ = io.WriteString(w, `{"error":{"code":"maintenance"}}`)
+	})}
+	go func() { _ = fountain.Serve(listener) }()
+	t.Cleanup(func() { _ = fountain.Close() })
+	product := &api.API{ExtensionManager: forgejo.NewServiceBackground(callback, uint32(os.Geteuid()), "")}
+	for _, foreign := range []bool{false, true} {
+		uid := uint32(os.Geteuid())
+		if foreign {
+			uid++
+		}
+		socket := filepath.Join(root, fmt.Sprintf("operator-%t.sock", foreign))
+		server, ln, err := operatorHTTPServer(socket, uid, control.NewCoordinator(nil, nil, nil), product.OperatorHandler())
+		if err != nil {
+			t.Fatal(err)
+		}
+		go func() { _ = server.Serve(ln) }()
+		t.Cleanup(func() { _ = server.Close() })
+		transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
+		}}
+		t.Cleanup(transport.CloseIdleConnections)
+		client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+		req, _ := http.NewRequest(http.MethodPost, "http://soda-operator/operator/extensions/state", bytes.NewBufferString(`{"package_id":"tailnet"}`))
+		req.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(req)
+		if foreign {
+			if response != nil {
+				_ = response.Body.Close()
+			}
+			if err == nil || calls.Load() != 1 {
+				t.Fatal("foreign operator peer reached manager")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		if err != nil || response.StatusCode != http.StatusLocked || string(data) != `{"error":{"code":"maintenance"}}` || calls.Load() != 1 {
+			t.Fatalf("manager rejection changed across operator bridge: %d %s %v", response.StatusCode, data, err)
+		}
+	}
+}
 
 func operatorRoundTrip(t *testing.T, uid uint32) (*http.Response, error) {
 	t.Helper()
@@ -98,7 +165,7 @@ func TestOperatorProjectInventory(t *testing.T) {
 	coordinator := control.NewCoordinator(db, nil, nil)
 	productAPI := &api.API{Store: db}
 	socket := filepath.Join(t.TempDir(), "operator.sock")
-	server, listener, err := operatorHTTPServer(socket, uint32(os.Geteuid()), coordinator, productAPI.ProjectMaintenanceHandler())
+	server, listener, err := operatorHTTPServer(socket, uint32(os.Geteuid()), coordinator, productAPI.OperatorHandler())
 	if err != nil {
 		t.Fatal(err)
 	}

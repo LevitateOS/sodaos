@@ -85,7 +85,7 @@ func operatorEndpoint(socket string, uid int, app *web.Server) (*http.Server, ne
 	if uid < 0 || uid > 0xffffffff {
 		return nil, nil, errors.New("operator socket requires an explicit OS peer UID")
 	}
-	server, listener, err := operatorHTTPServer(socket, uint32(uid), app.Coordinator, app.API.ProjectMaintenanceHandler())
+	server, listener, err := operatorHTTPServer(socket, uint32(uid), app.Coordinator, app.API.OperatorHandler())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -22,12 +22,15 @@ type maintenanceInventory struct {
 	PreparationWork int                  `json:"preparation_work"`
 }
 
-// ProjectMaintenanceHandler exposes read-only durable enrollment facts only to
-// the private, OS-peer-gated operator listener. It is never on the public mux.
+// OperatorHandler exposes maintenance inventory and fixed extension-manager
+// operations only to the private OS-peer-gated listener.
 // Native identities and runtime work must be checked separately under admission
 // exclusion; a database association is not evidence that its root exists.
-func (s *API) ProjectMaintenanceHandler() http.Handler {
-	return http.HandlerFunc(s.projectMaintenanceInventory)
+func (s *API) OperatorHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/operator/projects", s.projectMaintenanceInventory)
+	mux.HandleFunc("/operator/extensions/", s.operatorExtensionManager)
+	return mux
 }
 
 func (s *API) projectMaintenanceInventory(w http.ResponseWriter, r *http.Request) {

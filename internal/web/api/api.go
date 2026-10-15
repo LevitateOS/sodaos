@@ -17,13 +17,14 @@ import (
 
 // API owns native-extension product handlers and its terminal peer registry.
 type API struct {
-	Config      *config.Config
-	Store       *store.Store
-	Forgejo     *forgejo.Client
-	Host        *host.Client
-	Auth        *auth.Service
-	Identity    IdentityClient
-	Coordinator *control.Coordinator
+	Config           *config.Config
+	Store            *store.Store
+	Forgejo          *forgejo.Client
+	Host             *host.Client
+	Auth             *auth.Service
+	Identity         IdentityClient
+	Coordinator      *control.Coordinator
+	ExtensionManager *forgejo.ServiceBackground
 	// IntentExploreChooser overrides the TypeSafe judgment service for
 	// intent exploration when set. Production leaves it nil.
 	IntentExploreChooser control.ProductJudgment
