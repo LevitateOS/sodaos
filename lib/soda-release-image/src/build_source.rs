@@ -133,6 +133,8 @@ pub fn admit_build_inputs(request: &request::Request, runner: &Runner) -> Result
             &fork,
             "git",
             &[
+                "-c".into(),
+                format!("safe.directory={fork}"),
                 "diff".into(),
                 "--quiet".into(),
                 request.forgejo_revision.clone(),
@@ -146,6 +148,8 @@ pub fn admit_build_inputs(request: &request::Request, runner: &Runner) -> Result
             &fork,
             "git",
             &[
+                "-c".into(),
+                format!("safe.directory={fork}"),
                 "ls-files".into(),
                 "--others".into(),
                 "--".into(),
