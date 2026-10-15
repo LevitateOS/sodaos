@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::os::unix::fs::MetadataExt;
 
 use crate::json::{self, SignedInteger};
@@ -8,7 +9,7 @@ use serde::{Deserialize, Deserializer};
 use crate::tailnet_domain::{
     parse_rfc3339_nano, valid_container_id, ERR_CONFLICT, ERR_UNAVAILABLE,
 };
-use crate::tailnet_runtime::{companion_create_args, ProjectRun};
+use crate::tailnet_runtime::{companion_create_args, OwnedCompanion, ProjectRun};
 
 /// Decoded companion `inspect` record. Field names match the Go struct so
 /// binding errors keep Go's `companion.<Field>` paths.
@@ -21,6 +22,7 @@ pub struct CompanionRecord {
     pub pid: i64,
     pub started: String,
     pub execs: Vec<String>,
+    pub labels: BTreeMap<String, String>,
 }
 
 #[derive(Default)]
@@ -32,6 +34,7 @@ struct CompanionWire {
     pid: Option<SignedInteger>,
     started: Option<String>,
     execs: Option<GoStringList>,
+    labels: Option<BTreeMap<String, String>>,
 }
 impl<'de> Deserialize<'de> for CompanionWire {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
@@ -81,6 +84,9 @@ impl<'de> Deserialize<'de> for CompanionWire {
                                 o.started = Some(v)
                             }
                         }
+                        "labels" => {
+                            o.labels = Some(map.next_value()?);
+                        }
                         "execs" => {
                             if let Some(v) = map.next_value::<Option<GoStringList>>()? {
                                 o.execs = Some(v)
@@ -91,6 +97,7 @@ impl<'de> Deserialize<'de> for CompanionWire {
                                 &k,
                                 &[
                                     "ID", "Image", "Command", "Running", "PID", "Started", "Execs",
+                                    "Labels",
                                 ],
                             ))
                         }
@@ -113,18 +120,27 @@ pub(crate) fn decode_companion_record(data: &[u8]) -> Result<CompanionRecord, St
         pid: bound.pid.map(Into::into).unwrap_or_default(),
         started: bound.started.unwrap_or_default(),
         execs: bound.execs.map(|value| value.0).unwrap_or_default(),
+        labels: bound.labels.unwrap_or_default(),
     })
 }
 
 pub fn companion_identity_matches(
     out: &CompanionRecord,
-    _run: &ProjectRun,
-    image: &str,
-    id: &str,
+    run: &ProjectRun,
+    owned: &OwnedCompanion,
 ) -> bool {
-    valid_container_id(id)
-        && out.id == id
-        && out.image.trim_start_matches("sha256:") == image.trim_start_matches("sha256:")
+    owned.valid()
+        && owned.parent == *run
+        && out.id == owned.id
+        && out.image.trim_start_matches("sha256:") == owned.image.trim_start_matches("sha256:")
+        && out.labels
+            == BTreeMap::from([
+                ("project".into(), run.target.project.clone()),
+                ("run".into(), run.target.run.clone()),
+                ("parent".into(), run.target.container.clone()),
+                ("installation".into(), owned.installation_id.clone()),
+                ("generation".into(), owned.generation.clone()),
+            ])
 }
 
 pub fn companion_command_matches(cmd: &[String], args: &[String]) -> bool {
@@ -148,11 +164,10 @@ pub fn companion_execs_valid(execs: &[String]) -> Result<(), String> {
 pub fn validate_companion_record(
     out: &CompanionRecord,
     run: &ProjectRun,
-    image: &str,
-    id: &str,
+    owned: &OwnedCompanion,
 ) -> Result<(), String> {
-    let args = companion_create_args(run, image)?;
-    if !companion_identity_matches(out, run, image, id) {
+    let args = companion_create_args(run, owned)?;
+    if !companion_identity_matches(out, run, owned) {
         return Err(ERR_CONFLICT.to_string());
     }
     if out.running {

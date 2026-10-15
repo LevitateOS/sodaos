@@ -30,6 +30,52 @@ pub struct ProjectRun {
     pub resolver: String,
 }
 
+/// Root-owned identity of the child, independent of the selected next image.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OwnedCompanion {
+    #[serde(with = "owned_parent_wire")]
+    pub parent: ProjectRun,
+    pub id: String,
+    pub image: String,
+    pub installation_id: String,
+    pub generation: String,
+}
+
+impl OwnedCompanion {
+    pub fn valid(&self) -> bool {
+        valid_project_run(&self.parent)
+            && valid_container_id(&self.id)
+            && self.image.starts_with("sha256:")
+            && valid_image_id(&self.image)
+            && crate::tcontrol_wire::valid_lifecycle_uuid(&self.installation_id)
+            && crate::tcontrol_wire::valid_lifecycle_generation(&self.generation)
+    }
+}
+
+mod owned_parent_wire {
+    use super::ProjectRun;
+    use serde::{Deserialize, Deserializer, Serializer};
+    pub fn serialize<S: Serializer>(run: &ProjectRun, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::Serialize;
+        let raw = serde_json::value::RawValue::from_string(super::marshal_project_run(run))
+            .map_err(serde::ser::Error::custom)?;
+        raw.serialize(serializer)
+    }
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<ProjectRun, D::Error> {
+        let raw = Box::<serde_json::value::RawValue>::deserialize(deserializer)?;
+        super::decode_project_run(raw.get().as_bytes()).map_err(serde::de::Error::custom)
+    }
+}
+
+pub fn valid_project_run(run: &ProjectRun) -> bool {
+    valid_project_id(&run.target.project)
+        && valid_container_id(&run.target.container)
+        && valid_container_id(&run.target.run)
+        && run.uid != 0
+        && run.gid != 0
+}
+
 /// /proc-derived process identity bound into the run hash.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProcessIdentity {
@@ -96,6 +142,12 @@ fn real_link() -> LinkFile {
 }
 
 /// Admit one run snapshot against the live native state (real /proc reads).
+/// Resolver inode published by the pinned rootful Podman runtime. This is
+/// runroot metadata; graphroot still owns the persistent container storage.
+pub fn project_resolver_path(cid: &str) -> String {
+    format!("/run/containers/storage/overlay-containers/{cid}/userdata/resolv.conf")
+}
+
 /// Only the selected native rootful storage resolver is considered.
 pub fn admit_project_run_snapshot(
     cid: &str,
@@ -105,8 +157,7 @@ pub fn admit_project_run_snapshot(
         Some(false) => {}
         _ => return Err(unavailable()),
     }
-    let resolver =
-        format!("/var/lib/containers/storage/overlay-containers/{cid}/userdata/resolv.conf");
+    let resolver = project_resolver_path(cid);
     if raw.resolver != resolver {
         return Err(ERR_UNSUPPORTED.to_string());
     }
@@ -177,14 +228,15 @@ pub fn project_run(exec: &dyn Executor, id: &str, deadline: Instant) -> Result<P
 
 /// Immutable companion `create` recipe joining the project's namespaces.
 /// The image is host configuration (pinned digest), never a caller field.
-pub fn companion_create_args(run: &ProjectRun, image: &str) -> Result<Vec<String>, String> {
-    if !valid_project_id(&run.target.project)
-        || !valid_container_id(&run.target.container)
-        || !valid_container_id(&run.target.run)
-        || !image.starts_with("sha256:")
-        || !valid_image_id(image)
-        || run.uid == 0
-        || run.gid == 0
+pub fn companion_create_args(
+    run: &ProjectRun,
+    owned: &OwnedCompanion,
+) -> Result<Vec<String>, String> {
+    if !valid_project_run(run)
+        || !owned.image.starts_with("sha256:")
+        || !valid_image_id(&owned.image)
+        || !crate::tcontrol_wire::valid_lifecycle_uuid(&owned.installation_id)
+        || !crate::tcontrol_wire::valid_lifecycle_generation(&owned.generation)
     {
         return Err(ERR_INVALID.to_string());
     }
@@ -204,6 +256,10 @@ pub fn companion_create_args(run: &ProjectRun, image: &str) -> Result<Vec<String
         format!("org.soda.tailnet.run={}", run.target.run),
         "--label".to_string(),
         format!("org.soda.tailnet.parent={}", run.target.container),
+        "--label".into(),
+        format!("org.soda.tailnet.installation={}", owned.installation_id),
+        "--label".into(),
+        format!("org.soda.tailnet.generation={}", owned.generation),
         format!("--userns=container:{}", run.target.container),
         format!("--network=container:{}", run.target.container),
         "--pid=private".to_string(),
@@ -223,7 +279,7 @@ pub fn companion_create_args(run: &ProjectRun, image: &str) -> Result<Vec<String
         "--volume".to_string(),
         format!("{base}/input:/run/soda-enrollment:ro"),
         "--entrypoint=/usr/local/bin/tailscaled".to_string(),
-        image.to_string(),
+        owned.image.clone(),
         "--state=mem:".to_string(),
         "--socket=/run/tailscale/tailscaled.sock".to_string(),
         "--tun=tailscale0".to_string(),
@@ -252,3 +308,14 @@ mod tests;
 
 #[cfg(test)]
 mod project_tests;
+
+#[cfg(test)]
+pub(crate) fn test_ownership(image: &str, parent: &ProjectRun) -> OwnedCompanion {
+    OwnedCompanion {
+        parent: parent.clone(),
+        id: "e".repeat(64),
+        image: image.into(),
+        installation_id: "550e8400-e29b-41d4-a716-446655440000".into(),
+        generation: "7".into(),
+    }
+}

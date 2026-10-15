@@ -11,7 +11,7 @@ use crate::tailnet_domain::{ProjectRequest, ProjectView, RunBinding, RunTarget};
 use crate::tailnet_runtime::ProjectRun;
 
 pub const RUNTIME_ROOT: &str = "/run/soda-tailnet";
-pub const COMPANION_INSPECT: &str = "{\"id\":{{json .ID}},\"image\":{{json .Image}},\"command\":{{json .Config.CreateCommand}},\"running\":{{json .State.Running}},\"pid\":{{json .State.Pid}},\"started\":{{json .State.StartedAt}},\"execs\":{{json .ExecIDs}}}";
+pub const COMPANION_INSPECT: &str = "{\"id\":{{json .ID}},\"image\":{{json .Image}},\"command\":{{json .Config.CreateCommand}},\"running\":{{json .State.Running}},\"pid\":{{json .State.Pid}},\"started\":{{json .State.StartedAt}},\"execs\":{{json .ExecIDs}},\"labels\":{\"project\":{{json (index .Config.Labels \"org.soda.tailnet.project\")}},\"run\":{{json (index .Config.Labels \"org.soda.tailnet.run\")}},\"parent\":{{json (index .Config.Labels \"org.soda.tailnet.parent\")}},\"installation\":{{json (index .Config.Labels \"org.soda.tailnet.installation\")}},\"generation\":{{json (index .Config.Labels \"org.soda.tailnet.generation\")}}}}";
 
 mod identity;
 
@@ -120,3 +120,6 @@ mod lifecycle_tests;
 
 #[cfg(test)]
 mod view_tests;
+
+#[cfg(test)]
+mod native_tests;

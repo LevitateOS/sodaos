@@ -116,7 +116,8 @@ fn fixture_run() -> ProjectRun {
 fn companion_recipe_keeps_fixed_namespaces() {
     let run = fixture_run();
     let image = format!("sha256:{}", "d".repeat(64));
-    let args = companion_create_args(&run, &image).expect("recipe must build");
+    let args =
+        companion_create_args(&run, &test_ownership(&image, &run)).expect("recipe must build");
     let joined = args.join(" ");
     for want in [
         format!("--userns=container:{}", run.target.container),
@@ -182,19 +183,19 @@ fn companion_recipe_keeps_fixed_namespaces() {
         "--privileged".to_string(),
     ] {
         assert!(
-            companion_create_args(&run, &bad).is_err(),
+            companion_create_args(&run, &test_ownership(&bad, &run)).is_err(),
             "mutable/caller image accepted: {bad}"
         );
     }
     let mut bad_target = run.clone();
     bad_target.target.container = "../other".to_string();
     assert!(
-        companion_create_args(&bad_target, &image).is_err(),
+        companion_create_args(&bad_target, &test_ownership(&image, &run)).is_err(),
         "invalid namespace target accepted"
     );
     let mut no_ids = run.clone();
     no_ids.uid = 0;
-    assert!(companion_create_args(&no_ids, &image).is_err());
+    assert!(companion_create_args(&no_ids, &test_ownership(&image, &run)).is_err());
 }
 
 #[test]
@@ -302,8 +303,7 @@ fn decode_run_inspect_binds_container() {
 #[test]
 fn admit_snapshot_rejects_before_touching_proc() {
     let cid = "c".repeat(64);
-    let resolver =
-        format!("/var/lib/containers/storage/overlay-containers/{cid}/userdata/resolv.conf");
+    let resolver = format!("/run/containers/storage/overlay-containers/{cid}/userdata/resolv.conf");
     let raw = ProjectRunInspect {
         id: cid.clone(),
         running: true,

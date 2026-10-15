@@ -1,7 +1,20 @@
 use super::tests::{file_run, image_id, temp_dir, test_view};
 use super::*;
 use crate::tailnet_domain::{ERR_CONFLICT, ERR_UNAVAILABLE, ERR_UNCONFIRMED};
-use crate::tailnet_runtime::companion_create_args;
+use crate::tailnet_runtime::{companion_create_args, test_ownership, OwnedCompanion};
+use std::collections::BTreeMap;
+fn labels(
+    run: &crate::tailnet_runtime::ProjectRun,
+    owned: &OwnedCompanion,
+) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("project".into(), run.target.project.clone()),
+        ("run".into(), run.target.run.clone()),
+        ("parent".into(), run.target.container.clone()),
+        ("installation".into(), owned.installation_id.clone()),
+        ("generation".into(), owned.generation.clone()),
+    ])
+}
 
 #[test]
 fn resolver_uses_actual_inode_rather_than_generated_metadata() {
@@ -42,12 +55,13 @@ fn resolver_uses_actual_inode_rather_than_generated_metadata() {
 fn record_requires_immutable_cid_recipe_and_running_incarnation() {
     let mut run = file_run();
     run.resolver = format!(
-        "/var/lib/containers/storage/overlay-containers/{}/userdata/resolv.conf",
+        "/run/containers/storage/overlay-containers/{}/userdata/resolv.conf",
         run.target.container
     );
     let image = image_id();
     let id = "e".repeat(64);
-    let args = companion_create_args(&run, &image).unwrap();
+    let owned = test_ownership(&image, &run);
+    let args = companion_create_args(&run, &owned).unwrap();
     let mut command = vec!["/usr/bin/podman".to_string()];
     command.extend(args);
     let original = CompanionRecord {
@@ -58,14 +72,17 @@ fn record_requires_immutable_cid_recipe_and_running_incarnation() {
         pid: 99,
         started: "2026-09-12T12:00:00Z".to_string(),
         execs: Vec::new(),
+        labels: labels(&run, &owned),
     };
-    validate_companion_record(&original, &run, &image, &id).unwrap();
+    validate_companion_record(&original, &run, &owned).unwrap();
     // A new release default is not authority to adopt an existing run's
     // companion.
-    assert!(
-        validate_companion_record(&original, &run, &format!("sha256:{}", "f".repeat(64)), &id)
-            .is_err()
-    );
+    assert!(validate_companion_record(
+        &original,
+        &run,
+        &test_ownership(&format!("sha256:{}", "f".repeat(64)), &run)
+    )
+    .is_err());
     // Before first native start there is no daemon PID.
     let created = CompanionRecord {
         running: false,
@@ -73,7 +90,7 @@ fn record_requires_immutable_cid_recipe_and_running_incarnation() {
         started: String::new(),
         ..original.clone()
     };
-    validate_companion_record(&created, &run, &image, &id).unwrap();
+    validate_companion_record(&created, &run, &owned).unwrap();
     // The native argv[0] spelling is admitted.
     let native_spelling = CompanionRecord {
         command: {
@@ -83,17 +100,19 @@ fn record_requires_immutable_cid_recipe_and_running_incarnation() {
         },
         ..original.clone()
     };
-    validate_companion_record(&native_spelling, &run, &image, &id).unwrap();
+    validate_companion_record(&native_spelling, &run, &owned).unwrap();
     // The digest prefix spelling is immaterial.
     let bare_image = CompanionRecord {
         image: "d".repeat(64),
         ..original.clone()
     };
-    validate_companion_record(&bare_image, &run, &image, &id).unwrap();
+    validate_companion_record(&bare_image, &run, &owned).unwrap();
     for kind in [
         "cid",
         "image",
         "namespace",
+        "installation-label",
+        "generation-label",
         "secret-env",
         "missing-command",
         "foreign-exec",
@@ -106,6 +125,15 @@ fn record_requires_immutable_cid_recipe_and_running_incarnation() {
         match kind {
             "cid" => changed.id = "f".repeat(64),
             "image" => changed.image = format!("sha256:{}", "f".repeat(64)),
+            "installation-label" => {
+                changed.labels.insert(
+                    "installation".into(),
+                    "550e8400-e29b-41d4-a716-446655440001".into(),
+                );
+            }
+            "generation-label" => {
+                changed.labels.insert("generation".into(), "8".into());
+            }
             "namespace" => {
                 for arg in &mut changed.command {
                     if arg.starts_with("--network=") {
@@ -125,7 +153,7 @@ fn record_requires_immutable_cid_recipe_and_running_incarnation() {
             _ => unreachable!(),
         }
         assert!(
-            validate_companion_record(&changed, &run, &image, &id).is_err(),
+            validate_companion_record(&changed, &run, &owned).is_err(),
             "changed companion admitted: {kind}"
         );
     }
@@ -135,30 +163,30 @@ fn record_requires_immutable_cid_recipe_and_running_incarnation() {
 fn exec_identity_and_command_matchers() {
     let run = file_run();
     let id = "e".repeat(64);
+    let owned = test_ownership(&image_id(), &run);
     let rec = CompanionRecord {
         id: id.clone(),
         image: image_id(),
+        labels: labels(&run, &owned),
         ..CompanionRecord::default()
     };
-    assert!(companion_identity_matches(&rec, &run, &image_id(), &id));
-    assert!(!companion_identity_matches(
-        &rec,
-        &run,
-        &image_id(),
-        &"f".repeat(64)
-    ));
-    assert!(!companion_identity_matches(
-        &rec,
-        &run,
-        &format!("sha256:{}", "f".repeat(64)),
-        &id
-    ));
-    assert!(!companion_identity_matches(
-        &rec,
-        &run,
-        &image_id(),
-        "short"
-    ));
+    assert!(companion_identity_matches(&rec, &run, &owned));
+    for changed in [
+        OwnedCompanion {
+            id: "f".repeat(64),
+            ..owned.clone()
+        },
+        OwnedCompanion {
+            image: format!("sha256:{}", "f".repeat(64)),
+            ..owned.clone()
+        },
+        OwnedCompanion {
+            id: "short".into(),
+            ..owned.clone()
+        },
+    ] {
+        assert!(!companion_identity_matches(&rec, &run, &changed));
+    }
     let args = vec!["a".to_string(), "b".to_string()];
     assert!(companion_command_matches(
         &[

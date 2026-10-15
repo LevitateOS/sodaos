@@ -178,8 +178,8 @@ fn companion_cli_rejects_empty_args_and_missing_state() {
 }
 
 #[test]
-fn logout_and_stop_reports_unconfirmed_logout() {
-    // Logout fails without runtime state; the stop argv is still exact.
+fn stop_only_preserves_credentials_and_reports_native_failure() {
+    // Cleanup executes only the exact native stop, with no logout call.
     let exec = MockExec::with_handler(|cmd, args| {
         assert_eq!(cmd, "/usr/bin/podman");
         assert_eq!(
@@ -194,14 +194,11 @@ fn logout_and_stop_reports_unconfirmed_logout() {
         Ok(Vec::new())
     });
     let c = companion_with(exec, MockTailnet::inert(), &image_id());
-    assert_eq!(
-        c.logout_and_stop_companion(&file_run(), &"e".repeat(64), deadline()),
-        Err(ERR_UNCONFIRMED.to_string())
-    );
+    assert_eq!(c.stop_companion(&"e".repeat(64), deadline()), Ok(()));
     let exec = MockExec::with_handler(|_, _| Err("stop failed".to_string()));
     let c = companion_with(exec, MockTailnet::inert(), &image_id());
     assert_eq!(
-        c.logout_and_stop_companion(&file_run(), &"e".repeat(64), deadline()),
+        c.stop_companion(&"e".repeat(64), deadline()),
         Err(ERR_UNCONFIRMED.to_string())
     );
 }
@@ -236,7 +233,7 @@ fn retire_previous_companion_guards_identity() {
         .unwrap_err();
     assert!(err.starts_with("project runtime changed: "), "{err}");
     assert!(err.contains(ERR_CONFLICT), "{err}");
-    // A live mismatch against the supervisor is a bare conflict.
+    // Missing owned-child state stays unconfirmed even when parent lookup could answer.
     let exec = MockExec::with_handler(|_, _| {
         Ok(project_inspect_json(&project_id(), &"f".repeat(64), true))
     });
@@ -244,7 +241,7 @@ fn retire_previous_companion_guards_identity() {
     assert_eq!(
         c.retire_previous_companion(&project_id(), &run, &run, deadline())
             .unwrap_err(),
-        stage_error("companion stop unconfirmed", ERR_CONFLICT.to_string())
+        stage_error("companion stop unconfirmed", ERR_UNAVAILABLE.to_string())
     );
 }
 
@@ -346,13 +343,13 @@ fn stop_tailnet_validates_and_needs_state() {
     assert!(c.exec.calls().is_empty());
     // No runtime record exists in the test environment.
     assert!(c.stop_tailnet(&project_id(), deadline()).is_err());
-    // A supervisor mismatch against the recorded container conflicts.
+    // Missing owned-child state cannot authorize cleanup, independently of a live parent.
     let exec = MockExec::with_handler(|_, _| {
         Ok(project_inspect_json(&project_id(), &"f".repeat(64), true))
     });
     let c = companion_with(exec, MockTailnet::inert(), &image_id());
     assert_eq!(
         c.stop_tailnet_run(&file_run(), deadline()),
-        Err(ERR_CONFLICT.to_string())
+        Err(ERR_UNAVAILABLE.to_string())
     );
 }

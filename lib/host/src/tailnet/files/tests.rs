@@ -107,11 +107,19 @@ fn run_files_exclusive_secret_retirement_and_independent_locks() {
     let restored = f.current().expect("current");
     assert_eq!(restored, run);
     let cid = "e".repeat(64);
-    write_companion_id(&root, &cid).expect("write companion id");
-    let e = write_companion_id(&root, &"f".repeat(64)).unwrap_err();
+    write_companion_record(
+        &root,
+        &crate::tailnet_runtime::test_ownership(&format!("sha256:{}", "d".repeat(64)), &run),
+    )
+    .expect("write companion id");
+    let e = write_companion_record(
+        &root,
+        &crate::tailnet_runtime::test_ownership(&format!("sha256:{}", "f".repeat(64)), &run),
+    )
+    .unwrap_err();
     assert_eq!(e, ERR_CONFLICT, "companion identity replaced");
-    let observed = read_companion_id(&base, &run, euid(), egid()).expect("read companion id");
-    assert_eq!(observed, cid, "companion identity not retained");
+    let observed = read_companion_record(&base, &run, euid(), egid()).expect("read companion id");
+    assert_eq!(observed.id, cid, "companion identity not retained");
     let key = write_run_key(&root, &run, "tskey-auth-synthetic-one-use-only").expect("write key");
     let info = key.metadata().expect("key stat");
     assert!(
@@ -208,7 +216,7 @@ fn run_files_refuse_symlinks_modes_and_changed_key_inode() {
 fn resolver_requires_original_inode_and_no_conflicting_manager() {
     let mut run = file_run();
     run.resolver = format!(
-        "/var/lib/containers/storage/overlay-containers/{}/userdata/resolv.conf",
+        "/run/containers/storage/overlay-containers/{}/userdata/resolv.conf",
         run.target.container
     );
     let dir = TempDir::create();
@@ -296,7 +304,7 @@ fn completed_key_input_can_be_retired_for_explicit_retry() {
     let info = key.metadata().expect("key stat after retire");
     assert_eq!(info.len(), 0, "old input not scrubbed");
     retire_pending_run_key(&root, &run).expect("absent input became a permanent retry veto");
-    symlink("../companion-id", root.join("input/key")).expect("fixture");
+    symlink("../companion.json", root.join("input/key")).expect("fixture");
     assert!(
         retire_pending_run_key(&root, &run).is_err(),
         "substituted input accepted"

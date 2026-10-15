@@ -7,7 +7,7 @@ use crate::tailnet_domain::{
     valid_container_id, valid_project_id, ERR_CONFLICT, ERR_INVALID, ERR_UNAVAILABLE,
     ERR_UNCONFIRMED,
 };
-use crate::tailnet_runtime::ProjectRun;
+use crate::tailnet_runtime::{OwnedCompanion, ProjectRun};
 
 use super::{open_runtime_root, root_directory, runtime_file, same_file, Root};
 
@@ -99,8 +99,8 @@ pub fn retire_pending_run_key(root: &Root, run: &ProjectRun) -> Result<(), Strin
 
 /// Durably record the companion container identity exactly once; replacement
 /// is a conflict, never an update.
-pub fn write_companion_id(root: &Root, id: &str) -> Result<(), String> {
-    if !valid_container_id(id) {
+pub fn write_companion_record(root: &Root, owned: &OwnedCompanion) -> Result<(), String> {
+    if !owned.valid() {
         return Err(ERR_UNCONFIRMED.to_string());
     }
     let mut opts = OpenOptions::new();
@@ -109,9 +109,12 @@ pub fn write_companion_id(root: &Root, id: &str) -> Result<(), String> {
         .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW);
     let mut file = opts
-        .open(root.join("companion-id"))
+        .open(root.join("companion.json"))
         .map_err(|_| ERR_CONFLICT.to_string())?;
-    if file.write_all(id.as_bytes()).is_err() {
+    if file
+        .write_all(&serde_json::to_vec(owned).map_err(|_| ERR_UNCONFIRMED.to_string())?)
+        .is_err()
+    {
         return Err(ERR_UNCONFIRMED.to_string());
     }
     if file.sync_all().is_err() {
@@ -125,35 +128,44 @@ pub fn write_companion_id(root: &Root, id: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn read_companion_id_file(root: &Root, path: &str, uid: u32, gid: u32) -> Result<String, String> {
+fn read_companion_record_file(
+    root: &Root,
+    path: &str,
+    uid: u32,
+    gid: u32,
+) -> Result<OwnedCompanion, String> {
     let mut opts = OpenOptions::new();
     opts.read(true).custom_flags(libc::O_NOFOLLOW);
     let file = opts
         .open(root.join(path))
         .map_err(|_| ERR_UNAVAILABLE.to_string())?;
     let info = file.metadata().map_err(|_| ERR_UNAVAILABLE.to_string())?;
-    if !runtime_file(&info, uid, gid, 0o600) || info.len() != 64 {
+    if !runtime_file(&info, uid, gid, 0o600) || info.len() > 8192 {
         return Err(ERR_UNAVAILABLE.to_string());
     }
     let mut b = Vec::new();
-    file.take(65)
+    file.take(8193)
         .read_to_end(&mut b)
         .map_err(|_| ERR_UNAVAILABLE.to_string())?;
-    let s = std::str::from_utf8(&b).map_err(|_| ERR_UNAVAILABLE.to_string())?;
-    if !valid_container_id(s) {
+    if b.len() > 8192 {
         return Err(ERR_UNAVAILABLE.to_string());
     }
-    Ok(s.to_string())
+    let owned: OwnedCompanion =
+        crate::json::decode_strict_as(&b).map_err(|_| ERR_UNAVAILABLE.to_string())?;
+    if !owned.valid() {
+        return Err(ERR_UNAVAILABLE.to_string());
+    }
+    Ok(owned)
 }
 
 /// Read the retained companion identity after re-verifying every ancestor is
 /// still appliance-owned.
-pub fn read_companion_id(
+pub fn read_companion_record(
     base: &str,
     run: &ProjectRun,
     uid: u32,
     gid: u32,
-) -> Result<String, String> {
+) -> Result<OwnedCompanion, String> {
     if !valid_project_id(&run.target.project) || !valid_container_id(&run.target.run) {
         return Err(ERR_INVALID.to_string());
     }
@@ -165,5 +177,17 @@ pub fn read_companion_id(
             return Err(ERR_UNAVAILABLE.to_string());
         }
     }
-    read_companion_id_file(&root, &format!("{run_dir}/companion-id"), uid, gid)
+    read_companion_record_file(&root, &format!("{run_dir}/companion.json"), uid, gid)
+}
+
+/// Replacement is permitted only after exact-CID teardown under the run lock.
+pub fn retire_companion_record(root: &Root, id: &str) -> Result<(), String> {
+    let record = read_companion_record_file(root, "companion.json", 0, 0)?;
+    if record.id != id {
+        return Err(ERR_CONFLICT.to_string());
+    }
+    fs::remove_file(root.join("companion.json")).map_err(|_| ERR_UNCONFIRMED.to_string())?;
+    File::open(root.join("."))
+        .and_then(|dir| dir.sync_all())
+        .map_err(|_| ERR_UNCONFIRMED.to_string())
 }

@@ -1,5 +1,5 @@
 use crate::tailnet_domain::{ReadFile, StatFile, ERR_CONFLICT, ERR_UNAVAILABLE, ERR_UNSUPPORTED};
-use crate::tailnet_runtime::ProjectRun;
+use crate::tailnet_runtime::{project_resolver_path, ProjectRun};
 
 use super::same_file;
 
@@ -28,12 +28,8 @@ fn validate_resolver_text(data: &[u8], fresh: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn resolver_path(container: &str) -> String {
-    format!("/var/lib/containers/storage/overlay-containers/{container}/userdata/resolv.conf")
-}
-
 fn validate_resolver_inode(run: &ProjectRun, stat: &StatFile) -> Result<(), String> {
-    let expected = resolver_path(&run.target.container);
+    let expected = project_resolver_path(&run.target.container);
     if run.resolver != expected {
         return Err(ERR_UNSUPPORTED.to_string());
     }
@@ -59,7 +55,7 @@ pub fn validate_run_resolver(
     fresh: bool,
 ) -> Result<(), String> {
     validate_resolver_inode(run, &stat)?;
-    let expected = resolver_path(&run.target.container);
+    let expected = project_resolver_path(&run.target.container);
     let data = read(&expected).map_err(|_| ERR_UNSUPPORTED.to_string())?;
     validate_resolver_text(&data, fresh)?;
     let devices =

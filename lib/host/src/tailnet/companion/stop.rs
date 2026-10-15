@@ -1,9 +1,9 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::project::Executor;
 use crate::tailnet_domain::{valid_project_id, ERR_CONFLICT, ERR_INVALID, ERR_UNCONFIRMED};
 use crate::tailnet_files::open_runtime_project;
-use crate::tailnet_runtime::{project_container, project_run, ProjectRun};
+use crate::tailnet_runtime::{project_run, ProjectRun};
 
 use super::{is_companion_run_fresh, stage_error, Companion, TailnetControl, RUNTIME_ROOT};
 
@@ -18,7 +18,7 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         if previous.target.run.is_empty() {
             return Ok(());
         }
-        if previous.target.project != id || previous.target.container != run.target.container {
+        if previous.target.project != id || run.target.project != id {
             return Err(stage_error(
                 "project runtime changed",
                 ERR_CONFLICT.to_string(),
@@ -92,16 +92,11 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         run: &ProjectRun,
         deadline: Instant,
     ) -> Result<(), String> {
-        let id = run.target.project.clone();
-        match project_container(&self.exec, &id, false, deadline) {
-            Ok(cid) if cid == run.target.container => {}
-            _ => return Err(ERR_CONFLICT.to_string()),
-        }
         let rec = self.inspect_companion(run, deadline)?;
         if !rec.running {
             return Ok(());
         }
-        let result = self.logout_and_stop_companion(run, &rec.id, deadline);
+        let result = self.stop_companion(&rec.id, deadline);
         let after = self
             .inspect_companion(run, deadline)
             .map_err(|_| ERR_UNCONFIRMED.to_string())?;
@@ -112,21 +107,12 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         result
     }
 
-    pub(crate) fn logout_and_stop_companion(
-        &self,
-        run: &ProjectRun,
-        id: &str,
-        deadline: Instant,
-    ) -> Result<(), String> {
-        let logout_end = Instant::now() + Duration::from_secs(5);
-        let logout = self.companion_cli(run, &["logout".to_string()], logout_end);
-        let stop = self.runtime_podman(
-            &["stop".to_string(), "--time=8".to_string(), id.to_string()],
+    pub(crate) fn stop_companion(&self, id: &str, deadline: Instant) -> Result<(), String> {
+        self.runtime_podman(
+            &["stop".into(), "--time=8".into(), id.to_string()],
             deadline,
-        );
-        if stop.is_err() {
-            return Err(ERR_UNCONFIRMED.to_string());
-        }
-        logout.map(|_| ()).map_err(|_| ERR_UNCONFIRMED.to_string())
+        )
+        .map(|_| ())
+        .map_err(|_| ERR_UNCONFIRMED.to_string())
     }
 }

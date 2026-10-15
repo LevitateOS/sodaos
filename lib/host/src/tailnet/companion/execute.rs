@@ -4,7 +4,7 @@ use crate::project::Executor;
 use crate::tailnet_domain::{
     valid_container_id, ERR_CONFLICT, ERR_INVALID, ERR_UNAVAILABLE, ERR_UNCONFIRMED,
 };
-use crate::tailnet_files::read_companion_id;
+use crate::tailnet_files::read_companion_record;
 use crate::tailnet_runtime::ProjectRun;
 
 use super::{
@@ -118,20 +118,20 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         run: &ProjectRun,
         deadline: Instant,
     ) -> Result<CompanionRecord, String> {
-        let id = read_companion_id(RUNTIME_ROOT, run, 0, 0)?;
+        let owned = read_companion_record(RUNTIME_ROOT, run, 0, 0)?;
         let body = self
             .runtime_podman(
                 &[
                     "inspect".to_string(),
                     "--format".to_string(),
                     COMPANION_INSPECT.to_string(),
-                    id.clone(),
+                    owned.id.clone(),
                 ],
                 deadline,
             )
             .map_err(|_| ERR_CONFLICT.to_string())?;
         let out = decode_companion_record(&body).map_err(|_| ERR_CONFLICT.to_string())?;
-        validate_companion_record(&out, run, &self.image, &id)?;
+        validate_companion_record(&out, run, &owned)?;
         match_companion_namespaces(&out, run)?;
         Ok(out)
     }

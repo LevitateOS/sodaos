@@ -3,13 +3,16 @@ use std::time::{Duration, Instant};
 use crate::project::Executor;
 use crate::tailnet_domain::{project_has_node, ProjectRequest, RunBinding, ERR_UNAVAILABLE};
 use crate::tailnet_files::{
-    open_runtime_project, validate_run_resolver, write_companion_id, Root, RunFiles,
+    open_runtime_project, read_companion_record, retire_companion_record, validate_run_resolver,
+    write_companion_record, Root, RunFiles,
 };
 use crate::tailnet_runtime::{
-    companion_create_args, project_container, project_run, recheck_project_run, ProjectRun,
+    companion_create_args, project_container, project_run, recheck_project_run, OwnedCompanion,
+    ProjectRun,
 };
 
 use super::{stage_error, Companion, TailnetControl, RUNTIME_ROOT};
+use crate::tailnet_admission::{Grant, GrantStore, StartGuard};
 
 impl<E: Executor, T: TailnetControl> Companion<E, T> {
     /// Saved policy intent without requiring companion-specific runtime
@@ -111,6 +114,7 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         files: &RunFiles,
         root: &Root,
         run: &ProjectRun,
+        grant: &Grant,
         deadline: Instant,
     ) -> Result<(), String> {
         files
@@ -118,13 +122,21 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
             .map_err(|e| stage_error("companion runtime unconfirmed", e))?;
         recheck_project_run(&self.exec, run, deadline)
             .map_err(|e| stage_error("project runtime changed", e))?;
-        let args = companion_create_args(run, &self.image)
+        let mut owned = OwnedCompanion {
+            parent: run.clone(),
+            id: String::new(),
+            image: grant.image.clone(),
+            installation_id: grant.installation_id.clone(),
+            generation: grant.generation.clone(),
+        };
+        let args = companion_create_args(run, &owned)
             .map_err(|e| stage_error("companion runtime unconfirmed", e))?;
         let created = self
             .runtime_command("/usr/bin/podman", &args, deadline)
             .map_err(|e| stage_error("companion startup unconfirmed", e))?;
         let id = String::from_utf8_lossy(&created).trim().to_string();
-        write_companion_id(root, &id)
+        owned.id = id;
+        write_companion_record(root, &owned)
             .map_err(|e| stage_error("companion runtime unconfirmed", e))?;
         Ok(())
     }
@@ -151,11 +163,24 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         files: &RunFiles,
         root: &Root,
         run: &ProjectRun,
-        fresh: bool,
+        mut fresh: bool,
+        grant: &Grant,
         deadline: Instant,
     ) -> Result<(), String> {
+        if !fresh {
+            let owned = read_companion_record(RUNTIME_ROOT, run, 0, 0)?;
+            if owned.installation_id != grant.installation_id {
+                return Err(crate::tailnet_domain::ERR_CONFLICT.to_string());
+            }
+            if owned.image != grant.image {
+                self.stop_tailnet_run(run, deadline)?;
+                self.runtime_podman(&["rm".into(), owned.id.clone()], deadline)?;
+                retire_companion_record(root, &owned.id)?;
+                fresh = true;
+            }
+        }
         if fresh {
-            self.create_fresh_companion(files, root, run, deadline)?;
+            self.create_fresh_companion(files, root, run, grant, deadline)?;
         }
         self.start_companion_if_stopped(run, deadline)
     }
@@ -206,6 +231,29 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
     /// Prepares one exact run. Only systemd/native explicit activation calls
     /// it; HTTP reads and browser focus never enter this path.
     pub fn start_tailnet(&self, id: &str, deadline: Instant) -> Result<String, String> {
+        if self.image.is_empty() {
+            return Ok(String::new());
+        }
+        let store = GrantStore::default();
+        let initial = match store.read() {
+            Ok(grant) if grant.service_epoch.live() => grant,
+            _ => return Ok(String::new()),
+        };
+        if initial.image != self.image {
+            return Err(ERR_UNAVAILABLE.to_string());
+        }
+        let starts = store.start_lock(deadline)?;
+        let grant = store.admit(&self.image, deadline)?;
+        self.start_tailnet_admitted(id, &grant, &starts, deadline)
+    }
+
+    pub(crate) fn start_tailnet_admitted(
+        &self,
+        id: &str,
+        grant: &Grant,
+        _starts: &StartGuard,
+        deadline: Instant,
+    ) -> Result<String, String> {
         let start = self.should_start_tailnet(id, deadline)?;
         if !start {
             return Ok(String::new());
@@ -215,7 +263,7 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
             return Ok(String::new());
         }
         let (files, root, fresh) = self.prepare_companion_state(id, &run, deadline)?;
-        self.activate_companion_container(&files, &root, &run, fresh, deadline)?;
+        self.activate_companion_container(&files, &root, &run, fresh, grant, deadline)?;
         self.ensure_companion_enrolled(&run, &root, binding.admission, deadline)?;
         self.finalize_companion_run(&run, deadline)
     }

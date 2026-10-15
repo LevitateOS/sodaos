@@ -228,7 +228,7 @@ mod run;
 mod keys;
 
 pub use keys::{
-    read_companion_id, retire_pending_run_key, retire_run_key, write_companion_id, write_run_key,
+    read_companion_record, retire_companion_record, retire_pending_run_key, retire_run_key, write_companion_record, write_run_key,
 };
 
 mod resolver;

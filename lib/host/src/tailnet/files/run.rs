@@ -6,7 +6,7 @@ use crate::tailnet_domain::{
     valid_container_id, ERR_CONFLICT, ERR_INVALID, ERR_UNAVAILABLE, ERR_UNCONFIRMED,
 };
 use crate::tailnet_runtime::{
-    companion_create_args, decode_project_run, marshal_project_run, ProjectRun,
+    decode_project_run, marshal_project_run, valid_project_run, ProjectRun,
 };
 
 use super::{
@@ -62,7 +62,9 @@ impl RunFiles {
         // The recipe validates all path-bearing identity fields. The caller
         // separately checks this record's project, parent CID and native
         // namespace incarnation.
-        companion_create_args(&run, &format!("sha256:{}", "0".repeat(64)))?;
+        if !valid_project_run(&run) {
+            return Err(ERR_UNAVAILABLE.to_string());
+        }
         Ok(run)
     }
 
