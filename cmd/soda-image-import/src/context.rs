@@ -95,7 +95,9 @@ fn boot(payload: &Payload, ctx: &ImportCtx) -> Result<(), String> {
 fn selected(payload: &Payload, set: ImageSet, ctx: &ImportCtx) -> Result<(), String> {
     require_native(&payload.architecture)?;
     ensure_images(payload, set, PODMAN, ctx, &mut |cmd, args| {
-        if args.get(1).is_some_and(|op| op == "inspect") {
+        if args.get(1).is_some_and(|op| op == "image")
+            && args.get(2).is_some_and(|op| op == "inspect")
+        {
             run_podman_output(cmd, args, ctx)
         } else {
             run_podman(cmd, args, ctx)

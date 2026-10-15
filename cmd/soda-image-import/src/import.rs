@@ -62,7 +62,9 @@ fn inspect_matches(output: &[u8], binding: &ImageBinding) -> bool {
         Err(_) => return false,
     };
     entries.iter().any(|entry| {
-        entry.get("Id").and_then(|id| id.as_str()) == Some(binding.config.as_str())
+        // Podman reports Id as the raw 64 hex configuration hash. Payload v4
+        // records the same identity with its sha256 algorithm prefix.
+        entry.get("Id").and_then(|id| id.as_str()) == binding.config.strip_prefix("sha256:")
             && entry.get("Os").and_then(|os| os.as_str()) == Some("linux")
             && entry.get("Architecture").and_then(|arch| arch.as_str()) == Some("amd64")
     })
@@ -276,7 +278,9 @@ pub(super) fn native_import(
         podman,
         ctx,
         &mut |cmd, args| {
-            if args.get(1).is_some_and(|op| op == "inspect") {
+            if args.get(1).is_some_and(|op| op == "image")
+                && args.get(2).is_some_and(|op| op == "inspect")
+            {
                 run_podman_output(cmd, args, ctx)
             } else {
                 run_podman(cmd, args, ctx)

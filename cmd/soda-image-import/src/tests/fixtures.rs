@@ -100,8 +100,9 @@ impl FakeStore {
                 } else {
                     ("linux", "amd64")
                 };
+                let raw_config = config.strip_prefix("sha256:").unwrap();
                 let doc = format!(
-                    "[{{\"Id\":\"{config}\",\"Os\":\"{os}\",\"Architecture\":\"{arch}\"}}]"
+                    "[{{\"Id\":\"{raw_config}\",\"Os\":\"{os}\",\"Architecture\":\"{arch}\"}}]"
                 );
                 (PodmanOutcome::Code(0), doc.into_bytes())
             }
