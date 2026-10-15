@@ -538,7 +538,12 @@ required-package catalog/cache contract; its focused repair is committed separat
   selected Fountain metadata URL and uses the home-backed temporary directory.
   Native importer cached-Tailscale acquisition passes after correcting raw config
   IDs and inspect stdout capture. Installer admission authenticates thin metadata
-  without a bundled OCI directory (113 installer tests pass). Combined candidate
+  without a bundled OCI directory (113 installer tests pass). Candidate and Docker
+  admission share the thin content validator, check four Soda-built archives plus
+  separate package/release files, and no longer require embedded application blobs.
+  Producer receipts now retain the repository prefix, role-keyed archives and the
+  real source-archive hash; the recorded-candidate and CLI regression checks pass.
+  Combined candidate
   qualification remains open; these development fixtures are unpublished.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback

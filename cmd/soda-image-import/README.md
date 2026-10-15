@@ -1,16 +1,18 @@
 # soda-image-import
 
-`soda-image-import` makes the images bundled with a Soda appliance available in
-the host's ordinary Podman storage. It is a root-only boot service helper for
+`soda-image-import` acquires the images pinned by a Soda release into the
+host's ordinary persistent Podman storage. It is a root-only boot service helper for
 appliance operators; normal project users do not run it.
 
 ## Normal use
 
 The installed `soda-image-import.service` runs
 `/usr/libexec/soda/soda-image-import` before `soda-host.service`. The command
-accepts no arguments and has no configurable input paths.
+takes no arguments for boot acquisition. Trusted Tailnet preparation and
+maintenance callers use `ensure --payload ABSOLUTE_PAYLOAD_PATH --set required|tailnet`;
+there are no image-reference or registry override flags.
 
-For an operator diagnosing a failed import, inspect the service first:
+For an operator diagnosing failed acquisition, inspect the service first:
 
 ```sh
 systemctl status soda-image-import.service
@@ -26,11 +28,12 @@ sudo /usr/libexec/soda/soda-image-import
 ## Inputs and effects
 
 - Requires native Linux x86_64, `/usr/bin/podman`, installed release metadata at
-  `/usr/share/soda/release.json`, and its OCI layout at `/usr/share/soda/images`.
-- Validates the bundled content and its release bindings before importing images
-  for dashboard, Forgejo, extension, proxy, Project OS and Tailnet.
-- Imports missing exact image identities locally; images already present are
-  retained. It does not start, replace or delete workloads.
+  `/usr/share/soda/release.json` (or the trusted ensure invocation's absolute path).
+- Validates Payload v4 and verifies each selected configuration identity and
+  native Linux/amd64 platform. Boot selects dashboard, Forgejo, proxy, PostgreSQL,
+  Project OS and Canlang runtime. Only the explicit `tailnet` set selects Tailscale.
+- Pulls missing images by sealed manifest reference; cached matching configurations
+  support offline startup. It does not start, replace or delete workloads.
 - Returns `0` on success and `1` on failure, with a diagnostic on stderr. The
   command has a ten-minute deadline; the service allows eleven minutes.
 
