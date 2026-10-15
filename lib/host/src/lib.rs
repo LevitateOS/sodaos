@@ -29,6 +29,10 @@ pub mod tailnet_domain;
 pub mod tailnet_files;
 #[path = "tailnet/lifecycle.rs"]
 pub mod tailnet_lifecycle;
+#[path = "tailnet/admission.rs"]
+pub mod tailnet_admission;
+#[path = "tailnet/host.rs"]
+pub mod tailnet_host;
 #[path = "tailnet/runtime/mod.rs"]
 pub mod tailnet_runtime;
 pub mod tcontrol;

@@ -1436,7 +1436,7 @@ fn valid_lifecycle_sha256(s: &str) -> bool {
     s.len() == 64 && is_lower_hex(s)
 }
 
-fn valid_lifecycle_uuid(s: &str) -> bool {
+pub(crate) fn valid_lifecycle_uuid(s: &str) -> bool {
     let b = s.as_bytes();
     if b.len() != 36 {
         return false;
@@ -1458,7 +1458,7 @@ fn valid_lifecycle_uuid(s: &str) -> bool {
     true
 }
 
-fn valid_lifecycle_generation(s: &str) -> bool {
+pub(crate) fn valid_lifecycle_generation(s: &str) -> bool {
     if s.is_empty() || s.len() > 20 {
         return false;
     }
