@@ -112,9 +112,7 @@ impl Request {
             }
         }
         self.validate_media_inputs()?;
-        if !soda_build_tools::reader::settings::release_tag(&self.release_tag)
-            || self.release_tag.eq_ignore_ascii_case("latest")
-        {
+        if !soda_build_tools::payload::valid_release_tag(&self.release_tag) {
             return Err(Error::msg(
                 "Payload v4 requires an explicit version --release-tag",
             ));

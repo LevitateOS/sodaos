@@ -68,6 +68,13 @@ fn valid_package_version(s: &str) -> bool {
     bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'+' | b'-'))
 }
 
+/// The v4 release tag is `v` plus the native package version. Admit it before
+/// builds as well as when reading the resulting payload.
+pub fn valid_release_tag(tag: &str) -> bool {
+    crate::reader::settings::release_tag(tag)
+        && tag.strip_prefix('v').is_some_and(valid_package_version)
+}
+
 fn is_coreos_release(s: &str) -> bool {
     let parts: Vec<&str> = s.split('.').collect();
     parts.len() == 4
@@ -388,7 +395,7 @@ impl PayloadV4 {
         let Some(version) = self.release_tag.strip_prefix('v') else {
             return Err(invalid("invalid appliance payload identity"));
         };
-        if version.is_empty() {
+        if !valid_release_tag(&self.release_tag) {
             return Err(invalid("invalid appliance payload identity"));
         }
         match self.base.split_once("/fedora/fedora-coreos@sha256:") {
@@ -479,6 +486,20 @@ impl PayloadV4 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn release_tags_fit_the_native_package_version_contract() {
+        assert!(valid_release_tag("v0.0.0-rcx2-source.123456789abc"));
+        assert!(valid_release_tag(&format!("v{}", "a".repeat(64))));
+        for tag in [
+            "v".to_string(),
+            "1.2.3".to_string(),
+            "latest".to_string(),
+            format!("v{}", "a".repeat(65)),
+        ] {
+            assert!(!valid_release_tag(&tag), "{tag}");
+        }
+    }
 
     pub(crate) const FIXTURE: &str = include_str!("../fixtures/payload-v4.json");
 
