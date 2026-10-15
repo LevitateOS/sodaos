@@ -94,7 +94,7 @@ fn command(name: &str) -> ClapCommand {
         ))
         .arg(value(
             "forgejo-source",
-            "explicit clean canonical Forgejo fork checkout",
+            "canonical Fountain checkout supplying the pinned local SDK",
         ))
         .arg(value(
             "forgejo-revision",
@@ -326,34 +326,20 @@ pub fn validate_forgejo_checkout_root(source: &str) -> Result<(), String> {
     }
 }
 
-pub fn forgejo_checkout_revision(source: &str) -> Result<String, String> {
-    match forgejo_git_output(
+pub fn verify_fountain_sdk(source: &str, revision: &str) -> Result<(), String> {
+    validate_forgejo_checkout_root(source)?;
+    if !is_revision(revision) {
+        return Err("exact Fountain source revision required".into());
+    }
+    forgejo_git_output(
         source,
-        &["status", "--porcelain", "--untracked-files=normal"],
-    ) {
-        Ok(status) if status.is_empty() => {}
-        _ => return Err("clean committed Forgejo source required".to_owned()),
+        &["cat-file", "-e", &format!("{revision}:sdk/go.mod")],
+    )?;
+    forgejo_git_output(source, &["diff", "--quiet", revision, "--", "sdk"])
+        .map_err(|_| "local SDK differs from selected Fountain source".to_string())?;
+    if !forgejo_git_output(source, &["ls-files", "--others", "--", "sdk"])?.is_empty() {
+        return Err("local SDK contains unrecorded files".into());
     }
-    match forgejo_git_output(source, &["rev-parse", "HEAD"]) {
-        Ok(head) => {
-            let revision = String::from_utf8_lossy(&head).trim().to_owned();
-            if is_revision(&revision) {
-                Ok(revision)
-            } else {
-                Err("exact Forgejo source revision required".to_owned())
-            }
-        }
-        Err(_) => Err("exact Forgejo source revision required".to_owned()),
-    }
-}
-
-pub fn bind_forgejo_source(r: &mut Request) -> Result<(), String> {
-    validate_forgejo_checkout_root(&r.forgejo_source)?;
-    let revision = forgejo_checkout_revision(&r.forgejo_source)?;
-    if !r.forgejo_revision.is_empty() && r.forgejo_revision != revision {
-        return Err("forgejo source changed after dispatch".to_owned());
-    }
-    r.forgejo_revision = revision;
     Ok(())
 }
 
@@ -366,7 +352,7 @@ pub fn bind_build_source(r: &mut Request) -> Result<(), String> {
     check_source_revision(&source.to_string_lossy(), &revision)?;
     r.source = source.to_string_lossy().into_owned();
     r.revision = revision;
-    bind_forgejo_source(r)
+    validate_forgejo_checkout_root(&r.forgejo_source)
 }
 
 /// Apply the producer's exact source admission before any worker dispatch or

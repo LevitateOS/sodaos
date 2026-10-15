@@ -467,9 +467,6 @@ mod tests {
             fs::write(dest, b"stub-rust").map_err(Error::from)?;
             Ok(())
         }
-        fn stage_fork_binary(&self, _: &str) -> Result<(), Error> {
-            Ok(())
-        }
         fn assets(&self, _: &str, _: &str) -> Result<(), Error> {
             Ok(())
         }

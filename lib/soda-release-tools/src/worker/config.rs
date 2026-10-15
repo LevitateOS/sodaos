@@ -12,7 +12,8 @@ pub const WORKER_SOURCE: &str = "/run/soda-build-source";
 pub const WORKER_HOME: &str = "/var/lib/soda-build-worker";
 pub const WORKER_RUNTIME: &str = "/run/soda-build-worker";
 pub const WORKER_TOOLS: &str = "/run/soda-build-tools";
-pub const WORKER_FORGEJO: &str = "/run/soda-build-forgejo-source";
+// Sibling of WORKER_SOURCE: go.mod resolves ../forgejo-ext/sdk here.
+pub const WORKER_FORGEJO: &str = "/run/forgejo-ext";
 pub const WORKER_CONTROLLER: &str = "/run/soda-build-controller";
 pub const PINNED_GO_ROOT: &str = "/usr/local/lib/soda/pinned-go";
 
@@ -21,6 +22,7 @@ pub struct WorkerConfig {
     pub executable: String,
     pub source: String,
     pub forgejo_source: String,
+    pub fountain_release_url: String,
     pub output_parent: String,
     pub storage_root: String,
     pub build_home: String,
@@ -287,6 +289,7 @@ fn decode_worker_config(data: &[u8]) -> Result<WorkerConfig, String> {
         "Executable",
         "Source",
         "ForgejoSource",
+        "FountainReleaseURL",
         "OutputParent",
         "StorageRoot",
         "BuildHome",
@@ -311,6 +314,8 @@ fn decode_worker_config(data: &[u8]) -> Result<WorkerConfig, String> {
         executable: strict_string_field(&entries, "Executable").unwrap_or_default(),
         source: strict_string_field(&entries, "Source").unwrap_or_default(),
         forgejo_source: strict_string_field(&entries, "ForgejoSource").unwrap_or_default(),
+        fountain_release_url: strict_string_field(&entries, "FountainReleaseURL")
+            .unwrap_or_default(),
         output_parent: strict_string_field(&entries, "OutputParent").unwrap_or_default(),
         storage_root: strict_string_field(&entries, "StorageRoot").unwrap_or_default(),
         build_home: strict_string_field(&entries, "BuildHome").unwrap_or_default(),

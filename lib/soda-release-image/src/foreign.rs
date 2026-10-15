@@ -59,8 +59,6 @@ pub trait Production {
     fn compile(&self, name: &str, pkg: &str, dest: &str) -> Result<(), Error>;
     /// `p.CompileRust`: build one Rust workspace binary.
     fn compile_rust(&self, crate_name: &str, bin: &str, dest: &str) -> Result<(), Error>;
-    /// `p.StageForkBinary`: stage the compiled Forgejo fork binary.
-    fn stage_fork_binary(&self, context: &str) -> Result<(), Error>;
     /// `p.Assets`: stage frontend/terminal assets.
     fn assets(&self, host_context: &str, forgejo_context: &str) -> Result<(), Error>;
     /// `p.Images`: build and export the application images.

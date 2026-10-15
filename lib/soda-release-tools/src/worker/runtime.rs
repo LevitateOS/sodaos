@@ -563,12 +563,30 @@ pub fn live_inputs_paths(
 // sync; if P2 moves to the controller, remove the http_port_t grant.
 pub fn resolve_live_inputs(c: &WorkerConfig, r: &mut Request) -> Result<(), String> {
     use soda_build_tools::reader::stream::LiveInputs;
-    use soda_release_build::coreos_stream::{resolve_coreos, resolve_tailnet_inputs};
+    use soda_release_build::coreos_stream::resolve_coreos;
+    use soda_release_build::fountain_inputs::resolve_fountain_release;
     use soda_release_build::live_inputs::write_live_inputs;
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Pin {
+        repository: String,
+        revision: String,
+    }
+    let pin: Pin = serde_json::from_slice(
+        &std::fs::read(Path::new(&c.source).join("fountain-source.json"))
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|_| "invalid Fountain source pin")?;
+    if pin.repository.is_empty() {
+        return Err("invalid Fountain source pin".into());
+    }
+    crate::build_cli::verify_fountain_sdk(&c.forgejo_source, &pin.revision)?;
+    let fountain = resolve_fountain_release(&c.fountain_release_url, &pin.revision)
+        .map_err(|error| error.to_string())?;
+    r.forgejo_revision = fountain.source_revision.clone();
     let coreos = resolve_coreos().map_err(|e| e.to_string())?;
-    let tailnet = resolve_tailnet_inputs(&r.arch).map_err(|e| e.to_string())?;
     let (controller, worker) = live_inputs_paths(&c.source, &c.output_parent, &r.out)?;
-    write_live_inputs(Path::new(&controller), &LiveInputs { coreos, tailnet })
+    write_live_inputs(Path::new(&controller), &LiveInputs { coreos, fountain })
         .map_err(|e| e.to_string())?;
     r.live_inputs = worker;
     Ok(())

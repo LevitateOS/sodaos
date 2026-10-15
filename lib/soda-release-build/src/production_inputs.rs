@@ -17,6 +17,7 @@ use std::path::PathBuf;
 /// admitted by immutable digest. No RPM, daemon, or custom image in the
 /// default install; G-T proves the runtime behavior separately.
 pub const TAILSCALE_OFFICIAL_IMAGE: &str = "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7";
+pub const FOUNTAIN_IDENTITY: &str = r#"{"os":{{json .Os}},"architecture":{{json .Architecture}},"revision":{{json (index .Labels "org.opencontainers.image.revision")}},"version":{{json (index .Labels "org.opencontainers.image.version")}}}"#;
 
 /// One frozen upstream input: requested ref, pinned ref, config ID.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -145,9 +146,12 @@ impl Production {
         if rocky != dashboard || rocky != canlang {
             return Err(Error::msg("Rocky component base owners disagree"));
         }
-        let forgejo =
-            unit_image(&PathBuf::from(&self.source).join("system/host/services/forgejo.container"))
-                .map_err(|e| Error::msg(e.to_string()))?;
+        let forgejo = self
+            .fountain
+            .as_ref()
+            .ok_or_else(|| Error::msg("admitted Fountain release required"))?
+            .image
+            .clone();
         let proxy = unit_image(
             &PathBuf::from(&self.source).join("system/host/services/soda-proxy.container"),
         )
@@ -169,6 +173,36 @@ impl Production {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             _ => return Err(Error::msg("occupied image input record")),
         }
+        let live = crate::live_inputs::read_live_inputs(&PathBuf::from(&self.live_inputs))?;
+        if live.fountain.source_revision != self.forgejo_revision {
+            return Err(Error::msg("Fountain source differs from frozen dispatch"));
+        }
+        self.fountain = Some(live.fountain);
+        let timestamp = self.call_capture(
+            &self.source,
+            "git",
+            &[
+                "show".into(),
+                "--no-patch".into(),
+                "--format=%ct".into(),
+                self.revision.clone(),
+            ],
+        )?;
+        self.source_timestamp = Some(
+            timestamp
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .filter(|value| *value > 0)
+                .ok_or_else(|| Error::msg("source timestamp unavailable"))?,
+        );
+        let proof = serde_json::to_vec_pretty(self.fountain.as_ref().unwrap())
+            .map_err(|_| Error::msg("invalid Fountain proof"))?;
+        write_new(
+            &PathBuf::from(&self.out).join("fountain-release.json"),
+            &proof,
+            0o644,
+        )?;
         let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
         let (rocky, forgejo, proxy, postgres) = self.recipe_image_refs()?;
         let mut inputs = Vec::new();
@@ -179,9 +213,74 @@ impl Production {
             &postgres,
             &TAILSCALE_OFFICIAL_IMAGE.to_string(),
         ] {
-            self.pull_resolved_input(reference, "", &platform, &mut inputs)?;
+            let (config, pinned) =
+                self.pull_resolved_input(reference, "", &platform, &mut inputs)?;
+            if reference == &forgejo {
+                let fountain = self.fountain.as_ref().unwrap();
+                if config != fountain.image_config || pinned != fountain.image {
+                    return Err(Error::msg(
+                        "Fountain platform manifest/config differs from release metadata",
+                    ));
+                }
+                #[derive(serde::Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Identity {
+                    os: String,
+                    architecture: String,
+                    revision: String,
+                    version: String,
+                }
+                let body = self.call_capture(
+                    &self.source,
+                    "podman",
+                    &[
+                        "--remote=false".into(),
+                        "image".into(),
+                        "inspect".into(),
+                        "--format".into(),
+                        FOUNTAIN_IDENTITY.into(),
+                        config,
+                    ],
+                )?;
+                let identity: Identity = serde_json::from_str(&body)
+                    .map_err(|_| Error::msg("Fountain image identity unavailable"))?;
+                if identity.os != "linux"
+                    || identity.architecture != "amd64"
+                    || identity.revision != fountain.source_revision
+                    || identity.version != fountain.version
+                {
+                    return Err(Error::msg(
+                        "Fountain image labels/platform differ from release metadata",
+                    ));
+                }
+            }
         }
         self.inputs = inputs;
         Ok(())
+    }
+}
+
+impl Production {
+    pub fn frozen_input(&self, role: &str) -> Option<&ResolvedInput> {
+        let reference = match role {
+            "tailscale" => TAILSCALE_OFFICIAL_IMAGE.to_string(),
+            "proxy" | "postgres" => {
+                let unit = if role == "proxy" {
+                    "soda-proxy.container"
+                } else {
+                    "soda-postgres.container"
+                };
+                unit_image(
+                    &PathBuf::from(&self.source)
+                        .join("system/host/services")
+                        .join(unit),
+                )
+                .ok()?
+            }
+            _ => return None,
+        };
+        self.inputs
+            .iter()
+            .find(|input| input.requested == reference)
     }
 }

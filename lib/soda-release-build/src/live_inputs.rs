@@ -54,7 +54,7 @@ mod tests {
         assert!(read_live_inputs(&alias_path).is_err());
 
         let invalid_path = dir.join("invalid.json");
-        let invalid_version = text.replace("\"Version\": \"1.98.2\"", "\"Version\": \"bad\"");
+        let invalid_version = text.replace("\"ExtensionProtocol\": 1", "\"ExtensionProtocol\": 2");
         assert_ne!(invalid_version, text);
         std::fs::write(&invalid_path, invalid_version).unwrap();
         assert!(read_live_inputs(&invalid_path).is_err());
@@ -69,7 +69,7 @@ mod tests {
         }
 
         let mut bad = inputs.clone();
-        bad.tailnet.version = "yesterday".to_string();
+        bad.fountain.extension_protocol = 2;
         assert!(write_live_inputs(&dir.join("bad.json"), &bad).is_err());
         let mut bad = inputs;
         bad.coreos.release = "tomorrow".to_string();

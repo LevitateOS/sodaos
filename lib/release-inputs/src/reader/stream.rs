@@ -1,6 +1,6 @@
 //! Live-input metadata shapes (`coreos_stream.go`).
 //!
-//! Owns the Rust wire records and validation for resolved CoreOS and Tailnet
+//! Owns the Rust wire records and validation for resolved CoreOS and Fountain
 //! inputs. Upstream stream-document parsing and network resolution stay in
 //! the build crate; these records define its validated handoff to consumers.
 
@@ -89,54 +89,6 @@ pub fn stream_release_url(stream_url: &str, release: &str) -> Result<String, Err
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct TailnetInputs {
-    #[serde(rename = "Version")]
-    pub version: String,
-    #[serde(rename = "SHA256")]
-    pub sha256: String,
-    #[serde(rename = "Base")]
-    pub base: String,
-}
-
-/// `^[0-9]+\.[0-9]+\.[0-9]+$` Tailnet releases.
-fn valid_tailnet_version(version: &str) -> bool {
-    let mut parts = version.split('.');
-    match (parts.next(), parts.next(), parts.next(), parts.next()) {
-        (Some(a), Some(b), Some(c), None) => {
-            non_empty_digits(a) && non_empty_digits(b) && non_empty_digits(c)
-        }
-        _ => false,
-    }
-}
-
-/// `^docker\.io/tailscale/alpine-base:[0-9]+\.[0-9]+$` base tags.
-fn valid_tailnet_base(base: &str) -> bool {
-    let rest = match base.strip_prefix("docker.io/tailscale/alpine-base:") {
-        Some(rest) => rest,
-        None => return false,
-    };
-    let mut parts = rest.split('.');
-    match (parts.next(), parts.next(), parts.next()) {
-        (Some(a), Some(b), None) => non_empty_digits(a) && non_empty_digits(b),
-        _ => false,
-    }
-}
-
-pub fn valid_tailnet_inputs(tailnet: &TailnetInputs) -> Result<(), Error> {
-    if !valid_tailnet_version(&tailnet.version) {
-        return Err(Error("invalid Tailnet version".to_string()));
-    }
-    if !is_digest(&tailnet.sha256) {
-        return Err(Error("invalid Tailnet archive checksum".to_string()));
-    }
-    if !valid_tailnet_base(&tailnet.base) {
-        return Err(Error("invalid Tailnet base tag".to_string()));
-    }
-    Ok(())
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct ResolvedCoreOS {
     #[serde(rename = "Release")]
     pub release: String,
@@ -196,13 +148,16 @@ pub fn valid_resolved_coreos(resolved: &ResolvedCoreOS) -> Result<(), Error> {
 pub struct LiveInputs {
     #[serde(rename = "CoreOS")]
     pub coreos: ResolvedCoreOS,
-    #[serde(rename = "Tailnet")]
-    pub tailnet: TailnetInputs,
+    #[serde(rename = "Fountain")]
+    pub fountain: crate::payload::FountainRelease,
 }
 
 pub fn valid_live_inputs(inputs: &LiveInputs) -> Result<(), Error> {
     valid_resolved_coreos(&inputs.coreos)?;
-    valid_tailnet_inputs(&inputs.tailnet)
+    inputs
+        .fountain
+        .validate()
+        .map_err(|error| Error(error.to_string()))
 }
 
 #[cfg(test)]
@@ -287,34 +242,6 @@ mod tests {
         assert_eq!(
             stream_release_url("https://example.test/no-stream", "41.20250101.3.0").unwrap_err(),
             Error("CoreOS stream URL names no stream".to_string())
-        );
-    }
-
-    #[test]
-    fn tailnet_pins_require_version_checksum_and_base() {
-        let good = TailnetInputs {
-            version: "1.86.2".to_string(),
-            sha256: "b".repeat(64),
-            base: "docker.io/tailscale/alpine-base:3.21".to_string(),
-        };
-        assert!(valid_tailnet_inputs(&good).is_ok());
-        let bad_version = TailnetInputs {
-            version: "1.86".to_string(),
-            sha256: good.sha256.clone(),
-            base: good.base.clone(),
-        };
-        assert_eq!(
-            valid_tailnet_inputs(&bad_version).unwrap_err(),
-            Error("invalid Tailnet version".to_string())
-        );
-        let bad_base = TailnetInputs {
-            version: good.version.clone(),
-            sha256: good.sha256.clone(),
-            base: "docker.io/tailscale/alpine-base:latest".to_string(),
-        };
-        assert_eq!(
-            valid_tailnet_inputs(&bad_base).unwrap_err(),
-            Error("invalid Tailnet base tag".to_string())
         );
     }
 

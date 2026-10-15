@@ -117,16 +117,23 @@ pub fn export_host_archive(
     production: &dyn Production,
 ) -> Result<(), Error> {
     let archive = sys::join(&[out, "host.oci"]);
+    let hex = id
+        .strip_prefix("sha256:")
+        .filter(|value| model::is_digest(value))
+        .ok_or_else(|| Error::msg("invalid host export ID"))?;
     production.execute(
         context,
-        "podman",
+        "skopeo",
         &[
-            "--remote=false".to_string(),
-            "save".to_string(),
-            "--format=oci-archive".to_string(),
-            "--output".to_string(),
-            archive.clone(),
-            id.to_string(),
+            "copy".into(),
+            "--format".into(),
+            "oci".into(),
+            "--dest-compress-format".into(),
+            "gzip".into(),
+            "--dest-compress-level".into(),
+            "1".into(),
+            format!("containers-storage:@{hex}"),
+            format!("oci-archive:{archive}"),
         ],
     )?;
     let host = production.inspect_oci(&archive, arch, revision)?;

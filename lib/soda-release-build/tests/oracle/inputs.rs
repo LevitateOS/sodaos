@@ -5,7 +5,7 @@
 
 use super::{oracle, oracle_live_inputs, scratch};
 use soda_build_tools::reader::settings::soda_commands;
-use soda_build_tools::reader::stream::{valid_live_inputs, valid_tailnet_inputs, TailnetInputs};
+use soda_build_tools::reader::stream::valid_live_inputs;
 use soda_release_build::confined_files::Root;
 use soda_release_build::coreos::https_url;
 use soda_release_build::files::{is_digest, File};
@@ -22,8 +22,8 @@ fn oracle_live_inputs_write_and_read() {
     assert!(std::fs::read(&path).unwrap().ends_with(b"\n"));
     assert_eq!(read_live_inputs(&path).unwrap(), inputs);
     let mut bad = inputs.clone();
-    bad.tailnet.version = "yesterday".to_string();
-    assert!(valid_live_inputs(&bad).is_err(), "live-tailnet");
+    bad.fountain.extension_protocol = 2;
+    assert!(valid_live_inputs(&bad).is_err(), "live-fountain");
     let mut bad = inputs.clone();
     bad.coreos.release = "tomorrow".to_string();
     assert!(valid_live_inputs(&bad).is_err(), "live-release");
@@ -41,15 +41,6 @@ fn oracle_misc_vectors() {
     assert_eq!(
         https_url("http://example.test/base"),
         oracle::MISC_HTTPS_HTTP
-    );
-    assert!(
-        valid_tailnet_inputs(&TailnetInputs {
-            version: "x".to_string(),
-            sha256: "y".to_string(),
-            base: "z".to_string(),
-        })
-        .is_err(),
-        "misc-tailnet"
     );
     assert!(soda_commands(&scratch("missing-cmds").join("cmd")).is_err());
 }

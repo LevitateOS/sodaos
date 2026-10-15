@@ -371,3 +371,66 @@ fn build_completion_requires_final_controller_success() {
     );
     assert!(record_build_completion(&flags.request.out).is_err());
 }
+
+#[test]
+fn fountain_sdk_is_bound_to_release_without_requiring_unrelated_cleanliness() {
+    let root = std::env::temp_dir().join(format!(
+        "fountain-sdk-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&root).unwrap();
+    struct Fixture(std::path::PathBuf);
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let _fixture = Fixture(root.clone());
+    std::fs::create_dir(root.join("sdk")).unwrap();
+    std::fs::write(
+        root.join("sdk/go.mod"),
+        "module forgejo.org/extension-sdk\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("outside.go"), "initial").unwrap();
+    let git = |args: &[&str]| {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "fixture git failed");
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
+    };
+    git(&["init", "--quiet"]);
+    git(&["add", "."]);
+    git(&[
+        "-c",
+        "user.name=sdk-fixture",
+        "-c",
+        "user.email=sdk-fixture@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "SDK fixture",
+    ]);
+    let revision = git(&["rev-parse", "HEAD"]);
+    let source = root.to_str().unwrap();
+    verify_fountain_sdk(source, &revision).unwrap();
+    std::fs::write(root.join("outside.go"), "concurrent unrelated change").unwrap();
+    verify_fountain_sdk(source, &revision).unwrap();
+    std::fs::write(root.join("sdk/go.mod"), "module other\n").unwrap();
+    assert!(verify_fountain_sdk(source, &revision).is_err());
+    std::fs::write(
+        root.join("sdk/go.mod"),
+        "module forgejo.org/extension-sdk\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("sdk/extra.go"), "package extension\n").unwrap();
+    assert!(verify_fountain_sdk(source, &revision).is_err());
+}

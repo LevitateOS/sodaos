@@ -125,8 +125,37 @@ pub fn admit_build_inputs(request: &request::Request, runner: &Runner) -> Result
     let revision = verify_committed_revision(&source, &request.revision, runner)?;
     let fork = verify_checkout_source(&request.forgejo_source, runner)
         .map_err(|e| Error::msg(format!("forgejo source: {}", e.0)))?;
-    verify_committed_revision(&fork, &request.forgejo_revision, runner)
-        .map_err(|e| Error::msg(format!("forgejo source: {}", e.0)))?;
+    if !model::is_revision(&request.forgejo_revision) {
+        return Err(Error::msg("exact Fountain source revision required"));
+    }
+    runner
+        .capture(
+            &fork,
+            "git",
+            &[
+                "diff".into(),
+                "--quiet".into(),
+                request.forgejo_revision.clone(),
+                "--".into(),
+                "sdk".into(),
+            ],
+        )
+        .map_err(|_| Error::msg("SDK differs from selected Fountain source"))?;
+    if !runner
+        .capture(
+            &fork,
+            "git",
+            &[
+                "ls-files".into(),
+                "--others".into(),
+                "--".into(),
+                "sdk".into(),
+            ],
+        )?
+        .is_empty()
+    {
+        return Err(Error::msg("SDK contains unrecorded files"));
+    }
     admit_build_output(
         &request.out,
         &source,

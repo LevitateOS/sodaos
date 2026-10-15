@@ -7,7 +7,7 @@
 mod oracle_vectors;
 
 use oracle_vectors as oracle;
-use soda_build_tools::reader::stream::{CoreOSImage, LiveInputs, ResolvedCoreOS, TailnetInputs};
+use soda_build_tools::reader::stream::{CoreOSImage, LiveInputs, ResolvedCoreOS};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -67,10 +67,10 @@ fn oracle_live_inputs() -> LiveInputs {
             iso,
             qemu,
         },
-        tailnet: TailnetInputs {
-            version: "1.98.2".to_string(),
-            sha256: "e".repeat(64),
-            base: "docker.io/tailscale/alpine-base:3.22".to_string(),
-        },
+        fountain: serde_json::from_str::<soda_build_tools::payload::PayloadV4>(include_str!(
+            "../../release-inputs/fixtures/payload-v4.json"
+        ))
+        .unwrap()
+        .fountain,
     }
 }

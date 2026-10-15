@@ -82,7 +82,7 @@ fn valid_asset_url(s: &str) -> bool {
 }
 
 /// `registry/repository@sha256:<manifest>` with a digest suffix.
-fn valid_digest_reference(s: &str) -> bool {
+pub fn valid_digest_reference(s: &str) -> bool {
     match s.rsplit_once('@') {
         Some((repo, digest)) => !repo.is_empty() && is_prefixed_digest(digest),
         None => false,
@@ -246,6 +246,27 @@ pub struct FountainRelease {
     pub browser_contract: u32,
 }
 
+impl FountainRelease {
+    pub fn validate_identity(&self) -> Result<(), Error> {
+        if !valid_package_version(&self.version)
+            || !valid_digest_reference(&self.image)
+            || !is_prefixed_digest(&self.image_config)
+            || !crate::reader::is_revision(&self.source_revision)
+            || self.extension_protocol != EXTENSION_PROTOCOL
+            || self.browser_contract != BROWSER_CONTRACT
+        {
+            return Err(invalid("invalid fountain release binding"));
+        }
+        Ok(())
+    }
+    pub fn validate(&self) -> Result<(), Error> {
+        self.validate_identity()?;
+        validate_release_file(&self.metadata, "fountain metadata")?;
+        validate_release_file(&self.source, "fountain source")?;
+        validate_release_file(&self.prepared_source, "fountain prepared source")
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FountainCatalog {
@@ -405,18 +426,7 @@ impl PayloadV4 {
         self.project_support
             .validate(&self.images.project_os.config)
             .map_err(invalid)?;
-        validate_release_file(&self.fountain.metadata, "fountain metadata")?;
-        validate_release_file(&self.fountain.source, "fountain source")?;
-        validate_release_file(&self.fountain.prepared_source, "fountain prepared source")?;
-        if self.fountain.version.is_empty()
-            || !valid_digest_reference(&self.fountain.image)
-            || !is_prefixed_digest(&self.fountain.image_config)
-            || !crate::reader::is_revision(&self.fountain.source_revision)
-            || self.fountain.extension_protocol != EXTENSION_PROTOCOL
-            || self.fountain.browser_contract != BROWSER_CONTRACT
-        {
-            return Err(invalid("invalid fountain release binding"));
-        }
+        self.fountain.validate()?;
         if self.extension_catalog.version != CATALOG_VERSION
             || self.extension_catalog.packages.len() != 2
         {

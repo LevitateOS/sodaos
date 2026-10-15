@@ -86,6 +86,10 @@ impl Production {
         revision: &str,
     ) -> Result<ProducedImage, Error> {
         let file = archives.join(format!("{name}.oci"));
+        let hex = id
+            .strip_prefix("sha256:")
+            .filter(|value| crate::files::is_digest(value))
+            .ok_or_else(|| Error::msg("invalid export image ID"))?;
         // Newly built layers leave in registry-compatible compression before
         // the final manifest digest is sealed: Skopeo's containers-storage
         // to oci-archive transport at gzip level 1, reusing already
@@ -102,7 +106,7 @@ impl Production {
                 "gzip".to_string(),
                 "--dest-compress-level".to_string(),
                 "1".to_string(),
-                format!("containers-storage:{id}"),
+                format!("containers-storage:@{hex}"),
                 format!("oci-archive:{}", file.to_string_lossy()),
             ],
         )?;
@@ -176,9 +180,12 @@ impl Production {
         build: BuildFn,
         export: ExportFn,
     ) -> Result<(), Error> {
-        let forgejo =
-            unit_image(&PathBuf::from(&self.source).join("system/host/services/forgejo.container"))
-                .map_err(|e| Error::msg(e.to_string()))?;
+        let forgejo = self
+            .fountain
+            .as_ref()
+            .ok_or_else(|| Error::msg("admitted Fountain release required"))?
+            .image
+            .clone();
         let (_, pinned) = pull(&forgejo, "forgejo-base")?;
         let id = build("forgejo", forgejo_context, "Containerfile", &pinned, &[])?;
         export("forgejo", &id, &self.revision)

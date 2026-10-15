@@ -14,6 +14,7 @@ pub mod coreos_registry;
 pub mod coreos_stream;
 pub mod elf;
 pub mod files;
+pub mod fountain_inputs;
 pub mod http;
 pub mod json_input;
 pub mod live_inputs;
@@ -23,7 +24,6 @@ pub mod production_compile;
 mod production_docker;
 pub mod production_images;
 pub mod production_inputs;
-pub mod tailnet_inputs;
 
 #[cfg(test)]
 pub(crate) mod test_support;

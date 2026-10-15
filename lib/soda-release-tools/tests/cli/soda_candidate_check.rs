@@ -360,7 +360,11 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
     assert!(stdout.is_empty(), "unexpected stdout: {stdout:?}");
     assert!(stderr.is_empty(), "unexpected stderr: {stderr:?}");
 
-    fs::write(images_dir.join("postgres.oci"), b"truncated fixture archive").unwrap();
+    fs::write(
+        images_dir.join("postgres.oci"),
+        b"truncated fixture archive",
+    )
+    .unwrap();
     let (status, stdout, stderr) = run(&candidate_check_bin(), &dir.path, &args);
     assert_eq!(status, 1);
     assert!(stdout.is_empty(), "unexpected stdout: {stdout:?}");

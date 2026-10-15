@@ -77,16 +77,33 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
     prod.out = out.to_string_lossy().into_owned();
     prod.arch = "x86_64".to_string();
     prod.revision = FIXTURE_REVISION.to_string();
+    let mut live = crate::test_support::fixture_live_inputs();
+    live.fountain.image = format!("ghcr.io/example/fountain@sha256:{}", "b".repeat(64));
+    live.fountain.image_config = image.config.clone();
+    prod.forgejo_revision = live.fountain.source_revision.clone();
+    prod.live_inputs = root.join("live-inputs.json").to_string_lossy().into_owned();
+    crate::live_inputs::write_live_inputs(Path::new(&prod.live_inputs), &live).unwrap();
+
+    let fountain_identity=serde_json::json!({"os":"linux","architecture":"amd64","revision":live.fountain.source_revision,"version":live.fountain.version}).to_string();
     prod.capture = Some(Box::new(move |_dir, name, args| {
         calls_capture
             .lock()
             .unwrap()
             .push(format!("{name} {}", args.join(" ")));
+        if name == "git" {
+            return Ok("1735689600".into());
+        }
         if name == "bun" {
             return Ok("1.4.2".to_string());
         }
         assert_eq!(name, "podman");
         assert_eq!(args[0], "--remote=false");
+        if args
+            .get(4)
+            .is_some_and(|format| format.contains("architecture"))
+        {
+            return Ok(fountain_identity.clone());
+        }
         if args[1] == "pull" {
             return Ok(config.clone());
         }
@@ -337,7 +354,6 @@ fn oracle_production_failure_stops() {
     prod.resolve_inputs().unwrap();
     let err = prod.images("forgejo-context").unwrap_err();
     assert_eq!(err.message(), "fixture build refused");
-    let text = calls.lock().unwrap().join("\n");
     assert!(PathBuf::from(&prod.out).join("app-inputs.json").exists());
 }
 
@@ -440,4 +456,26 @@ fn oracle_image_repo_parsing() {
     assert_eq!(parse_image_repo("quay.io/r@sha256:aaaa"), "quay.io/r");
     assert_eq!(parse_image_repo("localhost:5000/r:tag"), "localhost:5000/r");
     assert_eq!(parse_image_repo("localhost:5000/r"), "localhost:5000/r");
+}
+
+#[test]
+fn fountain_identity_mismatch_stops_before_remaining_image_pulls() {
+    let (mut production, calls, _root) = production_fixture();
+    let path = PathBuf::from(&production.live_inputs);
+    let mut inputs = crate::live_inputs::read_live_inputs(&path).unwrap();
+    inputs.fountain.image_config = format!("sha256:{}", "0".repeat(64));
+    std::fs::remove_file(&path).unwrap();
+    crate::live_inputs::write_live_inputs(&path, &inputs).unwrap();
+    assert!(production
+        .resolve_inputs()
+        .unwrap_err()
+        .message()
+        .contains("manifest/config differs"));
+    let text = calls.lock().unwrap().join("\n");
+    assert!(text.contains("ghcr.io/example/fountain@sha256:"));
+    assert!(
+        !text.contains("library/caddy")
+            && !text.contains("library/postgres")
+            && !text.contains("tailscale/tailscale")
+    );
 }

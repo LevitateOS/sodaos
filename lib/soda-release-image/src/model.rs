@@ -16,6 +16,8 @@ pub use soda_build_tools::reader::Image;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProducedImage {
+    pub base_name: String,
+    pub base_digest: String,
     pub manifest: String,
     pub config: String,
     pub archive_sha256: String,

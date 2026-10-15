@@ -196,14 +196,6 @@ pub(crate) fn fetch_capped_json<T: HttpTransport>(
     Ok(data)
 }
 
-pub(crate) fn fetch_capped_text<T: HttpTransport>(
-    transport: &T,
-    url: &str,
-    max_bytes: i64,
-) -> Result<String, Error> {
-    Ok(String::from_utf8_lossy(&fetch_capped_json(transport, url, max_bytes)?).into_owned())
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;

@@ -77,15 +77,36 @@ fn oracle_production_sequence() {
     prod.out = out.to_string_lossy().into_owned();
     prod.arch = "x86_64".to_string();
     prod.revision = FIXTURE_REVISION.to_string();
+    let mut live = super::oracle_live_inputs();
+    live.fountain.image = format!("ghcr.io/example/fountain@sha256:{}", "b".repeat(64));
+    live.fountain.image_config = seed_image.config.clone();
+    prod.forgejo_revision = live.fountain.source_revision.clone();
+    prod.live_inputs = root.join("live-inputs.json").to_string_lossy().into_owned();
+    soda_release_build::live_inputs::write_live_inputs(
+        std::path::Path::new(&prod.live_inputs),
+        &live,
+    )
+    .unwrap();
+
     let calls_capture = calls.clone();
     let config = seed_image.config.clone();
+    let fountain_identity=serde_json::json!({"os":"linux","architecture":"amd64","revision":live.fountain.source_revision,"version":live.fountain.version}).to_string();
     prod.capture = Some(Box::new(move |_dir, name, args| {
         calls_capture
             .lock()
             .unwrap()
             .push(format!("{name} {}", args.join(" ")));
+        if name == "git" {
+            return Ok("1735689600".into());
+        }
         if name == "bun" {
             return Ok("1.4.2".to_string());
+        }
+        if args
+            .get(4)
+            .is_some_and(|format| format.contains("architecture"))
+        {
+            return Ok(fountain_identity.clone());
         }
         if args[1] == "pull" {
             return Ok(config.clone());
@@ -209,7 +230,7 @@ fn oracle_production_sequence() {
     assert_eq!(entries.len(), 5);
     let requests = [
         "docker.io/rockylinux/rockylinux:10.2",
-        "codeberg.org/forgejo/forgejo:15.0.10",
+        "ghcr.io/example/fountain@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "docker.io/library/caddy:2",
         "docker.io/library/postgres:17",
         "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7",

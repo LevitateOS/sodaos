@@ -172,7 +172,6 @@ pub fn record_candidate_images(
     prefix: &str,
     images: &HashMap<String, model::ProducedImage>,
     revision: &str,
-    rocky_base: &str,
     fountain_image: &str,
     arch: &str,
 ) -> Result<(), Error> {
@@ -192,10 +191,19 @@ pub fn record_candidate_images(
             continue;
         }
         let image = &images[name];
-        let base = match role {
-            model::Role::Forgejo => fountain_image,
-            _ => rocky_base,
-        };
+        let base = &image.base_name;
+        if !soda_build_tools::payload::valid_digest_reference(base)
+            || base.rsplit_once('@').map(|(_, digest)| digest) != Some(image.base_digest.as_str())
+            || !image
+                .base_digest
+                .strip_prefix("sha256:")
+                .is_some_and(model::is_digest)
+            || (role == model::Role::Forgejo && base != fountain_image)
+        {
+            return Err(Error::msg(
+                "built image base differs from selected component",
+            ));
+        }
         *role.binding_mut(&mut payload.images) = model::PayloadImage {
             reference: format!("{prefix}-{name}@{}", image.manifest),
             manifest: image.manifest.clone(),
@@ -370,7 +378,6 @@ pub fn complete_candidate(
         prefix,
         &images,
         revision,
-        &base_image,
         &release.fountain.image,
         arch,
     )?;
@@ -470,18 +477,30 @@ mod tests {
                     manifest: "sha256:manifest".to_string(),
                     config: "sha256:config".to_string(),
                     archive_sha256: "archive".to_string(),
+                    base_digest: format!(
+                        "sha256:{}",
+                        if name == "forgejo" {
+                            "c".repeat(64)
+                        } else {
+                            "b".repeat(64)
+                        }
+                    ),
+                    base_name: if name == "forgejo" {
+                        format!("example.invalid/fountain@sha256:{}", "c".repeat(64))
+                    } else {
+                        format!("docker.io/rockylinux/rockylinux@sha256:{}", "b".repeat(64))
+                    },
                 },
             );
         }
         let revision = "a".repeat(40);
-        let rocky = "quay.io/fedora/fedora-coreos@sha256:".to_string() + &"b".repeat(64);
+        let rocky = "docker.io/rockylinux/rockylinux@sha256:".to_string() + &"b".repeat(64);
         let fountain = "example.invalid/fountain@sha256:".to_string() + &"c".repeat(64);
         record_candidate_images(
             &mut payload,
             "ghcr.io/e/sodaos",
             &images,
             &revision,
-            &rocky,
             &fountain,
             "x86_64",
         )
@@ -513,6 +532,16 @@ mod tests {
             .binding(&payload.images)
             .reference
             .is_empty());
+        images.get_mut("dashboard").unwrap().base_digest = format!("sha256:{}", "0".repeat(64));
+        assert!(record_candidate_images(
+            &mut payload,
+            "ghcr.io/e/sodaos",
+            &images,
+            &revision,
+            &fountain,
+            "x86_64"
+        )
+        .is_err());
     }
 
     #[test]
@@ -525,6 +554,8 @@ mod tests {
                 manifest: "sha256:manifest".to_string(),
                 config: "sha256:config".to_string(),
                 archive_sha256: "archive".to_string(),
+                base_name: String::new(),
+                base_digest: String::new(),
             },
         );
         let revision = "a".repeat(40);
@@ -535,7 +566,6 @@ mod tests {
                 "ghcr.io/e/sodaos",
                 &images,
                 &revision,
-                &base,
                 &base,
                 "x86_64"
             )

@@ -191,7 +191,6 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
     }
     let revision = crate::build_cli::controller_revision()?;
     crate::build_cli::check_source_revision(&config.source, &revision)?;
-    let forgejo = crate::build_cli::forgejo_checkout_revision(&config.forgejo_source)?;
     #[derive(serde::Deserialize)]
     struct Pin {
         revision: String,
@@ -200,8 +199,12 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         &std::fs::read(cwd.join("fountain-source.json")).map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())?;
-    if pin.revision != forgejo {
-        return Err("Fountain checkout differs from selected source pin".into());
+    crate::build_cli::verify_fountain_sdk(&config.forgejo_source, &pin.revision)?;
+    let forgejo = pin.revision;
+    if !config.fountain_release_url.starts_with("https://")
+        || !config.fountain_release_url.ends_with("/release.json")
+    {
+        return Err("explicit FountainReleaseURL required in worker configuration".into());
     }
     let out = Path::new(&values["out"]);
     workflow_output(&cwd, out)?;

@@ -104,6 +104,8 @@ fn deliver_err(e: DeliverError) -> ImageError {
 
 fn produced_of(produced: &BuildProducedImage) -> model::ProducedImage {
     model::ProducedImage {
+        base_name: produced.image.base_name.clone(),
+        base_digest: produced.image.base_digest.clone(),
         manifest: produced.image.manifest.clone(),
         config: produced.image.config.clone(),
         archive_sha256: produced.archive_sha256.clone(),
@@ -204,6 +206,31 @@ impl ImageProduction for RealProduction {
         self.inner.call_capture(dir, name, args).map_err(build_err)
     }
 
+    fn frozen_fountain_release(&self) -> Option<model::FountainRelease> {
+        self.inner.fountain.clone()
+    }
+    fn frozen_upstream_requested(&self, role: &str) -> String {
+        self.inner
+            .frozen_input(role)
+            .map(|input| input.requested.clone())
+            .unwrap_or_default()
+    }
+    fn frozen_tailscale_binding(&self) -> Option<model::PayloadImage> {
+        let input = self.inner.frozen_input("tailscale")?;
+        Some(model::PayloadImage {
+            reference: input.reference.clone(),
+            manifest: input.reference.rsplit_once('@')?.1.into(),
+            config: input.config.clone(),
+            platform: "linux/amd64".into(),
+            provenance: model::ImageProvenance::Upstream {
+                requested: input.requested.clone(),
+            },
+        })
+    }
+    fn source_timestamp(&self) -> Option<u64> {
+        self.inner.source_timestamp
+    }
+
     fn resolve_inputs(&mut self) -> Result<(), ImageError> {
         self.inner.resolve_inputs().map_err(build_err)
     }
@@ -241,10 +268,6 @@ impl ImageProduction for RealProduction {
         self.inner
             .compile_rust(crate_name, bin, dest)
             .map_err(build_err)
-    }
-
-    fn stage_fork_binary(&self, context: &str) -> Result<(), ImageError> {
-        self.inner.stage_fork_binary(context).map_err(build_err)
     }
 
     fn assets(&self, host_context: &str, forgejo_context: &str) -> Result<(), ImageError> {
@@ -746,6 +769,8 @@ mod tests {
         assert_eq!(produced.manifest, "m");
         assert_eq!(produced.config, "c");
         assert_eq!(produced.archive_sha256, "h");
+        assert_eq!(produced.base_name, "b");
+        assert_eq!(produced.base_digest, "d");
 
         let image = soda_build_tools::reader::stream::CoreOSImage {
             url: "https://example.invalid/f.iso".to_string(),
@@ -770,11 +795,11 @@ mod tests {
                     ("aarch64".to_string(), image),
                 ]),
             },
-            tailnet: soda_build_tools::reader::stream::TailnetInputs {
-                version: "1.2.3".to_string(),
-                sha256: "d".repeat(64),
-                base: "docker.io/tailscale/alpine-base:1.2".to_string(),
-            },
+            fountain: serde_json::from_str::<soda_build_tools::payload::PayloadV4>(include_str!(
+                "../../release-inputs/fixtures/payload-v4.json"
+            ))
+            .unwrap()
+            .fountain,
         };
         let dir = std::env::temp_dir().join(format!(
             "release-wire-{}-{}",

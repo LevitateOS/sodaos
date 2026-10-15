@@ -13,7 +13,6 @@ use serde::{Deserialize, Deserializer};
 use std::collections::BTreeMap;
 
 use crate::coreos_registry::resolve_registry_digests_with;
-pub use crate::tailnet_inputs::{resolve_tailnet_inputs, resolve_tailnet_inputs_with};
 use soda_build_tools::reader::stream::{CoreOSImage, ResolvedCoreOS};
 
 type RawJson = Box<serde_json::value::RawValue>;
@@ -113,28 +112,6 @@ pub fn coreos_registry() -> String {
         DEFAULT_COREOS_REGISTRY.to_string()
     } else {
         trimmed.strip_suffix('/').unwrap_or(trimmed).to_string()
-    }
-}
-
-pub const DEFAULT_TAILNET_INDEX_URL: &str = "https://pkgs.tailscale.com/stable/";
-pub const DEFAULT_TAILNET_BASE_TAGS_URL: &str =
-    "https://hub.docker.com/v2/repositories/tailscale/alpine-base/tags";
-
-pub fn tailnet_index_url() -> String {
-    let value = std::env::var("SODA_TAILSCALE_INDEX_URL").unwrap_or_default();
-    if value.trim().is_empty() {
-        DEFAULT_TAILNET_INDEX_URL.to_string()
-    } else {
-        value.trim().to_string()
-    }
-}
-
-pub fn tailnet_base_tags_url() -> String {
-    let value = std::env::var("SODA_TAILSCALE_BASE_TAGS_URL").unwrap_or_default();
-    if value.trim().is_empty() {
-        DEFAULT_TAILNET_BASE_TAGS_URL.to_string()
-    } else {
-        value.trim().to_string()
     }
 }
 

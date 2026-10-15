@@ -29,6 +29,8 @@ pub struct Production {
     /// Controller-resolved live inputs file for this attempt. The worker
     /// never fetches: floating toolchain versions come from here.
     pub live_inputs: String,
+    pub fountain: Option<soda_build_tools::payload::FountainRelease>,
+    pub source_timestamp: Option<u64>,
     pub execute: Option<BuildExec>,
     pub capture: Option<BuildCapture>,
     pub(crate) inputs: Vec<ResolvedInput>,
@@ -86,18 +88,9 @@ impl Production {
     }
 
     // The admitted Fountain release supplies the Forgejo image and its
-    // source proof: the producer no longer checks out, compiles, or stages
-    // a fork binary. The retired forgejo_source/forgejo_revision request
-    // fields stay reserved for that selected-release wiring.
-
-    /// Fountain compilation removed. Retained only so the existing
-    /// pipeline wiring keeps compiling until its own cutover drops the
-    /// call: current staging never invokes it, and it always refuses.
-    pub fn stage_fork_binary(&self, _context: &str) -> Result<(), Error> {
-        Err(Error::msg(
-            "Fountain fork compilation removed; admission consumes the released Fountain image",
-        ))
-    }
+    // source proof. The local checkout supplies only the SDK dependency;
+    // its source revision is the selected release commit. No fork executable
+    // is compiled or staged by Soda.
 }
 
 /// Verified image plus its archive digest.

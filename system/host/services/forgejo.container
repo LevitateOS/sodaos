@@ -10,7 +10,7 @@ After=soda-forgejo-migrate.service
 ConditionPathExists=/etc/soda/postgres/forgejo.passwd
 
 [Container]
-Image=codeberg.org/forgejo/forgejo:15.0.10
+Image=localhost/soda-forgejo:dev
 ContainerName=soda-forgejo
 Network=soda.network
 PublishPort=127.0.0.1:3000:3000

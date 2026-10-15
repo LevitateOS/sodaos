@@ -110,9 +110,6 @@ fn oracle_base_inputs_require_exact_revision() {
         fn compile_rust(&self, _: &str, _: &str, _: &str) -> Result<(), Error> {
             Ok(())
         }
-        fn stage_fork_binary(&self, _: &str) -> Result<(), Error> {
-            Ok(())
-        }
         fn assets(&self, _: &str, _: &str) -> Result<(), Error> {
             Ok(())
         }
