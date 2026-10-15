@@ -118,7 +118,7 @@ fn run_files_exclusive_secret_retirement_and_independent_locks() {
     )
     .unwrap_err();
     assert_eq!(e, ERR_CONFLICT, "companion identity replaced");
-    let observed = read_companion_record(&base, &run, euid(), egid()).expect("read companion id");
+    let observed = read_companion_record(&base, &run.target, euid(), egid()).expect("read companion id");
     assert_eq!(observed.id, cid, "companion identity not retained");
     let key = write_run_key(&root, &run, "tskey-auth-synthetic-one-use-only").expect("write key");
     let info = key.metadata().expect("key stat");

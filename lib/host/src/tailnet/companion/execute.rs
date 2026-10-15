@@ -118,7 +118,7 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         run: &ProjectRun,
         deadline: Instant,
     ) -> Result<CompanionRecord, String> {
-        let owned = read_companion_record(RUNTIME_ROOT, run, 0, 0)?;
+        let owned = read_companion_record(RUNTIME_ROOT, &run.target, 0, 0)?;
         let body = self
             .runtime_podman(
                 &[

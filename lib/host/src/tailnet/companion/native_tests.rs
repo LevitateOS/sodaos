@@ -80,7 +80,7 @@ fn native_owned_child_stops_after_parent_exit() {
         let starts = GrantStore::default().start_lock(deadline)?;
         let cid = companion.start_tailnet_admitted(&id, &grant, &starts, deadline)?;
         let run = project_run(&Native, &id, deadline)?;
-        let record = read_companion_record(RUNTIME_ROOT, &run, 0, 0)?;
+        let record = read_companion_record(RUNTIME_ROOT, &run.target, 0, 0)?;
         if record.id != cid
             || record.parent != run
             || record.installation_id != grant.installation_id
@@ -96,33 +96,51 @@ fn native_owned_child_stops_after_parent_exit() {
         }
         drop(starts);
         podman(&["stop".into(), "--time=5".into(), parent.clone()])?;
-        companion.stop_tailnet_run(&record.parent, deadline)?;
-        if companion
-            .inspect_companion(&record.parent, deadline)?
-            .running
+        let receipt = runtime_dir.join(&run.target.run).join("companion.json");
+        let original =
+            std::fs::read(&receipt).map_err(|_| "native receipt unavailable".to_string())?;
+        let mut changed: serde_json::Value =
+            serde_json::from_slice(&original).map_err(|_| "native receipt invalid".to_string())?;
+        changed["generation"] = "8".into();
+        std::fs::write(&receipt, serde_json::to_vec(&changed).unwrap())
+            .map_err(|_| "native fixture mutation failed".to_string())?;
+        let refused = companion.native_children(&grant.installation_id, None, deadline);
+        if !refused.unknown || !refused.children.is_empty() {
+            return Err("conflicting receipt authorized cleanup".into());
+        }
+        std::fs::write(&receipt, &original)
+            .map_err(|_| "native fixture restore failed".to_string())?;
+        std::fs::remove_file(&receipt)
+            .map_err(|_| "native fixture receipt retirement failed".to_string())?;
+        let inventory = companion.native_children(&grant.installation_id, None, deadline);
+        if inventory.unknown
+            || inventory.children.len() != 1
+            || inventory.children[0].record.id != cid
         {
+            return Err("native reboot inventory lost exact ownership".into());
+        }
+        companion.stop_native_child(&inventory.children[0], deadline)?;
+        let after = companion.native_children(&grant.installation_id, None, deadline);
+        if after.unknown || after.children.iter().any(|child| child.record.running) {
             return Err("owned child survived parentless cleanup".into());
         }
         Ok(())
     })();
     // Cleanup uses the same ownership checks; retain evidence on an unknown child.
-    let cleanup = companion.stop_tailnet(&id, Instant::now() + Duration::from_secs(15));
-    if cleanup.is_ok() {
-        if let Ok(files) = crate::tailnet_files::open_runtime_project(
-            RUNTIME_ROOT,
-            &id,
-            Instant::now() + Duration::from_secs(1),
-        ) {
-            if let Ok(run) = files.current() {
-                if let Ok(owned) = read_companion_record(RUNTIME_ROOT, &run, 0, 0) {
-                    let _ = crate::tailnet_host::podman(
-                        &Native,
-                        &["rm".into(), owned.id],
-                        Instant::now() + Duration::from_secs(5),
-                    );
-                }
-            }
+    let cleanup = (|| -> Result<(), String> {
+        let end = Instant::now() + Duration::from_secs(15);
+        let inventory =
+            companion.native_children("550e8400-e29b-41d4-a716-446655440000", None, end);
+        if inventory.unknown {
+            return Err("native fixture inventory is unknown".into());
         }
+        for child in inventory.children {
+            companion.stop_native_child(&child, end)?;
+            crate::tailnet_host::podman(&Native, &["rm".into(), child.record.id], end)?;
+        }
+        Ok(())
+    })();
+    if cleanup.is_ok() {
         let _ = crate::tailnet_host::podman(
             &Native,
             &["stop".into(), "--time=5".into(), parent.clone()],

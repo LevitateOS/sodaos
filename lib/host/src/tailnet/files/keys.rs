@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 
+use crate::tailnet_domain::RunTarget;
 use crate::tailnet_domain::{
     valid_container_id, valid_project_id, ERR_CONFLICT, ERR_INVALID, ERR_UNAVAILABLE,
     ERR_UNCONFIRMED,
@@ -162,16 +163,16 @@ fn read_companion_record_file(
 /// still appliance-owned.
 pub fn read_companion_record(
     base: &str,
-    run: &ProjectRun,
+    target: &RunTarget,
     uid: u32,
     gid: u32,
 ) -> Result<OwnedCompanion, String> {
-    if !valid_project_id(&run.target.project) || !valid_container_id(&run.target.run) {
+    if !valid_project_id(&target.project) || !valid_container_id(&target.run) {
         return Err(ERR_INVALID.to_string());
     }
     let root = open_runtime_root(base, uid)?;
-    let run_dir = format!("{}/{}", run.target.project, run.target.run);
-    for path in [".", run.target.project.as_str(), run_dir.as_str()] {
+    let run_dir = format!("{}/{}", target.project, target.run);
+    for path in [".", target.project.as_str(), run_dir.as_str()] {
         let info = root.lstat(path).map_err(|_| ERR_UNAVAILABLE.to_string())?;
         if !root_directory(&info, uid) {
             return Err(ERR_UNAVAILABLE.to_string());

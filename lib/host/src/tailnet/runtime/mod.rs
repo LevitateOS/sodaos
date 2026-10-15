@@ -232,36 +232,57 @@ pub fn companion_create_args(
     run: &ProjectRun,
     owned: &OwnedCompanion,
 ) -> Result<Vec<String>, String> {
-    if !valid_project_run(run)
-        || !owned.image.starts_with("sha256:")
-        || !valid_image_id(&owned.image)
-        || !crate::tcontrol_wire::valid_lifecycle_uuid(&owned.installation_id)
-        || !crate::tcontrol_wire::valid_lifecycle_generation(&owned.generation)
+    if !valid_project_run(run) {
+        return Err(ERR_INVALID.to_string());
+    }
+    companion_container_args(
+        &run.target,
+        &owned.image,
+        &owned.installation_id,
+        &owned.generation,
+    )
+}
+
+/// Exact immutable native recipe, also verifiable from root Podman metadata
+/// after reboot has discarded ephemeral run files and parent processes.
+pub fn companion_container_args(
+    target: &RunTarget,
+    image: &str,
+    installation: &str,
+    generation: &str,
+) -> Result<Vec<String>, String> {
+    if !valid_project_id(&target.project)
+        || !valid_container_id(&target.container)
+        || !valid_container_id(&target.run)
+        || !image.starts_with("sha256:")
+        || !valid_image_id(image)
+        || !crate::tcontrol_wire::valid_lifecycle_uuid(installation)
+        || !crate::tcontrol_wire::valid_lifecycle_generation(generation)
     {
         return Err(ERR_INVALID.to_string());
     }
     let base = path_join(&[
         "/run/soda-tailnet",
-        run.target.project.as_str(),
-        run.target.run.as_str(),
+        target.project.as_str(),
+        target.run.as_str(),
     ]);
     Ok(vec![
         "--remote=false".to_string(),
         "create".to_string(),
         "--name".to_string(),
-        format!("soda-tailnet-{}-{}", run.target.project, run.target.run),
+        format!("soda-tailnet-{}-{}", target.project, target.run),
         "--label".to_string(),
-        format!("org.soda.tailnet.project={}", run.target.project),
+        format!("org.soda.tailnet.project={}", target.project),
         "--label".to_string(),
-        format!("org.soda.tailnet.run={}", run.target.run),
+        format!("org.soda.tailnet.run={}", target.run),
         "--label".to_string(),
-        format!("org.soda.tailnet.parent={}", run.target.container),
+        format!("org.soda.tailnet.parent={}", target.container),
         "--label".into(),
-        format!("org.soda.tailnet.installation={}", owned.installation_id),
+        format!("org.soda.tailnet.installation={}", installation),
         "--label".into(),
-        format!("org.soda.tailnet.generation={}", owned.generation),
-        format!("--userns=container:{}", run.target.container),
-        format!("--network=container:{}", run.target.container),
+        format!("org.soda.tailnet.generation={}", generation),
+        format!("--userns=container:{}", target.container),
+        format!("--network=container:{}", target.container),
         "--pid=private".to_string(),
         "--ipc=private".to_string(),
         "--uts=private".to_string(),
@@ -279,7 +300,7 @@ pub fn companion_create_args(
         "--volume".to_string(),
         format!("{base}/input:/run/soda-enrollment:ro"),
         "--entrypoint=/usr/local/bin/tailscaled".to_string(),
-        owned.image.clone(),
+        image.to_string(),
         "--state=mem:".to_string(),
         "--socket=/run/tailscale/tailscaled.sock".to_string(),
         "--tun=tailscale0".to_string(),

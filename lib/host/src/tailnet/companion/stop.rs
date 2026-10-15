@@ -25,7 +25,11 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
             ));
         }
         self.stop_tailnet_run(previous, deadline)
-            .map_err(|e| stage_error("companion stop unconfirmed", e))
+            .map_err(|e| stage_error("companion stop unconfirmed", e))?;
+        let owned =
+            crate::tailnet_files::read_companion_record(RUNTIME_ROOT, &previous.target, 0, 0)?;
+        self.runtime_podman(&["rm".into(), owned.id], deadline)
+            .map(|_| ())
     }
 
     pub(crate) fn reconcile_previous_run(

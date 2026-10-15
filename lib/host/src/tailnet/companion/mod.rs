@@ -123,3 +123,6 @@ mod view_tests;
 
 #[cfg(test)]
 mod native_tests;
+
+mod inventory;
+pub use inventory::{ChildInventory, NativeChild};

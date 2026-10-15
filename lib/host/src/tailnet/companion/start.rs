@@ -168,7 +168,7 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
         deadline: Instant,
     ) -> Result<(), String> {
         if !fresh {
-            let owned = read_companion_record(RUNTIME_ROOT, run, 0, 0)?;
+            let owned = read_companion_record(RUNTIME_ROOT, &run.target, 0, 0)?;
             if owned.installation_id != grant.installation_id {
                 return Err(crate::tailnet_domain::ERR_CONFLICT.to_string());
             }
