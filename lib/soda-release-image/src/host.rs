@@ -242,9 +242,12 @@ pub fn verify_built_host(
             "--network=none".to_string(),
             "--read-only".to_string(),
             "--cap-drop=all".to_string(),
-            "--entrypoint=/usr/bin/cat".to_string(),
+            "--entrypoint=/bin/sh".to_string(),
             id.to_string(),
-            format!("/{}", compression::IMAGE_CONFIG_PATH),
+            "-euc".to_string(),
+            crate::build_context::COREOS_IMAGE_CONFIG_SCRIPT.to_string(),
+            "inspect-coreos-host".to_string(),
+            base.release.clone(),
         ],
     )?;
     compression::record_image_config(context, out, &image_config)?;

@@ -14,6 +14,14 @@ use crate::sys;
 use serde_json::value::{to_raw_value, RawValue};
 use std::collections::BTreeMap;
 
+/// Observe real OS identity as well as image configuration; registry labels
+/// alone cannot bind the installer to the selected CoreOS stream release.
+pub(crate) const COREOS_IMAGE_CONFIG_SCRIPT: &str = r#". /usr/lib/os-release
+test "$ID" = fedora
+test "$VARIANT_ID" = coreos
+test "${IMAGE_VERSION-}" = "$1"
+exec cat /usr/share/coreos-assembler/image.json"#;
+
 pub fn freeze_base_image_config(
     snapshot: &str,
     out: &str,
@@ -48,9 +56,12 @@ pub fn freeze_base_image_config(
             "--read-only".to_string(),
             "--cap-drop=all".to_string(),
             "--security-opt=no-new-privileges".to_string(),
-            "--entrypoint=/usr/bin/cat".to_string(),
+            "--entrypoint=/bin/sh".to_string(),
             pinned,
-            "/usr/share/coreos-assembler/image.json".to_string(),
+            "-euc".to_string(),
+            COREOS_IMAGE_CONFIG_SCRIPT.to_string(),
+            "inspect-coreos-base".to_string(),
+            base.release.clone(),
         ],
     )?;
     freeze_context_image_config(context_dir, &metadata, prefix, compression)

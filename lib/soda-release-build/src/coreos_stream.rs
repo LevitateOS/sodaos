@@ -251,7 +251,7 @@ pub fn resolve_coreos_qemu_with<T: HttpTransport>(
 }
 
 /// Current stable build: release, live-ISO, and qemu locations from the
-/// stream, container digests from the registry.
+/// stream, matching version-tagged container digests from the registry.
 pub fn resolve_coreos() -> Result<ResolvedCoreOS, Error> {
     resolve_coreos_with(&UreqTransport)
 }
@@ -263,7 +263,7 @@ pub fn resolve_coreos_with<T: HttpTransport>(transport: &T) -> Result<ResolvedCo
     }
     let data = fetch_capped_json(transport, &stream_url, 8 << 20)?;
     let (release, iso, qemu) = resolve_stream_build(&data)?;
-    let digests = resolve_registry_digests_with(transport, &coreos_registry())?;
+    let digests = resolve_registry_digests_with(transport, &coreos_registry(), &release)?;
     let meta: String = soda_build_tools::reader::stream::stream_release_url(&stream_url, &release)?;
     let mut iso_map = BTreeMap::new();
     iso_map.insert("x86_64".to_string(), iso);
@@ -340,7 +340,7 @@ pub(crate) mod tests {
         let stub = Stub::new(&[
             ("/streams/stable.json", 200, None, stream_doc().as_bytes()),
             (
-                "/v2/fedora/fedora-coreos/manifests/stable",
+                "/v2/fedora/fedora-coreos/manifests/44.20260901.1.0",
                 200,
                 None,
                 index_doc().as_bytes(),

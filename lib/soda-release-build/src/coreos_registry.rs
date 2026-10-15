@@ -12,11 +12,11 @@ use std::io::Read;
 use std::time::Duration;
 
 const COREOS_CONTAINER_REPO: &str = "fedora/fedora-coreos";
-const COREOS_CONTAINER_TAG: &str = "stable";
 
 pub(crate) fn resolve_registry_digests_with<T: HttpTransport>(
     transport: &T,
     registry: &str,
+    release: &str,
 ) -> Result<HashMap<String, String>, Error> {
     if !https_url(registry) {
         return Err(Error::msg("container registry URL must be HTTPS"));
@@ -28,8 +28,7 @@ pub(crate) fn resolve_registry_digests_with<T: HttpTransport>(
     if host.is_empty() || host.contains('/') {
         return Err(Error::msg("container registry URL is malformed"));
     }
-    let endpoint =
-        format!("{registry}/v2/{COREOS_CONTAINER_REPO}/manifests/{COREOS_CONTAINER_TAG}");
+    let endpoint = format!("{registry}/v2/{COREOS_CONTAINER_REPO}/manifests/{release}");
     let response = get_follow(
         transport,
         &endpoint,
