@@ -126,6 +126,21 @@ impl Fixture {
             serde_json::from_str(include_str!("../../tests/goldens/deliver.json")).unwrap();
         let mut p: Payload = serde_json::from_str(golden["payload"].as_str().unwrap()).unwrap();
         let mut c: Candidate = serde_json::from_str(golden["candidate"].as_str().unwrap()).unwrap();
+        p.release_tag = "v0.1.0".into();
+        for package in &mut p.extension_catalog.packages {
+            package.version = "0.1.0".into();
+            package.url = format!("https://github.com/LevitateOS/sodaos/releases/download/v0.1.0/{}-extension-0.1.0-linux-x86_64.tar.gz", package.id);
+        }
+        c.content_sha256 = c
+            .content_sha256
+            .into_iter()
+            .map(|(name, hash)| {
+                (
+                    name.replace("-extension-0.0.0-golden-", "-extension-0.1.0-"),
+                    hash,
+                )
+            })
+            .collect();
         let mut source = BTreeMap::new();
         for name in source::SOURCE_FILES {
             source.insert(name.into(), format!("fixture {name}\n").into_bytes());
@@ -417,8 +432,8 @@ fn changed_shipping_bytes_and_source_files_are_refused() {
         "candidate.json",
         "images/dashboard.oci",
         "packages/catalog.json",
-        "packages/soda-extension-0.0.0-golden-linux-x86_64.tar.gz",
-        "packages/tailnet-extension-0.0.0-golden-linux-x86_64.tar.gz",
+        "packages/soda-extension-0.1.0-linux-x86_64.tar.gz",
+        "packages/tailnet-extension-0.1.0-linux-x86_64.tar.gz",
         "fountain-release.json",
         IMAGE_PATH,
         PACKAGES_PATH,

@@ -402,7 +402,14 @@ fn prepared_docker_has_exact_public_assets_and_qualification_refuses_missing_fac
     let fixture = Fixture::new(BuildPurpose::Production);
     let (output, manifest, metadata) = prepared(&fixture);
     assert!(manifest.iso.is_empty());
-    assert_eq!(manifest.assets.len(), 10);
+    assert_eq!(manifest.assets.len(), 13);
+    for name in [
+        "extensions-catalog.json",
+        "soda-extension-0.1.0-linux-x86_64.tar.gz",
+        "tailnet-extension-0.1.0-linux-x86_64.tar.gz",
+    ] {
+        assert!(manifest.assets.iter().any(|asset| asset.name == name));
+    }
     assert!(manifest.docker.is_some());
     assert!(!manifest
         .assets

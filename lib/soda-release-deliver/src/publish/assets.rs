@@ -11,7 +11,7 @@ use std::path::Path;
 
 pub const MAX_ASSET_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 pub const ISO_NAME: &str = "sodaos-x86_64.iso";
-const REQUIRED_METADATA: [&str; 7] = [
+const REQUIRED_METADATA: [&str; 8] = [
     "sodaos-source.tar",
     "fountain-source.tar",
     "payload.json",
@@ -19,6 +19,7 @@ const REQUIRED_METADATA: [&str; 7] = [
     "app-inputs.json",
     "packages.txt",
     "presentation.json",
+    "extensions-catalog.json",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -152,6 +153,11 @@ fn copy_asset(source: &Path, out: &Path, name: &str) -> Result<Asset, Error> {
         sha256,
     })
 }
+fn package_names(tag: &str) -> [String; 2] {
+    let version = tag.strip_prefix('v').unwrap_or_default();
+    ["soda", "tailnet"].map(|id| format!("{id}-extension-{version}-linux-x86_64.tar.gz"))
+}
+
 impl Manifest {
     pub fn has_appliance(&self) -> bool {
         self.distribution != Distribution::Docker
@@ -175,6 +181,7 @@ impl Manifest {
             || self.notes.trim().is_empty()
             || self.assets.len()
                 != REQUIRED_METADATA.len()
+                    + 2
                     + 3 * (usize::from(self.has_appliance()) + usize::from(self.docker.is_some()))
                     + usize::from(has_upgrade)
         {
@@ -235,6 +242,9 @@ impl Manifest {
                 ));
             }
         }
+        for name in package_names(&self.tag) {
+            self.asset(&name)?;
+        }
         for name in REQUIRED_METADATA {
             self.asset(name)?;
         }
@@ -282,7 +292,16 @@ pub fn prepare(
         .to_str()
         .ok_or_else(|| failure("invalid candidate path"))?;
     let (payload, c, _) = crate::admission::load_admitted_candidate(candidate_path)?;
+    if payload.release_tag != tag {
+        return Err(failure("release tag differs from built native packages"));
+    }
     admit_build(candidate, &payload, &c, distribution, tag)?;
+    crate::check::check_candidate(
+        candidate_path,
+        &payload.architecture,
+        &payload.revision,
+        &c.forgejo_revision,
+    )?;
     let media = if distribution != Distribution::Docker {
         Some(admit_media(&media_path, &payload, &c, tag)?)
     } else {
@@ -341,8 +360,16 @@ pub fn prepare(
         ("app-inputs.json", "app-inputs.json"),
         ("packages.txt", "packages.txt"),
         ("forgejo-context/presentation.json", "presentation.json"),
+        ("packages/catalog.json", "extensions-catalog.json"),
     ] {
         assets.push(copy_asset(&candidate.join(source), out, name)?);
+    }
+    for name in package_names(tag) {
+        assets.push(copy_asset(
+            &candidate.join("packages").join(&name),
+            out,
+            &name,
+        )?);
     }
     for (name, expected) in [
         ("sodaos-source.tar", payload.revision.as_str()),

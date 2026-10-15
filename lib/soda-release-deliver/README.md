@@ -8,7 +8,9 @@ from [release-tools](../soda-release-tools/README.md).
 
 - `publish::prepare` requires the producer's completed production receipt and binds
   one selected `appliance`, `docker` or `all` candidate to a fresh exact public asset
-  set; large registry archives and operator paths stay local.
+  set, including the versioned Soda/Tailnet native archives and projected catalog;
+  large registry archives and operator paths stay local. The tag must match the
+  built Payload v4 package version.
 - `publish::stage` checks prepared bytes, exact-source CI and tag, uploads/reads back
   the Docker version anonymously, then publishes the complete immutable GitHub prerelease.
 - `publish::qualify_appliance` retains the existing downloaded-ISO/native-smoke gate.
@@ -28,7 +30,8 @@ from [release-tools](../soda-release-tools/README.md).
 - `upgrade` admits one complete downloaded release, validates its external native
   transition receipt, and stamps a receipt only from the fixed concrete native
   observation files. Prospective source declarations alone grant no upgrade
-  authority. The rootfs contains all maintenance bytes and application images.
+  authority. The rootfs contains the host and maintenance bytes. Application
+  images are acquired separately from the Payload v4 references.
 - `native` retains the restricted Skopeo boundary for local OCI artifact signing
   and verification. These packaging keys do not replace GitHub's release attestation.
 

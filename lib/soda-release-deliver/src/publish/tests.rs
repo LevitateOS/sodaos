@@ -52,6 +52,9 @@ fn fixture() -> (TempDir, Manifest) {
         "app-inputs.json",
         "packages.txt",
         "presentation.json",
+        "extensions-catalog.json",
+        "soda-extension-0.1.0-linux-x86_64.tar.gz",
+        "tailnet-extension-0.1.0-linux-x86_64.tar.gz",
     ] {
         std::fs::write(dir.path().join(name), b"metadata").unwrap();
         entries.push(inspect(&dir.path().join(name), name).unwrap());

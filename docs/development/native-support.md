@@ -80,27 +80,17 @@ Build from a clean committed checkout (including an admitted linked worktree) wi
 The public entry point now requires an operator-admitted, root-owned executable and
 restricted `--worker-config`; it does not install accounts, grant sudo or create a
 worker policy. Account/helper installation requires applicable task approval.
-The measured development-candidate path took **5m30s warm / 8m29s cold** on the selected
-four-CPU x86_64 worker; [receipts](release.md)
-state that scope. The optional `--media-compression fast` flag applies only to
-`--development --target media`: it selects the upstream EROFS/LZMA level 1,
-fragments and 1 MiB cluster profile. It does not qualify production media.
+Earlier development-candidate timing receipts in [release workflow](release.md)
+cover their recorded revisions, not final RCX-2 media qualification.
 
-Normal candidate production admits the reviewed upstream EROFS settings, then
-freezes LZMA level 6, fragments, global deduplication and 64 KiB clusters into
-the host's `image.json`. Native compression hints store existing `.xz` and `.gz`
-files unchanged; initramfs remains compressed so its boot/deployment copies can
-share storage. The hints ship beside `image.json` and native osbuild reads them
-from its existing `deployed-tree` input. No extra stage mount or codec is used.
-Complete media, including both installer osmet records, must still fit the
-GitHub asset limit and pass the [release qualification](release.md).
-
-[EROFS global data deduplication](https://erofs.docs.kernel.org/en/latest/mkfs.html)
-does not support multithreaded compression. Extra worker CPUs alone therefore do
-not accelerate this profile. Compare compression settings against retained input
-in bounded, non-qualifying packing experiments first. Admit a new release profile
-only after its complete rootfs, including both osmet records, fits the asset limit;
-an incomplete or timed-out image supplies no fit or speed claim.
+Production and development media use the same fixed fast EROFS profile: LZMA
+level 1, fragments, 1 MiB clusters and no global deduplication. The reviewed
+upstream compression setting remains an input-admission check; it is not the
+shipping profile. Native compression hints preserve already compressed files.
+The complete rootfs, including installation metadata, must fit 2,013,265,920 bytes
+(128 MiB below 2 GiB). A candidate that exceeds this ceiling fails production and
+admission. There is no automatic slower-profile fallback. Native install/boot and
+[release qualification](release.md) remain separate gates.
 
 Package observation uses a layered host image; only the final sealed host is
 flattened for native OSTree import. Final package, helper and exported-content
