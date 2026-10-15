@@ -373,15 +373,58 @@ pub fn stage_soda_package(
     timestamp: u64,
     release_tag: &str,
 ) -> Result<StagedPackage, Error> {
-    let origin = sys::join(&[source, "system/containers/extension"]);
+    stage_package("soda", source, context, native, out, timestamp, release_tag)
+}
+
+pub fn stage_tailnet_package(
+    source: &str,
+    context: &str,
+    native: &str,
+    out: &str,
+    timestamp: u64,
+    release_tag: &str,
+) -> Result<StagedPackage, Error> {
+    stage_package(
+        "tailnet",
+        source,
+        context,
+        native,
+        out,
+        timestamp,
+        release_tag,
+    )
+}
+
+fn stage_package(
+    package_id: &str,
+    source: &str,
+    context: &str,
+    native: &str,
+    out: &str,
+    timestamp: u64,
+    release_tag: &str,
+) -> Result<StagedPackage, Error> {
+    let relative = match package_id {
+        "soda" => "system/containers/extension",
+        "tailnet" => TAILNET_PACKAGE_SOURCE,
+        _ => return Err(Error::msg("unknown extension package")),
+    };
+    let origin = sys::join(&[source, relative]);
+    if package_id == "tailnet" && fs::symlink_metadata(&origin).is_err() {
+        return Err(Error::msg("tailnet package contents pending T03: no system/containers/extension/tailnet-package source"));
+    }
     let (manifest, manifest_bytes) = read_package_manifest(&origin, release_tag)?;
-    if manifest.id != model::SODA_PACKAGE_ID {
+    if manifest.id != package_id {
         return Err(Error::msg("soda package manifest carries the wrong id"));
     }
-    let approved: Vec<String> = model::SODA_CAPABILITIES
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+    let approved: Vec<String> = (if package_id == "soda" {
+        &model::SODA_CAPABILITIES[..]
+    } else {
+        &model::TAILNET_CAPABILITIES[..]
+    })
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
     if manifest.capabilities != approved {
         return Err(Error::msg(
             "soda package capabilities differ from the approved catalog",
@@ -392,7 +435,7 @@ pub fn stage_soda_package(
     if !backend_meta.file_type().is_file() {
         return Err(Error::msg("soda package backend must be a regular file"));
     }
-    let staged = sys::join(&[out, "packages/stage/soda"]);
+    let staged = sys::join(&[out, &format!("packages/stage/{package_id}")]);
     fs::create_dir_all(sys::join(&[&staged, "assets"]))?;
     sys::write_new(
         &sys::join(&[&staged, "extension.json"]),
@@ -407,47 +450,7 @@ pub fn stage_soda_package(
     )?;
     fs::hard_link(&backend, sys::join(&[&staged, "backend"]))
         .map_err(|e| Error::msg(e.to_string()))?;
-    extension::stage_extension_assets(native, &staged)?;
-    let files = collect_package_files(&staged, &manifest, &manifest_bytes, source)?;
-    let archive = seal_package(&files, timestamp)?;
-    let package = finish_staged_package(&manifest.id, &manifest.version, archive, release_tag)?;
-    sys::write_new(
-        &sys::join(&[out, "packages", &package.filename]),
-        &package.archive,
-        0o644,
-    )?;
-    Ok(package)
-}
-
-/// Stage the optional `tailnet` package from its T03-owned source tree.
-/// Its manifest capabilities must equal the approved optional list
-/// exactly, the same rule the seal-time validation enforces on the
-/// catalog; the required controller is fixed here.
-pub fn stage_tailnet_package(
-    source: &str,
-    out: &str,
-    timestamp: u64,
-    release_tag: &str,
-) -> Result<StagedPackage, Error> {
-    let staged = sys::join(&[source, TAILNET_PACKAGE_SOURCE]);
-    if fs::symlink_metadata(&staged).is_err() {
-        return Err(Error::msg(
-            "tailnet package contents pending T03: no system/containers/extension/tailnet-package source",
-        ));
-    }
-    let (manifest, manifest_bytes) = read_package_manifest(&staged, release_tag)?;
-    if manifest.id != model::TAILNET_PACKAGE_ID {
-        return Err(Error::msg("tailnet package manifest carries the wrong id"));
-    }
-    let approved: Vec<String> = model::TAILNET_CAPABILITIES
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    if manifest.capabilities != approved {
-        return Err(Error::msg(
-            "tailnet package capabilities differ from the approved catalog",
-        ));
-    }
+    extension::stage_extension_assets(native, &staged, package_id)?;
     let files = collect_package_files(&staged, &manifest, &manifest_bytes, source)?;
     let archive = seal_package(&files, timestamp)?;
     let package = finish_staged_package(&manifest.id, &manifest.version, archive, release_tag)?;
@@ -817,7 +820,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         assert_eq!(
-            stage_tailnet_package(dir.to_str().unwrap(), dir.to_str().unwrap(), 7, "v0.1.0")
+            stage_tailnet_package(dir.to_str().unwrap(), "unused", "unused", dir.to_str().unwrap(), 7, "v0.1.0")
                 .unwrap_err()
                 .0,
             "tailnet package contents pending T03: no system/containers/extension/tailnet-package source"

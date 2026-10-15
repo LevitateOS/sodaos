@@ -10,34 +10,46 @@ test('native Soda package contains its entire local browser asset graph', async 
   await mkdir(artifactRoot, {recursive: true});
   const work = await mkdtemp(resolve(artifactRoot, 'soda-extension-test-'));
   try {
-    const terminal = resolve(work, 'terminal');
-    const fetch = Bun.spawnSync(
-      [
-        'cargo',
-        'run',
-        '--release',
-        '--locked',
-        '-p',
-        'soda-release-assets',
-        '--bin',
-        'soda-fetch-terminal',
-        '--',
-        '--out',
-        terminal,
-      ],
-      {cwd: root}
-    );
-    expect(fetch.exitCode).toBe(0);
+    const terminal = process.env.SODA_TEST_TERMINAL_ASSETS || resolve(work, 'terminal');
+    if (!process.env.SODA_TEST_TERMINAL_ASSETS) {
+      const fetch = Bun.spawnSync(
+        [
+          'cargo',
+          'run',
+          '--release',
+          '--locked',
+          '-p',
+          'soda-release-assets',
+          '--bin',
+          'soda-fetch-terminal',
+          '--',
+          '--out',
+          terminal,
+        ],
+        {cwd: root}
+      );
+      if (fetch.exitCode !== 0) throw Error(fetch.stderr.toString());
+    }
     const out = resolve(work, 'output');
-    const files = await buildSodaExtensionAssets(out, terminal);
+    const files = await buildSodaExtensionAssets(out, terminal, 'soda');
+    expect(files).not.toContain('soda-tailnet-entry.js');
+    const optionalOut = resolve(work, 'tailnet');
+    const optionalFiles = await buildSodaExtensionAssets(optionalOut, terminal, 'tailnet');
+    expect(optionalFiles).toContain('soda-tailnet-entry.js');
+    expect(optionalFiles).not.toContain('soda-spaces-entry.js');
+    expect(optionalFiles.some((name) => name.startsWith('soda-terminal/'))).toBe(false);
+    for (const name of optionalFiles.filter((file) => file.endsWith('.js'))) {
+      const body = await readFile(resolve(optionalOut, 'assets', name), 'utf8');
+      for (const match of body.matchAll(/(?:from\s*|import\(\s*)["'](\.[^"']+)["']/g)) {
+        if (!match[1]) throw Error('Missing generated import');
+        expect((await stat(resolve(optionalOut, 'assets', dirname(name), match[1]))).isFile()).toBe(true);
+      }
+    }
     const listed = JSON.parse(await readFile(resolve(out, 'files.json'), 'utf8')) as string[];
     expect(listed).toEqual(files);
     for (const name of [
       'soda-spaces-entry.js',
-      'soda-tailnet-entry.js',
       'components.css',
-      'soda-settings.css',
-      'soda-tailnet.css',
       'sodaspaces.css',
       'sodaspaces-page.css',
       'sodaspaces-drawer.css',

@@ -75,6 +75,8 @@ pub fn stage_native_packages(
     )?;
     let tailnet = native_package::stage_tailnet_package(
         source,
+        context,
+        native,
         out,
         release.source_timestamp,
         &release.release_tag,
@@ -579,7 +581,11 @@ mod tests {
         fs::create_dir_all(backend.parent().unwrap()).unwrap();
         fs::write(&backend, b"backend").unwrap();
         let native = dir.join("native");
-        let assets = native.join("soda-extension-assets");
+        let assets = native.join(if id == "soda" {
+            "soda-extension-assets"
+        } else {
+            "tailnet-extension-assets"
+        });
         fs::create_dir_all(assets.join("assets")).unwrap();
         fs::write(assets.join("files.json"), b"[\"a.bin\"]").unwrap();
         fs::write(assets.join("assets/a.bin"), b"asset").unwrap();

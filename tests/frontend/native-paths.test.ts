@@ -79,3 +79,21 @@ test('host-scoped transport is required and unexpected contract versions refuse 
   assert.throws(() => transport.websocket('environments/1/terminal'));
   assert.throws(() => transport.navigate?.('/workspace'));
 });
+
+test('package and mount pairs are exact and optional Tailnet has no workspace context', () => {
+  const root = {} as HTMLElement;
+  const tailnet = {...base, extensionId: 'tailnet', pageId: 'tailnet'};
+  prepareExtensionMount(root, tailnet).dispose();
+  const panel = {...base, panelId: 'workspace', ownerId: 'workspace'};
+  delete panel.pageId;
+  prepareExtensionMount(root, panel).dispose();
+  for (const context of [
+    {...base, pageId: 'tailnet'},
+    {...tailnet, pageId: 'spaces'},
+    {...tailnet, panelId: 'workspace'},
+    {...tailnet, ownerId: 'workspace'},
+    {...tailnet, repositoryId: '8'},
+    {...tailnet, extensionId: 'other'},
+  ])
+    assert.throws(() => prepareExtensionMount(root, context));
+});

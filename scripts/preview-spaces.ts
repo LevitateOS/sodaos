@@ -25,7 +25,7 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
   const out = resolve(root, '.artifacts/spaces-dev/modules');
   let extension = resolve(root, `.artifacts/spaces-dev/extension-${crypto.randomUUID()}`);
   await buildForgejoAssets(out);
-  await buildSodaExtensionAssets(extension, resolve(root, '.artifacts/browser-terminal/vendor'));
+  await buildSodaExtensionAssets(extension, resolve(root, '.artifacts/browser-terminal/vendor'), 'soda');
   async function buildClient() {
     const result = await Bun.build({
       entrypoints: [resolve(root, 'scripts/fixtures/spaces-review-client.ts')],
@@ -287,7 +287,7 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
               .then(async () => {
                 await buildForgejoAssets(out);
                 const next = resolve(root, `.artifacts/spaces-dev/extension-${crypto.randomUUID()}`);
-                await buildSodaExtensionAssets(next, resolve(root, '.artifacts/browser-terminal/vendor'));
+                await buildSodaExtensionAssets(next, resolve(root, '.artifacts/browser-terminal/vendor'), 'soda');
                 extension = next;
                 client = await buildClient();
                 revision = crypto.randomUUID();

@@ -20,7 +20,7 @@ export function resumeGenerationRefused(generation: string, validation?: ResumeV
 export type ExtensionMountContext = MountContext;
 
 function isPageMount(context: ExtensionMountContext): boolean {
-  return ['spaces', 'tailnet'].includes(context.pageId || '') && !context.panelId;
+  return context.pageId === 'spaces' && !context.panelId;
 }
 
 function isPanelMount(context: ExtensionMountContext): boolean {
@@ -32,7 +32,20 @@ function validateMountContext(context: ExtensionMountContext): void {
   // The host dataset already refuses mismatches; this binds the consumer
   // build to a compatible host runtime.
   if (context.contractVersion !== 1) throw Error('Unsupported native contract version');
-  if (context.extensionId !== 'soda' || !context.sessionGeneration) throw Error('Invalid workspace mount context');
+  if (!context.sessionGeneration) throw Error('Invalid workspace mount context');
+  if (context.extensionId === 'tailnet') {
+    if (
+      context.pageId !== 'tailnet' ||
+      context.panelId !== undefined ||
+      context.ownerId !== undefined ||
+      context.repositoryId !== undefined
+    ) {
+      throw Error('Invalid Tailnet mount context');
+    }
+    nativeAppSubUrl(context);
+    return;
+  }
+  if (context.extensionId !== 'soda') throw Error('Invalid workspace mount context');
   if (!isPageMount(context) && !isPanelMount(context)) throw Error('Invalid workspace mount context');
   validateOwner(context);
   nativeAppSubUrl(context);

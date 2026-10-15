@@ -5,7 +5,7 @@ import {basename, resolve} from 'node:path';
 import {parseArgs} from 'node:util';
 
 const root = resolve(import.meta.dir, '..');
-const entries = {
+const allEntries = {
   'soda-spaces-entry.js': 'frontend/spaces/soda-spaces-entry.ts',
   'soda-tailnet-entry.js': 'frontend/tailnet/soda-tailnet-entry.ts',
 } as const;
@@ -19,11 +19,24 @@ export const styles = {
   'soda-tailnet.css': 'frontend/tailnet/soda-tailnet.css',
 } as const;
 
+export type ExtensionPackage = 'soda' | 'tailnet';
+function packageAssets(packageID: ExtensionPackage) {
+  assert(packageID === 'soda' || packageID === 'tailnet', 'Exact extension package required');
+  const entry = packageID === 'soda' ? 'soda-spaces-entry.js' : 'soda-tailnet-entry.js';
+  const selectedStyles = Object.fromEntries(
+    Object.entries(styles).filter(
+      ([name]) =>
+        name === 'components.css' || (packageID === 'soda' ? name.startsWith('sodaspaces') : name.startsWith('soda-'))
+    )
+  );
+  return {entries: {[entry]: allEntries[entry]}, selectedStyles};
+}
+
 function source(path: string) {
   return resolve(root, path);
 }
 
-async function checkStylesUsedByEntries() {
+async function checkStylesUsedByEntries(entries: Record<string, string>, selectedStyles: Record<string, string>) {
   const used = new Set<string>();
   for (const entry of Object.values(entries)) {
     const body = await readFile(source(entry), 'utf8');
@@ -34,21 +47,30 @@ async function checkStylesUsedByEntries() {
       if (match[1]) used.add(match[1]);
     }
   }
-  assert.deepEqual([...used].sort(), Object.keys(styles).sort(), 'Native entry styles and package styles differ');
+  assert.deepEqual(
+    [...used].sort(),
+    Object.keys(selectedStyles).sort(),
+    'Native entry styles and package styles differ'
+  );
 }
 
-async function checkManifestEntries() {
-  const manifest = JSON.parse(await readFile(source('system/containers/extension/extension.json'), 'utf8')) as {
+async function checkManifestEntries(packageID: ExtensionPackage, entries: Record<string, string>) {
+  const manifest = JSON.parse(
+    await readFile(
+      source(`system/containers/extension/${packageID === 'tailnet' ? 'tailnet-package/' : ''}extension.json`),
+      'utf8'
+    )
+  ) as {
     pages: Array<{entry: string}>;
     panels: Array<{entry: string}>;
   };
   // One shared Workspace owner (NFX-D02/H-OWNER) declares the same entry
   // for its page and panel, so manifest entries are compared as a set.
-  const declared = [...new Set([...manifest.pages, ...manifest.panels].map((item) => item.entry))];
+  const declared = [...new Set([...manifest.pages, ...(manifest.panels || [])].map((item) => item.entry))];
   assert.deepEqual(declared.sort(), Object.keys(entries).sort(), 'Soda manifest entries and browser source differ');
 }
 
-async function buildScripts(assets: string) {
+async function buildScripts(assets: string, entries: Record<string, string>) {
   const result = await Bun.build({
     entrypoints: Object.values(entries).map(source),
     outdir: assets,
@@ -171,8 +193,11 @@ function stripDocumentTokens(css: string): string {
   return kept.join('');
 }
 
-export async function buildExtensionStylesheets(assets: string): Promise<void> {
-  for (const [name, path] of Object.entries(styles)) {
+export async function buildExtensionStylesheets(
+  assets: string,
+  selectedStyles: Record<string, string> = styles
+): Promise<void> {
+  for (const [name, path] of Object.entries(selectedStyles)) {
     const result = await Bun.build({
       entrypoints: [source(path)],
       outdir: assets,
@@ -198,6 +223,7 @@ export async function buildExtensionStylesheets(assets: string): Promise<void> {
     const emitted = resolve(assets, name);
     await writeFile(emitted, stripDocumentTokens(restoreNativeSchemeCalls(await readFile(emitted, 'utf8'))));
   }
+  if (!('sodaspaces-terminal.css' in selectedStyles)) return;
   const terminal = resolve(assets, 'sodaspaces-terminal.css');
   await writeFile(terminal, `@import url("./soda-terminal/xterm.css");\n${await readFile(terminal, 'utf8')}`);
 }
@@ -249,7 +275,7 @@ async function filesUnder(path: string, prefix = ''): Promise<string[]> {
   return files;
 }
 
-export async function buildSodaExtensionAssets(out: string, terminal: string) {
+export async function buildSodaExtensionAssets(out: string, terminal: string, packageID: ExtensionPackage) {
   assert(
     (await stat(out).then(
       () => true,
@@ -257,16 +283,17 @@ export async function buildSodaExtensionAssets(out: string, terminal: string) {
     )) === false,
     'Fresh Soda extension asset output required'
   );
-  await checkStylesUsedByEntries();
-  await checkManifestEntries();
+  const {entries, selectedStyles} = packageAssets(packageID);
+  await checkStylesUsedByEntries(entries, selectedStyles);
+  await checkManifestEntries(packageID, entries);
   const assets = resolve(out, 'assets');
   await mkdir(assets, {recursive: true});
-  await buildScripts(assets);
-  await buildExtensionStylesheets(assets);
-  await copyLockedTerminal(assets, terminal);
+  await buildScripts(assets, entries);
+  await buildExtensionStylesheets(assets, selectedStyles);
+  if (packageID === 'soda') await copyLockedTerminal(assets, terminal);
   await copyNotices(assets);
   const files = (await filesUnder(assets)).sort();
-  assert(files.length > Object.keys(entries).length + Object.keys(styles).length);
+  assert(files.length > Object.keys(entries).length + Object.keys(selectedStyles).length);
   await writeFile(resolve(out, 'files.json'), JSON.stringify(files, null, 2) + '\n');
   return files;
 }
@@ -274,8 +301,9 @@ export async function buildSodaExtensionAssets(out: string, terminal: string) {
 if (import.meta.main) {
   const {values} = parseArgs({
     args: Bun.argv.slice(2),
-    options: {out: {type: 'string'}, 'terminal-assets': {type: 'string'}},
+    options: {package: {type: 'string'}, out: {type: 'string'}, 'terminal-assets': {type: 'string'}},
   });
   assert(values.out && values['terminal-assets'], 'Explicit output and locked terminal assets required');
-  await buildSodaExtensionAssets(resolve(values.out), resolve(values['terminal-assets']));
+  assert(values.package === 'soda' || values.package === 'tailnet', 'Explicit --package=soda|tailnet required');
+  await buildSodaExtensionAssets(resolve(values.out), resolve(values['terminal-assets']), values.package);
 }

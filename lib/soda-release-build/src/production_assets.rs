@@ -88,8 +88,18 @@ impl Production {
             vec![
                 "bun".to_string(),
                 "scripts/build-soda-extension.ts".to_string(),
+                "--package=soda".to_string(),
                 "--out".to_string(),
                 format!("{native}/soda-extension-assets"),
+                "--terminal-assets".to_string(),
+                format!("{native}/terminal-assets"),
+            ],
+            vec![
+                "bun".to_string(),
+                "scripts/build-soda-extension.ts".to_string(),
+                "--package=tailnet".to_string(),
+                "--out".to_string(),
+                format!("{native}/tailnet-extension-assets"),
                 "--terminal-assets".to_string(),
                 format!("{native}/terminal-assets"),
             ],

@@ -42,7 +42,8 @@ cargo build --release --locked --offline --config profile.release.strip="symbols
 cargo build --release --locked --offline --config profile.release.strip="symbols" --manifest-path $ROOT/Cargo.toml -p soda-project-terminal --bin project-factory-roles
 bun scripts/build-forgejo.ts --out $ROOT/.artifacts/native/x86_64/forgejo-js
 cargo run --release --locked -p soda-release-assets --bin soda-fetch-terminal -- --out $ROOT/.artifacts/native/x86_64/terminal-assets
-bun scripts/build-soda-extension.ts --out $ROOT/.artifacts/native/x86_64/soda-extension-assets --terminal-assets $ROOT/.artifacts/native/x86_64/terminal-assets
+bun scripts/build-soda-extension.ts --package=soda --out $ROOT/.artifacts/native/x86_64/soda-extension-assets --terminal-assets $ROOT/.artifacts/native/x86_64/terminal-assets
+bun scripts/build-soda-extension.ts --package=tailnet --out $ROOT/.artifacts/native/x86_64/tailnet-extension-assets --terminal-assets $ROOT/.artifacts/native/x86_64/terminal-assets
 cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out $ROOT/.artifacts/native/x86_64/forgejo-locales/locale_en-US.ini
 cargo run --release --locked -p soda-release-assets --bin soda-fetch-muse -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools/bin/muse-native
 cargo run --release --locked -p soda-release-assets --bin soda-stage-canlang -- --archive $ROOT/.artifacts/canlang/canlang-tools-linux-x86_64.tar.gz --out $ROOT/.artifacts/native/x86_64/project-tools

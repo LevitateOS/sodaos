@@ -270,7 +270,7 @@ fn oracle_production_sequence() {
         "cargo run --release --locked -p soda-release-assets --bin soda-stage-canlang -- --archive ",
         "cargo run --release --locked -p soda-release-assets --bin soda-forgejo-locales -- --lock frontend/forgejo/locale.lock.json --out ",
         "cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context ",
-        "bun scripts/build-soda-extension.ts --out ",
+        "bun scripts/build-soda-extension.ts --package=soda --out ",
         "-p soda-project-terminal --bin project-terminal",
     ] {
         assert_eq!(text.matches(needle).count(), 1, "needle: {needle}\n{text}");

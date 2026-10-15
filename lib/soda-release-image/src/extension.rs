@@ -10,8 +10,17 @@ use crate::sys;
 /// browser build. Bun resolves the JavaScript/CSS graph and records its
 /// output; this stage never guesses source dependencies from the old public
 /// payload.
-pub fn stage_extension_assets(native: &str, package_dir: &str) -> Result<(), Error> {
-    let root = sys::join(&[native, "soda-extension-assets"]);
+pub fn stage_extension_assets(
+    native: &str,
+    package_dir: &str,
+    package_id: &str,
+) -> Result<(), Error> {
+    let asset_dir = match package_id {
+        "soda" => "soda-extension-assets",
+        "tailnet" => "tailnet-extension-assets",
+        _ => return Err(Error::msg("unknown extension package")),
+    };
+    let root = sys::join(&[native, asset_dir]);
     let files = extension_asset_inventory(&root)?;
     for (i, name) in files.iter().enumerate() {
         if !safe_extension_asset_name(name) || i > 0 && files[i - 1] == *name {
@@ -75,7 +84,8 @@ mod tests {
         fs::write(root.join("files.json"), b"[\"b.js\",\"a.js\"]").unwrap();
         assert!(stage_extension_assets(
             dir.join("native").to_str().unwrap(),
-            dir.join("pkg").to_str().unwrap()
+            dir.join("pkg").to_str().unwrap(),
+            "soda"
         )
         .is_err());
         fs::write(root.join("files.json"), b"[\"a.js\"]").unwrap();
@@ -83,6 +93,7 @@ mod tests {
         stage_extension_assets(
             dir.join("native").to_str().unwrap(),
             dir.join("pkg").to_str().unwrap(),
+            "soda",
         )
         .unwrap();
         assert_eq!(fs::read(dir.join("pkg/assets/a.js")).unwrap(), b"asset");
