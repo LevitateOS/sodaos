@@ -575,9 +575,15 @@ required-package catalog/cache contract; its focused repair is committed separat
   callback independently fixes the native 503: constructor/operator and
   transport checks pass, and actual enable reaches open admission plus the
   official supervised daemon in `NeedsLogin`. Native disable stops the daemon,
-  socket and interface and preserves package/installation hashes, but still
-  reports unconfirmed cleanup. Diagnose that boundary in the retained fixture
-  before another media build; disable acceptance remains open.
+  socket and interface and preserves package/installation hashes. The initial
+  unconfirmed cleanup was concurrent systemd `ExecStop` and native Podman stop;
+  waiting for bounded unit teardown fixes the actual enable/disable cycle.
+  Killing only the optional backend also preserves the required controller;
+  its authenticated native disable endpoint completes cleanup with closed
+  admission, no pending operation, and unchanged private state. However,
+  Fountain's rendered failed row hides Disable despite remaining effects.
+  Its active qualification checkout is preserved; the precise template fix
+  awaits writer handoff. That UI check and shipping qualification remain open.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.

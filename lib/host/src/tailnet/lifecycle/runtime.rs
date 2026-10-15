@@ -139,18 +139,25 @@ impl<E: Executor, T: TailnetControl> Runtime<'_, E, T> {
     }
 
     fn deactivate(&self, call: &LifecycleCall, deadline: Instant) -> Result<(), String> {
-        let mut complete = true;
+        let mut incomplete = Vec::new();
+        // Only fixed stage names enter diagnostics; native command output may
+        // contain private state. Continue cleanup after each failed inspection.
+        let mut check = |stage: &'static str, confirmed: bool| {
+            if !confirmed {
+                incomplete.push(stage);
+            }
+        };
         let before = self.host.inspect(Some(&call.installation_id), deadline);
-        complete &= before.is_ok();
+        check("initial host inspection", before.is_ok());
         let host = before.ok().flatten();
         let inventory =
             self.companion
                 .native_children(&call.installation_id, host.as_ref(), deadline);
-        complete &= !inventory.unknown;
+        check("initial companion inventory", !inventory.unknown);
         let mut projects = match self.companion.known_projects() {
             Ok(ids) => ids,
             Err(_) => {
-                complete = false;
+                check("Project records", false);
                 BTreeSet::new()
             }
         };
@@ -161,43 +168,57 @@ impl<E: Executor, T: TailnetControl> Runtime<'_, E, T> {
                 .map(|child| child.target.project.clone()),
         );
         if projects.len() > 128 {
-            complete = false;
+            check("Project count", false);
         }
-        let mut units = vec![
-            "stop".into(),
-            "--no-block".into(),
-            "soda-tailnet-host.service".into(),
-        ];
+        // ExecStop performs native teardown too. Wait for it before the
+        // inventory/stop below; enqueueing the job races two Podman stops and
+        // can report an unconfirmed failure after both removed the same CID.
+        // The executor still clips this wait to the lifecycle deadline.
+        let mut units = vec!["stop".into(), "soda-tailnet-host.service".into()];
         units.extend(
             projects
                 .into_iter()
                 .take(128)
                 .map(|id| format!("soda-tailnet@{id}.service")),
         );
-        complete &=
+        check(
+            "unit stop",
             crate::tailnet_host::command(&self.host.exec, "/usr/bin/systemctl", &units, deadline)
-                .is_ok();
+                .is_ok(),
+        );
         let store = GrantStore::default();
         let _drain = store.drain_lock(deadline)?;
         // A start admitted before the close has now ended. Enumerate again
         // under exclusion; preserve every unknown candidate and stop the known subset.
         let host = self.host.inspect(Some(&call.installation_id), deadline);
-        complete &= host.is_ok();
+        check("drained host inspection", host.is_ok());
         let host = host.ok().flatten();
         let inventory =
             self.companion
                 .native_children(&call.installation_id, host.as_ref(), deadline);
-        complete &= !inventory.unknown;
+        check("drained companion inventory", !inventory.unknown);
         for child in inventory.children {
-            complete &= self.companion.stop_native_child(&child, deadline).is_ok();
+            check(
+                "companion stop",
+                self.companion.stop_native_child(&child, deadline).is_ok(),
+            );
         }
-        complete &= self
-            .host
-            .stop(Some(&call.installation_id), deadline)
-            .is_ok();
+        check(
+            "host stop",
+            self.host
+                .stop(Some(&call.installation_id), deadline)
+                .is_ok(),
+        );
         let after = self.observe(call, deadline);
-        if !complete || after.state != wire::LIFECYCLE_STOPPED || after.admission_ready {
-            return Err("Tailnet cleanup is unconfirmed".into());
+        check(
+            "final observation",
+            after.state == wire::LIFECYCLE_STOPPED && !after.admission_ready,
+        );
+        if !incomplete.is_empty() {
+            return Err(format!(
+                "Tailnet cleanup is unconfirmed: {}",
+                incomplete.join(", ")
+            ));
         }
         Ok(())
     }
