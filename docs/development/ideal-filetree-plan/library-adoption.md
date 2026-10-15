@@ -1243,7 +1243,10 @@ Luna low reassessed the exclusive checkpoint deltas against canonical
 assessment of remaining seams, separate from the historical full-tree audit.
 Parked A `fe23ec933fb0880bee07d2dc0b5b4fea3f9880e9`, B
 `a62614a32feb827a06275263a0304570443fbccc`, and C
-`b3c9e23b2b6b8c7a8e3b5cdb93af00321888fae8` remain at exactly those branch tips.
+`b3c9e23b2b6b8c7a8e3b5cdb93af00321888fae8` are preserved by the
+`archive/20261015/parked-a`, `archive/20261015/parked-b` and
+`archive/20261015/parked-c` tags, respectively. The 2026-10-15 cleanup removed
+the obsolete branch names after publishing these exact-commit archive tags.
 No checkpoint replay, merge, reset, restart or timer change was performed.
 
 The 2026-10-07 cleanup removed the three inactive lane worktrees while retaining
@@ -1261,7 +1264,7 @@ worktree did not integrate its branch or close its pending work.
 
 Acceptance of this assessment: every useful duty stays assigned to an existing
 owner, superseded generic splits are excluded from the desired responsibility,
-and the three checkpoint tips remain unchanged. No new coverage gap was
+and the three archived checkpoint commits remain unchanged. No new coverage gap was
 established by these module moves. If a seam is selected later, its prerequisite
 is a diff against the then-current defining adapters; its acceptance is retained
 caller/custody behavior and the relevant existing tests, with no old engine

@@ -263,7 +263,8 @@ comparison does not describe the current checkout. This scoped documentation
 reconciliation makes no new runtime or native qualification claim.
 
 Further unrelated restructuring dispatch remains parked. Completed work and
-parked checkpoint branches remain preserved; superseded generic-engine splits
+parked checkpoint commits remain preserved by the
+[archive tags](library-adoption.md#parked-checkpoints); superseded generic-engine splits
 must consume the current library adapters if an application seam is selected.
 The task list and lane schedule remain the execution plan. This scoped update
 does not regenerate the complete tree or advance historical audit coverage.
