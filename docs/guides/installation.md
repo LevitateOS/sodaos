@@ -62,18 +62,18 @@ Produce a candidate with the admitted `soda-build` controller (see
 bash scripts/check-native.sh ARCH /ABS/PATH/TO/stage
 ```
 
-Use clean exact-revision Soda and Forgejo fork checkouts and a fresh output
-directory per attempt. Pass the fork checkout with `--forgejo-source`; the
-candidate snapshots its exact HEAD and embeds its patched binary. The separate
-`extension` image carries the Soda package installed by
-`soda-extension-install.service` before an activated Forgejo starts. An install
-failure blocks Forgejo startup.
+Use an exact committed Soda revision and a fresh output directory per attempt.
+Select the independent Fountain release metadata explicitly. Pass its matching
+source checkout with `--forgejo-source` for SDK compatibility and source binding;
+Soda consumes the released Fountain image and adds its presentation layer.
+Fountain acquires and verifies the required Soda package before core readiness.
+Follow the admitted inputs and commands in the native support guide.
 
 ## Install developer candidates
 
 For an admitted developer candidate on an existing host, use its component install
 path for application images, host content and Forgejo customization. This is
-separate from the release-media disk flow, which supplies its included components.
+separate from the release-media disk flow and its first-start component acquisition.
 Prefer the same immutable candidate for install and later update.
 
 Existing-state maintenance updates affected components without replaying first
@@ -119,7 +119,9 @@ chain or hostname verification. Invalid input prevents ready-to-open trust guida
 
 ## Operator services
 
-Stock Cockpit listens on all interfaces with the operator credential. Tailscaled and project units follow
-the appliance service definitions under `system/host/services/`. Local CI execution is
+Stock Cockpit listens on all interfaces with the operator credential. Project
+units follow the appliance service definitions under `system/host/services/`.
+The optional Tailnet runtime starts only after administrator enablement and
+authenticated reconciliation; disabling it stops its host and Project companions. Local CI execution is
 unavailable. Preserve credentials,
 project state, backups and failed evidence unless cleanup is explicitly approved.

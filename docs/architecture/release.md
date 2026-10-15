@@ -51,16 +51,18 @@ connects preparation, publication, qualification and promotion for all targets.
 
 Appliance users download one ISO. It automatically retrieves its hash-bound root filesystem
 from the same versioned GitHub release. The root filesystem contains the Soda
-runtime and application images; users do not download or assemble components.
-Installation requires internet access to GitHub. There is no Soda download server,
-appliance registry channel, publication ledger or custom update-discovery service.
+runtime and sealed Payload v4 metadata. On first boot the host acquires the six
+required application images from their immutable registry references; Fountain
+acquires the required Soda package from the release catalog. Users do not assemble
+components. Installation and first startup require internet access to the release
+assets and registries. There is no Soda download server, publication ledger or
+custom update-discovery service.
 Docker delivery follows its own registry and qualification contract below.
 
 The fixed image catalog includes `canlang-runtime`, built from the same frozen
 Rocky base as Project OS and Dashboard using the admitted offline Canlang tools.
-Its configuration, manifest and archive digest enter the existing payload and
-shared OCI layout; installation imports it into local Podman storage with the
-other release images. Candidate content checks bind its tool inventory and
+Its configuration and manifest digests enter Payload v4; first startup acquires
+it into persistent Podman storage with the other required images. Candidate content checks bind its tool inventory and
 license files, and the host's exact Canlang tool archive and release reference.
 Applications supply an already compiled portable bundle in a separate image;
 appliance activation neither compiles an application nor downloads runtime
@@ -95,7 +97,7 @@ See GitHub's [immutable release contract](https://docs.github.com/en/code-securi
 
 The first-install qualification is deliberately bounded: focused checks for changed
 release code, verification of the downloaded installer, and one fresh native
-installation and boot with exact installed revision and bundled-image readback.
+installation and boot with exact installed revision and acquired-image readback.
 Repeat a check only after failure or a relevant change. This does not claim
 hardware coverage, product-wide acceptance, or upgrade/recovery qualification.
 
@@ -197,7 +199,7 @@ and development checks on another host architecture do not qualify the appliance
 ## Docker runtime
 
 Docker is an additional direct deployment target for the complete Soda runtime.
-It uses the same candidate's Soda binaries and bundled application images on
+It uses the same candidate's Soda binaries and pinned application images on
 Fedora container userspace, with systemd and Podman inside the outer Docker
 container. It shares the Docker host kernel and requires native x86_64 Linux,
 rootful Docker Engine and cgroup v2. The [Docker guide](../guides/docker.md)
@@ -217,15 +219,15 @@ shared candidate and payload hashes, and the source host manifest/archive hash.
 It also binds the resolved Fedora base manifest digest, Docker recipe hash,
 outer image manifest and config digests, exported OCI archive hash/size, RPM
 inventory hash, and distributed Compose file hash/size. The common candidate
-continues to own the bundled application image and Project-support identities;
+continues to own the application image and Project-support identities;
 Docker references those bindings rather than creating another application catalog.
 Exact JSON field names and producer/readback interfaces belong to
 [the delivery metadata model](../../lib/soda-release-deliver/README.md#docker-metadata-and-provenance).
 
 The native build resolves the Fedora base before packaging and records the
 packages actually installed. A pinned base does not make mutable RPM repositories
-reproducible. Packaging reads back Soda's installed revision, payload and bundled
-image identities from the resulting runtime. Missing or mismatched identities
+reproducible. Packaging reads back Soda's installed revision and payload from
+the resulting runtime; native startup checks verify its acquired image identities. Missing or mismatched identities
 refuse preparation and delivery. Neither a local Docker image ID nor a mutable
 tag substitutes for the distribution manifest digest.
 

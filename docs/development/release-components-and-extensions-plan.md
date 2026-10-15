@@ -529,8 +529,17 @@ required-package catalog/cache contract; its focused repair is committed separat
   Native package fixture origins now flow through the existing CLI, candidate
   wrapper and isolated worker; production package URLs remain fixed to GitHub.
   The complete-rootfs ceiling is enforced before hashing and at admission.
-  Independent Fountain fixture metadata/source admission, selected integrated
-  package bootstrap and combined candidate qualification remain open.
+  Exact component metadata and both corresponding source archives pass the real
+  HTTPS resolver's size/hash/source admission against a local trusted fixture.
+  Actual Soda package startup and offline restart pass with all production
+  Quadlet extension settings, required readiness and the private callback;
+  UID2000 manager state succeeds while UID1000 is denied. Production now enables
+  Fountain extensions and the callback explicitly. Candidate setup carries the
+  selected Fountain metadata URL and uses the home-backed temporary directory.
+  Native importer cached-Tailscale acquisition passes after correcting raw config
+  IDs and inspect stdout capture. Installer admission authenticates thin metadata
+  without a bundled OCI directory (113 installer tests pass). Combined candidate
+  qualification remains open; these development fixtures are unpublished.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
