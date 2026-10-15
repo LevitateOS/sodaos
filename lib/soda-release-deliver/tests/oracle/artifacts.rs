@@ -4,9 +4,7 @@ use soda_release_deliver::check::check_candidate;
 use soda_release_deliver::oci::{inspect_oci, inspect_oci_content};
 use soda_release_deliver::payload::load;
 
-use super::{
-    decode_candidate, decode_payload, golden_ok, golden_str, goldens, temp_dir,
-};
+use super::{decode_candidate, decode_payload, golden_ok, golden_str, goldens, temp_dir};
 
 #[test]
 fn oci_inspection_matches_oracle() {

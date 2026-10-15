@@ -11,8 +11,8 @@ use crate::preparation::{
     self, HoldState, Prepare, PrepareHold, PrepareInspect, PrepareState, PrepareStop,
 };
 use crate::project::{Executor, Runtime};
-use serde::Deserialize;
 use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
 use std::fmt;
 
 mod candidate;
@@ -25,7 +25,7 @@ mod tools;
 pub use self::paths::{
     path_join, preparation_paths, prepare_id_map, single_line, valid_resolved_tool_path,
 };
-pub use self::state::{LauncherEvidence, PreparationObservationError, map_preparation_state};
+pub use self::state::{map_preparation_state, LauncherEvidence, PreparationObservationError};
 
 #[derive(Default)]
 struct StopResponse {

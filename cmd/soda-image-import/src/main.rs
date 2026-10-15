@@ -1,35 +1,41 @@
 //! soda-image-import is the image-based appliance's fixed native import phase.
 //!
-//! Rust port of `cmd/soda-image-import` plus the release sliver it runs:
-//! payload load/validate (`internal/release/deliver` payload + content +
-//! import) over the shared OCI layout verifier (`internal/release/build`
-//! OCI layout inspection). CLI surface, exit codes, stderr text, podman
-//! argv, and verification rules match the Go implementation.
+//! Payload v4 acquisition over the rootful Podman store: read and strictly
+//! validate the local payload, inspect each expected config, pull only
+//! missing configs by their exact sealed reference, then re-verify every
+//! selected identity (config plus linux/amd64 platform) before reporting
+//! success. Never starts, replaces or deletes workloads.
 //!
-//! Std and the workspace's locked Serde stack; no new crates-io dependencies.
+//! The no-argument boot invocation imports the six required roles. The
+//! internal `ensure --payload ABS --set required|tailnet` command serves the
+//! two trusted callers (Tailnet prepare, maintenance) with an explicitly
+//! selected set; it accepts no image URL/digest/registry override.
 
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 mod context;
 mod import;
-mod json;
-mod oci;
 mod payload;
 mod platform;
 mod sha256;
 
-use context::{admit, run, ImportCtx};
-use import::{import_images, native_import, run_podman, verify_content, PodmanOutcome};
-use json::json_valid;
-use oci::{inspect_oci_layout, OciImage};
-use payload::{decode_payload, ImageBinding, Payload};
-use platform::{
-    is_coreos_version, is_digest, is_prefixed_digest, is_revision, oci_architecture,
-    require_native, valid_repository_prefix,
+use context::run;
+use import::{ensure_images, native_import, run_podman, run_podman_output, ImageSet};
+use payload::{ImageBinding, Payload, Role};
+use platform::require_native;
+
+#[cfg(test)]
+use context::ImportCtx;
+#[cfg(test)]
+use import::PodmanOutcome;
+#[cfg(test)]
+use platform::oci_architecture;
+#[cfg(test)]
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
+    time::Instant,
 };
 
 #[link(name = "c")]
@@ -39,21 +45,11 @@ extern "C" {
 }
 
 const RELEASE_PATH: &str = "/usr/share/soda/release.json";
-const IMAGES_PATH: &str = "/usr/share/soda/images";
 const PODMAN: &str = "/usr/bin/podman";
 /// Go: `context.WithTimeout(ctx, 10*time.Minute)`; the unit allows 11.
 const IMPORT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SIGINT: i32 = 2;
 const SIGTERM: i32 = 15;
-const NAMES: [&str; 7] = [
-    "dashboard",
-    "forgejo",
-    "extension",
-    "proxy",
-    "project-os",
-    "tailnet",
-    "canlang-runtime",
-];
 
 fn main() {
     std::process::exit(run());

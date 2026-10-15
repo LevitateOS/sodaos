@@ -1,53 +1,17 @@
 use super::*;
 
 fn fixture() -> Payload {
-    let mut payload = Payload {
-        format: 3,
-        id: String::new(),
-        revision: "a".repeat(40),
-        architecture: "x86_64".to_string(),
-        core_os: "44.20260817.3.2".to_string(),
-        base: format!("quay.io/fedora/fedora-coreos@sha256:{}", "b".repeat(64)),
-        repository_prefix: "ghcr.io/example/sodaos".to_string(),
-        schema: 10,
-        presentation_sha256: "c".repeat(64),
-        host_packages_sha256: "d".repeat(64),
-        project_support: Default::default(),
-        images: BTreeMap::new(),
-        upgrade_from: Vec::new(),
-    };
-    payload.id = format!("{}.soda-{}", payload.core_os, &payload.revision[..12]);
-    for (i, name) in NAMES.iter().enumerate() {
-        let mut byte = [i as u8];
-        let _ = &mut byte;
-        payload.images.insert(
-            name.to_string(),
-            Image {
-                reference: format!(
-                    "{}-{name}@sha256:{}",
-                    payload.repository_prefix,
-                    "e".repeat(64)
-                ),
-                manifest: format!("sha256:{}", "e".repeat(64)),
-                config: format!("sha256:{}", buildx::sha256_hex(&[i as u8])),
-                archive_sha256: "1".repeat(64),
-            },
-        );
-    }
-    payload.project_support = soda_build_tools::project_support::ProjectSupport {
-        sha256: "f".repeat(64),
-        destination: soda_build_tools::project_support::DESTINATION.into(),
-        payload_path: soda_build_tools::project_support::PAYLOAD_PATH.into(),
-        project_image: payload.images["project-os"].config.clone(),
-    };
-    payload
+    serde_json::from_str(include_str!(
+        "../../../../lib/release-inputs/fixtures/payload-v4.json"
+    ))
+    .expect("shared v4 fixture")
 }
 
 #[test]
 fn payload_validation_matrix() {
     fixture().validate().unwrap();
     let mut bad = fixture();
-    bad.format = 2;
+    bad.format = 3;
     assert!(bad.validate().is_err());
     let mut bad = fixture();
     bad.revision = "dirty".to_string();
@@ -62,30 +26,29 @@ fn payload_validation_matrix() {
     bad.upgrade_from = vec!["unproved".to_string()];
     assert!(bad.validate().is_err());
     let mut bad = fixture();
-    bad.repository_prefix = "ghcr.io/example/soda\nImage=untrusted".to_string();
-    assert!(bad.validate().is_err());
-    let mut bad = fixture();
-    bad.images.remove("proxy");
-    assert_eq!(
-        bad.validate().unwrap_err().to_string(),
-        "complete image set required"
-    );
-    let mut bad = fixture();
-    bad.images.get_mut("dashboard").unwrap().reference =
-        "ghcr.io/example/dashboard:latest".to_string();
+    Role::Proxy.binding_mut(&mut bad.images).reference = "not-a-reference".to_string();
     assert!(bad
         .validate()
         .unwrap_err()
         .to_string()
-        .contains("invalid dashboard image binding"));
+        .contains("invalid proxy image binding"));
     let mut bad = fixture();
-    let forgejo = bad.images["forgejo"].config.clone();
-    bad.images.get_mut("extension").unwrap().config = forgejo;
+    bad.images.forgejo.provenance = soda_build_tools::payload::ImageProvenance::Soda {
+        revision: bad.revision.clone(),
+        base: "quay.io/other@sha256:".to_string() + &"0".repeat(64),
+    };
     assert!(bad
         .validate()
         .unwrap_err()
         .to_string()
-        .contains("independent image identity"));
+        .contains("invalid forgejo image provenance"));
+    let mut bad = fixture();
+    bad.optional_extensions.tailnet.package_id = "soda".to_string();
+    assert!(bad
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("invalid tailnet extension binding"));
 }
 
 #[test]
@@ -125,16 +88,16 @@ fn load_refuses_nonproducer_shapes_and_invalid_utf8() {
     let canonical = producer_payload_bytes(&fixture());
     let text = std::str::from_utf8(&canonical).unwrap();
     let cases = [
-        text.replacen(r#""Format": 3,"#, r#""format": 3,"#, 1),
-        text.replacen(r#""Format": 3,"#, r#""Format": null,"#, 1),
+        text.replacen(r#""Format": 4,"#, r#""format": 4,"#, 1),
+        text.replacen(r#""Format": 4,"#, r#""Format": null,"#, 1),
         text.replacen(
-            r#"  "Schema": 10,
+            r#"  "Schema": 1,
 "#,
             "",
             1,
         ),
-        text.replacen(r#""Schema": 10,"#, r#""Schema": "10","#, 1),
-        text.replacen(r#""Format": 3,"#, "\"Format\": 3,\n  \"Unknown\": true,", 1),
+        text.replacen(r#""Schema": 1,"#, r#""Schema": "1","#, 1),
+        text.replacen(r#""Format": 4,"#, "\"Format\": 4,\n  \"Unknown\": true,", 1),
         text.replacen(r#""Reference":"#, r#""reference":"#, 1),
     ];
     for invalid in cases {
@@ -163,36 +126,10 @@ fn load_refuses_nonproducer_shapes_and_invalid_utf8() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-fn producer_payload(payload: &Payload) -> soda_release_image::model::Payload {
-    soda_release_image::model::Payload {
-        format: payload.format,
-        id: payload.id.clone(),
-        revision: payload.revision.clone(),
-        architecture: payload.architecture.clone(),
-        core_os: payload.core_os.clone(),
-        base: payload.base.clone(),
-        repository_prefix: payload.repository_prefix.clone(),
-        schema: payload.schema,
-        presentation_sha256: payload.presentation_sha256.clone(),
-        host_packages_sha256: payload.host_packages_sha256.clone(),
-        project_support: payload.project_support.clone(),
-        images: payload
-            .images
-            .iter()
-            .map(|(name, image)| {
-                (
-                    name.clone(),
-                    soda_release_image::model::PayloadImage {
-                        reference: image.reference.clone(),
-                        config: image.config.clone(),
-                        manifest: image.manifest.clone(),
-                        archive_sha256: image.archive_sha256.clone(),
-                    },
-                )
-            })
-            .collect(),
-        upgrade_from: payload.upgrade_from.clone(),
-    }
+fn producer_payload(payload: &Payload) -> Payload {
+    // The installer and the release-image producer share the canonical
+    // Payload v4 definition; no conversion remains.
+    payload.clone()
 }
 
 fn producer_payload_bytes(payload: &Payload) -> Vec<u8> {
@@ -202,12 +139,17 @@ fn producer_payload_bytes(payload: &Payload) -> Vec<u8> {
 }
 
 fn payload_fixture() -> (Payload, String) {
+    use soda_build_tools::payload::ImageProvenance;
     let mut payload = fixture();
     let layout = crate::oci::test_support::temp_dir("soda-deliver");
     let mut configs = BTreeMap::new();
-    for name in NAMES {
-        let config = crate::oci::test_support::add_image(&layout, name, "amd64", &payload.revision);
-        configs.insert(config, name.to_string());
+    for role in Role::iter() {
+        let revision = match role.binding(&payload.images).provenance {
+            ImageProvenance::Soda { .. } => payload.revision.clone(),
+            ImageProvenance::Upstream { .. } => String::new(),
+        };
+        let config = crate::oci::test_support::add_image(&layout, role.name(), "amd64", &revision);
+        configs.insert(config, role.name().to_string());
     }
     // Fetch each manifest digest from the written index via the fixture
     // annotation add_image records.
@@ -225,15 +167,20 @@ fn payload_fixture() -> (Payload, String) {
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or_default();
             if let Some(name) = configs.get(config) {
-                let prefix = payload.repository_prefix.clone();
-                let image = payload.images.get_mut(name.as_str()).unwrap();
-                image.reference = format!("{prefix}-{name}@{digest}");
-                image.config = config.to_string();
-                image.manifest = digest.to_string();
+                let role = Role::from_name(name).expect("fixed role");
+                let binding = role.binding_mut(&mut payload.images);
+                let repo = binding
+                    .reference
+                    .rsplit_once('@')
+                    .map(|(repo, _)| repo.to_string())
+                    .unwrap_or_default();
+                binding.reference = format!("{repo}@{digest}");
+                binding.config = config.to_string();
+                binding.manifest = digest.to_string();
             }
         }
     }
-    payload.project_support.project_image = payload.images["project-os"].config.clone();
+    payload.project_support.project_image = Role::ProjectOs.binding(&payload.images).config.clone();
     payload.validate().unwrap();
     (payload, layout)
 }
@@ -242,18 +189,20 @@ fn payload_fixture() -> (Payload, String) {
 fn verify_content_binds_layout() {
     let (payload, layout) = payload_fixture();
     let (files, bytes) = verify_content(&payload, &layout).unwrap();
-    assert_eq!(files.len(), 2 * NAMES.len() + 3);
+    assert_eq!(files.len(), 2 * Role::iter().count() + 3);
     assert!(bytes > 0);
     let mut bad = payload.clone();
-    bad.images.get_mut("dashboard").unwrap().manifest = format!("sha256:{}", "9".repeat(64));
-    let reference = format!(
-        "{}-dashboard@{}",
-        bad.repository_prefix, bad.images["dashboard"].manifest
-    );
-    bad.images.get_mut("dashboard").unwrap().reference = reference;
+    let dashboard = Role::Dashboard.binding_mut(&mut bad.images);
+    dashboard.manifest = format!("sha256:{}", "9".repeat(64));
+    let repo = dashboard
+        .reference
+        .rsplit_once('@')
+        .map(|(repo, _)| repo.to_string())
+        .unwrap_or_default();
+    dashboard.reference = format!("{repo}@{}", dashboard.manifest.clone());
     assert!(verify_content(&bad, &layout).is_err());
     assert!(verify_content(&payload, "relative/layout").is_err());
     let mut bad = payload.clone();
-    bad.format = 2;
+    bad.format = 3;
     assert!(verify_content(&bad, &layout).is_err());
 }

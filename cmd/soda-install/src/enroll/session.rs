@@ -386,10 +386,8 @@ mod cleanup_result_tests {
 
     #[test]
     fn primary_and_close_failures_are_both_retained() {
-        let result = join_enrollment_result(
-            Err(Error::EnrollUncertain),
-            Err(Error::msg("close failed")),
-        );
+        let result =
+            join_enrollment_result(Err(Error::EnrollUncertain), Err(Error::msg("close failed")));
         let Error::EnrollmentCleanup { primary, cleanup } = result.unwrap_err() else {
             panic!("both errors should be retained");
         };

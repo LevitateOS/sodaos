@@ -165,3 +165,65 @@ fn tailnet_error_mapping() {
         BackendError::Internal
     ));
 }
+
+// -- lifecycle prepare/report (RCX-2 T01) --
+
+fn lifecycle_body(operation: &str) -> Vec<u8> {
+    let deadline = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs() as i64)
+        .unwrap_or(0)
+        + 300;
+    format!(
+        "{{\
+        \"controller_id\":\"soda\",\
+        \"controller_instance_id\":\"dddddddddddddddddddddddddddddddd\",\
+        \"package_id\":\"tailnet\",\
+        \"package_version\":\"1.0.0\",\
+        \"package_sha256\":\"{sha}\",\
+        \"installation_id\":\"550e8400-e29b-41d4-a716-446655440000\",\
+        \"generation\":\"7\",\
+        \"operation\":\"{operation}\",\
+        \"deadline_unix\":{deadline}}}",
+        sha = "b".repeat(64),
+    )
+    .into_bytes()
+}
+
+fn decode_lifecycle_observation(body: &[u8]) -> crate::tcontrol_wire::LifecycleObservation {
+    crate::json::decode_strict_as(body).expect("observation must strictly decode")
+}
+
+#[test]
+fn lifecycle_prepare_without_payload_is_unavailable() {
+    // The scratch backend carries no trusted payload path, so prepare
+    // reports unavailable before any spawn or effect.
+    let backend = backend_with_scratch_tailnet("lifecycle-prepare");
+    let err = backend
+        .tailnet("prepare", &lifecycle_body("activate"))
+        .unwrap_err();
+    assert!(matches!(err, BackendError::Unavailable));
+    let err = backend
+        .tailnet("prepare", &lifecycle_body("observe"))
+        .unwrap_err();
+    assert!(matches!(err, BackendError::Invalid));
+}
+
+#[test]
+fn lifecycle_report_answers_facts_without_effects() {
+    // No daemon answers on the scratch socket, so every operation
+    // reports a valid stopped observation with no grant.
+    let backend = backend_with_scratch_tailnet("lifecycle-report");
+    for operation in ["observe", "activate", "deactivate"] {
+        let body = lifecycle_body(operation);
+        let rendered = backend.tailnet("lifecycle", &body).expect(operation);
+        let call: crate::tcontrol_wire::LifecycleCall =
+            crate::json::decode_strict_as(&body).expect("call must decode");
+        let observation = decode_lifecycle_observation(&rendered);
+        crate::tcontrol_wire::validate_lifecycle_observation(&observation, &call)
+            .expect("report must validate");
+        assert!(observation.detail.len() <= 256);
+    }
+    let err = backend.tailnet("lifecycle", b"{}").unwrap_err();
+    assert!(matches!(err, BackendError::Invalid));
+}

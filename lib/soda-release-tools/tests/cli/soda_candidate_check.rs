@@ -173,7 +173,8 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
     let revision = payload["Revision"].as_str().unwrap().to_string();
     let arch = payload["Architecture"].as_str().unwrap().to_string();
     let base = payload["Base"].as_str().unwrap().to_string();
-    let prefix = payload["RepositoryPrefix"].as_str().unwrap().to_string();
+    let prefix = candidate["RepositoryPrefix"].as_str().unwrap().to_string();
+    let fountain_image = payload["Fountain"]["Image"].as_str().unwrap().to_string();
     let dir = TempDir::new("candidate-check-valid");
     let images_dir = dir.path.join("images");
     fs::create_dir_all(&images_dir).unwrap();
@@ -245,13 +246,13 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
         .collect();
     candidate["ContentSHA256"] = serde_json::to_value(&content).unwrap();
 
+    let mut image_archives = serde_json::Map::new();
     for name in [
         "dashboard",
         "forgejo",
-        "extension",
         "proxy",
+        "postgres",
         "project-os",
-        "tailnet",
         "canlang-runtime",
     ] {
         let mut files: Vec<(&str, &[u8])> = content_values
@@ -268,7 +269,8 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
                 b"fixture terminal support",
             ));
         }
-        let image_revision = if name == "proxy" { "" } else { &revision };
+        let soda = !matches!(name, "proxy" | "postgres");
+        let image_revision = if soda { revision.as_str() } else { "" };
         let archive = oci_archive(image_revision, name, &base, &files);
         let archive_path = images_dir.join(format!("{name}.oci"));
         fs::write(&archive_path, &archive).unwrap();
@@ -278,13 +280,27 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
             image_revision,
         )
         .expect("inspect generated payload image");
+        let reference = format!("{prefix}-{name}@{}", inspected.manifest);
+        let provenance = if soda {
+            let base = if name == "forgejo" {
+                fountain_image.clone()
+            } else {
+                base.clone()
+            };
+            serde_json::json!({"Kind": "Soda", "Revision": revision, "Base": base})
+        } else {
+            serde_json::json!({"Kind": "Upstream", "Requested": reference})
+        };
         payload["Images"][name] = serde_json::json!({
-            "Reference": format!("{prefix}-{name}@{}", inspected.manifest),
+            "Reference": reference,
             "Config": inspected.config,
             "Manifest": inspected.manifest,
-            "ArchiveSHA256": sha256_hex(&archive)
+            "Platform": "linux/amd64",
+            "Provenance": provenance
         });
+        image_archives.insert(name.to_string(), sha256_hex(&archive).into());
     }
+    candidate["ImageArchives"] = serde_json::Value::Object(image_archives);
 
     payload["ProjectSupport"]["SHA256"] = sha256_hex(b"fixture terminal support").into();
     payload["ProjectSupport"]["ProjectImage"] = payload["Images"]["project-os"]["Config"].clone();
@@ -344,11 +360,11 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
     assert!(stdout.is_empty(), "unexpected stdout: {stdout:?}");
     assert!(stderr.is_empty(), "unexpected stderr: {stderr:?}");
 
-    fs::write(images_dir.join("tailnet.oci"), b"truncated fixture archive").unwrap();
+    fs::write(images_dir.join("postgres.oci"), b"truncated fixture archive").unwrap();
     let (status, stdout, stderr) = run(&candidate_check_bin(), &dir.path, &args);
     assert_eq!(status, 1);
     assert!(stdout.is_empty(), "unexpected stdout: {stdout:?}");
-    assert!(stderr.contains("tailnet archive"), "{stderr:?}");
+    assert!(stderr.contains("postgres archive"), "{stderr:?}");
     assert_eq!(fs::read(payload_path).unwrap(), payload_before);
     assert_eq!(fs::read(candidate_path).unwrap(), candidate_before);
 }

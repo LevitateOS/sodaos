@@ -1,5 +1,7 @@
 use super::*;
 
+const FIXTURE: &str = include_str!("../../../release-inputs/fixtures/payload-v4.json");
+
 #[test]
 fn repository_prefix_shapes() {
     assert!(valid_repository_prefix("ghcr.io/example/sodaos"));
@@ -18,50 +20,34 @@ fn repository_prefix_shapes() {
 
 #[test]
 fn payload_identity_errors_match_go() {
-    let empty = Payload::default();
+    let payload: Payload =
+        crate::buildx::decode_build_json(FIXTURE.as_bytes()).expect("shared v4 fixture decodes");
+    payload.validate().expect("shared v4 fixture validates");
+    let old: Payload = crate::buildx::decode_build_json(
+        FIXTURE
+            .replacen("\"Format\":4", "\"Format\":3", 1)
+            .as_bytes(),
+    )
+    .expect("old format still decodes");
     assert_eq!(
-        empty.validate().unwrap_err(),
-        Error::msg("invalid appliance payload identity")
-    );
-    let mut bad_core = Payload {
-        format: 3,
-        revision: "a".repeat(40),
-        core_os: "44.1".to_string(),
-        ..Payload::default()
-    };
-    bad_core.id = format!("{}.soda-{}", bad_core.core_os, &bad_core.revision[..12]);
-    assert_eq!(
-        bad_core.validate().unwrap_err(),
-        Error::msg("invalid appliance payload identity")
+        old.validate().unwrap_err().to_string(),
+        "invalid appliance payload identity"
     );
 }
 
 #[test]
-fn payload_raw_slots_keep_only_the_last_exact_value() {
-    let payload: Payload = crate::buildx::decode_build_json(br#"{"Format":1.5,"Format":-0,"ID":"old","ID":"new","Schema":-0,"Images":{"x":{"Reference":7,"Reference":"ok"}}}"#).unwrap();
-    assert_eq!(payload.format, 0);
-    assert_eq!(payload.id, "new");
-    assert_eq!(payload.schema, 0);
-    assert_eq!(payload.images["x"].reference, "ok");
-
-    assert!(crate::buildx::decode_build_json(br#"{"Format":-0.0}"#).is_err());
-    assert!(crate::buildx::decode_build_json(br#"{"Format":1e0}"#).is_err());
-    assert!(crate::buildx::decode_build_json(br#"{"Format":9223372036854775808}"#).is_err());
-    let reset: Payload =
-        crate::buildx::decode_build_json(br#"{"Format":3,"Format":null}"#).unwrap();
-    assert_eq!(reset.format, 0);
-}
-
-#[test]
-fn images_map_decodes_only_the_last_duplicate_entry() {
-    let payload: Payload = crate::buildx::decode_build_json(
-        br#"{"Images":{"x":{"Reference":false},"x":{"Reference":"winner"}}}"#,
-    )
-    .unwrap();
-    assert_eq!(payload.images["x"].reference, "winner");
-
-    assert!(crate::buildx::decode_build_json(
-        br#"{"Images":{"x":{"Reference":"valid"},"x":{"Reference":false}}}"#,
-    )
-    .is_err());
+fn payload_decode_rejects_unknown_duplicate_and_trailing_shapes() {
+    // Unknown top-level fields keep Go's unknown-field text.
+    let unknown = FIXTURE.replacen("\"Schema\":1", "\"Schema\":1,\"RepositoryPrefix\":\"x\"", 1);
+    assert_eq!(
+        crate::buildx::decode_build_json(unknown.as_bytes()).unwrap_err(),
+        Error::msg("json: unknown field \"RepositoryPrefix\"")
+    );
+    // Duplicate role keys fail instead of last-wins.
+    let duplicated = FIXTURE.replacen("\"dashboard\":{", "\"dashboard\":{},\"dashboard\":{", 1);
+    assert!(crate::buildx::decode_build_json(duplicated.as_bytes()).is_err());
+    // Trailing data fails.
+    let mut trailing = FIXTURE.as_bytes().to_vec();
+    trailing.extend_from_slice(b"{}");
+    assert!(crate::buildx::decode_build_json(&trailing).is_err());
 }

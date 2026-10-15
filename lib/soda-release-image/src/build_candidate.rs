@@ -24,8 +24,20 @@ pub fn build_host_candidate(
     production: &dyn Production,
     inventory: &crate::sys::ShippingInventory,
     upgrade_from: &str,
+    release_tag: &str,
     next: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<(), Error> {
+    // The sealed Payload v4 inputs ride the admitted request and the
+    // frozen production: an empty default fails staging closed with the
+    // exact missing input named.
+    let release = crate::native_package::ReleaseInputs {
+        release_tag: release_tag.to_string(),
+        fountain: production.frozen_fountain_release().unwrap_or_default(),
+        proxy_requested: production.frozen_upstream_requested("proxy"),
+        postgres_requested: production.frozen_upstream_requested("postgres"),
+        tailscale: production.frozen_tailscale_binding().unwrap_or_default(),
+        source_timestamp: production.source_timestamp().unwrap_or(0),
+    };
     let mut payload = payload_stage::complete_candidate(
         snapshot,
         context_dir,
@@ -36,6 +48,7 @@ pub fn build_host_candidate(
         base,
         production,
         inventory.commands(),
+        &release,
         next,
     )?;
     if !upgrade_from.is_empty() {
@@ -59,7 +72,7 @@ pub fn build_host_candidate(
     let package_hash =
         host::record_host_packages(context_dir, artifacts, &observation, production)?;
     payload.host_packages_sha256 = package_hash.clone();
-    payload_stage::seal_candidate_payload(&payload, snapshot, context_dir, artifacts, production)?;
+    payload_stage::seal_candidate_payload(&payload, snapshot, context_dir, artifacts)?;
     record::write_content_inventory(context_dir, artifacts, production.native())?;
     prepare::inventory(context_dir)?;
     let id = host::build_host_image(

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use crate::buildx::{
     is_digest, is_revision, oci_architecture, ForgejoToolchain, Image as BuildImage,
 };
-use crate::payload::Payload;
+use crate::payload::{valid_repository_prefix, Payload};
 use crate::{hash_bytes, is_digest_ref, Error};
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,17 @@ pub struct Candidate {
     #[serde(rename = "HostArchiveSHA256")]
     #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub host_archive_sha256: String,
+    /// Repository policy for this candidate's image references. The v4
+    /// payload no longer carries it; build/publication metadata does.
+    #[serde(rename = "RepositoryPrefix")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
+    pub repository_prefix: String,
+    /// Expected per-image OCI archive hashes of the delivered candidate
+    /// transport, keyed by fixed role name. The runtime payload carries no
+    /// per-image archive checksums by design.
+    #[serde(rename = "ImageArchives")]
+    #[serde(deserialize_with = "crate::json_serde::null_default")]
+    pub image_archives: BTreeMap<String, String>,
     #[serde(rename = "PayloadSHA256")]
     #[serde(deserialize_with = "crate::json_serde::null_default")]
     pub payload_sha256: String,
@@ -45,7 +56,7 @@ pub struct Candidate {
 }
 
 fn valid_candidate_host(c: &Candidate, p: &Payload, arch: &str) -> bool {
-    c.host_reference == format!("{}-host@{}", p.repository_prefix, c.host.manifest)
+    c.host_reference == format!("{}-host@{}", c.repository_prefix, c.host.manifest)
         && is_digest_ref(&c.host.manifest)
         && is_digest_ref(&c.host.config)
         && is_digest(&c.host_archive_sha256)
@@ -196,7 +207,7 @@ fn known_candidate_content_name(file: &str) -> bool {
 impl Candidate {
     pub fn validate(&self, p: &Payload, payload: &[u8]) -> Result<(), Error> {
         let arch = oci_architecture(&p.architecture).map_err(|e| Error::msg(e.0))?;
-        if p.validate().is_err() {
+        if p.validate().is_err() || !valid_repository_prefix(&self.repository_prefix) {
             return Err(Error::refused());
         }
         if !valid_candidate_host(self, p, arch) || !valid_candidate_provenance(self, p, payload) {

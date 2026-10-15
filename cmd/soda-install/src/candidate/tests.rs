@@ -1,6 +1,7 @@
 use super::*;
-use crate::deliver::NAMES;
-use std::collections::BTreeMap;
+use crate::deliver::Role;
+
+const FIXTURE: &str = include_str!("../../../../lib/release-inputs/fixtures/payload-v4.json");
 
 pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
     let root = crate::oci::test_support::temp_dir("soda-candidate");
@@ -8,71 +9,55 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
     std::fs::create_dir_all(&images).unwrap();
     let revision = "a".repeat(40);
     let hash = "b".repeat(64);
-    let mut image_map = BTreeMap::new();
-    for name in NAMES {
-        let reference = crate::oci::test_support::add_image(&images, name, "amd64", &revision);
+    let base = format!("quay.io/fedora/fedora-coreos@sha256:{hash}");
+    let mut payload: deliver::Payload = serde_json::from_str(FIXTURE).unwrap();
+    // Pin the fixture to this candidate's revision, release and base.
+    payload.revision = revision.clone();
+    payload.core_os = "44.20260817.3.2".to_string();
+    payload.id = format!("{}.soda-{}", payload.core_os, &revision[..12]);
+    payload.base = base.clone();
+    for role in Role::iter() {
+        let binding = role.binding_mut(&mut payload.images);
+        if let soda_build_tools::payload::ImageProvenance::Soda {
+            revision: revision_slot,
+            base: base_slot,
+        } = &mut binding.provenance
+        {
+            *revision_slot = revision.clone();
+            if role != Role::Forgejo {
+                *base_slot = base.clone();
+            }
+        }
+        let built = crate::oci::test_support::add_image(&images, role.name(), "amd64", &revision);
         // Fetch the manifest digest from the written index.
         let index = std::fs::read(format!("{images}/index.json")).unwrap();
         let value: serde_json::Value = serde_json::from_slice(&index).unwrap();
-        let mut manifest = String::new();
         if let Some(items) = value.get("manifests").and_then(serde_json::Value::as_array) {
             for item in items {
                 let got = item
                     .get("annotations")
                     .and_then(|v| v.get("org.opencontainers.image.ref.name"))
                     .and_then(serde_json::Value::as_str);
-                if got == Some(reference.as_str()) {
-                    manifest = item
+                if got == Some(built.as_str()) {
+                    let manifest = item
                         .get("digest")
                         .and_then(serde_json::Value::as_str)
                         .unwrap_or_default()
                         .to_string();
+                    let repo = binding
+                        .reference
+                        .rsplit_once('@')
+                        .map(|(repo, _)| repo.to_string())
+                        .unwrap_or_default();
+                    binding.reference = format!("{repo}@{manifest}");
+                    binding.config = built.clone();
+                    binding.manifest = manifest;
                 }
             }
         }
-        image_map.insert(
-            name.to_string(),
-            deliver::Image {
-                reference: format!("ghcr.io/example/sodaos-{name}@{manifest}"),
-                config: reference,
-                manifest,
-                archive_sha256: "1".repeat(64),
-            },
-        );
     }
-    let payload = soda_release_image::model::Payload {
-        format: 3,
-        id: format!("44.20260817.3.2.soda-{}", &revision[..12]),
-        revision: revision.clone(),
-        architecture: crate::run::architecture(),
-        core_os: "44.20260817.3.2".to_string(),
-        base: format!("quay.io/fedora/fedora-coreos@sha256:{hash}"),
-        repository_prefix: "ghcr.io/example/sodaos".to_string(),
-        schema: 10,
-        presentation_sha256: hash.clone(),
-        host_packages_sha256: hash.clone(),
-        project_support: soda_build_tools::project_support::ProjectSupport {
-            sha256: hash.clone(),
-            destination: soda_build_tools::project_support::DESTINATION.into(),
-            payload_path: soda_build_tools::project_support::PAYLOAD_PATH.into(),
-            project_image: image_map["project-os"].config.clone(),
-        },
-        images: image_map
-            .into_iter()
-            .map(|(name, image)| {
-                (
-                    name,
-                    soda_release_image::model::PayloadImage {
-                        reference: image.reference,
-                        config: image.config,
-                        manifest: image.manifest,
-                        archive_sha256: image.archive_sha256,
-                    },
-                )
-            })
-            .collect(),
-        upgrade_from: Vec::new(),
-    };
+    payload.project_support.sha256 = hash.clone();
+    payload.project_support.project_image = Role::ProjectOs.binding(&payload.images).config.clone();
     payload.validate().unwrap();
     let mut raw = serde_json::to_vec_pretty(&payload).unwrap();
     raw.push(b'\n');
@@ -142,11 +127,12 @@ fn requirement_authenticates_all_images() {
     let (root2, media2, _) = candidate_root_fixture();
     let images2 = format!("{root2}{}", deliver::IMAGES_PATH);
     let payload2 = deliver::load(&format!("{root2}{}", deliver::PATH)).unwrap();
-    let tailnet = payload2.images["tailnet"]
+    let canlang = Role::CanlangRuntime
+        .binding(&payload2.images)
         .config
         .trim_start_matches("sha256:")
         .to_string();
-    std::fs::remove_file(format!("{images2}/blobs/sha256/{tailnet}")).unwrap();
+    std::fs::remove_file(format!("{images2}/blobs/sha256/{canlang}")).unwrap();
     assert!(candidate_requirement(&media2, &root2).is_err());
 }
 

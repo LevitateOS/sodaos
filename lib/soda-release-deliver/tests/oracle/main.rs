@@ -61,7 +61,10 @@ fn merge_policy_matches_oracle_semantically() {
     let got: JsonValue = serde_json::from_slice(&merged).unwrap();
     let repository = format!("{}-release", trust.prefix);
     let requirement = &got["transports"]["docker"][&repository][0];
-    assert_eq!(requirement["signedIdentity"]["dockerRepository"], repository);
+    assert_eq!(
+        requirement["signedIdentity"]["dockerRepository"],
+        repository
+    );
     assert_eq!(requirement["type"], "sigstoreSigned");
 
     let conflict = format!(

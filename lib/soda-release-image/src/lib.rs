@@ -14,13 +14,13 @@
 #![allow(clippy::too_many_arguments)]
 
 pub mod build;
-mod canlang;
 pub mod build_candidate;
 pub mod build_compile;
 pub mod build_context;
 pub mod build_media;
 pub mod build_runner;
 pub mod build_source;
+mod canlang;
 pub mod complete;
 pub mod compression;
 pub mod error;
@@ -33,13 +33,13 @@ pub mod host;
 pub mod ignition;
 pub mod inspect;
 pub mod jsonio;
-pub mod layout;
 pub mod media;
 mod media_assembler;
 mod media_authentication;
 mod media_container;
 mod media_installer;
 pub mod model;
+pub mod native_package;
 pub mod packages;
 pub mod payload_stage;
 pub mod prepare;

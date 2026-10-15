@@ -12,92 +12,59 @@ use crate::model;
 use crate::request;
 use crate::sys;
 
-/// These are the actual bytes staged into the host and component images. The
-/// archive identities in the payload bind the images; this inventory names
-/// the fork, independent package, and host service inputs within those images.
+/// These are the actual bytes staged into the host and component images.
+/// The archive identities in the payload bind the images; this inventory
+/// names Soda's own staged binaries, the generated service Quadlets, the
+/// trusted extension catalog, the canlang runtime evidence, the selected
+/// Fountain release proof, and the two sealed native packages. No fork
+/// binary, extension OCI tree, or installer unit remains.
 pub fn candidate_content(out: &str, native: &str) -> Result<Vec<(String, String)>, Error> {
     let root = sys::dir_name(out);
-    let mut paths: Vec<(String, String)> = [
+    let host = |installed: &str| {
         (
-            "dashboard:/usr/local/bin/soda-dashboard",
-            sys::join(&[native, "bin/soda-dashboard"]),
-        ),
-        (
-            "forgejo:/usr/local/bin/gitea",
-            sys::join(&[out, "forgejo-context/forgejo-bin"]),
-        ),
-        (
-            "extension:/usr/local/bin/gitea",
-            sys::join(&[out, "forgejo-context/forgejo-bin"]),
-        ),
-        (
-            "extension:/usr/share/soda/extension/extension.json",
-            sys::join(&[out, "extension-context/extension/extension.json"]),
-        ),
-        (
-            "extension:/usr/share/soda/extension/backend",
-            sys::join(&[out, "extension-context/extension/backend"]),
-        ),
-        (
-            "extension:/usr/share/soda/extension/run",
-            sys::join(&[out, "extension-context/extension/run"]),
-        ),
-        (
-            "host:/usr/share/containers/systemd/forgejo.container",
-            sys::join(&[
-                &root,
-                "work/host-context/rootfs/usr/share/containers/systemd/forgejo.container",
-            ]),
-        ),
-        (
-            "host:/usr/share/containers/systemd/soda-dashboard.container",
-            sys::join(&[
-                &root,
-                "work/host-context/rootfs/usr/share/containers/systemd/soda-dashboard.container",
-            ]),
-        ),
-        (
-            "host:/usr/lib/systemd/system/soda-extension-install.service",
-            sys::join(&[
-                &root,
-                "work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service",
-            ]),
-        ),
-    ]
-    .into_iter()
-    .map(|(a, b)| (a.to_string(), b))
-    .collect();
-    paths.extend(crate::canlang::runtime_content(native)?);
-    for name in ["release.json", "canlang-tools-linux-x86_64.tar.gz"] {
-        let installed = format!("/usr/share/soda/canlang-tools/{name}");
-        paths.push((
             format!("host:{installed}"),
             sys::join(&[
                 &root,
                 "work/host-context/rootfs",
                 installed.trim_start_matches('/'),
             ]),
+        )
+    };
+    let mut paths: Vec<(String, String)> = [
+        (
+            "dashboard:/usr/local/bin/soda-dashboard".to_string(),
+            sys::join(&[native, "bin/soda-dashboard"]),
+        ),
+        host("/usr/share/containers/systemd/forgejo.container"),
+        host("/usr/share/containers/systemd/soda-dashboard.container"),
+        host("/usr/share/containers/systemd/soda-proxy.container"),
+        host("/usr/share/containers/systemd/soda-postgres.container"),
+        host("/usr/share/soda/extensions/catalog.json"),
+        host("/usr/share/soda/canlang-tools/release.json"),
+        host("/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz"),
+        (
+            "release:fountain-release.json".to_string(),
+            sys::join(&[out, "fountain-release.json"]),
+        ),
+    ]
+    .into_iter()
+    .collect();
+    paths.extend(crate::canlang::runtime_content(native)?);
+    let mut packages: Vec<String> = Vec::new();
+    for entry in fs::read_dir(sys::join(&[out, "packages"]))? {
+        let entry = entry.map_err(|e| Error::msg(e.to_string()))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.ends_with(".tar.gz") {
+            packages.push(name);
+        }
+    }
+    packages.sort();
+    for name in packages {
+        paths.push((
+            format!("package:{name}"),
+            sys::join(&[out, "packages", &name]),
         ));
     }
-    let assets = sys::join(&[out, "extension-context/extension/assets"]);
-    sys::walk(&assets, |path, is_dir, _| {
-        if is_dir {
-            return Ok(());
-        }
-        let info = fs::symlink_metadata(path)?;
-        if !info.file_type().is_file() {
-            return Err(Error::msg("extension asset must be regular"));
-        }
-        let rel = sys::rel_path(&assets, path)?;
-        paths.push((
-            format!(
-                "extension:/usr/share/soda/extension/assets/{}",
-                sys::to_slash(&rel)
-            ),
-            path.to_string(),
-        ));
-        Ok(())
-    })?;
     let mut files: Vec<(String, String)> = Vec::new();
     let mut sorted = paths;
     sorted.sort_by(|a, b| a.0.cmp(&b.0));
@@ -152,7 +119,7 @@ pub fn record_build_result(
         checks: [
             "ELF architecture",
             "Application OCI identities",
-            "Host identity, RPM inventory, shared layout and Quadlets",
+            "Host identity, RPM inventory, thin content and Quadlets",
             "Host OCI export",
         ]
         .into_iter()
@@ -223,7 +190,7 @@ pub fn record_candidate(
         forgejo_revision: forgejo_revision.to_string(),
         architecture: arch.to_string(),
         migration: "No upgrade or writable-install migration is qualified. Conflicting saved image selections are refused; machine settings/secrets require explicit first-install setup.".to_string(),
-        notes: "Complete unsigned local appliance payload only. All app content is embedded in one shared OCI layout for ordinary Podman import; repository names are intended, not provisioned. No production, native boot, signature or recovery acceptance.".to_string(),
+        notes: "Complete unsigned local appliance payload only. Application images bind by digest for boot-time acquisition; native packages bind by catalog; repository names are intended, not provisioned. No production, native boot, signature or recovery acceptance.".to_string(),
         ..model::Candidate::default()
     };
     record_candidate_inputs(out, native, &mut record)?;
@@ -250,11 +217,41 @@ pub fn record_candidate_inputs(
             ))
         }
     }
-    record.forgejo_source_sha256 = sys::hash_file(&sys::join(&[out, "forgejo-source.tar"]))?;
-    let toolchain_text = sys::read_json_build_text(&sys::join(&[out, "forgejo-toolchain.json"]))?;
-    record.forgejo_toolchain = model::ForgejoToolchain::parse(&toolchain_text)?;
-    record.forgejo_toolchain.validate()?;
+    // The selected Fountain release/source proof replaces the local fork
+    // toolchain proof: the admitted revision must equal the proof's source
+    // revision, and the proof file's own hash becomes the source identity.
+    let proof = sys::join(&[out, "fountain-release.json"]);
+    let proof_text = fs::read(&proof)
+        .map_err(|e| Error::msg(format!("missing selected Fountain release proof: {e}")))?;
+    record.forgejo_source_sha256 = sys::hex_sha256(&proof_text);
+    let release: model::FountainRelease = serde_json::from_slice(&proof_text)
+        .map_err(|e| Error::msg(format!("invalid Fountain release proof: {e}")))?;
+    if release.source_revision != record.forgejo_revision {
+        return Err(Error::msg(
+            "selected Fountain source revision differs from the admitted revision",
+        ));
+    }
     record.content_sha256 = candidate_content(out, native)?;
+    // The four built OCI archives plus the two sealed native packages ride
+    // the candidate as transport metadata; upstream proxy/postgres/tailscale
+    // bind by identity in the payload and carry no local archive.
+    let mut archives = Vec::new();
+    for name in ["dashboard", "project-os", "canlang-runtime", "forgejo"] {
+        let archive = format!("images/{name}.oci");
+        archives.push((
+            archive.clone(),
+            sys::hash_file(&sys::join(&[out, &archive]))?,
+        ));
+    }
+    for (name, checksum) in &record.content_sha256 {
+        if let Some(package) = name.strip_prefix("packages/") {
+            if package.ends_with(".tar.gz") {
+                archives.push((name.clone(), checksum.clone()));
+            }
+        }
+    }
+    archives.sort_by(|a, b| a.0.cmp(&b.0));
+    record.image_archives = archives;
     verify_embedded_content_inventory(out, &record.content_sha256)?;
     record.payload_sha256 = sys::hash_file(&sys::join(&[out, "payload.json"]))?;
     Ok(())
@@ -281,24 +278,20 @@ pub fn verify_embedded_content_inventory(
 mod tests {
     use super::*;
 
-    #[test]
-    fn shipping_inventory_reads_component_producers() {
-        let dir = std::env::temp_dir().join(format!("sri-content-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
+    fn thin_inventory_fixture(dir: &std::path::Path) -> (String, String) {
         let out = dir.join("artifacts");
         let native = dir.join("native");
         for (path, bytes) in [
             (native.join("bin/soda-dashboard"), b"dashboard".as_slice()),
-            (out.join("forgejo-context/forgejo-bin"), b"forgejo"),
-            (out.join("extension-context/extension/extension.json"), b"{}"),
-            (out.join("extension-context/extension/backend"), b"backend"),
-            (out.join("extension-context/extension/run"), b"run"),
-            (out.join("extension-context/extension/assets/app.js"), b"app"),
             (dir.join("work/host-context/rootfs/usr/share/containers/systemd/forgejo.container"), b"forgejo unit"),
             (dir.join("work/host-context/rootfs/usr/share/containers/systemd/soda-dashboard.container"), b"dashboard unit"),
-            (dir.join("work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service"), b"extension unit"),
+            (dir.join("work/host-context/rootfs/usr/share/containers/systemd/soda-proxy.container"), b"proxy unit"),
+            (dir.join("work/host-context/rootfs/usr/share/containers/systemd/soda-postgres.container"), b"postgres unit"),
+            (dir.join("work/host-context/rootfs/usr/share/soda/extensions/catalog.json"), b"catalog"),
             (dir.join("work/host-context/rootfs/usr/share/soda/canlang-tools/release.json"), b"tools reference"),
             (dir.join("work/host-context/rootfs/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz"), b"admitted archive"),
+            (out.join("packages/soda-extension-0.1.0-linux-x86_64.tar.gz"), b"soda package"),
+            (out.join("packages/tailnet-extension-0.1.0-linux-x86_64.tar.gz"), b"tailnet package"),
             (native.join("project-tools/canlang/tools.json"), b"tools inventory"),
             (native.join("project-tools/canlang/licenses/Canlang-LICENSE"), b"Canlang attribution"),
             (native.join("project-tools/canlang/licenses/Node-LICENSE"), b"Node attribution"),
@@ -308,18 +301,63 @@ mod tests {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, bytes).unwrap();
         }
-        let content = candidate_content(out.to_str().unwrap(), native.to_str().unwrap()).unwrap();
+        fs::write(
+            out.join("fountain-release.json"),
+            br#"{"Format":4,"Version":"9.9","Image":"example.invalid/f@sha256:a","ImageConfig":"sha256:b","SourceRevision":"c","Source":{"URL":"https://example.invalid/s","Bytes":1,"SHA256":"d"},"PreparedSource":{"URL":"https://example.invalid/p","Bytes":1,"SHA256":"e"},"Metadata":{"URL":"https://example.invalid/m","Bytes":1,"SHA256":"f"},"ExtensionProtocol":1,"BrowserContract":1}"#,
+        )
+        .unwrap();
+        (
+            out.to_str().unwrap().to_string(),
+            native.to_str().unwrap().to_string(),
+        )
+    }
+
+    #[test]
+    fn shipping_inventory_reads_component_producers() {
+        let dir = std::env::temp_dir().join(format!("sri-content-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let (out, native) = thin_inventory_fixture(&dir);
+        let content = candidate_content(&out, &native).unwrap();
         assert!(content.contains(&(
             "dashboard:/usr/local/bin/soda-dashboard".to_string(),
             files::hash_bytes(b"dashboard")
         )));
         assert!(content.contains(&(
-            "extension:/usr/share/soda/extension/backend".to_string(),
-            files::hash_bytes(b"backend")
+            "host:/usr/share/soda/extensions/catalog.json".to_string(),
+            files::hash_bytes(b"catalog")
         )));
+        assert!(content.contains(&(
+            "package:soda-extension-0.1.0-linux-x86_64.tar.gz".to_string(),
+            files::hash_bytes(b"soda package")
+        )));
+        assert!(content.contains(&(
+            "package:tailnet-extension-0.1.0-linux-x86_64.tar.gz".to_string(),
+            files::hash_bytes(b"tailnet package")
+        )));
+        // No fork binary, extension OCI tree, or installer unit remains.
+        assert!(content
+            .iter()
+            .all(|(name, _)| !name.starts_with("extension:")));
+        assert!(content
+            .iter()
+            .all(|(name, _)| !name.starts_with("forgejo:")));
         assert!(!dir
             .join("work/host-context/rootfs/usr/libexec/soda/soda-dashboard")
             .exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn shipping_inventory_requires_two_packages() {
+        let dir = std::env::temp_dir().join(format!("sri-content-pkg-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let (out, native) = thin_inventory_fixture(&dir);
+        fs::remove_file(dir.join("artifacts/packages/tailnet-extension-0.1.0-linux-x86_64.tar.gz"))
+            .unwrap();
+        assert_eq!(
+            candidate_content(&out, &native).unwrap_err().0,
+            "incomplete candidate content inventory"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 

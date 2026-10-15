@@ -18,7 +18,6 @@ mod release_inventory;
 mod release_operation;
 mod release_stage;
 mod release_target;
-mod release_validation;
 mod release_wire;
 mod sha256;
 mod stage;

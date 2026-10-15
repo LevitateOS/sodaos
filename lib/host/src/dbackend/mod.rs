@@ -124,6 +124,9 @@ pub struct BackendConfig {
     pub muse_harness_version: String,
     pub broker_socket: String,
     pub tailnet_image: String,
+    /// Trusted current release payload path for lifecycle prepare's fixed
+    /// importer ensure. Empty disables prepare; it never defaults.
+    pub release_payload: String,
     /// `Some` exactly when the operator configured a muse release digest
     /// (Go wires `d.Muse` only then).
     pub muse: Option<MuseConfig>,
@@ -164,6 +167,7 @@ pub struct DaemonBackend {
     codex_harness: String,
     broker_socket: String,
     factory_state_dir: String,
+    release_payload: String,
     next_session: AtomicU64,
 }
 
@@ -209,6 +213,7 @@ impl DaemonBackend {
             codex_harness: cfg.codex_harness,
             broker_socket: broker_socket.clone(),
             factory_state_dir: factory_state_dir.to_string(),
+            release_payload: cfg.release_payload,
             next_session: AtomicU64::new(1),
         }
     }

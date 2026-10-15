@@ -38,6 +38,15 @@ pub struct Config {
     pub muse_harness_sha256: String,
     pub muse_harness_version: String,
     pub tailnet_management: bool,
+    /// Trusted tailnet package version from the selected release payload.
+    /// Derived only from the selected release; not an operator JSON
+    /// override. Empty means no trusted release was loaded.
+    pub tailnet_package_version: String,
+    /// Trusted tailnet package archive digest from the selected release.
+    pub tailnet_package_sha256: String,
+    /// Trusted current release payload path from daemon invocation, for
+    /// prepare's fixed importer ensure. Empty disables prepare.
+    pub release_payload: String,
     pub tailnet_image: String,
     pub image: String,
     pub network: String,
@@ -142,16 +151,17 @@ fn apply_release_images(c: &mut Config, release_path: &str) -> Result<(), String
     if !host_payload_architecture_is_native(&payload.architecture) {
         return Err(UNAVAILABLE.to_string());
     }
-    let project_image = payload
-        .images
-        .get("project-os")
-        .map(|i| i.config.as_str())
-        .unwrap_or("");
+    let project_image = soda_release_deliver::payload::Role::ProjectOs
+        .binding(&payload.images)
+        .config
+        .as_str();
     let companion_image = payload
+        .optional_extensions
+        .tailnet
         .images
-        .get("tailnet")
-        .map(|i| i.config.as_str())
-        .unwrap_or("");
+        .tailscale
+        .config
+        .as_str();
     if (!c.image.is_empty() && c.image != project_image)
         || (!c.tailnet_image.is_empty() && c.tailnet_image != companion_image)
     {
@@ -161,6 +171,21 @@ fn apply_release_images(c: &mut Config, release_path: &str) -> Result<(), String
         );
     }
     c.image = project_image.to_string();
+    let tailnet_package = payload
+        .extension_catalog
+        .packages
+        .iter()
+        .find(|package| package.id == "tailnet");
+    match tailnet_package {
+        Some(package) => {
+            c.tailnet_package_version = package.version.clone();
+            c.tailnet_package_sha256 = package.sha256.clone();
+        }
+        None => {
+            c.tailnet_package_version.clear();
+            c.tailnet_package_sha256.clear();
+        }
+    }
     let tools = std::path::Path::new(release_path)
         .parent()
         .unwrap_or(std::path::Path::new("/"))
@@ -221,10 +246,8 @@ fn selected_canlang_runtime(
             return Err("invalid Canlang tools reference".into());
         }
         let selected = crate::application::ReleaseBinding {
-            image: payload
-                .images
-                .get("canlang-runtime")
-                .ok_or("selected Canlang runtime unavailable")?
+            image: soda_release_deliver::payload::Role::CanlangRuntime
+                .binding(&payload.images)
                 .config
                 .clone(),
             tools_sha256: tools.sha256,
@@ -352,6 +375,7 @@ pub fn load_config(path: &str, release_path: &str) -> Result<Config, String> {
     let mut c = Option::<Config>::deserialize(&mut deserializer)
         .map_err(|e| e.to_string())?
         .unwrap_or_default();
+    c.release_payload = release_path.to_string();
     apply_release_images(&mut c, release_path)?;
     validate_runtime_config(&c)?;
     Ok(c)

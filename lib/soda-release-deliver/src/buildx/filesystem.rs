@@ -260,8 +260,8 @@ pub fn write_new(path: &str, data: &[u8], mode: u32) -> Result<(), Error> {
 }
 
 /// `build.ReadJSONAt` decode step: bounded strict-shape JSON with Go's
-/// unknown-field error text. Duplicate keys keep Go's last-wins rule here
-/// (unlike `strictjson`), matching `encoding/json` exactly.
+/// unknown-field error text. The canonical v4 shape rejects unknown fields,
+/// duplicate keys and trailing data; validation stays with the caller.
 pub fn decode_build_json(data: &[u8]) -> Result<Payload, Error> {
     if data.len() > 4 << 20 {
         return Err(Error::msg("JSON input exceeds limit"));

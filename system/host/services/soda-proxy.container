@@ -1,11 +1,13 @@
 [Unit]
 Description=Private Soda browser HTTPS endpoints
-After=soda-dashboard.service forgejo.service
+After=soda-image-import.service soda-dashboard.service forgejo.service
+Requires=soda-image-import.service
 ConditionPathExists=/etc/soda/activated
 
 [Container]
 Image=docker.io/library/caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
 ContainerName=soda-proxy
+Pull=never
 Network=host
 Volume=/etc/soda/proxy.Caddyfile:/etc/caddy/Caddyfile:ro,Z
 Volume=/etc/soda/tls:/etc/soda/tls:ro,Z

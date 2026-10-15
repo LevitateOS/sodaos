@@ -96,10 +96,13 @@ impl DockerQualification {
         let factory = &self.factory;
         let persistence = &self.persistence;
         let payload: crate::payload::Payload = assets::read_json(&directory.join("payload.json"))?;
-        let configs = payload
-            .images
-            .iter()
-            .map(|(name, image)| (name.clone(), image.config.clone()))
+        let configs = soda_build_tools::payload::Role::iter()
+            .map(|role| {
+                (
+                    role.name().to_string(),
+                    role.binding(&payload.images).config.clone(),
+                )
+            })
             .collect::<BTreeMap<_, _>>();
         if self.format != 1
             || native.tag != manifest.tag

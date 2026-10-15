@@ -11,7 +11,7 @@ use soda_host::project::admission;
 
 use crate::filesystem::{open_tool, verify_native};
 use crate::project::Observation;
-use crate::release_validation::is_hex_string;
+use crate::release::is_hex_string;
 use crate::support_root::Root;
 
 pub(crate) const SCRIPT: &str = include_str!("terminal_support.sh");

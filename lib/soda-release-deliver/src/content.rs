@@ -3,22 +3,19 @@
 use std::collections::BTreeMap;
 
 use crate::oci::{inspect_oci_layout, OciLayout};
-use crate::payload::{Payload, NAMES};
+use crate::payload::{Payload, Role};
 use crate::Error;
 
 fn bind_image_revisions(p: &Payload) -> Result<BTreeMap<String, String>, Error> {
+    use soda_build_tools::payload::ImageProvenance;
     let mut revisions: BTreeMap<String, String> = BTreeMap::new();
-    for name in NAMES {
-        let revision = if name == "proxy" {
-            String::new()
-        } else {
-            p.revision.clone()
+    for role in Role::iter() {
+        let binding = role.binding(&p.images);
+        let revision = match binding.provenance {
+            ImageProvenance::Soda { .. } => p.revision.clone(),
+            ImageProvenance::Upstream { .. } => String::new(),
         };
-        let reference = p
-            .images
-            .get(name)
-            .map(|i| i.config.clone())
-            .unwrap_or_default();
+        let reference = binding.config.clone();
         if let Some(previous) = revisions.get(&reference) {
             if *previous != revision {
                 return Err(Error::msg("conflicting OCI source bindings"));
@@ -30,8 +27,9 @@ fn bind_image_revisions(p: &Payload) -> Result<BTreeMap<String, String>, Error> 
 }
 
 fn match_layout_identities(p: &Payload, layout: &OciLayout) -> Result<(), Error> {
-    for name in NAMES {
-        let expected = p.images.get(name).cloned().unwrap_or_default();
+    for role in Role::iter() {
+        let name = role.name();
+        let expected = role.binding(&p.images).clone();
         let got = layout
             .images
             .get(&expected.config)
@@ -46,7 +44,7 @@ fn match_layout_identities(p: &Payload, layout: &OciLayout) -> Result<(), Error>
 
 /// `VerifyContent`: bind shared OCI content to the payload.
 pub fn verify_content(p: &Payload, images: &str) -> Result<(BTreeMap<String, String>, u64), Error> {
-    p.validate()?;
+    p.validate().map_err(|e| Error::msg(e.to_string()))?;
     if !images.starts_with('/') || images.bytes().any(|b| matches!(b, b':' | b'\r' | b'\n')) {
         return Err(Error::msg("absolute local OCI directory required"));
     }
@@ -60,10 +58,14 @@ pub fn verify_content(p: &Payload, images: &str) -> Result<(BTreeMap<String, Str
 mod tests {
     use super::*;
 
+    const FIXTURE: &str = include_str!("../../release-inputs/fixtures/payload-v4.json");
+
     #[test]
     fn content_path_rules() {
-        let payload = Payload::default();
-        // Payload validation runs before the path check.
+        let payload: Payload = crate::buildx::decode_build_json(FIXTURE.as_bytes()).unwrap();
+        payload.validate().unwrap();
+        // The shared layout check runs after payload validation.
         assert!(verify_content(&payload, "/abs").is_err());
+        assert!(verify_content(&payload, "relative").is_err());
     }
 }

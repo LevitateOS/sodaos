@@ -166,8 +166,7 @@ pub fn candidate_live_config(
     crate::media::validate_installer_version(installer_version)?;
     let payload_text = std::str::from_utf8(payload)
         .map_err(|_| Error::msg("complete ordinary-Podman candidate required"))?;
-    // Plain (non-strict) decode, like the Go owner.
-    let parsed = model::Payload::parse(payload_text)
+    let parsed = model::Payload::parse(payload_text.as_bytes())
         .map_err(|_| Error::msg("complete ordinary-Podman candidate required"))?;
     if parsed.validate().is_err() {
         return Err(Error::msg("complete ordinary-Podman candidate required"));

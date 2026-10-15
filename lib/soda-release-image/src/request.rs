@@ -27,9 +27,9 @@ pub struct Request {
 impl Request {
     fn validate_development_target(&self) -> std::result::Result<(), Error> {
         if self.development {
-            if !["candidate", "media", "docker"].contains(&self.target.as_str()) {
+            if !["candidate", "media", "docker", "all"].contains(&self.target.as_str()) {
                 return Err(Error::msg(
-                    "--development requires --target candidate, media or docker",
+                    "--development requires --target candidate, media, docker or all",
                 ));
             }
             return Ok(());
@@ -42,10 +42,12 @@ impl Request {
 
     fn validate_media_inputs(&self) -> std::result::Result<(), Error> {
         if !self.media_compression.is_empty()
-            && (!self.development || self.target != "media" || self.media_compression != "fast")
+            && (!self.development
+                || (self.target != "media" && self.target != "all")
+                || self.media_compression != "fast")
         {
             return Err(Error::msg(
-                "--media-compression accepts only fast with --development --target media",
+                "--media-compression accepts only fast with --development --target media or all",
             ));
         }
         if !self.wants_media() {
@@ -74,12 +76,23 @@ impl Request {
                 "--distribution accepts appliance, docker or all",
             ));
         }
-        if self.development
-            && ((self.target == "docker" && self.distribution() != "docker")
-                || (self.target == "media" && self.distribution() != "appliance")
-                || self.distribution() == "all")
-        {
-            return Err(Error::msg("development media requires appliance; development docker requires docker; all requires production"));
+        // The narrow combined development target builds one shared
+        // candidate and derives both local media and Docker fixtures from
+        // it. It stays purpose=development and never manufactures a
+        // production or publication receipt.
+        if self.development {
+            let paired = match (self.target.as_str(), self.distribution()) {
+                ("candidate", distribution) => distribution != "all",
+                ("docker", "docker") => true,
+                ("media", "appliance") => true,
+                ("all", "all") => true,
+                _ => false,
+            };
+            if !paired {
+                return Err(Error::msg("development media requires appliance; development docker requires docker; development all requires all; candidate selects no packaging"));
+            }
+        } else if self.distribution() == "all" && self.target.is_empty() {
+            // Production all keeps its same-tag GitHub URL restriction below.
         }
         if self.wants_docker() {
             if !soda_build_tools::reader::settings::release_tag(&self.release_tag)
@@ -89,7 +102,11 @@ impl Request {
                     "Docker packaging requires an explicit version --release-tag",
                 ));
             }
-            if self.distribution() == "all"
+            // Production all binds the public same-tag rootfs URL. The
+            // development combined target instead uses an explicit reachable
+            // fixture rootfs base admitted by media validation below.
+            if !self.development
+                && self.distribution() == "all"
                 && !self.rootfs_base_url.starts_with(&format!(
                     "https://github.com/LevitateOS/sodaos/releases/download/{}/",
                     self.release_tag
@@ -99,7 +116,12 @@ impl Request {
                     "all distribution requires a rootfs URL for the same release tag",
                 ));
             }
-        } else if !self.release_tag.is_empty() {
+        } else if !self.release_tag.is_empty() && (!self.development || self.target == "candidate")
+        {
+            // Payload v4 native package URLs embed the release tag, so every
+            // packaging development target admits it. A bare candidate builds
+            // no packages and still refuses it, as does production without
+            // Docker packaging.
             return Err(Error::msg("--release-tag requires Docker packaging"));
         }
         self.validate_media_inputs()
@@ -170,6 +192,34 @@ mod tests {
         };
         assert!(dev.validate_target().is_ok());
         assert_eq!(dev.purpose(), "development");
+        // The narrow combined development target: one shared candidate
+        // feeds both local media and Docker fixtures. It carries the same
+        // release tag the v4 native package URLs need, stays
+        // purpose=development, and accepts a reachable fixture rootfs base
+        // instead of the production same-tag GitHub URL.
+        let combined = Request {
+            development: true,
+            target: "all".into(),
+            distribution: "all".into(),
+            release_tag: "v9.9.9-dev".into(),
+            rootfs_base_url: "https://fixture.invalid/rootfs/".into(),
+            ..Request::default()
+        };
+        assert!(combined.validate_target().is_ok());
+        assert!(combined.wants_docker() && combined.wants_media());
+        assert_eq!(combined.completed_target(), "all");
+        assert_eq!(combined.purpose(), "development");
+        assert_eq!(combined.requested_target(), "all");
+        // A packaging development target admits the release tag for native
+        // package URLs; a bare candidate still refuses it.
+        let dev_media_tag = Request {
+            development: true,
+            target: "media".into(),
+            release_tag: "v9.9.9-dev".into(),
+            rootfs_base_url: "https://fixture.invalid/rootfs/".into(),
+            ..Request::default()
+        };
+        assert!(dev_media_tag.validate_target().is_ok());
         let candidate = Request {
             target: "candidate".into(),
             release_tag: String::new(),
@@ -208,6 +258,30 @@ mod tests {
                 distribution: "appliance".into(),
                 ..dev
             },
+            // Production all keeps the same-tag GitHub URL restriction: a
+            // fixture base is refused outside development.
+            Request {
+                distribution: "all".into(),
+                release_tag: "v1.2.3".into(),
+                rootfs_base_url: "https://fixture.invalid/rootfs/".into(),
+                ..Request::default()
+            },
+            // A bare candidate builds no packages and still refuses the tag.
+            Request {
+                development: true,
+                target: "candidate".into(),
+                release_tag: "v9.9.9-dev".into(),
+                ..Request::default()
+            },
+            // The combined target pairs only with the all distribution.
+            Request {
+                development: true,
+                target: "all".into(),
+                distribution: "appliance".into(),
+                release_tag: "v9.9.9-dev".into(),
+                rootfs_base_url: "https://fixture.invalid/rootfs/".into(),
+                ..Request::default()
+            },
         ] {
             assert!(bad.validate_target().is_err(), "admitted {bad:?}");
         }
@@ -229,6 +303,17 @@ mod tests {
             ..Request::default()
         };
         assert!(valid.validate_target().is_ok());
+        // The combined development target is admitted with an explicit
+        // release tag and a reachable fixture rootfs base.
+        let combined = Request {
+            development: true,
+            target: "all".to_string(),
+            distribution: "all".to_string(),
+            release_tag: "v9.9.9-dev".to_string(),
+            rootfs_base_url: "https://example.invalid".to_string(),
+            ..Request::default()
+        };
+        assert!(combined.validate_target().is_ok());
         for request in [
             Request {
                 development: true,
@@ -263,7 +348,7 @@ mod tests {
             .validate_target()
             .unwrap_err()
             .0,
-            "--development requires --target candidate, media or docker"
+            "--development requires --target candidate, media, docker or all"
         );
         assert_eq!(
             Request {
@@ -284,7 +369,7 @@ mod tests {
             .validate_target()
             .unwrap_err()
             .0,
-            "--media-compression accepts only fast with --development --target media"
+            "--media-compression accepts only fast with --development --target media or all"
         );
         assert_eq!(
             Request {
@@ -306,6 +391,16 @@ mod tests {
             ..Request::default()
         };
         assert!(fast.validate_target().is_ok());
+        let fast_combined = Request {
+            development: true,
+            target: "all".to_string(),
+            distribution: "all".to_string(),
+            release_tag: "v9.9.9-dev".to_string(),
+            media_compression: "fast".to_string(),
+            rootfs_base_url: "https://example.invalid".to_string(),
+            ..Request::default()
+        };
+        assert!(fast_combined.validate_target().is_ok());
     }
 
     #[test]

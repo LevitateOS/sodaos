@@ -73,11 +73,10 @@ fn oracle_media_compression() {
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
         serde_json::to_string(def).unwrap()
     ));
+    // Both admitted modes select the one frozen release profile; the
+    // fast-vs-release split is removed.
     compression::set_media_compression(&mut cfg_prod, "").unwrap();
-    assert_eq!(
-        rootfs_options(&cfg_prod),
-        compression::RELEASE_ROOTFS_OPTIONS
-    );
+    assert_eq!(rootfs_options(&cfg_prod), compression::FAST_ROOTFS_OPTIONS);
     let mut cfg_fast = image_config(&format!(
         "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
         serde_json::to_string(def).unwrap()

@@ -14,13 +14,12 @@ RUN rpm-ostree install selinux-policy-devel && \
 FROM ${BASE_IMAGE}
 
 # Keep the existing provisioning package list as the source of authority. The
-# preparation command validates it and emits this argument file and repository URL.
-# Bare names: the transaction floats on current repositories. The resulting
-# inventory is the bill-of-materials, recorded by the build after inspection.
-COPY packages.list tailscale-repo.url /run/soda-build/
-RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.url)" \
-      --output /etc/yum.repos.d/tailscale.repo && \
-    rpm-ostree install $(cat /run/soda-build/packages.list) && \
+# preparation command validates it and emits this argument file. Bare names:
+# the transaction floats on current repositories. The resulting inventory is
+# the bill-of-materials, recorded by the build after inspection. The thin
+# host carries no Tailscale repository: package_inputs refuses it upstream.
+COPY packages.list /run/soda-build/
+RUN rpm-ostree install $(cat /run/soda-build/packages.list) && \
     mkdir -p /usr/share/soda/host-image && \
     rpm -qa --qf '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' > /run/soda-build/packages.unsorted && \
     LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt

@@ -31,7 +31,7 @@ use soda_release_build::production::{
 use soda_release_build::Error as BuildError;
 use soda_release_deliver::model::{Permit as DeliverPermit, Trust as DeliverTrust};
 use soda_release_deliver::native::SecretFiles as DeliverSecrets;
-use soda_release_deliver::payload::{Image as DeliverImage, Payload as DeliverPayload};
+use soda_release_deliver::payload::Payload as DeliverPayload;
 use soda_release_deliver::Error as DeliverError;
 use soda_release_deliver::{content, document, native};
 use soda_release_image::build::ProductionInputs;
@@ -111,41 +111,9 @@ fn produced_of(produced: &BuildProducedImage) -> model::ProducedImage {
 }
 
 fn deliver_payload_of(payload: &model::Payload) -> DeliverPayload {
-    DeliverPayload {
-        format: payload.format,
-        id: payload.id.clone(),
-        revision: payload.revision.clone(),
-        architecture: payload.architecture.clone(),
-        core_os: payload.core_os.clone(),
-        base: payload.base.clone(),
-        repository_prefix: payload.repository_prefix.clone(),
-        schema: payload.schema,
-        presentation_sha256: payload.presentation_sha256.clone(),
-        host_packages_sha256: payload.host_packages_sha256.clone(),
-        project_support: payload.project_support.clone(),
-        images: payload
-            .images
-            .iter()
-            .map(|(name, image)| {
-                (
-                    name.clone(),
-                    DeliverImage {
-                        reference: image.reference.clone(),
-                        config: image.config.clone(),
-                        manifest: image.manifest.clone(),
-                        archive_sha256: image.archive_sha256.clone(),
-                    },
-                )
-            })
-            .collect(),
-        // Go leaves `UpgradeFrom` unset (`nil`) for candidates; only a
-        // non-empty list becomes `Some`.
-        upgrade_from: if payload.upgrade_from.is_empty() {
-            None
-        } else {
-            Some(payload.upgrade_from.clone())
-        },
-    }
+    // Both crates share the canonical Payload v4 definition; the producer
+    // record is the deliver document with no conversion.
+    payload.clone()
 }
 
 fn deliver_trust_of(trust: &model::Trust) -> DeliverTrust {
@@ -843,43 +811,16 @@ mod tests {
 
     #[test]
     fn deliver_model_conversions() {
-        let payload = model::Payload {
-            format: 3,
-            id: "id".to_string(),
-            revision: "r".to_string(),
-            architecture: "x86_64".to_string(),
-            core_os: "1.2.3.4".to_string(),
-            base: "base".to_string(),
-            repository_prefix: "ghcr.io/e/s".to_string(),
-            schema: 1,
-            presentation_sha256: "p".to_string(),
-            host_packages_sha256: "h".to_string(),
-            project_support: Default::default(),
-            images: vec![(
-                "proxy".to_string(),
-                model::PayloadImage {
-                    reference: "ref".to_string(),
-                    config: "cfg".to_string(),
-                    manifest: "man".to_string(),
-                    archive_sha256: "arc".to_string(),
-                },
-            )],
-            upgrade_from: Vec::new(),
-        };
+        // Both crates share the canonical Payload v4 definition, so the
+        // producer record converts by cloning the shared fixture document.
+        let payload: model::Payload = serde_json::from_str(include_str!(
+            "../../release-inputs/fixtures/payload-v4.json"
+        ))
+        .unwrap();
+        payload.validate().unwrap();
         let converted = deliver_payload_of(&payload);
-        assert_eq!(converted.format, 3);
-        assert_eq!(converted.images.len(), 1);
-        assert_eq!(converted.images["proxy"].reference, "ref");
-        assert_eq!(converted.images["proxy"].archive_sha256, "arc");
-        assert_eq!(converted.upgrade_from, None);
-        let payload = model::Payload {
-            upgrade_from: vec!["old".to_string()],
-            ..payload
-        };
-        assert_eq!(
-            deliver_payload_of(&payload).upgrade_from,
-            Some(vec!["old".to_string()])
-        );
+        assert_eq!(converted, payload);
+        assert_eq!(converted.format, 4);
 
         let trust = model::Trust {
             format: 1,

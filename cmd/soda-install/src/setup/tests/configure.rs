@@ -3,7 +3,7 @@ use super::fixtures::null_console;
 
 use crate::command::FnRunner;
 
-use crate::enroll::test_support::{ENV_LOCK, drain_available, open_test_pty, temp_dir};
+use crate::enroll::test_support::{drain_available, open_test_pty, temp_dir, ENV_LOCK};
 
 #[test]
 fn private_setup_addresses() {

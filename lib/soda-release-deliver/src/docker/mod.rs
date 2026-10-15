@@ -184,17 +184,32 @@ struct BundledBlobs {
     member_limits: BTreeMap<String, u64>,
 }
 
-fn bundled_blobs(root: &Root, p: &Payload) -> Result<BundledBlobs, Error> {
+fn bundled_blobs(
+    root: &Root,
+    p: &Payload,
+    c: &crate::model::Candidate,
+) -> Result<BundledBlobs, Error> {
+    use crate::payload::Role;
+    use soda_build_tools::payload::ImageProvenance;
     let mut blobs = BTreeMap::new();
     let mut limits = BTreeMap::new();
-    for (name, expected) in &p.images {
+    for role in Role::iter() {
+        let name = role.name();
+        let expected = role.binding(&p.images);
+        let expected_archive = c
+            .image_archives
+            .get(name)
+            .ok_or_else(|| Error::msg(format!("Docker bundled {name} archive mismatch")))?;
         let path = format!("images/{name}.oci");
-        if file_identity(root, &path)?.sha256 != expected.archive_sha256 {
+        if file_identity(root, &path)?.sha256 != *expected_archive {
             return Err(Error::msg(format!(
                 "Docker bundled {name} archive mismatch"
             )));
         }
-        let revision = if name == "proxy" { "" } else { &p.revision };
+        let revision = match expected.provenance {
+            ImageProvenance::Soda { .. } => &p.revision,
+            ImageProvenance::Upstream { .. } => "",
+        };
         let observed = inspect(root, &path, revision, &[])?;
         if observed.image.manifest != expected.manifest || observed.image.config != expected.config
         {
@@ -255,7 +270,7 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
     }
     let mut expected = runtime_content(&p, &c, &inputs, &packages)?;
     expected.extend(host.content);
-    let blobs = bundled_blobs(&root, &p)?;
+    let blobs = bundled_blobs(&root, &p, &c)?;
     expected.extend(blobs.content);
     let paths = expected.keys().cloned().collect::<Vec<_>>();
     let (mut file, _) = open_layout_entry(&root, IMAGE_PATH)?;

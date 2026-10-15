@@ -4,6 +4,7 @@ use super::admission::{
     TerminalSlot, IDENTITY_ACTIONS,
 };
 use super::backend::{BackendError, ExecBackend, TerminalSession};
+use crate::{tailnet_lifecycle, tcontrol_wire};
 
 use super::response::{
     error_response, json_response, not_found_response, tailnet_json_response, tailnet_response,
@@ -11,7 +12,7 @@ use super::response::{
 };
 use super::websocket::websocket_upgrade_response;
 
-/// Every route the daemon serves: 5 identity, 6 tailnet, 1 terminal,
+/// Every route the daemon serves: 5 identity, 8 tailnet, 1 terminal,
 /// 9 project, 6 prepare, and 8 factory.
 pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/application"),
@@ -26,6 +27,8 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/tailnet/options"),
     ("POST", "/tailnet/project"),
     ("POST", "/tailnet/policy"),
+    ("POST", "/tailnet/prepare"),
+    ("POST", "/tailnet/lifecycle"),
     ("GET", "/terminal"),
     ("POST", "/profile"),
     ("POST", "/create"),
@@ -64,6 +67,15 @@ pub struct DaemonConfig {
     pub image: String,
     /// False when tailnet management is disabled (Go: `d.Tailnet == nil`).
     pub tailnet_management: bool,
+    /// Trusted tailnet package version from the selected release payload.
+    /// Empty means no trusted release was loaded; lifecycle prepare and
+    /// apply are then unavailable, never default-open.
+    pub tailnet_package_version: String,
+    /// Trusted tailnet package archive digest from the selected release.
+    pub tailnet_package_sha256: String,
+    /// Trusted current release payload path for prepare's fixed importer
+    /// ensure. Empty disables prepare; it never defaults.
+    pub release_payload: String,
     /// False when no terminal service is wired (Go: `d.Terminal == nil`).
     pub terminal_available: bool,
     /// False when identity has no terminal runtime (Go: `d.Terminal == nil`
@@ -77,6 +89,9 @@ impl DaemonConfig {
         DaemonConfig {
             image: String::new(),
             tailnet_management: true,
+            tailnet_package_version: String::new(),
+            tailnet_package_sha256: String::new(),
+            release_payload: String::new(),
             terminal_available: true,
             identity_available: true,
         }
@@ -268,6 +283,11 @@ fn dispatch_tailnet<B: ExecBackend + ?Sized>(
     if !config.tailnet_management {
         return tailnet_response(error_response(503, "Tailnet management disabled"));
     }
+    if action == "prepare" || action == "lifecycle" {
+        if let Err(status) = validate_lifecycle_call(config, action, body, body_complete) {
+            return tailnet_response(error_response(status, tailnet_unavailable()));
+        }
+    }
     if !body_complete {
         return tailnet_response(error_response(400, tailnet_unavailable()));
     }
@@ -292,6 +312,61 @@ fn dispatch_tailnet<B: ExecBackend + ?Sized>(
             tailnet_response(error_response(501, "not implemented"))
         }
         Err(_) => tailnet_response(error_response(502, tailnet_unavailable())),
+    }
+}
+
+/// Validate one lifecycle call before dispatch (RCX-2 T01). The Go service
+/// forwards the manager-verified SDK call verbatim; this layer re-checks
+/// the wire strictly, scopes it to the required controller and its tailnet
+/// target, binds the endpoint to its operation (prepare carries activate
+/// only), and matches the artifact pin against the trusted release. Any
+/// mismatch stops before the backend, so rejected, replayed, wrong-variant
+/// or unbound authority causes zero effects. Statuses: 400 malformed,
+/// 409 busy or changed identity, 503 unavailable without a trusted pin.
+fn validate_lifecycle_call(
+    config: &DaemonConfig,
+    action: &str,
+    body: &[u8],
+    body_complete: bool,
+) -> Result<(), u16> {
+    if !body_complete {
+        return Err(400);
+    }
+    let call = match tcontrol_wire::decode_lifecycle_call(body) {
+        Ok(call) => call,
+        Err(_) => return Err(400),
+    };
+    let now_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs() as i64)
+        .unwrap_or(0);
+    if tcontrol_wire::validate_lifecycle_call(&call, now_unix).is_err() {
+        return Err(400);
+    }
+    let scoped = call.controller_id == "soda" && call.package_id == "tailnet";
+    let endpoint_ok = if action == "prepare" {
+        call.operation == tcontrol_wire::LIFECYCLE_ACTIVATE
+    } else {
+        call.operation == tcontrol_wire::LIFECYCLE_OBSERVE
+            || call.operation == tcontrol_wire::LIFECYCLE_ACTIVATE
+            || call.operation == tcontrol_wire::LIFECYCLE_DEACTIVATE
+    };
+    if !scoped || !endpoint_ok {
+        return Err(409);
+    }
+    let pin = tailnet_lifecycle::ReleasePin {
+        package_version: config.tailnet_package_version.clone(),
+        package_sha256: config.tailnet_package_sha256.clone(),
+    };
+    match tailnet_lifecycle::match_release_pin(&call, &pin) {
+        Ok(()) => Ok(()),
+        Err(message) => {
+            if message.starts_with("conflict") {
+                Err(409)
+            } else {
+                Err(503)
+            }
+        }
     }
 }
 

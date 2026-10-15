@@ -423,7 +423,7 @@ fn terminal_constants_match_go() {
     assert_eq!(TERMINAL_REQUEST_LIMIT, 4096);
     assert_eq!(TERMINAL_FRAME_LIMIT, 131072);
     assert_eq!(IDENTITY_ACTIONS.len(), 5);
-    assert_eq!(TAILNET_ACTIONS.len(), 6);
+    assert_eq!(TAILNET_ACTIONS.len(), 8);
 }
 
 // -- admission: subsystem validators --
@@ -529,7 +529,7 @@ fn terminal_gate_caps_and_releases() {
 
 #[test]
 fn route_table_has_every_go_route() {
-    assert_eq!(ROUTE_TABLE.len(), 37);
+    assert_eq!(ROUTE_TABLE.len(), 39);
     let count = |prefix: &str| {
         ROUTE_TABLE
             .iter()
@@ -537,7 +537,7 @@ fn route_table_has_every_go_route() {
             .count()
     };
     assert_eq!(count("/identity/"), 5);
-    assert_eq!(count("/tailnet/"), 6);
+    assert_eq!(count("/tailnet/"), 8);
     assert_eq!(
         ROUTE_TABLE
             .iter()
@@ -583,6 +583,13 @@ fn route_table_has_every_go_route() {
 fn every_post_route_dispatches_through_the_stub() {
     for (method, path) in ROUTE_TABLE {
         if *method != "POST" {
+            continue;
+        }
+        // Lifecycle endpoints validate the verified tuple before the
+        // backend: malformed calls stop at 400 without effects.
+        if *path == "/tailnet/prepare" || *path == "/tailnet/lifecycle" {
+            let response = dispatch_stub(method, path, b"{}");
+            assert_eq!(status_of(&response), 400, "route {method} {path}");
             continue;
         }
         let response = dispatch_stub(method, path, b"{}");
@@ -1013,6 +1020,223 @@ fn tailnet_success_has_no_trailing_newline_and_disabled_is_503() {
     );
 }
 
+// -- routes: tailnet lifecycle (RCX-2 T01) --
+
+fn lifecycle_call_body(operation: &str, deadline_unix: i64) -> Vec<u8> {
+    format!(
+        "{{\
+        \"controller_id\":\"soda\",\
+        \"controller_instance_id\":\"dddddddddddddddddddddddddddddddd\",\
+        \"package_id\":\"tailnet\",\
+        \"package_version\":\"1.0.0\",\
+        \"package_sha256\":\"{}\",\
+        \"installation_id\":\"550e8400-e29b-41d4-a716-446655440000\",\
+        \"generation\":\"7\",\
+        \"operation\":\"{operation}\",\
+        \"deadline_unix\":{deadline_unix}}}",
+        "b".repeat(64),
+    )
+    .into_bytes()
+}
+
+fn lifecycle_future_deadline() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs() as i64)
+        .unwrap_or(0)
+        + 300
+}
+
+fn lifecycle_pinned_config() -> DaemonConfig {
+    let mut config = DaemonConfig::all_enabled();
+    config.tailnet_package_version = "1.0.0".to_string();
+    config.tailnet_package_sha256 = "b".repeat(64);
+    config
+}
+
+#[test]
+fn tailnet_lifecycle_rejects_malformed_before_backend() {
+    let backend = ScriptBackend::ok(b"{\"ok\":true}");
+    let gate = AdmissionGate::new();
+    let terminal_gate = TerminalGate::new();
+    let config = lifecycle_pinned_config();
+    let seen = || backend.seen_bodies.lock().unwrap().len();
+    // Empty JSON, unknown fields and truncated bodies never reach effects.
+    let mut truncated = lifecycle_call_body("observe", lifecycle_future_deadline());
+    truncated.pop();
+    truncated.push(b'x');
+    for body in [
+        b"{}".to_vec(),
+        b"{\"controller_id\":\"soda\"}".to_vec(),
+        truncated,
+    ] {
+        let response = dispatch(
+            &backend,
+            &config,
+            &gate,
+            &terminal_gate,
+            &head("POST", "/tailnet/lifecycle"),
+            &body,
+            true,
+        )
+        .into_response();
+        assert_eq!(status_of(&response), 400);
+    }
+    // Truncated transport and non-POST/query targets fail the same way.
+    let body = lifecycle_call_body("observe", lifecycle_future_deadline());
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/tailnet/lifecycle"),
+        &body,
+        false,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 400);
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("GET", "/tailnet/lifecycle"),
+        &body,
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 400);
+    let mut query = head("POST", "/tailnet/lifecycle");
+    query.has_query = true;
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &query,
+        &body,
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 400);
+    assert_eq!(seen(), 0);
+}
+
+#[test]
+fn tailnet_lifecycle_scope_pin_and_endpoint_mismatch_stop_before_backend() {
+    let backend = ScriptBackend::ok(b"{\"ok\":true}");
+    let gate = AdmissionGate::new();
+    let terminal_gate = TerminalGate::new();
+    let config = lifecycle_pinned_config();
+    let seen = || backend.seen_bodies.lock().unwrap().len();
+    let deadline = lifecycle_future_deadline();
+    // Wrong controller or package is an unbound authority: 409, no effects.
+    let mut wrong_controller = lifecycle_call_body("observe", deadline);
+    let from = b"\"controller_id\":\"soda\"".to_vec();
+    let to = b"\"controller_id\":\"other\"".to_vec();
+    let position = wrong_controller
+        .windows(from.len())
+        .position(|window| window == from.as_slice())
+        .unwrap();
+    wrong_controller.splice(position..position + from.len(), to.iter().cloned());
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/tailnet/lifecycle"),
+        &wrong_controller,
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 409);
+    // Prepare carries activate only: an observe tuple is endpoint-mismatched.
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/tailnet/prepare"),
+        &lifecycle_call_body("observe", deadline),
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 409);
+    // A drifted pin is a changed identity; a missing pin is unavailable.
+    // Both stop before the backend.
+    let mut drifted = lifecycle_pinned_config();
+    drifted.tailnet_package_sha256 = "c".repeat(64);
+    let response = dispatch(
+        &backend,
+        &drifted,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/tailnet/lifecycle"),
+        &lifecycle_call_body("observe", deadline),
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 409);
+    let unpinned = DaemonConfig::all_enabled();
+    let response = dispatch(
+        &backend,
+        &unpinned,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/tailnet/lifecycle"),
+        &lifecycle_call_body("observe", deadline),
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 503);
+    assert_eq!(seen(), 0);
+}
+
+#[test]
+fn tailnet_lifecycle_verified_calls_reach_backend_once() {
+    let observation = b"{\"controller_id\":\"soda\",\"controller_instance_id\":\"dddddddddddddddddddddddddddddddd\",\"package_id\":\"tailnet\",\"package_version\":\"1.0.0\",\"package_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"installation_id\":\"550e8400-e29b-41d4-a716-446655440000\",\"generation\":\"7\",\"operation\":\"observe\",\"deadline_unix\":1792100010,\"state\":\"stopped\",\"effect_generation\":null,\"admission_ready\":false,\"detail\":\"test\"}";
+    let backend = ScriptBackend::ok(observation);
+    let gate = AdmissionGate::new();
+    let terminal_gate = TerminalGate::new();
+    let config = lifecycle_pinned_config();
+    let seen = || backend.seen_bodies.lock().unwrap().len();
+    let deadline = lifecycle_future_deadline();
+    for (path, operation) in [
+        ("/tailnet/lifecycle", "observe"),
+        ("/tailnet/lifecycle", "activate"),
+        ("/tailnet/lifecycle", "deactivate"),
+        ("/tailnet/prepare", "activate"),
+    ] {
+        let body = lifecycle_call_body(operation, deadline);
+        let response = dispatch(
+            &backend,
+            &config,
+            &gate,
+            &terminal_gate,
+            &head("POST", path),
+            &body,
+            true,
+        )
+        .into_response();
+        assert_eq!(status_of(&response), 200, "{path} {operation}");
+        assert_eq!(body_of(&response), observation.to_vec());
+    }
+    assert_eq!(seen(), 4);
+    // Backend failures map through the shared tailnet statuses.
+    let backend = ScriptBackend::err(BackendError::Unavailable);
+    let response = dispatch(
+        &backend,
+        &config,
+        &gate,
+        &terminal_gate,
+        &head("POST", "/tailnet/lifecycle"),
+        &lifecycle_call_body("observe", deadline),
+        true,
+    )
+    .into_response();
+    assert_eq!(status_of(&response), 503);
+}
+
 // -- routes: terminal --
 
 fn terminal_head() -> RequestHead {
@@ -1237,7 +1461,10 @@ fn server_serves_stub_routes_and_parser_rejections() {
         .unwrap();
     let response = read_all(&mut client);
     assert_eq!(status_of(&response), 501);
-    assert_eq!(response.header_value("connection").as_deref(), Some("close"));
+    assert_eq!(
+        response.header_value("connection").as_deref(),
+        Some("close")
+    );
 
     // Tailnet errors still carry no-store over the wire.
     let mut client = UnixStream::connect(&path).unwrap();

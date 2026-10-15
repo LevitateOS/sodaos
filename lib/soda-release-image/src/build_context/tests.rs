@@ -54,17 +54,19 @@ fn production_context_freezes_selected_profile_and_its_native_input() {
         &fs::read(dir.join("rootfs").join(compression::IMAGE_CONFIG_PATH)).unwrap(),
     )
     .unwrap();
+    // The one frozen profile carries no dedupe hints: no compress-hints
+    // flag and no hints file beside the frozen image configuration.
     let options = config["live-rootfs-fsoptions"].as_str().unwrap();
-    assert_eq!(options, compression::RELEASE_ROOTFS_OPTIONS);
-    let hints = options
+    assert_eq!(options, compression::FAST_ROOTFS_OPTIONS);
+    assert!(options
         .split_whitespace()
-        .find_map(|arg| arg.strip_prefix("--compress-hints="))
-        .unwrap()
-        .strip_prefix("/run/osbuild/inputs/deployed-tree/")
-        .unwrap();
+        .all(|arg| !arg.starts_with("--compress-hints=")));
+    assert!(fs::read(dir.join("rootfs/usr/share/coreos-assembler/image.json")).is_ok());
     assert_eq!(
-        fs::read(dir.join("rootfs").join(hints)).unwrap(),
-        b"0 [.]((xz)|(gz))$\n"
+        fs::read_dir(dir.join("rootfs/usr/share/coreos-assembler"))
+            .unwrap()
+            .count(),
+        1
     );
     fs::remove_dir_all(dir).unwrap();
 }

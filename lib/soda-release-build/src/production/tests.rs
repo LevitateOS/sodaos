@@ -1,8 +1,7 @@
 use super::*;
 use crate::files::{is_digest, write_new};
-use crate::live_inputs::write_live_inputs;
 use crate::production_inputs::parse_image_repo;
-use crate::test_support::{fixture_live_inputs, fixture_oci_bytes, FIXTURE_REVISION};
+use crate::test_support::{fixture_oci_bytes, FIXTURE_REVISION};
 use std::os::unix::fs::PermissionsExt;
 use std::sync::{Arc, Mutex};
 
@@ -48,6 +47,10 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
             "system/host/services/soda-proxy.container",
             "[Container]\nImage=docker.io/library/caddy:2\n",
         ),
+        (
+            "system/host/services/soda-postgres.container",
+            "[Container]\nImage=docker.io/library/postgres:17\n",
+        ),
     ];
     for (name, body) in files {
         let path = root.join(name);
@@ -63,8 +66,8 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
         FIXTURE_REVISION,
     )
     .unwrap();
-    let live_path = root.join("live-inputs.json");
-    write_live_inputs(&live_path, &fixture_live_inputs()).unwrap();
+    // Input freezing uses no floating toolchain file: the pinned official
+    // Tailscale image joins the same frozen pull record.
     let calls: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let calls_capture = calls.clone();
     let config = image.config.clone();
@@ -74,7 +77,6 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
     prod.out = out.to_string_lossy().into_owned();
     prod.arch = "x86_64".to_string();
     prod.revision = FIXTURE_REVISION.to_string();
-    prod.live_inputs = live_path.to_string_lossy().into_owned();
     prod.capture = Some(Box::new(move |_dir, name, args| {
         calls_capture
             .lock()
@@ -143,6 +145,15 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
                 }
             }
         }
+        // Built roles export through the Skopeo containers-storage to
+        // oci-archive transport; the sealed archive is the replayed seed.
+        if name == "skopeo" {
+            for arg in args {
+                if let Some(path) = arg.strip_prefix("oci-archive:") {
+                    return write_new(Path::new(path), &seed_bytes, 0o600);
+                }
+            }
+        }
         if name != "podman" {
             return Ok(());
         }
@@ -150,9 +161,6 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
         for (i, arg) in args.iter().enumerate() {
             if arg == "--iidfile" {
                 return write_new(Path::new(&args[i + 1]), image_config.as_bytes(), 0o600);
-            }
-            if arg == "--output" {
-                return write_new(Path::new(&args[i + 1]), &seed_bytes, 0o600);
             }
         }
         panic!("unexpected execution: {args:?}");
@@ -198,9 +206,13 @@ fn docker_packaging_reuses_host_and_refuses_an_unverified_export() {
         )
         .is_err());
     let calls = calls.lock().unwrap().join("\n");
-    assert_eq!(calls.matches(" pull ").count(), 5);
+    // Five frozen production inputs plus the Docker base pull. The Docker
+    // image exports through the same Skopeo transport; no podman save
+    // remains anywhere in the pipeline.
+    assert_eq!(calls.matches(" pull ").count(), 6);
     assert_eq!(calls.matches(" build ").count(), 1);
-    assert_eq!(calls.matches(" save ").count(), 1);
+    assert_eq!(calls.matches(" save ").count(), 0);
+    assert_eq!(calls.matches("skopeo copy --format oci").count(), 1);
     for arg in [
         format!("--build-arg=SODA_BASE_IMAGE={}", candidate.host.config),
         format!(
@@ -247,7 +259,7 @@ fn oracle_production_sequence() {
         assert_eq!(mode, 0o755, "{tool}");
     }
     let images = prod.images(&forgejo.to_string_lossy()).unwrap();
-    assert_eq!(images.len(), 7);
+    assert_eq!(images.len(), 6);
     let text = calls.lock().unwrap().join("\n");
     for needle in [
         "bun install --frozen-lockfile",
@@ -270,19 +282,38 @@ fn oracle_production_sequence() {
         host.display(),
         forgejo.display()
     )));
+    // Four built roles export through the Skopeo transport; the two
+    // upstream binds and the removed extension/Tailnet builds emit no
+    // export command and no local archive.
     assert_eq!(
-        text.matches(" save --uncompressed --format=oci-archive")
-            .count(),
-        7
+        text.matches(
+            "skopeo copy --format oci --dest-compress-format gzip --dest-compress-level 1"
+        )
+        .count(),
+        4
     );
+    assert!(!text.contains(" save --uncompressed --format=oci-archive"));
+    assert!(!text.contains("extension.iid") && !text.contains("tailnet.iid"));
     assert!(images.contains_key("canlang-runtime"));
     assert!(!text.contains(" push ") && !text.contains(" --rm ") && !text.contains("--replace"));
     assert!(images.contains_key("proxy"));
+    assert!(images.contains_key("postgres"));
     assert!(!images.contains_key("caddy"));
-    for (name, produced) in &images {
-        assert!(is_digest(&produced.archive_sha256));
+    assert!(!images.contains_key("extension") && !images.contains_key("tailnet"));
+    for name in ["dashboard", "forgejo", "project-os", "canlang-runtime"] {
+        let produced = &images[name];
+        assert!(is_digest(&produced.archive_sha256), "{name}");
         assert!(!produced.image.manifest.is_empty() && !produced.image.config.is_empty());
         assert!(PathBuf::from(&prod.out)
+            .join("images")
+            .join(format!("{name}.oci"))
+            .exists());
+    }
+    for name in ["proxy", "postgres"] {
+        let produced = &images[name];
+        assert!(produced.archive_sha256.is_empty(), "{name}");
+        assert!(!produced.image.manifest.is_empty() && !produced.image.config.is_empty());
+        assert!(!PathBuf::from(&prod.out)
             .join("images")
             .join(format!("{name}.oci"))
             .exists());
@@ -312,8 +343,10 @@ fn oracle_production_failure_stops() {
 
 #[test]
 fn oracle_production_refusals() {
-    // Oracle: TestProductionRefusesWrongToolchainInputsAndLayout.
-    for mode in ["bun", "base", "tailnet", "forgejo", "platform", "revision"] {
+    // Oracle: TestProductionRefusesWrongInputsAndLayout. The floating
+    // Tailnet toolchain is gone: input freezing admits only the five pinned
+    // roles, and production refuses anything else before building.
+    for mode in ["bun", "base", "forgejo", "platform", "revision", "inputs"] {
         let (mut prod, _calls, _root) = production_fixture();
         match mode {
             "bun" => {
@@ -328,18 +361,17 @@ fn oracle_production_refusals() {
                 )
                 .unwrap();
             }
-            "tailnet" => {
-                let raw = fixture_live_inputs();
-                let mut text = serde_json::to_string_pretty(&raw).unwrap();
-                text = text.replacen("\"Version\": \"1.98.2\"", "\"Version\": \"yesterday\"", 1);
-                std::fs::write(PathBuf::from(&prod.source).join("live-inputs.json"), text).unwrap();
-            }
             "forgejo" => {
                 assert!(prod.images("").is_err(), "{mode}");
                 continue;
             }
             "platform" => prod.arch = "other".to_string(),
             "revision" => prod.revision = "dirty".to_string(),
+            "inputs" => {
+                // Five frozen inputs are required; anything else refuses
+                // before any build runs.
+                prod.inputs.clear();
+            }
             _ => unreachable!(),
         }
         assert!(prod.images("forgejo-context").is_err(), "{mode}");

@@ -174,7 +174,7 @@ pub fn admit_media_candidate(
 ) -> Result<(model::Candidate, model::Payload, model::Image, String), Error> {
     let candidate_text = sys::read_json_deliver_text(&sys::join(&[artifacts, "candidate.json"]))?;
     let candidate = model::Candidate::parse(&candidate_text)?;
-    let payload = model::Payload::load(&sys::join(&[artifacts, "payload.json"]))?;
+    let payload = model::load_payload(&sys::join(&[artifacts, "payload.json"]))?;
     let payload_bytes = fs::read(sys::join(&[artifacts, "payload.json"]))?;
     candidate.validate(&payload, &payload_bytes)?;
     let archive = sys::join(&[artifacts, "host.oci"]);

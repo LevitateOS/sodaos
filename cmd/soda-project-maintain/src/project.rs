@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use super::command::podman;
-use super::release_validation::is_hex_string;
+use super::release::is_hex_string;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt;

@@ -217,7 +217,8 @@ fn soda_trust_repos(t: &Trust) -> Vec<String> {
         format!("{}-host", t.prefix),
         format!("{}-release", t.prefix),
     ];
-    for name in crate::payload::NAMES {
+    for role in crate::payload::Role::iter() {
+        let name = role.name();
         repos.push(format!("{}-{name}", t.prefix));
     }
     repos
@@ -319,7 +320,7 @@ pub(super) fn registry_config(out: &str, t: &Trust) -> Result<String, Error> {
         "channel-preview",
         "channel-stable",
     ];
-    names.extend(crate::payload::NAMES.iter().copied());
+    names.extend(crate::payload::Role::iter().map(|role| role.name()));
     for name in names {
         repos.insert(
             format!("{}-{name}", t.prefix),

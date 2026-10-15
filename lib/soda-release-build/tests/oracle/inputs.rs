@@ -1,16 +1,16 @@
 //! Inputs oracle vectors: live inputs, CoreOS records, frozen input
-//! marshalling, Forgejo toolchain semantics, JSON strictness, and misc vectors.
+//! marshalling, JSON strictness, and misc vectors. Fountain toolchain
+//! provenance lives with its canonical owner (release-inputs reader);
+//! the Soda producer records the selected release/source proof instead.
 
-use super::{oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
+use super::{oracle, oracle_live_inputs, scratch};
 use soda_build_tools::reader::settings::soda_commands;
 use soda_build_tools::reader::stream::{valid_live_inputs, valid_tailnet_inputs, TailnetInputs};
 use soda_release_build::confined_files::Root;
 use soda_release_build::coreos::https_url;
 use soda_release_build::files::{is_digest, File};
-use soda_release_build::forgejo::{forgejo_build_args, ForgejoToolchain, FORGEJO_COMPILER_IMAGE};
 use soda_release_build::json_input::{read_json, read_json_at};
 use soda_release_build::live_inputs::{read_live_inputs, write_live_inputs};
-use soda_release_build::production::Production;
 use std::collections::BTreeMap;
 
 #[test]
@@ -30,36 +30,6 @@ fn oracle_live_inputs_write_and_read() {
     let mut bad = inputs;
     bad.coreos.container = BTreeMap::new();
     assert!(valid_live_inputs(&bad).is_err(), "live-container");
-}
-
-#[test]
-fn oracle_forgejo_argv_and_script() {
-    let mut prod = Production::default();
-    prod.native = "$ROOT/native".to_string();
-    prod.forgejo_source = "$ROOT/frozen-fork".to_string();
-    prod.forgejo_revision = FIXTURE_REVISION.to_string();
-    let args = forgejo_build_args(&prod, "amd64");
-    let (argv, script) = args.split_at(args.len() - 1);
-    assert_eq!(argv.join("\n") + "\n", oracle::FORGEJO_ARGV);
-    assert_eq!(script[0].clone() + "\n", oracle::FORGEJO_SCRIPT);
-}
-
-#[test]
-fn oracle_forgejo_toolchain_semantics_and_determinism() {
-    let toolchain = ForgejoToolchain {
-        compiler_image: FORGEJO_COMPILER_IMAGE.to_string(),
-        apk_packages: vec![
-            "build-base-0.5-r4".to_string(),
-            "gcc-14.2.0-r6".to_string(),
-            "musl-dev-1.2.5-r10".to_string(),
-        ],
-    };
-    toolchain.validate().unwrap();
-    let rendered = toolchain.marshal();
-    assert_eq!(rendered, toolchain.marshal());
-    let readback: ForgejoToolchain = serde_json::from_str(&rendered).unwrap();
-    assert_eq!(readback.compiler_image, FORGEJO_COMPILER_IMAGE);
-    assert_eq!(readback.apk_packages, toolchain.apk_packages);
 }
 
 #[test]

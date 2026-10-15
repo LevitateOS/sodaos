@@ -5,9 +5,7 @@ use std::os::unix::fs::MetadataExt;
 
 use crate::error::Error;
 use crate::files;
-use crate::foreign::Production;
 use crate::jsonio;
-use crate::layout;
 use crate::model;
 use crate::quadlet;
 use crate::sys;
@@ -43,29 +41,34 @@ pub fn stage_presentation(forgejo_context: &str, context: &str) -> Result<String
 }
 
 pub fn validate_complete_payload(payload: &model::Payload) -> Result<(), Error> {
-    payload.validate()?;
-    if payload.format != 3 {
-        return Err(Error::msg(
-            "new candidates require the shared-layout v3 payload",
-        ));
+    payload.validate().map_err(|e| Error::msg(e.to_string()))?;
+    if payload.format != 4 {
+        return Err(Error::msg("new candidates require the thin v4 payload"));
     }
     Ok(())
 }
 
+/// Generate the service-owned Quadlets by exact config ID with Pull=never,
+/// ordered after the required image acquisition (the generator pins the
+/// image, drops any source pull policy, and adds the importer ordering).
+/// The required Soda native package bootstraps from the trusted local
+/// catalog, not from an installer image: the obsolete extension-install
+/// path is removed.
 pub fn write_complete_quadlets(
     source: &str,
     root: &str,
     payload: &model::Payload,
 ) -> Result<(), Error> {
-    for (name, unit) in [
-        ("forgejo", "forgejo.container"),
-        ("dashboard", "soda-dashboard.container"),
-        ("proxy", "soda-proxy.container"),
+    for (role, unit) in [
+        (model::Role::Forgejo, "forgejo.container"),
+        (model::Role::Dashboard, "soda-dashboard.container"),
+        (model::Role::Proxy, "soda-proxy.container"),
+        (model::Role::Postgres, "soda-postgres.container"),
     ] {
         let original = fs::read(sys::join(&[source, "system/host/services", unit]))?;
         let body = quadlet::local_quadlet(
             &String::from_utf8_lossy(&original),
-            &payload.image(name).config,
+            &role.binding(&payload.images).config,
         )?;
         files::owned_write(
             &sys::join(&[root, "usr/share/containers/systemd", unit]),
@@ -74,6 +77,18 @@ pub fn write_complete_quadlets(
         )?;
     }
     Ok(())
+}
+
+/// Stage the trusted extension catalog the required Soda package
+/// bootstraps from. The bytes are the payload's own projection, verified
+/// equal to the candidate evidence before staging.
+pub fn stage_extension_catalog(root: &str, payload: &model::Payload) -> Result<(), Error> {
+    let bytes = payload
+        .projected_catalog_bytes()
+        .map_err(|e| Error::msg(e.to_string()))?;
+    let dir = sys::join(&[root, "usr/share/soda/extensions"]);
+    fs::create_dir_all(&dir)?;
+    files::owned_write(&sys::join(&[&dir, "catalog.json"]), &bytes, 0o644)
 }
 
 pub fn verify_public_branding_and_motd(root: &str) -> Result<(), Error> {
@@ -148,23 +163,6 @@ pub fn configure_complete_systemd(source: &str, root: &str) -> Result<(), Error>
     files::owned_write(&project, replaced.as_bytes(), 0o644)
 }
 
-pub fn bind_extension_install_image(root: &str, payload: &model::Payload) -> Result<(), Error> {
-    let path = sys::join(&[
-        root,
-        "usr/lib/systemd/system/soda-extension-install.service",
-    ]);
-    let unit = fs::read(&path)?;
-    const PLACEHOLDER: &str = "localhost/soda-extension:dev";
-    let text = String::from_utf8_lossy(&unit);
-    if text.matches(PLACEHOLDER).count() != 1 {
-        return Err(Error::msg(
-            "soda extension installer image binding is ambiguous",
-        ));
-    }
-    let body = text.replacen(PLACEHOLDER, &payload.image("extension").config, 1);
-    files::owned_write(&path, body.as_bytes(), 0o644)
-}
-
 pub fn write_release_metadata_and_normalize(
     root: &str,
     payload: &model::Payload,
@@ -173,7 +171,7 @@ pub fn write_release_metadata_and_normalize(
     // a pointer in the earlier host-content build marker, not stale scope data.
     files::owned_write(
         &sys::join(&[root, "usr/share/soda/host-image/build.json"]),
-        b"{\"Scope\":\"complete-local-payload\",\"ReleaseMetadata\":\"/usr/share/soda/release.json\"}\n",
+        b"{\"Scope\":\"thin-local-payload\",\"ReleaseMetadata\":\"/usr/share/soda/release.json\"}\n",
         0o644,
     )?;
     let mut data =
@@ -194,27 +192,18 @@ pub fn write_release_metadata_and_normalize(
     })
 }
 
-/// Complete binds all callers to one v3 payload and ordinary Podman storage.
-pub fn complete(
-    source: &str,
-    context: &str,
-    archives: &str,
-    payload: &model::Payload,
-    production: Option<&dyn Production>,
-) -> Result<(), Error> {
+/// Complete binds all callers to one thin v4 payload and ordinary Podman
+/// storage. No application OCI body enters the host: the six required
+/// images are acquired at boot from the sealed bindings, and the required
+/// native package bootstraps from the staged trusted catalog.
+pub fn complete(source: &str, context: &str, payload: &model::Payload) -> Result<(), Error> {
     validate_complete_payload(payload)?;
     let root = sys::join(&[context, "rootfs"]);
     write_complete_quadlets(source, &root, payload)?;
     verify_public_branding_and_motd(&root)?;
     write_factory_defaults(&root)?;
     configure_complete_systemd(source, &root)?;
-    bind_extension_install_image(&root, payload)?;
-    layout::stage_images(
-        archives,
-        &sys::join(&[&root, "usr/share/soda/images"]),
-        payload,
-        production,
-    )?;
+    stage_extension_catalog(&root, payload)?;
     write_release_metadata_and_normalize(&root, payload)
 }
 
@@ -230,70 +219,14 @@ mod tests {
             validate_complete_payload(&payload).unwrap_err().0,
             "invalid appliance payload identity"
         );
-        assert!(complete("/src", "/ctx", "/arc", &payload, None).is_err());
-    }
-
-    #[test]
-    fn oracle_extension_binding_refuses_ambiguity() {
-        let dir = std::env::temp_dir().join(format!("sri-cb-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        let unit = dir.join("usr/lib/systemd/system/soda-extension-install.service");
-        fs::create_dir_all(unit.parent().unwrap()).unwrap();
-        fs::write(
-            &unit,
-            b"Image=localhost/soda-extension:dev plus localhost/soda-extension:dev\n",
-        )
-        .unwrap();
-        let payload = model::Payload::default();
-        assert_eq!(
-            bind_extension_install_image(dir.to_str().unwrap(), &payload)
-                .unwrap_err()
-                .0,
-            "soda extension installer image binding is ambiguous"
-        );
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn extension_binding_preserves_fixed_data_repair_before_install() {
-        let dir = std::env::temp_dir().join(format!("sri-fixed-extension-{}", std::process::id()));
-        fs::create_dir_all(dir.join("usr/lib/systemd/system")).unwrap();
-        let unit = dir.join("usr/lib/systemd/system/soda-extension-install.service");
-        let source = include_str!("../../../system/host/services/soda-extension-install.service");
-        fs::write(&unit, source).unwrap();
-        let mut payload = model::Payload::default();
-        payload.images.push((
-            "extension".to_string(),
-            model::PayloadImage {
-                config: "sha256:selected-extension".to_string(),
-                ..Default::default()
-            },
-        ));
-        bind_extension_install_image(dir.to_str().unwrap(), &payload).unwrap();
-        let staged = fs::read_to_string(&unit).unwrap();
-        assert_eq!(
-            staged,
-            source.replace("localhost/soda-extension:dev", "sha256:selected-extension")
-        );
-        let forgejo = include_str!("../../../system/host/services/forgejo.container");
-        let declaration = forgejo
-            .lines()
-            .find_map(|line| line.strip_prefix("Environment=FORGEJO__server__APP_DATA_PATH="))
-            .unwrap();
-        assert!(staged.contains(&format!(
-            "--env=FORGEJO__server__APP_DATA_PATH={declaration} "
-        )));
-        assert!(staged.lines().any(|line| line.starts_with("After=")
-            && line
-                .split_whitespace()
-                .any(|word| word == "soda-forgejo-migrate.service")));
-        assert!(staged.contains("--entrypoint=/bin/sh sha256:selected-extension -ec 'environment-to-ini --config /data/gitea/conf/app.ini; exec /usr/local/bin/gitea --config /data/gitea/conf/app.ini extensions install"));
-        fs::remove_dir_all(&dir).unwrap();
+        assert!(complete("/src", "/ctx", &payload).is_err());
     }
 
     #[test]
     fn quadlets_read_new_layout() {
-        // CORR-C-005: units live under system/host/services/.
+        // CORR-C-005: units live under system/host/services/. The obsolete
+        // extension-install unit is gone: generated units are the four
+        // service-owned Quadlets ordered after the image importer.
         let dir = std::env::temp_dir().join(format!("sri-cq-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let source = dir.join("src");
@@ -303,6 +236,7 @@ mod tests {
             "forgejo.container",
             "soda-dashboard.container",
             "soda-proxy.container",
+            "soda-postgres.container",
         ] {
             let body = if name == "forgejo.container" {
                 include_str!("../../../system/host/services/forgejo.container")
@@ -314,33 +248,55 @@ mod tests {
         let root = dir.join("root");
         let image_config =
             "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-        let mut payload = model::Payload::default();
-        payload.images.push((
-            "forgejo".to_string(),
-            model::PayloadImage {
-                config: image_config.to_string(),
-                ..model::PayloadImage::default()
-            },
-        ));
+        let mut payload: model::Payload = serde_json::from_str(include_str!(
+            "../../release-inputs/fixtures/payload-v4.json"
+        ))
+        .unwrap();
+        model::Role::Forgejo.binding_mut(&mut payload.images).config = image_config.to_string();
         write_complete_quadlets(source.to_str().unwrap(), root.to_str().unwrap(), &payload)
             .unwrap();
         for name in [
             "forgejo.container",
             "soda-dashboard.container",
             "soda-proxy.container",
+            "soda-postgres.container",
         ] {
-            assert!(root
-                .join("usr/share/containers/systemd")
-                .join(name)
-                .is_file());
+            let generated =
+                fs::read_to_string(root.join("usr/share/containers/systemd").join(name)).unwrap();
+            // Exact config ID, never a source pull policy, always ordered
+            // after the required image acquisition.
+            assert!(generated.contains("Pull=never"), "{name}");
+            assert!(!generated.contains("Pull=newer"), "{name}");
+            assert!(
+                generated.contains("Requires=soda-image-import.service"),
+                "{name}"
+            );
+            assert!(
+                generated.contains("After=soda-image-import.service"),
+                "{name}"
+            );
         }
         let forgejo =
             fs::read_to_string(root.join("usr/share/containers/systemd/forgejo.container"))
                 .unwrap();
         assert!(forgejo.contains(&format!("Image={image_config}")));
-        assert!(forgejo.contains("Pull=never"));
         assert!(forgejo.contains("Environment=FORGEJO__server__APP_DATA_PATH=/data/gitea"));
         assert!(forgejo.contains("Volume=/var/lib/soda/forgejo:/data:Z"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn catalog_stages_projected_bytes() {
+        let dir = std::env::temp_dir().join(format!("sri-cat-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let root = dir.join("root");
+        let payload: model::Payload = serde_json::from_str(include_str!(
+            "../../release-inputs/fixtures/payload-v4.json"
+        ))
+        .unwrap();
+        stage_extension_catalog(root.to_str().unwrap(), &payload).unwrap();
+        let staged = fs::read(root.join("usr/share/soda/extensions/catalog.json")).unwrap();
+        assert_eq!(staged, payload.projected_catalog_bytes().unwrap());
         let _ = fs::remove_dir_all(&dir);
     }
 }

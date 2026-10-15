@@ -3,35 +3,25 @@
 use crate::error::Error;
 use crate::jsonio;
 
-const TAILSCALE_REPO_URL: &str = "https://pkgs.tailscale.com/stable/fedora/tailscale.repo";
 const INSTALL_PREFIX: &str = "ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive ";
 
 /// PackageInputs uses the current first-install owner rather than maintaining
 /// a second host package list. Reject changes in its command shape for
-/// explicit review.
-pub fn package_inputs(data: &[u8]) -> Result<(Vec<String>, String), Error> {
+/// explicit review. The thin host carries no Tailscale repository or RPM:
+/// either fails closed here.
+pub fn package_inputs(data: &[u8]) -> Result<Vec<String>, Error> {
     let text = std::str::from_utf8(data).map_err(|e| Error::msg(e.to_string()))?;
     let value: serde_json::Value =
         jsonio::parse(text).map_err(|e| Error::msg(format!("invalid package inputs: {}", e.0)))?;
     let empty = serde_json::Value::Null;
     let storage = value.get("storage").unwrap_or(&empty);
     let files = storage.get("files");
-    let mut repo = String::new();
     if let Some(serde_json::Value::Array(entries)) = files {
         for file in entries {
             let path = file.get("path").and_then(|v| v.as_str()).unwrap_or("");
-            if path != "/etc/yum.repos.d/tailscale.repo" {
-                continue;
-            }
-            let source = file
-                .get("contents")
-                .and_then(|c| c.get("source"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if !repo.is_empty() || source != TAILSCALE_REPO_URL {
+            if path == "/etc/yum.repos.d/tailscale.repo" {
                 return Err(Error::msg("unexpected Tailscale repository"));
             }
-            repo = source.to_string();
         }
     }
     let systemd = value.get("systemd").unwrap_or(&empty);
@@ -53,7 +43,12 @@ pub fn package_inputs(data: &[u8]) -> Result<(Vec<String>, String), Error> {
         }
     }
     match packages {
-        Some(packages) if !packages.is_empty() && !repo.is_empty() => Ok((packages, repo)),
+        Some(packages) if !packages.is_empty() => {
+            if packages.iter().any(|name| name == "tailscale") {
+                return Err(Error::msg("unexpected Tailscale package"));
+            }
+            Ok(packages)
+        }
         _ => Err(Error::msg("missing host package inputs")),
     }
 }
@@ -101,25 +96,35 @@ mod tests {
             package_inputs(b"{}").unwrap_err().0,
             "missing host package inputs"
         );
+        // The thin host needs no repository file at all.
         let no_repo = br#"{"storage":{"files":[]},"systemd":{"units":[{"name":"soda-extensions.service","contents":"ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive foo\n"}]}}"#;
+        assert_eq!(package_inputs(no_repo).unwrap(), vec!["foo".to_string()]);
+        // Any Tailscale repository entry fails closed, even beside a valid
+        // package command.
+        let repo = br#"{"storage":{"files":[{"path":"/etc/yum.repos.d/tailscale.repo","contents":{"source":"https://pkgs.tailscale.com/stable/fedora/tailscale.repo"}}]},"systemd":{"units":[{"name":"soda-extensions.service","contents":"ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive foo\n"}]}}"#;
         assert_eq!(
-            package_inputs(no_repo).unwrap_err().0,
-            "missing host package inputs"
+            package_inputs(repo).unwrap_err().0,
+            "unexpected Tailscale repository"
         );
-        let bad_cmd = br#"{"storage":{"files":[{"path":"/etc/yum.repos.d/tailscale.repo","contents":{"source":"https://pkgs.tailscale.com/stable/fedora/tailscale.repo"}}]},"systemd":{"units":[{"name":"soda-extensions.service","contents":"ExecStart=/bin/false\n"}]}}"#;
+        let bad_cmd = br#"{"storage":{"files":[]},"systemd":{"units":[{"name":"soda-extensions.service","contents":"ExecStart=/bin/false\n"}]}}"#;
         assert_eq!(
             package_inputs(bad_cmd).unwrap_err().0,
             "unexpected package installation command"
         );
-        let dup = br#"{"storage":{"files":[{"path":"/etc/yum.repos.d/tailscale.repo","contents":{"source":"https://pkgs.tailscale.com/stable/fedora/tailscale.repo"}}]},"systemd":{"units":[{"name":"soda-extensions.service","contents":"ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive foo foo\n"}]}}"#;
+        let dup = br#"{"storage":{"files":[]},"systemd":{"units":[{"name":"soda-extensions.service","contents":"ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive foo foo\n"}]}}"#;
         assert_eq!(
             package_inputs(dup).unwrap_err().0,
             "invalid or duplicate host package"
         );
-        let good = br#"{"storage":{"files":[{"path":"/etc/yum.repos.d/tailscale.repo","contents":{"source":"https://pkgs.tailscale.com/stable/fedora/tailscale.repo"}}]},"systemd":{"units":[{"name":"other.service","contents":"ExecStart=x"},{"name":"soda-extensions.service","contents":"[Service]\nExecStart=/usr/bin/rpm-ostree install -y --allow-inactive foo bar-1.0\n"}]}}"#;
-        let (packages, repo) = package_inputs(good).unwrap();
+        // A tailscale RPM in the install list fails closed as well.
+        let tail_pkg = br#"{"storage":{"files":[]},"systemd":{"units":[{"name":"soda-extensions.service","contents":"ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive foo tailscale\n"}]}}"#;
+        assert_eq!(
+            package_inputs(tail_pkg).unwrap_err().0,
+            "unexpected Tailscale package"
+        );
+        let good = br#"{"storage":{"files":[]},"systemd":{"units":[{"name":"other.service","contents":"ExecStart=x"},{"name":"soda-extensions.service","contents":"[Service]\nExecStart=/usr/bin/rpm-ostree install -y --allow-inactive foo bar-1.0\n"}]}}"#;
+        let packages = package_inputs(good).unwrap();
         assert_eq!(packages, vec!["foo".to_string(), "bar-1.0".to_string()]);
-        assert_eq!(repo, TAILSCALE_REPO_URL);
     }
 
     #[test]

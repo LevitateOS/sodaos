@@ -181,8 +181,25 @@ mod tests {
         let mut r = dev_request("bogus");
         assert_eq!(
             r.validate_target().unwrap_err(),
-            "--development requires --target candidate, media or docker"
+            "--development requires --target candidate, media, docker or all"
         );
+        // The narrow combined development target: one shared candidate for
+        // local media and Docker fixtures, with the v4 tag and a fixture
+        // rootfs base. It stays purpose=development.
+        let mut r = Request {
+            development: true,
+            target: "all".to_owned(),
+            distribution: "all".to_owned(),
+            release_tag: "v9.9.9-dev".to_owned(),
+            rootfs_base_url: "https://example.invalid/rootfs".to_owned(),
+            ..Request::default()
+        };
+        assert!(r.validate_target().is_ok());
+        assert_eq!(r.purpose(), "development");
+        assert_eq!(r.requested_target(), "all");
+        assert_eq!(r.completed_target(), "all");
+        r.distribution = "appliance".to_owned();
+        assert!(r.validate_target().is_err());
         r = Request::default();
         assert_eq!(
             r.validate_target().unwrap_err(),
@@ -199,7 +216,7 @@ mod tests {
         r.media_compression = "slow".to_owned();
         assert_eq!(
             r.validate_target().unwrap_err(),
-            "--media-compression accepts only fast with --development --target media"
+            "--media-compression accepts only fast with --development --target media or all"
         );
     }
 

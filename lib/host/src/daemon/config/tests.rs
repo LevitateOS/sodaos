@@ -9,7 +9,7 @@ const GOLDENS: &str = "tests/data/iconfig";
 const PROJECT_IMAGE: &str =
     "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const TAILNET_IMAGE: &str =
-    "sha256:2222222222222222222222222222222222222222222222222222222222222222";
+    "sha256:7f6fc04f2deab0d0c309f29d7d27517579ebb7047ad23907d9fa2797fa7227df";
 
 fn golden(name: &str) -> String {
     format!("{GOLDENS}/{name}")
@@ -32,6 +32,10 @@ fn golden_valid_configs() {
     );
     assert_eq!(c.codex_harness_version, "0.153.4");
     assert!(c.tailnet_management);
+    // No trusted release was loaded: lifecycle pins and payload stay empty.
+    assert!(c.tailnet_package_version.is_empty());
+    assert!(c.tailnet_package_sha256.is_empty());
+    assert!(c.release_payload.is_empty());
     assert_eq!(
         c.tailnet_image,
         "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -93,6 +97,12 @@ fn golden_release_overlay() {
     assert_eq!(c.image, PROJECT_IMAGE);
     assert_eq!(c.tailnet_image, TAILNET_IMAGE);
     assert!(c.tailnet_management);
+    // The release overlay also pins the lifecycle package identity and
+    // records the trusted payload path; empty release input leaves all
+    // three empty so lifecycle prepare stays unavailable.
+    assert_eq!(c.tailnet_package_version, "0.0.0-host-golden");
+    assert_eq!(c.tailnet_package_sha256, "b1".repeat(32));
+    assert_eq!(c.release_payload, release);
     assert_eq!(
         c.canlang_runtime.as_ref().unwrap().image,
         format!("sha256:{}", "3".repeat(64))

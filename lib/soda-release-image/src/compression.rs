@@ -7,15 +7,12 @@ use std::fs;
 use crate::error::Error;
 use crate::sys;
 
-// Expected upstream input; the normal producer selects RELEASE_ROOTFS_OPTIONS.
+// Expected upstream input. The release freezes one profile: level-1 LZMA
+// with fragments and a 1 MiB cluster, without global deduplication or
+// compression hints. There is no fast-vs-release split and no hints file.
 pub const DEFAULT_ROOTFS_OPTIONS: &str = "-zlzma,level=6 -Efragments -C1048576 --quiet";
-pub const RELEASE_ROOTFS_OPTIONS: &str = "-zlzma,level=6 -Efragments,dedupe -C65536 --compress-hints=/run/osbuild/inputs/deployed-tree/usr/share/coreos-assembler/soda-erofs-compress.hints --quiet";
 pub const FAST_ROOTFS_OPTIONS: &str = "-zlzma,level=1 -Efragments -C1048576 --quiet";
 pub const IMAGE_CONFIG_PATH: &str = "usr/share/coreos-assembler/image.json";
-pub const HINTS_IMAGE_PATH: &str = "usr/share/coreos-assembler/soda-erofs-compress.hints";
-// Keep initramfs compressed: plain storage loses sharing between its two
-// separate boot/deployment copies. Existing compressed archives are stored as-is.
-pub const RELEASE_COMPRESSION_HINTS: &str = "0 [.]((xz)|(gz))$\n";
 
 fn parse_image_config(text: &str) -> Result<BTreeMap<String, Box<RawValue>>, Error> {
     serde_json::from_str(text).map_err(|_| Error::msg("invalid JSON"))
@@ -49,7 +46,8 @@ fn settings(config: &BTreeMap<String, Box<RawValue>>) -> Result<(String, String)
 
 /// The caller has admitted the development/media request. Only this metadata
 /// field changes; upstream Assembler reads it from the resulting distinct
-/// host candidate.
+/// host candidate. Both admitted modes select the one frozen release profile;
+/// the fast-vs-release split is removed, not retained as a hidden mode.
 pub fn set_media_compression(
     config: &mut BTreeMap<String, Box<RawValue>>,
     mode: &str,
@@ -64,12 +62,7 @@ pub fn set_media_compression(
     }
     config.insert(
         "live-rootfs-fsoptions".to_string(),
-        to_raw_value(if mode == "fast" {
-            FAST_ROOTFS_OPTIONS
-        } else {
-            RELEASE_ROOTFS_OPTIONS
-        })
-        .expect("serializing a string cannot fail"),
+        to_raw_value(FAST_ROOTFS_OPTIONS).expect("serializing a string cannot fail"),
     );
     Ok(())
 }
@@ -104,8 +97,9 @@ mod tests {
             "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
             serde_json::to_string(DEFAULT_ROOTFS_OPTIONS).unwrap()
         ));
+        // Both admitted modes select the one frozen release profile.
         set_media_compression(&mut config, "").unwrap();
-        assert_eq!(settings(&config).unwrap().1, RELEASE_ROOTFS_OPTIONS);
+        assert_eq!(settings(&config).unwrap().1, FAST_ROOTFS_OPTIONS);
         let mut config = parsed_config(&format!(
             "{{\"live-rootfs-fstype\":\"erofs\",\"live-rootfs-fsoptions\":{}}}",
             serde_json::to_string(DEFAULT_ROOTFS_OPTIONS).unwrap()

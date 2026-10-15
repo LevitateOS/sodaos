@@ -1,6 +1,7 @@
 [Unit]
 Description=Import release-owned images into ordinary Podman storage
-After=systemd-tmpfiles-setup.service
+After=systemd-tmpfiles-setup.service network-online.target
+Wants=network-online.target
 Before=soda-host.service
 
 [Service]

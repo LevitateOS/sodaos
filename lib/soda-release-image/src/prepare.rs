@@ -101,7 +101,7 @@ impl PreparedWriter {
         self.write(to, text.as_bytes(), mode)
     }
 
-    pub fn write_base_files(&self, packages: &[String], repo: &str) -> Result<(), Error> {
+    pub fn write_base_files(&self, packages: &[String]) -> Result<(), Error> {
         self.copy_file("system/host/Containerfile", "Containerfile", 0o644, false)?;
         self.copy_file(
             "system/host/selinux/soda_dashboard.te",
@@ -117,16 +117,13 @@ impl PreparedWriter {
         )?;
         // Bare names only: the install floats on current repositories and the
         // built image's inventory is recorded as the bill-of-materials.
-        // Nothing here pins versions.
-        let mut entries = vec![
-            ("packages.list".to_string(), packages.join("\n") + "\n"),
-            ("tailscale-repo.url".to_string(), repo.to_string() + "\n"),
-        ];
-        entries.sort_by(|a, b| a.0.cmp(&b.0));
-        for (name, text) in entries {
-            self.write(&name, text.as_bytes(), 0o644)?;
-        }
-        Ok(())
+        // Nothing here pins versions. The thin host carries no Tailscale
+        // repository file: package_inputs already refuses it upstream.
+        self.write(
+            "packages.list",
+            (packages.join("\n") + "\n").as_bytes(),
+            0o644,
+        )
     }
 
     pub fn stage_symlinks_and_extras(&self) -> Result<(), Error> {
@@ -254,7 +251,6 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
         "soda-canlang@.service",
         "soda-tailnet@.service",
         "soda-console.service",
-        "soda-extension-install.service",
         "soda-postgres-backup.service",
         "soda-postgres-backup.timer",
         "soda-postgres-init.service",
@@ -286,7 +282,7 @@ fn load_base_inputs(
     source: &str,
     arch: &str,
     revision: &str,
-) -> Result<(Base, Vec<String>, String), Error> {
+) -> Result<(Base, Vec<String>), Error> {
     let base = load_base(production, arch)?;
     finish_base_inputs(source, revision, base)
 }
@@ -297,7 +293,7 @@ fn load_base_inputs_resolved(
     arch: &str,
     revision: &str,
     inputs: &str,
-) -> Result<(Base, Vec<String>, String), Error> {
+) -> Result<(Base, Vec<String>), Error> {
     let base = load_base_from_file(production, inputs, arch)?;
     finish_base_inputs(source, revision, base)
 }
@@ -306,13 +302,13 @@ fn finish_base_inputs(
     source: &str,
     revision: &str,
     base: Base,
-) -> Result<(Base, Vec<String>, String), Error> {
+) -> Result<(Base, Vec<String>), Error> {
     if !model::is_revision(revision) {
         return Err(Error::msg("exact source revision required"));
     }
     let data = fs::read(sys::join(&[source, "system/host/provisioning/base.json"]))?;
-    let (packages, repo) = packages::package_inputs(&data)?;
-    Ok((base, packages, repo))
+    let packages = packages::package_inputs(&data)?;
+    Ok((base, packages))
 }
 
 /// Prepare consumes committed source, never a staged appliance, a /var tree
@@ -325,8 +321,8 @@ pub fn prepare(
     arch: &str,
     revision: &str,
 ) -> Result<Base, Error> {
-    let (base, packages, repo) = load_base_inputs(production, source, arch, revision)?;
-    finish_prepare(source, out, arch, revision, base, packages, repo)
+    let (base, packages) = load_base_inputs(production, source, arch, revision)?;
+    finish_prepare(source, out, arch, revision, base, packages)
 }
 
 /// PrepareResolved stages the same context from controller-admitted CoreOS
@@ -339,9 +335,8 @@ pub fn prepare_resolved(
     revision: &str,
     inputs: &str,
 ) -> Result<Base, Error> {
-    let (base, packages, repo) =
-        load_base_inputs_resolved(production, source, arch, revision, inputs)?;
-    finish_prepare(source, out, arch, revision, base, packages, repo)
+    let (base, packages) = load_base_inputs_resolved(production, source, arch, revision, inputs)?;
+    finish_prepare(source, out, arch, revision, base, packages)
 }
 
 fn finish_prepare(
@@ -351,14 +346,13 @@ fn finish_prepare(
     revision: &str,
     base: Base,
     packages: Vec<String>,
-    repo: String,
 ) -> Result<Base, Error> {
     sys::fresh_directory(out)?;
     let writer = PreparedWriter {
         source: source.to_string(),
         out: out.to_string(),
     };
-    writer.write_base_files(&packages, &repo)?;
+    writer.write_base_files(&packages)?;
     writer.stage_rootfs_files()?;
     writer.write_build_record(&base, revision, arch, &packages)?;
     Ok(base)

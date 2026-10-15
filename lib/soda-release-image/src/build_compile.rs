@@ -548,14 +548,13 @@ mod tests {
         let packaged = dir.join("project-image/usr/libexec/soda/project-terminal");
         fs::create_dir_all(packaged.parent().unwrap()).unwrap();
         fs::copy(&helper, &packaged).unwrap();
-        let mut payload = model::Payload::default();
-        payload.images.push((
-            "project-os".into(),
-            model::PayloadImage {
-                config: dir.join("project-image").to_string_lossy().into_owned(),
-                ..Default::default()
-            },
-        ));
+        let mut payload: model::Payload = serde_json::from_str(include_str!(
+            "../../release-inputs/fixtures/payload-v4.json"
+        ))
+        .unwrap();
+        model::Role::ProjectOs
+            .binding_mut(&mut payload.images)
+            .config = dir.join("project-image").to_string_lossy().into_owned();
         let recorder = Recorder {
             go: RefCell::new(Vec::new()),
             rust: RefCell::new(Vec::new()),

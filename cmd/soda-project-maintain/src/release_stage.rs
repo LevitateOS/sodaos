@@ -405,8 +405,13 @@ impl StagedContent {
         payload
             .rewind()
             .map_err(|_| "target payload rewind failed")?;
+        let mut bytes = Vec::new();
+        payload
+            .read_to_end(&mut bytes)
+            .map_err(|_| "mounted release payload invalid")?;
         let payload: soda_release_deliver::payload::Payload =
-            serde_json::from_reader(payload).map_err(|_| "mounted release payload invalid")?;
+            soda_build_tools::payload::PayloadV4::parse(&bytes)
+                .map_err(|_| "mounted release payload invalid")?;
         if payload != target.payload {
             return Err("mounted release binding differs".into());
         }

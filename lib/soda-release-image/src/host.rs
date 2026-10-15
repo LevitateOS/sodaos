@@ -58,7 +58,10 @@ pub fn observe_host_packages(
     id: &str,
     production: &dyn Production,
 ) -> Result<Vec<u8>, Error> {
-    let script = "test \"$(stat -c %a /usr/libexec/soda/soda-host)\" = 755\ntest -L /usr/sbin\ntest \"$(readlink /usr/sbin)\" = bin\nfor name in grub2-install soda-setup soda-activate; do test -x /usr/sbin/$name; done\ntest -f /usr/lib/systemd/system/soda-project@.service\ntest -f /usr/share/containers/systemd/forgejo.container\nfor file in /etc/subuid /etc/subgid; do test \"$(cat \"$file\")\" = 'containers:1000000:268435456'; done\ntest ! -e /usr/local/libexec/soda/soda-host\ntest ! -e /etc/soda/host.json\ntest ! -e /etc/soda/dashboard.json\ntest ! -e /etc/zincati/config.d/90-soda-image.toml\ntest ! -e /usr/lib/bootc/bound-images.d/forgejo.container\nrpm -q rpm-ostree zincati ignition cockpit-ostree tailscale >/dev/null\ncat /usr/share/soda/host-image/packages.txt";
+    // The thin host carries no application OCI bodies and no native
+    // Tailnet: no shared image layout, no Tailscale RPM or repository, and
+    // no Tailnet service enablement in either final filesystem.
+    let script = "test \"$(stat -c %a /usr/libexec/soda/soda-host)\" = 755\ntest -L /usr/sbin\ntest \"$(readlink /usr/sbin)\" = bin\nfor name in grub2-install soda-setup soda-activate; do test -x /usr/sbin/$name; done\ntest -f /usr/lib/systemd/system/soda-project@.service\ntest -f /usr/share/containers/systemd/forgejo.container\nfor file in /etc/subuid /etc/subgid; do test \"$(cat \"$file\")\" = 'containers:1000000:268435456'; done\ntest ! -e /usr/local/libexec/soda/soda-host\ntest ! -e /etc/soda/host.json\ntest ! -e /etc/soda/dashboard.json\ntest ! -e /etc/zincati/config.d/90-soda-image.toml\ntest ! -e /usr/lib/bootc/bound-images.d/forgejo.container\ntest ! -e /usr/share/soda/images\ntest ! -e /etc/yum.repos.d/tailscale.repo\ntest ! -e /usr/lib/systemd/system/soda-extension-install.service\nrpm -q rpm-ostree zincati ignition cockpit-ostree >/dev/null\n! rpm -q tailscale >/dev/null 2>&1\ncat /usr/share/soda/host-image/packages.txt";
     let packages = production
         .capture(
             context,
@@ -158,7 +161,7 @@ pub fn build_host_image(
     let platform = model::oci_architecture(arch).unwrap_or("");
     let pinned = base.image(arch);
     let iid = sys::join(&[out, "host.iid"]);
-    const SCOPE: &str = "complete-local-payload";
+    const SCOPE: &str = "thin-local-payload";
     let mut args = vec![
         "--remote=false".to_string(),
         "build".to_string(),
@@ -212,7 +215,7 @@ pub fn verify_built_host(
     phase: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<(), Error> {
     let platform = model::oci_architecture(arch).unwrap_or("");
-    const SCOPE: &str = "complete-local-payload";
+    const SCOPE: &str = "thin-local-payload";
     phase("P6 / Verify native host identity and content")?;
     inspect_host_identity(context, platform, revision, SCOPE, id, production)?;
     let observed = observe_host_packages(context, out, id, production)?;
@@ -239,7 +242,7 @@ pub fn verify_built_host(
     )?;
     compression::record_image_config(context, out, &image_config)?;
     inspect::inspect_complete(context, out, id, production)?;
-    let payload = model::Payload::load(&sys::join(&[out, "payload.json"]))?;
+    let payload = model::load_payload(&sys::join(&[out, "payload.json"]))?;
     for installed in [
         soda_build_tools::project_support::DESTINATION,
         soda_build_tools::project_support::PAYLOAD_PATH,

@@ -26,44 +26,9 @@ pub fn inspect_complete_payload(
         return Err(Error::msg("image payload metadata differs from candidate"));
     }
     let text = String::from_utf8_lossy(&expected).into_owned();
-    // Plain (non-strict) decode, like the Go owner.
-    let payload = model::Payload::parse(&text)?;
-    payload.validate()?;
+    let payload = model::Payload::parse(text.as_bytes()).map_err(|e| Error::msg(e.to_string()))?;
+    payload.validate().map_err(|e| Error::msg(e.to_string()))?;
     Ok(payload)
-}
-
-pub fn inspect_complete_content(
-    context: &str,
-    _out: &str,
-    payload: &model::Payload,
-    run: InspectRun<'_>,
-    production: &dyn Production,
-) -> Result<(), Error> {
-    let (files, _) = production.verify_content(
-        payload,
-        &sys::join(&[
-            context,
-            "rootfs",
-            model::DELIVER_IMAGES_PATH.trim_start_matches('/'),
-        ]),
-    )?;
-    let mut paths: Vec<String> = files.keys().cloned().collect();
-    paths.sort();
-    let installed: Vec<String> = paths
-        .iter()
-        .map(|name| format!("{}/{}", model::DELIVER_IMAGES_PATH, name))
-        .collect();
-    let sums = run("content-inspect", "/usr/bin/sha256sum", &installed)?;
-    let lines: Vec<&str> = sums.split('\n').collect();
-    if lines.len() != paths.len() {
-        return Err(Error::msg("incomplete embedded content inventory"));
-    }
-    for (i, name) in paths.iter().enumerate() {
-        if lines[i] != format!("{}  {}", files[name], installed[i]) {
-            return Err(Error::msg("host content differs from payload"));
-        }
-    }
-    Ok(())
 }
 
 pub fn inspect_complete_quadlets(
@@ -92,38 +57,25 @@ pub fn inspect_complete_quadlets(
             "native Quadlet generator lost ordinary Podman import ordering",
         ));
     }
-    for name in ["forgejo", "dashboard", "proxy"] {
-        if !generated.contains(&payload.image(name).config) {
+    for role in [
+        model::Role::Forgejo,
+        model::Role::Dashboard,
+        model::Role::Proxy,
+        model::Role::Postgres,
+    ] {
+        if !generated.contains(&role.binding(&payload.images).config) {
             return Err(Error::msg("native Quadlet generator lost image binding"));
         }
     }
     Ok(())
 }
 
-pub fn inspect_complete_extension_unit(
-    payload: &model::Payload,
-    run: InspectRun<'_>,
-) -> Result<(), Error> {
-    let unit = run(
-        "extension-unit-inspect",
-        "/usr/bin/cat",
-        &["/usr/lib/systemd/system/soda-extension-install.service".to_string()],
-    )?;
-    let extension_image = &payload.image("extension").config;
-    if unit.contains("localhost/soda-extension:dev")
-        || !unit.contains(&format!("--entrypoint=/bin/sh {extension_image} -ec '"))
-    {
-        return Err(Error::msg(
-            "host image lost Soda extension installer binding",
-        ));
-    }
-    Ok(())
-}
-
 pub fn inspect_complete_service_files(context: &str, run: InspectRun<'_>) -> Result<(), Error> {
+    // The required native package bootstraps from this trusted catalog;
+    // the obsolete installer unit is gone.
     for path in [
         "/usr/share/containers/systemd/forgejo.container",
-        "/usr/lib/systemd/system/soda-extension-install.service",
+        "/usr/share/soda/extensions/catalog.json",
     ] {
         let want = sys::hash_file(&sys::join(&[
             context,
@@ -180,7 +132,6 @@ pub fn inspect_complete(
     };
     let run_ref: InspectRun<'_> = &run;
     let payload = inspect_complete_payload(context, out, id, run_ref)?;
-    inspect_complete_content(context, out, &payload, run_ref, production)?;
     let console_hash = sys::hash_file(&sys::join(&[out, "tools/soda-installer"]))?;
     let console = run_ref(
         "installer-inspect",
@@ -191,7 +142,6 @@ pub fn inspect_complete(
         return Err(Error::msg("image installer differs from prebuilt tool"));
     }
     inspect_complete_quadlets(out, &payload, run_ref)?;
-    inspect_complete_extension_unit(&payload, run_ref)?;
     inspect_complete_service_files(context, run_ref)?;
     inspect_complete_inventory(context, run_ref)
 }
@@ -201,44 +151,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn extension_unit_binds_selected_image_from_actual_service_fixture() {
-        const SERVICE: &str =
-            include_str!("../../../system/host/services/soda-extension-install.service");
-        const PLACEHOLDER: &str = "localhost/soda-extension:dev";
-        let selected = "sha256:selected-extension";
-        let unit = SERVICE.replace(PLACEHOLDER, selected);
-        let run = |_: &str, _: &str, _: &[String]| Ok(unit.clone());
-        let run_ref: InspectRun<'_> = &run;
-        let mut payload = model::Payload::default();
-        payload.images.push((
-            "extension".to_string(),
-            model::PayloadImage {
-                config: selected.to_string(),
-                ..Default::default()
-            },
-        ));
-
-        assert!(inspect_complete_extension_unit(&payload, run_ref).is_ok());
-        payload.images[0].1.config = "sha256:wrong-extension".to_string();
-        assert_eq!(
-            inspect_complete_extension_unit(&payload, run_ref)
-                .unwrap_err()
-                .0,
-            "host image lost Soda extension installer binding"
-        );
-    }
-
-    #[test]
     fn oracle_quadlet_generator_binding_checks() {
         // Oracle: Go inspectCompleteQuadlets error strings.
-        let mut payload = model::Payload::default();
-        payload.images.push((
-            "forgejo".to_string(),
-            model::PayloadImage {
-                config: "sha256:forgejo".to_string(),
-                ..Default::default()
-            },
-        ));
+        let payload = model::Payload::default();
         let run = |_: &str, _: &str, _: &[String]| -> Result<String, Error> {
             Ok("additionalimagestore enabled".to_string())
         };

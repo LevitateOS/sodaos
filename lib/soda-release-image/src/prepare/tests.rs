@@ -49,7 +49,7 @@ fn base_context_stages_dashboard_policy_sources() {
         source: source.to_string_lossy().into_owned(),
         out: output.to_string_lossy().into_owned(),
     }
-    .write_base_files(&[], "https://repo.invalid/repo")
+    .write_base_files(&[])
     .expect("base context");
 
     assert_eq!(

@@ -178,7 +178,9 @@ impl Fixture {
         );
 
         let mut descriptors = Vec::new();
-        for (name, binding) in &mut p.images {
+        for role in crate::payload::Role::iter() {
+            let name = role.name();
+            let binding = role.binding_mut(&mut p.images);
             let prefix = format!("{name}:");
             let mut files: BTreeMap<String, Vec<u8>> = all
                 .iter()
@@ -193,8 +195,14 @@ impl Fixture {
             let image = oci(&files, &p.base, &labels(&p.base, name));
             binding.config = image.image.config.clone();
             binding.manifest = image.image.manifest.clone();
-            binding.reference = format!("{}-{name}@{}", p.repository_prefix, binding.manifest);
-            binding.archive_sha256 = identity(&image.bytes).sha256;
+            let repo = binding
+                .reference
+                .rsplit_once('@')
+                .map(|(repo, _)| repo.to_string())
+                .unwrap_or_else(|| format!("{}-{name}", c.repository_prefix));
+            binding.reference = format!("{repo}@{}", image.image.manifest);
+            c.image_archives
+                .insert(name.to_string(), identity(&image.bytes).sha256);
             std::fs::write(dir.path().join(format!("images/{name}.oci")), &image.bytes).unwrap();
             for (path, bytes) in image.blobs {
                 host_files.insert(format!("/usr/share/soda/images/{path}"), bytes);
@@ -203,7 +211,10 @@ impl Fixture {
                 "size":host_files[&format!("/usr/share/soda/images/blobs/sha256/{}", &binding.manifest[7..])].len(),
                 "annotations":{"org.opencontainers.image.ref.name":binding.config}}));
         }
-        p.project_support.project_image = p.images["project-os"].config.clone();
+        p.project_support.project_image = crate::payload::Role::ProjectOs
+            .binding(&p.images)
+            .config
+            .clone();
         p.validate().unwrap();
         let mut payload = serde_json::to_vec_pretty(&p).unwrap();
         payload.push(b'\n');
@@ -223,7 +234,7 @@ impl Fixture {
         let host = oci(&host_files, &p.base, &labels(&p.base, "host"));
         c.host = host.image;
         c.host_archive_sha256 = identity(&host.bytes).sha256;
-        c.host_reference = format!("{}-host@{}", p.repository_prefix, c.host.manifest);
+        c.host_reference = format!("{}-host@{}", c.repository_prefix, c.host.manifest);
         c.validate(&p, &payload).unwrap();
         std::fs::write(dir.path().join("host.oci"), host.bytes).unwrap();
         std::fs::write(dir.path().join("payload.json"), payload).unwrap();

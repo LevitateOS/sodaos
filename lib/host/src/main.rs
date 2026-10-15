@@ -230,6 +230,7 @@ fn open_backend(config: &config::Config) -> DaemonBackend {
             muse_harness_version: config.muse_harness_version.clone(),
             broker_socket: config.identity_socket.clone(),
             tailnet_image: config.tailnet_image.clone(),
+            release_payload: config.release_payload.clone(),
             muse: if config.muse_sha256.is_empty() {
                 None
             } else {
@@ -268,6 +269,9 @@ fn serve_host_socket(config: config::Config, listen_path: &str) -> Result<(), Ma
         DaemonConfig {
             image: config.image.clone(),
             tailnet_management: config.tailnet_management,
+            tailnet_package_version: config.tailnet_package_version.clone(),
+            tailnet_package_sha256: config.tailnet_package_sha256.clone(),
+            release_payload: config.release_payload.clone(),
             terminal_available: true,
             identity_available: true,
         },

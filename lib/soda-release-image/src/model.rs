@@ -20,22 +20,22 @@ pub struct ProducedImage {
     pub config: String,
     pub archive_sha256: String,
 }
-pub use payload::{Payload, PayloadImage, ProjectSupport};
+pub use payload::{
+    load as load_payload, ImageProvenance, Payload, PayloadImage, ProjectSupport, Role,
+};
+// R02 native package/catalog production consumes the same canonical v4
+// definitions the readers validate; no parallel DTOs.
+pub use payload::{
+    FountainCatalog, FountainPackage, FountainRelease, OptionalExtensions, TailnetDependency,
+    TailnetImages, BROWSER_CONTRACT, CATALOG_VERSION, EXTENSION_PROTOCOL, FORMAT,
+    MAX_PACKAGE_BYTES, SODA_CAPABILITIES, SODA_PACKAGE_ID, TAILNET_CAPABILITIES,
+    TAILNET_PACKAGE_ID,
+};
 pub use trust::{Permit, SecretFiles, Trust};
 pub use url::{https_url, is_loopback_addr, parse_url, UrlParts};
 
 pub const DELIVER_PATH: &str = "/usr/share/soda/release.json";
 pub const DELIVER_IMAGES_PATH: &str = "/usr/share/soda/images";
-/// `deliver.Names`, in order.
-pub const NAMES: [&str; 7] = [
-    "dashboard",
-    "forgejo",
-    "extension",
-    "proxy",
-    "project-os",
-    "tailnet",
-    "canlang-runtime",
-];
 pub const FORGEJO_COMPILER_IMAGE: &str =
     "docker.io/library/golang@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade";
 /// `store.SchemaVersion()`.

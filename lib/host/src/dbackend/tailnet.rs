@@ -2,7 +2,38 @@ use crate::daemon::backend::BackendError;
 use crate::json;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
-use std::time::Instant;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+/// Clip one lifecycle call to its remaining whole-operation budget,
+/// capped at `cap_secs`. An expired call is invalid; the mux already
+/// rejects it, so this is defense in depth at the effect boundary.
+fn lifecycle_deadline(
+    call: &crate::tcontrol_wire::LifecycleCall,
+    cap_secs: u64,
+) -> Result<Instant, BackendError> {
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs() as i64)
+        .unwrap_or(0);
+    let remaining = call.deadline_unix.saturating_sub(now_secs);
+    if remaining < 1 {
+        return Err(BackendError::Invalid);
+    }
+    let bound = (remaining as u64).min(cap_secs);
+    Ok(Instant::now() + Duration::from_secs(bound))
+}
+
+fn lifecycle_remaining(
+    call: &crate::tcontrol_wire::LifecycleCall,
+) -> Result<Instant, BackendError> {
+    lifecycle_deadline(call, crate::tailnet_lifecycle::ENSURE_TIMEOUT_SECS)
+}
+
+fn lifecycle_observe_deadline(
+    call: &crate::tcontrol_wire::LifecycleCall,
+) -> Result<Instant, BackendError> {
+    lifecycle_deadline(call, 20)
+}
 
 use super::{decode_empty_or_null, DaemonBackend};
 
@@ -240,6 +271,59 @@ fn encode_project_view(view: &crate::tailnet_domain::ProjectView) -> String {
 }
 
 impl DaemonBackend {
+    /// Lifecycle prepare: strict-decode the activate tuple, clip the
+    /// importer run to the call's remaining whole-operation budget, verify
+    /// the selected dependency locally, then report facts. Prepare never
+    /// opens admission and never starts a daemon.
+    pub(super) fn tailnet_lifecycle_prepare(
+        &self,
+        body: &[u8],
+        release_payload: &str,
+    ) -> Result<Vec<u8>, BackendError> {
+        let call =
+            crate::tcontrol_wire::decode_lifecycle_call(body).map_err(|_| BackendError::Invalid)?;
+        if call.operation != crate::tcontrol_wire::LIFECYCLE_ACTIVATE {
+            return Err(BackendError::Invalid);
+        }
+        let deadline = lifecycle_remaining(&call)?;
+        if release_payload.is_empty() || !release_payload.starts_with('/') {
+            return Err(BackendError::Unavailable);
+        }
+        crate::tailnet_lifecycle::ensure_tailnet_dependency(
+            crate::tailnet_lifecycle::IMAGE_IMPORT_BINARY,
+            release_payload,
+            deadline,
+        )
+        .map_err(|_| BackendError::Unavailable)?;
+        let observe = lifecycle_observe_deadline(&call)?;
+        Ok(crate::tailnet_lifecycle::prepared_observation(
+            &call,
+            self.tailnet.host_present(observe),
+        ))
+    }
+
+    /// Lifecycle observe/activate/deactivate report: strict-decode the
+    /// tuple and report facts without claiming them. T01 performs no
+    /// container effects here; T02 hangs validated apply, enumeration and
+    /// the operational grant on this same wire.
+    pub(super) fn tailnet_lifecycle_report(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        let call =
+            crate::tcontrol_wire::decode_lifecycle_call(body).map_err(|_| BackendError::Invalid)?;
+        let operation = call.operation.as_str();
+        if operation != crate::tcontrol_wire::LIFECYCLE_OBSERVE
+            && operation != crate::tcontrol_wire::LIFECYCLE_ACTIVATE
+            && operation != crate::tcontrol_wire::LIFECYCLE_DEACTIVATE
+        {
+            return Err(BackendError::Invalid);
+        }
+        let deadline = lifecycle_observe_deadline(&call)?;
+        if self.tailnet.host_present(deadline) {
+            Ok(crate::tailnet_lifecycle::unknown_observation(&call))
+        } else {
+            Ok(crate::tailnet_lifecycle::stopped_observation(&call))
+        }
+    }
+
     /// `executeTailnetProjectOrPolicy`: strict decode, validation, the
     /// container-identity fence (resolve before AND after; mismatch or
     /// error is unconfirmed), then the observation.

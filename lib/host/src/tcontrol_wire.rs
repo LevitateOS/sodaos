@@ -1341,3 +1341,453 @@ impl ProjectOptions {
         out
     }
 }
+
+// ---------- Lifecycle call/observation (RCX-2 T01) ----------
+//
+// Strict Rust counterparts of the frozen Fountain SDK `LifecycleCall` and
+// `LifecycleObservation` JSON shapes. The Go service forwards the verified
+// call verbatim; this owner decodes it strictly, validates the tuple
+// structurally, and renders observations with Go-exact field order and
+// `omitempty` behavior. It performs no I/O and holds no authority: tuple
+// admission is the manager's, checked by Go before this hop.
+
+/// Lifecycle wire cap: manager and controller enforce 16 KiB on lifecycle
+/// request and response bodies.
+pub const LIFECYCLE_BODY_LIMIT: usize = 16 << 10;
+
+/// Lifecycle operations: exactly `observe`, `activate`, `deactivate`.
+pub const LIFECYCLE_OBSERVE: &str = "observe";
+pub const LIFECYCLE_ACTIVATE: &str = "activate";
+pub const LIFECYCLE_DEACTIVATE: &str = "deactivate";
+
+/// Lifecycle states: exactly `running`, `stopped`, `unknown`.
+pub const LIFECYCLE_RUNNING: &str = "running";
+pub const LIFECYCLE_STOPPED: &str = "stopped";
+pub const LIFECYCLE_UNKNOWN: &str = "unknown";
+
+/// Verified lifecycle call: the full identity tuple plus operation and
+/// deadline. Field order matches the SDK JSON shape.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LifecycleCall {
+    pub controller_id: String,
+    pub controller_instance_id: String,
+    pub package_id: String,
+    pub package_version: String,
+    pub package_sha256: String,
+    pub installation_id: String,
+    pub generation: String,
+    pub operation: String,
+    pub deadline_unix: i64,
+}
+
+/// Bounded machine-readable lifecycle failure.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LifecycleError {
+    pub code: String,
+    pub message: String,
+}
+
+/// Observed lifecycle facts echoing the call. `effect_generation` is
+/// present for running and null otherwise; `error` is omitted when absent,
+/// matching the SDK `omitempty` behavior.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LifecycleObservation {
+    pub controller_id: String,
+    pub controller_instance_id: String,
+    pub package_id: String,
+    pub package_version: String,
+    pub package_sha256: String,
+    pub installation_id: String,
+    pub generation: String,
+    pub operation: String,
+    pub deadline_unix: i64,
+    pub state: String,
+    pub effect_generation: Option<String>,
+    pub admission_ready: bool,
+    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<LifecycleError>,
+}
+
+fn valid_lifecycle_id(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 64
+        && s.bytes()
+            .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-'))
+}
+
+fn valid_lifecycle_version(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.is_empty() || b.len() > 64 {
+        return false;
+    }
+    if !(b[0].is_ascii_alphanumeric()) {
+        return false;
+    }
+    b[1..]
+        .iter()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'+' | b'-'))
+}
+
+fn valid_lifecycle_sha256(s: &str) -> bool {
+    s.len() == 64 && is_lower_hex(s)
+}
+
+fn valid_lifecycle_uuid(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.len() != 36 {
+        return false;
+    }
+    for (i, c) in b.iter().enumerate() {
+        match i {
+            8 | 13 | 18 | 23 => {
+                if *c != b'-' {
+                    return false;
+                }
+            }
+            _ => {
+                if !c.is_ascii_hexdigit() {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+fn valid_lifecycle_generation(s: &str) -> bool {
+    if s.is_empty() || s.len() > 20 {
+        return false;
+    }
+    if s.len() > 1 && s.starts_with('0') {
+        return false;
+    }
+    if !s.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    s.parse::<u64>().is_ok()
+}
+
+fn valid_lifecycle_operation(s: &str) -> bool {
+    s == LIFECYCLE_OBSERVE || s == LIFECYCLE_ACTIVATE || s == LIFECYCLE_DEACTIVATE
+}
+
+fn valid_lifecycle_state(s: &str) -> bool {
+    s == LIFECYCLE_RUNNING || s == LIFECYCLE_STOPPED || s == LIFECYCLE_UNKNOWN
+}
+
+fn valid_lifecycle_code(s: &str) -> bool {
+    matches!(
+        s,
+        "unavailable"
+            | "unsupported"
+            | "identity_changed"
+            | "operation_in_progress"
+            | "unconfirmed"
+            | "effect_failed"
+    )
+}
+
+/// Strict-decode one lifecycle call body: 16 KiB cap, unknown fields,
+/// duplicate keys and trailing data rejected. Structural validation is
+/// separate so the mux can distinguish malformed (400) from mismatched.
+pub fn decode_lifecycle_call(body: &[u8]) -> Result<LifecycleCall, String> {
+    if body.len() > LIFECYCLE_BODY_LIMIT {
+        return Err(err_invalid());
+    }
+    crate::json::decode_strict_as(body).map_err(|_| err_invalid())
+}
+
+/// Structural call rules mirroring the SDK validator: controller and target
+/// identity, catalog artifact pin shape, installation UUID, canonical
+/// generation, known operation and a deadline past `now_unix`. This never
+/// authorizes; admission is the manager's, verified by Go before this hop.
+pub fn validate_lifecycle_call(call: &LifecycleCall, now_unix: i64) -> Result<(), String> {
+    if !valid_lifecycle_id(&call.controller_id)
+        || call.controller_instance_id.is_empty()
+        || call.controller_instance_id.len() > 128
+        || call.controller_instance_id.trim() != call.controller_instance_id
+        || !valid_lifecycle_id(&call.package_id)
+        || !valid_lifecycle_version(&call.package_version)
+        || !valid_lifecycle_sha256(&call.package_sha256)
+        || !valid_lifecycle_uuid(&call.installation_id)
+        || !valid_lifecycle_generation(&call.generation)
+        || !valid_lifecycle_operation(&call.operation)
+        || call.deadline_unix < 1
+        || call.deadline_unix <= now_unix
+    {
+        return Err(err_invalid());
+    }
+    Ok(())
+}
+
+/// Observation rules mirroring the SDK validator against the call it
+/// answers: exact tuple echo, known state, effect generation present for
+/// running and null otherwise (an older recorded generation stays valid
+/// cleanup evidence, never required equal), admission only with running
+/// and no error, bounded detail, bounded error code and message.
+pub fn validate_lifecycle_observation(
+    observation: &LifecycleObservation,
+    call: &LifecycleCall,
+) -> Result<(), String> {
+    let echoed = LifecycleCall {
+        controller_id: observation.controller_id.clone(),
+        controller_instance_id: observation.controller_instance_id.clone(),
+        package_id: observation.package_id.clone(),
+        package_version: observation.package_version.clone(),
+        package_sha256: observation.package_sha256.clone(),
+        installation_id: observation.installation_id.clone(),
+        generation: observation.generation.clone(),
+        operation: observation.operation.clone(),
+        deadline_unix: observation.deadline_unix,
+    };
+    if echoed != *call || !valid_lifecycle_state(&observation.state) {
+        return Err(err_invalid());
+    }
+    match observation.state.as_str() {
+        LIFECYCLE_RUNNING => {
+            let generation = match observation.effect_generation.as_deref() {
+                Some(generation) => generation,
+                None => return Err(err_invalid()),
+            };
+            if !valid_lifecycle_generation(generation) || observation.error.is_some() {
+                return Err(err_invalid());
+            }
+        }
+        _ => {
+            if observation.effect_generation.is_some() || observation.admission_ready {
+                return Err(err_invalid());
+            }
+        }
+    }
+    if observation.detail.len() > 256 {
+        return Err(err_invalid());
+    }
+    if let Some(error) = observation.error.as_ref() {
+        if !valid_lifecycle_code(&error.code) || error.message.is_empty() {
+            return Err(err_invalid());
+        }
+    }
+    Ok(())
+}
+
+/// Render one observation with Go-exact field order. `effect_generation`
+/// renders null when absent; `error` is omitted when absent.
+pub fn encode_lifecycle_observation(observation: &LifecycleObservation) -> String {
+    let mut out = String::from("{");
+    let mut first = true;
+    push_str(
+        &mut out,
+        &mut first,
+        "controller_id",
+        &observation.controller_id,
+    );
+    push_str(
+        &mut out,
+        &mut first,
+        "controller_instance_id",
+        &observation.controller_instance_id,
+    );
+    push_str(&mut out, &mut first, "package_id", &observation.package_id);
+    push_str(
+        &mut out,
+        &mut first,
+        "package_version",
+        &observation.package_version,
+    );
+    push_str(
+        &mut out,
+        &mut first,
+        "package_sha256",
+        &observation.package_sha256,
+    );
+    push_str(
+        &mut out,
+        &mut first,
+        "installation_id",
+        &observation.installation_id,
+    );
+    push_str(&mut out, &mut first, "generation", &observation.generation);
+    push_str(&mut out, &mut first, "operation", &observation.operation);
+    push_int(
+        &mut out,
+        &mut first,
+        "deadline_unix",
+        observation.deadline_unix,
+    );
+    push_str(&mut out, &mut first, "state", &observation.state);
+    match observation.effect_generation.as_deref() {
+        Some(generation) => push_str(&mut out, &mut first, "effect_generation", generation),
+        None => {
+            push_comma(&mut out, &mut first);
+            out.push_str("\"effect_generation\":null");
+        }
+    }
+    push_bool(
+        &mut out,
+        &mut first,
+        "admission_ready",
+        observation.admission_ready,
+    );
+    push_str(&mut out, &mut first, "detail", &observation.detail);
+    if let Some(error) = observation.error.as_ref() {
+        push_comma(&mut out, &mut first);
+        out.push_str("\"error\":{");
+        out.push_str("\"code\":");
+        out.push_str(&json::quote(&error.code));
+        out.push_str(",\"message\":");
+        out.push_str(&json::quote(&error.message));
+        out.push('}');
+    }
+    out.push('}');
+    out
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    fn test_call(operation: &str) -> LifecycleCall {
+        LifecycleCall {
+            controller_id: "soda".to_string(),
+            controller_instance_id: "d".repeat(32),
+            package_id: "tailnet".to_string(),
+            package_version: "1.0.0".to_string(),
+            package_sha256: "b".repeat(64),
+            installation_id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+            generation: "7".to_string(),
+            operation: operation.to_string(),
+            deadline_unix: 1792100300,
+        }
+    }
+
+    fn encode_call(call: &LifecycleCall) -> Vec<u8> {
+        format!(
+            "{{\
+            \"controller_id\":\"{controller}\",\
+            \"controller_instance_id\":\"{instance}\",\
+            \"package_id\":\"{package}\",\
+            \"package_version\":\"{version}\",\
+            \"package_sha256\":\"{sha}\",\
+            \"installation_id\":\"{installation}\",\
+            \"generation\":\"{generation}\",\
+            \"operation\":\"{operation}\",\
+            \"deadline_unix\":{deadline}}}",
+            controller = call.controller_id,
+            instance = call.controller_instance_id,
+            package = call.package_id,
+            version = call.package_version,
+            sha = call.package_sha256,
+            installation = call.installation_id,
+            generation = call.generation,
+            operation = call.operation,
+            deadline = call.deadline_unix,
+        )
+        .into_bytes()
+    }
+
+    #[test]
+    fn lifecycle_call_round_trips_strictly() {
+        for operation in ["observe", "activate", "deactivate"] {
+            let call = test_call(operation);
+            let decoded = decode_lifecycle_call(&encode_call(&call)).expect("must decode");
+            assert_eq!(decoded, call);
+            validate_lifecycle_call(&decoded, 1792100000).expect("must validate");
+        }
+        // Unknown fields, duplicates, trailing data and oversize bodies fail.
+        let mut unknown = encode_call(&test_call("observe"));
+        unknown.pop();
+        unknown.extend_from_slice(b",\"extra\":1}");
+        assert!(decode_lifecycle_call(&unknown).is_err());
+        let raw = encode_call(&test_call("observe"));
+        let mut duplicate = raw.clone();
+        duplicate.pop();
+        duplicate.extend_from_slice(b",\"operation\":\"observe\"}");
+        assert!(decode_lifecycle_call(&duplicate).is_err());
+        let mut trailing = raw.clone();
+        trailing.push(b'x');
+        assert!(decode_lifecycle_call(&trailing).is_err());
+        let big = vec![b'x'; LIFECYCLE_BODY_LIMIT + 1];
+        assert!(decode_lifecycle_call(&big).is_err());
+    }
+
+    #[test]
+    fn lifecycle_call_validation_rejects_bad_tuples() {
+        let now = 1792100000;
+        let mut bad = test_call("bogus");
+        assert!(validate_lifecycle_call(&bad, now).is_err());
+        bad = test_call("observe");
+        bad.package_sha256 = "B".repeat(64);
+        assert!(validate_lifecycle_call(&bad, now).is_err());
+        bad = test_call("observe");
+        bad.generation = "07".to_string();
+        assert!(validate_lifecycle_call(&bad, now).is_err());
+        bad = test_call("observe");
+        bad.installation_id = "not-a-uuid".to_string();
+        assert!(validate_lifecycle_call(&bad, now).is_err());
+        bad = test_call("observe");
+        bad.deadline_unix = now;
+        assert!(validate_lifecycle_call(&bad, now).is_err());
+        bad = test_call("observe");
+        bad.package_version = "-bad".to_string();
+        assert!(validate_lifecycle_call(&bad, now).is_err());
+    }
+
+    #[test]
+    fn lifecycle_observation_rules_match_sdk() {
+        let call = test_call("observe");
+        let mut observation = LifecycleObservation {
+            controller_id: call.controller_id.clone(),
+            controller_instance_id: call.controller_instance_id.clone(),
+            package_id: call.package_id.clone(),
+            package_version: call.package_version.clone(),
+            package_sha256: call.package_sha256.clone(),
+            installation_id: call.installation_id.clone(),
+            generation: call.generation.clone(),
+            operation: call.operation.clone(),
+            deadline_unix: call.deadline_unix,
+            state: "stopped".to_string(),
+            effect_generation: None,
+            admission_ready: false,
+            detail: "stopped".to_string(),
+            error: None,
+        };
+        validate_lifecycle_observation(&observation, &call).expect("stopped is valid");
+        // Running requires its actual recorded generation, which may be
+        // older than the request generation; it never requires equality.
+        observation.state = "running".to_string();
+        assert!(validate_lifecycle_observation(&observation, &call).is_err());
+        observation.effect_generation = Some("6".to_string());
+        validate_lifecycle_observation(&observation, &call).expect("older generation is valid");
+        // Admission never rides on stopped or unknown, and never with error.
+        observation.state = "stopped".to_string();
+        observation.effect_generation = None;
+        observation.admission_ready = true;
+        assert!(validate_lifecycle_observation(&observation, &call).is_err());
+        observation.admission_ready = false;
+        observation.error = Some(LifecycleError {
+            code: "bogus".to_string(),
+            message: "m".to_string(),
+        });
+        assert!(validate_lifecycle_observation(&observation, &call).is_err());
+        observation.error = Some(LifecycleError {
+            code: "unconfirmed".to_string(),
+            message: "m".to_string(),
+        });
+        validate_lifecycle_observation(&observation, &call).expect("error is valid");
+        // The renderer emits Go-exact bytes that decode back strictly.
+        let rendered = encode_lifecycle_observation(&observation);
+        assert!(rendered.contains("\"effect_generation\":null"));
+        assert!(rendered.contains("\"error\":{\"code\":\"unconfirmed\",\"message\":\"m\"}"));
+        let decoded: LifecycleObservation =
+            crate::json::decode_strict_as(rendered.as_bytes()).expect("must decode");
+        assert_eq!(decoded, observation);
+        // A mismatched echo is unknown, never adopted.
+        let mut drifted = call.clone();
+        drifted.generation = "8".to_string();
+        assert!(validate_lifecycle_observation(&observation, &drifted).is_err());
+    }
+}

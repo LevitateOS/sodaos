@@ -408,6 +408,8 @@ impl ExecBackend for DaemonBackend {
                 .enrollment(body, deadline)
                 .map_err(map_tailnet_err),
             "project" | "policy" => self.tailnet_project_or_policy(action, body, deadline),
+            "prepare" => self.tailnet_lifecycle_prepare(body, &self.release_payload),
+            "lifecycle" => self.tailnet_lifecycle_report(body),
             _ => Err(BackendError::Invalid),
         }
     }

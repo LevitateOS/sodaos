@@ -74,21 +74,29 @@ impl Production {
         let archives = PathBuf::from(&self.out).join("images");
         std::fs::create_dir(&archives).map_err(|e| io_error("mkdir", &archives, e))?;
         crate::files::chmod(&archives, 0o755)?;
-        if ![4, 5].contains(&self.inputs.len()) {
+        // Exactly the five frozen inputs: Rocky base, admitted Fountain
+        // image, upstream Caddy, upstream postgres, pinned official
+        // Tailscale. Six roles leave production: four built archives plus
+        // two upstream identity binds.
+        if self.inputs.len() != 5 {
             return Err(Error::msg("image inputs must be frozen before production"));
         }
         let inputs = self.inputs.clone();
         self.export_images(forgejo_context, &archives, &inputs)
     }
 
-    /// Compiles the exact archived fork under musl.
-    pub fn build_forgejo_binary(&self) -> Result<String, Error> {
-        crate::forgejo::build_forgejo_binary(self)
-    }
+    // The admitted Fountain release supplies the Forgejo image and its
+    // source proof: the producer no longer checks out, compiles, or stages
+    // a fork binary. The retired forgejo_source/forgejo_revision request
+    // fields stay reserved for that selected-release wiring.
 
-    /// Builds the fork binary into this build's image context.
-    pub fn stage_fork_binary(&self, context: &str) -> Result<(), Error> {
-        crate::forgejo::stage_fork_binary(self, context)
+    /// Fountain compilation removed. Retained only so the existing
+    /// pipeline wiring keeps compiling until its own cutover drops the
+    /// call: current staging never invokes it, and it always refuses.
+    pub fn stage_fork_binary(&self, _context: &str) -> Result<(), Error> {
+        Err(Error::msg(
+            "Fountain fork compilation removed; admission consumes the released Fountain image",
+        ))
     }
 }
 

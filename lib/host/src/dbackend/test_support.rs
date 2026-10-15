@@ -21,6 +21,7 @@ pub(in crate::dbackend) fn test_config() -> BackendConfig {
         muse_harness_version: String::new(),
         broker_socket: "/run/soda-test-broker.sock".to_string(),
         tailnet_image: "ghcr.io/test/tailnet:latest".to_string(),
+        release_payload: String::new(),
         muse: None,
     }
 }

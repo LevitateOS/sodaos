@@ -1,1 +1,166 @@
-{"Architecture":"x86_64","Base":"quay.io/fedora/fedora-coreos@sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3","CoreOS":"41.20250101.3.0","Format":3,"HostPackagesSHA256":"e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5","ID":"41.20250101.3.0.soda-ab12ab12ab12","Images":{"dashboard":{"ArchiveSHA256":"b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1","Config":"sha256:0101010101010101010101010101010101010101010101010101010101010101","Manifest":"sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","Reference":"ghcr.io/example/sodaos-dashboard@sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"},"extension":{"ArchiveSHA256":"b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3","Config":"sha256:0303030303030303030303030303030303030303030303030303030303030303","Manifest":"sha256:a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3","Reference":"ghcr.io/example/sodaos-extension@sha256:a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"},"forgejo":{"ArchiveSHA256":"b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2","Config":"sha256:0202020202020202020202020202020202020202020202020202020202020202","Manifest":"sha256:a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2","Reference":"ghcr.io/example/sodaos-forgejo@sha256:a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"},"project-os":{"ArchiveSHA256":"b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5","Config":"sha256:1111111111111111111111111111111111111111111111111111111111111111","Manifest":"sha256:a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5","Reference":"ghcr.io/example/sodaos-project-os@sha256:a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"},"proxy":{"ArchiveSHA256":"b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4","Config":"sha256:0404040404040404040404040404040404040404040404040404040404040404","Manifest":"sha256:a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4","Reference":"ghcr.io/example/sodaos-proxy@sha256:a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4"},"tailnet":{"ArchiveSHA256":"b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6","Config":"sha256:2222222222222222222222222222222222222222222222222222222222222222","Manifest":"sha256:a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6","Reference":"ghcr.io/example/sodaos-tailnet@sha256:a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6"},"canlang-runtime":{"Reference":"ghcr.io/example/sodaos-canlang-runtime@sha256:a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7","Config":"sha256:3333333333333333333333333333333333333333333333333333333333333333","Manifest":"sha256:a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7","ArchiveSHA256":"b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7"}},"PresentationSHA256":"d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4","RepositoryPrefix":"ghcr.io/example/sodaos","Revision":"ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12","Schema":1,"UpgradeFrom":null,"ProjectSupport":{"SHA256":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","Destination":"/usr/libexec/soda/project-terminal","PayloadPath":"/usr/share/soda/project-support/project-terminal","ProjectImage":"sha256:1111111111111111111111111111111111111111111111111111111111111111"}}
+{
+  "Format": 4,
+  "ID": "41.20250101.3.0.soda-ab12ab12ab12",
+  "ReleaseTag": "v0.0.0-host-golden",
+  "Revision": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+  "Architecture": "x86_64",
+  "CoreOS": "41.20250101.3.0",
+  "Base": "quay.io/fedora/fedora-coreos@sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+  "Schema": 1,
+  "PresentationSHA256": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+  "HostPackagesSHA256": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+  "ProjectSupport": {
+    "SHA256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "Destination": "/usr/libexec/soda/project-terminal",
+    "PayloadPath": "/usr/share/soda/project-support/project-terminal",
+    "ProjectImage": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "Fountain": {
+    "Version": "2.0.0",
+    "Metadata": {
+      "URL": "https://releases.example.invalid/v2.0.0/metadata.json",
+      "Bytes": 512,
+      "SHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "Image": "registry.example.invalid/fountain@sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "ImageConfig": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "SourceRevision": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "Source": {
+      "URL": "https://releases.example.invalid/v2.0.0/source.tar.gz",
+      "Bytes": 8192,
+      "SHA256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "PreparedSource": {
+      "URL": "https://releases.example.invalid/v2.0.0/prepared-source.tar.gz",
+      "Bytes": 4096,
+      "SHA256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "ExtensionProtocol": 1,
+    "BrowserContract": 1
+  },
+  "Images": {
+    "dashboard": {
+      "Reference": "ghcr.io/example/sodaos-dashboard@sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "Manifest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "Config": "sha256:0101010101010101010101010101010101010101010101010101010101010101",
+      "Platform": "linux/amd64",
+      "Provenance": {
+        "Kind": "Soda",
+        "Revision": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+        "Base": "quay.io/fedora/fedora-coreos@sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+      }
+    },
+    "forgejo": {
+      "Reference": "ghcr.io/example/sodaos-forgejo@sha256:a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "Manifest": "sha256:a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "Config": "sha256:0202020202020202020202020202020202020202020202020202020202020202",
+      "Platform": "linux/amd64",
+      "Provenance": {
+        "Kind": "Soda",
+        "Revision": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+        "Base": "registry.example.invalid/fountain@sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      }
+    },
+    "proxy": {
+      "Reference": "ghcr.io/example/sodaos-proxy@sha256:a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4",
+      "Manifest": "sha256:a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4",
+      "Config": "sha256:0404040404040404040404040404040404040404040404040404040404040404",
+      "Platform": "linux/amd64",
+      "Provenance": {
+        "Kind": "Upstream",
+        "Requested": "ghcr.io/example/sodaos-proxy@sha256:a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4"
+      }
+    },
+    "postgres": {
+      "Reference": "docker.io/library/postgres@sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "Manifest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "Config": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "Platform": "linux/amd64",
+      "Provenance": {
+        "Kind": "Upstream",
+        "Requested": "docker.io/library/postgres@sha256:8888888888888888888888888888888888888888888888888888888888888888"
+      }
+    },
+    "project-os": {
+      "Reference": "ghcr.io/example/sodaos-project-os@sha256:a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "Manifest": "sha256:a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "Config": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "Platform": "linux/amd64",
+      "Provenance": {
+        "Kind": "Soda",
+        "Revision": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+        "Base": "quay.io/fedora/fedora-coreos@sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+      }
+    },
+    "canlang-runtime": {
+      "Reference": "ghcr.io/example/sodaos-canlang-runtime@sha256:a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7",
+      "Manifest": "sha256:a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7",
+      "Config": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "Platform": "linux/amd64",
+      "Provenance": {
+        "Kind": "Soda",
+        "Revision": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+        "Base": "quay.io/fedora/fedora-coreos@sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+      }
+    }
+  },
+  "ExtensionCatalog": {
+    "version": 1,
+    "packages": [
+      {
+        "id": "soda",
+        "version": "0.0.0-host-golden",
+        "url": "https://github.com/levitateos/sodaos/releases/download/v0.0.0-host-golden/soda-extension-0.0.0-host-golden-linux-x86_64.tar.gz",
+        "size": 1024,
+        "sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "required": true,
+        "fountain_protocol": 1,
+        "browser_contract": 1,
+        "capabilities": [
+          "native.actor.read",
+          "native.repository.read",
+          "native.repositories.owned.search",
+          "native.organization.ownership",
+          "native.user.public_keys.read",
+          "native.contribution.authorize",
+          "native.service.bridge",
+          "native.background.operations",
+          "native.extension.lifecycle"
+        ]
+      },
+      {
+        "id": "tailnet",
+        "version": "0.0.0-host-golden",
+        "url": "https://github.com/levitateos/sodaos/releases/download/v0.0.0-host-golden/tailnet-extension-0.0.0-host-golden-linux-x86_64.tar.gz",
+        "size": 2048,
+        "sha256": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+        "required": false,
+        "fountain_protocol": 1,
+        "browser_contract": 1,
+        "capabilities": [
+          "native.actor.read",
+          "native.service.bridge"
+        ],
+        "lifecycle_controller": "soda"
+      }
+    ]
+  },
+  "OptionalExtensions": {
+    "tailnet": {
+      "PackageID": "tailnet",
+      "Images": {
+        "tailscale": {
+          "Reference": "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7",
+          "Manifest": "sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7",
+          "Config": "sha256:7f6fc04f2deab0d0c309f29d7d27517579ebb7047ad23907d9fa2797fa7227df",
+          "Platform": "linux/amd64",
+          "Provenance": {
+            "Kind": "Upstream",
+            "Requested": "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7"
+          }
+        }
+      }
+    }
+  },
+  "UpgradeFrom": []
+}

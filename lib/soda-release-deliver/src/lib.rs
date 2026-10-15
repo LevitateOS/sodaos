@@ -20,7 +20,7 @@ pub mod publish;
 pub mod upgrade;
 
 pub use model::{Permit, Trust};
-pub use payload::{Image, Payload, NAMES};
+pub use payload::{Image, Payload, Role};
 
 /// Validation/transport failure with a diagnostic message.
 #[derive(Debug, Clone, PartialEq, Eq)]

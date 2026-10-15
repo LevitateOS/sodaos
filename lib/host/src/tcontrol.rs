@@ -164,6 +164,13 @@ impl<E: Executor> Control<E> {
         native::observe(&self.transport(), deadline)
     }
 
+    /// True when the host daemon answers owned-resource inspection. The
+    /// lifecycle observer uses this factual signal; T02 cross-checks
+    /// records, image and grants before adopting anything as running.
+    pub fn host_present(&self, deadline: Instant) -> bool {
+        self.observe(deadline).is_ok()
+    }
+
     /// JSON bytes of the settings view, same shape as Go `Control.Settings`.
     pub fn settings(&self, deadline: Instant) -> Result<Vec<u8>, String> {
         let enrollment = self.policy.enrollment(deadline)?;

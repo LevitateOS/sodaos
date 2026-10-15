@@ -47,8 +47,8 @@ pub(crate) fn run(args: &[String]) -> Result<(), String> {
         .map_err(|_| "Canlang release unreadable")?;
     let release: Release =
         serde_json::from_slice(&bytes).map_err(|_| "invalid Canlang maintenance release")?;
-    if !crate::release_validation::is_hex_string(&release.sha256, 64)
-        || !crate::release_validation::is_hex_string(&release.source_revision, 40)
+    if !crate::release::is_hex_string(&release.sha256, 64)
+        || !crate::release::is_hex_string(&release.source_revision, 40)
         || release.archive_filename != "canlang-tools-linux-x86_64.tar.gz"
         || release.versions["node"] != "v24.21.0"
         || release.versions["bun"] != "1.4.2"

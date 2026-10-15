@@ -229,7 +229,7 @@ pub(crate) fn installed_source(deadline: Instant) -> Result<InstalledSource, Str
         .and_then(|value| value.as_str())
         .ok_or("native booted deployment unavailable")?
         .to_owned();
-    if !crate::release_validation::is_hex_string(&deployment, 64) {
+    if !crate::release::is_hex_string(&deployment, 64) {
         return Err("invalid native booted deployment".into());
     }
     Ok(InstalledSource {
@@ -302,8 +302,7 @@ pub(crate) fn admit(
     let media: MediaBinding =
         serde_json::from_slice(&body).map_err(|_| "invalid release media metadata")?;
     let rootfs_name = format!("{}-rootfs.img", media.rootfs.sha256);
-    if media.rootfs.path != rootfs_name
-        || !crate::release_validation::is_hex_string(&media.rootfs.sha256, 64)
+    if media.rootfs.path != rootfs_name || !crate::release::is_hex_string(&media.rootfs.sha256, 64)
     {
         return Err("exact hash-bound release rootfs required".into());
     }
@@ -333,7 +332,7 @@ pub(crate) fn admit(
     let (payload, candidate, media, rootfs) = if qualification_fixture {
         let target =
             upgrade::admit_candidate_directory(&anchored).map_err(|error| error.to_string())?;
-        if target.payload.upgrade_from.as_deref().unwrap_or_default() != [source.release_id.clone()]
+        if target.payload.upgrade_from.as_slice() != [source.release_id.clone()]
             || target.payload.id == source.release_id
             || target.media.deployment_commit == source.deployment
         {

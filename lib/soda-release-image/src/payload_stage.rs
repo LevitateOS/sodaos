@@ -5,10 +5,12 @@ use std::fs;
 
 use crate::complete;
 use crate::error::Error;
-use crate::extension;
 use crate::foreign::Production;
 use crate::model;
+use crate::native_package;
 use crate::sys;
+
+pub use native_package::ReleaseInputs;
 
 pub fn link_candidate_commands(
     context: &str,
@@ -33,18 +35,64 @@ pub fn stage_candidate_forgejo(
     context: &str,
     out: &str,
     production: &dyn Production,
+    release: &native_package::ReleaseInputs,
 ) -> Result<String, Error> {
     let forgejo_context = sys::join(&[out, "forgejo-context"]);
     sys::create_dir(&forgejo_context, 0o700)?;
-    production.stage_fork_binary(&forgejo_context)?;
+    // Admission consumes the independently released Fountain image: the
+    // producer never checks out, compiles, or stages a fork binary.
     production.assets(context, &forgejo_context)?;
     stage_project_support(context, production.native())?;
     payload.presentation_sha256 = complete::stage_presentation(&forgejo_context, context)?;
     stage_forgejo_container_inputs(source, &forgejo_context)?;
-    stage_extension_package(source, context, out, production.native())?;
+    stage_native_packages(payload, source, context, out, production.native(), release)?;
     crate::build::link_prepared_assets(production)?;
     remove_container_only_host_commands(context)?;
     Ok(forgejo_context)
+}
+
+/// Stage the two native extension packages, seal their catalog, and bind
+/// the release tag plus the admitted Fountain release into the payload.
+/// The projected catalog bytes are preserved as candidate evidence; the
+/// host stages the same bytes read back from the payload.
+pub fn stage_native_packages(
+    payload: &mut model::Payload,
+    source: &str,
+    context: &str,
+    out: &str,
+    native: &str,
+    release: &native_package::ReleaseInputs,
+) -> Result<native_package::NativePackages, Error> {
+    release.validate()?;
+    fs::create_dir_all(sys::join(&[out, "packages"]))?;
+    let soda = native_package::stage_soda_package(
+        source,
+        context,
+        native,
+        out,
+        release.source_timestamp,
+        &release.release_tag,
+    )?;
+    let tailnet = native_package::stage_tailnet_package(
+        source,
+        out,
+        release.source_timestamp,
+        &release.release_tag,
+    )?;
+    payload.release_tag = release.release_tag.clone();
+    payload.fountain = release.fountain.clone();
+    let catalog_bytes =
+        native_package::record_extension_catalog(payload, &release.release_tag, &soda, &tailnet)?;
+    sys::write_new(
+        &sys::join(&[out, "packages/catalog.json"]),
+        &catalog_bytes,
+        0o644,
+    )?;
+    Ok(native_package::NativePackages {
+        soda,
+        tailnet,
+        catalog_sha256: sys::hex_sha256(&catalog_bytes),
+    })
 }
 
 /// Consume the single compilation owned by production_assets. Both host uses
@@ -74,7 +122,10 @@ pub fn bind_project_support(
         sha256,
         destination: soda_build_tools::project_support::DESTINATION.to_string(),
         payload_path: soda_build_tools::project_support::PAYLOAD_PATH.to_string(),
-        project_image: payload.image("project-os").config,
+        project_image: model::Role::ProjectOs
+            .binding(&payload.images)
+            .config
+            .clone(),
     };
     for installed in [&binding.destination, &binding.payload_path] {
         let path = sys::join(&[context, "rootfs", installed.trim_start_matches('/')]);
@@ -110,63 +161,51 @@ fn stage_forgejo_container_inputs(source: &str, context: &str) -> Result<(), Err
     Ok(())
 }
 
-pub fn stage_extension_package(
-    source: &str,
-    context: &str,
-    out: &str,
-    native: &str,
-) -> Result<(), Error> {
-    let root = sys::join(&[out, "extension-context"]);
-    let package_dir = sys::join(&[&root, "extension"]);
-    fs::create_dir_all(&package_dir)?;
-    let mut pairs = [("extension.json", 0o644), ("run", 0o755)];
-    pairs.sort();
-    for (name, mode) in pairs {
-        let data = fs::read(sys::join(&[source, "system/containers/extension", name]))?;
-        sys::write_new(&sys::join(&[&package_dir, name]), &data, mode)?;
-    }
-    fs::hard_link(
-        sys::join(&[context, "rootfs/usr/libexec/soda/soda-extension"]),
-        sys::join(&[&package_dir, "backend"]),
-    )
-    .map_err(|e| Error::msg(e.to_string()))?;
-    extension::stage_extension_assets(native, &package_dir)?;
-    let recipe = fs::read(sys::join(&[
-        source,
-        "system/containers/extension/Containerfile",
-    ]))?;
-    sys::write_new(&sys::join(&[&root, "Containerfile"]), &recipe, 0o644)
-}
-
+/// Record the four Soda-built roles with Soda provenance. The Rocky base
+/// covers dashboard, project-os, and canlang-runtime; the Soda Fountain
+/// derivative's base is the admitted Fountain image. Proxy and postgres
+/// skip this binding: they bind upstream with their frozen requests.
 pub fn record_candidate_images(
     payload: &mut model::Payload,
     prefix: &str,
     images: &HashMap<String, model::ProducedImage>,
-) {
+    revision: &str,
+    rocky_base: &str,
+    fountain_image: &str,
+    arch: &str,
+) -> Result<(), Error> {
+    let platform = match arch {
+        "x86_64" => "linux/amd64",
+        _ => return Err(Error::msg("payload images require the x86_64 platform")),
+    };
     let mut names: Vec<&String> = images.keys().collect();
     names.sort();
     for name in names {
-        let image = &images[name];
-        match payload.images.iter_mut().find(|(n, _)| n == name) {
-            Some((_, slot)) => {
-                *slot = model::PayloadImage {
-                    reference: format!("{prefix}-{name}@{}", image.manifest),
-                    manifest: image.manifest.clone(),
-                    config: image.config.clone(),
-                    archive_sha256: image.archive_sha256.clone(),
-                };
-            }
-            None => payload.images.push((
-                (*name).clone(),
-                model::PayloadImage {
-                    reference: format!("{prefix}-{name}@{}", image.manifest),
-                    manifest: image.manifest.clone(),
-                    config: image.config.clone(),
-                    archive_sha256: image.archive_sha256.clone(),
-                },
-            )),
+        let Some(role) = model::Role::from_name(name) else {
+            return Err(Error::msg(format!(
+                "unknown image role {name:?}: not a Payload v4 role"
+            )));
+        };
+        if matches!(role, model::Role::Proxy | model::Role::Postgres) {
+            continue;
         }
+        let image = &images[name];
+        let base = match role {
+            model::Role::Forgejo => fountain_image,
+            _ => rocky_base,
+        };
+        *role.binding_mut(&mut payload.images) = model::PayloadImage {
+            reference: format!("{prefix}-{name}@{}", image.manifest),
+            manifest: image.manifest.clone(),
+            config: image.config.clone(),
+            platform: platform.to_string(),
+            provenance: model::ImageProvenance::Soda {
+                revision: revision.to_string(),
+                base: base.to_string(),
+            },
+        };
     }
+    Ok(())
 }
 
 pub fn inspect_candidate_forgejo(
@@ -177,8 +216,10 @@ pub fn inspect_candidate_forgejo(
 ) -> Result<(), Error> {
     let empty = model::ProducedImage::default();
     let config = images.get("forgejo").unwrap_or(&empty).config.clone();
-    // Read-only upstream binary, not its database/bootstrap entrypoint.
-    let script = "test \"$GITEA_CUSTOM\" = /usr/share/soda/forgejo\ntest \"$FORGEJO_CUSTOM\" = \"$GITEA_CUSTOM\"\ntest \"$(readlink \"$GITEA_CUSTOM/conf\")\" = /data/gitea/conf\ntest \"$(stat -c '%u:%g:%a' \"$GITEA_CUSTOM/templates/custom/header.tmpl\")\" = 0:0:444\n/usr/local/bin/gitea --version\n/usr/local/bin/gitea extensions --help >/dev/null";
+    // The Soda Fountain derivative preserves the released upstream
+    // executable, wrappers, and entrypoint: verify them plus Soda's
+    // presentation overlay, never a compiled fork binary.
+    let script = "test -x /app/gitea/gitea\ntest \"$GITEA_CUSTOM\" = /usr/share/soda/forgejo\ntest \"$FORGEJO_CUSTOM\" = \"$GITEA_CUSTOM\"\ntest \"$(readlink \"$GITEA_CUSTOM/conf\")\" = /data/gitea/conf\ntest \"$(stat -c '%u:%g:%a' \"$GITEA_CUSTOM/templates/custom/header.tmpl\")\" = 0:0:444\ntest -f /usr/share/soda/presentation.json\n/app/gitea/gitea --version\n/app/gitea/gitea extensions --help >/dev/null";
     let result = production
         .capture(
             source,
@@ -223,70 +264,7 @@ pub fn inspect_candidate_files(
             production,
         )?;
     }
-    inspect_packaged_file(
-        out,
-        &images.get("forgejo").unwrap_or(&empty).config.clone(),
-        "forgejo-context/forgejo-bin",
-        "/usr/local/bin/gitea",
-        production,
-    )?;
-    inspect_packaged_file(
-        out,
-        &images.get("extension").unwrap_or(&empty).config.clone(),
-        "forgejo-context/forgejo-bin",
-        "/usr/local/bin/gitea",
-        production,
-    )?;
-    let mut pairs = [
-        (
-            "extension-context/extension/extension.json",
-            "/usr/share/soda/extension/extension.json",
-        ),
-        (
-            "extension-context/extension/backend",
-            "/usr/share/soda/extension/backend",
-        ),
-        (
-            "extension-context/extension/run",
-            "/usr/share/soda/extension/run",
-        ),
-    ];
-    pairs.sort();
-    for (staged, installed) in pairs {
-        inspect_packaged_file(
-            out,
-            &images.get("extension").unwrap_or(&empty).config.clone(),
-            staged,
-            installed,
-            production,
-        )?;
-    }
-    inspect_extension_assets(
-        out,
-        &images.get("extension").unwrap_or(&empty).config.clone(),
-        production,
-    )
-}
-
-pub fn inspect_extension_assets(
-    out: &str,
-    image_id: &str,
-    production: &dyn Production,
-) -> Result<(), Error> {
-    let assets = sys::join(&[out, "extension-context/extension/assets"]);
-    sys::walk(&assets, |path, is_dir, _| {
-        if is_dir {
-            return Ok(());
-        }
-        let rel = sys::rel_path(&assets, path)?;
-        inspect_packaged_file(
-            out,
-            image_id,
-            &format!("extension-context/extension/assets/{rel}"),
-            &format!("/usr/share/soda/extension/assets/{}", sys::to_slash(&rel)),
-            production,
-        )
-    })
+    Ok(())
 }
 
 pub fn inspect_packaged_file(
@@ -336,16 +314,9 @@ pub fn seal_candidate_payload(
     source: &str,
     context: &str,
     out: &str,
-    production: &dyn Production,
 ) -> Result<(), Error> {
-    payload.validate()?;
-    complete::complete(
-        source,
-        context,
-        &sys::join(&[out, "images"]),
-        payload,
-        Some(production),
-    )?;
+    payload.validate().map_err(|e| Error::msg(e.to_string()))?;
+    complete::complete(source, context, payload)?;
     let mut record =
         serde_json::to_string_pretty(payload).expect("serialization to String cannot fail");
     record.push('\n');
@@ -355,6 +326,9 @@ pub fn seal_candidate_payload(
 /// completeCandidate is image-layout assembly, not a second component
 /// producer. The payload seals later: the host inventory floats, so its
 /// fingerprint is recorded from the built image and set before sealing.
+/// R02 supplies the release tag, frozen Fountain release, native package
+/// catalog, and optional Tailnet binding through `release`; each missing
+/// input fails staging closed before anything seals.
 pub fn complete_candidate(
     source: &str,
     context: &str,
@@ -365,10 +339,13 @@ pub fn complete_candidate(
     base: &crate::prepare::Base,
     production: &dyn Production,
     commands: &[String],
+    release: &native_package::ReleaseInputs,
     phase: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<model::Payload, Error> {
+    release.validate()?;
+    let base_image = base.image(arch);
     let mut payload = model::Payload {
-        format: 3,
+        format: 4,
         id: format!(
             "{}.soda-{}",
             base.release,
@@ -377,18 +354,44 @@ pub fn complete_candidate(
         revision: revision.to_string(),
         architecture: arch.to_string(),
         core_os: base.release.clone(),
-        base: base.image(arch),
-        repository_prefix: prefix.to_string(),
-        schema: model::SCHEMA_VERSION,
-        images: Vec::new(),
-        upgrade_from: Vec::new(),
+        base: base_image.clone(),
+        schema: model::SCHEMA_VERSION as u32,
         ..model::Payload::default()
     };
     link_candidate_commands(context, production.native(), commands)?;
-    let forgejo_context = stage_candidate_forgejo(&mut payload, source, context, out, production)?;
+    let forgejo_context =
+        stage_candidate_forgejo(&mut payload, source, context, out, production, release)?;
     phase("P4 / Build application images")?;
     let images = production.images(&forgejo_context)?;
-    record_candidate_images(&mut payload, prefix, &images);
+    record_candidate_images(
+        &mut payload,
+        prefix,
+        &images,
+        revision,
+        &base_image,
+        &release.fountain.image,
+        arch,
+    )?;
+    for (role, requested) in [
+        (model::Role::Proxy, &release.proxy_requested),
+        (model::Role::Postgres, &release.postgres_requested),
+    ] {
+        let Some(image) = images.get(role.name()) else {
+            return Err(Error::msg(format!(
+                "missing frozen {} image binding",
+                role.name()
+            )));
+        };
+        native_package::record_upstream_binding(
+            &mut payload,
+            prefix,
+            role,
+            &image.config,
+            &image.manifest,
+            requested,
+        )?;
+    }
+    native_package::record_tailscale_binding(&mut payload, &release.tailscale)?;
     bind_project_support(&mut payload, context, production.native(), production)?;
     inspect_candidate_forgejo(source, out, &images, production)?;
     Ok(payload)
@@ -453,82 +456,231 @@ mod tests {
 
     #[test]
     fn oracle_record_candidate_images_binds_references() {
-        // Oracle: Go recordCandidateImages reference shape.
+        // Oracle: Go recordCandidateImages reference shape. Soda-built roles
+        // carry Soda provenance; the Fountain derivative's base is the
+        // admitted Fountain image, not the Rocky base. Upstream roles skip
+        // this binding and bind with their frozen requests instead.
+        let mut payload = model::Payload::default();
+        let mut images = HashMap::new();
+        for name in ["forgejo", "dashboard", "proxy", "postgres"] {
+            images.insert(
+                name.to_string(),
+                model::ProducedImage {
+                    manifest: "sha256:manifest".to_string(),
+                    config: "sha256:config".to_string(),
+                    archive_sha256: "archive".to_string(),
+                },
+            );
+        }
+        let revision = "a".repeat(40);
+        let rocky = "quay.io/fedora/fedora-coreos@sha256:".to_string() + &"b".repeat(64);
+        let fountain = "example.invalid/fountain@sha256:".to_string() + &"c".repeat(64);
+        record_candidate_images(
+            &mut payload,
+            "ghcr.io/e/sodaos",
+            &images,
+            &revision,
+            &rocky,
+            &fountain,
+            "x86_64",
+        )
+        .unwrap();
+        let image = model::Role::Forgejo.binding(&payload.images);
+        assert_eq!(image.reference, "ghcr.io/e/sodaos-forgejo@sha256:manifest");
+        assert_eq!(image.config, "sha256:config");
+        assert_eq!(image.platform, "linux/amd64");
+        match &image.provenance {
+            model::ImageProvenance::Soda {
+                revision: got,
+                base: got_base,
+            } => {
+                assert_eq!(got, &revision);
+                assert_eq!(got_base, &fountain);
+            }
+            other => panic!("unexpected provenance: {other:?}"),
+        }
+        match &model::Role::Dashboard.binding(&payload.images).provenance {
+            model::ImageProvenance::Soda { base, .. } => assert_eq!(base, &rocky),
+            other => panic!("unexpected provenance: {other:?}"),
+        }
+        // Upstream roles are untouched by the Soda binding.
+        assert!(model::Role::Proxy
+            .binding(&payload.images)
+            .reference
+            .is_empty());
+        assert!(model::Role::Postgres
+            .binding(&payload.images)
+            .reference
+            .is_empty());
+    }
+
+    #[test]
+    fn record_candidate_images_rejects_non_v4_roles() {
         let mut payload = model::Payload::default();
         let mut images = HashMap::new();
         images.insert(
-            "forgejo".to_string(),
+            "extension".to_string(),
             model::ProducedImage {
                 manifest: "sha256:manifest".to_string(),
                 config: "sha256:config".to_string(),
                 archive_sha256: "archive".to_string(),
             },
         );
-        record_candidate_images(&mut payload, "ghcr.io/e/sodaos", &images);
-        let image = payload.image("forgejo");
-        assert_eq!(image.reference, "ghcr.io/e/sodaos-forgejo@sha256:manifest");
-        assert_eq!(image.config, "sha256:config");
+        let revision = "a".repeat(40);
+        let base = "quay.io/fedora/fedora-coreos@sha256:".to_string() + &"b".repeat(64);
+        assert_eq!(
+            record_candidate_images(
+                &mut payload,
+                "ghcr.io/e/sodaos",
+                &images,
+                &revision,
+                &base,
+                &base,
+                "x86_64"
+            )
+            .unwrap_err()
+            .0,
+            "unknown image role \"extension\": not a Payload v4 role"
+        );
     }
 
-    #[test]
-    fn shipping_component_staging_preserves_container_bytes() {
-        // CORR-C-005: extension inputs live under system/containers/extension/.
-        let dir = std::env::temp_dir().join(format!("sri-ext-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
+    fn package_fixture_tree(
+        dir: &std::path::Path,
+        id: &str,
+        capabilities: &[&str],
+    ) -> (String, String, String) {
+        // Synthetic T03-shaped package source: manifest, entrypoint,
+        // backend, one asset, LICENSE/NOTICE. Capabilities mirror the
+        // canonical approved lists so the fixture proves the contract,
+        // not a divergent fixture shape.
         let source = dir.join("src");
-        let ext = source.join("system/containers/extension");
-        fs::create_dir_all(&ext).unwrap();
-        fs::write(ext.join("extension.json"), b"{}").unwrap();
-        fs::write(ext.join("run"), b"#!/bin/sh\n").unwrap();
-        fs::write(ext.join("Containerfile"), b"FROM x\n").unwrap();
+        let origin = if id == "soda" {
+            source.join("system/containers/extension")
+        } else {
+            source.join("system/containers/extension/tailnet-package")
+        };
+        fs::create_dir_all(&origin).unwrap();
+        let caps: Vec<String> = capabilities.iter().map(|c| format!("\"{c}\"")).collect();
+        fs::write(
+            origin.join("extension.json"),
+            format!(
+                "{{\"protocol\":1,\"id\":\"{id}\",\"version\":\"0.1.0\",\"executable\":\"run\",\"capabilities\":[{}]}}",
+                caps.join(",")
+            ),
+        )
+        .unwrap();
+        fs::write(origin.join("run"), b"#!/bin/sh\n").unwrap();
+        fs::write(origin.join("backend"), b"backend").unwrap();
+        fs::create_dir_all(origin.join("assets")).unwrap();
+        fs::write(origin.join("assets/a.bin"), b"asset").unwrap();
+        fs::write(source.join("LICENSE"), b"license").unwrap();
+        fs::write(source.join("NOTICE"), b"notice").unwrap();
         let context = dir.join("ctx");
         let backend = context.join("rootfs/usr/libexec/soda/soda-extension");
         fs::create_dir_all(backend.parent().unwrap()).unwrap();
         fs::write(&backend, b"backend").unwrap();
-        fs::write(backend.with_file_name("soda-dashboard"), b"dashboard").unwrap();
-        fs::write(backend.with_file_name("soda-host"), b"host").unwrap();
         let native = dir.join("native");
-        link_candidate_commands(
-            context.to_str().unwrap(),
-            native.to_str().unwrap(),
-            &["soda-dashboard".to_string(), "soda-extension".to_string()],
-        )
-        .unwrap();
         let assets = native.join("soda-extension-assets");
         fs::create_dir_all(assets.join("assets")).unwrap();
         fs::write(assets.join("files.json"), b"[\"a.bin\"]").unwrap();
         fs::write(assets.join("assets/a.bin"), b"asset").unwrap();
+        (
+            source.to_str().unwrap().to_string(),
+            context.to_str().unwrap().to_string(),
+            native.to_str().unwrap().to_string(),
+        )
+    }
+
+    #[test]
+    fn native_packages_stage_seal_and_catalog() {
+        let dir = std::env::temp_dir().join(format!("sri-native-pkg-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let soda_caps: Vec<&str> = model::SODA_CAPABILITIES.to_vec();
+        let (source, context, native) = package_fixture_tree(&dir, "soda", &soda_caps);
+        let tail_caps: Vec<&str> = model::TAILNET_CAPABILITIES.to_vec();
+        package_fixture_tree(&dir, "tailnet", &tail_caps);
         let out = dir.join("out");
         fs::create_dir_all(&out).unwrap();
-        stage_extension_package(
-            source.to_str().unwrap(),
-            context.to_str().unwrap(),
+        let mut payload = model::Payload::default();
+        let release = native_package::ReleaseInputs {
+            release_tag: "v0.1.0".to_string(),
+            fountain: model::FountainRelease {
+                version: "9.9".to_string(),
+                image: "example.invalid/fountain@sha256:".to_string() + &"a".repeat(64),
+                image_config: format!("sha256:{}", "b".repeat(64)),
+                source_revision: "c".repeat(40),
+                extension_protocol: 1,
+                browser_contract: 1,
+                ..Default::default()
+            },
+            proxy_requested: "example.invalid/proxy@sha256:".to_string() + &"d".repeat(64),
+            postgres_requested: "example.invalid/postgres@sha256:".to_string() + &"e".repeat(64),
+            source_timestamp: 1_700_000_000,
+            ..Default::default()
+        };
+        let packages = stage_native_packages(
+            &mut payload,
+            &source,
+            &context,
             out.to_str().unwrap(),
-            native.to_str().unwrap(),
+            &native,
+            &release,
         )
         .unwrap();
-        let package = out.join("extension-context/extension");
-        assert!(package.join("extension.json").is_file());
-        assert!(package.join("run").is_file());
-        assert!(package.join("backend").is_file());
-        assert!(package.join("assets/a.bin").is_file());
-        assert!(out.join("extension-context/Containerfile").is_file());
-        remove_container_only_host_commands(context.to_str().unwrap()).unwrap();
-        assert_eq!(fs::read(package.join("backend")).unwrap(), b"backend");
+        assert_eq!(payload.release_tag, "v0.1.0");
+        assert_eq!(payload.fountain.version, "9.9");
+        assert_eq!(payload.extension_catalog.packages.len(), 2);
+        assert!(out.join("packages").join(&packages.soda.filename).is_file());
+        assert!(out
+            .join("packages")
+            .join(&packages.tailnet.filename)
+            .is_file());
+        let catalog = fs::read(out.join("packages/catalog.json")).unwrap();
+        assert_eq!(catalog, payload.projected_catalog_bytes().unwrap());
+        assert_eq!(packages.catalog_sha256, crate::sys::hex_sha256(&catalog));
+        // The source tree is never written: no stage directory lands in it.
+        assert!(!dir.join("src/system/containers/extension/package").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn native_packages_wait_for_tailnet_contents() {
+        let dir = std::env::temp_dir().join(format!("sri-native-tail-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let soda_caps: Vec<&str> = model::SODA_CAPABILITIES.to_vec();
+        let (source, context, native) = package_fixture_tree(&dir, "soda", &soda_caps);
+        let out = dir.join("out");
+        fs::create_dir_all(&out).unwrap();
+        let mut payload = model::Payload::default();
+        let release = native_package::ReleaseInputs {
+            release_tag: "v0.1.0".to_string(),
+            fountain: model::FountainRelease {
+                version: "9.9".to_string(),
+                image: "example.invalid/fountain@sha256:".to_string() + &"a".repeat(64),
+                image_config: format!("sha256:{}", "b".repeat(64)),
+                source_revision: "c".repeat(40),
+                extension_protocol: 1,
+                browser_contract: 1,
+                ..Default::default()
+            },
+            proxy_requested: "example.invalid/proxy@sha256:".to_string() + &"d".repeat(64),
+            postgres_requested: "example.invalid/postgres@sha256:".to_string() + &"e".repeat(64),
+            source_timestamp: 7,
+            ..Default::default()
+        };
         assert_eq!(
-            fs::read(native.join("bin/soda-dashboard")).unwrap(),
-            b"dashboard"
+            stage_native_packages(
+                &mut payload,
+                &source,
+                &context,
+                out.to_str().unwrap(),
+                &native,
+                &release
+            )
+            .unwrap_err()
+            .0,
+            "tailnet package contents pending T03: no system/containers/extension/tailnet-package source"
         );
-        assert_eq!(
-            fs::read(native.join("bin/soda-extension")).unwrap(),
-            b"backend"
-        );
-        assert_eq!(
-            fs::read(backend.with_file_name("soda-host")).unwrap(),
-            b"host"
-        );
-        assert!(!backend.exists());
-        assert!(!backend.with_file_name("soda-dashboard").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 

@@ -1,14 +1,22 @@
 //! Production resolved inputs: the frozen record, pull and digest
-//! admission, recipe references, live Tailnet inputs, and resolve_inputs.
+//! admission, recipe references, and resolve_inputs.
+//!
+//! The frozen set is the Rocky base, the admitted Fountain image named by
+//! the Fountain unit, the two upstream application images (Caddy/postgres
+//! units), and the one pinned official Tailscale image. There is no floating
+//! Tailnet toolchain resolution and no custom Tailscale image build.
 
 use crate::files::{is_digest, oci_architecture, write_new};
-use crate::live_inputs::read_live_inputs;
 use crate::production::Production;
 use crate::{io_error, Error};
 use serde::Serialize;
 use soda_build_tools::reader::settings::{recipe_base, unit_image};
-use soda_build_tools::reader::stream::TailnetInputs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+/// The one pinned official Tailscale image: the only Tailnet OCI identity,
+/// admitted by immutable digest. No RPM, daemon, or custom image in the
+/// default install; G-T proves the runtime behavior separately.
+pub const TAILSCALE_OFFICIAL_IMAGE: &str = "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7";
 
 /// One frozen upstream input: requested ref, pinned ref, config ID.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -123,7 +131,7 @@ impl Production {
         Ok((id, pinned))
     }
 
-    fn recipe_image_refs(&self) -> Result<(String, String, String), Error> {
+    fn recipe_image_refs(&self) -> Result<(String, String, String, String), Error> {
         let rocky = recipe_base(&PathBuf::from(&self.source).join("system/project/Containerfile"))
             .map_err(|e| Error::msg(e.to_string()))?;
         let dashboard = recipe_base(
@@ -144,20 +152,17 @@ impl Production {
             &PathBuf::from(&self.source).join("system/host/services/soda-proxy.container"),
         )
         .map_err(|e| Error::msg(e.to_string()))?;
-        Ok((rocky, forgejo, proxy))
-    }
-
-    /// Admits the controller-resolved floating Tailnet toolchain for this
-    /// attempt. The file is validated on read; the pull digests join the
-    /// record downstream.
-    pub(crate) fn live_tailnet_inputs(&self) -> Result<TailnetInputs, Error> {
-        if self.live_inputs.is_empty() {
-            return Err(Error::msg("live inputs file required for floating Tailnet"));
-        }
-        Ok(read_live_inputs(Path::new(&self.live_inputs))?.tailnet)
+        let postgres = unit_image(
+            &PathBuf::from(&self.source).join("system/host/services/soda-postgres.container"),
+        )
+        .map_err(|e| Error::msg(e.to_string()))?;
+        Ok((rocky, forgejo, proxy, postgres))
     }
 
     /// Records the actual upstream manifests once, before shipping work.
+    /// Every pull is platform-scoped, so the recorded digest is the exact
+    /// Linux child manifest the runtime verifies, never a mutable tag or a
+    /// multi-platform index.
     pub fn resolve_inputs(&mut self) -> Result<(), Error> {
         self.validate()?;
         match std::fs::symlink_metadata(PathBuf::from(&self.out).join("app-inputs.json")) {
@@ -165,11 +170,15 @@ impl Production {
             _ => return Err(Error::msg("occupied image input record")),
         }
         let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
-        let (rocky, forgejo, proxy) = self.recipe_image_refs()?;
-        let tailnet = self.live_tailnet_inputs()?;
-        let tail_base = tailnet.base.clone();
+        let (rocky, forgejo, proxy, postgres) = self.recipe_image_refs()?;
         let mut inputs = Vec::new();
-        for reference in [&rocky, &forgejo, &proxy, &tail_base] {
+        for reference in [
+            &rocky,
+            &forgejo,
+            &proxy,
+            &postgres,
+            &TAILSCALE_OFFICIAL_IMAGE.to_string(),
+        ] {
             self.pull_resolved_input(reference, "", &platform, &mut inputs)?;
         }
         self.inputs = inputs;

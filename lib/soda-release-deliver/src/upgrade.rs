@@ -80,8 +80,8 @@ impl Qualification {
         source_release: &str,
         source_support_sha256: &str,
     ) -> Result<(), Error> {
-        payload.validate()?;
-        let sources = payload.upgrade_from.as_deref().unwrap_or_default();
+        payload.validate().map_err(|e| Error::msg(e.to_string()))?;
+        let sources = payload.upgrade_from.as_slice();
         if self.format != 1
             || sources != [source_release.to_owned()]
             || source_release == payload.id
@@ -319,7 +319,7 @@ mod tests {
             serde_json::from_str(include_str!("../tests/goldens/deliver.json")).unwrap();
         let mut payload: Payload =
             serde_json::from_str(golden["payload"].as_str().unwrap()).unwrap();
-        payload.upgrade_from = Some(vec!["43.20260101.3.0.soda-cccccccccccc".into()]);
+        payload.upgrade_from = vec!["43.20260101.3.0.soda-cccccccccccc".into()];
         let bytes = serde_json::to_vec_pretty(&payload).unwrap();
         let mut candidate: Candidate =
             serde_json::from_str(golden["candidate"].as_str().unwrap()).unwrap();
@@ -358,7 +358,7 @@ mod tests {
                 format: 1,
                 kind: kind.into(),
                 native_architecture: "x86_64".into(),
-                source_release: payload.upgrade_from.as_ref().unwrap()[0].clone(),
+                source_release: payload.upgrade_from.first().cloned().unwrap_or_default(),
                 source_support_sha256: "2".repeat(64),
                 target_payload_sha256: candidate.payload_sha256.clone(),
                 target_host_manifest: candidate.host.manifest.clone(),
@@ -408,7 +408,12 @@ mod tests {
     fn prospective_sources_require_native_receipt_for_upgrade_admission() {
         let dir = fixture();
         let target = admit_candidate_directory(dir.path()).unwrap();
-        let source = target.payload.upgrade_from.as_ref().unwrap()[0].clone();
+        let source = target
+            .payload
+            .upgrade_from
+            .first()
+            .cloned()
+            .unwrap_or_default();
         let helper = "2".repeat(64);
         assert!(admit_directory(dir.path(), &source, &helper).is_err());
         let receipt = stamp(dir.path(), &dir.path().join("evidence")).unwrap();

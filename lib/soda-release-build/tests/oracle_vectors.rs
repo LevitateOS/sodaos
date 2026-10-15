@@ -19,53 +19,9 @@ pub const OCI_BASEDIGEST: &str =
 pub const OCI_FIXTURE_HASH: &str =
     "0ab43d832955b51125a34a1069f654d5b67125d776f9009738e126417984103c";
 
-pub const FORGEJO_ARGV: &str = r###"--remote=false
-run
---rm
---pull=always
---platform=linux/amd64
---volume=$ROOT/frozen-fork:/work/source:Z
---volume=$ROOT/native/forgejo-build:/work/out:Z
---volume=$ROOT/native/forgejo-cache:/work/cache:Z
---volume=$ROOT/native/forgejo-build/go-download:/work/go-download:ro,Z
---workdir=/work/source
---env=GOCACHE=/work/cache/gocache
---env=GOPATH=/work/out/gopath
---env=GOPROXY=file:///work/go-download,https://proxy.golang.org
---env=TMPDIR=/work/out/tmp
---env=FORGEJO_VERSION=15.0.10-soda.aaaaaaaaaaaa+gitea-1.22.0
-docker.io/library/golang@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade
-sh
--ec
-"###;
-pub const FORGEJO_SCRIPT: &str = r###"set -eu
-apk add --no-cache build-base=0.5-r4
-wget -O /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64-musl.zip"
-echo "4835eca59d6da70f4674f5642f6e459dcadab773695b2ed9922d131057989742  /tmp/bun.zip" | sha256sum -c -
-rm -rf /tmp/bun-extract && mkdir -p /tmp/bun-extract
-unzip -q -o -d /tmp/bun-extract /tmp/bun.zip
-install -m 755 /tmp/bun-extract/bun-linux-x64-musl/bun /usr/local/bin/bun
-test "$(bun --version)" = "1.4.2"
-mkdir -p /work/cache/gocache /work/out/gopath /work/out/tmp
-LC_ALL=C apk info -v | LC_ALL=C sort > /work/out/apk-packages.txt
-cache_key=$( (printf '%s\n' 'docker.io/library/golang@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade'; cat /work/out/apk-packages.txt) | sha256sum | cut -d ' ' -f 1)
-export GOCACHE=/work/cache/gocache/$cache_key
-# The git archive never contains built frontend outputs; generate them with
-# the pinned Bun toolchain before bindata embeds public/. The frozen install
-# resolves from the archived package lock; Bun is the only JS toolchain.
-bun install --frozen-lockfile --no-progress --cache-dir /work/cache/bun
-BROWSERSLIST_IGNORE_OLD_DATA=true bun ./node_modules/.bin/webpack
-test -s public/assets/js/index.js
-test -s public/assets/css/index.css
-for package in options public templates migration; do
-  (cd modules/$package && go generate -tags bindata .)
-done
-LDFLAGS=""
-if [ -n "${FORGEJO_VERSION:-}" ]; then
-  LDFLAGS="-X main.Version=${FORGEJO_VERSION} -X main.ForgejoVersion=${FORGEJO_VERSION} -X main.ReleaseVersion=${FORGEJO_VERSION} -X \"main.Tags=bindata sqlite sqlite_unlock_notify\""
-fi
-go build -buildvcs=false -tags 'bindata sqlite sqlite_unlock_notify' -ldflags "${LDFLAGS}" -trimpath -o /work/out/forgejo-bin .
-"###;
+// The Fountain compile argv/script vectors are removed with the producer's
+// Fountain checkout/toolchain/compile/stage-binary dependency: admission
+// consumes the independently released Fountain image and metadata instead.
 pub const PRODUCTION_SEQUENCE: &str = r###"bun --version
 go mod verify
 bun install --frozen-lockfile
@@ -75,7 +31,9 @@ podman --remote=false pull --quiet --platform=linux/amd64 codeberg.org/forgejo/f
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 podman --remote=false pull --quiet --platform=linux/amd64 docker.io/library/caddy:2
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-podman --remote=false pull --quiet --platform=linux/amd64 docker.io/tailscale/alpine-base:3.22
+podman --remote=false pull --quiet --platform=linux/amd64 docker.io/library/postgres:17
+podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
+podman --remote=false pull --quiet --platform=linux/amd64 docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7
 podman --remote=false image inspect --format {{.Digest}} sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
 cargo build --release --locked --offline --config profile.release.strip="symbols" --manifest-path $ROOT/Cargo.toml -p soda-muse --bin soda-muse
 cargo build --release --locked --offline --config profile.release.strip="symbols" --manifest-path $ROOT/Cargo.toml -p soda-identity-compose --bin soda-identity-compose
@@ -91,18 +49,13 @@ cargo run --release --locked -p soda-release-assets --bin soda-stage-canlang -- 
 cargo run --release --locked -p soda-release-assets --bin soda-fetch-tea -- --arch x86_64 --out $ROOT/.artifacts/native/x86_64/project-tools
 cargo run --release --locked -p soda-release-assets --bin soda-stage -- --arch x86_64 --host-context $ROOT/.artifacts/native/x86_64/context --forgejo-context $ROOT/.artifacts/native/x86_64/forgejo-context
 podman --remote=false build --pull=never --rm=true --force-rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/dashboard.iid --file system/containers/dashboard/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
-podman --remote=false save --uncompressed --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/dashboard.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
+skopeo copy --format oci --dest-compress-format gzip --dest-compress-level 1 containers-storage:sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 oci-archive:$ROOT/.artifacts/native/x86_64/images/dashboard.oci
 podman --remote=false build --pull=never --rm=true --force-rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/project-os.iid --file system/project/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
-podman --remote=false save --uncompressed --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/project-os.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
+skopeo copy --format oci --dest-compress-format gzip --dest-compress-level 1 containers-storage:sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 oci-archive:$ROOT/.artifacts/native/x86_64/images/project-os.oci
 podman --remote=false build --pull=never --rm=true --force-rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/rockylinux/rockylinux@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/canlang-runtime.iid --file system/containers/canlang/Containerfile --build-arg=ARTIFACT_DIR=.artifacts/native/x86_64 .
-podman --remote=false save --uncompressed --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/canlang-runtime.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
+skopeo copy --format oci --dest-compress-format gzip --dest-compress-level 1 containers-storage:sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 oci-archive:$ROOT/.artifacts/native/x86_64/images/canlang-runtime.oci
 podman --remote=false build --pull=never --rm=true --force-rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=codeberg.org/forgejo/forgejo@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=codeberg.org/forgejo/forgejo@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/forgejo.iid --file Containerfile .
-podman --remote=false save --uncompressed --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/forgejo.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-podman --remote=false build --pull=never --rm=true --force-rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 --label=org.opencontainers.image.base.digest=sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 --iidfile $ROOT/.artifacts/native/x86_64/extension.iid --file Containerfile .
-podman --remote=false save --uncompressed --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/extension.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-podman --remote=false save --uncompressed --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/proxy.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
-podman --remote=false build --pull=never --rm=true --force-rm=false --platform=linux/amd64 --build-arg=BASE_IMAGE=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.revision=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos --label=org.opencontainers.image.base.name=docker.io/tailscale/alpine-base@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --label=org.opencontainers.image.base.digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --iidfile $ROOT/.artifacts/native/x86_64/tailnet.iid --file system/containers/tailnet/Containerfile --build-arg=TAILSCALE_VERSION=1.98.2 --build-arg=TARGETARCH=amd64 --build-arg=ARCHIVE_SHA256=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee .
-podman --remote=false save --uncompressed --format=oci-archive --output $ROOT/.artifacts/native/x86_64/images/tailnet.oci sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
+skopeo copy --format oci --dest-compress-format gzip --dest-compress-level 1 containers-storage:sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691 oci-archive:$ROOT/.artifacts/native/x86_64/images/forgejo.oci
 "###;
 pub const MISC_HTTPS_HTTP: bool = false;
 pub const READ_OK_MODE: u32 = 420;

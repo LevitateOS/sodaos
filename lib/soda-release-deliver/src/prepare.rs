@@ -2,7 +2,7 @@
 use crate::buildx::{hash_at, Image as BuildImage, Root};
 use crate::model::Candidate;
 use crate::oci::{inspect_oci, inspect_oci_content};
-use crate::payload::{Payload, NAMES};
+use crate::payload::{Payload, Role};
 use crate::{hash_bytes, Error};
 use std::collections::BTreeMap;
 
@@ -64,7 +64,9 @@ fn verify_candidate_image(
     candidate: &str,
     name: &str,
     arch: &str,
-    expected: &crate::payload::Image,
+    expected_manifest: &str,
+    expected_config: &str,
+    expected_archive: &str,
     revision: &str,
     content: &BTreeMap<String, String>,
 ) -> Result<(String, String), Error> {
@@ -74,12 +76,12 @@ fn verify_candidate_image(
         format!("images/{name}.oci")
     };
     let hash = match hash_at(root, &path) {
-        Ok(hash) if hash == expected.archive_sha256 => hash,
+        Ok(hash) if hash == expected_archive => hash,
         _ => return Err(Error::at(&format!("{name} archive"))),
     };
     let full = format!("{candidate}/{path}");
     let image = inspect_candidate_image(&full, name, arch, revision, content)?;
-    if image.manifest != expected.manifest || image.config != expected.config {
+    if image.manifest != expected_manifest || image.config != expected_config {
         return Err(Error::at(&format!("{name} identity")));
     }
     Ok((path, hash))
@@ -90,10 +92,16 @@ fn candidate_image_inputs(
     p: &Payload,
     c: &Candidate,
 ) -> Result<(String, BTreeMap<String, String>), Error> {
-    let revision = if name == "proxy" {
-        String::new()
-    } else {
-        p.revision.clone()
+    use soda_build_tools::payload::ImageProvenance;
+    let revision = match name {
+        "host" => p.revision.clone(),
+        _ => match Role::from_name(name) {
+            Some(role) => match role.binding(&p.images).provenance {
+                ImageProvenance::Soda { .. } => p.revision.clone(),
+                ImageProvenance::Upstream { .. } => String::new(),
+            },
+            None => String::new(),
+        },
     };
     match name {
         "host" => {
@@ -113,9 +121,7 @@ fn candidate_image_inputs(
                 p.project_support.sha256.clone(),
             )]),
         )),
-        "dashboard" | "forgejo" | "extension" | "canlang-runtime" => {
-            Ok((revision, c.content_sha256.clone()))
-        }
+        "dashboard" | "forgejo" | "canlang-runtime" => Ok((revision, c.content_sha256.clone())),
         _ => Ok((revision, BTreeMap::new())),
     }
 }
@@ -128,30 +134,43 @@ pub fn verify_candidate_images(
     c: &Candidate,
 ) -> Result<BTreeMap<String, String>, Error> {
     let mut files: BTreeMap<String, String> = BTreeMap::new();
-    let mut inputs: BTreeMap<String, crate::payload::Image> = BTreeMap::new();
-    inputs.insert(
-        "host".to_string(),
-        crate::payload::Image {
-            config: c.host.config.clone(),
-            manifest: c.host.manifest.clone(),
-            archive_sha256: c.host_archive_sha256.clone(),
-            ..Default::default()
-        },
-    );
-    for (name, image) in &p.images {
-        inputs.insert(name.clone(), image.clone());
+    // Expected archive hashes live in candidate transport metadata; the
+    // runtime payload carries manifest/config identity only.
+    let mut archives: BTreeMap<String, String> = BTreeMap::new();
+    archives.insert("host".to_string(), c.host_archive_sha256.clone());
+    for role in Role::iter() {
+        let archive = c
+            .image_archives
+            .get(role.name())
+            .ok_or_else(|| Error::at(&format!("{} archive", role.name())))?;
+        if !crate::buildx::is_digest(archive) {
+            return Err(Error::at(&format!("{} archive", role.name())));
+        }
+        archives.insert(role.name().to_string(), archive.clone());
     }
     let mut names = vec!["host".to_string()];
-    names.extend(NAMES.iter().map(|s| s.to_string()));
+    names.extend(Role::iter().map(|role| role.name().to_string()));
     for name in names {
-        let expected = inputs.get(&name).cloned().unwrap_or_default();
+        let (expected_manifest, expected_config) = match name.as_str() {
+            "host" => (c.host.manifest.clone(), c.host.config.clone()),
+            _ => match Role::from_name(&name) {
+                Some(role) => {
+                    let binding = role.binding(&p.images);
+                    (binding.manifest.clone(), binding.config.clone())
+                }
+                None => return Err(Error::at(&format!("{name} identity"))),
+            },
+        };
+        let expected_archive = archives.get(&name).cloned().unwrap_or_default();
         let (revision, content) = candidate_image_inputs(&name, p, c)?;
         let (path, hash) = verify_candidate_image(
             root,
             candidate,
             &name,
             &p.architecture,
-            &expected,
+            &expected_manifest,
+            &expected_config,
+            &expected_archive,
             &revision,
             &content,
         )?;

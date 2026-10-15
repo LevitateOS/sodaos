@@ -15,9 +15,12 @@ use crate::{io_error, Error};
 
 impl Production {
     /// Extend the common frozen inputs before dependency installation/compilation.
+    /// The five R02 production inputs (Rocky base, admitted Fountain image,
+    /// upstream Caddy/postgres, pinned official Tailscale) precede the
+    /// Fedora Docker base pull.
     pub fn prepare_docker(&mut self) -> Result<(), Error> {
         self.validate()?;
-        if self.inputs.len() != 4 {
+        if self.inputs.len() != 5 {
             return Err(Error::msg(
                 "Docker base requires the frozen common candidate inputs",
             ));

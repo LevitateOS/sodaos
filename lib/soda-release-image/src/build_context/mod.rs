@@ -62,15 +62,12 @@ fn freeze_context_image_config(
     prefix: &str,
     compression: &str,
 ) -> Result<(), Error> {
+    // The frozen profile carries no compression-hints file: the single
+    // level-1/fragments/1MiB profile needs no global dedupe hints.
     let image_data = freeze_image_config(metadata, prefix, compression)?;
     files::owned_write(
         &sys::join(&[context_dir, "rootfs", compression::IMAGE_CONFIG_PATH]),
         image_data.as_bytes(),
-        0o644,
-    )?;
-    files::owned_write(
-        &sys::join(&[context_dir, "rootfs", compression::HINTS_IMAGE_PATH]),
-        compression::RELEASE_COMPRESSION_HINTS.as_bytes(),
         0o644,
     )
 }

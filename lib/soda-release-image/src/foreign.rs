@@ -81,6 +81,29 @@ pub trait Production {
     /// `build.ReadLiveInputs`: admit controller-resolved live inputs.
     fn read_live_inputs(&self, path: &str) -> Result<LiveInputs, Error>;
 
+    /// R02 producer inputs for the sealed Payload v4 document. Defaults fail
+    /// closed: the production pipeline supplies the frozen Fountain release,
+    /// upstream requests, optional Tailnet binding, and source timestamp when
+    /// it wires the joint candidate. Until then staging refuses rather than
+    /// sealing a guessed document.
+    /// Admitted Fountain release (version, image, source proof, protocols).
+    fn frozen_fountain_release(&self) -> Option<model::FountainRelease> {
+        None
+    }
+    /// Requested upstream reference admitted for a core role (proxy/postgres).
+    fn frozen_upstream_requested(&self, _role: &str) -> String {
+        String::new()
+    }
+    /// Frozen optional Tailnet image binding (official image, upstream).
+    fn frozen_tailscale_binding(&self) -> Option<model::PayloadImage> {
+        None
+    }
+    /// Soda source commit timestamp (seconds since epoch) for deterministic
+    /// native package archives.
+    fn source_timestamp(&self) -> Option<u64> {
+        None
+    }
+
     /// `deliver.CheckNative`: verify the native signing toolchain.
     fn check_native(&self, trust_home: &str) -> Result<(), Error>;
     /// `deliver.Sign`: sign one media input.

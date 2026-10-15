@@ -93,7 +93,8 @@ fn rooted_file_helpers_allow_internal_directory_links_and_preserve_file_contract
     std::os::unix::fs::symlink("context-data", root_path.join("forgejo-context")).unwrap();
     std::os::unix::fs::symlink("blob-data", root_path.join("blobs")).unwrap();
 
-    let json = format!("{{}}{}", " ".repeat((4 << 20) - 2));
+    let fixture = include_str!("../../../release-inputs/fixtures/payload-v4.json");
+    let json = format!("{fixture}{}", " ".repeat((4 << 20) - fixture.len()));
     std::fs::write(context_path.join("presentation.json"), &json).unwrap();
     let oversized_json = format!("{json} ");
     std::fs::write(context_path.join("oversized.json"), oversized_json).unwrap();
@@ -104,7 +105,8 @@ fn rooted_file_helpers_allow_internal_directory_links_and_preserve_file_contract
     let root = Root::open(root_path.to_str().unwrap()).unwrap();
     let presentation = "forgejo-context/presentation.json";
     let (payload, json_digest) = read_json_at(&root, presentation).unwrap();
-    assert_eq!(payload, crate::payload::Payload::default());
+    let want: crate::payload::Payload = serde_json::from_str(fixture).unwrap();
+    assert_eq!(payload, want);
     assert_eq!(
         json_digest,
         format!("{:x}", Sha256::digest(json.as_bytes()))

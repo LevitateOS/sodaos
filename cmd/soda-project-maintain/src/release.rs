@@ -40,29 +40,30 @@ pub(crate) fn apply_release_images(c: &mut Config, path: &str) -> Result<(), Str
 #[derive(Debug)]
 pub(crate) struct ReleasePayload {
     pub(crate) architecture: String,
-    pub(crate) images: Vec<(String, ReleaseImage)>,
-}
-
-#[derive(Debug)]
-pub(crate) struct ReleaseImage {
-    pub(crate) reference: String,
-    pub(crate) config: String,
-    pub(crate) manifest: String,
-    pub(crate) archive_sha256: String,
+    pub(crate) project_os: String,
+    pub(crate) tailscale: String,
 }
 
 impl ReleasePayload {
     pub(crate) fn image_config(&self, name: &str) -> Option<String> {
-        self.images
-            .iter()
-            .find(|(n, _)| n == name)
-            .map(|(_, image)| image.config.clone())
+        match name {
+            // The companion key keeps its historic name; Payload v4 binds
+            // it to the optional official Tailscale image.
+            "project-os" => Some(self.project_os.clone()),
+            "tailnet" => Some(self.tailscale.clone()),
+            _ => None,
+        }
     }
 }
 
 // load_release_payload mirrors deliver.Load plus build.ReadJSON: confined
 // regular file under 4 MiB, strict single object, full payload validation.
 // Every failure collapses to the caller's unavailable message.
+pub(crate) fn is_hex_string(s: &str, len: usize) -> bool {
+    // Go's [0-9a-f] classes: lowercase hex only.
+    s.len() == len && s.bytes().all(super::is_lower_hex)
+}
+
 pub(crate) fn load_release_payload(path: &str) -> Result<ReleasePayload, ()> {
     let (dir, base) = match path.rfind('/') {
         Some(i) => (&path[..i], &path[i + 1..]),

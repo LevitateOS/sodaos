@@ -78,7 +78,7 @@ impl Operation {
             .collect()
     }
     fn validate(&self) -> Result<(), String> {
-        use crate::release_validation::is_hex_string;
+        use crate::release::is_hex_string;
         if self.format != 1
             || self.source_release == self.target_release
             || self.source_deployment == self.target_deployment
@@ -384,10 +384,10 @@ fn verify_active(record: &Operation, deadline: Instant) -> Result<(), String> {
     let installed: soda_release_deliver::payload::Payload =
         serde_json::from_slice(&trusted_read(Path::new(crate::RELEASE_PATH), 4 << 20)?)
             .map_err(|_| CLOSED)?;
-    if !installed
-        .images
-        .get("project-os")
-        .is_some_and(|selected| selected.config == image)
+    if soda_release_deliver::payload::Role::ProjectOs
+        .binding(&installed.images)
+        .config
+        != image
     {
         return Err(CLOSED.into());
     }

@@ -6,8 +6,8 @@ use super::paths::path_join;
 use crate::json;
 use crate::preparation::{self, FactoryCandidate, Prepare, PrepareState};
 use crate::project::{Executor, Runtime};
-use serde::Deserialize;
 use serde::de::{self, MapAccess, Visitor};
+use serde::Deserialize;
 use std::fmt;
 
 #[derive(Default)]

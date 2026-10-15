@@ -2,8 +2,7 @@
 //! Hooks write synthetic ELF files and replay the retained OCI input. Command
 //! text/order and staged records are checked; this does not run native builds.
 
-use super::{data_path, oracle, oracle_live_inputs, scratch, FIXTURE_REVISION};
-use soda_release_build::live_inputs::write_live_inputs;
+use super::{data_path, oracle, scratch, FIXTURE_REVISION};
 use soda_release_build::production::Production;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -49,6 +48,10 @@ fn oracle_production_sequence() {
             "system/host/services/soda-proxy.container",
             "[Container]\nImage=docker.io/library/caddy:2\n",
         ),
+        (
+            "system/host/services/soda-postgres.container",
+            "[Container]\nImage=docker.io/library/postgres:17\n",
+        ),
     ] {
         let path = root.join(name);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -65,8 +68,8 @@ fn oracle_production_sequence() {
     )
     .unwrap();
     assert_eq!(seed_image.config, oracle::OCI_CONFIG);
-    let live_path = root.join("live-inputs.json");
-    write_live_inputs(&live_path, &oracle_live_inputs()).unwrap();
+    // Input freezing uses no floating toolchain file: the pinned official
+    // Tailscale image joins the same frozen pull record.
     let calls = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
     let mut prod = Production::default();
     prod.source = root.to_string_lossy().into_owned();
@@ -74,7 +77,6 @@ fn oracle_production_sequence() {
     prod.out = out.to_string_lossy().into_owned();
     prod.arch = "x86_64".to_string();
     prod.revision = FIXTURE_REVISION.to_string();
-    prod.live_inputs = live_path.to_string_lossy().into_owned();
     let calls_capture = calls.clone();
     let config = seed_image.config.clone();
     prod.capture = Some(Box::new(move |_dir, name, args| {
@@ -139,6 +141,19 @@ fn oracle_production_sequence() {
                 }
             }
         }
+        // Built roles export through the Skopeo containers-storage to
+        // oci-archive transport; the sealed archive is the replayed seed.
+        if name == "skopeo" {
+            for arg in args {
+                if let Some(path) = arg.strip_prefix("oci-archive:") {
+                    return soda_release_build::files::write_new(
+                        std::path::Path::new(path),
+                        &seed_bytes,
+                        0o600,
+                    );
+                }
+            }
+        }
         if name != "podman" {
             return Ok(());
         }
@@ -147,13 +162,6 @@ fn oracle_production_sequence() {
                 return soda_release_build::files::write_new(
                     std::path::Path::new(&args[i + 1]),
                     image_config.as_bytes(),
-                    0o600,
-                );
-            }
-            if arg == "--output" {
-                return soda_release_build::files::write_new(
-                    std::path::Path::new(&args[i + 1]),
-                    &seed_bytes,
                     0o600,
                 );
             }
@@ -166,7 +174,17 @@ fn oracle_production_sequence() {
     prod.resolve_inputs().unwrap();
     prod.assets(&host, &forgejo).unwrap();
     let images = prod.images(&forgejo).unwrap();
-    assert_eq!(images.len(), 7);
+    // Four built roles with sealed local archives, two upstream roles
+    // bound by identity without a duplicate archive.
+    assert_eq!(images.len(), 6);
+    for name in ["dashboard", "forgejo", "project-os", "canlang-runtime"] {
+        assert!(!images[name].archive_sha256.is_empty(), "{name} archive");
+    }
+    for name in ["proxy", "postgres"] {
+        assert!(images[name].archive_sha256.is_empty(), "{name} bind");
+        assert!(images[name].image.config.starts_with("sha256:"));
+        assert!(images[name].image.manifest.starts_with("sha256:"));
+    }
     let root_str = root.to_string_lossy().into_owned();
     let normalized: Vec<String> = calls
         .lock()
@@ -188,22 +206,26 @@ fn oracle_production_sequence() {
     );
     let app_inputs: serde_json::Value = serde_json::from_slice(&app_inputs_bytes).unwrap();
     let entries = app_inputs.as_array().unwrap();
-    assert_eq!(entries.len(), 4);
+    assert_eq!(entries.len(), 5);
     let requests = [
         "docker.io/rockylinux/rockylinux:10.2",
         "codeberg.org/forgejo/forgejo:15.0.10",
         "docker.io/library/caddy:2",
-        "docker.io/tailscale/alpine-base:3.22",
+        "docker.io/library/postgres:17",
+        "docker.io/tailscale/tailscale@sha256:99691662a2e82fbfd2bf55db0fd52bacd2f4664ce6fd1deca3746a024144a2b7",
     ];
     for (entry, request) in entries.iter().zip(requests) {
         assert_eq!(entry["Requested"], request);
+        // The recorded reference pins the exact platform manifest digest;
+        // the repository part never carries a tag or digest.
+        let bare = request.split('@').next().unwrap();
+        let repo = match bare.rfind(':') {
+            Some(colon) if colon > bare.rfind('/').unwrap_or(0) => &bare[..colon],
+            _ => bare,
+        };
         assert_eq!(
             entry["Reference"],
-            format!(
-                "{}@sha256:{}",
-                request.split(':').next().unwrap(),
-                "b".repeat(64)
-            )
+            format!("{repo}@sha256:{}", "b".repeat(64))
         );
         assert_eq!(entry["Config"], oracle::OCI_CONFIG);
     }

@@ -374,12 +374,7 @@ pub fn prepare(
             "Fountain source differs from the compiled candidate",
         ));
     }
-    if !payload
-        .upgrade_from
-        .as_deref()
-        .unwrap_or_default()
-        .is_empty()
-    {
+    if !payload.upgrade_from.is_empty() {
         let path = candidate.join(crate::upgrade::QUALIFICATION_FILE);
         let receipt = crate::upgrade::load(&path)?;
         receipt.validate(

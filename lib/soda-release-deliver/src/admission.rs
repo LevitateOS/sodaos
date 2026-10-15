@@ -9,8 +9,8 @@ pub fn load_admitted_candidate(candidate: &str) -> Result<(Payload, Candidate, V
     let root = Root::open(candidate)?;
     let payload = read_at(&root, "payload.json", 1 << 20)?;
     let raw = read_at(&root, "candidate.json", 1 << 20)?;
-    let p: Payload = crate::json_serde::strict(&payload)
-        .map_err(|_| Error::msg("candidate metadata refused"))?;
+    let p: Payload =
+        Payload::parse(&payload).map_err(|_| Error::msg("candidate metadata refused"))?;
     let c: Candidate =
         crate::json_serde::strict(&raw).map_err(|_| Error::msg("candidate metadata refused"))?;
     c.validate(&p, &payload)?;

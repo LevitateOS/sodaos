@@ -2,8 +2,8 @@
 //! rejection.
 
 use super::tests::{
-    COMMIT, DIGEST, Mock, approve_response, container_payload, deadline, observation, pid,
-    preparation, test_config,
+    approve_response, container_payload, deadline, observation, pid, preparation, test_config,
+    Mock, COMMIT, DIGEST,
 };
 use super::*;
 use crate::preparation::FactoryCandidate;
@@ -83,24 +83,18 @@ fn source_refresh_checks_complete_selected_inputs_at_both_exact_commits() {
         );
         assert_eq!(result.is_ok(), succeeds, "{name}: {result:?}");
         let calls = mock.calls.borrow();
-        assert!(
-            calls
-                .iter()
-                .all(|call| !String::from_utf8_lossy(&call.0).contains("\"op\":\"start\""))
-        );
+        assert!(calls
+            .iter()
+            .all(|call| !String::from_utf8_lossy(&call.0).contains("\"op\":\"start\"")));
         if succeeds {
-            assert!(
-                calls[3]
-                    .2
-                    .iter()
-                    .any(|arg| arg == &format!("{COMMIT}:{path}"))
-            );
-            assert!(
-                calls[5]
-                    .2
-                    .iter()
-                    .any(|arg| arg == &format!("{}:{path}", prep.source_commit))
-            );
+            assert!(calls[3]
+                .2
+                .iter()
+                .any(|arg| arg == &format!("{COMMIT}:{path}")));
+            assert!(calls[5]
+                .2
+                .iter()
+                .any(|arg| arg == &format!("{}:{path}", prep.source_commit)));
         }
     }
 }
@@ -310,11 +304,9 @@ fn coder_retry_clones_only_the_protected_original_bundle() {
         calls[11].2.last().unwrap(),
         &super::paths::preparation_paths("soda-coder", &source).2
     );
-    assert!(
-        String::from_utf8(calls[14].0.clone())
-            .unwrap()
-            .contains("\"bundle\":\"QlVORExF\"")
-    );
+    assert!(String::from_utf8(calls[14].0.clone())
+        .unwrap()
+        .contains("\"bundle\":\"QlVORExF\""));
     let clone = &calls[18].2;
     assert!(clone.iter().any(|arg| arg == "clone"));
     assert_eq!(

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::payload::{valid_repository_prefix, NAMES};
+use crate::payload::{valid_repository_prefix, Role};
 use crate::{hash_bytes, is_digest_ref, Error};
 
 // ---------------------------------------------------------------------------
@@ -78,7 +78,10 @@ impl Trust {
     }
 
     pub fn role(&self, repository: &str) -> Result<String, Error> {
-        for name in ["host", "release", "media"].into_iter().chain(NAMES) {
+        for name in ["host", "release", "media"]
+            .into_iter()
+            .chain(Role::iter().map(|role| role.name()))
+        {
             if repository == format!("{}-{name}", self.prefix) {
                 return Ok("artifact".to_string());
             }

@@ -119,10 +119,9 @@ fn release_dtos_defer_nested_alias_conversion_and_keep_minus_zero() {
     assert_eq!(candidate.format, 3);
     assert!(Candidate::parse(r#"{"Format":false,"Format":3}"#).is_err());
 
-    let payload = Payload::parse(
-        r#"{"Format":-0,"Images":{"host":{"reference":"ignored","Reference":"exact"}}}"#,
-    )
-    .unwrap();
-    assert_eq!(payload.format, 0);
-    assert_eq!(payload.image("host").reference, "exact");
+    // Payload v4 is strict: duplicate keys, wrong scalar types and
+    // unknown roles fail instead of aliasing or last-wins.
+    assert!(Payload::parse(br#"{"Format":4,"Format":4}"#).is_err());
+    assert!(Payload::parse(br#"{"Format":"4"}"#).is_err());
+    assert!(Payload::parse(br#"{"Format":4,"RepositoryPrefix":"ghcr.io/e/s"}"#).is_err());
 }

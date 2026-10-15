@@ -55,7 +55,12 @@ pub const ADMITTED_MUTATION_PATHS: &[&str] = &[
 /// Identity actions after the `/identity/` prefix (identity.go).
 pub const IDENTITY_ACTIONS: &[&str] = &["launch", "validate", "stop", "start", "finish"];
 
-/// Tailnet actions after the `/tailnet/` prefix (tailnet.go).
+/// Tailnet actions after the `/tailnet/` prefix (tailnet.go), plus the
+/// strict lifecycle endpoints (RCX-2 T01). `prepare` validates and pulls
+/// the selected dependency for one activate tuple; `lifecycle` applies one
+/// verified observe, activate or deactivate tuple and reports facts. Both
+/// carry the manager-verified SDK call, no token and no browser-selected
+/// image; Go verifies authority before this hop.
 pub const TAILNET_ACTIONS: &[&str] = &[
     "settings",
     "host",
@@ -63,6 +68,8 @@ pub const TAILNET_ACTIONS: &[&str] = &[
     "options",
     "project",
     "policy",
+    "prepare",
+    "lifecycle",
 ];
 
 /// Terminal stream cap: 2 * terminalLimit, terminalLimit = 64 (service.go).
@@ -147,11 +154,15 @@ pub fn is_admitted_mutation_path(path: &str) -> bool {
 }
 
 /// Body cap for a native/identity/tailnet path (daemon.go ServeHTTP).
+/// The lifecycle wire is bounded at 16 KiB in both directions by the
+/// frozen contract; anything larger is malformed before decode.
 pub fn body_limit_for(path: &str) -> usize {
     if path == "/prepare" || path == "/prepare-candidate" || path == "/factory-launch" {
         BODY_LIMIT_LARGE
     } else if path.starts_with("/identity/") {
         BODY_LIMIT_IDENTITY
+    } else if path == "/tailnet/prepare" || path == "/tailnet/lifecycle" {
+        crate::tcontrol_wire::LIFECYCLE_BODY_LIMIT
     } else {
         BODY_LIMIT_DEFAULT
     }

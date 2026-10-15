@@ -86,19 +86,24 @@ impl Production {
         revision: &str,
     ) -> Result<ProducedImage, Error> {
         let file = archives.join(format!("{name}.oci"));
+        // Newly built layers leave in registry-compatible compression before
+        // the final manifest digest is sealed: Skopeo's containers-storage
+        // to oci-archive transport at gzip level 1, reusing already
+        // compressed upstream layers. The sealed archive digest, not the
+        // pre-export store manifest, is the runtime and public digest.
         self.call_execute(
             &self.source,
-            "podman",
+            "skopeo",
             &[
-                "--remote=false".to_string(),
-                "save".to_string(),
-                // EROFS compresses the complete release once and can deduplicate
-                // shared application bytes while preserving OCI configs/diffIDs.
-                "--uncompressed".to_string(),
-                "--format=oci-archive".to_string(),
-                "--output".to_string(),
-                file.to_string_lossy().into_owned(),
-                id.to_string(),
+                "copy".to_string(),
+                "--format".to_string(),
+                "oci".to_string(),
+                "--dest-compress-format".to_string(),
+                "gzip".to_string(),
+                "--dest-compress-level".to_string(),
+                "1".to_string(),
+                format!("containers-storage:{id}"),
+                format!("oci-archive:{}", file.to_string_lossy()),
             ],
         )?;
         let image =
@@ -179,54 +184,40 @@ impl Production {
         export("forgejo", &id, &self.revision)
     }
 
-    fn export_proxy_image(&self, pull: PullFn, export: ExportFn) -> Result<(), Error> {
-        let proxy = unit_image(
-            &PathBuf::from(&self.source).join("system/host/services/soda-proxy.container"),
+    /// Upstream application images are bound, not built and not exported:
+    /// the frozen pull already resolved the exact platform manifest and
+    /// config, the runtime verifies that binding on every acquisition, and
+    /// no duplicate application archive is produced for them.
+    fn bind_upstream_image(
+        &self,
+        name: &str,
+        unit: &str,
+        pull: PullFn,
+    ) -> Result<ProducedImage, Error> {
+        let reference = unit_image(
+            &PathBuf::from(&self.source)
+                .join("system/host/services")
+                .join(unit),
         )
         .map_err(|e| Error::msg(e.to_string()))?;
-        let (id, _) = pull(&proxy, "proxy")?;
-        export("proxy", &id, "")
-    }
-
-    fn export_tailnet_image(
-        &self,
-        platform: &str,
-        pull: PullFn,
-        build: BuildFn,
-        export: ExportFn,
-    ) -> Result<(), Error> {
-        let tail = self.live_tailnet_inputs()?;
-        let (_, pinned) = pull(&tail.base, "tailnet-base")?;
-        let id = build(
-            "tailnet",
-            &self.source,
-            "system/containers/tailnet/Containerfile",
-            &pinned,
-            &[
-                format!("--build-arg=TAILSCALE_VERSION={}", tail.version),
-                format!("--build-arg=TARGETARCH={platform}"),
-                format!("--build-arg=ARCHIVE_SHA256={}", tail.sha256),
-            ],
-        )?;
-        export("tailnet", &id, &self.revision)
-    }
-
-    fn export_extension_image(
-        &self,
-        forgejo_config: &str,
-        build: BuildFn,
-        export: ExportFn,
-    ) -> Result<(), Error> {
-        let id = build(
-            "extension",
-            &PathBuf::from(&self.out)
-                .join("extension-context")
-                .to_string_lossy(),
-            "Containerfile",
-            forgejo_config,
-            &[],
-        )?;
-        export("extension", &id, &self.revision)
+        let (config, pinned) = pull(&reference, name)?;
+        let manifest = pinned
+            .split('@')
+            .nth(1)
+            .filter(|digest| digest.starts_with("sha256:"))
+            .unwrap_or("")
+            .to_string();
+        if manifest.is_empty() {
+            return Err(Error::msg("upstream binding is not digest-pinned"));
+        }
+        Ok(ProducedImage {
+            image: soda_release_deliver::buildx::Image {
+                manifest,
+                config,
+                ..Default::default()
+            },
+            archive_sha256: String::new(),
+        })
     }
 
     pub(crate) fn export_images(
@@ -235,7 +226,6 @@ impl Production {
         archives: &Path,
         inputs: &[ResolvedInput],
     ) -> Result<HashMap<String, ProducedImage>, Error> {
-        let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
         let mut result: HashMap<String, ProducedImage> = HashMap::new();
         let pull = |reference: &str, iid_name: &str| -> Result<(String, String), Error> {
             self.pull_frozen_image(inputs, reference, iid_name)
@@ -248,8 +238,8 @@ impl Production {
          -> Result<String, Error> {
             self.build_image(name, dir, file, pinned, args)
         };
-        // The export closure borrows the result map; scope it so the
-        // extension step can read the accumulated forgejo config.
+        // The export closure borrows the result map; scope each step so a
+        // later step can read the accumulated image identities.
         macro_rules! exporting {
             ($body:expr) => {{
                 let mut export = |name: &str, id: &str, revision: &str| -> Result<(), Error> {
@@ -265,17 +255,15 @@ impl Production {
             self.export_app_images(&native_rel, &rocky, &build, export)?;
             self.export_forgejo_image(forgejo_context, &pull, &build, export)
         })?;
-        let forgejo_config = result
-            .get("forgejo")
-            .map(|i| i.image.config.clone())
-            .unwrap_or_default();
-        exporting!(|export: ExportFn| {
-            self.export_extension_image(&forgejo_config, &build, export)
-        })?;
-        exporting!(|export: ExportFn| {
-            self.export_proxy_image(&pull, export)?;
-            self.export_tailnet_image(&platform, &pull, &build, export)
-        })?;
+        // Upstream roles join the same identity map without a local archive:
+        // their bindings carry no archive checksum.
+        for (name, unit) in [
+            ("proxy", "soda-proxy.container"),
+            ("postgres", "soda-postgres.container"),
+        ] {
+            let bound = self.bind_upstream_image(name, unit, &pull)?;
+            result.insert(name.to_string(), bound);
+        }
         Ok(result)
     }
 }

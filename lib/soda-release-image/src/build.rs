@@ -330,6 +330,7 @@ pub fn execute_build_production(
         production,
         &inventory,
         &request.upgrade_from,
+        &request.release_tag,
         phase,
     )?;
     finish_build_packaging(production, request, media_tooling, assembler, phase)?;
@@ -466,6 +467,7 @@ fn run_build_inner(
             &*production,
             &inventory,
             &request.upgrade_from,
+            &request.release_tag,
             &mut |label| progress.phase(label),
         )?;
         finish_build_packaging(

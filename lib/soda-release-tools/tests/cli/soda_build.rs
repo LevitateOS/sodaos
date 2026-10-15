@@ -26,7 +26,10 @@ fn docker_inputs_are_admitted_before_worker_dispatch() {
         (vec!["--distribution", "docker"], "Docker packaging requires an explicit version --release-tag"),
         (vec!["--distribution", "docker", "--release-tag", "latest"], "Docker packaging requires an explicit version --release-tag"),
         (vec!["--distribution", "docker", "--release-tag", "v1.2.3", "--rootfs-base-url", "https://example.invalid"], "candidate target refuses media-only inputs"),
-        (vec!["--development", "--target", "docker"], "development media requires appliance; development docker requires docker; all requires production"),
+        (vec!["--development", "--target", "docker"], "development media requires appliance; development docker requires docker; development all requires all; candidate selects no packaging"),
+        // The combined development target pairs only with the all
+        // distribution; a mismatched pairing refuses before dispatch.
+        (vec!["--development", "--target", "all", "--distribution", "appliance", "--release-tag", "v9.9.9-dev", "--rootfs-base-url", "https://example.invalid"], "development media requires appliance; development docker requires docker; development all requires all; candidate selects no packaging"),
         (vec!["--distribution", "all", "--release-tag", "v1.2.3", "--rootfs-base-url", "https://github.com/LevitateOS/sodaos/releases/download/v1.2.4/"], "all distribution requires a rootfs URL for the same release tag"),
         (vec!["--distribution", "docker", "--release-tag", "v1.2.3"], "root-owned --worker-config required; media authority belongs to the isolated worker"),
     ] {
@@ -66,11 +69,11 @@ fn build_admission_matrix_preserves_release_boundaries() {
     for (args, want) in [
         (
             vec!["--development"],
-            "--development requires --target candidate, media or docker\n",
+            "--development requires --target candidate, media, docker or all\n",
         ),
         (
             vec!["--development", "--target", "bogus"],
-            "--development requires --target candidate, media or docker\n",
+            "--development requires --target candidate, media, docker or all\n",
         ),
         (
             vec!["--target", "candidate"],
@@ -78,7 +81,21 @@ fn build_admission_matrix_preserves_release_boundaries() {
         ),
         (
             vec!["--media-compression", "fast"],
-            "--media-compression accepts only fast with --development --target media\n",
+            "--media-compression accepts only fast with --development --target media or all\n",
+        ),
+        (
+            vec![
+                "--development",
+                "--target",
+                "all",
+                "--distribution",
+                "all",
+                "--release-tag",
+                "v9.9.9-dev",
+                "--rootfs-base-url",
+                "https://example.invalid",
+            ],
+            "root-owned --worker-config required; media authority belongs to the isolated worker\n",
         ),
         (
             vec!["--development", "--target", "candidate"],

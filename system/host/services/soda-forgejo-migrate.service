@@ -1,5 +1,7 @@
 [Unit]
 Description=Soda Forgejo config migration
+Requires=soda-image-import.service
+After=soda-image-import.service
 Before=forgejo.service
 # No config before the first install; the installer writes app.ini later.
 ConditionPathExists=/var/lib/soda/forgejo/gitea/conf/app.ini

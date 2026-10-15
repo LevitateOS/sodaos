@@ -51,6 +51,8 @@ struct CandidateWire {
     host: Image,
     host_reference: String,
     host_archive_sha256: String,
+    repository_prefix: String,
+    image_archives: crate::jsonio::OrderedMap<String>,
     payload_sha256: String,
     migration: String,
     notes: String,
@@ -66,6 +68,8 @@ crate::jsonio::case_record!(CandidateWire, {
     host: Image => "Host",
     host_reference: String => "HostReference",
     host_archive_sha256: String => "HostArchiveSHA256",
+    repository_prefix: String => "RepositoryPrefix",
+    image_archives: crate::jsonio::OrderedMap<String> => "ImageArchives",
     payload_sha256: String => "PayloadSHA256",
     migration: String => "Migration",
     notes: String => "Notes",
@@ -116,6 +120,8 @@ pub struct Candidate {
     pub host: Image,
     pub host_reference: String,
     pub host_archive_sha256: String,
+    pub repository_prefix: String,
+    pub image_archives: Vec<(String, String)>,
     pub payload_sha256: String,
     pub migration: String,
     pub notes: String,
@@ -128,11 +134,16 @@ pub struct Candidate {
 
 impl Serialize for Candidate {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut record = serializer.serialize_struct("Candidate", 12)?;
+        let mut record = serializer.serialize_struct("Candidate", 14)?;
         record.serialize_field("Format", &self.format)?;
         record.serialize_field("Host", &self.host)?;
         record.serialize_field("HostReference", &self.host_reference)?;
         record.serialize_field("HostArchiveSHA256", &self.host_archive_sha256)?;
+        record.serialize_field("RepositoryPrefix", &self.repository_prefix)?;
+        record.serialize_field(
+            "ImageArchives",
+            &crate::jsonio::SortedPairs(&self.image_archives),
+        )?;
         record.serialize_field("PayloadSHA256", &self.payload_sha256)?;
         record.serialize_field("Migration", &self.migration)?;
         record.serialize_field("Notes", &self.notes)?;
@@ -156,6 +167,8 @@ impl Candidate {
             host: wire.host,
             host_reference: wire.host_reference,
             host_archive_sha256: wire.host_archive_sha256,
+            repository_prefix: wire.repository_prefix,
+            image_archives: wire.image_archives.0,
             payload_sha256: wire.payload_sha256,
             migration: wire.migration,
             notes: wire.notes,
@@ -188,8 +201,9 @@ fn valid_candidate_host(candidate: &Candidate, payload: &Payload, arch: &str) ->
     candidate.host_reference
         == format!(
             "{}-host@{}",
-            payload.repository_prefix, candidate.host.manifest
+            candidate.repository_prefix, candidate.host.manifest
         )
+        && super::valid_repository_prefix(&candidate.repository_prefix)
         && prefixed_digest(&candidate.host.manifest)
         && prefixed_digest(&candidate.host.config)
         && is_digest(&candidate.host_archive_sha256)
@@ -222,22 +236,32 @@ fn valid_candidate_source(candidate: &Candidate, payload: &Payload, payload_byte
 }
 
 fn valid_candidate_build(candidate: &Candidate, payload: &Payload) -> bool {
+    // The selected Fountain release/source proof replaces the local fork
+    // toolchain proof: an explicitly empty toolchain is the release-proof
+    // mode, never a forged one. A non-empty toolchain must still validate
+    // exactly; revision and proof digests always bind the selected release.
+    let toolchain = &candidate.forgejo_toolchain;
+    let release_proof_mode =
+        toolchain.compiler_image.is_empty() && toolchain.apk_packages.is_empty();
     is_revision(&candidate.forgejo_revision)
         && is_digest(&candidate.forgejo_source_sha256)
-        && candidate.forgejo_toolchain.validate().is_ok()
+        && (toolchain.validate().is_ok() || release_proof_mode)
         && candidate.architecture == payload.architecture
 }
 
-const REQUIRED_CANDIDATE_CONTENT: [&str; 16] = [
+/// Thin-host content inventory: Soda's own staged binaries, the four
+/// generated service Quadlets, the trusted extension catalog, the
+/// canlang runtime evidence, and the selected Fountain release proof.
+/// No application OCI body and no installer unit enter the host. The two
+/// sealed native packages bind by name/shape rule below, since their
+/// release filenames carry versions.
+const REQUIRED_CANDIDATE_CONTENT: [&str; 14] = [
     "dashboard:/usr/local/bin/soda-dashboard",
-    "forgejo:/usr/local/bin/gitea",
-    "extension:/usr/local/bin/gitea",
-    "extension:/usr/share/soda/extension/extension.json",
-    "extension:/usr/share/soda/extension/backend",
-    "extension:/usr/share/soda/extension/run",
     "host:/usr/share/containers/systemd/forgejo.container",
     "host:/usr/share/containers/systemd/soda-dashboard.container",
-    "host:/usr/lib/systemd/system/soda-extension-install.service",
+    "host:/usr/share/containers/systemd/soda-proxy.container",
+    "host:/usr/share/containers/systemd/soda-postgres.container",
+    "host:/usr/share/soda/extensions/catalog.json",
     "host:/usr/share/soda/canlang-tools/release.json",
     "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
     "canlang-runtime:/opt/canlang/tools.json",
@@ -245,7 +269,33 @@ const REQUIRED_CANDIDATE_CONTENT: [&str; 16] = [
     "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
     "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
     "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
+    "release:fountain-release.json",
 ];
+
+/// Sealed native package entry: `package:{id}-extension-{version}-linux-x86_64.tar.gz`.
+fn valid_candidate_package_name(file: &str) -> bool {
+    let Some(name) = file.strip_prefix("package:") else {
+        return false;
+    };
+    let Some(rest) = name.strip_suffix("-linux-x86_64.tar.gz") else {
+        return false;
+    };
+    let Some((id, version)) = rest
+        .strip_prefix("soda-extension-")
+        .map(|v| ("soda", v))
+        .or_else(|| {
+            rest.strip_prefix("tailnet-extension-")
+                .map(|v| ("tailnet", v))
+        })
+    else {
+        return false;
+    };
+    let _ = id;
+    !version.is_empty()
+        && version
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-' || b == b'_')
+}
 
 pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
     for path in REQUIRED_CANDIDATE_CONTENT {
@@ -253,24 +303,22 @@ pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
             return false;
         }
     }
-    if content_get(files, "forgejo:/usr/local/bin/gitea")
-        != content_get(files, "extension:/usr/local/bin/gitea")
-    {
-        return false;
-    }
-    let mut assets = 0;
+    let mut packages = 0;
     for (file, hash) in files {
         if !is_digest(hash) {
             return false;
         }
-        if let Some(name) = file.strip_prefix("extension:/usr/share/soda/extension/assets/") {
-            if !valid_candidate_asset_name(name) {
-                return false;
-            }
-            assets += 1;
+        if valid_candidate_package_name(file) {
+            packages += 1;
             continue;
         }
         if let Some(name) = file.strip_prefix("canlang-runtime:/usr/share/licenses/canlang/") {
+            if !valid_candidate_asset_name(name) {
+                return false;
+            }
+            continue;
+        }
+        if let Some(name) = file.strip_prefix("release:") {
             if !valid_candidate_asset_name(name) {
                 return false;
             }
@@ -280,7 +328,7 @@ pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
             return false;
         }
     }
-    assets > 0
+    packages == 2
 }
 
 fn valid_candidate_asset_name(name: &str) -> bool {
@@ -293,4 +341,70 @@ fn valid_candidate_asset_name(name: &str) -> bool {
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn proof_candidate() -> (Candidate, Payload) {
+        let payload = Payload {
+            architecture: "x86_64".to_string(),
+            ..Payload::default()
+        };
+        let candidate = Candidate {
+            forgejo_revision: "a".repeat(40),
+            forgejo_source_sha256: "b".repeat(64),
+            architecture: "x86_64".to_string(),
+            ..Candidate::default()
+        };
+        (candidate, payload)
+    }
+
+    #[test]
+    fn release_proof_mode_accepts_empty_toolchain_only() {
+        // Empty toolchain = selected release/source proof mode, never forged.
+        let (candidate, payload) = proof_candidate();
+        assert!(valid_candidate_build(&candidate, &payload));
+        let mut forged = candidate.clone();
+        forged.forgejo_toolchain.compiler_image = "example.invalid/toolchain:latest".to_string();
+        assert!(!valid_candidate_build(&forged, &payload));
+        let mut exact = candidate.clone();
+        exact.forgejo_toolchain.compiler_image = FORGEJO_COMPILER_IMAGE.to_string();
+        exact.forgejo_toolchain.apk_packages = vec![
+            "build-base-0.5-r4".to_string(),
+            "gcc-14.2.0-r6".to_string(),
+            "musl-dev-1.2.5-r10".to_string(),
+        ];
+        assert!(valid_candidate_build(&exact, &payload));
+        let mut bad_revision = candidate.clone();
+        bad_revision.forgejo_revision = "short".to_string();
+        assert!(!valid_candidate_build(&bad_revision, &payload));
+    }
+
+    #[test]
+    fn thin_content_inventory_requires_new_layout() {
+        let digest = "c".repeat(64);
+        let mut files: Vec<(String, String)> = REQUIRED_CANDIDATE_CONTENT
+            .iter()
+            .map(|name| (name.to_string(), digest.clone()))
+            .collect();
+        files.push((
+            "package:soda-extension-0.1.0-linux-x86_64.tar.gz".to_string(),
+            digest.clone(),
+        ));
+        files.push((
+            "package:tailnet-extension-0.1.0-linux-x86_64.tar.gz".to_string(),
+            digest.clone(),
+        ));
+        assert!(valid_candidate_content(&files));
+        files.push((
+            "extension:/usr/share/soda/extension/backend".to_string(),
+            digest.clone(),
+        ));
+        assert!(!valid_candidate_content(&files), "no extension OCI entries");
+        files.pop();
+        files.retain(|(name, _)| name != "host:/usr/share/soda/extensions/catalog.json");
+        assert!(!valid_candidate_content(&files), "catalog required");
+    }
 }

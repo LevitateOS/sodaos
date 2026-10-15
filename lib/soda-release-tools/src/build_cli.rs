@@ -50,7 +50,7 @@ fn command(name: &str) -> ClapCommand {
         ))
         .arg(value(
             "target",
-            "development boundary: candidate, media or docker (requires --development)",
+            "development boundary: candidate, media, docker or all (requires --development)",
         ))
         .arg(value(
             "distribution",

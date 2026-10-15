@@ -6,12 +6,11 @@ FROM ${SODA_BASE_IMAGE} AS appliance
 
 FROM ${BASE_IMAGE}
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-COPY --from=appliance /etc/yum.repos.d/tailscale.repo /etc/yum.repos.d/tailscale.repo
 RUN dnf -y install systemd podman fuse-overlayfs iproute procps-ng \
     openssh-clients ca-certificates curl git gh nodejs tar gzip vim-minimal \
     cockpit-system cockpit-ws cockpit-bridge cockpit-storaged \
     cockpit-networkmanager cockpit-podman cockpit-files cockpit-selinux \
-    cockpit-sosreport tailscale && dnf clean all
+    cockpit-sosreport && dnf clean all
 # The stock Cockpit storage dependency set includes jq; admit the actual tool.
 RUN rpm -q jq
 
@@ -34,9 +33,12 @@ COPY image-import.conf /usr/lib/systemd/system/soda-image-import.service.d/docke
 COPY project-scope.conf /usr/lib/systemd/system/libpod-.scope.d/soda-docker.conf
 COPY network-scope.conf /usr/lib/systemd/system/run-.scope.d/soda-docker.conf
 
+# The thin Docker target carries no application OCI bodies and no native
+# Tailnet: no shared image layout, no Tailscale package, no daemon service.
 RUN test "$(uname -m)" = x86_64 && \
     test -f /usr/share/soda/release.json && \
-    test -f /usr/share/soda/images/index.json && \
+    test ! -e /usr/share/soda/images && \
+    test ! -e /etc/yum.repos.d/tailscale.repo && \
     systemd-sysusers && systemd-tmpfiles --create && \
     test ! -s /etc/subuid && test ! -s /etc/subgid && \
     printf 'containers:1000000:268435456\n' > /etc/subuid && \
@@ -44,7 +46,7 @@ RUN test "$(uname -m)" = x86_64 && \
     touch /etc/soda/installed && \
     systemctl mask auditd.service audit-rules.service NetworkManager.service \
       NetworkManager-wait-online.service systemd-resolved.service systemd-sysctl.service && \
-    systemctl enable soda-host.socket soda-postgres-backup.timer cockpit.socket tailscaled.service && \
+    systemctl enable soda-host.socket soda-postgres-backup.timer cockpit.socket && \
     systemctl set-default multi-user.target && \
     rm -f /etc/machine-id && touch /etc/machine-id && \
     mkdir -p /usr/share/soda/docker-runtime && \

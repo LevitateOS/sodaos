@@ -1,8 +1,15 @@
-# Exact upstream Forgejo image/wrapper, with release-owned custom resources.
+# Soda presentation/setup layer on the independently released Fountain image.
+# BASE_IMAGE is the frozen Fountain release pinned by digest at input
+# freezing. Soda never compiles Fountain during a release: the upstream
+# executable, wrappers, supervision, and container entrypoint are preserved
+# as released. Only Soda's presentation resources and setup overlay are added.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
-RUN rm /usr/local/bin/gitea
-COPY --chmod=0755 forgejo-bin /usr/local/bin/gitea
+USER 0
+# Verify the admitted image carries the released Fountain layout before
+# layering anything on it. A different layout fails this build closed for
+# design review instead of shipping a guessed overlay.
+RUN test -x /app/gitea/gitea && test -f /etc/s6/gitea/setup
 RUN mv /etc/s6/gitea/setup /etc/s6/gitea/setup-upstream
 COPY --chmod=0755 setup /etc/s6/gitea/setup
 COPY forgejo/ /usr/share/soda/forgejo/

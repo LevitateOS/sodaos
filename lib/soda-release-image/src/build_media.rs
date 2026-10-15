@@ -192,45 +192,10 @@ mod tests {
     use base64::Engine;
 
     fn payload_fixture() -> model::Payload {
-        let revision = "a".repeat(40);
-        let core_os = "44.20260913.3.2".to_string();
-        let repository_prefix = "ghcr.io/levitateos/sodaos".to_string();
-        let images = model::NAMES
-            .iter()
-            .enumerate()
-            .map(|(index, name)| {
-                let manifest = format!("sha256:{:064x}", index + 10);
-                (
-                    (*name).to_string(),
-                    model::PayloadImage {
-                        reference: format!("{repository_prefix}-{name}@{manifest}"),
-                        config: format!("sha256:{:064x}", index + 1),
-                        manifest,
-                        archive_sha256: format!("{:064x}", index + 20),
-                    },
-                )
-            })
-            .collect();
-        model::Payload {
-            format: 3,
-            id: format!("{core_os}.soda-{}", &revision[..12]),
-            revision,
-            architecture: "x86_64".to_string(),
-            core_os,
-            base: format!("quay.io/fedora/fedora-coreos@sha256:{}", "b".repeat(64)),
-            repository_prefix,
-            schema: model::SCHEMA_VERSION,
-            presentation_sha256: "c".repeat(64),
-            host_packages_sha256: "d".repeat(64),
-            project_support: model::ProjectSupport {
-                sha256: "f".repeat(64),
-                destination: soda_build_tools::project_support::DESTINATION.into(),
-                payload_path: soda_build_tools::project_support::PAYLOAD_PATH.into(),
-                project_image: format!("sha256:{:064x}", 5),
-            },
-            images,
-            upgrade_from: Vec::new(),
-        }
+        serde_json::from_str(include_str!(
+            "../../release-inputs/fixtures/payload-v4.json"
+        ))
+        .expect("shared v4 fixture")
     }
 
     #[test]

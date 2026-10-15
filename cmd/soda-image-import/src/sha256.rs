@@ -1,7 +1,8 @@
-//! SHA-256 helpers used by the bounded OCI layout reader.
+//! Test-only SHA-256 helpers pinning the importer's digest behavior.
 
 #[cfg(test)]
 use sha2::Digest;
+#[cfg(test)]
 pub(super) use sha2::Sha256;
 
 #[cfg(test)]

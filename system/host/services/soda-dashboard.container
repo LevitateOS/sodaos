@@ -1,7 +1,7 @@
 [Unit]
 Description=Soda dashboard
-After=forgejo.service soda-host.socket systemd-tmpfiles-setup.service
-Requires=soda-host.socket
+After=soda-image-import.service forgejo.service soda-host.socket systemd-tmpfiles-setup.service
+Requires=soda-image-import.service soda-host.socket
 ConditionPathExists=/etc/soda/activated
 
 [Container]
