@@ -282,6 +282,9 @@ mod tests {
                 .unwrap();
         assert!(forgejo.contains(&format!("Image={image_config}")));
         assert!(forgejo.contains("Environment=FORGEJO__server__APP_DATA_PATH=/data/gitea"));
+        assert!(forgejo.contains("Environment=FORGEJO__extensions__ENABLED=true"));
+        assert!(forgejo
+            .contains("Environment=FORGEJO__extensions__SERVICE_CALLBACK_PATH=/ipc/host.sock"));
         assert!(forgejo.contains("Volume=/var/lib/soda/forgejo:/data:Z"));
         let _ = fs::remove_dir_all(&dir);
     }

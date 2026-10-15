@@ -33,7 +33,9 @@ EnvironmentFile=/etc/soda/forgejo.env
 # The required Soda native package bootstraps from this trusted catalog:
 # read-only bind plus the extension identity it declares.
 Volume=/usr/share/soda/extensions/catalog.json:/etc/soda/extensions/catalog.json:ro,Z
+Environment=FORGEJO__extensions__ENABLED=true
 Environment=FORGEJO__extensions__CATALOG_PATH=/etc/soda/extensions/catalog.json
+Environment=FORGEJO__extensions__SERVICE_CALLBACK_PATH=/ipc/host.sock
 Volume=/var/lib/soda/project-maintenance:/var/lib/soda/project-maintenance:ro
 Environment=FORGEJO__extensions__MAINTENANCE_DIRECTORY=/var/lib/soda/project-maintenance
 Environment=FORGEJO__extensions__REQUIRED_IDS=soda
