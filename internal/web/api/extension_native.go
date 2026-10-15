@@ -134,7 +134,7 @@ func (s *API) extensionProductUser(w http.ResponseWriter, r *http.Request, actor
 
 func extensionProductContribution(path string, contribution extensions.Contribution) bool {
 	if path == "/api/settings/tailnet" || strings.HasPrefix(path, "/api/settings/tailnet/") {
-		return extensionPageContribution(contribution, "tailnet")
+		return auth.ExtensionContribution("tailnet", contribution)
 	}
 	return extensionPageContribution(contribution, "spaces") || extensionWorkspacePanelContribution(contribution)
 }

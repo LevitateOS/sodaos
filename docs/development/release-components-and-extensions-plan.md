@@ -396,7 +396,7 @@ required-package catalog/cache contract; its focused repair is committed separat
 - [x] **D00 — Adoption/writer checkpoint.** Codex review + coordinator adoption.
   Bases `505cf545`/`c500bd92`, 10 Soda + 16 Fountain dirty files checkpointed
   (`adoption-rcx2/` tars/patches), no live commands. Prior work mapped, preserved.
-- [ ] **R00 — Coherent retained-host derivative (G-R).** R; D00. Run the one
+- [x] **R00 — Coherent retained-host derivative (G-R).** R; D00. Run the one
   fixed recipe in `release-design.md`: retained host OCI → ostree commit with
   regenerated closure + fresh osmet, exact assembler 1.9.4, fixed fast profile,
   complete CPIO ≤2,013,265,920 bytes, pack ≤300s. Old exact-compressor result is
@@ -420,6 +420,13 @@ required-package catalog/cache contract; its focused repair is committed separat
   native epoch clock, timeout-300 never fired) ≤300s PASS; host-decode
   FSCK_EXIT=1 confirmed from retained log (observer/policy deviation,
   guest-reader PASS stands). R02 RELEASED on R00+R01+F02.
+  The later coherent `eba805ee` candidate closes the integrity/size gate:
+  fixed fast profile, 1,384,365,056-byte complete rootfs in 165.626 seconds,
+  actual native ISO installation and disk boot, then installed OSTree fsck
+  of 42,114 objects and two commits with no errors. Its rootfs digest is
+  `b45e2f598962bd1b0eae99583821eb8d1e59431e6e98e63b1bff0ba15e6582c1`.
+  This accepts compression and coherent installation only; that candidate's
+  runtime defects and explicit diagnostic overlays do not qualify Source S.
 - [ ] **T00 — Fixed guest probe (G-T).** T; D00. v0.1.1-guest recipe in
   `tailnet-design.md` §10: actual Project userns, persistent host node, nested
   Docker, direct LocalAPI with exact caller. Retained: official digest
@@ -485,13 +492,25 @@ required-package catalog/cache contract; its focused repair is committed separat
   retain the observeLocked deadlock fix, release map mutex around external work;
   boot async. Section-7 rendering/settings framework DEFERRED to F04 (F03 only
   the authenticated manager callbacks it needs).
+  Native partial cleanup now proves known host/Project effects stop while an
+  unknown object stays untouched and admission remains closed. It also exposes
+  completed failed cleanup being rendered as still in progress: `draining`
+  outlives `busy`. A prepared correction preserves the closed fence and reports
+  failed/unconfirmed; the affected package passes through a read-only Go overlay.
+  Applying it to Fountain awaits its qualification writer's release.
 - [ ] **F04 — Admin UI + maintenance contract.** F; F03. REOPENED 2026-10-15 (REVIEW-026, maintenance-guard item):
   native admin routes (401/403/Origin/CAS, 4KiB forms, 303 CAS wiring),
   manager-control snapshot/reconcile/cache endpoints, actual middleware
   tests + tsc/eslint clean, all suites green pinned (routers independently
-  rerun by coordinator). All four Fountain packets complete. Native admin routes
+  rerun by coordinator). Native admin routes
   with registered Origin/CAS/catalog guarding, rendered states/progress,
   snapshot/reconcile + same-inode SH/EX guard. Test actual middleware.
+  Installed checks expose missing Disable on failed rows, the above masked
+  cleanup failure, and stale actions after automatic progress (Settings appears
+  only after manual reload). The prepared action template passes the real failed
+  row's Disable journey through a diagnostic custom-template mount. Available
+  catalog rows are also omitted from JSON status by the current reader. These
+  generic UI/status corrections remain open in the held Fountain checkout.
 - [x] **T01 — Required controller + exact authority.** T; R01, F03, T00. CLOSED 2026-10-15:
   controller→Go-route→Rust-RPC with exact SDK tuple/callback, ForwardUnix
   seam consumed, bad authority zero effects (Lifecycle tests PASS rerun by
@@ -510,12 +529,23 @@ required-package catalog/cache contract; its focused repair is committed separat
   stop failures closed and unconfirmed. Preserve data. Runtime implementation
   and small native composition gate pass; final integration/reboot and failure
   journeys remain at I01/Q01, so this packet is not yet closed.
+  The retained diagnostic VM now passes persisted-enabled cold boot without
+  changing generation/installation/cache, actual backend-loss cleanup of the
+  host and one official unenrolled Project companion, and partial cleanup with
+  an unknown object preserved. Explicit retry clears pending after removal of
+  only the injected task-owned unknown object. Real running/stopped Projects,
+  member accounts and private data remain intact. No provider enrollment or
+  shipping candidate qualification is claimed by these fixture checks.
 - [ ] **T03 — Tailnet package split.** T; T02, F04. Package renamed to
   `tailnet` (no alias), exact two capabilities, admin-only page, live native
   admin mapping, enabled-but-unenrolled UI, connection-loss confirmation. Package
   registration, manifests, separate asset graphs and archive staging now pass
   focused SDK/browser/producer checks. Installed enable/disable journeys remain
   unqualified until integration.
+  A native settings-shell/API check exposed a stale global-page predicate in
+  Soda. Reusing the canonical `tailnet` admin contribution check fixes the actual
+  403; focused authorization/package checks and native `NeedsLogin` rendering
+  pass. Default/failed settings denial and ordinary-member rejection also pass.
 - [ ] **R02 — Thin host/Docker + dev target.** R; R00, R01, F02. Separate
   package/image production, ordered boot, obsolete bundle/installer paths
   removed; final native packages use T03 contents at I01. Fountain release
@@ -597,6 +627,11 @@ required-package catalog/cache contract; its focused repair is committed separat
   selectors and reads only its Project image from Payload v4; 43 native unit
   checks pass. This cleanup is separate from the frozen Source `eba805ee` build
   and is included in the subsequent target scope.
+  Installed checks also pass a snapshot under the real updater EX lock while
+  administrator enable is rejected with 423 and unchanged intent. The shipped
+  CLI prepares the actual installed cache with network disabled and preserves
+  installation/intent/cache hashes. An egress-isolated cold boot starts required
+  services from cache while registry/package access is demonstrably blocked.
 - [ ] **I01 — Integrate + joint native candidate.** Coordinator; R03, T03, G-F.
   Pin SDK/Fountain candidate, smallest combined tests + private-socket/lock
   checks; admit the distinct v4 maintenance source fixture; one joint target.

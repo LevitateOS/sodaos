@@ -20,6 +20,10 @@ authority to Soda, and application handlers consume that verified context
 directly. Mutations also require the native same-origin request checks. These
 paths are private service routes, not public URLs to call directly:
 
+Host Tailnet settings require the optional `tailnet` package's admin page and a
+current native site administrator. Project Tailnet routes retain Workspace
+repository and Project permissions.
+
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/session` | Current native actor and Soda profile |
