@@ -131,3 +131,16 @@ full maintenance reports that the runtime is disabled.
 See [Project OS maintenance](../../docs/reference/project-os.md#same-root-maintenance),
 [Muse subscription access](../../docs/reference/project-os.md#muse-subscription-access),
 and [credentials](../../docs/reference/credentials.md#normal-muse-command).
+
+
+Release maintenance freezes Fountain intent and source/target component pins in
+its format-2 journal. It prefetches both selected sides before mutation and uses
+Fountain’s offline package command after stopping the service. Recovery and
+rollback retain installation identities and generations; disabled optional
+packages are excluded from acquisition.
+
+Exit status `75` from release reconciliation means the core committed while
+extension readiness remains failed or unknown. The command retains the completed
+journal and never automatically rolls back or rewrites desired enablement. The
+reconcile service leaves this result for inspection; explicitly restarting it
+performs a fresh bounded readiness check even when no operation marker remains.

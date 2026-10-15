@@ -521,6 +521,9 @@ Fountain CI/lint edits are preserved; no new Fountain writes are being made.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
+  Implementation and 20 focused maintenance tests pass; native UID1000 offline
+  store checks, confined input-label/lock probes and actual exit75 command check
+  pass. Complete native Source-S/Target-T transition and recovery remain open.
 - [ ] **I01 — Integrate + joint native candidate.** Coordinator; R03, T03, G-F.
   Pin SDK/Fountain candidate, smallest combined tests + private-socket/lock
   checks; admit the distinct v4 maintenance source fixture; one joint target.

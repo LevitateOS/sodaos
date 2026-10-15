@@ -128,8 +128,9 @@ binds source release and support digest to the exact target payload, host manife
 Project image, support digest, public rootfs and deployable OSTree commit, with
 hashes of the native observation files. It changes no baked host bytes.
 
-The existing public rootfs contains the complete host, application images and an
-OSTree repository inside its EROFS root. Explicit maintenance consumes the selected
+The public rootfs contains the host and an OSTree repository inside its EROFS
+root. Application OCI bodies are acquired separately from the Payload v4 pins
+into ordinary Podman storage. Explicit maintenance consumes the selected
 GitHub release's rootfs and metadata together; users do not assemble helpers.
 Native `ostree pull-local` and locked deployment retain FCOS activation ownership.
 Import includes the digest-named container blob references required by rpm-ostree
@@ -152,6 +153,26 @@ record across interruption and reboot. Boot reconciliation checks actual host,
 Project and future-image identities before reopening admission; that additional
 readback is not the pre-activation safeguard. Explicit rollback restores both the
 retained native deployment and its support, requiring empty managed state again.
+
+The format-2 operation journal freezes both Payload v4 bindings and Fountain's
+consistent source snapshot. Required packages and desired-enabled optional
+packages select source and target image/package prefetch; disabled Tailnet adds
+no acquisition. The updater holds the existing maintenance directory's exclusive
+lock while caching both sides, checking retained rollback content, replacing
+Project support and preparing exact cached packages through Fountain's stopped,
+network-disabled UID1000 CLI. Fountain remains the only package installer and
+requested-state writer. Recovery uses the saved snapshot and offline cache;
+rollback refuses a changed installation UUID, generation or desired value.
+
+Core finalization verifies active package bindings and unchanged intent, retires
+the operation marker, and releases the exclusive lock before asking Fountain to
+reconcile optional effects. Exit status 75 means the core committed but extension
+readiness is failed or unknown. It preserves last-operation evidence and does
+not roll back, restore the marker or overwrite a newer administrator decision.
+Restarting reconciliation without a pending marker still checks current extension
+readiness. Only prepared public inputs receive a container-readable SELinux label;
+private maintenance journals retain their metadata-only service boundary.
+
 
 These controls apply to this explicit workflow. They do not intercept arbitrary
 root use of rpm-ostree, upstream Zincati deployments or manual rollback. Zincati
