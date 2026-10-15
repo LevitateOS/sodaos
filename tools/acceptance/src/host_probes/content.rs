@@ -1,10 +1,12 @@
-use std::collections::{BTreeSet, HashMap};
-
-use crate::structured::Value as JsonValue;
+use crate::sha256::{Digest, Sha256};
+use soda_build_tools::payload::{FountainPackage, PayloadV4, Role};
+use std::collections::{BTreeMap, BTreeSet};
+use std::io::Read;
+use std::path::{Component, Path};
 
 use crate::sha256;
 
-use super::{get_str, parse_json, podman, read_file, read_text, sha256_file, ProbeFailure};
+use super::{podman, read_file, sha256_file, ProbeFailure};
 
 fn image_config_id_matches(observed: &str, expected: &str) -> bool {
     let Some(expected_hex) = expected.strip_prefix("sha256:") else {
@@ -17,160 +19,259 @@ fn image_config_id_matches(observed: &str, expected: &str) -> bool {
         && observed_hex == expected_hex
 }
 
-/// Installed content inventory, images, and (when activated) the
-/// extension package: the first `host.sh` Python block.
+/// Verify installed runtime content from the current thin-host contract.
+/// Release-only proof/source files remain candidate-admission evidence.
 pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
-    let payload = parse_json(
-        &read_text("/usr/share/soda/release.json", "read release.json")?,
-        "parse release.json",
-    )?;
-    let content = parse_json(
-        &read_text(
-            "/usr/share/soda/host-image/content.json",
-            "read content inventory",
-        )?,
-        "parse content inventory",
-    )?;
-    let fixed = BTreeSet::from([
-        "dashboard:/usr/local/bin/soda-dashboard",
-        "forgejo:/usr/local/bin/gitea",
-        "extension:/usr/local/bin/gitea",
-        "extension:/usr/share/soda/extension/extension.json",
-        "extension:/usr/share/soda/extension/backend",
-        "extension:/usr/share/soda/extension/run",
-        "host:/usr/share/containers/systemd/forgejo.container",
-        "host:/usr/share/containers/systemd/soda-dashboard.container",
-        "host:/usr/lib/systemd/system/soda-extension-install.service",
-    ]);
-    let asset_prefix = "extension:/usr/share/soda/extension/assets/";
-    let JsonValue::Object(entries) = &content else {
-        return Err(ProbeFailure::failed("parse content inventory"));
-    };
-    let names: BTreeSet<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
-    let assets: BTreeSet<&str> = names
-        .iter()
-        .copied()
-        .filter(|name| name.starts_with(asset_prefix))
-        .collect();
-    let mut want = fixed.clone();
-    want.extend(assets.iter().copied());
-    if assets.is_empty() || names != want {
-        return Err(ProbeFailure::exit("incomplete installed content inventory"));
+    if !matches!(phase, "activated" | "pre-activation") {
+        return Err(ProbeFailure::failed("select host phase"));
     }
-    for name in &assets {
-        let relative = name.strip_prefix(asset_prefix).unwrap_or("");
-        if relative.is_empty()
-            || relative.split('/').any(|part| part == "..")
-            || relative.starts_with('/')
-        {
-            return Err(ProbeFailure::exit(
-                "unsafe installed extension asset inventory",
-            ));
-        }
-    }
-    if get_str(&payload, "Architecture", "parse release.json")? != std::env::consts::ARCH {
+    let payload: PayloadV4 = serde_json::from_slice(&read_file(
+        "/usr/share/soda/release.json",
+        "read release.json",
+    )?)
+    .map_err(|_| ProbeFailure::failed("parse release.json"))?;
+    payload
+        .validate()
+        .map_err(|_| ProbeFailure::failed("validate Payload v4"))?;
+    let content: BTreeMap<String, String> = serde_json::from_slice(&read_file(
+        "/usr/share/soda/host-image/content.json",
+        "read content inventory",
+    )?)
+    .map_err(|_| ProbeFailure::failed("parse content inventory"))?;
+    if !soda_build_tools::reader::candidate::valid_content(&content)
+        || payload.architecture != std::env::consts::ARCH
+    {
         return Err(ProbeFailure::exit(
-            "installed release architecture differs from native host",
+            "installed inventory or architecture differs from release",
         ));
     }
-    let packages = read_file(
-        "/usr/share/soda/host-image/packages.txt",
+    if sha256_file(
+        Path::new("/usr/share/soda/host-image/packages.txt"),
         "read package inventory",
-    )?;
-    if sha256::hex_lower(&sha256::digest(&packages))
-        != get_str(&payload, "HostPackagesSHA256", "parse release.json")?
+    )? != payload.host_packages_sha256
     {
         return Err(ProbeFailure::exit(
             "installed RPM inventory differs from release metadata",
         ));
     }
-    let images = payload
-        .get("Images")
-        .ok_or_else(|| ProbeFailure::failed("parse release.json"))?;
-    let config = |name: &str| -> Result<&str, ProbeFailure> {
-        images
-            .get(name)
-            .and_then(|image| image.get("Config"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| ProbeFailure::failed("parse release.json"))
-    };
-    if config("forgejo")? == config("extension")? {
-        return Err(ProbeFailure::exit("independent extension image required"));
-    }
-    let content_digest = |name: &str| -> Result<&str, ProbeFailure> {
-        content
-            .get(name)
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| ProbeFailure::failed("parse content inventory"))
-    };
-    if content_digest("forgejo:/usr/local/bin/gitea")?
-        != content_digest("extension:/usr/local/bin/gitea")?
+    if read_file(
+        "/usr/share/soda/extensions/catalog.json",
+        "read installed catalog",
+    )? != payload
+        .projected_catalog_bytes()
+        .map_err(|_| ProbeFailure::failed("project trusted catalog"))?
     {
         return Err(ProbeFailure::exit(
-            "extension installer CLI differs from patched Forgejo",
+            "installed catalog differs from Payload v4",
         ));
     }
-    for name in ["dashboard", "forgejo", "extension"] {
-        let image = config(name)?;
+    for role in Role::ALL {
+        let config = &role.binding(&payload.images).config;
         let observed = podman(
-            &["image", "inspect", "--format", "{{.Id}}", image],
-            "inspect installed image",
+            &["image", "inspect", "--format", "{{.Id}}", config],
+            "inspect acquired image",
         )?;
-        if !image_config_id_matches(&observed, image) {
+        if !image_config_id_matches(&observed, config) {
             return Err(ProbeFailure::exit(format!(
-                "{name} image identity differs from installed release"
+                "{} image differs from installed release",
+                role.name()
             )));
         }
     }
-    for (name, expected) in entries {
-        let expected = expected
-            .as_str()
+    for (name, expected) in &content {
+        let (component, path) = name
+            .split_once(':')
             .ok_or_else(|| ProbeFailure::failed("parse content inventory"))?;
-        let Some((component, path)) = name.split_once(':') else {
-            return Err(ProbeFailure::failed("parse content inventory"));
-        };
         let actual = if component == "host" {
-            sha256_file(std::path::Path::new(path), "read installed content")?
-        } else {
-            let image = config(component)?;
+            sha256_file(Path::new(path), "read installed host content")?
+        } else if let Some(role) = Role::from_name(component) {
             let output = podman(
                 &[
                     "run",
                     "--rm",
+                    "--pull=never",
                     "--network=none",
                     "--read-only",
                     "--cap-drop=all",
                     "--security-opt=no-new-privileges",
                     "--entrypoint=/usr/bin/sha256sum",
-                    image,
+                    &role.binding(&payload.images).config,
                     path,
                 ],
-                "read installed image content",
+                "read acquired image content",
             )?;
-            let output = output.trim();
-            match output.strip_suffix(&format!("  {path}")) {
-                Some(hash) => hash.to_string(),
-                None => String::new(),
-            }
+            output
+                .trim()
+                .strip_suffix(&format!("  {path}"))
+                .unwrap_or("")
+                .to_string()
+        } else {
+            continue;
         };
-        if actual != expected {
+        if &actual != expected {
             return Err(ProbeFailure::exit(format!(
-                "installed content differs from release inventory: {name}"
+                "installed runtime content differs: {name}"
             )));
         }
     }
-    let checked = if phase == "activated" {
-        check_extension_package(&content)?;
-        "installed package replacement"
-    } else {
-        "extension image package"
-    };
-    Ok(format!("Installed fork, {checked}, Soda service bytes and native architecture match the release inventory.\n"))
+    for package in &payload.extension_catalog.packages {
+        let name = package
+            .url
+            .rsplit('/')
+            .next()
+            .ok_or_else(|| ProbeFailure::failed("read package URL"))?;
+        if content.get(&format!("package:{name}")) != Some(&package.sha256) {
+            return Err(ProbeFailure::exit("package inventory differs from catalog"));
+        }
+        // Optional absence is valid. Lifecycle cases check its effects separately.
+        if package.required {
+            check_required_package(Path::new("/var/lib/soda/forgejo/gitea/extensions"), package)?;
+        }
+    }
+    Ok("Installed Payload v4, six acquired image configs, runtime inventory and required Soda package bytes match. Optional lifecycle and release-only source evidence remain separate.\n".into())
+}
+
+fn check_required_package(root: &Path, package: &FountainPackage) -> Result<(), ProbeFailure> {
+    let installed = root.join(&package.id);
+    let receipt_path = installed.join(".fountain-package.json");
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Receipt {
+        schema: u32,
+        package_id: String,
+        package_version: String,
+        archive_sha256: String,
+    }
+    let receipt: Receipt = serde_json::from_slice(
+        &std::fs::read(&receipt_path)
+            .map_err(|_| ProbeFailure::failed("read native package receipt"))?,
+    )
+    .map_err(|_| ProbeFailure::failed("parse native package receipt"))?;
+    if receipt.schema != 1
+        || receipt.package_id != package.id
+        || receipt.package_version != package.version
+        || receipt.archive_sha256 != package.sha256
+    {
+        return Err(ProbeFailure::exit(
+            "required package receipt differs from catalog",
+        ));
+    }
+    let cache = root
+        .join(".cache/packages")
+        .join(format!("{}.tar.gz", package.sha256));
+    let file = std::fs::File::open(&cache)
+        .map_err(|_| ProbeFailure::failed("read verified package cache"))?;
+    if file
+        .metadata()
+        .map_err(|_| ProbeFailure::failed("read package size"))?
+        .len()
+        != package.size
+        || sha256_file(&cache, "hash cached package")? != package.sha256
+    {
+        return Err(ProbeFailure::exit(
+            "required package cache differs from catalog",
+        ));
+    }
+    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(file));
+    let mut expected = BTreeMap::from([(
+        ".fountain-package.json".to_string(),
+        sha256_file(&receipt_path, "hash package receipt")?,
+    )]);
+    let mut total = 0u64;
+    for entry in archive
+        .entries()
+        .map_err(|_| ProbeFailure::failed("read cached package entries"))?
+    {
+        let mut entry = entry.map_err(|_| ProbeFailure::failed("read cached package entry"))?;
+        let path = entry
+            .path()
+            .map_err(|_| ProbeFailure::failed("read package path"))?
+            .into_owned();
+        if path
+            .components()
+            .any(|part| !matches!(part, Component::Normal(_)))
+        {
+            return Err(ProbeFailure::exit("unsafe cached package path"));
+        }
+        if entry.header().entry_type().is_dir() {
+            continue;
+        }
+        total = total
+            .checked_add(entry.size())
+            .ok_or_else(|| ProbeFailure::failed("bound package contents"))?;
+        if !entry.header().entry_type().is_file() || total > 512 << 20 {
+            return Err(ProbeFailure::exit("invalid cached package contents"));
+        }
+        let mut digest = Sha256::new();
+        let mut buffer = [0u8; 16384];
+        loop {
+            let count = entry
+                .read(&mut buffer)
+                .map_err(|_| ProbeFailure::failed("hash package entry"))?;
+            if count == 0 {
+                break;
+            }
+            digest.update(&buffer[..count]);
+        }
+        let path = path
+            .to_str()
+            .ok_or_else(|| ProbeFailure::failed("read package path"))?
+            .to_string();
+        if expected
+            .insert(path, sha256::hex_lower(&digest.finalize()))
+            .is_some()
+        {
+            return Err(ProbeFailure::exit("duplicate cached package member"));
+        }
+    }
+    check_extension_package(&installed, expected)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::image_config_id_matches;
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn native_package_binds_cache_receipt_and_exact_installed_bytes() {
+        let root = tempfile::tempdir().unwrap();
+        let installed = root.path().join("soda");
+        std::fs::create_dir(&installed).unwrap();
+        let mut archive = tar::Builder::new(Vec::new());
+        let mut header = tar::Header::new_gnu();
+        header.set_size(7);
+        header.set_mode(0o755);
+        header.set_cksum();
+        archive
+            .append_data(&mut header, "backend", &b"backend"[..])
+            .unwrap();
+        let mut gzip = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        gzip.write_all(&archive.into_inner().unwrap()).unwrap();
+        let bytes = gzip.finish().unwrap();
+        let package = FountainPackage {
+            id: "soda".into(),
+            version: "1.0.0".into(),
+            sha256: sha256::hex_lower(&sha256::digest(&bytes)),
+            size: bytes.len() as u64,
+            required: true,
+            ..Default::default()
+        };
+        let cache = root.path().join(".cache/packages");
+        std::fs::create_dir_all(&cache).unwrap();
+        std::fs::write(cache.join(format!("{}.tar.gz", package.sha256)), bytes).unwrap();
+        std::fs::write(installed.join("backend"), b"backend").unwrap();
+        let receipt = serde_json::to_vec(&serde_json::json!({"schema":1,"package_id":"soda","package_version":"1.0.0","archive_sha256":package.sha256})).unwrap();
+        std::fs::write(installed.join(".fountain-package.json"), &receipt).unwrap();
+        check_required_package(root.path(), &package).unwrap();
+        std::fs::write(installed.join("backend"), b"changed").unwrap();
+        assert!(check_required_package(root.path(), &package).is_err());
+        std::fs::write(installed.join("backend"), b"backend").unwrap();
+        std::fs::write(installed.join(".disabled"), b"").unwrap();
+        assert!(check_required_package(root.path(), &package).is_err());
+        std::fs::remove_file(installed.join(".disabled")).unwrap();
+        std::fs::write(installed.join(".fountain-package.json"), b"{}").unwrap();
+        assert!(check_required_package(root.path(), &package).is_err());
+    }
 
     #[test]
     fn podman_image_id_accepts_bare_or_prefixed_config_digest_only() {
@@ -186,25 +287,11 @@ mod tests {
     }
 }
 
-fn check_extension_package(content: &JsonValue) -> Result<(), ProbeFailure> {
-    let package_prefix = "extension:/usr/share/soda/extension/";
-    let JsonValue::Object(entries) = content else {
-        return Err(ProbeFailure::failed("parse content inventory"));
-    };
-    let mut expected = HashMap::new();
-    let mut ordered: Vec<String> = Vec::new();
-    for (name, digest) in entries {
-        if let Some(relative) = name.strip_prefix(package_prefix) {
-            expected.insert(
-                relative.to_string(),
-                digest
-                    .as_str()
-                    .ok_or_else(|| ProbeFailure::failed("parse content inventory"))?,
-            );
-            ordered.push(relative.to_string());
-        }
-    }
-    let root = std::path::Path::new("/var/lib/soda/forgejo/gitea/extensions/soda");
+fn check_extension_package(
+    root: &Path,
+    expected: BTreeMap<String, String>,
+) -> Result<(), ProbeFailure> {
+    let ordered: Vec<String> = expected.keys().cloned().collect();
     let meta = std::fs::symlink_metadata(root).map_err(|_| {
         ProbeFailure::exit("installed Soda extension package is not a regular directory")
     })?;
@@ -243,23 +330,21 @@ fn check_extension_package(content: &JsonValue) -> Result<(), ProbeFailure> {
                     .strip_prefix(root)
                     .map_err(|_| ProbeFailure::failed("walk extension package"))?;
                 let relative = relative.to_string_lossy().replace('\\', "/");
-                if relative != ".disabled" {
-                    observed.insert(relative);
-                }
+                observed.insert(relative);
             }
         }
     }
     let want: BTreeSet<String> = expected.keys().cloned().collect();
     if observed != want {
         return Err(ProbeFailure::exit(
-            "installed Soda extension package differs from candidate inventory",
+            "installed Soda package file set differs from verified archive",
         ));
     }
     for relative in &ordered {
         let actual = sha256_file(&root.join(relative), "read extension package")?;
         if actual != expected[relative.as_str()] {
             return Err(ProbeFailure::exit(format!(
-                "installed package replacement differs from candidate inventory: {relative}"
+                "installed package differs from verified archive: {relative}"
             )));
         }
     }

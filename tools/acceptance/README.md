@@ -16,6 +16,16 @@ observations from an explicitly selected builder, host or fresh VM.
 | `soda-acceptance-remote` | Target-side dispatcher for `native-phase REQUEST`, `cockpit-account` and `project-state`. |
 | `soda-host-probes` | Helpers used by the installed host/operator shell checks. |
 
+The installed host check reads Payload v4, verifies six acquired image config
+IDs and installed runtime files, and compares the required Soda package with its
+verified cached archive and Fountain receipt. It does not require optional
+Tailnet to be downloaded. `SODA_EXPECT_TAILNET` defaults to `disabled`; select
+`enabled` only for a fixture whose administrator enabled it. Tailnet advertisement
+checks require a running, enrolled host node and use its container's LocalAPI.
+For observer-only checks against a retained development source, `SODA_HOST_PROBES`
+can name a separately staged reviewed probe. Record that probe's revision/hash
+separately; it does not change or qualify the source's shipping bytes.
+
 From the repository root, inspect the available flags:
 
 ```sh

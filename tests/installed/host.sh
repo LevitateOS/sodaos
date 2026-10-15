@@ -11,13 +11,20 @@ podman() { command podman --remote=false "$@"; }
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]]
 phase=pre-activation
 if [[ -e /etc/soda/activated ]]; then phase=activated; fi
-/usr/libexec/soda/soda-host-probes host-content "$phase"
-rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale git tar gzip
+"${SODA_HOST_PROBES:-/usr/libexec/soda/soda-host-probes}" host-content "$phase"
+rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree git tar gzip
+! rpm -q tailscale >/dev/null 2>&1
+[[ ! -e /usr/bin/tailscale && ! -e /usr/sbin/tailscaled ]]
+case ${SODA_EXPECT_TAILNET:-disabled} in
+  disabled) ! systemctl is-active --quiet soda-tailnet-host.service ;;
+  enabled) systemctl is-active --quiet soda-tailnet-host.service ;;
+  *) echo 'Select SODA_EXPECT_TAILNET=disabled or enabled' >&2; exit 2 ;;
+esac
 # Fedora may satisfy these capabilities with versioned/replacement packages.
 rpm -q --whatprovides nodejs
-rpm-ostree status --json | /usr/libexec/soda/soda-host-probes host-deployments
+rpm-ostree status --json | "${SODA_HOST_PROBES:-/usr/libexec/soda/soda-host-probes}" host-deployments
 printf 'Actual substrate: %s %s; host %s\n' "$(uname -s)" "$(uname -m)" "$(hostname)"
-for unit in soda-host.socket forgejo.service cockpit.socket tailscaled.service; do
+for unit in soda-host.socket forgejo.service cockpit.socket soda-image-import.service; do
   systemctl is-active --quiet "$unit"
 done
 for directory in /etc /var /var/lib; do
@@ -50,5 +57,5 @@ fi
 [[ ${SODA_HOST_PHASE:-$phase} == "$phase" ]] || { echo 'Observed activation phase differs from requested phase' >&2; exit 1; }
 printf 'Observed phase: %s. Native listeners (not routed-client proof):\n' "$phase"
 ss -lnt
-/usr/libexec/soda/soda-host-probes host-listeners "$phase"
+"${SODA_HOST_PROBES:-/usr/libexec/soda/soda-host-probes}" host-listeners "$phase"
 printf 'First-install services, ownership, labels and retained Cockpit configuration checked on %s. Dashboard/project/provider journeys remain separate.\n' "$(hostname)"

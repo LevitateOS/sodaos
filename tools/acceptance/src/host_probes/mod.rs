@@ -1,14 +1,8 @@
-//! Host-side answers for the kept installed shell skeletons, mirroring
-//! the embedded Python of `tests/installed/host.sh`,
-//! `tests/installed/operator.sh`, and
-//! `tests/installed/forgejo-advertisement.sh`.
-//!
-//! The shells keep every gate, package, unit, ownership, and label
-//! check; only the `python3` blocks move here, called by absolute
-//! path. Verdict messages (`SystemExit` and assertion texts)
-//! print verbatim; operational failures (I/O, JSON, subprocess)
-//! collapse Python tracebacks to one `host probe failed:` line.
-//! Success output is JSON with the same decoded values.
+//! Native observations for the installed host/operator shell checks.
+//! Payload v4 and the canonical candidate inventory define runtime identities;
+//! Fountain's verified native package cache supplies installed file readback.
+//! The shells retain unit, ownership and SELinux checks. Operational errors
+//! report a fixed operation name without exposing subprocess diagnostics.
 
 use std::io::Read;
 use std::process::{Command, Stdio};

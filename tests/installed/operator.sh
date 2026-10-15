@@ -3,8 +3,6 @@
 set -euo pipefail
 [[ ${SODA_NATIVE_VALIDATE:?Explicit host required} == "$(hostname)" && $(id -u) == 0 ]]
 [[ $(getenforce) == Enforcing ]]
-/usr/bin/tailscale status --json | /usr/libexec/soda/soda-host-probes operator-tailscale
-/usr/bin/tailscale version
 [[ -s /etc/cockpit/branding/favicon.ico && -s /etc/cockpit/branding/branding.css ]]
 [[ -s /var/lib/soda/forgejo/gitea/public/assets/img/logo.svg ]]
 [[ ! -e /usr/local/share/cockpit/soda-tailscale && ! -L /usr/local/share/cockpit/soda-tailscale ]]

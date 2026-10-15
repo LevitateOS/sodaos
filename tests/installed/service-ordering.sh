@@ -15,11 +15,13 @@ contains_property soda-dashboard.service After soda-host.socket
 contains_property soda-proxy.service After soda-dashboard.service
 contains_property soda-proxy.service After forgejo.service
 contains_property forgejo.service After network-online.target
-contains_property forgejo.service Requires soda-extension-install.service
-contains_property forgejo.service After soda-extension-install.service
-contains_property soda-extension-install.service Requires soda-image-import.service
-contains_property soda-extension-install.service Before forgejo.service
-contains_property soda-extension-install.service RemainAfterExit yes
+for dependency in soda-image-import.service soda-postgres-init.service soda-forgejo-migrate.service; do
+  contains_property forgejo.service Requires "$dependency"
+  contains_property forgejo.service After "$dependency"
+done
+contains_property soda-image-import.service Before soda-host.service
+contains_property soda-image-import.service RemainAfterExit yes
+[[ $(systemctl show soda-extension-install.service --property=LoadState --value) == not-found ]]
 project_cleanup=$(systemctl show soda-project@ordering.service --property=ExecStopPost --value)
 [[ "$project_cleanup" == *"argv[]=/usr/bin/podman stop --ignore --time 30 soda-ordering"* ]]
 for unit in forgejo.service soda-dashboard.service soda-proxy.service; do

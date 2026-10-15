@@ -6,7 +6,7 @@ set -euo pipefail
 origins() {
   /usr/libexec/soda/soda-host-probes forgejo-origins
 }
-/usr/bin/tailscale status --json | /usr/libexec/soda/soda-host-probes forgejo-tailnet
+curl --fail --silent --show-error --unix-socket /run/soda-tailnet/host/control/tailscaled.sock http://local-tailscaled.sock/localapi/v0/status | /usr/libexec/soda/soda-host-probes forgejo-tailnet
 before=$(origins)
 /usr/libexec/soda/soda-forgejo-tailnet
 [[ "$(origins)" == "$before" ]] || { echo 'Core browser origins changed during advertisement refresh' >&2; exit 1; }

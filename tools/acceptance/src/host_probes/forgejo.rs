@@ -44,7 +44,15 @@ pub fn forgejo_advertisement() -> Result<String, ProbeFailure> {
         .ok_or_else(|| ProbeFailure::failed("parse forgejo.env"))?;
     let status = parse_json(
         &run_output(
-            &["/usr/bin/tailscale", "status", "--json"],
+            &[
+                "/usr/bin/curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--unix-socket",
+                "/run/soda-tailnet/host/control/tailscaled.sock",
+                "http://local-tailscaled.sock/localapi/v0/status",
+            ],
             "read tailscale status",
         )?,
         "parse tailscale status",
