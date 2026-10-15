@@ -2,25 +2,14 @@ use super::config::Config;
 
 pub(crate) fn validate_runtime_config(c: &Config) -> Result<(), String> {
     // Order matches validateRuntimeConfig: muse, identity, subnet,
-    // tailnet, then network names.
+    // then network names.
     validate_muse_runtime(c)?;
     validate_identity_runtime(c)?;
     super::network::parse_prefix(&c.subnet)?;
-    if !valid_tailnet_config(c) {
-        return Err(String::from(
-            "invalid immutable Tailnet companion configuration",
-        ));
-    }
     if !valid_network_names(&c.image, &c.network, &c.bridge) {
         return Err(String::from("invalid native runtime configuration"));
     }
     Ok(())
-}
-
-fn valid_tailnet_config(c: &Config) -> bool {
-    // An empty image is always fine; a set image needs management, a
-    // sha256: prefix, and a valid digest reference.
-    c.tailnet_image.is_empty() || (c.tailnet_management && valid_tailnet_image(&c.tailnet_image))
 }
 
 fn validate_muse_runtime(c: &Config) -> Result<(), String> {
@@ -121,12 +110,4 @@ fn valid_network_name(s: &str) -> bool {
         && rest
             .iter()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'-'))
-}
-
-fn valid_tailnet_image(s: &str) -> bool {
-    // sha256: prefix plus ^[0-9a-f]{64}$ (ValidImageRef with prefix).
-    match s.strip_prefix("sha256:") {
-        Some(hex) => super::release::is_hex_string(hex, 64),
-        None => false,
-    }
 }

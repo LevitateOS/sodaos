@@ -6,6 +6,11 @@ Muse installs packaged public tools and restores the launch interface.
 Terminal support repairs one admitted helper in an idle retained root.
 It operates on the project's retained container and requires appliance root.
 
+The host configuration supplies Project networking and tool inputs; Payload v4
+selects the Project image. Tailnet state and its image belong to the
+[extension lifecycle](../../docs/architecture/networking.md), so the retired
+`tailnet_management` and `tailnet_image` machine fields are rejected.
+
 The [Project OS maintenance contract](../../docs/reference/project-os.md#same-root-maintenance)
 owns admission, supported roots, effects and interrupted recovery. Terminal repair:
 

@@ -6,12 +6,5 @@ pub(crate) fn decode_release_payload(body: &[u8]) -> Result<ReleasePayload, ()> 
     Ok(ReleasePayload {
         architecture: payload.architecture.clone(),
         project_os: Role::ProjectOs.binding(&payload.images).config.clone(),
-        tailscale: payload
-            .optional_extensions
-            .tailnet
-            .images
-            .tailscale
-            .config
-            .clone(),
     })
 }

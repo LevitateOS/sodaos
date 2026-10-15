@@ -13,8 +13,6 @@ pub(crate) struct Config {
     pub(crate) muse_harness: String,
     pub(crate) muse_harness_sha256: String,
     pub(crate) muse_harness_version: String,
-    pub(crate) tailnet_management: bool,
-    pub(crate) tailnet_image: String,
     pub(crate) image: String,
     pub(crate) network: String,
     pub(crate) subnet: String,

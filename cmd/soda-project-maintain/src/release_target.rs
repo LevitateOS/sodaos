@@ -201,9 +201,7 @@ pub(crate) fn installed_source(deadline: Instant) -> Result<InstalledSource, Str
         .ok_or("installed release identity unavailable")?
         .to_owned();
     let helper_sha256 = soda_host::terminal::agent_program_hash(0)?;
-    let project_image = admitted
-        .image_config("project-os")
-        .ok_or("installed Project image unavailable")?;
+    let project_image = admitted.project_os;
     source_support_binding(
         payload.get("ProjectSupport"),
         &project_image,

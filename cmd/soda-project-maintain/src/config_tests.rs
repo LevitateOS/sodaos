@@ -52,8 +52,8 @@ fn host_config_decode_vectors() {
     assert_eq!(c.image, "second");
     let c = decode_host_config(br#"{"image":"first","IMAGE":"second"}"#).unwrap();
     assert_eq!(c.image, "second");
-    let c = decode_host_config(br#"{"tailnet_management": true}"#).unwrap();
-    assert!(c.tailnet_management);
+    assert!(decode_host_config(br#"{"tailnet_management":true}"#).is_err());
+    assert!(decode_host_config(br#"{"tailnet_image":"sha256:unused"}"#).is_err());
     let c = decode_host_config(
         br#"{"identity_socket":"/run/soda/identity/runtime.sock","muse_harness":"/usr/libexec/soda/muse-harness","muse_harness_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","muse_harness_version":"1.2.3","image":"img","network":"net","bridge":"br","subnet":"10.0.0.0/24"}"#,
     )
@@ -78,9 +78,8 @@ fn host_config_decode_vectors() {
         "explicit identity runtime socket and verified harness required"
     );
     assert!(decode_host_config(br#"{"muse_harness":true}"#).is_err());
-    let c = decode_host_config(br#"{"image": null, "tailnet_management": null}"#).unwrap();
+    let c = decode_host_config(br#"{"image": null}"#).unwrap();
     assert_eq!(c.image, "");
-    assert!(!c.tailnet_management);
     assert!(decode_host_config(br#"{"bogus": null}"#).is_err());
     assert!(decode_host_config(br#"{"muse_sha256": 1}"#).is_err());
     assert!(decode_host_config(br#"{"tailnet_management": "yes"}"#).is_err());
@@ -95,7 +94,7 @@ fn host_config_decode_vectors() {
 
 #[test]
 fn runtime_config_validation_order() {
-    // Muse errors precede identity, subnet, tailnet, and network errors.
+    // Muse errors precede identity, subnet and network errors.
     let c = Config {
         muse_sha256: hex_string('a', 64),
         subnet: String::from("bogus"),
@@ -105,7 +104,7 @@ fn runtime_config_validation_order() {
         validate_runtime_config(&c).unwrap_err(),
         "explicit muse socket, broker socket and release digest required"
     );
-    // Subnet errors precede tailnet and network errors.
+    // Subnet errors precede network errors.
     let c = Config {
         subnet: String::from("bogus"),
         ..Default::default()
@@ -113,16 +112,6 @@ fn runtime_config_validation_order() {
     assert!(validate_runtime_config(&c)
         .unwrap_err()
         .starts_with("invalid IP prefix"));
-    // Tailnet errors precede network errors.
-    let c = Config {
-        subnet: String::from("10.0.0.0/24"),
-        tailnet_image: String::from("bare-hex"),
-        ..Default::default()
-    };
-    assert_eq!(
-        validate_runtime_config(&c).unwrap_err(),
-        "invalid immutable Tailnet companion configuration"
-    );
     // Network errors come last.
     let c = Config {
         subnet: String::from("10.0.0.0/24"),

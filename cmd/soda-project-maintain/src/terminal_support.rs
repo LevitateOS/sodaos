@@ -107,11 +107,7 @@ fn target(development: bool) -> Result<(String, String, String), String> {
     )
     .map_err(|_| "invalid Project support payload")?;
     support
-        .validate(
-            &admitted
-                .image_config("project-os")
-                .ok_or("Project image unavailable")?,
-        )
+        .validate(&admitted.project_os)
         .map_err(str::to_string)?;
     let host_hash = soda_host::terminal::agent_program_hash(0)?;
     if host_hash != support.sha256 {

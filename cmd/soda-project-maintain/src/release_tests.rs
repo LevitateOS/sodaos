@@ -31,19 +31,12 @@ fn valid_release_json() -> (String, String, String) {
 #[test]
 fn release_payload_accept_and_reject() {
     let dir = TestDir::make("release");
-    let (valid, project_cfg, tailnet_cfg) = valid_release_json();
+    let (valid, project_cfg, _tailnet_cfg) = valid_release_json();
     let path = dir.path("release.json");
     fs::write(&path, &valid).unwrap();
     let payload = load_release_payload(&path).expect("valid payload refused");
     assert_eq!(payload.architecture, "x86_64");
-    assert_eq!(
-        payload.image_config("project-os").as_deref(),
-        Some(project_cfg.as_str())
-    );
-    assert_eq!(
-        payload.image_config("tailnet").as_deref(),
-        Some(tailnet_cfg.as_str())
-    );
+    assert_eq!(payload.project_os, project_cfg);
     // Each mutation is rejected.
     let mutations: Vec<(&str, String)> = vec![
         ("format", valid.replacen("\"Format\":4", "\"Format\":2", 1)),
@@ -156,16 +149,12 @@ fn release_payload_accept_and_reject() {
 #[test]
 fn release_images_apply_and_conflict() {
     let dir = TestDir::make("relapply");
-    let (valid, project_cfg, tailnet_cfg) = valid_release_json();
+    let (valid, project_cfg, _tailnet_cfg) = valid_release_json();
     let path = dir.path("release.json");
     fs::write(&path, &valid).unwrap();
     let mut c = Config::default();
     apply_release_images(&mut c, &path).unwrap();
     assert_eq!(c.image, project_cfg);
-    assert_eq!(c.tailnet_image, "");
-    c.tailnet_management = true;
-    apply_release_images(&mut c, &path).unwrap();
-    assert_eq!(c.tailnet_image, tailnet_cfg);
     c.image = String::from("other");
     assert_eq!(
         apply_release_images(&mut c, &path).unwrap_err(),

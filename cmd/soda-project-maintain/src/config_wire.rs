@@ -44,12 +44,10 @@ impl<'de> Deserialize<'de> for Config {
                         Some(7) => set_string::<A>(&mut map, &mut config.muse_harness)?,
                         Some(8) => set_string::<A>(&mut map, &mut config.muse_harness_sha256)?,
                         Some(9) => set_string::<A>(&mut map, &mut config.muse_harness_version)?,
-                        Some(10) => set_bool::<A>(&mut map, &mut config.tailnet_management)?,
-                        Some(11) => set_string::<A>(&mut map, &mut config.tailnet_image)?,
-                        Some(12) => set_string::<A>(&mut map, &mut config.image)?,
-                        Some(13) => set_string::<A>(&mut map, &mut config.network)?,
-                        Some(14) => set_string::<A>(&mut map, &mut config.subnet)?,
-                        Some(15) => set_string::<A>(&mut map, &mut config.bridge)?,
+                        Some(10) => set_string::<A>(&mut map, &mut config.image)?,
+                        Some(11) => set_string::<A>(&mut map, &mut config.network)?,
+                        Some(12) => set_string::<A>(&mut map, &mut config.subnet)?,
+                        Some(13) => set_string::<A>(&mut map, &mut config.bridge)?,
                         _ => return Err(de::Error::unknown_field(&key, HOST_FIELDS)),
                     }
                 }
@@ -78,17 +76,6 @@ where
     Ok(())
 }
 
-fn set_bool<'de, A>(map: &mut A, slot: &mut bool) -> Result<(), A::Error>
-where
-    A: MapAccess<'de>,
-{
-    let value = map.next_value::<Option<bool>>()?;
-    if let Some(value) = value {
-        *slot = value;
-    }
-    Ok(())
-}
-
 const HOST_FIELDS: &[&str] = &[
     "muse_sha256",
     "muse_version",
@@ -100,8 +87,6 @@ const HOST_FIELDS: &[&str] = &[
     "muse_harness",
     "muse_harness_sha256",
     "muse_harness_version",
-    "tailnet_management",
-    "tailnet_image",
     "image",
     "network",
     "subnet",

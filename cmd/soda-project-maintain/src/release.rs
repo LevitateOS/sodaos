@@ -17,23 +17,13 @@ pub(crate) fn apply_release_images(c: &mut Config, path: &str) -> Result<(), Str
     {
         return Err(failed);
     }
-    let project = payload
-        .image_config("project-os")
-        .ok_or_else(|| failed.clone())?;
-    let companion = payload
-        .image_config("tailnet")
-        .ok_or_else(|| failed.clone())?;
-    if (!c.image.is_empty() && c.image != project)
-        || (!c.tailnet_image.is_empty() && c.tailnet_image != companion)
-    {
+    let project = payload.project_os;
+    if !c.image.is_empty() && c.image != project {
         return Err(String::from(
             "saved image selection conflicts with appliance release; explicit migration required",
         ));
     }
     c.image = project;
-    if c.tailnet_management {
-        c.tailnet_image = companion;
-    }
     Ok(())
 }
 
@@ -41,19 +31,6 @@ pub(crate) fn apply_release_images(c: &mut Config, path: &str) -> Result<(), Str
 pub(crate) struct ReleasePayload {
     pub(crate) architecture: String,
     pub(crate) project_os: String,
-    pub(crate) tailscale: String,
-}
-
-impl ReleasePayload {
-    pub(crate) fn image_config(&self, name: &str) -> Option<String> {
-        match name {
-            // The companion key keeps its historic name; Payload v4 binds
-            // it to the optional official Tailscale image.
-            "project-os" => Some(self.project_os.clone()),
-            "tailnet" => Some(self.tailscale.clone()),
-            _ => None,
-        }
-    }
 }
 
 // load_release_payload mirrors deliver.Load plus build.ReadJSON: confined
