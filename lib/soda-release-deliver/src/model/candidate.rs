@@ -84,67 +84,14 @@ fn valid_candidate_source(c: &Candidate, p: &Payload, payload: &[u8]) -> bool {
 fn valid_candidate_build(c: &Candidate, p: &Payload) -> bool {
     is_revision(&c.forgejo_revision)
         && is_digest(&c.forgejo_source_sha256)
-        && c.forgejo_toolchain.validate().is_ok()
+        && ((c.forgejo_toolchain.compiler_image.is_empty()
+            && c.forgejo_toolchain.apk_packages.is_empty())
+            || c.forgejo_toolchain.validate().is_ok())
         && c.architecture == p.architecture
 }
 
-/// `ValidCandidateContent`: exact required content bindings plus assets.
 pub fn valid_candidate_content(files: &BTreeMap<String, String>) -> bool {
-    if !required_candidate_content(files)
-        || files.get("forgejo:/usr/local/bin/gitea") != files.get("extension:/usr/local/bin/gitea")
-    {
-        return false;
-    }
-    let mut assets = 0;
-    for (file, hash) in files {
-        if !is_digest(hash) {
-            return false;
-        }
-        if let Some(name) = file.strip_prefix("extension:/usr/share/soda/extension/assets/") {
-            if !valid_candidate_asset_name(name) {
-                return false;
-            }
-            assets += 1;
-            continue;
-        }
-        if let Some(name) = file.strip_prefix("canlang-runtime:/usr/share/licenses/canlang/") {
-            if !valid_candidate_asset_name(name) {
-                return false;
-            }
-            continue;
-        }
-        if !known_candidate_content_name(file) {
-            return false;
-        }
-    }
-    assets > 0
-}
-
-fn required_candidate_content(files: &BTreeMap<String, String>) -> bool {
-    for path in [
-        "dashboard:/usr/local/bin/soda-dashboard",
-        "forgejo:/usr/local/bin/gitea",
-        "extension:/usr/local/bin/gitea",
-        "extension:/usr/share/soda/extension/extension.json",
-        "extension:/usr/share/soda/extension/backend",
-        "extension:/usr/share/soda/extension/run",
-        "host:/usr/share/containers/systemd/forgejo.container",
-        "host:/usr/share/containers/systemd/soda-dashboard.container",
-        "host:/usr/lib/systemd/system/soda-extension-install.service",
-        "host:/usr/share/soda/canlang-tools/release.json",
-        "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
-        "canlang-runtime:/opt/canlang/tools.json",
-        "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
-        "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
-        "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
-        "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
-    ] {
-        match files.get(path) {
-            Some(hash) if is_digest(hash) => {}
-            _ => return false,
-        }
-    }
-    true
+    soda_build_tools::reader::candidate::valid_content(files)
 }
 
 pub(crate) fn path_clean(name: &str) -> String {
@@ -176,32 +123,6 @@ pub(crate) fn path_clean(name: &str) -> String {
     } else {
         out
     }
-}
-
-fn valid_candidate_asset_name(name: &str) -> bool {
-    !name.is_empty()
-        && path_clean(name) == name
-        && !name.starts_with('/')
-        && !name.starts_with("../")
-        && !name.bytes().any(|b| matches!(b, b'\\' | b'\n' | b'\r' | 0))
-}
-
-fn known_candidate_content_name(file: &str) -> bool {
-    matches!(
-        file,
-        "dashboard:/usr/local/bin/soda-dashboard"
-            | "forgejo:/usr/local/bin/gitea"
-            | "extension:/usr/local/bin/gitea"
-            | "extension:/usr/share/soda/extension/extension.json"
-            | "extension:/usr/share/soda/extension/backend"
-            | "extension:/usr/share/soda/extension/run"
-            | "host:/usr/share/containers/systemd/forgejo.container"
-            | "host:/usr/share/containers/systemd/soda-dashboard.container"
-            | "host:/usr/lib/systemd/system/soda-extension-install.service"
-            | "host:/usr/share/soda/canlang-tools/release.json"
-            | "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz"
-            | "canlang-runtime:/opt/canlang/tools.json"
-    )
 }
 
 impl Candidate {

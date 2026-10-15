@@ -179,58 +179,6 @@ fn check_content(
     Ok(())
 }
 
-struct BundledBlobs {
-    content: BTreeMap<String, String>,
-    member_limits: BTreeMap<String, u64>,
-}
-
-fn bundled_blobs(
-    root: &Root,
-    p: &Payload,
-    c: &crate::model::Candidate,
-) -> Result<BundledBlobs, Error> {
-    use crate::payload::Role;
-    use soda_build_tools::payload::ImageProvenance;
-    let mut blobs = BTreeMap::new();
-    let mut limits = BTreeMap::new();
-    for role in Role::iter() {
-        let name = role.name();
-        let expected = role.binding(&p.images);
-        let expected_archive = c
-            .image_archives
-            .get(name)
-            .ok_or_else(|| Error::msg(format!("Docker bundled {name} archive mismatch")))?;
-        let path = format!("images/{name}.oci");
-        if file_identity(root, &path)?.sha256 != *expected_archive {
-            return Err(Error::msg(format!(
-                "Docker bundled {name} archive mismatch"
-            )));
-        }
-        let revision = match expected.provenance {
-            ImageProvenance::Soda { .. } => &p.revision,
-            ImageProvenance::Upstream { .. } => "",
-        };
-        let observed = inspect(root, &path, revision, &[])?;
-        if observed.image.manifest != expected.manifest || observed.image.config != expected.config
-        {
-            return Err(Error::msg(format!(
-                "Docker bundled {name} identity mismatch"
-            )));
-        }
-        for (path, hash) in observed.blobs {
-            limits.insert(
-                format!("/usr/share/soda/images/{path}"),
-                observed.blob_sizes[&path],
-            );
-            blobs.insert(format!("/usr/share/soda/images/{path}"), hash);
-        }
-    }
-    Ok(BundledBlobs {
-        content: blobs,
-        member_limits: limits,
-    })
-}
-
 fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerMetadata, Error> {
     if !crate::model::docker::valid_docker_tag(&request.release_tag)
         || request.distribution == Distribution::Appliance
@@ -240,6 +188,7 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
     crate::model::docker::fedora_digest(&request.fedora_base)?;
     let root = Root::open(candidate)?;
     let (p, c, _) = load_admitted_candidate(candidate)?;
+    crate::prepare::verify_candidate_images(&root, candidate, &p, &c)?;
     let inputs = check_sources(&root, &p, &c)?;
     let packages = read_at(&root, PACKAGES_PATH, 1 << 20)?;
     let text = std::str::from_utf8(&packages)
@@ -258,29 +207,16 @@ fn observed_metadata(candidate: &str, request: &DockerRequest) -> Result<DockerM
             "Docker source host archive differs from candidate",
         ));
     }
-    let shared: Vec<String> = ["index.json", "oci-layout"]
-        .iter()
-        .map(|name| format!("/usr/share/soda/images/{name}"))
-        .collect();
-    let host = inspect(&root, "host.oci", &p.revision, &shared)?;
+    let host = inspect(&root, "host.oci", &p.revision, &[])?;
     if host.image != c.host {
         return Err(Error::msg(
             "Docker source host identity differs from candidate",
         ));
     }
-    let mut expected = runtime_content(&p, &c, &inputs, &packages)?;
-    expected.extend(host.content);
-    let blobs = bundled_blobs(&root, &p, &c)?;
-    expected.extend(blobs.content);
+    let expected = runtime_content(&p, &c, &inputs, &packages)?;
     let paths = expected.keys().cloned().collect::<Vec<_>>();
     let (mut file, _) = open_layout_entry(&root, IMAGE_PATH)?;
-    let image = crate::oci::inspect_oci_file_content_with_limits(
-        &mut file,
-        "x86_64",
-        &p.revision,
-        &paths,
-        &blobs.member_limits,
-    )?;
+    let image = crate::oci::inspect_oci_file_content(&mut file, "x86_64", &p.revision, &paths)?;
     check_content(&image.content, &expected)?;
     let value = DockerMetadata {
         format: 1,

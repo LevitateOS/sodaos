@@ -161,6 +161,12 @@ impl Fixture {
                 format!("fixture {name}").into_bytes()
             };
             *digest = identity(&bytes).sha256;
+            if let Some(package) = name.strip_prefix("package:") {
+                std::fs::create_dir_all(dir.path().join("packages")).unwrap();
+                std::fs::write(dir.path().join("packages").join(package), &bytes).unwrap();
+            } else if let Some(release) = name.strip_prefix("release:") {
+                std::fs::write(dir.path().join(release), &bytes).unwrap();
+            }
             all.insert(name.clone(), bytes);
         }
         let mut host_files: BTreeMap<String, Vec<u8>> = all
@@ -177,7 +183,6 @@ impl Fixture {
             host_packages,
         );
 
-        let mut descriptors = Vec::new();
         for role in crate::payload::Role::iter() {
             let name = role.name();
             let binding = role.binding_mut(&mut p.images);
@@ -204,12 +209,6 @@ impl Fixture {
             c.image_archives
                 .insert(name.to_string(), identity(&image.bytes).sha256);
             std::fs::write(dir.path().join(format!("images/{name}.oci")), &image.bytes).unwrap();
-            for (path, bytes) in image.blobs {
-                host_files.insert(format!("/usr/share/soda/images/{path}"), bytes);
-            }
-            descriptors.push(json!({"mediaType":"application/vnd.oci.image.manifest.v1+json", "digest":binding.manifest,
-                "size":host_files[&format!("/usr/share/soda/images/blobs/sha256/{}", &binding.manifest[7..])].len(),
-                "annotations":{"org.opencontainers.image.ref.name":binding.config}}));
         }
         p.project_support.project_image = crate::payload::Role::ProjectOs
             .binding(&p.images)
@@ -220,14 +219,6 @@ impl Fixture {
         payload.push(b'\n');
         c.payload_sha256 = identity(&payload).sha256;
         host_files.insert("/usr/share/soda/release.json".into(), payload.clone());
-        host_files.insert(
-            "/usr/share/soda/images/index.json".into(),
-            serde_json::to_vec(&json!({"schemaVersion":2,"manifests":descriptors})).unwrap(),
-        );
-        host_files.insert(
-            "/usr/share/soda/images/oci-layout".into(),
-            br#"{"imageLayoutVersion":"1.0.0"}"#.to_vec(),
-        );
         let mut inventory = serde_json::to_vec_pretty(&c.content_sha256).unwrap();
         inventory.push(b'\n');
         host_files.insert("/usr/share/soda/host-image/content.json".into(), inventory);
@@ -461,17 +452,16 @@ fn shutdown_scope_dropins_must_match_archived_source() {
 }
 
 #[test]
-fn changed_embedded_layer_cannot_hide_behind_unchanged_image_index() {
+fn changed_catalog_cannot_hide_behind_unchanged_candidate() {
     let mut fixture = Fixture::new(BuildPurpose::Production);
-    let path = fixture
+    assert!(!fixture
         .runtime
-        .iter()
-        .find(|(path, body)| path.starts_with("/usr/share/soda/images/blobs/") && body.len() > 1024)
-        .map(|(path, _)| path.clone())
-        .unwrap();
-    fixture
-        .runtime
-        .insert(path, b"changed embedded layer".to_vec());
+        .keys()
+        .any(|path| path.starts_with("/usr/share/soda/images/")));
+    fixture.runtime.insert(
+        "/usr/share/soda/extensions/catalog.json".into(),
+        b"changed catalog".to_vec(),
+    );
     fixture.rebuild();
     assert!(record(fixture.path(), &fixture.request)
         .unwrap_err()

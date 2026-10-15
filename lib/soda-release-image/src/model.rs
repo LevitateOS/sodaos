@@ -115,13 +115,5 @@ pub fn valid_repository_prefix(s: &str) -> bool {
     owner_ok && repo_ok
 }
 
-fn content_get(files: &[(String, String)], name: &str) -> String {
-    files
-        .iter()
-        .find(|(k, _)| k == name)
-        .map(|(_, v)| v.clone())
-        .unwrap_or_default()
-}
-
 #[cfg(test)]
 mod tests;

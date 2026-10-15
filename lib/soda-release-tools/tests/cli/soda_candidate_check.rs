@@ -179,67 +179,23 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
     let images_dir = dir.path.join("images");
     fs::create_dir_all(&images_dir).unwrap();
 
-    let content_values = [
-        (
-            "dashboard:/usr/local/bin/soda-dashboard",
-            b"dashboard fixture".as_slice(),
-        ),
-        (
-            "forgejo:/usr/local/bin/gitea",
-            b"shared gitea fixture".as_slice(),
-        ),
-        ("extension:/usr/local/bin/gitea", b"shared gitea fixture"),
-        ("extension:/usr/share/soda/extension/extension.json", b"{}"),
-        ("extension:/usr/share/soda/extension/backend", b"backend"),
-        (
-            "extension:/usr/share/soda/extension/run",
-            b"#!/bin/sh\nexit 0\n",
-        ),
-        (
-            "extension:/usr/share/soda/extension/assets/app.js",
-            b"fixture asset",
-        ),
-        (
-            "host:/usr/share/containers/systemd/forgejo.container",
-            b"[Container]\nImage=fixture\n",
-        ),
-        (
-            "host:/usr/share/containers/systemd/soda-dashboard.container",
-            b"[Container]\nImage=fixture\n",
-        ),
-        (
-            "host:/usr/lib/systemd/system/soda-extension-install.service",
-            b"[Service]\nType=oneshot\n",
-        ),
-        (
-            "host:/usr/share/soda/canlang-tools/release.json",
-            b"fixture Canlang input",
-        ),
-        (
-            "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
-            b"fixture Canlang input",
-        ),
-        (
-            "canlang-runtime:/opt/canlang/tools.json",
-            b"fixture Canlang input",
-        ),
-        (
-            "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
-            b"fixture Canlang input",
-        ),
-        (
-            "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
-            b"fixture Canlang input",
-        ),
-        (
-            "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
-            b"fixture Canlang input",
-        ),
-        (
-            "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
-            b"fixture Canlang input",
-        ),
-    ];
+    let content_values: Vec<(&str, &[u8])> = soda_build_tools::reader::candidate::REQUIRED_CONTENT
+        .iter()
+        .copied()
+        .chain([
+            "package:soda-extension-0.1.0-linux-x86_64.tar.gz",
+            "package:tailnet-extension-0.1.0-linux-x86_64.tar.gz",
+        ])
+        .map(|name| (name, b"fixture component".as_slice()))
+        .collect();
+    for (name, bytes) in &content_values {
+        if let Some(package) = name.strip_prefix("package:") {
+            fs::create_dir_all(dir.path.join("packages")).unwrap();
+            fs::write(dir.path.join("packages").join(package), bytes).unwrap();
+        } else if let Some(release) = name.strip_prefix("release:") {
+            fs::write(dir.path.join(release), bytes).unwrap();
+        }
+    }
     let content: BTreeMap<String, String> = content_values
         .iter()
         .map(|(path, bytes)| (path.to_string(), sha256_hex(bytes)))
@@ -361,14 +317,14 @@ fn candidate_check_binary_accepts_generated_full_archive_candidate() {
     assert!(stderr.is_empty(), "unexpected stderr: {stderr:?}");
 
     fs::write(
-        images_dir.join("postgres.oci"),
+        images_dir.join("dashboard.oci"),
         b"truncated fixture archive",
     )
     .unwrap();
     let (status, stdout, stderr) = run(&candidate_check_bin(), &dir.path, &args);
     assert_eq!(status, 1);
     assert!(stdout.is_empty(), "unexpected stdout: {stdout:?}");
-    assert!(stderr.contains("postgres archive"), "{stderr:?}");
+    assert!(stderr.contains("dashboard archive"), "{stderr:?}");
     assert_eq!(fs::read(payload_path).unwrap(), payload_before);
     assert_eq!(fs::read(candidate_path).unwrap(), candidate_before);
 }

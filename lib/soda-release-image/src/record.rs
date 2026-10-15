@@ -187,6 +187,7 @@ pub fn record_candidate(
         host: host.clone(),
         host_reference: format!("{prefix}-host@{}", host.manifest),
         host_archive_sha256: archive_hash.to_string(),
+        repository_prefix: prefix.to_string(),
         forgejo_revision: forgejo_revision.to_string(),
         architecture: arch.to_string(),
         migration: "No upgrade or writable-install migration is qualified. Conflicting saved image selections are refused; machine settings/secrets require explicit first-install setup.".to_string(),
@@ -219,11 +220,11 @@ pub fn record_candidate_inputs(
     }
     // The selected Fountain release/source proof replaces the local fork
     // toolchain proof: the admitted revision must equal the proof's source
-    // revision, and the proof file's own hash becomes the source identity.
+    // revision. The separate local source archive retains its own byte identity.
     let proof = sys::join(&[out, "fountain-release.json"]);
     let proof_text = fs::read(&proof)
         .map_err(|e| Error::msg(format!("missing selected Fountain release proof: {e}")))?;
-    record.forgejo_source_sha256 = sys::hex_sha256(&proof_text);
+    record.forgejo_source_sha256 = sys::hash_file(&sys::join(&[out, "forgejo-source.tar"]))?;
     let release: model::FountainRelease = serde_json::from_slice(&proof_text)
         .map_err(|e| Error::msg(format!("invalid Fountain release proof: {e}")))?;
     if release.source_revision != record.forgejo_revision {
@@ -239,16 +240,9 @@ pub fn record_candidate_inputs(
     for name in ["dashboard", "project-os", "canlang-runtime", "forgejo"] {
         let archive = format!("images/{name}.oci");
         archives.push((
-            archive.clone(),
+            name.to_string(),
             sys::hash_file(&sys::join(&[out, &archive]))?,
         ));
-    }
-    for (name, checksum) in &record.content_sha256 {
-        if let Some(package) = name.strip_prefix("packages/") {
-            if package.ends_with(".tar.gz") {
-                archives.push((name.clone(), checksum.clone()));
-            }
-        }
     }
     archives.sort_by(|a, b| a.0.cmp(&b.0));
     record.image_archives = archives;
@@ -359,6 +353,82 @@ mod tests {
             "incomplete candidate content inventory"
         );
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recorded_thin_candidate_passes_metadata_admission() {
+        let scratch = std::env::temp_dir().join(format!("sri-record-{}", std::process::id()));
+        let (out, native) = thin_inventory_fixture(&scratch);
+        let payload: model::Payload = serde_json::from_str(include_str!(
+            "../../release-inputs/fixtures/payload-v4.json"
+        ))
+        .unwrap();
+        fs::write(
+            sys::join(&[&out, "payload.json"]),
+            serde_json::to_vec(&payload).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            sys::join(&[&out, "fountain-release.json"]),
+            serde_json::to_vec(&payload.fountain).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            sys::join(&[&out, "forgejo-source.tar"]),
+            b"exact archived source",
+        )
+        .unwrap();
+        fs::create_dir_all(sys::join(&[&out, "images"])).unwrap();
+        for name in ["dashboard", "forgejo", "project-os", "canlang-runtime"] {
+            fs::write(sys::join(&[&out, &format!("images/{name}.oci")]), name).unwrap();
+        }
+        let content = candidate_content(&out, &native).unwrap();
+        fs::create_dir_all(scratch.join("work/host-context/rootfs/usr/share/soda/host-image"))
+            .unwrap();
+        fs::write(
+            scratch.join("work/host-context/rootfs/usr/share/soda/host-image/content.json"),
+            content_inventory_bytes(&content).unwrap(),
+        )
+        .unwrap();
+        let host = model::Image {
+            manifest: format!("sha256:{}", "1".repeat(64)),
+            config: format!("sha256:{}", "2".repeat(64)),
+            architecture: "amd64".into(),
+            revision: payload.revision.clone(),
+            source: model::SODA_SOURCE.into(),
+            base_name: payload.base.clone(),
+            base_digest: payload.base.split_once('@').unwrap().1.into(),
+        };
+        record_candidate(
+            &out,
+            &native,
+            "ghcr.io/example/sodaos",
+            &host,
+            &"3".repeat(64),
+            &payload.fountain.source_revision,
+            "x86_64",
+        )
+        .unwrap();
+        let candidate = model::Candidate::parse(
+            &fs::read_to_string(sys::join(&[&out, "candidate.json"])).unwrap(),
+        )
+        .unwrap();
+        candidate
+            .validate(
+                &payload,
+                &fs::read(sys::join(&[&out, "payload.json"])).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(candidate.image_archives.len(), 4);
+        assert!(candidate
+            .image_archives
+            .iter()
+            .any(|(name, _)| name == "dashboard"));
+        assert_eq!(
+            candidate.forgejo_source_sha256,
+            sys::hex_sha256(b"exact archived source")
+        );
+        fs::remove_dir_all(scratch).unwrap();
     }
 
     #[test]

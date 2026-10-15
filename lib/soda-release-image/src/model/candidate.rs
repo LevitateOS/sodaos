@@ -6,8 +6,8 @@ use crate::jsonio;
 use crate::sys;
 
 use super::{
-    content_get, deliver_hash, is_digest, is_revision, oci_architecture, prefixed_digest, Image,
-    Payload, FORGEJO_COMPILER_IMAGE, SODA_SOURCE,
+    deliver_hash, is_digest, is_revision, oci_architecture, prefixed_digest, Image, Payload,
+    FORGEJO_COMPILER_IMAGE, SODA_SOURCE,
 };
 
 // ---------------------------------------------------------------------------
@@ -249,98 +249,9 @@ fn valid_candidate_build(candidate: &Candidate, payload: &Payload) -> bool {
         && candidate.architecture == payload.architecture
 }
 
-/// Thin-host content inventory: Soda's own staged binaries, the four
-/// generated service Quadlets, the trusted extension catalog, the
-/// canlang runtime evidence, and the selected Fountain release proof.
-/// No application OCI body and no installer unit enter the host. The two
-/// sealed native packages bind by name/shape rule below, since their
-/// release filenames carry versions.
-const REQUIRED_CANDIDATE_CONTENT: [&str; 14] = [
-    "dashboard:/usr/local/bin/soda-dashboard",
-    "host:/usr/share/containers/systemd/forgejo.container",
-    "host:/usr/share/containers/systemd/soda-dashboard.container",
-    "host:/usr/share/containers/systemd/soda-proxy.container",
-    "host:/usr/share/containers/systemd/soda-postgres.container",
-    "host:/usr/share/soda/extensions/catalog.json",
-    "host:/usr/share/soda/canlang-tools/release.json",
-    "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
-    "canlang-runtime:/opt/canlang/tools.json",
-    "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
-    "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
-    "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
-    "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
-    "release:fountain-release.json",
-];
-
-/// Sealed native package entry: `package:{id}-extension-{version}-linux-x86_64.tar.gz`.
-fn valid_candidate_package_name(file: &str) -> bool {
-    let Some(name) = file.strip_prefix("package:") else {
-        return false;
-    };
-    let Some(rest) = name.strip_suffix("-linux-x86_64.tar.gz") else {
-        return false;
-    };
-    let Some((id, version)) = rest
-        .strip_prefix("soda-extension-")
-        .map(|v| ("soda", v))
-        .or_else(|| {
-            rest.strip_prefix("tailnet-extension-")
-                .map(|v| ("tailnet", v))
-        })
-    else {
-        return false;
-    };
-    let _ = id;
-    !version.is_empty()
-        && version
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-' || b == b'_')
-}
-
 pub fn valid_candidate_content(files: &[(String, String)]) -> bool {
-    for path in REQUIRED_CANDIDATE_CONTENT {
-        if !is_digest(&content_get(files, path)) {
-            return false;
-        }
-    }
-    let mut packages = 0;
-    for (file, hash) in files {
-        if !is_digest(hash) {
-            return false;
-        }
-        if valid_candidate_package_name(file) {
-            packages += 1;
-            continue;
-        }
-        if let Some(name) = file.strip_prefix("canlang-runtime:/usr/share/licenses/canlang/") {
-            if !valid_candidate_asset_name(name) {
-                return false;
-            }
-            continue;
-        }
-        if let Some(name) = file.strip_prefix("release:") {
-            if !valid_candidate_asset_name(name) {
-                return false;
-            }
-            continue;
-        }
-        if !REQUIRED_CANDIDATE_CONTENT.contains(&file.as_str()) {
-            return false;
-        }
-    }
-    packages == 2
-}
-
-fn valid_candidate_asset_name(name: &str) -> bool {
-    if name.is_empty()
-        || !sys::is_clean_path(name)
-        || name.starts_with('/')
-        || name.starts_with("../")
-        || name.bytes().any(|b| matches!(b, b'\\' | b'\n' | b'\r' | 0))
-    {
-        return false;
-    }
-    true
+    let inventory: std::collections::BTreeMap<String, String> = files.iter().cloned().collect();
+    inventory.len() == files.len() && soda_build_tools::reader::candidate::valid_content(&inventory)
 }
 
 #[cfg(test)]
@@ -385,10 +296,11 @@ mod tests {
     #[test]
     fn thin_content_inventory_requires_new_layout() {
         let digest = "c".repeat(64);
-        let mut files: Vec<(String, String)> = REQUIRED_CANDIDATE_CONTENT
-            .iter()
-            .map(|name| (name.to_string(), digest.clone()))
-            .collect();
+        let mut files: Vec<(String, String)> =
+            soda_build_tools::reader::candidate::REQUIRED_CONTENT
+                .iter()
+                .map(|name| (name.to_string(), digest.clone()))
+                .collect();
         files.push((
             "package:soda-extension-0.1.0-linux-x86_64.tar.gz".to_string(),
             digest.clone(),

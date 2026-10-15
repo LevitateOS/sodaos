@@ -3,35 +3,22 @@ use std::collections::BTreeMap;
 use super::*;
 
 fn full_content() -> BTreeMap<String, String> {
-    [
-        "dashboard:/usr/local/bin/soda-dashboard",
-        "forgejo:/usr/local/bin/gitea",
-        "extension:/usr/local/bin/gitea",
-        "extension:/usr/share/soda/extension/extension.json",
-        "extension:/usr/share/soda/extension/backend",
-        "extension:/usr/share/soda/extension/run",
-        "extension:/usr/share/soda/extension/assets/entry.js",
-        "host:/usr/share/containers/systemd/forgejo.container",
-        "host:/usr/share/containers/systemd/soda-dashboard.container",
-        "host:/usr/lib/systemd/system/soda-extension-install.service",
-        "host:/usr/share/soda/canlang-tools/release.json",
-        "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
-        "canlang-runtime:/opt/canlang/tools.json",
-        "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
-        "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
-        "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
-        "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
-    ]
-    .iter()
-    .map(|n| (n.to_string(), "a".repeat(64)))
-    .collect()
+    soda_build_tools::reader::candidate::REQUIRED_CONTENT
+        .iter()
+        .copied()
+        .chain([
+            "package:soda-extension-0.1.0-linux-x86_64.tar.gz",
+            "package:tailnet-extension-0.1.0-linux-x86_64.tar.gz",
+        ])
+        .map(|name| (name.to_string(), "a".repeat(64)))
+        .collect()
 }
 
 #[test]
 fn candidate_content_rules() {
     assert!(valid_candidate_content(&full_content()));
     let mut missing_asset = full_content();
-    missing_asset.remove("extension:/usr/share/soda/extension/assets/entry.js");
+    missing_asset.remove("package:soda-extension-0.1.0-linux-x86_64.tar.gz");
     assert!(!valid_candidate_content(&missing_asset));
     let mut unknown = full_content();
     unknown.insert("host:/etc/passwd".to_string(), "b".repeat(64));

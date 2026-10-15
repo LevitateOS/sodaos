@@ -12,6 +12,7 @@
 //! controller-resolved live-input handoff consumed by the isolated build.
 
 pub mod build;
+pub mod candidate;
 pub mod forgejo;
 pub mod image;
 pub mod muse;

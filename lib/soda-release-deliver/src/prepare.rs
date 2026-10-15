@@ -43,11 +43,11 @@ fn inspect_candidate_image(
     revision: &str,
     content: &BTreeMap<String, String>,
 ) -> Result<BuildImage, Error> {
-    if content.is_empty() {
+    let (expected, members) = candidate_image_content(content, name);
+    if members.is_empty() {
         return inspect_oci(path, arch, revision)
             .map_err(|_| Error::at(&format!("{name} identity")));
     }
-    let (expected, members) = candidate_image_content(content, name);
     let member_paths: Vec<String> = members;
     let (image, observed) = inspect_oci_content(path, arch, revision, &member_paths)
         .map_err(|_| Error::at(&format!("{name} content")))?;
@@ -138,7 +138,13 @@ pub fn verify_candidate_images(
     // runtime payload carries manifest/config identity only.
     let mut archives: BTreeMap<String, String> = BTreeMap::new();
     archives.insert("host".to_string(), c.host_archive_sha256.clone());
-    for role in Role::iter() {
+    let local_roles = [
+        Role::Dashboard,
+        Role::Forgejo,
+        Role::ProjectOs,
+        Role::CanlangRuntime,
+    ];
+    for role in local_roles {
         let archive = c
             .image_archives
             .get(role.name())
@@ -149,7 +155,7 @@ pub fn verify_candidate_images(
         archives.insert(role.name().to_string(), archive.clone());
     }
     let mut names = vec!["host".to_string()];
-    names.extend(Role::iter().map(|role| role.name().to_string()));
+    names.extend(local_roles.into_iter().map(|role| role.name().to_string()));
     for name in names {
         let (expected_manifest, expected_config) = match name.as_str() {
             "host" => (c.host.manifest.clone(), c.host.config.clone()),
@@ -176,6 +182,19 @@ pub fn verify_candidate_images(
         )?;
         files.insert(path, hash);
     }
+    for (name, expected) in &c.content_sha256 {
+        let path = if let Some(name) = name.strip_prefix("package:") {
+            format!("packages/{name}")
+        } else if let Some(name) = name.strip_prefix("release:") {
+            name.to_string()
+        } else {
+            continue;
+        };
+        if hash_at(root, &path)? != *expected {
+            return Err(Error::at("candidate package/release content"));
+        }
+        files.insert(path, expected.clone());
+    }
     Ok(files)
 }
 
@@ -186,28 +205,17 @@ mod tests {
 
     #[test]
     fn embedded_inventory_hash_uses_standard_json_for_hostile_filenames() {
-        let content: BTreeMap<String, String> = [
-            "dashboard:/usr/local/bin/soda-dashboard",
-            "forgejo:/usr/local/bin/gitea",
-            "extension:/usr/local/bin/gitea",
-            "extension:/usr/share/soda/extension/extension.json",
-            "extension:/usr/share/soda/extension/backend",
-            "extension:/usr/share/soda/extension/run",
-            "extension:/usr/share/soda/extension/assets/quote\"<&> café.svg",
-            "host:/usr/share/containers/systemd/forgejo.container",
-            "host:/usr/share/containers/systemd/soda-dashboard.container",
-            "host:/usr/lib/systemd/system/soda-extension-install.service",
-            "host:/usr/share/soda/canlang-tools/release.json",
-            "host:/usr/share/soda/canlang-tools/canlang-tools-linux-x86_64.tar.gz",
-            "canlang-runtime:/opt/canlang/tools.json",
-            "canlang-runtime:/usr/share/licenses/canlang/Canlang-LICENSE",
-            "canlang-runtime:/usr/share/licenses/canlang/Node-LICENSE",
-            "canlang-runtime:/usr/share/licenses/canlang/Bun-LICENSE.md",
-            "canlang-runtime:/usr/share/licenses/canlang/compiler/THIRD-PARTY-NOTICES.txt",
-        ]
-        .into_iter()
-        .map(|path| (path.to_string(), "a".repeat(64)))
-        .collect();
+        let content: BTreeMap<String, String> =
+            soda_build_tools::reader::candidate::REQUIRED_CONTENT
+                .iter()
+                .copied()
+                .chain([
+                    "package:soda-extension-0.1.0-linux-x86_64.tar.gz",
+                    "package:tailnet-extension-0.1.0-linux-x86_64.tar.gz",
+                    "release:quote\"<&> café.svg",
+                ])
+                .map(|path| (path.to_string(), "a".repeat(64)))
+                .collect();
         assert!(crate::model::valid_candidate_content(&content));
         let with_inventory = candidate_content_with_embedded_inventory(&content).unwrap();
         let files: Vec<(String, String)> = content
