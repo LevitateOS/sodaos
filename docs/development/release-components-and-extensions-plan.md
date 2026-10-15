@@ -374,14 +374,18 @@ Codex review remain separate. No task is complete merely because it was assigned
 
 Current execution is owned directly by Codex under the active RCX-2 completion
 goal, following the owner's takeover instruction after Muse exhausted its quota.
-Existing implementation checkpoints remain preserved. The first direct repair
-commits are `07a95849` (producer archives, upstream references and staged
-versions) and `0fa7d524d4` (bootstrap, lifecycle observation and shutdown).
-Release-image tests and the affected Fountain suites pass; the live F026
-controller tests also pass under the race detector. This is component evidence,
-not complete packet or public/native qualification. Fountain's synchronous
-optional-backend startup still needs to move behind core readiness; remaining
-T02/T03/R03 and producer integration remain open below.
+Existing implementation checkpoints remain preserved. Direct repairs include
+`07a95849` (producer archives, references and staged versions), `0fa7d524d4`
+(bootstrap, observations and shutdown), `a26afecc15` (asynchronous optional
+startup and same-generation recovery), and `d2a49627` (fixed private operator
+manager bridge). Affected Fountain runtime/admin race suites pass. The native
+root → UID2000 → UID1000 operator transport passes using a fixture callback;
+this does not qualify Fountain's complete manager behavior. T02's operational
+grant and exact-owned host runtime foundation passes its small native check:
+official cached image, NeedsLogin, same-CID/PID adoption, stop-only cleanup and
+preserved state hash. The retained earlier G-T container remains unchanged.
+These are component checks, not packet or product qualification. Lifecycle
+wiring, companion ownership/drain, T03/R03 and producer integration remain open.
 
 - [x] **D00 — Adoption/writer checkpoint.** Codex review + coordinator adoption.
   Bases `505cf545`/`c500bd92`, 10 Soda + 16 Fountain dirty files checkpointed
