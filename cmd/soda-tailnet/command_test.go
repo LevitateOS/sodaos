@@ -12,31 +12,30 @@ import (
 )
 
 func TestEnrollmentMessage(t *testing.T) {
-	for name, status := range map[string]tailnet.Status{
-		"not signed in": {BackendState: "NeedsLogin"},
-		"disconnected":  {BackendState: "Stopped"},
-		"waiting for Tailnet administrator approval": {BackendState: "NeedsMachineAuth"},
-		"waiting for browser authentication":         {BackendState: "NeedsLogin", AuthPending: true},
-		"expired":                                    {BackendState: "Running", Expired: true},
+	for name, status := range map[string]tailnet.HostView{
+		"not signed in": {State: "NeedsLogin"},
+		"disconnected":  {State: "Stopped"},
+		"waiting for Tailnet administrator approval": {State: "NeedsMachineAuth"},
+		"expired": {State: "Running", Expired: true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			message := enrollmentMessage(status, nil)
+			message := enrollmentMessage(tailnet.SettingsView{Host: &status}, nil)
 			require.Contains(t, message, name)
-			require.Contains(t, message, "Cockpit → Tailscale")
+			require.Contains(t, message, "Admin → Extensions → Tailnet → Settings")
 			require.NotContains(t, message, "Soda Setup")
 		})
 	}
-	require.Contains(t, enrollmentMessage(tailnet.Status{}, errors.New("unavailable")), "status is unavailable")
+	require.Contains(t, enrollmentMessage(tailnet.SettingsView{}, errors.New("unavailable")), "status is unavailable")
 }
 
 func TestConnectedMessageDoesNotInventServiceURLs(t *testing.T) {
-	status := tailnet.Status{BackendState: "Running", Identity: "atlas.example.ts.net", IPv4: "100.64.0.1", MagicDNSEnabled: true}
-	message := enrollmentMessage(status, nil)
+	status := tailnet.HostView{State: "Running", DNSName: "atlas.example.ts.net", Addresses: []string{"100.64.0.1"}, MagicDNSEnabled: true}
+	message := enrollmentMessage(tailnet.SettingsView{Host: &status}, nil)
 	require.Contains(t, message, "Tailnet identity: atlas.example.ts.net")
 	require.Contains(t, message, "Tailnet endpoint: atlas.example.ts.net")
 	require.NotContains(t, message, ":30000")
 	status.MagicDNSEnabled = false
-	message = enrollmentMessage(status, nil)
+	message = enrollmentMessage(tailnet.SettingsView{Host: &status}, nil)
 	require.Contains(t, message, "Tailnet endpoint: 100.64.0.1")
 	require.Contains(t, message, "configured HTTPS origins")
 }
@@ -44,11 +43,11 @@ func TestConnectedMessageDoesNotInventServiceURLs(t *testing.T) {
 func TestExecuteKeepsUnavailableStatusNonFatal(t *testing.T) {
 	var output bytes.Buffer
 	var received context.Context
-	err := execute(t.Context(), &output, func(ctx context.Context) (tailnet.Status, error) {
+	err := execute(t.Context(), &output, func(ctx context.Context) (tailnet.SettingsView, error) {
 		received = ctx
 		_, bounded := ctx.Deadline()
 		require.True(t, bounded)
-		return tailnet.Status{}, errors.New("unavailable")
+		return tailnet.SettingsView{}, errors.New("unavailable")
 	})
 	require.NoError(t, err)
 	require.Contains(t, output.String(), "Tailscale status is unavailable")
@@ -60,8 +59,8 @@ type failingWriter struct{}
 func (failingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
 
 func TestExecuteReportsWriteFailure(t *testing.T) {
-	err := execute(t.Context(), failingWriter{}, func(context.Context) (tailnet.Status, error) {
-		return tailnet.Status{BackendState: "Running"}, nil
+	err := execute(t.Context(), failingWriter{}, func(context.Context) (tailnet.SettingsView, error) {
+		return tailnet.SettingsView{Host: &tailnet.HostView{State: "Running"}}, nil
 	})
 	require.ErrorIs(t, err, io.ErrClosedPipe)
 }
@@ -70,9 +69,9 @@ func TestExecutePreservesParentCancellationAsGuidance(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	var output bytes.Buffer
-	err := execute(ctx, &output, func(ctx context.Context) (tailnet.Status, error) {
+	err := execute(ctx, &output, func(ctx context.Context) (tailnet.SettingsView, error) {
 		require.ErrorIs(t, ctx.Err(), context.Canceled)
-		return tailnet.Status{}, ctx.Err()
+		return tailnet.SettingsView{}, ctx.Err()
 	})
 	require.NoError(t, err)
 	require.Contains(t, output.String(), "status is unavailable")

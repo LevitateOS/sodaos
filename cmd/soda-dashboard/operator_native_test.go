@@ -136,6 +136,16 @@ func TestNativeOperatorBridgeChild(t *testing.T) {
 			http.Error(w, "unexpected peer or authority", http.StatusForbidden)
 			return
 		}
+		if state := os.Getenv("SODA_NATIVE_OPERATOR_STATE"); state != "" {
+			data, err := os.ReadFile(state)
+			if err != nil || len(data) > 128<<10 {
+				http.Error(w, "fixture state unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(data)
+			return
+		}
 		w.WriteHeader(http.StatusConflict)
 		_, _ = io.WriteString(w, `{"error":{"code":"operation_in_progress"}}`)
 	})}

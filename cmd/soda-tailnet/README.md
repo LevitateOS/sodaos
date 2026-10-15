@@ -22,18 +22,17 @@ go run ./cmd/soda-tailnet
 ```
 
 The command takes no options and ignores extra arguments. It queries
-`/usr/bin/tailscale status --json` with a two-second deadline, using the native
-local Tailscale service and the caller's existing status access.
+the existing private `soda-host` settings view with a two-second deadline.
+The caller needs access to `/run/soda/host.sock`.
 
 ## Read the output
 
-The message reports connection state, pending browser authentication,
-administrator approval or expired authentication. When connected, it shows
+The message reports connection state, administrator approval or expired authentication. When connected, it shows
 the observed Tailnet identity and a usable endpoint: MagicDNS when enabled,
 otherwise the observed IPv4 address.
 
 Unavailable status produces guidance to inspect or connect the machine through
-Cockpit's Tailscale controls. The helper performs no enrollment, configuration
+Admin → Extensions → Tailnet → Settings. The helper performs no enrollment, configuration
 change, service restart or network mutation.
 
 A printed endpoint is an observed host identity. Browser services retain their

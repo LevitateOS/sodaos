@@ -9,17 +9,19 @@ import (
 )
 
 var (
-	ErrInvalid        = errors.New("invalid Tailnet request")
-	ErrConflict       = errors.New("tailnet revision or identity changed")
-	ErrUnsupported    = errors.New("tailnet runtime is not supported")
-	ErrUnconfirmed    = errors.New("tailnet outcome is unconfirmed")
-	revisionPattern   = regexp.MustCompile(`^[0-9a-f]{32}$`)
-	projectPattern    = regexp.MustCompile(`^p[0-9a-f]{24}$`)
-	containerPattern  = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	tagPattern        = regexp.MustCompile(`^tag:[a-zA-Z][a-zA-Z0-9-]{0,62}$`)
-	credentialPattern = regexp.MustCompile(`^tskey-client-[A-Za-z0-9_-]{8,512}$`) // slop-audit-allow: production validation pattern for real Tailscale-shaped client secrets
-	clientPattern     = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
-	networkPattern    = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.@_-]{0,252}$`)
+	ErrUnavailable         = errors.New("tailscale status is unavailable")
+	ErrInvalidMagicDNSName = errors.New("invalid Tailscale MagicDNS identity")
+	ErrInvalid             = errors.New("invalid Tailnet request")
+	ErrConflict            = errors.New("tailnet revision or identity changed")
+	ErrUnsupported         = errors.New("tailnet runtime is not supported")
+	ErrUnconfirmed         = errors.New("tailnet outcome is unconfirmed")
+	revisionPattern        = regexp.MustCompile(`^[0-9a-f]{32}$`)
+	projectPattern         = regexp.MustCompile(`^p[0-9a-f]{24}$`)
+	containerPattern       = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	tagPattern             = regexp.MustCompile(`^tag:[a-zA-Z][a-zA-Z0-9-]{0,62}$`)
+	credentialPattern      = regexp.MustCompile(`^tskey-client-[A-Za-z0-9_-]{8,512}$`) // slop-audit-allow: production validation pattern for real Tailscale-shaped client secrets
+	clientPattern          = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+	networkPattern         = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.@_-]{0,252}$`)
 )
 
 func validRevision(v string) bool { return v == "0" || revisionPattern.MatchString(v) }
