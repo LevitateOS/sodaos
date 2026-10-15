@@ -45,8 +45,22 @@ native Soda operator settings.
 
 ## Tailnet model
 
-Optional Tailnet integration places host controls in native operator settings and
-supports project-scoped ephemeral nodes when enrollment policy enables them.
+Optional Tailnet integration supports project-scoped ephemeral nodes when
+enrollment policy enables them. Fountain owns requested enablement; the required
+Soda controller performs bounded native lifecycle operations. The release pins
+the official Tailscale image, acquired only when enablement prepares it.
+
+Ordinary starts require a live, generation-bound operational grant plus fresh
+Fountain manager state. Admission starts closed on host-daemon startup and stays
+closed during reconciliation or failure. Disable closes the grant, drains
+admitted starts and stops every positively identified owned host and Project
+container. Incomplete inspection or cleanup remains unconfirmed. Credentials,
+configuration, package/image caches and Project data are preserved.
+
+The optional host service supervises the exact owned container; it is not enabled
+as a boot dependency. Native CLI operations execute inside that verified image,
+and LocalAPI uses its private socket. Project companions retain private user
+namespaces and share only their own Project network namespace.
 Private LAN operation does not require Tailnet enrollment. Factory use retains
 this choice; [feature disposition](../product/scope.md#feature-disposition) owns its scope.
 

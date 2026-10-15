@@ -384,8 +384,13 @@ this does not qualify Fountain's complete manager behavior. T02's operational
 grant and exact-owned host runtime foundation passes its small native check:
 official cached image, NeedsLogin, same-CID/PID adoption, stop-only cleanup and
 preserved state hash. The retained earlier G-T container remains unchanged.
-These are component checks, not packet or product qualification. Lifecycle
-wiring, companion ownership/drain, T03/R03 and producer integration remain open.
+Lifecycle wiring, bounded companion inventory/drain, stop-only helpers and
+image-contained CLI calls now pass affected tests. A native composition check
+with fixture manager authority passes activation, real systemd supervision,
+fresh-state admission, controller-instance rejection and stopped deactivation.
+These are component checks, not complete product qualification. T03/R03,
+producer integration and the combined native journeys remain open. Concurrent
+Fountain CI/lint edits are preserved; no new Fountain writes are being made.
 
 - [x] **D00 — Adoption/writer checkpoint.** Codex review + coordinator adoption.
   Bases `505cf545`/`c500bd92`, 10 Soda + 16 Fountain dirty files checkpointed
@@ -501,7 +506,9 @@ wiring, companion ownership/drain, T03/R03 and producer integration remain open.
   start-drain/stop-only teardown preserving credentials. No second intent owner.
 - [ ] **T02 — Boot-closed runtime integration.** T; T01. Serialized
   start/drain/stop, persistent host official-image runtime + Project companions,
-  stop failures closed and unconfirmed. Preserve data.
+  stop failures closed and unconfirmed. Preserve data. Runtime implementation
+  and small native composition gate pass; final integration/reboot and failure
+  journeys remain at I01/Q01, so this packet is not yet closed.
 - [ ] **T03 — Tailnet package split.** T; T02, F04. Package renamed to
   `tailnet` (no alias), exact two capabilities, admin-only page, live native
   admin mapping, enabled-but-unenrolled UI, connection-loss confirmation.
