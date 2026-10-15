@@ -40,6 +40,14 @@ fn is_rpm_line(line: &str) -> bool {
         Some(pair) => pair,
         None => return false,
     };
+    // Imported RPM signing keys appear in the native Fedora inventory with
+    // no architecture. Keep their observed records without permitting this
+    // pseudo-package representation for ordinary packages.
+    let version = if name == "gpg-pubkey" {
+        version.strip_suffix(".(none)").unwrap_or(version)
+    } else {
+        version
+    };
     if epoch.is_empty()
         || !epoch.bytes().all(|b| b.is_ascii_digit())
         || version.is_empty()
@@ -50,4 +58,25 @@ fn is_rpm_line(line: &str) -> bool {
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_signing_key_inventory_has_no_architecture() {
+        assert!(valid_rpm_inventory(&[
+            "gpg-pubkey 0:36f612dcf27f7d1a48a835e4dbfcf71c6d9f90a6-6786af3b.(none)".into(),
+            "systemd 0:258.6-1.fc44.x86_64".into(),
+        ])
+        .is_ok());
+        for line in [
+            "systemd 0:258.6-1.fc44.(none)",
+            "gpg-pubkey 0:abc-123.(other)",
+            "gpg-pubkey none:abc-123.(none)",
+        ] {
+            assert!(valid_rpm_inventory(&[line.into()]).is_err(), "{line}");
+        }
+    }
 }

@@ -23,6 +23,7 @@ COPY --from=appliance /usr/lib/systemd/system/soda-*.service /usr/lib/systemd/sy
 COPY --from=appliance /usr/lib/systemd/system/soda-*.socket /usr/lib/systemd/system/
 COPY --from=appliance /usr/lib/systemd/system/soda-*.timer /usr/lib/systemd/system/
 COPY --from=appliance /usr/lib/systemd/system/soda-host.service.d/ /usr/lib/systemd/system/soda-host.service.d/
+COPY --from=appliance /usr/lib/systemd/system/soda-host.socket.d/ /usr/lib/systemd/system/soda-host.socket.d/
 COPY --from=appliance /usr/lib/sysusers.d/soda.conf /usr/lib/sysusers.d/soda.conf
 COPY --from=appliance /usr/lib/tmpfiles.d/soda.conf /usr/lib/tmpfiles.d/soda.conf
 COPY --from=appliance /usr/lib/tmpfiles.d/soda-host-packages.conf /usr/lib/tmpfiles.d/soda-host-packages.conf
