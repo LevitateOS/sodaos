@@ -115,13 +115,7 @@ fn full_wizard_flow() {
             blocked: String::new(),
             removable: false,
         };
-        collect_disk_install_choices(
-            &ctx,
-            &console,
-            &runner,
-            &|_, _| Ok(vec![disk.clone()]),
-            10 << 20,
-        )
+        collect_disk_install_choices(&ctx, &console, &runner, &|_, _| Ok(vec![disk.clone()]))
     });
     let mut output = read_until(
         &mut master,
@@ -172,5 +166,5 @@ fn full_wizard_flow() {
     let text = String::from_utf8_lossy(&output);
     assert!(text.contains("Final review"));
     assert!(text.contains("ERASE ALL DATA on:"));
-    assert!(text.contains("10.0 MiB verified"));
+    assert!(text.contains("Application images will download on first boot"));
 }

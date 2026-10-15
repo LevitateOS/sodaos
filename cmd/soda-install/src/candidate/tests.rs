@@ -1,12 +1,17 @@
 use super::*;
-use crate::deliver::Role;
+use soda_build_tools::payload::Role;
 
 const FIXTURE: &str = include_str!("../../../../lib/release-inputs/fixtures/payload-v4.json");
 
 pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
-    let root = crate::oci::test_support::temp_dir("soda-candidate");
-    let images = format!("{root}{}", deliver::IMAGES_PATH);
-    std::fs::create_dir_all(&images).unwrap();
+    let root = tempfile::Builder::new()
+        .prefix("soda-candidate")
+        .tempdir()
+        .unwrap()
+        .keep()
+        .to_str()
+        .unwrap()
+        .to_string();
     let revision = "a".repeat(40);
     let hash = "b".repeat(64);
     let base = format!("quay.io/fedora/fedora-coreos@sha256:{hash}");
@@ -26,33 +31,6 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
             *revision_slot = revision.clone();
             if role != Role::Forgejo {
                 *base_slot = base.clone();
-            }
-        }
-        let built = crate::oci::test_support::add_image(&images, role.name(), "amd64", &revision);
-        // Fetch the manifest digest from the written index.
-        let index = std::fs::read(format!("{images}/index.json")).unwrap();
-        let value: serde_json::Value = serde_json::from_slice(&index).unwrap();
-        if let Some(items) = value.get("manifests").and_then(serde_json::Value::as_array) {
-            for item in items {
-                let got = item
-                    .get("annotations")
-                    .and_then(|v| v.get("org.opencontainers.image.ref.name"))
-                    .and_then(serde_json::Value::as_str);
-                if got == Some(built.as_str()) {
-                    let manifest = item
-                        .get("digest")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or_default()
-                        .to_string();
-                    let repo = binding
-                        .reference
-                        .rsplit_once('@')
-                        .map(|(repo, _)| repo.to_string())
-                        .unwrap_or_default();
-                    binding.reference = format!("{repo}@{manifest}");
-                    binding.config = built.clone();
-                    binding.manifest = manifest;
-                }
             }
         }
     }
@@ -86,54 +64,46 @@ pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {
 }
 
 #[test]
-fn requirement_authenticates_all_images() {
+fn authenticates_thin_media_without_bundled_images() {
     let (root, media, _) = candidate_root_fixture();
-    let images = format!("{root}{}", deliver::IMAGES_PATH);
     let release_path = format!("{root}{}", deliver::PATH);
     let payload = deliver::load(&release_path).unwrap();
-    let (_, unique_bytes) = deliver::verify_content(&payload, &images).unwrap();
-    assert_eq!(candidate_requirement(&media, &root).unwrap(), unique_bytes);
+    assert!(!std::path::Path::new(&format!("{root}/usr/share/soda/images")).exists());
+    authenticate_candidate(&media, &root).unwrap();
     let original_payload = std::fs::read(&release_path).unwrap();
     let mut equivalent_payload = original_payload.clone();
     equivalent_payload.push(b' ');
     std::fs::write(&release_path, &equivalent_payload).unwrap();
     assert_eq!(deliver::load(&release_path).unwrap(), payload);
-    assert!(candidate_requirement(&media, &root).is_err());
+    assert!(authenticate_candidate(&media, &root).is_err());
     std::fs::write(&release_path, original_payload).unwrap();
     // Five media mutations refuse.
     let mut bad = media.clone();
     bad.host_manifest = "latest".to_string();
-    assert!(candidate_requirement(&bad, &root).is_err());
+    assert!(authenticate_candidate(&bad, &root).is_err());
     let mut bad = media.clone();
     bad.revision = "c".repeat(40);
-    assert!(candidate_requirement(&bad, &root).is_err());
+    assert!(authenticate_candidate(&bad, &root).is_err());
     let mut bad = media.clone();
     bad.payload_sha256 = "b".repeat(64);
-    assert!(candidate_requirement(&bad, &root).is_err());
+    assert!(authenticate_candidate(&bad, &root).is_err());
     let mut bad = media.clone();
     bad.console_sha256 = "b".repeat(64);
-    assert!(candidate_requirement(&bad, &root).is_err());
+    assert!(authenticate_candidate(&bad, &root).is_err());
     let mut alternate_installer = media.clone();
     alternate_installer.installer_version = "coreos-installer 0.27.1".to_string();
-    assert_eq!(
-        candidate_requirement(&alternate_installer, &root).unwrap(),
-        unique_bytes,
-        "an authenticated recorded installer version is not restricted to one literal release"
-    );
+    authenticate_candidate(&alternate_installer, &root).unwrap();
     let mut bad = media.clone();
     bad.installer_version = "coreos-installer ".to_string();
-    assert!(candidate_requirement(&bad, &root).is_err());
-    // A missing blob refuses.
-    let (root2, media2, _) = candidate_root_fixture();
-    let images2 = format!("{root2}{}", deliver::IMAGES_PATH);
-    let payload2 = deliver::load(&format!("{root2}{}", deliver::PATH)).unwrap();
-    let canlang = Role::CanlangRuntime
-        .binding(&payload2.images)
-        .config
-        .trim_start_matches("sha256:")
-        .to_string();
-    std::fs::remove_file(format!("{images2}/blobs/sha256/{canlang}")).unwrap();
-    assert!(candidate_requirement(&media2, &root2).is_err());
+    assert!(authenticate_candidate(&bad, &root).is_err());
+    // A matching file hash does not bypass semantic Payload v4 admission.
+    let mut invalid = serde_json::to_value(&payload).unwrap();
+    invalid["Format"] = serde_json::json!(3);
+    std::fs::write(&release_path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+    let mut bad = media.clone();
+    bad.payload_sha256 = buildx::hash_file(&release_path).unwrap();
+    assert!(authenticate_candidate(&bad, &root).is_err());
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

@@ -21,8 +21,11 @@ require explicit task approval. This guide is not that approval.
 
 Use the selected release's verified x86-64 installation media for a PC or VM.
 Write it to the intended USB device or attach it as VM optical media, then boot
-its console. The installer supplies the matching Soda components and renders
-the machine's provisioning from the reviewed choices. End users do not prepare
+its console. The installer authenticates the matching host release and renders
+the machine's provisioning from the reviewed choices. The installed host downloads
+its six pinned application images on first boot, then Fountain acquires the
+required Soda package. Keep internet access available through startup. Tailnet
+remains absent until an administrator enables it. End users do not prepare
 Butane/Ignition, build application images or generate password hashes.
 
 The guided `soda-install disk` flow reviews network settings, exact destination

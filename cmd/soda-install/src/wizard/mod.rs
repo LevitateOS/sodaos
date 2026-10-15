@@ -31,7 +31,6 @@ fn dispatch_install_step(
     console: &Console,
     run: &dyn Runner,
     inspect: DiskInspector<'_>,
-    payload_bytes: u64,
     step: i32,
     result: &mut DiskInstallChoices,
 ) -> Result<(), Error> {
@@ -78,7 +77,7 @@ fn dispatch_install_step(
             }
         },
         4 => {
-            let err = step_subnet_and_review(ctx, console, run, result, payload_bytes);
+            let err = step_subnet_and_review(ctx, console, run, result);
             if err.is_err() {
                 result.password_hash.clear();
             }
@@ -93,12 +92,11 @@ pub fn collect_disk_install_choices(
     console: &Console,
     run: &dyn Runner,
     inspect: DiskInspector<'_>,
-    payload_bytes: u64,
 ) -> Result<DiskInstallChoices, Error> {
     let mut result = DiskInstallChoices::default();
     let mut step = 0;
     loop {
-        match dispatch_install_step(ctx, console, run, inspect, payload_bytes, step, &mut result) {
+        match dispatch_install_step(ctx, console, run, inspect, step, &mut result) {
             Err(Error::Back) => step -= 1,
             Err(err) => return Err(err),
             Ok(()) if step == 4 => return Ok(result),

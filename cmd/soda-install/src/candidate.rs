@@ -1,5 +1,5 @@
 //! Live-candidate authentication and destination rendering: the media
-//! payload, console, and shared images are bound to the authenticated
+//! payload and console are bound to the authenticated
 //! release before any disk write, and the confirmed private inputs are
 //! rendered into destination Ignition.
 
@@ -45,7 +45,7 @@ fn candidate_release_matches(
     }
 }
 
-pub fn candidate_requirement(media: &MediaIdentity, root: &str) -> Result<u64, Error> {
+pub fn authenticate_candidate(media: &MediaIdentity, root: &str) -> Result<(), Error> {
     candidate_identity_matches(media)?;
     candidate_file_matches(
         &format!("{root}{CANDIDATE_INSTALLER_BINARY}"),
@@ -58,9 +58,8 @@ pub fn candidate_requirement(media: &MediaIdentity, root: &str) -> Result<u64, E
         &media.payload_sha256,
         "live candidate payload differs from authenticated media",
     )?;
-    let loaded = candidate_release_matches(media, &payload)?;
-    let (_, total) = deliver::verify_content(&loaded, &format!("{root}{}", deliver::IMAGES_PATH))?;
-    Ok(total)
+    candidate_release_matches(media, &payload)?;
+    Ok(())
 }
 
 // Declaration order preserves the sorted output of the existing producer.

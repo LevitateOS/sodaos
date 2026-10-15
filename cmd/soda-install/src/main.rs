@@ -12,7 +12,6 @@ mod execute;
 mod hostadmit;
 mod inputs;
 mod netip;
-mod oci;
 mod pathx;
 mod pemx;
 mod run;

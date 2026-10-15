@@ -197,12 +197,12 @@ pub fn land_diagnostic_console(
     }
 }
 
-/// Hashes the full media payload before any prompt.
-pub fn verify_disk_media() -> Result<(crate::run::MediaIdentity, u64), Error> {
+/// Authenticates live media metadata and the installer before any prompt.
+pub fn verify_disk_media() -> Result<crate::run::MediaIdentity, Error> {
     let media = crate::run::read_media_identity(&format!("{DATA_DIR}/media.json"))
         .map_err(|_| Error::msg("missing media identity"))?;
-    let payload_bytes = candidate::candidate_requirement(&media, "/")?;
-    Ok((media, payload_bytes))
+    candidate::authenticate_candidate(&media, "/")?;
+    Ok(media)
 }
 
 struct AttemptIgnition {
@@ -274,15 +274,10 @@ fn install_disk_attempt(
     marker: &str,
 ) -> Result<(), Error> {
     begin_disk_attempt(console)?;
-    let (media, payload_bytes) = verify_disk_media()?;
+    let media = verify_disk_media()?;
     prompt_disk_attempt(console, ctx)?;
-    let mut choices = collect_disk_install_choices(
-        ctx,
-        console,
-        run,
-        &|ctx, run| disks::scan_disks(ctx, run),
-        payload_bytes,
-    )?;
+    let mut choices =
+        collect_disk_install_choices(ctx, console, run, &|ctx, run| disks::scan_disks(ctx, run))?;
     let template = read_regular(&format!("{DATA_DIR}/destination.ign"), 4 << 20)?;
     let destination = destination_for_media(&media, &template, &choices);
     choices.password_hash.clear();
