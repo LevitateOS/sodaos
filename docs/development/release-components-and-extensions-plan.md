@@ -390,7 +390,8 @@ with fixture manager authority passes activation, real systemd supervision,
 fresh-state admission, controller-instance rejection and stopped deactivation.
 These are component checks, not complete product qualification. T03/R03,
 producer integration and the combined native journeys remain open. Concurrent
-Fountain CI/lint edits are preserved; no new Fountain writes are being made.
+Fountain CI/lint edits are preserved. The image smoke driver now uses the current
+required-package catalog/cache contract; its focused repair is committed separately.
 
 - [x] **D00 — Adoption/writer checkpoint.** Codex review + coordinator adoption.
   Bases `505cf545`/`c500bd92`, 10 Soda + 16 Fountain dirty files checkpointed
@@ -520,14 +521,25 @@ Fountain CI/lint edits are preserved; no new Fountain writes are being made.
   removed; final native packages use T03 contents at I01. Fountain release
   admission, SDK source pin, real pipeline hooks and actual base attribution
   are now wired. Native probes verified official manifest/config identity and
-  corrected Skopeo transport plus gzip export of a new layer. Registry roundtrip,
-  current Fountain-image startup and combined candidate qualification remain open.
+  corrected Skopeo transport plus gzip export of a new layer. The small native
+  loopback-registry roundtrip preserves the exported manifest/config/platform.
+  Exact committed Fountain `56b40e8f` and its real Soda setup/presentation overlay
+  pass native startup, required SDK handshake and offline persistent restart;
+  the overlay preserves Fountain's executable/wrapper/entrypoint/s6 run bytes.
+  Native package fixture origins now flow through the existing CLI, candidate
+  wrapper and isolated worker; production package URLs remain fixed to GitHub.
+  The complete-rootfs ceiling is enforced before hashing and at admission.
+  Independent Fountain fixture metadata/source admission, selected integrated
+  package bootstrap and combined candidate qualification remain open.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
   Implementation and 20 focused maintenance tests pass; native UID1000 offline
   store checks, confined input-label/lock probes and actual exit75 command check
-  pass. Complete native Source-S/Target-T transition and recovery remain open.
+  pass. The shipped Fountain CLI also prepares an exact cached required package
+  offline in the Soda overlay, preserves UUID/intent/receipt, and rejects a missing
+  cache before changing those identities. Complete native Source-S/Target-T
+  transition and recovery remain open.
 - [ ] **I01 — Integrate + joint native candidate.** Coordinator; R03, T03, G-F.
   Pin SDK/Fountain candidate, smallest combined tests + private-socket/lock
   checks; admit the distinct v4 maintenance source fixture; one joint target.
