@@ -117,6 +117,7 @@ fn overview_prefills_standard_paths() {
     let mut o = Options {
         arch: "x86_64".to_owned(),
         mode: "media".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         out: format!("{}/fresh", std::env::temp_dir().to_string_lossy()),
         rootfs_url: "http://fixture:8080".to_owned(),
         ..Options::default()

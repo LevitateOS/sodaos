@@ -83,8 +83,12 @@ pub fn stage_native_packages(
     )?;
     payload.release_tag = release.release_tag.clone();
     payload.fountain = release.fountain.clone();
-    let catalog_bytes =
-        native_package::record_extension_catalog(payload, &release.release_tag, &soda, &tailnet)?;
+    let catalog_bytes = native_package::record_extension_catalog(
+        payload,
+        &release.package_base_url,
+        &soda,
+        &tailnet,
+    )?;
     sys::write_new(
         &sys::join(&[out, "packages/catalog.json"]),
         &catalog_bytes,
@@ -639,6 +643,7 @@ mod tests {
         let mut payload = model::Payload::default();
         let release = native_package::ReleaseInputs {
             release_tag: "v0.0.0-dev-123456789abc".to_string(),
+            package_base_url: "https://fixtures.example.test/v0.0.0-dev-123456789abc/".to_string(),
             fountain: model::FountainRelease {
                 version: "9.9".to_string(),
                 image: "example.invalid/fountain@sha256:".to_string() + &"a".repeat(64),
@@ -686,6 +691,13 @@ mod tests {
         assert_eq!(source_manifest["version"], "0.1.0");
         assert_eq!(payload.fountain.version, "9.9");
         assert_eq!(payload.extension_catalog.packages.len(), 2);
+        assert_eq!(
+            payload.extension_catalog.packages[0].url,
+            format!(
+                "https://fixtures.example.test/v0.0.0-dev-123456789abc/{}",
+                packages.soda.filename
+            )
+        );
         assert!(out.join("packages").join(&packages.soda.filename).is_file());
         assert!(out
             .join("packages")
@@ -710,6 +722,7 @@ mod tests {
         let mut payload = model::Payload::default();
         let release = native_package::ReleaseInputs {
             release_tag: "v0.1.0".to_string(),
+            package_base_url: "https://fixtures.example.test/v0.1.0/".to_string(),
             fountain: model::FountainRelease {
                 version: "9.9".to_string(),
                 image: "example.invalid/fountain@sha256:".to_string() + &"a".repeat(64),

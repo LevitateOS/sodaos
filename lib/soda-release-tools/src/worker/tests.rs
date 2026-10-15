@@ -194,10 +194,17 @@ fn docker_worker_has_no_media_custody_and_keeps_version_and_distribution() {
         out: format!("{}/docker", c.output_parent),
         arch: "x86_64".into(),
         distribution: "docker".into(),
+        development: true,
+        target: "docker".into(),
+        package_base_url: "https://fixture.invalid/packages/".into(),
         release_tag: "v1.2.3".into(),
         ..Request::default()
     };
     let w = build_worker(&c, &r).unwrap();
+    assert!(w
+        .arguments
+        .windows(2)
+        .any(|p| p == ["--package-base-url", "https://fixture.invalid/packages/"]));
     assert!(w
         .arguments
         .windows(2)
@@ -256,6 +263,7 @@ fn linked_source_worker_binds_git_metadata_read_only() {
         out: format!("{}/linked", c.output_parent),
         development: true,
         target: "candidate".into(),
+        release_tag: "v9.9.9-dev".to_owned(),
         ..Request::default()
     };
     assert!(build_worker(&c, &r).is_err());
@@ -307,6 +315,7 @@ fn development_worker_inputs_and_completion() {
             out: format!("{}/test", c.output_parent),
             development: !target.is_empty(),
             target: target.to_owned(),
+            release_tag: "v9.9.9-dev".to_owned(),
             upgrade_from: "43.20260101.3.0.soda-cccccccccccc".to_owned(),
             ..Request::default()
         };
@@ -364,6 +373,7 @@ fn build_worker_remaps_validated_executable_to_stable_destination() {
         out: format!("{}/test", c.output_parent),
         development: true,
         target: "candidate".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         ..Request::default()
     };
     let w = build_worker(&c, &r).unwrap();
@@ -396,6 +406,7 @@ fn build_worker_executable_remap_passes_argv_admission() {
         out: format!("{}/test", c.output_parent),
         development: true,
         target: "candidate".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         ..Request::default()
     };
     let mut w = build_worker(&c, &r).unwrap();
@@ -419,6 +430,7 @@ fn worker_forwards_controller_live_inputs() {
         out: format!("{}/test", c.output_parent),
         development: true,
         target: "candidate".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         live_inputs:
             "/run/soda-build-source/.artifacts/releases/isolated/soda-live-inputs-test.json"
                 .to_owned(),
@@ -440,6 +452,7 @@ fn worker_env_has_no_bun_cache_and_pinned_go_first() {
         out: format!("{}/test", c.output_parent),
         development: true,
         target: "media".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         rootfs_base_url: "https://example.invalid".to_owned(),
         ..Request::default()
     };
@@ -526,6 +539,7 @@ fn fast_media_worker_selection() {
         out: format!("{}/test", c.output_parent),
         development: true,
         target: "media".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         media_compression: "fast".to_owned(),
         rootfs_base_url: "https://example.invalid".to_owned(),
         ..Request::default()
@@ -535,6 +549,7 @@ fn fast_media_worker_selection() {
     let r = Request {
         development: false,
         target: String::new(),
+        release_tag: "v9.9.9-dev".to_owned(),
         ..r
     };
     assert!(build_worker(&c, &r).is_err());
@@ -555,6 +570,7 @@ fn worker_result_binds_target_and_candidate() {
         arch: "x86_64".to_owned(),
         development: true,
         target: "candidate".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         ..Request::default()
     };
     let original = ImageResult {
@@ -567,6 +583,7 @@ fn worker_result_binds_target_and_candidate() {
         purpose: "development".to_owned(),
         requested_target: "candidate".to_owned(),
         completed_target: "candidate".to_owned(),
+        release_tag: r.release_tag.clone(),
         distribution: "appliance".to_owned(),
         ..ImageResult::default()
     };
@@ -723,6 +740,7 @@ fn build_worker_binds_attempt_runtime() {
         out: format!("{}/test", c.output_parent),
         development: true,
         target: "candidate".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         ..Request::default()
     };
     let w = build_worker(&c, &r).unwrap();
@@ -962,6 +980,7 @@ fn run_build_worker_fails_before_dispatch_without_progress() {
         Request {
             development: true,
             target: "candidate".to_owned(),
+            release_tag: "v9.9.9-dev".to_owned(),
             ..Request::default()
         },
         Request::default(),

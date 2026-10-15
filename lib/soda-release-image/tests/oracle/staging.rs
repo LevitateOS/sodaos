@@ -77,7 +77,7 @@ fn oracle_native_package_catalog_contract() {
     let mut payload = model::Payload::default();
     let bytes = native_package::record_extension_catalog(
         &mut payload,
-        "v0.1.0",
+        "https://github.com/LevitateOS/sodaos/releases/download/v0.1.0/",
         &package("soda", 0),
         &package("tailnet", 1),
     )

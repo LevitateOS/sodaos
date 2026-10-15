@@ -7,6 +7,7 @@ pub fn base_options() -> Options {
         arch: "x86_64".to_owned(),
         out: "/source/.artifacts/releases/isolated/test".to_owned(),
         mode: "media".to_owned(),
+        release_tag: "v9.9.9-dev".to_owned(),
         rootfs_url: "http://fixture:8080".to_owned(),
         repo_prefix: "ghcr.io/levitateos/sodaos".to_owned(),
         ..Options::default()

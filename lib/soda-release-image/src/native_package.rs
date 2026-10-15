@@ -63,6 +63,7 @@ pub struct StagedPackage {
 #[derive(Debug, Clone, Default)]
 pub struct ReleaseInputs {
     pub release_tag: String,
+    pub package_base_url: String,
     pub fountain: model::FountainRelease,
     pub proxy_requested: String,
     pub postgres_requested: String,
@@ -76,6 +77,11 @@ impl ReleaseInputs {
             return Err(Error::msg(
                 "explicit release tag required for native package URLs",
             ));
+        }
+        if !soda_build_tools::reader::url::https_url(&self.package_base_url)
+            || !self.package_base_url.ends_with('/')
+        {
+            return Err(Error::msg("HTTPS native package asset base required"));
         }
         if self.fountain.version.is_empty()
             || self.fountain.image.is_empty()
@@ -469,21 +475,16 @@ fn stage_package(
 /// rechecks every catalog rule.
 pub fn record_extension_catalog(
     payload: &mut model::Payload,
-    release_tag: &str,
+    package_base_url: &str,
     soda: &StagedPackage,
     tailnet: &StagedPackage,
 ) -> Result<Vec<u8>, Error> {
-    if release_tag.is_empty() {
-        return Err(Error::msg(
-            "explicit release tag required for native package URLs",
-        ));
+    if !soda_build_tools::reader::url::https_url(package_base_url)
+        || !package_base_url.ends_with('/')
+    {
+        return Err(Error::msg("HTTPS native package asset base required"));
     }
-    let url = |package: &StagedPackage| {
-        format!(
-            "https://github.com/LevitateOS/sodaos/releases/download/{release_tag}/{}",
-            package.filename
-        )
-    };
+    let url = |package: &StagedPackage| format!("{package_base_url}{}", package.filename);
     payload.extension_catalog = model::FountainCatalog {
         version: model::CATALOG_VERSION,
         packages: vec![
@@ -773,7 +774,13 @@ mod tests {
         let mut payload = model::Payload::default();
         let soda = staged("soda", "0.1.0", 0);
         let tailnet = staged("tailnet", "0.1.0", 1);
-        let bytes = record_extension_catalog(&mut payload, "v0.1.0", &soda, &tailnet).unwrap();
+        let bytes = record_extension_catalog(
+            &mut payload,
+            "https://github.com/LevitateOS/sodaos/releases/download/v0.1.0/",
+            &soda,
+            &tailnet,
+        )
+        .unwrap();
         assert!(bytes.ends_with(b"\n"));
         assert_eq!(bytes, payload.projected_catalog_bytes().unwrap());
         assert_eq!(payload.extension_catalog.version, 1);
@@ -834,6 +841,7 @@ mod tests {
         assert!(empty.validate().is_err());
         let mut full = ReleaseInputs {
             release_tag: "v0.1.0".to_string(),
+            package_base_url: "https://fixtures.example.test/v0.1.0/".to_string(),
             fountain: model::FountainRelease {
                 version: "1.0".to_string(),
                 image: "example.invalid/fountain@sha256:".to_string() + &"a".repeat(64),

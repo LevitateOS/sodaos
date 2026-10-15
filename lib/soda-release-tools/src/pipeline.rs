@@ -65,6 +65,7 @@ pub fn image_request(r: &build_spec::Request) -> request::Request {
         upgrade_from: r.upgrade_from.clone(),
         distribution: r.distribution.clone(),
         release_tag: r.release_tag.clone(),
+        package_base_url: r.package_base_url.clone(),
     }
 }
 
@@ -550,7 +551,8 @@ mod tests {
             media_compression: "fast".to_string(),
             upgrade_from: "43.20260101.3.0.soda-cccccccccccc".to_string(),
             distribution: "appliance".to_string(),
-            release_tag: String::new(),
+            release_tag: "v9.9.9-dev".to_string(),
+            package_base_url: "https://fixture.invalid/packages/".to_string(),
         }
     }
 
@@ -567,6 +569,7 @@ mod tests {
         assert_eq!(mapped.rootfs_base_url, spec.rootfs_base_url);
         assert_eq!(mapped.media_authority, spec.media_authority);
         assert_eq!(mapped.live_inputs, spec.live_inputs);
+        assert_eq!(mapped.package_base_url, spec.package_base_url);
         assert_eq!(mapped.forgejo_source, spec.forgejo_source);
         assert_eq!(mapped.forgejo_revision, spec.forgejo_revision);
         assert_eq!(mapped.development, spec.development);

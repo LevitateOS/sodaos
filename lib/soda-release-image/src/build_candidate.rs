@@ -23,15 +23,15 @@ pub fn build_host_candidate(
     base: &prepare::Base,
     production: &dyn Production,
     inventory: &crate::sys::ShippingInventory,
-    upgrade_from: &str,
-    release_tag: &str,
+    request: &crate::request::Request,
     next: &mut dyn FnMut(&str) -> Result<(), Error>,
 ) -> Result<(), Error> {
     // The sealed Payload v4 inputs ride the admitted request and the
     // frozen production: an empty default fails staging closed with the
     // exact missing input named.
     let release = crate::native_package::ReleaseInputs {
-        release_tag: release_tag.to_string(),
+        release_tag: request.release_tag.clone(),
+        package_base_url: request.package_base_url(),
         fountain: production.frozen_fountain_release().unwrap_or_default(),
         proxy_requested: production.frozen_upstream_requested("proxy"),
         postgres_requested: production.frozen_upstream_requested("postgres"),
@@ -51,8 +51,8 @@ pub fn build_host_candidate(
         &release,
         next,
     )?;
-    if !upgrade_from.is_empty() {
-        payload.upgrade_from = vec![upgrade_from.to_owned()];
+    if !request.upgrade_from.is_empty() {
+        payload.upgrade_from = vec![request.upgrade_from.clone()];
         soda_build_tools::project_support::validate_upgrade_sources(
             &payload.upgrade_from,
             &payload.id,

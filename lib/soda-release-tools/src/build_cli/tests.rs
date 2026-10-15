@@ -29,12 +29,34 @@ fn docker_build_flags_admit_the_packaging_boundary() {
 }
 
 #[test]
+fn fixture_package_origin_is_development_only() {
+    let args = [
+        "--distribution",
+        "docker",
+        "--release-tag",
+        "v1.2.3",
+        "--package-base-url",
+        "https://fixture.invalid/packages/",
+    ];
+    assert!(flags(&args).is_err());
+    let mut args = args.to_vec();
+    args.extend(["--development", "--target", "docker"]);
+    assert_eq!(
+        flags(&args).unwrap().request.package_base_url,
+        "https://fixture.invalid/packages/"
+    );
+    assert!(flags(&["--development", "--target", "candidate"]).is_err());
+}
+
+#[test]
 fn prospective_upgrade_source_is_explicit_and_not_qualification() {
     let source = "43.20260101.3.0.soda-cccccccccccc";
     let parsed = flags(&[
         "--development",
         "--target",
         "candidate",
+        "--release-tag",
+        "v9.9.9-dev",
         "--upgrade-from",
         source,
     ])
@@ -44,15 +66,23 @@ fn prospective_upgrade_source_is_explicit_and_not_qualification() {
         "--development",
         "--target",
         "candidate",
+        "--release-tag",
+        "v9.9.9-dev",
         "--upgrade-from",
         "latest"
     ])
     .is_err());
-    assert!(flags(&["--development", "--target", "candidate"])
-        .unwrap()
-        .request
-        .upgrade_from
-        .is_empty());
+    assert!(flags(&[
+        "--development",
+        "--target",
+        "candidate",
+        "--release-tag",
+        "v9.9.9-dev"
+    ])
+    .unwrap()
+    .request
+    .upgrade_from
+    .is_empty());
 }
 
 #[test]
@@ -139,6 +169,8 @@ fn flag_parse_matrix() {
         "--development",
         "--target",
         "candidate",
+        "--release-tag",
+        "v9.9.9-dev",
         "--worker-config",
         "/cfg",
         "--repository-prefix",
@@ -157,6 +189,8 @@ fn flag_parse_matrix() {
             "--development",
             "--development=false",
             "--rootfs-base-url=https://public.example/release",
+            "--release-tag",
+            "v9.9.9-dev",
         ])
         .unwrap()
         .request
@@ -168,6 +202,8 @@ fn flag_parse_matrix() {
         "--development",
         "--target=media",
         "--rootfs-base-url=https://public.example/release",
+        "--release-tag",
+        "v9.9.9-dev",
     ])
     .unwrap();
     assert!(last.request.development);

@@ -141,6 +141,12 @@ unrelated checkout changes are preserved and do not select different image bytes
 The retired Tailscale archive/alpine-base resolver is removed; the official image
 pin joins the ordinary platform-scoped OCI inputs.
 
+Release HTTPS inputs use the operator's native CA store through the existing
+ureq/rustls client. A development HTTPS server can use an explicitly trusted CA
+(`SSL_CERT_FILE` for the controller); certificate and hostname checks remain on.
+The isolated worker and installing machine also need to trust the selected
+registry and asset server through their native trust configuration.
+
 Built application and host images export through Skopeo's image-ID transport
 with OCI gzip level 1 before recording manifest digests. A local archive check
 or unpublished fixture does not qualify anonymous immutable public downloads.
@@ -151,12 +157,14 @@ The operator runs the admitted executable as root from the configured checkout:
 # Candidate-only development: no rootfs URL or media authority needed/mounted.
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --out /OUTPUT_PARENT/UNIQUE --development --target candidate \
+  --release-tag vFIXTURE.0-dev \
   --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
 # Installer development: same candidate producer, then authenticated native media.
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --out /OUTPUT_PARENT/ANOTHER_UNIQUE --development --target media \
   --rootfs-base-url http://FIXTURE_ADDRESS:PORT \
+  --release-tag vFIXTURE.0-dev --package-base-url https://FIXTURE_ADDRESS:TLS_PORT/vFIXTURE.0-dev/ \
   --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
 # Source fixture S: installer development with the v4 release tag the native
@@ -164,6 +172,7 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --out /OUTPUT_PARENT/S_UNIQUE --development --target media \
   --rootfs-base-url http://FIXTURE_ADDRESS:PORT --release-tag vFIXTURE.0-dev \
+  --package-base-url https://FIXTURE_ADDRESS:TLS_PORT/vFIXTURE.0-dev/ \
   --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
 # Combined target T: one shared candidate feeds both local media and Docker
@@ -174,6 +183,7 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --out /OUTPUT_PARENT/T_UNIQUE --development --target all \
   --distribution all --rootfs-base-url http://FIXTURE_ADDRESS:PORT \
   --release-tag vFIXTURE.0-dev --upgrade-from S_CANDIDATE_ID \
+  --package-base-url https://FIXTURE_ADDRESS:TLS_PORT/vFIXTURE.0-dev/ \
   --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
 # --media-compression fast remains admitted for development iteration, but it
@@ -196,8 +206,14 @@ Substitute the operator-admitted absolute paths and explicit URL. Omitting
 `--development` builds the selected release packaging without publishing or
 installing. `--distribution` defaults to `appliance`; `docker` skips media
 authority and ISO/rootfs tooling, and production `all` packages the same
-candidate for both. Docker packaging requires an explicit `--release-tag`;
-for production `all`, the rootfs URL must name that same GitHub release tag,
+candidate for both. Every v4 target requires an explicit `--release-tag` because
+the candidate seals versioned native packages, including candidate-only builds.
+Development `--package-base-url` selects a reachable HTTPS origin for these
+packages; without it, package URLs use the same-tag GitHub release asset base.
+Production refuses this override and always uses that GitHub base. The
+`soda-candidate` wrapper forwards the same tag and optional package URL.
+For rootfs assets,
+production `all` requires the rootfs URL to name that same GitHub release tag,
 while development `all` uses an explicit reachable fixture base instead.
 Development `all` pairs only with `--development --target all
 --distribution all`, carries the v4 tag for native package URLs, and stays

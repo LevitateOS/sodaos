@@ -266,6 +266,18 @@ impl<'a> Prompter<'a> {
             (4, true) => self.edit_rootfs_url(o),
             (5, true) => self.edit_fast_compress(o),
             (4, false) | (6, true) => self.edit_repo_prefix(o),
+            (5, false) | (7, true) => {
+                o.release_tag =
+                    self.ask_non_empty("Package/release version tag", &o.release_tag.clone())?;
+                Ok(())
+            }
+            (6, false) | (8, true) => {
+                o.package_base_url = self.line(
+                    "HTTPS package fixture base (empty uses public release assets)",
+                    &o.package_base_url.clone(),
+                )?;
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -287,6 +299,8 @@ fn overview_rows(o: &Options) -> Vec<(String, String, Option<String>)> {
         ));
     }
     rows.push(("repo prefix".to_owned(), o.repo_prefix.clone(), None));
+    rows.push(("release tag".to_owned(), o.release_tag.clone(), None));
+    rows.push(("package URL".to_owned(), o.package_base_url.clone(), None));
     rows
 }
 

@@ -16,6 +16,8 @@ pub struct Options {
     pub rootfs_url: String,
     pub rootfs_dir: String,
     pub repo_prefix: String,
+    pub release_tag: String,
+    pub package_base_url: String,
     pub non_interactive: bool,
 }
 
@@ -45,6 +47,14 @@ fn command() -> ClapCommand {
             "fresh output below .artifacts/releases (asked when empty)",
         ))
         .arg(value("mode", "candidate or media (asked when empty)"))
+        .arg(value(
+            "release-tag",
+            "explicit Payload v4 package/release version",
+        ))
+        .arg(value(
+            "package-base-url",
+            "HTTPS development package fixture base (otherwise public release assets)",
+        ))
         .arg(value("media-compression", "fast: development media only"))
         .arg(value(
             "rootfs-base-url",
@@ -122,6 +132,14 @@ pub fn parse_options(args: &[String]) -> Result<Options, String> {
         })?;
     let _native = native_arch()?;
     let o = Options {
+        release_tag: matches
+            .get_one::<String>("release-tag")
+            .cloned()
+            .unwrap_or_default(),
+        package_base_url: matches
+            .get_one::<String>("package-base-url")
+            .cloned()
+            .unwrap_or_default(),
         controller: matches
             .get_one::<String>("controller")
             .cloned()
@@ -218,7 +236,17 @@ pub fn validate_resolved(o: &Options) -> Result<(), String> {
         "candidate" => validate_candidate(o),
         "media" => validate_media(o),
         _ => Err("choose a build mode: candidate or media".to_owned()),
+    }?;
+    crate::build_spec::Request {
+        development: true,
+        target: o.mode.clone(),
+        release_tag: o.release_tag.clone(),
+        package_base_url: o.package_base_url.clone(),
+        rootfs_base_url: o.rootfs_url.clone(),
+        ..Default::default()
     }
+    .validate_target()
+    .map_err(|e| e.to_string())
 }
 
 pub fn check_checkout_root() -> Result<(), String> {

@@ -78,6 +78,10 @@ pub fn controller_args(o: &Options) -> Vec<String> {
     args.push("--development".to_owned());
     args.push("--target".to_owned());
     args.push(target.clone());
+    args.extend(["--release-tag".to_owned(), o.release_tag.clone()]);
+    if !o.package_base_url.is_empty() {
+        args.extend(["--package-base-url".to_owned(), o.package_base_url.clone()]);
+    }
     if !o.compression.is_empty() {
         args.push("--media-compression".to_owned());
         args.push(o.compression.clone());

@@ -22,6 +22,7 @@ pub struct Request {
     pub upgrade_from: String,
     pub distribution: String,
     pub release_tag: String,
+    pub package_base_url: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -157,6 +158,7 @@ mod tests {
         Request {
             development: true,
             target: target.to_owned(),
+            release_tag: "v9.9.9-dev".to_owned(),
             rootfs_base_url: if target == "media" {
                 "https://example.invalid/rootfs".to_owned()
             } else {
@@ -178,7 +180,7 @@ mod tests {
             r.validate_target().unwrap_err(),
             "candidate target refuses media-only inputs"
         );
-        let mut r = dev_request("bogus");
+        let r = dev_request("bogus");
         assert_eq!(
             r.validate_target().unwrap_err(),
             "--development requires --target candidate, media, docker or all"

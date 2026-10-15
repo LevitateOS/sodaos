@@ -58,7 +58,11 @@ fn command(name: &str) -> ClapCommand {
         ))
         .arg(value(
             "release-tag",
-            "explicit Docker version tag; all must match the rootfs URL",
+            "explicit version for the Payload v4 native packages and release",
+        ))
+        .arg(value(
+            "package-base-url",
+            "development-only HTTPS fixture base for native package assets",
         ))
         .arg(value(
             "media-compression",
@@ -135,6 +139,10 @@ pub fn parse_build_flags(args: &[String]) -> Result<BuildFlags, String> {
             .unwrap_or_default(),
         release_tag: matches
             .get_one::<String>("release-tag")
+            .cloned()
+            .unwrap_or_default(),
+        package_base_url: matches
+            .get_one::<String>("package-base-url")
             .cloned()
             .unwrap_or_default(),
         upgrade_from: matches

@@ -22,6 +22,7 @@ pub struct Request {
     pub upgrade_from: String,
     pub distribution: String,
     pub release_tag: String,
+    pub package_base_url: String,
 }
 
 impl Request {
@@ -95,13 +96,6 @@ impl Request {
             // Production all keeps its same-tag GitHub URL restriction below.
         }
         if self.wants_docker() {
-            if !soda_build_tools::reader::settings::release_tag(&self.release_tag)
-                || self.release_tag.eq_ignore_ascii_case("latest")
-            {
-                return Err(Error::msg(
-                    "Docker packaging requires an explicit version --release-tag",
-                ));
-            }
             // Production all binds the public same-tag rootfs URL. The
             // development combined target instead uses an explicit reachable
             // fixture rootfs base admitted by media validation below.
@@ -116,15 +110,39 @@ impl Request {
                     "all distribution requires a rootfs URL for the same release tag",
                 ));
             }
-        } else if !self.release_tag.is_empty() && (!self.development || self.target == "candidate")
-        {
-            // Payload v4 native package URLs embed the release tag, so every
-            // packaging development target admits it. A bare candidate builds
-            // no packages and still refuses it, as does production without
-            // Docker packaging.
-            return Err(Error::msg("--release-tag requires Docker packaging"));
         }
-        self.validate_media_inputs()
+        self.validate_media_inputs()?;
+        if !soda_build_tools::reader::settings::release_tag(&self.release_tag)
+            || self.release_tag.eq_ignore_ascii_case("latest")
+        {
+            return Err(Error::msg(
+                "Payload v4 requires an explicit version --release-tag",
+            ));
+        }
+        if !self.package_base_url.is_empty() {
+            if !self.development {
+                return Err(Error::msg("--package-base-url requires --development"));
+            }
+            media::media_base_url(&self.package_base_url)?;
+        }
+        // Package URLs always use verified HTTPS. Development can select a
+        // reachable fixture origin independently of the rootfs transport.
+        let base = self.package_base_url();
+        if !soda_build_tools::reader::url::https_url(&base) {
+            return Err(Error::msg("native packages require an HTTPS asset base"));
+        }
+        Ok(())
+    }
+
+    pub fn package_base_url(&self) -> String {
+        if self.development && !self.package_base_url.is_empty() {
+            format!("{}/", self.package_base_url.trim_end_matches('/'))
+        } else {
+            format!(
+                "https://github.com/LevitateOS/sodaos/releases/download/{}/",
+                self.release_tag
+            )
+        }
     }
 
     pub fn wants_media(&self) -> bool {
@@ -203,6 +221,7 @@ mod tests {
             distribution: "all".into(),
             release_tag: "v9.9.9-dev".into(),
             rootfs_base_url: "https://fixture.invalid/rootfs/".into(),
+            package_base_url: "https://fixture.invalid/packages/".into(),
             ..Request::default()
         };
         assert!(combined.validate_target().is_ok());
@@ -210,8 +229,28 @@ mod tests {
         assert_eq!(combined.completed_target(), "all");
         assert_eq!(combined.purpose(), "development");
         assert_eq!(combined.requested_target(), "all");
-        // A packaging development target admits the release tag for native
-        // package URLs; a bare candidate still refuses it.
+        assert_eq!(
+            combined.package_base_url(),
+            "https://fixture.invalid/packages/"
+        );
+        assert_eq!(
+            docker.package_base_url(),
+            "https://github.com/LevitateOS/sodaos/releases/download/v1.2.3/"
+        );
+        assert!(Request {
+            package_base_url: "http://fixture.invalid/packages/".into(),
+            ..combined.clone()
+        }
+        .validate_target()
+        .is_err());
+        assert!(Request {
+            development: false,
+            target: String::new(),
+            ..combined.clone()
+        }
+        .validate_target()
+        .is_err());
+        // Every candidate seals versioned native packages, including candidate-only builds.
         let dev_media_tag = Request {
             development: true,
             target: "media".into(),
@@ -222,7 +261,6 @@ mod tests {
         assert!(dev_media_tag.validate_target().is_ok());
         let candidate = Request {
             target: "candidate".into(),
-            release_tag: String::new(),
             ..dev.clone()
         };
         assert!(candidate.validate_target().is_ok());
@@ -266,11 +304,11 @@ mod tests {
                 rootfs_base_url: "https://fixture.invalid/rootfs/".into(),
                 ..Request::default()
             },
-            // A bare candidate builds no packages and still refuses the tag.
+            // A bare candidate also needs its native package version.
             Request {
                 development: true,
                 target: "candidate".into(),
-                release_tag: "v9.9.9-dev".into(),
+                release_tag: String::new(),
                 ..Request::default()
             },
             // The combined target pairs only with the all distribution.
@@ -293,6 +331,7 @@ mod tests {
         let valid = Request {
             development: true,
             target: "candidate".to_string(),
+            release_tag: "v9.9.9-dev".into(),
             ..Request::default()
         };
         assert!(valid.validate_target().is_ok());
@@ -300,6 +339,7 @@ mod tests {
             development: true,
             target: "media".to_string(),
             rootfs_base_url: "https://example.invalid".to_string(),
+            release_tag: "v9.9.9-dev".into(),
             ..Request::default()
         };
         assert!(valid.validate_target().is_ok());
@@ -388,6 +428,7 @@ mod tests {
             target: "media".to_string(),
             media_compression: "fast".to_string(),
             rootfs_base_url: "https://example.invalid".to_string(),
+            release_tag: "v9.9.9-dev".into(),
             ..Request::default()
         };
         assert!(fast.validate_target().is_ok());

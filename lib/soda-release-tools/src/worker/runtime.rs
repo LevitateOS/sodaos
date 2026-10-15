@@ -244,6 +244,10 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
         w.arguments
             .extend(["--release-tag".to_owned(), r.release_tag.clone()]);
     }
+    if !r.package_base_url.is_empty() {
+        w.arguments
+            .extend(["--package-base-url".to_owned(), r.package_base_url.clone()]);
+    }
     if r.development {
         w.arguments.push("--development".to_owned());
         w.arguments.push("--target".to_owned());
