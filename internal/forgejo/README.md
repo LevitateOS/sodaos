@@ -43,6 +43,17 @@ Share one `ServiceBackground` between the observer and operation adapters using
 service admission, so separate transports can invalidate each other's reads
 and operations. Snapshot observations are bound to equal idle native revisions.
 
+## Extension manager control
+
+The dashboard wires manager control independently of factory actor credentials.
+It uses `FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET` and the explicitly pinned
+`FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID` from its service configuration.
+Missing or invalid callback settings leave manager control unavailable. Root
+reaches this transport through the private operator listener; Fountain verifies
+the mapped Soda service peer. Manager requests neither bootstrap background
+admission nor carry an actor PAT. Factory background configuration does not
+select or replace this manager callback.
+
 ## Effects and outcomes
 
 Reads do not authorize new work. Publication, review and merge adapters can

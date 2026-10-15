@@ -570,6 +570,14 @@ required-package catalog/cache contract; its focused repair is committed separat
   14 activation tests and a native state-hash preservation check pass with that
   correction. These probes use explicit diagnostic overlays and do not accept
   the failed candidate as the maintenance Source baseline.
+  Real administrator Tailnet enable exposed manager control being gated on
+  optional factory credentials. Wiring it to the existing pinned service
+  callback independently fixes the native 503: constructor/operator and
+  transport checks pass, and actual enable reaches open admission plus the
+  official supervised daemon in `NeedsLogin`. Native disable stops the daemon,
+  socket and interface and preserves package/installation hashes, but still
+  reports unconfirmed cleanup. Diagnose that boundary in the retained fixture
+  before another media build; disable acceptance remains open.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.

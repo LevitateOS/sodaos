@@ -10,10 +10,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/avatar"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory/control"
@@ -54,6 +56,14 @@ func New(c config.Config, db *store.Store) *Server {
 	s.API.Identity = broker
 	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
 	s.API.Coordinator = s.Coordinator
+	// Manager control uses the pinned service callback, without a factory
+	// actor credential or background admission. Ordinary appliance activation
+	// must support optional extensions before any factory actor is configured.
+	callback := os.Getenv(extensions.ServiceCallbackEnv)
+	peer, err := strconv.ParseUint(os.Getenv(extensions.ServiceCallbackPeerEnv), 10, 32)
+	if filepath.IsAbs(callback) && err == nil {
+		s.API.ExtensionManager = forgejo.NewServiceBackground(callback, uint32(peer), "")
+	}
 	if db != nil {
 		db.PriorityCallBudget = c.FactoryJudgmentCallBudget
 	}
@@ -63,7 +73,6 @@ func New(c config.Config, db *store.Store) *Server {
 	s.Coordinator.Priority = &control.PriorityJudgments{Journal: db, Chooser: &control.TypeSafePriority{APIKeyFile: c.TypeSafeAPIKeyFile, Model: c.TypeSafeModel}, MaxCalls: 16}
 	if c.BackgroundServiceConfigured() {
 		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
-		s.API.ExtensionManager = background
 		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
 			c.ForgejoBackgroundCredentialFile, client)
 		observer.ShareBackground(background)
