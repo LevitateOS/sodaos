@@ -252,7 +252,14 @@ pub fn seal_media(
     if iso.bytes >= 2_000_000_000 {
         return Err(Error::msg("minimal ISO exceeds distribution ceiling"));
     }
-    let rootfs = files::media_file(&sys::join(&[media_dir, rootfs_name]))?;
+    let rootfs_path = sys::join(&[media_dir, rootfs_name]);
+    let info = std::fs::symlink_metadata(&rootfs_path)?;
+    if !info.is_file() || !soda_build_tools::valid_rootfs_size(info.len()) {
+        return Err(Error::msg(
+            "complete rootfs must fit 2,013,265,920 bytes (128 MiB below 2 GiB)",
+        ));
+    }
+    let rootfs = files::media_file(&rootfs_path)?;
     let console = sys::hash_file(&sys::join(&[artifacts, "tools/soda-installer"]))?;
     let result = Media {
         scope: "candidate-derived media; native qualification and final protected release signing pending".to_string(),

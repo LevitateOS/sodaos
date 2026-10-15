@@ -68,7 +68,10 @@ dependencies. New installs and replacements must name the selected release's
 runtime image and tool digest. Existing application generations retain their
 stored references for inspection, start and stop across an appliance update.
 
-Every asset must be smaller than GitHub's 2 GiB limit. Packaging removes unused
+Every asset must be smaller than GitHub's 2 GiB limit. The complete released
+`rootfs.img` must also fit 2,013,265,920 bytes, retaining 128 MiB below 2 GiB for
+the kernel's rootfs limit. Production and release admission enforce this ceiling.
+Packaging removes unused
 host copies and compiler debug/symbol data, then admission checks the actual bytes;
 estimated compression savings never authorize an upload. The release includes the
 exact Soda and Fountain source archives, package inventory, provenance and checksums.

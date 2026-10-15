@@ -194,6 +194,26 @@ mod media_json_tests {
     }
 
     #[test]
+    fn media_binding_rejects_rootfs_above_kernel_margin() {
+        let payload = super::Payload::default();
+        let candidate = super::Candidate::default();
+        let mut media = MediaBinding::default();
+        media.iso = super::MediaFile {
+            path: "installer.iso".into(),
+            sha256: "a".repeat(64),
+            bytes: 1,
+        };
+        media.rootfs = super::MediaFile {
+            path: "rootfs.img".into(),
+            sha256: "b".repeat(64),
+            bytes: soda_build_tools::MAX_ROOTFS_BYTES as i64,
+        };
+        media.rootfs_url = "https://example.test/rootfs.img".into();
+        assert!(super::valid_media_binding(&media, &payload, &candidate));
+        media.rootfs.bytes += 1;
+        assert!(!super::valid_media_binding(&media, &payload, &candidate));
+    }
+    #[test]
     fn deployment_binding_is_distinct_from_assembler_import() {
         let parsed = MediaBinding::decode_lenient(
             br#"{"DeploymentCommit":"actual-rootfs","AssemblerImportCommit":"assembler-import"}"#,
@@ -229,5 +249,8 @@ pub(crate) fn valid_media_binding(m: &MediaBinding, p: &Payload, c: &Candidate) 
     {
         return false;
     }
-    valid_media_file(&m.iso) && valid_media_file(&m.rootfs) && valid_media_url(&m.rootfs_url)
+    valid_media_file(&m.iso)
+        && valid_media_file(&m.rootfs)
+        && soda_build_tools::valid_rootfs_size(m.rootfs.bytes as u64)
+        && valid_media_url(&m.rootfs_url)
 }
