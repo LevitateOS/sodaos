@@ -1,5 +1,5 @@
 # The release builder supplies the complete, verified appliance image. Soda
-# binaries and bundled application images are reused, never rebuilt here.
+# binaries are reused. Applications are acquired by the release image importer.
 ARG SODA_BASE_IMAGE=soda-appliance:build
 ARG BASE_IMAGE=registry.fedoraproject.org/fedora:44
 FROM ${SODA_BASE_IMAGE} AS appliance

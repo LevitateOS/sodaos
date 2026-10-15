@@ -250,6 +250,7 @@ pub fn rootfs_file_map() -> Vec<(String, String)> {
         "soda-project@.service",
         "soda-canlang@.service",
         "soda-tailnet@.service",
+        "soda-tailnet-host.service",
         "soda-console.service",
         "soda-postgres-backup.service",
         "soda-postgres-backup.timer",

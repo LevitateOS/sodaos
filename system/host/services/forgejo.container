@@ -34,7 +34,8 @@ EnvironmentFile=/etc/soda/forgejo.env
 # read-only bind plus the extension identity it declares.
 Volume=/usr/share/soda/extensions/catalog.json:/etc/soda/extensions/catalog.json:ro,Z
 Environment=FORGEJO__extensions__CATALOG_PATH=/etc/soda/extensions/catalog.json
-Environment=FORGEJO__extensions__MAINTENANCE_DIRECTORY=/var/lib/soda/extensions
+Volume=/var/lib/soda/project-maintenance:/var/lib/soda/project-maintenance:ro
+Environment=FORGEJO__extensions__MAINTENANCE_DIRECTORY=/var/lib/soda/project-maintenance
 Environment=FORGEJO__extensions__REQUIRED_IDS=soda
 Environment=FORGEJO__extensions__SERVICE_BRIDGE_PEERS=2000:soda
 
