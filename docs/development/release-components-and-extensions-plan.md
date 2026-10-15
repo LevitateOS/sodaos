@@ -496,8 +496,12 @@ required-package catalog/cache contract; its focused repair is committed separat
   unknown object stays untouched and admission remains closed. It also exposes
   completed failed cleanup being rendered as still in progress: `draining`
   outlives `busy`. A prepared correction preserves the closed fence and reports
-  failed/unconfirmed; the affected package passes through a read-only Go overlay.
-  Applying it to Fountain awaits its qualification writer's release.
+  failed/unconfirmed. After the qualification writer completed, Fountain
+  `4b71adac9d` landed that correction and shared verified acquisition with
+  generic optional packages; actual TLS acquisition/backend tests cover both
+  controller bindings. Terminal acquisition errors remain observable after
+  definite pre-effect failure. The canonical lifecycle package passes; final
+  native acceptance still requires the new component image.
 - [ ] **F04 — Admin UI + maintenance contract.** F; F03. REOPENED 2026-10-15 (REVIEW-026, maintenance-guard item):
   native admin routes (401/403/Origin/CAS, 4KiB forms, 303 CAS wiring),
   manager-control snapshot/reconcile/cache endpoints, actual middleware
@@ -509,8 +513,12 @@ required-package catalog/cache contract; its focused repair is committed separat
   cleanup failure, and stale actions after automatic progress (Settings appears
   only after manual reload). The prepared action template passes the real failed
   row's Disable journey through a diagnostic custom-template mount. Available
-  catalog rows are also omitted from JSON status by the current reader. These
-  generic UI/status corrections remain open in the held Fountain checkout.
+  catalog rows were also omitted from JSON status. Fountain `a4fd2221f1`
+  now uses one catalog/installed inventory with durable form pins, keeps cleanup
+  actions on failed rows, and reloads server-rendered controls after observed
+  state/generation changes. Canonical router tests, actual template rendering,
+  five browser tests and lint pass. A new committed component image is building;
+  native UI acceptance and shipping qualification remain open.
 - [x] **T01 — Required controller + exact authority.** T; R01, F03, T00. CLOSED 2026-10-15:
   controller→Go-route→Rust-RPC with exact SDK tuple/callback, ForwardUnix
   seam consumed, bad authority zero effects (Lifecycle tests PASS rerun by
@@ -612,8 +620,11 @@ required-package catalog/cache contract; its focused repair is committed separat
   its authenticated native disable endpoint completes cleanup with closed
   admission, no pending operation, and unchanged private state. However,
   Fountain's rendered failed row hides Disable despite remaining effects.
-  Its active qualification checkout is preserved; the precise template fix
-  awaits writer handoff. That UI check and shipping qualification remain open.
+  The other Fountain writer has completed. Its work was preserved, and local
+  commits `4b71adac9d`/`a4fd2221f1` repair lifecycle, acquisition and generic UI
+  status/actions. A new component is being built from that exact committed
+  source; native checks against those shipping bytes and qualification remain
+  open. The older fixture image is not evidence for the new component.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
