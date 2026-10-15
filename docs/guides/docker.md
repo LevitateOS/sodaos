@@ -2,7 +2,7 @@
 
 Docker runs the complete Soda application runtime directly on the host kernel.
 The runtime includes the native host helper, identity broker, systemd, Podman,
-Forgejo, PostgreSQL, Caddy and the release's bundled Project images. Podman remains
+the deployment metadata for Forgejo, PostgreSQL, Caddy and Project images. Podman remains
 the internal Project and application engine. Docker owns the outer container's
 lifecycle; the operator owns the host operating system.
 
@@ -95,8 +95,11 @@ docker compose ps
 ```
 
 Edit the subnet in `.env` before running `up` if the default overlaps your routes.
-Initial startup imports the bundled images and initializes database credentials;
-allow several minutes. Configuration is created from canonical defaults only
+Initial startup downloads six required images by immutable digest, initializes
+database credentials and lets Fountain acquire the required Soda package. Allow
+several minutes and network access to the selected registries and HTTPS assets.
+Exact cached dependencies support offline restarts. Tailnet remains absent until
+an administrator enables it through Fountain's extension settings. Configuration is created from canonical defaults only
 when absent. Changing the subnet variable later does not rewrite existing
 `/etc/soda/host.json` or move retained Projects.
 
@@ -242,12 +245,12 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
 The builder freezes the Fedora base digest before compiling, produces the normal
 complete candidate once, then uses its verified local host config ID as the
 Dockerfile's appliance stage. Podman packages and exports the outer image without
-a Docker daemon socket. Soda binaries, shared OCI payload, native units, defaults
+a Docker daemon socket. Soda binaries, Payload v4, native units, defaults
 and notices are copied unchanged; CoreOS boot/disk services are excluded.
 
 The attempt produces `image.oci`, `docker.json`, `packages.txt`
 and `compose.yaml` under `artifacts/docker/`. The verifier reads the exported
-image, compares candidate-owned files and every bundled blob with the candidate,
+image, compares candidate-owned files and deployment identities with the candidate,
 and binds its platform, labels, sources, pinned Fedora base and observed outer
 RPM inventory. A mismatch fails the build before its success receipt. The
 internal `evidence/build.json` records distribution, version, completion boundary

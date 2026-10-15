@@ -18,15 +18,10 @@ revision=$(git rev-parse HEAD)
   exit 1
 }
 artifacts=$(cd "$candidate" && pwd)
-verifier=$artifacts/tools/soda-artifacts
-if [[ -x $verifier && -f $artifacts/SHA256SUMS && -d $artifacts/rootfs ]]; then
-  # Retained legacy sealed native stages remain verifiable; soda-build candidates use the checks below.
-  "$verifier" verify --source "$artifacts" --arch "$arch" --revision "$revision"
-fi
-# The delivered candidate must match the requested checkouts; the Rust owner below
+# The delivered candidate must match Soda's committed source selections; the Rust owner below
 # (soda-release-tools soda-candidate-check) binds those identities and verifies
 # the delivered archives themselves.
-forgejo_revision=$(git -C ../forgejo-ext rev-parse HEAD 2>/dev/null) || { echo 'Sibling Fountain checkout required' >&2; exit 1; }
+forgejo_revision=$(bun -e 'console.log(JSON.parse(await Bun.stdin.text()).revision)' < fountain-source.json)
 [[ $forgejo_revision =~ ^[0-9a-f]{40}$ ]] || { echo 'Exact Fountain source revision required' >&2; exit 1; }
 cargo run --locked -p soda-release-tools --bin soda-candidate-check -- --candidate "$artifacts" --arch "$arch" --soda-revision "$revision" --forgejo-revision "$forgejo_revision"
 bun run check:source

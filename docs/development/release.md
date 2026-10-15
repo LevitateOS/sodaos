@@ -200,7 +200,7 @@ qualification attempt. Missing collectors or access block qualification.
 
 The installation check must emit `installation/native.json` as retained, hashed
 observation output. It records the actual pulled manifest/config, installed
-Soda/Fountain revisions, candidate/payload/Compose hashes, bundled application
+Soda/Fountain revisions, candidate/payload/Compose hashes, acquired application
 config IDs, native Linux/x86_64 rootful/cgroup-v2/host-network/fresh-volume facts,
 and the initial outer container ID. The persistence check must later emit its own
 `persistence/native.json`, binding the same target/image and initial container ID
@@ -471,7 +471,8 @@ package install/replace/start checks for changed session, capability, native-rou
 or lifecycle boundaries. A generator completing successfully is not source or
 license verification.
 
-Build the candidate only from the two clean exact-revision checkouts. Before
+Build the candidate from committed Soda source and the selected independent
+Fountain release; local SDK bytes must match Soda's committed Fountain pin. Before
 qualification, verify that `artifacts/forgejo-source.tar` is the archived Fountain
 revision used to compile the executable and contains `LICENSE`, `sdk/go.mod`, SDK
 source, `contrib/extensions/README.md`, and the vendored dependency licenses/change
@@ -483,8 +484,9 @@ journeys on native `x86_64` under the [platform scope](../architecture/release.m
 The candidate also records the native architecture and hashes of the patched
 Forgejo executable, separate package files and host service definitions. The host
 image carries the same inventory at `/usr/share/soda/host-image/content.json` for
-installed readback. Forgejo compiler provenance names the digest-pinned Go/Alpine
-image and the sorted APK package versions resolved for its native SQLite toolchain.
+installed readback. The independent Fountain release metadata binds its image,
+source and prepared source archives; Soda verifies those inputs rather than
+compiling Fountain inside its own candidate build.
 
 Local maintenance commits and development candidates do not publish anything.
 Pushing a fork, publishing artifacts, signing a release or activating production

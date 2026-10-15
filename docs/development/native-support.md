@@ -42,7 +42,7 @@ local work does not need a new grant per command.
 - `probe-ssh`: direct Git-endpoint key exchange using an existing trusted pin, without credentials, proxy, keyscan or Git authentication.
 - `report`: reads/cites existing observations and verifies their retained-file hashes. No native work, retry, product verdict or publication.
 
-The existing build now pulls the unchanged selected Forgejo/Caddy references for the matching platform and runs fresh, network-disabled, read-only image-inspection containers for RPM/Tea/gh version metadata. These are build inspection containers, **not project containers**. Include those operations in a build grant. The candidate embeds those exact images for native import rather than looking up mutable tags later.
+The build pulls the selected Fountain/Caddy references for the matching platform and runs fresh, network-disabled, read-only image-inspection containers for RPM/Tea/gh version metadata. These are build inspection containers, **not project containers**. The candidate freezes manifest/config identities; installed systems acquire the required images by digest into persistent Podman storage.
 
 ## Build and artifact contract
 
@@ -86,21 +86,24 @@ cover their recorded revisions, not final RCX-2 media qualification.
 Production and development media use the same fixed fast EROFS profile: LZMA
 level 1, fragments, 1 MiB clusters and no global deduplication. The reviewed
 upstream compression setting remains an input-admission check; it is not the
-shipping profile. Native compression hints preserve already compressed files.
+shipping profile. No compression-hints file is used.
 The complete rootfs, including installation metadata, must fit 2,013,265,920 bytes
 (128 MiB below 2 GiB). A candidate that exceeds this ceiling fails production and
 admission. There is no automatic slower-profile fallback. Native install/boot and
 [release qualification](release.md) remain separate gates.
 
+CoreOS stream metadata selects the live ISO/QEMU release and the container's
+matching version tag. Its resolved native manifest is frozen by digest. The
+producer checks `/usr/lib/os-release` in the selected base and final host against
+that release before media assembly; a floating container tag cannot substitute
+a different OS version.
+
 Package observation uses a layered host image; only the final sealed host is
 flattened for native OSTree import. Final package, helper and exported-content
-verification remains required. Fountain's musl Go compiler uses a dedicated
-`fountain-go-cache` beside the worker's host Go cache, keeping its SELinux mount
-label separate while Go validates compiler and source cache keys across attempts.
-The cache is additionally partitioned by compiler image and observed APK inventory
-so cgo libraries/toolchain changes cannot reuse an older native compilation.
-Go module extraction remains private to each attempt and checksum admitted.
-The same private compiler cache retains Bun package downloads under its frozen lock.
+verification remains required. Fountain is consumed as a separately released
+image; this worker compiles Soda and stages its presentation layer. Go module
+extraction remains private to each attempt and checksum admitted. Worker caches
+retain Go, Cargo and Bun inputs under their committed locks.
 Successful builds remove their intermediate containers while keeping image-layer
 caches; failed build containers remain available for scoped diagnostics.
 Large media copies use copy-on-write where supported, with ordinary copying as
@@ -230,18 +233,20 @@ Each output is fresh;
 linked worktrees bind their Git common directory read-only and require their
 admitted build home/runtime below their own `.artifacts/`. There is no
 partial-host mode, resume or skip-tests flag. The internal image-identity prefix defaults to `ghcr.io/levitateos/sodaos`; it does not
-create a registry dependency. User downloads are GitHub release assets. Source and app inputs freeze before compilation. Prepared
+selects the application repositories used at startup. Native packages and media
+are GitHub release assets. Source and app inputs freeze before compilation. Prepared
 source/browser suites no longer gate the build; they consume the same emitted
 assets when run directly. Native page/provider journeys still belong to their
 separately authorized qualification drivers.
 
 P1–P6 builds runtime programs, the installer console and support tools once; stages
-vendor assets directly; builds/exports seven runtime images and the native FCOS host; then
-checks ELF/OCI identities, RPM inventory, embedded shared blobs and native Quadlets.
-All seven runtime images use ordinary Podman through one shared OCI layout.
-Podman exports uncompressed OCI layers so native EROFS can compress and deduplicate
-shared files across images once; image configs, diffIDs and filesystem contents
-stay identical. The copier preserves these exact exported descriptors.
+vendor assets directly; builds/exports four Soda application images and the native
+FCOS host; then checks ELF/OCI identities, RPM inventory and native Quadlets.
+Proxy, PostgreSQL, Fountain and optional Tailscale remain pinned upstream inputs.
+Application archives are local transport inputs, excluded from the host/rootfs
+and outer Docker image. OCI exports use gzip level 1 before manifest identities
+are finalized. Payload v4 binds six required image roles, the Fountain release,
+the required Soda package and the optional Tailnet package/image.
 The host producer uses Podman's `--squash-all` before export and removes the
 inherited `/sysroot` encoding cache and `ostree.commit`/`ostree.final-diffid` labels,
 following the [upstream plain-image conversion](https://github.com/coreos/chunkah#compatibility-with-bootable-bootc-images).
@@ -253,7 +258,7 @@ lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inher
 packages/bootable-container labels are not a Soda bootc integration.
 
 Outputs occupy `work/`, `artifacts/`, `evidence/`, `release/` and `logs/`.
-`artifacts/` contains the eight OCI archives (seven under `images/`), tool binaries and
+`artifacts/` contains the host OCI archive and four application archives under `images/`, tool binaries and
 hashes, payload/candidate identities and frozen app provenance. The once-compiled
 installer is also embedded in the host; native checks bind it to the exported tool.
 For media requests, floating upstream Butane produces public `destination.ign`
@@ -282,7 +287,7 @@ completed producer checks. The parent controller writes `evidence/completed.json
 only after worker cleanup and final progress succeed, binding the exact producer
 record hash. Release preparation requires both; a producer record from a failed
 controller attempt cannot authorize delivery. Candidate-only output has no media path, live Ignition or packaging
-workspace. All current candidate checks and all seven images remain; media-only tools
+workspace. The same candidate checks and four application archives remain; media-only tools
 and signing inputs are not required for that target.
 
 **Current completion boundary:** explicit development targets exit **0** on success
