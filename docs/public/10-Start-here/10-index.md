@@ -16,6 +16,7 @@ familiar editors, browser terminals and SSH.
 | Understand the factory and human projects | [Product model](20-product-model.md) |
 | Install on hardware from an ISO | [Install on premises](../20-Deploy/20-install-on-premises.md) |
 | Import a VM image or deploy on Scaleway | [Deploy to a cloud or VM](../20-Deploy/10-deploy-to-cloud.md) |
+| Prepare a Docker deployment | [Run Soda OS with Docker](../20-Deploy/22-docker.md) |
 | Configure private access and the factory | [Operator setup](../20-Deploy/25-operator-setup.md) |
 | Authorize and inspect the first agent task | [Software factory walkthrough](../30-Use-Soda/15-software-factory.md) |
 | Review a candidate and merge it yourself | [Collaboration](../30-Use-Soda/35-collaboration.md) |

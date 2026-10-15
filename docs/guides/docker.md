@@ -6,6 +6,9 @@ Forgejo, PostgreSQL, Caddy and the release's bundled Project images. Podman rema
 the internal Project and application engine. Docker owns the outer container's
 lifecycle; the operator owns the host operating system.
 
+Website-facing operator instructions live in the
+[public Docker handbook](../public/20-Deploy/22-docker.md).
+
 ## Host requirements
 
 Use a dedicated x86_64 Linux Docker Engine host with cgroup v2 and Compose 2.17 or
