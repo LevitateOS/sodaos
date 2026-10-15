@@ -20,7 +20,7 @@ func TestExtensionContribution(t *testing.T) {
 	}{
 		{"spaces page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"retired runners page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, false},
-		{"tailnet global page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
+		{"tailnet global page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
 		{"runners global page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
 		{"tailnet admin page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, false},
 		{"spaces admin page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "admin"}, false},
@@ -29,10 +29,26 @@ func TestExtensionContribution(t *testing.T) {
 		{"other panel", extensions.Contribution{Kind: "panel", ID: "other", Scope: "panel"}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := ExtensionContribution(test.contribution); got != test.want {
+			if got := ExtensionContribution("soda", test.contribution); got != test.want {
 				t.Fatalf("ExtensionContribution(%+v) = %t, want %t", test.contribution, got, test.want)
 			}
 		})
+	}
+}
+
+func TestOptionalTailnetContributionIsPackageBound(t *testing.T) {
+	admin := extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}
+	if !ExtensionContribution("tailnet", admin) {
+		t.Fatal("admin page refused")
+	}
+	for _, id := range []string{"soda", "other", "tailnet-extension"} {
+		if ExtensionContribution(id, admin) {
+			t.Fatalf("admin page accepted for %s", id)
+		}
+	}
+	admin.Scope = "global"
+	if ExtensionContribution("tailnet", admin) {
+		t.Fatal("global Tailnet route accepted")
 	}
 }
 

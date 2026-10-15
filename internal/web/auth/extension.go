@@ -22,7 +22,7 @@ func ExtensionAuthority(r *http.Request) (extensions.Authority, error) {
 	if err != nil {
 		return extensions.Authority{}, fmt.Errorf("read native authority: %w", err)
 	}
-	if authority.ExtensionID != "soda" {
+	if !ExtensionContribution(authority.ExtensionID, authority.Contribution) {
 		return extensions.Authority{}, errors.New("native authority is for another extension")
 	}
 	if authority.Contribution.Action != strings.ToLower(r.Method) {
@@ -40,21 +40,14 @@ func ExtensionAuthority(r *http.Request) (extensions.Authority, error) {
 	return authority, nil
 }
 
-// ExtensionContribution limits the initial bridge to Soda's declared mounts.
-func ExtensionContribution(contribution extensions.Contribution) bool {
-	switch contribution.Kind {
-	case "page":
-		switch contribution.ID {
-		case "spaces":
-			return contribution.Scope == "global"
-		case "tailnet":
-			return contribution.Scope == "global"
-		default:
-			return false
-		}
-	case "panel":
-		return contribution.Scope == "panel" && contribution.ID == "workspace"
-	default:
+// ExtensionContribution binds each declared contribution to its exact package.
+func ExtensionContribution(packageID string, contribution extensions.Contribution) bool {
+	if packageID == "tailnet" {
+		return contribution.Kind == "page" && contribution.ID == "tailnet" && contribution.Scope == "admin"
+	}
+	if packageID != "soda" {
 		return false
 	}
+	return contribution.Kind == "page" && contribution.ID == "spaces" && contribution.Scope == "global" ||
+		contribution.Kind == "panel" && contribution.ID == "workspace" && contribution.Scope == "panel"
 }

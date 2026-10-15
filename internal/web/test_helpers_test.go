@@ -163,8 +163,12 @@ func nativeProductHeadersForActor(method, origin string, contribution extensions
 
 func nativeProductHeadersForNativeActor(method, origin string, contribution extensions.Contribution, actor extensions.Actor) http.Header {
 	contribution.Action = strings.ToLower(method)
+	packageID := "soda"
+	if contribution.ID == "tailnet" && contribution.Scope == "admin" {
+		packageID = "tailnet"
+	}
 	context, _ := json.Marshal(extensions.Authority{
-		ExtensionID: "soda", InstanceID: "native-test-instance", SessionGeneration: nativeProductGeneration,
+		ExtensionID: packageID, InstanceID: "native-test-instance", SessionGeneration: nativeProductGeneration,
 		Contribution: contribution, Actor: actor,
 	})
 	return http.Header{
@@ -197,7 +201,7 @@ func nativeAPIServeWithOptions(t *testing.T, s *Server, w http.ResponseWriter, r
 	path := strings.TrimPrefix(r.URL.Path, config.SodaPath)
 	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
 	if strings.HasPrefix(path, "/api/settings/tailnet") {
-		contribution.ID, contribution.Scope = "tailnet", "global"
+		contribution.ID, contribution.Scope = "tailnet", "admin"
 	}
 	for name, values := range nativeProductHeadersForActor(r.Method, s.Config.ForgejoURL, contribution, login) {
 		if name == "Origin" {
@@ -224,7 +228,7 @@ func nativeProductRequest(t *testing.T, proxy *httptest.Server, origin, method, 
 	}
 	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
 	if strings.HasPrefix(path, "/settings/tailnet") {
-		contribution.ID, contribution.Scope = "tailnet", "global"
+		contribution.ID, contribution.Scope = "tailnet", "admin"
 	} else if !strings.HasPrefix(path, "/spaces") && !strings.HasPrefix(path, "/environments") && !strings.HasPrefix(path, "/repositories") {
 		contribution = extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}
 	}

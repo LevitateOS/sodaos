@@ -51,7 +51,7 @@ func (s *API) extensionProtected(next func(http.ResponseWriter, *http.Request, s
 
 func extensionProductAuthority(w http.ResponseWriter, r *http.Request) (extensions.Authority, bool) {
 	authority, err := auth.ExtensionAuthority(r)
-	contributionOK := err == nil && auth.ExtensionContribution(authority.Contribution)
+	contributionOK := err == nil && auth.ExtensionContribution(authority.ExtensionID, authority.Contribution)
 	productOK := contributionOK && extensionProductContribution(r.URL.Path, authority.Contribution)
 	if err != nil || !contributionOK || !productOK {
 		denial := "authority"

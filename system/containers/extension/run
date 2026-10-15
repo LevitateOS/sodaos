@@ -1,2 +1,2 @@
 #!/bin/sh
-exec ./backend --soda-socket=/ipc/soda.sock
+exec ./backend --package-id=soda --soda-socket=/ipc/soda.sock

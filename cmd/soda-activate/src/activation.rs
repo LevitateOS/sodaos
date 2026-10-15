@@ -1,7 +1,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Write};
 use std::net::IpAddr;
-use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
 use crate::cli::CliArgs;
@@ -67,8 +67,8 @@ pub(crate) fn activate(
             "legacy separate-origin configuration; use rehearsed configuration maintenance",
         ));
     }
-    let operator_id = match cfg.get("operator_id").and_then(serde_json::Value::as_i64) {
-        Some(id) if id > 0 => id,
+    match cfg.get("operator_id").and_then(serde_json::Value::as_i64) {
+        Some(id) if id > 0 => {}
         _ => return Err(usage("dashboard operator identity is invalid")),
     };
     let forgejo_url = cfg
@@ -134,8 +134,7 @@ pub(crate) fn activate(
         fs::set_permissions(&path, fs::Permissions::from_mode(0o640))
             .map_err(|e| runtime(e.to_string()))?;
     }
-    // The extension package needs only the stable operator ID for its navigation
-    // guard. Keep it in the package's private data directory, outside the image.
+    // Prepare the generic Fountain extension data root. Package data is host-owned.
     let extension_root = paths.var_lib.join("forgejo/gitea/extensions");
     for path in [
         &paths.var_lib,
@@ -164,29 +163,6 @@ pub(crate) fn activate(
     sys.chown(&extension_data, 1000, 1000)
         .map_err(|e| runtime(e.to_string()))?;
     fs::set_permissions(&extension_data, fs::Permissions::from_mode(0o700))
-        .map_err(|e| runtime(e.to_string()))?;
-    let operator_data = extension_data.join("soda");
-    if is_symlink(&operator_data) {
-        return Err(usage("Soda extension data path must not contain symlinks"));
-    }
-    fs::create_dir(&operator_data).map_err(|e| runtime(e.to_string()))?;
-    sys.chown(&operator_data, 1000, 1000)
-        .map_err(|e| runtime(e.to_string()))?;
-    fs::set_permissions(&operator_data, fs::Permissions::from_mode(0o700))
-        .map_err(|e| runtime(e.to_string()))?;
-    let operator_file = operator_data.join("operator-id");
-    if operator_file.exists() || is_symlink(&operator_file) {
-        let st = fs::symlink_metadata(&operator_file).map_err(|e| runtime(e.to_string()))?;
-        if !st.file_type().is_file() || st.nlink() != 1 {
-            return Err(usage(
-                "Soda extension operator identity must be a private regular file",
-            ));
-        }
-    }
-    fs::write(&operator_file, format!("{operator_id}\n")).map_err(|e| runtime(e.to_string()))?;
-    sys.chown(&operator_file, 1000, 1000)
-        .map_err(|e| runtime(e.to_string()))?;
-    fs::set_permissions(&operator_file, fs::Permissions::from_mode(0o600))
         .map_err(|e| runtime(e.to_string()))?;
     let tls = root.join("tls");
     match fs::DirBuilder::new().mode(0o700).create(&tls) {

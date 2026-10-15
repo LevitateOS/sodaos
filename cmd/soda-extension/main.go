@@ -6,18 +6,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/web"
+	"github.com/levitateos/sodaos/internal/web/api"
 )
 
 func run() error {
 	flags := flag.NewFlagSet("soda-extension", flag.ContinueOnError)
+	packageID := flags.String("package-id", "", "exact package ID: soda or tailnet")
 	socket := flags.String("soda-socket", os.Getenv("SODA_EXTENSION_SERVICE_SOCKET"), "absolute path to the private Soda HTTP socket")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return err
@@ -25,67 +24,43 @@ func run() error {
 	if flags.NArg() != 0 || !filepath.IsAbs(*socket) {
 		return errors.New("configure an absolute Soda service socket; no positional arguments are accepted")
 	}
-	dataDir := extensions.DataDir()
-	if !filepath.IsAbs(dataDir) {
-		return errors.New("soda extension data directory is unavailable")
-	}
-	operatorID, err := readOperatorID(filepath.Join(dataDir, "operator-id"))
+	application, closeTransport, err := packageApplication(*packageID, *socket)
 	if err != nil {
 		return err
 	}
-	application, closeTransport := web.Extension(*socket)
 	defer closeTransport()
-	application.AuthorizeContribution = contributionAuthorizer(operatorID)
 	return extensions.Serve(application)
 }
 
-func readOperatorID(path string) (string, error) {
-	if !operatorIDFileAvailable(path) {
-		return "", errors.New("soda operator identity is unavailable")
+func packageApplication(packageID, socket string) (extensions.Application, func(), error) {
+	switch packageID {
+	case "soda":
+		application, closeTransport := web.Extension(socket)
+		application.AuthorizeContribution = contributionAuthorizer()
+		return application, closeTransport, nil
+	case "tailnet":
+		handler, closeTransport := api.Extension(socket)
+		return extensions.Application{HTTP: handler}, closeTransport, nil
+	default:
+		return extensions.Application{}, nil, errors.New("package-id must be soda or tailnet")
 	}
-	file, err := os.Open(path)
-	if err != nil {
-		return "", errors.New("soda operator identity is unavailable")
-	}
-	defer file.Close()
-	value, err := io.ReadAll(io.LimitReader(file, 33))
-	if err != nil || len(value) == 0 || len(value) > 32 {
-		return "", errors.New("soda operator identity is invalid")
-	}
-	return canonicalOperatorID(value)
 }
 
-func operatorIDFileAvailable(path string) bool {
-	info, err := os.Lstat(path)
-	return err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o022 == 0 && info.Size() <= 32
-}
-
-func canonicalOperatorID(value []byte) (string, error) {
-	operatorID := strings.TrimSuffix(string(value), "\n")
-	id, err := strconv.ParseInt(operatorID, 10, 64)
-	if err != nil || id < 1 || strconv.FormatInt(id, 10) != operatorID {
-		return "", errors.New("soda operator identity is invalid")
-	}
-	return operatorID, nil
-}
-
-func contributionAuthorizer(operatorID string) extensions.ContributionAuthorizer {
+func contributionAuthorizer() extensions.ContributionAuthorizer {
 	return func(_ context.Context, request extensions.ContributionRequest) (extensions.ContributionDecision, error) {
-		if allowedContribution(request, operatorID) {
+		if allowedContribution(request) {
 			return extensions.ContributionDecision{Allowed: true}, nil
 		}
 		return extensions.ContributionDecision{Allowed: false, DenialCode: "contribution_denied"}, nil
 	}
 }
 
-func allowedContribution(request extensions.ContributionRequest, operatorID string) bool {
+func allowedContribution(request extensions.ContributionRequest) bool {
 	contribution := request.Contribution
 	if contribution.Kind == "page" {
 		switch contribution.ID {
 		case "spaces":
 			return contribution.Scope == "global"
-		case "tailnet":
-			return contribution.Scope == "global" && request.ActorID == operatorID
 		default:
 			return false
 		}

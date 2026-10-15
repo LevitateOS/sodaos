@@ -22,13 +22,6 @@
           "title": "Build request"
         }
       ]
-    },
-    {
-      "id": "tailnet",
-      "route": "tailnet",
-      "title": "Tailnet",
-      "scope": "global",
-      "entry": "soda-tailnet-entry.js"
     }
   ],
   "panels": [

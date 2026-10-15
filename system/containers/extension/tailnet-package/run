@@ -1,0 +1,2 @@
+#!/bin/sh
+exec ./backend --package-id=tailnet --soda-socket=/ipc/soda.sock

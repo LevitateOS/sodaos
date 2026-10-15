@@ -66,8 +66,6 @@ fn first_activation_derives_provider_from_forgejo_origin() {
                 (fx.paths.root.join("dashboard.json"), 0, 2000),
                 (ext.clone(), 1000, 1000),
                 (ext.join(".data"), 1000, 1000),
-                (ext.join(".data/soda"), 1000, 1000),
-                (ext.join(".data/soda/operator-id"), 1000, 1000),
             ]
         );
         assert_eq!(
@@ -92,18 +90,6 @@ fn first_activation_derives_provider_from_forgejo_origin() {
                 0o640
             );
         }
-        assert_eq!(
-            fs::read_to_string(ext.join(".data/soda/operator-id")).expect("op"),
-            "42\n"
-        );
-        assert_eq!(
-            fs::metadata(ext.join(".data/soda/operator-id"))
-                .expect("m")
-                .permissions()
-                .mode()
-                & 0o777,
-            0o600
-        );
         assert_eq!(
             fs::metadata(&ext).expect("m").permissions().mode() & 0o777,
             0o700
@@ -155,15 +141,9 @@ fn empty_identity_socket_uses_standard_admin_socket() {
     let mut sys = FakeSys::new();
     let mut stdout: Vec<u8> = Vec::new();
     activate(&args, &fx.paths, &mut sys, &mut stdout).expect("activate");
-    assert_eq!(
-        fs::read_to_string(
-            fx.paths
-                .var_lib
-                .join("forgejo/gitea/extensions/.data/soda/operator-id")
-        )
-        .expect("op"),
-        "7\n"
-    );
+    let dashboard: serde_json::Value =
+        serde_json::from_slice(&fs::read(fx.paths.root.join("dashboard.json")).unwrap()).unwrap();
+    assert_eq!(dashboard["operator_id"], 7);
     assert_eq!(
         env_map(&fx.paths.root.join("forgejo.env"))["FORGEJO__extensions__SERVICE_BRIDGE_PEERS"],
         "2000:soda"
@@ -265,15 +245,9 @@ fn dashboard_duplicate_fields_are_last_wins_and_unknown_fields_are_ignored() {
     let mut sys = FakeSys::new();
     let mut stdout = Vec::new();
     activate(&args, &fx.paths, &mut sys, &mut stdout).expect("activate");
-    assert_eq!(
-        fs::read_to_string(
-            fx.paths
-                .var_lib
-                .join("forgejo/gitea/extensions/.data/soda/operator-id")
-        )
-        .expect("operator ID"),
-        "7\n"
-    );
+    let dashboard: serde_json::Value =
+        serde_json::from_slice(&fs::read(fx.paths.root.join("dashboard.json")).unwrap()).unwrap();
+    assert_eq!(dashboard["operator_id"], 7);
 }
 
 #[test]

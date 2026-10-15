@@ -35,7 +35,7 @@ func nativeTailnetAdminServe(t *testing.T, s *Server, w http.ResponseWriter, r *
 	path := strings.TrimPrefix(r.URL.Path, config.SodaPath)
 	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
 	if strings.HasPrefix(path, "/api/settings/tailnet") {
-		contribution.ID, contribution.Scope = "tailnet", "global"
+		contribution.ID, contribution.Scope = "tailnet", "admin"
 	}
 	for name, values := range nativeProductHeadersForNativeActor(r.Method, s.Config.ForgejoURL, contribution, admin) {
 		if name == "Origin" {
@@ -254,7 +254,7 @@ func TestTailnetBridgeRequiresNativeSiteAdmin(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.Header = nativeProductHeadersForNativeActor(http.MethodGet, s.Config.ForgejoURL, extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, actor)
+		req.Header = nativeProductHeadersForNativeActor(http.MethodGet, s.Config.ForgejoURL, extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, actor)
 		response, err := proxy.Client().Do(req)
 		if err != nil {
 			t.Fatal(err)

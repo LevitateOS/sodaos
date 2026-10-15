@@ -170,7 +170,7 @@ func (s *Service) extensionRequest(w http.ResponseWriter, r *http.Request, autho
 
 func extensionIdentity(w http.ResponseWriter, r *http.Request) (extensions.Authority, int64, bool) {
 	authority, err := ExtensionAuthority(r)
-	if err != nil || !ExtensionContribution(authority.Contribution) {
+	if err != nil || !ExtensionContribution(authority.ExtensionID, authority.Contribution) {
 		JSONError(w, http.StatusForbidden, "native_authority_unavailable", "Current native authority is required.")
 		return extensions.Authority{}, 0, false
 	}
