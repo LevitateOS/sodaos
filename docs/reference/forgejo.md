@@ -25,16 +25,19 @@ guest theme controls follow the selected theme, without a page-route allowlist.
 ## Native extension presentation
 
 Fountain owns the native page and persistent-panel host. Soda declares the Spaces
-page at `/workspace`, the operator Tailnet page at `/tailnet`, and Workspace panel in its
-extension manifest. Fountain supplies each contribution's mount context and keeps
+page at `/workspace` and Workspace panel in the required `soda` package.
+The optional `tailnet` package declares one admin settings page, reached through
+Fountain’s generic `/admin/extensions/tailnet/settings/tailnet` wrapper. Fountain supplies each contribution's mount context and keeps
 the workspace panel mounted while native Forgejo pages change. Forgejo continues to
 own browser navigation, session and page lifecycle; the extension uses the live
 native authority and narrowly scoped service API described in the
 [API contract](api.md). Product behavior and responsive layout live in
 [Spaces](../product/spaces.md).
 
-The Soda extension build bundles its browser modules, styles and terminal runtime
-into the independently installable package. The Forgejo image payload carries
+The extension build selects exactly `--package=soda|tailnet` and emits independent
+browser graphs. The required package includes workspace styles and the terminal
+runtime; optional Tailnet includes only its settings assets. Neither package
+references chunks available only in the other package. The Forgejo image payload carries
 image-owned branding/templates, not a second public copy of extension UI assets.
 Installing or replacing Soda therefore does not rebuild Fountain or update the
 host image.

@@ -511,7 +511,10 @@ Fountain CI/lint edits are preserved; no new Fountain writes are being made.
   journeys remain at I01/Q01, so this packet is not yet closed.
 - [ ] **T03 — Tailnet package split.** T; T02, F04. Package renamed to
   `tailnet` (no alias), exact two capabilities, admin-only page, live native
-  admin mapping, enabled-but-unenrolled UI, connection-loss confirmation.
+  admin mapping, enabled-but-unenrolled UI, connection-loss confirmation. Package
+  registration, manifests, separate asset graphs and archive staging now pass
+  focused SDK/browser/producer checks. Installed enable/disable journeys remain
+  unqualified until integration.
 - [ ] **R02 — Thin host/Docker + dev target.** R; R00, R01, F02. Separate
   package/image production, ordered boot, obsolete bundle/installer paths
   removed; final native packages use T03 contents at I01.
