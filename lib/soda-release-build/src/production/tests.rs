@@ -186,6 +186,33 @@ fn production_fixture() -> (Production, Arc<Mutex<Vec<String>>>, PathBuf) {
 }
 
 #[test]
+fn common_images_build_after_docker_base_is_frozen() {
+    for corrupt_extra in [false, true] {
+        let (mut prod, calls, root) = production_fixture();
+        prod.resolve_inputs().unwrap();
+        prod.prepare_docker().unwrap();
+        if corrupt_extra {
+            prod.inputs[5].requested = "example.invalid/unrelated:latest".into();
+        }
+        let result = prod.images("forgejo-context");
+        if corrupt_extra {
+            assert_eq!(
+                result.unwrap_err().message(),
+                "unexpected extra frozen image input"
+            );
+            assert!(!calls.lock().unwrap().join("\n").contains(" build "));
+        } else {
+            assert_eq!(result.unwrap().len(), 6);
+            assert_eq!(
+                calls.lock().unwrap().join("\n").matches(" pull ").count(),
+                6
+            );
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[test]
 fn docker_packaging_reuses_host_and_refuses_an_unverified_export() {
     let (mut prod, calls, root) = production_fixture();
     prod.resolve_inputs().unwrap();

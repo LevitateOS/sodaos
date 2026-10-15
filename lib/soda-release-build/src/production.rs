@@ -76,15 +76,27 @@ impl Production {
         let archives = PathBuf::from(&self.out).join("images");
         std::fs::create_dir(&archives).map_err(|e| io_error("mkdir", &archives, e))?;
         crate::files::chmod(&archives, 0o755)?;
-        // Exactly the five frozen inputs: Rocky base, admitted Fountain
+        // The five common frozen inputs: Rocky base, admitted Fountain
         // image, upstream Caddy, upstream postgres, pinned official
         // Tailscale. Six roles leave production: four built archives plus
         // two upstream identity binds.
-        if self.inputs.len() != 5 {
+        // Docker preparation appends its frozen base before this shared phase.
+        // It belongs to outer packaging, not the application image inputs.
+        let inputs = if self.inputs.len() == 6 {
+            let recipe = PathBuf::from(&self.source).join("system/docker/Dockerfile");
+            let requested = soda_build_tools::reader::settings::recipe_base(&recipe)?;
+            if self.inputs[5].requested != requested {
+                return Err(Error::msg("unexpected extra frozen image input"));
+            }
+            self.pull_frozen_image(&self.inputs[5..], &requested, "")?;
+            &self.inputs[..5]
+        } else {
+            &self.inputs[..]
+        };
+        if inputs.len() != 5 {
             return Err(Error::msg("image inputs must be frozen before production"));
         }
-        let inputs = self.inputs.clone();
-        self.export_images(forgejo_context, &archives, &inputs)
+        self.export_images(forgejo_context, &archives, inputs)
     }
 
     // The admitted Fountain release supplies the Forgejo image and its
