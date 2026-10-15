@@ -151,6 +151,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
         prefix,
         refresh,
         forgejo_source,
+        fountain_release_url,
         storage,
         rootfs_url,
         pwd,
@@ -201,6 +202,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     fixture_authority::admit_fixture_authority(
         &pwd,
         &forgejo_source,
+        &fountain_release_url,
         &output_parent,
         &storage,
         &worker_json_path,
@@ -220,7 +222,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     println!("-- ready. Development candidate command from {pwd}:");
     println!("  sudo {ADMITTED} --worker-config {worker_json_path} --arch x86_64 \\");
     println!("    --out {output_parent}/manual-01 --development --target candidate \\");
-    println!("    --forgejo-source {forgejo_source}");
+    println!("    --release-tag vFIXTURE.0-dev --forgejo-source {forgejo_source}");
     println!("-- installer rootfs pickup: {ROOTFS_DIR} (served by soda-rootfs-server.service)");
     println!("  after a media build, copy its hash-named rootfs here:");
     println!("  sudo cp <out>/artifacts/media/*-rootfs.img {ROOTFS_DIR}/ && sudo chown root:root {ROOTFS_DIR}/*-rootfs.img && sudo chmod 0644 {ROOTFS_DIR}/*-rootfs.img");

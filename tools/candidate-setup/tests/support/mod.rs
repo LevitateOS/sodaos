@@ -38,6 +38,10 @@ pub fn cmd(cwd: &Path) -> Command {
     let mut command = Command::new(bin());
     command.current_dir(cwd);
     command.env("PWD", cwd);
+    command.env(
+        "SODA_FOUNTAIN_RELEASE_URL",
+        "https://releases.example.test/v15.0.10-fountain.2/release.json",
+    );
     for var in [
         "SODA_FORGEJO_SOURCE",
         "SODA_REPOSITORY_PREFIX",

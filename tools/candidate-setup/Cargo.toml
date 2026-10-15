@@ -8,6 +8,7 @@ name = "soda-candidate-setup"
 path = "src/main.rs"
 
 [dependencies]
+soda-build-tools = { path = "../../lib/release-inputs" }
 tempfile = "=3.27.0"
 libc = "=0.2.190"
 serde = { version = "=1.0.229", features = ["derive"] }

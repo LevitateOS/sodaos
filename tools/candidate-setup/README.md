@@ -24,6 +24,7 @@ From the repository root:
 
 ```sh
 SODA_FORGEJO_SOURCE=/home/soda-builder/forgejo-source \
+SODA_FOUNTAIN_RELEASE_URL=https://RELEASE_HOST/vFOUNTAIN_VERSION/release.json \
   cargo run -p soda-candidate-setup
 ```
 
@@ -32,7 +33,8 @@ Configure it through the environment:
 
 | Variable | Use |
 | --- | --- |
-| `SODA_FORGEJO_SOURCE` | Required absolute canonical Forgejo fork checkout. |
+| `SODA_FORGEJO_SOURCE` | Required absolute canonical Fountain checkout supplying the pinned SDK. Unrelated changes remain untouched; build admission checks SDK bytes against the selected release. |
+| `SODA_FOUNTAIN_RELEASE_URL` | Required immutable HTTPS metadata for the separately released Fountain image and corresponding sources. The build controller checks its source against `fountain-source.json`. |
 | `SODA_REPOSITORY_PREFIX` | Repository namespace; defaults to `ghcr.io/levitateos/sodaos`. |
 | `SODA_REFRESH_AUTHORITY` | Set to `1` to regenerate the fixture media authority. This invalidates signatures made with the old keys. |
 | `SODA_CANDIDATE_ROOT` | Worker storage root; defaults to `/home/soda-candidate`. |
@@ -41,7 +43,8 @@ Configure it through the environment:
 | `SODA_CANDIDATE_SCRATCH` | Worker scratch; defaults to `scratch` under the storage root. |
 
 Keep storage overrides on the workspace disk. They change worker storage, not
-all installed paths or the setup lease location.
+all installed paths. The setup lease uses `TMPDIR`; select a directory on the
+workspace disk for it and other temporary bytes.
 
 ## Result
 

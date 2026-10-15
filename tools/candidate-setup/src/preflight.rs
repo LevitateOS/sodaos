@@ -15,6 +15,7 @@ pub(super) struct Preflight {
     pub(super) prefix: String,
     pub(super) refresh: String,
     pub(super) forgejo_source: String,
+    pub(super) fountain_release_url: String,
     pub(super) storage: Storage,
     pub(super) rootfs_url: String,
     pub(super) pwd: String,
@@ -46,6 +47,14 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
     let prefix = env_or("SODA_REPOSITORY_PREFIX", PREFIX_DEFAULT);
     let refresh = env_or("SODA_REFRESH_AUTHORITY", "0");
     let forgejo_source = env_or("SODA_FORGEJO_SOURCE", "");
+    let fountain_release_url = env_or("SODA_FOUNTAIN_RELEASE_URL", "");
+    if !soda_build_tools::reader::url::https_url(&fountain_release_url)
+        || !fountain_release_url.ends_with("/release.json")
+    {
+        return fail(
+            "set SODA_FOUNTAIN_RELEASE_URL to the selected immutable HTTPS Fountain release.json",
+        );
+    }
     let storage_root = env_or("SODA_CANDIDATE_ROOT", STORAGE_ROOT_DEFAULT);
     let storage = Storage {
         home: env_or("SODA_CANDIDATE_HOME", &format!("{storage_root}/home")),
@@ -72,7 +81,7 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
         return fail("run from the repository root");
     }
     if forgejo_source.is_empty() {
-        return fail("set SODA_FORGEJO_SOURCE to the clean canonical Forgejo fork checkout");
+        return fail("set SODA_FORGEJO_SOURCE to the canonical Fountain SDK checkout");
     }
     let forgejo_git = format!("{forgejo_source}/.git");
     let canonical_ok = is_dir(&forgejo_git)
@@ -84,22 +93,26 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
         return fail("canonical Forgejo checkout required");
     }
     let safe_dir = format!("safe.directory={forgejo_source}");
-    // D01-F3: a failed inspection must not pass as clean.
-    let forgejo_clean = git_tree_clean(&capture(
-        "git",
-        &[
-            "-c",
-            &safe_dir,
-            "-C",
-            &forgejo_source,
-            "status",
-            "--porcelain",
-            "--untracked-files=normal",
-        ],
-        false,
-    ));
-    if !forgejo_clean {
-        return fail("Forgejo source must be clean and committed");
+    // The build controller verifies the SDK against the selected release pin.
+    // Unrelated Fountain changes do not select or replace released image bytes.
+    let forgejo_committed = matches!(
+        capture(
+            "git",
+            &[
+                "-c",
+                &safe_dir,
+                "-C",
+                &forgejo_source,
+                "rev-parse",
+                "--verify",
+                "HEAD^{commit}",
+            ],
+            true,
+        ),
+        Captured::Done(0, _)
+    );
+    if !forgejo_committed {
+        return fail("committed canonical Fountain SDK checkout required");
     }
     let arch_ok = match capture("uname", &["-m"], false) {
         Captured::SpawnFailed(_) => false,
@@ -155,7 +168,10 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
     let want = format!("go version go{pinned} linux/amd64");
 
     let user = String::from_utf8_lossy(&id_un()).into_owned();
-    let lock_path = format!("/tmp/soda-setup-{user}.lock");
+    let lock_path = env::temp_dir()
+        .join(format!("soda-setup-{user}.lock"))
+        .to_string_lossy()
+        .into_owned();
     let lease = match fs::OpenOptions::new()
         .write(true)
         .create(true)
@@ -182,6 +198,7 @@ pub(super) fn preflight() -> Result<Preflight, Exit> {
         prefix,
         refresh,
         forgejo_source,
+        fountain_release_url,
         storage,
         rootfs_url,
         pwd,

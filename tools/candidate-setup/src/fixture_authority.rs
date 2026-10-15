@@ -46,6 +46,7 @@ fn stage_file(path: &str, bytes: &[u8]) -> Result<(), Exit> {
 pub(super) fn admit_fixture_authority(
     pwd: &str,
     forgejo_source: &str,
+    fountain_release_url: &str,
     output_parent: &str,
     storage: &Storage,
     worker_json_path: &str,
@@ -87,6 +88,7 @@ pub(super) fn admit_fixture_authority(
         admitted,
         &pwd,
         &forgejo_source,
+        fountain_release_url,
         &output_parent,
         &storage.root,
         &storage.home,

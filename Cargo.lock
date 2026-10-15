@@ -1819,6 +1819,7 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
+ "soda-build-tools",
  "tempfile",
 ]
 

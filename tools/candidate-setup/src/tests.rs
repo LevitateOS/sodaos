@@ -7,9 +7,9 @@ use super::config::{config_json, trust_json, worker_json};
 use super::controller::controller_cargo_argv;
 use super::fixture_authority::random_hex_passphrase;
 use super::preflight::bridge_ip;
-use super::process::{Captured, git_tree_clean, pipe2, run_in_dir};
+use super::process::{git_tree_clean, pipe2, run_in_dir, Captured};
 use super::storage::units_have_active;
-use super::{Exit, WORKER_POLICY_SRC, command_v_in, current_umask, env_or, stripped, write_staged};
+use super::{command_v_in, current_umask, env_or, stripped, write_staged, Exit, WORKER_POLICY_SRC};
 
 #[test]
 fn worker_json_has_current_fields_without_trailing_newline() {
@@ -18,6 +18,7 @@ fn worker_json_has_current_fields_without_trailing_newline() {
             "/usr/local/lib/soda/soda-build",
             "/home/op/sodaos",
             "/home/op/forgejo",
+            "https://releases.example.test/v15.0.10-fountain.2/release.json",
             "/home/op/sodaos/.artifacts/releases/isolated",
             "/home/soda-candidate",
             "/home/soda-candidate/home",
@@ -32,6 +33,10 @@ fn worker_json_has_current_fields_without_trailing_newline() {
     assert_eq!(record["Source"], "/home/op/sodaos");
     assert_eq!(record["ForgejoSource"], "/home/op/forgejo");
     assert_eq!(
+        record["FountainReleaseURL"],
+        "https://releases.example.test/v15.0.10-fountain.2/release.json"
+    );
+    assert_eq!(
         record["OutputParent"],
         "/home/op/sodaos/.artifacts/releases/isolated"
     );
@@ -43,7 +48,7 @@ fn worker_json_has_current_fields_without_trailing_newline() {
         record["MediaAuthorityDirectory"],
         "/var/lib/soda-candidate-authority"
     );
-    assert_eq!(record.as_object().unwrap().len(), 9);
+    assert_eq!(record.as_object().unwrap().len(), 10);
     assert!(!got.ends_with('\n'));
     assert_eq!(got, make());
 }
@@ -196,11 +201,9 @@ fn write_staged_matches_redirection_bytes_and_mode() {
 fn passphrase_is_64_lowercase_hex_without_newline() {
     let passphrase = random_hex_passphrase().unwrap();
     assert_eq!(passphrase.len(), 64);
-    assert!(
-        passphrase
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
-    );
+    assert!(passphrase
+        .bytes()
+        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
     assert_ne!(
         random_hex_passphrase().unwrap(),
         random_hex_passphrase().unwrap()

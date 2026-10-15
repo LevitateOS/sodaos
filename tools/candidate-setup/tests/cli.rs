@@ -6,7 +6,6 @@
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
 use std::process::Command;
 
 mod support;
@@ -52,7 +51,7 @@ fn requires_forgejo_source() {
     assert!(out.stdout.is_empty());
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
-        "setup-soda-candidate: set SODA_FORGEJO_SOURCE to the clean canonical Forgejo fork checkout\n"
+        "setup-soda-candidate: set SODA_FORGEJO_SOURCE to the canonical Fountain SDK checkout\n"
     );
 }
 
@@ -78,7 +77,7 @@ fn rejects_relative_forgejo() {
 }
 
 #[test]
-fn rejects_dirty_forgejo() {
+fn rejects_uncommitted_fountain() {
     if real_tool("git").is_none() {
         eprintln!("skipping: git unavailable");
         return;
@@ -87,8 +86,12 @@ fn rejects_dirty_forgejo() {
     fs::write(root.path.join("go.mod"), "module fixture\n\ngo 1.26.7\n").unwrap();
     let forgejo = TempDir::new("dirtyforgejo-src");
     fs::write(forgejo.path.join("file"), "v1\n").unwrap();
-    assert!(git_init(&forgejo.path));
-    fs::write(forgejo.path.join("file"), "v2-uncommitted\n").unwrap();
+    assert!(Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&forgejo.path)
+        .status()
+        .unwrap()
+        .success());
     let fakes = TempDir::new("dirtyforgejo-bin");
     fake_ip(&fakes.path);
     let mut command = cmd(&root.path);
@@ -102,7 +105,7 @@ fn rejects_dirty_forgejo() {
     assert!(out.stdout.is_empty());
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
-        "setup-soda-candidate: Forgejo source must be clean and committed\n"
+        "setup-soda-candidate: committed canonical Fountain SDK checkout required\n"
     );
 }
 
@@ -249,7 +252,7 @@ fn refuses_held_lease() {
     let user = Command::new("id").arg("-un").output().unwrap();
     assert!(user.status.success());
     let name = String::from_utf8_lossy(&user.stdout);
-    let lock = PathBuf::from(format!("/tmp/soda-setup-{}.lock", name.trim()));
+    let lock = env::temp_dir().join(format!("soda-setup-{}.lock", name.trim()));
     let Some(_holder) = hold_flock_lock(&lock) else {
         eprintln!("skipping: lock already held by a live setup");
         return;
@@ -332,4 +335,15 @@ fn refuses_active_build() {
         String::from_utf8_lossy(&out.stderr),
         "setup-soda-candidate: a candidate build is still active; finish it before rerunning setup\n"
     );
+}
+
+#[test]
+fn requires_explicit_fountain_metadata_before_setup_mutations() {
+    let root = TempDir::new("nofountain-release");
+    let mut command = cmd(&root.path);
+    command.env_remove("SODA_FOUNTAIN_RELEASE_URL");
+    let out = command.output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    assert_eq!(String::from_utf8_lossy(&out.stderr),"setup-soda-candidate: set SODA_FOUNTAIN_RELEASE_URL to the selected immutable HTTPS Fountain release.json\n");
 }
