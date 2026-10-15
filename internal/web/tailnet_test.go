@@ -10,10 +10,48 @@ import (
 	"testing"
 
 	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
+
+// nativeTailnetAdminServe mirrors nativeAPIServeWithOptions but carries a
+// verified native site-admin actor in both the request headers and the
+// proxy CurrentActor callback, so live re-verification succeeds. Host-level
+// Tailnet controls require that authority (RCX-1 T01); plain nativeAPIServe
+// actors stay non-admin and exercise the denial paths.
+func nativeTailnetAdminServe(t *testing.T, s *Server, w http.ResponseWriter, r *http.Request, callback func(extensions.CallbackRequest) extensions.CallbackResponse, headers func(http.Header)) {
+	t.Helper()
+	login := r.Header.Get("X-Test-Native-Actor")
+	if login == "" {
+		login = "alice"
+	}
+	r.Header.Del("X-Test-Native-Actor")
+	admin := extensions.Actor{ID: nativeTestActorID(login), Username: login, SiteAdmin: true}
+	_ = nativeProductProxyForActorWithCallbacks(t, s, extensions.Contribution{}, login, callback, func(extensions.CallbackRequest) extensions.CallbackResponse {
+		return extensions.CallbackResponse{Actor: &admin}
+	})
+	path := strings.TrimPrefix(r.URL.Path, config.SodaPath)
+	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
+	if strings.HasPrefix(path, "/api/settings/tailnet") {
+		contribution.ID, contribution.Scope = "tailnet", "global"
+	}
+	for name, values := range nativeProductHeadersForNativeActor(r.Method, s.Config.ForgejoURL, contribution, admin) {
+		if name == "Origin" {
+			continue
+		}
+		r.Header.Del(name)
+		for _, value := range values {
+			r.Header.Add(name, value)
+		}
+	}
+	if headers != nil {
+		headers(r.Header)
+	}
+	r.URL.Path = path
+	s.ExtensionHandler().ServeHTTP(w, r)
+}
 
 func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 	for _, kind := range []string{"legacy", "off", "managed", "stale", "closed", "transfer", "native-failure", "network-failure", "binding-changed", "transfer-after-create"} {
@@ -144,7 +182,7 @@ func tailnetOffSettings() tailnet.SettingsView {
 	return tailnet.SettingsView{HostUnavailable: true, Enrollment: tailnet.EnrollmentView{Revision: "0", Tags: []string{}}}
 }
 
-func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
+func TestTailnetNativeSiteAdminAdmissionAndNativeFailureSecrecy(t *testing.T) {
 	calls := 0
 	fail := false
 	s := stubbedHostWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
@@ -168,23 +206,36 @@ func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 		w := httptest.NewRecorder()
 		nativeAPIServe(t, s, w, apiTestRequest(method, route, `{"secret":`, "bob"))
 		if w.Code != 403 || calls != 0 {
-			t.Fatal("site-admin acquired appliance access", w.Code, calls)
+			t.Fatal("non-admin acquired appliance access", w.Code, calls)
+		}
+	}
+	// The configured operator without native site-admin authority is refused
+	// on every host-level route, even with a well-formed request.
+	for _, route := range []string{"/api/settings/tailnet", "/api/settings/tailnet/host", "/api/settings/tailnet/enrollment"} {
+		method := "POST"
+		if route == "/api/settings/tailnet" {
+			method = "GET"
+		}
+		w := httptest.NewRecorder()
+		nativeAPIServe(t, s, w, apiTestRequest(method, route, `{}`, "alice"))
+		if w.Code != 403 || calls != 0 {
+			t.Fatal("configured non-admin operator acquired appliance access", route, w.Code, calls)
 		}
 	}
 	w := httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"))
+	nativeTailnetAdminServe(t, s, w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"), nil, nil)
 	if w.Code != 200 || calls != 1 || w.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 	fail = true
 	w = httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"))
+	nativeTailnetAdminServe(t, s, w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"), nil, nil)
 	if w.Code != 409 || calls != 2 || strings.Contains(w.Body.String(), "synthetic-secret") {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 }
 
-func TestTailnetBridgeUsesConfiguredOperatorInsteadOfSiteAdmin(t *testing.T) {
+func TestTailnetBridgeRequiresNativeSiteAdmin(t *testing.T) {
 	calls := 0
 	s := stubbedHostWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
@@ -211,15 +262,17 @@ func TestTailnetBridgeUsesConfiguredOperatorInsteadOfSiteAdmin(t *testing.T) {
 		t.Cleanup(func() { _ = response.Body.Close() })
 		return response
 	}
+	// The configured operator without native site-admin authority is refused;
+	// authority alone never comes from the configured operator ID.
 	configuredOperator := extensions.Actor{ID: "1", Username: "alice", SiteAdmin: false}
 	response := request(configuredOperator)
-	if response.StatusCode != http.StatusOK || calls != 1 {
-		t.Fatalf("configured non-site-admin operator: status=%d native calls=%d", response.StatusCode, calls)
+	if response.StatusCode != http.StatusForbidden || calls != 0 {
+		t.Fatalf("configured non-site-admin operator admitted: status=%d native calls=%d", response.StatusCode, calls)
 	}
-	unrelatedSiteAdmin := extensions.Actor{ID: "2", Username: "bob", SiteAdmin: true}
-	response = request(unrelatedSiteAdmin)
-	if response.StatusCode != http.StatusForbidden || calls != 1 {
-		t.Fatalf("unrelated site admin acquired configured operator access: status=%d native calls=%d", response.StatusCode, calls)
+	siteAdmin := extensions.Actor{ID: "2", Username: "bob", SiteAdmin: true}
+	response = request(siteAdmin)
+	if response.StatusCode != http.StatusOK || calls != 1 {
+		t.Fatalf("verified site admin refused: status=%d native calls=%d", response.StatusCode, calls)
 	}
 }
 
@@ -230,7 +283,7 @@ func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 	for _, header := range []string{"actor", "generation", "origin"} {
 		r := apiTestRequest("POST", "/api/settings/tailnet/host", valid, "alice")
 		w := httptest.NewRecorder()
-		nativeAPIServeWithOptions(t, s, w, r, nil, func(h http.Header) {
+		nativeTailnetAdminServe(t, s, w, r, nil, func(h http.Header) {
 			switch header {
 			case "actor":
 				h.Set(extensions.ContextHeader, strings.Replace(h.Get(extensions.ContextHeader), `"id":"1"`, `"id":"2"`, 1))
@@ -246,13 +299,13 @@ func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 	}
 	for _, body := range []string{`{}`, `null`, strings.TrimSuffix(valid, "}") + `,"socket":"/host.sock"}`, strings.TrimSuffix(valid, "}") + `,"action":"logout"}`, strings.Replace(valid, "signin", "logout", 1)} {
 		w := httptest.NewRecorder()
-		nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/host", body, "alice"))
+		nativeTailnetAdminServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/host", body, "alice"), nil, nil)
 		if w.Code != 400 || calls != 0 {
 			t.Fatal(w.Code, w.Body.String(), calls)
 		}
 	}
 	w := httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/host", valid, "alice"))
+	nativeTailnetAdminServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/host", valid, "alice"), nil, nil)
 	if w.Code != 422 || calls != 1 {
 		t.Fatal(w.Code, calls)
 	}
@@ -273,13 +326,13 @@ func TestTailnetEnrollmentNeverEchoesInputAndRejectsEndpointOverride(t *testing.
 	})
 	body := `{"action":"check","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-stored"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-synthetic-credential"}`
 	w := httptest.NewRecorder()
-	nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", body, "alice"))
+	nativeTailnetAdminServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", body, "alice"), nil, nil)
 	if w.Code != 200 || calls != 1 || strings.Contains(w.Body.String(), "synthetic-credential") || w.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 	for _, bad := range []string{strings.Replace(body, "synthetic-credential", "synthetic-credential?baseURL=https://evil.test", 1), strings.Replace(body, `"soda.example.test"`, `"-"`, 1), strings.TrimSuffix(body, "}") + `,"credential_path":"/etc/shadow"}`} {
 		w = httptest.NewRecorder()
-		nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", bad, "alice"))
+		nativeTailnetAdminServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", bad, "alice"), nil, nil)
 		if w.Code != 400 || calls != 1 {
 			t.Fatal(w.Code, calls)
 		}

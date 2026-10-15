@@ -47,7 +47,8 @@
     "native.user.public_keys.read",
     "native.contribution.authorize",
     "native.service.bridge",
-    "native.background.operations"
+    "native.background.operations",
+    "native.extension.lifecycle"
   ],
   "policies": [
     "forgejo.username"

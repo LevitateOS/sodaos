@@ -18,6 +18,11 @@ import (
 // reuses the existing auth service for nonterminal routes.
 func (s *API) ExtensionHandler() http.Handler {
 	mux := http.NewServeMux()
+	// The lifecycle route runs ahead of the ordinary browser gate: it
+	// carries its own manager-issued authority, never a browser Actor.
+	// The method is enforced inside the handler because the Auth
+	// fallback below would otherwise shadow mux method matching.
+	mux.HandleFunc(extensionLifecycleRoute, s.apiExtensionLifecycle)
 	mux.HandleFunc("/api/environments/{id}/terminal", s.extensionTerminalStream)
 	mux.HandleFunc("/api/environments/{id}/terminal-sessions", s.extensionReserveTerminal)
 	mux.HandleFunc("/api/environments/{id}/terminal-sessions/{terminalID}", s.extensionTerminalSession)

@@ -10,6 +10,39 @@ import (
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
+// errTailnetAdminRequired denies host-level Tailnet controls to verified
+// non-admin actors. It is distinct from a stale session so denials stay
+// truthful: forged or changed sessions take the provider-error path.
+var errTailnetAdminRequired = errors.New("native site administrator required")
+
+// tailnetAdminAuthorization verifies live native site-admin authority for
+// host-level Tailnet controls (RCX-1 T01, I3). The request extension
+// authority binds actor ID and username to the session; SiteAdmin is the
+// native admin signal. A configured operator ID alone never authorizes, and
+// browser-supplied actor headers are never trusted without that binding.
+func (s *API) tailnetAdminAuthorization(r *http.Request, v store.Session) error {
+	authority, ok := s.extensionActor(r, v)
+	if !ok {
+		return auth.ErrNativeSessionChanged
+	}
+	if !authority.Actor.SiteAdmin {
+		return errTailnetAdminRequired
+	}
+	return nil
+}
+
+func (s *API) authorizeTailnetAdmin(w http.ResponseWriter, r *http.Request, v store.Session) bool {
+	if err := s.tailnetAdminAuthorization(r, v); err != nil {
+		if errors.Is(err, errTailnetAdminRequired) {
+			auth.JSONError(w, 403, "tailnet_admin_required", "Only a native site administrator can manage Tailnet.")
+		} else {
+			auth.ProviderError(w, err)
+		}
+		return false
+	}
+	return true
+}
+
 func tailnetQuery(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
@@ -43,7 +76,7 @@ func tailnetError(w http.ResponseWriter, err error) {
 }
 
 func (s *API) apiTailnetSettings(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) || !s.tailnetSession(w, r, v) {
+	if !s.authorizeTailnetAdmin(w, r, v) || !tailnetQuery(w, r) || !s.tailnetSession(w, r, v) {
 		return
 	}
 	result, err := s.Host.TailnetSettings(r.Context())
@@ -58,7 +91,7 @@ func (s *API) apiTailnetSettings(w http.ResponseWriter, r *http.Request, v store
 }
 
 func (s *API) apiTailnetHost(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) {
+	if !s.authorizeTailnetAdmin(w, r, v) || !tailnetQuery(w, r) {
 		return
 	}
 	var in tailnet.HostRequest
@@ -84,7 +117,7 @@ func (s *API) apiTailnetHost(w http.ResponseWriter, r *http.Request, v store.Ses
 }
 
 func (s *API) apiTailnetEnrollment(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) {
+	if !s.authorizeTailnetAdmin(w, r, v) || !tailnetQuery(w, r) {
 		return
 	}
 	var in tailnet.EnrollmentRequest

@@ -12,11 +12,13 @@ import (
 
 // Extension wires the separate Forgejo extension process. The service socket is
 // a dedicated private listener, not the dashboard's public browser listener.
+// The required soda package additionally owns the tailnet lifecycle
+// controller, wired here from the product API owner.
 func Extension(socket string) (extensions.Application, func()) {
 	handler, closeTransport := api.Extension(socket)
 	return extensions.Application{HTTP: handler, Policies: map[string]extensions.PolicyHandler{
 		extensions.PolicyForgejoUsername: forgejoUsernamePolicy,
-	}}, closeTransport
+	}, Lifecycle: api.LifecycleController(socket, api.SodaServicePeerUID)}, closeTransport
 }
 
 func forgejoUsernamePolicy(_ context.Context, request extensions.PolicyRequest) (extensions.PolicyDecision, error) {
