@@ -1,18 +1,18 @@
 # Coverage index
 
-## Current Docker release delta (2026-10-14)
+## Current Docker release delta (2026-10-16)
 
-The [current ledger](maps/release-docker-current.md) maps all 76 selected paths
-in `1d398279..76daa366`, including all merged Docker work, main-side native repairs
-and the subsequent CLI fixture correction. Fifteen added Docker paths retain
-existing owners. The source tree has 2,888 tracked paths; this is a membership
-count, not renewed full-body coverage. The new H06 map is upkeep beyond that pin.
+The [current ledger](maps/release-docker-current.md#installer-integration-scope)
+maps all 18 installer-integration paths in `730fc205..92069938`, including three
+added leaves. The source contains 2,907 tracked paths; only the selected delta's
+duties are refreshed. The one newly oversized code file is the 530-line installer
+fixture; its [concern review](../decomposition/release-production.md#current-docker-release-concerns-2026-10-16)
+also covers the 393-line installer and changed seams in older oversized files.
 
-Seven files newly cross the 400-line trigger and eighteen changed code files
-exceed it; their [bounded concern review](../decomposition/release-production.md#current-docker-release-concerns-2026-10-14)
-preserves unchanged owners. Earlier accumulated Canlang/Project/frontend changes
-since `68d82401` remain outside this scoped review, with historical inventory,
-structural, body, independent-review and native-evidence pins unchanged.
+The earlier 76-path Docker scope remains at `76daa366`. Accumulated components-v4
+and other drift through `730fc205` (including thirteen commits after `86659d5e`)
+remain pending, alongside older inventory gaps. Structural, body, independent
+review and native qualification pins are unchanged; this is not all-HEAD coverage.
 
 ## Fountain LTS delta (2026-10-13)
 

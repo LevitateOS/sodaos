@@ -1,5 +1,71 @@
 # Current Docker release responsibilities
 
+## Installer integration scope
+
+Bounded source pin: `92069938869499a671a52e84ab03c639bb0b09d9`, inspected on
+2026-10-16 against parent `730fc20526ef7c65c5b6abe1445297dc91d3f5c0`.
+This integration changes **18 paths: three added, fifteen modified**, with no
+rename or deletion. The committed source has **2,907 paths**; that membership
+count does not advance the historical whole-tree/body/review pins.
+
+The previously reconciled Docker range below remains at `76daa366`.
+`76daa366..730fc205` has 358 changed-path entries still outside this bounded
+review, including components-v4 and the thirteen canonical commits
+`86659d5e..730fc205`. Reading an installer caller or fixture does not reconcile
+those complete intervening implementations. Existing unrelated inventory and
+review gaps remain open. ARM64/UTM is outside this task.
+
+| Change | Exact path | Retained defining owner and inspected duty |
+| --- | --- | --- |
+| M | `docs/architecture/release.md` | **H06/D07** — Immutable installer inventory, promoted exact tag/source/digest marker and installer-inclusive native qualification contract. |
+| M | `docs/development/release.md` | **H06/D06/D09** — Prepare/stage/download/qualification/promotion joins; five downloaded assets and separately retained installer execution transcript. |
+| M | `docs/guides/docker.md` | **H06/D10/D11** — Version-bound entrypoint, prerequisites, user-owned setup, same-release rerun and retained-state refusal. |
+| M | `docs/public/20-Deploy/22-docker.md` | **H06/D10** — Public availability notice and intended installation path; no unqualified runnable release URL. |
+| M | `lib/soda-release-deliver/README.md` | **H06/D07** — Renderer markers, noncircular identity ownership, transcript admission and qualification marker interface. |
+| M | `lib/soda-release-deliver/src/docker/mod.rs` | **D05/D07** — `INSTALLER_SOURCE` and `installer_template` select exact archived template through the existing confined source reader. |
+| M | `lib/soda-release-deliver/src/docker/registry_tests.rs` | **D06/D07/D09** — Archived rendering/substitution refusal, GitHub asset verification, every-phase installer binding, transcript identity and promotion marker fixtures. |
+| M | `lib/soda-release-deliver/src/docker/source.rs` | **D05** — `SOURCE_FILES` requires the installer; `read_inputs_from` reuses bounded regular archive-member admission for candidate and prepared source names. |
+| M | `lib/soda-release-deliver/src/docker/tests.rs` | **D05/D07** — The shared source-archive fixture includes a renderable installer template; other fixture bodies retain their previous scope. |
+| M | `lib/soda-release-deliver/src/publish/assets.rs` | **D07** — Docker manifest cardinality/required asset; prepare renders and hashes installer; inventory reconstructs source-bound bytes to reject rehashed substitution. |
+| A | `lib/soda-release-deliver/src/publish/installer.rs` | **D07** — `render` substitutes validated tag/source and metadata hash/size into archived template; no downloads or runtime effects. |
+| M | `lib/soda-release-deliver/src/publish/mod.rs` | **D09/D07** — Promotion emits the exact Docker marker after selected qualification; `qualify_docker` verifies all canonical downloaded assets with GitHub. |
+| M | `lib/soda-release-deliver/src/publish/qualification.rs` | **D06/D07** — `DOWNLOADS`, `NativeDocker` installer/transcript identities, selected asset checks and retained installation-transcript binding; collection remains observation admission. |
+| M | `scripts/check-docker-packaging.sh` | **H06** — Adds Bash syntax admission beside existing Dockerfile/Compose checks. |
+| M | `scripts/check-push.sh` | **H06** — Required core profile executes installer command fixtures; Rust profile includes release-deliver library tests. |
+| A | `system/docker/install-docker.sh` | **D10/D11** — Stream-safe complete-script entry, exact immutable release/hash/platform/host admission, private deployment commit, preserved runtime identity and delegated setup/activation. `check_network` consumes N02 host routes/reservations; `setup_browser` calls existing O02/N01 owners without defining their native policy. |
+| M | `tests/build/README.md` | **H06** — Documents subprocess-fixture scope and required push-profile inclusion. |
+| A | `tests/build/docker_installer_test.go` | **H06/D10/D11** — Executes actual streamed script with substituted external commands; real JSON/hash/file/permission/rerun checks, failure-before-mutation, retained volume identity and activated-service/HTTPS refusal. |
+
+### Boundaries, checks and completion dimensions
+
+`publish/installer.rs` owns rendering; `publish/assets.rs` owns rendered asset
+hash/size and inventory. Docker metadata continues to bind Compose/image bytes,
+without hashing its own installer. Qualification admits the downloaded installer
+plus retained transcript; the promotion note marker binds tag/source/image and
+is a consumer gate, not an independently collected installation observation.
+The Bash adapter invokes Docker and existing Rust setup/activation executables;
+there is no new daemon, crate, Go/Rust port or image payload owner.
+
+Source/duty coverage is complete for this 18-path delta. The traced source join
+is archived template → prepared immutable asset → downloaded consumer → retained
+installation transcript → qualification → promotion marker. Full installed
+workflow analysis/behavior remains pending. Root reports bounded code review and
+93/93 delivery library tests, focused Go source/CI/installer tests (including
+activated-state and cached-sudo cases), and Docker packaging checks passing;
+this upkeep does not rerun or expand those receipts. Independent full-slice
+A/C challenge remains at its earlier scope. Exact current targets are allocated
+for the three additions, without endorsing a broader architecture revision.
+
+[Concern inspection](../../decomposition/release-production.md#current-docker-release-concerns-2026-10-16),
+[slices](../../slices/release-and-installation.md#current-docker-release-model-2026-10-16),
+[tasks](../../implementation-tasks.md#current-docker-release-handoff-2026-10-16)
+and [lanes](../../implementation-lanes.md#current-docker-release-handoff-2026-10-16)
+retain public-image/runtime/Projects/nested-container/Factory/persistence proof
+as separate gates. No install, build, VM, publication or qualification ran in this
+planning refresh.
+
+## Earlier reconciled Docker source scope
+
 Scoped source reconciliation on 2026-10-14: `76daa366822e0a135df961d7c9c21713da016bd3`,
 following merge `370767292d34dfe932b993de9c8e6c810ee9ea67` and its focused
 CLI-fixture repair. The selected accumulated range `1d398279..76daa366` covers
@@ -112,7 +178,7 @@ Factory or persistence journeys. That end-to-end collector remains pending.
 
 This refresh performs source/duty and concern inspection only. It does not issue
 new runtime/publication evidence or advance an old test receipt to the merged
-revision. See [size concerns](../../decomposition/release-production.md#current-docker-release-concerns-2026-10-14),
-[release slices](../../slices/release-and-installation.md#current-docker-release-model-2026-10-14),
-[tasks](../../implementation-tasks.md#current-docker-release-handoff-2026-10-14)
-and [schedule](../../implementation-lanes.md#current-docker-release-handoff-2026-10-14).
+revision. See [size concerns](../../decomposition/release-production.md#current-docker-release-concerns-2026-10-16),
+[release slices](../../slices/release-and-installation.md#current-docker-release-model-2026-10-16),
+[tasks](../../implementation-tasks.md#current-docker-release-handoff-2026-10-16)
+and [schedule](../../implementation-lanes.md#current-docker-release-handoff-2026-10-16).

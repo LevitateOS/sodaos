@@ -1,11 +1,14 @@
 # Tracked files: system
 
-## Current Docker release leaves (2026-10-14)
+## Current Docker release leaves (2026-10-16)
 
-Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+Scope: [installer delta at `92069938`](../maps/release-docker-current.md#installer-integration-scope)
+adds the first row below; other rows retain their `76daa366` scope. Intervening
+components-v4/canonical changes and historical inventory gaps remain pending.
 
 | Current tracked path | Owner / disposition | Responsibility evidence |
 | --- | --- | --- |
+| [system/docker/install-docker.sh](../../../../../system/docker/install-docker.sh) | D10/D11 / retained Bash adapter | Complete streamed entrypoint, exact release/download/host admission, private persistent deployment and native setup/activation delegation. Mixed N02/O02/N01 joins and proof limits are in the installer ledger. |
 | [system/docker/network-scope.conf](../../../../../system/docker/network-scope.conf) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
 | [system/docker/project-scope.conf](../../../../../system/docker/project-scope.conf) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |
 | [system/docker/image-import.conf](../../../../../system/docker/image-import.conf) | D03/H01/D11 / retained | Existing host payload packaged for Docker; Compose owns installed network/cgroup/volume/readiness choices, init owns atomic first configuration, scope drop-ins own shutdown ordering. |

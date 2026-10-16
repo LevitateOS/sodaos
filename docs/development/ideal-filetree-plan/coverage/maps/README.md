@@ -2,10 +2,11 @@
 
 ## Current selected release map
 
-[Docker release responsibilities](release-docker-current.md) covers the complete
-76-path selected delta at `76daa366`, including changed mixed duties and retired
-documentation. It supplements the historical map families below and is one H06
-upkeep leaf beyond the pinned 2,888-path source inventory.
+[Docker release responsibilities](release-docker-current.md) maps the 18-path
+installer integration `730fc205..92069938`, including all three added leaves and
+changed mixed duties. The earlier 76-path range remains at `76daa366`. This scoped
+map supplements the historical families; accumulated components-v4 and thirteen
+newer canonical commits remain pending, without an all-HEAD coverage claim.
 
 ### Responsibilities inside mixed and oversized files
 

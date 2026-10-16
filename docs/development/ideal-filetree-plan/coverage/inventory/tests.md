@@ -1,11 +1,14 @@
 # Tracked files: tests
 
-## Current Docker release leaves (2026-10-14)
+## Current Docker release leaves (2026-10-16)
 
-Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+Scope: [installer delta at `92069938`](../maps/release-docker-current.md#installer-integration-scope)
+adds the first row below; other rows retain their `76daa366` scope. Intervening
+components-v4/canonical changes and historical inventory gaps remain pending.
 
 | Current tracked path | Owner / disposition | Responsibility evidence |
 | --- | --- | --- |
+| [tests/build/docker_installer_test.go](../../../../../tests/build/docker_installer_test.go) | H06/D10/D11 / retained Go verification | Actual streamed-script execution with external-command fixtures; admission, retention, failure and readiness cases; no native Docker execution. |
 | [tests/build/ci_admission_test.go](../../../../../tests/build/ci_admission_test.go) | H06/D07 / retained | Required CI Docker packaging/admission checks; source checks do not qualify published runtime bytes. |
 
 Scoped committed native correction delta `5d281760..ac22514b` (2026-10-13):

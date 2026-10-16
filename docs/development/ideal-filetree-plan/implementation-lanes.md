@@ -1,22 +1,23 @@
 # Parallel implementation schedule
 
-## Current Docker release handoff (2026-10-14)
+## Current Docker release handoff (2026-10-16)
 
-The [current handoff](implementation-tasks.md#current-docker-release-handoff-2026-10-14)
-at `76daa366` retires duplicate implementation of the landed controller, packaging,
-metadata, CI, Compose and publisher flow. No new restructuring lane starts.
-C retains release-tools/build/image/deliver plus H06 CI; A retains actual
-Project/nested-runtime joins; B retains existing Factory/provider observations.
-C is the single writer for qualification DTO/admission changes, taking A/B native
-handoffs before changing the shared contract. A challenges the release boundary.
+The [current handoff](implementation-tasks.md#current-docker-release-handoff-2026-10-16)
+at `92069938` keeps existing owners; the installer/rendering/inventory/qualification
+joins are implemented and must not be redispatched. C is the single writer for
+`system/docker/install-docker.sh`, delivery publication/admission, release docs
+and H06 gates/fixtures. O02/N01 setup and activation stay at their existing native
+owners. A retains Project/nested-runtime evidence, B Factory/provider observations;
+C joins their retained outputs, and A challenges the release boundary. This
+upkeep does not rebind or claim completion of the historical full-slice reviews.
 
-When release work resumes, the critical path is minimal native prerequisites and
-collector joins → exact main CI and production candidate → immutable staging and
-anonymous digest readback → downloaded-byte native qualification → unchanged-digest
-promotion and observation. One operator owns heavy builds and Docker resources.
-Missing native collectors/evidence gate V; they do not reopen completed source
-ownership or require another release pipeline. Historical lanes and evidence
-below retain their original scope; earlier full-plan reconciliation stays pending.
+The critical path is native prerequisites → exact-source production build and
+immutable staging → downloaded installer plus all required native observations
+→ qualification → unchanged-digest promotion/marker → normal public-path rerun.
+One authorized operator owns heavy builds and Docker resources. The canonical
+checkout's separate native candidate run and retained artifacts are not this
+lane's scratch or qualification evidence. Broader components-v4 and thirteen
+canonical-commit reconciliation remains pending; no new restructuring lane starts.
 
 ## Fountain LTS integration (2026-10-13)
 

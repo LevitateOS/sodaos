@@ -1,16 +1,22 @@
 # Package ownership and execution topology
 
-## Docker release ownership (2026-10-14)
+## Docker release ownership (2026-10-16)
 
-At `76daa366`, release-build packages the common candidate, release-image selects
-outputs, release-deliver verifies, admits and publishes, and release-tools owns the
-operator/controller flow. `lib/release-inputs` defines shared build/completion and
-RPM representations. The [ledger](coverage/maps/release-docker-current.md) maps
-new leaves and mixed duties. Acceptance owns native observations; delivery reads
-them and does not become a native driver. Docker runs existing systemd/Podman
-applications and Projects inside the outer container. No VM, sidecar, new crate
-or Go/Rust ownership move follows. Native collection and installed proof remain
-pending.
+The [bounded installer integration](coverage/maps/release-docker-current.md#installer-integration-scope)
+at `92069938` retains release-deliver's Rust publisher/admission owner. Its new
+`src/publish/installer.rs` renders only the archived template; assets.rs owns the
+rendered asset identity and qualification.rs owns installer/transcript admission.
+`system/docker/install-docker.sh` is the downloadable Bash bootstrap adapter:
+it invokes the rootful Docker CLI and existing Rust setup/activation commands,
+without taking over their system policy or introducing a persistent service.
+`tests/build/docker_installer_test.go` remains Go verification infrastructure.
+
+Release-build/image/tools and runtime systemd/Podman retain their earlier owners;
+no new crate, VM, sidecar or Go/Rust port is allocated. D10/D11 define installer
+consumption/preservation, with N02 route constraints and O02/N01 native delegation.
+The source binds metadata → Compose/image, and immutable inventory → installer,
+avoiding circular hashes. Full native collection/qualification and intervening
+components-v4 reconciliation remain pending; previous source/review pins stand.
 
 ## Scoped native frontend boundary (2026-10-13)
 

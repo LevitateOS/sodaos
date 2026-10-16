@@ -1,15 +1,21 @@
 # Prepared slice audit review input baseline
 
-## Bounded release source reconciliation (2026-10-14)
+## Bounded release source reconciliation (2026-10-16)
 
-Resulting source `76daa366822e0a135df961d7c9c21713da016bd3` follows merge
-`37076729`. The [selected ledger](coverage/maps/release-docker-current.md) reconciles
-D01–D11/H01/H06 and changed P02/P11 source with current release architecture,
-workflow, Docker installation, native support and operator guidance. Production
-dispatch claims are corrected; native collection remains pending. Original
-review packet hashes were not revalidated, no independent full-slice audit was
-restarted and no native pin advanced. Earlier source/guidance drift stays pending;
-the historical manifests below retain their exact reproducibility scopes.
+Installer source `92069938869499a671a52e84ab03c639bb0b09d9` is reconciled only
+against its parent `730fc205`: [18 exact paths](coverage/maps/release-docker-current.md#installer-integration-scope),
+including three additions and one newly oversized fixture. Controlling guidance
+is this commit's release architecture, workflow and Docker/public installation
+guides, with the owner's current Docker installer instruction; ARM is excluded.
+D05–D11/H06 retain existing owners, delegating native setup/activation and Project
+routing to O02/N01/N02. No full-slice review or original guidance-hash revalidation
+was performed, and no native evidence pin advances.
+
+The previous `76daa366` Docker pass retains its 76-path scope. Accumulated source
+changes through `730fc205`, including components-v4 and the thirteen commits
+`86659d5e..730fc205`, remain pending outside this installer delta. Earlier
+structural/catalog/body and full review manifests below preserve their exact
+reproducibility scopes; current source is not claimed fully reviewed.
 
 The preparation sections below retain the historical 2026-10-05 review scope.
 Use the [current input baseline](#current-input-baseline-2026-10-07) for the

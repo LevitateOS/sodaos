@@ -1,6 +1,27 @@
 # Release production
 
-## Current Docker release concerns (2026-10-14)
+## Current Docker release concerns (2026-10-16)
+
+At `92069938`, the [18-path installer delta](../coverage/maps/release-docker-current.md#installer-integration-scope)
+adds one file over the 400-line concern trigger. Exact source lines include test
+fixtures, comments and blanks. The new large file and the security-sensitive
+bootstrap were inspected internally; unchanged historical bodies below are not
+re-reviewed or re-certified by this pass.
+
+| Current file / lines | Inspected concerns and disposition |
+| --- | --- |
+| `tests/build/docker_installer_test.go` / 530 | Go fixture/metadata setup (1–74), external-command substitutions (76–180), render/run/no-mutation assertions (182–244), then asset/host refusals, rerun/upgrade preservation, reserved routes, retained runtime identity, readiness/retry, truncated input, explicit prerelease mode, atomic file commit, unrecognized data preservation, activated-service/CA-verified HTTPS and cached-sudo cases (246–530). Retain this cohesive subprocess suite at its current test owner. External Docker, network and sudo behavior is substituted; JSON, hashing, files, permissions and streamed Bash are real. This does not qualify native networking or installation. |
+| `system/docker/install-docker.sh` / 393 | Below the trigger, but inspect the complete-script parse guard, bounded HTTPS/file checks, local rootful host admission, private scratch, exact retained files/container/volume identity, subnet/port checks, explicit privilege confirmation, anonymous digest pull, atomic configuration commit/lock, bounded start and delegated browser setup. Keep one downloadable source template because the streamed artifact must execute without a repository/toolchain; existing native system policy stays in Rust helpers. Independent native effect/proof remains pending. |
+| `lib/soda-release-deliver/src/publish/installer.rs` / 31 | Small archived-template renderer only; one source reader and canonical asset inventory, no duplicate fetcher or parser. Retain at this existing publisher module. |
+| `lib/soda-release-deliver/src/docker/registry_tests.rs` / 1,145 | Existing oversized fixture gains installer rendering/substitution, GitHub verification, per-phase transcript/asset identity and marker checks. Reuse its private candidate/transport fixture; do not expose production internals or start a new integration package solely to reduce size. Only added/changed concerns are refreshed. |
+| `lib/soda-release-deliver/src/publish/assets.rs` / 663; `src/publish/mod.rs` / 931 | Inventory adds rendered installer cardinality/source reconstruction; promotion adds the qualified marker and uses the canonical download list. Retain representation/preparation in assets and effects in publisher; actual template rendering is already isolated in installer.rs. Previous bodies retain their earlier scope. |
+| `lib/soda-release-deliver/src/docker/tests.rs` / 684 | Existing oversized candidate fixture adds the required renderable source template. Other fixture duties remain at their recorded scopes. |
+
+No added file in this selected delta lacks a concern disposition. Broader
+components-v4 and canonical-commit size/body gaps remain pending. Current exact
+paths remain allocated; no extraction, language port or service split is selected.
+
+## Earlier inspected Docker concern bodies (2026-10-14)
 
 The [selected source ledger](../coverage/maps/release-docker-current.md) is pinned
 at `76daa366`. The 400-line trigger selects eighteen changed code files; seven

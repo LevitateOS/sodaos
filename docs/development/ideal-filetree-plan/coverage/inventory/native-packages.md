@@ -1,11 +1,14 @@
 # Tracked files: lib
 
-## Current Docker release leaves (2026-10-14)
+## Current Docker release leaves (2026-10-16)
 
-Scope: [current release ledger](../maps/release-docker-current.md). Existing owners remain.
+Scope: [installer delta at `92069938`](../maps/release-docker-current.md#installer-integration-scope)
+adds the first row below; other rows retain their `76daa366` scope. Intervening
+components-v4/canonical changes and historical inventory gaps remain pending.
 
 | Current tracked path | Owner / disposition | Responsibility evidence |
 | --- | --- | --- |
+| [lib/soda-release-deliver/src/publish/installer.rs](../../../../../lib/soda-release-deliver/src/publish/installer.rs) | D07 / retained Rust module | Render archived source template with exact tag/revision/metadata identity; existing assets.rs owns the immutable output inventory. |
 | [lib/release-inputs/src/reader/build.rs](../../../../../lib/release-inputs/src/reader/build.rs) | D01/D02/D07 / retained | Canonical completed build DTO and RPM/recipe readers; tools issues controller completion and delivery admits the exact build bytes. |
 | [lib/release-inputs/src/reader/rpm.rs](../../../../../lib/release-inputs/src/reader/rpm.rs) | D01/D02/D07 / retained | Canonical completed build DTO and RPM/recipe readers; tools issues controller completion and delivery admits the exact build bytes. |
 | [lib/soda-release-build/src/production_docker.rs](../../../../../lib/soda-release-build/src/production_docker.rs) | D02/D03 / retained | Frozen Fedora acquisition and production_docker consume the same admitted host config/payload, export OCI, capture packages/Compose and invoke delivery verification. |

@@ -1,16 +1,20 @@
 # Audit ownership and collaboration
 
-## Current release guidance reconciliation (2026-10-14)
+## Current release guidance reconciliation (2026-10-16)
 
-The owner's production Docker instruction selects direct containers with existing
-nested Podman workloads. The [release architecture](../../architecture/release.md)
-and [Docker guide](../../guides/docker.md) own that model at `76daa366`.
-GUIDANCE-04's Rust release owners remain controlling. Earlier production-refusal
-claims are superseded by [current source](coverage/maps/release-docker-current.md);
-the qualification reader does not establish an available native collector or a
-qualified image. D01–D11/H06 retain C's primary and A's challenger assignment;
-Project/system joins retain their existing A/H01 owners. No new language decision,
-independent full-slice review or runtime proof follows from this upkeep.
+The owner's current Docker installer instruction adds a streamed consumer to the
+direct-container model. At `92069938`, [release architecture](../../architecture/release.md)
+and the [Docker guide](../../guides/docker.md) require exact immutable script,
+metadata, Compose and image identities, explicit qualification state and retained
+installation evidence. The public handbook correctly withholds a qualified URL.
+GUIDANCE-04 retains Rust release authority; the Bash download adapter delegates
+existing native setup/activation instead of replacing them. No new language port
+or product scope follows; ARM64 is excluded from this task.
+
+D05–D11/H06 retain C's primary and A's challenger assignments; O02/N01/N02 and
+Project/system joins retain their existing owners. This is bounded guidance and
+source reconciliation, not new full-slice challenge, native qualification or
+completion of accumulated components-v4/canonical-source review.
 
 These are the assignments for all 80 slices in the [catalog](slices/README.md),
 using the [shared review format](review-format.md). Defining assignments does not

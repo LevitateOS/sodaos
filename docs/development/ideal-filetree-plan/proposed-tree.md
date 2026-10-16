@@ -1,14 +1,18 @@
 # Complete desired repository tree
 
-## Current Docker release targets (2026-10-14)
+## Current Docker release targets (2026-10-16)
 
-The selected source is `76daa366`; [changed responsibilities](coverage/maps/release-docker-current.md)
-retain their existing package and process owners. These exact leaves supplement
-the historical tree pin. The completed `docs/development/project-runtime-upgrade-plan.md`
+The installer source delta is `730fc205..92069938`; [changed responsibilities](coverage/maps/release-docker-current.md#installer-integration-scope)
+add three exact targets to the retained `76daa366` overlay below. Existing package
+and native process owners remain. Intervening components-v4/thirteen canonical
+commits and earlier whole-tree gaps remain pending; this is not all-HEAD coverage. The completed `docs/development/project-runtime-upgrade-plan.md`
 has no successor plan; its contracts remain in release/operator guidance.
 
 | Retained exact target | Defining owner |
 | --- | --- |
+| `system/docker/install-docker.sh` | D10/D11 Bash downloadable adapter; native setup/activation delegated |
+| `lib/soda-release-deliver/src/publish/installer.rs` | D07 Rust archived-template rendering |
+| `tests/build/docker_installer_test.go` | H06/D10/D11 Go subprocess verification |
 | `lib/release-inputs/src/reader/build.rs` | D01/D02/D07 |
 | `lib/release-inputs/src/reader/rpm.rs` | D01/D02/D07 |
 | `lib/soda-release-build/src/production_docker.rs` | D02/D03 |

@@ -1,16 +1,16 @@
 # Tracked-file inventory index
 
-## Selected merge inventory (2026-10-14)
+## Selected integration inventory (2026-10-16)
 
-Source `76daa366` contains **2,888 tracked paths**. The [selected release ledger](../maps/release-docker-current.md)
-maps all 76 changed paths; its fifteen added source/test/configuration leaves
-appear in the relevant inventories. Initial Docker inputs and the installation
-guide are also entered where older inventories lacked rows. Existing older gaps
-and full-body pins remain pending. The new map is H06 upkeep beyond this pin.
+Source `92069938` has **2,907 tracked paths**. The [installer ledger](../maps/release-docker-current.md#installer-integration-scope)
+accounts for its 18-path delta against `730fc205`, with the three added leaves in
+system, lib and tests inventories. The earlier 76-path Docker reconciliation
+remains at `76daa366`; intervening components-v4 and thirteen newer canonical
+commits remain pending. Neither the membership count nor these scoped rows
+renew the historical whole-tree/body/review coverage below.
 
-Each current tracked path appears once. Kind and per-duty owner/disposition are
-separate; detailed mixed/oversized units link to current responsibility maps.
-Source snapshot, reuse and limits: [coverage index](../README.md).
+Each inventoried path has one row per scoped source duty; older inventory gaps
+remain explicit in the [coverage index](../README.md).
 
 Current tracked path count at `9a184b7f`: **2,629**. Root counts below describe the current tracked tree; detailed named-duty/body selectors remain pinned to `519b76bd`.
 

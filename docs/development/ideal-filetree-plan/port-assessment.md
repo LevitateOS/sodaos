@@ -2,10 +2,11 @@
 
 ## Current Docker packaging allocation
 
-At `76daa366`, packaging and release flow remain inside the existing Rust release
-owners and `system/docker` runtime definitions. No language port or new crate is
-needed. [Current ownership](package-ownership.md#docker-release-ownership-2026-10-14)
-and [concern inspection](decomposition/release-production.md#current-docker-release-concerns-2026-10-14)
+At `92069938`, the installer renderer stays in Rust release-deliver and the
+streamed Bash bootstrap stays in `system/docker`; native setup/activation retain
+their existing Rust owners. The Go installer fixture stays in tests/build. No
+language port, new crate or persistent service is introduced by this delta. [Current ownership](package-ownership.md#docker-release-ownership-2026-10-16)
+and [concern inspection](decomposition/release-production.md#current-docker-release-concerns-2026-10-16)
 retain those boundaries; historical port and native evidence scopes below stand.
 
 The scoped native frontend delta at Soda `ac22514b` / Fountain `c72f5607b2`

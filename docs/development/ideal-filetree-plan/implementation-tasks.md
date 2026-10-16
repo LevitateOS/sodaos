@@ -1,34 +1,34 @@
 # Implementation task list
 
-## Current Docker release handoff (2026-10-14)
+## Current Docker release handoff (2026-10-16)
 
-At `76daa366`, [the selected source implementation](coverage/maps/release-docker-current.md)
-is merged: production controller/preflight, shared candidate Docker packaging,
-metadata/provenance, CI/admission, released Compose, registry stage/readback,
-qualification consumer, digest promotion and guided CLI. Do not schedule these
-landed source responsibilities again. M (ownership/structure) adds no new port;
-C (selected source behavior) is implemented with scoped checks; V (full published
-native qualification) remains open. Earlier completed receipts retain their exact
-source and development/qualification scope.
+The [installer delta](coverage/maps/release-docker-current.md#installer-integration-scope)
+at `92069938` implements the version-bound installer, source reconstruction,
+immutable inventory, transcript admission, qualification marker and required CI
+fixtures. Do not schedule another installer or publisher for those landed duties.
+M retains existing owners and exact added leaves; C has scoped source checks;
+V remains open. Prior `76daa366` implementation and later components-v4 changes
+retain their distinct evidence; the latter's full plan reconciliation is pending.
 
 Remaining dependency order uses the existing D06/C11 and D09/C10 owners:
 
-1. D06/C11: establish the smallest actual Docker host/runtime boundaries and join
-   existing installed browser/Project, funded Factory and persistence observations
-   to the qualifier's schema. The reader is implemented; a complete collector is
-   still missing. Reuse retained development evidence only for its stated scope.
-2. D01–D05/D09: after prerequisites and exact main CI, build selected production
-   bytes, prepare and stage once; anonymously record the public registry digest.
-3. D06/D07: follow the released installation path with the exact downloaded
-   Compose/image and capture installation, browser/Project, Factory and persistence
-   in order; validate all selected targets with the existing qualifier.
-4. D09: promote the qualified digest without rebuilding; observe the intended
-   Docker/appliance recommendation pointers and retain partial-effect evidence.
+1. Establish the smallest native Docker prerequisites and existing observation
+   joins; do not run a heavy build to discover basic host/runtime incompatibility.
+2. After exact-source CI, produce the selected production candidate, prepare and
+   stage its immutable installer/Compose/assets and anonymously verify its digest.
+3. Run that downloaded installer with explicit prerelease qualification on the
+   authorized disposable native Linux x86_64 host/VM. Retain its execution
+   transcript and all five public downloads in every finalized observation;
+   prove reruns/refusals plus browser/Projects, nested workload, bounded funded
+   Factory and persistent-state recreation through existing native owners.
+4. Qualify all selected targets, promote the unchanged digest and exact
+   tag/source/image marker, then verify normal installation preserves that
+   qualified deployment. Only then replace the public availability notice with
+   the tested versioned command.
 
-These remaining native/release tasks describe readiness gates, not authorization
-to run them during merge upkeep. Source integration, publication and production
-readiness stay distinct. Earlier unrelated structural/correctness tasks remain
-at their separately recorded scope.
+These are remaining release gates, not permission to run them during upkeep.
+No ARM, restructuring, native qualification or publication is included here.
+Older unrelated tasks and their source/native evidence scopes remain pending.
 
 ## Fountain LTS handoff (2026-10-13)
 

@@ -1,20 +1,20 @@
 # SodaOS ideal file tree plan
 
-## Current Docker release reconciliation (2026-10-14)
+## Current Docker release reconciliation (2026-10-16)
 
-Resulting source is `76daa366822e0a135df961d7c9c21713da016bd3`, after merge `37076729` and a focused
-CLI-fixture correction. The [current duty ledger](coverage/maps/release-docker-current.md)
-accounts for all 76 selected paths, including main's native Project staging/rollback
-repairs and completed-plan retirement. Production dispatch, Docker packaging,
-provenance, CI admission, Compose installation and guided release consumers now
-exist within the retained Rust owners. Older claims that production dispatch is
-absent are superseded. Native collection and exact published-image qualification
-remain open; source integration does not establish production release readiness.
+The bounded installer integration is `730fc205..92069938869499a671a52e84ab03c639bb0b09d9`:
+[all 18 changed paths](coverage/maps/release-docker-current.md#installer-integration-scope)
+are mapped, including three added leaves. The version-bound Bash installer joins
+existing Rust preparation, verification, qualification and promotion owners. Its
+source implementation and focused checks do not establish a published, qualified
+Docker release; the public install URL remains unavailable pending that proof.
 
-This bounded update preserves older structural, catalog, full-body, review-input
-and native evidence scopes. Earlier Canlang/Project/frontend deltas and inventory
-gaps remain pending; the ledger records the accumulated range explicitly.
-Further restructuring remains deferred.
+Earlier Docker reconciliation at `76daa366` retains its 76-path scope. Accumulated
+`76daa366..730fc205` source drift (358 changed-path entries), including components-v4
+and the 13 newer canonical commits `86659d5e..730fc205`, remains outside this
+bounded upkeep. Earlier structural, catalog, full-body, review-input and native
+pins are preserved; this is not all-HEAD coverage. The ledger identifies precise
+source/duty and new large-file concerns. No deferred restructuring lane starts.
 
 This is the living plan for reorganizing the entire SodaOS repository by
 responsibility and decomposing oversized implementations into concrete concern
