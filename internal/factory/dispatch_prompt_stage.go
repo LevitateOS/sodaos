@@ -31,9 +31,10 @@ func validatePromptStage(in PromptInputs) error {
 	if !ValidID(in.PublicationAssignment) || !ValidCommit(in.BaseCommit) {
 		return errors.New("child prompt needs its publication and verified base")
 	}
-	if in.Role == project.RoleReviewer && in.Review != nil {
-		return errors.New("independent reviewer cannot receive a prior review verdict")
-	}
+	// Fresh independent reviews carry no prior verdict (caller passes nil);
+	// same-head re-reviews carry the full outstanding review/check evidence
+	// as carried input to independently assess, never to rubber-stamp.
+	// Distinct reviewer/corrector sessions are retained by the dispatcher.
 	if in.Review != nil && in.Review.Validate() != nil {
 		return errors.New("invalid correction review evidence")
 	}
@@ -65,7 +66,12 @@ func writePromptStage(b *strings.Builder, in PromptInputs) {
 	}
 	if in.Review != nil {
 		r := in.Review
-		b.WriteString("\n## Independent review findings\n\n")
+		if in.Role == project.RoleReviewer {
+			b.WriteString("\n## Carried review findings for independent re-review\n\n")
+			b.WriteString("Assess every carried actionable finding explicitly as verified|still_open with evidence; report new defects separately. Do not repost duplicate native comments for unchanged findings: stable finding keys reuse their native comment IDs.\n")
+		} else {
+			b.WriteString("\n## Independent review findings\n\n")
+		}
 		b.WriteString("Verdict: " + r.Verdict + "\n")
 		b.WriteString(fenceCollision(r.Summary) + "\n\n")
 		b.WriteString(fenceCollision(r.Body) + "\n")

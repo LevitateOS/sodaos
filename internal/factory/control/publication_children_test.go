@@ -288,6 +288,160 @@ func TestPublishPassProducesCorrectionThenFreshReviewForChangedHead(t *testing.T
 	}
 }
 
+func TestPublishPassPersistsD07CyclesFreshVsReplay(t *testing.T) {
+	ctx := context.Background()
+	fx, host, owner, publication := publishedChildProducerSeed(t, 31)
+	if len(host.launches) != 1 {
+		t.Fatalf("initial reviewer launch count = %d", len(host.launches))
+	}
+	// Round 1: durable cycle with exact head/base, input digest and legacy
+	// reviewer ID; fresh independent reviewer carries no prior evidence.
+	p, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.ReviewCycles) != 1 {
+		t.Fatalf("initial reviewer left %d cycles: %+v", len(p.ReviewCycles), p.ReviewCycles)
+	}
+	first := p.ReviewCycles[0]
+	wantDigest := reviewCycleInputDigest(publication.Candidate, publication.PRCreate.BaseOID, nil, nil)
+	if first.PublicationID != p.ID || first.AttemptRoot != owner.AttemptRoot || first.Round != 1 ||
+		first.Head != publication.Candidate || first.BaseOID != publication.PRCreate.BaseOID ||
+		first.FindingDigest != wantDigest || first.TriggerDecision != "initial-review" ||
+		first.ReviewerAssignment != publicationChildID(p.ID, p.Candidate, project.RoleReviewer) ||
+		first.CorrectionAssignment != "" {
+		t.Fatalf("round-1 cycle malformed: %+v wantDigest=%q", first, wantDigest)
+	}
+	reviewer, err := fx.db.Assignment(ctx, first.ReviewerAssignment)
+	if err != nil || reviewer.Role != project.RoleReviewer || reviewer.SourceCommit != p.Candidate {
+		t.Fatalf("round-1 reviewer not recorded: %+v %v", reviewer, err)
+	}
+	if strings.Contains(string(reviewer.Prompt), "## Carried review findings") ||
+		strings.Contains(string(reviewer.Prompt), "## Recorded check evidence") {
+		t.Fatal("fresh independent reviewer received prior evidence")
+	}
+	// Replay reuses its run: no duplicate cycle or launch.
+	launches, preparations := len(host.launches), len(host.preparations)
+	if report := fx.coord.PublishPass(ctx); len(report.Errors) != 0 {
+		t.Fatalf("replay pass: %+v", report)
+	}
+	p, err = fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.ReviewCycles) != 1 || len(host.launches) != launches || len(host.preparations) != preparations {
+		t.Fatalf("replay duplicated its round: cycles=%d launches=%d preparations=%d", len(p.ReviewCycles), len(host.launches), len(host.preparations))
+	}
+	// Settle the reviewer and submit its decision; failed checks then demand
+	// one correction with the full outstanding finding/correction evidence.
+	reviewerLaunch := host.launches[0]
+	reviewOutput := "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"empty input panics\",\"findings\":[\"empty input\"]}\n```"
+	_, reviewerRun := settleProducedChild(t, fx, reviewerLaunch.Run.ID, reviewOutput)
+	fx.coord.Reviews = &fakeReviewer{
+		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+		outcome:  committedOutcome(`{"review_id":71}`),
+		adopted: factory.ReviewOutcome{
+			ReviewID: 71, CommentID: 72, ReviewerID: 6, PRID: publication.PRID,
+			PRNumber: publication.PRNumber, IssueID: publication.PRCreate.IssueID,
+			HeadOID: publication.Candidate, BaseOID: publication.PRCreate.BaseOID,
+			CommitID: publication.Candidate, Event: "REQUEST_CHANGES",
+		},
+	}
+	if _, err := fx.coord.SubmitReviewForRun(ctx, reviewerRun.ID); err != nil {
+		t.Fatalf("submit reviewer decision: %v", err)
+	}
+	checks := happyCheckObserver()
+	checks.observe = func(target factory.CheckTarget) (factory.ObservedChecks, error) {
+		observed, err := happyCheckObserver().observe(target)
+		observed.Checks = []factory.ObservedCheck{{Context: "ci", State: "failure"}}
+		return observed, err
+	}
+	fx.coord.Checks = checks
+	if report := fx.coord.CheckPass(ctx); len(report.Errors) != 0 || len(host.launches) != 2 {
+		t.Fatalf("correction not produced: report=%+v launches=%d", report, len(host.launches))
+	}
+	p, err = fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.ReviewCycles) != 2 {
+		t.Fatalf("correction left %d cycles: %+v", len(p.ReviewCycles), p.ReviewCycles)
+	}
+	second := p.ReviewCycles[1]
+	prior, _, _, _ := fx.coord.currentReviewReport(ctx, p)
+	assessment, ok := fx.coord.currentChildCheckAssessment(ctx, p)
+	if !ok {
+		t.Fatal("correction lacks its current check assessment")
+	}
+	wantCorrectionDigest := reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, &prior, assessment)
+	if second.Round != 2 || second.Head != p.Candidate || second.BaseOID != p.PRCreate.BaseOID ||
+		second.FindingDigest != wantCorrectionDigest || second.TriggerDecision != "correction-after-review" ||
+		second.ReviewerAssignment == first.ReviewerAssignment || second.CorrectionAssignment == first.ReviewerAssignment ||
+		second.CorrectionAssignment == "" || !factory.ValidID(second.CorrectionAssignment) {
+		t.Fatalf("round-2 correction cycle malformed: %+v wantDigest=%q", second, wantCorrectionDigest)
+	}
+	correction, err := fx.db.Assignment(ctx, second.CorrectionAssignment)
+	if err != nil || correction.Role != project.RoleCoder || correction.SourceCommit != p.Candidate {
+		t.Fatalf("round-2 correction not recorded: %+v %v", correction, err)
+	}
+	// Distinct reviewer/corrector sessions retained; correction carries the
+	// whole current finding set so a newly found defect enters correction.
+	if reviewer.Preparation == correction.Preparation {
+		t.Fatalf("reviewer/corrector share a session: %q", reviewer.Preparation)
+	}
+	if correction.Preparation != owner.Preparation {
+		t.Fatalf("correction left its owner preparation: %q", correction.Preparation)
+	}
+	for _, want := range []string{"## Recorded check evidence", "## Independent review findings", "empty input panics"} {
+		if !strings.Contains(string(correction.Prompt), want) {
+			t.Errorf("correction prompt lacks full evidence %q", want)
+		}
+	}
+	// Advance the head; the corrected head receives a fresh reviewer (new
+	// round, new head-stable IDs) with no stale evidence. Replay reuses it.
+	newHead := strings.Repeat("e", 40)
+	_, correctionRun := settleProducedChild(t, fx, correction.Run, correctionOutput(newHead))
+	if corrected := fx.coord.PublishCorrection(ctx, correctionRun.ID); len(corrected.Errors) != 0 || len(corrected.Corrected) != 1 {
+		t.Fatalf("correction did not advance: %+v", corrected)
+	}
+	if report := fx.coord.PublishPass(ctx); len(report.Errors) != 0 || len(host.launches) != 3 {
+		t.Fatalf("fresh corrected-head reviewer not produced: %+v launches=%d", report, len(host.launches))
+	}
+	p, err = fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.ReviewCycles) != 3 {
+		t.Fatalf("corrected head left %d cycles: %+v", len(p.ReviewCycles), p.ReviewCycles)
+	}
+	third := p.ReviewCycles[2]
+	if third.Round != 3 || third.Head != newHead || third.ReviewerAssignment != publicationChildID(p.ID, newHead, project.RoleReviewer) ||
+		third.ReviewerAssignment == first.ReviewerAssignment || third.CorrectionAssignment != "" {
+		t.Fatalf("round-3 corrected-head cycle malformed: %+v", third)
+	}
+	fresh, err := fx.db.Assignment(ctx, third.ReviewerAssignment)
+	if err != nil || fresh.Role != project.RoleReviewer || fresh.SourceCommit != newHead {
+		t.Fatalf("round-3 reviewer not recorded: %+v %v", fresh, err)
+	}
+	if strings.Contains(string(fresh.Prompt), "empty input panics") {
+		t.Fatal("corrected-head reviewer reused stale evidence")
+	}
+	if fresh.Preparation == correction.Preparation || fresh.Preparation == reviewer.Preparation {
+		t.Fatalf("corrected-head reviewer reused a session: fresh=%q prior=%q correction=%q", fresh.Preparation, reviewer.Preparation, correction.Preparation)
+	}
+	launches, preparations, cycles := len(host.launches), len(host.preparations), len(p.ReviewCycles)
+	if report := fx.coord.PublishPass(ctx); len(report.Errors) != 0 {
+		t.Fatalf("corrected-head replay: %+v", report)
+	}
+	p, err = fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.ReviewCycles) != cycles || len(host.launches) != launches || len(host.preparations) != preparations {
+		t.Fatalf("corrected-head replay duplicated its round: cycles=%d launches=%d preparations=%d", len(p.ReviewCycles), len(host.launches), len(host.preparations))
+	}
+}
+
 func TestPublishPassFencesAfterThreeCorrectionCycles(t *testing.T) {
 	ctx := context.Background()
 	fx, host, owner, _ := publishedChildProducerSeed(t, 28)

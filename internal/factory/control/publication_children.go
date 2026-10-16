@@ -17,9 +17,11 @@ import (
 const publicationChildLimit = 256
 
 // producePublishedChildren creates at most one reviewer or coder correction
-// for each active publication head. Child identities bind the publication,
-// exact head and role, so a later pass adopts an existing attempt instead of
-// launching a duplicate.
+// for each active publication head. First occurrences bind the publication,
+// exact head and role (legacy stable IDs); same-head repeats use durable D07
+// review-cycle rounds with round-derived fresh IDs, so a new decision on the
+// same head creates a fresh reviewer run while replay reuses its run. A later
+// pass adopts an existing attempt instead of launching a duplicate.
 func (c *Coordinator) producePublishedChildren(ctx context.Context, report *PublishReport) {
 	if c.Store == nil || c.Host == nil || c.Broker == nil || c.Publication == nil {
 		return
@@ -132,10 +134,41 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		publicationWait(report, p.ID, "review_submission_unavailable")
 		return
 	}
-	childID := publicationChildID(p.ID, p.Candidate, role)
+	// Durable D07 cycle: fresh independent reviews bind head/base only;
+	// corrections and same-head re-reviews bind the full outstanding
+	// review/check evidence. New digests open new rounds (fresh IDs);
+	// identical digests replay their round (same IDs).
+	var digest, triggerDecision, triggerReason string
+	shortHead := p.Candidate
+	if len(shortHead) > 8 {
+		shortHead = shortHead[:8]
+	}
+	if role == project.RoleReviewer {
+		if hasReview {
+			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, &review, checks)
+			triggerDecision, triggerReason = "re-review-same-head", "another inspection of head "+shortHead+" after "+review.Verdict+" with outstanding findings"
+		} else if len(p.ReviewCycles) == 0 {
+			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
+			triggerDecision, triggerReason = "initial-review", "first review of published head "+shortHead
+		} else if reviewCycleHeadSeen(p, p.Candidate) {
+			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
+			triggerDecision, triggerReason = "re-review-same-head", "another inspection of head "+shortHead+" without prior verdict"
+		} else {
+			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
+			triggerDecision, triggerReason = "re-review-after-correction", "fresh review of corrected head "+shortHead
+		}
+	} else {
+		digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, &review, checks)
+		triggerDecision, triggerReason = "correction-after-review", "address "+review.Verdict+" with "+checks.Verdict+" checks on head "+shortHead
+	}
+	_, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, triggerDecision, triggerReason)
+	if cycleErr != nil {
+		publicationWait(report, p.ID, "child_cycle_unrecorded")
+		return
+	}
 	existing, err := c.Store.Assignment(ctx, childID)
 	if err == nil {
-		if !existingMatchesPublicationChild(existing, p, owner, role) {
+		if !existingMatchesPublicationChild(childID, existing, p, owner, role) {
 			c.fenceChildPublication(ctx, p, report)
 			return
 		}
@@ -191,13 +224,17 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	preparationID := plan.prep.Preparation.ID
 	contextPreparation := plan.prep.Preparation
 	if role == project.RoleReviewer {
-		prep, ready, prepErr := c.prepareReviewCandidate(ctx, p, owner, plan, report)
+		prep, ready, prepErr := c.prepareReviewCandidate(ctx, p, owner, plan, report, expectedPrepID, childID)
 		if prepErr != nil {
 			publicationWait(report, p.ID, "review_preparation_unavailable")
 			return
 		}
 		if !ready {
 			publicationWait(report, p.ID, "review_preparation_pending")
+			return
+		}
+		if prep.ID != expectedPrepID {
+			publicationError(report, p.ID, "child_assignment_unrecorded")
 			return
 		}
 		preparationID = prep.ID
@@ -207,9 +244,20 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		publicationWait(report, p.ID, "attempt_deadline_exhausted")
 		return
 	}
+	// Full outstanding finding/correction evidence goes to corrections
+	// always, and to same-head re-reviews; fresh independent reviews stay
+	// evidence-free so distinct reviewer sessions cannot rubber-stamp.
 	var reviewInput *factory.ReviewReport
-	if hasReview {
-		reviewInput = &review
+	var checksPrompt *factory.CheckAssessment
+	if role == project.RoleReviewer {
+		if hasReview {
+			reviewInput, checksPrompt = &review, checks
+		}
+	} else {
+		if hasReview {
+			reviewInput = &review
+		}
+		checksPrompt = checks
 	}
 	repositoryContext, contextErr := readRepositoryContext(ctx, c.Host, plan, contextPreparation, role,
 		owner.SourceCommit, p.PRCreate.BaseOID, p.Candidate, false)
@@ -217,7 +265,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		publicationWait(report, p.ID, "native prepared repository context is unavailable or changed")
 		return
 	}
-	prompt, err := buildPublicationChildPrompt(plan, p, owner, preparationID, role, reviewInput, checks, repositoryContext)
+	prompt, err := buildPublicationChildPrompt(plan, p, owner, preparationID, role, reviewInput, checksPrompt, repositoryContext)
 	if err != nil {
 		publicationWait(report, p.ID, "child_prompt_invalid")
 		return
@@ -285,10 +333,10 @@ func (c *Coordinator) currentChildCheckAssessment(ctx context.Context, p factory
 	return &assessment, true
 }
 
-func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publication, owner factory.Assignment, plan *attemptPlan, report *PublishReport) (project.Preparation, bool, error) {
+func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publication, owner factory.Assignment, plan *attemptPlan, report *PublishReport, expectedPrepID, expectedChildID string) (project.Preparation, bool, error) {
 	source := plan.prep.Preparation
 	prep := project.Preparation{
-		ID: publicationPreparationID(p.ID, p.Candidate), Project: p.ProjectID, Role: project.RoleReviewer,
+		ID: expectedPrepID, Project: p.ProjectID, Role: project.RoleReviewer,
 		Requirements: source.Requirements, Approval: source.Approval, SourceCommit: p.Candidate,
 		SetupDigest: source.SetupDigest, Tools: append([]string(nil), source.Tools...), Credential: source.Credential,
 	}
@@ -301,7 +349,7 @@ func (c *Coordinator) prepareReviewCandidate(ctx context.Context, p factory.Publ
 	}
 	registration := store.CandidatePreparationRegistration{
 		Repository: p.Repository, Issue: p.Issue, ActorID: owner.ActorID, Project: p.ProjectID,
-		OwnerAssignment: owner.ID, ChildAssignment: publicationChildID(p.ID, p.Candidate, project.RoleReviewer),
+		OwnerAssignment: owner.ID, ChildAssignment: expectedChildID,
 		AttemptRoot: owner.AttemptRoot, PublicationID: p.ID, Connection: plan.sponsorship.Connection,
 		Authority: plan.effective.Authority, GateRevision: plan.gateRev, Control: plan.control,
 		RequestedNotAfter: requested,
@@ -506,8 +554,8 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 	}
 }
 
-func existingMatchesPublicationChild(a factory.Assignment, p factory.Publication, owner factory.Assignment, role string) bool {
-	return a.Validate() == nil && a.ID == publicationChildID(p.ID, p.Candidate, role) &&
+func existingMatchesPublicationChild(expectedID string, a factory.Assignment, p factory.Publication, owner factory.Assignment, role string) bool {
+	return a.Validate() == nil && a.ID == expectedID &&
 		a.PublicationAssignment == owner.ID && a.AttemptRoot == owner.AttemptRoot &&
 		a.Repository == p.Repository && a.Issue == p.Issue && a.Acceptance == p.Acceptance &&
 		a.Role == role && a.SourceCommit == p.Candidate

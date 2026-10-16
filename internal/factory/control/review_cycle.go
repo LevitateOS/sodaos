@@ -3,7 +3,10 @@ package control
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -336,6 +339,187 @@ func (c *Coordinator) reconcileRecordedReviews(ctx context.Context, p *factory.P
 // publicationAssignmentsForRun resolves the run's own assignment and the
 // coder assignment that owns its publication. Both scopes remain immutable;
 // the native operation uses the publication owner while usage belongs to the run.
+// reviewCyclePhase is the single D07 phase for publication review cycles.
+// Reviewer and correction assignments for one round share the same cycle
+// identity derivation; their assignment IDs stay distinct via role.
+const reviewCyclePhase = "review"
+
+// reviewCycleInputDigest binds one cycle's inputs: exact head/base plus the
+// outstanding review/check evidence the child must answer. Fresh independent
+// reviews bind head/base only; corrections and same-head re-reviews bind the
+// prior review verdict/findings and check verdict. Sorted findings keep the
+// digest stable; the hex encoding satisfies ValidDigest. New decisions change
+// the digest (new round, fresh IDs); replay reuses the same digest (same
+// round, same IDs).
+func reviewCycleInputDigest(head, base string, review *factory.ReviewReport, checks *factory.CheckAssessment) string {
+	h := sha256.New()
+	h.Write([]byte("review-cycle-input-v1\x00" + head + "\x00" + base + "\x00"))
+	if review != nil {
+		h.Write([]byte(review.Verdict + "\x00" + review.Summary + "\x00" + review.Body + "\x00"))
+		sorted := append([]string(nil), review.Findings...)
+		sort.Strings(sorted)
+		for _, f := range sorted {
+			h.Write([]byte(f + "\x00"))
+		}
+	} else {
+		h.Write([]byte("\x00"))
+	}
+	if checks != nil {
+		h.Write([]byte(checks.Verdict + "\x00" + checks.Reason + "\x00"))
+	} else {
+		h.Write([]byte("\x00"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func maxReviewCycleRound(p factory.Publication) int {
+	max := 0
+	for _, c := range p.ReviewCycles {
+		if c.Round > max {
+			max = c.Round
+		}
+	}
+	return max
+}
+
+func reviewCycleHeadSeen(p factory.Publication, head string) bool {
+	for _, c := range p.ReviewCycles {
+		if c.Head == head {
+			return true
+		}
+	}
+	return false
+}
+
+// reviewCycleAssignmentID derives fresh reviewer/correction assignment IDs
+// from the cycle identity and role: publication, attempt root, round and
+// phase via the cycle ID, plus role for reviewer/corrector distinctness. New
+// rounds are distinct; replay of a round is identical.
+func reviewCycleAssignmentID(cycleID, role string) string {
+	sum := sha256.Sum256([]byte("soda-factory-cycle-child-v1\x00" + cycleID + "\x00" + role))
+	return hex.EncodeToString(sum[:16])
+}
+
+// reviewCyclePreparationID derives a fresh reviewer preparation identity
+// from the cycle identity. Corrector preparations reuse the owner coder
+// preparation (distinct from every reviewer session); reviewer sessions are
+// fresh per same-head round and distinct from the corrector.
+func reviewCyclePreparationID(cycleID string) string {
+	sum := sha256.Sum256([]byte("soda-factory-review-preparation-v1\x00" + cycleID))
+	return "f" + hex.EncodeToString(sum[:12])
+}
+
+// ensureReviewCycle persists one durable D07 review cycle for the child being
+// dispatched and returns the cycle plus the exact child/preparation IDs to
+// use. First occurrence of a head reuses the legacy head-based IDs so
+// pre-cycle publications keep their reviewer binding; repeats on the same
+// head use round-derived fresh IDs (new decision distinct, replay identical).
+// Reviewer rounds leave CorrectionAssignment empty; correction rounds record
+// a fresh (unused) reviewer ID alongside the used correction ID so the cycle
+// always validates while reviewer/corrector sessions stay distinct.
+func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publication, owner factory.Assignment, role, digest, triggerDecision, triggerReason string) (factory.ReviewCycle, string, string, error) {
+	var empty factory.ReviewCycle
+	if !factory.ValidDigest(digest) || strings.TrimSpace(triggerDecision) == "" || strings.TrimSpace(triggerReason) == "" {
+		return empty, "", "", errors.New("review cycle needs its digest and triggering decision")
+	}
+	if role != project.RoleReviewer && role != project.RoleCoder {
+		return empty, "", "", errors.New("review cycle needs its reviewer or corrector role")
+	}
+	// Replay: the latest round already binds these exact inputs.
+	if n := len(p.ReviewCycles); n > 0 {
+		last := p.ReviewCycles[n-1]
+		if last.Head == p.Candidate && last.BaseOID == p.PRCreate.BaseOID && last.FindingDigest == digest {
+			var childID, prepID string
+			if role == project.RoleReviewer {
+				childID = last.ReviewerAssignment
+				// Replay keeps the recorded IDs: first occurrence of a head
+				// used legacy head-based IDs, repeats used round-derived IDs.
+				// Infer from the stored child ID so new-head rounds (legacy
+				// even when round > 1) replay their legacy preparation.
+				if childID == publicationChildID(p.ID, p.Candidate, project.RoleReviewer) {
+					prepID = publicationPreparationID(p.ID, p.Candidate)
+				} else {
+					prepID = reviewCyclePreparationID(last.ID)
+				}
+			} else {
+				childID = last.CorrectionAssignment
+				if childID == "" {
+					return empty, "", "", errors.New("recorded cycle lacks its correction assignment")
+				}
+				prepID = owner.Preparation
+			}
+			if childID == "" {
+				return empty, "", "", errors.New("recorded cycle lacks its child assignment")
+			}
+			return last, childID, prepID, nil
+		}
+	}
+	round := maxReviewCycleRound(*p) + 1
+	if round < 1 {
+		round = 1
+	}
+	cycleID := factory.ReviewCycleID(p.ID, owner.AttemptRoot, round, reviewCyclePhase)
+	firstHead := !reviewCycleHeadSeen(*p, p.Candidate)
+	var reviewerAssignment, correctionAssignment, childID, prepID string
+	if role == project.RoleReviewer {
+		if firstHead && round == 1 {
+			childID = publicationChildID(p.ID, p.Candidate, project.RoleReviewer)
+			prepID = publicationPreparationID(p.ID, p.Candidate)
+		} else if firstHead {
+			// New head after prior rounds: legacy head-based IDs keep the
+			// reviewer binding stable per head (fresh via new head).
+			childID = publicationChildID(p.ID, p.Candidate, project.RoleReviewer)
+			prepID = publicationPreparationID(p.ID, p.Candidate)
+		} else {
+			childID = reviewCycleAssignmentID(cycleID, project.RoleReviewer)
+			prepID = reviewCyclePreparationID(cycleID)
+		}
+		reviewerAssignment, correctionAssignment = childID, ""
+	} else {
+		if firstHead {
+			// First correction on a head that only has reviewer cycles so
+			// far still gets a head-stable ID when the head is new;
+			// same-head repeats use round-derived fresh IDs below.
+			// Corrections share the head with their reviewer round, so a
+			// head seen only by reviewer rounds still counts as seen.
+			// Use derived IDs whenever any cycle exists for this head to
+			// keep reviewer/corrector distinct per round.
+			if len(p.ReviewCycles) > 0 {
+				reviewerAssignment = reviewCycleAssignmentID(cycleID, project.RoleReviewer)
+				correctionAssignment = reviewCycleAssignmentID(cycleID, project.RoleCoder)
+				childID = correctionAssignment
+			} else {
+				reviewerAssignment = publicationChildID(p.ID, p.Candidate, project.RoleReviewer)
+				correctionAssignment = publicationChildID(p.ID, p.Candidate, project.RoleCoder)
+				childID = correctionAssignment
+			}
+		} else {
+			reviewerAssignment = reviewCycleAssignmentID(cycleID, project.RoleReviewer)
+			correctionAssignment = reviewCycleAssignmentID(cycleID, project.RoleCoder)
+			childID = correctionAssignment
+		}
+		prepID = owner.Preparation
+	}
+	cycle := factory.ReviewCycle{
+		PublicationID: p.ID, AttemptRoot: owner.AttemptRoot, ID: cycleID, Phase: reviewCyclePhase,
+		TriggerDecision: triggerDecision, TriggerReason: triggerReason,
+		Head: p.Candidate, BaseOID: p.PRCreate.BaseOID, FindingDigest: digest,
+		ReviewerAssignment: reviewerAssignment, CorrectionAssignment: correctionAssignment, Round: round,
+	}
+	if err := cycle.Validate(); err != nil {
+		return empty, "", "", err
+	}
+	p.ReviewCycles = append(p.ReviewCycles, cycle)
+	p.Revision++
+	if err := c.Store.UpdatePublication(ctx, *p); err != nil {
+		// Drop the optimistic append; the next pass re-reads and replays.
+		p.ReviewCycles = p.ReviewCycles[:len(p.ReviewCycles)-1]
+		p.Revision--
+		return empty, "", "", err
+	}
+	return cycle, childID, prepID, nil
+}
+
 func (c *Coordinator) publicationAssignmentsForRun(ctx context.Context, run factory.Run) (factory.Assignment, factory.Assignment, error) {
 	view, err := c.Store.FactoryRunView(ctx, run.ID)
 	if err != nil {

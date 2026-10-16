@@ -552,3 +552,59 @@ func TestRetryRefusesStandaloneRunsWithoutLinkedAssignments(t *testing.T) {
 		t.Fatalf("standalone retry launched %d runs", launches)
 	}
 }
+
+func TestReviewCycleIdentityFreshVsReplay(t *testing.T) {
+	publicationID := strings.Repeat("a", 32)
+	attemptRoot := strings.Repeat("b", 32)
+	head := strings.Repeat("2", 40)
+	base := strings.Repeat("1", 40)
+	// Publication+round-triggered identity: new rounds distinct, replay identical.
+	first := factory.ReviewCycleID(publicationID, attemptRoot, 1, "review")
+	second := factory.ReviewCycleID(publicationID, attemptRoot, 2, "review")
+	if first == second || !factory.ValidID(first) || !factory.ValidID(second) {
+		t.Fatalf("round identities not distinct: %q %q", first, second)
+	}
+	if replay := factory.ReviewCycleID(publicationID, attemptRoot, 1, "review"); replay != first {
+		t.Fatalf("round replay changed its identity: %q vs %q", replay, first)
+	}
+	// Fresh reviewer/correction assignment IDs: distinct per round and role,
+	// identical on replay.
+	reviewerOne := reviewCycleAssignmentID(first, project.RoleReviewer)
+	correctorOne := reviewCycleAssignmentID(first, project.RoleCoder)
+	reviewerTwo := reviewCycleAssignmentID(second, project.RoleReviewer)
+	if reviewerOne == correctorOne || reviewerOne == reviewerTwo {
+		t.Fatalf("cycle child IDs not distinct: reviewer=%q corrector=%q next=%q", reviewerOne, correctorOne, reviewerTwo)
+	}
+	if replay := reviewCycleAssignmentID(first, project.RoleReviewer); replay != reviewerOne {
+		t.Fatalf("child replay changed its identity: %q vs %q", replay, reviewerOne)
+	}
+	for _, id := range []string{reviewerOne, correctorOne, reviewerTwo} {
+		if !factory.ValidID(id) {
+			t.Fatalf("cycle child ID malformed: %q", id)
+		}
+	}
+	// Distinct reviewer/corrector sessions: reviewer preparations are fresh
+	// per round and never equal the coder preparation they review.
+	prepOne, prepTwo := reviewCyclePreparationID(first), reviewCyclePreparationID(second)
+	if prepOne == prepTwo {
+		t.Fatal("same-head reviewer preparations share a session")
+	}
+	// Input finding digest: exact head/base bound, new findings change the
+	// round, reordered findings replay identically.
+	fresh := reviewCycleInputDigest(head, base, nil, nil)
+	if !factory.ValidDigest(fresh) {
+		t.Fatalf("cycle input digest malformed: %q", fresh)
+	}
+	if moved := reviewCycleInputDigest(strings.Repeat("3", 40), base, nil, nil); moved == fresh {
+		t.Fatal("changed head kept its input digest")
+	}
+	prior := &factory.ReviewReport{Verdict: "request-changes", Summary: "fix", Body: "empty input panics", Findings: []string{"empty input panics"}}
+	withFindings := reviewCycleInputDigest(head, base, prior, nil)
+	if withFindings == fresh || !factory.ValidDigest(withFindings) {
+		t.Fatalf("prior findings did not open a new digest: fresh=%q next=%q", fresh, withFindings)
+	}
+	reordered := &factory.ReviewReport{Verdict: "request-changes", Summary: "fix", Body: "empty input panics", Findings: []string{"empty input panics"}}
+	if replay := reviewCycleInputDigest(head, base, reordered, nil); replay != withFindings {
+		t.Fatal("finding order changed its input digest")
+	}
+}

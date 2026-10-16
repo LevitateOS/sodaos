@@ -219,6 +219,54 @@ func TestBuildDispatchPromptBindsRepositoryContextScope(t *testing.T) {
 	}
 }
 
+func stageReReviewInputs() PromptInputs {
+	in := stagePromptInputs(project.RoleReviewer)
+	in.PublicationAssignment = NewID()
+	in.BaseCommit = strings.Repeat("b", 40)
+	in.ApprovedBase = in.SourceCommit
+	in.Review = &ReviewReport{
+		Verdict: "request-changes", Summary: "A correctness issue remains.",
+		Body: "Handle the empty input.", Findings: []string{"empty input panics"},
+	}
+	in.CheckAssessment = &CheckAssessment{
+		Repository: in.Repository, PRNumber: 4, PRID: 5, IssueID: 6,
+		PolicyRevision: 1, NativeRev: 12, Revision: 2, AssessedUnix: 1700000000,
+		HeadRef: "refs/heads/candidate", BaseRef: in.TargetBranch,
+		HeadOID: in.SourceCommit, BaseOID: in.BaseCommit,
+		Checks: []string{"ci"}, ChecksDigest: ChecksDigest([]string{"ci"}),
+		Verdict: CheckFailed, Reason: CheckReasonFailed,
+		Results: []CheckResult{{Context: "ci", State: "failure", Passed: false}},
+	}
+	in.RepositoryContext = stageRepositoryContext(in)
+	return in
+}
+
+func TestBuildDispatchPromptReReviewCarriesFullEvidence(t *testing.T) {
+	in := stageReReviewInputs()
+	prompt, err := BuildDispatchPrompt(in)
+	if err != nil {
+		t.Fatalf("re-review prompt refused: %v", err)
+	}
+	text := string(prompt)
+	for _, want := range []string{
+		"Candidate: " + in.SourceCommit + " verified base: " + in.BaseCommit,
+		"## Recorded check evidence", "## Carried review findings for independent re-review",
+		"verified|still_open", "stable finding keys reuse their native comment IDs",
+		"Verdict: request-changes", "empty input panics", "verdict: " + CheckFailed,
+		"Permitted actions: inspect the exact candidate",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("re-review prompt lacks %q", want)
+		}
+	}
+	if strings.Contains(text, "## Independent review findings") {
+		t.Fatal("re-review reused the correction findings header instead of its carried header")
+	}
+	if strings.Count(text, "```review-json\n") != 1 {
+		t.Fatal("re-review report fence differs from the exact review-only contract")
+	}
+}
+
 func TestBuildDispatchPromptRefusesOversizedAggregateStageEvidence(t *testing.T) {
 	tests := map[string]func() PromptInputs{
 		"accepted-sources": func() PromptInputs {
