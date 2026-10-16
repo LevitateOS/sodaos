@@ -214,6 +214,20 @@ type Result struct {
 
 const ResultSchema = `{"type":"object","additionalProperties":false,"properties":{"status":{"type":"string","enum":["completed","blocked","failed","cancelled"]},"summary":{"type":"string"},"candidate":{"type":"string","pattern":"^([a-f0-9]{40})?$"},"review_passed":{"type":"boolean"},"findings":{"type":"array","items":{"type":"string"}}},"required":["status","summary","candidate","review_passed","findings"]}`
 
+// CompletedCandidate returns the exact candidate a finished harness run
+// reported. Any unfinished process (blocked, failed, cancelled) refuses:
+// only a completed run on an exact commit can back a clear review's
+// process-completion claim (D07/T42).
+func (r Result) CompletedCandidate() (string, error) {
+	if r.Status != "completed" {
+		return "", errors.New("unfinished process backs no clear review")
+	}
+	if !ValidCommit(r.Candidate) {
+		return "", errors.New("completed result lacks its exact candidate")
+	}
+	return r.Candidate, nil
+}
+
 func (r Result) Validate() error {
 	switch r.Status {
 	case "completed", "blocked", "failed", "cancelled":

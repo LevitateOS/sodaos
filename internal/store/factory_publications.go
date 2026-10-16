@@ -226,6 +226,17 @@ func publicationUpdateAllowed(old, next factory.Publication) error {
 			return ErrPublicationConflict
 		}
 	}
+	// Delivery acceptances are immutable once recorded: entries never
+	// change, and new acceptances only append. FW35 journals clean_review
+	// acceptance here; FW37 appends jev_acceptance through the same rule.
+	if len(next.DeliveryAcceptances) < len(old.DeliveryAcceptances) {
+		return ErrPublicationConflict
+	}
+	for i := range old.DeliveryAcceptances {
+		if !deliveryAcceptanceEqual(old.DeliveryAcceptances[i], next.DeliveryAcceptances[i]) {
+			return ErrPublicationConflict
+		}
+	}
 	switch {
 	case old.Stage == factory.PublicationOpen || old.Stage == factory.PublicationFenced:
 	case old.Stage == factory.PublicationPublished &&
@@ -292,6 +303,30 @@ func correctionFindingEqual(a, b factory.Finding) bool {
 	}
 	if a.Location != nil && *a.Location != *b.Location {
 		return false
+	}
+	return true
+}
+
+// deliveryAcceptanceEqual reports whether one recorded delivery
+// acceptance survived unchanged. Every field compares by value; resolution
+// intents compare element-wise, so a rewritten intent refuses like any
+// other journal mutation.
+func deliveryAcceptanceEqual(old, next factory.DeliveryAcceptance) bool {
+	if old.Kind != next.Kind || old.ID != next.ID || old.PublicationID != next.PublicationID ||
+		old.AttemptRoot != next.AttemptRoot || old.ScopeDigest != next.ScopeDigest ||
+		old.FindingDigest != next.FindingDigest || old.CoverageDigest != next.CoverageDigest ||
+		old.CheckDigest != next.CheckDigest || old.PolicyRevision != next.PolicyRevision ||
+		old.DecisionID != next.DecisionID || old.OriginReceipt != next.OriginReceipt ||
+		old.Round != next.Round || old.Tuple != next.Tuple {
+		return false
+	}
+	if len(old.ResolutionIntents) != len(next.ResolutionIntents) {
+		return false
+	}
+	for i := range old.ResolutionIntents {
+		if old.ResolutionIntents[i] != next.ResolutionIntents[i] {
+			return false
+		}
 	}
 	return true
 }

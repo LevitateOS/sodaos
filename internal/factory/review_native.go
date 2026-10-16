@@ -707,6 +707,273 @@ func ReviewCycleID(publicationID, attemptRoot string, round int, phase string) s
 	return hex.EncodeToString(sum[:])[:32]
 }
 
+// FindingSnapshotVersion is the only admitted complete finding digest
+// version (D06/FW35): canonical typed JSON of the complete sorted finding
+// set. Key-only digests (FindingSetDigest) bind cycle inputs and correction
+// coverage, but they never authorize correction or merge on their own.
+const FindingSnapshotVersion = "finding-snapshot-v2"
+
+// canonicalFinding is the canonical typed encoding of one finding inside
+// the complete digest. Every semantic field travels: key, authoritative
+// origin/provenance, severity, actionability, defect, evidence, required
+// outcome, fix kind and native location. encoding/json emits struct fields
+// in declaration order, so the same set always hashes the same bytes.
+type canonicalFinding struct {
+	Location        *FindingLocation `json:"location,omitempty"`
+	Key             string           `json:"key"`
+	OriginRun       string           `json:"origin_run"`
+	Severity        string           `json:"severity"`
+	Defect          string           `json:"defect"`
+	Evidence        string           `json:"evidence"`
+	RequiredOutcome string           `json:"required_outcome"`
+	FixKind         string           `json:"fix_kind"`
+	OriginReview    int64            `json:"origin_review"`
+	Actionable      bool             `json:"actionable"`
+}
+
+// canonicalFindingBytes renders one validated finding's canonical bytes.
+// The field sequence mirrors Finding exactly, so the conversion is exact
+// and the JSON encoding stays deterministic.
+func canonicalFindingBytes(f Finding) ([]byte, error) {
+	encoded, err := json.Marshal(canonicalFinding(f))
+	if err != nil {
+		return nil, errors.New("finding snapshot cannot encode its set")
+	}
+	return encoded, nil
+}
+
+// FindingContentDigest binds one finding set to its complete sorted content:
+// every key plus every semantic field above. Any added, dropped, re-keyed
+// or same-key rewritten finding changes the digest; key order never does.
+// The empty set digests to the version domain alone, so a first review with
+// no carried findings still binds an exact (empty) input.
+func FindingContentDigest(findings []Finding) (string, error) {
+	if len(findings) > MaxOutstandingFindings {
+		return "", errors.New("finding set exceeds its bound")
+	}
+	sorted := append([]Finding(nil), findings...)
+	for _, finding := range sorted {
+		if err := finding.Validate(); err != nil {
+			return "", err
+		}
+	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Key < sorted[j].Key })
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i].Key == sorted[i-1].Key {
+			return "", errors.New("finding set carries a duplicate key")
+		}
+	}
+	var encoded strings.Builder
+	encoded.WriteString(FindingSnapshotVersion)
+	encoded.WriteByte(0)
+	for _, finding := range sorted {
+		one, err := canonicalFindingBytes(finding)
+		if err != nil {
+			return "", err
+		}
+		encoded.Write(one)
+		encoded.WriteByte(0)
+	}
+	sum := sha256.Sum256([]byte(encoded.String()))
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// CheckSubmittedFindings binds an agent-submitted finding set to the
+// controller's canonical set: same keys and byte-identical canonical
+// content per key. A submission that rewrites any defect, provenance,
+// severity, actionability, outcome, fix kind or location refuses, however
+// unchanged its keys look. Missing, duplicate, unknown or invalid entries
+// refuse alongside content drift.
+func CheckSubmittedFindings(canonical, submitted []Finding) error {
+	if len(canonical) > MaxOutstandingFindings || len(submitted) > MaxOutstandingFindings {
+		return errors.New("finding set exceeds its bound")
+	}
+	byKey := make(map[string][]byte, len(canonical))
+	for _, finding := range canonical {
+		if err := finding.Validate(); err != nil {
+			return err
+		}
+		encoded, err := canonicalFindingBytes(finding)
+		if err != nil {
+			return err
+		}
+		if _, dup := byKey[finding.Key]; dup {
+			return errors.New("canonical finding set carries a duplicate key")
+		}
+		byKey[finding.Key] = encoded
+	}
+	if len(submitted) != len(canonical) {
+		return errors.New("submitted findings answer another finding set")
+	}
+	for _, finding := range submitted {
+		if err := finding.Validate(); err != nil {
+			return err
+		}
+		want, ok := byKey[finding.Key]
+		if !ok {
+			return errors.New("submitted finding answers an unknown key")
+		}
+		got, err := canonicalFindingBytes(finding)
+		if err != nil {
+			return err
+		}
+		if string(got) != string(want) {
+			return errors.New("submitted finding redefines its canonical defect")
+		}
+	}
+	return nil
+}
+
+// ClearReviewConclusion is the only explicit nothing-found control. Native
+// approval, an empty array, silence, process exit or an approve verdict
+// without this conclusion never creates clean acceptance.
+const ClearReviewConclusion = "clear"
+
+// ClearReviewReportFence delimits the explicit clear block: the review
+// prompt instructs the CLI to close a nothing-found round with exactly one
+// fenced clear-review-json block, and the supervisor parses the last such
+// block strictly. The report carries no finding-content fields by design:
+// a clear round asserts zero new findings (including optional ones) and
+// assesses carried actionable findings verified, so there is no submitted
+// content an agent could substitute for the controller's canonical set.
+const ClearReviewReportFence = "clear-review-json"
+
+// ClearReviewReport is one reviewer round's explicit clear verdict over an
+// exact candidate: the cycle it answers, the complete head/base it covered,
+// the coverage digest binding that complete input, and one verified
+// assessment per carried actionable finding with evidence. Historical
+// verified fixes and declined optional items are history, not carried
+// findings: they stay visible in journals but never bar a later clear.
+type ClearReviewReport struct {
+	Assessments    []FindingAssessment `json:"assessments,omitempty"`
+	CycleID        string              `json:"cycle_id"`
+	Conclusion     string              `json:"conclusion"`
+	Head           string              `json:"head"`
+	BaseOID        string              `json:"base_oid"`
+	CoverageDigest string              `json:"coverage_digest"`
+}
+
+// Validate binds the explicit clear to the controller's canonical carried
+// set. Every carried finding validates; every carried actionable finding
+// needs its verified assessment with evidence. A still-open assessment, a
+// missing assessment, an assessment for an unknown key or a coverage digest
+// that does not bind this exact input refuses.
+func (r ClearReviewReport) Validate(carried []Finding) error {
+	if r.Conclusion != ClearReviewConclusion {
+		return errors.New("review report is not an explicit clear")
+	}
+	if !ValidID(r.CycleID) {
+		return errors.New("invalid clear review cycle")
+	}
+	if !ValidCommit(r.Head) || !ValidCommit(r.BaseOID) || r.Head == r.BaseOID {
+		return errors.New("clear review covers no exact candidate")
+	}
+	if !ValidDigest(r.CoverageDigest) {
+		return errors.New("clear review lacks its complete coverage digest")
+	}
+	if len(carried) > MaxOutstandingFindings {
+		return errors.New("carried finding set exceeds its bound")
+	}
+	byKey := make(map[string]Finding, len(carried))
+	for _, finding := range carried {
+		if err := finding.Validate(); err != nil {
+			return err
+		}
+		if _, dup := byKey[finding.Key]; dup {
+			return errors.New("carried finding set carries a duplicate key")
+		}
+		byKey[finding.Key] = finding
+	}
+	assessed := make(map[string]bool, len(r.Assessments))
+	for _, assessment := range r.Assessments {
+		if _, ok := byKey[assessment.Key]; !ok {
+			return errors.New("clear assessment answers an unknown finding")
+		}
+		if assessed[assessment.Key] {
+			return errors.New("clear assessment repeats its key")
+		}
+		assessed[assessment.Key] = true
+		if err := assessment.Validate(); err != nil {
+			return err
+		}
+	}
+	for _, finding := range carried {
+		if !finding.Actionable {
+			continue
+		}
+		if !assessed[finding.Key] {
+			return errors.New("carried actionable finding lacks its verified assessment")
+		}
+		for _, candidate := range r.Assessments {
+			if candidate.Key == finding.Key && candidate.Status != FindingVerified {
+				return errors.New("clear review carries an open finding")
+			}
+		}
+	}
+	return nil
+}
+
+// ClearCoverageDigest binds one clear round's claimed coverage to the
+// complete exact input it must have observed: head, base and the content
+// digest of the canonical carried set. Omitted carried findings, rewritten
+// content or a moved head/base all change the digest, so a stale or partial
+// coverage claim refuses at admission.
+func ClearCoverageDigest(head, baseOID, contentDigest string) (string, error) {
+	if !ValidCommit(head) || !ValidCommit(baseOID) || head == baseOID {
+		return "", errors.New("clear coverage covers no exact candidate")
+	}
+	if !ValidDigest(contentDigest) {
+		return "", errors.New("clear coverage lacks its finding content digest")
+	}
+	sum := sha256.Sum256([]byte("clear-coverage-v1\x00" + head + "\x00" + baseOID + "\x00" + contentDigest))
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// ParseClearReviewReport extracts the last fenced explicit-clear block from
+// reviewer output and validates its shape strictly (carried-set binding
+// belongs to Validate, which sees the controller's canonical findings).
+// Unknown fields refuse; silence, an empty block, an approve verdict or any
+// other unparseable output reports false instead of guessing clear.
+func ParseClearReviewReport(output string) (ClearReviewReport, bool) {
+	start := strings.LastIndex(output, "```"+ClearReviewReportFence)
+	if start < 0 {
+		return ClearReviewReport{}, false
+	}
+	rest := output[start+len("```"+ClearReviewReportFence):]
+	for offset := 0; offset < len(rest); {
+		rel := strings.Index(rest[offset:], "```")
+		if rel < 0 {
+			return ClearReviewReport{}, false
+		}
+		body := strings.TrimSpace(rest[:offset+rel])
+		offset += rel + len("```")
+		if body == "" || len(body) > MaxReviewReportBytes {
+			continue
+		}
+		var report ClearReviewReport
+		decoder := json.NewDecoder(strings.NewReader(body))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&report); err != nil {
+			continue
+		}
+		if decoder.More() {
+			continue
+		}
+		if report.Conclusion != ClearReviewConclusion || !ValidID(report.CycleID) ||
+			!ValidCommit(report.Head) || !ValidCommit(report.BaseOID) || report.Head == report.BaseOID ||
+			!ValidDigest(report.CoverageDigest) {
+			continue
+		}
+		for _, assessment := range report.Assessments {
+			if assessment.Validate() != nil {
+				return ClearReviewReport{}, false
+			}
+		}
+		return report, true
+	}
+	return ClearReviewReport{}, false
+}
+
 // ReviewOutcome is the attributable native review identity adopted from its
 // operation's committed receipt. It is historical evidence for this exact head
 // and base; callers must re-observe before using it for a later decision.

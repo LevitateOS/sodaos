@@ -1,7 +1,10 @@
 package factory
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"strconv"
 	"strings"
 )
 
@@ -226,14 +229,121 @@ func (c ReviewCycle) Validate() error {
 	return nil
 }
 
+// Delivery acceptance kinds (D07/FW35). A completed independent clear
+// review creates clean_review acceptance with zero delivery calls; the
+// funded Jev decision creates jev_acceptance. Both variants pass the same
+// merge and resolution gates (applied by FW37); neither self-approves to
+// merge, and native required checks/approvals plus D13 still apply.
+const (
+	AcceptanceCleanReview   = "clean_review"
+	AcceptanceJevAcceptance = "jev_acceptance"
+)
+
+// DeliveryAcceptance is one persisted D07 delivery acceptance: the union
+// FW37 gates resolution and every merge entrypoint on, replacing
+// judgment-only acceptance. Kind is exactly clean_review or jev_acceptance;
+// the latter also requires the funded decision ID. The finding digest is
+// always the D06 complete content digest computed from canonical findings
+// at admission: key-only set digests bind cycle inputs but never satisfy
+// acceptance construction. Resolution intents name the accepted native
+// resolve operation IDs; a clean review resolves nothing and carries none.
+// The receipt becomes actionable only after D14 retirement and verification
+// (FW37); this journal records the acceptance, never its activation.
+type DeliveryAcceptance struct {
+	Tuple             CandidateTuple `json:"tuple"`
+	ID                string         `json:"id"`
+	PublicationID     string         `json:"publication_id"`
+	AttemptRoot       string         `json:"attempt_root"`
+	ScopeDigest       string         `json:"scope_digest"`
+	FindingDigest     string         `json:"finding_digest"`
+	CoverageDigest    string         `json:"coverage_digest"`
+	CheckDigest       string         `json:"check_digest"`
+	PolicyRevision    string         `json:"policy_revision"`
+	DecisionID        string         `json:"decision_id,omitempty"`
+	OriginReceipt     string         `json:"origin_receipt"`
+	ResolutionIntents []string       `json:"resolution_intents,omitempty"`
+	Kind              string         `json:"kind"`
+	Round             int            `json:"round"`
+}
+
+// DeliveryAcceptanceID derives the deterministic acceptance identity from
+// publication, attempt root, round and kind. New rounds are distinct;
+// replay of a round reuses its identity.
+func DeliveryAcceptanceID(publicationID, attemptRoot string, round int, kind string) string {
+	sum := sha256.Sum256([]byte("delivery-acceptance-v1\x00" + publicationID + "\x00" + attemptRoot + "\x00" +
+		strconv.Itoa(round) + "\x00" + kind))
+	return hex.EncodeToString(sum[:])[:32]
+}
+
+// Validate checks the union shape and its kind rules. A clean acceptance
+// spends no delivery judgment and resolves no native thread; a funded
+// acceptance names its decision. Digest format alone cannot prove content
+// coverage (both digest versions are SHA-256 hex): only admission
+// constructors that compute the complete content digest may create one.
+func (a DeliveryAcceptance) Validate() error {
+	switch a.Kind {
+	case AcceptanceCleanReview:
+		if a.DecisionID != "" {
+			return errors.New("clean review spends no delivery judgment")
+		}
+		if len(a.ResolutionIntents) != 0 {
+			return errors.New("clean review resolves no native thread")
+		}
+	case AcceptanceJevAcceptance:
+		if strings.TrimSpace(a.DecisionID) == "" || len(a.DecisionID) > 128 {
+			return errors.New("funded acceptance lacks its decision")
+		}
+	default:
+		return errors.New("invalid delivery acceptance kind")
+	}
+	if !ValidID(a.PublicationID) || !ValidID(a.AttemptRoot) {
+		return errors.New("invalid delivery acceptance scope")
+	}
+	if a.Round < 1 {
+		return errors.New("invalid delivery acceptance round")
+	}
+	if a.ID != DeliveryAcceptanceID(a.PublicationID, a.AttemptRoot, a.Round, a.Kind) {
+		return errors.New("delivery acceptance identity differs from its derivation")
+	}
+	if err := a.Tuple.Validate(); err != nil {
+		return err
+	}
+	for _, digest := range []string{a.ScopeDigest, a.FindingDigest, a.CoverageDigest, a.CheckDigest} {
+		if !ValidDigest(digest) {
+			return errors.New("delivery acceptance lacks its bound evidence digests")
+		}
+	}
+	if strings.TrimSpace(a.PolicyRevision) == "" || len(a.PolicyRevision) > 128 {
+		return errors.New("delivery acceptance lacks its policy revision")
+	}
+	if !ValidID(a.OriginReceipt) {
+		return errors.New("invalid delivery acceptance origin receipt")
+	}
+	if len(a.ResolutionIntents) > MaxOutstandingFindings {
+		return errors.New("delivery acceptance carries too many resolution intents")
+	}
+	seen := make(map[string]bool, len(a.ResolutionIntents))
+	for _, intent := range a.ResolutionIntents {
+		if !ValidID(intent) {
+			return errors.New("invalid delivery acceptance resolution intent")
+		}
+		if seen[intent] {
+			return errors.New("delivery acceptance repeats its resolution intent")
+		}
+		seen[intent] = true
+	}
+	return nil
+}
+
 // ReviewCycleReport is one reviewer round's verdict over the carried set:
 // new findings plus an explicit verified|still_open assessment for every
 // carried actionable finding, with evidence. Mechanically complete
 // proposed fixes can reach Jev while their native threads are open; a
 // reviewer may verify them in a new round, or Jev may accept the full
 // set. Optional-only reviews go straight to Jev and never force a coder
-// run. A clean first review also requires Jev's decision; it never
-// self-approves to merge.
+// run. An explicit nothing-found round uses ClearReviewReport instead and
+// admits clean_review acceptance under D07; no verdict here self-approves
+// to merge.
 type ReviewCycleReport struct {
 	CycleID     string              `json:"cycle_id"`
 	NewFindings []Finding           `json:"new_findings,omitempty"`
@@ -348,6 +458,48 @@ func (p Publication) validateCorrectionJournal() error {
 		}
 		if journal.Report.SetDigest != cycle.FindingDigest {
 			return errors.New("correction dispositions answer a changed finding set")
+		}
+	}
+	return nil
+}
+
+// validateDeliveryAcceptances checks the persisted delivery-acceptance
+// journal (D07/FW35): each entry validates, belongs to this publication
+// and carries a distinct derived identity. An acceptance must answer a
+// candidate inside this publication's history (the initial candidate or a
+// committed correction tip) over the publication's current base: a tuple
+// never built here refuses, so stale tuples cannot ride through as stored
+// acceptance. An empty journal validates.
+func (p Publication) validateDeliveryAcceptances() error {
+	if len(p.DeliveryAcceptances) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(p.DeliveryAcceptances))
+	known := make(map[string]bool)
+	if p.Publish.Work != nil {
+		known[p.Publish.Work.Candidate] = true
+	}
+	for _, correction := range p.Corrections {
+		if correction.Effect == OpEffectCommitted && correction.Work != nil {
+			known[correction.Work.Candidate] = true
+		}
+	}
+	for _, acceptance := range p.DeliveryAcceptances {
+		if err := acceptance.Validate(); err != nil {
+			return err
+		}
+		if acceptance.PublicationID != p.ID {
+			return errors.New("delivery acceptance belongs to another publication")
+		}
+		if seen[acceptance.ID] {
+			return errors.New("duplicate delivery acceptance")
+		}
+		seen[acceptance.ID] = true
+		if !known[acceptance.Tuple.Head] {
+			return errors.New("delivery acceptance answers an unknown candidate")
+		}
+		if acceptance.Tuple.Base != p.PRCreate.BaseOID {
+			return errors.New("delivery acceptance answers another base")
 		}
 	}
 	return nil
