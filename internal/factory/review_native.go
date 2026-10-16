@@ -10,26 +10,28 @@ import (
 	"strings"
 )
 
-// ReviewWork is one immutable body-only review authorization. Native PR and
+// ReviewWork is one immutable review authorization: the summary body plus
+// the located findings submitted as native inline comments. Native PR and
 // issue identities come from the recorded creation receipt, not a PR search.
 // The reviewer owns findings; this work grants no ref publication.
 type ReviewWork struct {
-	OperationID  string `json:"operation_id"`
-	AuthRevision string `json:"authorization_revision"`
-	Repository   int64  `json:"repository"`
-	ActorID      int64  `json:"actor_id"`
-	PRNumber     int64  `json:"pr_number"`
-	PRID         int64  `json:"pr_id"`
-	IssueID      int64  `json:"issue_id"`
-	PRAuthorID   int64  `json:"pr_author_id"`
-	HeadRef      string `json:"head_ref"`
-	BaseRef      string `json:"base_ref"`
-	HeadOID      string `json:"head_oid"`
-	BaseOID      string `json:"base_oid"`
-	NativeRev    int64  `json:"native_revision"`
-	NotAfter     int64  `json:"not_after"`
-	Event        string `json:"event"`
-	Body         string `json:"body"`
+	Comments     []FindingComment `json:"comments,omitempty"`
+	OperationID  string           `json:"operation_id"`
+	AuthRevision string           `json:"authorization_revision"`
+	Repository   int64            `json:"repository"`
+	ActorID      int64            `json:"actor_id"`
+	PRNumber     int64            `json:"pr_number"`
+	PRID         int64            `json:"pr_id"`
+	IssueID      int64            `json:"issue_id"`
+	PRAuthorID   int64            `json:"pr_author_id"`
+	HeadRef      string           `json:"head_ref"`
+	BaseRef      string           `json:"base_ref"`
+	HeadOID      string           `json:"head_oid"`
+	BaseOID      string           `json:"base_oid"`
+	NativeRev    int64            `json:"native_revision"`
+	NotAfter     int64            `json:"not_after"`
+	Event        string           `json:"event"`
+	Body         string           `json:"body"`
 }
 
 // ReviewOperation retains one review run's exact immutable native work and
@@ -161,6 +163,9 @@ func (w ReviewWork) Validate() error {
 	default:
 		return errors.New("invalid review disposition")
 	}
+	if err := validateFindingComments(w.Comments); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -222,6 +227,12 @@ func (r ReviewReport) Validate() error {
 			return errors.New("review finding is too large")
 		}
 	}
+	// The complete encoded report enforces the same ceiling the parser
+	// admits: field bounds alone cannot bound JSON escaping.
+	encoded, err := json.Marshal(r)
+	if err != nil || len(encoded) > MaxReviewReportBytes {
+		return errors.New("review report exceeds its bound")
+	}
 	return nil
 }
 
@@ -245,7 +256,7 @@ func ParseReviewReport(output string) (ReviewReport, bool) {
 		}
 		body := strings.TrimSpace(rest[:offset+rel])
 		offset += rel + len("```")
-		if body == "" || len(body) > 65536+8192 {
+		if body == "" || len(body) > MaxReviewReportBytes {
 			continue
 		}
 		var report ReviewReport
@@ -271,8 +282,8 @@ func ParseReviewReport(output string) (ReviewReport, bool) {
 // native receipt fits MaxReviewReceiptBytes. The 1 MiB review-history cap
 // (MaxPublicationReviewBytes) counts full encoded work plus reserved
 // receipt capacity at the review-specific size. Other operation receipt
-// limits stay unchanged. The N adapter moves to the review-specific
-// receipt cap with FW18; until then it still admits only 4 KiB receipts.
+// limits stay unchanged. The N adapter admits review receipts up to the
+// review-specific cap; every generic native receipt stays at 4 KiB.
 const (
 	MaxFindingsPerReport   = 64
 	MaxOutstandingFindings = 64
@@ -280,6 +291,18 @@ const (
 	MaxReviewPayloadBytes  = 48 << 10
 	MaxReviewReceiptBytes  = 16 << 10
 )
+
+// MaxReviewReportBytes bounds the complete fenced reviewer report block
+// the parser attempts to decode. A maximum report carries a 4 KiB summary,
+// a 64 KiB body and 64 findings of 4 KiB prose each; every byte may expand
+// to six in JSON (encoding/json HTML escaping), so the worst valid encoding
+// stays below 2 MiB. Reports at the persisted field bounds always parse;
+// only oversized blocks refuse before decoding.
+const MaxReviewReportBytes = 2 << 20
+
+// MaxFindingCommentBodyBytes bounds one rendered native inline comment:
+// the finding prose plus its stable key line and labels.
+const MaxFindingCommentBodyBytes = MaxFindingProseBytes + 256
 
 // Finding severities and fix kinds. Fix verification covers checks-only
 // outcomes; informational findings use verification with an explicit
@@ -400,6 +423,169 @@ func FindingSetDigest(keys []string) (string, error) {
 	}
 	sum := sha256.Sum256([]byte("finding-set-v1\x00" + strings.Join(sorted, "\x00")))
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// FindingComment is one located finding's stable native inline comment:
+// the factory finding key as the opaque native correlation key, the exact
+// diff anchor and the rendered prose body. The key never carries severity,
+// disposition or classifier state; those travel in the prose body, which
+// the host stores in the native comment alongside the key.
+type FindingComment struct {
+	Key  string `json:"key"`
+	Path string `json:"path"`
+	Side string `json:"side"`
+	Line int64  `json:"line"`
+	Body string `json:"body"`
+}
+
+// Validate checks one inline comment: a stable finding key, an exact
+// old|new diff anchor, a one-based line and a bounded prose body.
+func (c FindingComment) Validate() error {
+	if !ValidFindingKey(c.Key) {
+		return errors.New("invalid finding comment key")
+	}
+	if c.Path == "" || len(c.Path) > 1024 || c.Path != strings.TrimSpace(c.Path) {
+		return errors.New("invalid finding comment path")
+	}
+	switch c.Side {
+	case "old", "new":
+	default:
+		return errors.New("invalid finding comment side")
+	}
+	if c.Line < 1 {
+		return errors.New("invalid finding comment line")
+	}
+	if strings.TrimSpace(c.Body) == "" || len(c.Body) > MaxFindingCommentBodyBytes {
+		return errors.New("finding comment body outside its bound")
+	}
+	return nil
+}
+
+// validateFindingComments checks one inline comment list: bounded count,
+// individually valid comments, unique correlation keys and no duplicate
+// (path, side, line) anchors in one submission. Defects sharing an anchor
+// consolidate into one finding before submission.
+func validateFindingComments(comments []FindingComment) error {
+	if len(comments) > MaxFindingsPerReport {
+		return errors.New("review carries too many finding comments")
+	}
+	keys := make(map[string]struct{}, len(comments))
+	anchors := make(map[FindingComment]struct{}, len(comments))
+	for _, comment := range comments {
+		if err := comment.Validate(); err != nil {
+			return err
+		}
+		if _, dup := keys[comment.Key]; dup {
+			return errors.New("review carries a duplicate finding key")
+		}
+		keys[comment.Key] = struct{}{}
+		anchor := FindingComment{Path: comment.Path, Side: comment.Side, Line: comment.Line}
+		if _, dup := anchors[anchor]; dup {
+			return errors.New("review carries a duplicate finding anchor")
+		}
+		anchors[anchor] = struct{}{}
+	}
+	return nil
+}
+
+// findingCommentBody renders one finding's stable native prose: the key on
+// its own first line (the host stores key plus prose), then severity, fix
+// kind, defect, evidence and required outcome. The same finding always
+// renders the same bytes.
+func findingCommentBody(f Finding) string {
+	var body strings.Builder
+	body.WriteString(f.Key)
+	body.WriteString("\nseverity: ")
+	body.WriteString(f.Severity)
+	body.WriteString("\nfix: ")
+	body.WriteString(f.FixKind)
+	body.WriteString("\n\n")
+	body.WriteString(f.Defect)
+	body.WriteString("\n\nEvidence:\n")
+	body.WriteString(f.Evidence)
+	body.WriteString("\n\nRequired outcome:\n")
+	body.WriteString(f.RequiredOutcome)
+	return body.String()
+}
+
+// InlineComment renders one located finding as its stable native comment.
+// Non-line findings have no diff anchor and belong in the review summary
+// instead; they never become inline comments.
+func (f Finding) InlineComment() (FindingComment, error) {
+	if err := f.Validate(); err != nil {
+		return FindingComment{}, err
+	}
+	if f.Location == nil {
+		return FindingComment{}, errors.New("non-line finding belongs in the review summary")
+	}
+	return FindingComment{
+		Key:  f.Key,
+		Path: f.Location.Path,
+		Side: f.Location.Side,
+		Line: f.Location.Line,
+		Body: findingCommentBody(f),
+	}, nil
+}
+
+// FindingCommentsForFindings maps one finding set to its stable native
+// inline comments, preserving input order. Unlocated findings refuse: the
+// caller represents them in the review summary with their keys.
+func FindingCommentsForFindings(findings []Finding) ([]FindingComment, error) {
+	comments := make([]FindingComment, 0, len(findings))
+	for _, finding := range findings {
+		comment, err := finding.InlineComment()
+		if err != nil {
+			return nil, err
+		}
+		comments = append(comments, comment)
+	}
+	if err := validateFindingComments(comments); err != nil {
+		return nil, err
+	}
+	return comments, nil
+}
+
+// ReviewWorkEqual reports whether two recorded review authorizations carry
+// the identical immutable tuple, comparing inline finding comments
+// element-wise. Reconciliation, recovery and store prefix checks round-trip
+// persisted work through this comparison instead of struct identity, which
+// no longer applies to the comment list.
+func ReviewWorkEqual(a, b ReviewWork) bool {
+	if len(a.Comments) != len(b.Comments) {
+		return false
+	}
+	for i := range a.Comments {
+		if a.Comments[i] != b.Comments[i] {
+			return false
+		}
+	}
+	return a.OperationID == b.OperationID && a.AuthRevision == b.AuthRevision &&
+		a.Repository == b.Repository && a.ActorID == b.ActorID && a.PRNumber == b.PRNumber &&
+		a.PRID == b.PRID && a.IssueID == b.IssueID && a.PRAuthorID == b.PRAuthorID &&
+		a.HeadRef == b.HeadRef && a.BaseRef == b.BaseRef && a.HeadOID == b.HeadOID &&
+		a.BaseOID == b.BaseOID && a.NativeRev == b.NativeRev && a.NotAfter == b.NotAfter &&
+		a.Event == b.Event && a.Body == b.Body
+}
+
+// ReviewCommentMapping binds one submitted finding key to its committed
+// native inline comment: the stable native/factory identity mapping. Keys
+// are preserved through review rounds; the native comment ID is adopted
+// from the submission receipt and never invented.
+type ReviewCommentMapping struct {
+	Key       string
+	CommentID int64
+}
+
+// Validate checks one mapping: a stable finding key and a positive native
+// comment record.
+func (m ReviewCommentMapping) Validate() error {
+	if !ValidFindingKey(m.Key) {
+		return errors.New("invalid finding comment mapping key")
+	}
+	if m.CommentID <= 0 {
+		return errors.New("invalid mapped native comment")
+	}
+	return nil
 }
 
 // ResolveConversationMember is one thread member behind a resolution
@@ -524,16 +710,21 @@ func ReviewCycleID(publicationID, attemptRoot string, round int, phase string) s
 // ReviewOutcome is the attributable native review identity adopted from its
 // operation's committed receipt. It is historical evidence for this exact head
 // and base; callers must re-observe before using it for a later decision.
+// The candidate fields repeat the submitted work the receipt was adopted
+// against; the native receipt itself carries only review/comment IDs, the
+// per-key inline comment IDs and the host-derived merge base.
 type ReviewOutcome struct {
-	Operation  OperationOutcome
-	ReviewID   int64
-	CommentID  int64
-	ReviewerID int64
-	PRID       int64
-	PRNumber   int64
-	IssueID    int64
-	HeadOID    string
-	BaseOID    string
-	CommitID   string
-	Event      string
+	Operation    OperationOutcome
+	Comments     []ReviewCommentMapping
+	ReviewID     int64
+	CommentID    int64
+	ReviewerID   int64
+	PRID         int64
+	PRNumber     int64
+	IssueID      int64
+	HeadOID      string
+	BaseOID      string
+	CommitID     string
+	MergeBaseOID string
+	Event        string
 }

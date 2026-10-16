@@ -207,6 +207,25 @@ func publicationUpdateAllowed(old, next factory.Publication) error {
 			return ErrPublicationConflict
 		}
 	}
+	// Review cycles and correction journals are immutable once recorded:
+	// entries never change, and new entries only append. Publication
+	// validation pins the cycle/disposition linkage for the appended tail.
+	if len(next.ReviewCycles) < len(old.ReviewCycles) {
+		return ErrPublicationConflict
+	}
+	for i := range old.ReviewCycles {
+		if next.ReviewCycles[i] != old.ReviewCycles[i] {
+			return ErrPublicationConflict
+		}
+	}
+	if len(next.CorrectionJournals) < len(old.CorrectionJournals) {
+		return ErrPublicationConflict
+	}
+	for i := range old.CorrectionJournals {
+		if !correctionJournalUpdateAllowed(old.CorrectionJournals[i], next.CorrectionJournals[i]) {
+			return ErrPublicationConflict
+		}
+	}
 	switch {
 	case old.Stage == factory.PublicationOpen || old.Stage == factory.PublicationFenced:
 	case old.Stage == factory.PublicationPublished &&
@@ -236,8 +255,49 @@ func publicationOperationUpdateAllowed(old, next factory.PublicationOperation) b
 	return true
 }
 
+// correctionJournalUpdateAllowed reports whether one recorded correction
+// journal entry survived unchanged. Journal entries are fully immutable:
+// a new correction run appends a new entry rather than editing one.
+// Findings compare by value: their optional native anchor is a pointer,
+// so struct identity comparison would refuse legitimate read-modify-write
+// cycles over identical decoded records.
+func correctionJournalUpdateAllowed(old, next factory.CorrectionJournal) bool {
+	if old.CycleID != next.CycleID || old.RunID != next.RunID {
+		return false
+	}
+	if old.Report.SetDigest != next.Report.SetDigest || len(old.Report.Findings) != len(next.Report.Findings) || len(old.Report.Dispositions) != len(next.Report.Dispositions) {
+		return false
+	}
+	for i := range old.Report.Findings {
+		if !correctionFindingEqual(old.Report.Findings[i], next.Report.Findings[i]) {
+			return false
+		}
+	}
+	for i := range old.Report.Dispositions {
+		if old.Report.Dispositions[i] != next.Report.Dispositions[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func correctionFindingEqual(a, b factory.Finding) bool {
+	if a.Key != b.Key || a.OriginRun != b.OriginRun || a.OriginReview != b.OriginReview ||
+		a.Severity != b.Severity || a.Actionable != b.Actionable || a.Defect != b.Defect ||
+		a.Evidence != b.Evidence || a.RequiredOutcome != b.RequiredOutcome || a.FixKind != b.FixKind {
+		return false
+	}
+	if (a.Location == nil) != (b.Location == nil) {
+		return false
+	}
+	if a.Location != nil && *a.Location != *b.Location {
+		return false
+	}
+	return true
+}
+
 func reviewOperationUpdateAllowed(old, next factory.ReviewOperation) bool {
-	if old.RunID != next.RunID || old.Work != next.Work {
+	if old.RunID != next.RunID || !factory.ReviewWorkEqual(old.Work, next.Work) {
 		return false
 	}
 	prior, updated := old.Outcome, next.Outcome

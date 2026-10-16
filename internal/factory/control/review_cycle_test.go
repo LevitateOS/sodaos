@@ -227,7 +227,7 @@ func TestSubmitReviewForRunSubmitsExactHead(t *testing.T) {
 	exec.adopted.Operation = exec.outcome
 	exec.beforeSubmit = func(work factory.ReviewWork) {
 		stored, err := fx.db.PublicationByAssignment(context.Background(), a.ID)
-		if err != nil || len(stored.ReviewOperations) != 1 || stored.ReviewOperations[0].Work != work {
+		if err != nil || len(stored.ReviewOperations) != 1 || !factory.ReviewWorkEqual(stored.ReviewOperations[0].Work, work) {
 			t.Fatalf("review work was not stored before native submission: %+v %v", stored.ReviewOperations, err)
 		}
 	}
@@ -300,7 +300,7 @@ func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
 			t.Fatalf("store accepted changed immutable review %s: %v", mutate.name, err)
 		}
 		unchanged, err := fx.db.PublicationByAssignment(ctx, a.ID)
-		if err != nil || unchanged.ReviewOperations[0].Work != saved {
+		if err != nil || !factory.ReviewWorkEqual(unchanged.ReviewOperations[0].Work, saved) {
 			t.Fatalf("rejected %s mutation changed saved review: %+v %v", mutate.name, unchanged.ReviewOperations, err)
 		}
 	}
@@ -344,7 +344,7 @@ func TestReviewRetryUsesSavedWorkAfterHeadAndPolicyChange(t *testing.T) {
 	expectedObservation := saved
 	expectedObservation.NativeRev = 0
 	expectedObservation.NotAfter = 0
-	if exec.lookups[0] != saved.OperationID || exec.submitted[0] != saved || exec.works[0] != expectedObservation {
+	if !factory.ReviewWorkEqual(exec.submitted[0], saved) || !factory.ReviewWorkEqual(exec.works[0], expectedObservation) || exec.lookups[0] != saved.OperationID {
 		t.Fatalf("retry did not reconcile the original tuple: saved=%+v lookup=%v submit=%+v observe=%+v", saved, exec.lookups, exec.submitted, exec.works)
 	}
 	for name, list := range map[string]func() ([]factory.Publication, error){

@@ -16,8 +16,9 @@ import (
 	forgejopublish "github.com/levitateos/sodaos/internal/forgejo/publish"
 )
 
-// Reviewer submits only exact body-only reviews through the shared native
-// admission. Its distinct actor secret stays outside the Project and its agents.
+// Reviewer submits only exact reviews through the shared native admission:
+// the summary body plus the recorded inline finding comments. Its distinct
+// actor secret stays outside the Project and its agents.
 type Reviewer struct {
 	background *ServiceBackground
 	rest       *Client
@@ -128,6 +129,13 @@ func reviewIntent(w factory.ReviewWork) (extensions.OperationIntent, error) {
 		return extensions.OperationIntent{}, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
 	payload := extensions.ReviewSubmitPayload{PullRequestNumber: w.PRNumber, PRAuthorID: w.PRAuthorID, HeadRepositoryID: w.Repository, HeadRef: w.HeadRef, BaseRef: w.BaseRef, ExpectedHeadOID: w.HeadOID, ExpectedBaseOID: w.BaseOID, CommitID: w.HeadOID, Event: w.Event, Body: w.Body}
+	for _, comment := range w.Comments {
+		payload.Comments = append(payload.Comments, extensions.ReviewComment{Key: comment.Key, Path: comment.Path, Side: comment.Side, Line: comment.Line, Body: comment.Body})
+	}
+	// The SDK validation enforces the complete encoded payload ceiling
+	// (MaxReviewPayloadBytes), the per-report comment bound and the exact
+	// diff-anchor rules against the same limits the native operation
+	// enforces at admission.
 	if err := extensions.ValidateReviewSubmitPayload(w.Repository, payload); err != nil {
 		return extensions.OperationIntent{}, &factory.PublicationRefusal{Reason: "invalid_work"}
 	}
@@ -234,7 +242,10 @@ func reviewOperationOutcome(id string, record extensions.OperationRecord) (facto
 	if o.Cancellation == "" {
 		o.Cancellation = factory.OpCancelNone
 	}
-	if !factory.ValidOpEffect(o.Effect) || !factory.ValidOpCancellation(o.Cancellation) || (o.Completion != "" && !factory.ValidOpCompletion(o.Completion)) || len(o.Reason) > 64 || len(record.Receipt) > factory.MaxPublicationReceipt {
+	// Review operations admit the review-specific receipt cap: inline
+	// comment IDs and the merge base travel in this receipt. Every generic
+	// native receipt stays at the 4 KiB bound.
+	if !factory.ValidOpEffect(o.Effect) || !factory.ValidOpCancellation(o.Cancellation) || (o.Completion != "" && !factory.ValidOpCompletion(o.Completion)) || len(o.Reason) > 64 || len(record.Receipt) > factory.MaxReviewReceiptBytes {
 		return empty, errors.New("invalid native review operation state")
 	}
 	tombstone := record.Kind == "" && record.ActorID == "" && record.RepositoryID == "" && o.Effect == factory.OpEffectNotCommitted && o.Cancellation == factory.OpCancelCancelled
@@ -250,31 +261,22 @@ func reviewOperationOutcome(id string, record extensions.OperationRecord) (facto
 	return o, nil
 }
 
-// reviewReceipt is the wire shape observed from the staged native FT13 producer
-// by TestNativeReviewWire. Ref/author/repository expectations are bound by the
-// immutable submitted payload and envelope; they are not invented receipt fields.
-type reviewReceipt struct {
-	ReviewID   int64  `json:"review_id"`
-	CommentID  int64  `json:"comment_id"`
-	ReviewerID int64  `json:"reviewer_id"`
-	IssueID    int64  `json:"issue_id"`
-	PRID       int64  `json:"pr_id"`
-	PRNumber   int64  `json:"pr_number"`
-	HeadOID    string `json:"head_oid"`
-	BaseOID    string `json:"base_oid"`
-	CommitID   string `json:"commit_id"`
-	Event      string `json:"event"`
-}
-
+// AdoptReview adopts one committed native review receipt against its
+// submitted work. The receipt carries the summary review/comment IDs, the
+// per-key inline comment IDs and the host-derived merge base; candidate,
+// author and event expectations stay bound by the immutable submitted
+// payload and envelope, which the receipt no longer echoes. The adopted
+// per-key mapping is the stable native/factory identity: every submitted
+// finding key arrives exactly once with its native comment record.
 func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome) (factory.ReviewOutcome, error) {
 	var empty factory.ReviewOutcome
 	if err := w.Validate(); err != nil {
 		return empty, err
 	}
-	if o.NotObserved || o.OperationID != w.OperationID || o.InstallationID == "" || o.Kind != factory.OpReviewSubmit || o.ActorID != w.ActorID || o.RepositoryID != w.Repository || o.Effect != factory.OpEffectCommitted || len(o.Receipt) == 0 || len(o.Receipt) > factory.MaxPublicationReceipt {
+	if o.NotObserved || o.OperationID != w.OperationID || o.InstallationID == "" || o.Kind != factory.OpReviewSubmit || o.ActorID != w.ActorID || o.RepositoryID != w.Repository || o.Effect != factory.OpEffectCommitted || len(o.Receipt) == 0 || len(o.Receipt) > factory.MaxReviewReceiptBytes {
 		return empty, errors.New("review outcome differs from its recorded intent")
 	}
-	var receipt reviewReceipt
+	var receipt extensions.ReviewSubmitReceipt
 	decoder := json.NewDecoder(bytes.NewReader(o.Receipt))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&receipt); err != nil {
@@ -283,8 +285,37 @@ func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome)
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return empty, errors.New("native review receipt is malformed")
 	}
-	if receipt.ReviewID <= 0 || receipt.CommentID <= 0 || receipt.ReviewerID != w.ActorID || receipt.IssueID != w.IssueID || receipt.PRID != w.PRID || receipt.PRNumber != w.PRNumber || receipt.HeadOID != w.HeadOID || receipt.BaseOID != w.BaseOID || receipt.CommitID != w.HeadOID || receipt.Event != w.Event {
+	// The receipt carries no reviewer identity: reviewer binding stays on
+	// the operation envelope, already checked against the work above.
+	if receipt.ReviewID <= 0 || receipt.CommentID <= 0 {
 		return empty, errors.New("native review receipt differs from its recorded intent")
 	}
-	return factory.ReviewOutcome{Operation: o, ReviewID: receipt.ReviewID, CommentID: receipt.CommentID, ReviewerID: receipt.ReviewerID, PRID: receipt.PRID, PRNumber: receipt.PRNumber, IssueID: receipt.IssueID, HeadOID: receipt.HeadOID, BaseOID: receipt.BaseOID, CommitID: receipt.CommitID, Event: receipt.Event}, nil
+	if !factory.ValidCommit(receipt.MergeBaseOID) {
+		return empty, errors.New("native review receipt lacks its merge base")
+	}
+	if len(receipt.Comments) != len(w.Comments) {
+		return empty, errors.New("native review receipt differs from its recorded comments")
+	}
+	submitted := make(map[string]factory.FindingComment, len(w.Comments))
+	for _, comment := range w.Comments {
+		submitted[comment.Key] = comment
+	}
+	mappings := make([]factory.ReviewCommentMapping, 0, len(receipt.Comments))
+	seenIDs := make(map[int64]bool, len(receipt.Comments))
+	for _, comment := range receipt.Comments {
+		if _, ok := submitted[comment.Key]; !ok {
+			return empty, errors.New("native review receipt maps an unknown finding key")
+		}
+		delete(submitted, comment.Key)
+		if comment.CommentID <= 0 || seenIDs[comment.CommentID] {
+			return empty, errors.New("native review receipt carries an invalid comment record")
+		}
+		seenIDs[comment.CommentID] = true
+		mapping := factory.ReviewCommentMapping{Key: comment.Key, CommentID: comment.CommentID}
+		if err := mapping.Validate(); err != nil {
+			return empty, err
+		}
+		mappings = append(mappings, mapping)
+	}
+	return factory.ReviewOutcome{Operation: o, Comments: mappings, ReviewID: receipt.ReviewID, CommentID: receipt.CommentID, ReviewerID: w.ActorID, PRID: w.PRID, PRNumber: w.PRNumber, IssueID: w.IssueID, HeadOID: w.HeadOID, BaseOID: w.BaseOID, CommitID: w.HeadOID, Event: w.Event, MergeBaseOID: receipt.MergeBaseOID}, nil
 }

@@ -1,6 +1,7 @@
 package forgejo
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,13 +22,35 @@ func reviewTestWork() factory.ReviewWork {
 	return factory.ReviewWork{OperationID: "st10-review", AuthRevision: "attempt:review:1", Repository: 7, ActorID: 11, PRNumber: 5, PRID: 17, IssueID: 21, PRAuthorID: 9, HeadRef: "refs/heads/candidate", BaseRef: "refs/heads/main", HeadOID: strings.Repeat("a", 40), BaseOID: strings.Repeat("b", 40), NativeRev: 12, NotAfter: time.Now().Add(5 * time.Minute).Unix(), Event: "REQUEST_CHANGES", Body: "file.go: correct the demonstrated failure."}
 }
 
-func reviewTestOutcome(t *testing.T, w factory.ReviewWork) factory.OperationOutcome {
+func reviewTestCommentedWork() factory.ReviewWork {
+	w := reviewTestWork()
+	w.Comments = []factory.FindingComment{
+		{Key: strings.Repeat("0", 31) + "a", Path: "file.go", Side: "new", Line: 3, Body: "key line plus defect prose"},
+		{Key: strings.Repeat("0", 31) + "b", Path: "file.go", Side: "new", Line: 9, Body: "second defect prose"},
+	}
+	return w
+}
+
+func reviewTestReceipt(t *testing.T, w factory.ReviewWork, commentIDs map[string]int64) []byte {
 	t.Helper()
-	raw, err := json.Marshal(reviewReceipt{ReviewID: 31, CommentID: 41, ReviewerID: w.ActorID, IssueID: w.IssueID, PRID: w.PRID, PRNumber: w.PRNumber, HeadOID: w.HeadOID, BaseOID: w.BaseOID, CommitID: w.HeadOID, Event: w.Event})
+	receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, MergeBaseOID: strings.Repeat("d", 40)}
+	for _, comment := range w.Comments {
+		id, ok := commentIDs[comment.Key]
+		if !ok {
+			id = 100 + int64(len(receipt.Comments))
+		}
+		receipt.Comments = append(receipt.Comments, extensions.ReviewCommentReceipt{Key: comment.Key, CommentID: id})
+	}
+	raw, err := json.Marshal(receipt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return factory.OperationOutcome{OperationID: w.OperationID, InstallationID: "installation", Kind: factory.OpReviewSubmit, ActorID: w.ActorID, RepositoryID: w.Repository, Effect: factory.OpEffectCommitted, Cancellation: factory.OpCancelNone, Completion: factory.OpCompletionComplete, Receipt: raw}
+	return raw
+}
+
+func reviewTestOutcome(t *testing.T, w factory.ReviewWork) factory.OperationOutcome {
+	t.Helper()
+	return factory.OperationOutcome{OperationID: w.OperationID, InstallationID: "installation", Kind: factory.OpReviewSubmit, ActorID: w.ActorID, RepositoryID: w.Repository, Effect: factory.OpEffectCommitted, Cancellation: factory.OpCancelNone, Completion: factory.OpCompletionComplete, Receipt: reviewTestReceipt(t, w, nil)}
 }
 
 func TestReviewerReceipt(t *testing.T) {
@@ -37,16 +60,18 @@ func TestReviewerReceipt(t *testing.T) {
 		w.Event = event
 		o := reviewTestOutcome(t, w)
 		adopted, err := r.AdoptReview(w, o)
-		if err != nil || adopted.HeadOID != w.HeadOID || adopted.Event != event || adopted.ReviewID != 31 {
+		if err != nil || adopted.HeadOID != w.HeadOID || adopted.Event != event || adopted.ReviewID != 31 || adopted.MergeBaseOID != strings.Repeat("d", 40) || len(adopted.Comments) != 0 {
 			t.Fatalf("adopt: %+v %v", adopted, err)
 		}
 	}
+	commented := reviewTestCommentedWork()
+	o := reviewTestOutcome(t, commented)
+	adopted, err := r.AdoptReview(commented, o)
+	if err != nil || len(adopted.Comments) != 2 || adopted.Comments[0].Key != commented.Comments[0].Key || adopted.Comments[1].Key != commented.Comments[1].Key || adopted.Comments[0].CommentID == adopted.Comments[1].CommentID {
+		t.Fatalf("comment mapping not adopted: %+v %v", adopted, err)
+	}
 	cases := map[string]func(*factory.ReviewWork, *factory.OperationOutcome){
-		"new head":        func(w *factory.ReviewWork, _ *factory.OperationOutcome) { w.HeadOID = strings.Repeat("c", 40) },
-		"new base":        func(w *factory.ReviewWork, _ *factory.OperationOutcome) { w.BaseOID = strings.Repeat("c", 40) },
 		"new actor":       func(w *factory.ReviewWork, _ *factory.OperationOutcome) { w.ActorID++ },
-		"new pr":          func(w *factory.ReviewWork, _ *factory.OperationOutcome) { w.PRID++ },
-		"new issue":       func(w *factory.ReviewWork, _ *factory.OperationOutcome) { w.IssueID++ },
 		"new operation":   func(w *factory.ReviewWork, _ *factory.OperationOutcome) { w.OperationID += "-new" },
 		"wrong kind":      func(_ *factory.ReviewWork, o *factory.OperationOutcome) { o.Kind = factory.OpPRCreate },
 		"missing receipt": func(_ *factory.ReviewWork, o *factory.OperationOutcome) { o.Receipt = nil },
@@ -54,10 +79,33 @@ func TestReviewerReceipt(t *testing.T) {
 			o.Receipt = append(o.Receipt[:len(o.Receipt)-1], []byte(`,"unexpected":true}`)...)
 		},
 		"pending": func(_ *factory.ReviewWork, o *factory.OperationOutcome) { o.Effect = factory.OpEffectPending },
+		"missing merge base": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
+			o.Receipt = reviewTestReceiptNoMergeBase(t, *w)
+		},
+		"dropped comment": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
+			o.Receipt = reviewTestReceipt(t, *w, map[string]int64{w.Comments[0].Key: 100})
+			w.Comments = append(w.Comments, factory.FindingComment{Key: strings.Repeat("0", 31) + "c", Path: "file.go", Side: "new", Line: 12, Body: "third defect prose"})
+		},
+		"unknown key": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
+			receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, MergeBaseOID: strings.Repeat("d", 40)}
+			receipt.Comments = append(receipt.Comments, extensions.ReviewCommentReceipt{Key: w.Comments[0].Key, CommentID: 100})
+			receipt.Comments = append(receipt.Comments, extensions.ReviewCommentReceipt{Key: strings.Repeat("f", 32), CommentID: 101})
+			raw, err := json.Marshal(receipt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.Receipt = raw
+		},
+		"duplicate comment record": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
+			o.Receipt = reviewTestReceipt(t, *w, map[string]int64{w.Comments[0].Key: 100, w.Comments[1].Key: 100})
+		},
+		"receipt above review cap": func(_ *factory.ReviewWork, o *factory.OperationOutcome) {
+			o.Receipt = bytes.Repeat([]byte{0x20}, factory.MaxReviewReceiptBytes+1)
+		},
 	}
 	for name, change := range cases {
 		t.Run(name, func(t *testing.T) {
-			w := reviewTestWork()
+			w := reviewTestCommentedWork()
 			o := reviewTestOutcome(t, w)
 			change(&w, &o)
 			if _, err := r.AdoptReview(w, o); err == nil {
@@ -65,6 +113,16 @@ func TestReviewerReceipt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func reviewTestReceiptNoMergeBase(t *testing.T, _ factory.ReviewWork) []byte {
+	t.Helper()
+	receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41}
+	raw, err := json.Marshal(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }
 
 func TestReviewerIntentBodyOnly(t *testing.T) {
@@ -83,6 +141,63 @@ func TestReviewerIntentBodyOnly(t *testing.T) {
 	w.ActorID = w.PRAuthorID
 	if _, err = reviewIntent(w); err == nil {
 		t.Fatal("self review authorized")
+	}
+}
+
+func TestReviewerIntentComments(t *testing.T) {
+	w := reviewTestCommentedWork()
+	intent, err := reviewIntent(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload extensions.ReviewSubmitPayload
+	if err = json.Unmarshal(intent.Payload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Comments) != 2 || payload.Comments[0].Key != w.Comments[0].Key || payload.Comments[0].Path != "file.go" || payload.Comments[0].Side != "new" || payload.Comments[0].Line != 3 || payload.Comments[1].Key != w.Comments[1].Key {
+		t.Fatalf("finding comments missing from intent: %+v", payload.Comments)
+	}
+	// A body that fits the work bound but pushes the complete encoded
+	// payload past the native ceiling refuses at the Soda adapter.
+	w.Body = strings.Repeat("b", factory.MaxReviewPayloadBytes)
+	if _, err = reviewIntent(w); err == nil {
+		t.Fatal("oversized review payload admitted")
+	}
+	w.Body = "file.go: correct the demonstrated failure."
+	if _, err = reviewIntent(w); err != nil {
+		t.Fatalf("bounded commented review refused: %v", err)
+	}
+	// Commented work that fails structural validation never reaches submit.
+	w.Comments[1].Key = w.Comments[0].Key
+	if _, err = reviewIntent(w); err == nil {
+		t.Fatal("duplicate finding key admitted")
+	}
+}
+
+func TestReviewOperationOutcomeReviewCap(t *testing.T) {
+	record := func(receipt []byte) extensions.OperationRecord {
+		return extensions.OperationRecord{OperationID: "st10-review", InstallationID: "installation", Kind: factory.OpReviewSubmit, ActorID: "11", RepositoryID: "7", EffectState: factory.OpEffectCommitted, CancellationStatus: factory.OpCancelNone, CompletionState: factory.OpCompletionComplete, Receipt: receipt}
+	}
+	sized, err := json.Marshal(extensions.ReviewSubmitReceipt{ReviewID: 1, CommentID: 2, MergeBaseOID: strings.Repeat("d", 40)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Maximum review-specific receipts persist; one byte more refuses. The
+	// outcome carries the raw receipt without decoding it, so trailing JSON
+	// whitespace pads to the exact boundary. Small receipts from before the
+	// review-specific cap stay valid.
+	atCap := append(append([]byte(nil), sized...), bytes.Repeat([]byte{0x20}, factory.MaxReviewReceiptBytes-len(sized))...)
+	if len(atCap) != factory.MaxReviewReceiptBytes {
+		t.Fatalf("receipt boundary misbuilt: %d", len(atCap))
+	}
+	if _, err = reviewOperationOutcome("st10-review", record(atCap)); err != nil {
+		t.Fatalf("maximum review receipt refused: %v", err)
+	}
+	if _, err = reviewOperationOutcome("st10-review", record(append(atCap, 0x20))); err == nil {
+		t.Fatal("review receipt above its bound admitted")
+	}
+	if _, err = reviewOperationOutcome("st10-review", record(bytes.Repeat([]byte{0x20}, factory.MaxPublicationReceipt))); err != nil {
+		t.Fatalf("generic-bound review receipt refused: %v", err)
 	}
 }
 

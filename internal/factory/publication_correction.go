@@ -136,10 +136,37 @@ func (r CorrectionReport) Validate() error {
 	return nil
 }
 
+// CorrectionJournal is one persisted correction run's immutable report
+// (FW18): the review cycle it consumed, the coder run that produced it and
+// the exact finding-set digest with one disposition per supplied key. The
+// journal entry never changes once recorded; a new correction run appends
+// a new entry.
+type CorrectionJournal struct {
+	CycleID string           `json:"cycle_id"`
+	RunID   string           `json:"run_id"`
+	Report  CorrectionReport `json:"report"`
+}
+
+// Validate checks the journal bindings and its correction report. The
+// digest-to-cycle match is checked against the recorded cycles by the
+// publication, which sees the whole journal.
+func (j CorrectionJournal) Validate() error {
+	if !ValidID(j.CycleID) {
+		return errors.New("invalid correction journal cycle")
+	}
+	if !ValidID(j.RunID) {
+		return errors.New("invalid correction journal run")
+	}
+	if err := j.Report.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // ReviewCycle is one persisted review cycle (D07): publication, monotonic
 // round number, triggering decision/reason, exact head/base, input
 // finding digest and fresh reviewer/correction assignment IDs. Durable
-// storage and fresh-session dispatch belong to FW18/FW20; this is the
+// storage belongs to FW18 and fresh-session dispatch to FW20; this is the
 // frozen contract they persist.
 type ReviewCycle struct {
 	PublicationID        string `json:"publication_id"`
@@ -253,6 +280,68 @@ func (r ReviewCycleReport) Validate(carried []Finding) error {
 	for _, finding := range carried {
 		if finding.Actionable && !assessed[finding.Key] {
 			return errors.New("carried actionable finding lacks its assessment")
+		}
+	}
+	return nil
+}
+
+// validateReviewCycleJournal checks the persisted review-cycle journal:
+// each cycle validates, carries this publication's identity and keeps a
+// distinct derived identity. An empty journal validates; cycles require a
+// linked publication, like review operations.
+func (p Publication) validateReviewCycleJournal() error {
+	if len(p.ReviewCycles) == 0 {
+		return nil
+	}
+	if (p.Stage != PublicationPublished && p.Stage != PublicationFenced) || p.PRCreate.Work == nil || p.PRCreate.Effect != OpEffectCommitted {
+		return errors.New("review cycles require a linked publication")
+	}
+	seen := make(map[string]bool, len(p.ReviewCycles))
+	for _, cycle := range p.ReviewCycles {
+		if err := cycle.Validate(); err != nil {
+			return err
+		}
+		if cycle.PublicationID != p.ID {
+			return errors.New("review cycle belongs to another publication")
+		}
+		if seen[cycle.ID] {
+			return errors.New("duplicate review cycle")
+		}
+		seen[cycle.ID] = true
+	}
+	return nil
+}
+
+// validateCorrectionJournal checks the persisted correction journal: each
+// entry validates, correction runs report once, and every entry consumes a
+// recorded cycle over that cycle's exact input finding digest. A changed
+// finding set answers a new cycle, never an old digest.
+func (p Publication) validateCorrectionJournal() error {
+	if len(p.CorrectionJournals) == 0 {
+		return nil
+	}
+	if err := p.validateReviewCycleJournal(); err != nil {
+		return err
+	}
+	byID := make(map[string]ReviewCycle, len(p.ReviewCycles))
+	for _, cycle := range p.ReviewCycles {
+		byID[cycle.ID] = cycle
+	}
+	seen := make(map[string]bool, len(p.CorrectionJournals))
+	for _, journal := range p.CorrectionJournals {
+		if err := journal.Validate(); err != nil {
+			return err
+		}
+		if seen[journal.RunID] {
+			return errors.New("correction run reported twice")
+		}
+		seen[journal.RunID] = true
+		cycle, ok := byID[journal.CycleID]
+		if !ok {
+			return errors.New("correction consumes an unrecorded cycle")
+		}
+		if journal.Report.SetDigest != cycle.FindingDigest {
+			return errors.New("correction dispositions answer a changed finding set")
 		}
 	}
 	return nil
