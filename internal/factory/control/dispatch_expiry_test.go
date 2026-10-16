@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 
@@ -35,12 +34,16 @@ func TestDispatchClosesExpiredReportedAttemptBeforeEarlyReturn(t *testing.T) {
 	if err = db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	candidate := strings.Repeat("d", 40)
-	output := "```result-json\n" +
-		`{"status":"completed","summary":"ready for review","candidate":"` + candidate + `","review_passed":false,"findings":[]}` +
-		"\n```"
+	// The dispatched assignment is a phased investigation: only a
+	// strict v2 phase result reports, and completed planning never
+	// names a publishable candidate.
+	plan := phaseTestPlan(t, assignment.AttemptRoot, assignment.SourceCommit, assignment.Preparation)
+	output := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
+		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
+	})
 	finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
-	if !ok || finished.ID != assignment.ID || finished.Stage != factory.AssignmentFinished || finished.Result == nil || !finished.Result.Reported || finished.Result.Candidate != candidate {
+	if !ok || finished.ID != assignment.ID || finished.Stage != factory.AssignmentFinished || finished.Result == nil || !finished.Result.Reported || finished.Result.Candidate != "" {
 		t.Fatalf("reported assignment = %+v, %v", finished, ok)
 	}
 	if total, usageErr := db.UsageTotal(ctx, fx.repo, "conn"); usageErr != nil || total != 1 {
@@ -82,7 +85,11 @@ func TestDispatchClosesExpiredReportedAttemptBeforeEarlyReturn(t *testing.T) {
 		t.Fatalf("expired reported attempt launched more work: launches=%d want=%d", len(fx.host.launches), launches)
 	}
 	closed, err := db.AttemptAllowance(ctx, fx.repo, 3)
-	if err != nil || !closed.Closed || closed.Active || closed.ActiveSeconds != int64(closed.Limits.ActiveMinutes*60) {
+	// Closing checkpoints elapsed active time, so the recorded seconds
+	// may exceed the budget by the scheduling gap between the fixture
+	// write and the pass; closure and release are the asserted
+	// properties, not the exact second.
+	if err != nil || !closed.Closed || closed.Active || closed.ActiveSeconds < int64(closed.Limits.ActiveMinutes*60) {
 		t.Fatalf("expired allowance was not closed and released: %+v, %v", closed, err)
 	}
 	afterAssignment, err := db.Assignment(ctx, finished.ID)

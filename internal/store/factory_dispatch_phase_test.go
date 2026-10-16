@@ -63,6 +63,17 @@ func phaseTestInvestigateRoot(t *testing.T, now time.Time) (factory.Assignment, 
 func finishInvestigateRoot(t *testing.T, ctx context.Context, db *Store, a factory.Assignment, run factory.Run, now time.Time) factory.Assignment {
 	t.Helper()
 	plan := phaseTestPlan(t, a.AttemptRoot, a.SourceCommit, a.Preparation)
+	// Retire the parent slot the way production settlement does: the run
+	// goes inactive and the reservation is consumed. The finished
+	// assignment alone still owns its process slot under the
+	// one-session-per-repository invariant, which would refuse the child.
+	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "plan ready", true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatalf("investigate run unsettled: %v", err)
+	}
+	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
+		t.Fatalf("investigate reservation unconsumed: %v", err)
+	}
 	finished, err := db.Assignment(ctx, a.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -149,10 +160,14 @@ func TestPhasedInvestigateRootAdvancesImplementChild(t *testing.T) {
 		t.Fatalf("implement child reset allowance: %+v %v", after, err)
 	}
 	// Replay creates no second run: the same advancement identity refuses.
+	// The replay carries its own coherent run and view so the packet
+	// shape cannot refuse before the taken identity does.
 	replay := child
+	replayRun, replayView := childRun, childView
 	replay.Run = factory.NewID()
 	replay.RunHistory = []string{replay.Run}
-	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(replay), replay, childReservation, childRun, childView); err == nil {
+	replayRun.ID, replayView.RunID = replay.Run, replay.Run
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(replay), replay, childReservation, replayRun, replayView); err == nil {
 		t.Fatal("implement child replay admitted")
 	} else if !isAssignmentActive(err) {
 		t.Fatalf("wrong replay error: %v", err)
@@ -171,6 +186,9 @@ func TestPhasedPacketRefusals(t *testing.T) {
 		parent := finishInvestigateRoot(t, ctx, db, root, run, now)
 		child, childReservation, childRun, childView := phaseTestImplementChild(t, now, parent)
 		child.SourceCommit = strings.Repeat("d", 40)
+		// Move the run with the assignment: the packet stays coherent so
+		// the semantic parent binding (not packet shape) refuses.
+		childRun.InputSHA = child.SourceCommit
 		if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(child), child, childReservation, childRun, childView); !errors.Is(err, ErrAttemptRootMismatch) {
 			t.Fatalf("moved-source child error = %v, want root mismatch", err)
 		}

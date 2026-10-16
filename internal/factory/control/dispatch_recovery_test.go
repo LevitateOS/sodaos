@@ -566,8 +566,22 @@ func TestReportedAssignmentReadinessRootDrainsOnDispatch(t *testing.T) {
 	// The test substitutes only the host/native stop reply and broker boundary.
 	// Reconcile still runs the production settlement, result parser, Store write,
 	// and same-transaction readiness enqueue; this is not native qualification.
-	hostBoundary := &publicationDispatchHost{fakeDispatchHost: seed.host, candidate: seed.tip}
-	coord.Host = hostBoundary
+	// The recorded assignment is a phased investigation, so the substituted
+	// stop reply carries a strict v2 phase result; a legacy harness shape
+	// would refuse and leave the assignment unreported by design.
+	reported := assigned[0]
+	plan := phaseTestPlan(t, reported.AttemptRoot, reported.SourceCommit, reported.Preparation)
+	stopOutput := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
+		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
+	})
+	seed.host.stop = func(in project.FactoryStop) (project.FactoryState, error) {
+		return project.FactoryState{
+			ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Retirement: "confirmed",
+			Output: stopOutput,
+		}, nil
+	}
+	coord.Host = seed.host
 	coord.Broker = &stubBroker{
 		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
 		close: func(string, string) error { return nil },

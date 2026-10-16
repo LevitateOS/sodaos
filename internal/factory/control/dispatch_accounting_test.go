@@ -625,17 +625,22 @@ func TestAccountSettledRunResults(t *testing.T) {
 		return fx.db, assignment, run
 	}
 
-	t.Run("reported candidate", func(t *testing.T) {
+	t.Run("reported investigation plan", func(t *testing.T) {
 		db, a, run := setup(t)
 		run = settle(t, db, run, factory.Succeeded)
-		candidate := strings.Repeat("d", 40)
-		output := "```result-json\n" +
-			`{"status":"completed","summary":"fixed it","candidate":"` + candidate + `","review_passed":false,"findings":[]}` + "\n```"
+		// The dispatched assignment is a phased investigation: only a
+		// strict v2 phase result reports, and completed planning never
+		// names a publishable candidate.
+		plan := phaseTestPlan(t, a.AttemptRoot, a.SourceCommit, a.Preparation)
+		output := fencedResult(t, factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
+			Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
+		})
 		finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
 		if !ok || finished.Outcome != factory.Succeeded || finished.Reason != factory.AssignReasonReported {
 			t.Fatalf("accounted = %+v %v", finished, ok)
 		}
-		if finished.Result == nil || !finished.Result.Reported || finished.Result.Candidate != candidate {
+		if finished.Result == nil || !finished.Result.Reported || finished.Result.Candidate != "" {
 			t.Fatalf("result = %+v", finished.Result)
 		}
 		if r, _ := db.Reservation(ctx, a.ID); r.State != factory.ReservationConsumed {

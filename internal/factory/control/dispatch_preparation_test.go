@@ -33,9 +33,21 @@ func consumedCoderRetry(t *testing.T) (dispatchFixture, *Coordinator, string, fa
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	output := "```result-json\n" + `{"status":"completed","summary":"done","candidate":"` + strings.Repeat("d", 40) + `","review_passed":false,"findings":[]}` + "\n```"
-	if _, ok := AccountSettledRun(ctx, db, run, output, time.Now()); !ok {
-		t.Fatal("first coder was not accounted")
+	// The dispatched assignment is a phased investigation: only a strict
+	// v2 phase result reports. A legacy harness shape would refuse and
+	// leave the prior NeedsHuman, which retry eligibility rejects.
+	prior, err := db.Assignment(ctx, first.Launched[0].AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := phaseTestPlan(t, prior.AttemptRoot, prior.SourceCommit, prior.Preparation)
+	output := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
+		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
+	})
+	finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
+	if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported {
+		t.Fatalf("first coder was not accounted reported: %+v %v", finished, ok)
 	}
 	allowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
 	if err != nil {

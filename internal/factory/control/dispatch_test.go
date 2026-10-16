@@ -98,29 +98,37 @@ func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 		t.Fatalf("reservation = %+v %v", reservation, err)
 	}
 
-	// Settlement releases the executing session. The successful attempt
-	// retains its slot while its candidate still needs review and CI.
+	// Settlement releases the executing session. The reported
+	// investigation advances to its implementation child, which retains
+	// the slot; completed planning never names a candidate.
 	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "done", true
 	if err := db.SaveFactoryRun(ctx, run); err != nil {
 		t.Fatal(err)
 	}
-	candidate := strings.Repeat("d", 40)
-	output := "work\n```result-json\n" +
-		`{"status":"completed","summary":"fixed","candidate":"` + candidate + `","review_passed":false,"findings":[]}` +
-		"\n```"
+	plan := phaseTestPlan(t, a.AttemptRoot, a.SourceCommit, a.Preparation)
+	output := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
+		Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
+	})
 	finished, ok := AccountSettledRun(ctx, db, run, output, time.Now())
 	if !ok || finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported {
 		t.Fatalf("accounted = %+v %v", finished, ok)
 	}
-	if finished.Result.Candidate != candidate {
+	if finished.Result.Candidate != "" {
 		t.Fatalf("candidate = %q", finished.Result.Candidate)
 	}
 	if total, _ := db.UsageTotal(ctx, fx.repo, "conn"); total < 1 {
 		t.Fatalf("usage total = %d", total)
 	}
+	// The reported investigation advances to its implementation child,
+	// which retains the short-limit slot: the younger issue still waits.
 	second := DispatchPass(ctx, fx.deps())
-	if len(second.Launched) != 0 || len(second.Errors) != 0 || waitReason(second, 5) != WaitCapacity {
-		t.Fatalf("settled successful attempt released capacity: %+v", second)
+	if len(second.Launched) != 1 || second.Launched[0].Issue != 3 || len(second.Errors) != 0 || waitReason(second, 5) != WaitCapacity {
+		t.Fatalf("reported investigation did not advance under its retained slot: %+v", second)
+	}
+	child, err := db.Assignment(ctx, second.Launched[0].AssignmentID)
+	if err != nil || child.ParentAssignment != a.ID || child.Phase != project.ExecutionImplement || child.AttemptRoot != a.AttemptRoot {
+		t.Fatalf("advanced child = %+v %v", child, err)
 	}
 	allowance, err := db.AttemptAllowance(ctx, fx.repo, 3)
 	if err != nil || !allowance.Active || allowance.Closed || allowance.RootAssignment != a.AttemptRoot {

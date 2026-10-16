@@ -26,6 +26,25 @@ func TestMergedSourcePreparationUsesCommittedCorrectionRun(t *testing.T) {
 	mergedSourcePreparationScenario(t, false, true)
 }
 
+// driveMergedCompletionContinue releases the scenario's merged completion
+// through the D13 continue branch, opening the fence for the fresh issue.
+// It judges substance and continues exactly like the completion supplement;
+// release-branch decisions stay with their owning tests.
+func driveMergedCompletionContinue(t *testing.T, fx *mergeFixture) {
+	t.Helper()
+	ctx := context.Background()
+	db := fx.publish.db
+	db.PriorityCallBudget = 100
+	fx.publish.coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: &continueChooser{}}
+	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal}
+	for i := 0; i < 6; i++ {
+		if report := fx.publish.coord.DriveCompletions(ctx, deps); len(report.Released) != 0 {
+			return
+		}
+	}
+	t.Fatal("merged completion did not release through the continue branch")
+}
+
 func commitSourceFixtureCorrection(t *testing.T, fx *mergeFixture, p factory.Publication) factory.Publication {
 	t.Helper()
 	ctx := context.Background()
@@ -63,9 +82,23 @@ func mergedSourcePreparationScenario(t *testing.T, expireBeforePacket bool, corr
 	}
 	fx.wire(happyMerger())
 	fx.pass(t)
+	// The merge judgment gate holds the opened row for its authorization:
+	// bind the ready first-generation fixture auth, then drive the merge
+	// to completion. Later generations stay out of this scenario.
+	if open := fx.merge(t, p); open.Stage == factory.MergeOpen {
+		if err := fx.publish.coord.AuthorizeMerge(ctx, open.PublicationID, gateTestBinding(t, open)); err != nil {
+			t.Fatalf("authorize merge: %v", err)
+		}
+		fx.pass(t)
+	}
 	if merge := fx.merge(t, p); merge.Stage != factory.MergeMerged {
 		t.Fatal(merge)
 	}
+	// The merged completion engages the D13 fence until its reassessment
+	// decision releases: drive the continue branch so the fresh issue
+	// below admits. Releases follow reassessment decisions elsewhere;
+	// this scenario only continues past its own merge.
+	driveMergedCompletionContinue(t, fx)
 	seed := fx.publish.seed
 	fixtureDB, err := sql.Open("pgx", fx.publish.dsn)
 	if err != nil {
