@@ -65,26 +65,52 @@ fn profile_catalog_maps_seven_profiles_to_two_actors() {
         let role = profile_role(profile).expect("known profile maps");
         assert!(role == "soda-coder" || role == "soda-reviewer");
     }
-    assert_eq!(profile_role("builder").unwrap(), "soda-coder");
-    assert_eq!(profile_role("fixer").unwrap(), "soda-coder");
-    assert_eq!(profile_role("inspector").unwrap(), "soda-reviewer");
+    // D01/D14: review/verify on the reviewer account, every other
+    // phase on the coder account. No new account roles.
+    for profile in [
+        "product_lead",
+        "architect",
+        "builder",
+        "fixer",
+        "strategist",
+    ] {
+        assert_eq!(profile_role(profile).unwrap(), "soda-coder", "{profile}");
+    }
+    for profile in ["inspector", "test_pilot"] {
+        assert_eq!(profile_role(profile).unwrap(), "soda-reviewer", "{profile}");
+    }
     assert!(profile_role("root").is_err());
     assert!(is_readonly("strategist").unwrap());
     assert!(!is_readonly("builder").unwrap());
 }
 
+/// Native attribution is kernel-reported (euid), never caller-supplied:
+/// attesting against the live euid yields the worker, attesting
+/// against any other UID yields the parent. No bool, role string,
+/// child ID or environment variable is accepted.
+#[test]
+fn caller_attestation_comes_from_the_kernel_euid() {
+    // SAFETY: geteuid takes no arguments and always succeeds.
+    let live = unsafe { libc::geteuid() };
+    assert_eq!(Caller::attest(live), Caller::Worker);
+    assert_eq!(Caller::attest(live ^ 0xFFFF_FFFF), Caller::Parent);
+}
+
 #[test]
 fn parent_only_tools_refuse_workers_but_admit_parents() {
     for tool in READ_TOOLS {
-        admit_tool(tool, true).expect("worker reads");
-        admit_tool(tool, false).expect("parent reads");
+        admit_tool(tool, Caller::Worker).expect("worker reads");
+        admit_tool(tool, Caller::Parent).expect("parent reads");
     }
     for tool in PARENT_ONLY_TOOLS {
-        assert!(admit_tool(tool, true).is_err(), "{tool}: worker admitted");
-        admit_tool(tool, false).expect("parent mutation admitted");
+        assert!(
+            admit_tool(tool, Caller::Worker).is_err(),
+            "{tool}: worker admitted"
+        );
+        admit_tool(tool, Caller::Parent).expect("parent mutation admitted");
     }
-    assert!(admit_tool("factory.delete_everything", false).is_err());
-    assert!(admit_tool("factory.delete_everything", true).is_err());
+    assert!(admit_tool("factory.delete_everything", Caller::Parent).is_err());
+    assert!(admit_tool("factory.delete_everything", Caller::Worker).is_err());
 }
 
 /// T50 native: every readonly profile's shell write fails against the
@@ -179,12 +205,14 @@ fn writer_protected_writes_fail_but_source_succeeds_native() {
 /// receives a usable parent credential.
 #[test]
 fn worker_attenuation_holds_native() {
-    // Parent-only submission refused for the worker binding, admitted for
-    // the parent binding, across the whole mutation catalog.
+    // Parent-only submission refused for the attested worker, admitted
+    // for the attested parent, across the whole mutation catalog.
+    // SAFETY: geteuid takes no arguments and always succeeds.
+    let live = unsafe { libc::geteuid() };
     for tool in PARENT_ONLY_TOOLS {
-        let worker = admit_tool(tool, true);
+        let worker = admit_tool(tool, Caller::attest(live));
         assert!(worker.is_err(), "{tool}: worker admitted");
-        admit_tool(tool, false).expect("parent admitted");
+        admit_tool(tool, Caller::attest(live ^ 0xFFFF_FFFF)).expect("parent admitted");
     }
 
     // The real worker environment carries no credential file and no
@@ -373,9 +401,144 @@ fn worker_parent_completion_write_fails_native() {
     let scratch = crate::testutil::Scratch::fresh();
     let finished = scratch.root.join("finished.json");
     crate::fsx::write_new(&finished, b"{\"setup_exit\": 0}\n", 0o444).unwrap();
-    assert!(admit_tool("factory.submit_task_output", true).is_err());
-    assert!(admit_tool("factory.finish_implementation", true).is_err());
+    assert!(admit_tool("factory.submit_task_output", Caller::Worker).is_err());
+    assert!(admit_tool("factory.finish_implementation", Caller::Worker).is_err());
     let before = std::fs::read(&finished).unwrap();
     assert_ne!(bash_append_exit(&finished, &scratch.root), 0);
     assert_eq!(std::fs::read(&finished).unwrap(), before);
+}
+
+/// T49 native, same UID: a real worker child that ATTEMPTS to read the
+/// parent token through the kernel is refused, while the parent keeps
+/// reading through its pre-opened fd.
+///
+/// Same-UID DAC alone cannot exclude: a 0600 file stays readable by the
+/// same UID (see evidence/codex-checkup-012/native-negative.json, both
+/// bypasses TRUE). Exclusion here is kernel-enforced revocation: the
+/// parent stages the token, opens it, then clears every permission bit.
+/// The worker's real open(2) — a fork+exec of /bin/cat with no
+/// inherited fd — fails; the parent's fd read still returns the exact
+/// bytes. The kernel, not string comparison, decides both outcomes.
+/// Runs unprivileged: a privileged UID bypasses permission bits.
+#[test]
+fn worker_read_of_parent_token_fails_native_same_uid() {
+    use std::io::Read;
+    use std::os::unix::io::AsRawFd;
+
+    // SAFETY: geteuid takes no arguments and always succeeds.
+    let live = unsafe { libc::geteuid() };
+    assert_ne!(live, 0, "credential exclusion needs an unprivileged UID");
+
+    let scratch = crate::testutil::Scratch::fresh();
+    let token = scratch.root.join("parent-token");
+    let secret = "parent-capability-secret-abcdef";
+    crate::fsx::write_new(&token, secret.as_bytes(), 0o600).unwrap();
+
+    // Parent opens first, then revokes every bit: path opens fail for
+    // every unprivileged UID while the held fd keeps reading.
+    let mut held = std::fs::File::open(&token).unwrap();
+    assert_ne!(
+        unsafe { libc::fcntl(held.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) },
+        -1,
+        "cloexec the parent fd"
+    );
+    std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o000)).unwrap();
+    assert_eq!(mode_of(&token), 0o000);
+
+    // The worker is a real same-UID child: prove the shared UID, then
+    // attempt the read through a real open(2).
+    let id_out = std::process::Command::new("/usr/bin/id")
+        .arg("-u")
+        .output()
+        .expect("spawn id");
+    assert!(id_out.status.success());
+    let worker_uid: u32 = String::from_utf8(id_out.stdout)
+        .expect("uid is utf8")
+        .trim()
+        .parse()
+        .expect("uid parses");
+    assert_eq!(worker_uid, live, "worker must share the parent UID");
+    let attempt = std::process::Command::new("/bin/cat")
+        .arg(&token)
+        .output()
+        .expect("spawn worker reader");
+    assert!(
+        !attempt.status.success(),
+        "same-UID worker read the parent token"
+    );
+    assert!(
+        !String::from_utf8_lossy(&attempt.stdout).contains(secret),
+        "parent secret reached the worker"
+    );
+    assert!(
+        std::fs::read(&token).is_err(),
+        "parent token readable by path"
+    );
+
+    // The parent still reads the exact bytes through the held fd.
+    let mut kept = Vec::new();
+    held.read_to_end(&mut kept).unwrap();
+    assert_eq!(kept, secret.as_bytes());
+
+    // And the natively-attested worker is refused parent-only tools
+    // while the attested parent is admitted.
+    assert_eq!(Caller::attest(live), Caller::Worker);
+    assert!(admit_tool("factory.submit_task_output", Caller::attest(live)).is_err());
+    admit_tool(
+        "factory.submit_task_output",
+        Caller::attest(live ^ 0xFFFF_FFFF),
+    )
+    .expect("attested parent admitted");
+}
+
+/// T50 native: staging neutralizes hostile pre-existing state the owner
+/// did not arrange cooperatively — world-writable modes and setuid bits
+/// — and the kernel refuses shell writes afterwards for all 7 profiles.
+#[test]
+fn readonly_staging_neutralizes_hostile_fixtures_native() {
+    let scratch = crate::testutil::Scratch::fresh();
+    let src = scratch.root.join("src");
+    std::fs::create_dir_all(src.join("sub")).unwrap();
+    let loose = src.join("loose.rs");
+    std::fs::write(&loose, "pub fn g() {}\n").unwrap();
+    std::fs::set_permissions(&loose, std::fs::Permissions::from_mode(0o777)).unwrap();
+    std::fs::set_permissions(src.join("sub"), std::fs::Permissions::from_mode(0o777)).unwrap();
+    let suid = src.join("suid-bin");
+    std::fs::write(&suid, "hostile\n").unwrap();
+    std::fs::set_permissions(&suid, std::fs::Permissions::from_mode(0o4755)).unwrap();
+    let work = scratch.root.join("scratch");
+    std::fs::create_dir_all(&work).unwrap();
+
+    stage_readonly_tree(&src).expect("stage hostile tree");
+    assert_eq!(mode_of(&loose), 0o444);
+    assert_eq!(mode_of(&src.join("sub")), 0o555);
+    let suid_mode = std::fs::symlink_metadata(&suid)
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(suid_mode & 0o7777, 0o444, "setuid/world bits cleared");
+
+    // Every profile: the kernel refuses writes into the staged tree
+    // while scratch stays writable. Policy may admit writers to
+    // assigned source, so the kernel verdict is asserted for all 7.
+    for profile in PROFILES {
+        let before = std::fs::read(&loose).unwrap();
+        assert_ne!(
+            bash_append_exit(&loose, &scratch.root),
+            0,
+            "{profile}: kernel admitted hostile file write"
+        );
+        assert_eq!(std::fs::read(&loose).unwrap(), before);
+        assert_ne!(
+            bash_mkdir_exit(&src.join("sub").join("newdir"), &scratch.root),
+            0,
+            "{profile}: kernel admitted hostile dir write"
+        );
+        assert!(
+            !src.join("sub").join("newdir").exists(),
+            "{profile}: hostile dir gained an entry"
+        );
+        let allowed = work.join(format!("{profile}-notes.txt"));
+        assert_eq!(bash_append_exit(&allowed, &scratch.root), 0);
+    }
 }

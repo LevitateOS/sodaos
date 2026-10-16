@@ -40,14 +40,18 @@ pub const READONLY_PROFILES: [&str; 5] = [
 /// Profiles that may edit assigned source (never protected paths).
 pub const WRITER_PROFILES: [&str; 2] = ["builder", "fixer"];
 
-/// Native execution identities stay the two role accounts; profile names
-/// never become seven native actors.
+/// Native execution identity per profile (D01/D14): `review` and
+/// `verify` run as the reviewer account; every other phase runs as the
+/// coder account. Profile to phase: product_lead/decompose,
+/// architect/investigate, builder/implement, fixer/correct and
+/// strategist/reassess-or-repair run as soda-coder;
+/// inspector/review and test_pilot/verify run as soda-reviewer.
+/// Profile names never become seven native actors and no new account
+/// roles are introduced.
 pub fn profile_role(profile: &str) -> Result<&'static str, Error> {
     match profile {
-        "builder" | "fixer" => Ok("soda-coder"),
-        "product_lead" | "architect" | "inspector" | "strategist" | "test_pilot" => {
-            Ok("soda-reviewer")
-        }
+        "product_lead" | "architect" | "builder" | "fixer" | "strategist" => Ok("soda-coder"),
+        "inspector" | "test_pilot" => Ok("soda-reviewer"),
         _ => fail("unsupported factory profile"),
     }
 }
@@ -83,14 +87,42 @@ pub const PARENT_ONLY_TOOLS: [&str; 10] = [
     "factory.request_handoff",
 ];
 
-/// Caller attenuation (T49): worker-bound callers are refused every
-/// parent-only tool; unknown tools refuse for any caller.
-pub fn admit_tool(tool: &str, is_worker: bool) -> Result<(), Error> {
+/// Trusted native caller identity (T49): the parent run or a worker,
+/// attested from the kernel-reported effective UID at the enforcement
+/// point. The native adapter runs the parent outside the role account
+/// and each worker setuid'd into its role account (`run_as_role`), so
+/// an effective UID equal to the worker role account attests the
+/// worker and anything else is the parent. A caller-supplied bool,
+/// role string, child ID or environment variable proves nothing (D14)
+/// and is not accepted here: the only input besides the live euid is
+/// the host-recorded role UID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Caller {
+    Parent,
+    Worker,
+}
+
+impl Caller {
+    /// Attest the caller from the current effective UID against the
+    /// worker role account UID recorded by the host.
+    pub fn attest(role_uid: u32) -> Caller {
+        // SAFETY: geteuid takes no arguments and always succeeds.
+        if unsafe { libc::geteuid() } == role_uid {
+            Caller::Worker
+        } else {
+            Caller::Parent
+        }
+    }
+}
+
+/// Caller attenuation (T49): natively-attested workers are refused
+/// every parent-only tool; unknown tools refuse for any caller.
+pub fn admit_tool(tool: &str, caller: Caller) -> Result<(), Error> {
     if READ_TOOLS.contains(&tool) {
         return Ok(());
     }
     if PARENT_ONLY_TOOLS.contains(&tool) {
-        if is_worker {
+        if caller == Caller::Worker {
             return fail("worker cannot submit parent completion");
         }
         return Ok(());

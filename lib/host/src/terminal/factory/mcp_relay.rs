@@ -1,10 +1,13 @@
-//! P6 fixed MCP relay surface (FW33).
+//! P6 fixed MCP relay surface (FW33, instruction claim corrected
+//! lane-b19 per CHECKUP-012 R1).
 //!
-//! Fixed stdio relay, private IPC directory/socket and trusted
-//! instruction-channel shapes for the exact admitted pinned harnesses.
-//! The relay translates transport and adds run authorization; workflow
-//! policy stays in Go. No TCP/public listener, no caller-chosen socket,
-//! URL, repository, executable or listener.
+//! Fixed stdio relay, private IPC directory/socket and untrusted
+//! user-prompt delivery shapes for the exact admitted pinned
+//! harnesses. The relay translates transport and adds run
+//! authorization; workflow policy stays in Go. No TCP/public listener,
+//! no caller-chosen socket, URL, repository, executable or listener.
+//! There is no trusted high-priority instruction channel on the pinned
+//! harnesses (see below): staged prompts are user instructions.
 
 use super::run::{FACTORY_HARNESS_CODEX, FACTORY_HARNESS_MUSE};
 
@@ -26,32 +29,48 @@ pub const FACTORY_MCP_SOCKET: &str = "factory-ipc/mcp.sock";
 
 /// Managed MCP configuration bound (16 KiB, D14).
 pub const MAX_MCP_CONFIG: usize = 16 * 1024;
-/// Static instruction bytes bound (16 KiB, D14).
+/// Staged user-prompt bytes bound (16 KiB, D14).
 pub const MAX_INSTRUCTION: usize = 16 * 1024;
 
-/// Trusted instruction channel per admitted harness family.
+/// Untrusted user-prompt delivery shape per admitted harness family.
 ///
-/// `None` means the harness/profile stays unavailable: prefixing a user
-/// message and calling it a system prompt never passes.
+/// Both pinned harnesses accept the staged role prompt only as USER
+/// instructions: `muse exec --prompt-file <PATH>` reads the prompt
+/// from a file, and `codex exec - <prompt` reads initial instructions
+/// from stdin (piped stdin is appended as a `<stdin>` block). Neither
+/// pinned CLI documents a high-priority (system/developer) instruction
+/// channel, so D14 forbids treating these shapes as trusted
+/// instruction channels: staged bytes are untrusted user input to the
+/// harness. Prefixing a user message and calling it a system prompt
+/// never passes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InstructionChannel {
-    /// Muse reads the staged prompt through `--prompt-file`.
+pub enum UserPromptDelivery {
+    /// Muse reads the staged user prompt through `--prompt-file`.
     PromptFile,
-    /// Codex reads the staged prompt through stdin (`- <prompt`).
+    /// Codex reads the staged user prompt through stdin (`- <prompt`).
     StdinPrompt,
 }
 
-/// The supported trusted stdio configuration for one admitted harness:
-/// fixed relay argv plus its instruction channel.
+/// No trusted high-priority instruction channel exists on the pinned
+/// harnesses: neither pinned `muse exec --help` nor `codex exec --help`
+/// documents a system/developer instruction flag, and D14 forbids
+/// relabeling their user-prompt inputs as trusted instructions. This
+/// stays `None` until a pinned CLI documents such a mechanism; the
+/// lane-b19 CLI probes record the exact boundary.
+pub const TRUSTED_INSTRUCTION_CHANNEL: Option<&'static str> = None;
+
+/// The supported fixed stdio configuration for one admitted harness:
+/// fixed relay argv plus its (untrusted) user-prompt delivery shape.
+/// The configuration claims no trusted instruction channel.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StdioConfig {
     pub harness: &'static str,
     pub harness_vers: &'static str,
     pub relay_argv: [&'static str; 2],
-    pub instruction: InstructionChannel,
+    pub prompt: UserPromptDelivery,
 }
 
-/// Supported trusted stdio configuration, or `None` when the exact
+/// Supported fixed stdio configuration, or `None` when the exact
 /// harness/version/profile stays unavailable.
 pub fn stdio_config(harness: &str, harness_vers: &str) -> Option<StdioConfig> {
     match (harness, harness_vers) {
@@ -62,14 +81,14 @@ pub fn stdio_config(harness: &str, harness_vers: &str) -> Option<StdioConfig> {
                 harness: FACTORY_HARNESS_MUSE,
                 harness_vers: PINNED_MUSE_HARNESS,
                 relay_argv: ["soda-project-terminal", FACTORY_MCP_RELAY],
-                instruction: InstructionChannel::PromptFile,
+                prompt: UserPromptDelivery::PromptFile,
             })
         }
         (h, v) if h == FACTORY_HARNESS_CODEX && v == PINNED_CODEX_HARNESS => Some(StdioConfig {
             harness: FACTORY_HARNESS_CODEX,
             harness_vers: PINNED_CODEX_HARNESS,
             relay_argv: ["soda-project-terminal", FACTORY_MCP_RELAY],
-            instruction: InstructionChannel::StdinPrompt,
+            prompt: UserPromptDelivery::StdinPrompt,
         }),
         _ => None,
     }
@@ -94,12 +113,20 @@ mod tests {
     fn admits_exact_pinned_harnesses() {
         let muse = stdio_config("muse", "1.4.9").expect("pinned muse admitted");
         assert_eq!(muse.relay_argv, ["soda-project-terminal", "factory-mcp"]);
-        assert_eq!(muse.instruction, InstructionChannel::PromptFile);
+        assert_eq!(muse.prompt, UserPromptDelivery::PromptFile);
         let muse_build = stdio_config("muse", "1.4.9-R6297.1").expect("muse build admitted");
-        assert_eq!(muse_build.instruction, InstructionChannel::PromptFile);
+        assert_eq!(muse_build.prompt, UserPromptDelivery::PromptFile);
         let codex = stdio_config("codex", "0.161.0").expect("pinned codex admitted");
         assert_eq!(codex.relay_argv, ["soda-project-terminal", "factory-mcp"]);
-        assert_eq!(codex.instruction, InstructionChannel::StdinPrompt);
+        assert_eq!(codex.prompt, UserPromptDelivery::StdinPrompt);
+    }
+
+    #[test]
+    fn trusted_instruction_channel_stays_unavailable() {
+        // D14: user-prompt inputs are never relabeled as trusted
+        // instructions. Neither pinned CLI documents a
+        // system/developer instruction flag.
+        assert_eq!(TRUSTED_INSTRUCTION_CHANNEL, None);
     }
 
     #[test]
