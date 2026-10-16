@@ -274,7 +274,11 @@ fn run_tailnet_host_action(
     }
     let config = config::load_config(config_path, release_path)
         .map_err(|_| MainError::Other("tailnet unavailable".into()))?;
-    let _maintenance = soda_host::project::admission::admit(None).map_err(MainError::Other)?;
+    // The maintenance guard and start lock cover only the bounded
+    // admission/validation/ensure operation. Both are released, in reverse
+    // acquisition order, before the unbounded supervision wait below, so
+    // exclusive maintenance stays available while the daemon runs.
+    let maintenance = soda_host::project::admission::admit(None).map_err(MainError::Other)?;
     let starts = store.start_lock(deadline).map_err(MainError::Other)?;
     let grant = store
         .admit(&config.tailnet_image, deadline)
@@ -283,6 +287,7 @@ fn run_tailnet_host_action(
         .ensure(&grant, &starts, deadline)
         .map_err(MainError::Other)?;
     drop(starts);
+    drop(maintenance);
     runtime
         .wait(&cid, Instant::now() + Duration::from_secs(365 * 24 * 3600))
         .map_err(MainError::Other)

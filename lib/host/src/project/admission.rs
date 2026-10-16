@@ -124,4 +124,26 @@ mod tests {
         assert!(!dir.join("admission.lock").exists());
         std::fs::remove_dir_all(dir).unwrap();
     }
+
+    #[test]
+    fn supervision_wait_must_not_hold_maintenance_admission() {
+        // FX03: the shared admit guard covers only the bounded
+        // admission/validation/ensure operation. While it is held (the
+        // ensure phase), exclusive maintenance is denied; once the scope
+        // exits — including through an ensure error return, as
+        // `run_tailnet_host_action` relies on — exclusive maintenance must
+        // succeed, so the supervision wait never holds it hostage.
+        let dir = std::env::temp_dir().join(format!("soda-admission-fx03-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let owner = unsafe { libc::geteuid() };
+        let ensure_failed: Result<(), String> = (|| {
+            let _guard = admit_at(&dir, None, owner)?;
+            assert!(matches!(lock(&dir, true, owner), Err(reason) if reason == MAINTENANCE));
+            Err("ensure failed".to_string())
+        })();
+        assert!(ensure_failed.is_err());
+        lock(&dir, true, owner).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }
