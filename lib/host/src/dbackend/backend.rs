@@ -298,6 +298,18 @@ impl ExecBackend for DaemonBackend {
         Ok(out.encode().into_bytes())
     }
 
+    fn factory_task_events(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        // Read-only journal page under the run lock; factory routes stay
+        // off the shared mutation gate (per-run locks govern).
+        let factory = self.factory()?;
+        let req = factory::FactoryTaskEvents::decode(body).map_err(internal)?;
+        req.validate().map_err(internal)?;
+        let out = factory
+            .task_events(&req, native_deadline())
+            .map_err(|e| map_factory_err(e, BackendError::ExportStale))?;
+        Ok(out.encode().into_bytes())
+    }
+
     fn factory_harness(&self, body: &[u8], image: &str) -> Result<Vec<u8>, BackendError> {
         let req: FactoryHarnessRequest =
             json::decode_strict_as(body).map_err(|err| internal(err.to_string()))?;

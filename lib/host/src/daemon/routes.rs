@@ -13,7 +13,7 @@ use super::response::{
 use super::websocket::websocket_upgrade_response;
 
 /// Every route the daemon serves: 5 identity, 8 tailnet, 1 terminal,
-/// 9 project, 6 prepare, and 8 factory.
+/// 9 project, 6 prepare, and 9 factory.
 pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/application"),
     ("POST", "/identity/launch"),
@@ -51,6 +51,7 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/factory-stop"),
     ("POST", "/factory-takeover"),
     ("POST", "/factory-output"),
+    ("POST", "/factory-task-events"),
     ("POST", "/factory-harness"),
     ("POST", "/factory-export"),
     ("POST", "/factory-candidate-inspect"),
@@ -211,6 +212,7 @@ fn dispatch_native<B: ExecBackend + ?Sized>(
         "/factory-stop" => backend.factory_stop(body),
         "/factory-takeover" => backend.factory_takeover(body),
         "/factory-output" => backend.factory_output(body),
+        "/factory-task-events" => backend.factory_task_events(body),
         "/factory-harness" => backend.factory_harness(body, &config.image),
         "/factory-export" => backend.factory_export(body),
         "/factory-candidate-inspect" => backend.factory_candidate_inspect(body),

@@ -56,6 +56,32 @@ fn digest_commit_matrix() {
 }
 
 #[test]
+fn task_child_admission_matrix() {
+    assert!(is_task_key("design-api"));
+    assert!(is_task_key("a"));
+    assert!(is_task_key("code_task-2"));
+    assert!(is_task_key(&"a".repeat(32)));
+    assert!(!is_task_key(""));
+    assert!(!is_task_key("1task"));
+    assert!(!is_task_key("Task"));
+    assert!(!is_task_key("a b"));
+    assert!(!is_task_key("../escape"));
+    assert!(!is_task_key(&"a".repeat(33)));
+    assert!(is_effort("low"));
+    assert!(is_effort("xhigh"));
+    assert!(!is_effort("turbo"));
+    assert!(!is_effort(""));
+    assert!(is_child_limit(1));
+    assert!(is_child_limit(4));
+    assert!(!is_child_limit(0));
+    assert!(!is_child_limit(5));
+    assert!(!is_child_limit(-1));
+    assert!(is_contributor_for_harness(true, "muse"));
+    assert!(is_contributor_for_harness(false, "codex"));
+    assert!(!is_contributor_for_harness(true, "codex"));
+}
+
+#[test]
 fn key_sets_collapse_duplicates() {
     let dup = val("{\"op\":\"ensure\",\"op\":\"ensure\"}");
     assert!(key_set(as_object(&dup).unwrap(), &["op"]));

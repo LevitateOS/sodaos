@@ -36,15 +36,18 @@ mod artifacts;
 mod candidate;
 mod confirmation;
 mod deadline;
+mod events;
 mod finish;
 mod identity;
 mod inspect;
 mod launch;
+mod manifest;
 mod receipt;
 mod requests;
 mod run;
 mod state;
 mod stop;
+mod task_events;
 #[cfg(test)]
 mod tests;
 
@@ -52,25 +55,39 @@ pub use self::candidate::CANDIDATE_INSPECT_SCRIPT;
 pub use self::confirmation::{
     confirm_factory_candidate_inspect, confirm_factory_export, confirm_factory_harness,
     confirm_factory_inspect, confirm_factory_launch, confirm_factory_output, confirm_factory_stop,
-    confirm_factory_takeover, confirm_hold_preparation, confirm_inspect_preparation,
-    confirm_prepare, confirm_prepare_candidate, confirm_stop_preparation,
-    factory_candidate_status_error, factory_export_status_error, factory_not_found_status,
-    factory_output_status_error,
+    confirm_factory_takeover, confirm_factory_task_events, confirm_hold_preparation,
+    confirm_inspect_preparation, confirm_prepare, confirm_prepare_candidate,
+    confirm_stop_preparation, factory_candidate_status_error, factory_export_status_error,
+    factory_not_found_status, factory_output_status_error,
+};
+pub use self::events::{
+    task_event_terminal_type, valid_task_event_type, valid_task_key, EventJournal,
+    FactoryTaskEvents, FactoryTaskEventsState, TaskEvent, MAX_TASK_EVENTS_BYTES,
+    MAX_TASK_EVENTS_PER_READ, MAX_TASK_EVENT_BYTES, MAX_TASK_JOURNAL_BYTES,
+    MAX_TASK_JOURNAL_EVENTS, MIN_TASK_EVENTS_BYTES, TASK_EVENT_CHECKPOINT_PREPARED,
+    TASK_EVENT_CHILD_REPORTED, TASK_EVENT_CHILD_STARTED, TASK_EVENT_CHILD_START_INTENT,
+    TASK_EVENT_RUN_STOPPED, TASK_EVENT_TASK_COMMITTED, TASK_EVENT_TASK_FAILED,
+    TASK_JOURNAL_RESERVED_TERMINAL,
 };
 pub use self::identity::{AcquireRequest, Lease};
+pub use self::manifest::{valid_task_effort, ExecutionManifest};
 pub use self::requests::{
     FactoryCandidateInspect, FactoryCandidateState, FactoryExport, FactoryExportState,
     FactoryInspect, FactoryOutput, FactoryOutputState, FactoryStop, FactoryTakeover,
     TakeoverResult,
 };
 pub use self::run::{
-    factory_run_paths, factory_unit_name, takeover_destination, takeover_source,
-    valid_factory_phase, valid_factory_run_id, valid_harness_family, valid_harness_version,
-    FactoryError, FactoryLaunch, FactoryRun, ERR_RUN_NOT_FOUND, ERR_RUN_STALE, EXECUTION_TERMINAL,
-    FACTORY_APPROVED, FACTORY_COMPLETED, FACTORY_FAILED, FACTORY_HARNESS_CODEX,
-    FACTORY_HARNESS_MUSE, FACTORY_RUNNING, FACTORY_STATE_ROOT, FACTORY_STOPPED, FACTORY_UNCERTAIN,
-    IDENTITY_FACTORY, MAX_FACTORY_EXPORT_BUNDLE, MAX_FACTORY_OUTPUT, MAX_FACTORY_OUTPUT_OFFSET,
-    MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW, MAX_FACTORY_PROMPT,
+    execution_manifest_required, factory_run_paths, factory_unit_name, max_prompt_for_phase,
+    takeover_destination, takeover_source, valid_execution_phase, valid_factory_phase,
+    valid_factory_run_id, valid_harness_family, valid_harness_version, FactoryError, FactoryLaunch,
+    FactoryRun, DEFAULT_TASK_CHILDREN, ERR_RUN_NOT_FOUND, ERR_RUN_STALE, EXECUTION_CORRECT,
+    EXECUTION_DECOMPOSE, EXECUTION_IMPLEMENT, EXECUTION_INVESTIGATE, EXECUTION_REASSESS,
+    EXECUTION_REVIEW, EXECUTION_TERMINAL, FACTORY_APPROVED, FACTORY_COMPLETED, FACTORY_FAILED,
+    FACTORY_HARNESS_CODEX, FACTORY_HARNESS_MUSE, FACTORY_RUNNING, FACTORY_STATE_ROOT,
+    FACTORY_STOPPED, FACTORY_UNCERTAIN, IDENTITY_FACTORY, MAX_EXECUTION_MANIFEST,
+    MAX_FACTORY_EXPORT_BUNDLE, MAX_FACTORY_OUTPUT, MAX_FACTORY_OUTPUT_OFFSET,
+    MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW, MAX_FACTORY_PROMPT, MAX_REASSESS_PROMPT,
+    MAX_TASK_CHILDREN, MIN_TASK_CHILDREN,
 };
 pub use self::state::{FactoryHarnessPin, FactoryState, OutputSlice};
 

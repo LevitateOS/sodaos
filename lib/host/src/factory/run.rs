@@ -28,6 +28,53 @@ pub const FACTORY_STOPPED: &str = "stopped";
 pub const FACTORY_UNCERTAIN: &str = "uncertain";
 
 pub const MAX_FACTORY_PROMPT: usize = 64 * 1024;
+/// D13 reassess-only prompt exception: a reassess prompt carries the exact
+/// complete inventory inline plus bounded instructions. Every other phase
+/// keeps `MAX_FACTORY_PROMPT`, and every phase result keeps
+/// `MAX_FACTORY_OUTPUT`. Prompts use stdin/file delivery, never argv.
+pub const MAX_REASSESS_PROMPT: usize = 320 * 1024;
+/// `MaxExecutionManifest`: one staged execution manifest (D05).
+pub const MAX_EXECUTION_MANIFEST: usize = 64 * 1024;
+/// Admitted execution phases (`project.Execution*`). The empty phase is a
+/// pre-phase record admitted during migration; admission always records an
+/// explicit phase.
+pub const EXECUTION_DECOMPOSE: &str = "decompose";
+pub const EXECUTION_INVESTIGATE: &str = "investigate";
+pub const EXECUTION_IMPLEMENT: &str = "implement";
+pub const EXECUTION_REVIEW: &str = "review";
+pub const EXECUTION_CORRECT: &str = "correct";
+pub const EXECUTION_REASSESS: &str = "reassess";
+
+/// `ValidExecutionPhase`: admitted execution phases, including the empty
+/// pre-phase record. Phase is never inferred from role or PR state.
+pub fn valid_execution_phase(phase: &str) -> bool {
+    matches!(
+        phase,
+        "" | "decompose" | "investigate" | "implement" | "review" | "correct" | "reassess"
+    )
+}
+
+/// `ExecutionManifestRequired`: only implement runs are multi-child planned
+/// execution with a staged manifest; every other phase stays single-agent.
+pub fn execution_manifest_required(phase: &str) -> bool {
+    phase == EXECUTION_IMPLEMENT
+}
+
+/// `MaxPromptForPhase`: the admitted prompt bound for one phase.
+pub fn max_prompt_for_phase(phase: &str) -> usize {
+    if phase == EXECUTION_REASSESS {
+        MAX_REASSESS_PROMPT
+    } else {
+        MAX_FACTORY_PROMPT
+    }
+}
+
+/// Task child-concurrency bounds for one admitted implement run. The
+/// attempt policy mirrors this range; the manifest carries the admitted
+/// snapshot. The parent run is separate; nested child spawning is refused.
+pub const MIN_TASK_CHILDREN: i64 = 1;
+pub const MAX_TASK_CHILDREN: i64 = 4;
+pub const DEFAULT_TASK_CHILDREN: i64 = 3;
 pub const MAX_FACTORY_OUTPUT: usize = 64 * 1024;
 pub const MAX_FACTORY_OUTPUT_READ: i64 = 24 * 1024 - 256;
 pub const MAX_FACTORY_OUTPUT_WINDOW: i64 = 256 * 1024;
@@ -174,7 +221,9 @@ impl std::error::Error for FactoryError {}
 
 /// `project.FactoryRun`: one supervised CLI execution identity. The
 /// deadline keeps its verbatim Go `time.Time` JSON text so receipt bytes
-/// round-trip exactly.
+/// round-trip exactly. `execution_phase` names the admitted factory phase;
+/// `manifest_digest` binds the staged execution manifest for implement runs
+/// and stays empty otherwise.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FactoryRun {
     pub deadline: String,
@@ -189,6 +238,8 @@ pub struct FactoryRun {
     pub assignment: String,
     pub source_commit: String,
     pub connection: String,
+    pub execution_phase: String,
+    pub manifest_digest: String,
 }
 
 impl FactoryRun {
@@ -229,6 +280,19 @@ impl FactoryRun {
         {
             return Err("run deadline is required".to_string());
         }
+        if !valid_execution_phase(&self.execution_phase) {
+            return Err("invalid run execution phase".to_string());
+        }
+        if self.execution_phase == EXECUTION_REASSESS && self.role != preparation::ROLE_CODER {
+            return Err("reassess run requires the coder role".to_string());
+        }
+        if execution_manifest_required(&self.execution_phase) {
+            if !preparation::valid_digest(&self.manifest_digest) {
+                return Err("implement run lacks its manifest digest".to_string());
+            }
+        } else if !self.manifest_digest.is_empty() {
+            return Err("non-implement run carries a manifest digest".to_string());
+        }
         Ok(())
     }
 
@@ -260,6 +324,14 @@ impl FactoryRun {
         out.push_str(&json::quote(&self.source_commit));
         out.push_str(",\"connection\":");
         out.push_str(&json::quote(&self.connection));
+        if !self.execution_phase.is_empty() {
+            out.push_str(",\"execution_phase\":");
+            out.push_str(&json::quote(&self.execution_phase));
+        }
+        if !self.manifest_digest.is_empty() {
+            out.push_str(",\"manifest_digest\":");
+            out.push_str(&json::quote(&self.manifest_digest));
+        }
         out.push('}');
     }
 }
@@ -300,14 +372,20 @@ typed_run_fields!(FactoryRun, "a factory run object", {
     assignment => "assignment": String,
     source_commit => "source_commit": String,
     connection => "connection": String,
+    execution_phase => "execution_phase": String,
+    manifest_digest => "manifest_digest": String,
 });
 
-/// `project.FactoryLaunch`: the host run request.
+/// `project.FactoryLaunch`: the host run request. `execution_manifest`
+/// carries the immutable staged plan for implement runs and stays absent
+/// for every other phase; the run's manifest digest must match its exact
+/// bytes.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FactoryLaunch {
     pub run: FactoryRun,
     pub prompt: Vec<u8>,
     pub harness_sha256: String,
+    pub execution_manifest: Vec<u8>,
 }
 
 struct PromptBytes(Vec<u8>);
@@ -391,9 +469,15 @@ impl<'de> Deserialize<'de> for FactoryLaunch {
                         }
                         continue;
                     }
+                    if key.eq_ignore_ascii_case("execution_manifest") {
+                        if let Some(v) = map.next_value::<Option<PromptBytes>>()? {
+                            out.execution_manifest = v.0;
+                        }
+                        continue;
+                    }
                     return Err(de::Error::unknown_field(
                         &key,
-                        &["run", "prompt", "harness_sha256"],
+                        &["run", "prompt", "harness_sha256", "execution_manifest"],
                     ));
                 }
                 Ok(out)
@@ -412,7 +496,9 @@ impl FactoryLaunch {
 impl FactoryLaunch {
     pub fn validate(&self) -> Result<(), String> {
         self.run.validate()?;
-        if self.prompt.is_empty() || self.prompt.len() > MAX_FACTORY_PROMPT {
+        if self.prompt.is_empty()
+            || self.prompt.len() > max_prompt_for_phase(&self.run.execution_phase)
+        {
             return Err("invalid run prompt size".to_string());
         }
         if crate::sha256::hex_lower(&crate::sha256::digest(&self.prompt)) != self.run.assignment {
@@ -420,6 +506,21 @@ impl FactoryLaunch {
         }
         if !preparation::valid_digest(&self.harness_sha256) {
             return Err("invalid harness pin".to_string());
+        }
+        if self.execution_manifest.len() > MAX_EXECUTION_MANIFEST {
+            return Err("execution manifest exceeds its bound".to_string());
+        }
+        if execution_manifest_required(&self.run.execution_phase) {
+            if self.execution_manifest.is_empty() {
+                return Err("implement run lacks its execution manifest".to_string());
+            }
+            if crate::sha256::hex_lower(&crate::sha256::digest(&self.execution_manifest))
+                != self.run.manifest_digest
+            {
+                return Err("execution manifest does not match its digest".to_string());
+            }
+        } else if !self.execution_manifest.is_empty() {
+            return Err("non-implement run stages an execution manifest".to_string());
         }
         Ok(())
     }

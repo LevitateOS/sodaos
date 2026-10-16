@@ -99,12 +99,7 @@ impl Env {
             command.env(key, value);
         }
         let mut child = command.spawn().expect("spawn project-account");
-        if let Err(error) = child
-            .stdin
-            .take()
-            .expect("stdin")
-            .write_all(stdin)
-        {
+        if let Err(error) = child.stdin.take().expect("stdin").write_all(stdin) {
             // Argument rejection may close stdin before the fixture writes.
             assert_eq!(
                 error.kind(),

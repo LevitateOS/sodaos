@@ -1,5 +1,6 @@
 pub mod artifacts;
 pub mod binding;
+pub mod children;
 #[cfg(test)]
 pub mod codex;
 pub mod lifecycle;

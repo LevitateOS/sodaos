@@ -86,6 +86,10 @@ pub trait ExecBackend: Send + Sync {
     fn factory_stop(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn factory_takeover(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     fn factory_output(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
+    /// Read-only typed task-journal page for one admitted run. Polling
+    /// never mutates checkpoints; the 64 KiB response cap from the read
+    /// bound applies.
+    fn factory_task_events(&self, body: &[u8]) -> Result<Vec<u8>, BackendError>;
     /// `image` is the daemon config image Go stamps onto the harness pin
     /// (`factory.HarnessPin()` + `pin.Image = d.Config.Image`) before
     /// validation; the mux passes it so the backend need not read config.
@@ -198,6 +202,9 @@ impl ExecBackend for StubBackend {
         Err(BackendError::Unimplemented)
     }
     fn factory_output(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        Err(BackendError::Unimplemented)
+    }
+    fn factory_task_events(&self, _body: &[u8]) -> Result<Vec<u8>, BackendError> {
         Err(BackendError::Unimplemented)
     }
     fn factory_harness(&self, _body: &[u8], _image: &str) -> Result<Vec<u8>, BackendError> {

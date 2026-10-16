@@ -88,6 +88,8 @@ pub(in crate::factory) fn sample_run() -> FactoryRun {
         assignment: crate::sha256::hex_lower(&crate::sha256::digest(prompt)),
         source_commit: "e".repeat(40),
         connection: "conn-1".to_string(),
+        execution_phase: String::new(),
+        manifest_digest: String::new(),
     }
 }
 
@@ -96,6 +98,7 @@ pub(in crate::factory) fn sample_launch() -> FactoryLaunch {
         run: sample_run(),
         prompt: b"do the thing".to_vec(),
         harness_sha256: "f".repeat(64),
+        execution_manifest: Vec::new(),
     }
 }
 
@@ -164,6 +167,8 @@ pub(in crate::factory) fn fixed_run() -> FactoryRun {
         assignment: "0".repeat(64),
         source_commit: "e".repeat(40),
         connection: "conn-1".to_string(),
+        execution_phase: String::new(),
+        manifest_digest: String::new(),
     }
 }
 

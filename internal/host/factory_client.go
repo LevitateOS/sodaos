@@ -103,6 +103,37 @@ func (c *Client) FactoryOutput(ctx context.Context, in project.FactoryOutput) (p
 	return out, factoryOutputError(in, out, err)
 }
 
+// factoryTaskEventsResponseLimit bounds one paged task journal response:
+// whole typed events under the existing 64 KiB response cap.
+const factoryTaskEventsResponseLimit = 64 << 10
+
+func (c *Client) FactoryTaskEvents(ctx context.Context, in project.FactoryTaskEvents) (project.FactoryTaskEventsState, error) {
+	var out project.FactoryTaskEventsState
+	// The cursor/read-bound rule is enforced before the daemon ever sees
+	// the request: an unbounded or misaddressed page never reaches the
+	// host boundary. Polling is read-only; it never mutates checkpoints.
+	if err := in.Validate(); err != nil {
+		return out, err
+	}
+	err := c.callLimit(ctx, "/factory-task-events", in, &out, factoryTaskEventsResponseLimit)
+	if err == nil {
+		if err = out.Validate(); err == nil {
+			err = factoryTaskEventsConfirmed(in, out)
+		}
+	}
+	return out, factoryNotFound(err)
+}
+
+func factoryTaskEventsConfirmed(in project.FactoryTaskEvents, out project.FactoryTaskEventsState) error {
+	if out.ID != in.ID || out.Project != in.Project {
+		return errors.New("native factory task events do not match their identity")
+	}
+	if out.NextSequence <= in.AfterSequence {
+		return errors.New("native factory task events did not advance")
+	}
+	return nil
+}
+
 // factoryExportResponseLimit bounds one export response: the base64
 // 4MB bundle plus its JSON envelope.
 const factoryExportResponseLimit = 8 << 20

@@ -33,6 +33,7 @@ pub const NATIVE_CLEAN_PATHS: &[&str] = &[
     "/factory-stop",
     "/factory-takeover",
     "/factory-output",
+    "/factory-task-events",
     "/factory-harness",
     "/factory-export",
     "/factory-candidate-inspect",

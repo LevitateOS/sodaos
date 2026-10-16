@@ -6,8 +6,8 @@ use crate::preparation::{
 use super::{
     valid_factory_phase, FactoryCandidateInspect, FactoryCandidateState, FactoryExport,
     FactoryExportState, FactoryHarnessPin, FactoryInspect, FactoryOutput, FactoryOutputState,
-    FactoryRun, FactoryState, FactoryStop, FactoryTakeover, TakeoverResult, ERR_RUN_NOT_FOUND,
-    ERR_RUN_STALE,
+    FactoryRun, FactoryState, FactoryStop, FactoryTakeover, FactoryTaskEvents,
+    FactoryTaskEventsState, TakeoverResult, ERR_RUN_NOT_FOUND, ERR_RUN_STALE,
 };
 
 // ---------- facade confirmations ----------
@@ -73,6 +73,23 @@ pub fn confirm_factory_output(
         Ok(())
     } else {
         Err("native factory output does not match its identity".to_string())
+    }
+}
+
+/// `FactoryTaskEvents` client page confirmation: the page addresses the
+/// requested run and its cursor advanced past everything the caller holds.
+pub fn confirm_factory_task_events(
+    req: &FactoryTaskEvents,
+    state: &FactoryTaskEventsState,
+) -> Result<(), String> {
+    if state.validate().is_ok()
+        && state.id == req.id
+        && state.project == req.project
+        && state.next_sequence > req.after_sequence
+    {
+        Ok(())
+    } else {
+        Err("native factory task events do not match their identity".to_string())
     }
 }
 
