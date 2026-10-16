@@ -32,10 +32,10 @@ type SemanticPlanner interface {
 // semantic planning. Checks run in fixed order so the same state reports
 // the same reason: subject shape, decompose phase with the coder role,
 // revision/owner/scope binding against the authoritative head, draft
-// planning scope, then planner input (including its source investigation)
-// and finite allowance. No Store, Host or Graph is touched: planning
-// launches no repository session, writes no native state, invents no fake
-// issue and grants no publication capability. The dispatch boundary loads
+// planning scope, repository association, then planner input (including
+// its source investigation) and finite allowance. No Store, Host or Graph
+// is touched: planning launches no repository session, writes no native
+// state, invents no fake issue and grants no publication capability. The dispatch boundary loads
 // the head and allowance availability before calling; recording the
 // assignment and spending the allowance stay with that boundary (FW11
 // dispatch files), not this handler.
@@ -64,6 +64,14 @@ func AdmitIntentPlanning(subject factory.ExecutionSubject, phase, role string, h
 	if err := factory.ValidateDraftPlanningScope(head); err != nil {
 		return err
 	}
+	// Pre-issue planning runs only after repository association: an
+	// unassociated draft stays a private editable draft and cannot enter
+	// the generative run. Full repository authority stays with the FW11
+	// dispatch packet boundary; this check keeps the planner
+	// repository-bound without consulting any accepted graph or history.
+	if head.Repository <= 0 {
+		return errors.New("intent planning needs its repository association")
+	}
 	// Investigation before planning is enforced ahead of other input
 	// checks so missing inspection surfaces distinctly and directs work
 	// to source inspection rather than another planning attempt.
@@ -84,9 +92,9 @@ func AdmitIntentPlanning(subject factory.ExecutionSubject, phase, role string, h
 
 // PlanIntentDecomposition admits one pre-issue semantic planning run and
 // assesses its answer. The handler consumes planner outputs only: no
-// accepted graph or history is consulted at any step, and a first draft
-// with no tasks plans without prerequisites beyond its attributed
-// effective scope and source investigation. A nil planner reports the
+// accepted graph or history is consulted at any step, and a first
+// repository-bound draft with no tasks plans without prerequisites beyond
+// its association, attributed effective scope and source investigation. A nil planner reports the
 // precise external gate (missing funded account or capability) instead of
 // substituting canned output. Provider failures and invalid answers are
 // returned for the caller to record; an explicit Retry can start a
