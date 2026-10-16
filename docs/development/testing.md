@@ -64,7 +64,7 @@ exempts source. Compiler/download caches do not replace `go test -count=1`.
 | Go | Parallel core, Store and Web suites: Go command/internal/tool packages except native factory-control, identity-client and installed-probe integrations; focused CI/source-driver contracts, module integrity, SQL locality, no-npm and no-Python guards. All three jobs must pass. |
 | PostgreSQL | Every Go job receives PostgreSQL 17 and a required restricted fixture password file; Store/Web tests execute against real disposable databases. |
 | Browser source | Full strict TypeScript/Lit analysis and fixtures; native form, personal/repository settings and presentation-inventory source contracts. |
-| Rust | Wire-time, Unix HTTP and release-input foundation library tests with the committed lock. |
+| Rust | Wire-time, Unix HTTP, release-input foundation and release-delivery library tests with the committed lock. |
 | Packaging | Checksum-pinned Hadolint, Compose deployment and readiness contracts. |
 
 The protected main branch still requires `CI` from GitHub Actions, an up-to-date

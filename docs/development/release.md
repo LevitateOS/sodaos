@@ -375,8 +375,8 @@ exact commit and the Fountain pin before staging and again before promotion.
 Missing, pending, skipped, cancelled or failed CI cannot authorize delivery;
 a PR's synthetic merge commit cannot qualify a different release commit.
 
-Protected-main qualification tags use `ci/soda-main-COMMIT_PREFIX` with the first
-12 characters of the full source commit. The tag runs all source suites. Its
+Protected-main qualification tags use `ci/soda-main-FULL_COMMIT_SHA`, created by
+`bash scripts/push.sh` as documented in [GitHub CI](testing.md#github-ci). The tag runs all source suites. Its
 subsequent first main-push run reuses only the latest successful push run of that
 exact tag, commit and CI workflow. The main CI gate still runs and is the receipt
 checked by release admission. Missing, failed or pending prior checks execute the
