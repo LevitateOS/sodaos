@@ -1,0 +1,441 @@
+package api
+
+import (
+	"errors"
+	"strconv"
+	"strings"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
+)
+
+// FW23 fixture journey read model. It renders one issue's recorded work
+// journey for UI/API consumers: execution phases, tasks with their lanes,
+// commit/PR evidence, structured findings with corrections, Jev judgments
+// with effective waits, and D13 completion gates with proposals and
+// adoption. Every section carries IDs, commits, digests and bounded codes
+// only; native prose and evidence bytes stay out.
+//
+// These builders validate fixture input against the frozen FW06A, FW06C
+// and FW30 contracts but read no store and spend nothing: absence of a
+// section means nothing was recorded, never a guessed state. Binding this
+// shape to actual persisted readback belongs to FW25; until then no
+// handler serves it, so fixture UI must never be read as the journey.
+
+// Journey section caps. Totals are exact; only recorded entries render.
+const (
+	maxJourneyPhases      = 8
+	maxJourneyTasks       = 32
+	maxJourneyCommits     = 16
+	maxJourneyFindings    = 64
+	maxJourneyCorrections = 20
+	maxJourneyJudgments   = 8
+	maxJourneyGates       = 8
+	maxJourneyAdoptions   = 16
+	maxJourneyWaitChars   = 256
+)
+
+// journeyStates name one phase or task's recorded position. Pending work
+// has no evidence yet; attention needs a recorded decision.
+const (
+	journeyPending   = "pending"
+	journeyActive    = "active"
+	journeyComplete  = "complete"
+	journeyAttention = "attention"
+)
+
+// journeyLanes name the parallel native work lane behind a task.
+// Unassigned tasks have no lane yet.
+const (
+	journeyLaneA          = "a"
+	journeyLaneB          = "b"
+	journeyLaneC          = "c"
+	journeyLaneUnassigned = "unassigned"
+)
+
+// journeyPhaseView renders one execution phase's recorded state: the
+// frozen phase vocabulary with its position, never its payload bytes.
+type journeyPhaseView struct {
+	Phase string `json:"phase"`
+	State string `json:"state"`
+}
+
+// journeyPhaseDTO validates one fixture phase against the frozen
+// execution vocabulary.
+func journeyPhaseDTO(phase, state string) (journeyPhaseView, error) {
+	if !project.ValidExecutionPhase(phase) || phase == "" {
+		return journeyPhaseView{}, errors.New("journey phase is not an admitted execution phase")
+	}
+	if !validJourneyState(state) {
+		return journeyPhaseView{}, errors.New("journey phase lacks its recorded state")
+	}
+	return journeyPhaseView{Phase: phase, State: state}, nil
+}
+
+func validJourneyState(state string) bool {
+	switch state {
+	case journeyPending, journeyActive, journeyComplete, journeyAttention:
+		return true
+	default:
+		return false
+	}
+}
+
+func validJourneyLane(lane string) bool {
+	switch lane {
+	case journeyLaneA, journeyLaneB, journeyLaneC, journeyLaneUnassigned:
+		return true
+	default:
+		return false
+	}
+}
+
+// journeyTaskView renders one planned task with its lane binding and
+// recorded state. The key is the stable task identity; bodies come from
+// the accepted revision, never a speculative graph.
+type journeyTaskView struct {
+	Key   string `json:"key"`
+	Issue string `json:"issue,omitempty"`
+	Lane  string `json:"lane"`
+	State string `json:"state"`
+}
+
+// journeyTaskDTO validates one fixture task: a bounded key, a known
+// lane and a recorded state, with an optional decimal native issue.
+func journeyTaskDTO(key, lane, issue, state string) (journeyTaskView, error) {
+	if len(key) == 0 || len(key) > 128 || strings.TrimSpace(key) != key {
+		return journeyTaskView{}, errors.New("journey task lacks its bounded key")
+	}
+	if strings.ContainsFunc(key, func(r rune) bool { return r < ' ' || r == 0x7f }) {
+		return journeyTaskView{}, errors.New("journey task key carries control characters")
+	}
+	if !validJourneyLane(lane) {
+		return journeyTaskView{}, errors.New("journey task lacks its recorded lane")
+	}
+	if !validJourneyState(state) {
+		return journeyTaskView{}, errors.New("journey task lacks its recorded state")
+	}
+	if issue != "" && !validJourneyDecimal(issue) {
+		return journeyTaskView{}, errors.New("journey task names an invalid native issue")
+	}
+	return journeyTaskView{Key: key, Issue: issue, Lane: lane, State: state}, nil
+}
+
+func validJourneyDecimal(value string) bool {
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	return err == nil && parsed > 0 && strconv.FormatInt(parsed, 10) == value
+}
+
+// journeyCommitView renders one commit/PR evidence link: the exact head
+// and base with the native pull request behind them.
+type journeyCommitView struct {
+	Commit   string `json:"commit"`
+	Base     string `json:"base"`
+	PRNumber string `json:"pr_number"`
+	PRID     string `json:"pr_id"`
+}
+
+// journeyCommitDTO validates one fixture commit reference: exact fresh
+// commits with decimal native pull linkage.
+func journeyCommitDTO(commit, base, prNumber, prID string) (journeyCommitView, error) {
+	if !factory.ValidCommit(commit) || !factory.ValidCommit(base) || commit == base {
+		return journeyCommitView{}, errors.New("journey commit is not a fresh exact commit")
+	}
+	if !validJourneyDecimal(prNumber) || !validJourneyDecimal(prID) {
+		return journeyCommitView{}, errors.New("journey commit lacks its native pull linkage")
+	}
+	return journeyCommitView{Commit: commit, Base: base, PRNumber: prNumber, PRID: prID}, nil
+}
+
+// journeyFindingView renders one structured finding: its stable key,
+// severity, fix kind and bounded defect prose. Evidence bytes stay on
+// the native thread; the key correlates them.
+type journeyFindingView struct {
+	Key      string `json:"key"`
+	Severity string `json:"severity"`
+	Defect   string `json:"defect"`
+	FixKind  string `json:"fix_kind"`
+}
+
+// journeyFindingDTO validates one fixture finding against the frozen
+// FW06C finding contract and renders its UI facts.
+func journeyFindingDTO(finding factory.Finding) (journeyFindingView, error) {
+	if err := finding.Validate(); err != nil {
+		return journeyFindingView{}, err
+	}
+	return journeyFindingView{
+		Key: finding.Key, Severity: finding.Severity,
+		Defect: finding.Defect, FixKind: finding.FixKind,
+	}, nil
+}
+
+// journeyCorrectionView renders one native branch correction: the
+// candidate it published and its operation effect. Receipt bytes stay
+// out; the candidate commit identifies the corrected content.
+type journeyCorrectionView struct {
+	Candidate  string `json:"candidate,omitempty"`
+	Effect     string `json:"effect,omitempty"`
+	Completion string `json:"completion,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+// journeyCorrectionDTO validates one fixture correction: an optional
+// exact candidate with bounded operation effect and completion codes.
+func journeyCorrectionDTO(candidate, effect, completion, reason string) (journeyCorrectionView, error) {
+	if candidate != "" && !factory.ValidCommit(candidate) {
+		return journeyCorrectionView{}, errors.New("journey correction names an invalid candidate")
+	}
+	if effect != "" && !factory.ValidOpEffect(effect) {
+		return journeyCorrectionView{}, errors.New("journey correction carries an unknown effect")
+	}
+	if completion != "" && !factory.ValidOpCompletion(completion) {
+		return journeyCorrectionView{}, errors.New("journey correction carries an unknown completion")
+	}
+	if reason != "" && (len(reason) > maxJourneyWaitChars || strings.TrimSpace(reason) == "") {
+		return journeyCorrectionView{}, errors.New("journey correction carries an invalid reason")
+	}
+	return journeyCorrectionView{
+		Candidate: candidate, Effect: effect, Completion: completion, Reason: reason,
+	}, nil
+}
+
+// journeyJudgmentKinds name the Jev judgments the journey renders:
+// next-work priority, delivery acceptance, and the two D13 funded
+// calls (gate decision and proposal assessment).
+const (
+	journeyJudgmentPriority         = "priority"
+	journeyJudgmentDelivery         = "delivery"
+	journeyJudgmentReassessDecision = "reassessment-decision"
+	journeyJudgmentReassessProposal = "reassessment-proposal"
+	journeyJudgmentDeliveryReview   = "review_again"
+	journeyJudgmentDeliveryReady    = "ready_to_merge"
+)
+
+// journeyJudgmentView renders one Jev judgment with its effective wait:
+// the recorded choice, its uncertainty, and the bounded reason while it
+// waits. A non-waiting judgment carries no reason, never a guess.
+type journeyJudgmentView struct {
+	Selected    string  `json:"selected"`
+	Model       string  `json:"model,omitempty"`
+	WaitReason  string  `json:"wait_reason,omitempty"`
+	Kind        string  `json:"kind"`
+	Confidence  float64 `json:"confidence,omitempty"`
+	Probability float64 `json:"probability,omitempty"`
+	Wait        bool    `json:"wait"`
+}
+
+// journeyJudgmentDTO validates one fixture judgment: a known kind, its
+// frozen choice vocabulary and thresholds, and a required bounded
+// reason while it waits.
+func journeyJudgmentDTO(kind, selected, model string, confidence, probability float64, wait bool, waitReason string) (journeyJudgmentView, error) {
+	if err := validJourneyJudgmentChoice(kind, selected); err != nil {
+		return journeyJudgmentView{}, err
+	}
+	if model != "" && (len(model) > 128 || strings.ContainsFunc(model, func(r rune) bool { return r < ' ' || r == 0x7f })) {
+		return journeyJudgmentView{}, errors.New("journey judgment carries an invalid model")
+	}
+	if err := validJourneyScores(kind, confidence, probability); err != nil {
+		return journeyJudgmentView{}, err
+	}
+	if wait && (len(waitReason) == 0 || len(waitReason) > maxJourneyWaitChars || strings.TrimSpace(waitReason) == "") {
+		return journeyJudgmentView{}, errors.New("journey wait needs its bounded reason")
+	}
+	if !wait && waitReason != "" {
+		return journeyJudgmentView{}, errors.New("journey judgment without a wait carries no reason")
+	}
+	return journeyJudgmentView{
+		Selected: selected, Model: model,
+		WaitReason:  waitReason,
+		Kind:        kind,
+		Confidence:  confidence,
+		Probability: probability,
+		Wait:        wait,
+	}, nil
+}
+
+func validJourneyJudgmentChoice(kind, selected string) error {
+	switch kind {
+	case journeyJudgmentPriority:
+		if len(selected) == 0 || len(selected) > 128 {
+			return errors.New("priority judgment lacks its selected candidate")
+		}
+		return nil
+	case journeyJudgmentDelivery:
+		switch selected {
+		case journeyJudgmentDeliveryReview, journeyJudgmentDeliveryReady:
+			return nil
+		default:
+			return errors.New("delivery judgment lacks its frozen choice")
+		}
+	case journeyJudgmentReassessDecision:
+		switch selected {
+		case factory.ReassessmentOptionReassess, factory.ReassessmentOptionContinue:
+			return nil
+		default:
+			return errors.New("reassessment decision lacks its frozen choice")
+		}
+	case journeyJudgmentReassessProposal:
+		switch selected {
+		case factory.ReassessmentOptionAccept, factory.ReassessmentOptionNeedsAttention:
+			return nil
+		default:
+			return errors.New("reassessment proposal lacks its frozen choice")
+		}
+	default:
+		return errors.New("journey judgment names an unknown kind")
+	}
+}
+
+func validJourneyScores(kind string, confidence, probability float64) error {
+	for _, score := range []float64{confidence, probability} {
+		if score < 0 || score > 1 {
+			return errors.New("journey judgment score is outside its distribution")
+		}
+	}
+	switch kind {
+	case journeyJudgmentReassessDecision:
+		if confidence < factory.MinReassessmentDecisionConfidence {
+			return errors.New("reassessment decision is below its confidence threshold")
+		}
+	case journeyJudgmentReassessProposal:
+		if probability < factory.MinReassessmentProposalProbability || confidence < factory.MinReassessmentProposalConfidence {
+			return errors.New("reassessment proposal is below its funded thresholds")
+		}
+	}
+	return nil
+}
+
+// journeyGateView renders one D13 completion gate: the frozen
+// ReassessmentView facts with the gate decision, assessment progress,
+// exact proposal effects and the wait/retry reason. Digests travel,
+// evidence bytes do not.
+type journeyGateView = factory.ReassessmentView
+
+// journeyGateDTO validates one fixture completion gate against the
+// frozen FW30 view contract.
+func journeyGateDTO(view factory.ReassessmentView) (journeyGateView, error) {
+	if err := view.Validate(); err != nil {
+		return journeyGateView{}, err
+	}
+	return view, nil
+}
+
+// journeyAdoptionStates name one D13 proposal's adoption position:
+// proposed by the reassess run, adopted into a per-intent revision, or
+// released by the follow-up decision.
+const (
+	journeyAdoptionProposed = "proposed"
+	journeyAdoptionAdopted  = "adopted"
+	journeyAdoptionReleased = "released"
+)
+
+// journeyAdoptionView renders one D13 proposal adoption: the intent and
+// revision it binds with its recorded position. Adoption never mutates
+// source or publication effects; it only names the bound revision.
+type journeyAdoptionView struct {
+	Intent   string `json:"intent"`
+	Revision string `json:"revision"`
+	State    string `json:"state"`
+}
+
+// journeyAdoptionDTO validates one fixture adoption: exact intent and
+// revision identities with a recorded position.
+func journeyAdoptionDTO(intent, revision, state string) (journeyAdoptionView, error) {
+	if !project.ValidDecisionID(intent) || !project.ValidDecisionID(revision) {
+		return journeyAdoptionView{}, errors.New("journey adoption lacks its exact intent or revision")
+	}
+	switch state {
+	case journeyAdoptionProposed, journeyAdoptionAdopted, journeyAdoptionReleased:
+		return journeyAdoptionView{Intent: intent, Revision: revision, State: state}, nil
+	default:
+		return journeyAdoptionView{}, errors.New("journey adoption lacks its recorded position")
+	}
+}
+
+// workJourneyFixture is the bounded fixture input for one issue's work
+// journey. FW25 binds actual persisted sections to this same shape;
+// fixtures only assemble recorded-shaped facts.
+type workJourneyFixture struct {
+	Phases      []journeyPhaseView      `json:"phases"`
+	Tasks       []journeyTaskView       `json:"tasks"`
+	Commits     []journeyCommitView     `json:"commits"`
+	Findings    []journeyFindingView    `json:"findings"`
+	Corrections []journeyCorrectionView `json:"corrections"`
+	Judgments   []journeyJudgmentView   `json:"judgments"`
+	Gates       []journeyGateView       `json:"gates"`
+	Adoptions   []journeyAdoptionView   `json:"adoptions"`
+	Repository  string                  `json:"repository"`
+	Issue       string                  `json:"issue"`
+}
+
+// workJourneyView is the rendered fixture journey: every recorded
+// section with empty sections explicit, newest evidence last. Read
+// endpoints spend nothing; native CLI text streams stay primary.
+type workJourneyView struct {
+	Phases       []journeyPhaseView      `json:"phases"`
+	Tasks        []journeyTaskView       `json:"tasks"`
+	Commits      []journeyCommitView     `json:"commits"`
+	Findings     []journeyFindingView    `json:"findings"`
+	Corrections  []journeyCorrectionView `json:"corrections"`
+	Judgments    []journeyJudgmentView   `json:"judgments"`
+	Gates        []journeyGateView       `json:"gates"`
+	Adoptions    []journeyAdoptionView   `json:"adoptions"`
+	Repository   string                  `json:"repository"`
+	Issue        string                  `json:"issue"`
+	ObservedUnix int64                   `json:"observed_unix"`
+}
+
+// renderWorkJourneyFixture validates one fixture journey's identity and
+// section bounds and renders it with empty sections explicit. Sections
+// arrive pre-validated from the constructors above; this only bounds
+// the composition.
+func renderWorkJourneyFixture(fixture workJourneyFixture, observedUnix int64) (*workJourneyView, error) {
+	if !validJourneyDecimal(fixture.Repository) || !validJourneyDecimal(fixture.Issue) {
+		return nil, errors.New("journey fixture lacks its exact repository or issue")
+	}
+	if observedUnix <= 0 {
+		return nil, errors.New("journey fixture lacks its observation time")
+	}
+	if len(fixture.Phases) > maxJourneyPhases {
+		return nil, errors.New("journey fixture phases exceed their bound")
+	}
+	if len(fixture.Tasks) > maxJourneyTasks {
+		return nil, errors.New("journey fixture tasks exceed their bound")
+	}
+	if len(fixture.Commits) > maxJourneyCommits {
+		return nil, errors.New("journey fixture commits exceed their bound")
+	}
+	if len(fixture.Findings) > maxJourneyFindings {
+		return nil, errors.New("journey fixture findings exceed their bound")
+	}
+	if len(fixture.Corrections) > maxJourneyCorrections {
+		return nil, errors.New("journey fixture corrections exceed their bound")
+	}
+	if len(fixture.Judgments) > maxJourneyJudgments {
+		return nil, errors.New("journey fixture judgments exceed their bound")
+	}
+	if len(fixture.Gates) > maxJourneyGates {
+		return nil, errors.New("journey fixture gates exceed their bound")
+	}
+	if len(fixture.Adoptions) > maxJourneyAdoptions {
+		return nil, errors.New("journey fixture adoptions exceed their bound")
+	}
+	return &workJourneyView{
+		Phases:      nonNilJourney(fixture.Phases, []journeyPhaseView{}),
+		Tasks:       nonNilJourney(fixture.Tasks, []journeyTaskView{}),
+		Commits:     nonNilJourney(fixture.Commits, []journeyCommitView{}),
+		Findings:    nonNilJourney(fixture.Findings, []journeyFindingView{}),
+		Corrections: nonNilJourney(fixture.Corrections, []journeyCorrectionView{}),
+		Judgments:   nonNilJourney(fixture.Judgments, []journeyJudgmentView{}),
+		Gates:       nonNilJourney(fixture.Gates, []journeyGateView{}),
+		Adoptions:   nonNilJourney(fixture.Adoptions, []journeyAdoptionView{}),
+		Repository:  fixture.Repository, Issue: fixture.Issue, ObservedUnix: observedUnix,
+	}, nil
+}
+
+func nonNilJourney[T any](got, fallback []T) []T {
+	if got == nil {
+		return fallback
+	}
+	return got
+}
