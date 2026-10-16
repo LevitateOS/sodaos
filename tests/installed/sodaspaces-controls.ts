@@ -53,6 +53,7 @@ export async function prepareManagedTerminal(
     'The observed original project must match the selected target before submission'
   );
   await project.click();
+  await spaces.getByRole('button', {name: 'Terminals', exact: true}).click();
   const create = spaces.getByRole('button', {name: 'New terminal', exact: true});
   assert.equal(await create.getAttribute('data-environment-id'), environment);
   const name = await create.getAttribute('data-terminal-name');
