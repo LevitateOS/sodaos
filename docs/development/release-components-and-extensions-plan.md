@@ -630,11 +630,23 @@ required-package catalog/cache contract; its focused repair is committed separat
   Fountain's rendered failed row hides Disable despite remaining effects.
   The other Fountain writer has completed. Its work was preserved, and local
   commits `4b71adac9d`/`a4fd2221f1` repair lifecycle, acquisition and generic UI
-  status/actions. A new component is being built from that exact committed
-  source and has passed the above native component/UI/failure checks. Exact
-  component metadata and source archives are prepared for a fresh Source run;
-  joint appliance/maintenance qualification remains open. The older failed
-  fixture is retained solely as a diagnostic host, not an accepted baseline.
+  status/actions. The exact `a4fd2221f1` component and matching source archives
+  passed native image/SDK, UI and failure checks. Functional Source
+  `bcb4416ccff5` now installs and activates from its real ISO without runtime
+  binary, catalog or template overrides. Native first-download Tailnet
+  enable/NeedsLogin/disable, disabled/enabled offline cold boots, member refusal,
+  maintenance-lock exclusion and cleanup after optional backend loss pass;
+  running/stopped Project identities and private data remain intact. Its offline
+  disk/UEFI checkpoint is retained for maintenance and rollback.
+  Combined Docker production exposed and corrected the extra frozen base input
+  and Fedora signing-key RPM inventory representation. Actual Docker cold boot
+  then exposed a socket/importer boot cycle missed by the post-boot socket probe.
+  The late socket drop-in removes its default early-socket ordering and preserves
+  explicit shutdown ordering. A diagnostic Docker cold boot now acquires all six
+  images and starts core services; native web installation succeeds. That runtime
+  carries an explicit unit override and cannot qualify the failed target.
+  Fresh shipping Target media/Docker, maintenance and final qualification remain
+  open; public component availability is still a separate external gate.
 - [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
@@ -646,8 +658,8 @@ required-package catalog/cache contract; its focused repair is committed separat
   transition and recovery remain open.
   Project maintenance also rejects the retired machine Tailnet boolean/image
   selectors and reads only its Project image from Payload v4; 43 native unit
-  checks pass. This cleanup is separate from the frozen Source `eba805ee` build
-  and is included in the subsequent target scope.
+  checks pass. Functional Source `bcb4416ccff5` includes this cleanup; the older
+  `eba805ee` disk remains a diagnostic fixture.
   Installed checks also pass a snapshot under the real updater EX lock while
   administrator enable is rejected with 423 and unchanged intent. The shipped
   CLI prepares the actual installed cache with network disabled and preserves

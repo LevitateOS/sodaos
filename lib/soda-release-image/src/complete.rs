@@ -142,7 +142,7 @@ pub fn configure_complete_systemd(source: &str, root: &str) -> Result<(), Error>
             "usr/lib/systemd/system/soda-host.service.d/10-images.conf",
         ),
         (
-            "system/host/image/retained-images.conf",
+            "system/host/image/retained-images-socket.conf",
             "usr/lib/systemd/system/soda-host.socket.d/10-images.conf",
         ),
     ];
@@ -246,6 +246,10 @@ mod tests {
             );
             assert!(text.contains("After=soda-image-import.service"), "{name}");
         }
+        let socket = fs::read_to_string(systemd.join("soda-host.socket.d/10-images.conf")).unwrap();
+        assert!(socket.contains("DefaultDependencies=no"));
+        assert!(socket.contains("Conflicts=shutdown.target"));
+        assert!(socket.contains("Before=shutdown.target"));
         fs::remove_dir_all(dir).unwrap();
     }
 
