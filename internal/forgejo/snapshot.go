@@ -24,16 +24,17 @@ import (
 // NativeSnapshot is one revision-bound evidence set. Revision is the idle
 // native revision both bracket observations agreed on.
 type NativeSnapshot struct {
-	Revision     int64                        `json:"revision"`
-	RepositoryID string                       `json:"repository_id"`
-	Issue        *IssueEvidence               `json:"issue,omitempty"`
-	Comments     *CommentPage                 `json:"comments,omitempty"`
-	Dependencies *DependencyPage              `json:"dependencies,omitempty"`
-	Pull         *PullEvidence                `json:"pull,omitempty"`
-	Reviews      *ReviewPage                  `json:"reviews,omitempty"`
-	Checks       *CheckSet                    `json:"checks,omitempty"`
-	Refs         []RefEvidence                `json:"refs,omitempty"`
-	Ancestry     *extensions.SnapshotAncestry `json:"ancestry,omitempty"`
+	Revision         int64                        `json:"revision"`
+	RepositoryID     string                       `json:"repository_id"`
+	RepositoryIssues *RepositoryIssuesPage        `json:"repository_issues,omitempty"`
+	Issue            *IssueEvidence               `json:"issue,omitempty"`
+	Comments         *CommentPage                 `json:"comments,omitempty"`
+	Dependencies     *DependencyPage              `json:"dependencies,omitempty"`
+	Pull             *PullEvidence                `json:"pull,omitempty"`
+	Reviews          *ReviewPage                  `json:"reviews,omitempty"`
+	Checks           *CheckSet                    `json:"checks,omitempty"`
+	Refs             []RefEvidence                `json:"refs,omitempty"`
+	Ancestry         *extensions.SnapshotAncestry `json:"ancestry,omitempty"`
 }
 
 // SnapshotReader performs revision observations and snapshot reads over the
@@ -104,6 +105,13 @@ func ValidateSnapshot(req SnapshotRequest, snapshot NativeSnapshot, revision int
 	}
 	for _, family := range req.Families {
 		switch family {
+		case FamilyRepositoryIssues:
+			if snapshot.RepositoryIssues == nil || !snapshot.RepositoryIssues.Complete {
+				return ErrIncompleteSnapshot
+			}
+			if err := validRepositoryIssuesPage(snapshot.RepositoryIssues, req); err != nil {
+				return err
+			}
 		case FamilyIssue:
 			if snapshot.Issue == nil || !snapshot.Issue.Complete {
 				return ErrIncompleteSnapshot
@@ -167,6 +175,14 @@ func ValidateSnapshot(req SnapshotRequest, snapshot NativeSnapshot, revision int
 func HasHiddenEvidence(req SnapshotRequest, snapshot NativeSnapshot) bool {
 	for _, family := range req.Families {
 		switch family {
+		case FamilyRepositoryIssues:
+			if snapshot.RepositoryIssues != nil {
+				for _, item := range snapshot.RepositoryIssues.Items {
+					if !item.Visible {
+						return true
+					}
+				}
+			}
 		case FamilyIssue:
 			if snapshot.Issue != nil && !snapshot.Issue.Visible {
 				return true

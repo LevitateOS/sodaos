@@ -14,19 +14,21 @@ import (
 type SnapshotFamily string
 
 const (
-	FamilyIssue        SnapshotFamily = "issue"
-	FamilyComments     SnapshotFamily = "comments"
-	FamilyDependencies SnapshotFamily = "dependencies"
-	FamilyPull         SnapshotFamily = "pull"
-	FamilyReviews      SnapshotFamily = "reviews"
-	FamilyChecks       SnapshotFamily = "checks"
-	FamilyRefs         SnapshotFamily = "refs"
-	FamilyAncestry     SnapshotFamily = "ancestry"
+	FamilyRepositoryIssues SnapshotFamily = "repository_issues"
+	FamilyIssue            SnapshotFamily = "issue"
+	FamilyComments         SnapshotFamily = "comments"
+	FamilyDependencies     SnapshotFamily = "dependencies"
+	FamilyPull             SnapshotFamily = "pull"
+	FamilyReviews          SnapshotFamily = "reviews"
+	FamilyChecks           SnapshotFamily = "checks"
+	FamilyRefs             SnapshotFamily = "refs"
+	FamilyAncestry         SnapshotFamily = "ancestry"
 )
 
 func validFamily(family SnapshotFamily) bool {
 	switch family {
-	case FamilyIssue, FamilyComments, FamilyDependencies, FamilyPull, FamilyReviews, FamilyChecks, FamilyRefs, FamilyAncestry:
+	case FamilyRepositoryIssues, FamilyIssue, FamilyComments, FamilyDependencies, FamilyPull, FamilyReviews,
+		FamilyChecks, FamilyRefs, FamilyAncestry:
 		return true
 	default:
 		return false
@@ -154,6 +156,18 @@ func ValidateRequest(req SnapshotRequest) error {
 	}
 	if seen[FamilyRefs] && len(req.Refs) == 0 {
 		return ErrInvalidSnapshot
+	}
+	// repository_issues enumerates open non-PR issues of exactly
+	// RepositoryID. It is requested alone with only Limit/Cursor
+	// selectors: the cursor is an exclusive issue-index lower bound
+	// (empty starts enumeration). No issue/pull/ref selector may
+	// accompany it. Read-only shape only; no acceptance, readiness or
+	// other factory policy is expressed here.
+	if seen[FamilyRepositoryIssues] {
+		if len(req.Families) != 1 || req.IssueIndex != "" || req.PullNumber != "" ||
+			len(req.CommentIDs) > 0 || req.SHA != "" || len(req.Refs) > 0 || req.Ancestry != nil {
+			return ErrInvalidSnapshot
+		}
 	}
 	if seen[FamilyAncestry] != (req.Ancestry != nil) {
 		return ErrInvalidSnapshot

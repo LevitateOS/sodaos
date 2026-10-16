@@ -63,14 +63,15 @@ func (r *BackgroundSnapshotReader) ReadSnapshot(ctx context.Context, credential 
 		return NativeSnapshot{}, err
 	}
 	return NativeSnapshot{
-		RepositoryID: answer.RepositoryID,
-		Issue:        answer.Issue,
-		Comments:     answer.Comments,
-		Dependencies: answer.Dependencies,
-		Pull:         answer.Pull,
-		Reviews:      answer.Reviews,
-		Checks:       answer.Checks,
-		Refs:         answer.Refs,
-		Ancestry:     answer.Ancestry,
+		RepositoryID:     answer.RepositoryID,
+		RepositoryIssues: answer.RepositoryIssues,
+		Issue:            answer.Issue,
+		Comments:         answer.Comments,
+		Dependencies:     answer.Dependencies,
+		Pull:             answer.Pull,
+		Reviews:          answer.Reviews,
+		Checks:           answer.Checks,
+		Refs:             answer.Refs,
+		Ancestry:         answer.Ancestry,
 	}, nil
 }
