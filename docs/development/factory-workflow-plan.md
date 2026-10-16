@@ -1,6 +1,6 @@
 # Complete the software factory workflow
 
-Status: **planned, not implemented or qualified**. This plan follows the owner's
+Status: **implementation in progress; not qualified**. This plan follows the owner's
 2026-10-16 request to plan all gaps in the prompt-to-delivery loop before further
 implementation. It is based on read-only inspection of Soda
 `6d0281e64102269fda3614c7bd77948c4845914e` and Fountain
@@ -8,7 +8,8 @@ implementation. It is based on read-only inspection of Soda
 
 The [frozen implementation contracts and decisive tests](factory-workflow-contracts.md)
 record Codex's final design decisions, including concrete schemas, algorithms,
-limits, failure/recovery rules and 32 acceptance cases. Read them before assigning
+limits, failure/recovery rules and 40 acceptance cases, including the
+FW-REASSESS-002 post-completion amendment (D13). Read them before assigning
 any task. Spark implements those decisions; failed native assumptions return to
 Codex with evidence rather than becoming worker-selected architectures.
 
@@ -41,7 +42,13 @@ plan does not claim the proposed interfaces already exist.
    also reaches Jev's decision; reviewer approval alone does not bypass it.
 7. A fresh recorded Jev acceptance plus deterministic authority, checks and native
    branch policy allow an exact-head merge. Confirmed merge and attributable issue
-   completion unlock dependants, and the coordinator continues selecting work.
+   completion unlock dependants and atomically record a repository reassessment gate.
+8. After **each** verified completion, Jev decides whether the entire current issue
+   inventory needs reassessment. On `continue`, fresh selection resumes. On
+   `reassess`, a bounded coding agent investigates and proposes revisions; scope,
+   coverage, dependencies, protected work and native bounds are validated, Jev
+   assesses the proposal, and confirmed adoption precedes the next selection.
+   An accepted no-change report also resumes selection. Failures remain visible.
 
 The first independent review is mandatory. A second review after corrections is
 Jev's choice when native policy permits either path. Native required approvals,
@@ -64,7 +71,7 @@ Paths in this table are relative to Soda unless prefixed `Fountain:` (the canoni
 | Reviews | Independent reviewer/coder roles and fresh run IDs exist. Exact-head conditional native review submission exists. | `factory/review_native.go`, `forgejo/review.go`, and Fountain `sdk/review.go` support body-only reviews. Findings are strings, without line anchors or native comment receipts. |
 | Corrections | `control/correction.go` accepts a successful changed candidate. | No complete finding-to-fix accounting. `dispatch_prompt_stage.go` excludes prior review evidence from reviewer input. |
 | Review/merge choice | `publication_children.go` deterministically reviews each new head, then corrects requested changes. | No funded Jev delivery decision. Child identity hashes publication/head/role, preventing a new review of the same head. Soda's merge observation requires exact-head approval unconditionally. |
-| Completion | `merge_evidence.go`, `store/factory_merges.go`, and `prerequisites.go` verify merge plus original closure and queue reassessment. | Preserve this path and compose it with the new stages. Existing serving journeys start with a hand-authored task graph, so do not prove prompt decomposition. |
+| Completion | `merge_evidence.go`, `store/factory_merges.go`, and `prerequisites.go` verify merge plus original closure and queue readiness observation. | Preserve this path and compose it with the new stages. Existing serving journeys start with a hand-authored task graph, so do not prove prompt decomposition. |
 | Visibility | Existing Work/Spaces views expose factory work and persistent terminals. | Expose investigation, immutable plan, live lanes, checkpoint commits, findings, correction evidence and Jev's current decision without creating another workflow UI. |
 
 Retain the serving coordinator's existing ten-second progress mechanism. Do not
@@ -120,8 +127,8 @@ selected issue then gets a source-bound investigation and plan. Coding requires
 that fresh validated plan. Provisional planning for blocked work may remain
 advisory, but cannot skip investigation against actual merged prerequisites.
 Persist selection-to-investigation admission atomically under current authority
-and capacity, with its phase and attempt identity. Unselected ready issues must
-not incur generative investigation. Restart resumes the recorded choice without
+and capacity, with its phase and attempt identity. Unselected ready issues do not incur per-issue generative investigation; D13
+separately authorizes one post-completion inventory reassessment when Jev chooses it. Restart resumes the recorded choice without
 duplicate spending; invalidation before planning or coding triggers reassessment.
 
 For complete-set selection, first reproduce the source-derived starvation
@@ -140,12 +147,12 @@ reader or compatibility migration is required for this unreleased implementation
 
 | Record | Required content and validation |
 | --- | --- |
-| Execution subject and phase | Intent planning or issue attempt; phase independent of account role; explicit parent/run identity, accepted-input and preparation binding. Keep `soda-coder`/`soda-reviewer` roles. |
+| Execution subject and phase | Intent planning, issue attempt or D13 completion reassessment; phase independent of account role; explicit parent/run identity, accepted-input and preparation binding. Keep `soda-coder`/`soda-reviewer` roles. |
 | Investigation | Inspected source references at a known revision, findings, affected owners/interfaces, requirements and unresolved assumptions. Unresolved mandatory facts block implementation. |
 | Immutable plan revision | Accepted scope/input digest, source/prerequisite/preparation identities, investigation, approach, alternatives considered, verification, tasks and lanes. Keep the exact revision consumed by each run; a mutable current pointer does not replace history. |
 | Task | Unique ID, objective, expected output, acceptance coverage, dependencies, lane, exclusive paths/interfaces, checks and checkpoint expectation. Enforce bounded sizes, known references, a DAG and no concurrent conflicting ownership. |
 | Task execution receipt | Attempt/plan/task/lane/run identities, state, consumed prerequisite output digests, actual start/completion, check results and produced commits. Only validated successful prerequisites release a dependent task. |
-| Phase result | Planning returns an investigated plan; implementation/correction returns a candidate and evidence; review returns findings. A planning result cannot be interpreted as publishable code. |
+| Phase result | Planning returns an investigated plan; implementation/correction returns a candidate and evidence; review returns findings; reassessment returns a bounded proposal. A planning result cannot be interpreted as publishable code. |
 
 One bounded run performs investigation, approach selection and task planning
 in order. Implementation starts only after its structured result is validated and
@@ -316,6 +323,8 @@ stranding the existing PR. Uncertain or committed effects cannot be replaced.
 Confirmed merge, reachable result and original issue closure remain prerequisites
 for releasing downstream work. A resolved comment, successful agent exit, closed
 issue alone, or locally created merge commit cannot substitute for that evidence.
+D13 then fences new issue admission until the completion's Jev decision and any
+required proposal adoption are resolved.
 
 ### Progress and product surfaces
 
@@ -338,6 +347,7 @@ drivers in disposable native fixtures, with every write/cache/socket under
 | P1 / FW02 | Inspect pinned Codex/Muse launchers and exact installed CLI capabilities; run two independent tiny tasks plus a dependent task within one admitted run. | Prove D05 native control, overlap, prompt dependent release, profile/custody inheritance, checkpoint correctness, limits and retirement. If unsupported, stop dependent tasks and return evidence to Codex; no implementer-chosen fallback. Do not claim both harnesses from one proof. |
 | P2 / FW03 | Extend the existing native review fixture minimally to submit an added-line and a deleted-line finding, then resolve one exact thread. Read actor-specific merge blockers and exercise native merge against permissive and protected branches. | Actual native code comments and readback, stable replay receipt, no partial stale-head write, correct resolution permissions/readback. Native eligibility agrees with actual conditional merge behavior: corrected-head merge permitted when policy permits; missing required approval/status refuses. Resolve blocking-review-state assumptions before designing Jev transitions. |
 | P3 / FW04 | Existing serving coordinator fixture with more than 156 unassigned ready issues and the real bounded refresh path. | Reproduce or disprove starvation across passes; complete inventory selection must eventually run without losing candidates or increasing the work cap. Current pure-selector 256-candidate coverage is insufficient. |
+| P5 / FW29 | Extend the existing native snapshot family with complete paged open-issue enumeration; use retained native graph fixtures for atomic stale/oversize refusal, preserved records/edges and exact receipt replay. | Native boundary facts precede FW31/FW32 consumers. Soda acceptance identity and adoption recovery are implemented/proved in FW32/T37, not prerequisites of their own implementation. |
 | P4 / FW05 | Exercise `Repository=0` product drafting without a Project launch; then the authorized repository-bound planner before issue creation, using reviewed draft outcomes rather than an accepted graph. Try representative broad and small prompts. | Concrete subject/funding/preparation/output contract without fake issue or circular accepted-graph prerequisite; broad output has cohesive feature issues and independent roots when justified; tiny output can stay one issue. A canned graph proves plumbing only. Record any required provider enrollment as an external gate, not passed semantic evidence. |
 
 A failed assumption returns to Codex with the exact command/version,
@@ -347,7 +357,10 @@ for the corrected boundary. Do not compensate with a full image build.
 
 ## Ordered implementation tasks
 
-Every task below is unstarted in this plan. Dependencies mean **accepted output**,
+The active run's single central checklist owns completion and writer status; this
+plan defines dependencies and acceptance, not a second progress ledger. Preserve
+accepted work and the running coordinator when incorporating FW-REASSESS-002.
+Dependencies mean **accepted output**,
 not merely a started worker. Task-specific checks accompany each commit. Three
 physical lanes execute this queue; the coordinator serializes shared contracts
 and Git operations. Lane assignments may change only after explicit file/command
@@ -365,7 +378,7 @@ Project/host factory execution owners; `X` = Fountain canonical checkout.
 | FW03 | FW01 | C | P2 native inline/resolve/merge-policy proof in X's existing SDK/native-operation/review fixtures. | P2 receipts and stale/protected refusal evidence; reusable minimal implementation retained. |
 | FW04 | FW01 | A | P3 complete-inventory reproduction in `C/priority_dispatch*`, `readiness_work*`, `progress*` fixtures. | Production-budget behavior established; evidence accepts or challenges the prescribed D02 cursor fix. |
 | FW05 | FW01 | A | P4 semantic decomposition and pre-issue planner proof in `F/intent_proposal*`, `decomposition_options*`, `C/intent_*`, existing Project execution boundary. | Authorized intent-bound planner path and representative semantic outputs; funded-provider limitation explicitly separated if present. |
-| FW06A | FW02 | Coordinator / A | Implement frozen D01/D03–D05 execution subject/phase/result, plan/task, selection, profile and allowance types; update owning guides. Owners: `F/{assignment,assignment_result,result,planning,allowance,grants}.go`, host/Project wires. | T03/T11/T16 contract validation; exact tree/event/limit shapes; no dual legacy path. Release independently of native review work. |
+| FW06A | FW02 | Coordinator / A | Implement frozen D01/D03–D05 execution subject/phase/result, plan/task, selection, profile and allowance types, including the D13 completion subject/reassess union and ReassessmentMinutes; update owning guides. Owners: `F/{assignment,assignment_result,result,planning,allowance,grants}.go`, host/Project wires. | T03/T11/T16 contract validation; exact tree/event/limit shapes; no dual legacy path. Release independently of native review work. |
 | FW06B | FW05, FW06A | Coordinator / A | Implement frozen D01/D02 intent-subject, command, graph-output dependency and adoption contracts; update product wording. Owners: F intent/domain and existing intent/store/Project contracts. | T01/T02/T04 contract cases; draft authorization distinct from accepted graph; remove conflicting oldest-ready-first wording. |
 | FW06C | FW03 | Coordinator / C | Implement frozen D04/D06–D09 findings/blocker/resolve, correction/cycle, call subledger and merge-generation contracts. Owners: `F/{review_native,judgment,assignment_result,publication,merge_operation,grants}.go`, store and X SDK. | T19/T21/T24/T28 contract cases; explicit resolve binding, limits and authority; replace unconditional re-review wording. Release independently; serialize shared files with FW06A. |
 | FW07 | FW06A | A | Persist immutable investigated plans, current pointers and task evidence in existing PostgreSQL/store owners, primarily `S/factory_planning*`. | Original consumed plan survives replacement/restart; stale source/prerequisite/preparation bindings rejected; no new database/service. |
@@ -384,10 +397,14 @@ Project/host factory execution owners; `X` = Fountain canonical checkout.
 | FW20 | FW11, FW18 | C | Durable review cycles and fresh independent re-review input. Owners: `C/publication_children*`, `review_cycle*`, `F/dispatch_prompt_stage*`. | New decision on same head creates a fresh reviewer; replay reuses its run; full outstanding finding/correction evidence supplied; distinct reviewer/corrector sessions retained. |
 | FW21 | FW06C, FW18 | A | Funded Jev delivery choice, evidence fingerprint, decision persistence and uncertainty/failure policy against accepted disposition/cycle contracts. Owners: `F/judgment*`, `C/judgment_advice*`, existing chooser/store reservation owner. | Both choices exercised; clean review also requires judgment; attempt-root call subledger reserved/consumed; stale semantic evidence invalidates while expected resolution readback does not repeat the call. Integrate real correction/cycle paths in FW22. |
 | FW22 | FW16, FW17, FW19, FW20, FW21 | C | Implement D07–D09 transitions, common merge gate and bounded authorization generations. Owners: `C/publication_children*`, `merge*`, `N/merge_observation*`, `F/merge_operation*`, `S/factory_merges*`. | T25–T29: expected resolution reconciliation, every merge entrypoint gated, cancelled authorization replaceable on same PR, uncertain/committed predecessor never replaced. |
-| FW23 | FW06A, FW06C | B | Extend existing plan/work API and frontend contracts/views; native comments and terminal streams remain primary. Owners: `internal/web/api/factory_plan_view*` and current Work/Spaces components. | Bounded API/component fixtures render phases, tasks/lanes, commits/PRs, findings/corrections and Jev/waits. Bind and prove actual persisted readback in FW25 after producers land; do not claim fixture UI proves the journey. |
-| FW24 | FW12, FW14, FW19, FW20, FW22 | B | Integrate restart/cancellation/invalidation and finite allowances across the composed stages using existing fixtures. | No duplicate child/review/PR/merge, stale accepted evidence or orphan worker; restart observes receipts instead of redoing completed writes; shared attempt limits hold. |
-| FW25 | FW09, FW10, FW15, FW22, FW23, FW24 | A | Extend the actual prompt-entry serving journey through the full graph and both Jev branches. Owners: existing API/controller/serving tests. | Full acceptance matrix below passes with deterministic adapters; graph is produced through real entrypoints, not injected as already accepted. |
-| FW26 | FW25 | B + C | Run the smallest disposable native end-to-end factory journey using retained drivers and current built components. | Native CLI overlap/commits, actual PR/inline threads/correction, real funded judgment where available, both merge-policy outcomes and downstream release observed; exact external qualification limits recorded. |
+| FW29 | FW01 | C | P5 narrow native proof: extend generic repository_issues snapshot family and prove complete actor-bound pagination; reuse graph fixtures for frozen edges, packet bounds and receipt replay. Owners: X SDK/snapshot/native graph; N snapshot adapter. | T34 and T37 native packet facts established before consumers; Soda acceptance/adoption assertions remain FW32; small fixture, no full build. Return failure to Codex; preserve existing P1–P4 receipts. |
+| FW30 | FW06A, FW06B | Coordinator / A | Freeze D13 domain/store/UI contracts in code: completion event/cycle/report, two-call/one-run ledger, Retry identity and repository generation; add schema registration after exclusive handoff. Owners: F reassessment records, grants, S schema/completion owners. | T33/T35 contracts; completed issue root cannot reopen; typed scope/coverage/limits; source callers updated together. |
+| FW31 | FW10, FW22, FW29, FW30 | A | Persist completion/fence atomically; complete inventory cursor, funded Jev continue/reassess decision, freshness and dispatch gate in existing progress/priority/packet owners. | T33–T35/T39: exact-once per completion, full inventory, no subset election/global stall, no early admission, charged failure and explicit Retry. |
+| FW32 | FW09, FW11, FW29, FW30 | B | Admit one completion-subject coder; validate full report and Jev proposal; stage and apply serial per-intent graph revisions, preserving protected bindings/acceptances and enforcing journal-aware recovery. Owners: C intent/adoption/dispatch, S intent generation, F result and reassess-only prompt bound across Go/Rust/CLI; shared N graph adapter by handoff. | T35–T39: no source/publication effects, no scope inflation, unchanged/delivered acceptance survives, partial prefix/restart/lost response safe, confirmed no-change/adoption releases. |
+| FW23 | FW06A, FW06C, FW30 | B | Extend existing plan/work API and frontend contracts/views; native comments and terminal streams remain primary. Owners: `internal/web/api/factory_plan_view*` and current Work/Spaces components. | Bounded API/component fixtures render phases, tasks/lanes, commits/PRs, findings/corrections and Jev/waits, including D13 completion gates/proposals/adoption. Bind and prove actual persisted readback in FW25 after producers land; do not claim fixture UI proves the journey. |
+| FW24 | FW12, FW14, FW19, FW20, FW22, FW31, FW32 | B | Integrate restart/cancellation/invalidation and finite allowances across the composed stages using existing fixtures. | No duplicate child/review/PR/merge, stale accepted evidence or orphan worker; restart observes receipts instead of redoing completed writes; shared attempt limits hold. |
+| FW25 | FW09, FW10, FW15, FW22, FW23, FW24 | A | Extend the actual prompt-entry serving journey through the full graph, both delivery choices and all D13 reassessment branches. Owners: existing API/controller/serving tests. | Full acceptance matrix below passes with deterministic adapters; graph is produced through real entrypoints, not injected as already accepted. |
+| FW26 | FW25 | B + C | Run the smallest disposable native end-to-end factory journey using retained drivers and current built components. | Native CLI overlap/commits, actual PR/inline threads/correction, real funded judgment where available, both merge-policy outcomes, D13 continue/revise/no-change branches and subsequent selection observed; exact external qualification limits recorded. |
 | FW27 | FW25 | Independent coordinator review | Review released changes while FW26 runs; inspect native receipts as they arrive. Cover semantic decomposition, authority, every merge path, budgets and lane execution. Repairs return to file owner and repeat affected checks. | Source review can finish with external qualification gates recorded; native conclusions await actual evidence. No substantive unresolved source finding or active writer on reviewed files. |
 | FW28 | FW26, FW27 | A / Coordinator | Complete owning docs, references and operator guidance; reconcile broader factory plan and remove absorbed completed planning material. Record focused local commit groups and remaining external gates. | User's complete loop traceable to code/evidence; native evidence independently reviewed; clean intended Git state; no push, publication, merge or protected-appliance mutation by this implementation session. External gates leave qualification open. |
 
@@ -399,17 +416,20 @@ for all of A's decomposition work before B/C proceed.
 
 | Band | Lane A: intent, planning, judgment | Lane B: Project execution and integration | Lane C: native review and delivery |
 | --- | --- | --- | --- |
-| Establish boundaries | FW04 then FW05 | FW02 | FW03 |
-| Independent contract releases | FW06A after P1; FW06B after P4 and FW06A. FW10 may proceed after FW04. | Consume FW06A without waiting for review/decomposition implementation. | FW06C after P2; native review work need not wait for P1/P4. |
+| Establish boundaries | FW04 then FW05 | FW02 | FW03; FW29 can follow now using released native owners. |
+| Independent contract releases | FW06A after P1; FW06B after P4 and FW06A. FW10 may proceed after FW04; FW30 follows FW06A/FW06B. | Consume FW06A without waiting for review/decomposition implementation. | FW06C after P2; native review work need not wait for P1/P4. |
 | Main parallel work | FW07; FW08 → FW09 once FW11/FW06B land. Start FW12 once FW07/FW11 land; use available time for FW10. | FW11 → FW13 → FW14 as FW07 becomes available. FW23 can start from its contracts when B has capacity. | FW16; release FW18 early so A can implement FW21 while C completes FW17/FW19/FW20. |
 | Integrate behavior | FW12 → FW15 when FW14 lands; FW21 starts after FW18, without waiting for completed correction orchestration. | Finish FW23 contract views; actual producer/readback integration is FW25. | FW19/FW20 → FW22 once FW21 lands. |
-| Composed proof | FW25 when all its joins pass. | FW23/FW24, then FW26 with C. | Assist native FW26 after FW22; hand off delivery code for review. |
+| Post-completion integration | FW31 after FW10/FW22/FW29/FW30. | FW32 after FW09/FW11/FW29/FW30; release shared intent owners explicitly. | Release FW22 completion/store owners to FW31; assist only through named handoffs. |
+| Composed proof | FW25 when all its joins pass. | FW23/FW24 after FW31/FW32, then FW26 with C. | Assist native FW26 after FW22; hand off delivery code for review. |
 | Close | FW28 after FW26, independent FW27 and repairs; FW27 may run alongside FW26. | Release writers/resources and supply evidence. | Release writers/resources and supply evidence. |
 
-The coordinator serializes shared-file writes for FW06A/FW06B/FW06C, while
+The coordinator serializes shared-file writes for FW06A/FW06B/FW06C/FW30, while
 releasing each contract separately as soon as its proof is accepted. Later edits require a named
 handoff, particularly `assignment_result.go`, `dispatch_prompt*.go`,
-`publication_children.go`, shared store/schema registration and `internal/web/server.go`.
+`publication_children.go`, shared store/schema registration and `internal/web/server.go`. FW29 snapshot files overlap FW17; FW31 merge/packet
+files overlap FW22/FW11; FW32 intent/adoption files overlap FW09/FW06B. A reservation
+must name the releasing and receiving worker plus any live command before transfer.
 The coordinator owns Git staging/commits and shared wiring; a worker must not
 stage another lane's changes. A released interface includes schema, caller,
 fixture and rejection behavior, not just a Go/Rust struct.
@@ -426,8 +446,10 @@ interactive coordinator with native subagents, `muse-spark-1.3-contributor`,
 Contributor ON and XHIGH verified for every worker. Use the current
 `muse-implementation` skill for launch/handoff. Retain the 25-minute Codex
 same-chat supervision schedule, quiet during healthy progress; no recurring
-five-minute Muse worker loop or external timer substitute. This planning change
-does not launch a session or arm a timer.
+five-minute Muse worker loop or external timer substitute. This amendment continues the existing run; do not launch another session or arm
+a Muse worker timer. Codex sends the frozen amendment through the verified parent
+TUI route and verifies acknowledgment plus central-checklist incorporation before
+affected workers resume. Preserve safe checkpoints and existing commit groups.
 
 ### Reviewable commit groups
 
@@ -443,13 +465,19 @@ to publish PRs. Cross-repository commits name their exact dependency revisions.
 | Generic Fountain inline reviews | FW03, FW16–FW17 | Native atomicity, code anchors, permissions, snapshot and thread resolution. |
 | Correction and independent rounds | FW18–FW20 | Finding completeness, fresh sessions and replay-safe cycle identity. |
 | Jev delivery and merge admission | FW21–FW22 | Genuine choice, funds, stale evidence and coverage of every merge path. |
+| Post-completion reassessment | FW29–FW32 | Full repository inventory, completion fence, bounded Jev/agent process, preservation and recoverable issue revisions. Native enumeration is a separate Fountain commit. |
 | Visible progress and composed acceptance | FW23–FW26 | Real read models, restart behavior, prompt-to-merge journey and native proof. |
 | Independent repairs and documentation | FW01, FW27–FW28 | Baseline reconciliation, findings resolved, owning guides accurate, external gates precise. |
+
+The FW-REASSESS-002 handoff adds four tasks without renumbering existing IDs.
+FW29 is the next independent native gate; FW30 requires the shared contract release.
+FW31 and FW32 then run in parallel after their exact dependencies, before composed
+acceptance. Do not restart accepted tasks solely because this requirement was added.
 
 ## Acceptance and verification
 
 The [D12 decisive test list](factory-workflow-contracts.md#d12--decisive-test-list-and-completion-mapping)
-fixes 32 required cases and task/suite mappings. The matrix below locates existing
+fixes 40 required cases and task/suite mappings. The matrix below locates existing
 entrypoints; it does not replace the more specific assertions in D12.
 
 Use existing test drivers and the smallest affected packages. Database fixtures

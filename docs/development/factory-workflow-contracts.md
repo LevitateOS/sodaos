@@ -22,9 +22,10 @@ and `RecordDispatchPacket`. Add the following canonical types in
 
 ```go
 type ExecutionSubject struct {
-    Kind   string         // "issue" or "intent"; exactly one matching payload
+    Kind   string         // "issue", "intent", "completion"; exactly one payload
     Issue  *IssueSubject
     Intent *IntentSubject
+    Completion *CompletionSubject // D13 completion/cycle/inventory binding
 }
 type IssueSubject struct {
     Issue      int64
@@ -43,11 +44,12 @@ Use snake_case JSON tags. Subject keys are `issue:<repository>:<issue>` and
 not accepted from JSON. Extend existing assignment/allowance SQL with a subject
 key and nullable issue column. Do not use zero as a fake native issue. Keep one
 unfinished phase assignment per subject and one admitted repository session
-across both kinds. Retain one allowance root across revisions of the same active
+across all three kinds. Retain one allowance root across revisions of the same active
 attempt; immutable subject snapshots on individual assignments name exact inputs.
 
 `Assignment.Phase` is one of `decompose`, `investigate`, `implement`, `review`,
-`correct`. Only `decompose` accepts an intent subject. Only `review` uses the
+`correct`, `reassess`. Only `decompose` accepts an intent subject; only
+`reassess` accepts the D13 completion subject. The other phases require an issue. Only `review` uses the
 reviewer account; all other phases use the coder account. Add `ParentAssignment`;
 root has no parent, children keep `AttemptRoot`. `PublicationAssignment` is absent
 until implementation establishes the publication owner. Do not infer phase from
@@ -210,8 +212,8 @@ checks run on the final exact candidate even when component checks already passe
 
 Replace the process result with strict `{version:2,phase,status,summary,output}`.
 `output` is the single typed payload for that phase: decomposition, plan,
-implementation receipt, review report or correction report. Completed decomposition
-and investigation forbid a publishable candidate. Non-completed results may retain
+implementation receipt, review report, correction report or D13 reassessment report.
+Completed decomposition, investigation and reassessment forbid a publishable candidate. Non-completed results may retain
 diagnostic references but cannot authorize effects. Keep the fenced-result
 transport, reject unknown fields/trailing JSON, and bind phase/subject/run from the
 recorded assignment. Remove obsolete `review_passed`/string-finding compatibility.
@@ -243,12 +245,13 @@ from a missing field in a running record.
 | Plan text / checks | Objective or evidence text <=4 KiB each; clean path <=1,024 bytes; argv <=64 elements and <=16 KiB total; check timeout 1–600 seconds and never beyond remaining run time. |
 | Review runs | `ReviewRounds=6` by default, allowed 1–16 per attempt, including initial and policy-required reviews. Charge before launch by immutable assignment ID. |
 | Delivery judgments | `DeliveryCalls=8` by default, allowed 0–16; zero cannot authorize automatic merge. Reserve against both attempt root and existing global judgment ceiling. |
-| Agent prompt/result | Keep existing 64 KiB each. Never silently truncate a structured result or required evidence. |
+| Agent prompt/result | Keep 64 KiB each except D13 reassess prompt <=320 KiB with complete bounded inventory inline; its result remains <=64 KiB. Never silently truncate a structured result or required evidence. |
 | Execution manifest/events | Manifest <=64 KiB; journal <=512 events/8 MiB, reserving two terminal events; event <=16 KiB; checkpoint metadata <=64 KiB/task and <=64 tasks/run. Logs retain existing separate bounds. |
 | Review / findings | 64 findings/report and at most 64 outstanding findings; summary <=4 KiB, combined prose/finding <=4 KiB, encoded native review payload <=48 KiB. |
 | Native review receipt/history | Review-specific receipt cap 16 KiB; retain 1 MiB review-history cap, counting full encoded work plus reserved receipt capacity. Other operation receipt limits stay unchanged. |
 | Jev delivery evidence | Encoded semantic state <=256 KiB, including complete current findings, corrections, relevant diff and checks. Excess is `delivery_evidence_too_large`, not selective omission. |
 | Merge authorization history | At most 32 immutable generations per publication; reaching the cap is a visible intervention. Never create another PR to escape it. |
+| Completion reassessment | D13: two Jev requests and one coder run per cycle; policy `ReassessmentMinutes` default 30, range 1–120; closed delivery allowance remains closed. |
 | Classifier request | Existing 30-second timeout, no transport retries. |
 
 Existing attempt active time includes review/native waits and is charged once for
@@ -617,7 +620,9 @@ diff, exact-tree checks and correction receipts then enter the normal review/Jev
 path; native branch policy may require another approval. Conflicts that cannot be
 resolved within the correction allowance become intervention. Confirm reachable
 merged result, PR closure and original issue closing occurrence before dependency
-release. Keep existing readiness enqueue in that completion transaction.
+release. In that same completion transaction retain readiness enqueue and record
+the D13 completion event/scheduling fence. Dependency satisfaction does not bypass
+post-completion reassessment before selecting the next issue.
 
 ## D10 — Visible state and failure routing
 
@@ -625,7 +630,8 @@ Expose phase/attempt, plan revision, tasks/lanes, verified checkpoint commits,
 native PR/comments, correction dispositions, round, raw/effective Jev choice and
 precise waits through current Work/Spaces read models. Show choices and supplied
 criteria/evidence; do not invent a textual explanation attributed to Jev. Read
-models never call a provider or mutate workflow state.
+models never call a provider or mutate workflow state. D13 adds completion-gate,
+reassessment proposal/adoption and explicit Retry state to these same read models.
 
 Add bounded reason codes in existing error/DTO owners for invalid planner output,
 decomposition attention, incomplete/changing priority inventory, unsupported
@@ -647,6 +653,7 @@ state; logs supply detail. No screenshot log relay, new timer or scheduler.
 | P1 | Exact pinned CLI exposes supported native child start/observe/result/cancel and actual overlap; children inherit profile/custody and terminate with parent; live host-mediated checkpoint/acknowledgment and stop ordering work. | Preserve version, command, events and failure. Mark affected harness profile unqualified and stop FW11/FW13/FW14 consumers as applicable. No process-pool, extra lease, silent serial fallback or undocumented CLI command. Codex must revise a failed design assumption. |
 | P2 | Conditional native code comments/receipts remain atomic; root identity and full snapshot match native UI; policy evaluator supports trustworthy actor-bound read. | Stop affected native/Soda delivery consumers. No ordinary API bypass, guessed blocker or parallel thread database. Return exact failing transaction/fixture to Codex. |
 | P3 | Existing production bounds reproduce or disprove large-inventory starvation. | If reproduced, implement D02 cursor algorithm. If disproved by the real path, retain regression evidence and ask Codex to remove the unnecessary fix; do not invent another optimization. |
+| P5 | Full actor-bound open-issue enumeration covers later pages; generic graph packets preserve frozen records/edges, refuse stale/oversized work atomically and replay the exact receipt. | Prove the narrow enumeration extension and existing graph boundary in FW29 before FW31/FW32 consumers. No ready-only inventory, ordinary API mutation bypass, guessed acceptance regeneration or silently chunked graph. Return failed native evidence to Codex. |
 | P4 | Draft/no-repository launches nothing; authorized draft with repository can run without an accepted graph; actual broad/small outputs satisfy semantic acceptance. | Missing account/preparation is an explicit external gate. Wrong authority/subject behavior blocks implementation acceptance; semantic failure returns exact prompt/output for Codex's rubric/design correction. No template fallback. |
 
 Proof tasks may implement the smallest chosen native primitive to test it. They
@@ -692,9 +699,17 @@ native or funded evidence are separate from deterministic adapter tests.
 | T27 All merge entries | FW22; merge/progress/reconcile | Missing/currently invalid Jev acceptance refuses every new operation path; accepted fixes resolve/read back before registration; native checks remain authoritative. |
 | T28 Replacement authorization | FW22/FW24; S merge + controller | Persist intent → invalidate → confirmed cancel → new review/Jev → new generation merges same PR. Base advance → bounded merge-in correction → current tuple/checks/Jev → same-PR merge; historical PR/reviews unchanged. Uncertain predecessor forbids replacement. |
 | T29 Committed lost response | FW22/FW24; merge evidence | Actual completed merge is adopted after lost reply/input change, with no resubmit/rejudgment; closure verification still required. |
-| T30 Dependency release | FW25; serving/prerequisite tests | One parent merge cannot release two-parent join; both verified original closures do; join unlocks descendant; reopen/stale closure refuses. |
+| T30 Dependency release | FW25/FW31; serving/prerequisite tests | One parent merge cannot release two-parent join; both verified original closures do; join unlocks descendant; reopen/stale closure refuses; truth of readiness cannot bypass a pending D13 gate. |
 | T31 Views | FW23/FW25; plan API + current frontend tests | Real persisted phases/tasks/lanes, commit/comment links and effective Jev waits render; read endpoints spend nothing; native CLI text streams without screenshot transport. |
-| T32 Actual journey | FW25/FW26; existing serving/native drivers | Real prompt entry → graph → Jev selection → investigation/plan → native parallel tasks/checkpoints → PR → inline review → correction → another review → Jev acceptance → verified merge/unlock. Also clean-first-review and direct-after-fix acceptance variants. |
+| T32 Actual journey | FW25/FW26; existing serving/native drivers | Real prompt entry → graph → Jev selection → investigation/plan → native parallel tasks/checkpoints → PR → inline review → correction → another review → Jev acceptance → verified merge/unlock → D13 Jev gate → reassessment/no branch → next selection. Also clean-first-review and direct-after-fix acceptance variants. |
+| T33 Completion atomicity and fence | FW30/FW31; merge/store/dispatch | Completion, old-root closure, event and readiness commit/rollback together; replay records once; two completions require two decisions; zero/one ready candidate, Retry and phase advancement cannot bypass; unrelated repositories progress. |
+| T34 Full inventory | FW29/FW31; native snapshot + serving cursor | More than 50 open issues including blocked/manual/unaccepted/later-page items; PRs/closed excluded except explicit context; missing/hidden/page/size/revision failures hold; resumable scan does not omit a concurrent insertion. |
+| T35 Routing, limits and identity | FW30/FW31/FW32; judgment/packet/phase | Continue makes no agent; reassess admits one coder completion root; wrong subject/role/payload/candidate refuses; reassess-only 320-KiB prompt and all 64-KiB results enforce byte boundaries across Go/Rust/CLI without argv transport; low-confidence/provider/unknown-response waits; cycle/global reservations charged once; old root stays closed; explicit Retry preserves history. |
+| T36 Proposal scope and coverage | FW32; result/intent/adoption | Full coverage required; valid empty delta; required attention prevents adoption; scope expansion/manual/protected edits, false outcome references, cycles and packet 64-operation/48-KiB excess refuse before any prefix; accepted proposal judgment required. |
+| T37 Frozen identity and history | FW29/FW32; graph/prerequisite/recovery | Completed/unchanged issue AND acceptance IDs survive revisions; current-binding existence works with older rows; completed dependency still satisfies; inflight publication not cancelled; human edits remain unaccepted; protected outgoing edges/routes unchanged; changed prerequisite acceptance rebinds idle dependents transitively or refuses a protected route. |
+| T38 Partial adoption and restart | FW32/FW24; existing native graph lost-reply + store | Two intents: first commits, second changes externally; keep prefix, fence next dispatch, do not duplicate or rollback; resume exact operation after lost reply or crash between head CAS/packet; generic recovery cannot run a later step; expected prefix changes alone do not invalidate; successor Retry/continue cannot abandon an activated unmaterialized head. |
+| T39 Freshness and release | FW31/FW32/FW25; serving/read models | Source/scope/authority changes invalidate before effects; accepted no-change and confirmed full adoption release only their event; pending later events still fence; fresh priority chooses next; visible decisions/proposals/waits spend nothing on reads. |
+| T40 Reassessment journey and semantics | FW25/FW26; existing native drivers | Exercise continue, reassess-with-change and reassess-with-no-change through real completion entry. Deterministic fixtures prove transitions; separate first-response real Jev cases cover stable remaining plan, completion exposing a necessary dependency revision, and scope-expanding proposal refusal. Missing provider/native inputs leave this qualification open. |
 
 Use existing source/package checks for changed owners and native x86_64 fixtures
 for real boundaries. Real-provider semantic evidence must be labeled separately
@@ -713,3 +728,283 @@ Final acceptance requires all applicable cases, independent review of merge and
 authority invariants, documentation and focused local commits. External missing
 provider/component inputs leave their native qualification cases open. Spark must
 report them precisely; tests of substitutes do not close those cases.
+
+## D13 — Reassess current issues after every verified completion
+
+This is the **FW-REASSESS-002** amendment, decided by Codex on 2026-10-16.
+It adds to the running implementation; completed proofs, commits and assignments
+remain valid within their original scope. The following choices are frozen.
+
+### Trigger, scope and scheduling fence
+
+A completion means Soda has verified the merged result, PR closure and original
+issue-closing occurrence under D09. Agent success, a closed PR without merge,
+manual issue closure and a polling tick are not completion. In the first
+`UpdateMerge` transaction recording that completion, atomically close its issue
+allowance, retain readiness enqueue, insert a unique `CompletionEvent`, and
+increment the repository's completion generation. Rollback rolls back all four.
+The event binds repository, issue, acceptance, publication, merge authorization,
+merged commit and original closing occurrence. Its unique key is publication plus
+original closing occurrence; observing the same effect through another recovery
+path cannot create another event. Use existing 32-hex record IDs and immutable
+completion evidence, not the coalescing readiness-root ID.
+
+Process events by repository generation. Each event gets its own Jev decision,
+even if multiple completions have identical remaining inventories or none remain.
+Do not combine several events into one paid decision. Repository scheduling is
+fenced while any event is unresolved. Dependency satisfaction remains truthful;
+new issue investigation/implementation waits with `reassessment_pending`.
+Readiness observation, already-running work, published-PR review/correction,
+cancellation and native-effect reconciliation may finish. Reassessment waits
+for the existing repository execution slot, without holding a broker lease while
+waiting for Jev or evidence. Other repositories continue normally.
+
+Enforce the pending-event/generation comparison in the final dispatch packet
+transaction, including Retry and automatic investigation-to-implementation
+advancement; an earlier priority check is insufficient. Include this generation
+in the D02 semantic snapshot. A pending event for one repository excludes that
+repository from selection; it must not turn the whole global tournament into a
+wait. Continue observing recoverable effects instead of launching new work through
+`dispatchAfterIntake`. Completion insertion and packet admission lock the same
+repository control row; whichever commits first defines ordering.
+
+“All current issues” means **all open non-PR native issues in that repository**,
+including blocked, unaccepted and manually authored issues, plus exact delivered
+prerequisites/accepted-graph bindings needed to interpret them and the completion.
+It does not mean only ready controls or only the completed issue's intent. Other
+repositories are outside the scope. Manual/unaccepted issues are read-only
+context, not new spending or mutation authority.
+
+Collect a complete stable native inventory, ordered by issue index, through the
+extended existing paged read owner, with an idle native-revision bracket and a durable
+cursor under the existing pass limits. Capture local accepted intent heads,
+acceptance/control/plan/active-assignment state and grants in one repeatable-read
+transaction;
+confirm the native bracket before sealing. Reuse D02 cursor machinery where
+appropriate, but give this full inventory a distinct purpose and membership.
+Maximum 4,096 issues and 256 KiB complete encoded semantic evidence; missing
+permissions/pages, excess size or unstable evidence visibly hold the gate. Never
+truncate, summarize away required issue bodies/outcomes/dependencies, or confuse
+an empty page with a complete empty inventory. Supplied evidence includes source
+commit/preparation, completion/check results, accepted scope and task bindings,
+issue title/body/dependencies, active status and exact semantic digests. Ordinary
+observation timestamps do not invalidate it; material content/source changes do.
+
+The current native snapshot has individual-issue reads but no repository issue
+enumeration. Add the generic `repository_issues` family in Fountain's existing
+`sdk/snapshot.go` / `services/nativeoperation/snapshot_read.go`, and the matching
+Soda snapshot adapter. It selects open non-PR issues of exactly `RepositoryID`
+under the bound actor's issue-read permission. Require this family alone, no
+issue/pull/ref selectors; use existing limit 1–50 (default 50), decimal cursor as
+exclusive issue-index lower bound. Return `RepositoryIssues` page with
+`items[{issue_id,issue_index,visible}]`, `next_cursor`, `complete`, ascending indexes;
+`complete` means fully enumerated through the final page, not merely a successful
+query. Initial cursor is empty; a nonempty cursor must be a canonical positive
+int64 decimal index, otherwise refuse. A nonterminal page has nonempty items and
+`next_cursor` equal to the final returned index, strictly greater than the input.
+A terminal page has `complete=true` and empty `next_cursor`. Read one extra row
+after open/non-PR filtering to determine terminal status, without returning it.
+An empty incomplete page is invalid. Denied enumeration refuses; unavailable/hidden items cannot imply an empty
+or complete set. Do not expose hidden content. Fetch exact issue/dependency bodies
+through existing individual families, under the same stable revision. The generic
+read applies no factory readiness/acceptance filter. P5 proves this small native
+extension before building its complete-inventory consumer.
+
+### Decision, agent and finite funding
+
+Use the existing Jev Choice adapter with purpose
+`post-completion-reassessment-v1` and exactly `reassess` / `continue`. The rubric
+asks whether the delivered change or current issue set warrants revising scope
+allocation, decomposition, acceptance details or dependencies before selecting
+another issue. Jev receives the evidence; it does not investigate source or write
+a plan. A valid selected option with confidence >=0.50 is actionable. Low
+confidence or malformed/unavailable response is `reassessment_judgment_attention`,
+never an inferred `continue` or an automatic extra agent call. A `continue`
+response releases this event after freshness checks, then ordinary fresh priority
+selection runs. It launches no reassessment agent and edits no issues.
+
+Each completion gets a separate bounded reassessment cycle, not a child of the
+closed issue attempt. A cycle permits **two Jev requests and one coder run**:
+initial decision and, only on `reassess`, proposal assessment. Reserve each request
+against the cycle and existing global allowance atomically. Existing 30-second
+request timeout/no transport retry applies; failed or indeterminate requests stay
+charged. Cache by cycle ID, purpose/rubric/model and complete semantic evidence
+fingerprint, including the distinct completion ID. Never treat an unknown request
+outcome as an unused reservation after restart.
+
+Add `RepositoryPolicy.ReassessmentMinutes`, default 30, integer range 1–120;
+record the admitted value explicitly. Reassessment uses current sponsorship,
+operator/environment authority, prepared Project, coder profile/account and the
+existing time accounting; its active-time allowance begins at agent admission.
+No funds are taken from or restored to the completed delivery root. There is no
+correction run, native child spawning or autonomous replacement run for this
+phase. A stale/invalid result, exhausted allowance or indeterminate provider result
+holds the event. Existing explicit authorized Retry may create one successor cycle
+for that same event after prior calls/runs/operations are reconciled. It requires
+current authority and explicit expected prior-cycle identity; command replay
+reuses the successor. No ordinary poll, input edit or policy edit refills a cycle.
+A fresh cycle retains all earlier receipts and committed native effects.
+
+Extend `ExecutionSubject` with exactly one matching payload for kind `completion`:
+`CompletionSubject {completion_id, cycle_id, inventory_digest}`. Its subject key is
+`completion:<completion_id>`. Add `reassess` phase, accepting only this subject and
+the coder role. It uses a fresh attempt root and no `ParentAssignment` or
+`PublicationAssignment`. The common repository slot/admission boundary still
+applies. This is the explicit exception to investigating only the selected issue:
+it reviews the inventory but does not implement any issue. Capture tracked
+source/index/HEAD before and after as for other planning phases; mutation refuses
+the result and preserves evidence. Do not claim an OS-enforced read-only sandbox.
+
+Use the strict version-2 result union with a `ReassessmentReport` payload:
+
+- `completion_id`, `cycle_id`, `inventory_digest`, `source_commit`, preparation
+  digest and local input digest, all exact assignment bindings;
+- `inspected_refs` using D03 source-reference shape/bounds, and a <=4 KiB summary;
+- `retained_issue_indexes[]`, sorted/unique, and `intent_changes[]`, sorted by
+  intent ID, at most 64, each containing `{intent_id, expected_revision,
+  scope_digest, tasks, reason}`. `tasks` is the full replacement D02 graph, not
+  executable implementation tasks; models cannot choose native issue IDs;
+- `coverage[]`, at most 64 entries, each `{intent_id, outcome_id, task_keys,
+  delivered_acceptance_ids}` accounting for affected accepted product outcomes.
+  `outcome_id` names an effective accepted product-idea ID in that intent's exact
+  expected revision, not a task-outcome ordinal. Proposed task keys must include
+  that idea in `IdeaIDs`; a delivered acceptance must bind a historically accepted
+  task covering that idea and have verified completion. Validate all affected
+  effective ideas exactly once; D02 dependency outcome indexes retain their
+  separate meaning;
+- `attention[]`, at most 64 `{issue_index, reason, evidence_refs}` entries for
+  necessary changes outside current authority or unresolved facts.
+
+D03 text/path/reference limits and total 64 KiB result apply. For `reassess`
+only, the existing prompt field permits **320 KiB**, containing the exact complete
+<=256 KiB inventory inline plus bounded instructions. Other phases retain 64 KiB.
+Update the Go Project validator, Rust factory/terminal records, both CLI launchers
+and request/role validation consistently, binding this exception to the recorded
+phase and completion subject. Use existing prompt stdin/file delivery, never
+command-line arguments; check the enclosing encoded request cap before launch.
+There is no new artifact transport or caller-supplied path/URL. Persist and hash
+the exact prompt through the existing assignment custody. Every inventory issue must appear exactly once in
+`retained_issue_indexes` or the deterministically derived changed/retired issue
+set from the proposed graphs. Every referenced issue must belong to that sealed
+inventory or its explicit delivered context. Missing coverage refuses. An empty
+change set is valid, including after Jev requested investigation; agent inspection
+may establish that no changes are needed. `attention` keeps the event held and
+routes to current product/native issue actions; it does not silently drop work.
+
+### Validation, adoption and recovery
+
+The coder inspects the merged result, repository source and full issue inventory,
+then proposes one coherent revision set. Deterministically validate bindings,
+coverage, bounds, DAG, outcome references and current authority before another
+paid call. Reuse existing intent/graph owners; do not introduce a workflow service
+or direct agent issue-edit token. The permitted delta is changes to idle,
+factory-generated tasks within their existing accepted product scope: clarify,
+split/combine, add missing in-scope tasks, remove redundant tasks and revise
+necessary dependencies. Preserve objective/accepted ideas/attribution/MaxIssues;
+new product assumptions, scope expansion or changes to manually controlled work
+require existing product review. Do not transfer outcomes between intents or
+invent cross-intent dependency editing. External dependencies remain fixed.
+
+**Protected and unchanged tasks retain native issue ID, acceptance ID, content,
+state and outgoing dependency edges.** Protected means delivered, active, PR-linked,
+manually changed since the recorded generation, or not factory-authorized. Keep
+protected tasks unchanged in replacement graphs. A materially changed idle task
+keeps its native issue ID where existing diff rules permit and gets a new exact
+acceptance; a new task gets a new issue only through the native graph receipt.
+Retired idle tasks receive the existing supersession treatment and lose dispatch
+authority; do not delete/close issues to pretend completion. Account for retired
+outcomes through retained/new tasks or exact verified delivery evidence.
+
+Do not regenerate acceptance IDs for completed/unchanged bindings merely because
+an intent revision advances: prerequisite completion compares exact acceptance
+identity. “Unchanged” also requires identical prerequisite acceptance IDs and
+selected outcome routes. Changing an idle prerequisite acceptance makes its idle
+dependents materially affected transitively: recompute their exact acceptance
+bindings in topological order, even if their prose/native edges are unchanged.
+Refuse a proposal that would change a protected task's pinned prerequisite route;
+retaining the native edge alone is insufficient. Copy frozen bindings without invoking `AdmitAcceptance`, which can
+cancel active publication/merge work. A copied acceptance never blesses later
+human edits: ordinary content-freshness checks still block that issue. Update
+`GeneratedIntentCurrent` to test for **existence of a current
+accepted-head binding**, not arbitrary `LIMIT 1` over historical bindings.
+Invalidate current selection/investigation pointers only for materially affected
+idle work and dependency closures. Preserve immutable historical plans/receipts.
+
+Preflight **every** per-intent native packet before accepting any effects: current
+SDK limit is 1–64 total creates + edits + dependency changes, encoded <=48 KiB.
+A no-effect graph uses no native operation. Do not mistake 64 tasks for 64 changes,
+chunk an oversized packet or rely on native closed-issue checks to protect edges.
+The Soda validator freezes protected outgoing edges explicitly.
+
+With no attention/refusal, ask Jev `post-completion-proposal-v1`, exactly
+`accept` / `needs_attention`, over the original complete evidence, proposal and
+validation report. Bound the **entire encoded request** to 384 KiB, including
+state, criteria and envelope. The validation report is <=16 KiB with exact fields
+`inventory_digest`, `proposal_digest`, `scope_digests` (intent/digest pairs),
+`mutable_issue_indexes`, `protected_issue_indexes`, `coverage_digest`, and
+`packet_digests` (intent/digest pairs); sorted unique lists, no freeform narrative.
+Reuse the bounded Choice request path and reject size excess before reserving
+the second call. The first complete request remains <=320 KiB with <=256 KiB
+semantic evidence. No selective omission to meet either bound.
+Acceptance requires selected `accept`, option probability
+>=0.80 and confidence >=0.80. The rubric checks accepted-scope preservation,
+complete outcome coverage, necessary dependencies and whether the revision
+addresses the observed reason for reassessment. It also assesses no-change
+reports. A rejected/uncertain proposal waits for intervention; no automatic
+rewrite/rejudge loop. Raw answers and supplied criteria are visible, not invented
+model explanations. Thresholds are product policy; native semantic cases must
+exercise them without resampling preferred answers.
+
+Stage the accepted proposal as immutable, inert data in the completion-cycle
+journal, including exact successor revisions, native packet digests and readback
+expectations. Do not advance all intent heads before native operations succeed.
+While the repository fence remains, process intents in ID order: recheck all
+unapplied inputs/authority; CAS and activate one successor through existing intent
+adoption/generation; bind generic `RecoverIntentGraphs` pickup to this approved
+journal step so it cannot run a later staged revision. A crash between head CAS
+and packet creation resumes this same step. Reconcile its one immutable native
+operation and exact
+readback/adoption; then advance the durable cursor. Preserve unchanged/protected
+bindings explicitly when adopting. Other product edits remain permitted but make
+incompatible remaining effects stale. No external call inside a SQL transaction.
+
+This is **not** a cross-intent atomic native transaction. A committed prefix stays
+committed if later work fails; the journal records it, the fence stays closed,
+and recovery first observes/reconciles that prefix. A lost reply never starts a
+second operation. Unknown effect, withdrawn authority or incompatible human edit
+cannot cause blind replay, rollback or acceptance of stale remaining effects.
+Before effects, any unrelated semantic change invalidates the whole proposal;
+after a prefix, normalize only the exact expected recorded effects, with every
+other change still invalidating remaining work. Explicit Retry starts from the
+actual observed state, preserving the committed prefix as history. A head that
+was activated but not fully materialized cannot be abandoned: before any release,
+each previously activated step must be confirmed adopted/read back or explicitly
+superseded by a validated current-head replacement through existing product
+revision/adoption. Reconciliation of a failed operation alone is not that proof.
+A successor cycle's `continue` cannot release this residual state; it remains a
+visible adoption wait until repaired, preserving already committed effects.
+
+After all graph effects and local bindings are confirmed, recheck freshness and
+mark this event released with its final inventory digest. A no-change accepted
+report releases without graph mutations. If later completion events exist, process
+them before selection. Otherwise invalidate the old priority snapshot, enqueue
+fresh readiness, and select through D02. No reassessment result can directly pick
+or launch the next implementation issue.
+
+Persist this in existing factory store/control owners: `factory_completions` for
+unique events/repository generation and `factory_reassessments` for immutable
+cycles, bounded evidence, decision receipts, report and adoption cursor. Index
+pending events by repository/generation. Keep native graph effects in existing
+`factory_intent_generations`; reference them rather than duplicate their ledger.
+Use cycle states `collecting`, `deciding`, `reassessing`, `assessing`, `applying`,
+`released`, `attention`, `superseded`. Only durable sealed inventory advances to
+`deciding`; valid continue can release; valid reassess admits the sole run; valid
+report advances to `assessing`; accepted changed report enters `applying`, while
+accepted no-change releases. Every release also checks residual prior adoption
+and pending event ordering. Failures enter `attention` with the exact resumable
+step/operation retained. Observation/reconciliation can finish recorded effects;
+only explicit authorized Retry supersedes an unresolved terminal cycle.
+
+Extend existing Work/Spaces/API read models with completion, gate decision,
+assessment progress, exact proposal effects/receipts and the wait/retry reason.
+Read endpoints do not spend money. No new dashboard, scheduler or recurring timer.
