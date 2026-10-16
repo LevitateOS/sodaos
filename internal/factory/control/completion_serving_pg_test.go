@@ -63,6 +63,14 @@ func drivePGFixture(t *testing.T) (*mergeFixture, *continueChooser, CompletionDr
 	fx, p := mergeSeed(t, 3)
 	exec := happyMerger()
 	fx.wire(exec)
+	fx.pass(t)
+	open := fx.merge(t, p)
+	if open.Stage != factory.MergeOpen {
+		t.Fatalf("merge stage: %+v, want the open row before authorization", open.Stage)
+	}
+	if err := fx.publish.coord.AuthorizeMerge(context.Background(), open.PublicationID, gateTestBinding(t, open)); err != nil {
+		t.Fatalf("authorize merge: %v", err)
+	}
 	if report := fx.pass(t); len(report.Merged) != 1 {
 		t.Fatalf("merge report: %+v", report)
 	}

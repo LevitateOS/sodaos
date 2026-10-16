@@ -225,6 +225,14 @@ func completedOpenMerge(t *testing.T) (*mergeFixture, factory.Publication, *fake
 	}
 	fx.wire(exec)
 	fx.pass(t)
+	open := fx.merge(t, p)
+	if open.Stage != factory.MergeOpen {
+		t.Fatalf("completed-open merge precondition: stage=%+v, want the open row before authorization", open.Stage)
+	}
+	if err := fx.publish.coord.AuthorizeMerge(context.Background(), open.PublicationID, gateTestBinding(t, open)); err != nil {
+		t.Fatalf("authorize merge: %v", err)
+	}
+	fx.pass(t)
 	for id, outcome := range exec.ledger {
 		outcome.Completion = factory.OpCompletionComplete
 		exec.ledger[id] = outcome

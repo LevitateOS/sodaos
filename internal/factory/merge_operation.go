@@ -523,6 +523,42 @@ func (l MergeLedger) adopt(commit string) (MergeLedger, error) {
 	return l, nil
 }
 
+// MergeAuthorization is one merge row's admitted authorization (D09):
+// the generation seeking admission, the current applicable
+// ready_to_merge decision over its exact fingerprint, and the producer's
+// attestation that every accepted fix resolved and read back confirmed.
+// The row carries the binding immutably once registered; every new native
+// mutation re-verifies it through CheckMergeDecisionGate against current
+// authority before spending. An unbound row is pending authorization,
+// never admitted: it reconciles recorded effects but submits nothing.
+type MergeAuthorization struct {
+	Generation           MergeGeneration  `json:"generation"`
+	Decision             DeliveryDecision `json:"decision"`
+	ResolutionsConfirmed bool             `json:"resolutions_confirmed"`
+}
+
+// Bound reports whether the row carries an authorization at all. Only
+// generation one binds to a merge row until the bounded ledger history
+// lands in store rows; higher generations stay a visible handoff.
+func (a MergeAuthorization) Bound() bool { return a.Generation.Generation != 0 }
+
+// Validate enforces the registration-time decision gate against the
+// generation's own authority: a valid first generation, a valid
+// effective ready_to_merge decision over its exact fingerprint,
+// confirmed accepted resolutions and matching authority.
+func (a MergeAuthorization) Validate() error {
+	if !a.Bound() {
+		return errors.New("merge authorization is not bound")
+	}
+	if a.Generation.Generation != 1 {
+		return errors.New("merge authorization generation needs its ledger history")
+	}
+	return CheckMergeDecisionGate(MergeDecisionInput{
+		Generation: a.Generation, Decision: a.Decision,
+		CurrentAuthority: a.Generation.Authority, ResolutionsConfirmed: a.ResolutionsConfirmed,
+	})
+}
+
 // MergeDecisionInput gathers the single decision gate (D09) behind every
 // new mutation path: the generation seeking admission, the current
 // applicable ready_to_merge decision, confirmed accepted resolutions and

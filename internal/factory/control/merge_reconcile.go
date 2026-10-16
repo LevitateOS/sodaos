@@ -105,6 +105,10 @@ func (c *Coordinator) reconcileMerge(ctx context.Context, m factory.Merge, repor
 			m.HeadRef == p.PRCreate.HeadRef && m.BaseRef == p.PRCreate.BaseRef &&
 			m.BaseOID == p.PRCreate.BaseOID {
 			m.HeadOID = p.Candidate
+			// A rebased row drops its stale binding: the authorization
+			// never moves to another head, and the new head waits for
+			// re-authorization behind fresh review and judgment.
+			m.Authorization = factory.MergeAuthorization{}
 			if !c.storeMerge(ctx, &m, report) {
 				return
 			}
@@ -115,6 +119,14 @@ func (c *Coordinator) reconcileMerge(ctx context.Context, m factory.Merge, repor
 	}
 	policy, revision, allowed := c.mergeAuthority(ctx, m, report)
 	if !allowed {
+		return
+	}
+	// The common merge decision gate stands between authority and any new
+	// native mutation: unbound rows wait for their authorization, and
+	// stale bindings wait instead of merging another candidate. Recorded
+	// effects above already reconciled without entering it.
+	if err := mergeAuthorizationGate(m); err != nil {
+		c.mergeCallError(report, m.ID, err)
 		return
 	}
 	if op.Cancellation != "" && op.Cancellation != factory.OpCancelNone {
@@ -221,6 +233,8 @@ func (c *Coordinator) adoptMergeObserved(op *factory.MergeOperation, outcome fac
 }
 
 func mergeOperationOutcomeOf(op factory.MergeOperation) factory.OperationOutcome {
-	return factory.OperationOutcome{Receipt: []byte(op.Receipt), Effect: op.Effect, Cancellation: op.Cancellation, Completion: op.Completion, Reason: op.Reason,
-		OperationID: op.OperationID, InstallationID: op.InstallationID, Kind: op.Kind, ActorID: op.ActorID, RepositoryID: op.RepositoryID}
+	return factory.OperationOutcome{
+		Receipt: []byte(op.Receipt), Effect: op.Effect, Cancellation: op.Cancellation, Completion: op.Completion, Reason: op.Reason,
+		OperationID: op.OperationID, InstallationID: op.InstallationID, Kind: op.Kind, ActorID: op.ActorID, RepositoryID: op.RepositoryID,
+	}
 }

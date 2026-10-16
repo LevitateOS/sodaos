@@ -126,6 +126,146 @@ func TestUpdateMergeGateRefusesWithdrawnDispatch(t *testing.T) {
 	}
 }
 
+func mergeTestAuthorization(m factory.Merge) factory.MergeAuthorization {
+	fingerprint := strings.Repeat("e", 64)
+	answer := factory.DeliveryAnswer{
+		Probabilities: map[string]float64{factory.DeliveryReviewAgain: 0.1, factory.DeliveryReadyToMerge: 0.9},
+		Fingerprint:   fingerprint,
+		Selected:      factory.DeliveryReadyToMerge,
+		Model:         "jev-test",
+		Probability:   0.9,
+		Confidence:    0.85,
+	}
+	return factory.MergeAuthorization{
+		Generation: factory.MergeGeneration{
+			Authority: m.Authority, PublicationID: m.PublicationID,
+			DecisionID:        strings.Repeat("d", 32),
+			NativeOperationID: factory.MergeGenerationOperationID(m.PublicationID, 1),
+			Fingerprint:       fingerprint, Head: m.HeadOID, Base: m.BaseOID, DiffBase: m.BaseOID,
+			ChecksDigest:       strings.Repeat("c", 64),
+			Generation:         1,
+			ReviewRound:        1,
+			AssessmentRevision: 2, ObservedNativeRev: 12, NotAfter: 1300,
+		},
+		Decision:             factory.DeliveryDecision{Answer: answer, Effective: factory.DeliveryEffectiveReady, ReviewsFit: true},
+		ResolutionsConfirmed: true,
+	}
+}
+
+// TestMergeAuthorizationBindingRules pins the D09 row-level binding
+// contract (T27/T28): fresh packets carry no authorization, the first
+// binding validates through the decision gate, and no rewrite, strip or
+// swap ever replaces a bound predecessor on its row. A rebased row drops
+// its stale binding and waits for re-authorization.
+func TestMergeAuthorizationBindingRules(t *testing.T) {
+	ctx := context.Background()
+	t.Run("fresh packet carries no authorization", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		m := mergeTestRecord()
+		m.Authorization = mergeTestAuthorization(m)
+		if err := db.RecordMerge(ctx, m); err == nil {
+			t.Fatal("pre-bound merge packet accepted")
+		}
+	})
+	t.Run("bind once then immutable", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		m := mergeTestRecord()
+		if err := db.RecordMerge(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+		m.Revision++
+		m.Authorization = mergeTestAuthorization(m)
+		if err := db.UpdateMerge(ctx, m); err != nil {
+			t.Fatalf("first binding refused: %v", err)
+		}
+		stored, err := db.MergeByPublication(ctx, m.PublicationID)
+		if err != nil || !stored.Authorization.Bound() {
+			t.Fatalf("binding not persisted: %+v %v", stored, err)
+		}
+		rebound := stored
+		rebound.Revision++
+		rebound.Authorization.Generation.DecisionID = strings.Repeat("b", 32)
+		if err := db.UpdateMerge(ctx, rebound); !errors.Is(err, ErrMergeConflict) {
+			t.Fatal("rebound authorization accepted")
+		}
+		stripped := stored
+		stripped.Revision++
+		stripped.Authorization = factory.MergeAuthorization{}
+		if err := db.UpdateMerge(ctx, stripped); !errors.Is(err, ErrMergeConflict) {
+			t.Fatal("stripped authorization accepted")
+		}
+	})
+	t.Run("invalid binding refused", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		m := mergeTestRecord()
+		if err := db.RecordMerge(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+		m.Revision++
+		auth := mergeTestAuthorization(m)
+		auth.ResolutionsConfirmed = false
+		m.Authorization = auth
+		if err := db.UpdateMerge(ctx, m); err == nil {
+			t.Fatal("unconfirmed binding accepted")
+		}
+		m.Authorization = mergeTestAuthorization(m)
+		m.Authorization.Generation.Head = strings.Repeat("4", 40)
+		if err := db.UpdateMerge(ctx, m); err == nil {
+			t.Fatal("binding for another candidate accepted")
+		}
+	})
+	t.Run("bind after drive refused", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		m := mergeTestRecord()
+		seedMergeAssignment(t, db, m)
+		if err := db.EnqueueReadinessWork(ctx, "root:7/3", "", factory.DependenceRef{Repository: 7, Issue: 3}); err != nil {
+			t.Fatal("seed prior root for completion fence:", err)
+		}
+		if err := db.RecordMerge(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+		m.Revision++
+		operationID := factory.MergeOperationID(m.PublicationID, 1)
+		m.Operation = factory.MergeOperation{Kind: factory.OpMerge, Attempts: 1, OperationID: operationID, UpdatedUnix: 1200, Work: mergeTestIntent(operationID)}
+		if err := db.UpdateMerge(ctx, m); err != nil {
+			t.Fatal("register intent:", err)
+		}
+		m.Revision++
+		m.Authorization = mergeTestAuthorization(m)
+		if err := db.UpdateMerge(ctx, m); !errors.Is(err, ErrMergeConflict) {
+			t.Fatal("late binding after first drive accepted")
+		}
+	})
+	t.Run("rebase clears stale binding only", func(t *testing.T) {
+		db := publicationStoreFixture(t)
+		m := mergeTestRecord()
+		if err := db.RecordMerge(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+		m.Revision++
+		m.Authorization = mergeTestAuthorization(m)
+		if err := db.UpdateMerge(ctx, m); err != nil {
+			t.Fatalf("first binding refused: %v", err)
+		}
+		m.Revision++
+		m.HeadOID = strings.Repeat("3", 40)
+		m.Authorization = factory.MergeAuthorization{}
+		if err := db.UpdateMerge(ctx, m); err != nil {
+			t.Fatalf("rebase clear refused: %v", err)
+		}
+		m.Revision++
+		m.Authorization = mergeTestAuthorization(m)
+		if err := db.UpdateMerge(ctx, m); err != nil {
+			t.Fatalf("re-authorization on the new head refused: %v", err)
+		}
+		m.Revision++
+		m.HeadOID = strings.Repeat("4", 40)
+		if err := db.UpdateMerge(ctx, m); err == nil {
+			t.Fatal("rebase carrying its stale binding accepted")
+		}
+	})
+}
+
 func TestMergeListings(t *testing.T) {
 	db := publicationStoreFixture(t)
 	ctx := context.Background()

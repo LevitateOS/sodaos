@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -29,6 +30,12 @@ func (s *Store) RecordMerge(ctx context.Context, m factory.Merge) error {
 	}
 	if m.Stage != factory.MergeOpen || m.Outcome != "" || m.Reason != "" || m.FinishedUnix != 0 || m.Revision != 0 || m.Operation.Attempts != 0 || m.WithdrawRequested {
 		return errors.New("merge packet carries fresh open work")
+	}
+	// Authorization binds only through registration on a recorded row,
+	// never on the fresh packet: a recorded row proves the candidate
+	// existed before its admission.
+	if m.Authorization.Bound() {
+		return errors.New("merge packet carries no authorization")
 	}
 	data, err := json.Marshal(m)
 	if err != nil {
@@ -166,9 +173,32 @@ func mergeUpdateAllowed(old, next factory.Merge) error {
 		return ErrMergeConflict
 	}
 	// A pristine row (no drive ever recorded) may follow the newest
-	// published head; every other HeadOID change stays a conflict.
+	// published head; every other HeadOID change stays a conflict. A
+	// rebased row clears its authorization: the binding never moves to
+	// another head, and the new head waits for re-authorization.
 	if old.HeadOID != next.HeadOID && !mergeRebaseAllowed(old, next) {
 		return ErrMergeConflict
+	}
+	if old.HeadOID != next.HeadOID && (old.Authorization.Bound() && next.Authorization.Bound()) {
+		return ErrMergeConflict
+	}
+	// A bound authorization is immutable on its head. The single
+	// exception is the rebase clear: a pristine row following the newest
+	// published head drops its stale binding and waits for
+	// re-authorization. Stripping a binding without moving the head, or
+	// swapping one binding for another, stays a conflict: uncertain or
+	// committed predecessors are never replaced on this row.
+	if old.Authorization.Bound() && !reflect.DeepEqual(next.Authorization, old.Authorization) &&
+		(old.HeadOID == next.HeadOID || next.Authorization.Bound()) {
+		return ErrMergeConflict
+	}
+	if !old.Authorization.Bound() && next.Authorization.Bound() {
+		if old.Operation.Work != nil || old.Operation.Attempts != 0 {
+			return ErrMergeConflict
+		}
+		if err := next.Authorization.Validate(); err != nil {
+			return ErrMergeConflict
+		}
 	}
 	if old.Stage != factory.MergeOpen && old.Stage != factory.MergeFenced {
 		return ErrMergeConflict
