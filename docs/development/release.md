@@ -106,8 +106,12 @@ and actual output paths. The build lives under the worker OutputParent with a
 fresh workflow-derived name; its prepared directory is `WORKFLOW/release`.
 Preparation requires the successful completed production build and verifies the
 source archives, exact target artifacts and generated checksums. Docker public
-assets are `docker.json`, `docker-packages.txt` and
-`sodaos-docker-compose.yaml`, beside shared provenance and both source archives.
+assets are `docker.json`, `docker-packages.txt`, `sodaos-docker-compose.yaml`
+and `install-docker.sh`, beside shared provenance and both source archives.
+Preparation renders the installer from this candidate's archived source with its
+exact release tag, source revision and Docker metadata hash/size. The installer
+enters the same immutable inventory and checksums; verification reconstructs it
+from the archived template to reject a substituted script.
 Appliance/all add media metadata, ISO and hash-named rootfs. All GitHub assets must
 fit the existing per-asset limit. The large Docker OCI archive stays local;
 private `operator.json` points to its verified candidate and is never uploaded.
@@ -180,12 +184,15 @@ failed/uncertain draft or promotion writes require inspection, not blind replay.
 
 ### 4. Exercise the actual public installation bytes
 
-Use the versioned GitHub release's downloaded metadata and unedited Compose file,
-then anonymously pull its recorded digest onto a dedicated supported native host
-with fresh volumes. Follow [Docker installation](../guides/docker.md) using those
-bytes. Keep qualification downloads under `EVIDENCE/downloads/` with public asset
+Use a fresh disposable supported Linux host or VM. Run the versioned release's
+public streamed `install-docker.sh` with `bash -s -- --qualification` against its
+immutable prerelease. This explicit release-operator mode permits testing before
+promotion while retaining all hash, platform and host checks. The normal command
+accepts only a promoted release with the exact Docker qualification marker.
+Follow [Docker installation](../guides/docker.md) and retain the installer execution
+transcript. Keep qualification downloads under `EVIDENCE/downloads/` with public asset
 names: `docker.json`, `sodaos-docker-compose.yaml`, `candidate.json`,
-`payload.json`. A cached development image or repository Compose file cannot
+`payload.json`, `install-docker.sh`. A cached development image or repository Compose file cannot
 substitute. Preserve original downloads, installed readbacks and observation files.
 
 Collect the four required phases using native/installed checks:
@@ -194,7 +201,7 @@ bounded funded factory execution; and shutdown/restart/same-image recreation.
 Use [soda-acceptance](../../tools/acceptance/README.md#collect-an-observation) to
 finalize each phase as `installation/observation.json`,
 `browser_project/observation.json`, `factory/observation.json` and
-`persistence/observation.json` below the evidence directory. Bind all four public
+`persistence/observation.json` below the evidence directory. Bind all five public
 downloads with `--artifact-file`. All observations identify the same native target
 and selected Soda revision; failed, skipped, dirty-tool or missing records refuse
 qualification. Credentials and raw provider responses remain private.
@@ -210,7 +217,12 @@ The installation check must emit `installation/native.json` as retained, hashed
 observation output. It records the actual pulled manifest/config, installed
 Soda/Fountain revisions, candidate/payload/Compose hashes, acquired application
 config IDs, native Linux/x86_64 rootful/cgroup-v2/host-network/fresh-volume facts,
-and the initial outer container ID. The persistence check must later emit its own
+and the initial outer container ID. `installer_sha256` binds the downloaded
+script and `installer_execution_sha256` identifies its separately retained
+execution transcript in that finalized observation. Prove installer reruns retain
+existing work and that failed/truncated downloads, invalid metadata and checksum
+mismatches stop before deployment changes; source fixtures alone do not qualify
+the installation path. The persistence check must later emit its own
 `persistence/native.json`, binding the same target/image and initial container ID
 to before/after outer and Project IDs and protected-state hashes. Outer identity
 must change on recreation; Project identity and protected state must remain equal.
@@ -260,6 +272,12 @@ It copies the existing public digest to GHCR latest with preserved bytes and ver
 anonymous latest readback. Docker-only uses `--latest=false` for GitHub and confirms
 the existing appliance latest pointer is unchanged. Appliance/all may update the ISO
 recommendation only after their required qualification. No rebuild or re-encoding occurs.
+
+After every selected qualification gate passes, promotion also emits the exact
+line `<!-- soda-docker-qualified: TAG SOURCE_SHA IMAGE_DIGEST -->` for Docker.
+The installer requires this tag/source/digest-bound marker and a non-prerelease,
+immutable GitHub release. Re-run the normal streamed command after promotion to
+verify the final public path preserves the existing qualified installation.
 
 Only safe qualification summaries enter editable release notes; private evidence
 paths/captures never become release assets. Docker-only promotion also preserves

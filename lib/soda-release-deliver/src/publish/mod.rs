@@ -5,6 +5,7 @@ use std::path::Path;
 use std::process::Command;
 pub mod assets;
 mod components;
+mod installer;
 pub mod qualification;
 pub mod registry;
 pub(crate) use assets::valid_tag;
@@ -604,7 +605,17 @@ pub fn promote(
     };
     let notes = directory.join("qualified-release-notes.md");
     let summary = serde_json::to_string_pretty(&summaries).map_err(|_| Error::refused())?;
-    std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative qualification passed for every selected distribution and these exact release bytes.\n\n\x60\x60\x60json\n{summary}\n\x60\x60\x60\n", manifest.notes)).map_err(|_| Error::refused())?;
+    let docker_qualification = manifest
+        .docker
+        .as_ref()
+        .map(|metadata| {
+            format!(
+                "\n<!-- soda-docker-qualified: {} {} {} -->\n",
+                manifest.tag, manifest.soda_revision, metadata.image.manifest
+            )
+        })
+        .unwrap_or_default();
+    std::fs::write(&notes, format!("{}\n\nSource CI: https://github.com/LevitateOS/sodaos/actions/runs/{ci_run}\n\nNative qualification passed for every selected distribution and these exact release bytes.\n{docker_qualification}\n\x60\x60\x60json\n{summary}\n\x60\x60\x60\n", manifest.notes)).map_err(|_| Error::refused())?;
     crate::buildx::write_new(directory.join("promotion-started.json").to_str().ok_or_else(Error::refused)?, summary.as_bytes(), 0o600)
         .map_err(|_| Error::msg("promotion already attempted; inspect status and remote pointers, do not replay or roll back"))?;
     if let Some(metadata) = &manifest.docker {
@@ -892,12 +903,7 @@ pub fn qualify_docker(
         manifest.docker.as_ref().ok_or_else(Error::refused)?,
         ci,
     )?;
-    for name in [
-        "docker.json",
-        "sodaos-docker-compose.yaml",
-        "candidate.json",
-        "payload.json",
-    ] {
+    for name in qualification::DOWNLOADS {
         let downloaded = evidence.join("downloads").join(name);
         if &inspect(&downloaded, name)? != manifest.asset(name)? {
             return Err(Error::msg(

@@ -6,9 +6,10 @@ use std::process::{Command, Stdio};
 use crate::buildx::{open_layout_entry, Root};
 use crate::Error;
 
-pub(super) const SOURCE_FILES: [&str; 9] = [
+pub(super) const SOURCE_FILES: [&str; 10] = [
     "system/docker/Dockerfile",
     "system/docker/compose.yaml",
+    super::INSTALLER_SOURCE,
     "system/docker/soda-docker-init.service",
     "system/docker/image-import.conf",
     "system/docker/project-scope.conf",
@@ -32,7 +33,14 @@ pub(super) fn verify_revision(root: &Root, archive: &str, revision: &str) -> Res
 }
 
 pub(super) fn read_inputs(root: &Root) -> Result<BTreeMap<String, Vec<u8>>, Error> {
-    let (file, _) = open_layout_entry(root, "source.tar")?;
+    read_inputs_from(root, "source.tar")
+}
+
+pub(super) fn read_inputs_from(
+    root: &Root,
+    archive: &str,
+) -> Result<BTreeMap<String, Vec<u8>>, Error> {
+    let (file, _) = open_layout_entry(root, archive)?;
     let mut archive = tar::Archive::new(file);
     let mut found = BTreeMap::new();
     for entry in archive.entries().map_err(|_| Error::refused())? {

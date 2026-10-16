@@ -10,6 +10,7 @@ fi
 # Fedora packages float by design; their actual RPM inventory is bound by the
 # artifact verifier. All other Hadolint warnings and errors remain failures.
 hadolint --ignore DL3041 system/docker/Dockerfile
+bash -n system/docker/install-docker.sh
 
 mkdir -p .artifacts/docker-packaging/client
 compose=$(mktemp .artifacts/docker-packaging/compose.XXXXXX.json)

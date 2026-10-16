@@ -19,7 +19,7 @@ case $1 in
           grep -vE '/(internal/(store|web(/.*)?|factory/control|identity/client)|tools/soda-installed-probes)$')
         (( ${#packages[@]} > 0 ))
         go test -count=1 "${packages[@]}"
-        go test -count=1 ./tests/build -run '^(TestCI|TestSource|TestPush)'
+        go test -count=1 ./tests/build -run '^(TestCI|TestSource|TestPush|TestDockerInstaller)'
         bash scripts/check-sql-locality.sh
         bash scripts/check-no-npm.sh
         bash scripts/check-no-python.sh
@@ -37,7 +37,7 @@ case $1 in
       tests/forgejo/presentation/inventory.test.ts
     ;;
   rust)
-    cargo test --locked -p soda-wire-time -p soda-unix-http -p soda-build-tools --lib
+    cargo test --locked -p soda-wire-time -p soda-unix-http -p soda-build-tools -p soda-release-deliver --lib
     ;;
   *) exit 2 ;;
 esac

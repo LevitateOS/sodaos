@@ -182,7 +182,8 @@ impl Manifest {
             || self.assets.len()
                 != REQUIRED_METADATA.len()
                     + 2
-                    + 3 * (usize::from(self.has_appliance()) + usize::from(self.docker.is_some()))
+                    + 3 * usize::from(self.has_appliance())
+                    + 4 * usize::from(self.docker.is_some())
                     + usize::from(has_upgrade)
         {
             return Err(failure("release manifest refused"));
@@ -234,6 +235,7 @@ impl Manifest {
                 }
             }
             self.asset("docker.json")?;
+            self.asset(super::installer::NAME)?;
             if self.asset("candidate.json")?.sha256 != docker.candidate_sha256
                 || self.asset("payload.json")?.sha256 != docker.payload_sha256
             {
@@ -420,6 +422,24 @@ pub fn prepare(
             "upgrade qualification requires a declared prospective source",
         ));
     }
+    if docker.is_some() {
+        let metadata = assets
+            .iter()
+            .find(|asset| asset.name == "docker.json")
+            .ok_or_else(|| failure("Docker metadata asset required"))?;
+        let script = super::installer::render(out, tag, &payload.revision, metadata)?;
+        crate::buildx::write_new(
+            out.join(super::installer::NAME)
+                .to_str()
+                .ok_or_else(Error::refused)?,
+            &script,
+            0o644,
+        )?;
+        assets.push(inspect(
+            &out.join(super::installer::NAME),
+            super::installer::NAME,
+        )?);
+    }
     let manifest = Manifest {
         format: 1,
         tag: tag.to_owned(),
@@ -473,6 +493,24 @@ pub(super) fn inventory(manifest: &Manifest, directory: &Path) -> Result<Vec<Ass
         let actual: DockerMetadata = read_json(&directory.join("docker.json"))?;
         if &actual != expected {
             return Err(failure("prepared Docker metadata changed"));
+        }
+        let script = super::installer::render(
+            directory,
+            &manifest.tag,
+            &manifest.soda_revision,
+            manifest.asset("docker.json")?,
+        )?;
+        if crate::document::read_file(
+            directory
+                .join(super::installer::NAME)
+                .to_str()
+                .ok_or_else(Error::refused)?,
+            1 << 20,
+        )? != script
+        {
+            return Err(failure(
+                "Docker installer differs from bound source and release",
+            ));
         }
     }
     assets.push(inspect(&directory.join("release.json"), "release.json")?);

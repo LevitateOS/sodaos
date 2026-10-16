@@ -447,7 +447,7 @@ fn evidence(
     std::fs::create_dir(root.join("downloads")).unwrap();
     let payload: Payload =
         serde_json::from_slice(&std::fs::read(output.join("payload.json")).unwrap()).unwrap();
-    let native = json!({"target":"soda-qualification","tag":manifest.tag,"registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"compose_sha256":metadata.compose.sha256,"candidate_sha256":metadata.candidate_sha256,"payload_sha256":metadata.payload_sha256,"soda_revision":metadata.soda_revision,"forgejo_revision":metadata.forgejo_revision,"application_configs":soda_build_tools::payload::Role::iter().map(|role|(role.name().to_string(),role.binding(&payload.images).config.clone())).collect::<BTreeMap<_,_>>(),"os":"linux","architecture":"x86_64","rootful":true,"cgroup_version":2,"host_network":true,"fresh_volumes":true,"outer_id":"a".repeat(64)});
+    let native = json!({"target":"soda-qualification","tag":manifest.tag,"registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"compose_sha256":metadata.compose.sha256,"installer_sha256":manifest.assets.iter().find(|asset|asset.name=="install-docker.sh").unwrap().sha256,"installer_execution_sha256":identity(b"native observation").sha256,"candidate_sha256":metadata.candidate_sha256,"payload_sha256":metadata.payload_sha256,"soda_revision":metadata.soda_revision,"forgejo_revision":metadata.forgejo_revision,"application_configs":soda_build_tools::payload::Role::iter().map(|role|(role.name().to_string(),role.binding(&payload.images).config.clone())).collect::<BTreeMap<_,_>>(),"os":"linux","architecture":"x86_64","rootful":true,"cgroup_version":2,"host_network":true,"fresh_volumes":true,"outer_id":"a".repeat(64)});
     let persistence = json!({"target":"soda-qualification","registry_manifest":metadata.image.manifest,"registry_config":metadata.image.config,"outer_before":"a".repeat(64),"outer_after":"b".repeat(64),"project_before":"c".repeat(64),"project_after":"c".repeat(64),"protected_before_sha256":"d".repeat(64),"protected_after_sha256":"d".repeat(64)});
     let factory = json!({"provider_execution_sha256":identity(b"native observation").sha256,"repository_id":1,"issue_id":2,"pull_request_id":3,"coder_actor":4,"reviewer_actor":5,"reviewed_head":"f".repeat(40),"merged_candidate_head":"f".repeat(40),"required_checks":{"CI":"success"},"elapsed_ms":1000,"funding_limit_ms":2000});
     let artifacts = manifest
@@ -457,6 +457,7 @@ fn evidence(
             [
                 "docker.json",
                 "sodaos-docker-compose.yaml",
+                "install-docker.sh",
                 "candidate.json",
                 "payload.json",
             ]
@@ -468,6 +469,7 @@ fn evidence(
         [
             "docker.json",
             "sodaos-docker-compose.yaml",
+            "install-docker.sh",
             "candidate.json",
             "payload.json",
         ]
@@ -578,8 +580,9 @@ fn prepared_docker_has_exact_public_assets_and_qualification_refuses_missing_fac
     let fixture = Fixture::new(BuildPurpose::Production);
     let (output, manifest, metadata) = prepared(&fixture);
     assert!(manifest.iso.is_empty());
-    assert_eq!(manifest.assets.len(), 13);
+    assert_eq!(manifest.assets.len(), 14);
     for name in [
+        "install-docker.sh",
         "extensions-catalog.json",
         "soda-extension-0.1.0-linux-x86_64.tar.gz",
         "tailnet-extension-0.1.0-linux-x86_64.tar.gz",
@@ -619,6 +622,130 @@ fn qualified_docker_promotes_only_verified_digest_and_keeps_appliance_latest() {
         .iter()
         .any(|args| args.contains(&"--latest=false".into())));
     assert!(output.join("promotion-complete.json").exists());
+    let notes = std::fs::read_to_string(output.join("qualified-release-notes.md")).unwrap();
+    assert!(notes.lines().any(|line| line
+        == format!(
+            "<!-- soda-docker-qualified: {} {} {} -->",
+            manifest.tag, manifest.soda_revision, metadata.image.manifest
+        )));
+}
+
+#[test]
+fn installer_is_rendered_from_bound_source_and_cannot_be_replaced_by_rehashing() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, mut manifest, _) = prepared(&fixture);
+    let script = std::fs::read_to_string(output.join("install-docker.sh")).unwrap();
+    let metadata = manifest
+        .assets
+        .iter()
+        .find(|asset| asset.name == "docker.json")
+        .unwrap();
+    assert_eq!(script, format!(
+        "#!/usr/bin/env bash\nrelease='{}'\nrevision='{}'\nmetadata_sha256='{}'\nmetadata_bytes='{}'\n",
+        manifest.tag, manifest.soda_revision, metadata.sha256, metadata.bytes
+    ));
+    crate::publish::assets::load(&output).unwrap();
+
+    let replacement = b"#!/usr/bin/env bash\necho unbound replacement\n";
+    std::fs::write(output.join("install-docker.sh"), replacement).unwrap();
+    let asset = manifest
+        .assets
+        .iter_mut()
+        .find(|asset| asset.name == "install-docker.sh")
+        .unwrap();
+    asset.sha256 = identity(replacement).sha256;
+    asset.bytes = replacement.len() as u64;
+    std::fs::write(
+        output.join("release.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
+    let mut sums = manifest.assets.clone();
+    let release = std::fs::read(output.join("release.json")).unwrap();
+    sums.push(crate::publish::assets::Asset {
+        name: "release.json".into(),
+        bytes: release.len() as u64,
+        sha256: identity(&release).sha256,
+    });
+    std::fs::write(
+        output.join("SHA256SUMS"),
+        sums.iter()
+            .map(|asset| format!("{}  {}\n", asset.sha256, asset.name))
+            .collect::<String>(),
+    )
+    .unwrap();
+    assert!(crate::publish::assets::load(&output)
+        .unwrap_err()
+        .0
+        .contains("installer differs"));
+}
+
+#[test]
+fn qualification_verifies_the_public_installer_asset_with_github() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, manifest, metadata) = prepared(&fixture);
+    let evidence = evidence(&fixture, &output, &manifest, &metadata);
+    let mut replies = ci(&metadata, true).replies.into_inner();
+    replies.pop_back();
+    replies.push_front(Ok(serde_json::to_vec(&json!({"ref":format!("refs/tags/{}",metadata.release_tag),"object":{"type":"commit","sha":metadata.soda_revision}})).unwrap()));
+    replies.extend([
+        Ok(b"{\"databaseId\":17}".to_vec()),
+        remote(&manifest, &output, true),
+        Ok(vec![]),
+    ]);
+    replies.extend((0..5).map(|_| Ok(vec![])));
+    let gh = Commands::new(replies.into(), "");
+    let registry = Commands::new(readback(&fixture, &metadata), "");
+    crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &evidence).unwrap();
+    assert!(gh.replies.borrow().is_empty());
+    assert!(gh.calls.borrow().iter().any(|args| args[0] == "release"
+        && args[1] == "verify-asset"
+        && args[3]
+            == evidence
+                .join("downloads/install-docker.sh")
+                .to_str()
+                .unwrap()));
+    assert!(output.join("docker-qualification.json").exists());
+}
+
+#[test]
+fn qualification_requires_the_downloaded_installer_in_each_observation() {
+    for case in ["download", "artifact", "identity", "transcript"] {
+        let fixture = Fixture::new(BuildPurpose::Production);
+        let (output, manifest, metadata) = prepared(&fixture);
+        let root = evidence(&fixture, &output, &manifest, &metadata);
+        if case == "download" {
+            std::fs::write(root.join("downloads/install-docker.sh"), b"truncated").unwrap();
+        } else {
+            let path = root.join("installation/observation.json");
+            let mut observation: Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            if case == "artifact" {
+                observation["Artifacts"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("/downloaded/install-docker.sh");
+            } else {
+                let native_path = root.join("installation/native.json");
+                let mut native: Value =
+                    serde_json::from_slice(&std::fs::read(&native_path).unwrap()).unwrap();
+                native[if case == "identity" {
+                    "installer_sha256"
+                } else {
+                    "installer_execution_sha256"
+                }] = json!("e".repeat(64));
+                let body = serde_json::to_vec(&native).unwrap();
+                std::fs::write(native_path, &body).unwrap();
+                observation["Files"]["native.json"] = json!(identity(&body).sha256);
+            }
+            std::fs::write(path, serde_json::to_vec(&observation).unwrap()).unwrap();
+        }
+        assert!(
+            crate::publish::qualification::stamp(&manifest, &output, &root).is_err(),
+            "{case}"
+        );
+        assert!(!output.join("docker-qualification.json").exists());
+    }
 }
 
 #[test]

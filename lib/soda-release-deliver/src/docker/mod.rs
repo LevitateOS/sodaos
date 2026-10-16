@@ -19,7 +19,14 @@ pub const METADATA_PATH: &str = "docker/docker.json";
 pub const IMAGE_PATH: &str = "docker/image.oci";
 pub const PACKAGES_PATH: &str = "docker/packages.txt";
 pub const COMPOSE_PATH: &str = "docker/compose.yaml";
+pub(crate) const INSTALLER_SOURCE: &str = "system/docker/install-docker.sh";
 const PACKAGES_INSTALLED: &str = "/usr/share/soda/docker-runtime/packages.txt";
+
+pub(crate) fn installer_template(root: &Root, archive: &str) -> Result<Vec<u8>, Error> {
+    source::read_inputs_from(root, archive)?
+        .remove(INSTALLER_SOURCE)
+        .ok_or_else(|| Error::msg("Docker installer source unavailable"))
+}
 
 /// Frozen producer inputs; the outer image must carry matching labels.
 pub struct DockerRequest {

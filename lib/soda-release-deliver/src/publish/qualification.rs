@@ -13,6 +13,13 @@ use std::{
 };
 
 const KINDS: [&str; 4] = ["installation", "browser_project", "factory", "persistence"];
+pub(super) const DOWNLOADS: [&str; 5] = [
+    "docker.json",
+    "sodaos-docker-compose.yaml",
+    super::installer::NAME,
+    "candidate.json",
+    "payload.json",
+];
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RetainedQualification {
@@ -28,6 +35,8 @@ pub struct NativeDocker {
     pub registry_manifest: String,
     pub registry_config: String,
     pub compose_sha256: String,
+    pub installer_sha256: String,
+    pub installer_execution_sha256: String,
     pub candidate_sha256: String,
     pub payload_sha256: String,
     pub soda_revision: String,
@@ -109,6 +118,8 @@ impl DockerQualification {
             || native.registry_manifest != docker.image.manifest
             || native.registry_config != docker.image.config
             || native.compose_sha256 != docker.compose.sha256
+            || native.installer_sha256 != manifest.asset(super::installer::NAME)?.sha256
+            || !is_digest(&native.installer_execution_sha256)
             || native.candidate_sha256 != docker.candidate_sha256
             || native.payload_sha256 != docker.payload_sha256
             || native.soda_revision != manifest.soda_revision
@@ -172,12 +183,7 @@ fn collect(
     let persistence: NativePersistence =
         crate::json_serde::strict(&read_at(&root, "persistence/native.json", 1 << 20)?)
             .map_err(|_| refused())?;
-    for name in [
-        "docker.json",
-        "sodaos-docker-compose.yaml",
-        "candidate.json",
-        "payload.json",
-    ] {
+    for name in DOWNLOADS {
         if &assets::inspect(&evidence.join("downloads").join(name), name)?
             != manifest.asset(name)?
         {
@@ -227,12 +233,7 @@ fn collect(
             return Err(Error::msg("native qualification observations must be finalized in installation, browser/Project, factory and persistence order"));
         }
         previous_finish = Some(finished);
-        for name in [
-            "docker.json",
-            "sodaos-docker-compose.yaml",
-            "candidate.json",
-            "payload.json",
-        ] {
+        for name in DOWNLOADS {
             let expected = &manifest.asset(name)?.sha256;
             if !observation.artifacts.as_ref().is_some_and(|artifacts| {
                 artifacts.iter().any(|(path, hash)| {
@@ -269,6 +270,17 @@ fn collect(
         {
             return Err(Error::msg(
                 "factory execution digest must identify retained execution evidence",
+            ));
+        }
+        if kind == "installation"
+            && !observation.files.as_ref().is_some_and(|files| {
+                files.iter().any(|(path, hash)| {
+                    path != "native.json" && hash == &native.installer_execution_sha256
+                })
+            })
+        {
+            return Err(Error::msg(
+                "installer execution digest must identify retained execution evidence",
             ));
         }
         observations.insert(

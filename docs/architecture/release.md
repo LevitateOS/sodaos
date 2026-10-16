@@ -248,7 +248,13 @@ Registry and GitHub publication credentials stay with the release operator,
 outside the build worker. Source CI stays read-only.
 
 Staging publishes an explicitly unqualified prerelease with the Docker binding,
-exact Compose file, RPM inventory, source archives and shared release metadata.
+exact Compose file, version-bound `install-docker.sh`, RPM inventory, source
+archives and shared release metadata. The installer is rendered from the exact
+source archive and binds that tag, revision and Docker metadata hash/size. Its
+own hash/size belongs to the immutable release inventory, avoiding a circular
+hash inside Docker metadata. Normal installation requires the matching Docker
+qualification marker in the promoted release notes; explicit prerelease
+qualification retains the same byte-verification and host-admission rules.
 Qualification receipts are retained locally and incorporated into the editable
 release notes during promotion; immutable release assets cannot be appended later.
 The `latest` Docker tag is a recommendation pointer moved only to a qualified
@@ -265,13 +271,16 @@ artifacts and refuse blind retry, overwrite or rollback of recommendation pointe
 
 ### Docker qualification
 
-One fresh deployment on the supported native Docker host uses the publicly
+One fresh deployment on a disposable supported native Docker host or VM runs the
+public streamed installer against its versioned release, using the publicly
 downloaded Compose file and anonymously pulled registry digest, with new runtime
 volumes. Independent readback binds the pulled manifest/config, installed Soda
 revision, shared payload/application identities and host platform to the release.
 Required observations cover:
 
 - Initial image import, service readiness, operator setup and HTTPS activation.
+- Installer reruns preserve the deployment; failed or truncated downloads, invalid
+  metadata and checksum mismatches refuse before installation changes.
 - Native browser login, Project creation/join, terminal access and one nested
   container workload through the existing Project runtime.
 - The bounded factory journey with its required provider access and finite
@@ -282,7 +291,8 @@ Required observations cover:
   initialization and product mutations are not replayed.
 
 The receipt binds the GitHub release/tag, selected target set, source revisions,
-candidate/payload hashes, Docker binding and Compose hashes, observed registry
+candidate/payload hashes, Docker binding, Compose and installer hashes, retained
+installer execution transcript, observed registry
 and installed identities, native host prerequisites, and hashes of finalized
 observation files. Failed, skipped, missing, stale or identity-mismatched required
 observations refuse qualification and promotion. Private credentials and raw

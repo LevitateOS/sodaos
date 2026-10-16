@@ -156,6 +156,10 @@ impl Fixture {
             source.insert(name.into(), format!("fixture {name}\n").into_bytes());
         }
         source.insert(
+            INSTALLER_SOURCE.into(),
+            b"#!/usr/bin/env bash\nrelease='@RELEASE_TAG@'\nrevision='@SOURCE_REVISION@'\nmetadata_sha256='@METADATA_SHA256@'\nmetadata_bytes='@METADATA_BYTES@'\n".to_vec(),
+        );
+        source.insert(
             "fountain-source.json".into(),
             serde_json::to_vec(
                 &json!({"repository":"fixture/fountain", "revision":FOUNTAIN_REVISION}),

@@ -42,9 +42,57 @@ not started inside the runtime.
 
 ## Install a released image
 
+The released `install-docker.sh` is the normal installation entry point. Select
+an explicitly Docker-qualified release; do not use GitHub's latest ISO pointer.
+No qualified installer URL is available yet. The public handbook keeps its
+availability notice until actual publication and disposable-host qualification
+are complete.
+
+The version-bound script embeds the exact source revision and `docker.json`
+hash/size. It checks the immutable release and its Docker qualification marker,
+downloads that version's metadata and Compose file over HTTPS, verifies the
+platform and file identities, and pulls the image by digest with a fresh anonymous
+Docker client configuration. It checks the image configuration before creating
+deployment files or runtime volumes. Download scratch is private, temporary and
+restricted to `/home`; an image pull may populate Docker's image cache.
+
+Run the published script through Bash. Its interactive prompts read `/dev/tty`,
+so streamed input works. Rootful Docker access requires root, existing Docker
+administrator access or terminal-authenticated sudo; creating `/home/sodaos` may
+also require sudo. The script explains its privileged host access before starting.
+It does not install Docker, change the host firewall/forwarding policy or add client
+certificate trust. Missing prerequisites are reported before deployment changes.
+
+The installer selects a private IPv4 browser address assigned to the host and a
+non-overlapping RFC1918 Project subnet. It rejects host/Docker route conflicts,
+Soda's reserved `10.88.0.0/16` and `10.90.0.0/24`, and occupied required TCP ports
+443, 2222, 3000 and 9090. Client routes and firewall access remain operator-owned.
+It starts Compose with a bounded readiness wait. Once ready, the interactive flow
+guides native Forgejo browser installation and administrator token creation, reads
+the bootstrap token without echo, runs `soda-setup` and local-TLS activation, then
+exports only the public CA certificate and its fingerprint for client trust.
+An empty token leaves browser setup explicitly pending. Existing configuration or
+activation is never silently replayed; incomplete activation requires inspection.
+
+Options are `--bind-ip PRIVATE_IPV4`, `--project-subnet CIDR`,
+`--install-dir /home/PATH` and `--yes`. `--yes` accepts privileged execution and
+installs the runtime without interactive browser enrollment; the final output
+states that setup remains pending. The operator can rerun interactively to finish.
+`--qualification` is solely for release operators testing the exact immutable
+prerelease; it changes the qualification-state gate, not integrity/host checks.
+
+Rerun the same version's command using the same operator and installation directory.
+The private `identity.json`, original metadata, Compose and `.env` bind the release,
+image, browser address and subnet. Conflicting files, retained containers or volume
+ownership refuse installation. Changing releases or adopting an unrecorded
+deployment is unsupported. A failed start retains its files and volumes for
+diagnosis and a same-version retry; no rollback, volume deletion or pruning occurs.
+
+### Manual verification and deployment details
+
 Choose an exact release from [GitHub releases](https://github.com/LevitateOS/sodaos/releases)
 whose notes confirm Docker qualification. It must supply `docker.json`,
-`sodaos-docker-compose.yaml` and the public GHCR image identified in that metadata.
+`sodaos-docker-compose.yaml`, `install-docker.sh` and the public GHCR image identified in that metadata.
 GitHub's latest release is the appliance ISO recommendation; select the Docker
 tag explicitly. Production packaging or a prerelease tag alone is not qualification.
 

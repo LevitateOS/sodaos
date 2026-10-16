@@ -56,6 +56,40 @@ These operations do not install images, activate a host or reboot. Follow the
 [release architecture](../../docs/architecture/release.md) for the bounded native
 qualification and single-installer download contract.
 
+## Version-bound Docker installer
+
+Docker preparation renders `install-docker.sh` from
+`system/docker/install-docker.sh` in the candidate's exact Soda source archive.
+The template must contain `@RELEASE_TAG@`, `@SOURCE_REVISION@`,
+`@METADATA_SHA256@` and `@METADATA_BYTES@`. Preparation substitutes the selected
+tag/source and the actual public `docker.json` hash/size. The metadata already
+binds Compose and the image digest; it does not hash the installer, avoiding a
+circular identity. The rendered installer enters `release.json` and `SHA256SUMS`
+with all other immutable release assets. Every prepared inventory read verifies
+the installer against the archived template and those exact bindings.
+
+Docker qualification requires the original downloaded `install-docker.sh` beside
+the metadata, Compose, candidate and payload downloads. Each finalized phase
+binds all five public files, and GitHub verifies the downloaded installer asset.
+`installation/native.json` records `installer_sha256` and
+`installer_execution_sha256`; the latter must identify a retained execution
+transcript other than `native.json`. The transcript and invocation establish the
+actual public streamed installation command for review. Artifact admission alone
+does not prove that installation ran or passed.
+
+Successful promotion adds exactly this separate line to the editable notes:
+
+```text
+<!-- soda-docker-qualified: TAG SOURCE_SHA IMAGE_DIGEST -->
+```
+
+The values are the exact release tag, full source revision and `sha256:` image
+manifest digest. This line is emitted only after every selected distribution's
+native qualification passes. Consumer installation requires the matching line
+and a final immutable release; explicit operator qualification uses the immutable
+prerelease without treating it as a qualified consumer release. Docker selection
+remains independent of GitHub's latest appliance release.
+
 ## Docker metadata and provenance
 
 `model::DockerMetadata` owns format 1 of `artifacts/docker/docker.json`.

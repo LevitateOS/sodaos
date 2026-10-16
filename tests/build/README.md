@@ -32,6 +32,9 @@ be present for module resolution.
 - Native account, factory-role, domain, provisioning and activation helper
   behavior against test-owned files and subprocess fixtures.
 - Source-check ordering, failure propagation and bounded helper diagnostics.
+- Docker installer downloads, host admission, streamed execution and retained
+  installation identity through command fixtures. These checks start no containers
+  and run in the push CI core profile.
 
 [helpers.go](helpers.go) supplies repository-relative file readers, assertions,
 subprocess results, temporary files and the `CargoBinary` build helper. Tests
