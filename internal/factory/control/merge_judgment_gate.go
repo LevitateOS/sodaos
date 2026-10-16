@@ -1,0 +1,266 @@
+package control
+
+import (
+	"context"
+	"errors"
+
+	"github.com/levitateos/sodaos/internal/factory"
+)
+
+// MergeNativeGate is the re-evaluated native mergeable + reviewable
+// expression behind one merge judgment (T24/T25). It carries the fresh
+// native verdict only; reads perform no mutation and grant none. Tests
+// supply mergeableGate / blockedGate fixtures; production callers
+// re-evaluate from the FW17 read adapters before any funded call.
+type MergeNativeGate struct {
+	Eligible         bool
+	Blocker          string
+	Approved         bool
+	ChangesRequested bool
+	HeadOID          string
+	BaseOID          string
+	Visible          bool
+	Complete         bool
+}
+
+// mergeableGate returns the native fixture for an eligible, approved
+// candidate on the exact head/base.
+func mergeableGate(head, base string) MergeNativeGate {
+	return MergeNativeGate{
+		Eligible: true, Approved: true,
+		HeadOID: head, BaseOID: base,
+		Visible: true, Complete: true,
+	}
+}
+
+// blockedGate returns the native fixture for one exact native blocker.
+// Eligible stays false; approval/review flags stay as supplied so tests
+// can model approvals-blocked vs protection-blocked distinctly.
+func blockedGate(head, base, blocker string, approved bool) MergeNativeGate {
+	return MergeNativeGate{
+		Eligible: false, Blocker: blocker, Approved: approved,
+		HeadOID: head, BaseOID: base,
+		Visible: true, Complete: true,
+	}
+}
+
+// Validate checks the gate shape: exact tips plus the bounded blocker
+// vocabulary (empty means eligible). Hidden/incomplete evidence is
+// shaped here and waits at gate time; it never validates away.
+func (g MergeNativeGate) Validate() error {
+	if !factory.ValidCommit(g.HeadOID) || !factory.ValidCommit(g.BaseOID) || g.HeadOID == g.BaseOID {
+		return errors.New("merge gate lacks its exact head over a verified base")
+	}
+	if g.Eligible {
+		if g.Blocker != "" {
+			return errors.New("eligible merge carries its blocker")
+		}
+		return nil
+	}
+	switch g.Blocker {
+	case "merged", "closed",
+		"permission", "work_in_progress",
+		"not_mergeable", "checking",
+		"status_checks", "approvals",
+		"requested_changes", "review_requests",
+		"outdated_branch", "protected_files",
+		"signature", "dependency",
+		"branch_protection":
+		return nil
+	default:
+		return errors.New("merge gate blocker is unknown")
+	}
+}
+
+// mergeGateProtected reports whether a native blocker refuses before any
+// funded call (revoked or protected: human intervention, never an
+// automatic retry on the same evidence).
+func mergeGateProtected(blocker string) bool {
+	switch blocker {
+	case "merged", "closed",
+		"permission", "protected_files",
+		"branch_protection", "signature":
+		return true
+	default:
+		return false
+	}
+}
+
+// MergeJudgmentGateInput gathers the single T24/T25 pre-spend gate: the
+// eligible publication, the applicable admitted correction, its fresh
+// review cycle, the accepted-resolution plan with its exact readback,
+// the bounded authorization generation seeking admission, and the
+// re-evaluated native mergeable + reviewable expression. D13
+// completion/merge joints stay open: this gate never finishes,
+// fences or completes.
+type MergeJudgmentGateInput struct {
+	Publication factory.Publication
+	Admission   CorrectionAdmission
+	Cycle       factory.ReviewCycle
+	Acceptance  JudgmentAcceptance
+	Planned     []AcceptedResolution
+	Confirmed   map[string]bool
+	Generation  factory.MergeGeneration
+	Native      MergeNativeGate
+}
+
+// mergeGateBase returns the publication's verified base: the recorded PR
+// creation base when linked, else the accepted base SHA.
+func mergeGateBase(p factory.Publication) string {
+	if p.PRCreate.Work != nil && factory.ValidCommit(p.PRCreate.BaseOID) {
+		return p.PRCreate.BaseOID
+	}
+	return p.BaseSHA
+}
+
+// CheckMergeJudgmentReady enforces the deterministic T24/T25 gate before
+// any provider spend. Every branch below is cheap: malformed inputs
+// refuse, superseded or protected merges refuse, and transient or
+// incomplete evidence waits. A nil error means the caller may spend one
+// funded delivery call; any error means it must not.
+func CheckMergeJudgmentReady(in MergeJudgmentGateInput) error {
+	if err := in.Generation.Validate(); err != nil {
+		return err
+	}
+	if err := in.Cycle.Validate(); err != nil {
+		return err
+	}
+	if err := in.Native.Validate(); err != nil {
+		return err
+	}
+	// Eligible merge: a published, linked PR on a fresh exact candidate.
+	switch in.Publication.Stage {
+	case factory.PublicationPublished:
+	case factory.PublicationWithdrawn, factory.PublicationFailed, factory.PublicationFenced:
+		return &factory.PublicationRefusal{Reason: "publication_" + in.Publication.Stage}
+	default:
+		return &factory.PublicationWait{Reason: "publication_not_published"}
+	}
+	if in.Publication.PRNumber <= 0 || in.Publication.PRID <= 0 {
+		return &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	if !factory.ValidCommit(in.Publication.Candidate) || !factory.ValidCommit(mergeGateBase(in.Publication)) ||
+		in.Publication.Candidate == mergeGateBase(in.Publication) {
+		return &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	if in.Generation.PublicationID != in.Publication.ID {
+		return &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	base := mergeGateBase(in.Publication)
+	if in.Generation.Head != in.Publication.Candidate {
+		return &factory.PublicationRefusal{Reason: "superseded_head"}
+	}
+	if in.Generation.Base != base {
+		return &factory.PublicationRefusal{Reason: "superseded_base"}
+	}
+	if !factory.ValidDigest(in.Generation.Fingerprint) {
+		return &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	// Applicable fix present: the admission answers this cycle's exact
+	// finding set on the current head. Unresolved findings wait for
+	// correction; a superseded correction refuses without spending.
+	if in.Admission.CycleID == "" || in.Admission.CycleID != in.Cycle.ID {
+		return &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	if in.Admission.SetDigest != in.Cycle.FindingDigest {
+		return &factory.PublicationRefusal{Reason: "judgment_stale"}
+	}
+	if in.Admission.NewCandidate != in.Publication.Candidate {
+		return &factory.PublicationRefusal{Reason: "superseded_head"}
+	}
+	if len(in.Admission.Unresolved) > 0 {
+		return &factory.PublicationWait{Reason: "correction_pending"}
+	}
+	// Fresh re-review: the recorded cycle binds this publication, head,
+	// base and finding set. A cycle for another head waits for its fresh
+	// reviewer; a digest mismatch refuses as stale evidence.
+	if in.Cycle.PublicationID != in.Publication.ID {
+		return &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	if in.Cycle.Head != in.Publication.Candidate || in.Cycle.BaseOID != base {
+		return &factory.PublicationWait{Reason: "re_review_pending"}
+	}
+	if in.Cycle.FindingDigest != in.Admission.SetDigest {
+		return &factory.PublicationRefusal{Reason: "judgment_stale"}
+	}
+	// Accepted resolution: the opaque judgment binding must still match
+	// the admitted set, and every accepted fix must read back confirmed.
+	// Unconfirmed fixes wait; without a binding nothing resolves however
+	// complete the native state looks.
+	if err := in.Acceptance.Validate(in.Admission.SetDigest); err != nil {
+		return &factory.PublicationRefusal{Reason: "judgment_stale"}
+	}
+	outcome, err := ReconcileAcceptedResolutions(in.Acceptance, in.Admission, in.Planned, in.Confirmed)
+	if err != nil {
+		return &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	if len(outcome.Waits) > 0 {
+		return &factory.PublicationWait{Reason: "resolution_pending"}
+	}
+	// Mergeable + reviewable re-evaluated: fresh native tips must still
+	// match the generation; hidden or incomplete evidence blocks without
+	// spending. A blocking independent review waits for its correction;
+	// revoked or protected merges refuse before any funded call.
+	if !in.Native.Visible || !in.Native.Complete {
+		return &factory.PublicationWait{Reason: "merge_evidence_unavailable"}
+	}
+	if in.Native.HeadOID != in.Generation.Head {
+		return &factory.PublicationRefusal{Reason: "superseded_head"}
+	}
+	if in.Native.BaseOID != in.Generation.Base {
+		return &factory.PublicationRefusal{Reason: "superseded_base"}
+	}
+	if in.Native.ChangesRequested {
+		return &factory.PublicationWait{Reason: "changes_requested"}
+	}
+	if !in.Native.Approved {
+		return &factory.PublicationWait{Reason: "approval_missing"}
+	}
+	if !in.Native.Eligible {
+		if mergeGateProtected(in.Native.Blocker) {
+			return &factory.PublicationRefusal{Reason: in.Native.Blocker}
+		}
+		return &factory.PublicationWait{Reason: in.Native.Blocker}
+	}
+	return nil
+}
+
+// AdviseMergeJudgment funds one T24/T25 delivery judgment behind the
+// pre-spend gate and binds it to the generation's common merge gate. The
+// cheap gate runs first so superseded or protected merges never reserve
+// funding or consult the provider. The delivery fingerprint must exactly
+// match the generation; stale semantic evidence refuses without spending.
+// A funded failure stays charged and unavailable with no refund, per FW21;
+// a funded ready decision still passes CheckMergeDecisionGate before any
+// mutation path may use it. D13 completion stays out of scope.
+func (c *Coordinator) AdviseMergeJudgment(ctx context.Context, gate MergeJudgmentGateInput, advice DeliveryAdvice, currentAuthority factory.AuthorityRef) (factory.DeliveryDecision, bool, error) {
+	var empty factory.DeliveryDecision
+	fingerprint, err := factory.DeliveryFingerprint(advice.Input)
+	if err != nil {
+		return empty, false, err
+	}
+	if fingerprint != gate.Generation.Fingerprint {
+		return empty, false, &factory.PublicationRefusal{Reason: "judgment_stale"}
+	}
+	if err := CheckMergeJudgmentReady(gate); err != nil {
+		return empty, false, err
+	}
+	decision, reused, err := c.AdviseDelivery(ctx, advice)
+	if err != nil {
+		return empty, false, err
+	}
+	outcome, err := ReconcileAcceptedResolutions(gate.Acceptance, gate.Admission, gate.Planned, gate.Confirmed)
+	if err != nil {
+		return empty, false, &factory.PublicationRefusal{Reason: "invalid_work"}
+	}
+	gateIn := factory.MergeDecisionInput{
+		Generation:           gate.Generation,
+		Decision:             decision,
+		CurrentAuthority:     currentAuthority,
+		ResolutionsConfirmed: len(outcome.Waits) == 0,
+	}
+	if err := factory.CheckMergeDecisionGate(gateIn); err != nil {
+		return empty, false, err
+	}
+	return decision, reused, nil
+}
