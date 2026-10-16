@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"testing"
@@ -32,6 +34,126 @@ func TestReassessmentRecordValidation(t *testing.T) {
 	bad.WaitReason = strings.Repeat("r", factory.MaxReassessmentReasonChars+1)
 	if err := bad.Validate(); err == nil {
 		t.Fatal("oversize wait reason accepted")
+	}
+}
+
+func sealedTestBody(t *testing.T, index int64, title, body string) factory.CompletionIssueEvidence {
+	t.Helper()
+	sum := func(text string) string {
+		digest := sha256.Sum256([]byte(text))
+		return hex.EncodeToString(digest[:])
+	}
+	parsed, err := factory.ParseCompletionIssueEvidence(mustCanonical(t, factory.CompletionIssueEvidence{
+		Index: index, Title: title, Body: body,
+		TitleDigest: sum(title), ContentDigest: sum(body),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parsed
+}
+
+func mustCanonical(t *testing.T, body factory.CompletionIssueEvidence) string {
+	t.Helper()
+	data, err := body.CanonicalData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func sealedTestRecord() ReassessmentRecord {
+	cycle := factory.ReassessmentCycle{
+		EventID: factory.NewID(), CycleID: factory.NewID(),
+		State: factory.ReassessmentDeciding, Repository: 7, Generation: 1,
+	}
+	return ReassessmentRecord{
+		Cycle:           cycle,
+		Issue:           31,
+		InventoryDigest: strings.Repeat("a", 64),
+		Local: factory.CompletionLocal{
+			SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64),
+			ScopeDigest: strings.Repeat("e", 64), AuthorityFingerprint: "authority",
+		},
+		EvidenceIssues: 1, EvidenceRevision: 41,
+	}
+}
+
+// Sealed body rules are pure: they run everywhere, including without
+// the disposable PG fixture.
+func TestSealedEvidenceValidation(t *testing.T) {
+	valid := sealedTestRecord()
+	valid.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", "body")}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("valid sealed record refused: %v", err)
+	}
+	empty := sealedTestRecord()
+	empty.Evidence = []factory.CompletionIssueEvidence{}
+	empty.EvidenceIssues = 0
+	if err := empty.Validate(); err != nil {
+		t.Fatalf("valid empty seal refused: %v", err)
+	}
+	bodiless := sealedTestRecord()
+	if err := bodiless.Validate(); err == nil {
+		t.Fatal("bodiless seal accepted")
+	}
+	miscounted := sealedTestRecord()
+	miscounted.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", "body")}
+	miscounted.EvidenceIssues = 2
+	if err := miscounted.Validate(); err == nil {
+		t.Fatal("miscounted bodies accepted")
+	}
+	unbracketed := sealedTestRecord()
+	unbracketed.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", "body")}
+	unbracketed.EvidenceRevision = 0
+	if err := unbracketed.Validate(); err == nil {
+		t.Fatal("unbracketed seal accepted")
+	}
+	oversize := sealedTestRecord()
+	oversize.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", strings.Repeat("x", factory.MaxReassessmentEvidenceBytes))}
+	oversize.EvidenceIssues = 1
+	if err := oversize.Validate(); err == nil {
+		t.Fatal("oversize bodies accepted")
+	}
+}
+
+// CaptureCompletionLocal is proven on the disposable PG fixture
+// (SODA_PG_*; skips without it): the seeded requirement, grants and
+// empty scope capture stably, an unknown repository refuses, and a
+// new acceptance head moves only the scope digest.
+func TestCaptureCompletionLocalStabilityAndScope(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	first, err := db.CaptureCompletionLocal(ctx, 7)
+	if err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+	if err := first.Validate(); err != nil {
+		t.Fatalf("captured local invalid: %v", err)
+	}
+	if first.SourceCommit != strings.Repeat("1", 40) {
+		t.Fatalf("source=%q, want the seeded requirement source commit", first.SourceCommit)
+	}
+	if second, err := db.CaptureCompletionLocal(ctx, 7); err != nil || second != first {
+		t.Fatalf("second=%+v err=%v, want the stable capture", second, err)
+	}
+	if _, err := db.CaptureCompletionLocal(ctx, 777); err == nil {
+		t.Fatal("unknown repository captured instead of refusing")
+	}
+	decision := acceptanceFixture("d0123456789abcdef01234567", "")
+	if err := db.AdmitAcceptanceDecision(ctx, decision); err != nil {
+		t.Fatal(err)
+	}
+	third, err := db.CaptureCompletionLocal(ctx, 7)
+	if err != nil {
+		t.Fatalf("recapture: %v", err)
+	}
+	if third.ScopeDigest == first.ScopeDigest {
+		t.Fatal("new acceptance head left the scope digest unchanged")
+	}
+	if third.SourceCommit != first.SourceCommit || third.PreparationDigest != first.PreparationDigest ||
+		third.AuthorityFingerprint != first.AuthorityFingerprint {
+		t.Fatalf("third=%+v, want only the scope binding to move", third)
 	}
 }
 
@@ -124,14 +246,29 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	if err := db.CasReassessmentRecord(ctx, stale.Cycle.CycleID, factory.ReassessmentDeciding, stale); !errors.Is(err, ErrStaleRevision) {
 		t.Fatalf("wrong-state CAS: %v", err)
 	}
-	// Sealed evidence is immutable once recorded.
+	// Sealed evidence is immutable once recorded: the digest, the
+	// bodies with their count and revision bracket, and the
+	// completion event all refuse rewrites.
 	sealed := cycles[0]
+	sealedBody, err := factory.CompletionIssueEvidence{
+		Index: 9, Title: "sealed title", Body: "sealed body",
+		TitleDigest: strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64),
+	}.CanonicalData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedBody, err := factory.ParseCompletionIssueEvidence(sealedBody)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sealed.InventoryDigest = strings.Repeat("a", 64)
 	sealed.EvidenceFingerprint = strings.Repeat("b", 64)
 	sealed.Local = factory.CompletionLocal{
 		SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64),
 		ScopeDigest: strings.Repeat("e", 64), AuthorityFingerprint: "authority",
 	}
+	sealed.Evidence = []factory.CompletionIssueEvidence{parsedBody}
+	sealed.EvidenceIssues, sealed.EvidenceRevision = 1, 41
 	sealed.Cycle.State = factory.ReassessmentDeciding
 	if err := db.CasReassessmentRecord(ctx, sealed.Cycle.CycleID, factory.ReassessmentCollecting, sealed); err != nil {
 		t.Fatalf("seal CAS: %v", err)
@@ -140,6 +277,18 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	rewritten.InventoryDigest = strings.Repeat("f", 64)
 	if err := db.CasReassessmentRecord(ctx, rewritten.Cycle.CycleID, factory.ReassessmentDeciding, rewritten); err == nil {
 		t.Fatal("sealed inventory rewritten")
+	}
+	editedBodies := sealed
+	editedBodies.Evidence = []factory.CompletionIssueEvidence{parsedBody}
+	editedBodies.Evidence[0].Body = "edited body after the seal"
+	if err := db.CasReassessmentRecord(ctx, editedBodies.Cycle.CycleID, factory.ReassessmentDeciding, editedBodies); err == nil {
+		t.Fatal("sealed bodies rewritten")
+	}
+	droppedBodies := sealed
+	droppedBodies.Evidence = nil
+	droppedBodies.EvidenceIssues = 0
+	if err := db.CasReassessmentRecord(ctx, droppedBodies.Cycle.CycleID, factory.ReassessmentDeciding, droppedBodies); err == nil {
+		t.Fatal("sealed bodies dropped")
 	}
 
 	// One funded call reserves against the ledger and the global

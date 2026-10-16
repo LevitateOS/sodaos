@@ -149,9 +149,15 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	// unresolved completion cycle — seal, decide, release — in
 	// repository and generation order. Attention cycles are never
 	// touched and no automatic re-run starts; reassessing and later
-	// states rest for the FW32 coder admission. Unwired read bindings
-	// hold collecting cycles honestly.
-	_ = c.DriveCompletions(ctx, CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture})
+	// states rest for the FW32 coder admission. The production
+	// bindings are the serving-wired enumerator plus the store local
+	// capture; a missing enumerator still holds collecting cycles
+	// honestly instead of sealing from partial evidence.
+	deps := CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture}
+	if deps.CaptureLocal == nil && c.Store != nil {
+		deps.CaptureLocal = c.Store.CaptureCompletionLocal
+	}
+	_ = c.DriveCompletions(ctx, deps)
 	c.Dispatch(ctx)
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")

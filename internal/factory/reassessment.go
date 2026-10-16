@@ -98,6 +98,117 @@ func (l CompletionLocal) Sealed() bool {
 	return l != (CompletionLocal{})
 }
 
+// MaxReassessmentDecisionBytes bounds the entire encoded D13 decision
+// request (post-completion-reassessment-v1): the complete <=256 KiB
+// sealed issue evidence plus the completion/local envelope must fit
+// before any funded call is reserved. Requests beyond it refuse without
+// spend; evidence is never truncated to fit.
+const MaxReassessmentDecisionBytes = 320 * 1024
+
+// CompletionIssueEvidence is one sealed issue's substance: the exact
+// title, body, dependency edges and semantic digests the D13 decision
+// judges. Dependencies carry native dependency issue IDs in numeric
+// order, the same edge currency as the acceptance evidence. It is the
+// canonical form of one collector Data payload: the producer encodes
+// it, the seal persists it immutably, and the decision request carries
+// it so Jev assesses substance, not hashes. Field order is fixed so
+// the canonical encoding is digest-stable.
+type CompletionIssueEvidence struct {
+	Dependencies  []string `json:"dependencies,omitempty"`
+	Index         int64    `json:"index"`
+	Title         string   `json:"title"`
+	Body          string   `json:"body"`
+	TitleDigest   string   `json:"title_digest"`
+	ContentDigest string   `json:"content_digest"`
+}
+
+// Validate checks one sealed issue body: a positive index, a nonempty
+// title, valid semantic digests and numerically ascending unique
+// native dependency IDs. The body itself may be empty; native titles
+// may not.
+func (e CompletionIssueEvidence) Validate() error {
+	if e.Index < 1 {
+		return errors.New("sealed issue lacks its index")
+	}
+	if e.Title == "" || strings.ContainsRune(e.Title, 0) || strings.ContainsRune(e.Body, 0) {
+		return errors.New("sealed issue lacks its exact title and body")
+	}
+	if !ValidDigest(e.TitleDigest) || !ValidDigest(e.ContentDigest) {
+		return errors.New("sealed issue lacks its semantic digests")
+	}
+	prior := ""
+	for _, dep := range e.Dependencies {
+		if !ValidDependencyRef(dep) || compareDependencyRef(dep, prior) <= 0 {
+			return errors.New("sealed issue dependencies are not ascending and unique")
+		}
+		prior = dep
+	}
+	return nil
+}
+
+// ValidDependencyRef reports whether a native dependency ID is a
+// canonical positive decimal without leading zeros.
+func ValidDependencyRef(id string) bool {
+	if id == "" || id[0] == '0' || len(id) > 20 {
+		return false
+	}
+	for _, c := range id {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// compareDependencyRef orders canonical decimal IDs numerically:
+// shorter digit strings name smaller issues.
+func compareDependencyRef(a, b string) int {
+	if len(a) != len(b) {
+		if len(a) < len(b) {
+			return -1
+		}
+		return 1
+	}
+	switch {
+	case a < b:
+		return -1
+	case a > b:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// CanonicalData encodes one sealed issue body in its digest-stable
+// canonical form: the exact bytes the collector folds and the seal
+// persists.
+func (e CompletionIssueEvidence) CanonicalData() (string, error) {
+	if err := e.Validate(); err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(e)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
+// ParseCompletionIssueEvidence decodes one canonical collector payload
+// back into its substance. Anything outside the canonical shape refuses
+// so a malformed page can never seal.
+func ParseCompletionIssueEvidence(data string) (CompletionIssueEvidence, error) {
+	var evidence CompletionIssueEvidence
+	decoder := json.NewDecoder(strings.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&evidence); err != nil {
+		return CompletionIssueEvidence{}, errors.New("sealed issue body outside its canonical shape")
+	}
+	if err := evidence.Validate(); err != nil {
+		return CompletionIssueEvidence{}, err
+	}
+	return evidence, nil
+}
+
 // Validate requires every binding: a missing binding holds the gate
 // instead of sealing from partial evidence.
 func (l CompletionLocal) Validate() error {

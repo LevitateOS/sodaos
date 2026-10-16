@@ -17,6 +17,20 @@ type RepositoryIssueItem = extensions.SnapshotRepositoryIssueItem
 // readiness or other factory policy is expressed here.
 type RepositoryIssuesPage = extensions.SnapshotRepositoryIssuesPage
 
+// ValidateRepositoryIssuesPage checks one bounded enumeration page for
+// a repository_issues cursor scan: strictly ascending canonical
+// indexes above the exclusive cursor bound, a terminal page carrying
+// an empty cursor, a nonterminal page carrying nonempty items with the
+// cursor at the final returned index. It is the exported shape check
+// for paged consumers that bracket revisions themselves instead of
+// using the single-shot complete-page read.
+func ValidateRepositoryIssuesPage(page *RepositoryIssuesPage, repositoryID, cursor string) error {
+	if page == nil {
+		return ErrInvalidSnapshot
+	}
+	return validRepositoryIssuesPage(page, SnapshotRequest{RepositoryID: repositoryID, Cursor: cursor})
+}
+
 // validRepositoryIssuesPage checks that the page matches the request with
 // every locator well-formed: strictly ascending canonical indexes, all
 // above the exclusive cursor bound when one was supplied. A terminal page

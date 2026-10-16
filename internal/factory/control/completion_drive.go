@@ -160,6 +160,9 @@ func (c *Coordinator) driveCollecting(ctx context.Context, deps CompletionDriveD
 	record.InventoryDigest = sealed.Digest
 	record.EvidenceFingerprint = SealEvidenceFingerprint(sealed.Digest, record.Cycle.EventID, cycleID)
 	record.Local = sealed.Local
+	record.Evidence = sealed.Bodies
+	record.EvidenceIssues = sealed.Issues
+	record.EvidenceRevision = sealed.Revision
 	record.CollectorProgress = nil
 	record.WaitReason = ""
 	if err := record.Cycle.AdvanceTo(factory.ReassessmentDeciding); err != nil {
@@ -217,14 +220,14 @@ func (c *Coordinator) driveDeciding(ctx context.Context, deps CompletionDriveDep
 			}
 			return
 		}
-		if record.InventoryDigest == "" || record.EvidenceFingerprint == "" {
+		state, err := DecisionStateFromRecord(record)
+		if err != nil {
+			if errors.Is(err, errReassessmentDecisionOversize) {
+				attend("decision_evidence_oversize")
+				return
+			}
 			attend("decision_evidence_missing")
 			return
-		}
-		state := ReassessmentDecisionState{
-			CompletionID: record.Cycle.EventID, CycleID: cycleID,
-			InventoryDigest: record.InventoryDigest, EvidenceFingerprint: record.EvidenceFingerprint,
-			Repository: record.Cycle.Repository, Generation: record.Cycle.Generation,
 		}
 		decided, err := c.DecideReassessment(ctx, record, state)
 		if err != nil {
@@ -266,7 +269,7 @@ func (c *Coordinator) driveDeciding(ctx context.Context, deps CompletionDriveDep
 		attend("decision_not_actionable")
 		return
 	}
-	if deps.CaptureLocal == nil {
+	if deps.Enumerator == nil || deps.CaptureLocal == nil {
 		attend("freshness_unavailable")
 		return
 	}
@@ -275,8 +278,32 @@ func (c *Coordinator) driveDeciding(ctx context.Context, deps CompletionDriveDep
 		attend("freshness_unavailable")
 		return
 	}
+	// The release re-observes the material inventory through the
+	// enumerator at a stable native revision: native edits and
+	// insertions after the seal change the fresh digest and refuse
+	// the stale release, while an unchanged world releases. The
+	// sealed digest never appears on the current side.
+	fresh, err := ReobserveCompletionInventory(ctx, deps.Enumerator, record.Cycle.Repository, record.Cycle.Generation, current)
+	if err != nil {
+		// A busy or shifting native state defers the release: the
+		// recorded continue decision stands and the next drive
+		// retries without charging again. Material or structural
+		// drift holds with attention for explicit Retry.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			report.Held = append(report.Held, cycleID+":release_deferred")
+			return
+		}
+		switch err.Error() {
+		case HoldInventoryRevision, HoldInventoryInProgress:
+			report.Held = append(report.Held, cycleID+":release_deferred")
+			return
+		default:
+			attend(err.Error())
+			return
+		}
+	}
 	sealed := freshnessFromBindings(record.Local, record.InventoryDigest)
-	if err := CheckCompletionFreshness(sealed, freshnessFromBindings(current, record.InventoryDigest)); err != nil {
+	if err := CheckCompletionFreshness(sealed, freshnessFromBindings(fresh.Local, fresh.Digest)); err != nil {
 		attend(err.Error())
 		return
 	}

@@ -2,6 +2,8 @@ package control
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -63,23 +65,41 @@ func (f *fixtureEnumerator) EnumerateIssues(_ context.Context, _ int64, cursor s
 	return page, nil
 }
 
-func inventoryIssue(index int64) NativeInventoryIssue {
-	return NativeInventoryIssue{Index: index, Data: fmt.Sprintf("%d|title %d|body %d|digest %d", index, index, index, index)}
+func issueDigest(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(sum[:])
 }
 
-func twoPageEnumerator() *fixtureEnumerator {
+// inventoryIssue builds one canonical sealed payload through the real
+// producer encoding, so the fixtures prove the exact bytes the seal
+// persists and the decision assesses.
+func inventoryIssue(t *testing.T, index int64) NativeInventoryIssue {
+	t.Helper()
+	title, body := fmt.Sprintf("title %d", index), fmt.Sprintf("body %d", index)
+	data, err := factory.CompletionIssueEvidence{
+		Index: index, Title: title, Body: body,
+		TitleDigest: issueDigest(title), ContentDigest: issueDigest(body),
+	}.CanonicalData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NativeInventoryIssue{Index: index, Data: data}
+}
+
+func twoPageEnumerator(t *testing.T) *fixtureEnumerator {
+	t.Helper()
 	return &fixtureEnumerator{
 		revision: 41,
 		idle:     true,
 		pages: map[string]NativeInventoryPage{
-			"":  {Issues: []NativeInventoryIssue{inventoryIssue(1), inventoryIssue(2)}, NextCursor: "2"},
-			"2": {Issues: []NativeInventoryIssue{inventoryIssue(3)}, Complete: true},
+			"":  {Issues: []NativeInventoryIssue{inventoryIssue(t, 1), inventoryIssue(t, 2)}, NextCursor: "2"},
+			"2": {Issues: []NativeInventoryIssue{inventoryIssue(t, 3)}, Complete: true},
 		},
 	}
 }
 
 func TestInventoryCollectorSealsCompleteMultiPageSet(t *testing.T) {
-	enum := twoPageEnumerator()
+	enum := twoPageEnumerator(t)
 	sealed, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
@@ -90,7 +110,21 @@ func TestInventoryCollectorSealsCompleteMultiPageSet(t *testing.T) {
 	if !factory.ValidDigest(sealed.Digest) {
 		t.Fatalf("digest=%q, want a valid digest", sealed.Digest)
 	}
-	again, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(), 7, 1, testLocal())
+	// The seal persists bodies, not just the digest: every index
+	// carries its exact title and body for the funded decision.
+	if len(sealed.Bodies) != 3 {
+		t.Fatalf("bodies=%+v, want one substance per sealed issue", sealed.Bodies)
+	}
+	for i, body := range sealed.Bodies {
+		wantTitle := fmt.Sprintf("title %d", sealed.Indexes[i])
+		if body.Index != sealed.Indexes[i] || body.Title != wantTitle || body.Body != fmt.Sprintf("body %d", sealed.Indexes[i]) {
+			t.Fatalf("body=%+v, want the exact substance of issue %d", body, sealed.Indexes[i])
+		}
+		if err := body.Validate(); err != nil {
+			t.Fatalf("sealed body invalid: %v", err)
+		}
+	}
+	again, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(t), 7, 1, testLocal())
 	if err != nil || again.Digest != sealed.Digest {
 		t.Fatalf("reseal digest=%q err=%v, want deterministic %q", again.Digest, err, sealed.Digest)
 	}
@@ -118,6 +152,40 @@ func TestInventoryCollectorSealsCompleteEmptyInventory(t *testing.T) {
 	}
 }
 
+func TestInventoryCollectorRefusesNonCanonicalBody(t *testing.T) {
+	enum := &fixtureEnumerator{
+		revision: 41,
+		idle:     true,
+		pages: map[string]NativeInventoryPage{
+			"": {Issues: []NativeInventoryIssue{{Index: 1, Data: "not-canonical"}}, Complete: true},
+		},
+	}
+	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryPage {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryPage)
+	}
+}
+
+func TestInventoryCollectorRefusesMismatchedBodyIndex(t *testing.T) {
+	title, body := "title 9", "body 9"
+	data, err := factory.CompletionIssueEvidence{
+		Index: 9, Title: title, Body: body,
+		TitleDigest: issueDigest(title), ContentDigest: issueDigest(body),
+	}.CanonicalData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	enum := &fixtureEnumerator{
+		revision: 41,
+		idle:     true,
+		pages: map[string]NativeInventoryPage{
+			"": {Issues: []NativeInventoryIssue{{Index: 1, Data: data}}, Complete: true},
+		},
+	}
+	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryPage {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryPage)
+	}
+}
+
 func TestInventoryCollectorRefusesEmptyIncompletePage(t *testing.T) {
 	enum := &fixtureEnumerator{
 		revision: 41,
@@ -134,7 +202,7 @@ func TestInventoryCollectorRefusesCursorMismatch(t *testing.T) {
 		revision: 41,
 		idle:     true,
 		pages: map[string]NativeInventoryPage{
-			"": {Issues: []NativeInventoryIssue{inventoryIssue(1), inventoryIssue(2)}, NextCursor: "9"},
+			"": {Issues: []NativeInventoryIssue{inventoryIssue(t, 1), inventoryIssue(t, 2)}, NextCursor: "9"},
 		},
 	}
 	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryPage {
@@ -146,7 +214,7 @@ func TestInventoryCollectorRefusesTerminalCursor(t *testing.T) {
 	enum := &fixtureEnumerator{
 		revision: 41,
 		idle:     true,
-		pages:    map[string]NativeInventoryPage{"": {Issues: []NativeInventoryIssue{inventoryIssue(1)}, NextCursor: "1", Complete: true}},
+		pages:    map[string]NativeInventoryPage{"": {Issues: []NativeInventoryIssue{inventoryIssue(t, 1)}, NextCursor: "1", Complete: true}},
 	}
 	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryPage {
 		t.Fatalf("err=%v, want %q", err, HoldInventoryPage)
@@ -166,7 +234,7 @@ func TestInventoryCollectorHoldsOversizeEvidence(t *testing.T) {
 }
 
 func TestInventoryCollectorRestartsOnRevisionMoveWithoutOmission(t *testing.T) {
-	enum := twoPageEnumerator()
+	enum := twoPageEnumerator(t)
 	enum.moveRev = func(call int) int64 {
 		if call >= 2 {
 			return 42
@@ -186,14 +254,14 @@ func TestInventoryCollectorRestartsOnRevisionMoveWithoutOmission(t *testing.T) {
 	if sealed.Issues != 3 {
 		t.Fatalf("sealed=%+v, want the full set after restart, never a subset", sealed)
 	}
-	again, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(), 7, 1, testLocal())
+	again, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(t), 7, 1, testLocal())
 	if err != nil || again.Digest == sealed.Digest {
 		t.Fatal("a moved revision must seal a different digest, never the stale set")
 	}
 }
 
 func TestInventoryCollectorResumesFromSavedProgress(t *testing.T) {
-	first := twoPageEnumerator()
+	first := twoPageEnumerator(t)
 	_, progress, err := (&InventoryCollector{}).Collect(context.Background(), &cappedEnumerator{inner: first, maxPages: 1}, 7, 1, testLocal())
 	// The page budget cuts the scan mid-set: the failure holds with the
 	// observed prefix persisted, so the next drive resumes instead of
@@ -204,14 +272,14 @@ func TestInventoryCollectorResumesFromSavedProgress(t *testing.T) {
 	if progress == nil || progress.Cursor != "2" || len(progress.Issues) != 2 {
 		t.Fatalf("progress=%+v, want the first page persisted", progress)
 	}
-	sealed, after, err := progress.Collect(context.Background(), twoPageEnumerator(), 7, 1, testLocal())
+	sealed, after, err := progress.Collect(context.Background(), twoPageEnumerator(t), 7, 1, testLocal())
 	if err != nil || sealed.Issues != 3 {
 		t.Fatalf("resumed=%+v err=%v, want the complete set", sealed, err)
 	}
 	if after != nil {
 		t.Fatalf("progress=%+v, want no resumable progress after a seal", after)
 	}
-	fresh, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(), 7, 1, testLocal())
+	fresh, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(t), 7, 1, testLocal())
 	if err != nil || fresh.Digest != sealed.Digest {
 		t.Fatal("resumed seal differs from a clean seal over the same set")
 	}
@@ -238,13 +306,13 @@ func (c *cappedEnumerator) EnumerateIssues(ctx context.Context, repository int64
 }
 
 func TestInventoryCollectorRefusesInvalidLocal(t *testing.T) {
-	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(), 7, 1, factory.CompletionLocal{}); err == nil || err.Error() != HoldInventoryUnavailable {
+	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(t), 7, 1, factory.CompletionLocal{}); err == nil || err.Error() != HoldInventoryUnavailable {
 		t.Fatalf("err=%v, want %q", err, HoldInventoryUnavailable)
 	}
 }
 
 func TestInventoryCollectorHoldsWhenNativeBusy(t *testing.T) {
-	enum := twoPageEnumerator()
+	enum := twoPageEnumerator(t)
 	enum.idle = false
 	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryRevision {
 		t.Fatalf("err=%v, want %q", err, HoldInventoryRevision)

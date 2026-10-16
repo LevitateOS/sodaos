@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -32,6 +33,26 @@ func freshnessFromBindings(local factory.CompletionLocal, inventoryDigest string
 		AuthorityFingerprint: local.AuthorityFingerprint,
 		EvidenceDigest:       inventoryDigest,
 	}
+}
+
+// ReobserveCompletionInventory re-enumerates the material inventory at
+// release through the production enumerator: a fresh bounded
+// collection over the recaptured local bindings at a stable native
+// revision. The caller compares the fresh digest against the sealed
+// digest, so native edits and insertions after the seal refuse the
+// stale release instead of releasing from remembered bytes. A nil
+// enumerator refuses rather than assuming freshness. Collection holds
+// (busy or unstable native state) report their resumable reason for
+// the caller to defer or attend.
+func ReobserveCompletionInventory(ctx context.Context, enum CompletionIssueEnumerator, repository, generation int64, current factory.CompletionLocal) (*SealedInventory, error) {
+	if enum == nil {
+		return nil, errors.New("completion freshness lacks its enumerator")
+	}
+	fresh, _, err := (&InventoryCollector{}).Collect(ctx, enum, repository, generation, current)
+	if err != nil {
+		return nil, err
+	}
+	return fresh, nil
 }
 
 // CheckCompletionFreshness refuses a continue release whose world

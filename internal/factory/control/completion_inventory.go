@@ -72,10 +72,14 @@ type CompletionIssueEnumerator interface {
 // ordered by issue index, with the bound evidence and the local
 // bindings that interpret it. An empty issue set seals as a valid
 // complete empty inventory with its own digest: each completion gets
-// its own decision even when none remain.
+// its own decision even when none remain. Bodies carries the parsed
+// substance behind every collected Data payload, index-aligned with
+// Indexes, so the seal persists bodies — not just the digest — for the
+// funded decision.
 type SealedInventory struct {
 	Local      factory.CompletionLocal
 	Indexes    []int64
+	Bodies     []factory.CompletionIssueEvidence
 	Digest     string
 	Repository int64
 	Generation int64
@@ -228,7 +232,15 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 		}
 		page, err := enum.EnumerateIssues(ctx, repository, next.Cursor)
 		if err != nil {
-			return nil, &next, errors.New(HoldInventoryUnavailable)
+			// The producer names exact holds visibly: oversize,
+			// malformed and unstable evidence keep their reason
+			// instead of collapsing into unavailable.
+			switch err.Error() {
+			case HoldInventoryOversize, HoldInventoryPage, HoldInventoryRevision:
+				return nil, &next, err
+			default:
+				return nil, &next, errors.New(HoldInventoryUnavailable)
+			}
 		}
 		if page.Revision != revision || !page.Idle {
 			if next.Restarts >= maxCollectorRestarts {
@@ -269,10 +281,28 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 				indexes = append(indexes, issue.Index)
 			}
 			sort.Slice(indexes, func(i, j int) bool { return indexes[i] < indexes[j] })
+			// The seal parses every payload into its substance: a
+			// non-canonical body refuses the seal instead of
+			// persisting bytes the decision cannot assess.
+			byIndex := make(map[int64]factory.CompletionIssueEvidence, len(next.Issues))
+			for _, issue := range next.Issues {
+				body, err := factory.ParseCompletionIssueEvidence(issue.Data)
+				if err != nil {
+					return nil, &next, errors.New(HoldInventoryPage)
+				}
+				if body.Index != issue.Index {
+					return nil, &next, errors.New(HoldInventoryPage)
+				}
+				byIndex[issue.Index] = body
+			}
+			bodies := make([]factory.CompletionIssueEvidence, 0, len(indexes))
+			for _, index := range indexes {
+				bodies = append(bodies, byIndex[index])
+			}
 			// The seal supersedes progress: resuming from a sealed
 			// collector would re-observe a closed evidence set.
 			return &SealedInventory{
-				Local: next.Local, Indexes: indexes,
+				Local: next.Local, Indexes: indexes, Bodies: bodies,
 				Digest:     sealInventoryDigest(repository, generation, revision, next.Running, indexes),
 				Repository: repository, Generation: generation, Revision: revision,
 				Issues: len(next.Issues), Evidence: evidence,

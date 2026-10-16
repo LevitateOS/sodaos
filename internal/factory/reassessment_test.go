@@ -16,6 +16,69 @@ func reassessDecision(seed byte) string { return "d" + strings.Repeat(string([]b
 
 func reassessCommit(seed byte) string { return strings.Repeat(string([]byte{seed}), 40) }
 
+func canonicalIssueEvidence(index int64) CompletionIssueEvidence {
+	title, body := fmt.Sprintf("sealed title %d", index), fmt.Sprintf("sealed body %d", index)
+	return CompletionIssueEvidence{
+		Index: index, Title: title, Body: body, Dependencies: []string{"2", "11"},
+		TitleDigest: reassessDigest('a'), ContentDigest: reassessDigest('b'),
+	}
+}
+
+// The canonical issue encoding round-trips its substance byte-for-byte:
+// the seal persists and the decision assesses these exact bytes.
+func TestCompletionIssueEvidenceCanonicalRoundTrip(t *testing.T) {
+	data, err := canonicalIssueEvidence(4).CanonicalData()
+	if err != nil {
+		t.Fatalf("canonical encoding refused: %v", err)
+	}
+	parsed, err := ParseCompletionIssueEvidence(data)
+	if err != nil {
+		t.Fatalf("canonical decoding refused: %v", err)
+	}
+	again, err := parsed.CanonicalData()
+	if err != nil || again != data {
+		t.Fatal("canonical encoding unstable across its round-trip")
+	}
+	if parsed.Title != "sealed title 4" || parsed.Body != "sealed body 4" ||
+		len(parsed.Dependencies) != 2 || parsed.Dependencies[0] != "2" {
+		t.Fatalf("parsed=%+v, want the exact sealed substance", parsed)
+	}
+}
+
+func TestCompletionIssueEvidenceRefusesNonCanonical(t *testing.T) {
+	for name, mutate := range map[string]func(CompletionIssueEvidence) CompletionIssueEvidence{
+		"index": func(e CompletionIssueEvidence) CompletionIssueEvidence { e.Index = 0; return e },
+		"title": func(e CompletionIssueEvidence) CompletionIssueEvidence { e.Title = ""; return e },
+		"digest": func(e CompletionIssueEvidence) CompletionIssueEvidence {
+			e.ContentDigest = "short"
+			return e
+		},
+		"dependencies": func(e CompletionIssueEvidence) CompletionIssueEvidence {
+			e.Dependencies = []string{"11", "2"}
+			return e
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := mutate(canonicalIssueEvidence(4)).CanonicalData(); err == nil {
+				t.Fatalf("%s encoded outside the canonical shape", name)
+			}
+		})
+	}
+	for _, raw := range []string{"", "not-json", `{"index":4,"title":"t","body":"b","title_digest":"` + reassessDigest('a') + `","content_digest":"` + reassessDigest('b') + `","extra":1}`} {
+		t.Run("raw", func(t *testing.T) {
+			if _, err := ParseCompletionIssueEvidence(raw); err == nil {
+				t.Fatalf("%q parsed outside the canonical shape", raw)
+			}
+		})
+	}
+}
+
+func TestMaxReassessmentDecisionBytesCoversSealedEvidence(t *testing.T) {
+	if MaxReassessmentDecisionBytes < MaxReassessmentEvidenceBytes {
+		t.Fatal("the decision bound cannot carry the sealed evidence bound")
+	}
+}
+
 func canonicalCompletionEvent() CompletionEvent {
 	return CompletionEvent{
 		ID: reassessID('a'), PublicationID: reassessID('b'),

@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -23,19 +24,62 @@ const reassessmentDecisionRubric = "Does the delivered change or the current iss
 
 // ReassessmentDecisionState is the exact Choice input for one
 // completion decision. It embeds the cycle, the distinct completion
-// ID and the complete sealed-evidence fingerprint, so the shared
-// judgment cache reuses a receipt only while its purpose, rubric,
-// model and evidence still match. Each completion gets its own
-// decision even when inventories are identical or empty.
+// ID, the sealed completion and local bindings, and the complete
+// sealed issue bodies, so Jev assesses substance — the delivered
+// change and the current issue set with their titles, bodies and
+// dependencies — not hashes. The shared judgment cache reuses a
+// receipt only while its purpose, rubric, model and evidence still
+// match. Each completion gets its own decision even when inventories
+// are identical or empty.
 type ReassessmentDecisionState struct {
-	Model               string `json:"model"`
-	CompletionID        string `json:"completion_id"`
-	CycleID             string `json:"cycle_id"`
-	InventoryDigest     string `json:"inventory_digest"`
-	EvidenceFingerprint string `json:"evidence_fingerprint"`
-	Repository          int64  `json:"repository,string"`
-	Generation          int64  `json:"generation"`
-	Issues              int    `json:"issues"`
+	Completion          factory.CompletionEvent           `json:"completion"`
+	Local               factory.CompletionLocal           `json:"local"`
+	Evidence            []factory.CompletionIssueEvidence `json:"evidence"`
+	Model               string                            `json:"model"`
+	CompletionID        string                            `json:"completion_id"`
+	CycleID             string                            `json:"cycle_id"`
+	InventoryDigest     string                            `json:"inventory_digest"`
+	EvidenceFingerprint string                            `json:"evidence_fingerprint"`
+	Repository          int64                             `json:"repository,string"`
+	Generation          int64                             `json:"generation"`
+	Issues              int                               `json:"issues"`
+}
+
+// errReassessmentDecisionOversize reports a decision request that
+// exceeds the pre-spend bound. The seal holds instead: evidence is
+// never truncated to fit, and nothing is charged.
+var errReassessmentDecisionOversize = errors.New("reassessment decision exceeds its encoded bound")
+
+// DecisionStateFromRecord builds the exact D13 decision input from one
+// sealed cycle: the persisted completion, local bindings and issue
+// bodies. It refuses unsealed or bodiless records instead of asking Jev
+// to judge hashes, and refuses oversize requests before any funding is
+// reserved.
+func DecisionStateFromRecord(record store.ReassessmentRecord) (ReassessmentDecisionState, error) {
+	if record.InventoryDigest == "" || record.EvidenceFingerprint == "" {
+		return ReassessmentDecisionState{}, errors.New("reassessment decision lacks its sealed evidence")
+	}
+	if record.Evidence == nil {
+		return ReassessmentDecisionState{}, errors.New("reassessment decision lacks its sealed bodies")
+	}
+	if len(record.Evidence) != record.EvidenceIssues {
+		return ReassessmentDecisionState{}, errors.New("reassessment decision bodies differ from their sealed count")
+	}
+	state := ReassessmentDecisionState{
+		Completion: record.Completion, Local: record.Local, Evidence: record.Evidence,
+		CompletionID: record.Cycle.EventID, CycleID: record.Cycle.CycleID,
+		InventoryDigest: record.InventoryDigest, EvidenceFingerprint: record.EvidenceFingerprint,
+		Repository: record.Cycle.Repository, Generation: record.Cycle.Generation,
+		Issues: len(record.Evidence),
+	}
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return ReassessmentDecisionState{}, err
+	}
+	if len(raw) > factory.MaxReassessmentDecisionBytes {
+		return ReassessmentDecisionState{}, errReassessmentDecisionOversize
+	}
+	return state, nil
 }
 
 // reassessmentDecisionOptions offers exactly reassess or continue. No

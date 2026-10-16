@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -26,23 +28,45 @@ var ErrCompletionFenced = errors.New("repository completion fence is closed")
 var ErrReassessmentBudgetExhausted = errors.New("reassessment consultation budget is exhausted")
 
 // ReassessmentRecord is one persisted bounded cycle: the FW30 domain
-// cycle plus the sealed complete-inventory digest, the funded-decision
-// evidence fingerprint, the wait/retry reason for read models and the
-// opaque resumable collector progress. Sealed evidence never changes:
-// once an inventory digest is recorded, later writes must carry it.
+// cycle plus the sealed completion event, the complete sealed issue
+// bodies with their inventory digest and native revision bracket, the
+// funded-decision evidence fingerprint, the wait/retry reason for read
+// models and the opaque resumable collector progress. Sealed evidence
+// never changes: once an inventory digest is recorded, later writes
+// must carry it with its bodies unchanged.
 type ReassessmentRecord struct {
-	Cycle               factory.ReassessmentCycle `json:"cycle"`
-	Local               factory.CompletionLocal   `json:"local,omitempty"`
-	InventoryDigest     string                    `json:"inventory_digest,omitempty"`
-	EvidenceFingerprint string                    `json:"evidence_fingerprint,omitempty"`
-	WaitReason          string                    `json:"wait_reason,omitempty"`
-	CollectorProgress   json.RawMessage           `json:"collector_progress,omitempty"`
-	Issue               int64                     `json:"issue,omitempty"`
+	Cycle               factory.ReassessmentCycle         `json:"cycle"`
+	Completion          factory.CompletionEvent           `json:"completion,omitempty"`
+	Local               factory.CompletionLocal           `json:"local,omitempty"`
+	Evidence            []factory.CompletionIssueEvidence `json:"evidence,omitempty"`
+	InventoryDigest     string                            `json:"inventory_digest,omitempty"`
+	EvidenceFingerprint string                            `json:"evidence_fingerprint,omitempty"`
+	WaitReason          string                            `json:"wait_reason,omitempty"`
+	CollectorProgress   json.RawMessage                   `json:"collector_progress,omitempty"`
+	Issue               int64                             `json:"issue,omitempty"`
+	EvidenceIssues      int                               `json:"evidence_issues,omitempty"`
+	EvidenceRevision    int64                             `json:"evidence_revision,omitempty"`
+}
+
+// evidenceBytes totals the canonical sealed body bytes for the bound
+// check: the same bytes the collector bounded before the seal.
+func (r ReassessmentRecord) evidenceBytes() int {
+	total := 0
+	for _, body := range r.Evidence {
+		raw, err := body.CanonicalData()
+		if err != nil {
+			return factory.MaxReassessmentEvidenceBytes + 1
+		}
+		total += len(raw)
+	}
+	return total
 }
 
 // Validate checks the record shape without enforcing liveness: the
-// cycle validates itself, digests validate when present, and the wait
-// reason stays a short resumable-step name, never evidence bytes.
+// cycle validates itself, digests validate when present, sealed bodies
+// validate within their count and byte bounds with indexes matching
+// the sealed count, and the wait reason stays a short resumable-step
+// name, never evidence bytes.
 func (r ReassessmentRecord) Validate() error {
 	if err := r.Cycle.Validate(); err != nil {
 		return err
@@ -52,6 +76,25 @@ func (r ReassessmentRecord) Validate() error {
 	}
 	if r.EvidenceFingerprint != "" && !factory.ValidDigest(r.EvidenceFingerprint) {
 		return errors.New("invalid decision evidence fingerprint")
+	}
+	if r.InventoryDigest != "" {
+		if r.Evidence == nil {
+			return errors.New("sealed reassessment lacks its issue bodies")
+		}
+		if len(r.Evidence) != r.EvidenceIssues || len(r.Evidence) > factory.MaxReassessmentIssues {
+			return errors.New("sealed reassessment bodies differ from their sealed count")
+		}
+		if r.EvidenceRevision < 1 {
+			return errors.New("sealed reassessment lacks its revision bracket")
+		}
+		if r.evidenceBytes() > factory.MaxReassessmentEvidenceBytes {
+			return errors.New("sealed reassessment bodies exceed their bound")
+		}
+		for _, body := range r.Evidence {
+			if err := body.Validate(); err != nil {
+				return err
+			}
+		}
 	}
 	if len(r.WaitReason) > factory.MaxReassessmentReasonChars {
 		return errors.New("invalid reassessment wait reason")
@@ -123,7 +166,7 @@ func recordCompletionTx(ctx context.Context, tx *sql.Tx, m factory.Merge) (bool,
 	if err := cycle.Validate(); err != nil {
 		return false, err
 	}
-	record := ReassessmentRecord{Cycle: cycle, Issue: m.Issue}
+	record := ReassessmentRecord{Cycle: cycle, Completion: event, Issue: m.Issue}
 	recordData, err := json.Marshal(record)
 	if err != nil {
 		return false, err
@@ -215,6 +258,156 @@ func (s *Store) PendingReassessmentCycles(ctx context.Context, repository int64)
 	}
 	_ = rows.Close()
 	return cycles, nil
+}
+
+// CaptureCompletionLocal reads the local half of D13 sealed evidence
+// for one repository in a single repeatable-read transaction: the
+// requirement source commit, the approved-preparation digest, the
+// accepted-scope digest (acceptance heads plus withdrawals) and the
+// authority fingerprint. It is the production CompletionLocalCapture
+// behind the completion drive: stable while nothing material changes,
+// sensitive to source, preparation, scope and authority changes, and
+// honest about gaps — a repository without a project or requirement
+// source refuses instead of sealing from partial bindings. Private
+// per-issue candidate custody and runtime preparation state stay out:
+// they are volatile execution detail, not the approved local bindings
+// the seal interprets the inventory against.
+func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (factory.CompletionLocal, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var projectID string
+	if err = tx.QueryRowContext(ctx, `SELECT id FROM projects WHERE repository_id=$1`, repository).Scan(&projectID); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	var requirementID string
+	if err = tx.QueryRowContext(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=$1`, projectID).Scan(&requirementID); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	var requirementData []byte
+	if err = tx.QueryRowContext(ctx, `SELECT data FROM project_requirement_decisions WHERE id=$1`, requirementID).Scan(&requirementData); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	var requirement project.RequirementDecision
+	if err = json.Unmarshal(requirementData, &requirement); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	if !factory.ValidCommit(requirement.SourceCommit) {
+		return factory.CompletionLocal{}, errors.New("completion local lacks its source commit")
+	}
+	preparationRows, err := tx.QueryContext(ctx, `SELECT data FROM project_preparations
+		WHERE project_id=$1 AND NOT (data ? 'factory_admission') ORDER BY id`, projectID)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	type preparationBinding struct {
+		ID                string `json:"id"`
+		Revision          int64  `json:"revision"`
+		SourceCommit      string `json:"source_commit"`
+		SetupDigest       string `json:"setup_digest"`
+		RequirementDigest string `json:"requirement_digest"`
+		ApprovalDigest    string `json:"approval_digest"`
+	}
+	var preparations []preparationBinding
+	for preparationRows.Next() {
+		var raw []byte
+		var stored project.StoredPreparation
+		if err = preparationRows.Scan(&raw); err != nil {
+			_ = preparationRows.Close()
+			return factory.CompletionLocal{}, err
+		}
+		if err = json.Unmarshal(raw, &stored); err != nil {
+			_ = preparationRows.Close()
+			return factory.CompletionLocal{}, err
+		}
+		preparations = append(preparations, preparationBinding{
+			ID: stored.Preparation.ID, Revision: stored.Preparation.Revision,
+			SourceCommit: stored.Preparation.SourceCommit, SetupDigest: stored.Preparation.SetupDigest,
+			RequirementDigest: stored.Preparation.Requirements.Digest,
+			ApprovalDigest:    stored.Preparation.Approval.EffectsDigest,
+		})
+	}
+	if err = preparationRows.Err(); err != nil {
+		_ = preparationRows.Close()
+		return factory.CompletionLocal{}, err
+	}
+	_ = preparationRows.Close()
+	headRows, err := tx.QueryContext(ctx, `SELECT issue, decision FROM issue_acceptance_heads
+		WHERE repository=$1 ORDER BY issue`, repository)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	type scopeBinding struct {
+		Issue    int64  `json:"issue"`
+		Decision string `json:"decision"`
+	}
+	var scope []scopeBinding
+	for headRows.Next() {
+		var binding scopeBinding
+		if err = headRows.Scan(&binding.Issue, &binding.Decision); err != nil {
+			_ = headRows.Close()
+			return factory.CompletionLocal{}, err
+		}
+		scope = append(scope, binding)
+	}
+	if err = headRows.Err(); err != nil {
+		_ = headRows.Close()
+		return factory.CompletionLocal{}, err
+	}
+	_ = headRows.Close()
+	withdrawalRows, err := tx.QueryContext(ctx, `SELECT issue, decision FROM issue_acceptance_withdrawals
+		WHERE repository=$1 ORDER BY issue, decision`, repository)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	var withdrawals []scopeBinding
+	for withdrawalRows.Next() {
+		var binding scopeBinding
+		if err = withdrawalRows.Scan(&binding.Issue, &binding.Decision); err != nil {
+			_ = withdrawalRows.Close()
+			return factory.CompletionLocal{}, err
+		}
+		withdrawals = append(withdrawals, binding)
+	}
+	if err = withdrawalRows.Err(); err != nil {
+		_ = withdrawalRows.Close()
+		return factory.CompletionLocal{}, err
+	}
+	_ = withdrawalRows.Close()
+	authorityInput, err := factoryAuthorityInput(ctx, tx, repository)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	preparationDoc, err := json.Marshal(struct {
+		Preparations []preparationBinding `json:"preparations"`
+	}{preparations})
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	scopeDoc, err := json.Marshal(struct {
+		Heads       []scopeBinding `json:"heads"`
+		Withdrawals []scopeBinding `json:"withdrawals"`
+	}{scope, withdrawals})
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	preparationSum := sha256.Sum256(preparationDoc)
+	scopeSum := sha256.Sum256(scopeDoc)
+	local := factory.CompletionLocal{
+		SourceCommit:         requirement.SourceCommit,
+		PreparationDigest:    hex.EncodeToString(preparationSum[:]),
+		ScopeDigest:          hex.EncodeToString(scopeSum[:]),
+		AuthorityFingerprint: factory.AuthorityFingerprint(factory.EvaluateAuthority(authorityInput)),
+	}
+	if err = local.Validate(); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	if err = tx.Commit(); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	return local, nil
 }
 
 // PendingCompletionRepositories lists every repository with at least
@@ -327,6 +520,22 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 	}
 	if current.Local.Sealed() && record.Local != current.Local {
 		return errors.New("sealed reassessment local bindings are immutable")
+	}
+	if current.InventoryDigest != "" {
+		if record.EvidenceRevision != current.EvidenceRevision || record.EvidenceIssues != current.EvidenceIssues ||
+			len(record.Evidence) != len(current.Evidence) {
+			return errors.New("sealed reassessment bodies are immutable")
+		}
+		for i := range record.Evidence {
+			sealed, err := record.Evidence[i].CanonicalData()
+			held, herr := current.Evidence[i].CanonicalData()
+			if err != nil || herr != nil || sealed != held {
+				return errors.New("sealed reassessment bodies are immutable")
+			}
+		}
+		if record.Completion != current.Completion {
+			return errors.New("sealed reassessment completion is immutable")
+		}
 	}
 	if record.Issue != current.Issue {
 		return errors.New("reassessment completed issue is immutable")
