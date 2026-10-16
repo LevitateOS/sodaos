@@ -150,7 +150,7 @@ func TestMCPCapabilityScopeBindsIdentity(t *testing.T) {
 func testMCPSubmission(tool MCPTool, payload []byte) MCPSubmission {
 	hash := MCPInputDigest(payload)
 	return MCPSubmission{
-		AssignmentID: NewID(), SubmissionID: NewID(), Tool: tool,
+		AssignmentID: NewID(), SubmissionID: NewID(), CapabilityID: NewID(), Tool: tool,
 		ExpectedInputDigest: hash, PayloadHash: hash, Payload: payload,
 	}
 }
@@ -169,10 +169,19 @@ func TestMCPSubmissionValidation(t *testing.T) {
 	if err := bad.Validate(); err == nil {
 		t.Fatal("payload hash mismatch admitted")
 	}
+	// ExpectedInputDigest is an independent admitted-inputs
+	// identity, not a copy of the payload hash: shape keeps both
+	// digests well-formed while admission binds the expected digest
+	// to the capability's current inputs.
 	bad = testMCPSubmission(MCPToolStatus, payload)
 	bad.ExpectedInputDigest = strings.Repeat("c", 64)
+	if err := bad.Validate(); err != nil {
+		t.Fatalf("independent input digest refused at shape: %v", err)
+	}
+	bad = testMCPSubmission(MCPToolStatus, payload)
+	bad.ExpectedInputDigest = "not-a-digest"
 	if err := bad.Validate(); err == nil {
-		t.Fatal("input digest mismatch admitted")
+		t.Fatal("malformed input digest admitted")
 	}
 	big := testMCPSubmission(MCPToolStatus, make([]byte, MCPMaxSubmissionPayload+1))
 	if err := big.Validate(); err == nil {

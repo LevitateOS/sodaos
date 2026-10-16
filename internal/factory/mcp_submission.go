@@ -135,12 +135,18 @@ const (
 	MCPReceiptRefused   = "refused"
 )
 
-// MCPSubmission is one immutable tool call. Unique
-// (assignment_id, submission_id) is the idempotency key: exact replay
-// returns the existing receipt, changed bytes under that ID conflict.
+// MCPSubmission is one immutable tool call under one recorded
+// capability. Unique (assignment_id, submission_id) is the
+// idempotency key: exact replay returns the existing receipt,
+// changed bytes under that ID conflict. CapabilityID binds the
+// server-admitted capability: the transport carries the envelope's
+// capability ID here, admission checks it against the admitted
+// capability, and persistence locks and rechecks that capability
+// row inside the insert transaction.
 type MCPSubmission struct {
 	AssignmentID        string  `json:"assignment_id"`
 	SubmissionID        string  `json:"submission_id"`
+	CapabilityID        string  `json:"capability_id"`
 	Tool                MCPTool `json:"tool"`
 	ExpectedInputDigest string  `json:"expected_input_digest"`
 	PayloadHash         string  `json:"payload_hash"`
@@ -155,14 +161,22 @@ func MCPInputDigest(payload []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Validate checks submission shape and byte bounds. Tool/profile
-// binding and terminal freezing are admission checks, not shape.
+// Validate checks submission shape and byte bounds. Tool/profile/
+// capability binding, scope freshness and terminal freezing are
+// admission checks, not shape: ExpectedInputDigest names the scope
+// snapshot the caller built against, and admission binds it to the
+// capability's current scope digest. Shape keeps the identities and
+// both digests well-formed and the payload hash bound to the
+// payload bytes; persistence keeps the recorded digests immutable.
 func (s MCPSubmission) Validate() error {
 	if !ValidID(s.AssignmentID) {
 		return errors.New("invalid submission assignment")
 	}
 	if !ValidID(s.SubmissionID) {
 		return errors.New("invalid submission identity")
+	}
+	if !ValidID(s.CapabilityID) {
+		return errors.New("invalid submission capability")
 	}
 	if !MCPToolKnown(s.Tool) {
 		return errors.New("unknown submission tool")
@@ -181,9 +195,6 @@ func (s MCPSubmission) Validate() error {
 	}
 	if MCPInputDigest(s.Payload) != s.PayloadHash {
 		return errors.New("submission payload hash mismatch")
-	}
-	if s.ExpectedInputDigest != s.PayloadHash {
-		return errors.New("submission input digest mismatch")
 	}
 	return nil
 }

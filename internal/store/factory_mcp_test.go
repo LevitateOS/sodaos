@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,6 +29,10 @@ func TestFactoryMCPSchemaContract(t *testing.T) {
 	if !strings.Contains(FactoryMCPSubmissionsDDL, "PRIMARY KEY(assignment,submission)") {
 		t.Fatal("submission idempotency key missing")
 	}
+	if !strings.Contains(FactoryMCPAssignmentGuardDDL, "factory_mcp_submission_guards") ||
+		!strings.Contains(FactoryMCPAssignmentGuardDDL, "PRIMARY KEY(assignment)") {
+		t.Fatal("per-assignment serialization guard missing")
+	}
 	if !strings.Contains(FactoryMCPCapabilitiesDDL, "PRIMARY KEY") || !strings.Contains(FactoryMCPCapabilitiesDDL, "CHECK(id ~") {
 		t.Fatal("capability identity key missing")
 	}
@@ -48,12 +55,36 @@ func testMCPCapabilityRow() factory.MCPCapability {
 	}
 }
 
-func testMCPSubmissionRow(assignmentID string, tool factory.MCPTool, payload []byte) factory.MCPSubmission {
-	hash := factory.MCPInputDigest(payload)
+// testMCPSubmissionRow binds a submission to its server-admitted
+// capability: the capability ID plus the capability's current scope
+// digest, which persistence rechecks against the authentic row.
+func testMCPSubmissionRow(capability factory.MCPCapability, tool factory.MCPTool, payload []byte) factory.MCPSubmission {
 	return factory.MCPSubmission{
-		AssignmentID: assignmentID, SubmissionID: factory.NewID(), Tool: tool,
-		ExpectedInputDigest: hash, PayloadHash: hash, Payload: payload,
+		AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
+		CapabilityID: capability.ID, Tool: tool,
+		ExpectedInputDigest: capability.ScopeDigest(),
+		PayloadHash:         factory.MCPInputDigest(payload), Payload: payload,
 	}
+}
+
+// activateMCPCapability stages and activates a capability for
+// submission tests: persistence only records under an active row.
+func activateMCPCapability(t *testing.T, ctx context.Context, db *Store, capability factory.MCPCapability) factory.MCPCapability {
+	t.Helper()
+	staged := capability
+	staged.State = factory.MCPCapabilityStaged
+	if err := db.StageMCPCapability(ctx, staged); err != nil {
+		t.Fatalf("stage: %v", err)
+	}
+	if err := db.ActivateMCPCapability(ctx, staged.ID, staged.Generation, staged.RunID,
+		staged.AssignmentID, staged.Authority, time.Now().Unix(), false); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	active, err := db.GetMCPCapability(ctx, staged.ID)
+	if err != nil {
+		t.Fatalf("readback: %v", err)
+	}
+	return active
 }
 
 func testMCPRecordedReceipt(submission factory.MCPSubmission) factory.MCPReceipt {
@@ -75,6 +106,7 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	for _, stmt := range []string{
 		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
 		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
+		FactoryMCPAssignmentGuardDDL,
 	} {
 		if _, err := db.db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
 			t.Fatalf("MCP DDL: %v", err)
@@ -122,8 +154,10 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	}
 
 	// Immutable submissions: exact replay, conflict, recovery.
+	// Submissions bind the activated capability above; the scope is
+	// unchanged since activation.
 	payload := []byte(`{"outcome":"done"}`)
-	submission := testMCPSubmissionRow(capability.AssignmentID, factory.MCPToolFinishImplement, payload)
+	submission := testMCPSubmissionRow(got, factory.MCPToolFinishImplement, payload)
 	first, err := db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
 	if err != nil {
 		t.Fatalf("record: %v", err)
@@ -138,9 +172,8 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	changed := submission
 	changed.Payload = []byte(`{"outcome":"blocked"}`)
 	changed.PayloadHash = factory.MCPInputDigest(changed.Payload)
-	changed.ExpectedInputDigest = changed.PayloadHash
-	if _, err := db.RecordMCPSubmission(ctx, changed, testMCPRecordedReceipt(changed)); err == nil {
-		t.Fatal("changed bytes under recorded ID admitted")
+	if _, err := db.RecordMCPSubmission(ctx, changed, testMCPRecordedReceipt(changed)); !errors.Is(err, ErrMCPSubmissionConflict) {
+		t.Fatalf("changed bytes under recorded ID = %v, want conflict", err)
 	}
 	recovered, err := db.MCPReceipt(ctx, capability.AssignmentID, submission.SubmissionID)
 	if err != nil {
@@ -158,23 +191,26 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	if err != nil || !frozen || terminal.SubmissionID != submission.SubmissionID {
 		t.Fatalf("terminal proposal = %v, frozen = %v, err = %v", terminal, frozen, err)
 	}
-	second := testMCPSubmissionRow(capability.AssignmentID, factory.MCPToolFinishCorrection, payload)
+	second := testMCPSubmissionRow(got, factory.MCPToolFinishCorrection, payload)
 	if _, err := db.RecordMCPSubmission(ctx, second, testMCPRecordedReceipt(second)); err == nil {
 		t.Fatal("second terminal identity recorded")
 	}
 	// Post-terminal nonterminal identities refuse atomically: the
 	// assignment is settled.
-	late := testMCPSubmissionRow(capability.AssignmentID, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t1"}`))
+	late := testMCPSubmissionRow(got, factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t1"}`))
 	if _, err := db.RecordMCPSubmission(ctx, late, testMCPRecordedReceipt(late)); err == nil {
 		t.Fatal("post-terminal output recorded")
 	}
-	// Handoff counting for the admission cap, on a live assignment.
-	live := factory.NewID()
+	// Handoff counting for the admission cap, on a live assignment
+	// under its own activated capability.
+	liveCap := testMCPCapabilityRow()
+	liveCap.AssignmentID = factory.NewID()
+	live := activateMCPCapability(t, ctx, db, liveCap)
 	edge := testMCPSubmissionRow(live, factory.MCPToolRequestHandoff, []byte(`{"predecessor_task":"a","successor_task":"b"}`))
 	if _, err := db.RecordMCPSubmission(ctx, edge, testMCPRecordedReceipt(edge)); err != nil {
 		t.Fatalf("live handoff refused: %v", err)
 	}
-	if count, err := db.MCPHandoffCount(ctx, live); err != nil || count != 1 {
+	if count, err := db.MCPHandoffCount(ctx, live.AssignmentID); err != nil || count != 1 {
 		t.Fatalf("handoff count = %d, err = %v", count, err)
 	}
 	// Revoke then retire transitions.
@@ -188,4 +224,231 @@ func TestFactoryMCPTransactions(t *testing.T) {
 	if err := db.RevokeMCPCapability(ctx, capability.ID); err == nil {
 		t.Fatal("revoke after retire admitted")
 	}
+}
+
+// TestFactoryMCPSubmissionConcurrentFreeze proves the F2 guard on
+// real PostgreSQL (SODA_PG_*; skips without it). Barrier-released
+// goroutines force the race; every assertion is a schedule-free
+// final-state invariant, so no timing assumption can pass it.
+func TestFactoryMCPSubmissionConcurrentFreeze(t *testing.T) {
+	db, _ := postgresFixture(t, nil)
+	for _, stmt := range []string{
+		FactoryMCPCapabilitiesDDL, FactoryMCPCapabilityDeleteTrigger,
+		FactoryMCPSubmissionsDDL, FactoryMCPSubmissionTriggers,
+		FactoryMCPAssignmentGuardDDL,
+	} {
+		if _, err := db.db.ExecContext(context.Background(), stmt); err != nil && !strings.Contains(err.Error(), "already exists") {
+			t.Fatalf("MCP DDL: %v", err)
+		}
+	}
+
+	// runRace releases n goroutines at once and collects one result
+	// per goroutine after all finish.
+	runRace := func(n int, fn func(i int) (factory.MCPReceipt, error)) ([]factory.MCPReceipt, []error) {
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		receipts := make([]factory.MCPReceipt, n)
+		errs := make([]error, n)
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				<-start
+				receipts[i], errs[i] = fn(i)
+			}(i)
+		}
+		close(start)
+		wg.Wait()
+		return receipts, errs
+	}
+	// liveAssignment activates a capability and returns it with a
+	// recorder bound to it.
+	liveAssignment := func(t *testing.T, ctx context.Context) (factory.MCPCapability, func(factory.MCPTool, []byte) (factory.MCPReceipt, error)) {
+		t.Helper()
+		active := activateMCPCapability(t, ctx, db, testMCPCapabilityRow())
+		return active, func(tool factory.MCPTool, payload []byte) (factory.MCPReceipt, error) {
+			submission := testMCPSubmissionRow(active, tool, payload)
+			return db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+		}
+	}
+
+	// Terminal-vs-terminal: concurrent distinct terminal IDs with
+	// conflicting content record exactly one row; losers refuse.
+	t.Run("distinct terminals", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		active, record := liveAssignment(t, ctx)
+		const racers = 8
+		receipts, errs := runRace(racers, func(i int) (factory.MCPReceipt, error) {
+			return record(factory.MCPToolFinishImplement,
+				[]byte(fmt.Sprintf(`{"candidate":"cand-%d"}`, i)))
+		})
+		wins := 0
+		var winner factory.MCPReceipt
+		for i := range errs {
+			if errs[i] == nil {
+				wins++
+				winner = receipts[i]
+			} else if !errors.Is(errs[i], ErrMCPSubmissionFrozen) {
+				t.Fatalf("racer %d: err = %v, want frozen or success", i, errs[i])
+			}
+		}
+		if wins != 1 {
+			t.Fatalf("wins = %d, want exactly one recorded terminal", wins)
+		}
+		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 1 {
+			t.Fatalf("submission count = %d, err = %v, want exactly one row", count, err)
+		}
+		terminal, frozen, err := db.TerminalMCPProposal(ctx, active.AssignmentID)
+		if err != nil || !frozen || terminal != winner {
+			t.Fatalf("terminal = %+v, frozen = %v, err = %v, want the single winner", terminal, frozen, err)
+		}
+	})
+
+	// Same terminal content under distinct IDs: every caller gets
+	// the identical receipt and exactly one row exists.
+	t.Run("same terminal content", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		active, record := liveAssignment(t, ctx)
+		payload := []byte(`{"candidate":"cand-1"}`)
+		const racers = 8
+		receipts, errs := runRace(racers, func(i int) (factory.MCPReceipt, error) {
+			return record(factory.MCPToolFinishImplement, payload)
+		})
+		for i := range errs {
+			if errs[i] != nil {
+				t.Fatalf("racer %d refused same-content replay: %v", i, errs[i])
+			}
+			if receipts[i] != receipts[0] {
+				t.Fatalf("racer %d receipt %+v differs from %+v", i, receipts[i], receipts[0])
+			}
+		}
+		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 1 {
+			t.Fatalf("submission count = %d, err = %v, want exactly one row", count, err)
+		}
+	})
+
+	// Handoff cap at insert: 250 recorded, 16 racing for the last 6
+	// slots. Exactly 6 record; the rest hit the cap; the total is
+	// exactly 256 under any schedule.
+	t.Run("handoff cap", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		active, record := liveAssignment(t, ctx)
+		edge := []byte(`{"predecessor_task":"a","successor_task":"b"}`)
+		for i := 0; i < 250; i++ {
+			if _, err := record(factory.MCPToolRequestHandoff, edge); err != nil {
+				t.Fatalf("prefill %d: %v", i, err)
+			}
+		}
+		const racers = 16
+		_, errs := runRace(racers, func(i int) (factory.MCPReceipt, error) {
+			return record(factory.MCPToolRequestHandoff, edge)
+		})
+		recorded, capped := 0, 0
+		for i := range errs {
+			switch {
+			case errs[i] == nil:
+				recorded++
+			case errors.Is(errs[i], ErrMCPSubmissionHandoffCap):
+				capped++
+			default:
+				t.Fatalf("racer %d: err = %v, want cap or success", i, errs[i])
+			}
+		}
+		if recorded != 6 || capped != racers-6 {
+			t.Fatalf("recorded = %d, capped = %d, want 6 and %d", recorded, capped, racers-6)
+		}
+		if count, err := db.MCPHandoffCount(ctx, active.AssignmentID); err != nil || count != factory.MCPMaxHandoffs {
+			t.Fatalf("handoff count = %d, err = %v, want %d", count, err, factory.MCPMaxHandoffs)
+		}
+	})
+
+	// Controlled revoke/insert orderings: a revocation committing
+	// ahead of an in-flight insert refuses that insert at
+	// persistence, and an insert committing ahead of revocation
+	// records before the capability retires.
+	t.Run("revoke then insert refuses", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		active, record := liveAssignment(t, ctx)
+		if err := db.RevokeMCPCapability(ctx, active.ID); err != nil {
+			t.Fatalf("revoke: %v", err)
+		}
+		if _, err := record(factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`)); !errors.Is(err, ErrMCPSubmissionCapabilityInactive) {
+			t.Fatalf("post-revoke insert = %v, want capability-inactive refusal", err)
+		}
+		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 0 {
+			t.Fatalf("submission count = %d, err = %v, want no rows", count, err)
+		}
+	})
+	t.Run("insert then revoke records", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		active, record := liveAssignment(t, ctx)
+		if _, err := record(factory.MCPToolSubmitTaskOutput, []byte(`{"task_id":"t-1"}`)); err != nil {
+			t.Fatalf("pre-revoke insert: %v", err)
+		}
+		if err := db.RevokeMCPCapability(ctx, active.ID); err != nil {
+			t.Fatalf("revoke: %v", err)
+		}
+		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != 1 {
+			t.Fatalf("submission count = %d, err = %v, want one row", count, err)
+		}
+		got, err := db.GetMCPCapability(ctx, active.ID)
+		if err != nil || got.State != factory.MCPCapabilityRevoked {
+			t.Fatalf("capability state = %v, err = %v, want revoked", got.State, err)
+		}
+	})
+	t.Run("revoke races inserts", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		active, _ := liveAssignment(t, ctx)
+		const writers = 8
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		errs := make([]error, writers)
+		for i := 0; i < writers; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				<-start
+				submission := testMCPSubmissionRow(active, factory.MCPToolSubmitTaskOutput,
+					[]byte(fmt.Sprintf(`{"task_id":"t-%d"}`, i)))
+				_, errs[i] = db.RecordMCPSubmission(ctx, submission, testMCPRecordedReceipt(submission))
+			}(i)
+		}
+		var revokeErr error
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			revokeErr = db.RevokeMCPCapability(ctx, active.ID)
+		}()
+		close(start)
+		wg.Wait()
+		if revokeErr != nil {
+			t.Fatalf("revoke: %v", revokeErr)
+		}
+		// Every writer either recorded ahead of the revocation or
+		// refused behind it; nothing else is possible.
+		recorded := 0
+		for i := range errs {
+			switch {
+			case errs[i] == nil:
+				recorded++
+			case errors.Is(errs[i], ErrMCPSubmissionCapabilityInactive):
+			default:
+				t.Fatalf("writer %d: %v, want success or capability-inactive refusal", i, errs[i])
+			}
+		}
+		if count, err := db.MCPSubmissionCount(ctx, active.AssignmentID); err != nil || count != recorded {
+			t.Fatalf("submission count = %d, err = %v, want %d recorded rows", count, err, recorded)
+		}
+		got, err := db.GetMCPCapability(ctx, active.ID)
+		if err != nil || got.State != factory.MCPCapabilityRevoked {
+			t.Fatalf("capability state = %v, err = %v, want revoked", got.State, err)
+		}
+	})
 }

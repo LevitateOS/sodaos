@@ -34,9 +34,15 @@ var (
 	// the caller's discovery set never advertised.
 	ErrMCPCapabilityBinding = errors.New("capability does not authorize this call")
 	// ErrMCPSubmissionFrozen reports a new submission identity after
-	// the assignment recorded a terminal proposal: exact replay of
-	// the terminal remains allowed, new identities refuse.
+	// the assignment recorded a terminal proposal: exact replay of a
+	// recorded ID and the same terminal content under another ID
+	// remain allowed, other new identities refuse.
 	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal")
+	// ErrMCPSubmissionStale reports a submission built against
+	// admitted inputs that are no longer current: the caller must
+	// re-read the assignment and resubmit against the current
+	// inputs, never force stale bytes through.
+	ErrMCPSubmissionStale = errors.New("factory submission built against stale admitted inputs")
 	// ErrMCPHandoffCap reports the 256-handoff bound for one
 	// assignment: terminal receipt capacity stays reserved
 	// regardless of task traffic.
@@ -88,22 +94,30 @@ func AdmitMCPCapability(capability factory.MCPCapability, tool factory.MCPTool, 
 }
 
 // MCPSubmissionJournal is the assignment submission state admission
-// reads: the recorded terminal proposal, if any, and the handoff
-// count for cap enforcement. *store.Store implements it directly;
-// tests stub it.
+// reads: the recorded terminal proposal, if any, the durable
+// receipt for one submission ID, and the handoff count for cap
+// enforcement. *store.Store implements it directly; tests stub it.
 type MCPSubmissionJournal interface {
 	// TerminalMCPProposal returns the recorded terminal receipt for
 	// the assignment, or false when none is recorded yet.
 	TerminalMCPProposal(ctx context.Context, assignmentID string) (factory.MCPReceipt, bool, error)
+	// MCPReceipt returns the durable receipt for one recorded
+	// submission ID, or not-found for an unrecorded identity.
+	MCPReceipt(ctx context.Context, assignmentID, submissionID string) (factory.MCPReceipt, error)
 	// MCPHandoffCount returns the recorded handoff submissions for
 	// the assignment.
 	MCPHandoffCount(ctx context.Context, assignmentID string) (int, error)
 }
 
 // AdmitMCPSubmission gates one mutation after capability admission:
-// submission shape, idempotency-key presence, terminal freeze and the
-// handoff cap. Exact replay of a recorded submission stays allowed;
-// conflicting bytes under a recorded ID conflict at persistence.
+// submission shape, idempotency-key presence, admitted-input
+// freshness, terminal freeze and the handoff cap. A recorded
+// submission ID routes to store replay regardless of freeze or
+// input rotation: persistence returns the recorded receipt, and
+// conflicting bytes under a recorded ID conflict there. The same
+// terminal content under another ID routes to the same replay.
+// Anything else new after a terminal refuses, as do submissions
+// built against stale admitted inputs.
 func AdmitMCPSubmission(ctx context.Context, journal MCPSubmissionJournal, capability factory.MCPCapability, submission factory.MCPSubmission) error {
 	if err := submission.Validate(); err != nil {
 		return err
@@ -111,21 +125,39 @@ func AdmitMCPSubmission(ctx context.Context, journal MCPSubmissionJournal, capab
 	if submission.AssignmentID != capability.AssignmentID {
 		return ErrMCPCapabilityBinding
 	}
+	if submission.CapabilityID != capability.ID {
+		return ErrMCPCapabilityBinding
+	}
+	// Immutable replay first: history never faces freshness or
+	// freeze checks at admission. A lookup miss only means "not a
+	// replay": the freeze and freshness gates below still run, and
+	// persistence replays or conflicts authoritatively.
+	if _, err := journal.MCPReceipt(ctx, submission.AssignmentID, submission.SubmissionID); err == nil {
+		return nil
+	}
 	terminal, frozen, err := journal.TerminalMCPProposal(ctx, submission.AssignmentID)
 	if err != nil {
 		return err
 	}
 	if frozen {
-		if submission.SubmissionID == terminal.SubmissionID {
-			return nil
-		}
-		if factory.MCPIsTerminal(submission.Tool) {
-			return ErrMCPSubmissionFrozen
-		}
+		// The same terminal content under another ID returns the
+		// existing terminal receipt without another record;
+		// persistence decides this identically under its guard.
 		// Nonterminal proposals after a terminal record nothing
 		// new: the assignment is settled. Reads still serve the
 		// recorded receipt through factory.receipt.
+		if submission.Tool == terminal.Tool && submission.PayloadHash == terminal.InputDigest {
+			return nil
+		}
 		return ErrMCPSubmissionFrozen
+	}
+	// Freshness: the submission must be built against the currently
+	// admitted scope. ExpectedInputDigest names the caller's scope
+	// snapshot; only the capability's current scope digest admits
+	// the call, so a rotated preparation, source, authority or
+	// deadline can never ride an old digest through.
+	if submission.ExpectedInputDigest != capability.ScopeDigest() {
+		return ErrMCPSubmissionStale
 	}
 	if submission.Tool == factory.MCPToolRequestHandoff {
 		count, err := journal.MCPHandoffCount(ctx, submission.AssignmentID)

@@ -76,7 +76,9 @@ type FactoryMCPDeps struct {
 // only capability_id; receipt requires capability_id plus
 // submission_id. Payload canonical bytes are json.Marshal of the
 // payload map (sorted keys, deterministic): expected_input_digest
-// must equal their SHA-256 hex.
+// names the caller's capability scope snapshot and must equal the
+// admitted capability's current scope digest, never the payload
+// hash.
 type mcpCallArgs struct {
 	CapabilityID        string         `json:"capability_id" jsonschema:"recorded capability identity"`
 	SubmissionID        string         `json:"submission_id,omitempty" jsonschema:"32-hex submission identity for mutations and receipt recovery"`
@@ -411,7 +413,8 @@ func (s *factoryCatalogServer) admitMutation(ctx context.Context, tool factory.M
 	}
 	submission := factory.MCPSubmission{
 		AssignmentID: capability.AssignmentID, SubmissionID: args.SubmissionID,
-		Tool: tool, ExpectedInputDigest: args.ExpectedInputDigest,
+		CapabilityID: capability.ID,
+		Tool:         tool, ExpectedInputDigest: args.ExpectedInputDigest,
 		PayloadHash: factory.MCPInputDigest(raw), Payload: raw,
 	}
 	if err := submission.Validate(); err != nil {

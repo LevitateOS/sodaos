@@ -47,6 +47,15 @@ PRIMARY KEY(assignment,submission))`
 // and rows are never deleted.
 const FactoryMCPSubmissionTriggers = `CREATE TRIGGER factory_mcp_submission_no_delete BEFORE DELETE ON factory_mcp_submissions FOR EACH ROW EXECUTE FUNCTION soda_reject_immutable()`
 
+// FactoryMCPAssignmentGuardDDL is the schema-registration proposal
+// for the per-assignment serialization guard (coordinator-owned;
+// see the fw38-f2f3 handoff). One row per assignment will live here;
+// RecordMCPSubmission locks the assignment's guard row inside its
+// transaction. This statement NEVER executes at request time: the
+// table arrives through normal schema startup, and tests apply this
+// constant as fixture setup until registration lands.
+const FactoryMCPAssignmentGuardDDL = `CREATE TABLE factory_mcp_submission_guards(assignment TEXT NOT NULL CHECK(assignment ~ '^[a-f0-9]{32}$'), PRIMARY KEY(assignment))`
+
 var (
 	// ErrMCPSubmissionConflict reports changed bytes under a recorded
 	// submission ID: same identity, different tool, input digest or
@@ -55,6 +64,17 @@ var (
 	// ErrMCPSubmissionFrozen reports a new submission identity after
 	// the assignment recorded a terminal proposal.
 	ErrMCPSubmissionFrozen = errors.New("assignment already recorded a terminal proposal")
+	// ErrMCPSubmissionHandoffCap reports a handoff past the 256-edge
+	// bound: terminal receipt capacity stays reserved regardless of
+	// task traffic.
+	ErrMCPSubmissionHandoffCap = errors.New("assignment handoff bound reached")
+	// ErrMCPSubmissionCapabilityInactive reports a submission whose
+	// bound capability is not active for its assignment at insert
+	// time: unknown, staged, revoked or retired capabilities, an
+	// assignment mismatch, or inputs that no longer match the
+	// recorded scope. A revocation racing an in-flight insert lands
+	// here once it commits first.
+	ErrMCPSubmissionCapabilityInactive = errors.New("factory submission capability is not active for this assignment")
 )
 
 // RecordMCPSubmission persists one admitted submission with its
@@ -63,6 +83,15 @@ var (
 // recorded terminal refuses, except the same terminal content under
 // another ID, which returns the existing terminal receipt without
 // another record.
+//
+// The transaction locks in a fixed order shared with the
+// capability state machine: first the bound capability row (the
+// same row lock revoke/retire takes), then the assignment guard
+// row, then the submission rows. Against those locks it rechecks
+// the authentic capability (active, same assignment, current
+// scope), the exact ID, the terminal freeze and the handoff cap,
+// so a revocation committing ahead of an in-flight insert refuses
+// that insert instead of racing it.
 func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error) {
 	if err := submission.Validate(); err != nil {
 		return factory.MCPReceipt{}, err
@@ -83,6 +112,47 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 		return factory.MCPReceipt{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	// Authentic capability first, under the same row lock the
+	// revoke/retire CAS takes: only an active capability bound to
+	// this assignment and current scope admits the insert. Admission
+	// checked the same facts earlier; this recheck closes the
+	// revoke-vs-insert race inside the transaction.
+	var capState string
+	var capRaw []byte
+	if err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_mcp_capabilities WHERE id=$1 FOR UPDATE`,
+		submission.CapabilityID).Scan(&capState, &capRaw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityInactive
+		}
+		return factory.MCPReceipt{}, err
+	}
+	var capability factory.MCPCapability
+	if err = json.Unmarshal(capRaw, &capability); err != nil {
+		return factory.MCPReceipt{}, err
+	}
+	capability.State = capState
+	if err = capability.Validate(); err != nil {
+		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityInactive
+	}
+	if capability.State != factory.MCPCapabilityActive ||
+		capability.AssignmentID != submission.AssignmentID ||
+		capability.ScopeDigest() != submission.ExpectedInputDigest {
+		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityInactive
+	}
+	// Per-assignment serialization next: the guard row exists once
+	// per assignment, so concurrent submitters for one assignment
+	// queue on this row lock instead of racing an unlocked
+	// terminal scan past each other. Assignments never block each
+	// other, and capability rows always lock before guard rows.
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submission_guards(assignment) VALUES($1) ON CONFLICT DO NOTHING`,
+		submission.AssignmentID); err != nil {
+		return factory.MCPReceipt{}, err
+	}
+	var guard string
+	if err = tx.QueryRowContext(ctx, `SELECT assignment FROM factory_mcp_submission_guards WHERE assignment=$1 FOR UPDATE`,
+		submission.AssignmentID).Scan(&guard); err != nil {
+		return factory.MCPReceipt{}, err
+	}
 	var currentTool, currentInput, currentHash, currentState string
 	var currentReceipt []byte
 	err = tx.QueryRowContext(ctx, `SELECT tool,input_digest,payload_hash,state,receipt FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 FOR UPDATE`,
@@ -115,6 +185,19 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 			return terminal, tx.Commit()
 		}
 		return factory.MCPReceipt{}, ErrMCPSubmissionFrozen
+	}
+	// The handoff cap binds at insert under the same guard, so a
+	// burst of concurrent handoffs cannot overshoot 256 before any
+	// of them commits.
+	if submission.Tool == factory.MCPToolRequestHandoff {
+		var handoffs int
+		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`,
+			submission.AssignmentID, string(factory.MCPToolRequestHandoff)).Scan(&handoffs); err != nil {
+			return factory.MCPReceipt{}, err
+		}
+		if handoffs >= factory.MCPMaxHandoffs {
+			return factory.MCPReceipt{}, ErrMCPSubmissionHandoffCap
+		}
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submissions(assignment,submission,tool,input_digest,payload_hash,payload,state,reason,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		submission.AssignmentID, submission.SubmissionID, string(submission.Tool),

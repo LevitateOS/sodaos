@@ -2,12 +2,18 @@ package control
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
+
+// errJournalNotFound is the stub's unrecorded-identity signal.
+// AdmitMCPSubmission treats any lookup error as "not a replay" and
+// still runs the freeze and freshness gates below.
+var errJournalNotFound = errors.New("stub journal: submission not recorded")
 
 // FW38 proves T48/T51 admission without a database: cross-role,
 // cross-run, expired, revoked and stopped calls refuse; terminal
@@ -17,10 +23,18 @@ type stubMCPJournal struct {
 	terminal factory.MCPReceipt
 	frozen   bool
 	handoffs int
+	recorded map[string]factory.MCPReceipt
 }
 
 func (s stubMCPJournal) TerminalMCPProposal(context.Context, string) (factory.MCPReceipt, bool, error) {
 	return s.terminal, s.frozen, nil
+}
+
+func (s stubMCPJournal) MCPReceipt(_ context.Context, assignmentID, submissionID string) (factory.MCPReceipt, error) {
+	if receipt, ok := s.recorded[assignmentID+"/"+submissionID]; ok {
+		return receipt, nil
+	}
+	return factory.MCPReceipt{}, errJournalNotFound
 }
 
 func (s stubMCPJournal) MCPHandoffCount(context.Context, string) (int, error) {
@@ -94,11 +108,16 @@ func TestAdmitMCPCapability(t *testing.T) {
 	}
 }
 
+// testMCPSubmission builds a submission against the capability's
+// current admitted scope: CapabilityID binds the server-admitted
+// capability, ExpectedInputDigest binds its scope digest,
+// PayloadHash binds the payload bytes.
 func testMCPSubmission(capability factory.MCPCapability, tool factory.MCPTool, id string, payload []byte) factory.MCPSubmission {
-	hash := factory.MCPInputDigest(payload)
 	return factory.MCPSubmission{
-		AssignmentID: capability.AssignmentID, SubmissionID: id, Tool: tool,
-		ExpectedInputDigest: hash, PayloadHash: hash, Payload: payload,
+		AssignmentID: capability.AssignmentID, SubmissionID: id,
+		CapabilityID: capability.ID, Tool: tool,
+		ExpectedInputDigest: capability.ScopeDigest(),
+		PayloadHash:         factory.MCPInputDigest(payload), Payload: payload,
 	}
 }
 
@@ -110,12 +129,14 @@ func TestAdmitMCPSubmissionFreeze(t *testing.T) {
 	if err := AdmitMCPSubmission(context.Background(), journal, capability, submission); err != nil {
 		t.Fatalf("first terminal refused: %v", err)
 	}
-	// After the terminal records, exact replay stays allowed while
-	// new terminal and nonterminal identities refuse.
-	frozen := stubMCPJournal{frozen: true, terminal: factory.MCPReceipt{
+	terminal := factory.MCPReceipt{
 		SubmissionID: submission.SubmissionID, Tool: submission.Tool,
 		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-	}}
+	}
+	frozen := stubMCPJournal{frozen: true, terminal: terminal}
+	// After the terminal records, exact replay of the terminal ID
+	// stays allowed while conflicting terminal and nonterminal
+	// identities refuse.
 	if err := AdmitMCPSubmission(context.Background(), frozen, capability, submission); err != nil {
 		t.Fatalf("terminal replay refused: %v", err)
 	}
@@ -132,6 +153,89 @@ func TestAdmitMCPSubmissionFreeze(t *testing.T) {
 	foreign.AssignmentID = factory.NewID()
 	if err := AdmitMCPSubmission(context.Background(), journal, capability, foreign); err == nil {
 		t.Fatal("cross-assignment submission admitted")
+	}
+	// Cross-capability submission refuses: the bound capability ID
+	// must be the admitted one.
+	borrowed := testMCPSubmission(capability, factory.MCPToolStatus, factory.NewID(), payload)
+	borrowed.CapabilityID = factory.NewID()
+	if err := AdmitMCPSubmission(context.Background(), journal, capability, borrowed); err == nil {
+		t.Fatal("cross-capability submission admitted")
+	}
+}
+
+// TestAdmitMCPSubmissionReplayRoutes proves the F3 replay half:
+// exact replay of a recorded nonterminal ID and the same terminal
+// content under another ID route to store replay instead of
+// refusing after the freeze.
+func TestAdmitMCPSubmissionReplayRoutes(t *testing.T) {
+	capability := testMCPCapability()
+	ctx := context.Background()
+	outputPayload := []byte(`{"task_id":"t1"}`)
+	output := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), outputPayload)
+	terminalPayload := []byte(`{"outcome":"done"}`)
+	terminalSubmission := testMCPSubmission(capability, factory.MCPToolFinishImplement, factory.NewID(), terminalPayload)
+	terminal := factory.MCPReceipt{
+		SubmissionID: terminalSubmission.SubmissionID, Tool: terminalSubmission.Tool,
+		State: factory.MCPReceiptRecorded, InputDigest: terminalSubmission.PayloadHash,
+	}
+	frozen := stubMCPJournal{
+		frozen:   true,
+		terminal: terminal,
+		recorded: map[string]factory.MCPReceipt{
+			capability.AssignmentID + "/" + output.SubmissionID: {
+				SubmissionID: output.SubmissionID, Tool: output.Tool,
+				State: factory.MCPReceiptRecorded, InputDigest: output.PayloadHash,
+			},
+		},
+	}
+	// Previously recorded nonterminal ID replays after the freeze.
+	if err := AdmitMCPSubmission(ctx, frozen, capability, output); err != nil {
+		t.Fatalf("recorded nonterminal replay refused: %v", err)
+	}
+	// Same terminal content under another ID routes to replay.
+	clone := testMCPSubmission(capability, terminalSubmission.Tool, factory.NewID(), terminalPayload)
+	if err := AdmitMCPSubmission(ctx, frozen, capability, clone); err != nil {
+		t.Fatalf("same-terminal-content replay refused: %v", err)
+	}
+	// Same tool but different terminal content still refuses.
+	rival := testMCPSubmission(capability, terminalSubmission.Tool, factory.NewID(), []byte(`{"outcome":"blocked"}`))
+	if err := AdmitMCPSubmission(ctx, frozen, capability, rival); err == nil {
+		t.Fatal("conflicting terminal content admitted")
+	}
+}
+
+// TestAdmitMCPSubmissionFreshness proves the F3 freshness half:
+// new submissions must be built against the capability's current
+// admitted inputs; stale snapshots refuse while replay of a
+// recorded ID never faces the freshness gate.
+func TestAdmitMCPSubmissionFreshness(t *testing.T) {
+	capability := testMCPCapability()
+	ctx := context.Background()
+	payload := []byte(`{"task_id":"t1"}`)
+	stale := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), payload)
+	stale.ExpectedInputDigest = strings.Repeat("b", 64)
+	if err := AdmitMCPSubmission(ctx, stubMCPJournal{}, capability, stale); err == nil {
+		t.Fatal("stale-input submission admitted")
+	} else if !errors.Is(err, ErrMCPSubmissionStale) {
+		t.Fatalf("stale refusal = %v, want stale-input refusal", err)
+	}
+	fresh := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), payload)
+	if err := AdmitMCPSubmission(ctx, stubMCPJournal{}, capability, fresh); err != nil {
+		t.Fatalf("current-input submission refused: %v", err)
+	}
+	// A recorded ID replays even when its inputs have rotated since:
+	// history is immutable, not fresh.
+	rotated := capability
+	rotated.PreparationDigest = strings.Repeat("c", 64)
+	replay := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, fresh.SubmissionID, payload)
+	journal := stubMCPJournal{recorded: map[string]factory.MCPReceipt{
+		capability.AssignmentID + "/" + fresh.SubmissionID: {
+			SubmissionID: fresh.SubmissionID, Tool: fresh.Tool,
+			State: factory.MCPReceiptRecorded, InputDigest: fresh.PayloadHash,
+		},
+	}}
+	if err := AdmitMCPSubmission(ctx, journal, rotated, replay); err != nil {
+		t.Fatalf("post-rotation replay refused: %v", err)
 	}
 }
 

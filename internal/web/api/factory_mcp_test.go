@@ -14,7 +14,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -207,12 +206,11 @@ func catalogText(t *testing.T, res *mcp.CallToolResult) string {
 	return text.Text
 }
 
+// catalogPayload returns a caller payload with the scope digest a
+// correct caller binds: the admitted capability's current scope
+// digest, never the payload hash.
 func catalogPayload(args map[string]any) (map[string]any, string) {
-	raw, err := json.Marshal(args)
-	if err != nil {
-		panic(err)
-	}
-	return args, factory.MCPInputDigest(raw)
+	return args, fakeCatalogCapability().ScopeDigest()
 }
 
 // TestFactoryCatalogTransportPerHarness proves T47/T48/T51 through
@@ -395,11 +393,9 @@ func TestFactoryCatalogManifestGate(t *testing.T) {
 	}
 	ctx := context.Background()
 	argsFor := func(payload map[string]any) mcpCallArgs {
-		raw, _ := json.Marshal(payload)
-		digest := factory.MCPInputDigest(raw)
 		return mcpCallArgs{
 			CapabilityID: sink.capability.ID, SubmissionID: factory.NewID(),
-			ExpectedInputDigest: digest, Payload: payload,
+			ExpectedInputDigest: sink.capability.ScopeDigest(), Payload: payload,
 		}
 	}
 	plan := map[string]any{
