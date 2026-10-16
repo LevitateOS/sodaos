@@ -46,7 +46,11 @@ export async function prepareManagedTerminal(
   const spaces = await spacesContent(page);
   if ((await spaces.locator('#sodaspaces-data').getAttribute('data-workspace-kind')) !== 'page') return undefined;
   const project = spaces.locator(`.soda-project-group[data-environment-id="${environment}"] .soda-project-select`);
-  if (!(await project.isVisible())) await spaces.getByRole('button', {name: 'Projects', exact: true}).click();
+  if (!(await project.isVisible())) {
+    const directory = spaces.getByRole('button', {name: 'Projects', exact: true});
+    await project.or(directory).filter({visible: true}).first().waitFor();
+    if (!(await project.isVisible())) await directory.click();
+  }
   assert.equal(
     await project.getAttribute('aria-label'),
     repositoryName,

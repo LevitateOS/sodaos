@@ -99,10 +99,13 @@ an earlier source release.
 For a qualified pair, use appliance root to download the complete selected GitHub
 release into a root-owned directory that other users cannot write. The existing
 `gh release download TAG --repo LevitateOS/sodaos --dir DIRECTORY` obtains its
-assets together. The bundled rootfs includes the host, Project images and support;
-there is no separate helper download or installation to assemble. Maintenance
-authenticates the fixed assets against that same GitHub release before admitting
-the exact source-to-target qualification.
+assets together. The rootfs contains the host and its Project support helper.
+Application images are separate pinned registry inputs, and Fountain acquires
+packages from the release catalog. Maintenance verifies and caches both source
+and target content before activation, selecting optional Tailnet content only
+when its saved intent is enabled. There is no separate helper installation to
+assemble. Maintenance authenticates the selected assets against that same GitHub
+release before admitting the exact source-to-target qualification.
 
 Run `/usr/libexec/soda/soda-project-maintain release --release-dir DIRECTORY --check`
 to inspect every enrolled running or stopped Project, verify the candidate and
