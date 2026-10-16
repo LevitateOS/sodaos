@@ -8,6 +8,8 @@ are mapped, including three added leaves. The version-bound Bash installer joins
 existing Rust preparation, verification, qualification and promotion owners. Its
 source implementation and focused checks do not establish a published, qualified
 Docker release; the public install URL remains unavailable pending that proof.
+The same ledger records the documentation-only push-guide correction at
+`9d498923`; it changes no structural allocation or source evidence scope.
 
 Earlier Docker reconciliation at `76daa366` retains its 76-path scope. Accumulated
 `76daa366..730fc205` source drift (358 changed-path entries), including components-v4

@@ -2,6 +2,13 @@
 
 ## Installer integration scope
 
+The documentation-only follow-up `9d4989231173477446693ad2ecb6f9bca67f6b13`
+reconciles `docs/development/release.md` (H06/D09) with the full-SHA qualification
+tag and existing `scripts/push.sh`, and `docs/development/testing.md` (H06) with
+the added release-delivery Rust test lane. Both paths retain their defining
+owners; no files, source behavior, target allocation or lane dependency changed.
+This correction does not advance the source or native evidence pins below.
+
 Bounded source pin: `92069938869499a671a52e84ab03c639bb0b09d9`, inspected on
 2026-10-16 against parent `730fc20526ef7c65c5b6abe1445297dc91d3f5c0`.
 This integration changes **18 paths: three added, fifteen modified**, with no
