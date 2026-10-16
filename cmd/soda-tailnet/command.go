@@ -19,7 +19,7 @@ func execute(ctx context.Context, output io.Writer, status func(context.Context)
 }
 
 func enrollmentMessage(view tailnet.SettingsView, statusErr error) string {
-	guidance := "Administrator: open Admin → Extensions → Tailnet → Settings to connect this machine.\n"
+	guidance := "Administrator: open Admin → Extensions, enable Tailnet if needed, then open its Settings to connect this machine.\n"
 	if statusErr != nil || view.HostUnavailable || view.Host == nil {
 		return "\nTailscale status is unavailable.\n" + guidance
 	}

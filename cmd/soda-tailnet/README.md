@@ -31,8 +31,8 @@ The message reports connection state, administrator approval or expired authenti
 the observed Tailnet identity and a usable endpoint: MagicDNS when enabled,
 otherwise the observed IPv4 address.
 
-Unavailable status produces guidance to inspect or connect the machine through
-Admin → Extensions → Tailnet → Settings. The helper performs no enrollment, configuration
+Unavailable status directs an administrator to Admin → Extensions to enable
+Tailnet if needed, then open its Settings. The helper performs no enrollment, configuration
 change, service restart or network mutation.
 
 A printed endpoint is an observed host identity. Browser services retain their

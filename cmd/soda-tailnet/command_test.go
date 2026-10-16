@@ -21,7 +21,7 @@ func TestEnrollmentMessage(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			message := enrollmentMessage(tailnet.SettingsView{Host: &status}, nil)
 			require.Contains(t, message, name)
-			require.Contains(t, message, "Admin → Extensions → Tailnet → Settings")
+			require.Contains(t, message, "Admin → Extensions, enable Tailnet if needed, then open its Settings")
 			require.NotContains(t, message, "Soda Setup")
 		})
 	}
