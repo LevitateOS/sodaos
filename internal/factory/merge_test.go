@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -279,5 +280,151 @@ func TestMergeTargetChanged(t *testing.T) {
 	p.Candidate = strings.Repeat("c", 40)
 	if !MergeTargetChanged(m, p) {
 		t.Fatal("moved candidate reported unchanged")
+	}
+}
+
+func testMergeGeneration(publicationID string, n int, head string) MergeGeneration {
+	return MergeGeneration{
+		Authority:          AuthorityRef{Policy: 3, Operator: 1, Capacity: 1, Sponsorship: 1, ConnectionUsageBudget: 1, Environment: 1},
+		PublicationID:      publicationID,
+		DecisionID:         strings.Repeat("d", 32),
+		NativeOperationID:  MergeGenerationOperationID(publicationID, n),
+		Fingerprint:        strings.Repeat("e", 64),
+		Head:               head,
+		Base:               strings.Repeat("1", 40),
+		DiffBase:           strings.Repeat("1", 40),
+		ChecksDigest:       strings.Repeat("c", 64),
+		Generation:         n,
+		ReviewRound:        1,
+		AssessmentRevision: 2,
+		ObservedNativeRev:  12,
+		NotAfter:           1300,
+	}
+}
+
+func testReadyDecision(fingerprint string) DeliveryDecision {
+	answer := testDeliveryAnswer(fingerprint)
+	return DeliveryDecision{Answer: answer, Effective: DeliveryEffectiveReady, ReviewsFit: true}
+}
+
+func TestMergeLedgerReplacementAuthorization(t *testing.T) {
+	publicationID := strings.Repeat("f", 32)
+	ledger, err := NewMergeLedger(publicationID, 7, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head1 := strings.Repeat("2", 40)
+	gen1 := testMergeGeneration(publicationID, 1, head1)
+	if err := gen1.Validate(); err != nil {
+		t.Fatalf("generation refused: %v", err)
+	}
+	if got := MergeGenerationOperationID(publicationID, 1); gen1.NativeOperationID != got {
+		t.Fatalf("operation identity %q differs from derivation", gen1.NativeOperationID)
+	}
+	ledger, err = ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerRegister, Generation: gen1})
+	if err != nil {
+		t.Fatalf("first registration refused: %v", err)
+	}
+	// Persist intent, invalidate, then replace only on proven effect.
+	gen2 := testMergeGeneration(publicationID, 2, strings.Repeat("3", 40))
+	if _, err := ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerRegister, Generation: gen2}); err == nil {
+		t.Fatal("second registration occupied an authorized ledger")
+	}
+	uncertain := MergePredecessorProof{Generation: 1, Effect: OpEffectPending}
+	if _, err := ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerSupersede, Proof: uncertain}); err == nil {
+		t.Fatal("uncertain predecessor authorized replacement")
+	}
+	mismatched := MergePredecessorProof{Generation: 2, Effect: OpEffectNotCommitted, Cancellation: OpCancelCancelled}
+	if _, err := ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerSupersede, Proof: mismatched}); err == nil {
+		t.Fatal("supersede proof for another generation accepted")
+	}
+	cancelled := MergePredecessorProof{Generation: 1, Effect: OpEffectNotCommitted, Cancellation: OpCancelCancelled}
+	ledger, err = ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerSupersede, Proof: cancelled})
+	if err != nil {
+		t.Fatalf("confirmed cancel refused replacement: %v", err)
+	}
+	ledger, err = ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerRegister, Generation: gen2})
+	if err != nil {
+		t.Fatalf("new review and judgment generation refused: %v", err)
+	}
+	// The common decision gate admits the fresh generation on current
+	// ready_to_merge over its exact fingerprint with confirmed resolutions.
+	authority := AuthorityRef{Policy: 3, Operator: 1, Capacity: 1, Sponsorship: 1, ConnectionUsageBudget: 1, Environment: 1}
+	gate := MergeDecisionInput{Generation: gen2, Decision: testReadyDecision(gen2.Fingerprint), CurrentAuthority: authority, ResolutionsConfirmed: true}
+	if err := CheckMergeDecisionGate(gate); err != nil {
+		t.Fatalf("fresh generation gate refused: %v", err)
+	}
+	unconfirmed := gate
+	unconfirmed.ResolutionsConfirmed = false
+	if err := CheckMergeDecisionGate(unconfirmed); err == nil {
+		t.Fatal("unconfirmed resolutions passed the gate")
+	}
+	moved := gate
+	moved.CurrentAuthority = AuthorityRef{Policy: 4, Operator: 1, Capacity: 1, Sponsorship: 1, ConnectionUsageBudget: 1, Environment: 1}
+	if err := CheckMergeDecisionGate(moved); err == nil {
+		t.Fatal("changed authority passed the gate")
+	}
+	staleEvidence := gate
+	staleEvidence.Decision = testReadyDecision(strings.Repeat("0", 64))
+	if err := CheckMergeDecisionGate(staleEvidence); err == nil {
+		t.Fatal("stale-evidence decision passed the gate")
+	}
+	reviewAgain := gate
+	again := testDeliveryAnswer(gen2.Fingerprint)
+	again.Selected = DeliveryReviewAgain
+	again.Probabilities = map[string]float64{DeliveryReviewAgain: 0.9, DeliveryReadyToMerge: 0.1}
+	reviewAgain.Decision = DeliveryDecision{Answer: again, Effective: DeliveryEffectiveReview, ReviewsFit: true}
+	if err := CheckMergeDecisionGate(reviewAgain); err == nil {
+		t.Fatal("review_again decision passed the merge gate")
+	}
+	// Base advance invalidates the pending acceptance.
+	if !gen2.SupersededByBase(strings.Repeat("4", 40)) {
+		t.Fatal("advanced base kept its acceptance")
+	}
+	if gen2.SupersededByBase(gen2.Base) {
+		t.Fatal("unchanged base invalidated its acceptance")
+	}
+	// A committed predecessor is adopted, never replaced.
+	ledger, err = ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerAdopt, AdoptedCommit: gen2.Head})
+	if err != nil {
+		t.Fatalf("committed merge not adopted: %v", err)
+	}
+	replayed, err := ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerAdopt, AdoptedCommit: gen2.Head})
+	if err != nil {
+		t.Fatalf("identical adoption replay refused: %v", err)
+	}
+	if !replayed.Adopted || replayed.AdoptedCommit != gen2.Head {
+		t.Fatal("adoption replay changed its ledger")
+	}
+	gen3 := testMergeGeneration(publicationID, 3, strings.Repeat("5", 40))
+	if _, err := ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerRegister, Generation: gen3}); err == nil {
+		t.Fatal("committed predecessor replaced")
+	}
+}
+
+func TestMergeLedgerHistoryCeiling(t *testing.T) {
+	publicationID := strings.Repeat("f", 32)
+	ledger, err := NewMergeLedger(publicationID, 7, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled := func(n int) MergePredecessorProof {
+		return MergePredecessorProof{Generation: n, Effect: OpEffectNotCommitted, Cancellation: OpCancelCancelled}
+	}
+	for n := 1; n <= MaxMergeGenerations; n++ {
+		head := fmt.Sprintf("%040x", 1000+n)
+		if ledger, err = ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerRegister, Generation: testMergeGeneration(publicationID, n, head)}); err != nil {
+			t.Fatalf("generation %d refused: %v", n, err)
+		}
+		if ledger, err = ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerSupersede, Proof: cancelled(n)}); err != nil {
+			t.Fatalf("supersede %d refused: %v", n, err)
+		}
+	}
+	if len(ledger.History) != MaxMergeGenerations {
+		t.Fatalf("history=%d, want ceiling", len(ledger.History))
+	}
+	overflow := testMergeGeneration(publicationID, MaxMergeGenerations+1, strings.Repeat("8", 40))
+	if _, err := ledger.Apply(MergeLedgerUpdate{Kind: MergeLedgerRegister, Generation: overflow}); err == nil {
+		t.Fatal("generation above the history ceiling accepted")
 	}
 }

@@ -1,8 +1,12 @@
 package factory
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -87,7 +91,7 @@ func (op ReviewOperation) ValidateForPublication(p Publication) error {
 	if op.Outcome.Completion != "" && !ValidOpCompletion(op.Outcome.Completion) {
 		return errors.New("invalid review operation completion")
 	}
-	if len(op.Outcome.Reason) > 64 || len(op.Outcome.Receipt) > MaxPublicationReceipt {
+	if len(op.Outcome.Reason) > 64 || len(op.Outcome.Receipt) > MaxReviewReceiptBytes {
 		return errors.New("review operation outcome exceeds bounds")
 	}
 	if op.Outcome.Effect == OpEffectCommitted && (op.Outcome.InstallationID == "" || len(op.Outcome.Receipt) == 0 || op.Outcome.Completion == "") {
@@ -256,6 +260,265 @@ func ParseReviewReport(output string) (ReviewReport, bool) {
 		return report, true
 	}
 	return ReviewReport{}, false
+}
+
+// Frozen D04 review/finding bounds (FW06C). At most MaxFindingsPerReport
+// findings per report and MaxOutstandingFindings outstanding carried
+// findings; one finding's combined defect/evidence/outcome prose fits
+// MaxFindingProseBytes; the encoded native review payload fits
+// MaxReviewPayloadBytes, enforced on the native operation by FW16 and on
+// the Soda adapter by FW18 against this same ceiling; one review-specific
+// native receipt fits MaxReviewReceiptBytes. The 1 MiB review-history cap
+// (MaxPublicationReviewBytes) counts full encoded work plus reserved
+// receipt capacity at the review-specific size. Other operation receipt
+// limits stay unchanged. The N adapter moves to the review-specific
+// receipt cap with FW18; until then it still admits only 4 KiB receipts.
+const (
+	MaxFindingsPerReport   = 64
+	MaxOutstandingFindings = 64
+	MaxFindingProseBytes   = 4096
+	MaxReviewPayloadBytes  = 48 << 10
+	MaxReviewReceiptBytes  = 16 << 10
+)
+
+// Finding severities and fix kinds. Fix verification covers checks-only
+// outcomes; informational findings use verification with an explicit
+// no-action required outcome, never an empty field.
+const (
+	FindingSeverityCritical = "critical"
+	FindingSeverityMajor    = "major"
+	FindingSeverityMinor    = "minor"
+	FindingFixCode          = "code"
+	FindingFixVerification  = "verification"
+)
+
+// ValidFindingKey reports whether key is a stable 32-hex finding identity.
+// Keys share the factory identity alphabet; they are preserved through
+// review rounds, and new defects get new keys.
+func ValidFindingKey(key string) bool { return ValidID(key) }
+
+// FindingLocation is one finding's optional native anchor: diff path,
+// old|new side and one-based actual diff line.
+type FindingLocation struct {
+	Path string `json:"path"`
+	Side string `json:"side"`
+	Line int64  `json:"line"`
+}
+
+// Validate checks the anchor shape. Non-line findings stay unlocated and
+// must be represented in the review summary instead.
+func (l FindingLocation) Validate() error {
+	if l.Path == "" || len(l.Path) > 1024 || l.Path != strings.TrimSpace(l.Path) {
+		return errors.New("invalid finding location path")
+	}
+	switch l.Side {
+	case "old", "new":
+	default:
+		return errors.New("invalid finding location side")
+	}
+	if l.Line < 1 {
+		return errors.New("invalid finding location line")
+	}
+	return nil
+}
+
+// Finding is one Soda keyed finding (D06): stable key, origin review run
+// and native review, severity, actionability, defect, evidence, required
+// outcome, fix kind and optional native location. Soda severity,
+// dispositions and Jev state never enter Fountain policy; the native
+// comment carries the key plus its prose.
+type Finding struct {
+	Location        *FindingLocation `json:"location,omitempty"`
+	Key             string           `json:"key"`
+	OriginRun       string           `json:"origin_run"`
+	Severity        string           `json:"severity"`
+	Defect          string           `json:"defect"`
+	Evidence        string           `json:"evidence"`
+	RequiredOutcome string           `json:"required_outcome"`
+	FixKind         string           `json:"fix_kind"`
+	OriginReview    int64            `json:"origin_review,omitempty"`
+	Actionable      bool             `json:"actionable"`
+}
+
+// Validate checks the complete finding shape. Every field except the
+// location and the not-yet-natively-recorded origin review is required;
+// informational findings record their rationale as evidence with an
+// explicit no-action outcome.
+func (f Finding) Validate() error {
+	if !ValidFindingKey(f.Key) {
+		return errors.New("invalid finding key")
+	}
+	if !ValidID(f.OriginRun) {
+		return errors.New("invalid finding origin run")
+	}
+	if f.OriginReview < 0 {
+		return errors.New("invalid finding origin review")
+	}
+	switch f.Severity {
+	case FindingSeverityCritical, FindingSeverityMajor, FindingSeverityMinor:
+	default:
+		return errors.New("invalid finding severity")
+	}
+	if strings.TrimSpace(f.Defect) == "" || strings.TrimSpace(f.Evidence) == "" || strings.TrimSpace(f.RequiredOutcome) == "" {
+		return errors.New("finding lacks its defect, evidence or required outcome")
+	}
+	if len(f.Defect)+len(f.Evidence)+len(f.RequiredOutcome) > MaxFindingProseBytes {
+		return errors.New("finding prose exceeds its bound")
+	}
+	switch f.FixKind {
+	case FindingFixCode, FindingFixVerification:
+	default:
+		return errors.New("invalid finding fix kind")
+	}
+	if f.Location != nil {
+		if err := f.Location.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// FindingSetDigest binds one finding set to its sorted keys: the input
+// digest carried by review cycles and the exact digest covered by
+// correction dispositions. Key order never affects the digest; any added,
+// dropped or re-keyed finding changes it.
+func FindingSetDigest(keys []string) (string, error) {
+	if len(keys) > MaxOutstandingFindings {
+		return "", errors.New("finding set exceeds its bound")
+	}
+	sorted := append([]string(nil), keys...)
+	for _, key := range sorted {
+		if !ValidFindingKey(key) {
+			return "", errors.New("finding set carries an invalid key")
+		}
+	}
+	sort.Strings(sorted)
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i] == sorted[i-1] {
+			return "", errors.New("finding set carries a duplicate key")
+		}
+	}
+	sum := sha256.Sum256([]byte("finding-set-v1\x00" + strings.Join(sorted, "\x00")))
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// ResolveConversationMember is one thread member behind a resolution
+// digest: member ID, body, content version, location and resolver state,
+// in native (created_unix, id) order with the anchored root first.
+type ResolveConversationMember struct {
+	Body          string
+	Location      string
+	ResolverState string
+	ID            int64
+	ContentVer    int64
+}
+
+// ResolveConversationLine renders one member in the canonical digest
+// encoding shared with the X SDK twin: decimal ID, body, decimal content
+// version, location and resolver state joined by NUL bytes. Both sides
+// must reproduce these bytes exactly; the digest comparison refuses any
+// divergence as changed content.
+func ResolveConversationLine(m ResolveConversationMember) string {
+	return strconv.FormatInt(m.ID, 10) + "\x00" + m.Body + "\x00" +
+		strconv.FormatInt(m.ContentVer, 10) + "\x00" + m.Location + "\x00" + m.ResolverState
+}
+
+// ConversationDigest binds the expected complete conversation behind a
+// resolve request: member count plus the ordered member lines. Any reply,
+// edit, unresolve or resolver-state change alters the digest and refuses
+// the stale resolution. Review snapshots (FW17) record this digest;
+// resolution (FW17) recomputes it from live native state.
+func ConversationDigest(lines []string) (string, error) {
+	if len(lines) == 0 {
+		return "", errors.New("conversation digest needs its members")
+	}
+	sum := sha256.Sum256([]byte(strconv.Itoa(len(lines)) + "\n" + strings.Join(lines, "\n")))
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// ThreadEvidence is the recorded conversation a resolve request must
+// match: repository, PR, anchored root comment, complete digest and
+// whether the root mapping was deleted. Deletion invalidates the mapping
+// and cannot silently transfer accepted resolution to another root.
+type ThreadEvidence struct {
+	Digest        string
+	Repository    int64
+	PRNumber      int64
+	RootCommentID int64
+	Deleted       bool
+}
+
+// ResolveRequest is one conditional thread-resolve intent (D06): exact
+// PR/head/base, anchored root comment, expected complete conversation
+// digest and resolved=true. Replies are members, never resolution
+// targets; only resolution is supported, never unresolve via this
+// operation.
+type ResolveRequest struct {
+	HeadRef       string `json:"head_ref"`
+	BaseRef       string `json:"base_ref"`
+	HeadOID       string `json:"head_oid"`
+	BaseOID       string `json:"base_oid"`
+	Digest        string `json:"digest"`
+	Repository    int64  `json:"repository"`
+	PRNumber      int64  `json:"pr_number"`
+	PRID          int64  `json:"pr_id"`
+	RootCommentID int64  `json:"root_comment_id"`
+	ActorID       int64  `json:"actor_id"`
+	Resolved      bool   `json:"resolved"`
+}
+
+// ValidateForEvidence checks the resolve intent against its enrolled
+// binding, reviewer independence and recorded thread evidence. A missing
+// or wrong-kind binding, a wrong actor, the PR author's own identity, a
+// reply passed as root, a deleted root or changed content all refuse;
+// exact replay against unchanged evidence validates.
+func (r ResolveRequest) ValidateForEvidence(binding ActorBindingRef, prAuthorID int64, evidence ThreadEvidence) error {
+	if binding == (ActorBindingRef{}) || binding.Kind != OpThreadResolve {
+		return errors.New("missing resolve binding")
+	}
+	if err := binding.Validate(); err != nil {
+		return errors.New("invalid resolve binding")
+	}
+	if r.ActorID <= 0 || r.ActorID != binding.ActorID {
+		return errors.New("resolve actor differs from its binding")
+	}
+	if prAuthorID <= 0 || r.ActorID == prAuthorID {
+		return errors.New("resolve actor needs its independent reviewer")
+	}
+	if r.Repository <= 0 || r.PRNumber <= 0 || r.PRID <= 0 || r.RootCommentID <= 0 {
+		return errors.New("invalid resolve target")
+	}
+	if !ValidTargetBranch(r.HeadRef) || !ValidTargetBranch(r.BaseRef) || r.HeadRef == r.BaseRef {
+		return errors.New("invalid resolve refs")
+	}
+	if !ValidCommit(r.HeadOID) || !ValidCommit(r.BaseOID) || r.HeadOID == r.BaseOID {
+		return errors.New("resolve candidate is not a fresh exact commit")
+	}
+	if !r.Resolved {
+		return errors.New("resolve request must resolve")
+	}
+	if !ValidDigest(r.Digest) {
+		return errors.New("invalid resolve conversation digest")
+	}
+	if evidence.Deleted {
+		return errors.New("resolve root deleted")
+	}
+	if evidence.Repository != r.Repository || evidence.PRNumber != r.PRNumber || evidence.RootCommentID != r.RootCommentID {
+		return errors.New("resolve target differs from its recorded root")
+	}
+	if !ValidDigest(evidence.Digest) || evidence.Digest != r.Digest {
+		return errors.New("resolve conversation changed under its request")
+	}
+	return nil
+}
+
+// ReviewCycleID derives the deterministic review-cycle identity from
+// publication, attempt root, round and phase. New rounds on the same head
+// are distinct; replay of a round reuses its identity.
+func ReviewCycleID(publicationID, attemptRoot string, round int, phase string) string {
+	sum := sha256.Sum256([]byte("review-cycle-v1\x00" + publicationID + "\x00" + attemptRoot + "\x00" +
+		strconv.Itoa(round) + "\x00" + phase))
+	return hex.EncodeToString(sum[:])[:32]
 }
 
 // ReviewOutcome is the attributable native review identity adopted from its

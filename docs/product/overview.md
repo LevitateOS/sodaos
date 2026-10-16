@@ -80,8 +80,9 @@ person performing each merge.
    a successful CLI exit alone does not establish completion.
 6. **Review and correct.** Soda starts another agent session in the same repository
    container to review the candidate. The reviewer reports findings; the coding
-   agent owns corrections. A fresh review session checks each revised candidate
-   under the [review rules](#review-and-correction).
+   agent owns corrections. Each revised candidate returns for a fresh review
+   round or for Jev acceptance of its verified correction set, under the
+   [review rules](#review-and-correction).
 7. **Merge automatically.** Soda performs the native forge merge when the required
    review and checks pass for the exact candidate and current repository policy
    permits it. Missing evidence, changed candidate state or unmet merge conditions
@@ -395,13 +396,18 @@ Findings distinguish concrete correctness, security, acceptance and required-che
 failures from optional suggestions. Each blocking finding identifies the defect,
 relevant location/evidence and required outcome. The coding agent receives the
 consolidated findings and either corrects them or explains a concrete disagreement.
-A fresh review session reassesses the revised head and outstanding findings. A
-reviewer's own change cannot receive that reviewer's approval. Disagreement without
-progress goes to a maintainer instead of an unlimited agent debate. Every changed
-candidate requires new required CI and review within the same remaining limits.
-An actionable CI failure becomes correction input. Missing capacity or an
-infrastructure failure cannot be resolved by weakening verification; wait for the
-resource or report the intervention needed.
+A fresh review round or Jev acceptance of the verified correction set reassesses
+the revised head and outstanding findings; mechanically complete fixes may reach
+Jev while native threads stay open, conditional on successful resolution
+afterward. A clean first review still requires Jev's acceptance before merge.
+A reviewer's own change cannot receive that reviewer's approval. Disagreement
+without progress goes to a maintainer instead of an unlimited agent debate.
+Every changed candidate requires new required CI and either a fresh review round
+or Jev acceptance of the verified correction set, within the same remaining
+limits. Verification-only findings may keep the same head when new passing
+checks prove the required outcome. An actionable CI failure becomes correction
+input. Missing capacity or an infrastructure failure cannot be resolved by
+weakening verification; wait for the resource or report the intervention needed.
 
 ### Automatic merge conditions
 
@@ -412,10 +418,11 @@ Merge is allowed only when all of these remain true at the native merge operatio
   still match the recorded inputs.
 - The PR belongs to the assigned repository, branch and issue; its current head is
   exactly the reviewed candidate, and the intended target/base is still valid.
-- Independent review passes with no unresolved blocking findings; every configured
-  check in the nonempty required-check set passes for this candidate and the base
-  against which it was verified. Missing, skipped, cancelled, pending or failed
-  evidence is not a pass.
+- Independent review passes with no unresolved blocking findings, and Jev accepts
+  the exact candidate by selecting ready_to_merge at both confidence thresholds;
+  every configured check in the nonempty required-check set passes for this
+  candidate and the base against which it was verified. Missing, skipped,
+  cancelled, pending or failed evidence is not a pass.
 - Native repository permissions, branch protection, approvals and mergeability
   permit the selected merge method. Soda does not bypass an additional native
   human-review requirement or weaken it automatically.

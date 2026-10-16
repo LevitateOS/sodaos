@@ -259,6 +259,310 @@ func (w MergeWork) ValidateObservation() error {
 	return w.Intent().validate(false)
 }
 
+// MaxMergeGenerations bounds the immutable authorization generations per
+// publication (D04). Reaching the cap is a visible intervention; never
+// create another PR to escape it. Replacement never resets any attempt
+// allowance: the ledger carries no allowance state at all.
+const MaxMergeGenerations = 32
+
+// MergeGenerationOperationID derives the deterministic native operation
+// identity for one authorization generation from publication plus
+// generation. Content is immutable; terminal identities are never reused,
+// and a lost reply reconciles by lookup instead of resubmitting.
+func MergeGenerationOperationID(publicationID string, generation int) string {
+	return fmt.Sprintf("soda-%s-merge-generation-%d", publicationID, generation)
+}
+
+// MergeGeneration is one merge authorization generation (D09): decision,
+// review round, semantic fingerprint, exact head/base/check evidence,
+// authority, observed native revision and deadline, plus the derived
+// native operation identity. Candidate, base, authority, deadline and
+// native-operation fields belong to each generation; history is
+// append-only and prior generations are never rewritten.
+type MergeGeneration struct {
+	Authority          AuthorityRef `json:"authority"`
+	PublicationID      string       `json:"publication_id"`
+	DecisionID         string       `json:"decision_id"`
+	NativeOperationID  string       `json:"native_operation_id"`
+	Fingerprint        string       `json:"fingerprint"`
+	Head               string       `json:"head"`
+	Base               string       `json:"base"`
+	DiffBase           string       `json:"diff_base"`
+	ChecksDigest       string       `json:"checks_digest"`
+	Generation         int          `json:"generation"`
+	ReviewRound        int          `json:"review_round"`
+	AssessmentRevision int64        `json:"assessment_revision"`
+	ObservedNativeRev  int64        `json:"observed_native_revision"`
+	NotAfter           int64        `json:"not_after"`
+}
+
+// Validate checks the immutable generation content.
+func (g MergeGeneration) Validate() error {
+	if !ValidID(g.PublicationID) || !ValidID(g.DecisionID) {
+		return errors.New("invalid merge generation identity")
+	}
+	if g.Generation < 1 {
+		return errors.New("invalid merge generation number")
+	}
+	if g.NativeOperationID != MergeGenerationOperationID(g.PublicationID, g.Generation) {
+		return errors.New("merge generation operation differs from its derivation")
+	}
+	if !ValidDigest(g.Fingerprint) {
+		return errors.New("merge generation lacks its semantic fingerprint")
+	}
+	if !ValidCommit(g.Head) || !ValidCommit(g.Base) || !ValidCommit(g.DiffBase) || g.Head == g.Base {
+		return errors.New("merge generation candidate is not an exact head over a verified base")
+	}
+	if g.ReviewRound < 1 {
+		return errors.New("invalid merge generation review round")
+	}
+	if g.AssessmentRevision <= 0 || !ValidDigest(g.ChecksDigest) {
+		return errors.New("merge generation lacks its bound check evidence")
+	}
+	if g.Authority.Policy <= 0 {
+		return errors.New("merge generation lacks its admitted policy authority")
+	}
+	if g.ObservedNativeRev <= 0 || g.NotAfter <= 0 {
+		return errors.New("invalid merge generation observation binding")
+	}
+	return nil
+}
+
+// SupersededByBase reports whether a new base invalidates this
+// generation's pending acceptance. FW22 refreshes the publication tuple
+// from native refs on true and dispatches bounded coder correction when
+// the new base is not already an ancestor of the candidate.
+func (g MergeGeneration) SupersededByBase(newBase string) bool {
+	return newBase != g.Base
+}
+
+// MergePredecessorProof is the confirmed predecessor effect behind a
+// replacement: either the predecessor proven not_committed with confirmed
+// cancellation, or a deterministic no-effect refusal. Pending,
+// indeterminate or committed predecessors prove nothing and forbid
+// replacement; a committed predecessor is adopted, never replaced.
+type MergePredecessorProof struct {
+	Generation      int    `json:"generation"`
+	Effect          string `json:"effect,omitempty"`
+	Cancellation    string `json:"cancellation,omitempty"`
+	NoEffectRefusal string `json:"no_effect_refusal,omitempty"`
+}
+
+// Validate checks the proof shape. Uncertainty never proves replaceability.
+func (p MergePredecessorProof) Validate() error {
+	if p.Generation < 1 {
+		return errors.New("invalid merge predecessor proof generation")
+	}
+	cancelled := p.Effect == OpEffectNotCommitted && p.Cancellation == OpCancelCancelled && p.NoEffectRefusal == ""
+	refused := p.Effect == OpEffectNotCommitted && p.Cancellation == "" && p.NoEffectRefusal != "" && len(p.NoEffectRefusal) <= 64
+	if !cancelled && !refused {
+		return errors.New("uncertain merge predecessor forbids replacement")
+	}
+	return nil
+}
+
+// MergeLedger is one publication's factory_merges ledger (D09): stable
+// publication/repository/issue identity, one current authorization
+// generation and bounded immutable prior-generation history. Adoption
+// marks the terminal observation of a committed merge. Persistence of
+// this ledger in store rows belongs to FW22; this is the frozen contract
+// its UpdateMerge enforces.
+type MergeLedger struct {
+	PublicationID string            `json:"publication_id"`
+	History       []MergeGeneration `json:"history,omitempty"`
+	Current       MergeGeneration   `json:"current,omitempty"`
+	AdoptedCommit string            `json:"adopted_commit,omitempty"`
+	Repository    int64             `json:"repository,string"`
+	Issue         int64             `json:"issue,string"`
+	Adopted       bool              `json:"adopted"`
+}
+
+// NewMergeLedger opens the empty ledger for one publication.
+func NewMergeLedger(publicationID string, repository, issue int64) (MergeLedger, error) {
+	ledger := MergeLedger{PublicationID: publicationID, Repository: repository, Issue: issue}
+	if err := ledger.Validate(); err != nil {
+		return MergeLedger{}, err
+	}
+	return ledger, nil
+}
+
+// Validate checks append-only history: consecutive generations from one,
+// stable identity everywhere, the current generation next in line and the
+// D04 history ceiling over current plus history. An empty ledger and an
+// adopted terminal ledger both validate.
+func (l MergeLedger) Validate() error {
+	if !ValidID(l.PublicationID) || l.Repository <= 0 || l.Issue <= 0 {
+		return errors.New("invalid merge ledger identity")
+	}
+	for i, generation := range l.History {
+		if err := generation.Validate(); err != nil {
+			return err
+		}
+		if generation.Generation != i+1 || generation.PublicationID != l.PublicationID {
+			return errors.New("merge ledger history is not append-only")
+		}
+	}
+	total := len(l.History)
+	if l.Current.Generation == 0 {
+		if l.Current != (MergeGeneration{}) {
+			return errors.New("merge ledger carries a cleared current generation")
+		}
+	} else {
+		if err := l.Current.Validate(); err != nil {
+			return err
+		}
+		if l.Current.Generation != len(l.History)+1 || l.Current.PublicationID != l.PublicationID {
+			return errors.New("merge ledger current generation breaks its history")
+		}
+		total++
+	}
+	if total > MaxMergeGenerations {
+		return errors.New("merge generation history exceeds its bound")
+	}
+	if l.Adopted {
+		if l.Current.Generation == 0 || !ValidCommit(l.AdoptedCommit) || l.AdoptedCommit != l.Current.Head {
+			return errors.New("adopted merge lacks its realized head")
+		}
+	} else if l.AdoptedCommit != "" {
+		return errors.New("unadopted merge carries no realized commit")
+	}
+	return nil
+}
+
+// Ledger update kinds. Registration captures a generation; supersession
+// closes the current admission on proven predecessor effect; adoption
+// observes an already-committed merge without resubmitting it.
+const (
+	MergeLedgerRegister  = "register"
+	MergeLedgerSupersede = "supersede"
+	MergeLedgerAdopt     = "adopt"
+)
+
+// MergeLedgerUpdate is one append-only ledger transition.
+type MergeLedgerUpdate struct {
+	Generation    MergeGeneration       `json:"generation,omitempty"`
+	Proof         MergePredecessorProof `json:"proof,omitempty"`
+	AdoptedCommit string                `json:"adopted_commit,omitempty"`
+	Kind          string                `json:"kind"`
+}
+
+// Apply validates one transition and returns the next ledger. Unknown,
+// uncertain or committed-predecessor replacements refuse; adoption of an
+// already-adopted identical commit replays identically.
+func (l MergeLedger) Apply(u MergeLedgerUpdate) (MergeLedger, error) {
+	if err := l.Validate(); err != nil {
+		return MergeLedger{}, err
+	}
+	switch u.Kind {
+	case MergeLedgerRegister:
+		return l.register(u.Generation)
+	case MergeLedgerSupersede:
+		return l.supersede(u.Proof)
+	case MergeLedgerAdopt:
+		return l.adopt(u.AdoptedCommit)
+	default:
+		return MergeLedger{}, errors.New("invalid merge ledger update")
+	}
+}
+
+func (l MergeLedger) register(generation MergeGeneration) (MergeLedger, error) {
+	if l.Adopted {
+		return MergeLedger{}, errors.New("committed merge forbids replacement")
+	}
+	if l.Current.Generation != 0 {
+		return MergeLedger{}, errors.New("current authorization still occupies its ledger")
+	}
+	if err := generation.Validate(); err != nil {
+		return MergeLedger{}, err
+	}
+	if generation.PublicationID != l.PublicationID {
+		return MergeLedger{}, errors.New("merge generation differs from its ledger")
+	}
+	if generation.Generation != len(l.History)+1 {
+		return MergeLedger{}, errors.New("merge generation breaks its history")
+	}
+	if len(l.History)+1 > MaxMergeGenerations {
+		return MergeLedger{}, errors.New("merge generation history at its ceiling")
+	}
+	l.Current = generation
+	return l, nil
+}
+
+func (l MergeLedger) supersede(proof MergePredecessorProof) (MergeLedger, error) {
+	if l.Adopted {
+		return MergeLedger{}, errors.New("committed merge forbids replacement")
+	}
+	if l.Current.Generation == 0 {
+		return MergeLedger{}, errors.New("no current authorization to supersede")
+	}
+	if err := proof.Validate(); err != nil {
+		return MergeLedger{}, err
+	}
+	if proof.Generation != l.Current.Generation {
+		return MergeLedger{}, errors.New("supersede proof differs from its current generation")
+	}
+	l.History = append(l.History, l.Current)
+	l.Current = MergeGeneration{}
+	return l, nil
+}
+
+func (l MergeLedger) adopt(commit string) (MergeLedger, error) {
+	if l.Current.Generation == 0 {
+		return MergeLedger{}, errors.New("no current authorization to adopt")
+	}
+	if !ValidCommit(commit) || commit != l.Current.Head {
+		return MergeLedger{}, errors.New("adopted merge differs from its exact head")
+	}
+	if l.Adopted {
+		if l.AdoptedCommit != commit {
+			return MergeLedger{}, errors.New("adopted merge differs from its recorded commit")
+		}
+		return l, nil
+	}
+	l.Adopted, l.AdoptedCommit = true, commit
+	return l, nil
+}
+
+// MergeDecisionInput gathers the single decision gate (D09) behind every
+// new mutation path: the generation seeking admission, the current
+// applicable ready_to_merge decision, confirmed accepted resolutions and
+// the current authority. Publication progress, MergePass, mergeOne and
+// reconciliation (FW22) all call CheckMergeDecisionGate; recovery
+// observes the recorded operation instead of entering the gate.
+type MergeDecisionInput struct {
+	Generation           MergeGeneration  `json:"generation"`
+	Decision             DeliveryDecision `json:"decision"`
+	CurrentAuthority     AuthorityRef     `json:"current_authority"`
+	ResolutionsConfirmed bool             `json:"resolutions_confirmed"`
+}
+
+// CheckMergeDecisionGate enforces the common gate: a valid generation, a
+// valid effective ready_to_merge decision over the generation's exact
+// fingerprint, confirmed accepted resolutions and unchanged authority.
+// Recovery of an already-committed merge never enters this gate and
+// consumes no new Jev call.
+func CheckMergeDecisionGate(in MergeDecisionInput) error {
+	if err := in.Generation.Validate(); err != nil {
+		return err
+	}
+	if err := in.Decision.Validate(); err != nil {
+		return err
+	}
+	if in.Decision.Effective != DeliveryEffectiveReady {
+		return errors.New("merge decision is not ready_to_merge")
+	}
+	if in.Decision.Answer.Fingerprint != in.Generation.Fingerprint {
+		return errors.New("merge decision judged different evidence")
+	}
+	if !in.ResolutionsConfirmed {
+		return errors.New("merge decision lacks confirmed accepted resolutions")
+	}
+	if in.CurrentAuthority != in.Generation.Authority {
+		return errors.New("merge authority changed under its authorization")
+	}
+	return nil
+}
+
 // Validate adds the exact native observation needed before submission.
 func (w MergeWork) Validate() error {
 	if err := w.ValidateObservation(); err != nil {

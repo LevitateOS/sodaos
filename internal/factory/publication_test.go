@@ -179,11 +179,12 @@ func TestPublicationBoundsReviewHistoryAdmission(t *testing.T) {
 	if err := makeReviews(MaxPublicationReviewOperations+1, 0).Validate(); err == nil {
 		t.Fatal("history above record bound accepted")
 	}
-	// Pending work reserves the largest permitted receipt before native
-	// submission. Even when every operation later receives a maximum-sized
-	// receipt, that already-admitted publication remains persistable.
+	// Pending work reserves the largest permitted review-specific receipt
+	// before native submission. Even when every operation later receives a
+	// maximum-sized receipt, that already-admitted publication remains
+	// persistable.
 	perOperationAtBound := MaxPublicationReviewBytes / MaxPublicationReviewOperations
-	maxPending := makeReviews(MaxPublicationReviewOperations, perOperationAtBound-MaxPublicationReceipt)
+	maxPending := makeReviews(MaxPublicationReviewOperations, perOperationAtBound-MaxReviewReceiptBytes)
 	if err := maxPending.Validate(); err != nil {
 		t.Fatalf("pending history with maximum receipt reservations refused: %v", err)
 	}
@@ -192,7 +193,7 @@ func TestPublicationBoundsReviewHistoryAdmission(t *testing.T) {
 		op.Outcome = OperationOutcome{
 			OperationID: op.Work.OperationID, InstallationID: "install",
 			Kind: OpReviewSubmit, ActorID: op.Work.ActorID,
-			RepositoryID: maxPending.Repository, Receipt: bytes.Repeat([]byte{0xff}, MaxPublicationReceipt),
+			RepositoryID: maxPending.Repository, Receipt: bytes.Repeat([]byte{0xff}, MaxReviewReceiptBytes),
 			Effect: OpEffectCommitted, Cancellation: OpCancelNone, Completion: OpCompletionComplete,
 		}
 	}
@@ -200,10 +201,10 @@ func TestPublicationBoundsReviewHistoryAdmission(t *testing.T) {
 		t.Fatalf("maximum receipts made admitted history unpersistable: %v", err)
 	}
 
-	// A 127-operation pending history leaves 8192 bytes. One more body byte
+	// A 63-operation pending history leaves 16384 bytes. One more body byte
 	// than that permits, including its reserved receipt, must be rejected by
 	// the same pre-submit admission used by the coordinator.
-	nearBound := makeReviews(MaxPublicationReviewOperations-1, perOperationAtBound-MaxPublicationReceipt)
+	nearBound := makeReviews(MaxPublicationReviewOperations-1, perOperationAtBound-MaxReviewReceiptBytes)
 	nextID := fmt.Sprintf("%032x", MaxPublicationReviewOperations)
 	next := ReviewOperation{RunID: nextID, Work: ReviewWork{
 		OperationID: "review-" + nextID, AuthRevision: ReviewAuthRevision(nearBound.AssignmentID, nextID),
@@ -212,7 +213,7 @@ func TestPublicationBoundsReviewHistoryAdmission(t *testing.T) {
 		HeadRef: nearBound.PRCreate.HeadRef, BaseRef: nearBound.PRCreate.BaseRef,
 		HeadOID: nearBound.Publish.Work.Candidate, BaseOID: nearBound.PRCreate.BaseOID,
 		NativeRev: 1, NotAfter: 1300, Event: "APPROVED",
-		Body: strings.Repeat("x", perOperationAtBound-MaxPublicationReceipt+1),
+		Body: strings.Repeat("x", perOperationAtBound-MaxReviewReceiptBytes+1),
 	}}
 	if err := nearBound.CanAppendReviewOperation(next); err == nil {
 		t.Fatal("review admission accepted body plus reserved receipt one byte over aggregate bound")
@@ -444,5 +445,57 @@ func TestPublicationWithdrawalCannotGuessPendingEffect(t *testing.T) {
 	p.Stage, p.Outcome, p.Reason, p.FinishedUnix = PublicationWithdrawn, Cancelled, PublishReasonWithdrawn, 1400
 	if err := p.Validate(); err == nil {
 		t.Fatal("pending operation appeared cancelled")
+	}
+}
+
+func TestPublicationCandidateTupleBindsAndAdvances(t *testing.T) {
+	p := testPublication()
+	tuple := CandidateTuple{Head: p.Candidate, Base: p.BaseSHA, DiffBase: p.BaseSHA, Revision: 0}
+	if err := tuple.Validate(); err != nil {
+		t.Fatalf("candidate tuple refused: %v", err)
+	}
+	p.Tuple = &tuple
+	if err := p.Validate(); err != nil {
+		t.Fatalf("publication with its current tuple refused: %v", err)
+	}
+	moved := tuple
+	moved.Head = strings.Repeat("3", 40)
+	p.Tuple = &moved
+	if err := p.Validate(); err == nil {
+		t.Fatal("tuple head outside publication history accepted")
+	}
+	p.Tuple = &tuple
+	next, err := tuple.Advance(0, strings.Repeat("3", 40), p.BaseSHA, p.BaseSHA)
+	if err != nil || next.Revision != 1 {
+		t.Fatalf("tuple CAS advance refused: %v", err)
+	}
+	if _, err := tuple.Advance(1, strings.Repeat("3", 40), p.BaseSHA, p.BaseSHA); err == nil {
+		t.Fatal("stale tuple revision overwrote a concurrent refresh")
+	}
+}
+
+func TestReviewReceiptBoundPersistsMaximum(t *testing.T) {
+	p := publishedPublication()
+	runID := fmt.Sprintf("%032x", 1)
+	op := ReviewOperation{RunID: runID, Work: ReviewWork{
+		OperationID: "review-" + runID, AuthRevision: ReviewAuthRevision(p.AssignmentID, runID),
+		Repository: p.Repository, ActorID: 6, PRNumber: p.PRNumber, PRID: p.PRID,
+		IssueID: p.PRCreate.IssueID, PRAuthorID: p.PRCreate.Work.ActorID,
+		HeadRef: p.PRCreate.HeadRef, BaseRef: p.PRCreate.BaseRef,
+		HeadOID: p.Publish.Work.Candidate, BaseOID: p.PRCreate.BaseOID,
+		NativeRev: 1, NotAfter: 1300, Event: "APPROVED",
+	}, Outcome: OperationOutcome{
+		OperationID: "review-" + runID, InstallationID: "install",
+		Kind: OpReviewSubmit, ActorID: 6, RepositoryID: p.Repository,
+		Receipt: bytes.Repeat([]byte{0xff}, MaxReviewReceiptBytes),
+		Effect:  OpEffectCommitted, Cancellation: OpCancelNone, Completion: OpCompletionComplete,
+	}}
+	if err := op.ValidateForPublication(p); err != nil {
+		t.Fatalf("maximum review receipt refused: %v", err)
+	}
+	tooLarge := op
+	tooLarge.Outcome.Receipt = bytes.Repeat([]byte{0xff}, MaxReviewReceiptBytes+1)
+	if err := tooLarge.ValidateForPublication(p); err == nil {
+		t.Fatal("review receipt above its bound accepted")
 	}
 }

@@ -18,16 +18,17 @@ import (
 // Operation kinds mirror the enrolled native binding kinds. Authorization
 // for one kind never grants another.
 const (
-	OpRefPublish   = "git.ref.publish"
-	OpPRCreate     = "pull_request.create"
-	OpReviewSubmit = "pull_request.review.submit"
-	OpMerge        = "pull_request.merge"
+	OpRefPublish    = "git.ref.publish"
+	OpPRCreate      = "pull_request.create"
+	OpReviewSubmit  = "pull_request.review.submit"
+	OpThreadResolve = "pull_request.review.thread.resolve"
+	OpMerge         = "pull_request.merge"
 )
 
 // ValidOperationKind reports whether kind is a supported native operation kind.
 func ValidOperationKind(kind string) bool {
 	switch kind {
-	case OpRefPublish, OpPRCreate, OpReviewSubmit, OpMerge:
+	case OpRefPublish, OpPRCreate, OpReviewSubmit, OpThreadResolve, OpMerge:
 		return true
 	default:
 		return false
@@ -181,6 +182,7 @@ type RepositoryPolicy struct {
 	Publish             ActorBindingRef          `json:"publish_actor"`
 	Create              ActorBindingRef          `json:"create_actor"`
 	Review              ActorBindingRef          `json:"review_actor"`
+	Resolve             ActorBindingRef          `json:"resolve_actor,omitempty"`
 	Merge               ActorBindingRef          `json:"merge_actor"`
 	Repository          int64                    `json:"repository,string"`
 	Revision            int64                    `json:"revision"`
@@ -219,9 +221,13 @@ func (p RepositoryPolicy) Validate() error {
 	if p.MergeMethod != MergeFastForward {
 		return errors.New("unsupported merge method")
 	}
-	for slot, ref := range map[string]ActorBindingRef{
+	bindings := map[string]ActorBindingRef{
 		OpRefPublish: p.Publish, OpPRCreate: p.Create, OpReviewSubmit: p.Review, OpMerge: p.Merge,
-	} {
+	}
+	if p.Resolve != (ActorBindingRef{}) {
+		bindings[OpThreadResolve] = p.Resolve
+	}
+	for slot, ref := range bindings {
 		if err := ref.Validate(); err != nil || ref.Kind != slot {
 			return errors.New("policy actor binding does not match its operation kind")
 		}
@@ -236,6 +242,22 @@ func (p RepositoryPolicy) Validate() error {
 		return err
 	}
 	return nil
+}
+
+// ResolveBinding returns the policy's enrolled thread-resolve actor
+// binding. The resolve credential is its own operation authorization on
+// the reviewer account identity: review permission is never a reusable
+// resolve credential, and a missing binding refuses resolution instead of
+// inheriting another kind. Keeper of the binding stays with policy
+// admission; FW23 can require enrollment for new policies.
+func (p RepositoryPolicy) ResolveBinding() (ActorBindingRef, error) {
+	if p.Resolve == (ActorBindingRef{}) {
+		return ActorBindingRef{}, errors.New("missing resolve binding")
+	}
+	if err := p.Resolve.Validate(); err != nil || p.Resolve.Kind != OpThreadResolve {
+		return ActorBindingRef{}, errors.New("policy actor binding does not match its operation kind")
+	}
+	return p.Resolve, nil
 }
 
 // Capacity is the appliance-wide factory execution budget, held separately

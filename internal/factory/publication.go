@@ -94,15 +94,16 @@ func ValidOpCompletion(state string) bool {
 const MaxPublicationReceipt = 4096
 
 // Review admission bounds the append-only native review history retained in
-// one publication: at most 128 records and 1 MiB summed across each
-// ReviewWork.Body plus the maximum raw receipt capacity reserved for that
-// operation. Reserving receipt capacity keeps admitted pending work
-// persistable when its native outcome arrives. These resource ceilings do
-// not limit configured review or correction cycles; callers refuse a new
-// review before native dispatch when either ceiling is reached, preserving
-// history.
+// one publication: at most 64 records and 1 MiB summed across each
+// ReviewWork.Body plus the review-specific raw receipt capacity reserved
+// for that operation. The reservation equals the D04 review receipt cap
+// (MaxReviewReceiptBytes): 64 worst-case operations exactly fill the byte
+// cap, so admitted pending work stays persistable when maximum receipts
+// arrive. These resource ceilings do not limit configured review or
+// correction cycles; callers refuse a new review before native dispatch
+// when either ceiling is reached, preserving history.
 const (
-	MaxPublicationReviewOperations = 128
+	MaxPublicationReviewOperations = 64
 	MaxPublicationReviewBytes      = 1 << 20
 )
 
@@ -130,6 +131,7 @@ type Publication struct {
 	TargetBranch      string               `json:"target_branch"`
 	Comparison        string               `json:"comparison_oid,omitempty"`
 	TargetTip         string               `json:"target_tip,omitempty"`
+	Tuple             *CandidateTuple      `json:"candidate_tuple,omitempty"`
 	Stage             string               `json:"stage"`
 	Outcome           Outcome              `json:"outcome,omitempty"`
 	Reason            string               `json:"reason,omitempty"`
@@ -177,6 +179,14 @@ func (p Publication) Validate() error {
 	}
 	if p.TargetTip != "" && !ValidCommit(p.TargetTip) {
 		return errors.New("invalid publication target observation")
+	}
+	if p.Tuple != nil {
+		if err := p.Tuple.Validate(); err != nil {
+			return err
+		}
+		if p.Tuple.Head != p.Candidate || p.Tuple.Base != p.BaseSHA {
+			return errors.New("candidate tuple differs from its publication")
+		}
 	}
 	if p.NativeRev < 0 || (p.NativeRev == 0) != (p.ObservedUnix == 0) {
 		return errors.New("invalid publication observation binding")
@@ -341,7 +351,7 @@ func (p Publication) validateReviewOperations(additional *ReviewOperation) error
 		if err := op.ValidateForPublication(p); err != nil {
 			return err
 		}
-		retained += len(op.Work.Body) + MaxPublicationReceipt
+		retained += len(op.Work.Body) + MaxReviewReceiptBytes
 		if retained > MaxPublicationReviewBytes {
 			return errors.New("publication review history exceeds its byte bound")
 		}
@@ -425,6 +435,50 @@ func PublishBranchName(assignmentID string) string {
 // Soda revision, never a credential.
 func AuthRevisionFor(assignmentID, publicationID string, revision int64) string {
 	return fmt.Sprintf("soda-assignment:%s:publication:%s:revision:%d", assignmentID, publicationID, revision)
+}
+
+// CandidateTuple is the publication cycle's current verification triple:
+// exact head, current base and the actual native merge-base behind their
+// integration diff, plus its own CAS revision. PRCreate keeps the
+// historical creation base; current prompts, diff anchors, checks,
+// reviews, Jev and merge admission use this tuple. A changed base
+// invalidates pending acceptance. FW22 refreshes the tuple from native
+// refs, dispatching bounded coder correction to merge the new base into
+// the candidate when it is not already an ancestor; no automatic
+// rebase/force-push, and PRCreate.BaseOID never becomes the permanent
+// current base.
+type CandidateTuple struct {
+	Head     string `json:"head"`
+	Base     string `json:"base"`
+	DiffBase string `json:"diff_base"`
+	Revision int64  `json:"revision"`
+}
+
+// Validate checks the triple shape. DiffBase is the actual native
+// merge-base: it may equal the base when the base is already an ancestor
+// of the candidate.
+func (t CandidateTuple) Validate() error {
+	if !ValidCommit(t.Head) || !ValidCommit(t.Base) || !ValidCommit(t.DiffBase) || t.Head == t.Base {
+		return errors.New("candidate tuple is not an exact head over a verified base")
+	}
+	if t.Revision < 0 {
+		return errors.New("invalid candidate tuple revision")
+	}
+	return nil
+}
+
+// Advance moves the tuple to fresh native observations under CAS: the
+// caller supplies the revision it observed, and a tuple that moved under
+// its observer refuses instead of overwriting a concurrent refresh.
+func (t CandidateTuple) Advance(observedRevision int64, head, base, diffBase string) (CandidateTuple, error) {
+	if observedRevision != t.Revision {
+		return CandidateTuple{}, errors.New("candidate tuple changed under its observer")
+	}
+	next := CandidateTuple{Head: head, Base: base, DiffBase: diffBase, Revision: t.Revision + 1}
+	if err := next.Validate(); err != nil {
+		return CandidateTuple{}, err
+	}
+	return next, nil
 }
 
 // RefHead returns the branch name without its refs/heads/ prefix, or empty

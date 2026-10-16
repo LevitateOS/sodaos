@@ -250,3 +250,33 @@ func TestWithdrawalValidation(t *testing.T) {
 		t.Fatal("withdrawal captured an invalid identity")
 	}
 }
+
+func TestResolveBindingSlot(t *testing.T) {
+	unenrolled := grantTestPolicy()
+	if err := unenrolled.Validate(); err != nil {
+		t.Fatalf("policy without resolve enrollment refused: %v", err)
+	}
+	if _, err := unenrolled.ResolveBinding(); err == nil {
+		t.Fatal("missing resolve binding resolved")
+	}
+	if ValidOperationKind(OpThreadResolve) != true {
+		t.Fatal("thread resolve kind rejected")
+	}
+	enrolled := grantTestPolicy()
+	enrolled.Resolve = ActorBindingRef{TokenID: 13, ActorID: 14, Kind: OpThreadResolve}
+	if err := enrolled.Validate(); err != nil {
+		t.Fatalf("enrolled resolve binding refused: %v", err)
+	}
+	binding, err := enrolled.ResolveBinding()
+	if err != nil || binding != enrolled.Resolve {
+		t.Fatalf("enrolled resolve binding not returned: %v", err)
+	}
+	borrowed := grantTestPolicy()
+	borrowed.Resolve = ActorBindingRef{TokenID: 13, ActorID: 14, Kind: OpReviewSubmit}
+	if err := borrowed.Validate(); err == nil {
+		t.Fatal("review binding accepted in the resolve slot")
+	}
+	if _, err := borrowed.ResolveBinding(); err == nil {
+		t.Fatal("wrong-kind resolve binding returned")
+	}
+}
