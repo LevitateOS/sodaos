@@ -328,7 +328,12 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 			return nil, waitFor(WaitSource, "native prepared repository context is unavailable or changed"), nil
 		}
 		var implementationPlan *factory.PlanningRecord
-		if plan.advancePlan == nil && deps.PlanRecord != nil {
+		// FW12 joint: the generic planning record stages only on the
+		// legacy pre-phase path. Phased prompts carry the admitted
+		// dispatcher phase instead; investigation renders its own
+		// inspection directive and implementation stages the recorded
+		// investigation plan below.
+		if plan.phase == "" && plan.advancePlan == nil && deps.PlanRecord != nil {
 			record, recordErr := deps.PlanRecord(ctx, repository, issue)
 			if recordErr != nil {
 				return nil, waitFor("plan_not_current", "implementation approach is unavailable"), nil
@@ -340,8 +345,21 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 				implementationPlan = &record
 			}
 		}
+		// FW12 joint: the admitted dispatcher phase travels into the
+		// prompt so the template owns phased rendering. Investigation
+		// prompts additionally carry the canonical prerequisite
+		// bindings the reported plan must echo for later admission.
+		var planPrerequisites []string
+		if plan.phase == project.ExecutionInvestigate {
+			bindings, bindingsErr := livePlanBindings(plan.acceptance, plan.control, plan.inputs.Tip, plan.prep.Preparation.ID)
+			if bindingsErr != nil {
+				return nil, waitFor(WaitInputsChanged, "investigation prerequisite bindings are incomplete"), nil
+			}
+			planPrerequisites = bindings.Prerequisites
+		}
 		prompt, err := factory.BuildDispatchPrompt(factory.PromptInputs{
 			Project: plan.projectID, Repository: repository, Issue: issue, NativeRev: plan.inputs.Revision,
+			Phase: plan.phase, PlanPrerequisites: planPrerequisites,
 			AcceptanceID: head, TargetBranch: policy.TargetBranch, SourceCommit: plan.inputs.Tip,
 			ApprovedBase:   plan.prep.Preparation.SourceCommit,
 			Preparation:    plan.prep.Preparation.ID,
@@ -479,6 +497,25 @@ func maybeAdvanceCompletedPlanning(ctx context.Context, deps DispatchDeps, occup
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsChanged, Detail: "source moved after investigation; implementation waits for fresh planning"})
 		return true
 	}
+	// FW12 joint: persist the reported investigation plan and admit the
+	// current head against live bindings before coding. Stale,
+	// provisional or rebound plans wait for fresh investigation instead
+	// of launching; a forged plan identity fails the pass.
+	live, bindingsErr := livePlanBindings(attempt.acceptance, attempt.control, attempt.inputs.Tip, attempt.prep.Preparation.ID)
+	if bindingsErr != nil {
+		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsChanged, Detail: "investigation prerequisite bindings changed; implementation waits for fresh planning"})
+		return true
+	}
+	admitted, admitErr := admitInvestigationPlan(ctx, deps.Store, latest, live)
+	if admitErr != nil {
+		if errors.Is(admitErr, store.ErrStalePlanBindings) || errors.Is(admitErr, store.ErrStaleRevision) {
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsChanged, Detail: "investigation plan is stale; implementation waits for fresh planning"})
+			return true
+		}
+		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "investigation plan unadmitted"})
+		return true
+	}
+	attempt.advancePlan = admitted
 	admitImplementChild(ctx, deps, occupancy, attempt, childID, latest, report)
 	return true
 }

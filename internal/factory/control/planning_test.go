@@ -63,8 +63,19 @@ func TestPlanningRecordsOnceAndFeedsFreshLaunch(t *testing.T) {
 	if len(report.Launched) != 1 {
 		t.Fatalf("dispatch=%+v", report)
 	}
-	if !strings.Contains(string(fx.host.launches[0].Prompt), "Implementation approach") || !strings.Contains(string(fx.host.launches[0].Prompt), r.Snapshot) {
-		t.Fatal("worker did not receive recorded approach")
+	// FW12: the selected investigation carries an inspection directive
+	// bound to the exact source and preparation, never generic fixed
+	// steps. The recorded investigation plan stages on implementation.
+	prompt := string(fx.host.launches[0].Prompt)
+	for _, want := range []string{"# Soda factory investigation assignment", "## Investigation", fx.tip, "f111111111111111111111111"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("investigation prompt lacks %q", want)
+		}
+	}
+	for _, banned := range []string{"## Implementation approach", "direct_small_change", "incremental_acceptance", "Implement the accepted requirements below in the prepared checkout"} {
+		if strings.Contains(prompt, banned) {
+			t.Fatalf("investigation prompt carries generic fixed steps: %q", banned)
+		}
 	}
 }
 

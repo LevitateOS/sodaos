@@ -45,6 +45,15 @@ type PromptInputs struct {
 	CheckAssessment       *CheckAssessment
 	RepositoryContext     *project.FactoryPreparationContext
 	ImplementationPlan    *PlanningRecord
+	// Phase names the admitted dispatcher phase this prompt serves: "" is
+	// the legacy pre-phase path, "investigate" opens planning, "implement"
+	// executes a recorded investigation plan. Phased prompts never carry
+	// the generic PlanningRecord approach; the phase rendering owns it.
+	Phase string
+	// PlanPrerequisites carries the canonical prerequisite binding digests
+	// an investigation run echoes into its reported plan. Empty unless the
+	// phase is investigate.
+	PlanPrerequisites     []string
 	Preparation           string
 	RequirementsID        string
 	ApprovalID            string
@@ -66,7 +75,7 @@ type PromptInputs struct {
 // pasted fence cannot forge the harness report block. The visible text is
 // preserved with a separating space.
 func fenceCollision(text string) string {
-	return strings.NewReplacer("```"+ResultFence, "``` "+ResultFence, "```"+ReviewReportFence, "``` "+ReviewReportFence).Replace(text)
+	return strings.NewReplacer("```"+ResultFence, "``` "+ResultFence, "```"+ReviewReportFence, "``` "+ReviewReportFence, "```"+CorrectionReportFence, "``` "+CorrectionReportFence).Replace(text)
 }
 
 // BuildDispatchPrompt renders the deterministic assignment prompt from
@@ -80,6 +89,24 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	}
 	if in.Repository <= 0 || in.Issue <= 0 || in.NativeRev < 1 {
 		return nil, errors.New("invalid dispatch prompt scope")
+	}
+	if in.Phase != "" && in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement {
+		return nil, errors.New("invalid dispatch prompt phase")
+	}
+	if in.Phase != "" && in.ImplementationPlan != nil {
+		return nil, errors.New("phased prompt carries a generic plan")
+	}
+	if in.Phase == project.ExecutionInvestigate {
+		if in.PublicationAssignment != "" || in.BaseCommit != "" || in.Review != nil || in.CheckAssessment != nil {
+			return nil, errors.New("investigation opens no child evidence")
+		}
+		for _, digest := range in.PlanPrerequisites {
+			if !ValidDigest(digest) {
+				return nil, errors.New("investigation prerequisite binding is not a digest")
+			}
+		}
+	} else if len(in.PlanPrerequisites) != 0 {
+		return nil, errors.New("prerequisite bindings ride the investigation only")
 	}
 	if !project.ValidDecisionID(in.AcceptanceID) || !ValidCommit(in.SourceCommit) || in.TargetBranch == "" {
 		return nil, errors.New("invalid dispatch prompt references")
@@ -135,7 +162,11 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 		}
 	}
 	var b strings.Builder
-	b.WriteString("# Soda factory " + promptStage(in) + " assignment\n\n")
+	stage := promptStage(in)
+	if in.Phase == project.ExecutionInvestigate {
+		stage = "investigation"
+	}
+	b.WriteString("# Soda factory " + stage + " assignment\n\n")
 	b.WriteString("Prompt template: " + DispatchPromptTemplate + "\n")
 	b.WriteString("Repository: " + strconv.FormatInt(in.Repository, 10) + "\n")
 	b.WriteString("Issue: " + strconv.FormatInt(in.Issue, 10) + "\n")
@@ -167,6 +198,8 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 		b.WriteString("\nReview the exact candidate against the accepted requirements below. ")
 	} else if in.PublicationAssignment != "" {
 		b.WriteString("\nCorrect the current candidate using the consolidated review and check evidence below. Identify actionable failures; infrastructure failures or concrete disagreement require maintainer intervention. Do not weaken checks or change accepted requirements to obtain a pass. ")
+	} else if in.Phase == project.ExecutionInvestigate {
+		b.WriteString("\nInvestigate the accepted requirements below and report a validated plan. ")
 	} else {
 		b.WriteString("\nImplement the accepted requirements below in the prepared checkout. ")
 	}
@@ -178,7 +211,10 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 		b.WriteString(fenceCollision(in.Body) + "\n")
 	}
 	writePromptSection(&b, "Accepted sources", in.Sources)
-	if in.ImplementationPlan != nil {
+	if in.Phase == project.ExecutionInvestigate {
+		writePromptInvestigation(&b, in)
+	}
+	if in.ImplementationPlan != nil && in.Phase == "" {
 		plan := in.ImplementationPlan
 		if plan.Validate() != nil || plan.Provisional || plan.Outcome != "planned" || plan.Input.Candidate.Control.Acceptance != in.AcceptanceID || plan.Input.Candidate.Source != in.SourceCommit || plan.Input.Candidate.Control.Repository != in.Repository || plan.Input.Candidate.Control.Issue != in.Issue {
 			return nil, errors.New("implementation plan does not match dispatch")
@@ -196,16 +232,30 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	}
 	writePromptStage(&b, in)
 	b.WriteString("\n## Report\n\n")
-	b.WriteString("Close your work with exactly one fenced block:\n\n")
 	if in.Role == project.RoleReviewer {
+		b.WriteString("Close your work with exactly one fenced block:\n\n")
 		b.WriteString(`Use verdict "approve" or "request-changes". "summary" and "body" are strings; "findings" is a JSON array of strings. Each finding string must contain its location, evidence and required outcome; do not use objects. Use [] when no finding remains. Example for a blocking finding:` + "\n\n")
 		b.WriteString("```" + ReviewReportFence + "\n")
 		b.WriteString(`{"verdict":"request-changes","summary":"Blocking finding","body":"Describe the location, evidence and required outcome.","findings":["path:line: evidence; required outcome."]}` + "\n")
-	} else {
+		b.WriteString("```\n\n")
+	} else if in.PublicationAssignment != "" {
+		b.WriteString("Close your work with exactly two fenced blocks: the result block naming your candidate, ")
+		b.WriteString("and a correction block accounting every supplied finding exactly once with its finding-set digest:\n\n")
 		b.WriteString("```" + ResultFence + "\n")
 		b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
+		b.WriteString("```\n\n")
+		b.WriteString("```" + CorrectionReportFence + "\n")
+		b.WriteString(`{"set_digest":"<finding-set digest from the evidence above>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}]}` + "\n")
+		b.WriteString("```\n\n")
+		b.WriteString("Account every finding: missing, duplicate, unknown or stale dispositions refuse, and disputed findings need maintainer intervention. ")
+		b.WriteString("Report fixed for a code finding only with the changed candidate and its relevant changed paths and commits; ")
+		b.WriteString("a verification finding may keep the same head only with new passing checks proving its required outcome. ")
+	} else {
+		b.WriteString("Close your work with exactly one fenced block:\n\n")
+		b.WriteString("```" + ResultFence + "\n")
+		b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
+		b.WriteString("```\n\n")
 	}
-	b.WriteString("```\n\n")
 	if in.Role == project.RoleReviewer {
 		b.WriteString("Approve only when no blocking correctness, security, acceptance or required-check finding remains. Distinguish optional suggestions; each blocker needs its location, evidence and required outcome. Never change the candidate to approve your own correction. ")
 	} else {
@@ -257,6 +307,22 @@ func writePromptPrerequisites(b *strings.Builder, prerequisites []AcceptedPrereq
 		}
 		b.WriteByte('\n')
 	}
+}
+
+// writePromptInvestigation directs the investigation run: inspect exact
+// sources at their bound commits before reporting any plan. The reported
+// plan must carry every inspected path with its commit and evidence, echo
+// the prerequisite bindings below, cover every accepted outcome, and leave
+// no mandatory fact unresolved. Investigation plans; it never codes,
+// commits, opens pull requests or publishes.
+func writePromptInvestigation(b *strings.Builder, in PromptInputs) {
+	b.WriteString("\n## Investigation\n\n")
+	b.WriteString("Inspect first, plan second. Read the exact accepted objective and approved setup, then inspect the accepted sources and preparation context files at their bound commits before reporting any plan.\n")
+	b.WriteString("Source commit: " + in.SourceCommit + "; preparation: " + in.Preparation + ".\n")
+	if len(in.PlanPrerequisites) != 0 {
+		b.WriteString("Prerequisite bindings: " + strings.Join(in.PlanPrerequisites, ", ") + ". Echo these digests into the reported plan.\n")
+	}
+	b.WriteString("Record every inspected path with its commit and the evidence taken; the reported plan carries these inspected sources. Cover every accepted outcome; an unresolved mandatory fact blocks completion. Planning carries no candidate: never modify the checkout, name a commit, open a pull request or publish.\n")
 }
 
 func writePromptSection(b *strings.Builder, title string, sources []PromptSource) {

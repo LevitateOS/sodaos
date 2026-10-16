@@ -65,6 +65,105 @@ func stageCorrectionInputs() PromptInputs {
 	return in
 }
 
+// FW12: the investigation prompt directs source inspection before any
+// plan and binds the exact source, preparation and prerequisite digests
+// the reported plan must echo. It never carries generic fixed steps.
+func TestBuildDispatchPromptInvestigateDirectsInspectionFirst(t *testing.T) {
+	in := stagePromptInputs(project.RoleCoder)
+	in.Phase = project.ExecutionInvestigate
+	in.PlanPrerequisites = []string{strings.Repeat("e", 64)}
+	in.Prerequisites = []AcceptedPrerequisite{{
+		Occurrence: "21", DependsOn: "9", EndpointRepo: 7, EndpointIssue: 9,
+		Outcome: PrereqCode, PrereqAcceptance: "d" + strings.Repeat("f", 24),
+	}}
+	in.Control = validControl()
+	in.Control.Acceptance, in.Control.NativeRev = in.AcceptanceID, in.NativeRev
+	in.Control.EndpointHeads = map[string]string{"21": "d" + strings.Repeat("f", 24)}
+	prompt, err := BuildDispatchPrompt(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(prompt)
+	for _, want := range []string{
+		"# Soda factory investigation assignment",
+		"## Investigation",
+		"Inspect first, plan second",
+		"Source commit: " + in.SourceCommit,
+		"preparation: " + in.Preparation,
+		strings.Repeat("e", 64),
+		"never modify the checkout",
+		"Investigate the accepted requirements below and report a validated plan.",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("investigation prompt lacks %q", want)
+		}
+	}
+	for _, banned := range []string{
+		"## Implementation approach",
+		"direct_small_change",
+		"incremental_acceptance",
+		"prerequisite_first",
+		"plan_stable_scope",
+		"wait_for_outputs",
+		"Implement the accepted requirements below in the prepared checkout.",
+	} {
+		if strings.Contains(text, banned) {
+			t.Errorf("investigation prompt carries generic fixed steps: %q", banned)
+		}
+	}
+}
+
+// FW12: phased prompts own their approach rendering; the generic planning
+// record stays on the legacy path. Miswired phase joints refuse.
+func TestBuildDispatchPromptPhaseJointsRefuse(t *testing.T) {
+	phased := func() PromptInputs {
+		in := stagePromptInputs(project.RoleCoder)
+		in.Phase = project.ExecutionImplement
+		return in
+	}
+	bad := phased()
+	bad.Phase = "canary"
+	if _, err := BuildDispatchPrompt(bad); err == nil {
+		t.Error("prompt admitted an unknown phase")
+	}
+	generic := phased()
+	generic.ImplementationPlan = &PlanningRecord{Outcome: "planned"}
+	if _, err := BuildDispatchPrompt(generic); err == nil {
+		t.Error("phased prompt admitted a generic plan")
+	}
+	child := phased()
+	child.Phase = project.ExecutionInvestigate
+	child.PublicationAssignment = NewID()
+	if _, err := BuildDispatchPrompt(child); err == nil {
+		t.Error("investigation admitted child evidence")
+	}
+	malformed := phased()
+	malformed.Phase = project.ExecutionInvestigate
+	malformed.PlanPrerequisites = []string{"not-a-digest"}
+	if _, err := BuildDispatchPrompt(malformed); err == nil {
+		t.Error("investigation admitted a malformed prerequisite binding")
+	}
+	misplaced := phased()
+	misplaced.PlanPrerequisites = []string{strings.Repeat("e", 64)}
+	if _, err := BuildDispatchPrompt(misplaced); err == nil {
+		t.Error("implementation admitted investigation bindings")
+	}
+	if _, err := BuildDispatchPrompt(phased()); err != nil {
+		t.Errorf("implementation prompt without a generic plan refused: %v", err)
+	} else if text := mustBuildPrompt(t, phased()); strings.Contains(text, "## Implementation approach") {
+		t.Error("implementation prompt carries a generic approach section")
+	}
+}
+
+func mustBuildPrompt(t *testing.T, in PromptInputs) string {
+	t.Helper()
+	prompt, err := BuildDispatchPrompt(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(prompt)
+}
+
 func TestBuildDispatchPromptCarriesExactNativeClosingOccurrence(t *testing.T) {
 	in := stagePromptInputs(project.RoleCoder)
 	in.Prerequisites = []AcceptedPrerequisite{{Occurrence: "21", DependsOn: "9", EndpointRepo: 7, EndpointIssue: 9, Outcome: PrereqResult}}

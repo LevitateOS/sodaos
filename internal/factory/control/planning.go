@@ -135,6 +135,13 @@ func planningChoices(provisional bool) map[string]any {
 }
 
 func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueControl) error {
+	covered, err := c.investigationCovered(ctx, control)
+	if err != nil {
+		return err
+	}
+	if covered {
+		return nil
+	}
 	input, err := c.planningInput(ctx, control)
 	if errors.Is(err, ErrIneffectiveAuthority) {
 		return nil
@@ -193,8 +200,6 @@ func (c *Coordinator) planIssue(ctx context.Context, control factory.IssueContro
 	record.Outcome = "planned"
 	if record.Strategy == "wait_for_outputs" {
 		record.Outcome = "waiting"
-	} else {
-		record.Steps = planningSteps(record.Strategy)
 	}
 	// Persist a stale outcome for attribution, but no stale plan can pass the
 	// execution check. A later pass rebuilds against the new relevant inputs.
@@ -217,17 +222,6 @@ func planningCallFailed(ctx context.Context, funding PriorityJournal, input fact
 		return false, err
 	}
 	return len(receipt.Calls) == 1 && receipt.Calls[0].Failure != "", nil
-}
-
-func planningSteps(strategy string) []string {
-	first := "Read the exact accepted objective and approved setup before changing source."
-	if strategy == "prerequisite_first" {
-		first = "Inspect the recorded verified prerequisite outputs and source interfaces."
-	}
-	if strategy == "plan_stable_scope" {
-		return []string{"Map accepted outcomes onto the approved project setup.", "Keep interfaces and source choices depending on unfinished prerequisites provisional.", "Refresh this plan against actual prerequisite outputs before executing."}
-	}
-	return []string{first, "Implement only accepted outcomes using the approved source and setup.", "Run the recorded acceptance checks and submit to independent review."}
 }
 
 func (c *Coordinator) planningCurrent(ctx context.Context, control factory.IssueControl) bool {
