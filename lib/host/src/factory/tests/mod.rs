@@ -10,4 +10,5 @@ mod mocks;
 mod receipt;
 mod stop;
 mod task_events;
+mod tasks;
 mod wire;

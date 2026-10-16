@@ -126,6 +126,56 @@ func implementationManifest(plan *factory.InvestigationPlan) ([]byte, error) {
 	return data, nil
 }
 
+// stageExecutionManifest binds the recorded investigation plan as the full
+// immutable execution envelope of one implement run (D05/FW14): exact plan
+// bytes and digest, invocation, phase/run/deadline, the admitted profile
+// snapshot and the child limit. An omitted profile resolves to the product
+// defaults at staging, matching policy creation; running snapshots stay
+// explicit. The returned bytes are parsed back before use so a construction
+// drift refuses here instead of at the native boundary.
+//
+// Invocation reuses the fresh run identity. Dispatch observes no native
+// invocation: the executor learns systemd's at launch and enforces it for
+// task events (record_task_event binds the live binding, never this
+// claim). The run identity is the only dispatch-known unique execution
+// identity, so it doubles as the invocation claim; executor event
+// authorization stays authoritative. FW14 joint for Codex D05 review:
+// either accept this doubling with the live binding authoritative, or
+// revise D05 so the executor adopts the staged invocation (deep change).
+func stageExecutionManifest(plan *factory.InvestigationPlan, runID string, deadline time.Time, profile factory.ExecutionProfile, maxChildren int) ([]byte, error) {
+	planBytes, err := implementationManifest(plan)
+	if err != nil {
+		return nil, err
+	}
+	effective := factory.EffectiveExecutionProfile(&profile)
+	manifest := project.ExecutionManifest{
+		Plan: planBytes, PlanDigest: project.PlanDigest(planBytes),
+		Invocation: runID, Phase: project.ExecutionImplement, Run: runID,
+		Deadline: deadline,
+		Effort:   effective.Effort, Contributor: effective.Contributor,
+		MaxChildren: maxChildren,
+	}
+	data, err := project.MarshalExecutionManifest(manifest)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := project.ParseExecutionManifest(data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// verifyStagedManifest checks the staged envelope binds the launch it
+// rides: digest, phase, run, deadline and contributor rule against the
+// recorded run. A construction drift refuses before any host call.
+func verifyStagedManifest(launch project.FactoryLaunch) error {
+	manifest, err := project.ParseExecutionManifest(launch.ExecutionManifest)
+	if err != nil {
+		return err
+	}
+	return manifest.ValidateManifestForRun(launch.Run)
+}
+
 // admitImplementChild records one advanced implementation child under the
 // open gate and launches its first run. Registration, packet and the
 // admission-gate limit recheck land in one transaction before any host
@@ -136,7 +186,8 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 	repository, issue := parent.Repository, parent.Issue
 	now := time.Now()
 	runID := factory.NewID()
-	manifest, err := implementationManifest(plan.advancePlan)
+	selection := plan.policy.Roles[project.RoleCoder]
+	manifest, err := stageExecutionManifest(plan.advancePlan, runID, plan.deadline, selection.Profile, plan.attemptLimits.MaxChildren)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
 		return
@@ -203,6 +254,10 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 		ExecutionManifest: manifest,
 	}
 	if err := launch.Validate(); err != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
+		return
+	}
+	if err := verifyStagedManifest(launch); err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
 		return
 	}
@@ -419,13 +474,18 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 		}
 		return
 	}
-	manifest, err := implementationManifest(parent.Result.PhaseResult.Output.Plan)
+	runID := factory.NewID()
+	now := time.Now()
+	// The recorded prompt bytes are immutable, so the staged envelope is
+	// remarshaled from the recorded plan with this retry's fresh run
+	// identity, deadline and current limits: its digest still binds the
+	// launch below.
+	selection := plan.policy.Roles[a.Role]
+	manifest, err := stageExecutionManifest(parent.Result.PhaseResult.Output.Plan, runID, plan.deadline, selection.Profile, plan.attemptLimits.MaxChildren)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
 		return
 	}
-	runID := factory.NewID()
-	now := time.Now()
 	run := factory.Run{
 		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
 		Started: now, Deadline: plan.deadline,
@@ -461,6 +521,10 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 		ExecutionManifest: manifest,
 	}
 	if err := launch.Validate(); err != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
+		return
+	}
+	if err := verifyStagedManifest(launch); err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
 		return
 	}

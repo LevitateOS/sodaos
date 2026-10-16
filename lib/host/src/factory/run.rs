@@ -519,6 +519,11 @@ impl FactoryLaunch {
             {
                 return Err("execution manifest does not match its digest".to_string());
             }
+            // FW14: the staged bytes must decode as the immutable
+            // execution envelope and bind this launching run. Raw plan
+            // bytes staged by older dispatch code refuse here.
+            let manifest = super::manifest::ExecutionManifest::decode(&self.execution_manifest)?;
+            manifest.verify_for_run(&self.run, &self.execution_manifest)?;
         } else if !self.execution_manifest.is_empty() {
             return Err("non-implement run stages an execution manifest".to_string());
         }

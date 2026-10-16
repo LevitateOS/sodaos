@@ -48,6 +48,7 @@ mod run;
 mod state;
 mod stop;
 mod task_events;
+mod tasks;
 #[cfg(test)]
 mod tests;
 
@@ -90,6 +91,7 @@ pub use self::run::{
     MAX_TASK_CHILDREN, MIN_TASK_CHILDREN,
 };
 pub use self::state::{FactoryHarnessPin, FactoryState, OutputSlice};
+pub use self::tasks::TaskRunner;
 
 // ---------- supervised-boundary seams ----------
 
