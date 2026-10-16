@@ -119,9 +119,10 @@ fn install_cancel_handlers() {
 }
 
 /// Import deadline + cancellation, mirroring the Go signal/notify + timeout
-/// context. Pre-checks report context text; a cancel/timeout during a podman
-/// run kills the child and reports that call's generic failure, exactly as
-/// the killed `exec.CommandContext` exit maps in Go.
+/// context. Pre-checks and post-call rechecks report context text, so a
+/// cancel/timeout during a podman run keeps its own cause instead of the
+/// call's generic failure. Genuine observation and identity failures keep
+/// their distinct meanings while the context is live.
 pub(super) struct ImportCtx<'a> {
     pub(super) deadline: Instant,
     pub(super) cancelled: &'a AtomicBool,

@@ -85,8 +85,12 @@ fn inspect_verified(
     ];
     match run(podman, &inspect) {
         (PodmanOutcome::Code(0), output) if inspect_matches(&output, binding) => Ok(()),
-        (PodmanOutcome::Code(_), _) => Err("image observation failed".to_string()),
-        (PodmanOutcome::Failed, _) => Err("image observation failed".to_string()),
+        // An in-flight timeout/cancellation keeps its own cause instead of
+        // the call's generic observation failure.
+        _ => {
+            ctx.check()?;
+            Err("image observation failed".to_string())
+        }
     }
 }
 
@@ -120,17 +124,34 @@ pub(super) fn ensure_images(
                 ];
                 match run(podman, &pull).0 {
                     PodmanOutcome::Code(0) => {}
-                    _ => return Err(format!("{name} image import unconfirmed")),
+                    _ => {
+                        ctx.check()?;
+                        return Err(format!("{name} image import unconfirmed"));
+                    }
                 }
                 match run(podman, &exists).0 {
                     PodmanOutcome::Code(0) => {}
-                    _ => return Err(format!("{name} imported image unavailable")),
+                    _ => {
+                        ctx.check()?;
+                        return Err(format!("{name} imported image unavailable"));
+                    }
                 }
             }
-            _ => return Err(format!("{name} image observation failed")),
+            _ => {
+                ctx.check()?;
+                return Err(format!("{name} image observation failed"));
+            }
         }
-        inspect_verified(binding, podman, ctx, run)
-            .map_err(|_| format!("{name} OCI identity mismatch"))?;
+        // Never overwrite an in-flight timeout/cancellation with an identity
+        // mismatch: a lapsed context outranks a stale observation failure.
+        inspect_verified(binding, podman, ctx, run).map_err(|_| {
+            if let Err(ctx_err) = ctx.check() {
+                return ctx_err;
+            }
+            format!("{name} OCI identity mismatch")
+        })?;
+        // A final call that outlived the deadline is a timeout, not success.
+        ctx.check()?;
     }
     Ok(())
 }

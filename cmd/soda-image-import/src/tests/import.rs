@@ -155,6 +155,256 @@ fn inspect_capture_drains_beyond_pipe_capacity_within_limit() {
     assert!(output.is_empty());
 }
 
+/// Runner driver that trips the context once mid-acquisition, modelling a
+/// runner whose child is killed by an in-flight timeout/cancellation. The
+/// tripped call either fails (killed child) or, for the late-success case,
+/// still reports success after the deadline has passed.
+struct TripDriver<'a> {
+    store: FakeStore,
+    cancelled: &'a AtomicBool,
+    /// Runner op to trip once: "exists", "pull" or "inspect".
+    op: &'static str,
+    /// Matching ops to let through before tripping (1 skips the initial
+    /// existence probe to trip the post-pull re-probe).
+    skip: usize,
+    /// Cancel mid-call when true; otherwise outlive a short deadline.
+    cancel: bool,
+    /// Report the tripped call as failed (killed child) when true;
+    /// otherwise delegate to the store after the delay (late success).
+    fail: bool,
+    seen: usize,
+}
+
+impl TripDriver<'_> {
+    fn run(&mut self, cmd: &str, args: &[String]) -> (PodmanOutcome, Vec<u8>) {
+        let op = if args[1] == "pull" {
+            "pull"
+        } else {
+            args[2].as_str()
+        };
+        if op == self.op {
+            if self.seen < self.skip {
+                self.seen += 1;
+            } else if self.seen == self.skip {
+                self.seen += 1;
+                if self.cancel {
+                    self.cancelled.store(true, Ordering::SeqCst);
+                } else {
+                    std::thread::sleep(Duration::from_millis(300));
+                }
+                if self.fail {
+                    return (PodmanOutcome::Failed, Vec::new());
+                }
+            }
+        }
+        self.store.run(cmd, args)
+    }
+}
+
+fn short_ctx(cancelled: &AtomicBool) -> ImportCtx<'_> {
+    ImportCtx {
+        deadline: Instant::now() + Duration::from_millis(100),
+        cancelled,
+    }
+}
+
+#[test]
+fn cancelled_pull_keeps_cancellation_cause() {
+    let root = test_root("cancel-pull");
+    let payload = load_payload(&write_release(&root)).expect("load");
+    let cancelled = AtomicBool::new(false);
+    let ctx = test_ctx(&cancelled);
+    let mut driver = TripDriver {
+        store: FakeStore::new(&payload, &[]),
+        cancelled: &cancelled,
+        op: "pull",
+        skip: 0,
+        cancel: true,
+        fail: true,
+        seen: 0,
+    };
+    let err = ensure_images(
+        &payload,
+        ImageSet::Required,
+        "/usr/bin/podman",
+        &ctx,
+        &mut |cmd, args| driver.run(cmd, args),
+    )
+    .unwrap_err();
+    assert_eq!(err, "context canceled");
+    assert!(driver.store.pulls.is_empty());
+}
+
+#[test]
+fn timed_out_pull_keeps_deadline_cause() {
+    let root = test_root("timeout-pull");
+    let payload = load_payload(&write_release(&root)).expect("load");
+    let cancelled = AtomicBool::new(false);
+    let ctx = short_ctx(&cancelled);
+    let mut driver = TripDriver {
+        store: FakeStore::new(&payload, &[]),
+        cancelled: &cancelled,
+        op: "pull",
+        skip: 0,
+        cancel: false,
+        fail: true,
+        seen: 0,
+    };
+    let err = ensure_images(
+        &payload,
+        ImageSet::Required,
+        "/usr/bin/podman",
+        &ctx,
+        &mut |cmd, args| driver.run(cmd, args),
+    )
+    .unwrap_err();
+    assert_eq!(err, "context deadline exceeded");
+    assert!(driver.store.pulls.is_empty());
+}
+
+#[test]
+fn cancelled_inspect_keeps_cancellation_cause() {
+    let root = test_root("cancel-inspect");
+    let payload = load_payload(&write_release(&root)).expect("load");
+    let configs = required_configs(&payload);
+    let present: Vec<&str> = configs.iter().map(String::as_str).collect();
+    let cancelled = AtomicBool::new(false);
+    let ctx = test_ctx(&cancelled);
+    let mut driver = TripDriver {
+        store: FakeStore::new(&payload, &present),
+        cancelled: &cancelled,
+        op: "inspect",
+        skip: 0,
+        cancel: true,
+        fail: true,
+        seen: 0,
+    };
+    let err = ensure_images(
+        &payload,
+        ImageSet::Required,
+        "/usr/bin/podman",
+        &ctx,
+        &mut |cmd, args| driver.run(cmd, args),
+    )
+    .unwrap_err();
+    assert_eq!(err, "context canceled");
+    assert!(driver.store.pulls.is_empty());
+}
+
+#[test]
+fn timed_out_inspect_keeps_deadline_cause() {
+    let root = test_root("timeout-inspect");
+    let payload = load_payload(&write_release(&root)).expect("load");
+    let configs = required_configs(&payload);
+    let present: Vec<&str> = configs.iter().map(String::as_str).collect();
+    let cancelled = AtomicBool::new(false);
+    let ctx = short_ctx(&cancelled);
+    let mut driver = TripDriver {
+        store: FakeStore::new(&payload, &present),
+        cancelled: &cancelled,
+        op: "inspect",
+        skip: 0,
+        cancel: false,
+        fail: true,
+        seen: 0,
+    };
+    let err = ensure_images(
+        &payload,
+        ImageSet::Required,
+        "/usr/bin/podman",
+        &ctx,
+        &mut |cmd, args| driver.run(cmd, args),
+    )
+    .unwrap_err();
+    assert_eq!(err, "context deadline exceeded");
+    assert!(driver.store.pulls.is_empty());
+}
+
+#[test]
+fn cancelled_initial_exists_keeps_cancellation_cause() {
+    let root = test_root("cancel-exists");
+    let payload = load_payload(&write_release(&root)).expect("load");
+    let cancelled = AtomicBool::new(false);
+    let ctx = test_ctx(&cancelled);
+    let mut driver = TripDriver {
+        store: FakeStore::new(&payload, &[]),
+        cancelled: &cancelled,
+        op: "exists",
+        skip: 0,
+        cancel: true,
+        fail: true,
+        seen: 0,
+    };
+    let err = ensure_images(
+        &payload,
+        ImageSet::Required,
+        "/usr/bin/podman",
+        &ctx,
+        &mut |cmd, args| driver.run(cmd, args),
+    )
+    .unwrap_err();
+    assert_eq!(err, "context canceled");
+    assert!(driver.store.pulls.is_empty());
+}
+
+#[test]
+fn cancelled_post_pull_exists_keeps_cancellation_cause() {
+    let root = test_root("cancel-reprobe");
+    let payload = load_payload(&write_release(&root)).expect("load");
+    let cancelled = AtomicBool::new(false);
+    let ctx = test_ctx(&cancelled);
+    let mut driver = TripDriver {
+        store: FakeStore::new(&payload, &[]),
+        cancelled: &cancelled,
+        op: "exists",
+        skip: 1,
+        cancel: true,
+        fail: true,
+        seen: 0,
+    };
+    let err = ensure_images(
+        &payload,
+        ImageSet::Required,
+        "/usr/bin/podman",
+        &ctx,
+        &mut |cmd, args| driver.run(cmd, args),
+    )
+    .unwrap_err();
+    assert_eq!(err, "context canceled");
+    // The first pull completed; nothing further was emitted afterwards.
+    assert_eq!(driver.store.pulls.len(), 1);
+}
+
+#[test]
+fn late_inspect_success_reports_deadline_instead() {
+    // Single-image set: the late call is the final one, so without the
+    // post-call recheck the expired deadline would report success.
+    let root = test_root("late-success");
+    let payload = load_payload(&write_release(&root)).expect("load");
+    let (_, binding) = &import::selected(&payload, ImageSet::Tailnet)[0];
+    let present = vec![binding.config.as_str()];
+    let cancelled = AtomicBool::new(false);
+    let ctx = short_ctx(&cancelled);
+    let mut driver = TripDriver {
+        store: FakeStore::new(&payload, &present),
+        cancelled: &cancelled,
+        op: "inspect",
+        skip: 0,
+        cancel: false,
+        fail: false,
+        seen: 0,
+    };
+    let err = ensure_images(
+        &payload,
+        ImageSet::Tailnet,
+        "/usr/bin/podman",
+        &ctx,
+        &mut |cmd, args| driver.run(cmd, args),
+    )
+    .unwrap_err();
+    assert_eq!(err, "context deadline exceeded");
+}
+
 #[test]
 fn cancel_and_deadline_stay_distinct_from_identity_failure() {
     let root = test_root("cancel-deadline");
