@@ -25,6 +25,110 @@ existing operator inputs in [the factory reference](../reference/factory.md).
 Implementation tasks below update those owners together with their code; this
 plan does not claim the proposed interfaces already exist.
 
+## Agreed follow-up refinements
+
+Recorded from the owner's 2026-10-16 refinement discussion. These are three
+follow-up changes to the implementation baseline below, not claims of implemented
+or qualified behavior. Before assigning their implementation, reconcile the
+owning product/interface guides, frozen contracts, dependency-ordered tasks and
+acceptance tests. In particular, refinement 1 supersedes the baseline's blanket
+requirement to consult Jev after a clean review; D07–D09 and the older task/test
+wording still require that amendment. Preserve completed work and arrange writer
+handoffs before changing active assignments.
+
+### 1. Review decisions and diminishing returns
+
+- A completed independent review explicitly reporting nothing found can proceed
+  to the common merge gate without a Jev delivery judgment. The result must bind
+  the exact current review inputs, account for required coverage and verify every
+  carried actionable finding. Silence, an empty comment list or a successful
+  process exit cannot establish a clean review.
+- Concrete required defects enter bounded correction. Complete proposed fixes
+  without a subsequent explicit clean independent review reach Jev for a decision
+  on sufficiency or another review. Optional-only feedback and disputed or
+  repetitive findings reach Jev before automatically spending on more coding or
+  review. Historical verified fixes and declined optional suggestions remain
+  recorded without permanently preventing a later clean result.
+- Jev assesses remaining material risk and the specific benefit of another pass.
+  Optional suggestions do not automatically create correction work. Another
+  discretionary review requires an explicit positive decision; uncertainty alone
+  does not purchase another review. Allow at most one additional discretionary
+  review of an unchanged candidate, within the existing cumulative allowances.
+  Exhaustion remains visible and cannot waive demonstrated defects or checks.
+- Both clean-review evidence and Jev acceptance use the same freshness, authority,
+  required-check, native policy, thread-resolution and recovery gates. Skipping a
+  delivery judgment does not skip D13's decision after each verified completion.
+
+Contract/test follow-up: amend D07–D09, product review/merge rules and all merge
+entrypoints together. Cover genuine clean-review bypass, missing/incomplete/stale
+reports, carried findings, proposed corrections, optional-only loops, uncertain
+advice, bounded repeat reviews and unchanged native protection requirements.
+
+### 2. Stalled-build and deadlock recovery
+
+Trigger when required accepted outcomes remain unfinished and normal progression
+has no eligible work. This needs a distinct stall event: D13 only follows an
+actual verified completion and cannot resolve a stall before one occurs.
+
+1. Establish the complete inventory and reconcile active runs and uncertain
+   native effects. Incomplete observation is not proof of deadlock.
+2. Classify known waits deterministically: active prerequisites, CI, capacity,
+   provider allowance, preparation, permissions and unanswered product decisions.
+   Expose their actual cause and responsible owner rather than repeatedly running
+   an investigator. Detect dependency cycles and required outcomes without a
+   viable producing issue separately.
+3. Admit one bounded investigation for an unexplained stall, bound to the accepted
+   scope, inventory and blocker evidence. Return cited causes and a repair proposal.
+4. Validate scope, coverage, dependencies, authority and protected work before
+   semantic assessment by Jev. Adopt permitted changes through the existing
+   graph-mutation journal, verify native readback and recalculate readiness.
+5. Reuse the recorded result while evidence is unchanged. Polling, replacement
+   issues and graph reshuffling cannot replenish allowances. Uncertain effects
+   reconcile before retry; unresolved intent or authority returns to its owner.
+
+Never invent prerequisite completion, remove a real dependency just to unblock
+work, expand accepted product scope or overwrite completed/manual/active work.
+Reuse reassessment infrastructure without manufacturing a completion event or
+adding a recurring model-check timer.
+
+Contract/test follow-up: define the stall subject, trigger, finite funding and
+receipt identity. Cover ordinary waits, incomplete inventory, cycles, missing
+producer outcomes, valid repair, protected work, restart/uncertain adoption and
+no repeated spending on unchanged evidence.
+
+### 3. Role-specific MCP controls
+
+Use one Soda-owned Factory MCP server implementation with seven capability
+profiles. These profiles do not create seven servers or new native actor roles.
+
+| Agent profile | Proposed controls |
+| --- | --- |
+| Product planner | Read intent/context; submit product and issue-graph proposals; identify consequential questions. |
+| Issue investigator/planner | Read selected issue/prerequisites; submit investigation, implementation plan and task lanes; report blockers. |
+| Implementer | Read assignment; submit task checkpoints and candidate evidence; request writer handoff; report failed assumptions. |
+| Reviewer | Read exact review package; submit anchored findings; explicitly finish as clear, findings or incomplete. |
+| Corrector | Read all findings; submit per-finding dispositions, corrected candidate and verification evidence. |
+| Reassessment/blocker investigator | Read complete inventory; submit reassessment/stall-repair proposals or an explicit no-change result. |
+| Whole-app verifier | Read accepted product outcomes; submit journey/check evidence, acceptance failures or verified completion. |
+
+The reviewer's explicit “nothing found” control is a typed terminal result with
+coverage and evidence, producing a durable receipt. Every call is authorized by
+the admitted run, role, phase, subject, repository, accepted revision and expiry;
+hiding tools is insufficient. Replays return the same receipt and conflicting
+terminal submissions refuse. Filesystem/shell permissions must match the profile.
+
+Keep existing ownership: Soda validates submissions and coordinates progression;
+the execution harness owns execution and native workers; Fountain owns authorized
+native issue/PR/review/merge effects. Jev is called by the controller through its
+API and needs no agent-facing MCP server. Reviewers/verifiers cannot mutate the
+candidate or merge. The whole-app verifier requires an explicit subject/result
+contract; listing its profile does not claim that completion gate already exists.
+
+Contract/test follow-up: specify bounded tool inputs/results and per-profile
+admission; prove supported MCP integration in each admitted harness before broad
+rewrites. Cover role/scope rejection, stale/revoked calls, replay/conflict behavior,
+structured clean-review completion and no filesystem/terminal permission bypass.
+
 ## Required outcome
 
 1. A prompt produces coherent, PR-sized native issues with acceptance outcomes
