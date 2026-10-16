@@ -260,13 +260,20 @@ func (s *Store) IntentTaskBindings(ctx context.Context, revision string) ([]fact
 
 // GeneratedIntentCurrent revalidates the accepted product revision behind a
 // derived acceptance. Ordinary human issue acceptances have no generated link.
+// FW32 (T37): this tests for existence of a current accepted-head binding,
+// never an arbitrary LIMIT 1 row over historical bindings. A copied frozen
+// acceptance appears in several revisions at once; only a binding whose
+// revision is still the accepted head counts as current.
 func (s *Store) GeneratedIntentCurrent(ctx context.Context, acceptance string) (bool, bool, error) {
-	var current bool
-	err := s.db.QueryRowContext(ctx, `SELECT h.revision=t.revision AND r.data->>'state'='accepted' FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_heads h ON h.id=r.intent WHERE t.data->>'acceptance_id'=$1 LIMIT 1`, acceptance).Scan(&current)
-	if errors.Is(err, ErrNotFound) {
+	var generated, current bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_intent_tasks WHERE data->>'acceptance_id'=$1), EXISTS(SELECT 1 FROM factory_intent_tasks t JOIN factory_intent_revisions r ON r.id=t.revision JOIN factory_intent_heads h ON h.id=r.intent AND h.revision=r.id WHERE t.data->>'acceptance_id'=$1 AND r.data->>'state'='accepted')`, acceptance, acceptance).Scan(&generated, &current)
+	if err != nil {
+		return false, false, err
+	}
+	if !generated {
 		return true, false, nil
 	}
-	return current, true, err
+	return current, true, nil
 }
 
 // PendingIntentGenerations recovers accepted heads that lack confirmed graph

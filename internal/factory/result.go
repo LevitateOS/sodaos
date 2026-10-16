@@ -49,19 +49,25 @@ func (r ImplementationReceipt) validate(status string) error {
 }
 
 // PhaseOutput is the single typed payload for its phase: an investigated
-// plan for investigate, an implementation receipt for implement.
-// Decomposition, review, correction and D13 reassessment payloads are
-// admitted by FW06B, FW06C and FW30 through these same slots; until then
-// only a nil output validates for those phases.
+// plan for investigate, an implementation receipt for implement, and the
+// D13 reassessment report for reassess (FW32). Decomposition, review and
+// correction payloads are admitted by FW06B and FW06C through these same
+// slots; until then only a nil output validates for those phases. The
+// reassessment coder is a single coder with no children, source writes or
+// publication: a completed reassess result carries exactly its typed
+// report (including a valid empty change set), while a held reassess run
+// carries no report. Every phase result stays within the 64 KiB bound,
+// including reassess; the 320 KiB exception covers the prompt only.
 type PhaseOutput struct {
 	Plan           *InvestigationPlan     `json:"plan,omitempty"`
 	Implementation *ImplementationReceipt `json:"implementation,omitempty"`
+	Reassessment   *ReassessmentReport    `json:"reassessment,omitempty"`
 }
 
 func (o PhaseOutput) validate(phase, status string) error {
 	switch phase {
 	case project.ExecutionInvestigate:
-		if o.Plan == nil || o.Implementation != nil {
+		if o.Plan == nil || o.Implementation != nil || o.Reassessment != nil {
 			return errors.New("investigation output must be exactly its plan")
 		}
 		if err := o.Plan.Validate(); err != nil {
@@ -74,12 +80,26 @@ func (o PhaseOutput) validate(phase, status string) error {
 		}
 		return nil
 	case project.ExecutionImplement:
-		if o.Implementation == nil || o.Plan != nil {
+		if o.Implementation == nil || o.Plan != nil || o.Reassessment != nil {
 			return errors.New("implementation output must be exactly its receipt")
 		}
 		return o.Implementation.validate(status)
-	case project.ExecutionDecompose, project.ExecutionReview, project.ExecutionCorrect, project.ExecutionReassess:
+	case project.ExecutionReassess:
 		if o.Plan != nil || o.Implementation != nil {
+			return errors.New("cross-phase result payload refused")
+		}
+		if status == "completed" {
+			if o.Reassessment == nil {
+				return errors.New("completed reassessment lacks its typed report")
+			}
+			return o.Reassessment.Validate()
+		}
+		if o.Reassessment != nil {
+			return errors.New("held reassessment carries no report")
+		}
+		return nil
+	case project.ExecutionDecompose, project.ExecutionReview, project.ExecutionCorrect:
+		if o.Plan != nil || o.Implementation != nil || o.Reassessment != nil {
 			return errors.New("cross-phase result payload refused")
 		}
 		return errors.New("phase payload admitted by its owning task")
