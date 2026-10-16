@@ -647,15 +647,27 @@ required-package catalog/cache contract; its focused repair is committed separat
   carries an explicit unit override and cannot qualify the failed target.
   Fresh shipping Target media/Docker, maintenance and final qualification remain
   open; public component availability is still a separate external gate.
-- [ ] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
+- [x] **R03 — Maintenance integration.** R; R02, F04, T02. Snapshot with
   source/target bindings, enabled-only prefetch, cached restart, rollback
   retention, EX/prefetch/source+target/offline-prepare/drop-EX discipline.
   Implementation and 20 focused maintenance tests pass; native UID1000 offline
   store checks, confined input-label/lock probes and actual exit75 command check
   pass. The shipped Fountain CLI also prepares an exact cached required package
   offline in the Soda overlay, preserves UUID/intent/receipt, and rejects a missing
-  cache before changing those identities. Complete native Source-S/Target-T
-  transition and recovery remain open.
+  cache before changing those identities. Native Source `e23d22b0b995` to
+  Target `730fc20526ef` transition, rollback and interrupted recovery pass
+  with the original shipped updater and boot reconciler. Dependency acquisition
+  refusal preserves the Source before staging. Recovery captures a real
+  `helpers_verified` interruption with the exact Target staged and finalization
+  locked, then completes through `release --recover` and native boot.
+  Separate clean enabled and disabled Source scenarios preserve intent,
+  installation/cache hashes and both running/stopped Project identities.
+  Disabled selection prepares the Target required package while leaving its
+  optional Tailnet archive absent. Rollback also preserves a member file created
+  on the Target. Matching support bytes prove unchanged-helper preservation;
+  replacement remains covered by its focused checks. Receipts are retained in
+  `.artifacts/release-native-smoke/rcx2-source-e23d22b0/final-target-*`.
+  These are development fixture checks; public-download qualification is pending.
   Project maintenance also rejects the retired machine Tailnet boolean/image
   selectors and reads only its Project image from Payload v4; 43 native unit
   checks pass. Functional Source `bcb4416ccff5` includes this cleanup; the older
