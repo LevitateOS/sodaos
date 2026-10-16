@@ -62,6 +62,20 @@ const (
 	// assignment, root allowance, reservation and run together; it never
 	// funds execution by itself and never escapes a terminal attempt.
 	CommandPlanIntent = "plan-intent"
+	// CommandRepairGrant authorizes one repository's finite D15 stall
+	// repair scope: the explicit sponsor, revision chain and run,
+	// judgment and active-minute bounds. Repair funding never silently
+	// debits a private intent owner's grant.
+	CommandRepairGrant = "repair-grant"
+	// CommandIntentExecutionLimit records one origin intent's explicit
+	// D15 active-time aggregate bound beside existing intent funding.
+	// All generated issues, attempts and reassessments share the origin
+	// aggregate; the bound never refills on retry, revision or split.
+	CommandIntentExecutionLimit = "intent-execution-limit"
+	// CommandRepairCharge records one immutable D15 repair charge by run
+	// or request identity on the shared idempotent ledger. Failure stays
+	// charged; replaying the identity spends nothing.
+	CommandRepairCharge = "repair-charge"
 )
 
 // SettingsCommandType reports whether typ is a grant/settings command. The
@@ -73,7 +87,8 @@ func SettingsCommandType(typ string) bool {
 	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship, CommandConnectionUsageBudget,
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
-		CommandPause, CommandResume, CommandRetry, CommandTakeover, CommandPlanIntent:
+		CommandPause, CommandResume, CommandRetry, CommandTakeover, CommandPlanIntent,
+		CommandRepairGrant, CommandIntentExecutionLimit, CommandRepairCharge:
 		return true
 	default:
 		return false

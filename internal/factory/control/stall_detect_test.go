@@ -1,0 +1,359 @@
+package control
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
+)
+
+func stallControl(repo, issue int64, readiness, reason string, blockers ...factory.Blocker) factory.IssueControl {
+	return factory.IssueControl{
+		Repository: repo, Issue: issue,
+		Readiness: readiness, Reason: reason, Blockers: blockers,
+		Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
+	}
+}
+
+func stallBlocker(code string, repo, issue int64) factory.Blocker {
+	return factory.Blocker{
+		Code: code, Resolution: factory.BlockerResolution(code),
+		EndpointRepo: repo, EndpointIssue: issue,
+	}
+}
+
+func stallQueued(repo, issue int64) StallInventoryIssue {
+	return StallInventoryIssue{
+		Repository: repo, Issue: issue,
+		Control: stallControl(repo, issue, factory.ReadinessQueued, factory.ReasonEligible),
+	}
+}
+
+func stallDigest(seed string) string {
+	sum := sha256.Sum256([]byte(seed))
+	return hex.EncodeToString(sum[:])
+}
+
+// T55: every named wait classifies distinctly and none alone calls an
+// investigator, even beside an unrelated wait in the same repository.
+func TestClassifyDistinctWaitsCallNoInvestigator(t *testing.T) {
+	issues := []StallInventoryIssue{
+		stallQueued(8, 1),
+		stallQueued(8, 2),
+		stallQueued(8, 3),
+		stallQueued(8, 4),
+		stallQueued(8, 5),
+		stallQueued(8, 6),
+		stallQueued(8, 7),
+		stallQueued(8, 8),
+		stallQueued(8, 9),
+	}
+	issues[0].ActiveRun = true
+	issues[1].CIPending = true
+	issues[2].DispatchWait = WaitCapacity
+	issues[3].DispatchWait = WaitAllowance
+	issues[4].DispatchWait = WaitPreparation
+	issues[5].DispatchWait = WaitAuthority
+	issues[6].Paused = true
+	issues[7].ProductChoiceOpen = true
+	issues[8].Fenced = true
+	in := StallInventory{
+		Generation: 3, Fingerprint: stallDigest("a"), Digest: stallDigest("b"),
+		Complete: true, Issues: issues,
+		Cycles: map[string]string{}, Producers: map[string]bool{},
+	}
+	classified := ClassifyStallInventory(in)
+	if len(classified.Repositories) != 1 {
+		t.Fatalf("repositories=%+v, want one", classified.Repositories)
+	}
+	repo := classified.Repositories[0]
+	if repo.Kind != StallRepositoryZeroWait || repo.Investigate || repo.Event != nil {
+		t.Fatalf("repo=%+v, want a zero-agent wait with no episode", repo)
+	}
+	want := map[int64]string{
+		1: factory.StallWaitActiveWork, 2: factory.StallWaitCIChecks,
+		3: factory.StallWaitCapacity, 4: factory.StallWaitQuota,
+		5: factory.StallWaitPreparation, 6: factory.StallWaitPermissions,
+		7: factory.StallWaitExplicitPause, 8: factory.StallWaitProductChoice,
+		9: factory.StallWaitPendingCompletion,
+	}
+	for _, decision := range repo.Decisions {
+		if decision.Kind != StallComponentWait || !decision.Named || decision.Investigate {
+			t.Fatalf("decision=%+v, want a named wait without investigation", decision)
+		}
+		if decision.WaitKind != want[decision.Issue] {
+			t.Fatalf("issue %d wait=%q, want %q", decision.Issue, decision.WaitKind, want[decision.Issue])
+		}
+		if decision.WaitOwner == "" || decision.WaitEvent == "" {
+			t.Fatalf("issue %d names no owner or next event", decision.Issue)
+		}
+	}
+}
+
+// T55: partial, hidden or stale inventory gives attention, never deadlock.
+func TestPartialInventoryCannotProveDeadlock(t *testing.T) {
+	in := StallInventory{
+		Generation: 3, Fingerprint: stallDigest("a"), Digest: stallDigest("b"),
+		Complete: false,
+		Issues:   []StallInventoryIssue{stallQueued(8, 1)},
+		Cycles:   map[string]string{}, Producers: map[string]bool{},
+	}
+	if classified := ClassifyStallInventory(in); len(classified.Repositories) != 0 {
+		t.Fatalf("partial inventory bound %+v, want no episode", classified.Repositories)
+	}
+	hidden := StallInventoryIssue{
+		Repository: 8, Issue: 2,
+		Control: stallControl(8, 2, factory.ReadinessNotAuthorized,
+			factory.BlockerIssueInaccessible, stallBlocker(factory.BlockerIssueInaccessible, 0, 0)),
+	}
+	in = StallInventory{
+		Generation: 3, Fingerprint: stallDigest("c"), Digest: stallDigest("d"),
+		Complete: true, Issues: []StallInventoryIssue{hidden},
+		Cycles: map[string]string{}, Producers: map[string]bool{},
+	}
+	classified := ClassifyStallInventory(in)
+	if len(classified.Repositories) != 1 || classified.Repositories[0].Kind != StallRepositoryAttention {
+		t.Fatalf("hidden evidence=%+v, want attention", classified.Repositories)
+	}
+	if classified.Repositories[0].Investigate || classified.Repositories[0].Event != nil {
+		t.Fatal("hidden evidence called an investigator")
+	}
+}
+
+// T55: an independent repairable component is not hidden by an
+// unrelated wait in another repository.
+func TestUnrelatedWaitHidesNoRepairableComponent(t *testing.T) {
+	waiting := stallQueued(8, 1)
+	waiting.DispatchWait = WaitCapacity
+	cyclic := StallInventoryIssue{
+		Repository: 9, Issue: 1,
+		Control: stallControl(9, 1, factory.ReadinessBlocked,
+			factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0)),
+	}
+	in := StallInventory{
+		Generation: 3, Fingerprint: stallDigest("e"), Digest: stallDigest("f"),
+		Complete: true, Issues: []StallInventoryIssue{waiting, cyclic},
+		Cycles: map[string]string{}, Producers: map[string]bool{},
+	}
+	classified := ClassifyStallInventory(in)
+	if len(classified.Repositories) != 2 {
+		t.Fatalf("repositories=%+v, want both classified", classified.Repositories)
+	}
+	if classified.Repositories[0].Kind != StallRepositoryZeroWait {
+		t.Fatalf("waiting repo=%+v, want zero wait", classified.Repositories[0])
+	}
+	stalled := classified.Repositories[1]
+	if stalled.Kind != StallRepositoryStall || !stalled.Investigate || stalled.Event == nil {
+		t.Fatalf("cyclic repo=%+v, want one bound episode", stalled)
+	}
+	if stalled.Event.Reason != factory.StallReasonCycle {
+		t.Fatalf("reason=%q, want cycle", stalled.Event.Reason)
+	}
+	if err := stalled.Event.Validate(); err != nil {
+		t.Fatalf("bound event invalid: %v", err)
+	}
+}
+
+// T56: a cycle before first completion, a missing outcome producer
+// and unexplained no-ready each create one bound stall episode.
+func TestStallDiscoveryBindsOneEpisodePerCause(t *testing.T) {
+	cases := []struct {
+		name    string
+		control factory.IssueControl
+		reason  string
+	}{
+		{"cycle", stallControl(9, 1, factory.ReadinessBlocked,
+			factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0)), factory.StallReasonCycle},
+		{"missing producer", stallControl(9, 2, factory.ReadinessBlocked,
+			factory.BlockerCodePending, stallBlocker(factory.BlockerCodePending, 9, 7)), factory.StallReasonMissingProducer},
+		{"unexplained", stallControl(9, 3, factory.ReadinessBlocked,
+			factory.BlockerDependencyDepth, stallBlocker(factory.BlockerDependencyDepth, 0, 0)), factory.StallReasonUnexplainedNoReady},
+	}
+	for _, tc := range cases {
+		in := StallInventory{
+			Generation: 3, Fingerprint: stallDigest("g"), Digest: stallDigest("h"),
+			Complete: true,
+			Issues:   []StallInventoryIssue{{Repository: 9, Issue: tc.control.Issue, Control: tc.control}},
+			Cycles:   map[string]string{}, Producers: map[string]bool{},
+		}
+		classified := ClassifyStallInventory(in)
+		if len(classified.Repositories) != 1 {
+			t.Fatalf("%s: repositories=%+v", tc.name, classified.Repositories)
+		}
+		repo := classified.Repositories[0]
+		if repo.Kind != StallRepositoryStall || repo.Event == nil {
+			t.Fatalf("%s: repo=%+v, want one bound episode", tc.name, repo)
+		}
+		if repo.Event.Reason != tc.reason {
+			t.Fatalf("%s: reason=%q, want %q", tc.name, repo.Event.Reason, tc.reason)
+		}
+		if err := repo.Event.Validate(); err != nil {
+			t.Fatalf("%s: bound event invalid: %v", tc.name, err)
+		}
+	}
+}
+
+// T56: ready work resumes selection and stales an obsolete
+// investigation; all outcomes delivered enters verification.
+func TestReadyWorkResumesAndStalesObsoleteInvestigation(t *testing.T) {
+	cyclic := StallInventoryIssue{
+		Repository: 9, Issue: 1,
+		Control: stallControl(9, 1, factory.ReadinessBlocked,
+			factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0)),
+	}
+	in := StallInventory{
+		Generation: 4, Fingerprint: stallDigest("i"), Digest: stallDigest("j"),
+		Complete: true,
+		Issues:   []StallInventoryIssue{cyclic, stallQueued(9, 2)},
+		Cycles:   map[string]string{}, Producers: map[string]bool{},
+		PriorEvents: map[string]string{"old-event": stallDigest("h")},
+	}
+	classified := ClassifyStallInventory(in)
+	if len(classified.Repositories) != 1 {
+		t.Fatalf("repositories=%+v", classified.Repositories)
+	}
+	repo := classified.Repositories[0]
+	if repo.Kind != StallRepositoryReady || repo.Event != nil || repo.Investigate {
+		t.Fatalf("repo=%+v, want ready selection without an episode", repo)
+	}
+	if len(repo.StalePrior) != 1 || repo.StalePrior[0] != "old-event" {
+		t.Fatalf("stale=%+v, want the obsolete investigation retired", repo.StalePrior)
+	}
+	delivered := StallInventory{
+		Generation: 5, Fingerprint: stallDigest("k"), Digest: stallDigest("l"),
+		Complete: true,
+		Issues: []StallInventoryIssue{{
+			Repository: 9, Issue: 3,
+			Control: stallControl(9, 3, factory.ReadinessCompleted, factory.ReasonEligible),
+		}},
+		Cycles: map[string]string{}, Producers: map[string]bool{},
+	}
+	classified = ClassifyStallInventory(delivered)
+	if len(classified.Repositories) != 1 || classified.Repositories[0].Kind != StallRepositoryVerify {
+		t.Fatalf("delivered=%+v, want verification instead of a stall", classified.Repositories)
+	}
+}
+
+// stallSeedControl records one valid control on the real store path.
+func stallSeedControl(t *testing.T, db *store.Store, repo, issue int64, readiness, reason string, blockers ...factory.Blocker) {
+	t.Helper()
+	control := factory.IssueControl{
+		Repository: repo, Issue: issue,
+		Readiness: readiness, Reason: reason, Blockers: blockers,
+		Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
+	}
+	if _, _, err := db.RecordIssueAssessment(context.Background(), control, time.Now()); err != nil {
+		t.Fatalf("seed control %d/%d: %v", repo, issue, err)
+	}
+}
+
+// T55 on the real serving/store path: distinct waits seed through the
+// production assessment record, read back through the store inventory,
+// and classify with no investigator. The disposable PG fixture
+// (SODA_PG_*) skips when absent.
+func TestStallWaitClassificationPG(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	coord := &Coordinator{Store: db}
+	const repo = 18
+	stallSeedControl(t, db, repo, 1, factory.ReadinessBlocked,
+		factory.BlockerAuthorityMissing, stallBlocker(factory.BlockerAuthorityMissing, 0, 0))
+	stallSeedControl(t, db, repo, 2, factory.ReadinessBlocked,
+		factory.BlockerAcceptanceMissing, stallBlocker(factory.BlockerAcceptanceMissing, 0, 0))
+	stallSeedControl(t, db, repo, 3, factory.ReadinessQueued, factory.ReasonEligible)
+	stallSeedControl(t, db, repo, 4, factory.ReadinessQueued, factory.ReasonEligible)
+	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{
+		Store: db, Generation: 7,
+		DispatchWaits: []DispatchWait{
+			{Repository: repo, Issue: 3, Reason: WaitCapacity, Detail: "appliance runs at its limit"},
+		},
+		Paused: map[string]bool{stallIssueKey(repo, 4): true},
+	})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(classified.Repositories) != 1 {
+		t.Fatalf("repositories=%+v, want the seeded repository", classified.Repositories)
+	}
+	result := classified.Repositories[0]
+	// Issue 3 is queued but capacity-waited; nothing is selectable, so
+	// the repository holds a zero-agent wait with no episode.
+	if result.Kind != StallRepositoryZeroWait || result.Investigate || result.Event != nil {
+		t.Fatalf("repo=%+v, want a zero-agent wait with no episode", result)
+	}
+	byIssue := map[int64]StallComponentDecision{}
+	for _, decision := range result.Decisions {
+		byIssue[decision.Issue] = decision
+	}
+	if byIssue[1].WaitKind != factory.StallWaitPermissions || !byIssue[1].Named {
+		t.Fatalf("authority wait=%+v", byIssue[1])
+	}
+	if byIssue[2].WaitKind != factory.StallWaitProductChoice || !byIssue[2].Named {
+		t.Fatalf("adoption wait=%+v", byIssue[2])
+	}
+	if byIssue[3].WaitKind != factory.StallWaitCapacity || !byIssue[3].Named {
+		t.Fatalf("capacity wait=%+v", byIssue[3])
+	}
+	if byIssue[4].WaitKind != factory.StallWaitExplicitPause || !byIssue[4].Named {
+		t.Fatalf("pause wait=%+v", byIssue[4])
+	}
+	for issue, decision := range byIssue {
+		if decision.Investigate {
+			t.Fatalf("issue %d wait called an investigator", issue)
+		}
+	}
+}
+
+// T56 on the real serving/store path: an assessment-established cycle
+// binds one episode with (repository, generation, fingerprint)
+// uniqueness and (repository, generation) episode identity; adding
+// ready work resumes selection instead.
+func TestStallDiscoveryPG(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	coord := &Coordinator{Store: db}
+	const repo = 19
+	stallSeedControl(t, db, repo, 1, factory.ReadinessBlocked,
+		factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
+	stallSeedControl(t, db, repo, 2, factory.ReadinessBlocked,
+		factory.BlockerCodePending, stallBlocker(factory.BlockerCodePending, repo, 7))
+	first, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 7})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(first.Repositories) != 1 {
+		t.Fatalf("repositories=%+v", first.Repositories)
+	}
+	result := first.Repositories[0]
+	if result.Kind != StallRepositoryStall || result.Event == nil {
+		t.Fatalf("repo=%+v, want one bound episode", result)
+	}
+	if err := result.Event.Validate(); err != nil {
+		t.Fatalf("bound event invalid: %v", err)
+	}
+	episode, eventID := result.Event.EpisodeID, result.Event.ID
+	second, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 7})
+	if err != nil {
+		t.Fatalf("redetect: %v", err)
+	}
+	again := second.Repositories[0]
+	if again.Event == nil || again.Event.EpisodeID != episode || again.Event.ID != eventID {
+		t.Fatalf("redetect=%+v, want the identical bound episode", again.Event)
+	}
+	// New ready work changes the fingerprint: the episode persists
+	// while the stale event retires to fresh selection.
+	stallSeedControl(t, db, repo, 3, factory.ReadinessQueued, factory.ReasonEligible)
+	third, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 7})
+	if err != nil {
+		t.Fatalf("detect after ready: %v", err)
+	}
+	resumed := third.Repositories[0]
+	if resumed.Kind != StallRepositoryReady || resumed.Event != nil {
+		t.Fatalf("resumed=%+v, want ready selection without an episode", resumed)
+	}
+}
