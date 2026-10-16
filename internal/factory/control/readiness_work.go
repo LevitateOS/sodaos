@@ -119,6 +119,53 @@ func (b *readinessPass) reserveNativeRPC(count int) bool {
 	}
 }
 
+// observePriorityRevision reports one idle native revision for the durable
+// priority inventory. Without an observer the scan revision is zero and
+// members compare against their recorded controls.
+func (c *Coordinator) observePriorityRevision(ctx context.Context) (int64, bool, error) {
+	if c.Readiness == nil {
+		return 0, true, nil
+	}
+	return c.Readiness.ObserveNativeRevision(ctx)
+}
+
+// refreshPriorityCandidate returns the observation-ready control for one
+// durable inventory member. Members already at the scan revision reuse
+// their recorded control without another native revision check: the scan
+// observes idle N once per pass and rechecks it at completion. Stale or
+// authority-changed members reassess through the bounded path. ok=false
+// means the pass budget is exhausted or the read failed transiently, so
+// the pass persists its cursor and resumes later.
+func (c *Coordinator) refreshPriorityCandidate(ctx context.Context, control factory.IssueControl, scanRevision int64) (factory.IssueControl, bool, error) {
+	if c.Readiness == nil {
+		return control, true, nil
+	}
+	if control.Readiness == factory.ReadinessNotAuthorized && control.Reason == factory.BlockerAuthorityMissing {
+		authority, err := c.EffectiveAuthority(ctx, control.Repository)
+		if err != nil {
+			return factory.IssueControl{}, false, err
+		}
+		if factory.AuthorityFingerprint(authority) == control.Authority {
+			return control, true, nil
+		}
+	}
+	if control.NativeRev == scanRevision {
+		return control, true, nil
+	}
+	reserved, err := c.reserveIssueAssessment(ctx, factory.DependenceRef{Repository: control.Repository, Issue: control.Issue})
+	if err != nil {
+		return factory.IssueControl{}, false, err
+	}
+	if !reserved {
+		return factory.IssueControl{}, false, ErrReadinessPassPending
+	}
+	observed, err := c.assessOne(ctx, control.Repository, control.Issue)
+	if err != nil {
+		return factory.IssueControl{}, false, err
+	}
+	return observed.control, true, nil
+}
+
 func (c *Coordinator) reserveIssueAssessment(ctx context.Context, ref factory.DependenceRef) (bool, error) {
 	budget := readinessBudgetFrom(ctx)
 	if budget == nil {

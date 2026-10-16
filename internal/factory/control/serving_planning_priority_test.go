@@ -20,6 +20,9 @@ type servingPlanChooser struct {
 
 func TestServingCoordinatorConsultsCompleteEligibleSetAndLaunchesFreshSelection(t *testing.T) {
 	c, _, fx := planningCoordinator(t)
+	// The D02 cursor needs the observer joint production always wires; the
+	// stable revision mirrors the seeded evidence bracket.
+	c.Readiness = &fakeObserver{revision: 41, idle: true}
 	young := fx.accept(t, 5, "d555555555555555555555555")
 	fx.queue(t, 5, young.ID)
 	input := fx.reads.inputs[fmt.Sprintf("%d/5", fx.repo)]

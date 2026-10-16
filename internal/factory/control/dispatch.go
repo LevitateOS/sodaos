@@ -188,10 +188,15 @@ type DispatchDeps struct {
 	RetireRetry   func(context.Context, *attemptPlan) error
 	Queue         *DispatchQueueCursor
 	Priority      *PriorityJudgments
-	collectPlan   func(*attemptPlan)
-	checkPlan     func(*attemptPlan) bool
-	PlanCurrent   func(context.Context, factory.IssueControl) bool
-	PlanRecord    func(context.Context, int64, int64) (factory.PlanningRecord, error)
+	// ObserveRevision reports one idle native revision for the durable
+	// priority inventory. RefreshCandidate returns the observation-ready
+	// control for one inventory member at the scan revision.
+	ObserveRevision  func(ctx context.Context) (int64, bool, error)
+	RefreshCandidate func(ctx context.Context, control factory.IssueControl, scanRevision int64) (factory.IssueControl, bool, error)
+	collectPlan      func(*attemptPlan)
+	checkPlan        func(*attemptPlan) bool
+	PlanCurrent      func(context.Context, factory.IssueControl) bool
+	PlanRecord       func(context.Context, int64, int64) (factory.PlanningRecord, error)
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -271,8 +276,9 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 		Store: c.Store, Host: c.Host, Broker: c.Broker,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
 		Refresh: c.refreshReadiness, PrepareRetry: c.prepareRetryCoder, PrepareSource: c.prepareSourceCoder, RetireRetry: c.retireRetryCoder,
-		Queue:       &c.queue,
-		Priority:    c.Priority,
+		Queue:           &c.queue,
+		Priority:        c.Priority,
+		ObserveRevision: c.observePriorityRevision, RefreshCandidate: c.refreshPriorityCandidate,
 		PlanCurrent: c.planningCurrent,
 		PlanRecord:  c.planningRecord,
 	}

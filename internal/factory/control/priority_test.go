@@ -127,6 +127,13 @@ func TestPriorityDispatchSelectsAndRefusesStaleSet(t *testing.T) {
 			}}
 			deps := fx.deps()
 			deps.Priority = &PriorityJudgments{Journal: f, Chooser: f}
+			// The D02 cursor admits only through its observe/refresh joints,
+			// which production always wires; the stable revision mirrors the
+			// seeded evidence bracket.
+			deps.ObserveRevision = func(context.Context) (int64, bool, error) { return 41, true, nil }
+			deps.RefreshCandidate = func(_ context.Context, control factory.IssueControl, _ int64) (factory.IssueControl, bool, error) {
+				return control, true, nil
+			}
 			report := DispatchPass(ctx, deps)
 			if stale {
 				if len(report.Launched) != 0 || len(fx.host.launches) != 0 {
