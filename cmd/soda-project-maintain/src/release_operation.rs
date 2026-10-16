@@ -150,7 +150,10 @@ fn path(name: &str) -> PathBuf {
     Path::new(admission::DIRECTORY).join(name)
 }
 fn load(name: &str) -> Result<Operation, String> {
-    let bytes = trusted_read(&path(name), 1 << 20)?;
+    load_at(Path::new(admission::DIRECTORY), name)
+}
+fn load_at(directory: &Path, name: &str) -> Result<Operation, String> {
+    let bytes = trusted_read(&directory.join(name), 1 << 20)?;
     #[derive(Deserialize)]
     struct Format {
         format: u32,
@@ -463,24 +466,29 @@ fn post_commit(record: Option<Operation>) -> Result<(), Failure> {
         .map_err(Failure::CoreCommitted)
 }
 
+/// Ordinary boot record selection. An active operation keeps its frozen
+/// record for verify/finalize under the guard. With no operation active,
+/// reconciliation follows current intent: the retained historical record
+/// stays intact for explicit rollback and evidence but is never parsed here,
+/// so a later legitimate administrator change cannot poison boot.
+fn select_boot_record(directory: &Path) -> Result<Option<Operation>, String> {
+    match fs::symlink_metadata(directory.join(RECORD)) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(_) => Err(CLOSED.into()),
+        Ok(_) => Ok(Some(load_at(directory, RECORD)?)),
+    }
+}
+
 pub(crate) fn reconcile_boot(args: &[String]) -> Result<(), Failure> {
     let finalized = (|| -> Result<Option<Operation>, String> {
         if !args.is_empty() {
             return Err("release-reconcile takes no arguments".into());
         }
         let _guard = admission::exclusive()?;
-        match fs::symlink_metadata(path(RECORD)) {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                return match fs::symlink_metadata(path(LAST)) {
-                    Ok(_) => Ok(Some(load(LAST)?)),
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-                    Err(_) => Err(CLOSED.into()),
-                }
-            }
-            Err(_) => return Err(CLOSED.into()),
-            Ok(_) => {}
-        }
-        let record = load(RECORD)?;
+        let record = match select_boot_record(Path::new(admission::DIRECTORY))? {
+            Some(record) => record,
+            None => return Ok(None),
+        };
         no_other_repairs()?;
         let deadline = Instant::now() + Duration::from_secs(120);
         verify_active(&record, deadline)?;
@@ -839,5 +847,66 @@ mod tests {
         fs::remove_file(dir.join("operation.next")).unwrap();
         fs::remove_file(dir.join(RECORD)).unwrap();
         fs::remove_dir(dir).unwrap();
+    }
+    #[test]
+    fn boot_without_active_operation_ignores_historical_record() {
+        let fixture = crate::test_support::TestDir::make("release-boot-current");
+        let dir = fixture.0.clone();
+        let owner = unsafe { libc::geteuid() };
+        // Completed release retained for rollback; no operation is active.
+        let retained = record();
+        save_at(&dir, &retained, true, owner).unwrap();
+        fs::rename(dir.join(RECORD), dir.join(LAST)).unwrap();
+        let before = fs::read(dir.join(LAST)).unwrap();
+        // Ordinary boot follows current intent: no frozen record is selected.
+        assert!(select_boot_record(&dir).unwrap().is_none());
+        // Nothing is staged or finalized, and the retained record is
+        // byte-identical and still available to explicit rollback checks.
+        assert!(fs::symlink_metadata(dir.join(RECORD)).is_err());
+        assert_eq!(fs::read(dir.join(LAST)).unwrap(), before);
+        if crate::test_support::is_root() {
+            assert_eq!(
+                serde_json::to_vec(&load_at(&dir, LAST).unwrap()).unwrap(),
+                serde_json::to_vec(&retained).unwrap()
+            );
+        }
+    }
+    #[test]
+    fn boot_without_active_operation_survives_unreadable_history() {
+        let fixture = crate::test_support::TestDir::make("release-boot-history");
+        let dir = fixture.0.clone();
+        // No active transaction and no history at all: current intent applies.
+        assert!(select_boot_record(&dir).unwrap().is_none());
+        // A malformed retained record must not affect ordinary reconciliation,
+        // while explicit rollback keeps rejecting it at parse time.
+        fs::write(dir.join(LAST), b"truncated {\"format\":").unwrap();
+        assert!(select_boot_record(&dir).unwrap().is_none());
+        assert!(load_at(&dir, LAST).is_err());
+    }
+    #[test]
+    fn boot_with_active_operation_keeps_frozen_record() {
+        let fixture = crate::test_support::TestDir::make("release-boot-active");
+        let dir = fixture.0.clone();
+        let owner = unsafe { libc::geteuid() };
+        let mut active = record();
+        active.phase = "extensions_prepared".into();
+        save_at(&dir, &active, true, owner).unwrap();
+        // A stale retained record must never override the active operation.
+        let mut stale = record();
+        stale.phase = "complete".into();
+        fs::write(dir.join(LAST), serde_json::to_vec(&stale).unwrap()).unwrap();
+        match select_boot_record(&dir) {
+            Ok(Some(selected)) => assert_eq!(
+                serde_json::to_vec(&selected).unwrap(),
+                serde_json::to_vec(&active).unwrap()
+            ),
+            // Non-root fixtures cannot pass the root-owned read gate; the
+            // active path must still be taken rather than current intent.
+            Err(_) => assert!(
+                !crate::test_support::is_root(),
+                "root must parse its own active record"
+            ),
+            Ok(None) => panic!("active operation must keep its frozen record"),
+        }
     }
 }
