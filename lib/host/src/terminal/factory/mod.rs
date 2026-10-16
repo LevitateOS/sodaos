@@ -4,6 +4,7 @@ pub mod children;
 #[cfg(test)]
 pub mod codex;
 pub mod lifecycle;
+pub mod mcp_relay;
 pub mod muse;
 pub mod native;
 pub mod output;
