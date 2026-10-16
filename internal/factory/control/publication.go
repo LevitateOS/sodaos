@@ -184,6 +184,12 @@ func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, repo
 		publicationError(report, a.ID, "store_unavailable")
 		return
 	}
+	// FW15 join: a phased implement publishes only on completed plan task
+	// evidence. The gate waits (never publishes) while tasks settle and
+	// refuses without recording when evidence is conclusively unpublishable.
+	if !c.gatePhasedPublication(ctx, a, report) {
+		return
+	}
 	policy, err := c.Store.RepositoryPolicy(ctx, a.Repository)
 	if err != nil {
 		publicationError(report, a.ID, "store_unavailable")
