@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 use crate::project::Executor;
 use crate::tailnet_admission::{manager_state, GrantStore, OPERATOR_SOCKET};
-use crate::tailnet_companion::{Companion, TailnetControl};
+use crate::tailnet_companion::{Companion, TailnetControl, OBSOLETE_RETIRE_BATCH};
 use crate::tailnet_host::HostRuntime;
 use crate::tcontrol_wire::{self as wire, LifecycleCall, LifecycleObservation};
 
@@ -197,11 +197,54 @@ impl<E: Executor, T: TailnetControl> Runtime<'_, E, T> {
             self.companion
                 .native_children(&call.installation_id, host.as_ref(), deadline);
         check("drained companion inventory", !inventory.unknown);
-        for child in inventory.children {
+        for child in &inventory.children {
             check(
                 "companion stop",
-                self.companion.stop_native_child(&child, deadline).is_ok(),
+                self.companion.stop_native_child(child, deadline).is_ok(),
             );
+        }
+        // Retire verified stopped obsolete incarnations so repeated runs do
+        // not accumulate past the inventory bound. Obsolescence is a different
+        // verified current run for the same project; projects without a
+        // readable current run keep every child, and each removal is still
+        // re-verified by exact ID immediately before non-forced removal.
+        // Current-run reusable children survive for adoption without
+        // reenrollment. A bounded pass may leave unknown remainder.
+        {
+            let mut projects = BTreeSet::new();
+            for child in &inventory.children {
+                projects.insert(child.target.project.clone());
+            }
+            let mut current = std::collections::BTreeMap::new();
+            for project in &projects {
+                if let Ok(run) = self.companion.current_run_id(project) {
+                    current.insert(project.clone(), run);
+                }
+            }
+            let mut retired = 0;
+            for child in &inventory.children {
+                if retired >= OBSOLETE_RETIRE_BATCH {
+                    break;
+                }
+                if child.record.running {
+                    continue;
+                }
+                let obsolete = match current.get(&child.target.project) {
+                    Some(run) => child.target.run != *run,
+                    None => false,
+                };
+                if !obsolete {
+                    continue;
+                }
+                let ok = self
+                    .companion
+                    .retire_verified_stopped_child(child, deadline)
+                    .is_ok();
+                check("obsolete companion retirement", ok);
+                if ok {
+                    retired += 1;
+                }
+            }
         }
         check(
             "host stop",

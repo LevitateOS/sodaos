@@ -11,7 +11,7 @@ use crate::tailnet_runtime::{
     ProjectRun,
 };
 
-use super::{stage_error, Companion, TailnetControl, RUNTIME_ROOT};
+use super::{stage_error, Companion, TailnetControl, OBSOLETE_RETIRE_BATCH, RUNTIME_ROOT};
 use crate::tailnet_admission::{Grant, GrantStore, StartGuard};
 
 impl<E: Executor, T: TailnetControl> Companion<E, T> {
@@ -180,6 +180,22 @@ impl<E: Executor, T: TailnetControl> Companion<E, T> {
             }
         }
         if fresh {
+            // Retire verified stopped obsolete incarnations before creating the
+            // new child so repeated runs do not accumulate past the inventory
+            // bound. Only same-project stopped children from a different run
+            // are selected; the current run, running children and foreign
+            // resources are never named. Each removal is re-verified by exact
+            // ID immediately before non-forced removal.
+            self.retire_stopped_where(
+                &grant.installation_id,
+                None,
+                &|child| {
+                    child.target.project == run.target.project && child.target.run != run.target.run
+                },
+                OBSOLETE_RETIRE_BATCH,
+                deadline,
+            )
+            .map_err(|e| stage_error("companion startup unconfirmed", e))?;
             self.create_fresh_companion(files, root, run, grant, deadline)?;
         }
         self.start_companion_if_stopped(run, deadline)

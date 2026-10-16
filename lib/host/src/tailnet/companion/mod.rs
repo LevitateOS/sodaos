@@ -119,10 +119,13 @@ mod identity_tests;
 mod lifecycle_tests;
 
 #[cfg(test)]
+mod retirement_tests;
+
+#[cfg(test)]
 mod view_tests;
 
 #[cfg(test)]
 mod native_tests;
 
 mod inventory;
-pub use inventory::{ChildInventory, NativeChild};
+pub use inventory::{ChildInventory, NativeChild, OBSOLETE_RETIRE_BATCH};
