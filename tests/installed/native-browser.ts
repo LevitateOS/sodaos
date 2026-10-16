@@ -111,6 +111,7 @@ export async function launchNativeBrowser(
       [
         chromium.executablePath(),
         '--headless=new',
+        '--window-size=1440,1000',
         '--remote-debugging-pipe',
         '--no-first-run',
         '--no-default-browser-check',
