@@ -75,6 +75,12 @@ func (d CorrectionDisposition) Validate() error {
 	return nil
 }
 
+// CorrectionReportFence delimits the correction report block: the correction
+// prompt instructs the CLI to close its work with exactly one fenced
+// correction-json block carrying its finding dispositions, and correction
+// admission parses the last such block strictly.
+const CorrectionReportFence = "correction-json"
+
 // CorrectionReport is one correction run's output over the whole current
 // finding set: the exact finding-set digest it answered plus exactly one
 // disposition per supplied key. Fixed code findings require relevant
