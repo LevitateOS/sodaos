@@ -6,6 +6,12 @@ implementation. It is based on read-only inspection of Soda
 `6d0281e64102269fda3614c7bd77948c4845914e` and Fountain
 `a4fd2221f16f181e5ec36c1b11d4181a936052e7`. No new runtime evidence is claimed.
 
+The [frozen implementation contracts and decisive tests](factory-workflow-contracts.md)
+record Codex's final design decisions, including concrete schemas, algorithms,
+limits, failure/recovery rules and 32 acceptance cases. Read them before assigning
+any task. Spark implements those decisions; failed native assumptions return to
+Codex with evidence rather than becoming worker-selected architectures.
+
 This document owns the corrective implementation queue for that workflow. The
 [existing factory plan](factory-implementation-plan.md) retains its broader
 source history, appliance and installed-experience acceptance. For overlapping
@@ -51,7 +57,7 @@ Paths in this table are relative to Soda unless prefixed `Fountain:` (the canoni
 | Area | Present behavior | Required correction and source evidence |
 | --- | --- | --- |
 | Prompt decomposition | Native task graphs, multiple roots, cycle checks and accepted-scope provenance already exist. | `internal/factory/intent_proposal.go` emits generic implementation/verification tasks; `decomposition_options.go` splits or combines templates. Generate semantic candidates with real feature boundaries. |
-| Readiness and selection | `control/readiness.go`, `priority.go` and `priority_dispatch.go` queue independent roots, compare candidates with Jev, apply fairness and recheck admission. | Full collection restarts each pass while sharing a bounded RPC allowance. Prove the suspected large-queue starvation before selecting a fix. |
+| Readiness and selection | `control/readiness.go`, `priority.go` and `priority_dispatch.go` queue independent roots, compare candidates with Jev, apply fairness and recheck admission. | Full collection restarts each pass while sharing a bounded RPC allowance. Prove suspected starvation, then implement the prescribed durable-cursor fix if reproduced. |
 | Investigation and planning | `control/planning.go` selects a strategy and emits three fixed strings. | `factory/planning.go` has `Steps []string`, without inspected evidence, task dependencies, lanes or execution receipts. Replace the placeholder planning path. |
 | Execution phases | Existing assignments, preparation, broker custody, attempt roots and run history support bounded work. | `dispatch_launch.go` treats non-root publication assignments as children requiring a PR; completed `result.go` requires a commit. Add explicit prepublication phase/result contracts. |
 | Parallel work and commits | Project launchers start one headless CLI; repository session capacity is one. Publication already consumes an exact candidate. | Native subagent control/inheritance/cancellation is unqualified. `dispatch_prompt.go` asks for a final commit, without task checkpoints or integration evidence. |
@@ -105,7 +111,8 @@ material product assumptions return to review, without approvals for each
 technical task. Jev consultation reservations use the intent's independent allowance
 head; legacy `IntentRevision.PlanningCalls` is not funding. Generative agent usage
 needs its own existing provider/run accounting, not a relabelled classifier call.
-Gate P4 settles the smallest usable execution path before implementation.
+Gate P4 verifies the intent-subject path fixed in
+[D01–D02](factory-workflow-contracts.md#d01--execution-subjects-authority-and-admission).
 
 Separate **eligible for issue selection** from **eligible to implement**. A ready
 accepted issue can enter Jev's selection without an implementation plan. The
@@ -119,9 +126,9 @@ duplicate spending; invalidation before planning or coding triggers reassessment
 
 For complete-set selection, first reproduce the source-derived starvation
 concern: production refresh consumes readiness RPCs, the shared work cap is 156,
-and collection restarts and scans again after advice. If confirmed, retain
-revision-bound inventory progress across passes or share a correctly bound native
-inventory snapshot, choosing the smaller proved change. Keep complete-set
+and collection restarts and scans again after advice. If confirmed, implement
+the [D02 durable inventory cursor](factory-workflow-contracts.md#d02--decomposition-and-priority-algorithms),
+with native/local snapshot guards and no second full native scan. Keep complete-set
 comparison, finite work limits, invalidation on inventory change and a fresh
 selected-issue admission check. Never truncate candidates to fit the budget.
 
@@ -140,7 +147,7 @@ reader or compatibility migration is required for this unreleased implementation
 | Task execution receipt | Attempt/plan/task/lane/run identities, state, consumed prerequisite output digests, actual start/completion, check results and produced commits. Only validated successful prerequisites release a dependent task. |
 | Phase result | Planning returns an investigated plan; implementation/correction returns a candidate and evidence; review returns findings. A planning result cannot be interpreted as publishable code. |
 
-One bounded run may perform investigation, approach selection and task planning
+One bounded run performs investigation, approach selection and task planning
 in order. Implementation starts only after its structured result is validated and
 persisted. Do not add a separate model call for each heading merely to mirror the
 workflow. Keep one issue attempt root and cumulative allowances across planning,
@@ -154,7 +161,7 @@ existing active-minute/correction-cycle units. Record provider consumption in it
 reported native units (such as input/output tokens), attributing every child to
 its parent and counting each charge once; never add inclusive parent totals to
 the same child totals. P1 must establish observation and enforcement of the
-configured provider limit. A time/concurrency bound must not be described as a
+configured time/concurrency limit. A time/concurrency bound must not be described as a
 monetary limit where the provider exposes no such enforcement.
 
 Delivery judgments need a new finite **call subledger** under the attempt root:
@@ -164,8 +171,9 @@ with reserved/consumed counts and immutable request identities. Neither a phase
 change nor another review refills it; missing or exhausted grants block further
 judgments. Reuse the existing reservation transaction pattern and store owner.
 
-Use a narrow native task executor inside one admitted issue run, if gate P1 proves
-it. The interface must expose child start, observable identity/progress, join,
+Use the [D05 native task executor](factory-workflow-contracts.md#d05--native-children-scheduling-and-checkpoints)
+inside one admitted issue run after P1 proves its supported native boundary.
+The interface must expose child start, observable identity/progress, join,
 result and cancellation sufficiently to enforce the task DAG. It must release a
 newly ready task without waiting for an unrelated slow lane. A prompt asking for
 parallelism is not a scheduler or evidence of execution.
@@ -182,8 +190,8 @@ minimum commit counts. No final PR until all
 required tasks and checks are complete on the integrated candidate.
 
 Keep the repository's one-admitted-session policy. If pinned CLI native children
-cannot meet the contract, implement the smallest necessary capability in the
-existing Project-side executor after recording the failed assumption and evidence.
+cannot meet the fixed contract, stop dependent work and return the exact failed
+assumption to Codex. Spark cannot choose a replacement execution architecture.
 Do not silently serialize a parallel plan, create hidden broker leases, raise
 repository capacity, or introduce a second execution service. Child identities,
 credential scope, provider usage and cancellation must remain attributable to the
@@ -276,10 +284,11 @@ Preserve consumed-call accounting and reuse unchanged recorded judgments.
 | Valid `ready_to_merge` | Record candidate-bound Soda acceptance, reconcile accepted finding resolutions, then recheck all deterministic/native conditions before merge. |
 
 Insufficient-confidence advice conservatively requests review within the remaining
-allowance; otherwise waits. Missing/malformed/provider-failed answers cannot create
-acceptance. Do not silently repeat a consumed request. Freeze confidence policy
-and failure accounting in FW06C using existing conventions, with no invented
-unbounded retry budget.
+allowance; otherwise waits. Exact limits and thresholds are fixed in
+[D04](factory-workflow-contracts.md#d04--fixed-limits-and-accounting) and
+[D08](factory-workflow-contracts.md#d08--native-merge-eligibility-and-jev-policy).
+Missing/malformed/provider-failed answers cannot create acceptance. Do not silently
+repeat a consumed request. FW06C implements the frozen policy and failure accounting.
 
 Replace Soda's mandatory fresh approval after every correction with two supported
 evidence forms: independent approval of the candidate, or prior independent
@@ -300,6 +309,9 @@ Persist the consumed decision ID, cycle and evidence fingerprint in immutable
 `MergeWork`/merge intent. Superseding acceptance invalidates an already registered
 but undriven merge using existing withdrawal ordering. Test invalidation between
 intent persistence and submission, plus a lost response after actual native merge.
+Use [D09's bounded authorization generations](factory-workflow-contracts.md#d09--merge-authorization-generations-and-completion)
+so a confirmed cancelled operation can be replaced under a new decision without
+stranding the existing PR. Uncertain or committed effects cannot be replaced.
 
 Confirmed merge, reachable result and original issue closure remain prerequisites
 for releasing downstream work. A resolved comment, successful agent exit, closed
@@ -323,13 +335,13 @@ drivers in disposable native fixtures, with every write/cache/socket under
 
 | Gate / task | Smallest decisive experiment | Required evidence and failure consequence |
 | --- | --- | --- |
-| P1 / FW02 | Inspect pinned Codex/Muse launchers and exact installed CLI capabilities; run two independent tiny tasks plus a dependent task within one admitted run. | Actual overlap; dependent release before the unrelated slow task finishes; child IDs/output/results; credential/model inheritance where applicable; serialized Git ownership; child cap and attributable usage/limit enforcement; cancellation/deadline stops all children. If unsupported, record exact interface/behavior and specify the narrow existing-executor change before FW06A. Do not claim both harnesses from evidence for one. |
+| P1 / FW02 | Inspect pinned Codex/Muse launchers and exact installed CLI capabilities; run two independent tiny tasks plus a dependent task within one admitted run. | Prove D05 native control, overlap, prompt dependent release, profile/custody inheritance, checkpoint correctness, limits and retirement. If unsupported, stop dependent tasks and return evidence to Codex; no implementer-chosen fallback. Do not claim both harnesses from one proof. |
 | P2 / FW03 | Extend the existing native review fixture minimally to submit an added-line and a deleted-line finding, then resolve one exact thread. Read actor-specific merge blockers and exercise native merge against permissive and protected branches. | Actual native code comments and readback, stable replay receipt, no partial stale-head write, correct resolution permissions/readback. Native eligibility agrees with actual conditional merge behavior: corrected-head merge permitted when policy permits; missing required approval/status refuses. Resolve blocking-review-state assumptions before designing Jev transitions. |
 | P3 / FW04 | Existing serving coordinator fixture with more than 156 unassigned ready issues and the real bounded refresh path. | Reproduce or disprove starvation across passes; complete inventory selection must eventually run without losing candidates or increasing the work cap. Current pure-selector 256-candidate coverage is insufficient. |
 | P4 / FW05 | Exercise `Repository=0` product drafting without a Project launch; then the authorized repository-bound planner before issue creation, using reviewed draft outcomes rather than an accepted graph. Try representative broad and small prompts. | Concrete subject/funding/preparation/output contract without fake issue or circular accepted-graph prerequisite; broad output has cohesive feature issues and independent roots when justified; tiny output can stay one issue. A canned graph proves plumbing only. Record any required provider enrollment as an external gate, not passed semantic evidence. |
 
-A failed assumption returns to the coordinator with the exact command/version,
-observed output, affected contract and smallest proposed correction. Preserve the
+A failed assumption returns to Codex with the exact command/version,
+observed output and affected frozen contract. Preserve the
 failed evidence. Independent tasks may continue, but dependent broad changes wait
 for the corrected boundary. Do not compensate with a full image build.
 
@@ -351,18 +363,18 @@ Project/host factory execution owners; `X` = Fountain canonical checkout.
 | FW01 | — | Coordinator | Refresh both Git states, live writers/commands and retained evidence; reconcile this baseline with later work. Establish central checklist, file reservations and representative acceptance cases. | Preserved changes attributed; no competing writer; exact current heads and task ownership recorded. No new worktree or Muse instance for an existing run. |
 | FW02 | FW01 | B | P1 native executor proof in `lib/host/src/terminal/factory/{tcodex.rs,muse/,run.rs,output.rs}` and `cmd/soda-project-terminal/src/factory_roles/`. | P1 evidence for each supported harness; chosen control boundary and any required narrow extension stated. |
 | FW03 | FW01 | C | P2 native inline/resolve/merge-policy proof in X's existing SDK/native-operation/review fixtures. | P2 receipts and stale/protected refusal evidence; reusable minimal implementation retained. |
-| FW04 | FW01 | A | P3 complete-inventory reproduction in `C/priority_dispatch*`, `readiness_work*`, `progress*` fixtures. | Production-budget behavior established; smallest fix or reason no fix is needed recorded. |
+| FW04 | FW01 | A | P3 complete-inventory reproduction in `C/priority_dispatch*`, `readiness_work*`, `progress*` fixtures. | Production-budget behavior established; evidence accepts or challenges the prescribed D02 cursor fix. |
 | FW05 | FW01 | A | P4 semantic decomposition and pre-issue planner proof in `F/intent_proposal*`, `decomposition_options*`, `C/intent_*`, existing Project execution boundary. | Authorized intent-bound planner path and representative semantic outputs; funded-provider limitation explicitly separated if present. |
-| FW06A | FW02 | Coordinator / A | Freeze execution subject/phase/result, immutable plan/task, selected-issue admission, child concurrency and usage contracts. Owners: `F/{assignment,assignment_result,result,planning}.go`, affected host/Project wire owners and owning guides. | Bounded validation, state transitions, exact checked-tree receipts, limits and authority agreed; unit contract tests; no dual legacy path. Release independently of native review work. |
-| FW06B | FW05, FW06A | Coordinator / A | Freeze concrete intent-bound planning admission and funding on the common execution boundary; update product decomposition/selection wording. Owners: F intent/domain and existing intent/store/Project contracts. | Draft-before-association and authorized generation-before-accepted-graph are distinct; no circular admission; remove conflicting oldest-ready-first wording. |
-| FW06C | FW03 | Coordinator / C | Freeze native findings/blocker-read/resolve, correction dispositions, cycle, judgment subledger and merge-acceptance contracts. Owners: `F/{review_native,judgment,assignment_result}.go`, existing store owners, X SDK and owning guides. | Native authority and failure/uncertainty policy explicit; both review evidence forms require Jev acceptance; replace unconditional correction re-review wording. Release independently of intent planning; serialize shared-file edits with FW06A. |
+| FW06A | FW02 | Coordinator / A | Implement frozen D01/D03–D05 execution subject/phase/result, plan/task, selection, profile and allowance types; update owning guides. Owners: `F/{assignment,assignment_result,result,planning,allowance,grants}.go`, host/Project wires. | T03/T11/T16 contract validation; exact tree/event/limit shapes; no dual legacy path. Release independently of native review work. |
+| FW06B | FW05, FW06A | Coordinator / A | Implement frozen D01/D02 intent-subject, command, graph-output dependency and adoption contracts; update product wording. Owners: F intent/domain and existing intent/store/Project contracts. | T01/T02/T04 contract cases; draft authorization distinct from accepted graph; remove conflicting oldest-ready-first wording. |
+| FW06C | FW03 | Coordinator / C | Implement frozen D04/D06–D09 findings/blocker/resolve, correction/cycle, call subledger and merge-generation contracts. Owners: `F/{review_native,judgment,assignment_result,publication,merge_operation,grants}.go`, store and X SDK. | T19/T21/T24/T28 contract cases; explicit resolve binding, limits and authority; replace unconditional re-review wording. Release independently; serialize shared files with FW06A. |
 | FW07 | FW06A | A | Persist immutable investigated plans, current pointers and task evidence in existing PostgreSQL/store owners, primarily `S/factory_planning*`. | Original consumed plan survives replacement/restart; stale source/prerequisite/preparation bindings rejected; no new database/service. |
 | FW08 | FW06B, FW11 | A | Implement intent-bound admission through the common execution path and semantic candidate production; API remains admission. Owners: `F/intent_proposal*`, `C/intent_*`, `internal/web/api/factory_intent_explore*`; coordinated P caller. | Input revision/authority/funds checked before run; semantic output assessed and structure validated; cancellation/exhaustion visible; no fake issue, accepted-graph prerequisite or publication permission. |
 | FW09 | FW08 | A | Replace template splitting with candidate selection/adoption and real graph writing; preserve accepted scope and stable issue bindings. Owners: `F/decomposition_options*`, `C/intent_decomposition_judgment*`, `intent_generation*`. | Broad/small cases, uncovered outcomes, false dependencies, revision changes and replay covered; one native issue graph per accepted adoption. |
-| FW10 | FW04 | A | Correct complete-inventory progress if P3 demonstrates failure; retain Jev/fairness/fresh admission. Owners: `C/priority_dispatch*`, `readiness_work*`, affected store owner if required. | More-than-cap serving fixture makes bounded progress; inventory mutation invalidates stale collection; no candidate truncation. If no defect, land only justified regression coverage. |
+| FW10 | FW04 | A | Implement D02 durable inventory cursor if P3 demonstrates failure; retain Jev/fairness/fresh admission. Owners: `C/priority_dispatch*`, `readiness_work*`, `S/factory_priority_inventory.go`. | T08/T09: bounded progress, partial prerequisites, restart/invalidation; no second full scan or candidate truncation. If disproved, return evidence to Codex before removing the fix. |
 | FW11 | FW06A | B | Common phase/lineage admission and results, with selected-issue planning first; reuse attempt history, broker/preparation and remaining allowances. Owners: `C/dispatch_{attempt,launch,result}*`, `S/factory_{assignments,dispatch_packet,attempt_allowances}*`, P wire/role validation. FW08 adds its concrete intent subject through this same boundary. | Planning can finish without a commit or PR; cannot publish; no reset of allowance; phase/role/parent mismatch rejected. |
 | FW12 | FW07, FW11 | A | Persist atomic selection-to-investigation admission, investigate and validate the plan before coding; split selection eligibility from implementation admission. Owners: `C/planning*`, readiness/dispatch join and `F/dispatch_prompt*`. | Only selected issue incurs investigation; restart reuses admitted phase; source inspection precedes planning; stale/provisional plans cannot launch code; changed inputs trigger reassessment; generic fixed steps removed. |
-| FW13 | FW02, FW06A, FW11 | B | Implement the proved native child-execution boundary within one admitted run. Owners: P terminal factory, Project factory roles, host factory run/state; existing Go host/project transport as needed. | Real child IDs, results, text output and cancellation; broker/model/account inheritance; enforced child cap and attributable provider usage; no extra admitted repository sessions. |
+| FW13 | FW02, FW06A, FW11 | B | Implement D05 manifest/native child-control and typed-event boundary within one admitted run. Owners: P terminal factory, Project factory roles, host run/state and existing Go host/project transport. | T12/T13/T16: native IDs/events/output/cancellation, exact profile/account inheritance, child cap; no extra admitted repository session. |
 | FW14 | FW07, FW13 | B | Execute ready tasks, persist receipts and release dependencies; enforce lane ownership, aggregate limits and sole Git integrator. Owners: existing P execution and `C`/`S` task integration. | Independent overlap; prompt downstream release; failed prerequisite blocks descendants; parent termination stops workers; task/commit evidence survives restart without duplicate writes. |
 | FW15 | FW12, FW14 | A | Integrate coherent checkpoint commits and require completed plan/check evidence before existing PR publication. Owners: `F/dispatch_prompt*`, `C/publication*`, result admission. | Reported commits exist in candidate ancestry; incomplete tasks cannot publish; complete issue publishes exactly one PR despite lost replies/replay. |
 | FW16 | FW03, FW06C | C | Complete generic conditional inline review primitive using existing X `sdk/review.go`, `services/nativeoperation/review.go`, `models/issues/review.go`. | Atomic native summary/code comments, valid diff anchors, permissions, exact head/base, immutable IDs and replay validated with existing native tests. |
@@ -371,7 +383,7 @@ Project/host factory execution owners; `X` = Fountain canonical checkout.
 | FW19 | FW11, FW17, FW18 | C | Correction result admission and accepted-fix/native-resolution reconciliation. Owners: `C/correction*`, correction prompts and N resolution adapter. | Every finding accounted for; incomplete/disputed evidence blocks; mechanically complete proposed fixes reach judgment before native resolution; accepted resolutions journal and read back without circular admission. |
 | FW20 | FW11, FW18 | C | Durable review cycles and fresh independent re-review input. Owners: `C/publication_children*`, `review_cycle*`, `F/dispatch_prompt_stage*`. | New decision on same head creates a fresh reviewer; replay reuses its run; full outstanding finding/correction evidence supplied; distinct reviewer/corrector sessions retained. |
 | FW21 | FW06C, FW18 | A | Funded Jev delivery choice, evidence fingerprint, decision persistence and uncertainty/failure policy against accepted disposition/cycle contracts. Owners: `F/judgment*`, `C/judgment_advice*`, existing chooser/store reservation owner. | Both choices exercised; clean review also requires judgment; attempt-root call subledger reserved/consumed; stale semantic evidence invalidates while expected resolution readback does not repeat the call. Integrate real correction/cycle paths in FW22. |
-| FW22 | FW16, FW17, FW19, FW20, FW21 | C | Wire review/fix/Jev transitions and one common merge gate through progress, periodic merge and recovery. Owners: `C/publication_children*`, `merge*`, `N/merge_observation*`, `F/merge_operation*`. | Review-again blocks every merge path; accepted corrections reconcile resolutions before merge; immutable merge intent retains decision/cycle/fingerprint; superseded acceptance withdraws undriven intent; native blockers and completed-operation recovery remain correct. |
+| FW22 | FW16, FW17, FW19, FW20, FW21 | C | Implement D07–D09 transitions, common merge gate and bounded authorization generations. Owners: `C/publication_children*`, `merge*`, `N/merge_observation*`, `F/merge_operation*`, `S/factory_merges*`. | T25–T29: expected resolution reconciliation, every merge entrypoint gated, cancelled authorization replaceable on same PR, uncertain/committed predecessor never replaced. |
 | FW23 | FW06A, FW06C | B | Extend existing plan/work API and frontend contracts/views; native comments and terminal streams remain primary. Owners: `internal/web/api/factory_plan_view*` and current Work/Spaces components. | Bounded API/component fixtures render phases, tasks/lanes, commits/PRs, findings/corrections and Jev/waits. Bind and prove actual persisted readback in FW25 after producers land; do not claim fixture UI proves the journey. |
 | FW24 | FW12, FW14, FW19, FW20, FW22 | B | Integrate restart/cancellation/invalidation and finite allowances across the composed stages using existing fixtures. | No duplicate child/review/PR/merge, stale accepted evidence or orphan worker; restart observes receipts instead of redoing completed writes; shared attempt limits hold. |
 | FW25 | FW09, FW10, FW15, FW22, FW23, FW24 | A | Extend the actual prompt-entry serving journey through the full graph and both Jev branches. Owners: existing API/controller/serving tests. | Full acceptance matrix below passes with deterministic adapters; graph is produced through real entrypoints, not injected as already accepted. |
@@ -435,6 +447,10 @@ to publish PRs. Cross-repository commits name their exact dependency revisions.
 | Independent repairs and documentation | FW01, FW27–FW28 | Baseline reconciliation, findings resolved, owning guides accurate, external gates precise. |
 
 ## Acceptance and verification
+
+The [D12 decisive test list](factory-workflow-contracts.md#d12--decisive-test-list-and-completion-mapping)
+fixes 32 required cases and task/suite mappings. The matrix below locates existing
+entrypoints; it does not replace the more specific assertions in D12.
 
 Use existing test drivers and the smallest affected packages. Database fixtures
 use the documented disposable PostgreSQL setup (`SODA_PG_*`), not an old SQLite

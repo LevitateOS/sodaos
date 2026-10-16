@@ -50,6 +50,8 @@ release. Its [ordered tasks](factory-workflow-plan.md#ordered-implementation-tas
 and [three parallel lanes](factory-workflow-plan.md#parallel-schedule-and-writer-handoffs)
 are the current corrective queue for those gaps, with native proof gates before
 broad implementation. It preserves completed work and does not authorize execution.
+Its [frozen contracts and tests](factory-workflow-contracts.md) settle schemas,
+algorithms, limits, recovery and native failure routing before Spark implementation.
 
 The [factory implementation plan](factory-implementation-plan.md) records the
 current source baseline, owning contracts, exclusions and
