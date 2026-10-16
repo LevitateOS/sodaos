@@ -34,7 +34,7 @@ func TestOpenRefusesIncompleteApplicationSchema(t *testing.T) {
 				t.Fatalf("startup repaired incomplete schema: count=%d err=%v", missing, err)
 			}
 			var version int
-			if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != 48 {
+			if err := s.db.QueryRowContext(ctx, `SELECT version FROM schema_version`).Scan(&version); err != nil || version != SchemaVersion() {
 				t.Fatalf("startup changed schema marker %d %v", version, err)
 			}
 		})

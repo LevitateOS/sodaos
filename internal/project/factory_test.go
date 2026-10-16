@@ -48,6 +48,99 @@ func TestFactoryRunValidation(t *testing.T) {
 	}
 }
 
+func TestExecutionPhaseVocabulary(t *testing.T) {
+	for _, phase := range []string{ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess} {
+		if !ValidExecutionPhase(phase) {
+			t.Fatalf("admitted phase refused: %s", phase)
+		}
+	}
+	if ValidExecutionPhase("publish") {
+		t.Fatal("unknown phase admitted")
+	}
+	if !ExecutionManifestRequired(ExecutionImplement) {
+		t.Fatal("implement run skips its manifest")
+	}
+	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionReview, ExecutionCorrect, ExecutionReassess} {
+		if ExecutionManifestRequired(phase) {
+			t.Fatalf("single-agent phase stages a manifest: %q", phase)
+		}
+	}
+}
+
+// D13 (FW06A scope): the reassess-only prompt exception rides the recorded
+// phase; reassess runs require the coder role; results stay 64 KiB.
+func TestReassessPromptBoundAndRole(t *testing.T) {
+	if MaxPromptForPhase(ExecutionReassess) != MaxReassessPrompt {
+		t.Fatal("reassess prompt exception missing")
+	}
+	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect} {
+		if MaxPromptForPhase(phase) != MaxFactoryPrompt {
+			t.Fatalf("phase %q escapes the standard prompt bound", phase)
+		}
+	}
+	launchFor := func(phase, role string, size int) FactoryLaunch {
+		run := factoryRunFixture()
+		prompt := []byte(strings.Repeat("p", size))
+		run.Assignment = FactoryPromptDigest(prompt)
+		run.ExecutionPhase, run.Role = phase, role
+		return FactoryLaunch{Run: run, Prompt: prompt, HarnessSHA256: strings.Repeat("f", 64)}
+	}
+	if err := launchFor(ExecutionReassess, RoleCoder, MaxReassessPrompt).Validate(); err != nil {
+		t.Fatalf("bounded reassess launch refused: %v", err)
+	}
+	for name, launch := range map[string]FactoryLaunch{
+		"reassess over bound":    launchFor(ExecutionReassess, RoleCoder, MaxReassessPrompt+1),
+		"reassess reviewer":      launchFor(ExecutionReassess, RoleReviewer, 64),
+		"implement at 320 KiB":   launchFor(ExecutionImplement, RoleCoder, MaxReassessPrompt),
+		"investigate at 320 KiB": launchFor(ExecutionInvestigate, RoleCoder, MaxReassessPrompt),
+	} {
+		if err := launch.Validate(); err == nil {
+			t.Fatalf("launch %s admitted", name)
+		}
+	}
+}
+
+// T16 wire scope: the manifest/phase/digest rule binds every launch.
+// Implement runs stage their exact manifest bytes; every other phase
+// stages none; digests never drift from bytes.
+func TestFactoryLaunchManifestRule(t *testing.T) {
+	launchFor := func(phase string, manifest []byte, digest string) FactoryLaunch {
+		run := factoryRunFixture()
+		prompt := []byte("trivial coding task")
+		run.Assignment = FactoryPromptDigest(prompt)
+		run.ExecutionPhase, run.ManifestDigest = phase, digest
+		return FactoryLaunch{Run: run, Prompt: prompt, HarnessSHA256: strings.Repeat("f", 64), ExecutionManifest: manifest}
+	}
+	manifest := []byte("staged plan bytes")
+	good := launchFor(ExecutionImplement, manifest, ExecutionManifestDigest(manifest))
+	if err := good.Validate(); err != nil {
+		t.Fatalf("manifested implement launch refused: %v", err)
+	}
+	if err := good.Run.Validate(); err != nil {
+		t.Fatalf("manifested implement run refused: %v", err)
+	}
+	cases := map[string]FactoryLaunch{
+		"missing manifest":   launchFor(ExecutionImplement, nil, strings.Repeat("d", 64)),
+		"drifted digest":     launchFor(ExecutionImplement, manifest, strings.Repeat("d", 64)),
+		"manifest elsewhere": launchFor(ExecutionInvestigate, manifest, ExecutionManifestDigest(manifest)),
+		"digest elsewhere":   launchFor(ExecutionReview, nil, strings.Repeat("d", 64)),
+		"unknown phase":      launchFor("publish", nil, ""),
+		"oversized manifest": launchFor(ExecutionImplement, make([]byte, MaxExecutionManifest+1), strings.Repeat("d", 64)),
+	}
+	for name, launch := range cases {
+		if err := launch.Validate(); err == nil {
+			t.Fatalf("launch %s admitted", name)
+		}
+	}
+	// Pre-phase records without manifests keep validating for readback.
+	if err := launchFor("", nil, "").Validate(); err != nil {
+		t.Fatalf("pre-phase launch refused: %v", err)
+	}
+	if len(manifest)+len([]byte("trivial coding task")) >= 1<<20 {
+		t.Fatal("launch envelope exceeds its bound")
+	}
+}
+
 func TestFactoryLaunchBindsPromptDigest(t *testing.T) {
 	run := factoryRunFixture()
 	prompt := []byte("trivial coding task")

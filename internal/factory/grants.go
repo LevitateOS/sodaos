@@ -56,6 +56,11 @@ const (
 	CommandResume                = "resume"
 	CommandRetry                 = "retry"
 	CommandTakeover              = "takeover"
+	// CommandPlanIntent authorizes planning of a draft intent whose
+	// effective ideas are accepted and attributed. It records the command,
+	// assignment, root allowance, reservation and run together; it never
+	// funds execution by itself and never escapes a terminal attempt.
+	CommandPlanIntent = "plan-intent"
 )
 
 // SettingsCommandType reports whether typ is a grant/settings command. The
@@ -67,7 +72,7 @@ func SettingsCommandType(typ string) bool {
 	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship, CommandConnectionUsageBudget,
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
 		CommandAcceptance, CommandWithdrawal,
-		CommandPause, CommandResume, CommandRetry, CommandTakeover:
+		CommandPause, CommandResume, CommandRetry, CommandTakeover, CommandPlanIntent:
 		return true
 	default:
 		return false
@@ -98,13 +103,16 @@ func (a ActorBindingRef) Validate() error {
 	return nil
 }
 
-// RoleSelection pins the harness family, version and model for one factory role. Only
-// harnesses with their own proof are selectable at dispatch; the policy
-// records the selection without proving it.
+// RoleSelection pins the harness family, version, model and execution
+// profile for one factory role. Only harnesses with their own proof are
+// selectable at dispatch; the policy records the selection without proving
+// it. An omitted profile resolves to the product defaults at policy
+// creation; running snapshots are always explicit.
 type RoleSelection struct {
-	Harness     string `json:"harness"`
-	HarnessVers string `json:"harness_version"`
-	Model       string `json:"model"`
+	Profile     ExecutionProfile `json:"profile,omitempty"`
+	Harness     string           `json:"harness"`
+	HarnessVers string           `json:"harness_version"`
+	Model       string           `json:"model"`
 }
 
 func (s RoleSelection) Validate() error {
@@ -115,6 +123,11 @@ func (s RoleSelection) Validate() error {
 		return r < 0x20 || r == 0x7f
 	}) >= 0 {
 		return errors.New("invalid role model selection")
+	}
+	if s.Profile != (ExecutionProfile{}) {
+		if err := s.Profile.Validate(s.Harness); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -139,26 +152,47 @@ func ValidTargetBranch(branch string) bool {
 	}) < 0
 }
 
+// Frozen D13 reassessment policy: active minutes funded for one
+// post-completion reassessment cycle. Admission records the admitted value
+// explicitly, resolving omission to the default.
+const (
+	DefaultReassessmentMinutes = 30
+	MinReassessmentMinutes     = 1
+	MaxReassessmentMinutes     = 120
+)
+
+// EffectiveReassessmentMinutes resolves an omitted reassessment allowance
+// to the product default at policy admission. Explicit values pass through
+// for range validation; out-of-range values refuse there.
+func EffectiveReassessmentMinutes(minutes int) int {
+	if minutes == 0 {
+		return DefaultReassessmentMinutes
+	}
+	return minutes
+}
+
 // RepositoryPolicy is the repository owner's standing factory authorization:
 // enablement, target, role selections, required native checks, merge method,
-// repository limits and the enrolled native actor references. It grants no
-// appliance capacity, provider sponsorship or environment permission.
+// repository limits, the post-completion reassessment allowance and the
+// enrolled native actor references. It grants no appliance capacity,
+// provider sponsorship or environment permission.
 type RepositoryPolicy struct {
-	Roles         map[string]RoleSelection `json:"roles"`
-	Publish       ActorBindingRef          `json:"publish_actor"`
-	Create        ActorBindingRef          `json:"create_actor"`
-	Review        ActorBindingRef          `json:"review_actor"`
-	Merge         ActorBindingRef          `json:"merge_actor"`
-	Repository    int64                    `json:"repository,string"`
-	Revision      int64                    `json:"revision"`
-	GrantedBy     int64                    `json:"granted_by,string"`
-	TargetBranch  string                   `json:"target_branch"`
-	Checks        []string                 `json:"required_checks"`
-	MergeMethod   string                   `json:"merge_method"`
-	AttemptLimits AttemptLimits            `json:"attempt_limits"`
-	MaxConcurrent int                      `json:"max_concurrent"`
-	Enabled       bool                     `json:"enabled"`
-	Paused        bool                     `json:"paused"`
+	Roles               map[string]RoleSelection `json:"roles"`
+	Publish             ActorBindingRef          `json:"publish_actor"`
+	Create              ActorBindingRef          `json:"create_actor"`
+	Review              ActorBindingRef          `json:"review_actor"`
+	Merge               ActorBindingRef          `json:"merge_actor"`
+	Repository          int64                    `json:"repository,string"`
+	Revision            int64                    `json:"revision"`
+	GrantedBy           int64                    `json:"granted_by,string"`
+	TargetBranch        string                   `json:"target_branch"`
+	Checks              []string                 `json:"required_checks"`
+	MergeMethod         string                   `json:"merge_method"`
+	AttemptLimits       AttemptLimits            `json:"attempt_limits"`
+	ReassessmentMinutes int                      `json:"reassessment_minutes"`
+	MaxConcurrent       int                      `json:"max_concurrent"`
+	Enabled             bool                     `json:"enabled"`
+	Paused              bool                     `json:"paused"`
 }
 
 func (p RepositoryPolicy) Validate() error {
@@ -194,6 +228,9 @@ func (p RepositoryPolicy) Validate() error {
 	}
 	if p.MaxConcurrent < 1 || p.MaxConcurrent > MaxPolicyConcurrent {
 		return errors.New("invalid repository concurrency limit")
+	}
+	if p.ReassessmentMinutes < MinReassessmentMinutes || p.ReassessmentMinutes > MaxReassessmentMinutes {
+		return errors.New("policy reassessment minutes outside their bound")
 	}
 	if err := p.AttemptLimits.Validate(); err != nil {
 		return err

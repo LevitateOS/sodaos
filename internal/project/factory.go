@@ -54,6 +54,48 @@ func ValidFactoryPhase(phase string) bool {
 	}
 }
 
+const (
+	// ExecutionDecompose plans an intent subject into candidate issue graphs.
+	ExecutionDecompose = "decompose"
+	// ExecutionInvestigate inspects current source and writes the plan.
+	ExecutionInvestigate = "investigate"
+	// ExecutionImplement executes the validated plan toward a candidate.
+	ExecutionImplement = "implement"
+	// ExecutionReview reports native findings on a candidate head.
+	ExecutionReview = "review"
+	// ExecutionCorrect addresses the current finding set on the same head.
+	ExecutionCorrect = "correct"
+	// ExecutionReassess reviews the complete current issue inventory after
+	// one verified completion (D13). It accepts only the completion subject
+	// and the coder role, inspects without implementing, and proposes one
+	// coherent revision set through the reassessment report.
+	ExecutionReassess = "reassess"
+)
+
+// ValidExecutionPhase reports whether phase is an admitted execution phase.
+// The empty phase is a pre-phase record admitted during the FW11 migration;
+// FW11 admission always records an explicit phase. Do not infer phase from
+// role, parent equality or whether a PR happens to exist.
+func ValidExecutionPhase(phase string) bool {
+	switch phase {
+	case "", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess:
+		return true
+	default:
+		return false
+	}
+}
+
+// ExecutionManifestRequired reports whether phase stages an immutable
+// execution manifest. Only implement runs are multi-child planned execution;
+// every other phase remains a single-agent run without a manifest.
+func ExecutionManifestRequired(phase string) bool { return phase == ExecutionImplement }
+
+// MaxExecutionManifest bounds one staged execution manifest: exact serialized
+// plan bytes, invocation, phase/run/deadline/profile and child limit. The
+// manifest counts against the daemon's 1 MiB launch envelope together with
+// the 64 KiB prompt.
+const MaxExecutionManifest = 64 * 1024
+
 var factoryRunID = regexp.MustCompile(`^[a-f0-9]{32}$`)
 
 // ValidFactoryRunID reports whether id is a well-formed run identity.
@@ -75,26 +117,47 @@ const (
 	// MaxFactoryPrompt bounds one assignment's prompt bytes. Prompts travel
 	// the private daemon socket and are staged verbatim for the fixed CLI.
 	MaxFactoryPrompt = 64 * 1024
+	// MaxReassessPrompt is the D13 reassess-only prompt exception: a
+	// reassess prompt carries the exact complete <=256 KiB inventory inline
+	// plus bounded instructions. Every other phase keeps MaxFactoryPrompt,
+	// and every phase result keeps MaxFactoryOutput. Prompts use existing
+	// stdin/file delivery, never command-line arguments.
+	MaxReassessPrompt = 320 * 1024
 	// MaxFactoryOutput bounds retained last-message output per run.
 	MaxFactoryOutput = 64 * 1024
 )
 
+// MaxPromptForPhase returns the admitted prompt bound for phase: the D13
+// reassess-only exception for reassess, the standard bound otherwise. The
+// launch wire binds this exception to the recorded phase; the matching
+// completion-subject binding rides assignment admission.
+func MaxPromptForPhase(phase string) int {
+	if phase == ExecutionReassess {
+		return MaxReassessPrompt
+	}
+	return MaxFactoryPrompt
+}
+
 // FactoryRun binds one supervised CLI execution to its Project, role,
 // preparation, source and broker sponsorship. The ID is also the broker
 // execution ID; the assignment digest binds the immutable prompt bytes.
+// ExecutionPhase names the admitted factory phase; ManifestDigest binds the
+// staged execution manifest for implement runs and stays empty otherwise.
 type FactoryRun struct {
-	Deadline     time.Time `json:"deadline"`
-	Actor        int64     `json:"actor"`
-	ID           string    `json:"id"`
-	Project      string    `json:"project"`
-	Role         string    `json:"role"`
-	Preparation  string    `json:"preparation"`
-	Harness      string    `json:"harness"`
-	HarnessVers  string    `json:"harness_version"`
-	Model        string    `json:"model,omitempty"`
-	Assignment   string    `json:"assignment"`
-	SourceCommit string    `json:"source_commit"`
-	Connection   string    `json:"connection"`
+	Deadline       time.Time `json:"deadline"`
+	Actor          int64     `json:"actor"`
+	ID             string    `json:"id"`
+	Project        string    `json:"project"`
+	Role           string    `json:"role"`
+	Preparation    string    `json:"preparation"`
+	Harness        string    `json:"harness"`
+	HarnessVers    string    `json:"harness_version"`
+	Model          string    `json:"model,omitempty"`
+	Assignment     string    `json:"assignment"`
+	SourceCommit   string    `json:"source_commit"`
+	Connection     string    `json:"connection"`
+	ExecutionPhase string    `json:"execution_phase,omitempty"`
+	ManifestDigest string    `json:"manifest_digest,omitempty"`
 }
 
 func (r FactoryRun) Validate() error {
@@ -128,6 +191,19 @@ func (r FactoryRun) Validate() error {
 	if r.Deadline.IsZero() {
 		return errors.New("run deadline is required")
 	}
+	if !ValidExecutionPhase(r.ExecutionPhase) {
+		return errors.New("invalid run execution phase")
+	}
+	if r.ExecutionPhase == ExecutionReassess && r.Role != RoleCoder {
+		return errors.New("reassess run requires the coder role")
+	}
+	if ExecutionManifestRequired(r.ExecutionPhase) {
+		if !ValidDigest(r.ManifestDigest) {
+			return errors.New("implement run lacks its manifest digest")
+		}
+	} else if r.ManifestDigest != "" {
+		return errors.New("non-implement run carries a manifest digest")
+	}
 	return nil
 }
 
@@ -140,18 +216,29 @@ func FactoryPromptDigest(prompt []byte) string {
 
 // FactoryLaunch is the host run request: the recorded run identity, the exact
 // prompt bytes and the caller-observed harness pin. The executor admits only
-// its own pinned harness bytes.
+// its own pinned harness bytes. ExecutionManifest carries the immutable staged
+// plan for implement runs and stays absent for every other phase; the run's
+// manifest digest must match its exact bytes.
 type FactoryLaunch struct {
-	Run           FactoryRun `json:"run"`
-	Prompt        []byte     `json:"prompt"`
-	HarnessSHA256 string     `json:"harness_sha256"`
+	Run               FactoryRun `json:"run"`
+	Prompt            []byte     `json:"prompt"`
+	HarnessSHA256     string     `json:"harness_sha256"`
+	ExecutionManifest []byte     `json:"execution_manifest,omitempty"`
+}
+
+// ExecutionManifestDigest returns the canonical digest over staged manifest
+// bytes. The executor verifies the supplied bytes, not a separately
+// reconstructed cross-language serialization.
+func ExecutionManifestDigest(manifest []byte) string {
+	sum := sha256.Sum256(manifest)
+	return hex.EncodeToString(sum[:])
 }
 
 func (l FactoryLaunch) Validate() error {
 	if err := l.Run.Validate(); err != nil {
 		return err
 	}
-	if len(l.Prompt) == 0 || len(l.Prompt) > MaxFactoryPrompt {
+	if len(l.Prompt) == 0 || len(l.Prompt) > MaxPromptForPhase(l.Run.ExecutionPhase) {
 		return errors.New("invalid run prompt size")
 	}
 	if FactoryPromptDigest(l.Prompt) != l.Run.Assignment {
@@ -159,6 +246,19 @@ func (l FactoryLaunch) Validate() error {
 	}
 	if !ValidDigest(l.HarnessSHA256) {
 		return errors.New("invalid harness pin")
+	}
+	if len(l.ExecutionManifest) > MaxExecutionManifest {
+		return errors.New("execution manifest exceeds its bound")
+	}
+	if ExecutionManifestRequired(l.Run.ExecutionPhase) {
+		if len(l.ExecutionManifest) == 0 {
+			return errors.New("implement run lacks its execution manifest")
+		}
+		if ExecutionManifestDigest(l.ExecutionManifest) != l.Run.ManifestDigest {
+			return errors.New("execution manifest does not match its digest")
+		}
+	} else if len(l.ExecutionManifest) != 0 {
+		return errors.New("non-implement run stages an execution manifest")
 	}
 	return nil
 }

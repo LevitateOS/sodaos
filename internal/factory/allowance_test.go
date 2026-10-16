@@ -17,18 +17,43 @@ func allowanceFixture() (AttemptAllowance, time.Time) {
 }
 
 func TestAttemptLimitsDefaultsAndOwnerValues(t *testing.T) {
-	if got := EffectiveAttemptLimits(nil); got.ActiveMinutes != 120 || got.CorrectionCycles != 3 {
+	if got := EffectiveAttemptLimits(nil); got != (AttemptLimits{ActiveMinutes: 120, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8}) {
 		t.Fatalf("defaults: %+v", got)
 	}
-	for _, limits := range []AttemptLimits{{1, 0}, {15, 1}, {180, 4}} {
+	for _, limits := range []AttemptLimits{
+		{ActiveMinutes: 1, CorrectionCycles: 0, ReviewRounds: 1, MaxChildren: 1, DeliveryCalls: 0},
+		{ActiveMinutes: 15, CorrectionCycles: 1, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8},
+		{ActiveMinutes: 180, CorrectionCycles: 4, ReviewRounds: 16, MaxChildren: 4, DeliveryCalls: 16},
+	} {
 		if limits.Validate() != nil || EffectiveAttemptLimits(&limits) != limits {
 			t.Fatalf("owner limits refused or replaced: %+v", limits)
 		}
 	}
-	for _, limits := range []AttemptLimits{{0, 3}, {120, -1}, {math.MaxInt, 3}} {
+	for _, limits := range []AttemptLimits{
+		{ActiveMinutes: 0, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8},
+		{ActiveMinutes: 120, CorrectionCycles: -1, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8},
+		{ActiveMinutes: math.MaxInt, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8},
+		{ActiveMinutes: 120, CorrectionCycles: 3, ReviewRounds: 0, MaxChildren: 3, DeliveryCalls: 8},
+		{ActiveMinutes: 120, CorrectionCycles: 3, ReviewRounds: 17, MaxChildren: 3, DeliveryCalls: 8},
+		{ActiveMinutes: 120, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 0, DeliveryCalls: 8},
+		{ActiveMinutes: 120, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 5, DeliveryCalls: 8},
+		{ActiveMinutes: 120, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: -1},
+		{ActiveMinutes: 120, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 17},
+	} {
 		if limits.Validate() == nil {
 			t.Fatalf("invalid limits accepted: %+v", limits)
 		}
+	}
+}
+
+func TestEffectiveAttemptLimitsFillsOnlyUnambiguousOmissions(t *testing.T) {
+	partial := AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1}
+	if got := EffectiveAttemptLimits(&partial); got != (AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1, ReviewRounds: 6, MaxChildren: 3}) {
+		t.Fatalf("creation omitted review/child defaults: %+v", got)
+	}
+	explicit := AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1, ReviewRounds: 2, MaxChildren: 2, DeliveryCalls: 0}
+	if got := EffectiveAttemptLimits(&explicit); got != explicit {
+		t.Fatalf("creation replaced explicit values: %+v", got)
 	}
 }
 
@@ -83,12 +108,89 @@ func TestCorrectionConsumptionChargesFailuresAndReplays(t *testing.T) {
 
 func TestAttemptTimeExhaustionStopsCorrections(t *testing.T) {
 	a, start := allowanceFixture()
-	a.Limits = AttemptLimits{ActiveMinutes: 1, CorrectionCycles: 3}
+	a.Limits = AttemptLimits{ActiveMinutes: 1, CorrectionCycles: 3, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8}
 	if a.RemainingSeconds(start.Add(59*time.Second)) != 1 || a.RemainingSeconds(start.Add(time.Minute)) != 0 {
 		t.Fatal("exact deadline not enforced")
 	}
 	if _, _, err := a.ConsumeCorrection(NewID(), start.Add(time.Minute)); !errors.Is(err, ErrAttemptTimeExhausted) {
 		t.Fatal("correction launched after time exhaustion", err)
+	}
+}
+
+func TestDeliveryReservationIsIdempotentBoundedAndStaysCharged(t *testing.T) {
+	a, start := allowanceFixture()
+	first := NewID()
+	next, consumed, err := a.ReserveDeliveryCall(first, start)
+	if err != nil || !consumed || len(next.DeliveryCalls) != 1 || len(a.DeliveryCalls) != 0 {
+		t.Fatalf("first reservation: %+v %v %v", next, consumed, err)
+	}
+	replayed, consumed, err := next.ReserveDeliveryCall(first, start.Add(time.Minute))
+	if err != nil || consumed || len(replayed.DeliveryCalls) != 1 || replayed.ActiveSeconds != 60 {
+		t.Fatalf("lost-reply replay: %+v %v %v", replayed, consumed, err)
+	}
+	for i := 1; i < 8; i++ {
+		replayed, consumed, err = replayed.ReserveDeliveryCall(NewID(), start.Add(time.Minute))
+		if err != nil || !consumed {
+			t.Fatalf("funded call %d refused: %v %v", i, consumed, err)
+		}
+	}
+	if _, _, err := replayed.ReserveDeliveryCall(NewID(), start.Add(time.Minute)); !errors.Is(err, ErrDeliveryExhausted) {
+		t.Fatal("exhausted delivery subledger admitted a call", err)
+	}
+	if replay, consumed, err := replayed.ReserveDeliveryCall(first, start.Add(time.Minute)); err != nil || consumed || len(replay.DeliveryCalls) != 8 {
+		t.Fatalf("exhausted replay charged again: %+v %v %v", replay, consumed, err)
+	}
+	if _, _, err := replayed.ReserveDeliveryCall("short", start); err == nil {
+		t.Fatal("invalid delivery identity admitted")
+	}
+	// A zero delivery limit authorizes no call, so automatic merge stays
+	// unreachable on an unfunded attempt.
+	unfunded := a
+	unfunded.Limits.DeliveryCalls = 0
+	if _, _, err := unfunded.ReserveDeliveryCall(NewID(), start); !errors.Is(err, ErrDeliveryExhausted) {
+		t.Fatal("unfunded attempt reserved a delivery call", err)
+	}
+	// Failure after reservation stays charged: replay observes the same
+	// operation instead of freeing it, and closure bars new spending.
+	if _, _, err := replayed.ReserveDeliveryCall(NewID(), start.Add(2*time.Hour)); !errors.Is(err, ErrAttemptTimeExhausted) {
+		t.Fatal("expired attempt reserved a delivery call", err)
+	}
+	closed := replayed
+	closed.Closed = true
+	if _, _, err := closed.ReserveDeliveryCall(NewID(), start.Add(time.Minute)); !errors.Is(err, ErrAttemptClosed) {
+		t.Fatal("closed attempt reserved a delivery call", err)
+	}
+}
+
+func TestSpendingNeverResetsAttemptBudgets(t *testing.T) {
+	a, start := allowanceFixture()
+	charged, _, err := a.ConsumeCorrection(NewID(), start.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reserved, _, err := charged.ReserveDeliveryCall(NewID(), start.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reserved.ActiveSeconds != 120 || len(reserved.Corrections) != 1 || len(reserved.DeliveryCalls) != 1 {
+		t.Fatalf("spending reset budgets: %+v", reserved)
+	}
+	rested, err := reserved.Checkpoint(start.Add(3*time.Minute), false)
+	if err != nil || len(rested.Corrections) != 1 || len(rested.DeliveryCalls) != 1 {
+		t.Fatalf("checkpoint dropped consumption: %+v %v", rested, err)
+	}
+	if err := rested.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	over := rested
+	over.DeliveryCalls = append(append([]string(nil), rested.DeliveryCalls...), NewID(), NewID(), NewID(), NewID(), NewID(), NewID(), NewID(), NewID())
+	if over.Validate() == nil {
+		t.Fatal("over-limit delivery subledger validated")
+	}
+	dup := rested
+	dup.DeliveryCalls = []string{rested.DeliveryCalls[0], rested.DeliveryCalls[0]}
+	if dup.Validate() == nil {
+		t.Fatal("duplicated delivery identity validated")
 	}
 }
 

@@ -19,14 +19,15 @@ func grantPolicy() factory.RepositoryPolicy {
 			project.RoleCoder:    {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test"},
 			project.RoleReviewer: {Harness: project.FactoryHarnessCodex, HarnessVers: "0.157.1", Model: "test"},
 		},
-		Checks:        []string{"native-ci/build"},
-		MergeMethod:   factory.MergeFastForward,
-		Publish:       factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpRefPublish},
-		Create:        factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpPRCreate},
-		Review:        factory.ActorBindingRef{TokenID: 13, ActorID: 14, Kind: factory.OpReviewSubmit},
-		Merge:         factory.ActorBindingRef{TokenID: 15, ActorID: 16, Kind: factory.OpMerge},
-		AttemptLimits: factory.DefaultAttemptLimits(),
-		MaxConcurrent: 2,
+		Checks:              []string{"native-ci/build"},
+		MergeMethod:         factory.MergeFastForward,
+		Publish:             factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpRefPublish},
+		Create:              factory.ActorBindingRef{TokenID: 11, ActorID: 12, Kind: factory.OpPRCreate},
+		Review:              factory.ActorBindingRef{TokenID: 13, ActorID: 14, Kind: factory.OpReviewSubmit},
+		Merge:               factory.ActorBindingRef{TokenID: 15, ActorID: 16, Kind: factory.OpMerge},
+		AttemptLimits:       factory.DefaultAttemptLimits(),
+		ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+		MaxConcurrent:       2,
 	}
 }
 

@@ -16,14 +16,15 @@ func grantTestPolicy() RepositoryPolicy {
 	return RepositoryPolicy{
 		Repository: 42, GrantedBy: 7, Enabled: true,
 		TargetBranch: "refs/heads/main", Roles: roles,
-		Checks:        []string{"native-ci/build"},
-		MergeMethod:   MergeFastForward,
-		Publish:       ActorBindingRef{TokenID: 11, ActorID: 12, Kind: OpRefPublish},
-		Create:        ActorBindingRef{TokenID: 11, ActorID: 12, Kind: OpPRCreate},
-		Review:        ActorBindingRef{TokenID: 13, ActorID: 14, Kind: OpReviewSubmit},
-		Merge:         ActorBindingRef{TokenID: 15, ActorID: 16, Kind: OpMerge},
-		AttemptLimits: DefaultAttemptLimits(),
-		MaxConcurrent: 2,
+		Checks:              []string{"native-ci/build"},
+		MergeMethod:         MergeFastForward,
+		Publish:             ActorBindingRef{TokenID: 11, ActorID: 12, Kind: OpRefPublish},
+		Create:              ActorBindingRef{TokenID: 11, ActorID: 12, Kind: OpPRCreate},
+		Review:              ActorBindingRef{TokenID: 13, ActorID: 14, Kind: OpReviewSubmit},
+		Merge:               ActorBindingRef{TokenID: 15, ActorID: 16, Kind: OpMerge},
+		AttemptLimits:       DefaultAttemptLimits(),
+		ReassessmentMinutes: DefaultReassessmentMinutes,
+		MaxConcurrent:       2,
 	}
 }
 
@@ -54,17 +55,79 @@ func TestRepositoryPolicyValidation(t *testing.T) {
 		"unsupported family": mutate(func(p *RepositoryPolicy) {
 			p.Roles[project.RoleCoder] = RoleSelection{Harness: "unknown", HarnessVers: "0.157.1", Model: "m"}
 		}),
-		"merge method":               mutate(func(p *RepositoryPolicy) { p.MergeMethod = "merge" }),
-		"swappedKind":                mutate(func(p *RepositoryPolicy) { p.Merge.Kind = OpRefPublish }),
-		"zero token":                 mutate(func(p *RepositoryPolicy) { p.Publish.TokenID = 0 }),
-		"zero concurrency":           mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 0 }),
-		"high concurrency":           mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 99 }),
-		"zero active attempt time":   mutate(func(p *RepositoryPolicy) { p.AttemptLimits.ActiveMinutes = 0 }),
-		"negative correction cycles": mutate(func(p *RepositoryPolicy) { p.AttemptLimits.CorrectionCycles = -1 }),
+		"merge method":                   mutate(func(p *RepositoryPolicy) { p.MergeMethod = "merge" }),
+		"swappedKind":                    mutate(func(p *RepositoryPolicy) { p.Merge.Kind = OpRefPublish }),
+		"zero token":                     mutate(func(p *RepositoryPolicy) { p.Publish.TokenID = 0 }),
+		"zero concurrency":               mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 0 }),
+		"high concurrency":               mutate(func(p *RepositoryPolicy) { p.MaxConcurrent = 99 }),
+		"zero active attempt time":       mutate(func(p *RepositoryPolicy) { p.AttemptLimits.ActiveMinutes = 0 }),
+		"negative correction cycles":     mutate(func(p *RepositoryPolicy) { p.AttemptLimits.CorrectionCycles = -1 }),
+		"zero review rounds":             mutate(func(p *RepositoryPolicy) { p.AttemptLimits.ReviewRounds = 0 }),
+		"excessive review rounds":        mutate(func(p *RepositoryPolicy) { p.AttemptLimits.ReviewRounds = 17 }),
+		"zero child concurrency":         mutate(func(p *RepositoryPolicy) { p.AttemptLimits.MaxChildren = 0 }),
+		"excessive child concurrency":    mutate(func(p *RepositoryPolicy) { p.AttemptLimits.MaxChildren = 5 }),
+		"negative delivery calls":        mutate(func(p *RepositoryPolicy) { p.AttemptLimits.DeliveryCalls = -1 }),
+		"excessive delivery calls":       mutate(func(p *RepositoryPolicy) { p.AttemptLimits.DeliveryCalls = 17 }),
+		"omitted reassessment minutes":   mutate(func(p *RepositoryPolicy) { p.ReassessmentMinutes = 0 }),
+		"excessive reassessment minutes": mutate(func(p *RepositoryPolicy) { p.ReassessmentMinutes = 121 }),
+		"negative reassessment minutes":  mutate(func(p *RepositoryPolicy) { p.ReassessmentMinutes = -5 }),
+		"contributor on codex": mutate(func(p *RepositoryPolicy) {
+			roles := p.Roles
+			coder := roles[project.RoleCoder]
+			coder.Profile = ExecutionProfile{Effort: EffortLow, Contributor: true}
+			roles[project.RoleCoder] = coder
+		}),
+		"unknown effort": mutate(func(p *RepositoryPolicy) {
+			roles := p.Roles
+			coder := roles[project.RoleCoder]
+			coder.Profile = ExecutionProfile{Effort: "turbo"}
+			roles[project.RoleCoder] = coder
+		}),
 	} {
 		if err := bad.Validate(); err == nil {
 			t.Errorf("%s: policy accepted", name)
 		}
+	}
+}
+
+// D13 (FW06A scope): admission resolves an omitted reassessment allowance
+// to the default so the stored record always carries its value explicitly;
+// the admitted range is 1-120.
+func TestReassessmentMinutesAdmission(t *testing.T) {
+	if got := EffectiveReassessmentMinutes(0); got != DefaultReassessmentMinutes {
+		t.Fatalf("omitted reassessment minutes misresolved: %d", got)
+	}
+	for _, minutes := range []int{MinReassessmentMinutes, DefaultReassessmentMinutes, MaxReassessmentMinutes} {
+		p := grantTestPolicy()
+		p.ReassessmentMinutes = minutes
+		if err := p.Validate(); err != nil {
+			t.Fatalf("reassessment minutes %d refused: %v", minutes, err)
+		}
+		if got := EffectiveReassessmentMinutes(minutes); got != minutes {
+			t.Fatalf("explicit reassessment minutes rewritten: %d -> %d", minutes, got)
+		}
+	}
+}
+
+func TestRoleExecutionProfile(t *testing.T) {
+	// An omitted profile validates: creation resolves the product defaults.
+	omitted := RoleSelection{Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.9", Model: "spark"}
+	if err := omitted.Validate(); err != nil {
+		t.Fatalf("omitted profile refused: %v", err)
+	}
+	crew := RoleSelection{
+		Harness: project.FactoryHarnessMuse, HarnessVers: "1.4.9", Model: "spark",
+		Profile: ExecutionProfile{Effort: EffortXHigh, Contributor: true},
+	}
+	if err := crew.Validate(); err != nil {
+		t.Fatalf("qualified crew profile refused: %v", err)
+	}
+	encoded, err := json.Marshal(crew)
+	if err != nil || !strings.Contains(string(encoded), `"effort":"xhigh"`) || !strings.Contains(string(encoded), `"contributor":true`) {
+		t.Fatalf("profile JSON is not snake_case: %s %v", encoded, err)
+	}
+	if !SettingsCommandType(CommandPlanIntent) {
+		t.Fatal("plan-intent is not a settings command")
 	}
 }
 

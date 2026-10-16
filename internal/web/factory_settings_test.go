@@ -191,7 +191,9 @@ func TestFactoryPolicyJourney(t *testing.T) {
 		t.Fatal("valid repository attempt limits rejected", custom.Code, custom.Body.String())
 	}
 	policy, err = s.Store.RepositoryPolicy(t.Context(), 7)
-	if err != nil || policy.AttemptLimits != (factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1}) {
+	// Creation records the frozen review/child defaults alongside the
+	// posted minutes, cycles and the unfunded delivery posture.
+	if err != nil || policy.AttemptLimits != (factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1, ReviewRounds: 6, MaxChildren: 3}) {
 		t.Fatalf("repository attempt limits were not recorded: %+v %v", policy.AttemptLimits, err)
 	}
 }

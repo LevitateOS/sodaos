@@ -16,8 +16,10 @@ import (
 // observations before use.
 type AssignmentResult struct {
 	Review       *ReviewReport `json:"review,omitempty"`
+	PhaseResult  *PhaseResult  `json:"phase_result,omitempty"`
 	AssignmentID string        `json:"assignment_id"`
 	RunID        string        `json:"run_id"`
+	Phase        string        `json:"phase,omitempty"`
 	Status       string        `json:"status"`
 	Summary      string        `json:"summary"`
 	Candidate    string        `json:"candidate"`
@@ -44,6 +46,28 @@ func (r AssignmentResult) Validate() error {
 		Status: r.Status, Summary: r.Summary, Candidate: r.Candidate,
 		ReviewPassed: r.ReviewPassed, Findings: r.Findings,
 	}.Validate()
+}
+
+// ValidatePhaseBinding enforces the phase/role/result contract for v2
+// results: the recorded phase matches the assignment phase and its admitted
+// role, and the typed payload binds that same phase. Cross-phase payloads
+// refuse, and a phased result never binds a pre-phase assignment. The
+// legacy harness fields above stay untouched for the FW11 result-parser
+// migration; new admission records PhaseResult.
+func (r AssignmentResult) ValidatePhaseBinding(role, assignmentPhase string) error {
+	if r.PhaseResult == nil {
+		return errors.New("phased result lacks its typed output")
+	}
+	if r.Phase == "" || r.Phase != assignmentPhase {
+		return errors.New("phased result does not match its assignment phase")
+	}
+	if !ValidPhaseRole(r.Phase, role) {
+		return errors.New("phased result role does not match its phase")
+	}
+	if r.PhaseResult.Phase != r.Phase {
+		return errors.New("phased result payload does not match its phase")
+	}
+	return r.PhaseResult.Validate()
 }
 
 // ValidateForAssignment enforces the role-specific result contract. A

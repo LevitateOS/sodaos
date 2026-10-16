@@ -46,12 +46,13 @@ func (fx *st15Fixture) setupProject() error {
 			project.RoleReviewer: {Harness: project.FactoryHarnessMuse, HarnessVers: fx.versions, Model: "muse-spark-1.3"},
 		},
 		Checks: []string{"st15-build", "st15-test"}, MergeMethod: factory.MergeFastForward,
-		Publish:       actor(factory.OpRefPublish, fx.cfg.TokenID, fx.cfg.ActorID),
-		Create:        actor(factory.OpPRCreate, fx.cfg.TokenID, fx.cfg.ActorID),
-		Review:        actor(factory.OpReviewSubmit, fx.cfg.ReviewerTokenID, fx.cfg.ReviewerID),
-		Merge:         actor(factory.OpMerge, fx.cfg.TokenID, fx.cfg.ActorID),
-		AttemptLimits: factory.DefaultAttemptLimits(),
-		MaxConcurrent: 2,
+		Publish:             actor(factory.OpRefPublish, fx.cfg.TokenID, fx.cfg.ActorID),
+		Create:              actor(factory.OpPRCreate, fx.cfg.TokenID, fx.cfg.ActorID),
+		Review:              actor(factory.OpReviewSubmit, fx.cfg.ReviewerTokenID, fx.cfg.ReviewerID),
+		Merge:               actor(factory.OpMerge, fx.cfg.TokenID, fx.cfg.ActorID),
+		AttemptLimits:       factory.DefaultAttemptLimits(),
+		ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+		MaxConcurrent:       2,
 	}
 	if _, err := fx.coord.ApplyPolicy(ctx, factory.NewID(), "soda-maintainer", 0, policy); err != nil {
 		return err

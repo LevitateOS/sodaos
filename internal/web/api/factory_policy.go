@@ -9,20 +9,21 @@ import (
 )
 
 type factoryPolicyRequest struct {
-	AttemptLimits    *factory.AttemptLimits           `json:"attempt_limits"`
-	Roles            map[string]factory.RoleSelection `json:"roles"`
-	PublishActor     actorRefRequest                  `json:"publish_actor"`
-	CreateActor      actorRefRequest                  `json:"create_actor"`
-	ReviewActor      actorRefRequest                  `json:"review_actor"`
-	MergeActor       actorRefRequest                  `json:"merge_actor"`
-	CommandID        string                           `json:"command_id"`
-	TargetBranch     string                           `json:"target_branch"`
-	MergeMethod      string                           `json:"merge_method"`
-	RequiredChecks   []string                         `json:"required_checks"`
-	ExpectedRevision int64                            `json:"expected_revision"`
-	MaxConcurrent    int                              `json:"max_concurrent"`
-	Enabled          bool                             `json:"enabled"`
-	Paused           bool                             `json:"paused"`
+	AttemptLimits       *factory.AttemptLimits           `json:"attempt_limits"`
+	Roles               map[string]factory.RoleSelection `json:"roles"`
+	PublishActor        actorRefRequest                  `json:"publish_actor"`
+	CreateActor         actorRefRequest                  `json:"create_actor"`
+	ReviewActor         actorRefRequest                  `json:"review_actor"`
+	MergeActor          actorRefRequest                  `json:"merge_actor"`
+	CommandID           string                           `json:"command_id"`
+	TargetBranch        string                           `json:"target_branch"`
+	MergeMethod         string                           `json:"merge_method"`
+	RequiredChecks      []string                         `json:"required_checks"`
+	ExpectedRevision    int64                            `json:"expected_revision"`
+	ReassessmentMinutes int                              `json:"reassessment_minutes"`
+	MaxConcurrent       int                              `json:"max_concurrent"`
+	Enabled             bool                             `json:"enabled"`
+	Paused              bool                             `json:"paused"`
 }
 
 func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -60,6 +61,9 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		Checks: in.RequiredChecks, MergeMethod: in.MergeMethod,
 		Publish: publish, Create: create, Review: review, Merge: merge, MaxConcurrent: in.MaxConcurrent,
 		AttemptLimits: factory.EffectiveAttemptLimits(in.AttemptLimits),
+		// Omission resolves to the D13 default so the stored record always
+		// carries its admitted reassessment allowance explicitly.
+		ReassessmentMinutes: factory.EffectiveReassessmentMinutes(in.ReassessmentMinutes),
 	}
 	if policy.Revision < 0 || policy.Validate() != nil {
 		auth.JSONError(w, 400, "invalid_policy", "Repository policy is incomplete or invalid.")

@@ -343,3 +343,291 @@ func TestReservationAndUsageValidate(t *testing.T) {
 		t.Fatal("usage amount inconsistent with interval accepted")
 	}
 }
+
+func canonicalIssueAssignment(t *testing.T, phase, role string) Assignment {
+	t.Helper()
+	prompt := testPrompt(t)
+	a := testAssignment(prompt)
+	a.RunHistory = []string{a.Run}
+	a.Subject = ExecutionSubject{
+		Kind:  SubjectIssue,
+		Issue: &IssueSubject{Issue: 3, Acceptance: "d" + strings.Repeat("a", 24)},
+	}
+	a.Phase, a.Role = phase, role
+	return a
+}
+
+func canonicalCompletionAssignment(t *testing.T) Assignment {
+	t.Helper()
+	prompt := testPrompt(t)
+	a := testAssignment(prompt)
+	a.RunHistory = []string{a.Run}
+	a.Subject = ExecutionSubject{
+		Kind: SubjectCompletion,
+		Completion: &CompletionSubject{
+			CompletionID: strings.Repeat("c", 32), CycleID: strings.Repeat("d", 32),
+			InventoryDigest: strings.Repeat("e", 64),
+		},
+	}
+	a.Phase, a.Role = project.ExecutionReassess, project.RoleCoder
+	a.ParentAssignment, a.PublicationAssignment = "", ""
+	a.Issue, a.Acceptance = 0, ""
+	return a
+}
+
+func canonicalIntentAssignment(t *testing.T) Assignment {
+	t.Helper()
+	prompt := testPrompt(t)
+	a := testAssignment(prompt)
+	a.RunHistory = []string{a.Run}
+	a.Subject = ExecutionSubject{
+		Kind: SubjectIntent,
+		Intent: &IntentSubject{
+			IntentID: "d" + strings.Repeat("b", 24), RevisionID: "d" + strings.Repeat("c", 24),
+			ScopeDigest: strings.Repeat("e", 64), OwnerID: 9,
+		},
+	}
+	a.Phase, a.Issue, a.Acceptance = project.ExecutionDecompose, 0, ""
+	return a
+}
+
+// T03 (FW06A scope): canonical subject assignments validate across every
+// admitted phase/role combination.
+func TestAssignmentSubjectPhaseValid(t *testing.T) {
+	for _, tc := range [][2]string{
+		{project.ExecutionInvestigate, project.RoleCoder},
+		{project.ExecutionImplement, project.RoleCoder},
+		{project.ExecutionCorrect, project.RoleCoder},
+	} {
+		a := canonicalIssueAssignment(t, tc[0], tc[1])
+		if err := a.Validate(); err != nil {
+			t.Fatalf("valid %s/%s refused: %v", tc[0], tc[1], err)
+		}
+	}
+	reviewer := canonicalIssueAssignment(t, project.ExecutionReview, project.RoleReviewer)
+	child := reviewer
+	child.ID = NewID()
+	child.ParentAssignment = reviewer.ID
+	if err := child.Validate(); err != nil {
+		t.Fatalf("valid review child refused: %v", err)
+	}
+	intent := canonicalIntentAssignment(t)
+	if err := intent.Validate(); err != nil {
+		t.Fatalf("valid intent root refused: %v", err)
+	}
+	if key := intent.Subject.SubjectKey(7); key != "intent:"+intent.Subject.Intent.IntentID {
+		t.Fatalf("intent subject key: %s", key)
+	}
+	issue := canonicalIssueAssignment(t, project.ExecutionInvestigate, project.RoleCoder)
+	if key := issue.Subject.SubjectKey(7); key != "issue:7:3" {
+		t.Fatalf("issue subject key: %s", key)
+	}
+	completion := canonicalCompletionAssignment(t)
+	if err := completion.Validate(); err != nil {
+		t.Fatalf("valid completion reassess refused: %v", err)
+	}
+	if key := completion.Subject.SubjectKey(7); key != "completion:"+strings.Repeat("c", 32) {
+		t.Fatalf("completion subject key: %s", key)
+	}
+}
+
+func TestAssignmentSubjectPhaseRefusals(t *testing.T) {
+	accept := "d" + strings.Repeat("a", 24)
+	issueSubject := func() ExecutionSubject {
+		return ExecutionSubject{Kind: SubjectIssue, Issue: &IssueSubject{Issue: 3, Acceptance: accept}}
+	}
+	phased := func() Assignment {
+		prompt := testPrompt(t)
+		a := testAssignment(prompt)
+		a.RunHistory = []string{a.Run}
+		a.Subject = issueSubject()
+		return a
+	}
+	cases := map[string]func(*Assignment){
+		"intent investigation": func(a *Assignment) {
+			*a = canonicalIntentAssignment(t)
+			a.Phase = project.ExecutionInvestigate
+		},
+		"issue decomposition": func(a *Assignment) {
+			a.Phase = project.ExecutionDecompose
+		},
+		"coder review": func(a *Assignment) {
+			a.Phase = project.ExecutionReview
+		},
+		"reviewer implement": func(a *Assignment) {
+			a.Phase = project.ExecutionImplement
+			a.Role = project.RoleReviewer
+		},
+		"phase without subject": func(a *Assignment) {
+			a.Subject = ExecutionSubject{}
+			a.Phase = project.ExecutionImplement
+		},
+		"subject without phase": func(a *Assignment) {},
+		"issue mismatch": func(a *Assignment) {
+			a.Phase = project.ExecutionImplement
+			a.Subject.Issue.Issue = 4
+		},
+		"acceptance mismatch": func(a *Assignment) {
+			a.Phase = project.ExecutionImplement
+			a.Subject.Issue.Acceptance = "d" + strings.Repeat("f", 24)
+		},
+		"root with parent": func(a *Assignment) {
+			a.Phase = project.ExecutionImplement
+			a.ParentAssignment = NewID()
+		},
+		"self parent": func(a *Assignment) {
+			a.Phase = project.ExecutionImplement
+			a.AttemptRoot, a.ParentAssignment = NewID(), a.ID
+		},
+		"child keeps own root": func(a *Assignment) {
+			a.Phase = project.ExecutionImplement
+			a.ParentAssignment = NewID()
+		},
+		"intent with issue": func(a *Assignment) {
+			*a = canonicalIntentAssignment(t)
+			a.Issue = 5
+		},
+		"intent with acceptance": func(a *Assignment) {
+			*a = canonicalIntentAssignment(t)
+			a.Acceptance = accept
+		},
+		"dual payload": func(a *Assignment) {
+			a.Phase = project.ExecutionDecompose
+			a.Subject = ExecutionSubject{
+				Kind:   SubjectIntent,
+				Issue:  &IssueSubject{Issue: 3, Acceptance: accept},
+				Intent: &IntentSubject{IntentID: "d" + strings.Repeat("b", 24), RevisionID: "d" + strings.Repeat("c", 24), ScopeDigest: strings.Repeat("e", 64), OwnerID: 9},
+			}
+			a.Issue, a.Acceptance = 0, ""
+		},
+		"completion implement": func(a *Assignment) {
+			*a = canonicalCompletionAssignment(t)
+			a.Phase = project.ExecutionImplement
+		},
+		"issue reassess": func(a *Assignment) {
+			a.Phase = project.ExecutionReassess
+		},
+		"intent reassess": func(a *Assignment) {
+			*a = canonicalIntentAssignment(t)
+			a.Phase = project.ExecutionReassess
+		},
+		"reviewer reassess": func(a *Assignment) {
+			*a = canonicalCompletionAssignment(t)
+			a.Role = project.RoleReviewer
+		},
+		"completion with publication": func(a *Assignment) {
+			*a = canonicalCompletionAssignment(t)
+			a.PublicationAssignment = NewID()
+		},
+		"completion with parent": func(a *Assignment) {
+			*a = canonicalCompletionAssignment(t)
+			a.ParentAssignment = NewID()
+		},
+		"completion with issue": func(a *Assignment) {
+			*a = canonicalCompletionAssignment(t)
+			a.Issue, a.Acceptance = 3, accept
+		},
+		"completion dual payload": func(a *Assignment) {
+			*a = canonicalCompletionAssignment(t)
+			a.Subject.Issue = &IssueSubject{Issue: 3, Acceptance: accept}
+		},
+		"completion bad digest": func(a *Assignment) {
+			*a = canonicalCompletionAssignment(t)
+			a.Subject.Completion.InventoryDigest = "short"
+		},
+	}
+	for name, mutate := range cases {
+		a := phased()
+		mutate(&a)
+		if err := a.Validate(); err == nil {
+			t.Fatalf("subject case %s admitted", name)
+		}
+	}
+}
+
+func TestParseSubjectKeyRoundTrip(t *testing.T) {
+	kind, repo, issue, intent, completion, err := ParseSubjectKey("issue:7:3")
+	if err != nil || kind != SubjectIssue || repo != 7 || issue != 3 || intent != "" || completion != "" {
+		t.Fatalf("issue key: %s %d %d %s %s %v", kind, repo, issue, intent, completion, err)
+	}
+	kind, repo, issue, intent, completion, err = ParseSubjectKey("intent:" + "d" + strings.Repeat("b", 24))
+	if err != nil || kind != SubjectIntent || intent == "" || completion != "" {
+		t.Fatalf("intent key: %s %s %s %v", kind, intent, completion, err)
+	}
+	completionID := strings.Repeat("c", 32)
+	kind, repo, issue, intent, completion, err = ParseSubjectKey("completion:" + completionID)
+	if err != nil || kind != SubjectCompletion || completion != completionID || intent != "" || repo != 0 || issue != 0 {
+		t.Fatalf("completion key: %s %s %v", kind, completion, err)
+	}
+	for _, key := range []string{"", "issue:7", "issue:0:3", "issue:7:0", "issue:7:03x", "intent:short", "completion:short", "completion:", "pr:7:3"} {
+		if _, _, _, _, _, err := ParseSubjectKey(key); err == nil {
+			t.Fatalf("subject key %q admitted", key)
+		}
+	}
+}
+
+// D13 (FW06A scope): the 320 KiB prompt exception binds the recorded
+// reassess phase and completion subject together; every other combination
+// keeps the 64 KiB transport bound.
+func TestAssignmentReassessPromptBound(t *testing.T) {
+	oversize := func(a Assignment, size int) Assignment {
+		a.Prompt = []byte(strings.Repeat("p", size))
+		sum := sha256.Sum256(a.Prompt)
+		a.PromptSHA = hex.EncodeToString(sum[:])
+		return a
+	}
+	reassess := oversize(canonicalCompletionAssignment(t), project.MaxReassessPrompt)
+	if err := reassess.Validate(); err != nil {
+		t.Fatalf("bounded reassess prompt refused: %v", err)
+	}
+	for name, a := range map[string]Assignment{
+		"reassess over bound": oversize(canonicalCompletionAssignment(t), project.MaxReassessPrompt+1),
+		"implement at reassess bound": func() Assignment {
+			next := oversize(canonicalIssueAssignment(t, project.ExecutionImplement, project.RoleCoder), project.MaxReassessPrompt)
+			return next
+		}(),
+		"issue subject at reassess size": func() Assignment {
+			next := oversize(canonicalIssueAssignment(t, project.ExecutionInvestigate, project.RoleCoder), project.MaxReassessPrompt)
+			return next
+		}(),
+	} {
+		if err := a.Validate(); err == nil {
+			t.Fatalf("prompt case %s admitted", name)
+		}
+	}
+	// A reassess phase without its completion subject keeps the standard
+	// bound even at matching phase.
+	mismatch := canonicalIssueAssignment(t, project.ExecutionImplement, project.RoleCoder)
+	mismatch.Phase = project.ExecutionReassess
+	mismatch = oversize(mismatch, project.MaxFactoryPrompt+1)
+	if err := mismatch.Validate(); err == nil {
+		t.Fatal("reassess-sized issue prompt admitted")
+	}
+}
+
+// T03 (FW06A scope): a finished phased assignment binds its typed phase
+// result; a mismatched payload refuses.
+func TestFinishedAssignmentBindsPhaseResult(t *testing.T) {
+	a := canonicalIssueAssignment(t, project.ExecutionImplement, project.RoleCoder)
+	a.Stage, a.Outcome, a.Reason = AssignmentFinished, Succeeded, AssignReasonReported
+	a.FinishedUnix = 1700000100
+	receipt := &ImplementationReceipt{Candidate: strings.Repeat("d", 40)}
+	a.Result = &AssignmentResult{
+		AssignmentID: a.ID, RunID: a.Run,
+		Status: "completed", Summary: "done", Candidate: strings.Repeat("d", 40),
+		Findings: []string{}, Reported: true, RecordedUnix: 1700000100,
+		Phase: project.ExecutionImplement,
+		PhaseResult: &PhaseResult{
+			Version: 2, Phase: project.ExecutionImplement,
+			Status: "completed", Summary: "done",
+			Output: &PhaseOutput{Implementation: receipt},
+		},
+	}
+	if err := a.Validate(); err != nil {
+		t.Fatalf("finished phased assignment refused: %v", err)
+	}
+	a.Result.Phase = project.ExecutionReview
+	if err := a.Validate(); err == nil {
+		t.Fatal("cross-phase bound result admitted")
+	}
+}

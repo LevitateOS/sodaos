@@ -51,6 +51,12 @@ func factoryStateConfirmed(in project.FactoryRun, out project.FactoryState) bool
 
 func (c *Client) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
 	var out project.FactoryState
+	// The manifest/phase/digest rule is enforced before the daemon ever
+	// sees the request: implement runs stage their exact manifest bytes,
+	// every other phase stages none.
+	if err := in.Validate(); err != nil {
+		return out, err
+	}
 	err := c.callLimit(ctx, "/factory-launch", in, &out, factoryResponseLimit)
 	if err == nil && !factoryStateConfirmed(in.Run, out) {
 		err = errors.New("native factory launch did not return the admitted run")

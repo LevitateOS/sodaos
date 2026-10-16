@@ -314,7 +314,7 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 	if err = saveAttemptAllowanceTx(ctx, tx, prior); err != nil {
 		t.Fatal(err)
 	}
-	limits := factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1}
+	limits := factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8}
 	if err = startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, root.ID, limits, now.Add(30*time.Minute), now); err != nil {
 		t.Fatal(err)
 	}
