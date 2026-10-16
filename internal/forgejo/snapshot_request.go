@@ -20,6 +20,8 @@ const (
 	FamilyDependencies     SnapshotFamily = "dependencies"
 	FamilyPull             SnapshotFamily = "pull"
 	FamilyReviews          SnapshotFamily = "reviews"
+	FamilyReviewThreads    SnapshotFamily = "review_threads"
+	FamilyMergeEligibility SnapshotFamily = "merge_eligibility"
 	FamilyChecks           SnapshotFamily = "checks"
 	FamilyRefs             SnapshotFamily = "refs"
 	FamilyAncestry         SnapshotFamily = "ancestry"
@@ -28,6 +30,7 @@ const (
 func validFamily(family SnapshotFamily) bool {
 	switch family {
 	case FamilyRepositoryIssues, FamilyIssue, FamilyComments, FamilyDependencies, FamilyPull, FamilyReviews,
+		FamilyReviewThreads, FamilyMergeEligibility,
 		FamilyChecks, FamilyRefs, FamilyAncestry:
 		return true
 	default:
@@ -200,6 +203,23 @@ func ValidateRequest(req SnapshotRequest) error {
 		if byIssue == byPull {
 			return ErrInvalidSnapshot
 		}
+	}
+	// review_threads enumerates native code-review conversations on one
+	// pull request, selected either by its issue or by its pull number,
+	// never both and never neither. merge_eligibility reads the
+	// actor-bound merge readiness of one pull request, so it requires
+	// the pull selector; it combines with other families under the same
+	// revision bracket. Read-only shape only; no acceptance, readiness or
+	// other factory policy is expressed here.
+	if seen[FamilyReviewThreads] {
+		byIssue := req.IssueIndex != ""
+		byPull := req.PullNumber != ""
+		if byIssue == byPull {
+			return ErrInvalidSnapshot
+		}
+	}
+	if seen[FamilyMergeEligibility] && req.PullNumber == "" {
+		return ErrInvalidSnapshot
 	}
 	return nil
 }

@@ -70,6 +70,8 @@ func (r *BackgroundSnapshotReader) ReadSnapshot(ctx context.Context, credential 
 		Dependencies:     answer.Dependencies,
 		Pull:             answer.Pull,
 		Reviews:          answer.Reviews,
+		Threads:          answer.Threads,
+		Eligibility:      answer.Eligibility,
 		Checks:           answer.Checks,
 		Refs:             answer.Refs,
 		Ancestry:         answer.Ancestry,

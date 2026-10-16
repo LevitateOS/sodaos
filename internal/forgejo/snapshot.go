@@ -32,6 +32,8 @@ type NativeSnapshot struct {
 	Dependencies     *DependencyPage              `json:"dependencies,omitempty"`
 	Pull             *PullEvidence                `json:"pull,omitempty"`
 	Reviews          *ReviewPage                  `json:"reviews,omitempty"`
+	Threads          *ThreadPage                  `json:"review_threads,omitempty"`
+	Eligibility      *MergeEligibility            `json:"merge_eligibility,omitempty"`
 	Checks           *CheckSet                    `json:"checks,omitempty"`
 	Refs             []RefEvidence                `json:"refs,omitempty"`
 	Ancestry         *extensions.SnapshotAncestry `json:"ancestry,omitempty"`
@@ -147,6 +149,20 @@ func ValidateSnapshot(req SnapshotRequest, snapshot NativeSnapshot, revision int
 			if err := validReviewPage(snapshot.Reviews); err != nil {
 				return err
 			}
+		case FamilyReviewThreads:
+			if snapshot.Threads == nil || !snapshot.Threads.Complete {
+				return ErrIncompleteSnapshot
+			}
+			if err := validThreadPage(snapshot.Threads, req); err != nil {
+				return err
+			}
+		case FamilyMergeEligibility:
+			if snapshot.Eligibility == nil || !snapshot.Eligibility.Complete {
+				return ErrIncompleteSnapshot
+			}
+			if err := validEligibility(snapshot.Eligibility, req); err != nil {
+				return err
+			}
 		case FamilyChecks:
 			if snapshot.Checks == nil || !snapshot.Checks.Complete {
 				return ErrIncompleteSnapshot
@@ -214,6 +230,18 @@ func HasHiddenEvidence(req SnapshotRequest, snapshot NativeSnapshot) bool {
 						return true
 					}
 				}
+			}
+		case FamilyReviewThreads:
+			if snapshot.Threads != nil {
+				for _, item := range snapshot.Threads.Items {
+					if !item.Visible {
+						return true
+					}
+				}
+			}
+		case FamilyMergeEligibility:
+			if snapshot.Eligibility != nil && !snapshot.Eligibility.Visible {
+				return true
 			}
 		case FamilyChecks:
 			if snapshot.Checks != nil {
