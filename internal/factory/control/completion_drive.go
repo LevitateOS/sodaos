@@ -349,6 +349,9 @@ func (c *Coordinator) StartCompletionRetry(ctx context.Context, retry factory.Re
 	if err != nil {
 		return "", err
 	}
+	if record.Cycle.State == factory.ReassessmentSuperseded {
+		return c.Store.StartReassessmentRetry(ctx, retry)
+	}
 	if record.Cycle.State != factory.ReassessmentAttention {
 		return "", errors.New("only an attention cycle waits for retry")
 	}
@@ -356,7 +359,11 @@ func (c *Coordinator) StartCompletionRetry(ctx context.Context, retry factory.Re
 		return "", errors.New("reassessment runs reconcile before retry")
 	}
 	if record.EvidenceFingerprint != "" {
-		if _, err := c.Store.PriorityJudgment(ctx, record.EvidenceFingerprint); err != nil {
+		state, err := DecisionStateFromRecord(record)
+		if err != nil {
+			return "", err
+		}
+		if _, err := c.Store.PriorityJudgment(ctx, fingerprintOf(state)); err != nil {
 			return "", errors.New("reassessment calls reconcile before retry")
 		}
 	}

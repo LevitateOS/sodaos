@@ -705,7 +705,7 @@ func (s *Store) StartReassessmentRetry(ctx context.Context, retry factory.Reasse
 	if err := successor.Validate(); err != nil {
 		return "", err
 	}
-	successorRecord := ReassessmentRecord{Cycle: successor, Issue: prior.Issue}
+	successorRecord := ReassessmentRecord{Cycle: successor, Issue: prior.Issue, Completion: prior.Completion}
 	successorData, err := json.Marshal(successorRecord)
 	if err != nil {
 		return "", err
