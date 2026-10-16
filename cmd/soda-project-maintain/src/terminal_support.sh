@@ -17,17 +17,31 @@ if test "$action" = observe; then printf '%s\n' "$actual"; exit; fi
 # A running but disconnected session, reservation, subscription or factory state is
 # never taken as idle. Only the proven empty-managed-state transition is admitted.
 idle() {
- if test -e /run/soda-terminals; then
+ if test -e /run/soda-terminals || test -L /run/soda-terminals; then
   safe /run/soda-terminals
   test -d /run/soda-terminals
   test -z "$(find /run/soda-terminals -mindepth 1 -maxdepth 1 -print -quit)"
  else
   test "${SODA_STOPPED:-0}" = 1
  fi
- if test -e /var/lib/soda/factory; then
+ if test -e /var/lib/soda/factory || test -L /var/lib/soda/factory; then
   safe /var/lib/soda/factory
   test -d /var/lib/soda/factory
-  test -z "$(find /var/lib/soda/factory -mindepth 1 -maxdepth 1 -print -quit)"
+  for directory in preparations credentials; do
+   safe "/var/lib/soda/factory/$directory"
+   test -d "/var/lib/soda/factory/$directory"
+   test -z "$(find "/var/lib/soda/factory/$directory" -mindepth 1 -maxdepth 1 -print -quit)"
+  done
+  test -z "$(find /var/lib/soda/factory -mindepth 1 -maxdepth 1 ! -name preparations ! -name credentials ! -name lock ! -name maintenance-hold -print -quit)"
+  # The hold is an admission fence, not running work. Preserve it exactly.
+  if test -e /var/lib/soda/factory/maintenance-hold || test -L /var/lib/soda/factory/maintenance-hold; then
+   safe /var/lib/soda/factory/maintenance-hold
+   test -f /var/lib/soda/factory/maintenance-hold
+   test "$(stat -c %h /var/lib/soda/factory/maintenance-hold)" = 1
+   test "$(stat -c %s /var/lib/soda/factory/maintenance-hold)" -le 1024
+   hold_valid=$(jq -ce 'type == "object" and keys == ["revision"] and (.revision | type == "number" and floor == .)' /var/lib/soda/factory/maintenance-hold)
+   test "$hold_valid" = true
+  fi
  fi
  if test "${SODA_STOPPED:-0}" != 1; then
   test -z "$(systemctl list-units --all --no-legend --plain 'soda-terminal-*' 'soda-factory-*')"
@@ -38,6 +52,15 @@ idle() {
 if test -d /run/soda-terminals; then
  exec 9</run/soda-terminals
  flock -n -x 9
+fi
+# Serialize with the factory helper's own stable lock, including stopped roots.
+if test -e /var/lib/soda/factory || test -L /var/lib/soda/factory; then
+ safe /var/lib/soda/factory/lock
+ test -f /var/lib/soda/factory/lock
+ test "$(stat -c %h /var/lib/soda/factory/lock)" = 1
+ test "$(stat -c %s /var/lib/soda/factory/lock)" = 0
+ exec 8</var/lib/soda/factory/lock
+ flock -n -x 8
 fi
 idle
 if test "$action" = idle; then printf '%s\n' "$actual"; exit; fi

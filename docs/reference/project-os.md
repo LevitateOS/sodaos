@@ -154,7 +154,10 @@ Disconnected terminals and outstanding reservations remain managed work. The
 implemented transition requires a Rocky 10.2 root with empty managed
 terminal/factory state. It checks tmux and terminfo and executes the staged helper's
 read-only account/state path before replacement. Nonempty managed state refuses
-explicitly. Running roots use native container execution. Stopped roots use their
+explicitly. Empty factory preparation/credential directories and its coordination
+lock/hold metadata are preserved; records, unknown entries and a busy factory lock
+refuse maintenance. The factory lock stays held alongside terminal exclusion while
+support is checked or replaced. Running roots use native container execution. Stopped roots use their
 exact mounted container root and validated UID/GID mappings in a native user
 namespace; the compatibility probe also uses private mount/PID namespaces and
 temporary runtime mounts. It never starts container init or user workloads.
