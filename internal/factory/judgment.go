@@ -203,21 +203,32 @@ const (
 
 // Effective delivery actions. The raw answer is always retained alongside
 // the effective action; a malformed, missing or provider-failed answer is
-// judgment_unavailable and can never authorize merge.
+// judgment_unavailable and can never authorize merge. A valid answer that
+// meets neither choice's thresholds with a strict lead is
+// judgment_attention: uncertainty waits, never an automatic review (D08).
 const (
 	DeliveryEffectiveReady     = "ready_to_merge"
 	DeliveryEffectiveReview    = "review_again"
 	DeliveryEffectiveExhausted = "review_allowance_exhausted"
+	DeliveryEffectiveAttention = "judgment_attention"
 	DeliveryUnavailable        = "judgment_unavailable"
 )
 
-// Effective delivery thresholds. Ready requires the selected
-// ready_to_merge probability and the answer confidence both at or above
-// these conservative product cutoffs; they are not probabilities that
-// the code is correct.
+// Effective delivery thresholds. Either actionable choice requires its
+// selected probability and the answer confidence both at or above these
+// conservative product cutoffs; they are not probabilities that the code
+// is correct. A tie or a threshold failure on either choice waits with
+// judgment_attention instead of buying a review (D08).
 const (
 	DeliveryReadyMinProbability = 0.8
 	DeliveryReadyMinConfidence  = 0.8
+	// DeliveryReviewAgainMinProbability and DeliveryReviewAgainMinConfidence
+	// are the same D08 cutoffs for the review_again choice: positive
+	// evidence is needed to buy a review, and uncertainty never implies
+	// one. review_again additionally needs remaining review allowance;
+	// exhaustion gives review_allowance_exhausted.
+	DeliveryReviewAgainMinProbability = 0.8
+	DeliveryReviewAgainMinConfidence  = 0.8
 )
 
 // DeliveryAnswer is one funded delivery judgment answer: the selected
@@ -281,11 +292,15 @@ func (a DeliveryAnswer) Validate() error {
 }
 
 // EffectiveAction derives the effective action from the raw answer and
-// the remaining review allowance. Ready requires the selected
-// ready_to_merge, both thresholds met and a strict probability lead;
-// below-threshold or tied answers route to review. Malformed or failed
-// answers are unavailable however much allowance remains. A clean first
-// review still consults: no finding state bypasses this function.
+// the remaining review allowance. Either actionable choice requires its
+// selected probability at or above its cutoff, the answer confidence at
+// or above its cutoff, and a strict probability lead over the other
+// option. A tie or a threshold failure waits with judgment_attention,
+// never an automatic review. review_again additionally needs remaining
+// review allowance (ReviewRounds plus the unchanged-head discretionary
+// counter); exhaustion gives review_allowance_exhausted. Malformed or
+// failed answers are unavailable however much allowance remains. A clean
+// first review still consults: no finding state bypasses this function.
 func (a DeliveryAnswer) EffectiveAction(reviewsFit bool) string {
 	if a.Validate() != nil {
 		return DeliveryUnavailable
@@ -295,10 +310,15 @@ func (a DeliveryAnswer) EffectiveAction(reviewsFit bool) string {
 		a.Probabilities[DeliveryReadyToMerge] > a.Probabilities[DeliveryReviewAgain] {
 		return DeliveryEffectiveReady
 	}
-	if reviewsFit {
-		return DeliveryEffectiveReview
+	if a.Selected == DeliveryReviewAgain && a.Probability >= DeliveryReviewAgainMinProbability &&
+		a.Confidence >= DeliveryReviewAgainMinConfidence &&
+		a.Probabilities[DeliveryReviewAgain] > a.Probabilities[DeliveryReadyToMerge] {
+		if reviewsFit {
+			return DeliveryEffectiveReview
+		}
+		return DeliveryEffectiveExhausted
 	}
-	return DeliveryEffectiveExhausted
+	return DeliveryEffectiveAttention
 }
 
 // DeliveryDecision retains one raw delivery answer with its derived
@@ -315,7 +335,7 @@ func (d DeliveryDecision) Validate() error {
 		return err
 	}
 	switch d.Effective {
-	case DeliveryEffectiveReady, DeliveryEffectiveReview, DeliveryEffectiveExhausted, DeliveryUnavailable:
+	case DeliveryEffectiveReady, DeliveryEffectiveReview, DeliveryEffectiveExhausted, DeliveryEffectiveAttention, DeliveryUnavailable:
 	default:
 		return errors.New("invalid delivery effective action")
 	}

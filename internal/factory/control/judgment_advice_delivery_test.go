@@ -277,7 +277,9 @@ func TestAdviseDeliveryRejectsForeignAnswers(t *testing.T) {
 		in := deliveryTestInput()
 		decision, _, err := c.AdviseDelivery(context.Background(), deliveryTestAdvice(funding, chooser, in, true))
 		if name == "below threshold" {
-			if err != nil || decision.Effective != factory.DeliveryEffectiveReview {
+			// D08 (FW36): a threshold failure waits with
+			// judgment_attention, never an automatic review.
+			if err != nil || decision.Effective != factory.DeliveryEffectiveAttention {
 				t.Fatalf("%s routed %+v err=%v", name, decision, err)
 			}
 			continue

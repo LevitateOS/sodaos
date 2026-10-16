@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -27,6 +28,47 @@ type completionHost struct {
 	started chan project.FactoryLaunch
 }
 
+// completionPlan builds the phased investigate report for one serving
+// assignment: the executable plan over the assignment's exact attempt
+// root, source and preparation. The phased admission world refuses
+// legacy candidate payloads on investigate runs, so the host reports
+// the plan the implement child advances from.
+func completionPlan(owner factory.Assignment) (factory.InvestigationPlan, error) {
+	plan := factory.InvestigationPlan{
+		ID: factory.NewID(), AttemptRoot: owner.AttemptRoot,
+		ScopeDigest: dispatchDigest("serving scope"), InputDigest: dispatchDigest("serving input"),
+		SourceCommit: owner.SourceCommit, IntegrationCommit: owner.SourceCommit,
+		Preparation:        owner.Preparation,
+		Approach:           "inspect the selected source, then implement behind checks",
+		AcceptanceCoverage: []string{"accept-one"},
+		Tasks: []factory.PlanTask{{
+			ID: "task-one", Objective: "objective 31; inspect README.md",
+			Outputs: []string{"notes"}, AcceptanceRefs: []string{"accept-one"},
+			Lane: "lane-one", OwnedPaths: []string{"README.md"},
+		}},
+		Lanes: []factory.PlanLane{{ID: "lane-one", TaskIDs: []string{"task-one"}}},
+	}
+	digest, err := factory.PlanDigest(plan)
+	if err != nil {
+		return factory.InvestigationPlan{}, err
+	}
+	plan.Digest = digest
+	if err := plan.Executable(); err != nil {
+		return factory.InvestigationPlan{}, err
+	}
+	return plan, nil
+}
+
+// fencedPhaseOutput marshals one phased report inside the result fence
+// the settlement boundary parses.
+func fencedPhaseOutput(result factory.PhaseResult) (string, error) {
+	payload, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+	return "work\n```" + factory.ResultFence + "\n" + string(payload) + "\n```\n", nil
+}
+
 func (h *completionHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
 	owner, err := h.db.AssignmentByRun(ctx, in.Run.ID)
 	if err != nil {
@@ -48,6 +90,32 @@ func (h *completionHost) FactoryLaunch(ctx context.Context, in project.FactoryLa
 			verdict, body, findings = "request-changes", "empty input needs a regression test", `["empty input"]`
 		}
 		state.Output = "```review-json\n" + fmt.Sprintf(`{"verdict":%q,"summary":"independent review","body":%q,"findings":%s}`, verdict, body, findings) + "\n```"
+	case owner.Phase == project.ExecutionInvestigate:
+		plan, planErr := completionPlan(owner)
+		if planErr != nil {
+			return project.FactoryState{}, planErr
+		}
+		output, marshalErr := fencedPhaseOutput(factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
+			Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
+		})
+		if marshalErr != nil {
+			return project.FactoryState{}, marshalErr
+		}
+		state.Output = output
+	case owner.Phase == project.ExecutionImplement:
+		candidate := strings.Repeat("2", 40)
+		if in.Run.SourceCommit == candidate {
+			candidate = strings.Repeat("3", 40)
+		}
+		output, marshalErr := fencedPhaseOutput(factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionImplement, Status: "completed",
+			Summary: "implemented", Output: &factory.PhaseOutput{Implementation: &factory.ImplementationReceipt{Candidate: candidate}},
+		})
+		if marshalErr != nil {
+			return project.FactoryState{}, marshalErr
+		}
+		state.Output = output
 	default:
 		candidate := strings.Repeat("2", 40)
 		if in.Run.SourceCommit == candidate {
@@ -274,6 +342,49 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 		checks, _ := fx.db.CheckAssessment(ctx, 7, publication.PRNumber)
 		dependent, _ := fx.db.IssueControl(ctx, 7, 32)
 		t.Logf("serving state: assignment=%s/%s publication=%s/%s corrections=%d checks=%s/%s merge=%s/%s dependent=%s/%s", owner.Stage, owner.Reason, publication.Stage, publication.Reason, len(publication.Corrections), checks.Verdict, checks.Reason, merge.Stage, merge.Reason, dependent.Readiness, dependent.Reason)
+		t.Logf("DEBUG owner: phase=%q result=%+v", owner.Phase, owner.Result)
+		if headID, rev, err := fx.db.PlanHead(ctx, owner.AttemptRoot); err != nil {
+			t.Logf("DEBUG planhead err=%v", err)
+		} else {
+			t.Logf("DEBUG planhead=%s rev=%d", headID, rev)
+			if receipts, err := fx.db.PlanTaskReceipts(ctx, owner.AttemptRoot, headID); err != nil {
+				t.Logf("DEBUG receipts err=%v", err)
+			} else {
+				for _, r := range receipts {
+					t.Logf("DEBUG receipt task=%s state=%s commit=%s rev=%d", r.TaskID, r.State, r.Commit, r.Revision)
+				}
+			}
+		}
+		if dbgHead, err := fx.db.AcceptanceHead(ctx, 7, 31); err == nil {
+			if childID, _, ok := advanceChildID(owner, dbgHead); ok {
+				if child, err := fx.db.Assignment(ctx, childID); err != nil {
+					t.Logf("DEBUG child err=%v", err)
+				} else {
+					t.Logf("DEBUG child: phase=%q stage=%s outcome=%s reason=%s result=%+v", child.Phase, child.Stage, child.Outcome, child.Reason, child.Result)
+				}
+			}
+		}
+		if queued, err := fx.db.PublishableAssignments(ctx, 10); err == nil {
+			for _, q := range queued {
+				t.Logf("DEBUG publishable issue=%d phase=%q stage=%s", q.Issue, q.Phase, q.Stage)
+			}
+		}
+		head, _ := fx.db.AcceptanceHead(ctx, 7, 31)
+		childID, plan, ok := advanceChildID(owner, head)
+		t.Logf("DEBUG advance ok=%v child=%s hasplan=%v subject=%+v outcome=%s reason=%s head=%s acpt=%s", ok, childID, plan != nil, owner.Subject, owner.Outcome, owner.Reason, head, owner.Acceptance)
+		if plan != nil {
+			t.Logf("DEBUG plan root=%s source=%s prep=%s ownerRoot=%s ownerSource=%s ownerPrep=%s", plan.AttemptRoot, plan.SourceCommit, plan.Preparation, owner.AttemptRoot, owner.SourceCommit, owner.Preparation)
+		}
+		report := fx.coord.Dispatch(ctx)
+		for _, w := range report.Waits {
+			t.Logf("DEBUG dispatch wait repo=%d issue=%d reason=%s detail=%s", w.Repository, w.Issue, w.Reason, w.Detail)
+		}
+		for _, e := range report.Errors {
+			t.Logf("DEBUG dispatch error repo=%d issue=%d reason=%s detail=%s", e.Repository, e.Issue, e.Reason, e.Detail)
+		}
+		for _, l := range report.Launched {
+			t.Logf("DEBUG dispatch launched issue=%d phase=%s assignment=%s", l.Issue, l.Phase, l.AssignmentID)
+		}
 		for _, launch := range host.launches {
 			t.Logf("observed launch: role=%s source=%s", launch.Run.Role, launch.Run.SourceCommit)
 		}
@@ -296,6 +407,111 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 	for _, apply := range configure {
 		apply(fx.coord)
 	}
+	// The D13 fence (FW31) holds same-repository admissions behind the
+	// merged completion until its funded reassessment decision releases.
+	// The serving journey scripts that decision deterministically once
+	// the merge completion lands (see wireD13Continue below): sealed
+	// substance judges continue exactly like the completion supplement,
+	// so the base variant picks up its dependent only after the release.
+	// Planning stays unwired until then: an early Planning without a
+	// recorded plan would hold every dispatch behind plan_not_current.
+	// Scenarios that wire their own Planning (prompt-entry journey) keep
+	// it; the fence enumerator defaults to the scripted pages either way.
+	if fx.coord.CompletionEnumerator == nil {
+		fx.coord.CompletionEnumerator = twoPageEnumerator(t)
+	}
+	// wireD13Continue funds the reassessment decision after the merge
+	// completion lands. It runs once per journey: the continue chooser
+	// judges the sealed substance and continues, opening the fence for
+	// the dependent. Reopened/reclosed variants wire it too — their
+	// dependents stay blocked on prereq truth regardless.
+	wireD13Continue := func() {
+		if fx.coord.Planning != nil {
+			return
+		}
+		if _, err := fx.db.IssueMergeCompletion(ctx, 7, 31); err != nil {
+			return
+		}
+		if fx.db.PriorityCallBudget < 100 {
+			fx.db.PriorityCallBudget = 100
+		}
+		fx.coord.Planning = &PlanningJudgments{Journal: fx.db, Funding: fx.db, Chooser: &continueChooser{}}
+	}
+	// recordServingCheckpoints supplies the FW15 checkpoint evidence the
+	// phased publication gate requires: the native executor finished the
+	// planned task and reported its checkpoint commit, so the fixture
+	// walks the receipt from pending to completed under the reported
+	// plan head. The gate itself still enforces completeness — without
+	// this evidence the journey waits at plan_tasks_incomplete instead
+	// of publishing.
+	recordServingCheckpoints := func() {
+		// LatestIssueAssignment only names root attempts, so resolve
+		// the advanced implement child through its deterministic
+		// identity instead.
+		root, err := fx.db.LatestIssueAssignment(ctx, 7, 31)
+		if err != nil {
+			return
+		}
+		head, err := fx.db.AcceptanceHead(ctx, 7, 31)
+		if err != nil {
+			return
+		}
+		childID, _, ok := advanceChildID(root, head)
+		if !ok {
+			return
+		}
+		latest, err := fx.db.Assignment(ctx, childID)
+		if err != nil || latest.Phase != project.ExecutionImplement {
+			return
+		}
+		if latest.Result == nil || !latest.Result.Reported || latest.Result.Candidate == "" {
+			return
+		}
+		headID, _, err := fx.db.PlanHead(ctx, latest.AttemptRoot)
+		if err != nil {
+			return
+		}
+		if receipt, err := fx.db.PlanTaskReceipt(ctx, latest.AttemptRoot, headID, "task-one"); err == nil && receipt.State == store.PlanTaskCompleted {
+			return
+		}
+		candidate := latest.Result.Candidate
+		pending := store.PlanTaskReceipt{AttemptRoot: latest.AttemptRoot, PlanID: headID, TaskID: "task-one", State: store.PlanTaskPending}
+		running := pending
+		running.Revision, running.State, running.Child = 0, store.PlanTaskRunning, "child-task-one"
+		ready := running
+		ready.Revision, ready.State, ready.OutputDigest = 0, store.PlanTaskOutputReady, dispatchDigest("serving task output")
+		// The completed checkpoint binds the reported candidate as the
+		// task's commit: the receipt accounts for exactly what published.
+		completed := ready
+		completed.Revision, completed.State, completed.Commit, completed.Tree = 1, store.PlanTaskCompleted, candidate, candidate
+		completed.Reason = "planned task finished with its checkpoint commit"
+		_ = fx.db.SavePlanTaskReceipt(ctx, pending)
+		_ = fx.db.SavePlanTaskReceipt(ctx, running)
+		ready.Revision = 1
+		_ = fx.db.SavePlanTaskReceipt(ctx, ready)
+		completed.Revision = 2
+		_ = fx.db.SavePlanTaskReceipt(ctx, completed)
+	}
+	// authorizeServingMerge binds the enforced merge gate (FW22) to the
+	// journey's admitted correction: once the open row carries the
+	// corrected candidate, the ready first-generation fixture auth
+	// answers it through the same decision gate production enforces.
+	// Earlier candidates stay unauthorized so no superseded head merges.
+	authorizeServingMerge := func() {
+		merges, err := fx.db.OpenMerges(ctx, 16)
+		if err != nil {
+			return
+		}
+		for _, m := range merges {
+			if m.Stage != factory.MergeOpen || m.Authorization.Bound() {
+				continue
+			}
+			if m.HeadOID != strings.Repeat("3", 40) {
+				continue
+			}
+			_ = fx.coord.AuthorizeMerge(ctx, m.PublicationID, gateTestBinding(t, m))
+		}
+	}
 	if err = fx.coord.Start(ctx, filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
 		t.Fatal(err)
 	}
@@ -316,18 +532,34 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 	}
 	// Supply only later native CI truth. No further intake or stage call
 	// wakes the coordinator; its serving owner must complete the journey.
-	select {
-	case <-checksPending:
-	case <-time.After(45 * time.Second):
-		diagnose()
-		t.Fatal("serving owner did not produce correction and observe pending exact-head CI")
+	// The fixture pumps run here too: checkpoint evidence unblocks
+	// publication, which unblocks review, correction and the pending
+	// exact-head CI this wait watches for.
+	waitDeadline := time.Now().Add(55 * time.Second)
+	waited := false
+	for !waited {
+		authorizeServingMerge()
+		recordServingCheckpoints()
+		wireD13Continue()
+		select {
+		case <-checksPending:
+			waited = true
+		case <-time.After(20 * time.Millisecond):
+		}
+		if !waited && time.Now().After(waitDeadline) {
+			diagnose()
+			t.Fatal("serving owner did not produce correction and observe pending exact-head CI")
+		}
 	}
 	if _, err = fx.db.IssueMergeCompletion(ctx, 7, 31); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("pending corrected-head CI acquired completion: %v", err)
 	}
 	correctedChecksReady.Store(true)
-	deadline := time.Now().Add(35 * time.Second)
+	deadline := time.Now().Add(55 * time.Second)
 	for {
+		authorizeServingMerge()
+		recordServingCheckpoints()
+		wireD13Continue()
 		select {
 		case launch := <-host.started:
 			owner, readErr := fx.db.AssignmentByRun(ctx, launch.Run.ID)

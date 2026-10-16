@@ -134,6 +134,38 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		publicationWait(report, p.ID, "review_submission_unavailable")
 		return
 	}
+	// D08 route before spending: a concrete unfixed defect takes the
+	// bounded correction; optional-only, disputed or repetitive feedback
+	// withholds the run pending the funded Jev decision, and optional
+	// advice never forces a correction. The policy-required cause is
+	// detected below for first inspections with passing checks.
+	policyReview := false
+	var policyActor int64
+	if role == project.RoleCoder && hasReview && review.Verdict == "request-changes" {
+		checksVerdict := ""
+		if checks != nil {
+			checksVerdict = checks.Verdict
+		}
+		// Correction-entry feedback routes only to a bounded correction
+		// or to the withheld Jev decision; any other route is a
+		// programming error, so it refuses loudly instead of spending.
+		if route := routeDeliveryFeedback(deliveryFeedback{
+			HasReview: true, ReviewVerdict: review.Verdict, ChecksVerdict: checksVerdict,
+			NewestDispositions: newestCurrentHeadDispositions(p),
+		}); route == routeJev {
+			publicationWait(report, p.ID, "delivery_judgment_required")
+			return
+		} else if route != routeCorrection {
+			publicationError(report, p.ID, "child_assignment_unrecorded")
+			return
+		}
+	}
+	if role == project.RoleReviewer && !hasReview && checks != nil && checks.Verdict == factory.CheckPass {
+		if policy, err := c.Store.RepositoryPolicy(ctx, p.Repository); err == nil && policy.Validate() == nil {
+			policyActor = policy.Review.ActorID
+			policyReview = policyCauseOwed(p, checks.Verdict, policyActor)
+		}
+	}
 	// Durable D07 cycle: fresh independent reviews bind head/base only;
 	// corrections and same-head re-reviews bind the full outstanding
 	// review/check evidence. New digests open new rounds (fresh IDs);
@@ -144,7 +176,13 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		shortHead = shortHead[:8]
 	}
 	if role == project.RoleReviewer {
-		if hasReview {
+		if policyReview {
+			// The bounded policy-required pass carries its separately
+			// recorded cause; the digest stays head/base-only so a
+			// replay reuses its round and never double-charges.
+			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
+			triggerDecision, triggerReason = policyReviewDecision, policyReviewReason(policyActor, p.Candidate)
+		} else if hasReview {
 			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, &review, checks)
 			triggerDecision, triggerReason = "re-review-same-head", "another inspection of head "+shortHead+" after "+review.Verdict+" with outstanding findings"
 		} else if len(p.ReviewCycles) == 0 {
@@ -186,6 +224,26 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		len(allowance.Corrections) >= allowance.Limits.CorrectionCycles {
 		c.fenceChildPublication(ctx, p, report)
 		return
+	}
+	if role == project.RoleReviewer {
+		// D08 positive evidence before buying a review: charge the
+		// attempt-root allowance by the immutable reviewer assignment
+		// identity before any native work or dispatch packet. Every
+		// review consumes one ReviewRound; a discretionary re-review
+		// of an inspected head additionally spends that head's single
+		// extra pass, while the policy-required cause spends only the
+		// round. Replays of the same assignment never recharge.
+		// Exhaustion withholds the run instead of launching review
+		// without cover.
+		_, exhausted, chargeErr := c.Store.ChargeReviewDispatch(ctx, p.Repository, p.Issue, owner.AttemptRoot, childID, p.Candidate, policyReview)
+		if chargeErr != nil {
+			publicationError(report, p.ID, "review_allowance_unavailable")
+			return
+		}
+		if exhausted {
+			publicationWait(report, p.ID, "review_allowance_exhausted")
+			return
+		}
 	}
 	deps := c.dispatchDeps()
 	occupancy, err := snapshotOccupancy(ctx, deps.Store)

@@ -50,15 +50,18 @@ func TestDeliveryPolicyBoundaries(t *testing.T) {
 	if err := (DeliveryDecision{Answer: ready, Effective: DeliveryEffectiveReady, ReviewsFit: true}).Validate(); err != nil {
 		t.Fatalf("ready decision refused: %v", err)
 	}
+	// D08 (FW36): either actionable choice needs its threshold and a
+	// strict lead. A tie or a threshold failure waits with
+	// judgment_attention, never an automatic review.
 	below := ready
 	below.Probability = 0.79
-	if got := below.EffectiveAction(true); got != DeliveryEffectiveReview {
+	if got := below.EffectiveAction(true); got != DeliveryEffectiveAttention {
 		t.Fatalf("below-threshold answer routed %q", got)
 	}
 	tied := ready
 	tied.Probabilities = map[string]float64{DeliveryReviewAgain: 0.5, DeliveryReadyToMerge: 0.5}
 	tied.Probability, tied.Confidence = 0.9, 0.9
-	if got := tied.EffectiveAction(true); got != DeliveryEffectiveReview {
+	if got := tied.EffectiveAction(true); got != DeliveryEffectiveAttention {
 		t.Fatalf("tied answer routed %q", got)
 	}
 	// An accepted answer stands on its funded call however little allowance
@@ -81,7 +84,7 @@ func TestDeliveryPolicyBoundaries(t *testing.T) {
 		answer := ready
 		broken(&answer)
 		if name == "low confidence" {
-			if got := answer.EffectiveAction(true); got != DeliveryEffectiveReview {
+			if got := answer.EffectiveAction(true); got != DeliveryEffectiveAttention {
 				t.Fatalf("low-confidence answer routed %q", got)
 			}
 			continue

@@ -8,9 +8,12 @@ import (
 
 // AttemptLimits is the owner's finite allowance for one automatic attempt.
 // The attempt snapshots it; subsequent policy changes do not replenish it.
-// ReviewRounds counts initial and policy-required reviews; MaxChildren caps
+// ReviewRounds counts every dispatched independent review: first
+// inspections and policy-required reviews alike; MaxChildren caps
 // concurrent native task children; DeliveryCalls funds Jev delivery
-// judgments, where zero cannot authorize automatic merge.
+// judgments, where zero cannot authorize automatic merge. Discretionary
+// same-head re-reviews additionally spend the single unchanged-head extra
+// pass per head (D08).
 type AttemptLimits struct {
 	ActiveMinutes    int `json:"active_minutes"`
 	CorrectionCycles int `json:"correction_cycles"`
@@ -76,6 +79,17 @@ var (
 	ErrCorrectionExhausted  = errors.New("attempt correction allowance exhausted")
 	ErrDeliveryExhausted    = errors.New("attempt delivery-call allowance exhausted")
 	ErrAllowanceClock       = errors.New("attempt allowance clock moved backwards")
+	// ErrReviewRoundsExhausted reports that no further independent review
+	// fits the attempt's ReviewRounds: first inspections, policy-required
+	// reviews and discretionary re-reviews all consume one round (D08).
+	ErrReviewRoundsExhausted = errors.New("attempt review-round allowance exhausted")
+	// ErrUnchangedHeadExtraExhausted reports that the single
+	// discretionary extra pass on this exact head is spent: one
+	// independent review has already inspected the head, and the one
+	// extra inspection is gone. Round, model or base edits never reset
+	// it; only a new head or a policy-required cause inspects again
+	// without spending it (D08).
+	ErrUnchangedHeadExtraExhausted = errors.New("unchanged-head discretionary extra pass exhausted")
 )
 
 // AttemptAllowance retains one automatic attempt across assignments,
@@ -84,22 +98,39 @@ var (
 // and native waits; callers may pause its clock only after confirming all
 // affected runs stopped. Closed prevents automatic reactivation after a
 // terminal attempt result. Corrections are charged before launch by the
-// correction assignment identity. DeliveryCalls is the funded-Jev call
-// subledger under the attempt root: reserved by immutable request identity,
-// consumed together with the existing global budget in one store
-// transaction, and never refilled by phase changes, reviews or input edits.
+// correction assignment identity. Reviews are charged at dispatch by the
+// immutable reviewer assignment identity: every dispatched independent
+// review consumes one ReviewRound, and a discretionary re-review of an
+// already inspected head additionally spends that head's single extra
+// pass (ReviewedHeads/UnchangedHeadExtra, D08). DeliveryCalls is the
+// funded-Jev call subledger under the attempt root: reserved by immutable
+// request identity, consumed together with the existing global budget in
+// one store transaction, and never refilled by phase changes, reviews or
+// input edits.
 type AttemptAllowance struct {
-	Limits         AttemptLimits `json:"limits"`
-	Corrections    []string      `json:"corrections"`
-	DeliveryCalls  []string      `json:"delivery_calls"`
-	RootAssignment string        `json:"root_assignment"`
-	Repository     int64         `json:"repository,string"`
-	Issue          int64         `json:"issue,string"`
-	Revision       int64         `json:"revision"`
-	ActiveSeconds  int64         `json:"active_seconds"`
-	CheckpointUnix int64         `json:"checkpoint_unix"`
-	Active         bool          `json:"active"`
-	Closed         bool          `json:"closed"`
+	Limits        AttemptLimits `json:"limits"`
+	Corrections   []string      `json:"corrections"`
+	DeliveryCalls []string      `json:"delivery_calls"`
+	Reviews       []string      `json:"reviews,omitempty"`
+	// ReviewedHeads binds each independently inspected head to the
+	// reviewer assignment that first inspected it. Absent means the head
+	// is new: its first inspection consumes ReviewRounds but never the
+	// unchanged-head extra pass.
+	ReviewedHeads map[string]string `json:"reviewed_heads,omitempty"`
+	// UnchangedHeadExtra binds each head whose single discretionary extra
+	// pass is spent to the reviewer assignment that spent it. At most one
+	// entry per head, keyed by the exact head so round, model or base
+	// edits never reset it. Policy-required reviews never write here:
+	// they stay separately caused.
+	UnchangedHeadExtra map[string]string `json:"unchanged_head_extra,omitempty"`
+	RootAssignment     string            `json:"root_assignment"`
+	Repository         int64             `json:"repository,string"`
+	Issue              int64             `json:"issue,string"`
+	Revision           int64             `json:"revision"`
+	ActiveSeconds      int64             `json:"active_seconds"`
+	CheckpointUnix     int64             `json:"checkpoint_unix"`
+	Active             bool              `json:"active"`
+	Closed             bool              `json:"closed"`
 }
 
 func (a AttemptAllowance) Validate() error {
@@ -128,6 +159,32 @@ func (a AttemptAllowance) Validate() error {
 			return errors.New("invalid delivery request identity")
 		}
 		seenDelivery[id] = true
+	}
+	if len(a.Reviews) > a.Limits.ReviewRounds {
+		return errors.New("attempt review consumption exceeds its allowance")
+	}
+	seenReview := make(map[string]bool, len(a.Reviews))
+	for _, id := range a.Reviews {
+		if !ValidID(id) || seenReview[id] {
+			return errors.New("invalid reviewer assignment identity")
+		}
+		seenReview[id] = true
+	}
+	if len(a.ReviewedHeads) > a.Limits.ReviewRounds || len(a.UnchangedHeadExtra) > a.Limits.ReviewRounds {
+		return errors.New("attempt review head ledger exceeds its allowance")
+	}
+	for head, id := range a.ReviewedHeads {
+		if !ValidCommit(head) || !ValidID(id) || !seenReview[id] {
+			return errors.New("invalid reviewed head binding")
+		}
+	}
+	for head, id := range a.UnchangedHeadExtra {
+		if !ValidCommit(head) || !ValidID(id) || !seenReview[id] {
+			return errors.New("invalid unchanged-head extra pass binding")
+		}
+		if _, first := a.ReviewedHeads[head]; !first {
+			return errors.New("extra pass spent on an uninspected head")
+		}
 	}
 	return nil
 }
@@ -197,6 +254,84 @@ func (a AttemptAllowance) Checkpoint(now time.Time, active bool) (AttemptAllowan
 	}
 	a.CheckpointUnix, a.Active = now.Unix(), active
 	return a, nil
+}
+
+// ReviewFits reports whether one more independent review of head fits the
+// remaining allowance without charging it. A first inspection of a new
+// head and a policy-required review need only a remaining ReviewRound; a
+// discretionary re-review of an already inspected head additionally needs
+// that head's single extra pass. Reads spend nothing.
+func (a AttemptAllowance) ReviewFits(head string, policy bool, now time.Time) bool {
+	if !ValidID(a.RootAssignment) || !ValidCommit(head) {
+		return false
+	}
+	if err := a.Limits.Validate(); err != nil {
+		return false
+	}
+	if a.Validate() != nil || now.Unix() < a.CheckpointUnix || a.RemainingSeconds(now) == 0 {
+		return false
+	}
+	if len(a.Reviews) >= a.Limits.ReviewRounds {
+		return false
+	}
+	if _, seen := a.ReviewedHeads[head]; seen && !policy {
+		if _, spent := a.UnchangedHeadExtra[head]; spent {
+			return false
+		}
+	}
+	return true
+}
+
+// ConsumeReview charges one independent reviewer dispatch by its immutable
+// reviewer assignment identity, at dispatch and never on result or retry.
+// Replaying the same assignment never consumes a second round or pass,
+// even after exhaustion. The first inspection of a new head consumes one
+// ReviewRound but never the unchanged-head extra pass; a discretionary
+// re-review of an inspected head consumes one ReviewRound plus that
+// head's single extra pass (at most one across round, model or base
+// edits, keyed by the exact head); a policy-required review consumes one
+// ReviewRound and stays separately caused, never touching the extra pass.
+// A replay does not itself authorize dispatch; the caller checks remaining
+// time. Only explicit authorized Retry starts a new root.
+func (a AttemptAllowance) ConsumeReview(id, head string, policy bool, now time.Time) (AttemptAllowance, bool, error) {
+	if !ValidID(id) {
+		return AttemptAllowance{}, false, errors.New("invalid reviewer assignment identity")
+	}
+	if !ValidCommit(head) {
+		return AttemptAllowance{}, false, errors.New("invalid review head")
+	}
+	next, err := a.Checkpoint(now, a.Active)
+	if err != nil {
+		return AttemptAllowance{}, false, err
+	}
+	for _, seen := range a.Reviews {
+		if seen == id {
+			return next, false, nil
+		}
+	}
+	if next.RemainingSeconds(now) == 0 {
+		return AttemptAllowance{}, false, ErrAttemptTimeExhausted
+	}
+	if len(next.Reviews) >= next.Limits.ReviewRounds {
+		return AttemptAllowance{}, false, ErrReviewRoundsExhausted
+	}
+	_, seen := next.ReviewedHeads[head]
+	if !seen {
+		if next.ReviewedHeads == nil {
+			next.ReviewedHeads = make(map[string]string)
+		}
+		next.ReviewedHeads[head] = id
+	} else if !policy {
+		if _, spent := next.UnchangedHeadExtra[head]; spent {
+			return AttemptAllowance{}, false, ErrUnchangedHeadExtraExhausted
+		}
+		if next.UnchangedHeadExtra == nil {
+			next.UnchangedHeadExtra = make(map[string]string)
+		}
+		next.UnchangedHeadExtra[head] = id
+	}
+	next.Reviews = append(append([]string(nil), next.Reviews...), id)
+	return next, true, nil
 }
 
 // ConsumeCorrection charges one cycle before its coder can launch. Replaying

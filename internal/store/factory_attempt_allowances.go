@@ -645,6 +645,58 @@ func consumeCorrectionAttemptTx(ctx context.Context, tx *sql.Tx, assignment fact
 	return nil
 }
 
+// ChargeReviewDispatch charges one independent reviewer dispatch against
+// the attempt-root review allowance before its child packet commits, in
+// one row-locked transaction. The charge keys on the immutable reviewer
+// assignment identity: replays of the same assignment are idempotent and
+// never consume a second round or pass, even after exhaustion. The first
+// inspection of a new head consumes one ReviewRound but never the
+// unchanged-head extra pass; a discretionary re-review of an inspected
+// head additionally spends that head's single extra pass; a
+// policy-required review consumes one ReviewRound and stays separately
+// caused (D08).
+//
+// It reports (consumed=true) only when this call spent budget. A replay
+// of an already charged assignment reports (consumed=false,
+// exhausted=false) so the caller still dispatches. An exhausted, closed
+// or time-spent root reports (consumed=false, exhausted=true) without an
+// error so the caller waits with review_allowance_exhausted instead of
+// launching a run it cannot cover.
+func (s *Store) ChargeReviewDispatch(ctx context.Context, repository, issue int64, root, reviewerAssignment, head string, policy bool) (consumed, exhausted bool, err error) {
+	if repository <= 0 || issue <= 0 || !factory.ValidID(root) || !factory.ValidID(reviewerAssignment) || !factory.ValidCommit(head) {
+		return false, false, errors.New("invalid review dispatch charge")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, repository, issue, root)
+	if err != nil {
+		return false, false, err
+	}
+	if allowance.Closed {
+		return false, true, nil
+	}
+	now := time.Now()
+	next, spent, err := allowance.ConsumeReview(reviewerAssignment, head, policy, now)
+	if err != nil {
+		if errors.Is(err, factory.ErrReviewRoundsExhausted) || errors.Is(err, factory.ErrUnchangedHeadExtraExhausted) ||
+			errors.Is(err, factory.ErrAttemptTimeExhausted) {
+			return false, true, nil
+		}
+		return false, false, err
+	}
+	if !spent {
+		return false, false, tx.Commit()
+	}
+	next.Revision++
+	if err = saveAttemptAllowanceTx(ctx, tx, next); err != nil {
+		return false, false, err
+	}
+	return true, false, tx.Commit()
+}
+
 // startFreshAttemptAllowanceTx is called only after the explicit retry
 // command and prior run accounting have been rechecked under the gate.
 func startFreshAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue int64, assignment string, limits factory.AttemptLimits, deadline, now time.Time) error {
