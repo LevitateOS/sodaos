@@ -172,7 +172,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	if role == project.RoleCoder {
 		exactPreparation = owner.Preparation
 	}
-	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true, "")
+	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true, "", attemptLineage{})
 	if failed != nil {
 		publicationWait(report, p.ID, failed.Reason)
 		return

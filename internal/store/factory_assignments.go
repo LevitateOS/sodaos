@@ -113,7 +113,11 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if err = json.Unmarshal(currentData, &current); err != nil {
 		return err
 	}
-	if current.Revision != a.Revision || current.Stage != factory.AssignmentAssigned || current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment || current.ActorID != a.ActorID {
+	// Phase lineage is immutable: the recorded phase, parent and subject
+	// must still match, or a concurrent admission replaced this attempt.
+	if current.Revision != a.Revision || current.Stage != factory.AssignmentAssigned || current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment || current.ActorID != a.ActorID ||
+		current.Phase != a.Phase || current.ParentAssignment != a.ParentAssignment ||
+		current.Subject.SubjectKey(a.Repository) != a.Subject.SubjectKey(a.Repository) {
 		return ErrNotFound
 	}
 	result, err := tx.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1

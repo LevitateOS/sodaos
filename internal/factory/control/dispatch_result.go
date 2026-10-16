@@ -56,10 +56,16 @@ func recordConfirmedUsage(ctx context.Context, db *store.Store, a factory.Assign
 }
 
 // deriveAttemptResult maps one settled run outcome plus its output to the
-// recorded assignment result. A completed run with a valid fenced report
-// records it verbatim; anything else synthesizes an honest result with an
-// empty candidate, leaving validation to publication.
+// recorded assignment result. Phased assignments bind the strict v2 phase
+// result to their recorded phase, subject lineage and run; pre-phase
+// assignments keep the legacy harness report contract. A completed run
+// with a valid fenced report records it verbatim; anything else
+// synthesizes an honest result with an empty candidate, leaving validation
+// to publication.
 func deriveAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
+	if a.Phase != "" {
+		return derivePhasedAttemptResult(a, run, output, summary, recordedUnix)
+	}
 	switch run.Outcome {
 	case factory.Succeeded:
 		if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
@@ -89,6 +95,115 @@ func deriveAttemptResult(a factory.Assignment, run factory.Run, output, summary 
 		return factory.ResultSynthesized(a.ID, a.Run, "failed",
 			boundSummary(summary, "run failed"), recordedUnix), factory.Failed, factory.AssignReasonRunFailed
 	}
+}
+
+// derivePhasedAttemptResult maps one settled run to the recorded result
+// for a phased assignment. The settled run must match its assignment; the
+// role must be the phase's admitted account; and a reported result must be
+// a strict v2 phase result bound to that same phase. Cross-phase payloads,
+// extra JSON and legacy harness shapes refuse to a synthesized blocked
+// result: planning outputs never authorize effects, and completed planning
+// never names a publishable candidate. Reviewer reports stay on the legacy
+// review fence until FW06C admits review payloads through this boundary.
+func derivePhasedAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
+	refuse := func(detail string) (factory.AssignmentResult, factory.Outcome, string) {
+		phased := synthesizePhased(a, "blocked", detail, recordedUnix)
+		return phased, factory.NeedsHuman, factory.AssignReasonNoReport
+	}
+	if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
+		return refuse("settled run does not match its assignment")
+	}
+	if !factory.ValidPhaseRole(a.Phase, a.Role) {
+		return refuse("assignment role does not match its execution phase")
+	}
+	// A non-successful settled run never reports: the supervisor maps the
+	// observed outcome, and only a successful run may carry a v2 payload.
+	switch run.Outcome {
+	case factory.Succeeded:
+	case factory.Cancelled:
+		cancelled := synthesizePhased(a, "cancelled", boundSummary(summary, "run cancelled"), recordedUnix)
+		return cancelled, factory.Cancelled, factory.AssignReasonCancelled
+	default:
+		failed := synthesizePhased(a, "failed", boundSummary(summary, "run failed"), recordedUnix)
+		return failed, factory.Failed, factory.AssignReasonRunFailed
+	}
+	if a.Role == project.RoleReviewer {
+		if report, ok := factory.ParseReviewReport(output); ok {
+			return factory.AssignmentResult{
+				AssignmentID: a.ID, RunID: a.Run, Status: "completed",
+				Summary: report.Summary, Candidate: run.InputSHA,
+				Findings: []string{}, Review: &report, Reported: true, RecordedUnix: recordedUnix,
+			}, factory.Succeeded, factory.AssignReasonReported
+		}
+		return refuse("review completed without a parseable report")
+	}
+	parsed, ok := factory.ParsePhaseResult(output)
+	if !ok {
+		return refuse("run completed without a parseable phase result")
+	}
+	if err := parsed.BindAssignment(a); err != nil {
+		return refuse("phase result does not match its assignment phase")
+	}
+	result := factory.AssignmentResult{
+		AssignmentID: a.ID, RunID: a.Run, Phase: a.Phase, PhaseResult: &parsed,
+		Summary: parsed.Summary, Findings: []string{},
+		Reported: true, RecordedUnix: recordedUnix,
+	}
+	switch parsed.Status {
+	case "completed":
+		result.Status = "completed"
+		if a.Phase == project.ExecutionImplement && parsed.Output != nil && parsed.Output.Implementation != nil {
+			result.Candidate = parsed.Output.Implementation.Candidate
+		}
+	case "blocked":
+		result.Status = "blocked"
+	case "failed":
+		result.Status = "failed"
+		return result, factory.Failed, factory.AssignReasonRunFailed
+	case "cancelled":
+		result.Status = "cancelled"
+		return result, factory.Cancelled, factory.AssignReasonCancelled
+	default:
+		return refuse("phase result carries an unknown status")
+	}
+	if err := result.ValidateForAssignment(a.Role, a.SourceCommit); err != nil {
+		return refuse("phase result does not match its assignment role")
+	}
+	if result.PhaseResult != nil {
+		if err := result.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
+			return refuse("phased result does not bind its assignment phase")
+		}
+	}
+	outcome := factory.Outcome(factory.Succeeded)
+	reason := factory.AssignReasonReported
+	if parsed.Status == "blocked" {
+		outcome, reason = factory.NeedsHuman, factory.AssignReasonNoReport
+	}
+	return result, outcome, reason
+}
+
+// synthesizePhased binds one supervisor-derived result to a phased
+// assignment, carrying the typed phase result for non-completed terminal
+// states. Planning and other completed states never synthesize: only a
+// reported v2 payload completes a phase.
+func synthesizePhased(a factory.Assignment, status, summary string, recordedUnix int64) factory.AssignmentResult {
+	phased := factory.ResultSynthesized(a.ID, a.Run, status, summary, recordedUnix)
+	phaseStatus := status
+	switch status {
+	case "failed", "cancelled", "blocked":
+	default:
+		phaseStatus = "blocked"
+		phased.Status = "blocked"
+	}
+	phased.Phase, phased.PhaseResult = a.Phase, &factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: a.Phase,
+		Status: phaseStatus, Summary: summary,
+	}
+	if err := phased.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
+		legacy := factory.ResultSynthesized(a.ID, a.Run, status, summary, recordedUnix)
+		return legacy
+	}
+	return phased
 }
 
 func boundSummary(summary, fallback string) string {

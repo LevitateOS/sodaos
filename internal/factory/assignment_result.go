@@ -1,6 +1,8 @@
 package factory
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -42,10 +44,48 @@ func (r AssignmentResult) Validate() error {
 			return err
 		}
 	}
-	return Result{
+	if r.PhaseResult != nil {
+		if err := r.PhaseResult.Validate(); err != nil {
+			return err
+		}
+	}
+	if err := (Result{
 		Status: r.Status, Summary: r.Summary, Candidate: r.Candidate,
 		ReviewPassed: r.ReviewPassed, Findings: r.Findings,
-	}.Validate()
+	}.Validate()); err != nil {
+		// Completed planning exposes no candidate: the plan shape has no
+		// candidate field, so such a result can never authorize effects.
+		// The exemption covers exactly the candidate rule; every other
+		// shape rule still refuses.
+		if r.Candidate != "" || r.Status != "completed" || !isPlanningPhaseResult(r.PhaseResult) {
+			return err
+		}
+		if len(r.Summary) > 16<<10 || len(r.Findings) > 64 {
+			return err
+		}
+		for _, finding := range r.Findings {
+			if len(finding) > 4096 {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// isPlanningPhaseResult reports whether phased output belongs to a planning
+// phase whose completed result never names a publishable candidate.
+// Decompose and reassess payloads arrive through their owning boundaries;
+// until then their completed results cannot validate.
+func isPlanningPhaseResult(phased *PhaseResult) bool {
+	if phased == nil {
+		return false
+	}
+	switch phased.Phase {
+	case project.ExecutionInvestigate, project.ExecutionDecompose, project.ExecutionReassess:
+		return true
+	default:
+		return false
+	}
 }
 
 // ValidatePhaseBinding enforces the phase/role/result contract for v2
@@ -110,6 +150,20 @@ func ResultFromHarness(assignmentID, runID string, reported Result, recordedUnix
 		Findings: reported.Findings, ReviewPassed: reported.ReviewPassed,
 		Reported: true, RecordedUnix: recordedUnix,
 	}
+}
+
+// ResultDigest derives the deterministic identity input for one recorded
+// attempt result: the hex SHA-256 over its canonical encoding. Automatic
+// phase advancement keys on (parent_assignment, result digest, next phase),
+// so the same completed parent replays to the same child instead of
+// launching twice.
+func ResultDigest(r AssignmentResult) string {
+	encoded, err := json.Marshal(r)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(encoded)
+	return hex.EncodeToString(sum[:])
 }
 
 // ResultSynthesized binds one supervisor-derived result to its attempt.

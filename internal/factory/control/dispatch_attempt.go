@@ -1,14 +1,30 @@
 package control
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
+
+// attemptLineage carries the FW11 phase/lineage admission for one planned
+// attempt: the admitted execution phase, the immediate parent for advanced
+// children, and the validated investigation plan an implement child
+// executes. The zero value is the pre-phase legacy path. Intent subjects
+// enter through FW08 and completion subjects through FW30; this boundary
+// admits issue subjects only and refuses every other phased kind.
+type attemptLineage struct {
+	advancePlan *factory.InvestigationPlan
+	phase       string
+	parent      string
+}
 
 // attemptPlan is everything one dispatch attempt verified, in check order:
 // the bound authority and grants, the exact preparation, harness pin and
@@ -22,10 +38,14 @@ type attemptPlan struct {
 	pin                  project.FactoryHarnessPin
 	acceptance           factory.Acceptance
 	control              factory.IssueControl
+	subject              factory.ExecutionSubject
+	advancePlan          *factory.InvestigationPlan
 	inputs               DispatchInputs
 	projectID            string
 	attemptRoot          string
 	preparationOwner     string
+	phase                string
+	parent               string
 	prompt               []byte
 	promptSHA            string
 	deadline             time.Time
@@ -75,6 +95,12 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 	if hasAssignment && latest.Acceptance == head {
 		pending, retryErr := deps.Store.PendingExplicitRetry(ctx, repository, issue, head)
 		if errors.Is(retryErr, store.ErrNotFound) {
+			// No explicit Retry waits: a completed investigation
+			// advances to its implementation child instead of
+			// requiring Retry. A closed root never advances.
+			if !attemptClosed && maybeAdvanceCompletedPlanning(ctx, deps, occupancy, control, latest, head, report) {
+				return
+			}
 			detail := "attempt result is recorded; explicit Retry is required"
 			if attemptClosed {
 				detail = "attempt is closed; maintainer intervention is required"
@@ -173,23 +199,47 @@ func refreshOccupancy(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 
 // planAttempt verifies one dispatch end to end. Explicit Retry first records
 // custody for its fresh preparation; run admission waits for confirmed readiness.
-// Every failed check reports its wait or failure.
+// Every failed check reports its wait or failure. Fresh selected-issue work
+// always opens with investigation: planning first, implementation only as
+// the advanced child of completed planning.
 func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, retry *factory.RetryDecision) (*attemptPlan, *planWait, *planWait) {
 	id := ""
 	if retry != nil {
 		id = retry.CommandID
 	}
-	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, retry != nil, project.RoleCoder, "", false, id)
+	return planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, retry != nil, project.RoleCoder, "", false, id, attemptLineage{phase: project.ExecutionInvestigate})
 }
 
 // planAttemptForRole shares the mutable dispatch checks between initial coder
 // work and retries. A recorded child supplies its own role and exact approved
 // preparation; callers keep its prompt bytes instead of rebuilding a new plan.
-func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool, retryID string) (*attemptPlan, *planWait, *planWait) {
+// Phased callers additionally name the admitted phase, the advanced parent
+// and, for a rebuilt implementation prompt, the recorded investigation plan.
+// Only investigation opens a phased root and only a planned implementation
+// advances under its parent; every other phased combination refuses, with
+// intent subjects arriving through FW08 and other phases through their
+// owning boundaries.
+func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool, retryID string, lineage attemptLineage) (*attemptPlan, *planWait, *planWait) {
 	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
 		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
 	}
-	plan := &attemptPlan{control: control, freshAttempt: freshAttempt}
+	plan := &attemptPlan{control: control, freshAttempt: freshAttempt, phase: lineage.phase, parent: lineage.parent, advancePlan: lineage.advancePlan}
+	if lineage.phase != "" {
+		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement {
+			return nil, nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
+		}
+		if !factory.ValidPhaseRole(lineage.phase, role) {
+			return nil, nil, waitFor("phase_not_admitted", "assignment role does not match its execution phase")
+		}
+		if lineage.parent == "" {
+			if lineage.phase != project.ExecutionInvestigate {
+				return nil, nil, waitFor("phase_not_admitted", "only investigation opens a phased attempt root")
+			}
+		} else if lineage.phase != project.ExecutionImplement || (!recordedPrompt && lineage.advancePlan == nil) {
+			return nil, nil, waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
+		}
+		plan.subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: issue, Acceptance: head}}
+	}
 	effective, err := deps.Authority(ctx, repository)
 	if err != nil {
 		return nil, nil, waitFor(DispatchErrStore, "authority unreadable")
@@ -278,7 +328,7 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 			return nil, waitFor(WaitSource, "native prepared repository context is unavailable or changed"), nil
 		}
 		var implementationPlan *factory.PlanningRecord
-		if deps.PlanRecord != nil {
+		if plan.advancePlan == nil && deps.PlanRecord != nil {
 			record, recordErr := deps.PlanRecord(ctx, repository, issue)
 			if recordErr != nil {
 				return nil, waitFor("plan_not_current", "implementation approach is unavailable"), nil
@@ -316,6 +366,18 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 			}
 			return nil, waitFor(WaitPrompt, "accepted inputs exceed the prompt bound"), nil
 		}
+		// Phased attempts report through the strict v2 phase contract,
+		// not the legacy harness shape: replace the trailing legacy
+		// report section and, for an advanced implementation, stage the
+		// recorded investigation plan the run must execute. The shared
+		// prompt template keeps the legacy text for pre-phase runs and
+		// FW12 absorbs this rendering when it takes prompt ownership.
+		if plan.phase != "" {
+			prompt, err = renderPhasedDispatchPrompt(prompt, plan.phase, plan.advancePlan)
+			if err != nil {
+				return nil, waitFor(WaitPrompt, "phased dispatch prompt exceeds its bound"), nil
+			}
+		}
 		plan.prompt = prompt
 		plan.promptSHA = project.FactoryPromptDigest(prompt)
 	}
@@ -328,4 +390,194 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 	}
 	plan.gateRev = gateRev
 	return plan, nil, nil
+}
+
+// advanceChildID derives the deterministic implementation-child identity
+// for one finished investigation owner and verifies the recorded result
+// still justifies advancement: a reported completed phase result carrying
+// an executable plan, on the current acceptance, with the owner's lineage
+// intact. Pre-phase owners, non-completed planning and anything without an
+// executable plan refuse with no child: the issue stays recorded instead
+// of advancing.
+func advanceChildID(owner factory.Assignment, head string) (string, *factory.InvestigationPlan, bool) {
+	if owner.Subject.Kind != factory.SubjectIssue || owner.Subject.Issue == nil ||
+		owner.Subject.Issue.Acceptance != head || owner.Phase != project.ExecutionInvestigate ||
+		owner.ParentAssignment != "" || owner.Outcome != factory.Succeeded ||
+		owner.Reason != factory.AssignReasonReported || owner.Result == nil || owner.Result.PhaseResult == nil {
+		return "", nil, false
+	}
+	phased := owner.Result.PhaseResult
+	if phased.Phase != project.ExecutionInvestigate || phased.Status != "completed" ||
+		phased.Output == nil || phased.Output.Plan == nil {
+		return "", nil, false
+	}
+	plan := phased.Output.Plan
+	if plan.Validate() != nil || plan.Executable() != nil {
+		return "", nil, false
+	}
+	if plan.AttemptRoot != owner.AttemptRoot || plan.SourceCommit != owner.SourceCommit ||
+		plan.Preparation != owner.Preparation {
+		return "", nil, false
+	}
+	digest := factory.ResultDigest(*owner.Result)
+	if digest == "" {
+		return "", nil, false
+	}
+	id, err := factory.AdvancementID(owner.ID, digest, project.ExecutionImplement)
+	if err != nil {
+		return "", nil, false
+	}
+	return id, plan, true
+}
+
+// maybeAdvanceCompletedPlanning admits the implementation child of one
+// finished investigation owner through a separate recoverable packet
+// transaction instead of requiring Retry. The child reuses its root's
+// attempt history, preparation and remaining allowances: no allowance
+// resets, no publication, no priority competition. It reports true when
+// the report carries the outcome and the caller must stop.
+func maybeAdvanceCompletedPlanning(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, latest factory.Assignment, head string, report *DispatchReport) bool {
+	repository, issue := control.Repository, control.Issue
+	childID, plan, ok := advanceChildID(latest, head)
+	if !ok {
+		return false
+	}
+	existing, err := deps.Store.Assignment(ctx, childID)
+	if err == nil {
+		// Replay-safe: the same completed parent replays to its recorded
+		// child instead of launching twice. A finished child leaves the
+		// issue recorded; later phases own its continuation.
+		if existing.Stage != factory.AssignmentFinished {
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAssigned, Detail: "implementation child is admitted; waiting its result"})
+			return true
+		}
+		return false
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "advancement identity unreadable"})
+		return true
+	}
+	if deps.Refresh != nil {
+		refreshed, err := deps.Refresh(ctx, control)
+		if err != nil {
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsUnavailable, Detail: "readiness refresh is unavailable"})
+			return true
+		}
+		control = refreshed
+	}
+	lineage := attemptLineage{phase: project.ExecutionImplement, parent: latest.ID, advancePlan: plan}
+	attempt, wait, failed := planAttemptForRole(ctx, deps, occupancy, repository, issue, head, control, false, project.RoleCoder, latest.Preparation, false, "", lineage)
+	if failed != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: failed.Reason, Detail: failed.Detail})
+		return true
+	}
+	if wait != nil {
+		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
+		return true
+	}
+	if attempt.inputs.Tip != latest.SourceCommit {
+		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsChanged, Detail: "source moved after investigation; implementation waits for fresh planning"})
+		return true
+	}
+	admitImplementChild(ctx, deps, occupancy, attempt, childID, latest, report)
+	return true
+}
+
+// phasedReportMarker ends the shared prompt template: the legacy report
+// section is always last, so phased rendering replaces from this marker.
+const phasedReportMarker = "\n## Report\n\n"
+
+// promptFenceGuard keeps recorded plan text from forging the harness
+// report block, mirroring the template's own collision guard.
+var promptFenceGuard = strings.NewReplacer("```"+factory.ResultFence, "``` "+factory.ResultFence, "```"+factory.ReviewReportFence, "``` "+factory.ReviewReportFence)
+
+// renderPhasedDispatchPrompt replaces the legacy trailing report section
+// with the strict v2 phase contract and, for an advanced implementation,
+// stages the recorded investigation plan the run must execute. Prompts
+// stay within the admitted phase bound; anything larger waits instead of
+// truncating requirements.
+func renderPhasedDispatchPrompt(prompt []byte, phase string, plan *factory.InvestigationPlan) ([]byte, error) {
+	if phase != project.ExecutionInvestigate && phase != project.ExecutionImplement {
+		return nil, errors.New("phased prompt needs an admitted dispatcher phase")
+	}
+	if plan != nil && phase != project.ExecutionImplement {
+		return nil, errors.New("recorded plan stages only on its implementation")
+	}
+	idx := bytes.LastIndex(prompt, []byte(phasedReportMarker))
+	if idx < 0 {
+		return nil, errors.New("dispatch prompt lacks its report section")
+	}
+	out := append([]byte(nil), prompt[:idx]...)
+	if len(out) == 0 || out[len(out)-1] != '\n' {
+		out = append(out, '\n')
+	}
+	if plan != nil {
+		rendered, err := renderRecordedPlan(plan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rendered...)
+	}
+	out = append(out, phasedReportContract(phase)...)
+	if len(out) > project.MaxPromptForPhase(phase) {
+		return nil, errors.New("phased dispatch prompt exceeds its bound")
+	}
+	if !utf8.Valid(out) {
+		return nil, errors.New("phased dispatch prompt is not valid text")
+	}
+	return out, nil
+}
+
+// renderRecordedPlan stages one validated executable investigation plan
+// for its implementation run: identity and digest bindings, the approach,
+// and the ordered task/check graph. Agent-visible text carries the fence
+// guard so recorded content can never forge a report block.
+func renderRecordedPlan(plan *factory.InvestigationPlan) ([]byte, error) {
+	if err := plan.Validate(); err != nil {
+		return nil, err
+	}
+	if err := plan.Executable(); err != nil {
+		return nil, err
+	}
+	var b strings.Builder
+	b.WriteString("\n## Implementation approach\n\n")
+	b.WriteString("Recorded plan " + plan.ID + " generation " + strconv.Itoa(plan.Generation) + " digest " + plan.Digest + ". Execute exactly this plan.\n")
+	b.WriteString(promptFenceGuard.Replace(plan.Approach) + "\n")
+	for _, task := range plan.Tasks {
+		b.WriteString("- " + task.ID + " [" + task.Lane + "]: " + promptFenceGuard.Replace(task.Objective) + "\n")
+		b.WriteString("  accept: " + strings.Join(task.AcceptanceRefs, ", ") + "; needs: " + strings.Join(task.DependsOn, ", ") + "; checks: " + strings.Join(task.CheckIDs, ", ") + "\n")
+		if len(task.Outputs) != 0 {
+			b.WriteString("  outputs: " + promptFenceGuard.Replace(strings.Join(task.Outputs, "; ")) + "\n")
+		}
+		if paths := append(append([]string(nil), task.OwnedPaths...), task.InterfaceWrite...); len(paths) != 0 {
+			b.WriteString("  writes: " + strings.Join(paths, ", ") + "\n")
+		}
+	}
+	for _, check := range plan.Checks {
+		b.WriteString("  check " + check.ID + " [" + check.Scope + "]: " + strings.Join(check.Argv, " ") + "\n")
+	}
+	return []byte(b.String()), nil
+}
+
+// phasedReportContract renders the strict v2 result contract for one
+// admitted dispatcher phase. Completed planning carries its plan and never
+// a publishable candidate; completed implementation names its exact
+// candidate commit. Planning finishes without a commit or PR and can never
+// publish.
+func phasedReportContract(phase string) string {
+	var b strings.Builder
+	b.WriteString(phasedReportMarker)
+	b.WriteString("Close your work with exactly one fenced block:\n\n")
+	b.WriteString("```" + factory.ResultFence + "\n")
+	if phase == project.ExecutionInvestigate {
+		b.WriteString(`{"version":2,"phase":"investigate","status":"completed|blocked|failed|cancelled","summary":"...","output":{"plan":{...}}}` + "\n")
+		b.WriteString("```\n\n")
+		b.WriteString("Report \"completed\" only with the executable investigation plan in \"output.plan\". Planning carries no candidate: never name a commit, open a PR or publish. \"blocked\" keeps the facts that stop the work; agent failure without findings is \"failed\". ")
+	} else {
+		b.WriteString(`{"version":2,"phase":"implement","status":"completed|blocked|failed|cancelled","summary":"...","output":{"implementation":{"candidate":"<40-hex commit or empty>"}}}` + "\n")
+		b.WriteString("```\n\n")
+		b.WriteString("Report \"completed\" only with the exact candidate commit the executed plan produced and no diagnostic references. Non-completed runs name no candidate. ")
+	}
+	b.WriteString("Any other shape, unknown field or trailing JSON is refused. Never print credentials, tokens or secret files; the report carries IDs and digests only.\n")
+	return b.String()
 }

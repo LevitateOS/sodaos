@@ -163,7 +163,11 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 			return err
 		}
 	} else {
-		if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder {
+		// Only the correction phase spends a correction cycle. Pre-phase
+		// coder children predate phase admission and keep the legacy
+		// charge; advanced implementations retain the root unconsumed.
+		if a.PublicationAssignment != a.ID && a.Role == project.RoleCoder &&
+			(a.Phase == project.ExecutionCorrect || a.Phase == "") {
 			if err = consumeCorrectionAttemptTx(ctx, tx, a, now); err != nil {
 				return err
 			}
@@ -190,6 +194,11 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 		if a.Role != project.RoleCoder {
 			return errors.New("publication owner assignment must be a coder")
 		}
+		// Only investigation opens a phased attempt root: intent roots
+		// arrive through FW08 and reassessment roots through FW30.
+		if a.Phase != "" && a.Phase != project.ExecutionInvestigate {
+			return errors.New("only investigation opens a phased attempt root")
+		}
 		if a.AttemptRoot != a.ID {
 			var exists bool
 			if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&exists); err != nil {
@@ -200,6 +209,14 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 			}
 		}
 		return nil
+	}
+	// A phased implementation child binds its finished investigation parent
+	// without a publication or PR: planning stages no publication
+	// capability, and the allowance is retained rather than recharged.
+	// Phased review and correction enter through their owning boundaries;
+	// pre-phase children keep the published-parent path below.
+	if a.Phase != "" {
+		return validateImplementChildTx(ctx, tx, a)
 	}
 	if freshAttempt || (a.Role != project.RoleCoder && a.Role != project.RoleReviewer) {
 		return errors.New("child assignment has an invalid role or fresh allowance")
@@ -249,6 +266,73 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	}
 	if a.Role == project.RoleReviewer && a.Preparation == parent.Preparation {
 		return errors.New("reviewer child requires a distinct preparation")
+	}
+	var rootExists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&rootExists); err != nil {
+		return err
+	}
+	if !rootExists {
+		return ErrAttemptRootMismatch
+	}
+	return nil
+}
+
+// validateImplementChildTx admits one advanced implementation child against
+// its finished investigation parent. The parent must be a reported
+// completed investigation carrying an executable plan; the child must keep
+// the parent's subject, root, publication slot, preparation and source and
+// carry the deterministic advancement identity. No publication, PR or
+// allowance change is involved: the admission reuses the retained root.
+func validateImplementChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
+	if a.Phase != project.ExecutionImplement {
+		return errors.New("phased review and correction enter through their owning boundaries")
+	}
+	if a.Role != project.RoleCoder || a.ParentAssignment == "" {
+		return errors.New("implementation child needs its coder role and parent")
+	}
+	if !factory.ValidPhaseRole(a.Phase, a.Role) || !factory.SubjectKindAllowed(a.Subject.Kind, a.Phase) {
+		return errors.New("implementation child does not match its execution phase")
+	}
+	var parentData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE id=$1 FOR UPDATE`, a.ParentAssignment).Scan(&parentData); err != nil {
+		return err
+	}
+	var parent factory.Assignment
+	if err := json.Unmarshal(parentData, &parent); err != nil {
+		return err
+	}
+	if err := parent.Validate(); err != nil {
+		return err
+	}
+	if parent.ID != a.ParentAssignment || parent.Phase != project.ExecutionInvestigate ||
+		parent.Stage != factory.AssignmentFinished || parent.Outcome != factory.Succeeded ||
+		parent.Reason != factory.AssignReasonReported || parent.Result == nil || parent.Result.PhaseResult == nil {
+		return fmt.Errorf("%w: implementation parent is not a completed investigation", ErrAttemptRootMismatch)
+	}
+	phased := parent.Result.PhaseResult
+	if phased.Phase != project.ExecutionInvestigate || phased.Status != "completed" ||
+		phased.Output == nil || phased.Output.Plan == nil ||
+		phased.Output.Plan.Validate() != nil || phased.Output.Plan.Executable() != nil {
+		return fmt.Errorf("%w: implementation parent lacks an executable plan", ErrAttemptRootMismatch)
+	}
+	if parent.Repository != a.Repository || parent.Issue != a.Issue || parent.Acceptance != a.Acceptance ||
+		parent.ProjectID != a.ProjectID || parent.AttemptRoot != a.AttemptRoot ||
+		parent.PublicationAssignment != a.PublicationAssignment || parent.Preparation != a.Preparation ||
+		parent.SourceCommit != a.SourceCommit ||
+		parent.Subject.Kind != a.Subject.Kind ||
+		parent.Subject.SubjectKey(parent.Repository) != a.Subject.SubjectKey(a.Repository) {
+		return fmt.Errorf("%w: implementation child does not match its investigation parent", ErrAttemptRootMismatch)
+	}
+	childID, err := factory.AdvancementID(parent.ID, factory.ResultDigest(*parent.Result), project.ExecutionImplement)
+	if err != nil || childID != a.ID {
+		return fmt.Errorf("%w: implementation child is not its parent's advancement", ErrAttemptRootMismatch)
+	}
+	var head string
+	if err := tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=$1 AND issue=$2 FOR UPDATE`, a.Repository, a.Issue).Scan(&head); err != nil {
+		return err
+	}
+	if head != a.Acceptance {
+		return ErrAdmissionChanged
 	}
 	var rootExists bool
 	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3)`, a.Repository, a.Issue, a.AttemptRoot).Scan(&rootExists); err != nil {
