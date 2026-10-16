@@ -7,6 +7,7 @@ pub mod lifecycle;
 pub mod muse;
 pub mod native;
 pub mod output;
+pub mod prompt_entry;
 pub mod run;
 pub mod tcodex;
 #[cfg(test)]
