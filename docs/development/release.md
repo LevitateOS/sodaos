@@ -4,10 +4,11 @@ How developers produce and qualify release candidates. Durable model:
 [Release architecture](../architecture/release.md). Tool contracts:
 [Native support](native-support.md).
 
-The agreed changes to component packaging, optional Tailnet and Fountain-owned
-extension management are in the
-[implementation plan](release-components-and-extensions-plan.md). The procedures
-below describe the existing release track until that implementation lands.
+Payload v4 separates the host, application images and native extension packages.
+Fountain owns package acquisition and requested enablement; Soda supplies its
+packages and restricted host operations. See the
+[component contract](../architecture/release.md#public-distribution) and
+[Tailnet lifecycle](../architecture/networking.md#tailnet-model).
 
 Retained-Project transitions follow the
 [release maintenance contract](../architecture/release.md#host-update-ownership)
@@ -294,6 +295,15 @@ status; the command refuses replay and never rolls recommendations back automati
 - Use the bounded first-install qualification defined in the
   [release architecture](../architecture/release.md#public-distribution).
 
+Private registry mirrors and fixture package origins prove development behavior,
+not public availability. Public qualification requires the selected independent
+Fountain image, its release metadata and corresponding source archives, the four
+Soda application images, and both native packages at their immutable anonymous
+download locations. Build and admit production-bound payload/media for those
+locations, then exercise the actual public ISO and Docker installation bytes.
+Unpublished components leave this gate pending; local native checks cannot
+authorize staging, publication or promotion.
+
 `project-terminal` is compiled once during production asset staging. Host assembly
 copies that artifact to its runtime and maintenance paths and checks its digest
 against the selected built Project image. The release payload's `ProjectSupport`
@@ -333,8 +343,9 @@ produce development evidence, not a qualifying journey.
 Staging a declared upgrade source requires that receipt and includes it in the
 same immutable GitHub release. Fresh-install promotion retains its separate smoke
 receipt. Operator maintenance selects one complete downloaded release directory;
-the existing hash-named rootfs carries the host, Project images and maintenance
-support. Its `DeploymentCommit` is read back during media assembly together with
+the existing hash-named rootfs carries the host, component metadata and maintenance
+support. Project images are acquired separately from the payload's immutable
+references. Its `DeploymentCommit` is read back during media assembly together with
 the embedded payload and support hashes. It must not be replaced with the
 assembler's separate import commit.
 

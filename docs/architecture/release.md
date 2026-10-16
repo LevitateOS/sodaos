@@ -26,7 +26,7 @@ host-image tooling does not replace native FCOS installation and updating.
 
 The release request selects `appliance`, `docker`, or `all` before building.
 `all` selects both distributions from one source snapshot and common candidate;
-it does not rebuild Soda programs or bundled application images for Docker.
+it does not rebuild Soda programs or application images for Docker.
 The target set and source revisions are fixed for the release tag. Adding a
 distribution or changing shipping bytes requires a new release tag.
 
