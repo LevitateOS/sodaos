@@ -129,6 +129,10 @@ pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
     args = append_bind_paths(args, "BindPaths", &w.writable)?;
     args = append_worker_env(args, &w.environment)?;
     args.push("--".to_owned());
+    // systemd-run resolves its executable before applying the unit's binds.
+    // env executes the admitted alias only after entering that namespace.
+    args.push("/usr/bin/env".to_owned());
+    args.push("--".to_owned());
     args.push(w.controller.clone());
     args.extend(w.arguments.iter().cloned());
     Ok(args)

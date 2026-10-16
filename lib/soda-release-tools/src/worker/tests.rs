@@ -419,7 +419,9 @@ fn build_worker_executable_remap_passes_argv_admission() {
     assert!(argv.contains(&"--property=ProtectHome=tmpfs".to_owned()));
     assert!(argv.contains(&"--property=ProtectSystem=strict".to_owned()));
     let dash = argv.iter().position(|a| a == "--").unwrap();
-    assert_eq!(argv[dash + 1], WORKER_CONTROLLER);
+    assert_eq!(argv[dash + 1], "/usr/bin/env");
+    assert_eq!(argv[dash + 2], "--");
+    assert_eq!(argv[dash + 3], WORKER_CONTROLLER);
 }
 
 #[test]
@@ -845,6 +847,8 @@ fn worker_argv_golden() {
         ),
         "--property=BindPaths=/out:/run/soda-build-source/.artifacts/releases/isolated".to_owned(),
         "--setenv=HOME=/var/lib/soda-build-worker".to_owned(),
+        "--".to_owned(),
+        "/usr/bin/env".to_owned(),
         "--".to_owned(),
         w.controller.clone(),
         "--worker-build".to_owned(),

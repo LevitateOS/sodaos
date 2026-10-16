@@ -123,6 +123,10 @@ binds stay read-only. The worker cache SELinux type permits execution of Cargo's
 build scripts and proc macros inside that same sandbox. The executable and its
 parents are root-owned and not group/world writable, and its bytes must equal the
 running dispatcher. The internal `--worker-build` stage refuses other identities.
+The launcher uses `/usr/bin/env` to execute that exact controller alias after
+entering the private namespace. `systemd-run` checks its executable before bind
+mounts exist, so invoking the alias directly would require a host placeholder
+that disappears on reboot. No host placeholder is required by this dispatch.
 
 Fountain is an independent image input. The controller verifies schema-1 release
 metadata against `fountain-source.json`, streams and hashes both corresponding
