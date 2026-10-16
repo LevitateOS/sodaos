@@ -44,6 +44,13 @@ plans or begin the refactor as part of routine upkeep.
 
 ## Factory implementation planning
 
+The [workflow completion plan](factory-workflow-plan.md) covers the inspected gaps
+from prompt decomposition through Jev's review/merge decision and dependent issue
+release. Its [ordered tasks](factory-workflow-plan.md#ordered-implementation-tasks)
+and [three parallel lanes](factory-workflow-plan.md#parallel-schedule-and-writer-handoffs)
+are the current corrective queue for those gaps, with native proof gates before
+broad implementation. It preserves completed work and does not authorize execution.
+
 The [factory implementation plan](factory-implementation-plan.md) records the
 current source baseline, owning contracts, exclusions and
 [requirement deliverables](factory-implementation-plan.md#deliverable-map).
