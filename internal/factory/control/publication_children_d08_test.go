@@ -216,42 +216,40 @@ func TestPublishPassWithholdsDisputedFeedbackForDecision(t *testing.T) {
 	if report := fx.coord.CheckPass(ctx); len(report.Errors) != 0 {
 		t.Fatalf("check pass: %+v", report)
 	}
-	// The disputed correction journal answers the current head: it uses
-	// the FW37-populated input shape (a recorded cycle plus its exact
-	// finding-set journal entry), which the store validates structurally.
+	// The check pass dispatches the serving correction child for the fresh
+	// feedback; settle it unchanged so the issue accepts the disputed
+	// corrector below. The disputed correction journal then answers the
+	// current head through the serving correction entry: the corrector
+	// run's disputed report journals canonically instead of being
+	// hand-written into the store.
+	if len(host.launches) != 2 {
+		t.Fatalf("serving correction undispatched: launches=%d", len(host.launches))
+	}
+	settleProducedChild(t, fx, host.launches[1].Run.ID, correctionOutput(publication.Candidate))
+	correctorRun := correctionRun(t, fx, owner, publication.Candidate)
+	correctorChild, err := fx.db.AssignmentByRun(ctx, correctorRun.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	p, err := fx.db.PublicationByAssignment(ctx, owner.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	round := 1
-	for _, cycle := range p.ReviewCycles {
-		if cycle.Round > round {
-			round = cycle.Round
-		}
-	}
-	round++
-	disputed := factory.ReviewCycle{
-		PublicationID: p.ID, AttemptRoot: owner.AttemptRoot,
-		ID: factory.ReviewCycleID(p.ID, owner.AttemptRoot, round, "review"), Phase: "review",
-		TriggerDecision: "correction-after-review", TriggerReason: "address request-changes with pass checks",
-		Head: p.Candidate, BaseOID: p.PRCreate.BaseOID,
-		FindingDigest:      mustFindingSetDigest(t, correctionTestKey(1)),
-		ReviewerAssignment: factory.NewID(), CorrectionAssignment: factory.NewID(), Round: round,
-	}
-	p.ReviewCycles = append(p.ReviewCycles, disputed)
-	p.CorrectionJournals = append(p.CorrectionJournals, factory.CorrectionJournal{
-		CycleID: disputed.ID, RunID: factory.NewID(),
-		Report: factory.CorrectionReport{
-			SetDigest: disputed.FindingDigest,
-			Findings:  []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)},
-			Dispositions: []factory.CorrectionDisposition{
-				{Key: correctionTestKey(1), Disposition: factory.DispositionDisputed},
-			},
+	withReportCycle(t, ctx, fx, p, correctorChild, mustFindingSetDigest(t, correctionTestKey(1)))
+	disputedReport := factory.CorrectionReport{
+		SetDigest: mustFindingSetDigest(t, correctionTestKey(1)),
+		Findings:  []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)},
+		Dispositions: []factory.CorrectionDisposition{
+			{Key: correctionTestKey(1), Disposition: factory.DispositionDisputed},
 		},
-	})
-	p.Revision++
-	if err := fx.db.UpdatePublication(ctx, p); err != nil {
-		t.Fatalf("disputed journal unrecorded: %v", err)
+	}
+	served := fx.coord.PublishCorrectionWithReport(ctx, correctorRun.ID, disputedReport, nil, nil)
+	if len(served.Errors) != 0 || len(served.Corrected) != 0 || len(served.Waits) != 1 || served.Waits[0].Reason != "delivery_judgment_required" {
+		t.Fatalf("disputed correction mis-served: %+v", served)
+	}
+	p, err = fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
 	launchesBefore := len(host.launches)
 	cyclesBefore := len(p.ReviewCycles)

@@ -291,6 +291,136 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 	return report
 }
 
+// PublishCorrectionWithReport advances one corrector run's candidate like
+// PublishCorrection after journaling the run's parsed correction report
+// through the canonical gate. The caller parses the corrector output's
+// correction block (ParseCorrectionReport) and supplies the report with
+// its fix evidence and check assessment; this entry resolves the review
+// cycle the corrector answered, admits the report, and records exactly
+// one journal entry per run over the cycle's exact finding-set digest.
+// The canonical binding applies when the cycle already carries a journal:
+// a retry must resubmit byte-identical findings, so a rewritten defect
+// refuses instead of replacing the recorded set. A disputed report still
+// journals — the dispute is evidence for the bounded D08 decision — but
+// the head does not advance on contested feedback: the entry waits for
+// the funded decision instead of launching another run, and the routing
+// leg reads the journaled dispositions live. Any other refused report
+// waits without mutating; admitted reports delegate the head advance to
+// PublishCorrection. Runs without a parsed report keep the legacy entry;
+// this entry never guesses dispositions.
+func (c *Coordinator) PublishCorrectionWithReport(ctx context.Context, runID string, report factory.CorrectionReport, evidence []CorrectionFixEvidence, checks *factory.CheckAssessment) CorrectionReport {
+	served := CorrectionReport{Corrected: []CorrectionLink{}}
+	if c.Store == nil {
+		correctionError(&served, runID, "operations_unavailable")
+		return served
+	}
+	run, err := c.Store.FactoryRun(ctx, runID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			correctionWait(&served, runID, "run_missing")
+		} else {
+			correctionError(&served, runID, "store_unavailable")
+		}
+		return served
+	}
+	if !run.Reconciled {
+		correctionWait(&served, runID, "run_unsettled")
+		return served
+	}
+	assignment, owner, err := c.publicationAssignmentsForRun(ctx, run)
+	if err != nil || assignment.ID == owner.ID || assignment.Role != project.RoleCoder {
+		correctionWait(&served, runID, "run_unlinked")
+		return served
+	}
+	p, err := c.Store.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			correctionWait(&served, owner.ID, "publication_missing")
+		} else {
+			correctionError(&served, owner.ID, "store_unavailable")
+		}
+		return served
+	}
+	// Replay reuses the recorded journal: a run that already reported
+	// never journals twice, and the head advance below replays too. A
+	// replay that rewrites its recorded findings refuses instead of
+	// replacing the canonical set.
+	for _, journal := range p.CorrectionJournals {
+		if journal.RunID == runID {
+			if err := factory.CheckSubmittedFindings(journal.Report.Findings, report.Findings); err != nil {
+				correctionWait(&served, p.ID, "correction_refused")
+				served.Waits[len(served.Waits)-1].Detail = err.Error()
+				return served
+			}
+			return c.PublishCorrection(ctx, runID)
+		}
+	}
+	if assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded ||
+		assignment.Result == nil || !assignment.Result.Reported || assignment.Result.Status != "completed" ||
+		!factory.ValidCommit(assignment.Result.Candidate) {
+		correctionWait(&served, p.ID, "candidate_invalid")
+		return served
+	}
+	var cycle *factory.ReviewCycle
+	for i := range p.ReviewCycles {
+		if p.ReviewCycles[i].CorrectionAssignment == assignment.ID {
+			cycle = &p.ReviewCycles[i]
+			break
+		}
+	}
+	if cycle == nil {
+		correctionWait(&served, p.ID, "correction_cycle_unknown")
+		return served
+	}
+	newCandidate := assignment.Result.Candidate
+	var canonical []factory.Finding
+	for _, journal := range p.CorrectionJournals {
+		if journal.CycleID == cycle.ID {
+			canonical = journal.Report.Findings
+			break
+		}
+	}
+	if canonical != nil {
+		_, err = AdmitCorrectionReportCanonical(*cycle, runID, newCandidate, canonical, report, evidence, checks)
+	} else {
+		_, err = AdmitCorrectionReport(*cycle, runID, newCandidate, report, evidence, checks)
+	}
+	if err != nil {
+		var block *CorrectionBlock
+		if errors.As(err, &block) {
+			if journalErr := c.journalCorrectionReport(ctx, &p, *cycle, runID, report); journalErr != nil {
+				correctionError(&served, p.ID, "store_unavailable")
+				return served
+			}
+			correctionWait(&served, p.ID, "delivery_judgment_required")
+			return served
+		}
+		correctionWait(&served, p.ID, "correction_refused")
+		served.Waits[len(served.Waits)-1].Detail = err.Error()
+		return served
+	}
+	if journalErr := c.journalCorrectionReport(ctx, &p, *cycle, runID, report); journalErr != nil {
+		correctionError(&served, p.ID, "store_unavailable")
+		return served
+	}
+	return c.PublishCorrection(ctx, runID)
+}
+
+// journalCorrectionReport records one structurally valid corrector report
+// as the publication's next immutable correction journal entry. Refused
+// admissions never reach it; admitted and disputed reports do, so the
+// D08 routing leg always reads serving-journaled dispositions.
+func (c *Coordinator) journalCorrectionReport(ctx context.Context, p *factory.Publication, cycle factory.ReviewCycle, runID string, report factory.CorrectionReport) error {
+	if err := appendCorrectionJournal(p, cycle, runID, report); err != nil {
+		return err
+	}
+	p.Revision++
+	if err := c.Store.UpdatePublication(ctx, *p); err != nil {
+		return err
+	}
+	return nil
+}
+
 // reconcileRecordedCorrection reconciles one in-flight recorded correction
 // by lookup before any new write, and links a recovered commit exactly
 // like the live path. Anything unattributed fences the publication.

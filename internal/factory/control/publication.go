@@ -175,8 +175,33 @@ func publicationWait(report *PublishReport, id, reason string) {
 }
 
 func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, report *PublishReport) {
-	if a.PublicationAssignment != a.ID || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" || !factory.ValidCommit(a.Result.Candidate) {
+	if a.PublicationAssignment != a.ID || a.Role != project.RoleCoder || a.Result == nil || !a.Result.Reported || a.Result.Status != "completed" {
 		return
+	}
+	// The publication owner is the root attempt, but a phased
+	// investigation root carries the plan rather than the candidate:
+	// resolve the advanced implement child that reported it and publish
+	// its candidate under the root's slot. Legacy roots carry their own
+	// candidate and publish directly.
+	owner, candidate, runID, preparation := a, a.Result.Candidate, a.Run, a.Preparation
+	if !factory.ValidCommit(candidate) {
+		if a.Phase != project.ExecutionInvestigate || a.Subject.Issue == nil {
+			return
+		}
+		childID, _, ok := advanceChildID(a, a.Subject.Issue.Acceptance)
+		if !ok {
+			return
+		}
+		child, err := c.Store.Assignment(ctx, childID)
+		if err != nil {
+			return
+		}
+		if child.Phase != project.ExecutionImplement || child.Stage != factory.AssignmentFinished ||
+			child.Outcome != factory.Succeeded || child.Result == nil || !child.Result.Reported ||
+			child.Result.Status != "completed" || !factory.ValidCommit(child.Result.Candidate) {
+			return
+		}
+		owner, candidate, runID, preparation = child, child.Result.Candidate, child.Run, child.Preparation
 	}
 	if _, err := c.Store.PublicationByAssignment(ctx, a.ID); err == nil {
 		return
@@ -187,7 +212,7 @@ func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, repo
 	// FW15 join: a phased implement publishes only on completed plan task
 	// evidence. The gate waits (never publishes) while tasks settle and
 	// refuses without recording when evidence is conclusively unpublishable.
-	if !c.gatePhasedPublication(ctx, a, report) {
+	if !c.gatePhasedPublication(ctx, owner, report) {
 		return
 	}
 	policy, err := c.Store.RepositoryPolicy(ctx, a.Repository)
@@ -198,7 +223,7 @@ func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, repo
 	p := factory.Publication{
 		Publish: factory.PublicationOperation{Kind: factory.OpRefPublish}, PRCreate: factory.PublicationOperation{Kind: factory.OpPRCreate},
 		Authority: a.Authority, ID: factory.NewID(), AssignmentID: a.ID, ProjectID: a.ProjectID, Role: a.Role,
-		Acceptance: a.Acceptance, Preparation: a.Preparation, Run: a.Run, Candidate: a.Result.Candidate,
+		Acceptance: a.Acceptance, Preparation: preparation, Run: runID, Candidate: candidate,
 		BaseSHA: a.SourceCommit, TargetBranch: policy.TargetBranch, Stage: factory.PublicationOpen,
 		Repository: a.Repository, Issue: a.Issue, CreatedUnix: time.Now().Unix(),
 	}

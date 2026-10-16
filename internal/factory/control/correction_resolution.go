@@ -122,6 +122,78 @@ type ResolutionReconciliation struct {
 	Waits    []string `json:"waits,omitempty"`
 }
 
+// ReconcileAcceptedResolutionsWithUnion reconciles one accepted correction's
+// intended resolutions against their exact native readback under the FW37
+// D07 delivery-acceptance union, replacing the opaque judgment binding on
+// merge paths. The union must still answer the cycle's exact round, head,
+// base and finding set: a stale or foreign acceptance refuses however
+// complete the native state looks. A funded acceptance must carry exactly
+// the planned non-vacuous operation IDs as its resolution intents; a clean
+// acceptance carries none and every planned resolution must be vacuous,
+// since a clean review resolves no native thread. Confirmed keys resolve,
+// unconfirmed keys wait; readback is pure bookkeeping and spends no funded
+// call on either variant.
+func ReconcileAcceptedResolutionsWithUnion(acceptance factory.DeliveryAcceptance, cycle factory.ReviewCycle, admission CorrectionAdmission, planned []AcceptedResolution, confirmed map[string]bool) (ResolutionReconciliation, error) {
+	var empty ResolutionReconciliation
+	if err := acceptance.Validate(); err != nil {
+		return empty, err
+	}
+	if err := cycle.Validate(); err != nil {
+		return empty, err
+	}
+	if acceptance.PublicationID != cycle.PublicationID || acceptance.AttemptRoot != cycle.AttemptRoot || acceptance.Round != cycle.Round {
+		return empty, errors.New("delivery acceptance answers another review round")
+	}
+	if admission.CycleID == "" || admission.CycleID != cycle.ID {
+		return empty, errors.New("accepted resolutions answer another review cycle")
+	}
+	if admission.SetDigest != cycle.FindingDigest {
+		return empty, errors.New("accepted resolutions answer a changed finding set")
+	}
+	if acceptance.Tuple.Head != cycle.Head || acceptance.Tuple.Base != cycle.BaseOID {
+		return empty, errors.New("delivery acceptance answers a superseded tuple")
+	}
+	switch acceptance.Kind {
+	case factory.AcceptanceCleanReview:
+		if len(acceptance.ResolutionIntents) != 0 {
+			return empty, errors.New("clean review resolves no native thread")
+		}
+		for _, item := range planned {
+			if !item.NoNativeThread {
+				return empty, errors.New("clean acceptance leaves no thread to resolve")
+			}
+		}
+	case factory.AcceptanceJevAcceptance:
+		intents := make(map[string]bool, len(acceptance.ResolutionIntents))
+		for _, intent := range acceptance.ResolutionIntents {
+			intents[intent] = true
+		}
+		for _, item := range planned {
+			if item.NoNativeThread {
+				continue
+			}
+			if !intents[item.OperationID] {
+				return empty, errors.New("accepted resolution lacks its funded intent")
+			}
+		}
+		for intent := range intents {
+			known := false
+			for _, item := range planned {
+				if !item.NoNativeThread && item.OperationID == intent {
+					known = true
+					break
+				}
+			}
+			if !known {
+				return empty, errors.New("funded intent answers an unplanned resolution")
+			}
+		}
+	default:
+		return empty, errors.New("invalid delivery acceptance kind")
+	}
+	return reconcilePlannedResolutions(admission, planned, confirmed)
+}
+
 // ReconcileAcceptedResolutions reconciles one accepted correction's intended
 // resolutions against their exact readback confirmations (one per finding
 // key with a native thread, true only when the N adapter confirmed resolved
@@ -134,6 +206,15 @@ func ReconcileAcceptedResolutions(acceptance JudgmentAcceptance, admission Corre
 	if err := acceptance.Validate(admission.SetDigest); err != nil {
 		return empty, err
 	}
+	return reconcilePlannedResolutions(admission, planned, confirmed)
+}
+
+// reconcilePlannedResolutions shares the exact readback accounting behind
+// both the opaque judgment binding and the union: every fixed finding is
+// accounted for exactly once, confirmed keys resolve and unconfirmed keys
+// wait. Pure bookkeeping on either path; it spends no funded call.
+func reconcilePlannedResolutions(admission CorrectionAdmission, planned []AcceptedResolution, confirmed map[string]bool) (ResolutionReconciliation, error) {
+	var empty ResolutionReconciliation
 	if len(planned) != len(admission.Fixed) {
 		return empty, errors.New("accepted resolutions omit an accepted fix")
 	}

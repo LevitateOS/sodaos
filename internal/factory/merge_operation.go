@@ -276,9 +276,11 @@ func MergeGenerationOperationID(publicationID string, generation int) string {
 // MergeGeneration is one merge authorization generation (D09): decision,
 // review round, semantic fingerprint, exact head/base/check evidence,
 // authority, observed native revision and deadline, plus the derived
-// native operation identity. Candidate, base, authority, deadline and
-// native-operation fields belong to each generation; history is
-// append-only and prior generations are never rewritten.
+// native operation identity. FW37 generations additionally capture the
+// D07 delivery-acceptance union behind the admission: acceptance kind/ID,
+// attempt root and originating receipt. Candidate, base, authority,
+// deadline and native-operation fields belong to each generation;
+// history is append-only and prior generations are never rewritten.
 type MergeGeneration struct {
 	Authority          AuthorityRef `json:"authority"`
 	PublicationID      string       `json:"publication_id"`
@@ -289,6 +291,10 @@ type MergeGeneration struct {
 	Base               string       `json:"base"`
 	DiffBase           string       `json:"diff_base"`
 	ChecksDigest       string       `json:"checks_digest"`
+	AcceptanceKind     string       `json:"acceptance_kind,omitempty"`
+	AcceptanceID       string       `json:"acceptance_id,omitempty"`
+	AttemptRoot        string       `json:"attempt_root,omitempty"`
+	OriginReceipt      string       `json:"origin_receipt,omitempty"`
 	Generation         int          `json:"generation"`
 	ReviewRound        int          `json:"review_round"`
 	AssessmentRevision int64        `json:"assessment_revision"`
@@ -296,10 +302,21 @@ type MergeGeneration struct {
 	NotAfter           int64        `json:"not_after"`
 }
 
+// UnionBound reports whether the generation carries its D07 delivery
+// acceptance: FW37 registrations bind the union, while earlier committed
+// rows bound only the funded decision and keep validating on that path.
+func (g MergeGeneration) UnionBound() bool { return g.AcceptanceID != "" }
+
 // Validate checks the immutable generation content.
 func (g MergeGeneration) Validate() error {
-	if !ValidID(g.PublicationID) || !ValidID(g.DecisionID) {
+	if !ValidID(g.PublicationID) {
 		return errors.New("invalid merge generation identity")
+	}
+	if !g.UnionBound() && !ValidID(g.DecisionID) {
+		return errors.New("invalid merge generation identity")
+	}
+	if err := g.validateUnionShape(); err != nil {
+		return err
 	}
 	if g.Generation < 1 {
 		return errors.New("invalid merge generation number")
@@ -324,6 +341,32 @@ func (g MergeGeneration) Validate() error {
 	}
 	if g.ObservedNativeRev <= 0 || g.NotAfter <= 0 {
 		return errors.New("invalid merge generation observation binding")
+	}
+	return nil
+}
+
+// validateUnionShape checks the FW37 acceptance capture when present.
+// Absence keeps the earlier funded-decision-only shape: committed rows
+// predate the union and never gain it retroactively. A clean generation
+// spends no funded decision; a funded generation names it.
+func (g MergeGeneration) validateUnionShape() error {
+	if !g.UnionBound() {
+		return nil
+	}
+	switch g.AcceptanceKind {
+	case AcceptanceCleanReview:
+		if g.DecisionID != "" {
+			return errors.New("clean merge generation spends no delivery judgment")
+		}
+	case AcceptanceJevAcceptance:
+		if !ValidID(g.DecisionID) {
+			return errors.New("funded merge generation lacks its decision")
+		}
+	default:
+		return errors.New("invalid merge generation acceptance kind")
+	}
+	if !ValidID(g.AcceptanceID) || !ValidID(g.AttemptRoot) || !ValidID(g.OriginReceipt) {
+		return errors.New("merge generation lacks its acceptance binding")
 	}
 	return nil
 }
@@ -545,7 +588,11 @@ func (a MergeAuthorization) Bound() bool { return a.Generation.Generation != 0 }
 // Validate enforces the registration-time decision gate against the
 // generation's own authority: a valid first generation, a valid
 // effective ready_to_merge decision over its exact fingerprint,
-// confirmed accepted resolutions and matching authority.
+// confirmed accepted resolutions and matching authority. Union-bound
+// generations check the union shape instead: a clean binding carries no
+// funded decision, a funded binding carries its ready decision, and both
+// carry confirmed resolutions. Full record binding against the journaled
+// acceptance runs in CheckMergeUnionBinding, which sees the publication.
 func (a MergeAuthorization) Validate() error {
 	if !a.Bound() {
 		return errors.New("merge authorization is not bound")
@@ -553,10 +600,50 @@ func (a MergeAuthorization) Validate() error {
 	if a.Generation.Generation != 1 {
 		return errors.New("merge authorization generation needs its ledger history")
 	}
+	if a.Generation.UnionBound() {
+		return a.validateUnionShape()
+	}
 	return CheckMergeDecisionGate(MergeDecisionInput{
 		Generation: a.Generation, Decision: a.Decision,
 		CurrentAuthority: a.Generation.Authority, ResolutionsConfirmed: a.ResolutionsConfirmed,
 	})
+}
+
+// deliveryDecisionZero reports whether no funded decision travels here:
+// a clean union binding spends no delivery judgment at all.
+func deliveryDecisionZero(d DeliveryDecision) bool {
+	return d.Effective == "" && d.Answer.Selected == "" && d.Answer.Fingerprint == ""
+}
+
+// validateUnionShape checks the union binding without its journaled
+// acceptance record: kind/decision presence plus confirmed resolutions.
+// The record cross-check belongs to CheckMergeUnionBinding.
+func (a MergeAuthorization) validateUnionShape() error {
+	if err := a.Generation.Validate(); err != nil {
+		return err
+	}
+	switch a.Generation.AcceptanceKind {
+	case AcceptanceCleanReview:
+		if !deliveryDecisionZero(a.Decision) {
+			return errors.New("clean merge authorization spends no delivery judgment")
+		}
+	case AcceptanceJevAcceptance:
+		if err := a.Decision.Validate(); err != nil {
+			return err
+		}
+		if a.Decision.Effective != DeliveryEffectiveReady {
+			return errors.New("merge decision is not ready_to_merge")
+		}
+		if a.Decision.Answer.Fingerprint != a.Generation.Fingerprint {
+			return errors.New("merge decision judged different evidence")
+		}
+	default:
+		return errors.New("invalid merge authorization acceptance kind")
+	}
+	if !a.ResolutionsConfirmed {
+		return errors.New("merge authorization lacks confirmed accepted resolutions")
+	}
+	return nil
 }
 
 // MergeDecisionInput gathers the single decision gate (D09) behind every
@@ -592,6 +679,95 @@ func CheckMergeDecisionGate(in MergeDecisionInput) error {
 	}
 	if !in.ResolutionsConfirmed {
 		return errors.New("merge decision lacks confirmed accepted resolutions")
+	}
+	if in.CurrentAuthority != in.Generation.Authority {
+		return errors.New("merge authority changed under its authorization")
+	}
+	return nil
+}
+
+// MergeUnionBindingInput gathers the FW37 union gate behind every new
+// mutation path: the publication carrying the journaled acceptance, the
+// current applicable acceptance record, the generation seeking admission,
+// the funded decision behind a funded binding (zero for a clean binding),
+// confirmed accepted resolutions and the current authority. Recovery of
+// an already-committed merge never enters this gate and consumes no new
+// funded call.
+type MergeUnionBindingInput struct {
+	Publication          Publication
+	Acceptance           DeliveryAcceptance
+	Generation           MergeGeneration
+	Decision             DeliveryDecision
+	ResolutionsConfirmed bool
+	CurrentAuthority     AuthorityRef
+}
+
+// CheckMergeUnionBinding enforces the common union gate: a valid
+// journaled acceptance bound to the publication's exact current
+// candidate and base, the generation's exact acceptance capture, the
+// kind-matching decision evidence and confirmed accepted resolutions
+// under unchanged authority. Both variants pass these identical gates;
+// a stale or absent union refuses every new mutation, however complete
+// the native state looks.
+func CheckMergeUnionBinding(in MergeUnionBindingInput) error {
+	if err := in.Acceptance.Validate(); err != nil {
+		return err
+	}
+	if err := in.Generation.Validate(); err != nil {
+		return err
+	}
+	if !in.Generation.UnionBound() {
+		return errors.New("merge generation lacks its acceptance binding")
+	}
+	if in.Acceptance.PublicationID != in.Publication.ID {
+		return errors.New("delivery acceptance belongs to another publication")
+	}
+	if in.Acceptance.ID != in.Generation.AcceptanceID || in.Acceptance.Kind != in.Generation.AcceptanceKind ||
+		in.Acceptance.AttemptRoot != in.Generation.AttemptRoot || in.Acceptance.OriginReceipt != in.Generation.OriginReceipt {
+		return errors.New("merge generation answers another acceptance")
+	}
+	if in.Acceptance.ID != DeliveryAcceptanceID(in.Publication.ID, in.Acceptance.AttemptRoot, in.Acceptance.Round, in.Acceptance.Kind) {
+		return errors.New("delivery acceptance identity differs from its derivation")
+	}
+	if in.Acceptance.Round != in.Generation.ReviewRound {
+		return errors.New("merge generation answers another review round")
+	}
+	if in.Acceptance.Tuple.Head != in.Generation.Head || in.Acceptance.Tuple.Base != in.Generation.Base ||
+		in.Acceptance.Tuple.DiffBase != in.Generation.DiffBase {
+		return errors.New("merge generation answers another candidate")
+	}
+	// Current applicability: the acceptance must still answer the
+	// publication's exact current candidate over its recorded base. A
+	// superseded acceptance never rides a new mutation.
+	if in.Acceptance.Tuple.Head != in.Publication.Candidate || in.Acceptance.Tuple.Base != in.Publication.PRCreate.BaseOID {
+		return errors.New("delivery acceptance answers a superseded tuple")
+	}
+	switch in.Acceptance.Kind {
+	case AcceptanceCleanReview:
+		if !deliveryDecisionZero(in.Decision) {
+			return errors.New("clean merge binding spends no delivery judgment")
+		}
+		if len(in.Acceptance.ResolutionIntents) != 0 {
+			return errors.New("clean review resolves no native thread")
+		}
+	case AcceptanceJevAcceptance:
+		if err := in.Decision.Validate(); err != nil {
+			return err
+		}
+		if in.Decision.Effective != DeliveryEffectiveReady {
+			return errors.New("merge decision is not ready_to_merge")
+		}
+		if in.Decision.Answer.Fingerprint != in.Generation.Fingerprint {
+			return errors.New("merge decision judged different evidence")
+		}
+		if in.Acceptance.DecisionID != in.Generation.DecisionID {
+			return errors.New("funded acceptance differs from its generation decision")
+		}
+	default:
+		return errors.New("invalid delivery acceptance kind")
+	}
+	if !in.ResolutionsConfirmed {
+		return errors.New("merge binding lacks confirmed accepted resolutions")
 	}
 	if in.CurrentAuthority != in.Generation.Authority {
 		return errors.New("merge authority changed under its authorization")

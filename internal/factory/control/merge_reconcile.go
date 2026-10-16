@@ -121,11 +121,11 @@ func (c *Coordinator) reconcileMerge(ctx context.Context, m factory.Merge, repor
 	if !allowed {
 		return
 	}
-	// The common merge decision gate stands between authority and any new
+	// The common merge union gate stands between authority and any new
 	// native mutation: unbound rows wait for their authorization, and
 	// stale bindings wait instead of merging another candidate. Recorded
 	// effects above already reconciled without entering it.
-	if err := mergeAuthorizationGate(m); err != nil {
+	if err := mergeAuthorizationGate(m, p); err != nil {
 		c.mergeCallError(report, m.ID, err)
 		return
 	}

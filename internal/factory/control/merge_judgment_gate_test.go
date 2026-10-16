@@ -496,7 +496,7 @@ func TestMergeJudgmentGateFailureAndRevokePaths(t *testing.T) {
 func TestMergeAuthorizationGateClosesUnboundSubmits(t *testing.T) {
 	db, _ := postgresFixture(t, nil)
 	m := gateTestMergeRow(t, db)
-	if err := mergeAuthorizationGate(m); err == nil {
+	if err := mergeAuthorizationGate(m, factory.Publication{}); err == nil {
 		t.Fatal("unbound row passed its authorization gate")
 	} else {
 		var wait *factory.PublicationWait
@@ -514,12 +514,12 @@ func TestMergeAuthorizationGateRefusesStaleTuple(t *testing.T) {
 	db, _ := postgresFixture(t, nil)
 	m := gateTestMergeRow(t, db)
 	m.Authorization = gateTestBinding(t, m)
-	if err := mergeAuthorizationGate(m); err != nil {
+	if err := mergeAuthorizationGate(m, factory.Publication{}); err != nil {
 		t.Fatalf("fresh binding refused: %v", err)
 	}
 	moved := m
 	moved.HeadOID = strings.Repeat("4", 40)
-	if err := mergeAuthorizationGate(moved); err == nil {
+	if err := mergeAuthorizationGate(moved, factory.Publication{}); err == nil {
 		t.Fatal("moved head passed its stale binding")
 	} else {
 		var wait *factory.PublicationWait
@@ -529,7 +529,7 @@ func TestMergeAuthorizationGateRefusesStaleTuple(t *testing.T) {
 	}
 	rebased := m
 	rebased.BaseOID = strings.Repeat("5", 40)
-	if err := mergeAuthorizationGate(rebased); err == nil {
+	if err := mergeAuthorizationGate(rebased, factory.Publication{}); err == nil {
 		t.Fatal("moved base passed its stale binding")
 	} else {
 		var wait *factory.PublicationWait
@@ -552,7 +552,7 @@ func TestMergeAuthorizationGateEnforcesDecisionFreshness(t *testing.T) {
 	}
 	review := m
 	review.Authorization.Decision = factory.DeliveryDecision{Answer: answer, Effective: factory.DeliveryEffectiveReview, ReviewsFit: true}
-	if err := mergeAuthorizationGate(review); err == nil {
+	if err := mergeAuthorizationGate(review, factory.Publication{}); err == nil {
 		t.Fatal("review_again decision passed the merge gate")
 	} else {
 		var wait *factory.PublicationWait
@@ -562,91 +562,99 @@ func TestMergeAuthorizationGateEnforcesDecisionFreshness(t *testing.T) {
 	}
 	pending := m
 	pending.Authorization.ResolutionsConfirmed = false
-	if err := mergeAuthorizationGate(pending); err == nil {
+	if err := mergeAuthorizationGate(pending, factory.Publication{}); err == nil {
 		t.Fatal("unconfirmed resolutions passed the merge gate")
 	}
 }
 
-// TestAuthorizeMergeBindsFirstGeneration (T27/T28): the registration seam
-// admits exactly one ready first-generation authorization per row. A
-// second bind, a second generation, another candidate, a changed
-// authority, an unready decision and unconfirmed resolutions all refuse;
-// nothing replaces a bound predecessor on its row.
+// TestAuthorizeMergeBindsFirstGeneration (T27/T28 under the FW37 union):
+// the registration seam admits exactly one ready union-bound
+// first-generation authorization per row. A second bind, a second
+// generation, another candidate, a changed authority, an unready
+// decision, unconfirmed resolutions and a binding without its union all
+// refuse; nothing replaces a bound predecessor on its row.
 func TestAuthorizeMergeBindsFirstGeneration(t *testing.T) {
 	ctx := context.Background()
-	bind := func(t *testing.T, db *store.Store, m factory.Merge, auth factory.MergeAuthorization) error {
-		t.Helper()
-		coord := &Coordinator{Store: db}
-		return coord.AuthorizeMerge(ctx, m.PublicationID, auth)
-	}
 	t.Run("binds ready first generation", func(t *testing.T) {
-		db, _ := postgresFixture(t, nil)
-		m := gateTestMergeRow(t, db)
-		if err := bind(t, db, m, gateTestBinding(t, m)); err != nil {
+		fx, p, m, acceptance, decision, fingerprint := unionSeedForBind(t, ctx, 51)
+		auth := unionAuthForBind(t, m, acceptance, decision, fingerprint, true)
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err != nil {
 			t.Fatalf("ready first generation refused: %v", err)
 		}
-		stored, err := db.MergeByPublication(ctx, m.PublicationID)
+		stored, err := fx.publish.db.MergeByPublication(ctx, p.ID)
 		if err != nil || !stored.Authorization.Bound() || stored.Authorization.Generation.Generation != 1 {
 			t.Fatalf("binding not persisted: %+v %v", stored, err)
 		}
-		if err := mergeAuthorizationGate(stored); err != nil {
+		fresh, err := fx.publish.db.PublicationByAssignment(ctx, p.AssignmentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := mergeAuthorizationGate(stored, fresh); err != nil {
 			t.Fatalf("bound row refused its submit gate: %v", err)
 		}
 	})
 	t.Run("never rebinds", func(t *testing.T) {
-		db, _ := postgresFixture(t, nil)
-		m := gateTestMergeRow(t, db)
-		if err := bind(t, db, m, gateTestBinding(t, m)); err != nil {
+		fx, p, m, acceptance, decision, fingerprint := unionSeedForBind(t, ctx, 52)
+		auth := unionAuthForBind(t, m, acceptance, decision, fingerprint, true)
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err != nil {
 			t.Fatal(err)
 		}
-		if err := bind(t, db, m, gateTestBinding(t, m)); err == nil {
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
 			t.Fatal("second binding replaced its predecessor")
 		}
 	})
 	t.Run("refuses second generation without ledger history", func(t *testing.T) {
-		db, _ := postgresFixture(t, nil)
-		m := gateTestMergeRow(t, db)
-		auth := gateTestBinding(t, m)
+		fx, p, m, acceptance, decision, fingerprint := unionSeedForBind(t, ctx, 53)
+		auth := unionAuthForBind(t, m, acceptance, decision, fingerprint, true)
 		auth.Generation.Generation = 2
-		auth.Generation.NativeOperationID = factory.MergeGenerationOperationID(m.PublicationID, 2)
-		if err := bind(t, db, m, auth); err == nil {
+		auth.Generation.NativeOperationID = factory.MergeGenerationOperationID(p.ID, 2)
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
 			t.Fatal("second generation bound without its predecessor history")
 		}
 	})
 	t.Run("refuses another candidate", func(t *testing.T) {
-		db, _ := postgresFixture(t, nil)
-		m := gateTestMergeRow(t, db)
-		auth := gateTestBinding(t, m)
+		fx, p, m, acceptance, decision, fingerprint := unionSeedForBind(t, ctx, 54)
+		auth := unionAuthForBind(t, m, acceptance, decision, fingerprint, true)
 		auth.Generation.Head = strings.Repeat("4", 40)
-		if err := bind(t, db, m, auth); err == nil {
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
 			t.Fatal("binding for another candidate accepted")
 		}
 	})
 	t.Run("refuses changed authority", func(t *testing.T) {
-		db, _ := postgresFixture(t, nil)
-		m := gateTestMergeRow(t, db)
-		auth := gateTestBinding(t, m)
+		fx, p, m, acceptance, decision, fingerprint := unionSeedForBind(t, ctx, 55)
+		auth := unionAuthForBind(t, m, acceptance, decision, fingerprint, true)
 		auth.Generation.Authority.Policy = 9
-		if err := bind(t, db, m, auth); err == nil {
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
 			t.Fatal("binding under changed authority accepted")
 		}
 	})
 	t.Run("refuses unready decision and unconfirmed resolutions", func(t *testing.T) {
-		db, _ := postgresFixture(t, nil)
-		m := gateTestMergeRow(t, db)
-		auth := gateTestBinding(t, m)
-		answer, err := reviewDeliveryAnswer(auth.Generation.Fingerprint)
+		fx, p, m, acceptance, decision, fingerprint := unionSeedForBind(t, ctx, 56)
+		_ = decision
+		auth := unionAuthForBind(t, m, acceptance, factory.DeliveryDecision{}, fingerprint, true)
+		answer, err := reviewDeliveryAnswer(fingerprint)
 		if err != nil {
 			t.Fatal(err)
 		}
 		auth.Decision = factory.DeliveryDecision{Answer: answer, Effective: factory.DeliveryEffectiveReview, ReviewsFit: true}
-		if err := bind(t, db, m, auth); err == nil {
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
 			t.Fatal("review_again decision bound")
 		}
-		auth = gateTestBinding(t, m)
+		auth = unionAuthForBind(t, m, acceptance, factory.DeliveryDecision{}, fingerprint, true)
+		answer, err = readyDeliveryAnswer(fingerprint)
+		if err != nil {
+			t.Fatal(err)
+		}
+		auth.Decision = factory.DeliveryDecision{Answer: answer, Effective: factory.DeliveryEffectiveReady, ReviewsFit: true}
 		auth.ResolutionsConfirmed = false
-		if err := bind(t, db, m, auth); err == nil {
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, auth); err == nil {
 			t.Fatal("unconfirmed resolutions bound")
+		}
+	})
+	t.Run("refuses a binding without its union", func(t *testing.T) {
+		fx, p, m, _, _, _ := unionSeedForBind(t, ctx, 57)
+		if err := fx.publish.coord.AuthorizeMerge(ctx, p.ID, gateTestBinding(t, m)); err == nil {
+			t.Fatal("unionless binding registered")
 		}
 	})
 }
