@@ -43,7 +43,7 @@ func run() (runErr error) {
 	server := &http.Server{Addr: app.Config.Listen, Handler: app.Coordinator.AdmitHTTP(app), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	serveErrors := make(chan error, 2)
+	serveErrors := make(chan error, 3)
 	privateServer, listener, err := extensionHTTPServer(*extensionSocket, app)
 	if err != nil {
 		return err
@@ -60,7 +60,15 @@ func run() (runErr error) {
 		defer operatorListener.Close()
 		serveOperatorSocket(operatorServer, operatorListener, stop, serveErrors)
 	}
-	stopped := beginShutdown(ctx, app, server, privateServer, operatorServer)
+	factoryMCPServer, factoryMCPListener, err := factoryMCPHTTPServer(app)
+	if err != nil {
+		return err
+	}
+	if factoryMCPListener != nil {
+		defer factoryMCPListener.Close()
+		serveFactoryMCPSocket(factoryMCPServer, factoryMCPListener, stop, serveErrors)
+	}
+	stopped := beginShutdown(ctx, app, server, privateServer, operatorServer, factoryMCPServer)
 	serveErr := server.ListenAndServe()
 	stop()
 	shutdownErr := <-stopped
@@ -144,7 +152,7 @@ func serveExtensionSocket(server *http.Server, listener net.Listener, stop conte
 	}()
 }
 
-func beginShutdown(ctx context.Context, app *web.Server, server, private, operator *http.Server) <-chan error {
+func beginShutdown(ctx context.Context, app *web.Server, server, private, operator, factoryMCP *http.Server) <-chan error {
 	stopped := make(chan error, 1)
 	go func() {
 		<-ctx.Done()
@@ -152,7 +160,7 @@ func beginShutdown(ctx context.Context, app *web.Server, server, private, operat
 		shutdown, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 		shutdownDone := make(chan error, 1)
-		go func() { shutdownDone <- shutdownServers(shutdown, server, private, operator) }()
+		go func() { shutdownDone <- shutdownServers(shutdown, server, private, operator, factoryMCP) }()
 		app.CloseTerminals()
 		shutdownErr := <-shutdownDone
 		stopped <- errors.Join(shutdownErr, app.CloseCoordinator())
