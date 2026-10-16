@@ -173,6 +173,52 @@ merge. Human intervention cannot mark missing or failed evidence as passing or
 bypass native protection; a separate manual merge remains the human's native
 forge action, with its actual author and outcome.
 
+### Factory role control authority
+
+Seven Factory MCP profiles narrow the existing coder/reviewer execution accounts;
+they are neither seven native actors nor self-granted capabilities. Every call
+must authenticate a live admitted run and authorize its exact tool, subject,
+repository, accepted input, source/preparation and deadline. Tool discovery and
+role prompts do not enforce authority. Provider leases, native publishing/review/
+merge actors and Factory MCP capabilities stay separate.
+
+The trusted host stages managed MCP configuration, instructions and a run-specific
+capability outside argv, prompts, repository content and logs. A fixed stdio relay
+can reach only the dedicated Factory listener. Its read-only IPC mount contains
+no operator, extension, broker or host socket or secret file. Protected server key
+material and native mutation credentials never enter the Project. Restart and
+receipt recovery cannot extend a capability's scope, lifetime or allowance.
+
+Only the admitted parent may submit parent-only workflow results. Native worker
+inheritance must preserve exact execution limits while attenuating that control
+authority. Shared account homes and mode-0600 token files do not isolate workers;
+the supported native adapter must prove parent attribution and exclude worker
+access to the credential. An unsupported harness/profile remains unqualified
+instead of accepting a client-declared parent identity.
+
+Planning, inspection, strategy and verification use OS-enforced read-only source
+with separate scratch/fixture data. Builder/Fixer source edits do not grant writes
+to Git metadata, journals, credentials or managed configuration. Trusted Rust
+checks and checkpoint CAS supply commit evidence. Same-role worker path ownership
+is scheduling cooperation, not a claimed kernel isolation boundary.
+
+A finish call records a proposal. Controller verification, unchanged admitted
+inputs and actual parent/child retirement establish its usable result. Stop and
+withdrawal close admission immediately, with native cleanup/effect reconciliation
+retaining their existing ordered completion rules. Reads after retirement use
+authorized owner/controller views, not reactivated agent credentials. No role can
+merge, resolve threads, raise limits, approve itself or mutate the issue graph
+directly. Explicit clean review and Jev correction acceptance use the same
+conditional native authority boundary.
+
+Stall and verification repair require explicit repository sponsorship; they cannot
+borrow an unrelated private intent's funds or reinterpret manual/completed work.
+Validated delegated revisions may change idle generated tasks within accepted
+scope. The controller journals each permitted native effect and verifies readback;
+the agent's proposed graph is not authority. All limits retain consumption across
+replacement issues, revisions and retries. Whole-app verification names an exact
+version; it cannot authorize publication or deployment.
+
 ## Project execution boundary
 
 The [environment model](../product/projects.md#environment-relationships) places

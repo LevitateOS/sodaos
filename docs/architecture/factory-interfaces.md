@@ -38,13 +38,100 @@ cross-service factory/database coordination, but also shares its availability an
 native-actor boundary. Git is an additional backend dependency.
 
 This choice follows the actual startup/store wiring in
-[`cmd/soda-dashboard`](../../cmd/soda-dashboard/main.go), the separate ledger in
-[`factory/control`](../../internal/factory/control/config.go), existing
+[`cmd/soda-dashboard`](../../cmd/soda-dashboard/main.go), the coordinator in
+[`factory/control`](../../internal/factory/control/coordinator.go), existing
 [`host` lease delivery](../../internal/host/identity.go), and the current
 [backend image](../../system/containers/dashboard/Containerfile). Three fresh Jev
 consultations supported backend placement and host delivery; that advice does
 not prove either implementation. The [planning evidence](../development/factory-implementation-plan.md#interface-definition)
 records their scope and source revisions.
+
+## Factory MCP role interface
+
+This is a target interface, pending the native proofs and production tasks in the
+[workflow plan](../development/factory-workflow-plan.md#fw-refine-003-dependency-ordered-tasks).
+One Go MCP implementation runs in the existing `soda-dashboard` process on a
+dedicated private Unix HTTP listener. A fixed `soda-project-terminal factory-mcp`
+Rust relay presents native stdio MCP to each admitted CLI. Mount only a dedicated
+read-only IPC directory containing this listener, so socket recreation after
+backend restart remains observable. Do not expose the extension/operator/host or
+broker sockets, a public HTTP listener or another workflow service.
+
+The service uses its existing database for scoped capabilities, submissions and
+verification receipts. Every call binds admitted assignment/run, profile/phase,
+subject, repository/Project, preparation, accepted input/source, authority and
+deadline. Discovery filters tools, while server admission enforces them. Native
+run observation activates the capability by CAS; stop, withdrawal, expiry and
+retirement revoke it. Provider credentials and Factory control capabilities are
+separate. The native parent/worker identity and instruction-channel boundary must
+be proved for each supported pinned harness/profile before enabling it.
+
+| Profile | Phase / execution account | Completion control |
+| --- | --- | --- |
+| Product Lead | decompose / coder | `factory.finish_product_plan` |
+| Architect | investigate / coder | `factory.finish_issue_plan` |
+| Builder | implement / coder | `factory.finish_implementation` |
+| Inspector | review / reviewer | `factory.finish_review` with explicit clear/findings/incomplete |
+| Fixer | correct / coder | `factory.finish_correction` |
+| Strategist | reassess or repair / coder | `factory.finish_reassessment`, bound to completion/stall/delivery-failure cause |
+| Test Pilot | verify / reviewer | `factory.finish_app_verification` |
+
+All profiles expose `factory.context`, `factory.evidence`, `factory.status`,
+`factory.receipt` and `factory.finish_incomplete`. Builder/Fixer can
+`factory.submit_task_output`; Builder alone can `factory.request_handoff` to an
+already planned successor. These are 14 tools across seven profiles, not seven
+server processes or seven native account roles. Native editor/terminal/browser
+and native child controls remain execution-harness capabilities. Jev is invoked
+only by the controller's funded typed-judgment path.
+
+Each mutation carries submission ID, expected input digest and strict typed
+payload. Unique assignment/submission identity returns the same immutable receipt
+on replay and conflicts on changed content. Only a terminal proposal freezes new
+mutations. Actionable completion requires trusted evidence and observed native
+parent/child retirement; terminal prose/fenced JSON is diagnostic on the MCP path.
+After capability retirement, the controller/authorized owner view reconciles lost
+receipts without reauthorizing the agent. Bound request, page, submission and
+history sizes; reads do not cause new work or spending.
+
+Extend the existing launch/run wires with explicit role instructions/configuration
+digests, Factory capability identity, D05 task manifest and optional D16 verification
+manifest. Protected host staging carries the capability secret outside prompts,
+argv and ordinary rows. Launch returns a durable pre-start hold and observed
+binding; protected capability/check receipts permit idempotent `FactoryStart`
+to release the marker once, with stop/deadline checks. Trusted task checkpointing handles Builder children and
+a singleton Fixer parent; only Rust writes integration Git metadata. Whole-app
+checks use fixed `FactoryVerificationChecks` under the same host process custody,
+before Test Pilot CLI start, with actual source/artifact/fixture receipts.
+
+Role results flow through existing controller/domain/store owners into conditional
+Fountain graph/PR/review/thread/merge operations and current Work/Spaces read
+models. The [frozen control contracts](../development/factory-workflow-contracts.md#d14--one-factory-mcp-implementation-and-seven-profiles)
+own exact DTOs, prompts, authorization, launch additions and the per-control wiring
+matrix during implementation. API reference entries are added only when callable.
+
+## Review acceptance, repair and delivery subjects
+
+Use an immutable `DeliveryAcceptance` union: exact independent clean review or
+funded Jev acceptance of complete correction evidence. Both bind the full current
+finding content, coverage, check evidence, candidate tuple, policy/authority and
+expected resolution effects. All resolution/merge registration and reconciliation
+entries consume this same union. Clean bypass does not bypass native protection,
+required checks or the post-completion decision.
+
+Keep issue, intent and completion subjects; add explicit stall, delivery and
+delivery-repair subjects rather than fake issues/completions. The existing progress
+pass classifies waits and repairable graph components from a complete inventory.
+Unique stall episodes retain allowance consumption across edits/retries; bounded
+Strategist proposals use existing serial graph adoption/readback and admission
+fences. Actual failed app verification has its own cause-bound repair subject.
+
+Store intent aggregate and verification allowances by stable intent ID, and repair
+allowances by repository grant; reserve work in the final admission transaction.
+Observe uncertain effects before new mutations and preserve protected issue/route
+identities. A version-bound delivery record requires complete accepted-outcome
+coverage and approved verification manifest/check receipts. No queue-empty or
+agent-reported completion shortcut. Target behavior/limits belong to the
+[product contract](../product/overview.md#recovery-and-completion-of-an-app-version).
 
 ## Common identities and request rules
 

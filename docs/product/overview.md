@@ -144,8 +144,9 @@ changes to the objective, acceptance or dependencies require reassessment and ne
 prompt inputs; cosmetic metadata changes do not. A blocked item is not repeatedly
 sent to an agent while its inputs are unchanged. Resolved blockers can resume
 automatically within remaining authority and limits.
-Among eligible queued work, take the oldest ready issue first; dependency-blocked
-work does not occupy an execution slot.
+For multiple eligible issues, use the complete-set Jev/fairness policy below;
+a single eligible issue needs no comparative call. Dependency-blocked work does
+not occupy an execution slot.
 
 ### Accepted requirements and native records
 
@@ -271,8 +272,8 @@ otherwise unchanged accepted inputs.
 
 | Change | Consequence |
 | --- | --- |
-| Any title/body revision change, including whitespace, or an edit/deletion of any selected source comment, including the question | Invalidate the affected accepted snapshot. Require explicit acceptance of the new revisions, regardless of who edited them; do not use an LLM to decide that the change was cosmetic. |
-| Added/removed/recreated native edge, changed prerequisite objective, bound prerequisite acceptance revision or approved outcome | Invalidate the dependent input set and require a maintainer to adopt the revised relationship/outcome. Removing an edge is not automatic unblocking. |
+| Any title/body revision change, including whitespace, or an edit/deletion of any selected source comment, including the question | Invalidate the affected accepted snapshot. Require explicit acceptance of the new revisions, except the bounded machine-attributed generated-graph adoption below; an LLM cannot declare an arbitrary edit cosmetic. |
+| Added/removed/recreated native edge, changed prerequisite objective, bound prerequisite acceptance revision or approved outcome | Invalidate the dependent input set and require authorized adoption of the revised relationship/outcome; bounded generated-graph adoption below may supply that authority. Removing an edge alone is not unblocking. |
 | Prerequisite closes and the already approved outcome is proved | Reassess automatically, retaining the existing requirement acceptance and remaining limits. Other blockers still apply. |
 | Prerequisite reopens, merge/result evidence disappears, or the declared branch no longer contains the result | Withdraw satisfaction. A reopen ends the old resolution occurrence; closing again cannot revive it without a new attributable completion or maintainer resolution for that occurrence. The prerequisite remains required. |
 | Required evidence becomes unreadable or cannot be verified | Keep work blocked; cached copies cannot prove current satisfaction. Restored access permits fresh checking, not blind reuse of an old operation authorization. |
@@ -383,6 +384,61 @@ that cannot be enforced or observed must not be represented as a guaranteed cap.
 The [credential contract](../reference/credentials.md#authentication-and-billing-choice)
 owns supported billing and authentication routes.
 
+### Recovery and completion of an app version
+
+The factory distinguishes ordinary waits from stalled work using a complete
+current inventory. Active prerequisites, CI, capacity, provider allowance,
+preparation, permission, explicit pauses and unanswered product choices show the
+actual cause and owner without repeatedly invoking an agent. A separate blocked
+component cannot hide a repairable cycle or missing producer elsewhere.
+
+When authorized unfinished outcomes have no eligible producer, a bounded
+Strategist investigation may propose a repair. Code checks scope, coverage,
+dependencies and protected work; Jev assesses whether the proposal addresses the
+cause. Conditional graph adoption and native readback precede fresh selection.
+Completed, manual, active and PR-bound work stays protected. Only idle accepted
+generated tasks can be revised under delegated authority; material scope changes
+still require product acceptance. This same bounded machine-attributed exception
+applies to post-completion reassessment and evidenced app-verification repair.
+It does not accept arbitrary human/native edits or manufacture prerequisite success.
+
+Unchanged evidence is reused. Automatic stall recovery allows two cycles per
+progress episode, with explicit repository funding capped by default at four
+investigations, four proposal judgments and 120 active minutes in total. Issue
+splits, retries and graph rewrites do not refill those allowances. Generated work
+also retains its originating intent's aggregate active-time budget, initially 480
+minutes, alongside tighter per-attempt limits. Explicit authorized increases keep
+consumed usage. Limits measure time/calls, not a guaranteed monetary cost.
+
+A finished issue is not proof of a finished app. Once accepted outcomes are
+actually delivered and pending graph changes reconciled, Test Pilot verifies the
+exact integrated intent version using approved checks, journeys and disposable
+fixtures. Empty queues and agent declarations cannot establish completion. The
+controller executes the approved manifest and records candidate/artifact-bound
+receipts; the verifier independently assesses complete outcome coverage. Missing
+fixtures/check definitions are preparation waits. Default verification allowance
+is two runs/60 active minutes per stable intent, including across version changes
+and retries. Failures may enter bounded, explicitly funded repair; they cannot
+weaken the accepted outcomes or reset limits. Verified completion names the exact
+version and evidence and does not authorize deployment.
+
+### Role-specific workflow controls
+
+One Factory MCP server implementation provides seven scoped profiles: Product
+Lead, Architect, Builder, Inspector, Fixer, Strategist and Test Pilot. Each has
+its own stable role instructions, generated assignment context and permitted
+controls. Inspector has an explicit “nothing found” result; all roles can report
+blocked/failed/incomplete work and submit their role's completed result.
+
+These are workflow controls, not seven new native identities or servers. The
+controller authenticates every call, verifies submitted evidence and observed
+process retirement, and drives the existing issue, checkpoint, review, merge and
+read-model paths. A durable submission receipt is visibly distinct from verified
+completion. Agent tools cannot grant budget/authority, mutate graphs directly or
+merge. Native coding tools and native subagent management stay with the execution
+harness. Product Lead's generative run starts after authorized repository
+association; private pre-repository drafting uses the existing product service.
+
 ### Review and correction
 
 The coding role alone changes the candidate branch. The reviewer works from a
@@ -399,9 +455,18 @@ consolidated findings and either corrects them or explains a concrete disagreeme
 A fresh review round or Jev acceptance of the verified correction set reassesses
 the revised head and outstanding findings; mechanically complete fixes may reach
 Jev while native threads stay open, conditional on successful resolution
-afterward. A clean first review still requires Jev's acceptance before merge.
-A reviewer's own change cannot receive that reviewer's approval. Disagreement
-without progress goes to a maintainer instead of an unlimited agent debate.
+afterward. An explicit complete independent clear review can instead supply
+candidate-bound acceptance without a delivery Jev call. Silence, no comments or
+native approval alone is insufficient; every carried actionable finding must be
+verified and required coverage complete. Historical verified fixes and declined
+optional advice stay visible without permanently preventing a clear result.
+A reviewer's own change cannot receive that reviewer's approval. Optional-only,
+disputed or repetitive feedback reaches Jev before more coding/review. Jev weighs
+remaining material risk and the concrete value of another pass. Uncertainty waits
+for attention; it does not automatically purchase review. At most one additional
+discretionary review of an unchanged head is allowed, within total run limits.
+A demonstrated unresolved defect cannot be waived; disagreement without useful
+progress returns to its owner.
 Every changed candidate requires new required CI and either a fresh review round
 or Jev acceptance of the verified correction set, within the same remaining
 limits. Verification-only findings may keep the same head when new passing
@@ -418,9 +483,10 @@ Merge is allowed only when all of these remain true at the native merge operatio
   still match the recorded inputs.
 - The PR belongs to the assigned repository, branch and issue; its current head is
   exactly the reviewed candidate, and the intended target/base is still valid.
-- Independent review passes with no unresolved blocking findings, and Jev accepts
-  the exact candidate by selecting ready_to_merge at both confidence thresholds;
-  every configured check in the nonempty required-check set passes for this
+- Independent review has occurred and current acceptance is either an explicit
+  complete clear independent review or Jev's sufficient-correction decision at
+  both confidence thresholds. Neither permits an unresolved demonstrated defect.
+  Every configured check in the nonempty required-check set passes for this
   candidate and the base against which it was verified. Missing, skipped,
   cancelled, pending or failed evidence is not a pass.
 - Native repository permissions, branch protection, approvals and mergeability

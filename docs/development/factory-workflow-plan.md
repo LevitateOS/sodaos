@@ -8,8 +8,8 @@ implementation. It is based on read-only inspection of Soda
 
 The [frozen implementation contracts and decisive tests](factory-workflow-contracts.md)
 record Codex's final design decisions, including concrete schemas, algorithms,
-limits, failure/recovery rules and 40 acceptance cases, including the
-FW-REASSESS-002 post-completion amendment (D13). Read them before assigning
+limits, failure/recovery rules and 64 acceptance cases, including
+FW-REASSESS-002 (D13) and FW-REFINE-003 (D14–D17). Read them before assigning
 any task. Spark implements those decisions; failed native assumptions return to
 Codex with evidence rather than becoming worker-selected architectures.
 
@@ -25,109 +25,59 @@ existing operator inputs in [the factory reference](../reference/factory.md).
 Implementation tasks below update those owners together with their code; this
 plan does not claim the proposed interfaces already exist.
 
-## Agreed follow-up refinements
+## FW-REFINE-003: review, recovery and role controls
 
-Recorded from the owner's 2026-10-16 refinement discussion. These are three
-follow-up changes to the implementation baseline below, not claims of implemented
-or qualified behavior. Before assigning their implementation, reconcile the
-owning product/interface guides, frozen contracts, dependency-ordered tasks and
-acceptance tests. In particular, refinement 1 supersedes the baseline's blanket
-requirement to consult Jev after a clean review; D07–D09 and the older task/test
-wording still require that amendment. Preserve completed work and arrange writer
-handoffs before changing active assignments.
+The 2026-10-16 refinement is now a complete implementation design, not a list of
+open brainstorm items. D07–D09 replace mandatory clean-review judgment with the
+clean/Jev acceptance union; D14 specifies one MCP implementation, seven profiles,
+14 controls, instruction/task templates and production wiring; D15 specifies
+bounded stall diagnosis/repair; D16 makes Test Pilot and app completion concrete.
+D17 adds P6–P9 native gates and T41–T64. None is claimed implemented or qualified.
 
-### 1. Review decisions and diminishing returns
+Preserve FW01–FW32 work and receipts. Read-only reconciliation for this amendment
+observed Soda `0d40d3d3` and Fountain `2551d0aa2b`: completion reassessment, native
+review/merge infrastructure and phase/task work are reusable; clean-review bypass,
+MCP control admission, stall recovery and whole-app verification still need the
+refinement tasks below. In particular, the current judgment-only merge gate must
+be generalized, not deleted or rebuilt from scratch. Claimed worker completion
+and helper fixtures do not replace production/native evidence.
 
-- A completed independent review explicitly reporting nothing found can proceed
-  to the common merge gate without a Jev delivery judgment. The result must bind
-  the exact current review inputs, account for required coverage and verify every
-  carried actionable finding. Silence, an empty comment list or a successful
-  process exit cannot establish a clean review.
-- Concrete required defects enter bounded correction. Complete proposed fixes
-  without a subsequent explicit clean independent review reach Jev for a decision
-  on sufficiency or another review. Optional-only feedback and disputed or
-  repetitive findings reach Jev before automatically spending on more coding or
-  review. Historical verified fixes and declined optional suggestions remain
-  recorded without permanently preventing a later clean result.
-- Jev assesses remaining material risk and the specific benefit of another pass.
-  Optional suggestions do not automatically create correction work. Another
-  discretionary review requires an explicit positive decision; uncertainty alone
-  does not purchase another review. Allow at most one additional discretionary
-  review of an unchanged candidate, within the existing cumulative allowances.
-  Exhaustion remains visible and cannot waive demonstrated defects or checks.
-- Both clean-review evidence and Jev acceptance use the same freshness, authority,
-  required-check, native policy, thread-resolution and recovery gates. Skipping a
-  delivery judgment does not skip D13's decision after each verified completion.
+The existing Muse coordinator retains one central completion/writer checklist.
+FW33–FW50 are additive tasks; this document owns design, dependencies and tests,
+not live progress. Preserve active FW24/recovery work until a named safe handoff.
+Any old acceptance wording amended below uses the new frozen contracts. Source
+changes already committed under earlier wording are correction inputs, not a
+reason to restart the run. No second Muse instance or worktree.
 
-Contract/test follow-up: amend D07–D09, product review/merge rules and all merge
-entrypoints together. Cover genuine clean-review bypass, missing/incomplete/stale
-reports, carried findings, proposed corrections, optional-only loops, uncertain
-advice, bounded repeat reviews and unchanged native protection requirements.
+The monitor already reopens P1: its retained fixture launched separate per-task
+CLI processes and generated its own checkpoint acknowledgement. That proves
+neither native children nor trusted checkpoint release. The central checklist's
+C6 audit also records the missing production `FactoryTaskCheckpoint` route and
+unqualified native-child control route for the tested pins. FW33/FW34 and P8 must
+produce the actual supported boundary; source helpers and historical “passed”
+labels cannot release dependent native qualification. Retain those artifacts as
+transport/process evidence, not as proof of the stronger contract.
 
-### 2. Stalled-build and deadlock recovery
+The three decisions are:
 
-Trigger when required accepted outcomes remain unfinished and normal progression
-has no eligible work. This needs a distinct stall event: D13 only follows an
-actual verified completion and cannot resolve a stall before one occurs.
+1. An explicit, complete independent clear review proceeds to the same merge gate
+   without a delivery Jev call. Proposed fixes, optional/disputed/repetitive
+   feedback use bounded Jev routing. Uncertainty waits; it does not automatically
+   buy a review. One extra discretionary review per unchanged head is the ceiling.
+2. Deterministic classification distinguishes active/external waits from cycles,
+   missing producers and unexplained no-ready work. One fenced repair episode
+   uses complete evidence, a bounded Strategist and validated/judged graph changes.
+   Retries and replacement issues cannot refill aggregate allowances.
+3. One Factory MCP server in Soda exposes seven profiles: Product Lead, Architect,
+   Builder, Inspector, Fixer, Strategist and Test Pilot. Run-scoped authentication,
+   OS permissions, trusted native observations and durable verification connect
+   every control to real progression. Explicit blocked, nothing-found and finish
+   reports never substitute for observed completion.
 
-1. Establish the complete inventory and reconcile active runs and uncertain
-   native effects. Incomplete observation is not proof of deadlock.
-2. Classify known waits deterministically: active prerequisites, CI, capacity,
-   provider allowance, preparation, permissions and unanswered product decisions.
-   Expose their actual cause and responsible owner rather than repeatedly running
-   an investigator. Detect dependency cycles and required outcomes without a
-   viable producing issue separately.
-3. Admit one bounded investigation for an unexplained stall, bound to the accepted
-   scope, inventory and blocker evidence. Return cited causes and a repair proposal.
-4. Validate scope, coverage, dependencies, authority and protected work before
-   semantic assessment by Jev. Adopt permitted changes through the existing
-   graph-mutation journal, verify native readback and recalculate readiness.
-5. Reuse the recorded result while evidence is unchanged. Polling, replacement
-   issues and graph reshuffling cannot replenish allowances. Uncertain effects
-   reconcile before retry; unresolved intent or authority returns to its owner.
-
-Never invent prerequisite completion, remove a real dependency just to unblock
-work, expand accepted product scope or overwrite completed/manual/active work.
-Reuse reassessment infrastructure without manufacturing a completion event or
-adding a recurring model-check timer.
-
-Contract/test follow-up: define the stall subject, trigger, finite funding and
-receipt identity. Cover ordinary waits, incomplete inventory, cycles, missing
-producer outcomes, valid repair, protected work, restart/uncertain adoption and
-no repeated spending on unchanged evidence.
-
-### 3. Role-specific MCP controls
-
-Use one Soda-owned Factory MCP server implementation with seven capability
-profiles. These profiles do not create seven servers or new native actor roles.
-
-| Agent profile | Proposed controls |
-| --- | --- |
-| Product planner | Read intent/context; submit product and issue-graph proposals; identify consequential questions. |
-| Issue investigator/planner | Read selected issue/prerequisites; submit investigation, implementation plan and task lanes; report blockers. |
-| Implementer | Read assignment; submit task checkpoints and candidate evidence; request writer handoff; report failed assumptions. |
-| Reviewer | Read exact review package; submit anchored findings; explicitly finish as clear, findings or incomplete. |
-| Corrector | Read all findings; submit per-finding dispositions, corrected candidate and verification evidence. |
-| Reassessment/blocker investigator | Read complete inventory; submit reassessment/stall-repair proposals or an explicit no-change result. |
-| Whole-app verifier | Read accepted product outcomes; submit journey/check evidence, acceptance failures or verified completion. |
-
-The reviewer's explicit “nothing found” control is a typed terminal result with
-coverage and evidence, producing a durable receipt. Every call is authorized by
-the admitted run, role, phase, subject, repository, accepted revision and expiry;
-hiding tools is insufficient. Replays return the same receipt and conflicting
-terminal submissions refuse. Filesystem/shell permissions must match the profile.
-
-Keep existing ownership: Soda validates submissions and coordinates progression;
-the execution harness owns execution and native workers; Fountain owns authorized
-native issue/PR/review/merge effects. Jev is called by the controller through its
-API and needs no agent-facing MCP server. Reviewers/verifiers cannot mutate the
-candidate or merge. The whole-app verifier requires an explicit subject/result
-contract; listing its profile does not claim that completion gate already exists.
-
-Contract/test follow-up: specify bounded tool inputs/results and per-profile
-admission; prove supported MCP integration in each admitted harness before broad
-rewrites. Cover role/scope rejection, stale/revoked calls, replay/conflict behavior,
-structured clean-review completion and no filesystem/terminal permission bypass.
+Generative Product Lead begins after repository association; existing private
+pre-repository product drafting remains. Whole-app verification binds an accepted
+intent version and actual integrated artifact/checks. Empty queues do not mean a
+finished app, and verification does not authorize deployment.
 
 ## Required outcome
 
@@ -141,11 +91,11 @@ structured clean-review completion and no filesystem/terminal permission bypass.
    commits throughout, integrates the result, and opens one PR for the issue.
 5. A separate reviewer examines the candidate and posts native inline findings.
    A fresh correction agent addresses every finding with explicit evidence.
-6. Jev chooses another independent review or readiness to merge. Review/fix can
-   repeat, including another review on an unchanged head. A clean first review
-   also reaches Jev's decision; reviewer approval alone does not bypass it.
-7. A fresh recorded Jev acceptance plus deterministic authority, checks and native
-   branch policy allow an exact-head merge. Confirmed merge and attributable issue
+6. Explicit complete independent clear review skips delivery Jev. Otherwise Jev
+   chooses useful further review or sufficient correction evidence within fixed
+   bounds; uncertainty cannot launch a review. Native approval alone is not clear.
+7. Fresh clean-review or Jev acceptance plus deterministic authority, checks and
+   native branch policy allow an exact-head merge. Confirmed merge and attributable issue
    completion unlock dependants and atomically record a repository reassessment gate.
 8. After **each** verified completion, Jev decides whether the entire current issue
    inventory needs reassessment. On `continue`, fresh selection resumes. On
@@ -360,8 +310,9 @@ mechanically complete proposed fix reaches Jev/review while its thread can still
 be open. After semantic acceptance, journal resolution operations and confirm
 native readback before merge. Expected resolution writes are reconciliation of
 that accepted decision, not new finding content requiring another paid judgment;
-unexpected content/policy/head changes invalidate it. Disputes use existing maintainer intervention rather
-than an unbounded argument between agents.
+unexpected content/policy/head changes invalidate it. Disputes reach the bounded
+D08 choice before another pass; a demonstrated unresolved defect cannot be waived
+and unresolved disagreement ultimately requires owner attention.
 
 Reviewer and correction work remain separate fresh runs. Re-review receives the
 original findings and correction facts to verify, without the coding agent's
@@ -387,25 +338,29 @@ Preserve consumed-call accounting and reuse unchanged recorded judgments.
 | Observed state | Next action |
 | --- | --- |
 | No first independent review | Dispatch reviewer. |
-| Actionable findings lack complete proposed fixes, are disputed, or required code checks fail | Dispatch bounded correction when fixable; otherwise expose existing intervention/wait. An open thread with complete proposed fix evidence can proceed to judgment. |
+| Concrete defects lack fixes or required code checks fail | Dispatch bounded correction when fixable; otherwise name the wait. Complete proposed fixes can proceed to judgment before thread resolution. |
+| Optional-only, disputed or repetitive findings | Jev assesses material risk and specific benefit before more coding/review; actionable disputes cannot be waived. |
 | Native policy requires another approval | Obtain the required independent review; Jev cannot waive this gate. |
 | Evidence/authority is incomplete, checks are pending, or funds are exhausted | Wait with the exact reason; no merge acceptance. |
-| Independent review and mechanically complete correction evidence is ready for semantic judgment, and native policy permits the path | Ask Jev to choose `review_again` or `ready_to_merge`. This also applies after a clean first review. The choice assesses correction sufficiency; incomplete evidence cannot be accepted. |
+| Explicit complete independent clear report, all carried actionable findings verified | Record clean-review acceptance without a delivery judgment; preserve checks/native policy/D13. |
+| Complete proposed correction evidence without a later clear review, native policy permits the path | Ask Jev to choose `review_again` or `ready_to_merge`; incomplete evidence cannot be accepted. |
 | Valid `review_again` | Persist the decision/cycle, dispatch a fresh reviewer, then reconsider after its result. |
 | Valid `ready_to_merge` | Record candidate-bound Soda acceptance, reconcile accepted finding resolutions, then recheck all deterministic/native conditions before merge. |
 
-Insufficient-confidence advice conservatively requests review within the remaining
-allowance; otherwise waits. Exact limits and thresholds are fixed in
+Insufficient-confidence or tied advice waits with `judgment_attention`; it does
+not purchase a review. A positive further-review decision must also fit total and
+unchanged-head limits. Exact limits and thresholds are fixed in
 [D04](factory-workflow-contracts.md#d04--fixed-limits-and-accounting) and
 [D08](factory-workflow-contracts.md#d08--native-merge-eligibility-and-jev-policy).
 Missing/malformed/provider-failed answers cannot create acceptance. Do not silently
 repeat a consumed request. FW06C implements the frozen policy and failure accounting.
 
 Replace Soda's mandatory fresh approval after every correction with two supported
-evidence forms: independent approval of the candidate, or prior independent
-findings plus complete candidate-bound correction evidence. **Both require a
-fresh applicable Jev `ready_to_merge` decision.** This makes the requested choice
-effective without pretending Jev granted a native approval.
+evidence forms: explicit complete independent clear review, or prior independent
+findings plus complete candidate-bound correction evidence accepted by Jev.
+Persist the D07 `DeliveryAcceptance` union. Both use identical authority,
+freshness, check, thread-resolution and native protection gates; neither invents
+a native approval.
 
 Enforce this in the common merge admission used by `mergeOne`, `reconcileMerge`
 and `observeMergeEvidence`, as well as normal publication progress. Preserve
@@ -416,7 +371,7 @@ recognize a previously authorized merge that actually completed; it must not
 launch a new mutation using stale acceptance or charge another decision merely
 to observe an existing native receipt.
 
-Persist the consumed decision ID, cycle and evidence fingerprint in immutable
+Persist the acceptance kind/ID, originating receipt/decision, cycle and fingerprint in immutable
 `MergeWork`/merge intent. Superseding acceptance invalidates an already registered
 but undriven merge using existing withdrawal ordering. Test invalidation between
 intent persistence and submission, plus a lost response after actual native merge.
@@ -499,7 +454,7 @@ Project/host factory execution owners; `X` = Fountain canonical checkout.
 | FW18 | FW06C | C | Soda structured findings, receipts and immutable correction/review-cycle storage. Owners: `F/review_native*`, `N/review*`, existing publication/store records. | Stable native/factory identity mapping; bounded parsing; complete finding digest/dispositions; obsolete string-only callers replaced. |
 | FW19 | FW11, FW17, FW18 | C | Correction result admission and accepted-fix/native-resolution reconciliation. Owners: `C/correction*`, correction prompts and N resolution adapter. | Every finding accounted for; incomplete/disputed evidence blocks; mechanically complete proposed fixes reach judgment before native resolution; accepted resolutions journal and read back without circular admission. |
 | FW20 | FW11, FW18 | C | Durable review cycles and fresh independent re-review input. Owners: `C/publication_children*`, `review_cycle*`, `F/dispatch_prompt_stage*`. | New decision on same head creates a fresh reviewer; replay reuses its run; full outstanding finding/correction evidence supplied; distinct reviewer/corrector sessions retained. |
-| FW21 | FW06C, FW18 | A | Funded Jev delivery choice, evidence fingerprint, decision persistence and uncertainty/failure policy against accepted disposition/cycle contracts. Owners: `F/judgment*`, `C/judgment_advice*`, existing chooser/store reservation owner. | Both choices exercised; clean review also requires judgment; attempt-root call subledger reserved/consumed; stale semantic evidence invalidates while expected resolution readback does not repeat the call. Integrate real correction/cycle paths in FW22. |
+| FW21 | FW06C, FW18 | A | Funded Jev delivery choice, evidence fingerprint, decision persistence and uncertainty/failure policy against accepted disposition/cycle contracts. Owners: `F/judgment*`, `C/judgment_advice*`, existing chooser/store reservation owner. | Both choices exercised; explicit clear review bypasses delivery judgment under D07; attempt-root call subledger reserved/consumed; stale semantic evidence invalidates while expected resolution readback does not repeat the call. Integrate real correction/cycle paths in FW22. |
 | FW22 | FW16, FW17, FW19, FW20, FW21 | C | Implement D07–D09 transitions, common merge gate and bounded authorization generations. Owners: `C/publication_children*`, `merge*`, `N/merge_observation*`, `F/merge_operation*`, `S/factory_merges*`. | T25–T29: expected resolution reconciliation, every merge entrypoint gated, cancelled authorization replaceable on same PR, uncertain/committed predecessor never replaced. |
 | FW29 | FW01 | C | P5 narrow native proof: extend generic repository_issues snapshot family and prove complete actor-bound pagination; reuse graph fixtures for frozen edges, packet bounds and receipt replay. Owners: X SDK/snapshot/native graph; N snapshot adapter. | T34 and T37 native packet facts established before consumers; Soda acceptance/adoption assertions remain FW32; small fixture, no full build. Return failure to Codex; preserve existing P1–P4 receipts. |
 | FW30 | FW06A, FW06B | Coordinator / A | Freeze D13 domain/store/UI contracts in code: completion event/cycle/report, two-call/one-run ledger, Retry identity and repository generation; add schema registration after exclusive handoff. Owners: F reassessment records, grants, S schema/completion owners. | T33/T35 contracts; completed issue root cannot reopen; typed scope/coverage/limits; source callers updated together. |
@@ -512,7 +467,73 @@ Project/host factory execution owners; `X` = Fountain canonical checkout.
 | FW27 | FW25 | Independent coordinator review | Review released changes while FW26 runs; inspect native receipts as they arrive. Cover semantic decomposition, authority, every merge path, budgets and lane execution. Repairs return to file owner and repeat affected checks. | Source review can finish with external qualification gates recorded; native conclusions await actual evidence. No substantive unresolved source finding or active writer on reviewed files. |
 | FW28 | FW26, FW27 | A / Coordinator | Complete owning docs, references and operator guidance; reconcile broader factory plan and remove absorbed completed planning material. Record focused local commit groups and remaining external gates. | User's complete loop traceable to code/evidence; native evidence independently reviewed; clean intended Git state; no push, publication, merge or protected-appliance mutation by this implementation session. External gates leave qualification open. |
 
-### Parallel schedule and writer handoffs
+### FW-REFINE-003 dependency-ordered tasks
+
+Retain the baseline checklist and evidence. Before FW33, coordinator records the
+current commits, command owners and which baseline prerequisites actually pass.
+Unqualified P1/native assumptions remain open even if an earlier worker marked a
+task done. P6/P7/P8 are small native gates, not permission for a broad rewrite.
+FW35 can proceed independently of MCP; transport work cannot block a released
+review correction. No new source implementation is claimed by this plan amendment.
+
+| ID | Depends on accepted output | Lane | Deliverable / exact owners | Completion evidence |
+| --- | --- | --- | --- | --- |
+| FW33 | FW01; released P launcher files | B | P6 fixed stdio relay/private IPC directory/socket/trusted instruction-channel proof for exact admitted harnesses; smallest SDK integration in existing P + `internal/web/api` fixture. | T47; pin SDK/harness/config bytes, actual profile and commands; unsupported profiles stay unavailable. |
+| FW34 | FW33 | B | P7 native caller/worker attenuation and OS permission proof; narrowly implement required P mount/config/credential protections. | T49/T50; native forbidden writes/calls fail, permitted checks/scratch work; no shared-home token assumption. |
+| FW35 | FW18, FW20; released shared domain files | C | D06 complete finding digest, canonical dispositions and D07 DeliveryAcceptance union; exact clear-report validation and storage in F review/result/publication, C correction, S publication/review. | T41–T43 domain/store tests; no key-only authorization or rewritten defects. Release union to FW37 without waiting for transport. |
+| FW36 | FW35, FW21 | C | D08 routing and finite unchanged-head discretionary counter in C review cycles/publication children/judgment and S allowance reservations. | T44; positive evidence needed to buy review, uncertainty waits, optional advice cannot force correction, all charges idempotent. |
+| FW37 | FW36, FW17, FW22 | C | Apply union to conditional resolution, all merge registration/reconcile/progress paths and S merge generations; preserve already committed effects. | T45/T46 on real PG and retained native policy fixture; zero-delivery-call clean route and both variants through every serving entry. |
+| FW38 | FW33, FW06A; shared schema/registration handoff | A | D14 canonical profile/tool DTOs, D16 verification-manifest proposal/catalog-reference contract, bounded listener, capability admission, immutable submissions and receipt recovery. Owners F/C/S + `internal/web/api`, construction in `internal/web`/`cmd/soda-dashboard`; use pinned SDK. | T47/T48/T51 handler→controller→PG; unsupported tools fail server-side; listener lifetime/restart reconcile; manifest contract released before Product Lead adoption. |
+| FW39 | FW34, FW38, FW11 | B | Production fixed relay and capability delivery/config staging in P; protected instruction/profile/readonly execution binding; native parent/child stop and receipt identity. | T47–T51 through actual Project namespace/start marker; no secrets in prompt/argv/log or broad socket mount. |
+| FW40 | FW38, FW39, FW09, FW12 | A | D14 common reads/incomplete completion + Product Lead/Architect prompts and typed result ingress; dispatch/settlement/store/view consumers. Include D16 manifest proposal validation, graph-choice coverage, accepted-intent adoption/digest persistence now; FW45 consumes it. Remove authoritative fenced-result ingress. | T51/T52/T54; real repository-bound graph/manifest and plan admission; no-repo draft launches nothing; blocked receipt names cause and observed retirement. |
+| FW42 | FW35, FW39, FW14, FW15 | B | Builder prompt/output/handoff controls and trusted checkpoint integration; P8 genuine native overlap/receipt/release. Includes single-task Fixer checkpoint reuse with FW41 handoff. | T53 and repeated T12–T16; no synthetic acknowledgement or separate per-task CLIs; failed child/check/cancel cannot release descendants. |
+| FW41 | FW35, FW38, FW39, FW42, FW19 | C | Inspector/Fixer profiles/prompts, typed reviews/dispositions and lifecycle consumers into native review/candidate operations; no direct MCP native credentials. | T42/T51/T52/T54 with real handler→conditional review/comment receipts; explicit clear not inferred from exit/approval. |
+| FW43 | FW38, FW30, FW31; completion/progress/store handoff | A | D15 deterministic wait/stall detector, subject/episode/fence, explicit repair sponsor/limits and stable intent active-time aggregate. Owners F assignment/allowance, C progress/readiness/completion admission, S packet/accounting + policy command wiring. | T55–T57/T60 on real serving/store path; no model call for ordinary waits; retries/splits do not refill; unrelated repos progress. |
+| FW44 | FW43, FW32, FW39, FW40 | A | Strategist reassess/repair prompts/control and result consumer; bounded typed proposal Jev request, D13 serial graph adoption/readback reuse and fresh release. | T52/T54/T57–T59; pre-completion deadlock recovery, unchanged evidence reuse, protected records and interrupted prefix preserved. |
+| FW45 | FW39, FW40, FW42, FW44 | B | D16 delivery subject/manifest/outcome map, Test Pilot prompt/control, trusted check/artifact receipts, finite verification/repair admission and P9. F/C/S/P shared files require handoff from A. | T52/T54/T60–T62; exact version verified, empty queue not complete, missing fixture explicit, no deployment; native P9 gate. |
+| FW46 | FW37, FW40, FW41, FW42, FW44, FW45 | C | Wire actual producers to existing intent/attempt/Work/Spaces API/frontend: seven profiles, recorded vs accepted receipts, review cost, blocked owner, stalls and app verification. | T63 and real-readmodel portions of T54; no fake UI status/parallel dashboard, reads spend nothing. Design work may start against released contracts earlier. |
+| FW47 | FW37, FW40, FW41, FW42, FW44, FW45, FW46, FW24 | A | Extend existing serving journey/real PG fixtures, restart/cancel/authority/race matrix for full MCP ingress and all three refinements. | T41–T64 deterministic assertions at production entrypoints; no injected accepted graph/acceptance short circuit. Record relevant baseline failures separately. |
+| FW48 | FW47; P6–P9 actually passed | B + C, coordinator assigns one fixture owner | Small disposable native journey using retained drivers, real native effects and exact pinned profiles; separately funded first-response semantic cases if authorized inputs exist. | T46/T64, actual A/B/C overlap, clean zero-call merge, correction choice, stall repair and integrated verification; precise external gates otherwise. |
+| FW49 | FW47 | Independent coordinator review | Read production wiring, auth, budgets, all merge entries, protected graph adoption and result/checkpoint retirement. Review FW48 receipts when available. Return fixes to sole file owner. | No unresolved substantive source/design finding; native claims independently match receipts. Can run alongside FW48. |
+| FW50 | FW48, FW49 | Coordinator | Reconcile owning docs, completion table and exact remaining external qualification gates; focused local commits and safe writer/resource release. | All applicable tests/evidence traced; incomplete native inputs explicitly keep qualification open. No push/publish/merge. |
+
+### Refinement lanes and explicit handoffs
+
+These are dependency releases, not synchronized waves. Initially C can implement
+FW35–FW37 while B proves FW33–FW34; A prepares contract fixtures and starts FW38
+as soon as P6 releases. B consumes FW38 to finish FW39. A then runs FW40 → FW43 →
+FW44; C starts review adapter work after its contracts and completes FW41 after the
+Fixer checkpoint release; B runs FW42, then FW45 after A's
+shared delivery/adoption handoff. C integrates views in FW46; A owns composed
+serving tests FW47. FW48 native qualification and FW49 independent review overlap.
+Idle capacity may take a ready task only after the central checklist records its
+new writer/file/command ownership.
+
+The coordinator serializes shared edits to `assignment*.go`, `result.go`,
+`dispatch_prompt*.go`, host/Project wire types, schema registration and
+`internal/web/server.go`. A owns capability/submission/store admission; C receives
+only review/correction consumer files. B owns P relay/permissions/checkpoint files;
+Go bridge edits require a named handoff from A. FW43 may use released F/S allowance
+files while B works in Rust. FW45 receives shared F/C/S delivery files from A only
+after FW44 checkpoint/commands settle. FW46 receives readmodel producer contracts
+and released API files, not ownership of active controller files. Ongoing FW24
+recovery commands/writers must release overlapping dispatch/merge owners first.
+
+Every release names commit/diff, source/test receipts, exact files, live processes,
+remaining facts and next owner. The coordinator stages only released owned files
+and makes early focused local commits: review semantics/digests; review routing;
+merge union; transport proof; server admission/receipts; native permissions;
+role adapters/checkpoints; stall classification/accounting; repair/adoption;
+verification; real views/composed tests; independent fixes/docs. Do not bundle
+unrelated identity, release, tools or Fountain work into these commits.
+
+Final completeness requires each D14 wiring-table row and T41–T64, not merely a
+tool appearing in discovery. Preserve the one Muse coordinator and exact native
+worker profile. Do not add the retired five-minute loop. A supervision schedule
+may be described as active only after its actual saved state is verified; an
+unarmed/paused 25-minute relay is not active supervision.
+
+### Baseline parallel schedule and writer handoffs
 
 These are scheduling bands, not barriers: start a task as soon as its listed
 dependencies are accepted and its files are released. In particular, do not wait
@@ -581,7 +602,8 @@ acceptance. Do not restart accepted tasks solely because this requirement was ad
 ## Acceptance and verification
 
 The [D12 decisive test list](factory-workflow-contracts.md#d12--decisive-test-list-and-completion-mapping)
-fixes 40 required cases and task/suite mappings. The matrix below locates existing
+fixes T01–T40; [D17](factory-workflow-contracts.md#d17--refinement-proof-gates-and-decisive-cases)
+adds T41–T64 and their task/suite mappings. The matrix below locates existing
 entrypoints; it does not replace the more specific assertions in D12.
 
 Use existing test drivers and the smallest affected packages. Database fixtures
@@ -600,7 +622,7 @@ ISO/outer-image build to establish a CLI or review API boundary.
 | Real inline comments on added/deleted lines; exact receipts; stale head, replay, unauthorized resolution, later-page and outdated findings behave correctly. Native merge-eligibility read agrees with protected mutation. | Fountain `sdk/review_test.go`, `services/nativeoperation/review_test.go`, native review/merge integration fixtures; Soda review adapter/cycle tests. |
 | Separate correction agent accounts for all findings; unknown/missing/disputed/stale evidence prevents acceptance. | `C/correction_test.go`, `publication_children_test.go`, stage prompt/result tests. |
 | Jev requests another review on both same and changed head; that new review can produce more findings; later Jev acceptance reaches merge. | `C/review_cycle_test.go`, `publication_children_test.go`, judgment funding/cache/failure tests. |
-| Clean review needs Jev; complete proposed fixes can be judged before thread resolution; accepted resolution readback does not cause repeated paid calls. Every merge entrypoint requires applicable decision evidence; invalidation after intent persistence prevents submission. | `C/merge_test.go`, reconcile/evidence and lost-response tests, native exact-merge/protection fixtures. |
+| Explicit clear review bypasses Jev; complete proposed fixes can be judged before thread resolution; expected resolution readback adds no paid calls. Every merge entrypoint requires applicable clean/Jev acceptance; invalidation after persistence prevents submission. | `C/merge_test.go`, reconcile/evidence and lost-response tests, native exact-merge/protection fixtures. |
 | One root merge does not unlock a two-parent join; both verified merges/closures do; join merge unlocks descendant and work continues automatically. | `TestServingAcceptedIntentCreatesPlansExecutesReviewsMergesAndUnblocks`, `TestMergeCompletionReleasesCodeDependant`, `TestCodePrereqRequiresAttributableOriginalClosure`, reopen tests. |
 | Restart after each important side effect reuses receipts, consumes no invented allowance and never launches stale work. | Existing serving completion, publication/review lost-reply, cancellation and attempt-accounting fixtures. |
 | Work/Spaces shows actual phases, lanes, comments, decisions and actionable waits with live CLI text. | Existing plan-view API, Work/Spaces frontend tests and bounded native installed-view check. |
