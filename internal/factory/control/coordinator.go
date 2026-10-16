@@ -88,16 +88,24 @@ type Coordinator struct {
 	Lifecycle       LifecycleExecutor
 	Priority        *PriorityJudgments
 	Planning        *PlanningJudgments
-	planningQueue   DispatchQueueCursor
-	queue           DispatchQueueCursor
-	lock            *os.File
-	requestGate     sync.RWMutex
-	cascadeMu       sync.Mutex
-	closing         atomic.Bool
-	ownerMu         sync.Mutex
-	progressMu      sync.Mutex
-	progressCancel  context.CancelFunc
-	progressDone    chan struct{}
+	// CompletionEnumerator supplies native inventory pages for the D13
+	// completion fence; CompletionLocalCapture captures the local half
+	// of the sealed evidence. Both are FW31/FW32 handoff bindings: nil
+	// holds collecting cycles honestly instead of sealing from partial
+	// evidence. FW32 binds them to the FW29 snapshot family and the
+	// local store capture.
+	CompletionEnumerator   CompletionIssueEnumerator
+	CompletionLocalCapture func(ctx context.Context, repository int64) (factory.CompletionLocal, error)
+	planningQueue          DispatchQueueCursor
+	queue                  DispatchQueueCursor
+	lock                   *os.File
+	requestGate            sync.RWMutex
+	cascadeMu              sync.Mutex
+	closing                atomic.Bool
+	ownerMu                sync.Mutex
+	progressMu             sync.Mutex
+	progressCancel         context.CancelFunc
+	progressDone           chan struct{}
 	// ownerMu also protects the bounded child-result recovery cursor.
 	publicationChildCursor string
 	// progressMu protects the fair retained-creation repository cursor.

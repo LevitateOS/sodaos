@@ -276,6 +276,10 @@ func reportPacketRefusal(ctx context.Context, deps DispatchDeps, occupancy *pass
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitDispatchClosed, Detail: "dispatch gate closed during dispatch"})
 		return
 	}
+	if errors.Is(packetErr, store.ErrCompletionFenced) {
+		reportCompletionFence(repository, issue, report)
+		return
+	}
 	if errors.Is(packetErr, store.ErrAssignmentActive) {
 		refreshOccupancy(ctx, deps, occupancy, report)
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAssigned, Detail: "a concurrent dispatch won this issue"})

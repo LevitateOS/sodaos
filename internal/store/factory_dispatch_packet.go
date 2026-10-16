@@ -92,6 +92,13 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	if expected.NativeRev != a.NativeRev {
 		return ErrDispatchControlStale
 	}
+	// D13 completion fence (FW31): the gate row above is locked, so this
+	// read observes every committed completion. A pending event refuses
+	// fresh attempts, explicit retries and advanced children alike; an
+	// earlier priority check alone is insufficient.
+	if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
+		return err
+	}
 	if err := checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return err
 	}

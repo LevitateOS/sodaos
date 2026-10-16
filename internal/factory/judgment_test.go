@@ -166,10 +166,10 @@ func TestPriorityAnswerRejectsOmittedAndFabricatedChoices(t *testing.T) {
 	}
 }
 
-func TestJudgmentFingerprintBindsEightPurposes(t *testing.T) {
+func TestJudgmentFingerprintBindsTenPurposes(t *testing.T) {
 	purposes := JudgmentPurposes()
-	if len(purposes) != 8 {
-		t.Fatalf("purposes=%d, want 8", len(purposes))
+	if len(purposes) != 10 {
+		t.Fatalf("purposes=%d, want 10", len(purposes))
 	}
 	seen := map[JudgmentPurpose]bool{}
 	options := map[string]any{"a": "First option", "b": "Second option"}

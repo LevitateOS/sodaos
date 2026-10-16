@@ -43,6 +43,12 @@ func (s *Store) RecordRetryPacket(ctx context.Context, a factory.Assignment, exp
 	if _, _, _, err = ensureDispatchGateTx(ctx, tx, a.Repository); err != nil {
 		return factory.Assignment{}, err
 	}
+	// D13 completion fence (FW31): routine retries also wait while an
+	// event is unresolved; the gate row above serializes this check with
+	// completion insertion.
+	if err = checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
+		return factory.Assignment{}, err
+	}
 	if err = checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return factory.Assignment{}, err
 	}

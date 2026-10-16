@@ -147,6 +147,13 @@ func dispatchOne(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 		report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitInputsStale, Detail: "priority input snapshot changed"})
 		return
 	}
+	// D13 completion fence (FW31): planning above keeps its shape so
+	// observation and probes continue; only admission waits. Retry and
+	// automatic advancement funnel through the same packet gate below,
+	// which refuses authoritatively through ErrCompletionFenced.
+	if checkDispatchFence(ctx, deps, repository, issue, report) {
+		return
+	}
 	executeFreshAttempt(ctx, deps, occupancy, plan, repository, issue, report, retry)
 }
 
@@ -180,6 +187,8 @@ func admissionWait(err error) *planWait {
 		return waitFor(WaitAllowance, "connection rolling usage budget is exhausted")
 	case errors.Is(err, store.ErrAdmissionChanged):
 		return waitFor(WaitAuthority, "grants changed during dispatch")
+	case errors.Is(err, store.ErrCompletionFenced):
+		return waitFor(WaitReassessmentPending, "completion fence holds admissions until the reassessment decision releases")
 	default:
 		return nil
 	}

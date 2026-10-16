@@ -1,0 +1,510 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
+)
+
+// ErrCompletionFenced reports a dispatch packet for a repository whose
+// completion fence is closed: at least one completion event has no
+// released cycle yet. New issue investigation/implementation waits with
+// reassessment_pending; already-running work, review/correction,
+// cancellation and reconciliation are unaffected. Other repositories
+// continue normally: a fence never turns the global tournament into a
+// wait.
+var ErrCompletionFenced = errors.New("repository completion fence is closed")
+
+// ErrReassessmentBudgetExhausted reports a funded reassessment request
+// the existing global consultation ceiling refused. Nothing was
+// charged; the event holds with attention and waits for explicit
+// Retry, never an automatic repeat.
+var ErrReassessmentBudgetExhausted = errors.New("reassessment consultation budget is exhausted")
+
+// ReassessmentRecord is one persisted bounded cycle: the FW30 domain
+// cycle plus the sealed complete-inventory digest, the funded-decision
+// evidence fingerprint, the wait/retry reason for read models and the
+// opaque resumable collector progress. Sealed evidence never changes:
+// once an inventory digest is recorded, later writes must carry it.
+type ReassessmentRecord struct {
+	Cycle               factory.ReassessmentCycle `json:"cycle"`
+	Local               factory.CompletionLocal   `json:"local,omitempty"`
+	InventoryDigest     string                    `json:"inventory_digest,omitempty"`
+	EvidenceFingerprint string                    `json:"evidence_fingerprint,omitempty"`
+	WaitReason          string                    `json:"wait_reason,omitempty"`
+	CollectorProgress   json.RawMessage           `json:"collector_progress,omitempty"`
+	Issue               int64                     `json:"issue,omitempty"`
+}
+
+// Validate checks the record shape without enforcing liveness: the
+// cycle validates itself, digests validate when present, and the wait
+// reason stays a short resumable-step name, never evidence bytes.
+func (r ReassessmentRecord) Validate() error {
+	if err := r.Cycle.Validate(); err != nil {
+		return err
+	}
+	if r.InventoryDigest != "" && !factory.ValidDigest(r.InventoryDigest) {
+		return errors.New("invalid sealed inventory digest")
+	}
+	if r.EvidenceFingerprint != "" && !factory.ValidDigest(r.EvidenceFingerprint) {
+		return errors.New("invalid decision evidence fingerprint")
+	}
+	if len(r.WaitReason) > factory.MaxReassessmentReasonChars {
+		return errors.New("invalid reassessment wait reason")
+	}
+	return nil
+}
+
+// recordCompletionTx inserts one verified completion and seeds its first
+// bounded cycle inside the caller's transaction. The caller is the
+// first UpdateMerge recording this merge as merged: the merge already
+// carries its confirmed merged commit, PR linkage, acceptance and
+// original issue-closing occurrence (Merge.Validate enforces them for
+// merged merges), and the same transaction already closed the issue
+// allowance and retained the readiness enqueue, so rollback rolls back
+// all four together with this insert.
+//
+// Exact-once: the (publication, occurrence) unique key keeps recovery
+// re-observation from recording the event twice; a replay returns
+// inserted=false and leaves the first cycle standing. Ordering: the
+// repository dispatch-gate row is locked here, the same row packet
+// admission locks, so whichever commits first defines the order and the
+// fence check inside packet transactions always observes this insert.
+func recordCompletionTx(ctx context.Context, tx *sql.Tx, m factory.Merge) (bool, error) {
+	if m.Stage != factory.MergeMerged {
+		return false, errors.New("completion needs its merged merge")
+	}
+	if !factory.ValidNativeOccurrence(m.OriginalClosingOccurrence) {
+		return false, errors.New("completion needs its original issue closure")
+	}
+	if !project.ValidDecisionID(m.Acceptance) {
+		return false, errors.New("completion needs its acceptance binding")
+	}
+	if !factory.ValidCommit(m.MergedCommit) {
+		return false, errors.New("completion needs its merged commit")
+	}
+	if _, _, _, err := ensureDispatchGateTx(ctx, tx, m.Repository); err != nil {
+		return false, err
+	}
+	var generation int64
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(generation),0)+1 FROM factory_completions WHERE repository=$1`, m.Repository).Scan(&generation); err != nil {
+		return false, err
+	}
+	event := factory.CompletionEvent{
+		PublicationID: m.PublicationID, MergedCommit: m.MergedCommit,
+		ClosingOccurrence: m.OriginalClosingOccurrence, AcceptanceID: m.Acceptance,
+		ID: factory.NewID(), Repository: m.Repository, Issue: m.Issue, Generation: generation,
+	}
+	if err := event.Validate(); err != nil {
+		return false, err
+	}
+	eventData, err := json.Marshal(event)
+	if err != nil {
+		return false, err
+	}
+	var insertedID string
+	err = tx.QueryRowContext(ctx, `INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data)
+		VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(publication,occurrence) DO NOTHING RETURNING event`,
+		event.Repository, event.Generation, event.ID, event.PublicationID, event.ClosingOccurrence, string(eventData)).Scan(&insertedID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	cycle := factory.ReassessmentCycle{
+		EventID: event.ID, CycleID: factory.NewID(),
+		State: factory.ReassessmentCollecting, Repository: event.Repository, Generation: event.Generation,
+	}
+	if err := cycle.Validate(); err != nil {
+		return false, err
+	}
+	record := ReassessmentRecord{Cycle: cycle, Issue: m.Issue}
+	recordData, err := json.Marshal(record)
+	if err != nil {
+		return false, err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_reassessments(cycle,repository,generation,event,state,data)
+		VALUES($1,$2,$3,$4,$5,$6)`, cycle.CycleID, cycle.Repository, cycle.Generation, cycle.EventID, cycle.State, string(recordData)); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// checkCompletionFenceTx refuses packet admission while the repository
+// fence is closed. The caller holds the repository dispatch-gate row
+// lock (the same row completion insertion locks), so this read observes
+// every committed completion event. Only released or superseded cycles
+// rest the fence: collecting, deciding, reassessing, assessing,
+// applying and attention all keep it closed.
+func checkCompletionFenceTx(ctx context.Context, tx *sql.Tx, repository int64) error {
+	var pending bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM factory_reassessments
+		WHERE repository=$1 AND state NOT IN ('released','superseded'))`, repository).Scan(&pending); err != nil {
+		return err
+	}
+	if pending {
+		return ErrCompletionFenced
+	}
+	return nil
+}
+
+// CompletionPending lists the pending completion generations for one
+// repository in processing order: every generation whose cycle has not
+// reached a terminal state. An empty list means the fence is open.
+func (s *Store) CompletionPending(ctx context.Context, repository int64) ([]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT generation FROM factory_reassessments
+		WHERE repository=$1 AND state NOT IN ('released','superseded') ORDER BY generation`, repository)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var pending []int64
+	for rows.Next() {
+		var generation int64
+		if err = rows.Scan(&generation); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		pending = append(pending, generation)
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	_ = rows.Close()
+	return pending, nil
+}
+
+// PendingReassessmentCycles lists every unresolved cycle for one
+// repository in generation order so the completion driver processes
+// the oldest event first. Released and superseded cycles are history,
+// not work.
+func (s *Store) PendingReassessmentCycles(ctx context.Context, repository int64) ([]ReassessmentRecord, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_reassessments
+		WHERE repository=$1 AND state NOT IN ('released','superseded') ORDER BY generation`, repository)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var cycles []ReassessmentRecord
+	for rows.Next() {
+		var raw []byte
+		if err = rows.Scan(&raw); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		var record ReassessmentRecord
+		if err = json.Unmarshal(raw, &record); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		if err = record.Validate(); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		cycles = append(cycles, record)
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	_ = rows.Close()
+	return cycles, nil
+}
+
+// PendingCompletionRepositories lists every repository with at least
+// one unresolved cycle, so the completion driver fences and releases
+// per repository without scanning unrelated work.
+func (s *Store) PendingCompletionRepositories(ctx context.Context) ([]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT repository FROM factory_reassessments
+		WHERE state NOT IN ('released','superseded') ORDER BY repository`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var repositories []int64
+	for rows.Next() {
+		var repository int64
+		if err = rows.Scan(&repository); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		repositories = append(repositories, repository)
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	_ = rows.Close()
+	return repositories, nil
+}
+
+// EnqueueReadinessRootEvent coalesces one best-effort readiness root
+// outside a domain transaction: after a continue release it forces a
+// fresh assessment pass instead of reusing a stale snapshot.
+func (s *Store) EnqueueReadinessRootEvent(ctx context.Context, repository, issue int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = enqueueReadinessRootEventTx(ctx, tx, repository, issue); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ReassessmentRecord reads one cycle by its ID for the completion
+// driver and explicit Retry validation.
+func (s *Store) ReassessmentRecord(ctx context.Context, cycleID string) (ReassessmentRecord, error) {
+	var record ReassessmentRecord
+	var raw []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_reassessments WHERE cycle=$1`, cycleID).Scan(&raw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ReassessmentRecord{}, ErrNotFound
+		}
+		return ReassessmentRecord{}, err
+	}
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return ReassessmentRecord{}, err
+	}
+	if err := record.Validate(); err != nil {
+		return ReassessmentRecord{}, err
+	}
+	return record, nil
+}
+
+// CasReassessmentRecord advances one cycle under an expected-state
+// guard: the write lands only when the row still carries the state the
+// caller sealed, decided or reconciled against, so concurrent drivers
+// serialize instead of overwriting. Sealed evidence is immutable: once
+// an inventory digest or evidence fingerprint is recorded, later writes
+// must carry it unchanged. Only the state column and data move; rows
+// are never deleted.
+func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedState string, record ReassessmentRecord) error {
+	if !factory.ValidID(cycleID) {
+		return errors.New("invalid reassessment cycle identity")
+	}
+	if err := record.Validate(); err != nil {
+		return err
+	}
+	if record.Cycle.CycleID != cycleID {
+		return errors.New("reassessment record does not match its cycle")
+	}
+	if record.Issue <= 0 {
+		return errors.New("reassessment record lacks its completed issue")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var raw []byte
+	var state string
+	if err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE cycle=$1 FOR UPDATE`, cycleID).Scan(&state, &raw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if state != expectedState {
+		return ErrStaleRevision
+	}
+	var current ReassessmentRecord
+	if err = json.Unmarshal(raw, &current); err != nil {
+		return err
+	}
+	if current.InventoryDigest != "" && record.InventoryDigest != current.InventoryDigest {
+		return errors.New("sealed reassessment inventory is immutable")
+	}
+	if current.EvidenceFingerprint != "" && record.EvidenceFingerprint != current.EvidenceFingerprint {
+		return errors.New("sealed reassessment evidence is immutable")
+	}
+	if current.Local.Sealed() && record.Local != current.Local {
+		return errors.New("sealed reassessment local bindings are immutable")
+	}
+	if record.Issue != current.Issue {
+		return errors.New("reassessment completed issue is immutable")
+	}
+	recordData, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE factory_reassessments SET state=$1,data=$2 WHERE cycle=$3 AND state=$4`,
+		record.Cycle.State, string(recordData), cycleID, expectedState)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrStaleRevision
+	}
+	return tx.Commit()
+}
+
+// ReserveReassessmentCall charges one funded Jev request against the
+// cycle ledger and the existing global consultation ceiling in a single
+// transaction. The reservation lands before the provider is consulted
+// and stays charged whatever happens: failed or indeterminate requests
+// are never refunded and never silently repeated. A spent global budget
+// or an already-reserved fingerprint refuses with reserved=false and no
+// charge. Cached completed receipts bypass reservation entirely through
+// the shared judgment read path, keyed by the fingerprint that already
+// embeds the cycle, purpose, rubric, model and complete evidence. A
+// spent global budget refuses with ErrReassessmentBudgetExhausted; an
+// already-reserved fingerprint or a full ledger refuses with
+// reserved=false so the caller reconciles instead of charging again.
+func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedState, callID, purpose, decision, fingerprint string) (bool, error) {
+	if !factory.ValidID(cycleID) || !factory.ValidID(callID) || !factory.ValidDigest(fingerprint) {
+		return false, errors.New("invalid reassessment reservation")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var raw []byte
+	var state string
+	if err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE cycle=$1 FOR UPDATE`, cycleID).Scan(&state, &raw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	if state != expectedState {
+		return false, ErrStaleRevision
+	}
+	var record ReassessmentRecord
+	if err = json.Unmarshal(raw, &record); err != nil {
+		return false, err
+	}
+	if purpose != factory.ReassessmentDecisionPurpose && purpose != factory.ReassessmentProposalPurpose {
+		return false, errors.New("invalid reassessment call purpose")
+	}
+	if len(record.Cycle.Ledger.DecisionCalls) >= factory.MaxReassessmentDecisionCalls {
+		return false, nil
+	}
+	for _, id := range record.Cycle.Ledger.DecisionCalls {
+		if id == callID {
+			return false, nil
+		}
+	}
+	ledger, err := record.Cycle.Ledger.ReserveDecisionCall(callID, purpose, decision)
+	if err != nil {
+		return false, err
+	}
+	var existing int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments WHERE snapshot=$1`, fingerprint).Scan(&existing); err != nil {
+		return false, err
+	}
+	if existing > 0 {
+		return false, nil
+	}
+	var spent int
+	if err = tx.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1 FOR UPDATE`).Scan(&spent); err != nil {
+		return false, err
+	}
+	if spent >= s.PriorityCallBudget {
+		return false, ErrReassessmentBudgetExhausted
+	}
+	record.Cycle.Ledger = ledger
+	recordData, err := json.Marshal(record)
+	if err != nil {
+		return false, err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE factory_reassessments SET data=$1 WHERE cycle=$2 AND state=$3`, string(recordData), cycleID, expectedState); err != nil {
+		return false, err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_priority_judgments(snapshot,max_calls) VALUES($1,1)`, fingerprint); err != nil {
+		return false, err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+1 WHERE id=1`); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
+}
+
+// StartReassessmentRetry creates the one successor cycle for an
+// attention cycle through its explicit authorized Retry. The prior
+// cycle must still carry the expected attention state with no
+// successor yet; command replay reuses the recorded successor instead
+// of creating another. The successor preserves all earlier receipts
+// and committed native effects as history via its retry lineage. Only
+// explicit authorized Retry supersedes: no poll, input edit or policy
+// edit creates a successor.
+func (s *Store) StartReassessmentRetry(ctx context.Context, retry factory.ReassessmentRetry) (string, error) {
+	if err := retry.Validate(); err != nil {
+		return "", err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var raw []byte
+	var state string
+	if err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE cycle=$1 FOR UPDATE`, retry.ExpectedPriorCycle).Scan(&state, &raw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	var prior ReassessmentRecord
+	if err = json.Unmarshal(raw, &prior); err != nil {
+		return "", err
+	}
+	if state == factory.ReassessmentSuperseded {
+		if prior.Cycle.Successor == "" || prior.Cycle.Successor != retry.SuccessorCycleID {
+			return "", errors.New("reassessment retry names another successor")
+		}
+		return prior.Cycle.Successor, nil
+	}
+	superseded, err := prior.Cycle.Supersede(retry)
+	if err != nil {
+		return "", err
+	}
+	prior.Cycle = superseded
+	prior.WaitReason = ""
+	priorData, err := json.Marshal(prior)
+	if err != nil {
+		return "", err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE factory_reassessments SET state=$1,data=$2 WHERE cycle=$3 AND state=$4`,
+		factory.ReassessmentSuperseded, string(priorData), retry.ExpectedPriorCycle, factory.ReassessmentAttention)
+	if err != nil {
+		return "", err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return "", err
+	}
+	if n != 1 {
+		return "", ErrStaleRevision
+	}
+	successor := factory.ReassessmentCycle{
+		EventID: retry.EventID, CycleID: retry.SuccessorCycleID, RetryOf: retry.ExpectedPriorCycle,
+		State: factory.ReassessmentCollecting, Repository: prior.Cycle.Repository, Generation: prior.Cycle.Generation,
+	}
+	if err := successor.Validate(); err != nil {
+		return "", err
+	}
+	successorRecord := ReassessmentRecord{Cycle: successor, Issue: prior.Issue}
+	successorData, err := json.Marshal(successorRecord)
+	if err != nil {
+		return "", err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_reassessments(cycle,repository,generation,event,state,data)
+		VALUES($1,$2,$3,$4,$5,$6)`, successor.CycleID, successor.Repository, successor.Generation,
+		successor.EventID, successor.State, string(successorData)); err != nil {
+		return "", err
+	}
+	return successor.CycleID, tx.Commit()
+}

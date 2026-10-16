@@ -265,6 +265,15 @@ func completePrioritySelection(ctx context.Context, deps DispatchDeps, nativeRev
 	if len(candidates) == 0 {
 		return report
 	}
+	// D13 completion fence (FW31): a pending event excludes its
+	// repository from selection with reassessment_pending waits. The
+	// rest still elect, so one fenced repository never stalls the
+	// global tournament. Observation above already happened and
+	// continues; this split only governs selection.
+	candidates, report = excludeFencedCandidates(ctx, deps, candidates, report)
+	if len(candidates) == 0 {
+		return report
+	}
 	selected, err := selectPriority(ctx, deps.Priority, candidates, time.Now())
 	if err != nil {
 		for _, candidate := range candidates {

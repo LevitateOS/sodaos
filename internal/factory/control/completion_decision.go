@@ -1,0 +1,174 @@
+package control
+
+import (
+	"context"
+	"errors"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/store"
+)
+
+// ReassessmentDecisionOutcome labels funded completion-decision
+// receipts. Success carries this fixed outcome; failure carries
+// unavailable with the charged call retained, exactly like the funded
+// delivery path.
+const ReassessmentDecisionOutcome = "reassessment_decided"
+
+// reassessmentDecisionRubric asks whether the delivered change or the
+// current issue set warrants revising scope allocation, decomposition,
+// acceptance details or dependencies before selecting another issue.
+// Jev receives the evidence; it does not investigate source or write a
+// plan.
+const reassessmentDecisionRubric = "Does the delivered change or the current issue set warrant revising scope allocation, decomposition, acceptance details or dependencies before selecting another issue? Select reassess to investigate the full inventory with one coder run, or continue to release this completion and resume fresh priority selection."
+
+// ReassessmentDecisionState is the exact Choice input for one
+// completion decision. It embeds the cycle, the distinct completion
+// ID and the complete sealed-evidence fingerprint, so the shared
+// judgment cache reuses a receipt only while its purpose, rubric,
+// model and evidence still match. Each completion gets its own
+// decision even when inventories are identical or empty.
+type ReassessmentDecisionState struct {
+	Model               string `json:"model"`
+	CompletionID        string `json:"completion_id"`
+	CycleID             string `json:"cycle_id"`
+	InventoryDigest     string `json:"inventory_digest"`
+	EvidenceFingerprint string `json:"evidence_fingerprint"`
+	Repository          int64  `json:"repository,string"`
+	Generation          int64  `json:"generation"`
+	Issues              int    `json:"issues"`
+}
+
+// reassessmentDecisionOptions offers exactly reassess or continue. No
+// other option is actionable.
+func reassessmentDecisionOptions() map[string]any {
+	return map[string]any{
+		factory.ReassessmentOptionReassess: map[string]any{"effect": "admit the single bounded coder run over the sealed inventory"},
+		factory.ReassessmentOptionContinue: map[string]any{"effect": "release this event after freshness checks with no agent and no edits"},
+	}
+}
+
+// applyReassessmentAnswer files one decision answer. Only a valid
+// selected option at or above the confidence bound is actionable; low
+// confidence, another option or a malformed answer holds the event
+// with attention. A continue is never inferred.
+func applyReassessmentAnswer(cycle factory.ReassessmentCycle, answer factory.PriorityAnswer) (factory.ReassessmentCycle, error) {
+	return cycle.RecordDecision(answer.Selected, answer.Confidence)
+}
+
+// errReassessmentExhausted reports a funded decision the global
+// consultation ceiling refused. The event holds with attention and
+// waits for explicit Retry; nothing was charged.
+var errReassessmentExhausted = errors.New("reassessment funding exhausted")
+
+// DecideReassessment consults funded Jev for one deciding cycle and
+// files the outcome. The call reserves against the cycle ledger and
+// the existing global consultation ceiling atomically before any
+// provider spend; the reservation stays charged whatever happens.
+// Cached completed receipts bypass reservation through the shared
+// judgment read path. Outcomes:
+//
+//   - a valid reassess or continue decision is recorded on the cycle;
+//   - low confidence, malformed or unavailable answers hold with
+//     attention instead of inferring continue or calling again;
+//   - an exhausted ceiling holds with attention without charge;
+//   - an in-flight reservation (fingerprint taken, no receipt yet)
+//     defers without state change so the next drive re-reads.
+//
+// No ordinary poll, input edit or policy edit refills a cycle and no
+// automatic extra agent call ever follows: only explicit authorized
+// Retry supersedes an attention cycle.
+
+// errReassessmentDeferred reports a decision attempt that changed
+// nothing: another drive holds the in-flight reservation. The next
+// drive re-reads the shared receipt instead of charging again.
+var errReassessmentDeferred = errors.New("reassessment decision in flight")
+
+func (c *Coordinator) DecideReassessment(ctx context.Context, record store.ReassessmentRecord, state ReassessmentDecisionState) (store.ReassessmentRecord, error) {
+	if c.Planning == nil || c.Planning.Chooser == nil || c.Store == nil {
+		return store.ReassessmentRecord{}, ErrPriorityUnavailable
+	}
+	if record.Cycle.State != factory.ReassessmentDeciding {
+		return store.ReassessmentRecord{}, errors.New("reassessment decision outside its deciding state")
+	}
+	if state.CompletionID != record.Cycle.EventID || state.CycleID != record.Cycle.CycleID {
+		return store.ReassessmentRecord{}, errors.New("reassessment decision does not match its cycle")
+	}
+	cycleID := record.Cycle.CycleID
+	reserve := func(ctx context.Context, fingerprint string) (bool, error) {
+		reserved, err := c.Store.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding, factory.NewID(), factory.ReassessmentDecisionPurpose, record.Cycle.Decision, fingerprint)
+		if err != nil {
+			if errors.Is(err, store.ErrReassessmentBudgetExhausted) {
+				return false, errReassessmentExhausted
+			}
+			return false, err
+		}
+		if !reserved {
+			// Fingerprint taken without a completed receipt yet, or
+			// the ledger already holds this call: reconcile against
+			// the shared read path instead of charging again.
+			if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprint); readErr == nil && len(prior.Calls) == 1 && prior.Calls[0].Failure == "" {
+				return false, nil
+			}
+		}
+		return reserved, nil
+	}
+	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
+		Purpose: factory.JudgmentPurpose(factory.ReassessmentDecisionPurpose),
+		State:   state, Question: reassessmentDecisionRubric, Options: reassessmentDecisionOptions(),
+		Outcome: ReassessmentDecisionOutcome, Reserve: reserve,
+	})
+	if err != nil {
+		if errors.Is(err, errReassessmentExhausted) {
+			record.WaitReason = "funding_exhausted"
+			return record, errReassessmentExhausted
+		}
+		if errors.Is(err, ErrPriorityUnavailable) {
+			// The shared receipt tells a charged failure from an
+			// in-flight reservation. A completed receipt never hides
+			// behind this error: apply it, or hold with attention
+			// when it is not actionable. Without any receipt the
+			// reservation is still in flight (or its ledger is spent
+			// with receipts lost): defer while calls remain, attend
+			// when the ledger is exhausted so explicit Retry can
+			// reconcile. Nothing here infers continue.
+			if prior, readErr := c.Store.PriorityJudgment(ctx, fingerprintOf(state)); readErr == nil && len(prior.Calls) == 1 {
+				if prior.Calls[0].Failure == "" {
+					updated, applyErr := applyReassessmentAnswer(record.Cycle, prior.Calls[0].Answer)
+					if applyErr != nil {
+						record.WaitReason = "decision_not_actionable"
+						return record, applyErr
+					}
+					record.Cycle = updated
+					return record, nil
+				}
+				record.WaitReason = "decision_unavailable"
+				return record, err
+			}
+			if len(record.Cycle.Ledger.DecisionCalls) >= factory.MaxReassessmentDecisionCalls {
+				record.WaitReason = "decision_unavailable"
+				return record, err
+			}
+			return record, errReassessmentDeferred
+		}
+		return store.ReassessmentRecord{}, err
+	}
+	updated, err := applyReassessmentAnswer(record.Cycle, answer)
+	if err != nil {
+		record.WaitReason = "decision_not_actionable"
+		return record, err
+	}
+	record.Cycle = updated
+	record.WaitReason = ""
+	return record, nil
+}
+
+// fingerprintOf binds the decision state to its exact cache identity:
+// the same inputs AdvisePurpose fingerprints, so the driver re-reads
+// the receipt the funded call recorded.
+func fingerprintOf(state ReassessmentDecisionState) string {
+	fingerprint, err := factory.JudgmentFingerprint(factory.JudgmentPurpose(factory.ReassessmentDecisionPurpose), state, reassessmentDecisionRubric, reassessmentDecisionOptions())
+	if err != nil {
+		return ""
+	}
+	return fingerprint
+}

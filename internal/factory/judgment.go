@@ -135,11 +135,24 @@ const (
 	// judges the accepted correction set against fixed criteria and
 	// returns exactly review_again or ready_to_merge.
 	JudgmentDeliveryReview JudgmentPurpose = "delivery-review-v1"
+	// JudgmentReassessmentDecision is the funded post-completion
+	// decision (D13/FW31): Jev judges the sealed complete inventory
+	// and returns exactly reassess or continue. Low confidence or an
+	// unavailable response holds with attention, never an inferred
+	// continue.
+	JudgmentReassessmentDecision JudgmentPurpose = "post-completion-reassessment-v1"
+	// JudgmentReassessmentProposal assesses one coherent reassessment
+	// revision set (D13/FW32): Jev returns exactly accept or
+	// needs_attention over the sealed evidence, proposal and
+	// validation report.
+	JudgmentReassessmentProposal JudgmentPurpose = "post-completion-proposal-v1"
 )
 
-// JudgmentPurposes lists the eight purposes in owning-doc order.
+// JudgmentPurposes lists the ten purposes in owning-doc order: the
+// eight planning/delivery purposes plus the two D13 post-completion
+// purposes the FW31 fence and FW32 adoption consume.
 func JudgmentPurposes() []JudgmentPurpose {
-	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview}
+	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview, JudgmentReassessmentDecision, JudgmentReassessmentProposal}
 }
 
 func (p JudgmentPurpose) valid() bool {

@@ -79,6 +79,38 @@ const MaxReassessmentValidationBytes = 16 * 1024
 // resumable step, never evidence bytes.
 const MaxReassessmentReasonChars = 256
 
+// CompletionLocal is the local half of sealed D13 evidence: the source
+// commit, preparation, accepted scope and authority the sealed native
+// inventory was captured against, as digests only. FW31 seals it with
+// the native inventory in one bracket; FW32 rechecks it before
+// applying any graph effects. Ordinary observation timestamps never
+// enter these digests; material content or source changes do.
+type CompletionLocal struct {
+	SourceCommit         string `json:"source_commit"`
+	PreparationDigest    string `json:"preparation_digest"`
+	ScopeDigest          string `json:"scope_digest"`
+	AuthorityFingerprint string `json:"authority_fingerprint"`
+}
+
+// Sealed reports whether the local half carries its bindings. An
+// unsealed local never seals an inventory and never releases an event.
+func (l CompletionLocal) Sealed() bool {
+	return l != (CompletionLocal{})
+}
+
+// Validate requires every binding: a missing binding holds the gate
+// instead of sealing from partial evidence.
+func (l CompletionLocal) Validate() error {
+	if !ValidCommit(l.SourceCommit) {
+		return errors.New("completion local lacks its source commit")
+	}
+	if !ValidDigest(l.PreparationDigest) || !ValidDigest(l.ScopeDigest) || l.AuthorityFingerprint == "" ||
+		len(l.AuthorityFingerprint) > MaxReassessmentReasonChars || strings.ContainsRune(l.AuthorityFingerprint, 0) {
+		return errors.New("completion local lacks its bindings")
+	}
+	return nil
+}
+
 // Reassessment cycle states. Only a durable sealed inventory advances to
 // deciding; a valid continue releases (after FW31 freshness checks); a
 // valid reassess admits the sole run; a valid report advances to

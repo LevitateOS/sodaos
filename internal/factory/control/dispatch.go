@@ -193,10 +193,20 @@ type DispatchDeps struct {
 	// control for one inventory member at the scan revision.
 	ObserveRevision  func(ctx context.Context) (int64, bool, error)
 	RefreshCandidate func(ctx context.Context, control factory.IssueControl, scanRevision int64) (factory.IssueControl, bool, error)
-	collectPlan      func(*attemptPlan)
-	checkPlan        func(*attemptPlan) bool
-	PlanCurrent      func(context.Context, factory.IssueControl) bool
-	PlanRecord       func(context.Context, int64, int64) (factory.PlanningRecord, error)
+	// FenceCache memoizes one pass's per-repository completion fence so
+	// each repository reads it once. A nil cache reads through every
+	// time; the atomic packet transaction stays authoritative either
+	// way. Maps share backing across the copied deps value, so entries
+	// recorded by one issue are visible to later issues in the pass.
+	FenceCache map[int64]bool
+	// ReadCompletionFence lists pending completion generations for one
+	// repository. Nil reads through the store; tests inject
+	// deterministic fixtures.
+	ReadCompletionFence func(ctx context.Context, repository int64) ([]int64, error)
+	collectPlan         func(*attemptPlan)
+	checkPlan           func(*attemptPlan) bool
+	PlanCurrent         func(context.Context, factory.IssueControl) bool
+	PlanRecord          func(context.Context, int64, int64) (factory.PlanningRecord, error)
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -279,6 +289,7 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 		Queue:           &c.queue,
 		Priority:        c.Priority,
 		ObserveRevision: c.observePriorityRevision, RefreshCandidate: c.refreshPriorityCandidate,
+		FenceCache:  map[int64]bool{},
 		PlanCurrent: c.planningCurrent,
 		PlanRecord:  c.planningRecord,
 	}

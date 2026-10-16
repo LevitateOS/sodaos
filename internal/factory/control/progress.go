@@ -145,6 +145,13 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	c.observeStandingPreparations(ctx, standingPreparationCursor)
 	_ = c.RecoverIntentGraphs(ctx)
 	_ = c.recoverCreations(ctx)
+	// D13 completion fence (FW31): best-effort single drive of every
+	// unresolved completion cycle — seal, decide, release — in
+	// repository and generation order. Attention cycles are never
+	// touched and no automatic re-run starts; reassessing and later
+	// states rest for the FW32 coder admission. Unwired read bindings
+	// hold collecting cycles honestly.
+	_ = c.DriveCompletions(ctx, CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture})
 	c.Dispatch(ctx)
 	if ownsPass {
 		_, _ = c.drainReadinessWork(ctx, "")
