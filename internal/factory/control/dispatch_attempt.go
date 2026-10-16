@@ -18,8 +18,9 @@ import (
 // attempt: the admitted execution phase, the immediate parent for advanced
 // children, and the validated investigation plan an implement child
 // executes. The zero value is the pre-phase legacy path. Intent subjects
-// enter through FW08 and completion subjects through FW30; this boundary
-// admits issue subjects only and refuses every other phased kind.
+// enter through the intent-bound admission (intent_bound.go) and completion
+// subjects through FW30; this boundary admits issue subjects only and
+// refuses every other phased kind.
 type attemptLineage struct {
 	advancePlan *factory.InvestigationPlan
 	phase       string
@@ -217,8 +218,8 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 // and, for a rebuilt implementation prompt, the recorded investigation plan.
 // Only investigation opens a phased root and only a planned implementation
 // advances under its parent; every other phased combination refuses, with
-// intent subjects arriving through FW08 and other phases through their
-// owning boundaries.
+// intent subjects arriving through the intent-bound admission and other
+// phases through their owning boundaries.
 func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool, retryID string, lineage attemptLineage) (*attemptPlan, *planWait, *planWait) {
 	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
 		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
