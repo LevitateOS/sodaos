@@ -65,4 +65,32 @@ mod tests {
         assert!(result.is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// R50 incomplete input: a candidate directory missing either bound
+    /// document refuses before any revision or archive check runs.
+    #[test]
+    fn check_incomplete_candidate_dir_refuses() {
+        let (bytes, _, c) = crate::model::Candidate::fixture_pair();
+        let dir = std::env::temp_dir().join(format!("soda-check-partial-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("payload.json"), &bytes).unwrap();
+        assert!(check_candidate(
+            &dir.to_string_lossy(),
+            "x86_64",
+            &c.host.revision,
+            &c.forgejo_revision
+        )
+        .is_err());
+        std::fs::remove_file(dir.join("payload.json")).unwrap();
+        std::fs::write(dir.join("candidate.json"), serde_json::to_vec(&c).unwrap()).unwrap();
+        assert!(check_candidate(
+            &dir.to_string_lossy(),
+            "x86_64",
+            &c.host.revision,
+            &c.forgejo_revision
+        )
+        .is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
