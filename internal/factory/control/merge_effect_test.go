@@ -396,6 +396,8 @@ func TestMergePassWithdrawalAfterCommitConfirmsCompletion(t *testing.T) {
 	}
 	fx.wire(exec)
 	fx.pass(t)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
+	fx.pass(t)
 	if !submitted {
 		t.Fatal("seed merge never submitted")
 	}
