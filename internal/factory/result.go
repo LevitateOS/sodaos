@@ -51,18 +51,24 @@ func (r ImplementationReceipt) validate(status string) error {
 // PhaseOutput is the single typed payload for its phase: an investigated
 // plan for investigate, an implementation receipt for implement, the D13
 // reassessment report for reassess (FW32), the single chosen decomposition
-// for decompose, the typed review verdict for review, and the typed
-// correction dispositions for correct. The reassessment coder is a single
-// coder with no children, source writes or publication: a completed
-// reassess result carries exactly its typed report (including a valid
-// empty change set), while a held reassess run carries no report. Every
-// phase result stays within the 64 KiB bound, including reassess; the
-// 320 KiB exception covers the prompt only.
+// for decompose, the typed review verdict for review, the typed
+// correction dispositions for correct, the D15 stall repair or D16
+// delivery repair report for repair, and the D16 app verification report
+// for verify. The reassessment coder is a single coder with no children,
+// source writes or publication: a completed reassess result carries
+// exactly its typed report (including a valid empty change set), while a
+// held reassess run carries no report. Repair and verify follow the same
+// shape: a completed repair carries exactly one repair report (stall or
+// delivery repair, matching its subject), a completed verify carries its
+// app verification report, and held runs carry no report. Every phase
+// result stays within the 64 KiB bound, including reassess and repair;
+// the 320 KiB exception covers the prompt only.
 //
-// Completed decompose, review and correct results carry no publishable
-// candidate: the decomposition chooses task boundaries only, the review
-// verdict assesses findings only, and the correction accounts findings
-// only, so such a result can never be interpreted as publishable code.
+// Completed decompose, review, correct, repair and verify results carry no
+// publishable candidate: the decomposition chooses task boundaries only,
+// the review verdict assesses findings only, the correction accounts
+// findings only, and repair/verification reports carry no candidate field
+// at all, so such a result can never be interpreted as publishable code.
 type PhaseOutput struct {
 	Plan           *InvestigationPlan     `json:"plan,omitempty"`
 	Implementation *ImplementationReceipt `json:"implementation,omitempty"`
@@ -71,6 +77,9 @@ type PhaseOutput struct {
 	Review         *ReviewCycleReport     `json:"review,omitempty"`
 	Clear          *ClearReviewReport     `json:"clear,omitempty"`
 	Correction     *CorrectionReport      `json:"correction,omitempty"`
+	Repair         *StallRepairReport     `json:"repair,omitempty"`
+	DeliveryRepair *DeliveryRepairReport  `json:"delivery_repair,omitempty"`
+	Verification   *AppVerificationReport `json:"verification,omitempty"`
 }
 
 // validateReviewShape checks the structural review verdict: finding and
@@ -195,6 +204,37 @@ func (o PhaseOutput) validate(phase, status string) error {
 			return errors.New("non-completed correction carries no payload")
 		}
 		return o.Correction.Validate()
+	case project.ExecutionRepair:
+		if !o.nilTypedOutputExceptRepair() {
+			return errors.New("cross-phase result payload refused")
+		}
+		if status != "completed" {
+			if o.Repair != nil || o.DeliveryRepair != nil {
+				return errors.New("non-completed repair carries no report")
+			}
+			return nil
+		}
+		if (o.Repair == nil) == (o.DeliveryRepair == nil) {
+			return errors.New("completed repair carries exactly one repair report")
+		}
+		if o.Repair != nil {
+			return o.Repair.Validate()
+		}
+		return o.DeliveryRepair.Validate()
+	case project.ExecutionVerify:
+		if !o.nilTypedOutputExceptVerification() {
+			return errors.New("cross-phase result payload refused")
+		}
+		if status != "completed" {
+			if o.Verification != nil {
+				return errors.New("non-completed verification carries no report")
+			}
+			return nil
+		}
+		if o.Verification == nil {
+			return errors.New("completed verification lacks its typed report")
+		}
+		return o.Verification.Validate()
 	default:
 		return errors.New("unknown result phase")
 	}
@@ -204,42 +244,65 @@ func (o PhaseOutput) validate(phase, status string) error {
 // investigation plan is empty.
 func (o PhaseOutput) nilTypedOutputExceptPlan() bool {
 	return o.Implementation == nil && o.Reassessment == nil &&
-		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
 }
 
 // nilTypedOutputExceptImplementation reports whether every payload slot
 // except the implementation receipt is empty.
 func (o PhaseOutput) nilTypedOutputExceptImplementation() bool {
 	return o.Plan == nil && o.Reassessment == nil &&
-		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
 }
 
 // nilTypedOutputExceptReassessment reports whether every payload slot
 // except the reassessment report is empty.
 func (o PhaseOutput) nilTypedOutputExceptReassessment() bool {
 	return o.Plan == nil && o.Implementation == nil &&
-		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
 }
 
 // nilTypedOutputExceptDecomposition reports whether every payload slot
 // except the chosen decomposition is empty.
 func (o PhaseOutput) nilTypedOutputExceptDecomposition() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
-		o.Review == nil && o.Clear == nil && o.Correction == nil
+		o.Review == nil && o.Clear == nil && o.Correction == nil &&
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
 }
 
 // nilTypedOutputExceptReview reports whether every payload slot except the
 // two review verdicts is empty.
 func (o PhaseOutput) nilTypedOutputExceptReview() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
-		o.Decomposition == nil && o.Correction == nil
+		o.Decomposition == nil && o.Correction == nil &&
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
 }
 
 // nilTypedOutputExceptCorrection reports whether every payload slot except
 // the correction dispositions is empty.
 func (o PhaseOutput) nilTypedOutputExceptCorrection() bool {
 	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
-		o.Decomposition == nil && o.Review == nil && o.Clear == nil
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil &&
+		o.Repair == nil && o.DeliveryRepair == nil && o.Verification == nil
+}
+
+// nilTypedOutputExceptRepair reports whether every payload slot except the
+// two repair reports is empty. Exactly one of them is set for a completed
+// repair; the validate arm enforces which.
+func (o PhaseOutput) nilTypedOutputExceptRepair() bool {
+	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
+		o.Verification == nil
+}
+
+// nilTypedOutputExceptVerification reports whether every payload slot
+// except the app verification report is empty.
+func (o PhaseOutput) nilTypedOutputExceptVerification() bool {
+	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil &&
+		o.Repair == nil && o.DeliveryRepair == nil
 }
 
 // PhaseResult is the strict phase-bound process result. Completed
@@ -287,6 +350,11 @@ func (r PhaseResult) Validate() error {
 // BindAssignment verifies the result against its recorded assignment: phase
 // equality binds phase and subject lineage, since the assignment already
 // binds role, subject and run. Pre-phase assignments cannot bind v2 results.
+// Repair and verify results additionally bind their subject kind and, for
+// completed runs, the exact report matching that subject: a stall repair
+// carries the stall report, a delivery repair the delivery repair report,
+// and a delivery verification the app verification report. The six older
+// phases keep their historic phase-only binding.
 func (r PhaseResult) BindAssignment(a Assignment) error {
 	if err := r.Validate(); err != nil {
 		return err
@@ -296,6 +364,24 @@ func (r PhaseResult) BindAssignment(a Assignment) error {
 	}
 	if r.Phase != a.Phase {
 		return errors.New("phase result does not match its assignment phase")
+	}
+	switch r.Phase {
+	case project.ExecutionRepair:
+		if a.Subject.Kind != SubjectStall && a.Subject.Kind != SubjectDeliveryRepair {
+			return errors.New("repair result does not match its repair subject")
+		}
+		if r.Output != nil && r.Status == "completed" {
+			if a.Subject.Kind == SubjectStall && (r.Output.Repair == nil || r.Output.DeliveryRepair != nil) {
+				return errors.New("stall repair result lacks its stall report")
+			}
+			if a.Subject.Kind == SubjectDeliveryRepair && (r.Output.DeliveryRepair == nil || r.Output.Repair != nil) {
+				return errors.New("delivery repair result lacks its delivery repair report")
+			}
+		}
+	case project.ExecutionVerify:
+		if a.Subject.Kind != SubjectDelivery {
+			return errors.New("verification result does not match its delivery subject")
+		}
 	}
 	return nil
 }

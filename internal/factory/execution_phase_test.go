@@ -18,6 +18,8 @@ func TestPhaseRoleBindingMatrix(t *testing.T) {
 		project.ExecutionReview:      project.RoleReviewer,
 		project.ExecutionCorrect:     project.RoleCoder,
 		project.ExecutionReassess:    project.RoleCoder,
+		project.ExecutionRepair:      project.RoleCoder,
+		project.ExecutionVerify:      project.RoleReviewer,
 	}
 	for phase, role := range valid {
 		if !ValidPhaseRole(phase, role) {
@@ -34,6 +36,8 @@ func TestPhaseRoleBindingMatrix(t *testing.T) {
 		{project.ExecutionReview, project.RoleCoder},
 		{project.ExecutionCorrect, project.RoleReviewer},
 		{project.ExecutionReassess, project.RoleReviewer},
+		{project.ExecutionRepair, project.RoleReviewer},
+		{project.ExecutionVerify, project.RoleCoder},
 		{"publish", project.RoleCoder},
 		{"", project.RoleCoder},
 	}
@@ -78,6 +82,37 @@ func TestSubjectKindPhaseMatrix(t *testing.T) {
 	}
 	if SubjectKindAllowed(SubjectCompletion, project.ExecutionDecompose) {
 		t.Fatal("completion subject admitted for decompose")
+	}
+	// D15/D16 scope: repair admits only stall and delivery repair;
+	// verify admits only delivery; nothing else enters either phase.
+	for _, kind := range []string{SubjectStall, SubjectDeliveryRepair} {
+		if !SubjectKindAllowed(kind, project.ExecutionRepair) {
+			t.Fatalf("subject %s refused for repair", kind)
+		}
+		if SubjectKindAllowed(kind, project.ExecutionVerify) {
+			t.Fatalf("subject %s admitted for verify", kind)
+		}
+	}
+	if !SubjectKindAllowed(SubjectDelivery, project.ExecutionVerify) {
+		t.Fatal("delivery subject refused for verify")
+	}
+	if SubjectKindAllowed(SubjectDelivery, project.ExecutionRepair) {
+		t.Fatal("delivery subject admitted for repair")
+	}
+	for _, kind := range []string{SubjectIssue, SubjectIntent, SubjectCompletion} {
+		if SubjectKindAllowed(kind, project.ExecutionRepair) {
+			t.Fatalf("subject %s admitted for repair", kind)
+		}
+		if SubjectKindAllowed(kind, project.ExecutionVerify) {
+			t.Fatalf("subject %s admitted for verify", kind)
+		}
+	}
+	for _, phase := range []string{project.ExecutionInvestigate, project.ExecutionImplement, project.ExecutionReview, project.ExecutionCorrect} {
+		for _, kind := range []string{SubjectStall, SubjectDelivery, SubjectDeliveryRepair} {
+			if SubjectKindAllowed(kind, phase) {
+				t.Fatalf("subject %s admitted for %s", kind, phase)
+			}
+		}
 	}
 	if SubjectKindAllowed("draft", project.ExecutionDecompose) || SubjectKindAllowed(SubjectIssue, "") {
 		t.Fatal("unknown kind or empty phase admitted")

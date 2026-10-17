@@ -70,6 +70,17 @@ const (
 	// and the coder role, inspects without implementing, and proposes one
 	// coherent revision set through the reassessment report.
 	ExecutionReassess = "reassess"
+	// ExecutionRepair investigates a stall or a failed verification and
+	// proposes the smallest coherent repair or an evidence-based wait
+	// (D15/D16). It accepts only the stall or delivery_repair subject
+	// and the coder role, runs single-agent with no publication, and
+	// carries no publishable candidate.
+	ExecutionRepair = "repair"
+	// ExecutionVerify checks one integrated accepted-intent delivery
+	// against its approved manifest (D16). It accepts only the delivery
+	// subject and the reviewer role, runs read-only with no publication
+	// or children, and carries no publishable candidate.
+	ExecutionVerify = "verify"
 )
 
 // ValidExecutionPhase reports whether phase is an admitted execution phase.
@@ -78,7 +89,7 @@ const (
 // role, parent equality or whether a PR happens to exist.
 func ValidExecutionPhase(phase string) bool {
 	switch phase {
-	case "", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess:
+	case "", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify:
 		return true
 	default:
 		return false
@@ -131,12 +142,13 @@ const (
 	MaxFactoryOutput = 64 * 1024
 )
 
-// MaxPromptForPhase returns the admitted prompt bound for phase: the D13
-// reassess-only exception for reassess, the standard bound otherwise. The
-// launch wire binds this exception to the recorded phase; the matching
-// completion-subject binding rides assignment admission.
+// MaxPromptForPhase returns the admitted prompt bound for phase: the
+// reassess/repair 320 KiB exception for reassess and repair, the standard
+// bound otherwise. The launch wire binds this exception to the recorded
+// phase; the matching completion/stall/delivery-repair subject binding
+// rides assignment admission.
 func MaxPromptForPhase(phase string) int {
-	if phase == ExecutionReassess {
+	if phase == ExecutionReassess || phase == ExecutionRepair {
 		return MaxReassessPrompt
 	}
 	return MaxFactoryPrompt
@@ -201,6 +213,12 @@ func (r FactoryRun) Validate() error {
 	}
 	if r.ExecutionPhase == ExecutionReassess && r.Role != RoleCoder {
 		return errors.New("reassess run requires the coder role")
+	}
+	if r.ExecutionPhase == ExecutionRepair && r.Role != RoleCoder {
+		return errors.New("repair run requires the coder role")
+	}
+	if r.ExecutionPhase == ExecutionVerify && r.Role != RoleReviewer {
+		return errors.New("verify run requires the reviewer role")
 	}
 	if ExecutionManifestRequired(r.ExecutionPhase) {
 		if !ValidDigest(r.ManifestDigest) {

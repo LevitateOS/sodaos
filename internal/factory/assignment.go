@@ -65,6 +65,15 @@ const (
 	// SubjectCompletion names one verified completion's reassessment cycle
 	// (D13). It accepts only the reassess phase and the coder role.
 	SubjectCompletion = "completion"
+	// SubjectStall names one stall investigation cycle (D15). It accepts
+	// only the repair phase and the coder role.
+	SubjectStall = "stall"
+	// SubjectDelivery names one accepted intent version's app verification
+	// (D16). It accepts only the verify phase and the reviewer role.
+	SubjectDelivery = "delivery"
+	// SubjectDeliveryRepair names one failed verification's repair cycle
+	// (D16). It accepts only the repair phase and the coder role.
+	SubjectDeliveryRepair = "delivery_repair"
 )
 
 // IssueSubject binds one native issue attempt to the acceptance decision
@@ -94,14 +103,20 @@ type CompletionSubject struct {
 }
 
 // ExecutionSubject is the canonical admitted work item: a native issue, a
-// pre-issue intent draft or a D13 verified completion. Subject keys are
-// `issue:<repository>:<issue>`, `intent:<intent_id>` and
-// `completion:<completion_id>`.
+// pre-issue intent draft, a D13 verified completion, a D15 stall, a D16
+// delivery or a D16 delivery repair. Subject keys are
+// `issue:<repository>:<issue>`, `intent:<intent_id>`,
+// `completion:<completion_id>`, `stall:<stall_id>`,
+// `delivery:<delivery_id>` and
+// `delivery_repair:<delivery_id>:<failed_run>`.
 type ExecutionSubject struct {
-	Issue      *IssueSubject      `json:"issue,omitempty"`
-	Intent     *IntentSubject     `json:"intent,omitempty"`
-	Completion *CompletionSubject `json:"completion,omitempty"`
-	Kind       string             `json:"kind"`
+	Issue          *IssueSubject          `json:"issue,omitempty"`
+	Intent         *IntentSubject         `json:"intent,omitempty"`
+	Completion     *CompletionSubject     `json:"completion,omitempty"`
+	Stall          *StallSubject          `json:"stall,omitempty"`
+	Delivery       *DeliverySubject       `json:"delivery,omitempty"`
+	DeliveryRepair *DeliveryRepairSubject `json:"delivery_repair,omitempty"`
+	Kind           string                 `json:"kind"`
 }
 
 // SubjectKey returns the canonical admission key for subject.
@@ -115,55 +130,89 @@ func (s ExecutionSubject) SubjectKey(repository int64) string {
 	if s.Kind == SubjectCompletion && s.Completion != nil {
 		return "completion:" + s.Completion.CompletionID
 	}
+	if s.Kind == SubjectStall && s.Stall != nil {
+		return StallKey(s.Stall.StallID)
+	}
+	if s.Kind == SubjectDelivery && s.Delivery != nil {
+		return DeliveryKey(s.Delivery.DeliveryID)
+	}
+	if s.Kind == SubjectDeliveryRepair && s.DeliveryRepair != nil {
+		return DeliveryRepairKey(s.DeliveryRepair.DeliveryID, s.DeliveryRepair.FailedVerificationRunID)
+	}
 	return ""
 }
 
 // ParseSubjectKey splits a canonical subject key into kind, repository and
-// issue/intent/completion identity. Intent and completion keys carry no
-// repository segment.
-func ParseSubjectKey(key string) (kind string, repository, issue int64, intent, completion string, err error) {
+// issue/intent/completion/stall/delivery/delivery-repair identity. Only
+// issue keys carry a repository segment; delivery-repair keys carry the
+// delivery identity plus its failed verification run.
+func ParseSubjectKey(key string) (kind string, repository, issue int64, intent, completion, stall, delivery, deliveryRepair string, err error) {
+	fail := func(detail string) (string, int64, int64, string, string, string, string, string, error) {
+		return "", 0, 0, "", "", "", "", "", errors.New(detail)
+	}
 	if rest, ok := strings.CutPrefix(key, "intent:"); ok {
 		if !project.ValidDecisionID(rest) {
-			return "", 0, 0, "", "", errors.New("invalid intent subject key")
+			return fail("invalid intent subject key")
 		}
-		return SubjectIntent, 0, 0, rest, "", nil
+		return SubjectIntent, 0, 0, rest, "", "", "", "", nil
 	}
 	if rest, ok := strings.CutPrefix(key, "completion:"); ok {
 		if !ValidID(rest) {
-			return "", 0, 0, "", "", errors.New("invalid completion subject key")
+			return fail("invalid completion subject key")
 		}
-		return SubjectCompletion, 0, 0, "", rest, nil
+		return SubjectCompletion, 0, 0, "", rest, "", "", "", nil
+	}
+	if rest, ok := strings.CutPrefix(key, "stall:"); ok {
+		if !ValidID(rest) {
+			return fail("invalid stall subject key")
+		}
+		return SubjectStall, 0, 0, "", "", rest, "", "", nil
+	}
+	if rest, ok := strings.CutPrefix(key, "delivery_repair:"); ok {
+		id, run, found := strings.Cut(rest, ":")
+		if !found || !ValidID(id) || !ValidID(run) {
+			return fail("invalid delivery repair subject key")
+		}
+		return SubjectDeliveryRepair, 0, 0, "", "", "", "", id + ":" + run, nil
+	}
+	if rest, ok := strings.CutPrefix(key, "delivery:"); ok {
+		if !ValidID(rest) {
+			return fail("invalid delivery subject key")
+		}
+		return SubjectDelivery, 0, 0, "", "", "", rest, "", nil
 	}
 	rest, ok := strings.CutPrefix(key, "issue:")
 	if !ok {
-		return "", 0, 0, "", "", errors.New("unknown subject key")
+		return fail("unknown subject key")
 	}
 	repo, num, found := strings.Cut(rest, ":")
 	if !found {
-		return "", 0, 0, "", "", errors.New("invalid issue subject key")
+		return fail("invalid issue subject key")
 	}
 	repository, err = strconv.ParseInt(repo, 10, 64)
 	if err != nil || repository <= 0 {
-		return "", 0, 0, "", "", errors.New("invalid issue subject key")
+		return fail("invalid issue subject key")
 	}
 	issue, err = strconv.ParseInt(num, 10, 64)
 	if err != nil || issue <= 0 || strings.Trim(num, "0123456789") != "" {
-		return "", 0, 0, "", "", errors.New("invalid issue subject key")
+		return fail("invalid issue subject key")
 	}
-	return SubjectIssue, repository, issue, "", "", nil
+	return SubjectIssue, repository, issue, "", "", "", "", "", nil
 }
 
 func (s ExecutionSubject) Validate() error {
 	switch s.Kind {
 	case SubjectIssue:
-		if s.Issue == nil || s.Intent != nil || s.Completion != nil {
+		if s.Issue == nil || s.Intent != nil || s.Completion != nil ||
+			s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
 			return errors.New("issue subject needs exactly its issue payload")
 		}
 		if s.Issue.Issue <= 0 || !project.ValidDecisionID(s.Issue.Acceptance) {
 			return errors.New("invalid issue subject")
 		}
 	case SubjectIntent:
-		if s.Intent == nil || s.Issue != nil || s.Completion != nil {
+		if s.Intent == nil || s.Issue != nil || s.Completion != nil ||
+			s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
 			return errors.New("intent subject needs exactly its intent payload")
 		}
 		if !project.ValidDecisionID(s.Intent.IntentID) || !project.ValidDecisionID(s.Intent.RevisionID) {
@@ -173,7 +222,8 @@ func (s ExecutionSubject) Validate() error {
 			return errors.New("invalid intent subject scope or owner")
 		}
 	case SubjectCompletion:
-		if s.Completion == nil || s.Issue != nil || s.Intent != nil {
+		if s.Completion == nil || s.Issue != nil || s.Intent != nil ||
+			s.Stall != nil || s.Delivery != nil || s.DeliveryRepair != nil {
 			return errors.New("completion subject needs exactly its completion payload")
 		}
 		if !ValidID(s.Completion.CompletionID) || !ValidID(s.Completion.CycleID) {
@@ -181,6 +231,30 @@ func (s ExecutionSubject) Validate() error {
 		}
 		if !ValidDigest(s.Completion.InventoryDigest) {
 			return errors.New("invalid completion subject inventory digest")
+		}
+	case SubjectStall:
+		if s.Stall == nil || s.Issue != nil || s.Intent != nil ||
+			s.Completion != nil || s.Delivery != nil || s.DeliveryRepair != nil {
+			return errors.New("stall subject needs exactly its stall payload")
+		}
+		if err := s.Stall.Validate(); err != nil {
+			return err
+		}
+	case SubjectDelivery:
+		if s.Delivery == nil || s.Issue != nil || s.Intent != nil ||
+			s.Completion != nil || s.Stall != nil || s.DeliveryRepair != nil {
+			return errors.New("delivery subject needs exactly its delivery payload")
+		}
+		if err := s.Delivery.Validate(); err != nil {
+			return err
+		}
+	case SubjectDeliveryRepair:
+		if s.DeliveryRepair == nil || s.Issue != nil || s.Intent != nil ||
+			s.Completion != nil || s.Stall != nil || s.Delivery != nil {
+			return errors.New("delivery repair subject needs exactly its delivery repair payload")
+		}
+		if err := s.DeliveryRepair.Validate(); err != nil {
+			return err
 		}
 	default:
 		return errors.New("unknown execution subject kind")
@@ -299,16 +373,39 @@ func (a Assignment) validateSubjectPhase() error {
 		if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
 			return errors.New("completion assignment carries issue authority")
 		}
+	case SubjectStall, SubjectDelivery, SubjectDeliveryRepair:
+		// A stall investigation, app verification or delivery repair is
+		// not an issue attempt and never publishes: a fresh attempt root
+		// with no parent or publication assignment, in the repository
+		// slot, carrying no issue authority. Repair runs single-agent
+		// with no children; verification runs read-only. Their admission
+		// validators (R37/R38) own episode/version binding; this gate
+		// pins the root, slot and publication shape.
+		if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
+			return errors.New("repair cycle is a fresh attempt root")
+		}
+		if a.PublicationAssignment != "" {
+			return errors.New("repair cycle carries no publication")
+		}
+		if a.Issue != 0 || a.Repository <= 0 || a.Acceptance != "" {
+			return errors.New("repair assignment carries issue authority")
+		}
 	}
 	return nil
 }
 
 // assignmentPromptBound returns the admitted prompt size for assignment:
-// the D13 reassess-only exception when the recorded phase and completion
-// subject match, the standard transport bound otherwise. Binding both pins
-// the 320 KiB exception to genuine reassessment cycles.
+// the 320 KiB exception when the recorded phase and subject match
+// (reassess with completion, repair with stall or delivery repair), the
+// standard transport bound otherwise. Binding both pins the exception to
+// genuine inventory-carrying cycles.
 func assignmentPromptBound(a Assignment) int {
 	if a.Phase == project.ExecutionReassess && a.Subject.Kind == SubjectCompletion && a.Subject.Completion != nil {
+		return project.MaxReassessPrompt
+	}
+	if a.Phase == project.ExecutionRepair &&
+		(a.Subject.Kind == SubjectStall && a.Subject.Stall != nil ||
+			a.Subject.Kind == SubjectDeliveryRepair && a.Subject.DeliveryRepair != nil) {
 		return project.MaxReassessPrompt
 	}
 	return project.MaxFactoryPrompt
@@ -322,18 +419,22 @@ func (a Assignment) Validate() error {
 	}
 	// A reassessment cycle never publishes, so it carries no publication
 	// assignment; a private intent root likewise carries no publication
-	// until implementation (D01). Every other assignment names its
-	// publication owner; complete intent validation follows in
+	// until implementation (D01); stall, delivery and delivery-repair
+	// cycles never publish either (D15/D16). Every other assignment names
+	// its publication owner; complete subject validation follows in
 	// validateSubjectPhase.
-	if a.Subject.Kind == SubjectCompletion {
+	switch a.Subject.Kind {
+	case SubjectCompletion, SubjectStall, SubjectDelivery, SubjectDeliveryRepair:
 		if a.PublicationAssignment != "" {
-			return errors.New("reassessment cycle carries no publication")
+			return errors.New("non-issue cycle carries no publication")
 		}
-	} else if a.Subject.Kind == SubjectIntent {
+	case SubjectIntent:
 		// Narrow D01 exemption: defer to validateSubjectPhase, which
 		// enforces empty publication plus fresh-root intent identity.
-	} else if !ValidID(a.PublicationAssignment) {
-		return errors.New("invalid assignment identity")
+	default:
+		if !ValidID(a.PublicationAssignment) {
+			return errors.New("invalid assignment identity")
+		}
 	}
 	if !ValidProjectID(a.ProjectID) || !project.ValidFactoryRole(a.Role) {
 		return errors.New("invalid assignment address")
@@ -341,7 +442,8 @@ func (a Assignment) Validate() error {
 	if a.Subject.Kind == "" {
 		// Pre-phase issue record: legacy scope rules apply, and no
 		// half-migrated subject field may accompany it.
-		if a.Phase != "" || a.ParentAssignment != "" || a.Subject.Issue != nil || a.Subject.Intent != nil || a.Subject.Completion != nil {
+		if a.Phase != "" || a.ParentAssignment != "" || a.Subject.Issue != nil || a.Subject.Intent != nil || a.Subject.Completion != nil ||
+			a.Subject.Stall != nil || a.Subject.Delivery != nil || a.Subject.DeliveryRepair != nil {
 			return errors.New("subject assignment lacks its subject kind")
 		}
 		if a.Repository <= 0 || a.Issue <= 0 {

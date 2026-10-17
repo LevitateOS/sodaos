@@ -15,15 +15,16 @@ import (
 )
 
 // PhaseRole returns the single factory account role admitted for phase.
-// Only review uses the reviewer account; every other phase uses coder,
-// including D13 reassess. Do not infer phase from role.
+// Review and D16 verify use the reviewer account; every other phase uses
+// coder, including D13 reassess and D15/D16 repair. Do not infer phase
+// from role.
 func PhaseRole(phase string) (string, error) {
 	switch phase {
 	case project.ExecutionDecompose, project.ExecutionInvestigate,
 		project.ExecutionImplement, project.ExecutionCorrect,
-		project.ExecutionReassess:
+		project.ExecutionReassess, project.ExecutionRepair:
 		return project.RoleCoder, nil
-	case project.ExecutionReview:
+	case project.ExecutionReview, project.ExecutionVerify:
 		return project.RoleReviewer, nil
 	default:
 		return "", errors.New("unknown execution phase")
@@ -37,10 +38,12 @@ func ValidPhaseRole(phase, role string) bool {
 }
 
 // SubjectKindAllowed reports whether a subject kind may enter phase. Intent
-// subjects enter only through decompose; issue subjects never decompose or
-// reassess; D13 completion subjects enter only through reassess, which
-// accepts nothing else. Planning phases carry no native publication or
-// mutation capability.
+// subjects enter only through decompose; issue subjects never decompose,
+// reassess, repair or verify; D13 completion subjects enter only through
+// reassess, which accepts nothing else; D15 stall and D16 delivery_repair
+// subjects enter only through repair; D16 delivery subjects enter only
+// through verify. Planning phases carry no native publication or mutation
+// capability.
 func SubjectKindAllowed(kind, phase string) bool {
 	switch kind {
 	case SubjectIntent:
@@ -55,6 +58,10 @@ func SubjectKindAllowed(kind, phase string) bool {
 		}
 	case SubjectCompletion:
 		return phase == project.ExecutionReassess
+	case SubjectStall, SubjectDeliveryRepair:
+		return phase == project.ExecutionRepair
+	case SubjectDelivery:
+		return phase == project.ExecutionVerify
 	default:
 		return false
 	}

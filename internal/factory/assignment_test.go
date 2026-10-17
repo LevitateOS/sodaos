@@ -647,21 +647,36 @@ func TestAssignmentIntentRootFresh(t *testing.T) {
 }
 
 func TestParseSubjectKeyRoundTrip(t *testing.T) {
-	kind, repo, issue, intent, completion, err := ParseSubjectKey("issue:7:3")
+	kind, repo, issue, intent, completion, _, _, _, err := ParseSubjectKey("issue:7:3")
 	if err != nil || kind != SubjectIssue || repo != 7 || issue != 3 || intent != "" || completion != "" {
 		t.Fatalf("issue key: %s %d %d %s %s %v", kind, repo, issue, intent, completion, err)
 	}
-	kind, repo, issue, intent, completion, err = ParseSubjectKey("intent:" + "d" + strings.Repeat("b", 24))
-	if err != nil || kind != SubjectIntent || intent == "" || completion != "" {
-		t.Fatalf("intent key: %s %s %s %v", kind, intent, completion, err)
+	kind, _, _, intent, _, _, _, _, err = ParseSubjectKey("intent:" + "d" + strings.Repeat("b", 24))
+	if err != nil || kind != SubjectIntent || intent == "" {
+		t.Fatalf("intent key: %s %s %v", kind, intent, err)
 	}
 	completionID := strings.Repeat("c", 32)
-	kind, repo, issue, intent, completion, err = ParseSubjectKey("completion:" + completionID)
-	if err != nil || kind != SubjectCompletion || completion != completionID || intent != "" || repo != 0 || issue != 0 {
+	kind, _, _, _, completion, _, _, _, err = ParseSubjectKey("completion:" + completionID)
+	if err != nil || kind != SubjectCompletion || completion != completionID {
 		t.Fatalf("completion key: %s %s %v", kind, completion, err)
 	}
-	for _, key := range []string{"", "issue:7", "issue:0:3", "issue:7:0", "issue:7:03x", "intent:short", "completion:short", "completion:", "pr:7:3"} {
-		if _, _, _, _, _, err := ParseSubjectKey(key); err == nil {
+	stallID := strings.Repeat("7", 32)
+	kind, _, _, _, _, stall, _, _, err := ParseSubjectKey("stall:" + stallID)
+	if err != nil || kind != SubjectStall || stall != stallID {
+		t.Fatalf("stall key: %s %s %v", kind, stall, err)
+	}
+	deliveryID := strings.Repeat("8", 32)
+	kind, _, _, _, _, _, delivery, _, err := ParseSubjectKey("delivery:" + deliveryID)
+	if err != nil || kind != SubjectDelivery || delivery != deliveryID {
+		t.Fatalf("delivery key: %s %s %v", kind, delivery, err)
+	}
+	failedRun := strings.Repeat("9", 32)
+	kind, _, _, _, _, _, _, repair, err := ParseSubjectKey("delivery_repair:" + deliveryID + ":" + failedRun)
+	if err != nil || kind != SubjectDeliveryRepair || repair != deliveryID+":"+failedRun {
+		t.Fatalf("delivery repair key: %s %s %v", kind, repair, err)
+	}
+	for _, key := range []string{"", "issue:7", "issue:0:3", "issue:7:0", "issue:7:03x", "intent:short", "completion:short", "completion:", "pr:7:3", "stall:short", "stall:", "delivery:short", "delivery:", "delivery_repair:" + deliveryID, "delivery_repair:short:" + failedRun, "delivery_repair:x", "delivery:repair:x"} {
+		if _, _, _, _, _, _, _, _, err := ParseSubjectKey(key); err == nil {
 			t.Fatalf("subject key %q admitted", key)
 		}
 	}

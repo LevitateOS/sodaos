@@ -285,6 +285,8 @@ func TestMCPProfileForPhase(t *testing.T) {
 		project.ExecutionReview:      factory.MCPProfileInspector,
 		project.ExecutionCorrect:     factory.MCPProfileFixer,
 		project.ExecutionReassess:    factory.MCPProfileStrategist,
+		project.ExecutionRepair:      factory.MCPProfileStrategist,
+		project.ExecutionVerify:      factory.MCPProfileTestPilot,
 	}
 	for phase, want := range cases {
 		got, err := mcpProfileForPhase(phase)
@@ -298,7 +300,7 @@ func TestMCPProfileForPhase(t *testing.T) {
 			t.Fatalf("mapped profile %s serves no phase", want)
 		}
 	}
-	for _, phase := range []string{"", "legacy", "plan", "verify"} {
+	for _, phase := range []string{"", "legacy", "plan", "publish"} {
 		if got, err := mcpProfileForPhase(phase); err == nil {
 			t.Fatalf("phase %q produced %s, want no MCP authority", phase, got)
 		}

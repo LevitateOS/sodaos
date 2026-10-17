@@ -55,12 +55,13 @@ const (
 
 // journeyCanonicalPhases orders the admitted execution phases for the
 // recorded journey: decompose, investigate, implement, review, correct,
-// reassess. The journey renders one current state per phase in this
-// stable order, never in row-recency order, so a newer retry storm on
-// one phase cannot displace another phase's current state.
+// reassess, repair, verify. The journey renders one current state per
+// phase in this stable order, never in row-recency order, so a newer
+// retry storm on one phase cannot displace another phase's current state.
 var journeyCanonicalPhases = []string{
 	project.ExecutionDecompose, project.ExecutionInvestigate, project.ExecutionImplement,
 	project.ExecutionReview, project.ExecutionCorrect, project.ExecutionReassess,
+	project.ExecutionRepair, project.ExecutionVerify,
 }
 
 // journeyPhaseView renders one execution phase's recorded CURRENT

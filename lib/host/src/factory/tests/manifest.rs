@@ -99,6 +99,30 @@ fn manifest_correct_singleton_binds_its_run() {
     assert!(manifest.verify_for_run(&run, &staged).is_ok());
 }
 
+/// R10 parity: repair and verify join the admitted execution phases with
+/// their prompt bounds and roles, and stay single-agent with no manifest.
+#[test]
+fn repair_verify_phase_parity() {
+    assert!(valid_execution_phase("repair"));
+    assert!(valid_execution_phase("verify"));
+    assert!(!valid_execution_phase("publish"));
+    assert_eq!(max_prompt_for_phase("repair"), MAX_REASSESS_PROMPT);
+    assert_eq!(max_prompt_for_phase("verify"), MAX_FACTORY_PROMPT);
+    assert!(!execution_manifest_required("repair"));
+    assert!(!execution_manifest_required("verify"));
+    let mut run = implement_run_for(&envelope_json().into_bytes());
+    run.execution_phase = "repair".to_string();
+    run.role = "soda-coder".to_string();
+    run.manifest_digest = String::new();
+    assert!(run.validate().is_ok());
+    run.role = "soda-reviewer".to_string();
+    assert!(run.validate().is_err());
+    run.execution_phase = "verify".to_string();
+    assert!(run.validate().is_ok());
+    run.role = "soda-coder".to_string();
+    assert!(run.validate().is_err());
+}
+
 #[test]
 fn manifest_correct_singleton_refusals() {
     // Correct with child concurrency refuses.

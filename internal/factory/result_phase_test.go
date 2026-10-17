@@ -13,11 +13,6 @@ func implementReceipt() *PhaseOutput {
 	return &PhaseOutput{Implementation: &ImplementationReceipt{Candidate: strings.Repeat("e", 40)}}
 }
 
-func investigateOutput() *PhaseOutput {
-	plan := planFixture()
-	return &PhaseOutput{Plan: &plan}
-}
-
 // scopedChoiceID derives a deterministic valid decision ID for fixtures.
 func scopedChoiceID(n int) string { return fmt.Sprintf("d%024x", 0xd000+n) }
 
@@ -69,6 +64,28 @@ func correctionOutput() *PhaseOutput {
 	}}
 }
 
+func stallRepairOutput() *PhaseOutput {
+	return &PhaseOutput{Repair: &StallRepairReport{
+		StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
+		InventoryDigest: strings.Repeat("9", 64), Outcome: RepairOutcomeRepair,
+	}}
+}
+
+func deliveryRepairOutput() *PhaseOutput {
+	return &PhaseOutput{DeliveryRepair: &DeliveryRepairReport{
+		DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
+		InputDigest: strings.Repeat("9", 64), InventoryDigest: strings.Repeat("a", 64),
+		CycleID: strings.Repeat("b", 32), Outcome: RepairOutcomeVerifiedWait,
+	}}
+}
+
+func appVerificationOutput() *PhaseOutput {
+	return &PhaseOutput{Verification: &AppVerificationReport{
+		DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64),
+		Outcome: AppVerificationVerified,
+	}}
+}
+
 // T03 (FW06A scope): each valid phase/role/result combination binds;
 // cross-phase payload, extra JSON and trailing JSON refuse.
 func TestPhaseResultValidCombinations(t *testing.T) {
@@ -86,6 +103,12 @@ func TestPhaseResultValidCombinations(t *testing.T) {
 		{Version: 2, Phase: project.ExecutionCorrect, Status: "completed", Summary: "findings accounted", Output: correctionOutput()},
 		{Version: 2, Phase: project.ExecutionCorrect, Status: "failed", Summary: "no fix", Output: nil},
 		{Version: 2, Phase: project.ExecutionReassess, Status: "failed", Summary: "held for attention", Output: nil},
+		{Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "stall addressed", Output: stallRepairOutput()},
+		{Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "delivery failure addressed", Output: deliveryRepairOutput()},
+		{Version: 2, Phase: project.ExecutionRepair, Status: "blocked", Summary: "waiting on evidence", Output: nil},
+		{Version: 2, Phase: project.ExecutionRepair, Status: "failed", Summary: "no repair", Output: nil},
+		{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "delivery verified", Output: appVerificationOutput()},
+		{Version: 2, Phase: project.ExecutionVerify, Status: "blocked", Summary: "waiting on checks", Output: nil},
 	}
 	for _, result := range cases {
 		if err := result.Validate(); err != nil {
@@ -134,6 +157,19 @@ func TestPhaseResultRefusals(t *testing.T) {
 		"reassess plan":               {Version: 2, Phase: project.ExecutionReassess, Status: "failed", Summary: "x", Output: goodPlan},
 		"reassess receipt":            {Version: 2, Phase: project.ExecutionReassess, Status: "failed", Summary: "x", Output: implementReceipt()},
 		"reassess completed":          {Version: 2, Phase: project.ExecutionReassess, Status: "completed", Summary: "x"},
+		"repair both reports":         {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: &PhaseOutput{Repair: stallRepairOutput().Repair, DeliveryRepair: deliveryRepairOutput().DeliveryRepair}},
+		"repair no report":            {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: &PhaseOutput{}},
+		"repair report on blocked":    {Version: 2, Phase: project.ExecutionRepair, Status: "blocked", Summary: "x", Output: stallRepairOutput()},
+		"repair plan":                 {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: goodPlan},
+		"repair receipt":              {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: implementReceipt()},
+		"repair bad outcome":          {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: &PhaseOutput{Repair: &StallRepairReport{StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32), InventoryDigest: strings.Repeat("9", 64), Outcome: "merged"}}},
+		"verify no report":            {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: &PhaseOutput{}},
+		"verify report on blocked":    {Version: 2, Phase: project.ExecutionVerify, Status: "blocked", Summary: "x", Output: appVerificationOutput()},
+		"verify plan":                 {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: goodPlan},
+		"verify receipt":              {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: implementReceipt()},
+		"verify bad outcome":          {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: &PhaseOutput{Verification: &AppVerificationReport{DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64), Outcome: "needs_attention"}}},
+		"stall report on verify":      {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: stallRepairOutput()},
+		"verification on repair":      {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: appVerificationOutput()},
 	}
 	for name, result := range cases {
 		if err := result.Validate(); err == nil {
@@ -152,6 +188,8 @@ func TestPhaseResultRefusals(t *testing.T) {
 	for name, output := range map[string]*PhaseOutput{
 		"decompose": decomposeOutput(), "review": reviewVerdictOutput(),
 		"clear": reviewClearOutput(), "correct": correctionOutput(),
+		"stall repair": stallRepairOutput(), "delivery repair": deliveryRepairOutput(),
+		"verification": appVerificationOutput(),
 	} {
 		phase := project.ExecutionDecompose
 		switch name {
@@ -159,6 +197,10 @@ func TestPhaseResultRefusals(t *testing.T) {
 			phase = project.ExecutionReview
 		case "correct":
 			phase = project.ExecutionCorrect
+		case "stall repair", "delivery repair":
+			phase = project.ExecutionRepair
+		case "verification":
+			phase = project.ExecutionVerify
 		}
 		encoded, _ := json.Marshal(PhaseResult{Version: 2, Phase: phase, Status: "completed", Summary: name, Output: output})
 		if strings.Contains(string(encoded), `"candidate":`) {
@@ -232,6 +274,54 @@ func TestPhaseResultBindsItsAssignment(t *testing.T) {
 		mutate(&next)
 		if err := next.ValidatePhaseBinding(project.RoleCoder, project.ExecutionInvestigate); err == nil {
 			t.Fatalf("phase binding %s admitted", name)
+		}
+	}
+}
+
+// D15/D16 scope: repair and verify results bind their subject kind and,
+// for completed runs, the exact report matching that subject. A stall
+// repair carries the stall report, a delivery repair the delivery repair
+// report, and a delivery verification the app verification report.
+func TestPhaseResultBindsItsRepairSubject(t *testing.T) {
+	stall := ExecutionSubject{Kind: SubjectStall, Stall: &StallSubject{
+		StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
+		InventoryDigest: strings.Repeat("9", 64),
+	}}
+	deliveryRepair := ExecutionSubject{Kind: SubjectDeliveryRepair, DeliveryRepair: &DeliveryRepairSubject{
+		DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
+		FailureDigest: strings.Repeat("9", 64), InventoryDigest: strings.Repeat("a", 64),
+		CycleID: strings.Repeat("b", 32),
+	}}
+	delivery := ExecutionSubject{Kind: SubjectDelivery, Delivery: &DeliverySubject{
+		DeliveryID: strings.Repeat("7", 32), IntentID: scopedChoiceID(9), AcceptedRevision: scopedChoiceID(10),
+		ScopeDigest: strings.Repeat("9", 64), SourceCommit: strings.Repeat("e", 40),
+		PreparationDigest: strings.Repeat("a", 64), VerificationManifestDigest: strings.Repeat("b", 64),
+	}}
+	issue := ExecutionSubject{Kind: SubjectIssue, Issue: &IssueSubject{Issue: 3, Acceptance: scopedChoiceID(11)}}
+	stallResult := PhaseResult{Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "stall addressed", Output: stallRepairOutput()}
+	deliveryRepairResult := PhaseResult{Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "failure addressed", Output: deliveryRepairOutput()}
+	verifyResult := PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "delivery verified", Output: appVerificationOutput()}
+	for name, tc := range map[string]struct {
+		result  PhaseResult
+		subject ExecutionSubject
+		ok      bool
+	}{
+		"stall repair binds stall":             {stallResult, stall, true},
+		"delivery repair binds repair subject": {deliveryRepairResult, deliveryRepair, true},
+		"verification binds delivery":          {verifyResult, delivery, true},
+		"stall report on repair subject":       {stallResult, deliveryRepair, false},
+		"delivery report on stall subject":     {deliveryRepairResult, stall, false},
+		"repair binds issue":                   {stallResult, issue, false},
+		"verification binds stall":             {verifyResult, stall, false},
+		"stall report on verify":               {PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: stallRepairOutput()}, delivery, false},
+	} {
+		a := Assignment{Phase: tc.result.Phase, Subject: tc.subject}
+		err := tc.result.BindAssignment(a)
+		if tc.ok && err != nil {
+			t.Fatalf("binding %s refused: %v", name, err)
+		}
+		if !tc.ok && err == nil {
+			t.Fatalf("binding %s admitted", name)
 		}
 	}
 }

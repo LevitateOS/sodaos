@@ -28,9 +28,9 @@ pub const FACTORY_STOPPED: &str = "stopped";
 pub const FACTORY_UNCERTAIN: &str = "uncertain";
 
 pub const MAX_FACTORY_PROMPT: usize = 64 * 1024;
-/// D13 reassess-only prompt exception: a reassess prompt carries the exact
-/// complete inventory inline plus bounded instructions. Every other phase
-/// keeps `MAX_FACTORY_PROMPT`, and every phase result keeps
+/// Reassess/repair prompt exception: a reassess or repair prompt carries
+/// the exact complete inventory inline plus bounded instructions. Every
+/// other phase keeps `MAX_FACTORY_PROMPT`, and every phase result keeps
 /// `MAX_FACTORY_OUTPUT`. Prompts use stdin/file delivery, never argv.
 pub const MAX_REASSESS_PROMPT: usize = 320 * 1024;
 /// `MaxExecutionManifest`: one staged execution manifest (D05).
@@ -44,13 +44,26 @@ pub const EXECUTION_IMPLEMENT: &str = "implement";
 pub const EXECUTION_REVIEW: &str = "review";
 pub const EXECUTION_CORRECT: &str = "correct";
 pub const EXECUTION_REASSESS: &str = "reassess";
+/// D15/D16 stall and delivery repair investigation (coder, single-agent,
+/// no publication, no candidate).
+pub const EXECUTION_REPAIR: &str = "repair";
+/// D16 integrated delivery verification (reviewer, read-only, no
+/// publication or children, no candidate).
+pub const EXECUTION_VERIFY: &str = "verify";
 
 /// `ValidExecutionPhase`: admitted execution phases, including the empty
 /// pre-phase record. Phase is never inferred from role or PR state.
 pub fn valid_execution_phase(phase: &str) -> bool {
     matches!(
         phase,
-        "" | "decompose" | "investigate" | "implement" | "review" | "correct" | "reassess"
+        "" | "decompose"
+            | "investigate"
+            | "implement"
+            | "review"
+            | "correct"
+            | "reassess"
+            | "repair"
+            | "verify"
     )
 }
 
@@ -61,9 +74,11 @@ pub fn execution_manifest_required(phase: &str) -> bool {
     phase == EXECUTION_IMPLEMENT || phase == EXECUTION_CORRECT
 }
 
-/// `MaxPromptForPhase`: the admitted prompt bound for one phase.
+/// `MaxPromptForPhase`: the admitted prompt bound for one phase: the
+/// 320 KiB inventory exception for reassess and repair, the standard
+/// bound otherwise.
 pub fn max_prompt_for_phase(phase: &str) -> usize {
-    if phase == EXECUTION_REASSESS {
+    if phase == EXECUTION_REASSESS || phase == EXECUTION_REPAIR {
         MAX_REASSESS_PROMPT
     } else {
         MAX_FACTORY_PROMPT
@@ -286,6 +301,12 @@ impl FactoryRun {
         }
         if self.execution_phase == EXECUTION_REASSESS && self.role != preparation::ROLE_CODER {
             return Err("reassess run requires the coder role".to_string());
+        }
+        if self.execution_phase == EXECUTION_REPAIR && self.role != preparation::ROLE_CODER {
+            return Err("repair run requires the coder role".to_string());
+        }
+        if self.execution_phase == EXECUTION_VERIFY && self.role != preparation::ROLE_REVIEWER {
+            return Err("verify run requires the reviewer role".to_string());
         }
         if execution_manifest_required(&self.execution_phase) {
             if !preparation::valid_digest(&self.manifest_digest) {

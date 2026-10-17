@@ -1,6 +1,8 @@
 package control
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -237,6 +239,235 @@ func TestDerivePhasedCorrectCompleted(t *testing.T) {
 	}
 	if err := result.ValidatePhaseBinding(project.RoleCoder, project.ExecutionCorrect); err != nil {
 		t.Fatalf("completed correction does not bind: %v", err)
+	}
+}
+
+// phaseTestRepairAssignment builds one valid stall, delivery or delivery
+// repair cycle: a fresh repository root with no parent, publication or
+// issue authority, mirroring the D15/D16 admission shape.
+func phaseTestRepairAssignment(t *testing.T, phase, role string, subject factory.ExecutionSubject) factory.Assignment {
+	t.Helper()
+	id, run := factory.NewID(), factory.NewID()
+	prompt := []byte("prompt bytes for " + phase)
+	sum := sha256.Sum256(prompt)
+	a := factory.Assignment{
+		ID: id, AttemptRoot: id,
+		Subject: subject, Phase: phase,
+		ProjectID: "p" + strings.Repeat("1", 24), Role: role,
+		Repository: 7, NativeRev: 1,
+		Preparation: "f" + strings.Repeat("d", 24),
+		Harness:     "codex-1.2.3", HarnessVers: "1.2.3",
+		Model: "test-model", Connection: "conn",
+		SourceCommit: phaseTestCommit(), Prompt: prompt, PromptSHA: hex.EncodeToString(sum[:]),
+		Run: run, RunHistory: []string{run}, Stage: factory.AssignmentAssigned,
+		Attempts: 1, CreatedUnix: 1700000000, ActorID: 7,
+	}
+	if err := a.Validate(); err != nil {
+		t.Fatalf("repair assignment fixture invalid: %v", err)
+	}
+	return a
+}
+
+func phasedStallSubject() factory.ExecutionSubject {
+	return factory.ExecutionSubject{
+		Kind: factory.SubjectStall,
+		Stall: &factory.StallSubject{
+			StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
+			InventoryDigest: phaseTestSHA("inventory"),
+		},
+	}
+}
+
+func phasedDeliverySubject() factory.ExecutionSubject {
+	return factory.ExecutionSubject{
+		Kind: factory.SubjectDelivery,
+		Delivery: &factory.DeliverySubject{
+			DeliveryID: strings.Repeat("7", 32), IntentID: phasedDecisionID(20),
+			AcceptedRevision: phasedDecisionID(21), ScopeDigest: phaseTestSHA("scope"),
+			SourceCommit: phaseTestCommit(), PreparationDigest: phaseTestSHA("prep"),
+			VerificationManifestDigest: phaseTestSHA("manifest"),
+		},
+	}
+}
+
+func phasedDeliveryRepairSubject() factory.ExecutionSubject {
+	return factory.ExecutionSubject{
+		Kind: factory.SubjectDeliveryRepair,
+		DeliveryRepair: &factory.DeliveryRepairSubject{
+			DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
+			FailureDigest: phaseTestSHA("failure"), InventoryDigest: phaseTestSHA("inventory"),
+			CycleID: strings.Repeat("9", 32),
+		},
+	}
+}
+
+func phasedStallRepair() *factory.PhaseOutput {
+	return &factory.PhaseOutput{Repair: &factory.StallRepairReport{
+		StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
+		InventoryDigest: phaseTestSHA("inventory"), Outcome: factory.RepairOutcomeRepair,
+	}}
+}
+
+func phasedDeliveryRepair() *factory.PhaseOutput {
+	return &factory.PhaseOutput{DeliveryRepair: &factory.DeliveryRepairReport{
+		DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
+		InputDigest: phaseTestSHA("input"), InventoryDigest: phaseTestSHA("inventory"),
+		CycleID: strings.Repeat("9", 32), Outcome: factory.RepairOutcomeVerifiedWait,
+	}}
+}
+
+func phasedAppVerification() *factory.PhaseOutput {
+	return &factory.PhaseOutput{Verification: &factory.AppVerificationReport{
+		DeliveryID: strings.Repeat("7", 32), InputDigest: phaseTestSHA("input"),
+		Outcome: factory.AppVerificationVerified,
+	}}
+}
+
+// A completed repair finishes with exactly its subject's report and no
+// candidate: stall subjects carry the stall report, delivery repair
+// subjects the delivery repair report.
+func TestDerivePhasedRepairCompleted(t *testing.T) {
+	for name, tc := range map[string]struct {
+		subject factory.ExecutionSubject
+		output  *factory.PhaseOutput
+	}{
+		"stall repair":    {phasedStallSubject(), phasedStallRepair()},
+		"delivery repair": {phasedDeliveryRepairSubject(), phasedDeliveryRepair()},
+	} {
+		t.Run(name, func(t *testing.T) {
+			a := phaseTestRepairAssignment(t, project.ExecutionRepair, project.RoleCoder, tc.subject)
+			output := fencedResult(t, factory.PhaseResult{
+				Version: 2, Phase: project.ExecutionRepair, Status: "completed",
+				Summary: "repair proposed", Output: tc.output,
+			})
+			finished := finishPhasedFixture(t, a, phaseTestRun(a, factory.Succeeded), output)
+			if finished.Outcome != factory.Succeeded || finished.Reason != factory.AssignReasonReported {
+				t.Fatalf("repair outcome = %v/%v", finished.Outcome, finished.Reason)
+			}
+			result := finished.Result
+			if !result.Reported || result.Phase != project.ExecutionRepair || result.Candidate != "" {
+				t.Fatalf("repair result not exact: %+v", result)
+			}
+			if err := result.ValidatePhaseBinding(project.RoleCoder, project.ExecutionRepair); err != nil {
+				t.Fatalf("completed repair does not bind: %v", err)
+			}
+			encoded, _ := json.Marshal(result.PhaseResult)
+			if strings.Contains(string(encoded), `"candidate":`) {
+				t.Fatal("completed repair exposes a candidate")
+			}
+			if err := finished.Validate(); err != nil {
+				t.Fatalf("finished repair assignment refused: %v", err)
+			}
+		})
+	}
+}
+
+// A completed verification finishes with exactly its app verification
+// report and no candidate, legacy findings or reviewer report.
+func TestDerivePhasedVerifyCompleted(t *testing.T) {
+	a := phaseTestRepairAssignment(t, project.ExecutionVerify, project.RoleReviewer, phasedDeliverySubject())
+	output := fencedResult(t, factory.PhaseResult{
+		Version: 2, Phase: project.ExecutionVerify, Status: "completed",
+		Summary: "delivery verified", Output: phasedAppVerification(),
+	})
+	finished := finishPhasedFixture(t, a, phaseTestRun(a, factory.Succeeded), output)
+	if finished.Outcome != factory.Succeeded || finished.Reason != factory.AssignReasonReported {
+		t.Fatalf("verify outcome = %v/%v", finished.Outcome, finished.Reason)
+	}
+	result := finished.Result
+	if !result.Reported || result.Phase != project.ExecutionVerify || result.Review != nil {
+		t.Fatalf("verify result not typed: %+v", result)
+	}
+	if result.Candidate != "" || len(result.Findings) != 0 || result.ReviewPassed {
+		t.Fatalf("verify result authorizes publication: %+v", result)
+	}
+	if err := result.ValidatePhaseBinding(project.RoleReviewer, project.ExecutionVerify); err != nil {
+		t.Fatalf("completed verification does not bind: %v", err)
+	}
+	if err := result.ValidateForAssignment(project.RoleReviewer, a.SourceCommit); err != nil {
+		t.Fatalf("completed verification refused for reviewer: %v", err)
+	}
+	encoded, _ := json.Marshal(result.PhaseResult)
+	if strings.Contains(string(encoded), `"candidate":`) {
+		t.Fatal("completed verification exposes a candidate")
+	}
+	if err := finished.Validate(); err != nil {
+		t.Fatalf("finished verify assignment refused: %v", err)
+	}
+}
+
+// Repair and verify refuse everything off-contract: cross-phase payloads,
+// the other phase's report, wrong-subject reports and legacy harness
+// shapes all synthesize to blocked without a recorded report.
+func TestDerivePhasedRepairVerifyRefusals(t *testing.T) {
+	repair := phaseTestRepairAssignment(t, project.ExecutionRepair, project.RoleCoder, phasedStallSubject())
+	verify := phaseTestRepairAssignment(t, project.ExecutionVerify, project.RoleReviewer, phasedDeliverySubject())
+	plan := factory.InvestigationPlan{
+		ID: factory.NewID(), AttemptRoot: repair.AttemptRoot,
+		ScopeDigest: phaseTestSHA("scope"), InputDigest: phaseTestSHA("input"),
+		SourceCommit: phaseTestCommit(), IntegrationCommit: phaseTestCommit(),
+		Preparation: repair.Preparation,
+		Approach:    "inspect then plan", AcceptanceCoverage: []string{"accept-one"},
+		Tasks: []factory.PlanTask{{
+			ID: "task-one", Objective: "inspect", Outputs: []string{"notes"},
+			AcceptanceRefs: []string{"accept-one"}, Lane: "lane-one",
+			OwnedPaths: []string{"internal/x.go"},
+		}},
+		Lanes: []factory.PlanLane{{ID: "lane-one", TaskIDs: []string{"task-one"}}},
+	}
+	planDigest, err := factory.PlanDigest(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Digest = planDigest
+	legacy := `{"version":1,"phase":"implement","status":"completed","summary":"x","candidate":"` + strings.Repeat("e", 40) + `"}`
+	for name, tc := range map[string]struct {
+		a      factory.Assignment
+		output string
+	}{
+		"plan on repair": {repair, fencedResult(t, factory.PhaseResult{
+			Version: 2, Phase: project.ExecutionRepair, Status: "completed",
+			Summary: "x", Output: &factory.PhaseOutput{Plan: &plan},
+		})},
+		"delivery report on stall repair": {repair, fencedResult(t, factory.PhaseResult{
+			Version: 2, Phase: project.ExecutionRepair, Status: "completed",
+			Summary: "x", Output: phasedDeliveryRepair(),
+		})},
+		"verification on repair": {repair, fencedResult(t, factory.PhaseResult{
+			Version: 2, Phase: project.ExecutionRepair, Status: "completed",
+			Summary: "x", Output: phasedAppVerification(),
+		})},
+		"stall report on verify": {verify, fencedResult(t, factory.PhaseResult{
+			Version: 2, Phase: project.ExecutionVerify, Status: "completed",
+			Summary: "x", Output: phasedStallRepair(),
+		})},
+		"legacy harness on verify": {verify, "notes\n```" + factory.ResultFence + "\n" + legacy + "\n```\n"},
+		"unparseable repair":       {repair, "no fence here"},
+	} {
+		result, outcome, reason := deriveAttemptResult(tc.a, phaseTestRun(tc.a, factory.Succeeded), tc.output, "", 1700000100)
+		if outcome != factory.NeedsHuman || reason != factory.AssignReasonNoReport {
+			t.Fatalf("%s outcome = %v/%v", name, outcome, reason)
+		}
+		if result.Reported {
+			t.Fatalf("%s reported: %+v", name, result)
+		}
+	}
+}
+
+// Non-completed repair and verify runs synthesize honestly with no
+// payload, like every other phase.
+func TestDerivePhasedRepairVerifyNonCompleted(t *testing.T) {
+	repair := phaseTestRepairAssignment(t, project.ExecutionRepair, project.RoleCoder, phasedStallSubject())
+	verify := phaseTestRepairAssignment(t, project.ExecutionVerify, project.RoleReviewer, phasedDeliverySubject())
+	for name, a := range map[string]factory.Assignment{"repair": repair, "verify": verify} {
+		run := phaseTestRun(a, factory.Failed)
+		result, outcome, _ := deriveAttemptResult(a, run, "crashed without a report", "run failed", 1700000100)
+		if outcome != factory.Failed || result.Reported {
+			t.Fatalf("%s failed outcome = %v reported=%v", name, outcome, result.Reported)
+		}
+		if result.PhaseResult == nil || result.PhaseResult.Output != nil {
+			t.Fatalf("%s failed result carries a payload: %+v", name, result.PhaseResult)
+		}
 	}
 }
 

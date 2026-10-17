@@ -49,7 +49,7 @@ func TestFactoryRunValidation(t *testing.T) {
 }
 
 func TestExecutionPhaseVocabulary(t *testing.T) {
-	for _, phase := range []string{ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess} {
+	for _, phase := range []string{ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionReassess, ExecutionRepair, ExecutionVerify} {
 		if !ValidExecutionPhase(phase) {
 			t.Fatalf("admitted phase refused: %s", phase)
 		}
@@ -63,20 +63,24 @@ func TestExecutionPhaseVocabulary(t *testing.T) {
 	if !ExecutionManifestRequired(ExecutionCorrect) {
 		t.Fatal("correct run skips its manifest")
 	}
-	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionReview, ExecutionReassess} {
+	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionReview, ExecutionReassess, ExecutionRepair, ExecutionVerify} {
 		if ExecutionManifestRequired(phase) {
 			t.Fatalf("single-agent phase stages a manifest: %q", phase)
 		}
 	}
 }
 
-// D13 (FW06A scope): the reassess-only prompt exception rides the recorded
-// phase; reassess runs require the coder role; results stay 64 KiB.
+// D13/D15/D16 scope: the reassess/repair 320 KiB prompt exception rides
+// the recorded phase; reassess and repair runs require the coder role,
+// verify runs the reviewer role; other phases keep the standard bound.
 func TestReassessPromptBoundAndRole(t *testing.T) {
 	if MaxPromptForPhase(ExecutionReassess) != MaxReassessPrompt {
 		t.Fatal("reassess prompt exception missing")
 	}
-	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect} {
+	if MaxPromptForPhase(ExecutionRepair) != MaxReassessPrompt {
+		t.Fatal("repair prompt exception missing")
+	}
+	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionImplement, ExecutionReview, ExecutionCorrect, ExecutionVerify} {
 		if MaxPromptForPhase(phase) != MaxFactoryPrompt {
 			t.Fatalf("phase %q escapes the standard prompt bound", phase)
 		}
@@ -91,9 +95,19 @@ func TestReassessPromptBoundAndRole(t *testing.T) {
 	if err := launchFor(ExecutionReassess, RoleCoder, MaxReassessPrompt).Validate(); err != nil {
 		t.Fatalf("bounded reassess launch refused: %v", err)
 	}
+	if err := launchFor(ExecutionRepair, RoleCoder, MaxReassessPrompt).Validate(); err != nil {
+		t.Fatalf("bounded repair launch refused: %v", err)
+	}
+	if err := launchFor(ExecutionVerify, RoleReviewer, MaxFactoryPrompt).Validate(); err != nil {
+		t.Fatalf("bounded verify launch refused: %v", err)
+	}
 	for name, launch := range map[string]FactoryLaunch{
 		"reassess over bound":    launchFor(ExecutionReassess, RoleCoder, MaxReassessPrompt+1),
 		"reassess reviewer":      launchFor(ExecutionReassess, RoleReviewer, 64),
+		"repair over bound":      launchFor(ExecutionRepair, RoleCoder, MaxReassessPrompt+1),
+		"repair reviewer":        launchFor(ExecutionRepair, RoleReviewer, 64),
+		"verify coder":           launchFor(ExecutionVerify, RoleCoder, 64),
+		"verify at 320 KiB":      launchFor(ExecutionVerify, RoleReviewer, MaxReassessPrompt),
 		"implement at 320 KiB":   launchFor(ExecutionImplement, RoleCoder, MaxReassessPrompt),
 		"investigate at 320 KiB": launchFor(ExecutionInvestigate, RoleCoder, MaxReassessPrompt),
 	} {
@@ -135,6 +149,8 @@ func TestFactoryLaunchManifestRule(t *testing.T) {
 		"drifted digest":           launchFor(ExecutionImplement, manifest, strings.Repeat("d", 64)),
 		"drifted correct digest":   launchFor(ExecutionCorrect, manifest, strings.Repeat("d", 64)),
 		"manifest elsewhere":       launchFor(ExecutionInvestigate, manifest, ExecutionManifestDigest(manifest)),
+		"manifest on repair":       launchFor(ExecutionRepair, manifest, ExecutionManifestDigest(manifest)),
+		"manifest on verify":       launchFor(ExecutionVerify, manifest, ExecutionManifestDigest(manifest)),
 		"digest elsewhere":         launchFor(ExecutionReview, nil, strings.Repeat("d", 64)),
 		"unknown phase":            launchFor("publish", nil, ""),
 		"oversized manifest":       launchFor(ExecutionImplement, make([]byte, MaxExecutionManifest+1), strings.Repeat("d", 64)),

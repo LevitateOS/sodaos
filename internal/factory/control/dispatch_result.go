@@ -129,6 +129,9 @@ func derivePhasedAttemptResult(a factory.Assignment, run factory.Run, output, su
 		return failed, factory.Failed, factory.AssignReasonRunFailed
 	}
 	if a.Role == project.RoleReviewer {
+		if a.Phase == project.ExecutionVerify {
+			return derivePhasedVerifyAttemptResult(a, run, output, summary, recordedUnix)
+		}
 		if a.Phase != "" {
 			return derivePhasedReviewAttemptResult(a, run, output, summary, recordedUnix)
 		}
@@ -218,6 +221,71 @@ func derivePhasedReviewAttemptResult(a factory.Assignment, run factory.Run, outp
 	parsed, ok := factory.ParsePhaseResult(output)
 	if !ok {
 		return refuse("review completed without a parseable phase result")
+	}
+	if err := parsed.BindAssignment(a); err != nil {
+		return refuse("phase result does not match its assignment phase")
+	}
+	result := factory.AssignmentResult{
+		AssignmentID: a.ID, RunID: a.Run, Phase: a.Phase, PhaseResult: &parsed,
+		Summary: parsed.Summary, Findings: []string{},
+		Reported: true, RecordedUnix: recordedUnix,
+	}
+	switch parsed.Status {
+	case "completed":
+		result.Status = "completed"
+	case "blocked":
+		result.Status = "blocked"
+	case "failed":
+		result.Status = "failed"
+		return result, factory.Failed, factory.AssignReasonRunFailed
+	case "cancelled":
+		result.Status = "cancelled"
+		return result, factory.Cancelled, factory.AssignReasonCancelled
+	default:
+		return refuse("phase result carries an unknown status")
+	}
+	if err := result.ValidatePhaseBinding(a.Role, a.Phase); err != nil {
+		return refuse("phased result does not bind its assignment phase")
+	}
+	outcome := factory.Outcome(factory.Succeeded)
+	reason := factory.AssignReasonReported
+	if parsed.Status == "blocked" {
+		outcome, reason = factory.NeedsHuman, factory.AssignReasonNoReport
+	}
+	return result, outcome, reason
+}
+
+// derivePhasedVerifyAttemptResult maps one settled reviewer run to the
+// recorded result for a phased verify assignment. The report is the same
+// strict v2 phase contract every other phase uses, carrying exactly the
+// app verification report for a completed run and no report otherwise. A
+// completed verification records no candidate and no legacy string
+// findings: checking a delivery never authorizes publication. Anything
+// unparseable, cross-phase or legacy refuses to a synthesized blocked
+// result; no legacy verification reader is added on this path.
+func derivePhasedVerifyAttemptResult(a factory.Assignment, run factory.Run, output, summary string, recordedUnix int64) (factory.AssignmentResult, factory.Outcome, string) {
+	refuse := func(detail string) (factory.AssignmentResult, factory.Outcome, string) {
+		phased := synthesizePhased(a, "blocked", detail, recordedUnix)
+		return phased, factory.NeedsHuman, factory.AssignReasonNoReport
+	}
+	if run.ID != a.Run || run.Role != a.Role || run.InputSHA != a.SourceCommit {
+		return refuse("settled run does not match its assignment")
+	}
+	if a.Phase != project.ExecutionVerify || !factory.ValidPhaseRole(a.Phase, a.Role) {
+		return refuse("assignment role does not match its execution phase")
+	}
+	switch run.Outcome {
+	case factory.Succeeded:
+	case factory.Cancelled:
+		cancelled := synthesizePhased(a, "cancelled", boundSummary(summary, "run cancelled"), recordedUnix)
+		return cancelled, factory.Cancelled, factory.AssignReasonCancelled
+	default:
+		failed := synthesizePhased(a, "failed", boundSummary(summary, "run failed"), recordedUnix)
+		return failed, factory.Failed, factory.AssignReasonRunFailed
+	}
+	parsed, ok := factory.ParsePhaseResult(output)
+	if !ok {
+		return refuse("verification completed without a parseable phase result")
 	}
 	if err := parsed.BindAssignment(a); err != nil {
 		return refuse("phase result does not match its assignment phase")

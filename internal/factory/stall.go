@@ -556,6 +556,53 @@ func (a IntentExecutionAllowance) Checkpoint(now time.Time, active bool, runsRet
 	return a, nil
 }
 
+// Repair outcomes: the stall is addressed by a repair proposal, the
+// evidence establishes a legitimate wait, inspection establishes no
+// change is needed, or the investigation is incomplete and held.
+const (
+	RepairOutcomeRepair       = "repair"
+	RepairOutcomeVerifiedWait = "verified_wait"
+	RepairOutcomeNoChange     = "no_change"
+	RepairOutcomeIncomplete   = "incomplete"
+)
+
+// ValidRepairOutcome reports whether outcome is an admitted D15/D16
+// repair outcome.
+func ValidRepairOutcome(outcome string) bool {
+	switch outcome {
+	case RepairOutcomeRepair, RepairOutcomeVerifiedWait,
+		RepairOutcomeNoChange, RepairOutcomeIncomplete:
+		return true
+	default:
+		return false
+	}
+}
+
+// StallRepairReport is the typed output of a completed repair phase
+// answering a stall: the stall and cycle it investigated, the sealed
+// inventory it reviewed, and its outcome. It carries no candidate.
+// Cause/coverage/adoption detail belongs to the R37 repair consumers;
+// the envelope binds the result.
+type StallRepairReport struct {
+	StallID         string `json:"stall_id"`
+	CycleID         string `json:"cycle_id"`
+	InventoryDigest string `json:"inventory_digest"`
+	Outcome         string `json:"outcome"`
+}
+
+func (r StallRepairReport) Validate() error {
+	if !ValidID(r.StallID) || !ValidID(r.CycleID) {
+		return errors.New("invalid stall repair report identity")
+	}
+	if !ValidDigest(r.InventoryDigest) {
+		return errors.New("stall repair report must bind its sealed inventory")
+	}
+	if !ValidRepairOutcome(r.Outcome) {
+		return errors.New("invalid stall repair outcome")
+	}
+	return nil
+}
+
 // ApplyIncrease records an explicit owner-authorized limit increase. It
 // retains consumed usage and prior history; it does not change accepted
 // scope or refill anything.

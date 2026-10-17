@@ -70,6 +70,10 @@ func mcpProfileForPhase(phase string) (factory.MCPProfile, error) {
 		return factory.MCPProfileFixer, nil
 	case project.ExecutionReassess:
 		return factory.MCPProfileStrategist, nil
+	case project.ExecutionRepair:
+		return factory.MCPProfileStrategist, nil
+	case project.ExecutionVerify:
+		return factory.MCPProfileTestPilot, nil
 	}
 	return "", errors.New("mcp producer refuses a phase without MCP authority")
 }

@@ -77,16 +77,20 @@ func (r AssignmentResult) Validate() error {
 // isCandidateFreePhaseResult reports whether phased output belongs to a
 // phase whose completed result never names a publishable candidate:
 // investigate plans, chosen decompositions, reassessment reports, typed
-// review verdicts and correction dispositions. F7 joint cutover with the
-// phased dispatch_result.go consumer and the PhaseOutput typed payloads;
-// decompose arrived first, review and correct ride the same exemption.
+// review verdicts, correction dispositions, repair reports and app
+// verification reports. F7 joint cutover with the phased
+// dispatch_result.go consumer and the PhaseOutput typed payloads;
+// decompose arrived first, review and correct ride the same exemption,
+// and repair/verify extend it to stall, delivery-repair and delivery
+// subjects.
 func isCandidateFreePhaseResult(phased *PhaseResult) bool {
 	if phased == nil {
 		return false
 	}
 	switch phased.Phase {
 	case project.ExecutionInvestigate, project.ExecutionDecompose, project.ExecutionReassess,
-		project.ExecutionReview, project.ExecutionCorrect:
+		project.ExecutionReview, project.ExecutionCorrect,
+		project.ExecutionRepair, project.ExecutionVerify:
 		return true
 	default:
 		return false
@@ -127,6 +131,9 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 	if role == project.RoleReviewer {
 		if r.Reported {
 			if r.Review == nil && isPhasedReviewVerdict(r, sourceCommit) {
+				return nil
+			}
+			if r.Review == nil && isPhasedVerifyVerdict(r) {
 				return nil
 			}
 			if r.Review == nil || r.Status != "completed" || r.Candidate != sourceCommit || r.ReviewPassed || len(r.Findings) != 0 || r.Summary != r.Review.Summary {
@@ -170,6 +177,26 @@ func isPhasedReviewVerdict(r AssignmentResult, sourceCommit string) bool {
 		return false
 	}
 	return true
+}
+
+// isPhasedVerifyVerdict reports whether a reported result is a phased
+// verification result: completed, bound to the verify phase with exactly
+// its app verification report, and carrying no legacy reviewer evidence
+// and no candidate. Verification never authorizes publication, so unlike
+// the explicit-clear review verdict there is no source-commit binding:
+// the delivery and manifest binding rides assignment admission.
+func isPhasedVerifyVerdict(r AssignmentResult) bool {
+	if r.PhaseResult == nil || r.PhaseResult.Phase != project.ExecutionVerify ||
+		r.Phase != project.ExecutionVerify || r.Status != "completed" ||
+		r.Candidate != "" || r.ReviewPassed || len(r.Findings) != 0 ||
+		r.Summary != r.PhaseResult.Summary {
+		return false
+	}
+	output := r.PhaseResult.Output
+	if output == nil || output.Verification == nil {
+		return false
+	}
+	return output.nilTypedOutputExceptVerification()
 }
 
 // ToResult returns the retained harness result shape.
