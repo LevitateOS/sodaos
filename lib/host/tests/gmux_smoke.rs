@@ -257,6 +257,9 @@ impl ExecBackend for ScriptBackend {
     fn factory_output(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         self.replay(body)
     }
+    fn factory_task_events(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
+        self.replay(body)
+    }
     fn factory_harness(&self, body: &[u8], image: &str) -> Result<Vec<u8>, BackendError> {
         *self.seen_image.lock().unwrap() = image.to_string();
         self.replay(body)

@@ -45,6 +45,7 @@ use muse::{
 };
 use muse_serve::open_muse_listener;
 use project::Executor;
+use soda_host::factory;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
