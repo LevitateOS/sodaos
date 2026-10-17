@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -82,6 +83,24 @@ func (s *Store) AcceptanceAssignmentsAfter(ctx context.Context, repository, issu
 	return out, next, nil
 }
 
+// sameAssignmentFinishInput reports whether next carries exactly the
+// recorded immutable inputs of current: only the five terminal fields the
+// serving caller sets (Stage, Outcome, Reason, FinishedUnix, Result) may
+// differ. Both inputs are copied by value and only those five fields are
+// cleared on the copies; the rest compares by reflect.DeepEqual, so nested
+// payload values compare equal across independent allocations without
+// pointer-identity comparison, and shared backing arrays are never
+// mutated.
+func sameAssignmentFinishInput(current, next factory.Assignment) bool {
+	c, n := current, next
+	c.Stage, n.Stage = "", ""
+	c.Outcome, n.Outcome = "", ""
+	c.Reason, n.Reason = "", ""
+	c.FinishedUnix, n.FinishedUnix = 0, 0
+	c.Result, n.Result = nil, nil
+	return reflect.DeepEqual(c, n)
+}
+
 // FinishAssignment stores one assignment's terminal outcome exactly once.
 // Only an assigned assignment at its recorded revision finishes; anything
 // else reports stale instead of overwriting a concurrent finish.
@@ -113,11 +132,15 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	if err = json.Unmarshal(currentData, &current); err != nil {
 		return err
 	}
-	// Phase lineage is immutable: the recorded phase, parent and subject
-	// must still match, or a concurrent admission replaced this attempt.
-	if current.Revision != a.Revision || current.Stage != factory.AssignmentAssigned || current.AttemptRoot != a.AttemptRoot || current.PublicationAssignment != a.PublicationAssignment || current.ActorID != a.ActorID ||
-		current.Phase != a.Phase || current.ParentAssignment != a.ParentAssignment ||
-		current.Subject.SubjectKey(a.Repository) != a.Subject.SubjectKey(a.Repository) {
+	// All recorded inputs are immutable through finish: the current row
+	// must still be assigned and the request must carry exactly its
+	// inputs. Only the five terminal fields may differ; anything else
+	// reports stale before the update, readiness and allowance
+	// transition.
+	if current.Stage != factory.AssignmentAssigned {
+		return ErrNotFound
+	}
+	if !sameAssignmentFinishInput(current, a) {
 		return ErrNotFound
 	}
 	result, err := tx.ExecContext(ctx, `UPDATE factory_assignments SET stage='finished',data=$1
