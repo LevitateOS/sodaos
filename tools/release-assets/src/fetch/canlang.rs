@@ -38,8 +38,8 @@ pub fn stage(manifest: &Path, archive: &Path, out: &Path) -> Result<(), String> 
         || !release.sha256.bytes().all(|b| b.is_ascii_hexdigit())
         || Path::new(&release.archive_filename).components().count() != 1
         || archive.file_name().and_then(|s| s.to_str()) != Some(&release.archive_filename)
-        || !release.versions.compiler.starts_with("can 0.1.0 ")
-        || release.versions.node != "v24.21.0"
+        || !release.versions.compiler.starts_with("can 0.1.1 ")
+        || release.versions.node != "v24.22.0"
         || release.versions.bun != "1.4.2"
         || release.versions.miniflare != "4.20260730.0"
         || release.versions.workerd != "1.20260730.1"
@@ -177,7 +177,7 @@ mod tests {
         let digest = super::super::sha256_hex(&std::fs::read(&archive).unwrap());
         let manifest = root.join("release.json");
         let release = serde_json::json!({"sourceRevision": "a".repeat(40), "archiveFilename": "canlang-tools.tar.gz", "sha256": digest,
-            "versions": {"compiler": "can 0.1.0 (fixture)", "node": "v24.21.0", "bun": "1.4.2", "miniflare": "4.20260730.0", "workerd": "1.20260730.1"}});
+            "versions": {"compiler": "can 0.1.1 (fixture)", "node": "v24.22.0", "bun": "1.4.2", "miniflare": "4.20260730.0", "workerd": "1.20260730.1"}});
         File::create(&manifest)
             .unwrap()
             .write_all(release.to_string().as_bytes())
