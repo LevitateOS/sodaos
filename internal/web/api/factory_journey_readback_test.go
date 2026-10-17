@@ -380,22 +380,29 @@ func seedJourneyPlan(t *testing.T, s *store.Store, root string) {
 // seedJourneyCycle records one decided reassessment cycle with its
 // funded decision receipt: the decision selects reassess at 0.87 under
 // the test model while the cycle waits for its coder run.
-func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, cycleID string, generation int64, waitReason, fingerprint string) {
+func seedJourneyCycle(t *testing.T, fx *journeyHTTPFixture, acceptance, cycleID string, generation int64, waitReason, fingerprint string) {
 	t.Helper()
 	ctx := context.Background()
+	eventID := strings.Repeat("b", 32)
+	completion := factory.CompletionEvent{
+		ID: eventID, PublicationID: fmt.Sprintf("%032x", 7000+generation),
+		Repository: journeyRepo, Issue: journeyIssue, Generation: generation,
+		AcceptanceID: acceptance, MergedCommit: strings.Repeat("c", 40),
+		ClosingOccurrence: fmt.Sprintf("journey-%d", generation),
+	}
 	if _, err := fx.raw.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,$2,$3,$4,$5,$6)
 		ON CONFLICT(repository,generation) DO NOTHING`,
-		journeyRepo, generation, strings.Repeat("e", 32),
-		fmt.Sprintf("%032x", 7000+generation), fmt.Sprintf("journey-%d", generation), `{}`); err != nil {
+		journeyRepo, generation, completion.ID,
+		completion.PublicationID, completion.ClosingOccurrence, `{}`); err != nil {
 		t.Fatal(err)
 	}
 	record := store.ReassessmentRecord{
 		Cycle: factory.ReassessmentCycle{
-			EventID: strings.Repeat("b", 32), CycleID: cycleID,
+			EventID: eventID, CycleID: cycleID,
 			State: factory.ReassessmentAttention, Decision: factory.ReassessmentOptionReassess,
 			Repository: journeyRepo, Generation: generation,
 		},
-		Completion:          factory.CompletionEvent{ID: strings.Repeat("0", 32)},
+		Completion:          completion,
 		Issue:               journeyIssue,
 		EvidenceFingerprint: fingerprint,
 		WaitReason:          waitReason,
@@ -500,7 +507,7 @@ func seedRichJourney(t *testing.T, fx *journeyHTTPFixture, fake *journeyAcceptan
 	insertJourneyRow(t, fx.raw, child, factory.AssignmentFinished)
 	insertJourneyPublication(t, fx.raw, journeyPublicationFixture(root, factory.OpEffectCommitted, factory.FindingSeverityMajor))
 	seedJourneyPlan(t, fx.db, root.ID)
-	seedJourneyCycle(t, fx, strings.Repeat("a", 32), 1, "awaiting_coder", strings.Repeat("b", 64))
+	seedJourneyCycle(t, fx, acceptance, strings.Repeat("a", 32), 1, "awaiting_coder", strings.Repeat("b", 64))
 	return acceptance, root, child
 }
 
@@ -629,13 +636,19 @@ func TestFactoryIssueJourneyMalformedRows(t *testing.T) {
 	// A funded receipt whose answer names no probability, on an
 	// attention cycle without its wait reason: judgment and gate both
 	// name their rows instead of dropping them silently.
+	malformedCompletion := factory.CompletionEvent{
+		ID: strings.Repeat("b", 32), PublicationID: fmt.Sprintf("%032x", 7001),
+		Repository: journeyRepo, Issue: journeyIssue, Generation: 1,
+		AcceptanceID: acceptance, MergedCommit: strings.Repeat("c", 40),
+		ClosingOccurrence: "malformed-1",
+	}
 	record := store.ReassessmentRecord{
 		Cycle: factory.ReassessmentCycle{
 			EventID: strings.Repeat("b", 32), CycleID: strings.Repeat("a", 32),
 			State: factory.ReassessmentAttention, Decision: factory.ReassessmentOptionReassess,
 			Repository: journeyRepo, Generation: 1,
 		},
-		Completion:          factory.CompletionEvent{ID: strings.Repeat("0", 32)},
+		Completion:          malformedCompletion,
 		Issue:               journeyIssue,
 		EvidenceFingerprint: strings.Repeat("b", 64),
 	}
@@ -646,7 +659,8 @@ func TestFactoryIssueJourneyMalformedRows(t *testing.T) {
 	ctx := context.Background()
 	if _, err := fx.raw.Exec(`INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data) VALUES($1,$2,$3,$4,$5,$6)
 		ON CONFLICT(repository,generation) DO NOTHING`,
-		journeyRepo, 1, strings.Repeat("e", 32), strings.Repeat("1", 32), "malformed-1", `{}`); err != nil {
+		journeyRepo, 1, malformedCompletion.ID,
+		malformedCompletion.PublicationID, malformedCompletion.ClosingOccurrence, `{}`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fx.raw.Exec(`INSERT INTO factory_reassessments(cycle,repository,generation,event,state,data) VALUES($1,$2,$3,$4,$5,$6)`,

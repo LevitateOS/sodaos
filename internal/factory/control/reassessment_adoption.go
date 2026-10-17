@@ -870,18 +870,19 @@ func SuccessorIntentRevision(
 // ReassessmentPromptInventory is the complete sealed input the single
 // coder receives INLINE in its existing assignment prompt (T35). There
 // is no new inventory transport artifact: the driver embeds every
-// collected issue verbatim and the coder's typed report answers with
-// the sealed digest.
+// collected issue verbatim plus the complete canonical material body
+// with its local digest, and the coder's typed report answers with the
+// sealed digest. The local half rides as ONE CompletionLocal, never as
+// separate source/preparation fields.
 type ReassessmentPromptInventory struct {
-	Issues            []NativeInventoryIssue
-	CompletionID      string
-	CycleID           string
-	InventoryDigest   string
-	SourceCommit      string
-	PreparationDigest string
-	Repository        int64
-	Generation        int64
-	Complete          bool
+	Issues          []NativeInventoryIssue
+	CompletionID    string
+	CycleID         string
+	InventoryDigest string
+	Local           factory.CompletionLocal
+	Repository      int64
+	Generation      int64
+	Complete        bool
 }
 
 // reassessmentCoderRubric is the frozen coder instruction: review the
@@ -902,11 +903,25 @@ func RenderReassessmentPrompt(in ReassessmentPromptInventory) ([]byte, error) {
 	if !factory.ValidDigest(in.InventoryDigest) {
 		return nil, errors.New("reassessment prompt lacks its sealed inventory")
 	}
-	if !factory.ValidCommit(in.SourceCommit) || !factory.ValidDigest(in.PreparationDigest) {
-		return nil, errors.New("reassessment prompt lacks its sealed source")
-	}
 	if in.Repository <= 0 || in.Generation < 0 {
 		return nil, errors.New("reassessment prompt lacks its repository scope")
+	}
+	// The ONE local carries the complete material: validate it, bind it
+	// to this repository, and inline its canonical body with its local
+	// digest next to the complete native issues.
+	if err := in.Local.Validate(); err != nil {
+		return nil, errors.New("reassessment prompt lacks its sealed material")
+	}
+	if in.Local.Material.Repository != in.Repository {
+		return nil, errors.New("reassessment prompt material names another repository")
+	}
+	localDigest, err := in.Local.Digest()
+	if err != nil {
+		return nil, errors.New("reassessment prompt lacks its sealed material")
+	}
+	materialRaw, err := json.Marshal(in.Local.Material)
+	if err != nil {
+		return nil, errors.New("reassessment prompt lacks its sealed material")
 	}
 	if !in.Complete {
 		return nil, errors.New("reassessment prompt needs its complete inventory")
@@ -926,7 +941,9 @@ func RenderReassessmentPrompt(in ReassessmentPromptInventory) ([]byte, error) {
 	prompt.WriteString("Inventory: " + in.InventoryDigest + "\n")
 	prompt.WriteString("Repository: " + strconv.FormatInt(in.Repository, 10) +
 		" generation: " + strconv.FormatInt(in.Generation, 10) + "\n")
-	prompt.WriteString("Source: " + in.SourceCommit + " preparation: " + in.PreparationDigest + "\n")
+	prompt.WriteString("Source: " + in.Local.SourceCommit + " preparation: " + in.Local.PreparationDigest + "\n")
+	prompt.WriteString("Local: " + localDigest + "\n")
+	prompt.WriteString("Material: " + string(materialRaw) + "\n")
 	prompt.WriteString("Issues: " + strconv.Itoa(len(in.Issues)) + " (complete, ordered by index)\n")
 	prompt.WriteString(reassessmentCoderRubric + "\n")
 	for _, issue := range in.Issues {

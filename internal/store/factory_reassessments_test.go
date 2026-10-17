@@ -37,6 +37,53 @@ func TestReassessmentRecordValidation(t *testing.T) {
 	}
 }
 
+// Material binds sealed and digest-bearing records; an all-zero Local
+// is allowed only on an unsealed record with no InventoryDigest.
+func TestReassessmentRecordLocalBinding(t *testing.T) {
+	base := func() ReassessmentRecord {
+		cycle := factory.ReassessmentCycle{
+			EventID: factory.NewID(), CycleID: factory.NewID(),
+			State: factory.ReassessmentAttention, Repository: 7, Generation: 1,
+		}
+		return ReassessmentRecord{Cycle: cycle, Issue: 31}
+	}
+	if err := base().Validate(); err != nil {
+		t.Fatalf("zero-local unsealed record refused: %v", err)
+	}
+	bad := base()
+	bad.Completion = factory.CompletionEvent{ID: strings.Repeat("0", 32)}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("malformed completion event accepted")
+	}
+	bad = base()
+	bad.InventoryDigest = strings.Repeat("a", 64)
+	if err := bad.Validate(); err == nil {
+		t.Fatal("digest-bearing record with zero local accepted")
+	}
+	bad = base()
+	bad.InventoryDigest = strings.Repeat("a", 64)
+	bad.Local = factory.CompletionLocal{SourceCommit: strings.Repeat("c", 40)}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("digest-only local accepted on a sealed record")
+	}
+	bad = base()
+	local := sealedTestLocal(t)
+	local.Material.Repository = 9
+	bad.Local = local
+	if err := bad.Validate(); err == nil {
+		t.Fatal("wrong-repository material accepted")
+	}
+	good := base()
+	good.Local = sealedTestLocal(t)
+	good.InventoryDigest = strings.Repeat("a", 64)
+	good.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 1, "title", "body")}
+	good.EvidenceIssues = 1
+	good.EvidenceRevision = 41
+	if err := good.Validate(); err != nil {
+		t.Fatalf("sealed material record refused: %v", err)
+	}
+}
+
 func sealedTestBody(t *testing.T, index int64, title, body string) factory.CompletionIssueEvidence {
 	t.Helper()
 	sum := func(text string) string {
@@ -62,7 +109,47 @@ func mustCanonical(t *testing.T, body factory.CompletionIssueEvidence) string {
 	return data
 }
 
-func sealedTestRecord() ReassessmentRecord {
+func sealedTestMaterial() *factory.CompletionMaterial {
+	material := factory.CompletionMaterial{
+		Intents:      []factory.CompletionIntentScope{},
+		Acceptances:  []factory.Acceptance{},
+		Withdrawals:  []factory.CompletionWithdrawal{},
+		Controls:     []factory.IssueControl{},
+		Preparations: []factory.CompletionPreparation{},
+		Plans:        []factory.InvestigationPlan{},
+		PlanHeads:    []factory.CompletionPlanHead{},
+		PlanTasks:    []factory.CompletionPlanTask{},
+		Assignments:  []factory.CompletionAssignment{},
+		Publications: []factory.CompletionPublication{},
+		Merges:       []factory.CompletionMerge{},
+		Checks:       []factory.CompletionCheck{},
+		Authority: factory.CompletionAuthority{
+			Effective:           factory.EffectiveAuthority{Missing: []string{}},
+			Roles:               []string{"soda-coder", "soda-reviewer"},
+			ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+		},
+		Repository: 7,
+	}
+	return &material
+}
+
+func sealedTestLocal(t *testing.T) factory.CompletionLocal {
+	t.Helper()
+	material := sealedTestMaterial()
+	digest, err := material.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return factory.CompletionLocal{
+		Material:             material,
+		SourceCommit:         strings.Repeat("c", 40),
+		PreparationDigest:    strings.Repeat("d", 64),
+		ScopeDigest:          digest,
+		AuthorityFingerprint: "authority",
+	}
+}
+
+func sealedTestRecord(t *testing.T) ReassessmentRecord {
 	cycle := factory.ReassessmentCycle{
 		EventID: factory.NewID(), CycleID: factory.NewID(),
 		State: factory.ReassessmentDeciding, Repository: 7, Generation: 1,
@@ -71,45 +158,42 @@ func sealedTestRecord() ReassessmentRecord {
 		Cycle:           cycle,
 		Issue:           31,
 		InventoryDigest: strings.Repeat("a", 64),
-		Local: factory.CompletionLocal{
-			SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64),
-			ScopeDigest: strings.Repeat("e", 64), AuthorityFingerprint: "authority",
-		},
-		EvidenceIssues: 1, EvidenceRevision: 41,
+		Local:           sealedTestLocal(t),
+		EvidenceIssues:  1, EvidenceRevision: 41,
 	}
 }
 
 // Sealed body rules are pure: they run everywhere, including without
 // the disposable PG fixture.
 func TestSealedEvidenceValidation(t *testing.T) {
-	valid := sealedTestRecord()
+	valid := sealedTestRecord(t)
 	valid.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", "body")}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("valid sealed record refused: %v", err)
 	}
-	empty := sealedTestRecord()
+	empty := sealedTestRecord(t)
 	empty.Evidence = []factory.CompletionIssueEvidence{}
 	empty.EvidenceIssues = 0
 	if err := empty.Validate(); err != nil {
 		t.Fatalf("valid empty seal refused: %v", err)
 	}
-	bodiless := sealedTestRecord()
+	bodiless := sealedTestRecord(t)
 	if err := bodiless.Validate(); err == nil {
 		t.Fatal("bodiless seal accepted")
 	}
-	miscounted := sealedTestRecord()
+	miscounted := sealedTestRecord(t)
 	miscounted.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", "body")}
 	miscounted.EvidenceIssues = 2
 	if err := miscounted.Validate(); err == nil {
 		t.Fatal("miscounted bodies accepted")
 	}
-	unbracketed := sealedTestRecord()
+	unbracketed := sealedTestRecord(t)
 	unbracketed.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", "body")}
 	unbracketed.EvidenceRevision = 0
 	if err := unbracketed.Validate(); err == nil {
 		t.Fatal("unbracketed seal accepted")
 	}
-	oversize := sealedTestRecord()
+	oversize := sealedTestRecord(t)
 	oversize.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", strings.Repeat("x", factory.MaxReassessmentEvidenceBytes))}
 	oversize.EvidenceIssues = 1
 	if err := oversize.Validate(); err == nil {
@@ -134,7 +218,7 @@ func TestCaptureCompletionLocalStabilityAndScope(t *testing.T) {
 	if first.SourceCommit != strings.Repeat("1", 40) {
 		t.Fatalf("source=%q, want the seeded requirement source commit", first.SourceCommit)
 	}
-	if second, err := db.CaptureCompletionLocal(ctx, 7); err != nil || second != first {
+	if second, err := db.CaptureCompletionLocal(ctx, 7); err != nil || !second.Equal(first) {
 		t.Fatalf("second=%+v err=%v, want the stable capture", second, err)
 	}
 	if _, err := db.CaptureCompletionLocal(ctx, 777); err == nil {
@@ -209,7 +293,7 @@ func TestCaptureCompletionLocalControlFreshness(t *testing.T) {
 	} else if replayed.Revision != stored.Revision {
 		t.Fatalf("replay revision=%d, want %d", replayed.Revision, stored.Revision)
 	}
-	if replay, err := db.CaptureCompletionLocal(ctx, 7); err != nil || replay != moved {
+	if replay, err := db.CaptureCompletionLocal(ctx, 7); err != nil || !replay.Equal(moved) {
 		t.Fatalf("replay=%+v err=%v, want the unchanged capture", replay, err)
 	}
 	refresh := blocked
@@ -219,7 +303,7 @@ func TestCaptureCompletionLocalControlFreshness(t *testing.T) {
 	} else if refreshed.Revision != stored.Revision {
 		t.Fatalf("refresh revision=%d, want %d", refreshed.Revision, stored.Revision)
 	}
-	if observed, err := db.CaptureCompletionLocal(ctx, 7); err != nil || observed != moved {
+	if observed, err := db.CaptureCompletionLocal(ctx, 7); err != nil || !observed.Equal(moved) {
 		t.Fatalf("observed=%+v err=%v, want the unchanged capture", observed, err)
 	}
 	foreign := factory.IssueControl{
@@ -234,7 +318,7 @@ func TestCaptureCompletionLocalControlFreshness(t *testing.T) {
 	if _, changed, err := db.RecordIssueAssessment(ctx, foreign, now.Add(4*time.Minute)); err != nil || !changed {
 		t.Fatalf("foreign assessment not recorded: changed=%v err=%v", changed, err)
 	}
-	if isolated, err := db.CaptureCompletionLocal(ctx, 7); err != nil || isolated != moved {
+	if isolated, err := db.CaptureCompletionLocal(ctx, 7); err != nil || !isolated.Equal(moved) {
 		t.Fatalf("isolated=%+v err=%v, want another repository's controls to leave the capture unchanged", isolated, err)
 	}
 }
@@ -345,10 +429,7 @@ func TestCompletionPersistFenceAndFund(t *testing.T) {
 	}
 	sealed.InventoryDigest = strings.Repeat("a", 64)
 	sealed.EvidenceFingerprint = strings.Repeat("b", 64)
-	sealed.Local = factory.CompletionLocal{
-		SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64),
-		ScopeDigest: strings.Repeat("e", 64), AuthorityFingerprint: "authority",
-	}
+	sealed.Local = sealedTestLocal(t)
 	sealed.Evidence = []factory.CompletionIssueEvidence{parsedBody}
 	sealed.EvidenceIssues, sealed.EvidenceRevision = 1, 41
 	sealed.Cycle.State = factory.ReassessmentDeciding
@@ -435,5 +516,87 @@ func TestCompletionRetrySuccession(t *testing.T) {
 	foreign.SuccessorCycleID = factory.NewID()
 	if _, err := db.StartReassessmentRetry(ctx, foreign); err == nil {
 		t.Fatal("second successor admitted for one prior cycle")
+	}
+}
+
+// Sealed local bindings compare by canonical value content: an
+// equal-content rematerialization advances, while valid-but-different
+// material refuses without touching the sealed row.
+func TestReassessmentLocalEqualCAS(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	db.PriorityCallBudget = 100
+	ctx := context.Background()
+	seal := func(t *testing.T, occurrence string) ReassessmentRecord {
+		t.Helper()
+		m := mergedCompletionRecord(factory.NewID(), occurrence)
+		if !recordTestCompletion(t, db, m) {
+			t.Fatal("completion not recorded")
+		}
+		cycles, err := db.PendingReassessmentCycles(ctx, 7)
+		if err != nil || len(cycles) == 0 {
+			t.Fatalf("cycles=%v err=%v", cycles, err)
+		}
+		record := cycles[len(cycles)-1]
+		body, err := factory.CompletionIssueEvidence{
+			Index: 9, Title: "sealed title", Body: "sealed body",
+			TitleDigest: strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64),
+		}.CanonicalData()
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsed, err := factory.ParseCompletionIssueEvidence(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		record.InventoryDigest = strings.Repeat("a", 64)
+		record.Evidence = []factory.CompletionIssueEvidence{parsed}
+		record.EvidenceIssues, record.EvidenceRevision = 1, 41
+		record.Local = sealedTestLocal(t)
+		record.Cycle.State = factory.ReassessmentDeciding
+		if err := record.Validate(); err != nil {
+			t.Fatalf("seal candidate invalid: %v", err)
+		}
+		if err := db.CasReassessmentRecord(ctx, record.Cycle.CycleID, factory.ReassessmentCollecting, record); err != nil {
+			t.Fatalf("seal CAS: %v", err)
+		}
+		return record
+	}
+	sealed := seal(t, "801")
+	rematerialized := sealed
+	other := *sealed.Local.Material
+	rematerialized.Local.Material = &other
+	if !rematerialized.Local.Equal(sealed.Local) {
+		t.Fatal("equal content compares unequal")
+	}
+	rematerialized.Cycle.State = factory.ReassessmentReleased
+	rematerialized.Cycle.Decision = factory.ReassessmentOptionContinue
+	if err := db.CasReassessmentRecord(ctx, rematerialized.Cycle.CycleID, factory.ReassessmentDeciding, rematerialized); err != nil {
+		t.Fatalf("equal-content advance refused: %v", err)
+	}
+	second := seal(t, "802")
+	tampered := second
+	changed := *second.Local.Material
+	changed.Authority.ReassessmentMinutes = factory.DefaultReassessmentMinutes + 1
+	tampered.Local.Material = &changed
+	digest, err := tampered.Local.Material.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered.Local.ScopeDigest = digest
+	if err := tampered.Validate(); err != nil {
+		t.Fatalf("tampered candidate invalid: %v", err)
+	}
+	if tampered.Local.Equal(second.Local) {
+		t.Fatal("different material compares equal")
+	}
+	if err := db.CasReassessmentRecord(ctx, tampered.Cycle.CycleID, factory.ReassessmentDeciding, tampered); err == nil {
+		t.Fatal("rewritten material advanced past the seal")
+	}
+	stored, err := db.ReassessmentRecord(ctx, second.Cycle.CycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stored.Local.Equal(second.Local) {
+		t.Fatal("refused CAS mutated the sealed row")
 	}
 }

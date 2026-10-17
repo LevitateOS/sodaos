@@ -160,10 +160,46 @@ func TestCompletionSnapshotSourceSealsThroughCollector(t *testing.T) {
 }
 
 func completionTestLocal() factory.CompletionLocal {
+	acceptance := factory.Acceptance{
+		ID: "d" + strings.Repeat("0", 24), Repository: 7, IssueIndex: "3",
+		Approver: 5, NativeRev: 41,
+		TitleDigest: strings.Repeat("a", 64), TitleOccurrence: factory.OriginalOccurrence,
+		ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
+		Sources: []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: strings.Repeat("c", 64)}},
+	}
+	material := factory.CompletionMaterial{
+		Intents:     []factory.CompletionIntentScope{},
+		Acceptances: []factory.Acceptance{acceptance},
+		Withdrawals: []factory.CompletionWithdrawal{},
+		Controls: []factory.IssueControl{{
+			Repository: 7, Issue: 7,
+			Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
+			Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
+		}},
+		Preparations: []factory.CompletionPreparation{},
+		Plans:        []factory.InvestigationPlan{},
+		PlanHeads:    []factory.CompletionPlanHead{},
+		PlanTasks:    []factory.CompletionPlanTask{},
+		Assignments:  []factory.CompletionAssignment{},
+		Publications: []factory.CompletionPublication{},
+		Merges:       []factory.CompletionMerge{},
+		Checks:       []factory.CompletionCheck{},
+		Authority: factory.CompletionAuthority{
+			Effective:           factory.EffectiveAuthority{Missing: []string{}, Effective: true, DispatchOpen: true},
+			Roles:               []string{"soda-coder", "soda-reviewer"},
+			ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+		},
+		Repository: 7,
+	}
+	digest, err := material.Digest()
+	if err != nil {
+		panic(err)
+	}
 	return factory.CompletionLocal{
+		Material:             &material,
 		SourceCommit:         strings.Repeat("c", 40),
 		PreparationDigest:    strings.Repeat("d", 64),
-		ScopeDigest:          strings.Repeat("e", 64),
+		ScopeDigest:          digest,
 		AuthorityFingerprint: "authority",
 	}
 }

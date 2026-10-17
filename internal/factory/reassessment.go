@@ -11,6 +11,8 @@
 package factory
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sort"
@@ -84,12 +86,55 @@ const MaxReassessmentReasonChars = 256
 // inventory was captured against, as digests only. FW31 seals it with
 // the native inventory in one bracket; FW32 rechecks it before
 // applying any graph effects. Ordinary observation timestamps never
-// enter these digests; material content or source changes do.
+// enter these digests; material content or source changes do. FW32
+// carries the complete model-safe material alongside its digest:
+// ScopeDigest is exactly the canonical material digest, never a second
+// competing scope hash.
 type CompletionLocal struct {
-	SourceCommit         string `json:"source_commit"`
-	PreparationDigest    string `json:"preparation_digest"`
-	ScopeDigest          string `json:"scope_digest"`
-	AuthorityFingerprint string `json:"authority_fingerprint"`
+	Material             *CompletionMaterial `json:"material"`
+	SourceCommit         string              `json:"source_commit"`
+	PreparationDigest    string              `json:"preparation_digest"`
+	ScopeDigest          string              `json:"scope_digest"`
+	AuthorityFingerprint string              `json:"authority_fingerprint"`
+}
+
+// Equal compares canonical value content, not pointer identity: the four
+// bindings plus the canonical material bytes. Unvalidated material never
+// compares equal.
+func (l CompletionLocal) Equal(other CompletionLocal) bool {
+	if l.SourceCommit != other.SourceCommit || l.PreparationDigest != other.PreparationDigest ||
+		l.ScopeDigest != other.ScopeDigest || l.AuthorityFingerprint != other.AuthorityFingerprint {
+		return false
+	}
+	if (l.Material == nil) != (other.Material == nil) {
+		return false
+	}
+	if l.Material == nil {
+		return true
+	}
+	mine, err := l.Material.canonicalJSON()
+	if err != nil {
+		return false
+	}
+	theirs, err := other.Material.canonicalJSON()
+	if err != nil {
+		return false
+	}
+	return string(mine) == string(theirs)
+}
+
+// Digest hashes the complete validated local envelope for the report's
+// LocalInputDigest: bindings plus the canonical material body.
+func (l CompletionLocal) Digest() (string, error) {
+	if err := l.Validate(); err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(l)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // Sealed reports whether the local half carries its bindings. An
@@ -209,9 +254,25 @@ func ParseCompletionIssueEvidence(data string) (CompletionIssueEvidence, error) 
 	return evidence, nil
 }
 
-// Validate requires every binding: a missing binding holds the gate
-// instead of sealing from partial evidence.
+// Validate requires every binding plus the complete material: a sealed
+// value carries the validated material with ScopeDigest exactly its
+// canonical digest, alongside the existing four-field shape checks. An
+// all-zero local stays unsealed and never funds authority; there is no
+// nil-material legacy path.
 func (l CompletionLocal) Validate() error {
+	if l.Material == nil {
+		return errors.New("completion local lacks its material")
+	}
+	if err := l.Material.Validate(); err != nil {
+		return err
+	}
+	digest, err := l.Material.Digest()
+	if err != nil {
+		return err
+	}
+	if digest != l.ScopeDigest {
+		return errors.New("completion local scope differs from its material")
+	}
 	if !ValidCommit(l.SourceCommit) {
 		return errors.New("completion local lacks its source commit")
 	}

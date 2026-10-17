@@ -62,6 +62,13 @@ func (c *Coordinator) DriveCompletions(ctx context.Context, deps CompletionDrive
 	if c.Store == nil {
 		return report
 	}
+	// The drive owns no new budget: it reuses the caller's readiness
+	// pass when one exists (the production advanceProgressPage pass) and
+	// creates it when called standalone, so the bracket's two revision
+	// observations always charge through the existing reserveNativeRPC
+	// accounting. Reuse returns a no-op cancel; ownership stays here.
+	ctx, _, cancelPass := c.readinessPass(ctx)
+	defer cancelPass()
 	repositories, err := c.Store.PendingCompletionRepositories(ctx)
 	if err != nil {
 		return report
@@ -113,12 +120,123 @@ func routeCompletionCycle(state string) driveRoute {
 	}
 }
 
+// HoldInventoryMaterial names a collecting cycle whose recaptured
+// local moved under its sealed-but-unconfirmed inventory: the seal is
+// deferred, the cursor resets, and the next drive recollects from
+// scratch. It carries no evidence bytes.
+const HoldInventoryMaterial = "inventory_material_changed"
+
 // driveCollecting seals one collecting cycle or persists its resumable
 // progress with the hold reason.
+//
+// The collecting path brackets the SAME-RR local capture with the
+// native inventory coherently: it observes the idle native revision
+// before capture, collects under it, recaptures the local after
+// collection, and confirms the idle native revision after that
+// recapture. It seals only if both local values are Equal and the
+// native revision stayed fixed. Both bracket observations are
+// reserved upfront as two units through the existing readiness pass;
+// with fewer than two units free the drive holds pending immediately
+// with the saved cursor kept and zero external calls. On movement the cursor resets
+// (never combining snapshots across revisions) with a named bounded
+// hold; no global transaction or native authority is invented — each
+// capture owns its own read.
+// bracketResult is one SAME-RR bracket outcome: either a confirmed
+// seal, or the named hold with the exact progress to persist. A nil
+// progress drops the saved cursor so the next drive recollects from
+// scratch instead of combining snapshots across revisions.
+type bracketResult struct {
+	sealed   *SealedInventory
+	progress *InventoryCollector
+	hold     string
+}
+
+// chargeBracketObserves reserves TWO native-RPC units upfront for both
+// bracket revision observations through the existing readiness pass. A
+// nil pass (store-free unit fixtures) carries no charge; a pass with
+// fewer than two units free reports pending so the caller holds
+// immediately with the saved cursor unchanged and zero external calls.
+// No new counter or ledger is introduced: this is the existing
+// reserveNativeRPC accounting only.
+func chargeBracketObserves(ctx context.Context) bool {
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		return true
+	}
+	return budget.reserveNativeRPC(2)
+}
+
+// bracketMaterialCollect runs the SAME-RR bracket without touching the
+// store: observe the idle native revision before capture, collect
+// under it, recapture the local after collection, and confirm the idle
+// native revision after that recapture. It seals only if both local
+// values are Equal and the revision stayed fixed; any movement defers
+// with a named bounded hold and a reset cursor. Both bracket
+// observations are reserved upfront (two units) through the existing
+// readiness pass; a short budget holds pending before any call with
+// the saved cursor kept, spending nothing and sealing nothing. Reads inside the collection keep their
+// existing page-count bound; their native-call quota stays unqualified
+// and out of scope here. An incomplete collection is never charged on
+// the funded-decision path.
+func bracketMaterialCollect(ctx context.Context, deps CompletionDriveDeps, repository, generation int64, saved *InventoryCollector) bracketResult {
+	if deps.Enumerator == nil || deps.CaptureLocal == nil {
+		return bracketResult{hold: HoldCompletionWiring, progress: saved}
+	}
+	// Both bracket observations are reserved upfront: with fewer than
+	// two units free this holds pending immediately with the saved
+	// cursor unchanged and zero observes, captures, or page reads, so
+	// a late budget failure can never discard newly collected work.
+	if !chargeBracketObserves(ctx) {
+		return bracketResult{hold: HoldInventoryInProgress, progress: saved}
+	}
+	collector := saved
+	if collector == nil {
+		collector = &InventoryCollector{}
+	}
+	revision, idle, err := deps.Enumerator.ObserveRevision(ctx)
+	if err != nil || !idle {
+		return bracketResult{hold: HoldInventoryRevision, progress: saved}
+	}
+	if collector.Revision != 0 && collector.Revision != revision {
+		// The native revision moved across drives: reset the cursor
+		// instead of resuming, so snapshots never combine.
+		collector = &InventoryCollector{Revision: revision}
+	}
+	local, err := deps.CaptureLocal(ctx, repository)
+	if err != nil {
+		return bracketResult{hold: HoldInventoryUnavailable, progress: saved}
+	}
+	sealed, progress, err := collector.Collect(ctx, deps.Enumerator, repository, generation, local)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return bracketResult{hold: HoldInventoryInProgress, progress: progress}
+		}
+		return bracketResult{hold: err.Error(), progress: progress}
+	}
+	recaptured, err := deps.CaptureLocal(ctx, repository)
+	if err != nil {
+		return bracketResult{hold: HoldInventoryUnavailable}
+	}
+	// The confirming observation was reserved upfront with the opening
+	// one, so no second charge happens here: confirmation cannot fail
+	// on quota after collection.
+	confirmed, idle, err := deps.Enumerator.ObserveRevision(ctx)
+	if err != nil || !idle || confirmed != revision {
+		return bracketResult{hold: HoldInventoryRevision}
+	}
+	// Canonical value comparison: Equal fails closed on unvalidated
+	// material, so a moved or malformed recapture always defers.
+	if !recaptured.Equal(local) {
+		return bracketResult{hold: HoldInventoryMaterial}
+	}
+	return bracketResult{sealed: sealed}
+}
+
 func (c *Coordinator) driveCollecting(ctx context.Context, deps CompletionDriveDeps, record store.ReassessmentRecord, report *CompletionDriveReport) {
 	cycleID := record.Cycle.CycleID
 	hold := func(reason string, progress *InventoryCollector) {
 		record.WaitReason = reason
+		record.CollectorProgress = nil
 		if progress != nil {
 			if raw, err := json.Marshal(progress); err == nil {
 				record.CollectorProgress = raw
@@ -132,31 +250,19 @@ func (c *Coordinator) driveCollecting(ctx context.Context, deps CompletionDriveD
 		}
 		report.Held = append(report.Held, cycleID+":"+reason)
 	}
-	if deps.Enumerator == nil || deps.CaptureLocal == nil {
-		hold(HoldCompletionWiring, nil)
-		return
-	}
-	local, err := deps.CaptureLocal(ctx, record.Cycle.Repository)
-	if err != nil {
-		hold(HoldInventoryUnavailable, nil)
-		return
-	}
-	collector := &InventoryCollector{Revision: 0}
+	var saved *InventoryCollector
 	if len(record.CollectorProgress) > 0 {
-		var saved InventoryCollector
-		if err := json.Unmarshal(record.CollectorProgress, &saved); err == nil {
-			collector = &saved
+		var loaded InventoryCollector
+		if err := json.Unmarshal(record.CollectorProgress, &loaded); err == nil {
+			saved = &loaded
 		}
 	}
-	sealed, progress, err := collector.Collect(ctx, deps.Enumerator, record.Cycle.Repository, record.Cycle.Generation, local)
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			hold(HoldInventoryInProgress, progress)
-			return
-		}
-		hold(err.Error(), progress)
+	out := bracketMaterialCollect(ctx, deps, record.Cycle.Repository, record.Cycle.Generation, saved)
+	if out.hold != "" {
+		hold(out.hold, out.progress)
 		return
 	}
+	sealed := out.sealed
 	record.InventoryDigest = sealed.Digest
 	record.EvidenceFingerprint = SealEvidenceFingerprint(sealed.Digest, record.Cycle.EventID, cycleID)
 	record.Local = sealed.Local
@@ -166,13 +272,13 @@ func (c *Coordinator) driveCollecting(ctx context.Context, deps CompletionDriveD
 	record.CollectorProgress = nil
 	record.WaitReason = ""
 	if err := record.Cycle.AdvanceTo(factory.ReassessmentDeciding); err != nil {
-		hold(HoldInventoryUnavailable, progress)
+		hold(HoldInventoryUnavailable, nil)
 		return
 	}
 	next := record.Cycle
 	next.State = factory.ReassessmentDeciding
 	if err := next.Validate(); err != nil {
-		hold(HoldInventoryUnavailable, progress)
+		hold(HoldInventoryUnavailable, nil)
 		return
 	}
 	record.Cycle = next
@@ -180,7 +286,7 @@ func (c *Coordinator) driveCollecting(ctx context.Context, deps CompletionDriveD
 		if errors.Is(err, store.ErrStaleRevision) || errors.Is(err, store.ErrNotFound) {
 			return
 		}
-		hold(HoldInventoryInProgress, progress)
+		hold(HoldInventoryInProgress, nil)
 		return
 	}
 	report.Sealed = append(report.Sealed, cycleID)

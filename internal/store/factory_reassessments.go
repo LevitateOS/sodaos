@@ -71,6 +71,29 @@ func (r ReassessmentRecord) Validate() error {
 	if err := r.Cycle.Validate(); err != nil {
 		return err
 	}
+	if r.Completion != (factory.CompletionEvent{}) {
+		if err := r.Completion.Validate(); err != nil {
+			return err
+		}
+		if r.Completion.Repository != r.Cycle.Repository || r.Completion.ID != r.Cycle.EventID ||
+			r.Completion.Generation != r.Cycle.Generation {
+			return errors.New("reassessment completion does not match its cycle")
+		}
+	}
+	// Material binds sealed and digest-bearing records: an all-zero
+	// Local is allowed only on an unsealed record with no
+	// InventoryDigest. A nonzero Local must validate full
+	// material/repo; a sealed record MUST validate Local even when the
+	// digest alone looks well-formed. Validation precedes any Material
+	// pointer access.
+	if r.Local.Sealed() || r.InventoryDigest != "" {
+		if err := r.Local.Validate(); err != nil {
+			return err
+		}
+		if r.Local.Material.Repository != r.Cycle.Repository {
+			return errors.New("reassessment local material names another repository")
+		}
+	}
 	if r.InventoryDigest != "" && !factory.ValidDigest(r.InventoryDigest) {
 		return errors.New("invalid sealed inventory digest")
 	}
@@ -263,9 +286,9 @@ func (s *Store) PendingReassessmentCycles(ctx context.Context, repository int64)
 // CaptureCompletionLocal reads the local half of D13 sealed evidence
 // for one repository in a single repeatable-read transaction: the
 // requirement source commit, the approved-preparation digest, the
-// accepted-scope digest (acceptance heads plus withdrawals plus the
-// material issue-control state) and the
-// authority fingerprint. It is the production CompletionLocalCapture
+// canonical material digest as the accepted-scope digest, and the
+// authority fingerprint, carrying the complete validated material
+// alongside. It is the production CompletionLocalCapture
 // behind the completion drive: stable while nothing material changes,
 // sensitive to source, preparation, scope and authority changes, and
 // honest about gaps — a repository without a project or requirement
@@ -335,78 +358,15 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 		return factory.CompletionLocal{}, err
 	}
 	_ = preparationRows.Close()
-	headRows, err := tx.QueryContext(ctx, `SELECT issue, decision FROM issue_acceptance_heads
-		WHERE repository=$1 ORDER BY issue`, repository)
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	type scopeBinding struct {
-		Issue    int64  `json:"issue"`
-		Decision string `json:"decision"`
-	}
-	var scope []scopeBinding
-	for headRows.Next() {
-		var binding scopeBinding
-		if err = headRows.Scan(&binding.Issue, &binding.Decision); err != nil {
-			_ = headRows.Close()
-			return factory.CompletionLocal{}, err
-		}
-		scope = append(scope, binding)
-	}
-	if err = headRows.Err(); err != nil {
-		_ = headRows.Close()
-		return factory.CompletionLocal{}, err
-	}
-	_ = headRows.Close()
-	withdrawalRows, err := tx.QueryContext(ctx, `SELECT issue, decision FROM issue_acceptance_withdrawals
-		WHERE repository=$1 ORDER BY issue, decision`, repository)
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	var withdrawals []scopeBinding
-	for withdrawalRows.Next() {
-		var binding scopeBinding
-		if err = withdrawalRows.Scan(&binding.Issue, &binding.Decision); err != nil {
-			_ = withdrawalRows.Close()
-			return factory.CompletionLocal{}, err
-		}
-		withdrawals = append(withdrawals, binding)
-	}
-	if err = withdrawalRows.Err(); err != nil {
-		_ = withdrawalRows.Close()
-		return factory.CompletionLocal{}, err
-	}
-	_ = withdrawalRows.Close()
-	controlRows, err := tx.QueryContext(ctx, `SELECT data FROM issue_controls
-		WHERE repository=$1 ORDER BY issue`, repository)
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	var controls []factory.IssueControl
-	for controlRows.Next() {
-		var raw []byte
-		var control factory.IssueControl
-		if err = controlRows.Scan(&raw); err != nil {
-			_ = controlRows.Close()
-			return factory.CompletionLocal{}, err
-		}
-		if err = json.Unmarshal(raw, &control); err != nil {
-			_ = controlRows.Close()
-			return factory.CompletionLocal{}, err
-		}
-		if err = control.Validate(); err != nil {
-			_ = controlRows.Close()
-			return factory.CompletionLocal{}, err
-		}
-		control.AssessedUnix, control.FirstSeenUnix, control.NativeRev = 0, 0, 0
-		controls = append(controls, control)
-	}
-	if err = controlRows.Err(); err != nil {
-		_ = controlRows.Close()
-		return factory.CompletionLocal{}, err
-	}
-	_ = controlRows.Close()
 	authorityInput, err := factoryAuthorityInput(ctx, tx, repository)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	material, err := completionMaterialTx(ctx, tx, repository)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	materialDigest, err := material.Digest()
 	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
@@ -416,20 +376,12 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
-	scopeDoc, err := json.Marshal(struct {
-		Heads       []scopeBinding         `json:"heads"`
-		Withdrawals []scopeBinding         `json:"withdrawals"`
-		Controls    []factory.IssueControl `json:"controls"`
-	}{scope, withdrawals, controls})
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
 	preparationSum := sha256.Sum256(preparationDoc)
-	scopeSum := sha256.Sum256(scopeDoc)
 	local := factory.CompletionLocal{
+		Material:             material,
 		SourceCommit:         requirement.SourceCommit,
 		PreparationDigest:    hex.EncodeToString(preparationSum[:]),
-		ScopeDigest:          hex.EncodeToString(scopeSum[:]),
+		ScopeDigest:          materialDigest,
 		AuthorityFingerprint: factory.AuthorityFingerprint(factory.EvaluateAuthority(authorityInput)),
 	}
 	if err = local.Validate(); err != nil {
@@ -549,7 +501,7 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 	if current.EvidenceFingerprint != "" && record.EvidenceFingerprint != current.EvidenceFingerprint {
 		return errors.New("sealed reassessment evidence is immutable")
 	}
-	if current.Local.Sealed() && record.Local != current.Local {
+	if current.Local.Sealed() && !record.Local.Equal(current.Local) {
 		return errors.New("sealed reassessment local bindings are immutable")
 	}
 	if current.InventoryDigest != "" {

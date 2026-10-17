@@ -6,13 +6,70 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
+// testMaterialLocal builds one valid material-bearing local for
+// repository 7: explicit empty sections plus one acceptance, its
+// control and the standing authority, with ScopeDigest exactly the
+// material digest. It panics on construction failure like the other
+// deterministic fixtures: the shape is fixed and always valid.
+func testMaterialLocal() factory.CompletionLocal {
+	acceptance := factory.Acceptance{
+		ID: "d" + strings.Repeat("0", 24), Repository: 7, IssueIndex: "3",
+		Approver: 5, NativeRev: 41,
+		TitleDigest: strings.Repeat("a", 64), TitleOccurrence: factory.OriginalOccurrence,
+		ContentDigest: strings.Repeat("b", 64), ContentVersion: 2,
+		Sources: []factory.SelectedSource{{ID: "11", ContentVersion: 0, Digest: strings.Repeat("c", 64)}},
+	}
+	material := factory.CompletionMaterial{
+		Intents:     []factory.CompletionIntentScope{},
+		Acceptances: []factory.Acceptance{acceptance},
+		Withdrawals: []factory.CompletionWithdrawal{},
+		Controls: []factory.IssueControl{{
+			Repository: 7, Issue: 7,
+			Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
+			Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
+		}},
+		Preparations: []factory.CompletionPreparation{},
+		Plans:        []factory.InvestigationPlan{},
+		PlanHeads:    []factory.CompletionPlanHead{},
+		PlanTasks:    []factory.CompletionPlanTask{},
+		Assignments:  []factory.CompletionAssignment{},
+		Publications: []factory.CompletionPublication{},
+		Merges:       []factory.CompletionMerge{},
+		Checks:       []factory.CompletionCheck{},
+		Authority: factory.CompletionAuthority{
+			Effective:           factory.EffectiveAuthority{Missing: []string{}, Effective: true, DispatchOpen: true},
+			Roles:               []string{"soda-coder", "soda-reviewer"},
+			ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+		},
+		Repository: 7,
+	}
+	digest, err := material.Digest()
+	if err != nil {
+		panic(err)
+	}
+	return factory.CompletionLocal{
+		Material:             &material,
+		SourceCommit:         strings.Repeat("a", 40),
+		PreparationDigest:    strings.Repeat("b", 64),
+		ScopeDigest:          digest,
+		AuthorityFingerprint: "authority-fingerprint",
+	}
+}
+
 func testLocal() factory.CompletionLocal {
+	return testMaterialLocal()
+}
+
+// digestOnlyLocal is the pre-077 shape: valid four bindings but no
+// material body. Every consumer must refuse it before any spend.
+func digestOnlyLocal() factory.CompletionLocal {
 	return factory.CompletionLocal{
 		SourceCommit:         strings.Repeat("a", 40),
 		PreparationDigest:    strings.Repeat("b", 64),
@@ -28,11 +85,13 @@ type fixtureEnumerator struct {
 	revision int64
 	idle     bool
 	calls    int
+	observes int
 	moveRev  func(call int) int64
 	err      error
 }
 
 func (f *fixtureEnumerator) ObserveRevision(context.Context) (int64, bool, error) {
+	f.observes++
 	if f.err != nil {
 		return 0, false, f.err
 	}
@@ -316,5 +375,384 @@ func TestInventoryCollectorHoldsWhenNativeBusy(t *testing.T) {
 	enum.idle = false
 	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryRevision {
 		t.Fatalf("err=%v, want %q", err, HoldInventoryRevision)
+	}
+}
+
+// bracketCapture serves a scripted local per capture call and counts
+// its reads, proving the bracket's extra reads stay bounded.
+type bracketCapture struct {
+	locals []factory.CompletionLocal
+	calls  int
+	err    error
+}
+
+func (b *bracketCapture) capture(context.Context, int64) (factory.CompletionLocal, error) {
+	b.calls++
+	if b.err != nil {
+		return factory.CompletionLocal{}, b.err
+	}
+	if b.calls-1 < len(b.locals) {
+		return b.locals[b.calls-1], nil
+	}
+	return b.locals[len(b.locals)-1], nil
+}
+
+func bracketDeps(enum CompletionIssueEnumerator, capture *bracketCapture) CompletionDriveDeps {
+	return CompletionDriveDeps{Enumerator: enum, CaptureLocal: capture.capture}
+}
+
+// A stable world seals through the full bracket: idle revision
+// observed before capture, collection under it, recapture and confirm
+// after, with exactly two bounded local reads and the clean-seal
+// digest — never a combined snapshot.
+func TestBracketMaterialCollectSealsStableWorld(t *testing.T) {
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal(), testLocal()}}
+	out := bracketMaterialCollect(context.Background(), bracketDeps(twoPageEnumerator(t), capture), 7, 1, nil)
+	if out.hold != "" || out.sealed == nil {
+		t.Fatalf("out=%+v, want a confirmed seal", out)
+	}
+	if capture.calls != 2 {
+		t.Fatalf("capture calls=%d, want exactly the bounded capture plus recapture", capture.calls)
+	}
+	fresh, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(t), 7, 1, testLocal())
+	if err != nil || fresh.Digest != out.sealed.Digest {
+		t.Fatalf("bracket digest=%q err=%v, want the clean-seal digest %q", out.sealed.Digest, err, fresh.Digest)
+	}
+}
+
+// A local that moves between capture and recapture defers with the
+// named material hold and a reset cursor: the unconfirmed seal never
+// persists.
+func TestBracketMaterialCollectDefersOnLocalMove(t *testing.T) {
+	moved := testLocal()
+	moved.AuthorityFingerprint = "changed-under-the-seal"
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal(), moved}}
+	out := bracketMaterialCollect(context.Background(), bracketDeps(twoPageEnumerator(t), capture), 7, 1, nil)
+	if out.hold != HoldInventoryMaterial || out.sealed != nil || out.progress != nil {
+		t.Fatalf("out=%+v, want the named material hold with a reset cursor", out)
+	}
+}
+
+// A native revision that moves across the bracket defers with the
+// revision hold and a reset cursor, even when the collection itself
+// resealed under the new revision.
+func TestBracketMaterialCollectDefersOnRevisionMove(t *testing.T) {
+	enum := twoPageEnumerator(t)
+	enum.moveRev = func(call int) int64 {
+		if call >= 2 {
+			return 42
+		}
+		return 41
+	}
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal()}}
+	out := bracketMaterialCollect(context.Background(), bracketDeps(enum, capture), 7, 1, nil)
+	if out.hold != HoldInventoryRevision || out.sealed != nil || out.progress != nil {
+		t.Fatalf("out=%+v, want the revision hold with a reset cursor", out)
+	}
+}
+
+// A busy native state holds with the saved cursor kept for resume:
+// nothing moved, so nothing resets.
+func TestBracketMaterialCollectHoldsBusyNative(t *testing.T) {
+	enum := twoPageEnumerator(t)
+	enum.idle = false
+	saved := &InventoryCollector{Revision: 41, Cursor: "2"}
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal()}}
+	out := bracketMaterialCollect(context.Background(), bracketDeps(enum, capture), 7, 1, saved)
+	if out.hold != HoldInventoryRevision || out.progress != saved {
+		t.Fatalf("out=%+v, want the revision hold with the saved cursor kept", out)
+	}
+	if capture.calls != 0 {
+		t.Fatalf("capture calls=%d, want zero reads before an idle revision", capture.calls)
+	}
+}
+
+// A stale saved cursor from a moved revision resets instead of
+// resuming: the seal matches a clean seal exactly, proving snapshots
+// never combine.
+func TestBracketMaterialCollectResetsStaleCursor(t *testing.T) {
+	saved := &InventoryCollector{
+		Revision: 99, Cursor: "2",
+		Issues: []NativeInventoryIssue{{Index: 9, Data: "stale-snapshot"}},
+	}
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal()}}
+	out := bracketMaterialCollect(context.Background(), bracketDeps(twoPageEnumerator(t), capture), 7, 1, saved)
+	if out.hold != "" || out.sealed == nil {
+		t.Fatalf("out=%+v, want a seal after the cursor reset", out)
+	}
+	fresh, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(t), 7, 1, testLocal())
+	if err != nil || fresh.Digest != out.sealed.Digest {
+		t.Fatal("reset seal combined its stale snapshot instead of recollecting clean")
+	}
+}
+
+func TestBracketMaterialCollectRefusesUnwired(t *testing.T) {
+	out := bracketMaterialCollect(context.Background(), CompletionDriveDeps{}, 7, 1, nil)
+	if out.hold != HoldCompletionWiring || out.sealed != nil {
+		t.Fatalf("out=%+v, want the wiring hold without sealing", out)
+	}
+}
+
+func TestBracketMaterialCollectHoldsOnCaptureFailure(t *testing.T) {
+	saved := &InventoryCollector{Revision: 41}
+	capture := &bracketCapture{err: errors.New("local capture failed")}
+	out := bracketMaterialCollect(context.Background(), bracketDeps(twoPageEnumerator(t), capture), 7, 1, saved)
+	if out.hold != HoldInventoryUnavailable || out.progress != saved {
+		t.Fatalf("out=%+v, want the unavailable hold with the saved cursor kept", out)
+	}
+}
+
+// The pre-077 digest-only local (valid four bindings, nil material)
+// refuses before any native spend: the collector validates the local
+// before its first observation, so zero revision or page reads happen.
+// pagedEnumerator serves the ordered issues 1..total split into pages
+// of the given sizes through the real canonical encoding, so digest
+// comparisons prove pagination independence over identical substance.
+func pagedEnumerator(t *testing.T, sizes ...int) *fixtureEnumerator {
+	t.Helper()
+	pages := map[string]NativeInventoryPage{}
+	cursor := ""
+	index := int64(1)
+	for i, size := range sizes {
+		issues := make([]NativeInventoryIssue, 0, size)
+		for j := 0; j < size; j++ {
+			issues = append(issues, inventoryIssue(t, index))
+			index++
+		}
+		fetched := cursor
+		cursor = strconv.FormatInt(index-1, 10)
+		if i == len(sizes)-1 {
+			pages[fetched] = NativeInventoryPage{Issues: issues, Complete: true}
+		} else {
+			pages[fetched] = NativeInventoryPage{Issues: issues, NextCursor: cursor}
+		}
+	}
+	return &fixtureEnumerator{revision: 41, idle: true, pages: pages}
+}
+
+func collectDigest(t *testing.T, enum CompletionIssueEnumerator) string {
+	t.Helper()
+	sealed, progress, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if progress != nil {
+		t.Fatalf("progress=%+v, want no resumable progress after a seal", progress)
+	}
+	if sealed.Issues != 3 || len(sealed.Bodies) != 3 {
+		t.Fatalf("sealed=%+v, want the three ordered issues with bodies", sealed)
+	}
+	return sealed.Digest
+}
+
+// The fold is associative over any page partition: one whole-list fold
+// matches every per-page chained fold, so collection and reseal agree
+// no matter where page boundaries fall. An empty page is the identity.
+func TestFoldInventoryPageMatchesAnyPartition(t *testing.T) {
+	var items []NativeInventoryIssue
+	for i := int64(1); i <= 4; i++ {
+		items = append(items, inventoryIssue(t, i))
+	}
+	var zero [32]byte
+	whole := foldInventoryPage(zero, 7, 1, items)
+	if got := foldInventoryPage(zero, 7, 1, nil); got != zero {
+		t.Fatal("an empty page must leave the running digest unchanged")
+	}
+	split := foldInventoryPage(foldInventoryPage(foldInventoryPage(zero, 7, 1, items[:1]), 7, 1, items[1:3]), 7, 1, items[3:])
+	if split != whole {
+		t.Fatal("1+2+1 page folds differ from the whole-list fold over the same order")
+	}
+	single := zero
+	for _, item := range items {
+		single = foldInventoryPage(single, 7, 1, []NativeInventoryIssue{item})
+	}
+	if single != whole {
+		t.Fatal("per-issue folds differ from the whole-list fold over the same order")
+	}
+}
+
+// The chain stays order-sensitive on purpose: folding a reordered
+// sequence must differ, so no caller can sort a malformed persisted
+// sequence into admission through this fold.
+func TestFoldInventoryPageIsOrderSensitive(t *testing.T) {
+	var ordered, reversed []NativeInventoryIssue
+	for i := int64(1); i <= 3; i++ {
+		ordered = append(ordered, inventoryIssue(t, i))
+		reversed = append([]NativeInventoryIssue{inventoryIssue(t, i)}, reversed...)
+	}
+	var zero [32]byte
+	if foldInventoryPage(zero, 7, 1, reversed) == foldInventoryPage(zero, 7, 1, ordered) {
+		t.Fatal("reordered items fold identically, losing the order binding")
+	}
+}
+
+// The same ordered inventory seals the identical digest across one
+// page, two pages, three single-item pages and a resumed cursor: page
+// boundaries carry no semantic authority.
+func TestInventoryCollectorSealsIdenticalDigestAcrossPaginations(t *testing.T) {
+	one := collectDigest(t, pagedEnumerator(t, 3))
+	two := collectDigest(t, pagedEnumerator(t, 2, 1))
+	three := collectDigest(t, pagedEnumerator(t, 1, 1, 1))
+	if one != two || two != three {
+		t.Fatalf("digests %q/%q/%q differ across paginations of the same order", one, two, three)
+	}
+	first := pagedEnumerator(t, 1, 1, 1)
+	_, progress, err := (&InventoryCollector{}).Collect(context.Background(), &cappedEnumerator{inner: first, maxPages: 1}, 7, 1, testLocal())
+	if err == nil || err.Error() != HoldInventoryUnavailable {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryUnavailable)
+	}
+	resumed, after, err := progress.Collect(context.Background(), pagedEnumerator(t, 1, 1, 1), 7, 1, testLocal())
+	if err != nil || resumed.Digest != one {
+		t.Fatalf("resumed digest=%q err=%v, want the clean-seal digest %q", resumed.Digest, err, one)
+	}
+	if after != nil {
+		t.Fatalf("progress=%+v, want no resumable progress after a seal", after)
+	}
+}
+
+// A page whose issues run out of order refuses: increasing order is
+// enforced, never sorted into admission.
+func TestInventoryCollectorRefusesReorderedPage(t *testing.T) {
+	enum := &fixtureEnumerator{
+		revision: 41,
+		idle:     true,
+		pages: map[string]NativeInventoryPage{
+			"": {Issues: []NativeInventoryIssue{inventoryIssue(t, 2), inventoryIssue(t, 1)}, NextCursor: "1"},
+		},
+	}
+	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryPage {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryPage)
+	}
+}
+
+// A duplicated issue index refuses, within one page and across the
+// page boundary alike.
+func TestInventoryCollectorRefusesDuplicateIndex(t *testing.T) {
+	within := &fixtureEnumerator{
+		revision: 41,
+		idle:     true,
+		pages: map[string]NativeInventoryPage{
+			"": {Issues: []NativeInventoryIssue{inventoryIssue(t, 2), inventoryIssue(t, 2)}, NextCursor: "2"},
+		},
+	}
+	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), within, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryPage {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryPage)
+	}
+	across := &fixtureEnumerator{
+		revision: 41,
+		idle:     true,
+		pages: map[string]NativeInventoryPage{
+			"":  {Issues: []NativeInventoryIssue{inventoryIssue(t, 1), inventoryIssue(t, 2)}, NextCursor: "2"},
+			"2": {Issues: []NativeInventoryIssue{inventoryIssue(t, 2), inventoryIssue(t, 3)}, Complete: true},
+		},
+	}
+	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), across, 7, 1, testLocal()); err == nil || err.Error() != HoldInventoryPage {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryPage)
+	}
+}
+
+func TestInventoryCollectorRefusesDigestOnlyLocal(t *testing.T) {
+	enum := twoPageEnumerator(t)
+	if _, _, err := (&InventoryCollector{}).Collect(context.Background(), enum, 7, 1, digestOnlyLocal()); err == nil || err.Error() != HoldInventoryUnavailable {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryUnavailable)
+	}
+	if enum.calls != 0 || enum.observes != 0 {
+		t.Fatalf("calls=%d observes=%d, want zero native spend on a digest-only local", enum.calls, enum.observes)
+	}
+}
+
+// The stable bracket charges exactly its two revision observations
+// through the caller's readiness pass, reusing the existing budget:
+// five pre-reserved units plus the two bracket charges read back as
+// seven, proving no new counter and no uncharged exemption.
+func TestBracketMaterialCollectChargesTwoObservations(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("drive did not create its readiness pass")
+	}
+	if !budget.reserveNativeRPC(5) {
+		t.Fatal("fixture could not prime its budget")
+	}
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal(), testLocal()}}
+	out := bracketMaterialCollect(ctx, bracketDeps(twoPageEnumerator(t), capture), 7, 1, nil)
+	if out.hold != "" || out.sealed == nil {
+		t.Fatalf("out=%+v, want a confirmed seal", out)
+	}
+	if got := budget.nativeRPC.Load(); got != 7 {
+		t.Fatalf("nativeRPC=%d, want 5 primed plus exactly the two charged bracket observations", got)
+	}
+}
+
+// An exhausted pass holds pending before the first observation: no
+// seal, the saved cursor kept, and zero native or local reads spent.
+func TestBracketMaterialCollectHoldsPendingOnExhaustedBudget(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("drive did not create its readiness pass")
+	}
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC) {
+		t.Fatal("fixture could not exhaust its budget")
+	}
+	saved := &InventoryCollector{Revision: 41, Cursor: "2"}
+	enum := twoPageEnumerator(t)
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal(), testLocal()}}
+	out := bracketMaterialCollect(ctx, bracketDeps(enum, capture), 7, 1, saved)
+	if out.hold != HoldInventoryInProgress || out.sealed != nil {
+		t.Fatalf("out=%+v, want the pending hold with no seal", out)
+	}
+	if out.progress != saved {
+		t.Fatalf("progress=%+v, want the saved cursor kept on budget exhaustion", out.progress)
+	}
+	if enum.observes != 0 {
+		t.Fatalf("observes=%d, want zero native reads on an exhausted budget", enum.observes)
+	}
+	if capture.calls != 0 {
+		t.Fatalf("capture calls=%d, want zero local reads on an exhausted budget", capture.calls)
+	}
+}
+
+// One free unit cannot cover the upfront two-unit bracket
+// reservation: the drive holds pending immediately with the saved
+// cursor kept and zero observes, captures, or page reads — no
+// expensive collection is started that a late quota failure could
+// discard.
+func TestBracketMaterialCollectHoldsPendingWhenConfirmUncharged(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("drive did not create its readiness pass")
+	}
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC - 1) {
+		t.Fatal("fixture could not prime its budget")
+	}
+	saved := &InventoryCollector{Revision: 41, Cursor: "2"}
+	enum := twoPageEnumerator(t)
+	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal(), testLocal()}}
+	out := bracketMaterialCollect(ctx, bracketDeps(enum, capture), 7, 1, saved)
+	if out.hold != HoldInventoryInProgress || out.sealed != nil {
+		t.Fatalf("out=%+v, want the pending hold with no seal", out)
+	}
+	if out.progress != saved {
+		t.Fatalf("progress=%+v, want the saved cursor kept on the upfront preflight refusal", out.progress)
+	}
+	if enum.observes != 0 {
+		t.Fatalf("observes=%d, want zero native reads on the upfront preflight refusal", enum.observes)
+	}
+	if capture.calls != 0 {
+		t.Fatalf("capture calls=%d, want zero local reads on the upfront preflight refusal", capture.calls)
+	}
+	if enum.calls != 0 {
+		t.Fatalf("page calls=%d, want zero page reads on the upfront preflight refusal", enum.calls)
+	}
+	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC-1 {
+		t.Fatalf("nativeRPC=%d, want the primed count unchanged (failed reserve consumes nothing)", got)
 	}
 }

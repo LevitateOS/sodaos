@@ -583,7 +583,9 @@ func TestSuccessorIntentRevision(t *testing.T) {
 }
 
 // T35: the single coder prompt carries the COMPLETE sealed inventory
-// inline within the reassess-only 320 KiB bound. Incomplete, unordered
+// inline within the reassess-only 320 KiB bound, together with the ONE
+// local's canonical material body and local digest bound to the same
+// repository. Incomplete, unordered, material-free, wrong-repository
 // and oversized inventories refuse; nothing is truncated.
 func TestRenderReassessmentPrompt(t *testing.T) {
 	promptInput := func() ReassessmentPromptInventory {
@@ -594,17 +596,21 @@ func TestRenderReassessmentPrompt(t *testing.T) {
 				{Index: 4, Data: "issue four body"},
 			},
 			CompletionID: adoptHex('1', 32), CycleID: adoptHex('2', 32),
-			InventoryDigest: adoptHex('f', 64), SourceCommit: adoptHex('c', 40),
-			PreparationDigest: adoptHex('0', 64),
-			Repository:        7, Generation: 3, Complete: true,
+			InventoryDigest: adoptHex('f', 64),
+			Local:           testLocal(),
+			Repository:      7, Generation: 3, Complete: true,
 		}
 	}
 	rendered, err := RenderReassessmentPrompt(promptInput())
 	if err != nil {
 		t.Fatal("complete inventory refused its prompt:", err)
 	}
+	localDigest, err := promptInput().Local.Digest()
+	if err != nil {
+		t.Fatal("fixture local lacks its digest:", err)
+	}
 	text := string(rendered)
-	for _, want := range []string{adoptHex('1', 32), adoptHex('f', 64), "issue one body", "issue three body", "issue four body"} {
+	for _, want := range []string{adoptHex('1', 32), adoptHex('f', 64), "issue one body", "issue three body", "issue four body", localDigest, `"acceptances"`, `"repository":"7"`} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("prompt lost its inline inventory: %q", want)
 		}
@@ -628,6 +634,16 @@ func TestRenderReassessmentPrompt(t *testing.T) {
 	badDigest.InventoryDigest = "not-a-digest"
 	if _, err := RenderReassessmentPrompt(badDigest); err == nil {
 		t.Fatal("unsealed inventory rendered its prompt")
+	}
+	digestOnly := promptInput()
+	digestOnly.Local = digestOnlyLocal()
+	if _, err := RenderReassessmentPrompt(digestOnly); err == nil {
+		t.Fatal("digest-only local rendered its prompt without the material body")
+	}
+	wrongRepo := promptInput()
+	wrongRepo.Repository = 8
+	if _, err := RenderReassessmentPrompt(wrongRepo); err == nil {
+		t.Fatal("material of another repository rendered its prompt")
 	}
 }
 

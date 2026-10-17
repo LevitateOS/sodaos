@@ -52,11 +52,12 @@ var errReassessmentDecisionOversize = errors.New("reassessment decision exceeds 
 
 // DecisionStateFromRecord builds the exact D13 decision input from one
 // sealed cycle: the persisted completion, local bindings and issue
-// bodies. It refuses unsealed or bodiless records instead of asking Jev
-// to judge hashes, and refuses oversize requests before any funding is
-// reserved.
+// bodies. It refuses unsealed, bodiless, tampered or materially
+// incomplete records instead of asking Jev to judge hashes, and refuses
+// oversize requests before any funding is reserved. Every refusal spends
+// nothing: no reservation is taken and no provider is consulted.
 func DecisionStateFromRecord(record store.ReassessmentRecord) (ReassessmentDecisionState, error) {
-	if record.InventoryDigest == "" || record.EvidenceFingerprint == "" {
+	if !factory.ValidDigest(record.InventoryDigest) || !factory.ValidDigest(record.EvidenceFingerprint) {
 		return ReassessmentDecisionState{}, errors.New("reassessment decision lacks its sealed evidence")
 	}
 	if record.Evidence == nil {
@@ -64,6 +65,30 @@ func DecisionStateFromRecord(record store.ReassessmentRecord) (ReassessmentDecis
 	}
 	if len(record.Evidence) != record.EvidenceIssues {
 		return ReassessmentDecisionState{}, errors.New("reassessment decision bodies differ from their sealed count")
+	}
+	for _, body := range record.Evidence {
+		if err := body.Validate(); err != nil {
+			return ReassessmentDecisionState{}, errors.New("reassessment decision bodies fail their sealed validation")
+		}
+	}
+	if err := record.Local.Validate(); err != nil {
+		return ReassessmentDecisionState{}, errors.New("reassessment decision lacks its sealed material")
+	}
+	if err := record.Completion.Validate(); err != nil {
+		return ReassessmentDecisionState{}, errors.New("reassessment decision lacks its sealed completion")
+	}
+	if err := record.Cycle.Validate(); err != nil {
+		return ReassessmentDecisionState{}, err
+	}
+	if record.Completion.Repository != record.Cycle.Repository || record.Completion.Generation != record.Cycle.Generation {
+		return ReassessmentDecisionState{}, errors.New("reassessment decision completion does not match its cycle")
+	}
+	// The sealed digest must be exactly the bodies it seals: refold
+	// the persisted bodies through the same canonical fold and refuse
+	// any mutation under an unchanged digest.
+	recomputed, err := resealInventoryDigest(record)
+	if err != nil || recomputed != record.InventoryDigest {
+		return ReassessmentDecisionState{}, errors.New("reassessment decision bodies differ from their sealed digest")
 	}
 	state := ReassessmentDecisionState{
 		Completion: record.Completion, Local: record.Local, Evidence: record.Evidence,
@@ -80,6 +105,37 @@ func DecisionStateFromRecord(record store.ReassessmentRecord) (ReassessmentDecis
 		return ReassessmentDecisionState{}, errReassessmentDecisionOversize
 	}
 	return state, nil
+}
+
+// resealInventoryDigest refolds the persisted sealed bodies through
+// the same canonical fold the collector sealed: canonical body bytes in
+// ascending index order under the sealed repository, generation and
+// revision. Any persisted mutation — edited substance, reordered
+// indexes or a substituted digest — folds differently and refuses.
+func resealInventoryDigest(record store.ReassessmentRecord) (string, error) {
+	// The persisted sequence is authoritative: require strictly
+	// increasing positive indexes while reading it. A reordered or
+	// duplicated persisted sequence refuses before any fold, provider
+	// call, or reservation — never sort a malformed sequence into
+	// admission.
+	issues := make([]NativeInventoryIssue, 0, len(record.Evidence))
+	indexes := make([]int64, 0, len(record.Evidence))
+	var prior int64
+	for i, body := range record.Evidence {
+		if body.Index <= 0 || (i > 0 && body.Index <= prior) {
+			return "", errors.New("resealed inventory bodies are not ordered")
+		}
+		prior = body.Index
+		raw, err := body.CanonicalData()
+		if err != nil {
+			return "", err
+		}
+		issues = append(issues, NativeInventoryIssue{Index: body.Index, Data: raw})
+		indexes = append(indexes, body.Index)
+	}
+	var running [32]byte
+	running = foldInventoryPage(running, record.Cycle.Repository, record.Cycle.Generation, issues)
+	return sealInventoryDigest(record.Cycle.Repository, record.Cycle.Generation, record.EvidenceRevision, running, indexes), nil
 }
 
 // reassessmentDecisionOptions offers exactly reassess or continue. No
@@ -136,6 +192,20 @@ func (c *Coordinator) DecideReassessment(ctx context.Context, record store.Reass
 	}
 	if state.CompletionID != record.Cycle.EventID || state.CycleID != record.Cycle.CycleID {
 		return store.ReassessmentRecord{}, errors.New("reassessment decision does not match its cycle")
+	}
+	// Material mismatch refuses before any reservation or provider
+	// spend: the decision input carries the sealed local and digests of
+	// exactly this record. The canonical Equal value comparison fails
+	// closed on unvalidated material: pointer-identical locals with
+	// invalid bodies never compare equal.
+	if err := state.Local.Validate(); err != nil {
+		return store.ReassessmentRecord{}, errors.New("reassessment decision lacks its sealed material")
+	}
+	if !state.Local.Equal(record.Local) {
+		return store.ReassessmentRecord{}, errors.New("reassessment decision material does not match its cycle")
+	}
+	if state.InventoryDigest != record.InventoryDigest || state.EvidenceFingerprint != record.EvidenceFingerprint {
+		return store.ReassessmentRecord{}, errors.New("reassessment decision evidence does not match its cycle")
 	}
 	cycleID := record.Cycle.CycleID
 	reserve := func(ctx context.Context, fingerprint string) (bool, error) {

@@ -167,19 +167,26 @@ func checkInventoryPage(page NativeInventoryPage, cursor string, collected int, 
 	return nil
 }
 
-// foldInventoryPage appends one validated page to the running digest.
+// foldInventoryPage appends one validated page to the running digest,
+// one deterministic hash step per ordered (index, exact canonical body)
+// item. The per-item chain is associative over any page partition:
+// folding page-by-page during collection matches folding the whole
+// ordered list at reseal, so the digest is independent of pagination.
+// The chain stays order-sensitive on purpose: a reordered or otherwise
+// malformed sequence is never sorted into admission here. Repository,
+// generation, revision and index binding stays in sealInventoryDigest.
 func foldInventoryPage(running [32]byte, repository, generation int64, issues []NativeInventoryIssue) [32]byte {
-	h := sha256.New()
-	h.Write(running[:])
+	_, _ = repository, generation
 	for _, issue := range issues {
+		h := sha256.New()
+		h.Write(running[:])
 		h.Write([]byte(strconv.FormatInt(issue.Index, 10)))
 		h.Write([]byte{0})
 		h.Write([]byte(issue.Data))
 		h.Write([]byte{0})
+		copy(running[:], h.Sum(nil))
 	}
-	var out [32]byte
-	copy(out[:], h.Sum(nil))
-	return out
+	return running
 }
 
 // sealInventoryDigest binds the sealed set: repository, generation,
