@@ -263,9 +263,10 @@ func reviewOperationOutcome(id string, record extensions.OperationRecord) (facto
 
 // AdoptReview adopts one committed native review receipt against its
 // submitted work. The receipt carries the summary review/comment IDs, the
-// per-key inline comment IDs and the host-derived merge base; candidate,
-// author and event expectations stay bound by the immutable submitted
-// payload and envelope, which the receipt no longer echoes. The adopted
+// per-key inline comment IDs, the host-derived merge base and the exact
+// admitted identity envelope (reviewer, PR, issue, number, commit, event,
+// head/base OIDs), each validated against the immutable submitted work
+// and operation envelope. The adopted
 // per-key mapping is the stable native/factory identity: every submitted
 // finding key arrives exactly once with its native comment record.
 func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome) (factory.ReviewOutcome, error) {
@@ -285,9 +286,13 @@ func (r *Reviewer) AdoptReview(w factory.ReviewWork, o factory.OperationOutcome)
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return empty, errors.New("native review receipt is malformed")
 	}
-	// The receipt carries no reviewer identity: reviewer binding stays on
-	// the operation envelope, already checked against the work above.
+	// The receipt echoes the immutable admitted identity envelope; every
+	// echoed field must match the recorded work and operation envelope.
+	// The receipt is historical evidence for its admitted tuple only.
 	if receipt.ReviewID <= 0 || receipt.CommentID <= 0 {
+		return empty, errors.New("native review receipt differs from its recorded intent")
+	}
+	if receipt.ReviewerID != w.ActorID || receipt.ReviewerID != o.ActorID || receipt.PRID != w.PRID || receipt.IssueID != w.IssueID || receipt.PRNumber != w.PRNumber || receipt.CommitID != w.HeadOID || receipt.Event != w.Event || receipt.HeadOID != w.HeadOID || receipt.BaseOID != w.BaseOID || o.RepositoryID != w.Repository {
 		return empty, errors.New("native review receipt differs from its recorded intent")
 	}
 	if !factory.ValidCommit(receipt.MergeBaseOID) {

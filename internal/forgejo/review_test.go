@@ -33,7 +33,7 @@ func reviewTestCommentedWork() factory.ReviewWork {
 
 func reviewTestReceipt(t *testing.T, w factory.ReviewWork, commentIDs map[string]int64) []byte {
 	t.Helper()
-	receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, MergeBaseOID: strings.Repeat("d", 40)}
+	receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, ReviewerID: w.ActorID, PRID: w.PRID, IssueID: w.IssueID, PRNumber: w.PRNumber, CommitID: w.HeadOID, Event: w.Event, HeadOID: w.HeadOID, BaseOID: w.BaseOID, MergeBaseOID: strings.Repeat("d", 40)}
 	for _, comment := range w.Comments {
 		id, ok := commentIDs[comment.Key]
 		if !ok {
@@ -87,7 +87,7 @@ func TestReviewerReceipt(t *testing.T) {
 			w.Comments = append(w.Comments, factory.FindingComment{Key: strings.Repeat("0", 31) + "c", Path: "file.go", Side: "new", Line: 12, Body: "third defect prose"})
 		},
 		"unknown key": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
-			receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, MergeBaseOID: strings.Repeat("d", 40)}
+			receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, ReviewerID: w.ActorID, PRID: w.PRID, IssueID: w.IssueID, PRNumber: w.PRNumber, CommitID: w.HeadOID, Event: w.Event, HeadOID: w.HeadOID, BaseOID: w.BaseOID, MergeBaseOID: strings.Repeat("d", 40)}
 			receipt.Comments = append(receipt.Comments, extensions.ReviewCommentReceipt{Key: w.Comments[0].Key, CommentID: 100})
 			receipt.Comments = append(receipt.Comments, extensions.ReviewCommentReceipt{Key: strings.Repeat("f", 32), CommentID: 101})
 			raw, err := json.Marshal(receipt)
@@ -98,6 +98,28 @@ func TestReviewerReceipt(t *testing.T) {
 		},
 		"duplicate comment record": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
 			o.Receipt = reviewTestReceipt(t, *w, map[string]int64{w.Comments[0].Key: 100, w.Comments[1].Key: 100})
+		},
+		"echoed reviewer differs": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
+			receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, ReviewerID: w.ActorID + 1, PRID: w.PRID, IssueID: w.IssueID, PRNumber: w.PRNumber, CommitID: w.HeadOID, Event: w.Event, HeadOID: w.HeadOID, BaseOID: w.BaseOID, MergeBaseOID: strings.Repeat("d", 40)}
+			for _, comment := range w.Comments {
+				receipt.Comments = append(receipt.Comments, extensions.ReviewCommentReceipt{Key: comment.Key, CommentID: 100 + int64(len(receipt.Comments))})
+			}
+			raw, err := json.Marshal(receipt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.Receipt = raw
+		},
+		"echoed head differs": func(w *factory.ReviewWork, o *factory.OperationOutcome) {
+			receipt := extensions.ReviewSubmitReceipt{ReviewID: 31, CommentID: 41, ReviewerID: w.ActorID, PRID: w.PRID, IssueID: w.IssueID, PRNumber: w.PRNumber, CommitID: w.HeadOID, Event: w.Event, HeadOID: strings.Repeat("e", 40), BaseOID: w.BaseOID, MergeBaseOID: strings.Repeat("d", 40)}
+			for _, comment := range w.Comments {
+				receipt.Comments = append(receipt.Comments, extensions.ReviewCommentReceipt{Key: comment.Key, CommentID: 100 + int64(len(receipt.Comments))})
+			}
+			raw, err := json.Marshal(receipt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.Receipt = raw
 		},
 		"receipt above review cap": func(_ *factory.ReviewWork, o *factory.OperationOutcome) {
 			o.Receipt = bytes.Repeat([]byte{0x20}, factory.MaxReviewReceiptBytes+1)
@@ -112,6 +134,41 @@ func TestReviewerReceipt(t *testing.T) {
 				t.Fatal("adopted mismatched review")
 			}
 		})
+	}
+}
+
+// capturedNativeReviewReceipt049 is the exact public receipt bytes the
+// native producer emitted for a genuinely zero-inline-comment approval
+// (independent capture actual-native-review-receipt-049.json). It guards
+// the cross-repository wire: the real decoder/adopter must accept these
+// exact bytes, preserve every echoed identity, and still refuse any
+// echoed-identity mismatch or unknown field.
+const capturedNativeReviewReceipt049 = `{"base_oid":"65f1bf27bc3bf70f64657658635e66094edbcb4d","comment_id":2094,"commit_id":"985f0301dba5e7b34be866819cd15ad3d8f508ee","event":"APPROVED","head_oid":"985f0301dba5e7b34be866819cd15ad3d8f508ee","issue_id":3,"merge_base_oid":"65f1bf27bc3bf70f64657658635e66094edbcb4d","pr_id":2,"pr_number":3,"review_id":23,"reviewer_id":2}`
+
+func TestReviewerAdoptsCapturedNativeReceipt(t *testing.T) {
+	w := factory.ReviewWork{OperationID: "review-merge-base-ok", AuthRevision: "accepted-revision", Repository: 1, ActorID: 2, PRNumber: 3, PRID: 2, IssueID: 3, PRAuthorID: 1, HeadRef: "refs/heads/branch2", BaseRef: "refs/heads/master", HeadOID: "985f0301dba5e7b34be866819cd15ad3d8f508ee", BaseOID: "65f1bf27bc3bf70f64657658635e66094edbcb4d", NativeRev: 1, NotAfter: time.Now().Add(5 * time.Minute).Unix(), Event: "APPROVED", Body: "looks good"}
+	o := factory.OperationOutcome{OperationID: w.OperationID, InstallationID: "11111111-2222-4333-8444-555555555555", Kind: factory.OpReviewSubmit, ActorID: w.ActorID, RepositoryID: w.Repository, Effect: factory.OpEffectCommitted, Cancellation: factory.OpCancelNone, Completion: factory.OpCompletionComplete, Receipt: []byte(capturedNativeReviewReceipt049)}
+	adopted, err := (&Reviewer{}).AdoptReview(w, o)
+	if err != nil {
+		t.Fatalf("captured native receipt refused: %v", err)
+	}
+	if adopted.ReviewID != 23 || adopted.CommentID != 2094 || adopted.ReviewerID != 2 || adopted.PRID != 2 || adopted.IssueID != 3 || adopted.PRNumber != 3 || adopted.HeadOID != w.HeadOID || adopted.BaseOID != w.BaseOID || adopted.CommitID != w.HeadOID || adopted.Event != "APPROVED" || adopted.MergeBaseOID != w.BaseOID {
+		t.Fatalf("captured native identities not preserved: %+v", adopted)
+	}
+	for _, tamper := range []func(map[string]any){func(m map[string]any) { m["head_oid"] = strings.Repeat("e", 40) }, func(m map[string]any) { m["reviewer_id"] = float64(99) }, func(m map[string]any) { m["unexpected"] = true }} {
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(capturedNativeReviewReceipt049), &decoded); err != nil {
+			t.Fatal(err)
+		}
+		tamper(decoded)
+		raw, err := json.Marshal(decoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		o.Receipt = raw
+		if _, err := (&Reviewer{}).AdoptReview(w, o); err == nil {
+			t.Fatalf("tampered native receipt admitted: %s", raw)
+		}
 	}
 }
 
