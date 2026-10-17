@@ -298,6 +298,22 @@ func transitionAttemptAssignmentTx(ctx context.Context, tx *sql.Tx, assignmentID
 	if err := assignment.Validate(); err != nil {
 		return err
 	}
+	// Completion roots carry no publication owner and never consult the
+	// latest (repository, 0) row: the exact typed allowance for this
+	// root's own completion subject performs the settled-effect, clock
+	// and CAS checks through the shared joint below. A missing or
+	// mismatched typed allowance fails the transaction; it is never a
+	// silent skip.
+	if assignment.Subject.Kind == factory.SubjectCompletion {
+		if assignment.Subject.Completion == nil {
+			return errors.New("reassessment root lacks its completion subject")
+		}
+		typed, err := lockReassessmentAttemptAllowanceTx(ctx, tx, assignment.Repository, *assignment.Subject.Completion, assignment.AttemptRoot)
+		if err != nil {
+			return err
+		}
+		return transitionLockedAttemptRootTx(ctx, tx, typed, closeRoot, now)
+	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
 	if errors.Is(err, sql.ErrNoRows) {
 		return err
