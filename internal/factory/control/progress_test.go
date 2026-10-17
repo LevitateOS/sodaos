@@ -622,9 +622,33 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 	if errs := host.launchErrs(); len(errs) != 0 {
 		t.Fatalf("implement typed report failed: %v", errs)
 	}
+	// Explicit publication-readiness stage for the newly introduced
+	// implement child: the checks below observe the investigate root's
+	// publication, which must reach published with the fixed candidate
+	// and the implement run linked before the original pending-check
+	// deadline starts. This separates new-phase publication from check
+	// observation; the checks deadline itself stays at 5s.
+	investigateRoot, err := fx.db.AssignmentByRun(ctx, coder.Run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publishDeadline := time.Now().Add(15 * time.Second)
+	for {
+		readyPub, readyErr := fx.db.PublicationByAssignment(ctx, investigateRoot.ID)
+		if readyErr == nil && readyPub.Stage == factory.PublicationPublished &&
+			readyPub.AssignmentID == investigateRoot.ID &&
+			readyPub.Candidate == strings.Repeat("2", 40) &&
+			readyPub.Run == implement.Run.ID {
+			break
+		}
+		if time.Now().After(publishDeadline) {
+			t.Fatalf("implement child never reached published publication: pub=%+v err=%v", readyPub, readyErr)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 	select {
 	case <-pending:
-	case <-time.After(15 * time.Second):
+	case <-time.After(5 * time.Second):
 		if err = fx.coord.Close(); err != nil {
 			t.Fatal(err)
 		}
@@ -779,6 +803,10 @@ func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
 	ready.Store(true)
 	var reassessing atomic.Bool
 	reassessing.Store(true)
+	// raced counts successful stale-input mutations inside the race
+	// hook: the witness below requires the race to have actually run,
+	// not just the earlier reservation to have landed.
+	var raced atomic.Int64
 	host := &progressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, db: fx.db, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 2), checksReady: &ready}
 	fx.coord.Host = host
 	fx.coord.DispatchReads = &preparationAdmissionRaceInputs{DispatchReads: fx.seed.reads, reassess: func(ctx context.Context) error {
@@ -797,6 +825,9 @@ func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
 			control.Fingerprint = strings.Repeat("f", 64)
 		}
 		_, _, err = fx.db.RecordIssueAssessment(ctx, control, time.Now())
+		if err == nil {
+			raced.Add(1)
+		}
 		return err
 	}}
 	fx.coord.Reviews = &fakeReviewer{}
@@ -831,23 +862,26 @@ func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
-		if current.Revision == prior.Revision+1 {
+		if current.Revision == prior.Revision+1 && raced.Load() >= 1 {
 			break
 		}
 		if current.Revision != prior.Revision {
 			t.Fatalf("stale admission overcharged the allowance: before=%+v after=%+v", prior, current)
 		}
 		if time.Now().After(chargeDeadline) {
-			t.Fatalf("stale cycle recorded no review reservation: before=%+v after=%+v", prior, current)
+			t.Fatalf("stale cycle recorded no review reservation or race never ran: before=%+v after=%+v raced=%d", prior, current, raced.Load())
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+	nowUnix := time.Now().Unix()
 	if current.RootAssignment != prior.RootAssignment || current.Repository != prior.Repository || current.Issue != prior.Issue ||
 		current.Limits != prior.Limits || current.Closed || !current.Active ||
 		current.ActiveSeconds < prior.ActiveSeconds || current.CheckpointUnix < prior.CheckpointUnix ||
+		current.CheckpointUnix > nowUnix ||
+		(prior.Active && current.ActiveSeconds-prior.ActiveSeconds > current.CheckpointUnix-prior.CheckpointUnix) ||
 		len(current.Corrections) != 0 || !slices.Equal(current.DeliveryCalls, prior.DeliveryCalls) ||
 		len(current.UnchangedHeadExtra) != 0 || current.Completion != nil {
-		t.Fatalf("stale admission changed more than the review reservation: before=%+v after=%+v", prior, current)
+		t.Fatalf("stale admission changed more than the review reservation: before=%+v after=%+v now=%d", prior, current, nowUnix)
 	}
 	if len(current.Reviews) != len(prior.Reviews)+1 {
 		t.Fatalf("review reservation is not exactly one charge: before=%+v after=%+v child=%s", prior, current, expectedChild)
