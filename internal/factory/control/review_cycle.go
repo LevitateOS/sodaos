@@ -6,13 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 // reviewCyclePassLimit bounds one review-cycle sweep: published
@@ -174,45 +174,218 @@ func resolveAssignmentVerdict(assignment factory.Assignment) (ResolvedReviewVerd
 
 // reviewCarriedFindings rebuilds the canonical carried set one review
 // cycle must answer: the first correction journal's findings when a
-// correction already answered this cycle, otherwise every same-head prior
-// round's phased new findings. Same-head prior rounds that resolved
+// correction already answered this cycle, otherwise the bounded canonical
+// set across this publication attempt's typed history. A candidate change
+// invalidates acceptances but NEVER erases unresolved canonical finding
+// identity, content, evidence or disposition: prior-round phased findings on
+// superseded heads and every correction journal's finding keys stay carried
+// — oldest content wins, so same-key changed content never silently
+// replaces the original provenance. A key retires only on attributable
+// bound verification evidence: exactly one FindingVerified assessment in a
+// recorded review report for this publication. Correction dispositions
+// alone — fixed, unresolved, disputed or declined — never retire a key; an
+// agent claim is not disappearance. Same-head prior rounds that resolved
 // legacy refuse: their string defects carry no stable key, so a typed
 // verdict cannot prove coverage and the legacy consumer keeps the chain.
-// Rounds on superseded heads are history, never carried.
+// A cross-head prior round whose reviewer assignment cannot be
+// reconstructed holds the cycle incomplete instead of succeeding empty.
 func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publication, cycle factory.ReviewCycle) ([]factory.Finding, error) {
-	for _, journal := range p.CorrectionJournals {
-		if journal.CycleID == cycle.ID {
-			return append([]factory.Finding(nil), journal.Report.Findings...), nil
-		}
-	}
 	carried := []factory.Finding{}
 	seen := map[string]bool{}
-	for _, prior := range p.ReviewCycles {
-		if prior.ID == cycle.ID || prior.Head != cycle.Head {
-			continue
-		}
-		reviewer, err := c.Store.Assignment(ctx, prior.ReviewerAssignment)
-		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				continue
+	content := map[string]factory.Finding{}
+	// add merges one attributable finding into the canonical set in
+	// chronological order. Same-key changed content holds conflict: only
+	// exact content equality re-affirms an already recorded key, so a
+	// rewritten finding can never silently replace original provenance.
+	add := func(finding factory.Finding) error {
+		if prior, ok := content[finding.Key]; ok {
+			if !reflect.DeepEqual(prior, finding) {
+				return errors.New("canonical carried history conflicts on its finding content")
 			}
-			return nil, err
-		}
-		if reviewer.Result == nil || !reviewer.Result.Reported {
-			continue
-		}
-		if reviewer.Result.PhaseResult == nil || reviewer.Result.PhaseResult.Output == nil ||
-			reviewer.Result.PhaseResult.Output.Review == nil {
-			if reviewer.Result.Review != nil {
-				return nil, errors.New("prior review needs its legacy consumer")
-			}
-			continue
-		}
-		for _, finding := range reviewer.Result.PhaseResult.Output.Review.NewFindings {
 			if !seen[finding.Key] {
 				seen[finding.Key] = true
 				carried = append(carried, finding)
 			}
+			return nil
+		}
+		content[finding.Key] = finding
+		seen[finding.Key] = true
+		carried = append(carried, finding)
+		return nil
+	}
+	retire := func(key string) {
+		if !seen[key] {
+			return
+		}
+		seen[key] = false
+		for i, finding := range carried {
+			if finding.Key == key {
+				carried = append(carried[:i], carried[i+1:]...)
+				return
+			}
+		}
+	}
+	// applyAssessments retires keys only on bound attributable verification
+	// evidence from the recorded reviewer result of one exact cycle: a
+	// finished independent reviewer run whose assignment identity matches
+	// the cycle, with typed output and a valid verified assessment. A
+	// verified assessment for a key the canonical set never recorded is
+	// malformed evidence and holds incomplete. Still-open assessments
+	// affirm nothing: the key stays carried through its finding.
+	checkPriorBindings := func(prior factory.ReviewCycle, reviewer factory.Assignment) error {
+		// Cycle bindings: the recorded round belongs to this publication
+		// and attempt, with a derived identity, and the reviewer
+		// assignment belongs to that exact cycle and historical head.
+		if prior.PublicationID != p.ID || prior.AttemptRoot == "" || prior.Round < 1 {
+			return errors.New("canonical carried history is incomplete")
+		}
+		if factory.ReviewCycleID(prior.PublicationID, prior.AttemptRoot, prior.Round, prior.Phase) != prior.ID {
+			return errors.New("canonical carried history is incomplete")
+		}
+		if reviewer.ID != prior.ReviewerAssignment || reviewer.Role != project.RoleReviewer ||
+			reviewer.Phase != project.ExecutionReview || reviewer.AttemptRoot != prior.AttemptRoot ||
+			reviewer.SourceCommit != prior.Head {
+			return errors.New("canonical carried history is incomplete")
+		}
+		if reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
+			return errors.New("canonical carried history is incomplete")
+		}
+		if reviewer.Result.AssignmentID != reviewer.ID || reviewer.Run == "" ||
+			reviewer.Result.RunID != reviewer.Run {
+			return errors.New("canonical carried history is incomplete")
+		}
+		out := reviewer.Result.PhaseResult
+		if out == nil || out.Output == nil ||
+			(out.Output.Review == nil && out.Output.Clear == nil) {
+			if reviewer.Result.Review != nil {
+				return errors.New("prior review needs its legacy consumer")
+			}
+			return errors.New("canonical carried history is incomplete")
+		}
+		// Independence: the verifying reviewer run differs from every
+		// correction run recorded for this cycle, when both are known.
+		for _, journal := range p.CorrectionJournals {
+			if journal.CycleID != prior.ID || journal.RunID == "" || reviewer.Run == "" {
+				continue
+			}
+			if journal.RunID == reviewer.Run {
+				return errors.New("canonical carried history is incomplete")
+			}
+		}
+		return nil
+	}
+	// processPrior merges one recorded prior round through the canonical
+	// validators at the correct point: the typed report validates against
+	// the carried snapshot BEFORE this round, then its new findings merge
+	// and its verified assessments retire. A report that omits required
+	// coverage, rewrites the tuple or breaks its digest refuses here with
+	// zero downstream effect — the collector never performs semantic
+	// validation on a parallel path. A result that resolved legacy
+	// refuses: its string defects carry no stable key, so a typed verdict
+	// cannot prove coverage and the legacy consumer keeps the chain.
+	processPrior := func(recorded factory.ReviewCycle, reviewer factory.Assignment) error {
+		if err := checkPriorBindings(recorded, reviewer); err != nil {
+			return err
+		}
+		out := reviewer.Result.PhaseResult.Output
+		carriedBefore := append([]factory.Finding(nil), carried...)
+		if out.Review != nil {
+			if out.Review.CycleID != recorded.ID {
+				return errors.New("canonical carried history is incomplete")
+			}
+			if err := out.Review.Validate(carriedBefore); err != nil {
+				return errors.New("canonical carried history is incomplete")
+			}
+			for _, finding := range out.Review.NewFindings {
+				if err := add(finding); err != nil {
+					return err
+				}
+			}
+			for _, assessment := range out.Review.Assessments {
+				if assessment.Status == factory.FindingVerified {
+					retire(assessment.Key)
+				}
+			}
+		}
+		if out.Clear != nil {
+			if out.Clear.CycleID != recorded.ID || out.Clear.Head != recorded.Head ||
+				out.Clear.BaseOID != recorded.BaseOID {
+				return errors.New("canonical carried history is incomplete")
+			}
+			content, err := factory.FindingContentDigest(carriedBefore)
+			if err != nil {
+				return errors.New("canonical carried history is incomplete")
+			}
+			coverage, err := factory.ClearCoverageDigest(recorded.Head, recorded.BaseOID, content)
+			if err != nil {
+				return errors.New("canonical carried history is incomplete")
+			}
+			if out.Clear.CoverageDigest != coverage {
+				return errors.New("canonical carried history is incomplete")
+			}
+			if err := out.Clear.Validate(carriedBefore); err != nil {
+				return errors.New("canonical carried history is incomplete")
+			}
+			for _, assessment := range out.Clear.Assessments {
+				if assessment.Status == factory.FindingVerified {
+					retire(assessment.Key)
+				}
+			}
+		}
+		return nil
+	}
+	addJournal := func(cycleID string) error {
+		for _, journal := range p.CorrectionJournals {
+			if journal.CycleID != cycleID {
+				continue
+			}
+			for _, finding := range journal.Report.Findings {
+				if err := add(finding); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	// The canonical set rebuilds in bounded monotonic review-cycle order
+	// within this publication and attempt: each attributable review and
+	// each correction journal merges at its recorded cycle and round, so
+	// older verification evidence can never erase a newer occurrence and
+	// later rediscovery re-adds. There is no shortcut to any journal —
+	// not even the current cycle's: every supplied set still passes the
+	// same conflict and verification pipeline.
+	recorded := map[string]bool{}
+	for _, recordedCycle := range p.ReviewCycles {
+		recorded[recordedCycle.ID] = true
+	}
+	for _, journal := range p.CorrectionJournals {
+		if !recorded[journal.CycleID] {
+			return nil, errors.New("canonical carried history is incomplete")
+		}
+	}
+	ordered := append([]factory.ReviewCycle(nil), p.ReviewCycles...)
+	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Round < ordered[j].Round })
+	for _, recorded := range ordered {
+		if recorded.ID == cycle.ID {
+			if err := addJournal(recorded.ID); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		// Only earlier same-publication rounds contribute: a future
+		// round can never launder an earlier admission.
+		if recorded.Round > cycle.Round {
+			continue
+		}
+		reviewer, err := c.Store.Assignment(ctx, recorded.ReviewerAssignment)
+		if err != nil {
+			return nil, errors.New("canonical carried history is incomplete")
+		}
+		if err := processPrior(recorded, reviewer); err != nil {
+			return nil, err
+		}
+		if err := addJournal(recorded.ID); err != nil {
+			return nil, err
 		}
 	}
 	return carried, nil
