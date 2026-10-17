@@ -139,13 +139,16 @@ func adoptCycle(completion, cycle string) factory.ReassessmentCycle {
 	}
 }
 
-// T35: the cycle admits exactly its fresh completion-subject coder. A
-// continue decision launches no agent; a parented or publishing
-// assignment never reopens the completed root; the wrong role refuses.
+// T35: the cycle admits exactly its fresh completion-subject coder bound
+// to the SAME recorded paid run. A continue decision launches no agent;
+// a parented or publishing assignment never reopens the completed root;
+// the wrong role, phase, run, repository, cycle or state refuses.
 func TestAdmitReassessmentCoder(t *testing.T) {
 	completion, cycle := adoptHex('1', 32), adoptHex('2', 32)
+	a := adoptAssignment(t, completion, cycle)
 	c := adoptCycle(completion, cycle)
-	if err := AdmitReassessmentCoder(c, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionReassess); err != nil {
+	c.Ledger.CoderRuns = []string{a.Run}
+	if err := AdmitReassessmentCoder(c, a, factory.ReassessmentOptionReassess); err != nil {
 		t.Fatal("fresh reassessment root refused:", err)
 	}
 	if err := AdmitReassessmentCoder(c, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionContinue); err == nil {
@@ -167,14 +170,57 @@ func TestAdmitReassessmentCoder(t *testing.T) {
 	if err := AdmitReassessmentCoder(c, reviewer, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("reviewer admitted to the coder phase")
 	}
+	wrongPhase := a
+	wrongPhase.Phase = project.ExecutionInvestigate
+	if err := AdmitReassessmentCoder(c, wrongPhase, factory.ReassessmentOptionReassess); err == nil {
+		t.Fatal("wrong phase admitted its coder")
+	}
 	other := adoptCycle(adoptHex('0', 32), cycle)
 	if err := AdmitReassessmentCoder(other, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("another completion bound its cycle")
 	}
+	otherCycle := c
+	otherCycle.CycleID = adoptHex('3', 32)
+	if err := AdmitReassessmentCoder(otherCycle, a, factory.ReassessmentOptionReassess); err == nil {
+		t.Fatal("another cycle bound its assignment")
+	}
 	bare := c
 	bare.Ledger = factory.ReassessmentLedger{}
-	if err := AdmitReassessmentCoder(bare, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionReassess); err == nil {
+	if err := AdmitReassessmentCoder(bare, a, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("coder admitted without its ledger run")
+	}
+	wrongRun := a
+	wrongRun.Run = factory.NewID()
+	wrongRun.RunHistory = []string{wrongRun.Run}
+	if err := wrongRun.Validate(); err != nil {
+		t.Fatal("wrong-run fixture refused its own validation:", err)
+	}
+	if err := AdmitReassessmentCoder(c, wrongRun, factory.ReassessmentOptionReassess); err == nil {
+		t.Fatal("unrecorded run bound its cycle")
+	}
+	wrongRepo := a
+	wrongRepo.Repository++
+	if err := wrongRepo.Validate(); err != nil {
+		t.Fatal("wrong-repo fixture refused its own validation:", err)
+	}
+	if err := AdmitReassessmentCoder(c, wrongRepo, factory.ReassessmentOptionReassess); err == nil {
+		t.Fatal("cross-repository reassessment admitted")
+	}
+	attention := c
+	attention.State = factory.ReassessmentAttention
+	if err := AdmitReassessmentCoder(attention, a, factory.ReassessmentOptionReassess); err == nil {
+		t.Fatal("attention cycle admitted its coder")
+	}
+	stale := a
+	second := factory.NewID()
+	stale.RunHistory = []string{stale.Run, second}
+	stale.Run = second
+	stale.Attempts = 2
+	if err := stale.Validate(); err != nil {
+		t.Fatal("stale-attempt fixture refused its own validation:", err)
+	}
+	if err := AdmitReassessmentCoder(c, stale, factory.ReassessmentOptionReassess); err == nil {
+		t.Fatal("stale second attempt reused its root")
 	}
 }
 
