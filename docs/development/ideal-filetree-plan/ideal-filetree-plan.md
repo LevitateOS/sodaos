@@ -274,7 +274,11 @@ The non-normative
 [investigation](../../research/library-reuse-investigation.md) supports the
 selected direction; product/trust owners remain authoritative.
 
-Last maintained: **2026-10-13** (LTS and native correction scopes above; historical audit pins remain separate). This scoped currentness pass also accounts for
+Last maintained: **2026-10-17** (merge `71458cb3`: fetched `origin/main`
+`1e1ebdbd` two-file Canlang release-input pin delta mapped to existing
+release owners, no proposal change; LTS and native correction scopes above;
+historical audit pins remain separate; factory/source delta stays pending).
+This scoped currentness pass also accounts for
 the later source receipts noted above; it does not refresh historical path or
 line counts. The task refresh also accounts for already-landed
 B07 publication/merge placement, C06 stdin-delivery and C07 enrollment corrections,

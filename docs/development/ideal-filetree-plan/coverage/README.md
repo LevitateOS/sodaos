@@ -89,6 +89,21 @@ native entry/config/feature files retain their paired provider owners. Focused
 test additions are not real-page coverage of every class; current dirty native
 content, Vue/widget/markup retirement and branding joins remain pending.
 
+## Merge upkeep at `71458cb3` (2026-10-17)
+
+Normal merge of fetched `origin/main` (`1e1ebdbd`, base `af79f31b`) into local
+`b12cd494`. The incoming delta changes exactly two release-input paths and
+adds/removes no file or responsibility:
+
+| Incoming path | Existing defining responsibility |
+| --- | --- |
+| `system/project/canlang-release.json` | Release-input pins (Canlang runtime/preview toolchain versions) |
+| `tools/release-assets/src/fetch/canlang.rs` | Release-asset fetch owner (matching admission-code update) |
+
+No package, language, process, or review-slice change. Historical structural,
+catalog, body-census, and native pins below are unchanged; the much larger
+factory/source delta stays pending and is not labeled current by this merge.
+
 ## Complete source-to-slice coverage
 
 Current Soda path navigation is reconciled at `9a184b7f` alongside the paired
