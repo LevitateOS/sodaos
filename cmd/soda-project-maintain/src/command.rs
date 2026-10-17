@@ -101,33 +101,42 @@ fn wait_exit_unreaped(pid: u32) -> Result<Option<bool>, String> {
 
 /// group_executing_members lists one process group's still-executing
 /// members by scanning `/proc`: entries in zombie or dead states execute
-/// nothing, so only live members fence retirement. Vanishing entries are
-/// races, not failures; an unreadable `/proc` itself fails closed.
+/// nothing, so only live members fence retirement. Only entries that
+/// vanished may be skipped; incomplete or unreadable observations fail closed.
 pub(crate) fn group_executing_members(group: i32) -> Result<Vec<i32>, String> {
+    group_executing_members_in(group, std::path::Path::new("/proc"))
+}
+
+fn group_executing_members_in(group: i32, proc_root: &std::path::Path) -> Result<Vec<i32>, String> {
     let failed = String::from("project maintenance command failed");
     let mut members = Vec::new();
-    let proc = fs::read_dir("/proc").map_err(|_| failed.clone())?;
-    for entry in proc.flatten() {
+    let proc = fs::read_dir(proc_root).map_err(|_| failed.clone())?;
+    for entry in proc {
+        let entry = entry.map_err(|_| failed.clone())?;
         let pid: i32 = match entry.file_name().to_str().and_then(|s| s.parse().ok()) {
             Some(pid) => pid,
             None => continue,
         };
-        let stat = match fs::read_to_string(format!("/proc/{pid}/stat")) {
+        let stat = match fs::read_to_string(proc_root.join(pid.to_string()).join("stat")) {
             Ok(stat) => stat,
-            Err(_) => continue,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return Err(failed),
         };
         let after = match stat.rsplit_once(") ") {
             Some((_, rest)) => rest,
-            None => continue,
+            None => return Err(failed),
         };
         let mut fields = after.split_whitespace();
-        let state = fields.next().unwrap_or("");
-        if state.starts_with('Z') || state.starts_with('X') || state.starts_with('x') {
-            continue;
+        let state = fields.next().ok_or_else(|| failed.clone())?;
+        if state.len() != 1 {
+            return Err(failed);
         }
-        fields.next();
-        let pgrp: i32 = fields.next().and_then(|s| s.parse().ok()).unwrap_or(-1);
-        if pgrp == group {
+        fields.next().ok_or_else(|| failed.clone())?;
+        let pgrp: i32 = fields
+            .next()
+            .and_then(|s| s.parse().ok())
+            .ok_or_else(|| failed.clone())?;
+        if pgrp == group && !matches!(state, "Z" | "X" | "x") {
             members.push(pid);
         }
     }
@@ -516,6 +525,38 @@ mod custody_tests {
 #[cfg(test)]
 mod acquisition_cancellation_tests {
     use super::*;
+
+    #[test]
+    fn group_observation_refuses_unreadable_stat() {
+        let dir = crate::test_support::TestDir::make("proc-read-error");
+        fs::create_dir_all(dir.0.join("42/stat")).unwrap();
+        assert!(group_executing_members_in(42, &dir.0).is_err());
+    }
+
+    #[test]
+    fn group_observation_refuses_malformed_stat() {
+        let dir = crate::test_support::TestDir::make("proc-parse-error");
+        fs::create_dir(dir.0.join("42")).unwrap();
+        for stat in ["truncated", "42 (worker) S 1 bad", "42 (worker) S"] {
+            fs::write(dir.0.join("42/stat"), stat).unwrap();
+            assert!(group_executing_members_in(42, &dir.0).is_err(), "{stat}");
+        }
+    }
+
+    #[test]
+    fn group_observation_distinguishes_live_dead_and_vanished_members() {
+        let dir = crate::test_support::TestDir::make("proc-members");
+        for (pid, stat) in [
+            (42, "42 (worker) S 1 42"),
+            (43, "43 (dead) Z 1 42"),
+            (44, "44 (other) S 1 99"),
+        ] {
+            fs::create_dir(dir.0.join(pid.to_string())).unwrap();
+            fs::write(dir.0.join(pid.to_string()).join("stat"), stat).unwrap();
+        }
+        fs::create_dir(dir.0.join("45")).unwrap(); // Vanished before its stat read.
+        assert_eq!(group_executing_members_in(42, &dir.0).unwrap(), vec![42]);
+    }
     #[test]
     fn leader_exit_retires_surviving_descendant_before_success() {
         // The descendant closes stdio and outlives the leader: success

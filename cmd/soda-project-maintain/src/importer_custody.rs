@@ -81,6 +81,9 @@ impl ImporterCustody {
                     return Err(CLOSED.into());
                 }
             }
+            // A reboot can retire an acquisition before it ever obtained
+            // a process identity. Preserve its zero identity on disk.
+            RETIRED if self.pgid == 0 && self.leader_starttime == 0 => {}
             LAUNCHED | RETIRED => {
                 if self.pgid <= 1 {
                     return Err(CLOSED.into());
@@ -502,6 +505,19 @@ mod custody_tests {
         acquire(directory, &digest(), &argv(), owner()).unwrap();
         assert!(reconcile(directory, owner(), Instant::now() + Duration::from_secs(30),).is_err());
         assert_eq!(state_of(directory), ACQUIRED);
+    }
+
+    #[test]
+    fn rebooted_prelaunch_custody_retires_and_allows_new_acquisition() {
+        let dir = crate::test_support::TestDir::make("custody-prelaunch-reboot");
+        acquire(&dir.0, &digest(), &argv(), owner()).unwrap();
+        tamper_boot_id(&dir.0, "00000000-0000-0000-0000-000000000000");
+        reconcile(&dir.0, owner(), Instant::now() + Duration::from_secs(1)).unwrap();
+        assert_eq!(state_of(&dir.0), RETIRED);
+        // The persisted record remains readable on repeated recovery.
+        reconcile(&dir.0, owner(), Instant::now() + Duration::from_secs(1)).unwrap();
+        acquire(&dir.0, &digest(), &argv(), owner()).unwrap();
+        assert_eq!(state_of(&dir.0), ACQUIRED);
     }
 
     #[test]
