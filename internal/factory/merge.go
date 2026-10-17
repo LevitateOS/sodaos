@@ -93,40 +93,45 @@ func MergeResolution(reason string) string {
 // confirmed completion once native bookkeeping proves the outcome.
 // Finished work is terminal and keeps its receipts for inspection.
 type Merge struct {
-	WithdrawRequested         bool               `json:"withdraw_requested,omitempty"`
-	Operation                 MergeOperation     `json:"operation"`
-	Authority                 AuthorityRef       `json:"authority"`
-	Authorization             MergeAuthorization `json:"authorization,omitempty"`
-	ID                        string             `json:"id"`
-	PublicationID             string             `json:"publication_id"`
-	AssignmentID              string             `json:"assignment_id"`
-	ProjectID                 string             `json:"project_id"`
-	Role                      string             `json:"role"`
-	Acceptance                string             `json:"acceptance"`
-	HeadRef                   string             `json:"head_ref"`
-	BaseRef                   string             `json:"base_ref"`
-	HeadOID                   string             `json:"head_oid"`
-	BaseOID                   string             `json:"base_oid"`
-	MergedCommit              string             `json:"merged_commit,omitempty"`
-	Stage                     string             `json:"stage"`
-	Outcome                   Outcome            `json:"outcome,omitempty"`
-	Reason                    string             `json:"reason,omitempty"`
-	Repository                int64              `json:"repository,string"`
-	Issue                     int64              `json:"issue,string"`
-	PRNumber                  int64              `json:"pr_number"`
-	PRID                      int64              `json:"pr_id"`
-	IssueID                   int64              `json:"issue_id"`
-	PRAuthorID                int64              `json:"pr_author_id"`
-	ReviewerID                int64              `json:"reviewer_id"`
-	Revision                  int64              `json:"revision"`
-	NativeRev                 int64              `json:"native_revision"`
-	CreatedUnix               int64              `json:"created_unix"`
-	ObservedUnix              int64              `json:"observed_unix,omitempty"`
-	FinishedUnix              int64              `json:"finished_unix,omitempty"`
-	MergedUnix                int64              `json:"merged_unix,omitempty"`
-	ClosedUnix                int64              `json:"closed_unix,omitempty"`
-	OriginalClosingOccurrence string             `json:"original_closing_occurrence,omitempty"`
-	OriginalClosedUnix        int64              `json:"original_closed_unix,omitempty"`
+	WithdrawRequested bool               `json:"withdraw_requested,omitempty"`
+	Operation         MergeOperation     `json:"operation"`
+	Authority         AuthorityRef       `json:"authority"`
+	Authorization     MergeAuthorization `json:"authorization,omitempty"`
+	// History holds the bounded immutable prior authorization
+	// generations (D09/H3): finalized snapshots behind the one current
+	// authorization. Live fields above always describe the current
+	// generation; history is append-only and never rewritten.
+	History                   []MergeGenerationSnapshot `json:"history,omitempty"`
+	ID                        string                    `json:"id"`
+	PublicationID             string                    `json:"publication_id"`
+	AssignmentID              string                    `json:"assignment_id"`
+	ProjectID                 string                    `json:"project_id"`
+	Role                      string                    `json:"role"`
+	Acceptance                string                    `json:"acceptance"`
+	HeadRef                   string                    `json:"head_ref"`
+	BaseRef                   string                    `json:"base_ref"`
+	HeadOID                   string                    `json:"head_oid"`
+	BaseOID                   string                    `json:"base_oid"`
+	MergedCommit              string                    `json:"merged_commit,omitempty"`
+	Stage                     string                    `json:"stage"`
+	Outcome                   Outcome                   `json:"outcome,omitempty"`
+	Reason                    string                    `json:"reason,omitempty"`
+	Repository                int64                     `json:"repository,string"`
+	Issue                     int64                     `json:"issue,string"`
+	PRNumber                  int64                     `json:"pr_number"`
+	PRID                      int64                     `json:"pr_id"`
+	IssueID                   int64                     `json:"issue_id"`
+	PRAuthorID                int64                     `json:"pr_author_id"`
+	ReviewerID                int64                     `json:"reviewer_id"`
+	Revision                  int64                     `json:"revision"`
+	NativeRev                 int64                     `json:"native_revision"`
+	CreatedUnix               int64                     `json:"created_unix"`
+	ObservedUnix              int64                     `json:"observed_unix,omitempty"`
+	FinishedUnix              int64                     `json:"finished_unix,omitempty"`
+	MergedUnix                int64                     `json:"merged_unix,omitempty"`
+	ClosedUnix                int64                     `json:"closed_unix,omitempty"`
+	OriginalClosingOccurrence string                    `json:"original_closing_occurrence,omitempty"`
+	OriginalClosedUnix        int64                     `json:"original_closed_unix,omitempty"`
 }
 
 // Validate rejects malformed merges. Open work carries no outcome;
@@ -183,6 +188,14 @@ func (m Merge) Validate() error {
 			return errors.New("merge authorization answers another candidate")
 		}
 	}
+	// The row persists one MergeLedger: stable identity, append-only
+	// consecutive generations, the current generation next in line and
+	// the history ceiling over current plus history. History rewrites,
+	// deletions, out-of-position bindings and ceiling breaches all
+	// refuse here before any store write.
+	if _, err := m.Ledger(); err != nil {
+		return err
+	}
 	if op := m.Operation; op.Work != nil && (op.Work.HeadOID != m.HeadOID || op.Work.BaseOID != m.BaseOID || op.Work.Repository != m.Repository || op.Work.PRNumber != m.PRNumber) {
 		return errors.New("merge operation intent differs from its merge")
 	}
@@ -238,6 +251,28 @@ func (m Merge) Validate() error {
 		return errors.New("invalid merge stage")
 	}
 	return nil
+}
+
+// Ledger returns the row's MergeLedger view: stable
+// publication/repository/issue identity, the immutable history prefix
+// and the one current authorization generation. It reuses the ledger
+// validation, so row writes enforce append-only consecutive generations
+// and the history ceiling without a second current authority.
+func (m Merge) Ledger() (MergeLedger, error) {
+	ledger := MergeLedger{PublicationID: m.PublicationID, Repository: m.Repository, Issue: m.Issue}
+	for _, snapshot := range m.History {
+		if err := snapshot.Validate(); err != nil {
+			return MergeLedger{}, err
+		}
+		ledger.History = append(ledger.History, snapshot.Authorization.Generation)
+	}
+	if m.Authorization.Bound() {
+		ledger.Current = m.Authorization.Generation
+	}
+	if err := ledger.Validate(); err != nil {
+		return MergeLedger{}, err
+	}
+	return ledger, nil
 }
 
 // MergeWithdrawal reports ordered local withdrawal separately from

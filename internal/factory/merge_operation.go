@@ -273,6 +273,102 @@ func MergeGenerationOperationID(publicationID string, generation int) string {
 	return fmt.Sprintf("soda-%s-merge-generation-%d", publicationID, generation)
 }
 
+// MergeOperationIDForGeneration derives the submit identity for one row's
+// current authorization generation. Generation one keeps its historic
+// first-attempt identity; later generations use the generation
+// derivation. Every generation drives a distinct native operation, so a
+// crash or lost reply reconciles by exact lookup without resubmitting
+// and a replacement never reuses a finalized identity.
+func MergeOperationIDForGeneration(publicationID string, generation int) string {
+	if generation <= 1 {
+		return MergeOperationID(publicationID, 1)
+	}
+	return MergeGenerationOperationID(publicationID, generation)
+}
+
+// MergeGenerationSnapshot is one finalized prior authorization
+// generation (D09/H3): its immutable authorization, its native
+// operation with intent, observations, receipts and terminal effect,
+// and its terminal stage, outcome, reason and finish time. Snapshots
+// are flat: they never nest another history, so the ledger stays one
+// row with one current authority and bounded immutable priors. The
+// exact tuple and authority travel inside the snapshot authorization's
+// generation.
+type MergeGenerationSnapshot struct {
+	Authorization MergeAuthorization `json:"authorization"`
+	Operation     MergeOperation     `json:"operation"`
+	Stage         string             `json:"stage"`
+	Outcome       Outcome            `json:"outcome,omitempty"`
+	Reason        string             `json:"reason,omitempty"`
+	FinishedUnix  int64              `json:"finished_unix,omitempty"`
+}
+
+// SnapshotMergeGeneration captures the finalized predecessor behind a
+// replacement: the row's exact current authorization, operation and
+// terminal bookkeeping. Only a finalized predecessor snapshots; an
+// open, pending or committed one never enters history.
+func SnapshotMergeGeneration(auth MergeAuthorization, op MergeOperation, stage string, outcome Outcome, reason string, finishedUnix int64) MergeGenerationSnapshot {
+	return MergeGenerationSnapshot{
+		Authorization: auth, Operation: op,
+		Stage: stage, Outcome: outcome, Reason: reason, FinishedUnix: finishedUnix,
+	}
+}
+
+// Validate checks one history snapshot: a bound generation, a recorded
+// operation, a terminal stage matching its outcome, and a predecessor
+// proof behind the replacement it already justified. Uncertainty never
+// enters history.
+func (s MergeGenerationSnapshot) Validate() error {
+	if !s.Authorization.Bound() {
+		return errors.New("merge history snapshot lacks its authorization")
+	}
+	if err := s.Authorization.Generation.Validate(); err != nil {
+		return err
+	}
+	if err := s.Operation.Validate(); err != nil {
+		return err
+	}
+	switch s.Stage {
+	case MergeWithdrawn:
+		if s.Outcome != Cancelled || s.Reason != MergeReasonWithdrawn || s.FinishedUnix <= 0 {
+			return errors.New("withdrawn merge history lacks its outcome")
+		}
+	case MergeFailed:
+		if s.Outcome != Failed || s.Reason != MergeReasonRefused || s.FinishedUnix <= 0 {
+			return errors.New("refused merge history lacks its outcome")
+		}
+	default:
+		return errors.New("merge history snapshot is not a finalized predecessor")
+	}
+	if _, err := MergePredecessorProofOf(s.Authorization.Generation.Generation, s.Operation); err != nil {
+		return err
+	}
+	return nil
+}
+
+// MergePredecessorProofOf derives the replacement proof from one stored
+// predecessor operation. A confirmed cancellation proves replaceability
+// whatever bookkeeping reason it carries; otherwise the recorded
+// deterministic refusal reason is the proof, with the native idle
+// marker normalized away. Pending, indeterminate, unobserved, reasonless
+// and committed predecessors prove nothing and forbid replacement.
+func MergePredecessorProofOf(generation int, op MergeOperation) (MergePredecessorProof, error) {
+	var empty MergePredecessorProof
+	proof := MergePredecessorProof{Generation: generation}
+	switch {
+	case op.Effect == OpEffectNotCommitted && op.Cancellation == OpCancelCancelled:
+		proof.Effect, proof.Cancellation = op.Effect, op.Cancellation
+	case op.Effect == OpEffectNotCommitted && (op.Cancellation == "" || op.Cancellation == OpCancelNone) && op.Reason != "":
+		proof.Effect, proof.NoEffectRefusal = op.Effect, op.Reason
+	default:
+		return empty, errors.New("uncertain merge predecessor forbids replacement")
+	}
+	if err := proof.Validate(); err != nil {
+		return empty, err
+	}
+	return proof, nil
+}
+
 // MergeGeneration is one merge authorization generation (D09): decision,
 // review round, semantic fingerprint, exact head/base/check evidence,
 // authority, observed native revision and deadline, plus the derived
@@ -407,9 +503,10 @@ func (p MergePredecessorProof) Validate() error {
 // MergeLedger is one publication's factory_merges ledger (D09): stable
 // publication/repository/issue identity, one current authorization
 // generation and bounded immutable prior-generation history. Adoption
-// marks the terminal observation of a committed merge. Persistence of
-// this ledger in store rows belongs to FW22; this is the frozen contract
-// its UpdateMerge enforces.
+// marks the terminal observation of a committed merge. Store rows
+// persist this ledger as live current-generation fields plus bounded
+// MergeGenerationSnapshot history; UpdateMerge enforces this contract
+// on every write.
 type MergeLedger struct {
 	PublicationID string            `json:"publication_id"`
 	History       []MergeGeneration `json:"history,omitempty"`
@@ -580,25 +677,27 @@ type MergeAuthorization struct {
 	ResolutionsConfirmed bool             `json:"resolutions_confirmed"`
 }
 
-// Bound reports whether the row carries an authorization at all. Only
-// generation one binds to a merge row until the bounded ledger history
-// lands in store rows; higher generations stay a visible handoff.
+// Bound reports whether the row carries an authorization at all. The
+// row holds exactly one current authorization; prior generations rest
+// in its bounded immutable history, never beside it.
 func (a MergeAuthorization) Bound() bool { return a.Generation.Generation != 0 }
 
 // Validate enforces the registration-time decision gate against the
-// generation's own authority: a valid first generation, a valid
+// generation's own authority: a valid generation, a valid
 // effective ready_to_merge decision over its exact fingerprint,
 // confirmed accepted resolutions and matching authority. Union-bound
 // generations check the union shape instead: a clean binding carries no
 // funded decision, a funded binding carries its ready decision, and both
 // carry confirmed resolutions. Full record binding against the journaled
 // acceptance runs in CheckMergeUnionBinding, which sees the publication.
+// Ledger position (generation == history length + 1) is a row-level
+// check: the store row validates it through its MergeLedger view.
 func (a MergeAuthorization) Validate() error {
 	if !a.Bound() {
 		return errors.New("merge authorization is not bound")
 	}
-	if a.Generation.Generation != 1 {
-		return errors.New("merge authorization generation needs its ledger history")
+	if a.Generation.Generation < 1 {
+		return errors.New("invalid merge authorization generation")
 	}
 	if a.Generation.UnionBound() {
 		return a.validateUnionShape()

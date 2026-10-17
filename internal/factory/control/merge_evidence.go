@@ -142,9 +142,17 @@ func (c *Coordinator) mergeAuthority(ctx context.Context, m factory.Merge, repor
 }
 
 func (c *Coordinator) mergeWork(m factory.Merge, policy factory.RepositoryPolicy) factory.MergeWork {
+	// The submit identity derives from the persisted authorization
+	// generation: every generation drives its own native operation, so
+	// a crash or lost reply reconciles by exact lookup and a
+	// replacement never reuses a finalized identity.
+	generation := 1
+	if m.Authorization.Bound() {
+		generation = m.Authorization.Generation.Generation
+	}
 	return factory.MergeWork{
 		MergeID: m.ID, PublicationID: m.PublicationID,
-		OperationID: factory.MergeOperationID(m.PublicationID, 1), AuthRevision: factory.MergeAuthRevision(m.AssignmentID, m.ID, m.Revision),
+		OperationID: factory.MergeOperationIDForGeneration(m.PublicationID, generation), AuthRevision: factory.MergeAuthRevision(m.AssignmentID, m.ID, m.Revision),
 		HeadRef: m.HeadRef, BaseRef: m.BaseRef, HeadOID: m.HeadOID, BaseOID: m.BaseOID,
 		Repository: m.Repository, Issue: m.Issue, PRNumber: m.PRNumber, PRID: m.PRID, IssueID: m.IssueID,
 		PRAuthorID: m.PRAuthorID, ReviewerID: m.ReviewerID, ActorID: policy.Merge.ActorID,
