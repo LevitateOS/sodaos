@@ -426,6 +426,7 @@ func TestDerivePhasedRepairVerifyRejectsStaleIdentity(t *testing.T) {
 		mutate  func(*factory.PhaseOutput)
 	}{
 		{"stall", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.StallID = strings.Repeat("a", 32) }},
+		{"stall head", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.SourceCommit = strings.Repeat("a", 40) }},
 		{"stall cycle", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.CycleID = strings.Repeat("a", 32) }},
 		{"stall inventory", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.InventoryDigest = phaseTestSHA("stale") }},
 		{"repair delivery", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.Subject.DeliveryID = strings.Repeat("a", 32) }},

@@ -37,7 +37,7 @@ func canonicalDeliveryAssignment(t *testing.T) Assignment {
 		Delivery: &DeliverySubject{
 			DeliveryID: "8" + strings.Repeat("1", 31), IntentID: "d" + strings.Repeat("b", 24),
 			AcceptedRevision: "d" + strings.Repeat("c", 24), ScopeDigest: strings.Repeat("e", 64),
-			SourceCommit: strings.Repeat("f", 40), PreparationDigest: strings.Repeat("a", 64),
+			SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("a", 64),
 			VerificationManifestDigest: strings.Repeat("b", 64),
 		},
 	}

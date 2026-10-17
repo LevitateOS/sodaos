@@ -72,6 +72,43 @@ func testAssignment(prompt []byte) Assignment {
 	}
 }
 
+func deliveryAssignment(prompt []byte) Assignment {
+	a := testAssignment(prompt)
+	a.RunHistory = []string{a.Run}
+	a.ParentAssignment, a.PublicationAssignment = "", ""
+	a.Issue, a.Acceptance = 0, ""
+	a.Role, a.Phase = project.RoleReviewer, project.ExecutionVerify
+	a.Subject = ExecutionSubject{Kind: SubjectDelivery, Delivery: &DeliverySubject{
+		DeliveryID: strings.Repeat("7", 32), IntentID: scopedChoiceID(20),
+		AcceptedRevision: scopedChoiceID(21), ScopeDigest: strings.Repeat("9", 64),
+		SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("a", 64),
+		VerificationManifestDigest: strings.Repeat("b", 64),
+	}}
+	return a
+}
+
+func TestDeliveryAssignmentBindsSubjectHead(t *testing.T) {
+	prompt := testPrompt(t)
+	good := deliveryAssignment(prompt)
+	if err := good.Validate(); err != nil {
+		t.Fatalf("valid delivery assignment refused: %v", err)
+	}
+	wrongAssignmentHead := good
+	wrongAssignmentHead.SourceCommit = strings.Repeat("d", 40)
+	wrongSubjectHead := good
+	offHead := *good.Subject.Delivery
+	offHead.SourceCommit = strings.Repeat("d", 40)
+	wrongSubjectHead.Subject.Delivery = &offHead
+	for name, err := range map[string]error{
+		"assignment off its subject head": wrongAssignmentHead.Validate(),
+		"subject off its assignment head": wrongSubjectHead.Validate(),
+	} {
+		if err == nil {
+			t.Fatalf("delivery case %s admitted", name)
+		}
+	}
+}
+
 func TestAssignmentValidate(t *testing.T) {
 	prompt := testPrompt(t)
 	base := testAssignment(prompt)

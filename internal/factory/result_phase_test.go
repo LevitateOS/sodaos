@@ -325,6 +325,9 @@ func TestPhaseResultBindsItsRepairSubject(t *testing.T) {
 	stallResult := PhaseResult{Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "stall addressed", Output: stallRepairOutput()}
 	deliveryRepairResult := PhaseResult{Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "failure addressed", Output: deliveryRepairOutput()}
 	verifyResult := PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "delivery verified", Output: appVerificationOutput()}
+	wrongHead := stallRepairOutput()
+	wrongHead.Repair.SourceCommit = strings.Repeat("d", 40)
+	wrongHeadResult := PhaseResult{Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "other head addressed", Output: wrongHead}
 	for name, tc := range map[string]struct {
 		result  PhaseResult
 		subject ExecutionSubject
@@ -338,8 +341,9 @@ func TestPhaseResultBindsItsRepairSubject(t *testing.T) {
 		"repair binds issue":                   {stallResult, issue, false},
 		"verification binds stall":             {verifyResult, stall, false},
 		"stall report on verify":               {PhaseResult{Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: stallRepairOutput()}, delivery, false},
+		"stall report on wrong head":           {wrongHeadResult, stall, false},
 	} {
-		a := Assignment{Phase: tc.result.Phase, Subject: tc.subject}
+		a := Assignment{Phase: tc.result.Phase, Subject: tc.subject, SourceCommit: strings.Repeat("c", 40)}
 		err := tc.result.BindAssignment(a)
 		if tc.ok && err != nil {
 			t.Fatalf("binding %s refused: %v", name, err)

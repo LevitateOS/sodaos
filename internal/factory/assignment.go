@@ -391,6 +391,9 @@ func (a Assignment) validateSubjectPhase() error {
 			return errors.New("repair assignment carries issue authority")
 		}
 	}
+	if a.Subject.Kind == SubjectDelivery && a.Subject.Delivery.SourceCommit != a.SourceCommit {
+		return errors.New("delivery assignment runs a head its subject was not admitted against")
+	}
 	return nil
 }
 

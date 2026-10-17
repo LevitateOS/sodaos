@@ -352,7 +352,9 @@ func (r PhaseResult) Validate() error {
 // binds role, subject and run. Pre-phase assignments cannot bind v2 results.
 // Repair and verify results additionally bind their subject kind and, for
 // completed runs, the report's subject, cycle and inventory identities.
-// The six older phases keep their historic phase-only binding.
+// A stall repair additionally runs the assignment's own head: a report
+// for another commit never binds. The six older phases keep their
+// historic phase-only binding.
 func (r PhaseResult) BindAssignment(a Assignment) error {
 	if err := r.Validate(); err != nil {
 		return err
@@ -377,6 +379,9 @@ func (r PhaseResult) BindAssignment(a Assignment) error {
 				if report == nil || report.StallID != subject.StallID ||
 					report.CycleID != subject.CycleID || report.InventoryDigest != subject.InventoryDigest {
 					return errors.New("stall repair report does not match its assigned subject")
+				}
+				if report.SourceCommit != a.SourceCommit {
+					return errors.New("stall repair report runs a head its assignment was not admitted against")
 				}
 			} else {
 				subject, report := a.Subject.DeliveryRepair, r.Output.DeliveryRepair

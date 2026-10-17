@@ -109,6 +109,8 @@ const CheckReceiptPassed = "passed"
 // verification report: the admitted check, its outcome, the artifact
 // digest where an artifact was produced, and bounded log evidence. Agent
 // prose, screenshots alone or agent-supplied digests never substitute.
+// A receipt is a claim until the R38 trusted-manifest join adopts it
+// against host/store evidence.
 type VerificationCheckReceipt struct {
 	CheckID        string `json:"check_id"`
 	Outcome        string `json:"outcome"`
@@ -244,9 +246,11 @@ func (r AppVerificationReport) Validate() error {
 	if !ValidAppVerificationOutcome(r.Outcome) {
 		return errors.New("invalid app verification outcome")
 	}
-	// A verified delivery proves every required check with a receipt and
-	// records no failure; a failed delivery proves at least one failure
-	// with its receipts. Failure and incomplete never become finished.
+	// A verified delivery claims every required check with a receipt and
+	// records no failure; a failed delivery claims at least one failure
+	// with its receipts. Receipts are agent-supplied claims until the
+	// R38 trusted-manifest join adopts them; they never qualify a
+	// delivery on their own. Failure and incomplete never become finished.
 	switch r.Outcome {
 	case AppVerificationVerified:
 		if len(r.CheckReceipts) == 0 || len(r.Failures) != 0 {
