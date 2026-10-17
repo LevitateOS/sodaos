@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type progressHost struct {
@@ -23,6 +25,25 @@ type progressHost struct {
 	states      map[string]project.FactoryState
 	started     chan project.FactoryLaunch
 	checksReady *atomic.Bool
+	db          *store.Store
+	mu          sync.Mutex
+	errs        []string
+}
+
+// recordLaunchErr keeps one fixture-output failure for the test to assert.
+// Hosts never panic and never fabricate output: a failed typed emission
+// leaves the launch without output so production waits instead.
+func (h *progressHost) recordLaunchErr(detail string) {
+	h.mu.Lock()
+	h.errs = append(h.errs, detail)
+	h.mu.Unlock()
+}
+
+// launchErrs reports every recorded fixture-output failure.
+func (h *progressHost) launchErrs() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]string(nil), h.errs...)
 }
 
 // The native job and its durable receipt outlive a disconnected launch RPC.
@@ -31,16 +52,64 @@ type progressHost struct {
 type lostReplyProgressHost struct {
 	*producerFlowHost
 	mu       sync.Mutex
-	state    project.FactoryState
+	db       *store.Store
+	states   map[string]project.FactoryState
+	first    string
 	entered  chan project.FactoryLaunch
 	complete chan struct{}
+	errs     []string
+}
+
+func (h *lostReplyProgressHost) recordLaunchErr(detail string) {
+	h.mu.Lock()
+	h.errs = append(h.errs, detail)
+	h.mu.Unlock()
+}
+
+func (h *lostReplyProgressHost) launchErrs() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]string(nil), h.errs...)
 }
 
 func (h *lostReplyProgressHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
 	h.mu.Lock()
 	h.launches = append(h.launches, in)
-	h.state = project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryRunning, Live: true, Delivered: true, LeaseID: "lease", Generation: 3}
+	if settled, ok := h.states[in.Run.ID]; ok && !settled.Live {
+		h.mu.Unlock()
+		return settled, nil
+	}
+	if h.first == "" {
+		h.first = in.Run.ID
+	}
+	h.states[in.Run.ID] = project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryRunning, Live: true, Delivered: true, LeaseID: "lease", Generation: 3}
+	first := h.first == in.Run.ID && len(h.launches) == 1
 	h.mu.Unlock()
+	if !first && in.Run.ID == h.first {
+		// A relaunch of the lost run before it settles repeats the lost
+		// reply instead of duplicating execution.
+		select {
+		case <-ctx.Done():
+			return project.FactoryState{}, ctx.Err()
+		case <-h.complete:
+			return h.FactoryInspect(ctx, project.FactoryInspect{ID: in.Run.ID})
+		}
+	}
+	if !first {
+		// Later phased runs (the advanced implement child) settle through
+		// the same typed wire: report the admitted phase output promptly.
+		// Only the first launch simulates the lost reply.
+		output, outErr := wakeImplementOutput(ctx, h.db, in.Run.ID)
+		if outErr != nil {
+			h.recordLaunchErr(outErr.Error())
+			return project.FactoryState{}, outErr
+		}
+		h.mu.Lock()
+		h.states[in.Run.ID] = project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted, Retirement: "confirmed", Live: false, Delivered: true, LeaseID: "lease", Generation: 3, CredentialReturned: true, Output: output}
+		completed := h.states[in.Run.ID]
+		h.mu.Unlock()
+		return completed, nil
+	}
 	h.entered <- in
 	select {
 	case <-ctx.Done():
@@ -50,27 +119,44 @@ func (h *lostReplyProgressHost) FactoryLaunch(ctx context.Context, in project.Fa
 	}
 }
 
-func (h *lostReplyProgressHost) FactoryInspect(context.Context, project.FactoryInspect) (project.FactoryState, error) {
+func (h *lostReplyProgressHost) FactoryInspect(_ context.Context, in project.FactoryInspect) (project.FactoryState, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.state, nil
+	if state, ok := h.states[in.ID]; ok {
+		return state, nil
+	}
+	return project.FactoryState{}, errors.New("inspect names an unlaunched run")
 }
 
-func (h *lostReplyProgressHost) FactoryStop(context.Context, project.FactoryStop) (project.FactoryState, error) {
+func (h *lostReplyProgressHost) FactoryStop(_ context.Context, in project.FactoryStop) (project.FactoryState, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.state.Live {
+	state, ok := h.states[in.ID]
+	if !ok {
+		return project.FactoryState{}, nil
+	}
+	if state.Live {
 		return project.FactoryState{}, errors.New("live run must not be stopped by observation timeout")
 	}
-	return h.state, nil
+	return state, nil
 }
 
 func (h *lostReplyProgressHost) finish() {
 	h.mu.Lock()
-	h.state.Live = false
-	h.state.Phase, h.state.Retirement = project.FactoryCompleted, "confirmed"
-	h.state.CredentialReturned = true
-	h.state.Output = "```result-json\n" + `{"status":"completed","summary":"done","candidate":"` + strings.Repeat("2", 40) + `","review_passed":false,"findings":[]}` + "\n```"
+	if h.first != "" {
+		if state, ok := h.states[h.first]; ok && state.Live {
+			output, outErr := wakeInvestigateOutput(context.Background(), h.db, h.first)
+			if outErr != nil {
+				h.errs = append(h.errs, outErr.Error())
+			} else {
+				state.Live = false
+				state.Phase, state.Retirement = project.FactoryCompleted, "confirmed"
+				state.CredentialReturned = true
+				state.Output = output
+				h.states[h.first] = state
+			}
+		}
+	}
 	h.mu.Unlock()
 	close(h.complete)
 }
@@ -86,7 +172,7 @@ func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
 		Issue:    AcceptanceIssueView{Index: decision.IssueIndex, TitleOccurrence: factory.OriginalOccurrence, LifecycleOccurrence: factory.OriginalOccurrence, TitleDigest: decision.TitleDigest, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{{ID: decision.Sources[0].ID, Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
 	}
-	host := &lostReplyProgressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, entered: make(chan project.FactoryLaunch, 1), complete: make(chan struct{})}
+	host := &lostReplyProgressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, db: fx.db, states: map[string]project.FactoryState{}, entered: make(chan project.FactoryLaunch, 1), complete: make(chan struct{})}
 	fx.coord.Host, fx.coord.DispatchReads = host, fx.seed.reads
 	fx.coord.Broker = &stubBroker{get: func(kind, id string) (identity.Execution, error) {
 		return identity.Execution{Kind: kind, ExecutionID: id, State: identity.ExecutionTerminal, Digest: "digest", LeaseID: "lease", Binding: &identity.Binding{Kind: kind, ID: id, Generation: 3, CredentialRoot: "/home/coder/runs/" + id}}, nil
@@ -116,6 +202,9 @@ func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("normal intake did not launch the recorded run")
 	}
+	if launch.Run.Role != project.RoleCoder || launch.Run.ExecutionPhase != project.ExecutionInvestigate {
+		t.Fatalf("intake opened the wrong phase: role=%q phase=%q", launch.Run.Role, launch.Run.ExecutionPhase)
+	}
 	select {
 	case <-done:
 	case <-time.After(time.Second):
@@ -136,6 +225,9 @@ func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
 		t.Fatalf("live run lost its held reservation: %+v %v", reservation, err)
 	}
 	host.finish()
+	if errs := host.launchErrs(); len(errs) != 0 {
+		t.Fatalf("lost-run typed report failed: %v", errs)
+	}
 	deadline := time.Now().Add(15 * time.Second)
 	for {
 		stored, readErr := fx.db.FactoryRun(ctx, run.ID)
@@ -151,8 +243,25 @@ func TestCoordinatorSettlesLostLaunchReplyWithoutManualProgress(t *testing.T) {
 	if err := fx.coord.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if len(host.launches) != 1 || len(executor.pushes) != 1 || len(executor.creates) != 1 {
-		t.Fatal("lost response duplicated a provider launch, branch or PR")
+	if errs := host.launchErrs(); len(errs) != 0 {
+		t.Fatalf("typed phase reports failed: %v", errs)
+	}
+	var investigate, implement int
+	for _, launched := range host.launches {
+		switch launched.Run.ExecutionPhase {
+		case project.ExecutionInvestigate:
+			investigate++
+		case project.ExecutionImplement:
+			implement++
+		default:
+			t.Fatalf("lost reply admitted an unadmitted phase: %q", launched.Run.ExecutionPhase)
+		}
+		if launched.Run.Role != project.RoleCoder {
+			t.Fatalf("lost reply admitted a non-coder role: %q", launched.Run.Role)
+		}
+	}
+	if investigate != 1 || implement != 1 || len(executor.pushes) != 1 || len(executor.creates) != 1 {
+		t.Fatalf("lost response duplicated a provider run, branch or PR: investigate=%d implement=%d pushes=%d creates=%d", investigate, implement, len(executor.pushes), len(executor.creates))
 	}
 }
 
@@ -208,10 +317,38 @@ func TestCoordinatorWakeRetiresExpiredRecordedRun(t *testing.T) {
 
 func (h *progressHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
 	state, err := h.producerFlowHost.FactoryLaunch(ctx, in)
-	if in.Run.Role == project.RoleCoder {
-		state.Output = "```result-json\n" + `{"status":"completed","summary":"done","candidate":"` + strings.Repeat("2", 40) + `","review_passed":false,"findings":[]}` + "\n```"
-	} else {
-		state.Output = "```review-json\n" + `{"verdict":"approve","summary":"solid","body":"LGTM","findings":[]}` + "\n```"
+	// Phased runs report the CURRENT typed v2 contract for their admitted
+	// phase; pre-phase children (CaseA's reviewer under its pre-phase
+	// owner) keep the legacy fences. Never force Phase empty, never inject
+	// a result past the parser: the output must settle through production.
+	switch in.Run.ExecutionPhase {
+	case project.ExecutionInvestigate:
+		output, outErr := wakeInvestigateOutput(ctx, h.db, in.Run.ID)
+		if outErr != nil {
+			h.recordLaunchErr(outErr.Error())
+		} else {
+			state.Output = output
+		}
+	case project.ExecutionImplement:
+		output, outErr := wakeImplementOutput(ctx, h.db, in.Run.ID)
+		if outErr != nil {
+			h.recordLaunchErr(outErr.Error())
+		} else {
+			state.Output = output
+		}
+	case project.ExecutionReview:
+		output, outErr := wakeReviewClearOutput(ctx, h.db, in.Run.ID)
+		if outErr != nil {
+			h.recordLaunchErr(outErr.Error())
+		} else {
+			state.Output = output
+		}
+	default:
+		if in.Run.Role == project.RoleCoder {
+			state.Output = "```result-json\n" + `{"status":"completed","summary":"done","candidate":"` + strings.Repeat("2", 40) + `","review_passed":false,"findings":[]}` + "\n```"
+		} else {
+			state.Output = "```review-json\n" + `{"verdict":"approve","summary":"solid","body":"LGTM","findings":[]}` + "\n```"
+		}
 	}
 	h.states[in.Run.ID] = state
 	h.started <- in
@@ -419,7 +556,7 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 	var ready atomic.Bool
 	var revision atomic.Int64
 	revision.Store(41)
-	host := &progressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 4), checksReady: &ready}
+	host := &progressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, db: fx.db, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 4), checksReady: &ready}
 	inputs := progressInputs{AcceptanceSource: fx.reads, DispatchReads: fx.seed.reads, revision: &revision}
 	fx.coord.Host, fx.coord.DispatchReads, fx.coord.Readiness = host, inputs, progressRevision{&revision}
 	fx.coord.AcceptanceReads = inputs
@@ -469,12 +606,25 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 		}
 	}
 	coder := await()
-	if coder.Run.Role != project.RoleCoder {
-		t.Fatalf("first role = %q", coder.Run.Role)
+	if coder.Run.Role != project.RoleCoder || coder.Run.ExecutionPhase != project.ExecutionInvestigate {
+		t.Fatalf("first role = %q phase = %q", coder.Run.Role, coder.Run.ExecutionPhase)
+	}
+	if errs := host.launchErrs(); len(errs) != 0 {
+		t.Fatalf("investigate typed report failed: %v", errs)
+	}
+	// The phased journey advances on the owner wake: the planned
+	// implementation child launches on a later tick than its investigate
+	// root, still with no new HTTP request.
+	implement := await()
+	if implement.Run.Role != project.RoleCoder || implement.Run.ExecutionPhase != project.ExecutionImplement {
+		t.Fatalf("implement lost its phase: role=%q phase=%q", implement.Run.Role, implement.Run.ExecutionPhase)
+	}
+	if errs := host.launchErrs(); len(errs) != 0 {
+		t.Fatalf("implement typed report failed: %v", errs)
 	}
 	select {
 	case <-pending:
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		if err = fx.coord.Close(); err != nil {
 			t.Fatal(err)
 		}
@@ -487,8 +637,11 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 	revision.Store(42)
 	ready.Store(true)
 	reviewer := await()
-	if reviewer.Run.Role != project.RoleReviewer || reviewer.Run.SourceCommit != strings.Repeat("2", 40) {
+	if reviewer.Run.Role != project.RoleReviewer || reviewer.Run.ExecutionPhase != project.ExecutionReview || reviewer.Run.SourceCommit != strings.Repeat("2", 40) {
 		t.Fatalf("reviewer lost exact candidate: %+v", reviewer.Run)
+	}
+	if errs := host.launchErrs(); len(errs) != 0 {
+		t.Fatalf("reviewer typed report failed: %v", errs)
 	}
 	deadline := time.Now().Add(15 * time.Second)
 	for {
@@ -510,8 +663,24 @@ func TestCoordinatorWakesForCodingDelayedChecksAndReviewer(t *testing.T) {
 	if err = fx.coord.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if len(host.launches) != 2 || len(executor.pushes) != 1 || len(executor.creates) != 1 || len(reviewExecutor.submitted) != 1 {
-		t.Fatal("wake duplicated a provider role, branch or PR")
+	if errs := host.launchErrs(); len(errs) != 0 {
+		t.Fatalf("typed phase reports failed: %v", errs)
+	}
+	var investigate, implementCount, review int
+	for _, launched := range host.launches {
+		switch launched.Run.ExecutionPhase {
+		case project.ExecutionInvestigate:
+			investigate++
+		case project.ExecutionImplement:
+			implementCount++
+		case project.ExecutionReview:
+			review++
+		default:
+			t.Fatalf("wake admitted an unadmitted phase: %q", launched.Run.ExecutionPhase)
+		}
+	}
+	if investigate != 1 || implementCount != 1 || review != 1 || len(executor.pushes) != 1 || len(executor.creates) != 1 || len(reviewExecutor.submitted) != 1 {
+		t.Fatalf("wake duplicated a provider role, branch or PR: investigate=%d implement=%d review=%d pushes=%d creates=%d submitted=%d", investigate, implementCount, review, len(executor.pushes), len(executor.creates), len(reviewExecutor.submitted))
 	}
 	control, err := fx.db.IssueControl(ctx, fx.seed.repo, 31)
 	if err != nil || control.NativeRev != 42 {
@@ -610,7 +779,7 @@ func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
 	ready.Store(true)
 	var reassessing atomic.Bool
 	reassessing.Store(true)
-	host := &progressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 2), checksReady: &ready}
+	host := &progressHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, db: fx.db, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 2), checksReady: &ready}
 	fx.coord.Host = host
 	fx.coord.DispatchReads = &preparationAdmissionRaceInputs{DispatchReads: fx.seed.reads, reassess: func(ctx context.Context) error {
 		if !reassessing.Load() {
@@ -648,11 +817,51 @@ func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
 	if err != nil || publication.Stage != factory.PublicationPublished {
 		t.Fatalf("stale admission changed publication: stage=%s err=%v", publication.Stage, err)
 	}
-	current, err := fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
-	if err != nil || current.RootAssignment != prior.RootAssignment || current.Revision != prior.Revision ||
+	// The D08 review reservation is the legitimate charge the stale cycle
+	// must carry: exactly one reviewer assignment bound to the publication
+	// child identity, revision bumped once, every unrelated budget and the
+	// clock forward-only. Replays of the same charge commit nothing, so the
+	// bump stays exactly one across wake ticks.
+	expectedChild := publicationChildID(publication.ID, publication.Candidate, project.RoleReviewer)
+	var current factory.AttemptAllowance
+	chargeDeadline := time.Now().Add(10 * time.Second)
+	for {
+		var readErr error
+		current, readErr = fx.db.AttemptAllowance(ctx, owner.Repository, owner.Issue)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if current.Revision == prior.Revision+1 {
+			break
+		}
+		if current.Revision != prior.Revision {
+			t.Fatalf("stale admission overcharged the allowance: before=%+v after=%+v", prior, current)
+		}
+		if time.Now().After(chargeDeadline) {
+			t.Fatalf("stale cycle recorded no review reservation: before=%+v after=%+v", prior, current)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if current.RootAssignment != prior.RootAssignment || current.Repository != prior.Repository || current.Issue != prior.Issue ||
 		current.Limits != prior.Limits || current.Closed || !current.Active ||
-		current.ActiveSeconds != prior.ActiveSeconds || current.CheckpointUnix != prior.CheckpointUnix || len(current.Corrections) != 0 {
-		t.Fatalf("stale admission changed active allowance: before=%+v after=%+v err=%v", prior, current, err)
+		current.ActiveSeconds < prior.ActiveSeconds || current.CheckpointUnix < prior.CheckpointUnix ||
+		len(current.Corrections) != 0 || !slices.Equal(current.DeliveryCalls, prior.DeliveryCalls) ||
+		len(current.UnchangedHeadExtra) != 0 || current.Completion != nil {
+		t.Fatalf("stale admission changed more than the review reservation: before=%+v after=%+v", prior, current)
+	}
+	if len(current.Reviews) != len(prior.Reviews)+1 {
+		t.Fatalf("review reservation is not exactly one charge: before=%+v after=%+v child=%s", prior, current, expectedChild)
+	}
+	if !slices.Equal(current.Reviews[:len(current.Reviews)-1], prior.Reviews) || current.Reviews[len(current.Reviews)-1] != expectedChild {
+		t.Fatalf("review reservation lost its exact identity: before=%+v after=%+v child=%s", prior, current, expectedChild)
+	}
+	if len(current.ReviewedHeads) != len(prior.ReviewedHeads)+1 || current.ReviewedHeads[publication.Candidate] != expectedChild {
+		t.Fatalf("review reservation lost its exact head binding: before=%+v after=%+v child=%s", prior, current, expectedChild)
+	}
+	for head, id := range prior.ReviewedHeads {
+		if current.ReviewedHeads[head] != id {
+			t.Fatalf("review reservation rewrote a prior head binding: before=%+v after=%+v", prior, current)
+		}
 	}
 	if len(host.preparations) != 0 || len(host.launches) != 0 {
 		t.Fatal("stale admission reached native preparation or execution")
