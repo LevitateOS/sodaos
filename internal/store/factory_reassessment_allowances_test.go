@@ -559,7 +559,11 @@ func TestReassessmentPositiveIssueAllowanceRegression(t *testing.T) {
 		_ = tx.Rollback()
 		t.Fatal(err)
 	}
-	advanced, err := locked.Checkpoint(now.Add(time.Minute), true)
+	// Deterministic anchor: the checkpoint instant derives from the
+	// actually stored CheckpointUnix, so a Unix-second boundary between
+	// test setup and packet insert cannot shrink the expected minute.
+	anchor := time.Unix(locked.CheckpointUnix, 0)
+	advanced, err := locked.Checkpoint(anchor.Add(time.Minute), true)
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -584,7 +588,7 @@ func TestReassessmentPositiveIssueAllowanceRegression(t *testing.T) {
 			return err
 		}
 		defer func() { _ = inner.Rollback() }()
-		if err = consumeCorrectionAttemptTx(ctx, inner, a, now.Add(2*time.Minute)); err != nil {
+		if err = consumeCorrectionAttemptTx(ctx, inner, a, anchor.Add(2*time.Minute)); err != nil {
 			return err
 		}
 		return inner.Commit()
