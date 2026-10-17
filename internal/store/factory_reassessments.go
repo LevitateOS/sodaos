@@ -2,9 +2,7 @@ package store
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -303,71 +301,15 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 		return factory.CompletionLocal{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	material, err := completionMaterialTx(ctx, tx, repository)
+	material, preparationDigest, err := completionLocalProjectionTx(ctx, tx, repository)
 	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
-	// The projected material already carries the SAME-RR repo project
-	// and the current-head requirement source; reuse them instead of
-	// re-reading the heads. Local.SourceCommit REMAINS the accepted
-	// requirement source for this slice.
-	projectID := material.Authority.ProjectID
-	preparationRows, err := tx.QueryContext(ctx, `SELECT data FROM project_preparations
-		WHERE project_id=$1 AND NOT (data ? 'factory_admission') ORDER BY id`, projectID)
+	// Local.SourceCommit REMAINS the accepted requirement source for
+	// this plain slice; the source-qualified entry binds the proven
+	// native tip instead. Both share the ONE private capture body.
+	local, err := sealCompletionLocal(material, preparationDigest, material.Authority.RequirementSourceCommit)
 	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	type preparationBinding struct {
-		ID                string `json:"id"`
-		Revision          int64  `json:"revision"`
-		SourceCommit      string `json:"source_commit"`
-		SetupDigest       string `json:"setup_digest"`
-		RequirementDigest string `json:"requirement_digest"`
-		ApprovalDigest    string `json:"approval_digest"`
-	}
-	var preparations []preparationBinding
-	for preparationRows.Next() {
-		var raw []byte
-		var stored project.StoredPreparation
-		if err = preparationRows.Scan(&raw); err != nil {
-			_ = preparationRows.Close()
-			return factory.CompletionLocal{}, err
-		}
-		if err = json.Unmarshal(raw, &stored); err != nil {
-			_ = preparationRows.Close()
-			return factory.CompletionLocal{}, err
-		}
-		preparations = append(preparations, preparationBinding{
-			ID: stored.Preparation.ID, Revision: stored.Preparation.Revision,
-			SourceCommit: stored.Preparation.SourceCommit, SetupDigest: stored.Preparation.SetupDigest,
-			RequirementDigest: stored.Preparation.Requirements.Digest,
-			ApprovalDigest:    stored.Preparation.Approval.EffectsDigest,
-		})
-	}
-	if err = preparationRows.Err(); err != nil {
-		_ = preparationRows.Close()
-		return factory.CompletionLocal{}, err
-	}
-	_ = preparationRows.Close()
-	materialDigest, err := material.Digest()
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	preparationDoc, err := json.Marshal(struct {
-		Preparations []preparationBinding `json:"preparations"`
-	}{preparations})
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	preparationSum := sha256.Sum256(preparationDoc)
-	local := factory.CompletionLocal{
-		Material:             material,
-		SourceCommit:         material.Authority.RequirementSourceCommit,
-		PreparationDigest:    hex.EncodeToString(preparationSum[:]),
-		ScopeDigest:          materialDigest,
-		AuthorityFingerprint: factory.AuthorityFingerprint(material.Authority.Effective),
-	}
-	if err = local.Validate(); err != nil {
 		return factory.CompletionLocal{}, err
 	}
 	if err = tx.Commit(); err != nil {

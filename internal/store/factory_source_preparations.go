@@ -50,6 +50,25 @@ func mergedPreparationSource(publicationData, mergeData, runData []byte, reposit
 	return project.FactoryExport{Project: projectID, ID: p.Run, Role: project.RoleCoder, Preparation: p.Preparation, Candidate: tip}, nil
 }
 
+// mergedPreparationSourceTx runs the existing publication+merged+run
+// source predicate inside the caller's repeatable-read capture
+// transaction: the exact repo/project/target-branch/tip relation,
+// validated by the existing merged preparation source validator. It
+// performs no commit and owns no other query.
+func mergedPreparationSourceTx(ctx context.Context, tx *sql.Tx, repository int64, projectID, target, tip string) (project.FactoryExport, error) {
+	var publicationData, mergeData, runData []byte
+	err := tx.QueryRowContext(ctx, `SELECT p.data,m.data,r.data FROM factory_publications p
+	 JOIN factory_merges m ON m.publication=p.data->>'id'
+	 JOIN factory_runs r ON r.id=p.data->>'run'
+	 WHERE p.repository=$1 AND m.stage='merged' AND m.data->>'project_id'=$2
+	 AND m.data->>'base_ref'=$3 AND m.data->>'merged_commit'=$4
+	 ORDER BY m.seq DESC LIMIT 1`, repository, projectID, target, tip).Scan(&publicationData, &mergeData, &runData)
+	if err != nil {
+		return project.FactoryExport{}, err
+	}
+	return mergedPreparationSource(publicationData, mergeData, runData, repository, projectID, target, tip)
+}
+
 func checkMergedPreparationSourceTx(ctx context.Context, tx *sql.Tx, r CandidatePreparationRegistration, tip, target string) error {
 	source := r.SourceRun
 	if source == nil || source.Validate() != nil || source.Project != r.Project || source.Role != project.RoleCoder || source.Candidate != tip {
