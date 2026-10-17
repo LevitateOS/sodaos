@@ -89,6 +89,7 @@ func phaseTestIntentAssignment(t *testing.T) factory.Assignment {
 		},
 	}
 	a.Issue, a.Acceptance = 0, ""
+	a.PublicationAssignment = ""
 	if err := a.Validate(); err != nil {
 		t.Fatalf("intent assignment fixture invalid: %v", err)
 	}
@@ -120,6 +121,12 @@ func TestDerivePhasedDecomposeCompleted(t *testing.T) {
 	}
 	if err := result.ValidatePhaseBinding(project.RoleCoder, project.ExecutionDecompose); err != nil {
 		t.Fatalf("completed decomposition does not bind: %v", err)
+	}
+	if finished.PublicationAssignment != "" {
+		t.Fatalf("finished intent carries publication: %q", finished.PublicationAssignment)
+	}
+	if err := finished.Validate(); err != nil {
+		t.Fatalf("finished intent assignment refused: %v", err)
 	}
 }
 

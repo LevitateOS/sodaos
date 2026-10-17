@@ -269,6 +269,16 @@ func (a Assignment) validateSubjectPhase() error {
 			return errors.New("issue assignment acceptance does not match its subject")
 		}
 	case SubjectIntent:
+		// A private intent decompose assignment is a FRESH root (D01):
+		// no parent, own attempt root, and no publication assignment
+		// until implementation. Both self and other publication IDs
+		// refuse; no child intent lives under another root.
+		if a.ParentAssignment != "" || a.AttemptRoot != a.ID {
+			return errors.New("intent assignment is a fresh attempt root")
+		}
+		if a.PublicationAssignment != "" {
+			return errors.New("intent assignment carries no publication")
+		}
 		// An intent draft is not a native issue: never record zero as a
 		// fake issue number, and no acceptance decision exists before
 		// planning. The repository slot is shared with issue attempts.
@@ -311,11 +321,17 @@ func (a Assignment) Validate() error {
 		return errors.New("invalid assignment identity")
 	}
 	// A reassessment cycle never publishes, so it carries no publication
-	// assignment; every other assignment names its publication owner.
+	// assignment; a private intent root likewise carries no publication
+	// until implementation (D01). Every other assignment names its
+	// publication owner; complete intent validation follows in
+	// validateSubjectPhase.
 	if a.Subject.Kind == SubjectCompletion {
 		if a.PublicationAssignment != "" {
 			return errors.New("reassessment cycle carries no publication")
 		}
+	} else if a.Subject.Kind == SubjectIntent {
+		// Narrow D01 exemption: defer to validateSubjectPhase, which
+		// enforces empty publication plus fresh-root intent identity.
 	} else if !ValidID(a.PublicationAssignment) {
 		return errors.New("invalid assignment identity")
 	}

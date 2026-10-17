@@ -388,6 +388,7 @@ func canonicalIntentAssignment(t *testing.T) Assignment {
 		},
 	}
 	a.Phase, a.Issue, a.Acceptance = project.ExecutionDecompose, 0, ""
+	a.PublicationAssignment = ""
 	return a
 }
 
@@ -542,6 +543,106 @@ func TestAssignmentSubjectPhaseRefusals(t *testing.T) {
 		if err := a.Validate(); err == nil {
 			t.Fatalf("subject case %s admitted", name)
 		}
+	}
+}
+
+// NATIVE102 (D01): a private intent decompose assignment is a FRESH root
+// with no publication. Positive validates end to end; every negative
+// refuses without relaxing other subjects.
+func TestAssignmentIntentRootFresh(t *testing.T) {
+	valid := canonicalIntentAssignment(t)
+	if valid.ParentAssignment != "" || valid.AttemptRoot != valid.ID {
+		t.Fatalf("intent fixture not a fresh root")
+	}
+	if valid.PublicationAssignment != "" {
+		t.Fatalf("intent fixture carries a publication")
+	}
+	if valid.Repository <= 0 || valid.Issue != 0 || valid.Acceptance != "" {
+		t.Fatalf("intent fixture carries issue authority")
+	}
+	if valid.Subject.Kind != SubjectIntent || valid.Phase != project.ExecutionDecompose || valid.Role != project.RoleCoder {
+		t.Fatalf("intent fixture not decompose/coder: %s/%s", valid.Phase, valid.Role)
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("valid intent root refused: %v", err)
+	}
+	accept := "d" + strings.Repeat("a", 24)
+	cases := map[string]func(*Assignment){
+		"intent publication self": func(a *Assignment) {
+			a.PublicationAssignment = a.ID
+		},
+		"intent publication other": func(a *Assignment) {
+			a.PublicationAssignment = NewID()
+		},
+		"intent child under another root": func(a *Assignment) {
+			parent := NewID()
+			a.ParentAssignment = parent
+			a.AttemptRoot = parent
+		},
+		"intent retained root": func(a *Assignment) {
+			a.AttemptRoot = NewID()
+		},
+		"intent with issue": func(a *Assignment) {
+			a.Issue = 5
+		},
+		"intent with acceptance": func(a *Assignment) {
+			a.Acceptance = accept
+		},
+		"intent nil payload": func(a *Assignment) {
+			a.Subject.Intent = nil
+		},
+		"intent bad identity": func(a *Assignment) {
+			a.Subject.Intent.IntentID = "short"
+		},
+		"intent bad revision": func(a *Assignment) {
+			a.Subject.Intent.RevisionID = "short"
+		},
+		"intent bad digest": func(a *Assignment) {
+			a.Subject.Intent.ScopeDigest = "short"
+		},
+		"intent zero owner": func(a *Assignment) {
+			a.Subject.Intent.OwnerID = 0
+		},
+		"intent dual payload": func(a *Assignment) {
+			a.Subject.Issue = &IssueSubject{Issue: 3, Acceptance: accept}
+		},
+		"intent cross phase": func(a *Assignment) {
+			a.Phase = project.ExecutionInvestigate
+		},
+		"intent wrong role": func(a *Assignment) {
+			a.Role = project.RoleReviewer
+		},
+		"unknown subject": func(a *Assignment) {
+			a.Subject = ExecutionSubject{Kind: "unknown"}
+		},
+	}
+	for name, mutate := range cases {
+		next := canonicalIntentAssignment(t)
+		mutate(&next)
+		if err := next.Validate(); err == nil {
+			t.Errorf("intent case %s admitted", name)
+		}
+	}
+	issueMissingPub := canonicalIssueAssignment(t, project.ExecutionImplement, project.RoleCoder)
+	issueMissingPub.PublicationAssignment = ""
+	if err := issueMissingPub.Validate(); err == nil {
+		t.Error("issue assignment without publication admitted")
+	}
+	legacyPrompt := testPrompt(t)
+	legacy := testAssignment(legacyPrompt)
+	legacy.RunHistory = []string{legacy.Run}
+	legacy.PublicationAssignment = ""
+	if err := legacy.Validate(); err == nil {
+		t.Error("legacy assignment without publication admitted")
+	}
+	completion := canonicalCompletionAssignment(t)
+	if err := completion.Validate(); err != nil {
+		t.Fatalf("completion root refused: %v", err)
+	}
+	withPub := canonicalCompletionAssignment(t)
+	withPub.PublicationAssignment = NewID()
+	if err := withPub.Validate(); err == nil {
+		t.Error("completion with publication admitted")
 	}
 }
 
