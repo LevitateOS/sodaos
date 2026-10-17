@@ -457,8 +457,9 @@ func saveAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, allowance factory.A
 		return err
 	}
 	var storedData []byte
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3 FOR UPDATE`,
-		allowance.Repository, allowance.Issue, allowance.RootAssignment).Scan(&storedData); err != nil {
+	var storedRevision int64
+	if err := tx.QueryRowContext(ctx, `SELECT revision,data FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3 FOR UPDATE`,
+		allowance.Repository, allowance.Issue, allowance.RootAssignment).Scan(&storedRevision, &storedData); err != nil {
 		return err
 	}
 	var stored factory.AttemptAllowance
@@ -471,12 +472,21 @@ func saveAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, allowance factory.A
 	if !sameAttemptAllowanceScope(stored, allowance) {
 		return errors.New("attempt allowance scope is immutable")
 	}
+	// Exact revision CAS: the writer must advance the stored revision by
+	// exactly one. Stale, same, or skipped revisions refuse; the row-lock
+	// alone never authorizes a rewrite.
+	if allowance.Revision != storedRevision+1 {
+		return ErrStaleRevision
+	}
+	if err := checkAllowanceNoRefill(stored, allowance); err != nil {
+		return err
+	}
 	data, err := json.Marshal(allowance)
 	if err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE factory_attempt_allowances SET revision=$1,data=$2 WHERE repository=$3 AND issue=$4 AND root_assignment=$5`,
-		allowance.Revision, string(data), allowance.Repository, allowance.Issue, allowance.RootAssignment)
+	result, err := tx.ExecContext(ctx, `UPDATE factory_attempt_allowances SET revision=$1,data=$2 WHERE repository=$3 AND issue=$4 AND root_assignment=$5 AND revision=$6`,
+		allowance.Revision, string(data), allowance.Repository, allowance.Issue, allowance.RootAssignment, storedRevision)
 	if err != nil {
 		return err
 	}
@@ -488,6 +498,48 @@ func saveAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, allowance factory.A
 		return ErrStaleRevision
 	}
 	return nil
+}
+
+// checkAllowanceNoRefill enforces cumulative accounting on one root: clock
+// state never moves backward, a closed root never reopens, and every
+// consumption record keeps its prior entries. A same-root policy, head or
+// data edit can never refund prior charges; explicit retry uses a distinct
+// authorized root and preserves the old row.
+func checkAllowanceNoRefill(stored, next factory.AttemptAllowance) error {
+	if next.ActiveSeconds < stored.ActiveSeconds || next.CheckpointUnix < stored.CheckpointUnix {
+		return errors.New("attempt allowance clock moved backward")
+	}
+	if stored.Closed && !next.Closed {
+		return errors.New("closed attempt allowance never reopens")
+	}
+	if !stringPrefix(next.Corrections, stored.Corrections) || !stringPrefix(next.DeliveryCalls, stored.DeliveryCalls) || !stringPrefix(next.Reviews, stored.Reviews) {
+		return errors.New("attempt allowance consumption erased")
+	}
+	if !stringMapPrefix(next.ReviewedHeads, stored.ReviewedHeads) || !stringMapPrefix(next.UnchangedHeadExtra, stored.UnchangedHeadExtra) {
+		return errors.New("attempt allowance consumption erased")
+	}
+	return nil
+}
+
+func stringPrefix(next, stored []string) bool {
+	if len(next) < len(stored) {
+		return false
+	}
+	for i := range stored {
+		if next[i] != stored[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func stringMapPrefix(next, stored map[string]string) bool {
+	for k, v := range stored {
+		if next[k] != v {
+			return false
+		}
+	}
+	return true
 }
 
 // FreezeAttemptAllowances closes active issue clocks only under the exact

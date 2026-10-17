@@ -428,6 +428,113 @@ func TestReassessmentScopeImmutableOnCAS(t *testing.T) {
 	}
 }
 
+func saveReassessmentNext(t *testing.T, ctx context.Context, db *Store, next factory.AttemptAllowance) error {
+	t.Helper()
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err = saveAttemptAllowanceTx(ctx, tx, next); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func readReassessmentCurrent(t *testing.T, ctx context.Context, db *Store, a factory.Assignment) factory.AttemptAllowance {
+	t.Helper()
+	current, err := db.ReassessmentAttemptAllowance(ctx, a.Repository, reassessmentSubjectOf(a), a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return current
+}
+
+// TestReassessmentStaleSnapshotSaveRefuses replays the independent 055
+// counterexample: a two-transaction stale snapshot must refuse with
+// ErrStaleRevision and preserve the committed revision/consumption, and
+// no fresh revision may refill clock or erase charges.
+func TestReassessmentStaleSnapshotSaveRefuses(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, a)
+	commitReassessmentInsert(t, ctx, db, a, 45, now.Add(30*time.Minute), now)
+
+	// Genuine first save: rev0 -> rev1 with 600s spent. Commits.
+	first := readReassessmentCurrent(t, ctx, db, a)
+	first.Revision = 1
+	first.ActiveSeconds = 600
+	first.CheckpointUnix = now.Unix()
+	if err := saveReassessmentNext(t, ctx, db, first); err != nil {
+		t.Fatalf("genuine first save refused: %v", err)
+	}
+	// Stale snapshot: the pre-commit rev0 view checkpoints +60s and saves
+	// as rev1 after rev1 already committed. Must refuse; durable stays
+	// rev1/spent600.
+	stale := readReassessmentCurrent(t, ctx, db, a)
+	stale.ActiveSeconds = 60
+	stale.CheckpointUnix = now.Unix()
+	stale.Revision = 1
+	if err := saveReassessmentNext(t, ctx, db, stale); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("stale snapshot save = %v, want ErrStaleRevision", err)
+	}
+	// Same-revision replay and skipped revisions refuse as well.
+	if err := saveReassessmentNext(t, ctx, db, stale); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("same-revision save = %v, want ErrStaleRevision", err)
+	}
+	skipped := readReassessmentCurrent(t, ctx, db, a)
+	skipped.Revision = 3
+	skipped.ActiveSeconds = 601
+	skipped.CheckpointUnix = now.Unix()
+	if err := saveReassessmentNext(t, ctx, db, skipped); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("skipped-revision save = %v, want ErrStaleRevision", err)
+	}
+	durable := readReassessmentCurrent(t, ctx, db, a)
+	if durable.Revision != 1 || durable.ActiveSeconds != 600 {
+		t.Fatalf("durable state rewritten = rev%d spent%d", durable.Revision, durable.ActiveSeconds)
+	}
+	// Fresh-revision refill attempts refuse: clock rollback, closed-root
+	// reopen, and consumption erasure on an otherwise valid next revision.
+	rollback := durable
+	rollback.Revision = 2
+	rollback.ActiveSeconds = 60
+	rollback.CheckpointUnix = now.Unix()
+	if err := saveReassessmentNext(t, ctx, db, rollback); err == nil {
+		t.Fatal("clock rollback admitted")
+	}
+	closed, err := durable.Checkpoint(now, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed.Active = false
+	closed.Closed = true
+	closed.Revision = 2
+	if err := saveReassessmentNext(t, ctx, db, closed); err != nil {
+		t.Fatalf("valid close refused: %v", err)
+	}
+	reopen := readReassessmentCurrent(t, ctx, db, a)
+	reopen.Revision = 3
+	reopen.Closed = false
+	reopen.Active = true
+	if err := saveReassessmentNext(t, ctx, db, reopen); err == nil {
+		t.Fatal("closed-root reopen admitted")
+	}
+	// Valid next checkpoint on the closed root's successor state refuses
+	// too (closed stays closed); a genuinely open root still advances.
+	advance := readReassessmentCurrent(t, ctx, db, a)
+	advance.Revision = 3
+	advance.CheckpointUnix = now.Add(time.Minute).Unix()
+	if err := saveReassessmentNext(t, ctx, db, advance); err != nil {
+		t.Fatalf("valid next save refused: %v", err)
+	}
+	final := readReassessmentCurrent(t, ctx, db, a)
+	if final.Revision != 3 || !final.Closed || final.ActiveSeconds != 600 {
+		t.Fatalf("final state = %+v", final)
+	}
+}
+
 func TestReassessmentPositiveIssueAllowanceRegression(t *testing.T) {
 	ctx := context.Background()
 	db := dispatchStoreFixture(t)
