@@ -614,3 +614,322 @@ func TestReassessmentLocalEqualCAS(t *testing.T) {
 		t.Fatal("refused CAS mutated the sealed row")
 	}
 }
+
+// reassessmentBudgetSpent reads the global consultation spend and the
+// charged-receipt count so prefix tests prove no recharge happened.
+func reassessmentBudgetSpent(t *testing.T, db *Store) (spent, receipts int) {
+	t.Helper()
+	ctx := context.Background()
+	if err := db.db.QueryRowContext(ctx, `SELECT spent FROM factory_judgment_budget WHERE id=1`).Scan(&spent); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_priority_judgments`).Scan(&receipts); err != nil {
+		t.Fatal(err)
+	}
+	return spent, receipts
+}
+
+// decidingTestCycle records one completion and advances its cycle to
+// deciding, returning the stored deciding record.
+func decidingTestCycle(t *testing.T, db *Store, occurrence string) ReassessmentRecord {
+	t.Helper()
+	ctx := context.Background()
+	if !recordTestCompletion(t, db, mergedCompletionRecord(factory.NewID(), occurrence)) {
+		t.Fatal("completion not recorded")
+	}
+	cycles, err := db.PendingReassessmentCycles(ctx, 7)
+	if err != nil || len(cycles) != 1 {
+		t.Fatalf("cycles=%v err=%v, want one collecting cycle", cycles, err)
+	}
+	record := cycles[0]
+	record.Cycle.State = factory.ReassessmentDeciding
+	if err := db.CasReassessmentRecord(ctx, record.Cycle.CycleID, factory.ReassessmentCollecting, record); err != nil {
+		t.Fatalf("deciding CAS: %v", err)
+	}
+	return record
+}
+
+// A stale-prefix CAS keeps the exact locked paid call: the caller read
+// before the reservation, advances honest state, and the locked call,
+// its receipt and the global spend all survive.
+func TestCasStalePrefixKeepsPaidCall(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	db.PriorityCallBudget = 100
+	ctx := context.Background()
+	decided := decidingTestCycle(t, db, "911")
+	cycleID := decided.Cycle.CycleID
+	stale, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := factory.NewID()
+	reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+		call, factory.ReassessmentDecisionPurpose, "", strings.Repeat("2", 64))
+	if err != nil || !reserved {
+		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
+	}
+	spent, receipts := reassessmentBudgetSpent(t, db)
+	stale.Cycle.State = factory.ReassessmentAttention
+	stale.WaitReason = "decision_unavailable"
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, stale); err != nil {
+		t.Fatalf("stale-prefix CAS: %v", err)
+	}
+	stored, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Cycle.State != factory.ReassessmentAttention {
+		t.Fatalf("state=%q, want the honest stale advance", stored.Cycle.State)
+	}
+	if len(stored.Cycle.Ledger.DecisionCalls) != 1 || stored.Cycle.Ledger.DecisionCalls[0] != call {
+		t.Fatalf("calls=%v, want the exact locked paid call", stored.Cycle.Ledger.DecisionCalls)
+	}
+	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
+		t.Fatalf("spent=%d->%d receipts=%d->%d, want no recharge", spent, spentAfter, receipts, receiptsAfter)
+	}
+}
+
+// The second proposal reservation is admitted through its canonical
+// purpose after a reassess decision, and a stale-prefix CAS holding
+// only the first call retains both calls in order.
+func TestCasStalePrefixKeepsBothCalls(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	db.PriorityCallBudget = 100
+	ctx := context.Background()
+	decided := decidingTestCycle(t, db, "912")
+	cycleID := decided.Cycle.CycleID
+	call1 := factory.NewID()
+	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+		call1, factory.ReassessmentDecisionPurpose, "", strings.Repeat("3", 64)); err != nil || !reserved {
+		t.Fatalf("reserved=%v err=%v, want the first paid call", reserved, err)
+	}
+	fresh, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh.Cycle.Decision = factory.ReassessmentOptionReassess
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, fresh); err != nil {
+		t.Fatalf("reassess decision CAS: %v", err)
+	}
+	stale, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call2 := factory.NewID()
+	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+		call2, factory.ReassessmentProposalPurpose, factory.ReassessmentOptionReassess, strings.Repeat("4", 64)); err != nil || !reserved {
+		t.Fatalf("reserved=%v err=%v, want the admitted proposal call", reserved, err)
+	}
+	spent, receipts := reassessmentBudgetSpent(t, db)
+	stale.Cycle.State = factory.ReassessmentAttention
+	stale.WaitReason = "decision_unavailable"
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, stale); err != nil {
+		t.Fatalf("stale-prefix CAS: %v", err)
+	}
+	stored, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Cycle.Ledger.DecisionCalls) != 2 ||
+		stored.Cycle.Ledger.DecisionCalls[0] != call1 || stored.Cycle.Ledger.DecisionCalls[1] != call2 {
+		t.Fatalf("calls=%v, want both paid calls in order", stored.Cycle.Ledger.DecisionCalls)
+	}
+	if stored.Cycle.Decision != factory.ReassessmentOptionReassess {
+		t.Fatalf("decision=%q, want the recorded reassess decision", stored.Cycle.Decision)
+	}
+	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
+		t.Fatalf("spent=%d->%d receipts=%d->%d, want no recharge", spent, spentAfter, receipts, receiptsAfter)
+	}
+}
+
+// Extra, reordered and forked paid IDs refuse: a prefix cannot grant
+// authority, and every refusal leaves the row, the global budget and
+// the receipts unchanged.
+func TestCasRefusesUnreservedLedgerWrites(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	db.PriorityCallBudget = 100
+	ctx := context.Background()
+	decided := decidingTestCycle(t, db, "913")
+	cycleID := decided.Cycle.CycleID
+	call1, call2 := factory.NewID(), factory.NewID()
+	for i, reservation := range []struct {
+		call, fingerprint string
+	}{
+		{call1, strings.Repeat("5", 64)},
+		{call2, strings.Repeat("6", 64)},
+	} {
+		if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+			reservation.call, factory.ReassessmentDecisionPurpose, "", reservation.fingerprint); err != nil || !reserved {
+			t.Fatalf("reservation %d: reserved=%v err=%v", i, reserved, err)
+		}
+	}
+	spent, receipts := reassessmentBudgetSpent(t, db)
+	current, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string][]string{
+		"extra":     {call1, call2, factory.NewID()},
+		"reordered": {call2, call1},
+		"forked":    {call1, factory.NewID()},
+		"replaced":  {factory.NewID()},
+	}
+	for name, calls := range cases {
+		bad := current
+		bad.Cycle.Ledger.DecisionCalls = calls
+		if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, bad); err == nil {
+			t.Fatalf("%s ledger accepted", name)
+		} else if errors.Is(err, ErrStaleRevision) {
+			t.Fatalf("%s ledger refused as stale instead of unreserved: %v", name, err)
+		}
+	}
+	stored, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Cycle.Ledger.DecisionCalls) != 2 ||
+		stored.Cycle.Ledger.DecisionCalls[0] != call1 || stored.Cycle.Ledger.DecisionCalls[1] != call2 {
+		t.Fatalf("calls=%v, want the locked pair untouched", stored.Cycle.Ledger.DecisionCalls)
+	}
+	if stored.Cycle.State != factory.ReassessmentDeciding {
+		t.Fatalf("state=%q, want the refused row untouched", stored.Cycle.State)
+	}
+	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
+		t.Fatalf("spent=%d->%d receipts=%d->%d, want no change on refusal", spent, spentAfter, receipts, receiptsAfter)
+	}
+}
+
+// An extra call also refuses within the domain limit: with one locked
+// paid call, a two-call proposal stays inside the two-call allowance,
+// so only the prefix guard can refuse it. Row, budget and receipts
+// stay unchanged.
+func TestCasRefusesWithinLimitExtraCall(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	db.PriorityCallBudget = 100
+	ctx := context.Background()
+	decided := decidingTestCycle(t, db, "915")
+	cycleID := decided.Cycle.CycleID
+	call1 := factory.NewID()
+	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+		call1, factory.ReassessmentDecisionPurpose, "", strings.Repeat("8", 64)); err != nil || !reserved {
+		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
+	}
+	spent, receipts := reassessmentBudgetSpent(t, db)
+	current, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := current
+	bad.Cycle.Ledger.DecisionCalls = []string{call1, factory.NewID()}
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, bad); err == nil {
+		t.Fatal("within-limit extra call accepted")
+	} else if errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("within-limit extra call refused as stale instead of unreserved: %v", err)
+	}
+	stored, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Cycle.Ledger.DecisionCalls) != 1 || stored.Cycle.Ledger.DecisionCalls[0] != call1 {
+		t.Fatalf("calls=%v, want the single locked call untouched", stored.Cycle.Ledger.DecisionCalls)
+	}
+	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
+		t.Fatalf("spent=%d->%d receipts=%d->%d, want no change on refusal", spent, spentAfter, receipts, receiptsAfter)
+	}
+}
+
+// The prefix rule composes with the seal: the sealing write itself
+// keeps the already-reserved paid call, while a stale expected state
+// and sealed digest/body/local rewrites still refuse with the row,
+// budget and receipts unchanged.
+func TestCasPrefixKeepsSealAndStaleRefusals(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	db.PriorityCallBudget = 100
+	ctx := context.Background()
+	decided := decidingTestCycle(t, db, "914")
+	cycleID := decided.Cycle.CycleID
+	call := factory.NewID()
+	if reserved, err := db.ReserveReassessmentCall(ctx, cycleID, factory.ReassessmentDeciding,
+		call, factory.ReassessmentDecisionPurpose, "", strings.Repeat("7", 64)); err != nil || !reserved {
+		t.Fatalf("reserved=%v err=%v, want a charged reservation", reserved, err)
+	}
+	sealed, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := factory.CompletionIssueEvidence{
+		Index: 9, Title: "sealed title", Body: "sealed body",
+		TitleDigest: strings.Repeat("a", 64), ContentDigest: strings.Repeat("b", 64),
+	}.CanonicalData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := factory.ParseCompletionIssueEvidence(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealed.InventoryDigest = strings.Repeat("a", 64)
+	sealed.EvidenceFingerprint = strings.Repeat("b", 64)
+	sealed.Local = sealedTestLocal(t)
+	sealed.Evidence = []factory.CompletionIssueEvidence{parsed}
+	sealed.EvidenceIssues, sealed.EvidenceRevision = 1, 41
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, sealed); err != nil {
+		t.Fatalf("seal CAS: %v", err)
+	}
+	stored, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.InventoryDigest != strings.Repeat("a", 64) || !stored.Local.Equal(sealed.Local) ||
+		len(stored.Evidence) != 1 || len(stored.Cycle.Ledger.DecisionCalls) != 1 ||
+		stored.Cycle.Ledger.DecisionCalls[0] != call {
+		t.Fatalf("sealing lost its seal or its paid call: %+v", stored.Cycle.Ledger.DecisionCalls)
+	}
+	spent, receipts := reassessmentBudgetSpent(t, db)
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentCollecting, stored); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("stale expected state: %v", err)
+	}
+	rewritten := stored
+	rewritten.InventoryDigest = strings.Repeat("f", 64)
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, rewritten); err == nil {
+		t.Fatal("sealed inventory rewritten")
+	} else if errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("sealed inventory refused as stale instead of immutable: %v", err)
+	}
+	// The edited body keeps its shape (nonempty title, well-formed
+	// digests), so entry validation passes and the refusal lands at
+	// the sealed-bodies immutability comparison, not the state guard.
+	editedBodies := stored
+	editedBodies.Evidence = []factory.CompletionIssueEvidence{parsed}
+	editedBodies.Evidence[0].Body = "edited body after the seal"
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, editedBodies); err == nil {
+		t.Fatal("sealed bodies rewritten")
+	} else if errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("sealed bodies refused as stale instead of immutable: %v", err)
+	}
+	tampered := stored
+	changed := *stored.Local.Material
+	changed.Authority.ReassessmentMinutes = factory.DefaultReassessmentMinutes + 1
+	tampered.Local.Material = &changed
+	materialDigest, err := tampered.Local.Material.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered.Local.ScopeDigest = materialDigest
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, tampered); err == nil {
+		t.Fatal("sealed local bindings rewritten")
+	} else if errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("sealed local bindings refused as stale instead of immutable: %v", err)
+	}
+	kept, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kept.InventoryDigest != strings.Repeat("a", 64) || !kept.Local.Equal(sealed.Local) ||
+		len(kept.Cycle.Ledger.DecisionCalls) != 1 || kept.Cycle.Ledger.DecisionCalls[0] != call {
+		t.Fatal("refused seal rewrites mutated the row")
+	}
+	if spentAfter, receiptsAfter := reassessmentBudgetSpent(t, db); spentAfter != spent || receiptsAfter != receipts {
+		t.Fatalf("spent=%d->%d receipts=%d->%d, want no change on refusal", spent, spentAfter, receipts, receiptsAfter)
+	}
+}

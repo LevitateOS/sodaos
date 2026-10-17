@@ -445,6 +445,15 @@ func (s *Store) ReassessmentRecord(ctx context.Context, cycleID string) (Reasses
 // an inventory digest or evidence fingerprint is recorded, later writes
 // must carry it unchanged. Only the state column and data move; rows
 // are never deleted.
+//
+// Paid ledger prefix rule: the locked row is the only admission
+// authority for paid decision calls (ReserveReassessmentCall). Incoming
+// DecisionCalls must be an ordered prefix of the locked current list: a
+// shorter or empty prefix is legitimate stale input and is replaced
+// here with a copy of the exact locked list, while an extra,
+// unreserved, forked or reordered ID refuses with no write. Only
+// DecisionCalls is resolved this way; CoderRuns pass through untouched
+// and the final Validate still guards them.
 func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedState string, record ReassessmentRecord) error {
 	if !factory.ValidID(cycleID) {
 		return errors.New("invalid reassessment cycle identity")
@@ -476,6 +485,25 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 	}
 	var current ReassessmentRecord
 	if err = json.Unmarshal(raw, &current); err != nil {
+		return err
+	}
+	// The locked ledger validates as-is: a malformed current row never
+	// becomes an empty fallback.
+	if err := current.Cycle.Ledger.Validate(); err != nil {
+		return err
+	}
+	incoming := record.Cycle.Ledger.DecisionCalls
+	locked := current.Cycle.Ledger.DecisionCalls
+	if len(incoming) > len(locked) {
+		return errors.New("reassessment CAS introduces unreserved decision calls")
+	}
+	for i, id := range incoming {
+		if id != locked[i] {
+			return errors.New("reassessment CAS forks the locked paid ledger")
+		}
+	}
+	record.Cycle.Ledger.DecisionCalls = append([]string(nil), locked...)
+	if err := record.Validate(); err != nil {
 		return err
 	}
 	if current.InventoryDigest != "" && record.InventoryDigest != current.InventoryDigest {
