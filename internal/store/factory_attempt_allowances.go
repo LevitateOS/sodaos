@@ -455,17 +455,28 @@ func deactivateReleasedAttemptTx(ctx context.Context, tx *sql.Tx, assignmentID s
 
 // sameAttemptAllowanceScope reports whether next keeps the immutable
 // record scope of stored: repository, issue, root assignment, completion
-// subject and admitted limits. Only revision-gated consumption and clock
-// state may advance across CAS saves, on issue and completion roots alike.
+// subject, stable intent scope and admitted limits. Only revision-gated
+// consumption and clock state may advance across CAS saves, on issue,
+// completion and intent roots alike. The stable intent binding compares by
+// value (nil/present plus IntentID and OwnerID): mutable assignment
+// snapshots such as RevisionID and ScopeDigest are never copied here and
+// pointer identity never decides.
 func sameAttemptAllowanceScope(stored, next factory.AttemptAllowance) bool {
 	if stored.Repository != next.Repository || stored.Issue != next.Issue ||
 		stored.RootAssignment != next.RootAssignment || stored.Limits != next.Limits {
 		return false
 	}
 	if stored.Completion == nil || next.Completion == nil {
-		return stored.Completion == nil && next.Completion == nil
+		if stored.Completion != nil || next.Completion != nil {
+			return false
+		}
+	} else if *stored.Completion != *next.Completion {
+		return false
 	}
-	return *stored.Completion == *next.Completion
+	if stored.Intent == nil || next.Intent == nil {
+		return stored.Intent == nil && next.Intent == nil
+	}
+	return *stored.Intent == *next.Intent
 }
 
 func saveAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, allowance factory.AttemptAllowance) error {
