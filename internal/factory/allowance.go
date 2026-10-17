@@ -95,7 +95,24 @@ var (
 	// can never be consumed on it, and AttemptLimits review/child defaults
 	// never fill its zero sub-budgets.
 	ErrCompletionTimeOnly = errors.New("completion root carries active time only")
+	// ErrIntentTimeOnly reports that a private-intent-root allowance carries
+	// active time only: issue review, correction, delivery and child budget
+	// can never be consumed on it, and AttemptLimits review/child defaults
+	// never fill its zero sub-budgets.
+	ErrIntentTimeOnly = errors.New("intent root carries active time only")
 )
+
+// IntentAttemptScope binds one time-only private-intent attempt to its
+// stable owner and intent association. It carries no RevisionID or
+// ScopeDigest: those mutable assignment snapshots change across exact
+// immutable input revisions while this binding stays stable so a future
+// canonical active attempt can retain consumed time. A positive JSON
+// OwnerID is NOT proof of authoritative ownership: store admission must
+// still check the locked row.
+type IntentAttemptScope struct {
+	IntentID string `json:"intent_id"`
+	OwnerID  int64  `json:"owner_id,string"`
+}
 
 // AttemptAllowance retains one automatic attempt across assignments,
 // acceptance edits and pauses. An explicit maintainer Retry starts a new
@@ -130,16 +147,26 @@ type AttemptAllowance struct {
 	UnchangedHeadExtra map[string]string `json:"unchanged_head_extra,omitempty"`
 	// Completion binds a time-only reassessment record to its verified
 	// completion (D13/FW32), reusing the canonical CompletionSubject. It is
-	// required exactly when Issue is zero and forbidden on positive issues.
-	Completion     *CompletionSubject `json:"completion,omitempty"`
-	RootAssignment string             `json:"root_assignment"`
-	Repository     int64              `json:"repository,string"`
-	Issue          int64              `json:"issue,string"`
-	Revision       int64              `json:"revision"`
-	ActiveSeconds  int64              `json:"active_seconds"`
-	CheckpointUnix int64              `json:"checkpoint_unix"`
-	Active         bool               `json:"active"`
-	Closed         bool               `json:"closed"`
+	// exactly one of the two Issue-zero time-only alternatives (the other
+	// is Intent), and forbidden on positive issues.
+	Completion *CompletionSubject `json:"completion,omitempty"`
+	// Intent binds a time-only private-intent record to its stable owner and
+	// intent association. It records binding only: the stable IntentID and
+	// OwnerID survive exact immutable input revisions, while mutable
+	// assignment snapshots such as RevisionID and ScopeDigest are never
+	// copied here. A positive JSON OwnerID is NOT proof of authoritative
+	// ownership: store admission must still check the locked row. It is
+	// required exactly when Issue is zero without Completion, and forbidden
+	// on positive issues and alongside Completion.
+	Intent         *IntentAttemptScope `json:"intent,omitempty"`
+	RootAssignment string              `json:"root_assignment"`
+	Repository     int64               `json:"repository,string"`
+	Issue          int64               `json:"issue,string"`
+	Revision       int64               `json:"revision"`
+	ActiveSeconds  int64               `json:"active_seconds"`
+	CheckpointUnix int64               `json:"checkpoint_unix"`
+	Active         bool                `json:"active"`
+	Closed         bool                `json:"closed"`
 }
 
 func (a AttemptAllowance) Validate() error {
@@ -147,10 +174,19 @@ func (a AttemptAllowance) Validate() error {
 		return errors.New("invalid attempt allowance binding")
 	}
 	if a.Issue == 0 {
+		if (a.Intent == nil) == (a.Completion == nil) {
+			return errors.New("time-only attempt allowance carries exactly one of intent or completion")
+		}
+		if a.Intent != nil {
+			return a.validateIntentTimeOnly()
+		}
 		return a.validateCompletionTimeOnly()
 	}
 	if a.Completion != nil {
 		return errors.New("issue attempt allowance carries no completion subject")
+	}
+	if a.Intent != nil {
+		return errors.New("issue attempt allowance carries no intent scope")
 	}
 	if err := a.Limits.Validate(); err != nil {
 		return err
@@ -236,12 +272,44 @@ func (a AttemptAllowance) validateCompletionTimeOnly() error {
 	return nil
 }
 
+// validateIntentTimeOnly validates the explicitly intent-bound time-only
+// branch: Issue zero with the stable intent scope, ActiveMinutes as finite
+// positive policy time under the SAME upper duration bound as
+// AttemptLimits.Validate (no 1..120 reassessment cap, no implicit
+// defaults), and every issue sub-budget (correction, review, child,
+// delivery) zero with no recorded consumption. ActiveMinutes arrives from
+// future authorized root policy admission; this validation grants no
+// execution authority.
+func (a AttemptAllowance) validateIntentTimeOnly() error {
+	if !ValidID(a.Intent.IntentID) {
+		return errors.New("invalid intent scope identity")
+	}
+	if a.Intent.OwnerID <= 0 {
+		return errors.New("invalid intent scope owner")
+	}
+	if a.Limits.ActiveMinutes < 1 || int64(a.Limits.ActiveMinutes) > math.MaxInt64/int64(time.Minute) {
+		return errors.New("intent active time is not finite positive policy time")
+	}
+	if a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 ||
+		a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 {
+		return errors.New("intent allowance carries only active time")
+	}
+	if len(a.Corrections) != 0 || len(a.DeliveryCalls) != 0 || len(a.Reviews) != 0 ||
+		len(a.ReviewedHeads) != 0 || len(a.UnchangedHeadExtra) != 0 {
+		return errors.New("intent allowance carries only active time")
+	}
+	return nil
+}
+
 // ReserveDeliveryCall charges one funded delivery judgment before its
 // request sends. Replaying the same request never consumes a second call,
 // even after exhaustion. Failure after reservation stays charged: there is
 // no unreserve. A zero delivery limit authorizes no call, so automatic
 // merge stays unreachable on an unfunded attempt.
 func (a AttemptAllowance) ReserveDeliveryCall(id string, now time.Time) (AttemptAllowance, bool, error) {
+	if a.Intent != nil {
+		return AttemptAllowance{}, false, ErrIntentTimeOnly
+	}
 	if a.Issue == 0 || a.Completion != nil {
 		return AttemptAllowance{}, false, ErrCompletionTimeOnly
 	}
@@ -312,6 +380,9 @@ func (a AttemptAllowance) Checkpoint(now time.Time, active bool) (AttemptAllowan
 // discretionary re-review of an already inspected head additionally needs
 // that head's single extra pass. Reads spend nothing.
 func (a AttemptAllowance) ReviewFits(head string, policy bool, now time.Time) bool {
+	if a.Intent != nil {
+		return false
+	}
 	if a.Issue == 0 || a.Completion != nil {
 		return false
 	}
@@ -347,6 +418,9 @@ func (a AttemptAllowance) ReviewFits(head string, policy bool, now time.Time) bo
 // A replay does not itself authorize dispatch; the caller checks remaining
 // time. Only explicit authorized Retry starts a new root.
 func (a AttemptAllowance) ConsumeReview(id, head string, policy bool, now time.Time) (AttemptAllowance, bool, error) {
+	if a.Intent != nil {
+		return AttemptAllowance{}, false, ErrIntentTimeOnly
+	}
 	if a.Issue == 0 || a.Completion != nil {
 		return AttemptAllowance{}, false, ErrCompletionTimeOnly
 	}
@@ -394,6 +468,9 @@ func (a AttemptAllowance) ConsumeReview(id, head string, policy bool, now time.T
 // that same assignment never consumes a second cycle, even after exhaustion.
 // A replay does not itself authorize launch; the caller checks remaining time.
 func (a AttemptAllowance) ConsumeCorrection(id string, now time.Time) (AttemptAllowance, bool, error) {
+	if a.Intent != nil {
+		return AttemptAllowance{}, false, ErrIntentTimeOnly
+	}
 	if a.Issue == 0 || a.Completion != nil {
 		return AttemptAllowance{}, false, ErrCompletionTimeOnly
 	}
