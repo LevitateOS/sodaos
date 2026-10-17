@@ -396,6 +396,46 @@ func TestDerivePhasedVerifyCompleted(t *testing.T) {
 	}
 }
 
+// A valid report from another admitted subject or repair cycle must not
+// settle this assignment, even when its phase and payload kind match.
+func TestDerivePhasedRepairVerifyRejectsStaleIdentity(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		subject factory.ExecutionSubject
+		output  func() *factory.PhaseOutput
+		mutate  func(*factory.PhaseOutput)
+	}{
+		{"stall", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.StallID = strings.Repeat("a", 32) }},
+		{"stall cycle", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.CycleID = strings.Repeat("a", 32) }},
+		{"stall inventory", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.InventoryDigest = phaseTestSHA("stale") }},
+		{"repair delivery", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.DeliveryID = strings.Repeat("a", 32) }},
+		{"repair failed run", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.FailedVerificationRunID = strings.Repeat("a", 32) }},
+		{"repair cycle", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.CycleID = strings.Repeat("a", 32) }},
+		{"repair inventory", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.InventoryDigest = phaseTestSHA("stale") }},
+		{"verified delivery", phasedDeliverySubject(), phasedAppVerification, func(o *factory.PhaseOutput) { o.Verification.DeliveryID = strings.Repeat("a", 32) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			phase, role := project.ExecutionRepair, project.RoleCoder
+			if tc.subject.Kind == factory.SubjectDelivery {
+				phase, role = project.ExecutionVerify, project.RoleReviewer
+			}
+			a := phaseTestRepairAssignment(t, phase, role, tc.subject)
+			report := factory.PhaseResult{Version: 2, Phase: phase, Status: "completed", Summary: "reported", Output: tc.output()}
+			if err := report.BindAssignment(a); err != nil {
+				t.Fatalf("matching report refused: %v", err)
+			}
+			tc.mutate(report.Output)
+			if err := report.Validate(); err != nil {
+				t.Fatalf("stale report must remain structurally valid: %v", err)
+			}
+			finished := finishPhasedFixture(t, a, phaseTestRun(a, factory.Succeeded), fencedResult(t, report))
+			if finished.Outcome != factory.NeedsHuman || finished.Reason != factory.AssignReasonNoReport || finished.Result.Reported {
+				t.Fatalf("stale report accepted: outcome=%s reason=%s reported=%v", finished.Outcome, finished.Reason, finished.Result.Reported)
+			}
+		})
+	}
+}
+
 // Repair and verify refuse everything off-contract: cross-phase payloads,
 // the other phase's report, wrong-subject reports and legacy harness
 // shapes all synthesize to blocked without a recorded report.

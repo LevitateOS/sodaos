@@ -351,10 +351,8 @@ func (r PhaseResult) Validate() error {
 // equality binds phase and subject lineage, since the assignment already
 // binds role, subject and run. Pre-phase assignments cannot bind v2 results.
 // Repair and verify results additionally bind their subject kind and, for
-// completed runs, the exact report matching that subject: a stall repair
-// carries the stall report, a delivery repair the delivery repair report,
-// and a delivery verification the app verification report. The six older
-// phases keep their historic phase-only binding.
+// completed runs, the report's subject, cycle and inventory identities.
+// The six older phases keep their historic phase-only binding.
 func (r PhaseResult) BindAssignment(a Assignment) error {
 	if err := r.Validate(); err != nil {
 		return err
@@ -370,17 +368,34 @@ func (r PhaseResult) BindAssignment(a Assignment) error {
 		if a.Subject.Kind != SubjectStall && a.Subject.Kind != SubjectDeliveryRepair {
 			return errors.New("repair result does not match its repair subject")
 		}
+		if err := a.Subject.Validate(); err != nil {
+			return err
+		}
 		if r.Output != nil && r.Status == "completed" {
-			if a.Subject.Kind == SubjectStall && (r.Output.Repair == nil || r.Output.DeliveryRepair != nil) {
-				return errors.New("stall repair result lacks its stall report")
-			}
-			if a.Subject.Kind == SubjectDeliveryRepair && (r.Output.DeliveryRepair == nil || r.Output.Repair != nil) {
-				return errors.New("delivery repair result lacks its delivery repair report")
+			if a.Subject.Kind == SubjectStall {
+				subject, report := a.Subject.Stall, r.Output.Repair
+				if report == nil || report.StallID != subject.StallID ||
+					report.CycleID != subject.CycleID || report.InventoryDigest != subject.InventoryDigest {
+					return errors.New("stall repair report does not match its assigned subject")
+				}
+			} else {
+				subject, report := a.Subject.DeliveryRepair, r.Output.DeliveryRepair
+				if report == nil || report.DeliveryID != subject.DeliveryID ||
+					report.FailedVerificationRunID != subject.FailedVerificationRunID ||
+					report.CycleID != subject.CycleID || report.InventoryDigest != subject.InventoryDigest {
+					return errors.New("delivery repair report does not match its assigned subject")
+				}
 			}
 		}
 	case project.ExecutionVerify:
 		if a.Subject.Kind != SubjectDelivery {
 			return errors.New("verification result does not match its delivery subject")
+		}
+		if err := a.Subject.Validate(); err != nil {
+			return err
+		}
+		if r.Status == "completed" && r.Output.Verification.DeliveryID != a.Subject.Delivery.DeliveryID {
+			return errors.New("verification report does not match its assigned delivery")
 		}
 	}
 	return nil
