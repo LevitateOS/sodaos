@@ -130,16 +130,18 @@ func settleClosedAttemptForRunTx(ctx context.Context, tx *sql.Tx, runID string, 
 		if err != nil {
 			return err
 		}
-		// Closed OR terminal completion assignments both reach the
+		// Closed OR finished completion assignments both reach the
 		// shared joint once actual effects settle: a terminal
 		// cancelled/withdrawn/superseded root keeps Closed false per
-		// policy, so gating on Closed alone would skip its freeze
-		// forever and charge stopped time. closeRoot stays false here
-		// to preserve that posture — the joint checkpoints settled
-		// active clocks and never forces Closed true, reopens, or
-		// refunds. Non-terminal assignments wait (nil), mirroring the
-		// ordinary path.
-		if assignment.Stage != factory.AssignmentFinished {
+		// policy, and a closed-but-still-assigned root (closed by the
+		// terminal transition while its run was unsettled) must not
+		// wait on a finish row that may never come. closeRoot stays
+		// false here to preserve existing Closed posture — the joint
+		// checkpoints settled active clocks and never forces Closed
+		// true, reopens, or refunds. Neither closed nor finished
+		// waits; the joint's actual-effects predicate still prevents
+		// early freeze.
+		if !typed.Closed && assignment.Stage != factory.AssignmentFinished {
 			return nil
 		}
 		return transitionLockedAttemptRootTx(ctx, tx, typed, false, now)

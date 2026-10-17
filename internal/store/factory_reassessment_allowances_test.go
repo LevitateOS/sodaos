@@ -1053,3 +1053,73 @@ func TestReassessmentCancelledLateSettlementFreezesClock(t *testing.T) {
 		t.Fatalf("cancelled settlement enqueued readiness work: sources %d generation %d", sources, generation)
 	}
 }
+
+// TestReassessmentClosedAssignedLateSettlementFreezesClock replays the
+// independent 072 counterproof: a closed-but-still-assigned root
+// (admission closed by the terminal transition while its run was
+// unsettled) must reach the joint on late settlement — waiting on a
+// finish row that may never come would charge stopped time forever.
+func TestReassessmentClosedAssignedLateSettlementFreezesClock(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	completion := factory.NewID()
+	original := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	later := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, original)
+	insertReassessmentRootRow(t, ctx, db, later)
+	commitReassessmentInsert(t, ctx, db, original, 45, now.Add(30*time.Minute), now)
+	commitReassessmentInsert(t, ctx, db, later, 60, now.Add(30*time.Minute), now)
+	insertCompletionRunRow(t, ctx, db, original, completionRunFixture(t, original, now, false), true, false)
+	insertCompletionRunRow(t, ctx, db, later, completionRunFixture(t, later, now, false), true, false)
+	// Close admission directly while the assignment stays ASSIGNED and
+	// the run stays unsettled, mirroring the terminal transition.
+	open, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(original), original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	open.Closed = true
+	open.Revision++
+	if err := saveReassessmentNext(t, ctx, db, open); err != nil {
+		t.Fatalf("admission close refused: %v", err)
+	}
+	laterBefore, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(later), later.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Reconcile the original recorded run (actual stop confirmed) with
+	// no assignment finish row ever written.
+	stored, err := db.FactoryRun(ctx, original.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Outcome, stored.Reconciled, stored.Summary = factory.Cancelled, true, "run stopped"
+	if err = db.SaveFactoryRun(ctx, stored); err != nil {
+		t.Fatalf("closed-assigned late settlement refused: %v", err)
+	}
+	frozen, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(original), original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !frozen.Closed || frozen.Active {
+		t.Fatalf("closed-assigned root not frozen: %+v", frozen)
+	}
+	if frozen.ActiveSeconds < open.ActiveSeconds || frozen.ActiveSeconds != frozen.CheckpointUnix-open.CheckpointUnix {
+		t.Fatalf("closed-assigned late consumption invalid: %+v", frozen)
+	}
+	if frozen.Revision != open.Revision+1 {
+		t.Fatalf("closed-assigned late settlement revision = %d, want %d", frozen.Revision, open.Revision+1)
+	}
+	laterAfter, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(later), later.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if laterAfter.Revision != laterBefore.Revision || laterAfter.ActiveSeconds != laterBefore.ActiveSeconds ||
+		laterAfter.CheckpointUnix != laterBefore.CheckpointUnix || laterAfter.Active != laterBefore.Active ||
+		laterAfter.Closed != laterBefore.Closed || laterAfter.Limits != laterBefore.Limits {
+		t.Fatalf("later root changed by foreign settlement: before %+v after %+v", laterBefore, laterAfter)
+	}
+	if sources, generation := readinessWorkCount(t, ctx, db); sources != 0 || generation != 1 {
+		t.Fatalf("closed-assigned settlement enqueued readiness work: sources %d generation %d", sources, generation)
+	}
+}
