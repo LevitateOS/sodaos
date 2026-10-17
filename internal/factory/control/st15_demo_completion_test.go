@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,165 @@ import (
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 )
+
+// authorizeDemoMerge answers the demo's open unbound merge rows the way
+// the prompt-entry serving journey authorizes its correction: the
+// approving round's clean acceptance journals on the publication and
+// the union-bound authorization answers the row through the decision
+// gate production enforces. Anything not ready yet (no recorded cycle
+// for the head, no reviewer result, an admit the gate still refuses)
+// stays silent for a later poll and is noted; the note joins the
+// terminal error when the merge never settles, so a permanently
+// refusing gate fails loudly instead of timing out unexplained.
+func (fx *st15Fixture) authorizeDemoMerge(ctx context.Context) {
+	merges, err := fx.db.OpenMerges(ctx, 16)
+	if err != nil {
+		fx.authNote = fmt.Sprintf("open merges unreadable: %v", err)
+		return
+	}
+	for _, m := range merges {
+		if m.Stage != factory.MergeOpen || m.Authorization.Bound() {
+			continue
+		}
+		if m.PublicationID != fx.pubA {
+			continue
+		}
+		auth, err := fx.admitDemoAcceptance(ctx, m)
+		if err != nil {
+			fx.authNote = err.Error()
+			continue
+		}
+		if err := fx.coord.AuthorizeMerge(ctx, m.PublicationID, auth); err != nil {
+			fx.authNote = fmt.Sprintf("demo authorize refused: %v", err)
+			continue
+		}
+		fx.authNote = ""
+	}
+}
+
+// admitDemoAcceptance journals the approving round's clean acceptance
+// on the demo publication and binds it to the open row, mirroring the
+// serving journey's admitServingDeliveryAcceptance for the clean_review
+// delivery. A row whose publication already journals the round's
+// acceptance reuses it, so repeated polls never duplicate the journal.
+func (fx *st15Fixture) admitDemoAcceptance(ctx context.Context, m factory.Merge) (factory.MergeAuthorization, error) {
+	var empty factory.MergeAuthorization
+	refuse := func(format string, args ...any) (factory.MergeAuthorization, error) {
+		return empty, fmt.Errorf(format, args...)
+	}
+	p, err := fx.db.PublicationByAssignment(ctx, m.AssignmentID)
+	if err != nil {
+		return refuse("demo publication unreadable: %v", err)
+	}
+	round := 0
+	var cycle factory.ReviewCycle
+	for _, recorded := range p.ReviewCycles {
+		if recorded.Head == m.HeadOID && recorded.Round >= round {
+			round, cycle = recorded.Round, recorded
+		}
+	}
+	if round == 0 {
+		return refuse("no recorded review cycle answers merge head %.8s", m.HeadOID)
+	}
+	reviewer, err := fx.db.Assignment(ctx, cycle.ReviewerAssignment)
+	if err != nil {
+		return refuse("approving reviewer assignment unreadable: %v", err)
+	}
+	if reviewer.Result == nil {
+		return refuse("approving reviewer recorded no result")
+	}
+	assessment, err := fx.db.CheckAssessment(ctx, p.Repository, p.PRNumber)
+	if err != nil {
+		return refuse("recorded check assessment unreadable: %v", err)
+	}
+	if !factory.ValidDigest(assessment.ChecksDigest) {
+		return refuse("recorded checks lack their digest: %+v", assessment)
+	}
+	for _, recorded := range p.DeliveryAcceptances {
+		if recorded.Round == round && recorded.Kind == factory.AcceptanceCleanReview {
+			return fx.demoUnionBinding(ctx, m, recorded, assessment.Revision)
+		}
+	}
+	emptyContent, err := factory.FindingContentDigest(nil)
+	if err != nil {
+		return refuse("%v", err)
+	}
+	coverage, err := factory.ClearCoverageDigest(cycle.Head, cycle.BaseOID, emptyContent)
+	if err != nil {
+		return refuse("%v", err)
+	}
+	headID, _, err := fx.db.PlanHead(ctx, cycle.AttemptRoot)
+	if err != nil {
+		return refuse("admitted plan head unreadable: %v", err)
+	}
+	plan, err := fx.db.InvestigationPlan(ctx, cycle.AttemptRoot, headID)
+	if err != nil {
+		return refuse("admitted plan unreadable: %v", err)
+	}
+	policy, err := fx.db.RepositoryPolicy(ctx, p.Repository)
+	if err != nil {
+		return refuse("repository policy unreadable: %v", err)
+	}
+	journaled, acceptance, err := control.AdmitClearReview(control.ClearAdmissionInput{
+		Publication: p, Cycle: cycle,
+		Report: factory.ClearReviewReport{
+			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
+			Head: cycle.Head, BaseOID: cycle.BaseOID, CoverageDigest: coverage,
+		},
+		Carried:        nil,
+		Result:         reviewer.Result.ToResult(),
+		ScopeDigest:    plan.ScopeDigest,
+		PolicyRevision: strconv.FormatInt(policy.Revision, 10),
+		CheckDigest:    assessment.ChecksDigest,
+		ReviewerRunID:  cycle.ReviewerAssignment,
+		DiffBase:       p.PRCreate.BaseOID,
+	})
+	if err != nil {
+		return refuse("explicit clear refused: %v", err)
+	}
+	journaled.Revision = p.Revision + 1
+	if err := fx.db.UpdatePublication(ctx, journaled); err != nil {
+		return refuse("delivery acceptance unjournaled: %v", err)
+	}
+	return fx.demoUnionBinding(ctx, m, acceptance, assessment.Revision)
+}
+
+// demoUnionBinding carries one journaled clean acceptance to the open
+// demo merge row: the generation binds the acceptance identity, kind,
+// attempt root, origin receipt and review round over the row's exact
+// head and base and the acceptance tuple's real merge-base, with the
+// observed native revision and attempt deadline production records.
+// The union-aware gate validates the shape on every pass.
+func (fx *st15Fixture) demoUnionBinding(ctx context.Context, m factory.Merge, acceptance factory.DeliveryAcceptance, assessmentRev int64) (factory.MergeAuthorization, error) {
+	var empty factory.MergeAuthorization
+	observed, err := fx.db.CheckAssessment(ctx, m.Repository, m.PRNumber)
+	if err != nil {
+		return empty, fmt.Errorf("merge observation unreadable: %v", err)
+	}
+	if observed.NativeRev <= 0 {
+		return empty, fmt.Errorf("merge observation carries no native revision")
+	}
+	notAfter, err := fx.db.CapAttemptDeadline(ctx, m.AssignmentID, time.Now().Add(10*time.Minute).Unix())
+	if err != nil {
+		return empty, fmt.Errorf("merge attempt deadline unavailable: %v", err)
+	}
+	return factory.MergeAuthorization{
+		Generation: factory.MergeGeneration{
+			Authority: m.Authority, PublicationID: m.PublicationID,
+			NativeOperationID: factory.MergeGenerationOperationID(m.PublicationID, 1),
+			Fingerprint:       acceptance.CheckDigest,
+			Head:              m.HeadOID, Base: m.BaseOID, DiffBase: acceptance.Tuple.DiffBase,
+			ChecksDigest:   acceptance.CheckDigest,
+			AcceptanceKind: acceptance.Kind, AcceptanceID: acceptance.ID,
+			AttemptRoot: acceptance.AttemptRoot, OriginReceipt: acceptance.OriginReceipt,
+			Generation:         1,
+			ReviewRound:        acceptance.Round,
+			AssessmentRevision: assessmentRev,
+			ObservedNativeRev:  observed.NativeRev, NotAfter: notAfter,
+		},
+		ResolutionsConfirmed: true,
+	}, nil
+}
 
 // ciPass seeds the passing verdict on the corrected head and records it.
 func (fx *st15Fixture) ciPass() error {
@@ -51,12 +211,21 @@ func (fx *st15Fixture) mergeAndDependants() error {
 					return
 				}
 			}
+			// The enforced merge gate authorizes the admitted correction:
+			// the approving round's clean acceptance journals on the
+			// publication and the union-bound authorization answers the
+			// row, so the merge submits instead of waiting judgment.
+			fx.authorizeDemoMerge(ctx)
 			m, err := fx.db.MergeByPublication(ctx, fx.pubA)
 			if err == nil && m.Stage != factory.MergeOpen && m.Stage != factory.MergeFenced {
 				done <- mergeOutcome{m, last}
 				return
 			}
 			time.Sleep(500 * time.Millisecond)
+		}
+		if fx.authNote != "" {
+			driven <- fmt.Errorf("merge did not settle: %s", fx.authNote)
+			return
 		}
 		driven <- errors.New("merge did not settle")
 	}()
@@ -68,6 +237,11 @@ func (fx *st15Fixture) mergeAndDependants() error {
 	// completion cascade alone, or the journey fails truthfully.
 	var runB string
 	var pending *mergeOutcome
+	// sawContinue records the D13 cycle that decided continue while the
+	// fence held: the poll below watches the pending cycles from the
+	// merge settle until the dependant pickup, so the funded continue
+	// decision is observed, never inferred from the pickup alone.
+	sawContinue := ""
 	trigger := "completion-cascade"
 	deadlineB := time.Now().Add(45 * time.Minute)
 pollB:
@@ -82,7 +256,17 @@ pollB:
 			return err
 		default:
 		}
-		if id := fx.runForIssue(fx.issueBIndex); id != "" {
+		if cycles, err := fx.db.PendingReassessmentCycles(fx.ctx, fx.cfg.Repository); err == nil {
+			for _, record := range cycles {
+				if record.Cycle.Decision == factory.ReassessmentOptionContinue && sawContinue == "" {
+					sawContinue = record.Cycle.CycleID
+				}
+			}
+		}
+		// The pickup waits for the settled merge: breaking only once
+		// both are observed proves the fence held the dependant behind
+		// the completion cascade instead of dispatching it early.
+		if id := fx.runForIssue(fx.issueBIndex); id != "" && pending != nil {
 			runB = id
 			break pollB
 		}
@@ -90,6 +274,9 @@ pollB:
 	}
 	if runB == "" {
 		return errors.New("ST15 no run recorded for dependant issue")
+	}
+	if sawContinue == "" {
+		return errors.New("ST15 drove no funded continue reassessment before the dependant pickup")
 	}
 	fx.assignB = mustViewAttempt(fx, runB)
 	// The control browser booted during review-2 and has been polling
@@ -114,10 +301,20 @@ pollB:
 	if pending.merge.Stage != factory.MergeMerged {
 		return fmt.Errorf("merge terminal without merging: %+v", pending.merge)
 	}
+	// The merge rode the union path: the generation binds the journaled
+	// clean acceptance behind the row's exact candidate, never a bare
+	// funded-decision binding.
+	if !pending.merge.Authorization.Generation.UnionBound() ||
+		pending.merge.Authorization.Generation.AcceptanceKind != factory.AcceptanceCleanReview {
+		return fmt.Errorf("merge merged outside its union-bound acceptance: %+v", pending.merge.Authorization)
+	}
 	st15Receipt(fx.t, "merge-A", map[string]any{
 		"merge": pending.merge.ID, "commit": pending.merge.MergedCommit,
 		"pr": pending.merge.PRNumber, "report": pending.report,
 		"dependant_trigger": trigger,
+	})
+	st15Receipt(fx.t, "reassessment-continue", map[string]any{
+		"cycle": sawContinue, "decision": factory.ReassessmentOptionContinue,
 	})
 	// The browser stop settled B through the dashboard coordinator: the
 	// run is reconciled-cancelled and its assignment finished without a

@@ -49,11 +49,18 @@ func (g *journeyGraph) SubmitGraph(ctx context.Context, operation factory.Intent
 type journeyChooser struct {
 	planner       servingPlanChooser
 	decomposition generatedGraphChooser
+	// decider funds the journey's D13 release: the sealed completion
+	// judges continue, so the prompt-entry graph picks up its dependent
+	// after the release instead of stalling behind the fence.
+	decider continueChooser
 }
 
 func (c *journeyChooser) Select(ctx context.Context, state any, question string, choices map[string]any) (factory.PriorityAnswer, error) {
 	if _, ok := state.(factory.PlanningInput); ok {
 		return c.planner.Select(ctx, state, question, choices)
+	}
+	if _, ok := state.(ReassessmentDecisionState); ok {
+		return c.decider.Select(ctx, state, question, choices)
 	}
 	return c.decomposition.Select(ctx, state, question, choices)
 }
@@ -66,7 +73,9 @@ func TestServingAcceptedIntentCreatesPlansExecutesReviewsMergesAndUnblocks(t *te
 	r := factory.IntentRevision{ID: "d111111111111111111111111", Intent: "d222222222222222222222222", Owner: 7, Repository: 7, Objective: "Build a request tracker", State: "accepted", MaxIssues: 10, PlanningCalls: 12, CreatedUnix: 1, Ideas: []factory.ProductIdea{{ID: "d333333333333333333333333", Description: "Capture requests and show them in a list", Consequence: "Requests can be recorded and found", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7}}, Tasks: []factory.IntentTask{{Key: "d444444444444444444444444", Objective: "objective 31; inspect README.md", Outcomes: []string{"Capture a request"}, IdeaIDs: []string{"d333333333333333333333333"}}, {Key: "d555555555555555555555555", Objective: "objective 32; inspect README.md", Outcomes: []string{"Show captured requests"}, IdeaIDs: []string{"d333333333333333333333333"}, DependsOn: []string{"d444444444444444444444444"}}}}
 	servingCorrectionAndDependent(t, "", func(c *Coordinator) {
 		coordinator = c
-		c.Store.PriorityCallBudget = 32
+		// Decomposition, planning and the journey's D13 continue share
+		// this ceiling; the decision reserves one funded call.
+		c.Store.PriorityCallBudget = 100
 		if err := c.Store.SaveIntentRevision(ctx, r); err != nil {
 			t.Fatal(err)
 		}

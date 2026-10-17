@@ -26,6 +26,9 @@ type completionHost struct {
 	db      *store.Store
 	states  map[string]project.FactoryState
 	started chan project.FactoryLaunch
+	// approveFirst skips the findings round: the first review approves
+	// the initial candidate outright (clean-first-review variant).
+	approveFirst bool
 }
 
 // completionPlan builds the phased investigate report for one serving
@@ -86,7 +89,7 @@ func (h *completionHost) FactoryLaunch(ctx context.Context, in project.FactoryLa
 		state.Phase, state.Live = project.FactoryRunning, true
 	case in.Run.Role == project.RoleReviewer:
 		verdict, body, findings := "approve", "corrected candidate is sound", "[]"
-		if in.Run.SourceCommit == strings.Repeat("2", 40) {
+		if !h.approveFirst && in.Run.SourceCommit == strings.Repeat("2", 40) {
 			verdict, body, findings = "request-changes", "empty input needs a regression test", `["empty input"]`
 		}
 		state.Output = "```review-json\n" + fmt.Sprintf(`{"verdict":%q,"summary":"independent review","body":%q,"findings":%s}`, verdict, body, findings) + "\n```"
@@ -148,10 +151,36 @@ type completionReviewer struct {
 	events map[string]string
 }
 
+// servingJourneyChooser is the deterministic adapter behind the composed
+// serving journey: planning inputs take the serving planner's answers so
+// dispatch keeps its recorded-plan shape, while the D13 reassessment
+// decision judges sealed substance and continues. Both halves are
+// deterministic; no live Jev is consulted.
+type servingJourneyChooser struct {
+	planner *servingPlanChooser
+	decider continueChooser
+}
+
+func (c *servingJourneyChooser) Select(ctx context.Context, state any, question string, choices map[string]any) (factory.PriorityAnswer, error) {
+	if _, ok := state.(factory.PlanningInput); ok {
+		planner := c.planner
+		if planner == nil {
+			planner = &servingPlanChooser{}
+		}
+		return planner.Select(ctx, state, question, choices)
+	}
+	return c.decider.Select(ctx, state, question, choices)
+}
+
 type completionInputs struct {
 	progressInputs
-	mu        sync.Mutex
-	merged    atomic.Bool
+	mu     sync.Mutex
+	merged atomic.Bool
+	// mergedTip is the actual merged commit once the native merge lands;
+	// post-merge reads report it as the branch tip, exactly like native
+	// truth advancing past the merge. It must never be a hardcoded
+	// candidate: each journey variant merges its own head.
+	mergedTip string
 	closed    atomic.Int64
 	closing   atomic.Int64
 	lifecycle atomic.Int64
@@ -177,7 +206,7 @@ func (r *completionInputs) ReadDispatchInputs(ctx context.Context, repository, i
 	defer r.mu.Unlock()
 	inputs, err := r.progressInputs.ReadDispatchInputs(ctx, repository, issue, comments, target)
 	if r.merged.Load() {
-		inputs.Tip = strings.Repeat("3", 40)
+		inputs.Tip = r.mergedTip
 	}
 	if issue == "31" && r.lifecycle.Load() > 0 {
 		inputs.Issue.Closed, inputs.Issue.ClosedUnix = r.closed.Load() > 0, r.closed.Load()
@@ -228,7 +257,238 @@ func TestServingCoordinatorDoesNotReuseOriginalClosureAfterReopen(t *testing.T) 
 	}
 }
 
+// TestServingCleanFirstReviewMergesWithoutCorrectionAndPicksUpDependent
+// (T32 clean-first-review variant): the first independent review approves
+// a finding-free candidate, so no correction runs; the explicit clear
+// journals clean_review delivery acceptance with zero delivery calls, the
+// union-bound merge authorization carries it, and the dependent still
+// picks up only after the funded D13 continue releases the fence.
+func TestServingCleanFirstReviewMergesWithoutCorrectionAndPicksUpDependent(t *testing.T) {
+	servingJourney(t, servingVariant{approveFirst: true, delivery: factory.AcceptanceCleanReview})
+}
+
+// TestServingJevAcceptanceAfterFixMergesAndPicksUpDependent (T32
+// direct-after-fix variant): review finds a defect, correction fixes it,
+// re-review approves, and the funded ready_to_merge decision journals
+// jev_acceptance; the union-bound merge authorization carries the funded
+// decision, and the dependent picks up after the D13 continue release.
+func TestServingJevAcceptanceAfterFixMergesAndPicksUpDependent(t *testing.T) {
+	servingJourney(t, servingVariant{delivery: factory.AcceptanceJevAcceptance})
+}
+
+// admitServingDeliveryAcceptance journals delivery acceptance on the
+// journey publication behind one open merge row and returns the
+// union-bound authorization for it. kind selects clean_review (zero
+// delivery calls over the approving round's explicit clear) or
+// jev_acceptance (the deterministic funded ready_to_merge decision over
+// the same evidence). The round's reported findings are empty in every
+// journey variant — request-changes findings are fixed by correction and
+// verified by the approving re-review — so the acceptance binds the
+// exact empty set with its coverage. Scope binds the admitted plan,
+// checks bind the recorded assessment, and policy binds the repository
+// revision: every digest names persisted evidence, never fixture prose.
+// A row whose publication already journals the round's acceptance reuses
+// it, so repeated polls never duplicate the journal.
+func admitServingDeliveryAcceptance(t *testing.T, ctx context.Context, db *store.Store, m factory.Merge, kind string) (factory.MergeAuthorization, error) {
+	t.Helper()
+	var empty factory.MergeAuthorization
+	refuse := func(format string, args ...any) (factory.MergeAuthorization, error) {
+		return empty, fmt.Errorf(format, args...)
+	}
+	p, err := db.PublicationByAssignment(ctx, m.AssignmentID)
+	if err != nil {
+		return refuse("journey publication unreadable: %v", err)
+	}
+	round := 0
+	var cycle factory.ReviewCycle
+	for _, recorded := range p.ReviewCycles {
+		if recorded.Head == m.HeadOID && recorded.Round >= round {
+			round, cycle = recorded.Round, recorded
+		}
+	}
+	if round == 0 {
+		return refuse("no recorded review cycle answers merge head %.8s", m.HeadOID)
+	}
+	reviewer, err := db.Assignment(ctx, cycle.ReviewerAssignment)
+	if err != nil {
+		return refuse("approving reviewer assignment unreadable: %v", err)
+	}
+	if reviewer.Result == nil {
+		return refuse("approving reviewer recorded no result")
+	}
+	emptyContent, err := factory.FindingContentDigest(nil)
+	if err != nil {
+		return refuse("%v", err)
+	}
+	coverage, err := factory.ClearCoverageDigest(cycle.Head, cycle.BaseOID, emptyContent)
+	if err != nil {
+		return refuse("%v", err)
+	}
+	headID, _, err := db.PlanHead(ctx, cycle.AttemptRoot)
+	if err != nil {
+		return refuse("admitted plan head unreadable: %v", err)
+	}
+	plan, err := db.InvestigationPlan(ctx, cycle.AttemptRoot, headID)
+	if err != nil {
+		return refuse("admitted plan unreadable: %v", err)
+	}
+	assessment, err := db.CheckAssessment(ctx, p.Repository, p.PRNumber)
+	if err != nil {
+		return refuse("recorded check assessment unreadable: %v", err)
+	}
+	if !factory.ValidDigest(assessment.ChecksDigest) {
+		return refuse("recorded checks lack their digest: %+v", assessment)
+	}
+	policy, err := db.RepositoryPolicy(ctx, p.Repository)
+	if err != nil {
+		return refuse("repository policy unreadable: %v", err)
+	}
+	policyRevision := strconv.FormatInt(policy.Revision, 10)
+	// The funded fingerprint rebuilds deterministically from persisted
+	// evidence, so a journaled jev acceptance rebinds its exact decision
+	// on every poll without spending another delivery call.
+	fpIn := factory.DeliveryFingerprintInput{
+		Reviews:     []string{cycle.ReviewerAssignment},
+		AttemptRoot: cycle.AttemptRoot, PublicationID: p.ID,
+		ScopeDigest: plan.ScopeDigest, FixDigest: emptyContent,
+		DiffDigest:  dispatchDigest("serving diff"),
+		CheckDigest: assessment.ChecksDigest, TreeDigest: dispatchDigest("serving tree"),
+		Head: cycle.Head, Base: cycle.BaseOID, Model: "jev-test",
+		Rubric:         "ready_to_merge only with full evidence cover",
+		PolicyRevision: policy.Revision, Round: round,
+	}
+	servingDecision := func() (factory.DeliveryDecision, string, error) {
+		if kind != factory.AcceptanceJevAcceptance {
+			return factory.DeliveryDecision{}, "", nil
+		}
+		fingerprint, err := factory.DeliveryFingerprint(fpIn)
+		if err != nil {
+			return factory.DeliveryDecision{}, "", err
+		}
+		answer, err := readyDeliveryAnswer(fingerprint)
+		if err != nil {
+			return factory.DeliveryDecision{}, "", err
+		}
+		return factory.DeliveryDecision{Answer: answer, Effective: factory.DeliveryEffectiveReady, ReviewsFit: true}, fingerprint, nil
+	}
+	for _, recorded := range p.DeliveryAcceptances {
+		if recorded.Round == round && recorded.Kind == kind {
+			decision, _, err := servingDecision()
+			if err != nil {
+				return refuse("delivery decision unrebuilt: %v", err)
+			}
+			return servingUnionBinding(t, m, recorded, decision), nil
+		}
+	}
+	var acceptance factory.DeliveryAcceptance
+	var journaled factory.Publication
+	switch kind {
+	case factory.AcceptanceCleanReview:
+		var admitErr error
+		journaled, acceptance, admitErr = AdmitClearReview(ClearAdmissionInput{
+			Publication: p, Cycle: cycle,
+			Report: factory.ClearReviewReport{
+				CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
+				Head: cycle.Head, BaseOID: cycle.BaseOID, CoverageDigest: coverage,
+			},
+			Carried:        nil,
+			Result:         reviewer.Result.ToResult(),
+			ScopeDigest:    plan.ScopeDigest,
+			PolicyRevision: policyRevision,
+			CheckDigest:    assessment.ChecksDigest,
+			ReviewerRunID:  cycle.ReviewerAssignment,
+			DiffBase:       p.PRCreate.BaseOID,
+		})
+		if admitErr != nil {
+			return refuse("explicit clear refused: %v", admitErr)
+		}
+	case factory.AcceptanceJevAcceptance:
+		decision, fingerprint, decisionErr := servingDecision()
+		if decisionErr != nil {
+			return refuse("delivery decision unbuilt: %v", decisionErr)
+		}
+		var admitErr error
+		journaled, acceptance, admitErr = AdmitJevAcceptance(JevAdmissionInput{
+			Publication: p, Cycle: cycle, Carried: nil,
+			FingerprintInput: fpIn, Fingerprint: fingerprint,
+			Decision: decision, DecisionID: factory.NewID(),
+			ScopeDigest: plan.ScopeDigest, PolicyRevision: policyRevision,
+			CheckDigest: assessment.ChecksDigest, DiffBase: p.PRCreate.BaseOID,
+		})
+		if admitErr != nil {
+			return refuse("funded acceptance refused: %v", admitErr)
+		}
+	default:
+		t.Fatalf("unknown delivery kind %q", kind)
+	}
+	journaled.Revision = p.Revision + 1
+	if err := db.UpdatePublication(ctx, journaled); err != nil {
+		return refuse("delivery acceptance unjournaled: %v", err)
+	}
+	decision, _, err := servingDecision()
+	if err != nil {
+		return refuse("delivery decision unrebuilt: %v", err)
+	}
+	return servingUnionBinding(t, m, acceptance, decision), nil
+}
+
+// servingUnionBinding carries one journaled delivery acceptance to the
+// open merge row: the generation binds the acceptance identity, kind,
+// attempt root, origin receipt and review round over the row's exact
+// head, base and authority, with the funded decision behind jev kinds
+// and none behind clean ones.
+func servingUnionBinding(t *testing.T, m factory.Merge, acceptance factory.DeliveryAcceptance, decision factory.DeliveryDecision) factory.MergeAuthorization {
+	t.Helper()
+	fingerprint := strings.Repeat("e", 64)
+	decisionID := ""
+	if acceptance.Kind == factory.AcceptanceJevAcceptance {
+		fingerprint, decisionID = decision.Answer.Fingerprint, acceptance.DecisionID
+	}
+	return factory.MergeAuthorization{
+		Generation: factory.MergeGeneration{
+			Authority: m.Authority, PublicationID: m.PublicationID,
+			DecisionID:        decisionID,
+			NativeOperationID: factory.MergeGenerationOperationID(m.PublicationID, 1),
+			Fingerprint:       fingerprint, Head: m.HeadOID, Base: m.BaseOID, DiffBase: m.BaseOID,
+			ChecksDigest:   strings.Repeat("c", 64),
+			AcceptanceKind: acceptance.Kind, AcceptanceID: acceptance.ID,
+			AttemptRoot: acceptance.AttemptRoot, OriginReceipt: acceptance.OriginReceipt,
+			Generation:         1,
+			ReviewRound:        acceptance.Round,
+			AssessmentRevision: 2, ObservedNativeRev: 12, NotAfter: 1300,
+		},
+		Decision:             decision,
+		ResolutionsConfirmed: true,
+	}
+}
+
+// servingVariant selects one prompt-entry serving journey shape: the
+// later native lifecycle ("" for the base dependent pickup,
+// "reopened"/"reclosed" for fence+freshness blocking), whether the first
+// review approves outright, and which delivery acceptance the merge
+// carries to its authorization.
+type servingVariant struct {
+	laterLifecycle string
+	approveFirst   bool
+	delivery       string
+}
+
 func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configure ...func(*Coordinator)) {
+	servingJourney(t, servingVariant{laterLifecycle: laterLifecycle}, configure...)
+}
+
+func servingJourney(t *testing.T, variant servingVariant, configure ...func(*Coordinator)) {
+	laterLifecycle := variant.laterLifecycle
+	// The journey's final candidate: the initial implementation without
+	// correction, the corrected candidate after it.
+	finalHead := strings.Repeat("2", 40)
+	delivery := variant.delivery
+	if delivery == "" {
+		delivery = factory.AcceptanceCleanReview
+	}
+	if !variant.approveFirst {
+		finalHead = strings.Repeat("3", 40)
+	}
 	t.Helper()
 	ctx := context.Background()
 	fx := publishSeed(t, map[string]string{"README.md": dispatchDigest("synthetic selected source: README.md")}) // substrate and standing operator/project authority only
@@ -252,7 +512,7 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 	revision.Store(41)
 	var correctedChecksReady atomic.Bool
 	checksPending := make(chan struct{}, 1)
-	host := &completionHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, db: fx.db, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 8)}
+	host := &completionHost{producerFlowHost: &producerFlowHost{fakePublishHost: fx.host}, db: fx.db, states: map[string]project.FactoryState{}, started: make(chan project.FactoryLaunch, 8), approveFirst: variant.approveFirst}
 	inputs := &completionInputs{progressInputs: progressInputs{AcceptanceSource: fx.reads, DispatchReads: fx.seed.reads, revision: &revision}}
 	fx.coord.Host, fx.coord.AcceptanceReads, fx.coord.DispatchReads = host, inputs, inputs
 	fx.coord.Readiness = progressRevision{&revision}
@@ -272,7 +532,7 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 	fx.coord.Checks = &fakeCheckObserver{observe: func(target factory.CheckTarget) (factory.ObservedChecks, error) {
 		observed, err := happyCheckObserver().observe(target)
 		observed.NativeRev = revision.Load()
-		if target.HeadOID == strings.Repeat("3", 40) && !correctedChecksReady.Load() {
+		if target.HeadOID == finalHead && !correctedChecksReady.Load() {
 			observed.Checks[0].State = "pending"
 			select {
 			case checksPending <- struct{}{}:
@@ -298,9 +558,11 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 		outcome, err := mergeSubmit(work)
 		if err == nil {
 			// Native merge bookkeeping closes the original issue named by
-			// the PR, before any coordinator completion is recorded.
+			// the PR, before any coordinator completion is recorded. The
+			// reported tip is the work's exact merged head.
 			inputs.mu.Lock()
 			inputs.merged.Store(true)
+			inputs.mergedTip = work.HeadOID
 			inputs.closed.Store(time.Now().Unix())
 			inputs.closing.Store(501)
 			inputs.lifecycle.Store(501)
@@ -334,6 +596,8 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 		return confirmation, err
 	}
 	fx.coord.Merges = merger
+	var authTries, authAdmitted, authBound int
+	var lastAuthErr string
 	diagnose := func() {
 		_ = fx.coord.Close()
 		owner, _ := fx.db.LatestIssueAssignment(ctx, 7, 31)
@@ -342,54 +606,30 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 		checks, _ := fx.db.CheckAssessment(ctx, 7, publication.PRNumber)
 		dependent, _ := fx.db.IssueControl(ctx, 7, 32)
 		t.Logf("serving state: assignment=%s/%s publication=%s/%s corrections=%d checks=%s/%s merge=%s/%s dependent=%s/%s", owner.Stage, owner.Reason, publication.Stage, publication.Reason, len(publication.Corrections), checks.Verdict, checks.Reason, merge.Stage, merge.Reason, dependent.Readiness, dependent.Reason)
-		t.Logf("DEBUG owner: phase=%q result=%+v", owner.Phase, owner.Result)
-		if headID, rev, err := fx.db.PlanHead(ctx, owner.AttemptRoot); err != nil {
-			t.Logf("DEBUG planhead err=%v", err)
-		} else {
-			t.Logf("DEBUG planhead=%s rev=%d", headID, rev)
-			if receipts, err := fx.db.PlanTaskReceipts(ctx, owner.AttemptRoot, headID); err != nil {
-				t.Logf("DEBUG receipts err=%v", err)
-			} else {
-				for _, r := range receipts {
-					t.Logf("DEBUG receipt task=%s state=%s commit=%s rev=%d", r.TaskID, r.State, r.Commit, r.Revision)
-				}
-			}
-		}
-		if dbgHead, err := fx.db.AcceptanceHead(ctx, 7, 31); err == nil {
-			if childID, _, ok := advanceChildID(owner, dbgHead); ok {
-				if child, err := fx.db.Assignment(ctx, childID); err != nil {
-					t.Logf("DEBUG child err=%v", err)
-				} else {
-					t.Logf("DEBUG child: phase=%q stage=%s outcome=%s reason=%s result=%+v", child.Phase, child.Stage, child.Outcome, child.Reason, child.Result)
-				}
-			}
-		}
-		if queued, err := fx.db.PublishableAssignments(ctx, 10); err == nil {
-			for _, q := range queued {
-				t.Logf("DEBUG publishable issue=%d phase=%q stage=%s", q.Issue, q.Phase, q.Stage)
-			}
-		}
-		head, _ := fx.db.AcceptanceHead(ctx, 7, 31)
-		childID, plan, ok := advanceChildID(owner, head)
-		t.Logf("DEBUG advance ok=%v child=%s hasplan=%v subject=%+v outcome=%s reason=%s head=%s acpt=%s", ok, childID, plan != nil, owner.Subject, owner.Outcome, owner.Reason, head, owner.Acceptance)
-		if plan != nil {
-			t.Logf("DEBUG plan root=%s source=%s prep=%s ownerRoot=%s ownerSource=%s ownerPrep=%s", plan.AttemptRoot, plan.SourceCommit, plan.Preparation, owner.AttemptRoot, owner.SourceCommit, owner.Preparation)
-		}
-		report := fx.coord.Dispatch(ctx)
-		for _, w := range report.Waits {
-			t.Logf("DEBUG dispatch wait repo=%d issue=%d reason=%s detail=%s", w.Repository, w.Issue, w.Reason, w.Detail)
-		}
-		for _, e := range report.Errors {
-			t.Logf("DEBUG dispatch error repo=%d issue=%d reason=%s detail=%s", e.Repository, e.Issue, e.Reason, e.Detail)
-		}
-		for _, l := range report.Launched {
-			t.Logf("DEBUG dispatch launched issue=%d phase=%s assignment=%s", l.Issue, l.Phase, l.AssignmentID)
-		}
 		for _, launch := range host.launches {
 			t.Logf("observed launch: role=%s source=%s", launch.Run.Role, launch.Run.SourceCommit)
 		}
 		for _, review := range reviewer.submitted {
 			t.Logf("observed review: event=%s head=%s", review.Event, review.HeadOID)
+		}
+		t.Logf("serving auth: tries=%d admitted=%d bound=%d lastErr=%s", authTries, authAdmitted, authBound, lastAuthErr)
+		t.Logf("serving confirms=%d", len(merger.confirms))
+		if completion, err := fx.db.IssueMergeCompletion(ctx, 7, 31); err != nil {
+			t.Logf("serving completion: err=%v", err)
+		} else {
+			t.Logf("serving completion: merged=%.8s occurrence=%s", completion.MergedCommit, completion.OriginalClosingOccurrence)
+		}
+		if cycles, err := fx.db.PendingReassessmentCycles(ctx, 7); err != nil {
+			t.Logf("serving cycles: err=%v", err)
+		} else {
+			for _, c := range cycles {
+				t.Logf("serving cycle: id=%.8s state=%s decision=%s wait=%s", c.Cycle.CycleID, c.Cycle.State, c.Cycle.Decision, c.WaitReason)
+			}
+		}
+		if pending, err := fx.db.CompletionPending(ctx, 7); err != nil {
+			t.Logf("serving fence: err=%v", err)
+		} else {
+			t.Logf("serving fence pending=%v", pending)
 		}
 	}
 	created := time.Now().Add(-time.Minute).Unix()
@@ -409,33 +649,21 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 	}
 	// The D13 fence (FW31) holds same-repository admissions behind the
 	// merged completion until its funded reassessment decision releases.
-	// The serving journey scripts that decision deterministically once
-	// the merge completion lands (see wireD13Continue below): sealed
-	// substance judges continue exactly like the completion supplement,
-	// so the base variant picks up its dependent only after the release.
-	// Planning stays unwired until then: an early Planning without a
-	// recorded plan would hold every dispatch behind plan_not_current.
-	// Scenarios that wire their own Planning (prompt-entry journey) keep
-	// it; the fence enumerator defaults to the scripted pages either way.
-	if fx.coord.CompletionEnumerator == nil {
-		fx.coord.CompletionEnumerator = twoPageEnumerator(t)
-	}
-	// wireD13Continue funds the reassessment decision after the merge
-	// completion lands. It runs once per journey: the continue chooser
-	// judges the sealed substance and continues, opening the fence for
-	// the dependent. Reopened/reclosed variants wire it too — their
-	// dependents stay blocked on prereq truth regardless.
-	wireD13Continue := func() {
-		if fx.coord.Planning != nil {
-			return
-		}
-		if _, err := fx.db.IssueMergeCompletion(ctx, 7, 31); err != nil {
-			return
-		}
+	// The serving journey funds that decision deterministically from the
+	// start: planning inputs take the serving planner's answers while the
+	// sealed completion judges continue exactly like the completion
+	// supplement, so the base variant picks up its dependent only after
+	// the release. Scenarios that wire their own Planning (prompt-entry
+	// journey, provisional planning) keep it; the fence enumerator
+	// defaults to the scripted pages either way.
+	if fx.coord.Planning == nil {
 		if fx.db.PriorityCallBudget < 100 {
 			fx.db.PriorityCallBudget = 100
 		}
-		fx.coord.Planning = &PlanningJudgments{Journal: fx.db, Funding: fx.db, Chooser: &continueChooser{}}
+		fx.coord.Planning = &PlanningJudgments{Journal: fx.db, Funding: fx.db, Chooser: &servingJourneyChooser{}}
+	}
+	if fx.coord.CompletionEnumerator == nil {
+		fx.coord.CompletionEnumerator = twoPageEnumerator(t)
 	}
 	// recordServingCheckpoints supplies the FW15 checkpoint evidence the
 	// phased publication gate requires: the native executor finished the
@@ -492,11 +720,12 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 		completed.Revision = 2
 		_ = fx.db.SavePlanTaskReceipt(ctx, completed)
 	}
-	// authorizeServingMerge binds the enforced merge gate (FW22) to the
-	// journey's admitted correction: once the open row carries the
-	// corrected candidate, the ready first-generation fixture auth
-	// answers it through the same decision gate production enforces.
-	// Earlier candidates stay unauthorized so no superseded head merges.
+	// authorizeServingMerge binds the enforced merge gate to the journey's
+	// delivery acceptance: once the open row carries the final candidate,
+	// the round's acceptance journals on the publication and the
+	// union-bound authorization answers the row through the same decision
+	// gate production enforces. Earlier candidates stay unauthorized so
+	// no superseded head merges.
 	authorizeServingMerge := func() {
 		merges, err := fx.db.OpenMerges(ctx, 16)
 		if err != nil {
@@ -506,10 +735,21 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 			if m.Stage != factory.MergeOpen || m.Authorization.Bound() {
 				continue
 			}
-			if m.HeadOID != strings.Repeat("3", 40) {
+			if m.HeadOID != finalHead {
 				continue
 			}
-			_ = fx.coord.AuthorizeMerge(ctx, m.PublicationID, gateTestBinding(t, m))
+			authTries++
+			auth, err := admitServingDeliveryAcceptance(t, ctx, fx.db, m, delivery)
+			if err != nil {
+				lastAuthErr = err.Error()
+				continue
+			}
+			authAdmitted++
+			if err := fx.coord.AuthorizeMerge(ctx, m.PublicationID, auth); err != nil {
+				lastAuthErr = err.Error()
+				continue
+			}
+			authBound++
 		}
 	}
 	if err = fx.coord.Start(ctx, filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
@@ -535,12 +775,14 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 	// The fixture pumps run here too: checkpoint evidence unblocks
 	// publication, which unblocks review, correction and the pending
 	// exact-head CI this wait watches for.
-	waitDeadline := time.Now().Add(55 * time.Second)
+	// Prompt-entry journeys carry priority tournaments, graph recovery
+	// and planning records through every pass, so correction and its
+	// exact-head CI land later than in the base variant.
+	waitDeadline := time.Now().Add(110 * time.Second)
 	waited := false
 	for !waited {
 		authorizeServingMerge()
 		recordServingCheckpoints()
-		wireD13Continue()
 		select {
 		case <-checksPending:
 			waited = true
@@ -555,11 +797,13 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 		t.Fatalf("pending corrected-head CI acquired completion: %v", err)
 	}
 	correctedChecksReady.Store(true)
-	deadline := time.Now().Add(55 * time.Second)
+	// Merge, the funded D13 release, dependent preparation and pickup
+	// span many serving passes; exact-head CI arrives early but the tail
+	// needs room past slow preparation confirmations.
+	deadline := time.Now().Add(100 * time.Second)
 	for {
 		authorizeServingMerge()
 		recordServingCheckpoints()
-		wireD13Continue()
 		select {
 		case launch := <-host.started:
 			owner, readErr := fx.db.AssignmentByRun(ctx, launch.Run.ID)
@@ -575,14 +819,47 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 					t.Fatal(err)
 				}
 				completion, readErr := fx.db.IssueMergeCompletion(ctx, 7, 31)
-				if readErr != nil || completion.MergedCommit != strings.Repeat("3", 40) || completion.OriginalClosingOccurrence != "501" || completion.OriginalClosedUnix <= 0 {
-					t.Fatalf("dependent ran without exact confirmed corrected merge: %+v %v", completion, readErr)
+				if readErr != nil || completion.MergedCommit != finalHead || completion.OriginalClosingOccurrence != "501" || completion.OriginalClosedUnix <= 0 {
+					t.Fatalf("dependent ran without exact confirmed merge: %+v %v", completion, readErr)
 				}
-				if len(host.launches) != 5 || len(publisher.pushes) != 2 || len(publisher.creates) != 1 || len(reviewer.submitted) != 2 || len(merger.submits) != 1 || len(merger.confirms) != 1 {
+				// Phased runs: investigate and implement ride separate runs,
+				// then review, the approved correction cycle when the first
+				// review finds the defect, and the picked-up dependent.
+				wantRuns, wantReviews, wantPushes := 6, 2, 2
+				if variant.approveFirst {
+					// No correction runs and nothing repushes: the single
+					// publish carries the approved candidate straight to
+					// review and merge.
+					wantRuns, wantReviews, wantPushes = 4, 1, 1
+				}
+				if len(host.launches) != wantRuns || len(publisher.pushes) != wantPushes || len(publisher.creates) != 1 || len(reviewer.submitted) != wantReviews || len(merger.submits) != 1 || len(merger.confirms) != 1 {
 					t.Fatalf("unexpected serving effects: runs=%d pushes=%d PRs=%d reviews=%d merges=%d confirmations=%d", len(host.launches), len(publisher.pushes), len(publisher.creates), len(reviewer.submitted), len(merger.submits), len(merger.confirms))
 				}
-				if reviewer.submitted[0].Event != "REQUEST_CHANGES" || reviewer.submitted[1].Event != "APPROVED" || reviewer.submitted[1].HeadOID != completion.MergedCommit || reviewer.submitted[1].ActorID == reviewer.submitted[1].PRAuthorID {
-					t.Fatal("correction did not require independent exact-head approval")
+				last := reviewer.submitted[len(reviewer.submitted)-1]
+				if last.Event != "APPROVED" || last.HeadOID != completion.MergedCommit || last.ActorID == last.PRAuthorID {
+					t.Fatal("merge lacked independent exact-head approval")
+				}
+				if !variant.approveFirst && reviewer.submitted[0].Event != "REQUEST_CHANGES" {
+					t.Fatal("correction did not start from request-changes")
+				}
+				// The merge authorization carries the variant's delivery
+				// acceptance: prove the journaled kind on the publication.
+				root, readErr := fx.db.LatestIssueAssignment(ctx, 7, 31)
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				journaledPub, readErr := fx.db.PublicationByAssignment(ctx, root.ID)
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				seen := false
+				for _, recorded := range journaledPub.DeliveryAcceptances {
+					if recorded.Tuple.Head == completion.MergedCommit && recorded.Kind == delivery {
+						seen = true
+					}
+				}
+				if !seen {
+					t.Fatalf("publication journals no %s acceptance for the merged head: %+v", delivery, journaledPub.DeliveryAcceptances)
 				}
 				return
 			}
@@ -608,7 +885,10 @@ func servingCorrectionAndDependent(t *testing.T, laterLifecycle string, configur
 				if err = fx.coord.Close(); err != nil {
 					t.Fatal(err)
 				}
-				if len(host.launches) != 4 || len(merger.submits) != 1 || len(merger.confirms) != 1 {
+				// Five runs without the dependent: investigate, implement,
+				// review, correction and re-review. The reopened/reclosed
+				// original stays blocked on prereq truth behind the fence.
+				if len(host.launches) != 5 || len(merger.submits) != 1 || len(merger.confirms) != 1 {
 					t.Fatalf("original lifecycle change caused duplicate serving effects: runs=%d merges=%d confirmations=%d", len(host.launches), len(merger.submits), len(merger.confirms))
 				}
 				return

@@ -146,6 +146,27 @@ func generatedDecisionID(prefix, revision, key string) string {
 // direction. It persists the immutable operation before sending and adopts
 // children only from its attributable receipt and exact current native evidence.
 func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID string, owner int64) (factory.IntentGeneration, error) {
+	return c.generateAcceptedIntent(ctx, intentID, owner, nil)
+}
+
+// GenerateAcceptedIntentFromChoice writes only work bound to the current
+// human-accepted direction, adopting exactly one pre-chosen planner
+// candidate (see ChooseSingleCandidate and ChoosePlannedCandidate). The
+// full Generate pipeline runs unchanged — durable operation, native
+// submission, exact receipt adoption — except task derivation: the chosen
+// tasks replace the serving advised graph, so no triplet judgment or
+// template restructuring evaluates on this path. The choice binds the
+// reviewed draft this acceptance carries as its predecessor (or this exact
+// revision); a choice bound to another intent, another operation, a third
+// revision or outside accepted scope refuses before any native observation.
+func (c *Coordinator) GenerateAcceptedIntentFromChoice(ctx context.Context, intentID string, owner int64, chosen ChosenIntentPlan) (factory.IntentGeneration, error) {
+	if chosen.Intent != intentID {
+		return factory.IntentGeneration{}, errors.New("chosen planner candidate binds another intent")
+	}
+	return c.generateAcceptedIntent(ctx, intentID, owner, &chosen)
+}
+
+func (c *Coordinator) generateAcceptedIntent(ctx context.Context, intentID string, owner int64, chosen *ChosenIntentPlan) (factory.IntentGeneration, error) {
 	ctx, unlock := c.progressPass(ctx)
 	defer unlock()
 	if c.Store == nil || c.Graph == nil || c.GraphActorID <= 0 {
@@ -164,7 +185,7 @@ func (c *Coordinator) GenerateAcceptedIntent(ctx context.Context, intentID strin
 	}
 	g, err := c.Store.IntentGeneration(ctx, r.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		payload, reused, submitted, delivered, e := c.prepareIntentGraph(ctx, r, revision)
+		payload, reused, submitted, delivered, e := c.prepareIntentGraphWithChoice(ctx, r, revision, chosen)
 		if e != nil {
 			return factory.IntentGeneration{}, e
 		}

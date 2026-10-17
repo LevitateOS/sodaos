@@ -77,8 +77,13 @@ func TestServingCoordinatorRefreshesProvisionalPlanningForActualMergedOutput(t *
 	var coordinator *Coordinator
 	servingCorrectionAndDependent(t, "", func(c *Coordinator) {
 		coordinator = c
-		c.Store.PriorityCallBudget = 20
-		c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: chooser}
+		// Planning, priority selection and the journey's D13 continue
+		// share this ceiling; the decision reserves one funded call.
+		c.Store.PriorityCallBudget = 100
+		// The provisional/final planning assertions keep their planner;
+		// the journey's D13 release still needs its funded continue, so
+		// both ride one deterministic chooser.
+		c.Planning = &PlanningJudgments{Journal: c.Store, Funding: c.Store, Chooser: &servingJourneyChooser{planner: chooser}}
 		c.Priority = &PriorityJudgments{Journal: c.Store, Chooser: &priorityFixture{choose: priorityLast}, MaxCalls: 16}
 	})
 	chooser.mu.Lock()

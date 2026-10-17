@@ -14,6 +14,88 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
+// authorizeMergeFixture journals clean_review delivery acceptance on one
+// fixture publication and binds its open merge row through the union
+// gate. Fixture merges run no review agents, so the round's explicit
+// clear is synthesized over the publication's exact recorded head and
+// base with an empty carried set — the same deterministic shape the
+// union gate proves purely elsewhere. The completion, fence and dispatch
+// mechanics under test still run through their real entrypoints.
+func authorizeMergeFixture(t *testing.T, ctx context.Context, db *store.Store, coord *Coordinator, p factory.Publication) {
+	t.Helper()
+	m, err := db.MergeByPublication(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Stage != factory.MergeOpen || m.Authorization.Bound() {
+		t.Fatalf("merge row not awaiting authorization: %+v", m)
+	}
+	owner, err := db.Assignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	emptyContent, err := factory.FindingContentDigest(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewer := factory.NewID()
+	cycle := factory.ReviewCycle{
+		PublicationID: p.ID, AttemptRoot: owner.AttemptRoot,
+		ID: factory.ReviewCycleID(p.ID, owner.AttemptRoot, 1, "review"), Phase: "review",
+		TriggerDecision: factory.DeliveryReviewAgain, TriggerReason: "fixture round needs its independent inspection",
+		Head: p.Candidate, BaseOID: p.PRCreate.BaseOID, FindingDigest: emptyContent,
+		ReviewerAssignment: reviewer, Round: 1,
+	}
+	if err := cycle.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	cycled := p
+	cycled.ReviewCycles = append(cycled.ReviewCycles, cycle)
+	cycled.Revision = p.Revision + 1
+	if err := db.UpdatePublication(ctx, cycled); err != nil {
+		t.Fatal(err)
+	}
+	assessment, err := db.CheckAssessment(ctx, p.Repository, p.PRNumber)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coverage, err := factory.ClearCoverageDigest(cycle.Head, cycle.BaseOID, emptyContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := db.RepositoryPolicy(ctx, p.Repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journaled, acceptance, err := AdmitClearReview(ClearAdmissionInput{
+		Publication: cycled, Cycle: cycle,
+		Report: factory.ClearReviewReport{
+			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
+			Head: cycle.Head, BaseOID: cycle.BaseOID, CoverageDigest: coverage,
+		},
+		Carried: nil,
+		Result: factory.Result{
+			Status: "completed", Summary: "fixture approval", Candidate: cycle.Head,
+			ReviewPassed: true,
+		},
+		ScopeDigest:    dispatchDigest("merge fixture scope"),
+		PolicyRevision: strconv.FormatInt(policy.Revision, 10),
+		CheckDigest:    assessment.ChecksDigest,
+		ReviewerRunID:  reviewer,
+		DiffBase:       p.PRCreate.BaseOID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	journaled.Revision = cycled.Revision + 1
+	if err := db.UpdatePublication(ctx, journaled); err != nil {
+		t.Fatal(err)
+	}
+	if err := coord.AuthorizeMerge(ctx, p.ID, servingUnionBinding(t, m, acceptance, factory.DeliveryDecision{})); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMergePassExpiresUndrivenMergeAndAllowsExplicitRetry(t *testing.T) {
 	ctx := context.Background()
 	fx, p := mergeSeed(t, 3)
@@ -382,6 +464,8 @@ func TestMergeCompletionReleasesCodeDependant(t *testing.T) {
 		return outcome, err
 	}
 	fx.wire(exec)
+	fx.pass(t)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeMerged {

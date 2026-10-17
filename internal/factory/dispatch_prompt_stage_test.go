@@ -281,6 +281,120 @@ func TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence(t *testing.T) {
 	}
 }
 
+// F7: publication children serve a real execution phase, never the legacy
+// empty phase. The admitted phase travels in the prompt inputs; rendered
+// agent instructions stay byte-identical so the serving contract the
+// legacy parsers consume does not move under in-flight runs.
+func TestBuildDispatchPromptAdmitsReviewCorrectPhases(t *testing.T) {
+	review := stagePromptInputs(project.RoleReviewer)
+	review.PublicationAssignment = NewID()
+	review.BaseCommit = strings.Repeat("b", 40)
+	review.ApprovedBase = review.SourceCommit
+	review.RepositoryContext = stageRepositoryContext(review)
+	review.Phase = project.ExecutionReview
+	phasedReview, err := BuildDispatchPrompt(review)
+	if err != nil {
+		t.Fatalf("review phase refused: %v", err)
+	}
+	review.Phase = ""
+	legacyReview, err := BuildDispatchPrompt(review)
+	if err != nil {
+		t.Fatalf("legacy review prompt refused: %v", err)
+	}
+	if string(phasedReview) != string(legacyReview) {
+		t.Fatal("review phase changed the served agent instructions")
+	}
+
+	correction := stageCorrectionInputs()
+	correction.Phase = project.ExecutionCorrect
+	phasedCorrection, err := BuildDispatchPrompt(correction)
+	if err != nil {
+		t.Fatalf("correct phase refused: %v", err)
+	}
+	correction.Phase = ""
+	legacyCorrection, err := BuildDispatchPrompt(correction)
+	if err != nil {
+		t.Fatalf("legacy correction prompt refused: %v", err)
+	}
+	if string(phasedCorrection) != string(legacyCorrection) {
+		t.Fatal("correct phase changed the served agent instructions")
+	}
+
+	for _, phase := range []string{"publish", "reassess", "decompose"} {
+		misphased := stageCorrectionInputs()
+		misphased.Phase = phase
+		if _, err := BuildDispatchPrompt(misphased); err == nil {
+			t.Fatalf("prompt admitted out-of-scope phase %q", phase)
+		}
+	}
+}
+
+// F7: phased re-reviews answer typed evidence with the v2 phase result
+// carrying the same verdict shape — never the legacy string fence.
+// Corrections with typed evidence report the phased result beside the
+// typed correction block. Dual evidence sources refuse.
+func TestBuildDispatchPromptTypedVerdictContract(t *testing.T) {
+	typedVerdict := func() *ReviewCycleReport {
+		return &ReviewCycleReport{
+			CycleID: strings.Repeat("c", 32),
+			NewFindings: []Finding{{
+				Key: strings.Repeat("0", 32), OriginRun: strings.Repeat("1", 32),
+				Severity: FindingSeverityMajor, Defect: "missing bound",
+				Evidence: "line 42 lacks a check", RequiredOutcome: "add the check",
+				FixKind: FindingFixCode, Actionable: true,
+			}},
+		}
+	}
+	in := stagePromptInputs(project.RoleReviewer)
+	in.PublicationAssignment = NewID()
+	in.BaseCommit = strings.Repeat("b", 40)
+	in.ApprovedBase = in.SourceCommit
+	in.RepositoryContext = stageRepositoryContext(in)
+	in.TypedReview = typedVerdict()
+	prompt, err := BuildDispatchPrompt(in)
+	if err != nil {
+		t.Fatalf("typed review prompt refused: %v", err)
+	}
+	text := string(prompt)
+	if !strings.Contains(text, "result-json") || !strings.Contains(text, in.TypedReview.CycleID) ||
+		!strings.Contains(text, "line 42 lacks a check") {
+		t.Fatalf("typed review prompt lacks its v2 contract: %q", text)
+	}
+	if strings.Contains(text, ReviewReportFence) {
+		t.Fatal("typed review prompt keeps the legacy fence")
+	}
+	dual := in
+	dual.Review = &ReviewReport{Verdict: "request-changes", Summary: "old", Body: "old", Findings: []string{"path:1 evidence outcome"}}
+	if _, err := BuildDispatchPrompt(dual); err == nil {
+		t.Fatal("dual review evidence admitted")
+	}
+	correction := stageCorrectionInputs()
+	correction.Review = nil
+	correction.TypedReview = typedVerdict()
+	correctionPrompt, err := BuildDispatchPrompt(correction)
+	if err != nil {
+		t.Fatalf("typed correction prompt refused: %v", err)
+	}
+	correctionText := string(correctionPrompt)
+	if !strings.Contains(correctionText, `"phase":"correct"`) || !strings.Contains(correctionText, CorrectionReportFence) {
+		t.Fatalf("typed correction prompt lacks its phased result: %q", correctionText)
+	}
+	clear := stageCorrectionInputs()
+	clear.Review = nil
+	clear.TypedClear = &ClearReviewReport{
+		CycleID: strings.Repeat("c", 32), Conclusion: ClearReviewConclusion,
+		Head: clear.SourceCommit, BaseOID: clear.BaseCommit, CoverageDigest: strings.Repeat("b", 64),
+	}
+	clear.CheckAssessment.Verdict = CheckFailed
+	if _, err := BuildDispatchPrompt(clear); err != nil {
+		t.Fatalf("clear correction prompt refused: %v", err)
+	}
+	clear.CheckAssessment.Verdict = CheckPass
+	if _, err := BuildDispatchPrompt(clear); err == nil {
+		t.Fatal("clear correction admitted without failing checks")
+	}
+}
+
 func TestBuildDispatchPromptBindsRepositoryContextScope(t *testing.T) {
 	in := stageCorrectionInputs()
 	in.SourceCommit = strings.Repeat("c", 40)

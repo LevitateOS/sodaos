@@ -183,7 +183,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
 			triggerDecision, triggerReason = policyReviewDecision, policyReviewReason(policyActor, p.Candidate)
 		} else if hasReview {
-			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, &review, checks)
+			digest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, review, checks)
 			triggerDecision, triggerReason = "re-review-same-head", "another inspection of head "+shortHead+" after "+review.Verdict+" with outstanding findings"
 		} else if len(p.ReviewCycles) == 0 {
 			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
@@ -196,7 +196,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 			triggerDecision, triggerReason = "re-review-after-correction", "fresh review of corrected head "+shortHead
 		}
 	} else {
-		digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, &review, checks)
+		digest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, review, checks)
 		triggerDecision, triggerReason = "correction-after-review", "address "+review.Verdict+" with "+checks.Verdict+" checks on head "+shortHead
 	}
 	_, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, triggerDecision, triggerReason)
@@ -305,15 +305,19 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	// Full outstanding finding/correction evidence goes to corrections
 	// always, and to same-head re-reviews; fresh independent reviews stay
 	// evidence-free so distinct reviewer sessions cannot rubber-stamp.
+	// Typed verdicts ride the typed evidence fields; legacy string reports
+	// ride the legacy field — exactly one source per prompt, never both.
 	var reviewInput *factory.ReviewReport
+	var typedReview *factory.ReviewCycleReport
+	var typedClear *factory.ClearReviewReport
 	var checksPrompt *factory.CheckAssessment
 	if role == project.RoleReviewer {
 		if hasReview {
-			reviewInput, checksPrompt = &review, checks
+			reviewInput, typedReview, typedClear, checksPrompt = review.Legacy, review.Review, review.Clear, checks
 		}
 	} else {
 		if hasReview {
-			reviewInput = &review
+			reviewInput, typedReview, typedClear = review.Legacy, review.Review, review.Clear
 		}
 		checksPrompt = checks
 	}
@@ -323,7 +327,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		publicationWait(report, p.ID, "native prepared repository context is unavailable or changed")
 		return
 	}
-	prompt, err := buildPublicationChildPrompt(plan, p, owner, preparationID, role, reviewInput, checksPrompt, repositoryContext)
+	prompt, err := buildPublicationChildPrompt(plan, p, owner, preparationID, role, reviewInput, typedReview, typedClear, checksPrompt, repositoryContext)
 	if err != nil {
 		publicationWait(report, p.ID, "child_prompt_invalid")
 		return
@@ -334,39 +338,58 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 
 // currentReviewReport returns only evidence whose native operation completed
 // for the publication's current exact head and base. A pending or refused
-// current-head operation blocks replacement review/correction work.
-func (c *Coordinator) currentReviewReport(ctx context.Context, p factory.Publication) (factory.ReviewReport, bool, bool, bool) {
+// current-head operation blocks replacement review/correction work. The
+// verdict resolves through the single canonical consumer: legacy string
+// reports for pre-phase runs, typed verdicts for phased runs, with the
+// full head/base/cycle/reviewer/carried binding enforced for the latter
+// before it routes any further work.
+func (c *Coordinator) currentReviewReport(ctx context.Context, p factory.Publication) (ResolvedReviewVerdict, bool, bool, bool) {
+	var empty ResolvedReviewVerdict
 	for i := len(p.ReviewOperations) - 1; i >= 0; i-- {
 		op := p.ReviewOperations[i]
 		if op.Work.HeadOID != p.Candidate {
 			continue
 		}
 		if op.Work.BaseOID != p.PRCreate.BaseOID {
-			return factory.ReviewReport{}, false, false, true
+			return empty, false, false, true
 		}
 		if op.Outcome.Effect == factory.OpEffectPending || op.Outcome.Effect == factory.OpEffectIndeterminate ||
 			op.Outcome.Completion == factory.OpCompletionPending {
-			return factory.ReviewReport{}, false, true, false
+			return empty, false, true, false
 		}
 		if op.Outcome.Effect != factory.OpEffectCommitted || op.Outcome.Completion != factory.OpCompletionComplete {
-			return factory.ReviewReport{}, false, false, true
+			return empty, false, false, true
 		}
 		assignment, err := c.Store.AssignmentByRun(ctx, op.RunID)
 		if err != nil || assignment.Validate() != nil || assignment.Role != project.RoleReviewer ||
 			assignment.PublicationAssignment != p.AssignmentID || assignment.SourceCommit != p.Candidate ||
 			assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded ||
-			assignment.Result == nil || !assignment.Result.Reported || assignment.Result.Review == nil {
-			return factory.ReviewReport{}, false, false, true
+			assignment.Result == nil || !assignment.Result.Reported {
+			return empty, false, false, true
 		}
-		review := *assignment.Result.Review
-		if review.Validate() != nil ||
-			(review.Verdict == "approve" && op.Work.Event != "APPROVED") ||
-			(review.Verdict == "request-changes" && op.Work.Event != "REQUEST_CHANGES") {
-			return factory.ReviewReport{}, false, false, true
+		resolved, err := resolveAssignmentVerdict(assignment)
+		if err != nil {
+			return empty, false, false, true
 		}
-		return review, true, false, false
+		wantEvent := "APPROVED"
+		if resolved.Verdict == "request-changes" {
+			wantEvent = "REQUEST_CHANGES"
+		}
+		if op.Work.Event != wantEvent {
+			return empty, false, false, true
+		}
+		if resolved.Legacy != nil {
+			if resolved.Legacy.Validate() != nil {
+				return empty, false, false, true
+			}
+			return resolved, true, false, false
+		}
+		if _, _, err := c.bindPhasedReviewVerdict(ctx, p, assignment, p.Candidate, resolved); err != nil {
+			return empty, false, false, true
+		}
+		return resolved, true, false, false
 	}
-	return factory.ReviewReport{}, false, false, false
+	return empty, false, false, false
 }
 
 // currentChildCheckAssessment accepts only the current policy's complete
@@ -629,10 +652,19 @@ func publicationPreparationID(publication, head string) string {
 	return "f" + hex.EncodeToString(hash[:12])
 }
 
-func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner factory.Assignment, preparationID, role string, review *factory.ReviewReport, checks *factory.CheckAssessment, repositoryContext *project.FactoryPreparationContext) ([]byte, error) {
+func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner factory.Assignment, preparationID, role string, review *factory.ReviewReport, typedReview *factory.ReviewCycleReport, typedClear *factory.ClearReviewReport, checks *factory.CheckAssessment, repositoryContext *project.FactoryPreparationContext) ([]byte, error) {
 	selection := plan.policy.Roles[role]
+	// Publication children always serve a real execution phase, never the
+	// legacy empty phase: reviewer children inspect the published head and
+	// coder children correct it. The prompt carries the admitted phase so
+	// the template owns phased rendering and the recorded result binds it.
+	phase := project.ExecutionCorrect
+	if role == project.RoleReviewer {
+		phase = project.ExecutionReview
+	}
 	return factory.BuildDispatchPrompt(factory.PromptInputs{
 		Project: plan.projectID, Repository: p.Repository, Issue: p.Issue, NativeRev: plan.inputs.Revision,
+		Phase:        phase,
 		AcceptanceID: p.Acceptance, TargetBranch: plan.policy.TargetBranch,
 		SourceCommit: p.Candidate, ApprovedBase: owner.SourceCommit, BaseCommit: p.PRCreate.BaseOID,
 		PublicationAssignment: p.AssignmentID, Preparation: preparationID,
@@ -645,7 +677,7 @@ func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner
 		Sources:       promptSections(plan.acceptance.Sources, plan.inputs.Comments),
 		Resolutions:   promptSections(plan.acceptance.Resolutions, plan.inputs.Comments),
 		Prerequisites: plan.acceptance.Prerequisites, Control: plan.control,
-		Review: review, CheckAssessment: checks,
+		Review: review, TypedReview: typedReview, TypedClear: typedClear, CheckAssessment: checks,
 		RepositoryContext: repositoryContext,
 	})
 }

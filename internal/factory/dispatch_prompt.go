@@ -42,13 +42,23 @@ type PromptInputs struct {
 	BaseCommit            string
 	PublicationAssignment string
 	Review                *ReviewReport
-	CheckAssessment       *CheckAssessment
-	RepositoryContext     *project.FactoryPreparationContext
-	ImplementationPlan    *PlanningRecord
+	// TypedReview and TypedClear carry the phased current verdict a
+	// re-review or correction must answer: keyed findings with typed
+	// dispositions, never legacy strings. Exactly one is set when
+	// present, and never alongside Review: one prompt answers one
+	// evidence source. The agent closes phased work with the v2 phase
+	// result carrying the same verdict shape.
+	TypedReview        *ReviewCycleReport
+	TypedClear         *ClearReviewReport
+	CheckAssessment    *CheckAssessment
+	RepositoryContext  *project.FactoryPreparationContext
+	ImplementationPlan *PlanningRecord
 	// Phase names the admitted dispatcher phase this prompt serves: "" is
 	// the legacy pre-phase path, "investigate" opens planning, "implement"
-	// executes a recorded investigation plan. Phased prompts never carry
-	// the generic PlanningRecord approach; the phase rendering owns it.
+	// executes a recorded investigation plan, "review" reports native
+	// findings on a candidate head, and "correct" addresses the current
+	// finding set on the same head. Phased prompts never carry the generic
+	// PlanningRecord approach; the phase rendering owns it.
 	Phase string
 	// PlanPrerequisites carries the canonical prerequisite binding digests
 	// an investigation run echoes into its reported plan. Empty unless the
@@ -90,14 +100,16 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	if in.Repository <= 0 || in.Issue <= 0 || in.NativeRev < 1 {
 		return nil, errors.New("invalid dispatch prompt scope")
 	}
-	if in.Phase != "" && in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement {
+	if in.Phase != "" && in.Phase != project.ExecutionInvestigate && in.Phase != project.ExecutionImplement &&
+		in.Phase != project.ExecutionReview && in.Phase != project.ExecutionCorrect {
 		return nil, errors.New("invalid dispatch prompt phase")
 	}
 	if in.Phase != "" && in.ImplementationPlan != nil {
 		return nil, errors.New("phased prompt carries a generic plan")
 	}
 	if in.Phase == project.ExecutionInvestigate {
-		if in.PublicationAssignment != "" || in.BaseCommit != "" || in.Review != nil || in.CheckAssessment != nil {
+		if in.PublicationAssignment != "" || in.BaseCommit != "" || in.Review != nil || in.CheckAssessment != nil ||
+			in.TypedReview != nil || in.TypedClear != nil {
 			return nil, errors.New("investigation opens no child evidence")
 		}
 		for _, digest := range in.PlanPrerequisites {
@@ -233,16 +245,24 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 	writePromptStage(&b, in)
 	b.WriteString("\n## Report\n\n")
 	if in.Role == project.RoleReviewer {
-		b.WriteString("Close your work with exactly one fenced block:\n\n")
-		b.WriteString(`Use verdict "approve" or "request-changes". "summary" and "body" are strings; "findings" is a JSON array of strings. Each finding string must contain its location, evidence and required outcome; do not use objects. Use [] when no finding remains. Example for a blocking finding:` + "\n\n")
-		b.WriteString("```" + ReviewReportFence + "\n")
-		b.WriteString(`{"verdict":"request-changes","summary":"Blocking finding","body":"Describe the location, evidence and required outcome.","findings":["path:line: evidence; required outcome."]}` + "\n")
-		b.WriteString("```\n\n")
+		if in.TypedReview != nil || in.TypedClear != nil {
+			writePromptTypedReviewContract(&b, in)
+		} else {
+			b.WriteString("Close your work with exactly one fenced block:\n\n")
+			b.WriteString(`Use verdict "approve" or "request-changes". "summary" and "body" are strings; "findings" is a JSON array of strings. Each finding string must contain its location, evidence and required outcome; do not use objects. Use [] when no finding remains. Example for a blocking finding:` + "\n\n")
+			b.WriteString("```" + ReviewReportFence + "\n")
+			b.WriteString(`{"verdict":"request-changes","summary":"Blocking finding","body":"Describe the location, evidence and required outcome.","findings":["path:line: evidence; required outcome."]}` + "\n")
+			b.WriteString("```\n\n")
+		}
 	} else if in.PublicationAssignment != "" {
 		b.WriteString("Close your work with exactly two fenced blocks: the result block naming your candidate, ")
 		b.WriteString("and a correction block accounting every supplied finding exactly once with its finding-set digest:\n\n")
 		b.WriteString("```" + ResultFence + "\n")
-		b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
+		if in.TypedReview != nil || in.TypedClear != nil {
+			b.WriteString(`{"version":2,"phase":"correct","status":"completed|blocked|failed|cancelled","summary":"...","output":{"correction":{"set_digest":"<finding-set digest from the evidence above>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}]}}}` + "\n")
+		} else {
+			b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
+		}
 		b.WriteString("```\n\n")
 		b.WriteString("```" + CorrectionReportFence + "\n")
 		b.WriteString(`{"set_digest":"<finding-set digest from the evidence above>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}]}` + "\n")

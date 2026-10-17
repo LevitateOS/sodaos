@@ -53,11 +53,13 @@ func (r AssignmentResult) Validate() error {
 		Status: r.Status, Summary: r.Summary, Candidate: r.Candidate,
 		ReviewPassed: r.ReviewPassed, Findings: r.Findings,
 	}.Validate()); err != nil {
-		// Completed planning exposes no candidate: the plan shape has no
-		// candidate field, so such a result can never authorize effects.
-		// The exemption covers exactly the candidate rule; every other
-		// shape rule still refuses.
-		if r.Candidate != "" || r.Status != "completed" || !isPlanningPhaseResult(r.PhaseResult) {
+		// Completed candidate-free phases expose no candidate: their
+		// typed shapes (plan, decomposition, reassessment, review
+		// verdict, correction dispositions) carry no candidate field, so
+		// such a result can never authorize effects. The exemption
+		// covers exactly the candidate rule; every other shape rule
+		// still refuses.
+		if r.Candidate != "" || r.Status != "completed" || !isCandidateFreePhaseResult(r.PhaseResult) {
 			return err
 		}
 		if len(r.Summary) > 16<<10 || len(r.Findings) > 64 {
@@ -72,16 +74,19 @@ func (r AssignmentResult) Validate() error {
 	return nil
 }
 
-// isPlanningPhaseResult reports whether phased output belongs to a planning
-// phase whose completed result never names a publishable candidate.
-// Decompose and reassess payloads arrive through their owning boundaries;
-// until then their completed results cannot validate.
-func isPlanningPhaseResult(phased *PhaseResult) bool {
+// isCandidateFreePhaseResult reports whether phased output belongs to a
+// phase whose completed result never names a publishable candidate:
+// investigate plans, chosen decompositions, reassessment reports, typed
+// review verdicts and correction dispositions. F7 joint cutover with the
+// phased dispatch_result.go consumer and the PhaseOutput typed payloads;
+// decompose arrived first, review and correct ride the same exemption.
+func isCandidateFreePhaseResult(phased *PhaseResult) bool {
 	if phased == nil {
 		return false
 	}
 	switch phased.Phase {
-	case project.ExecutionInvestigate, project.ExecutionDecompose, project.ExecutionReassess:
+	case project.ExecutionInvestigate, project.ExecutionDecompose, project.ExecutionReassess,
+		project.ExecutionReview, project.ExecutionCorrect:
 		return true
 	default:
 		return false
@@ -112,13 +117,18 @@ func (r AssignmentResult) ValidatePhaseBinding(role, assignmentPhase string) err
 
 // ValidateForAssignment enforces the role-specific result contract. A
 // reviewer report is retained only for reviewer assignments and is bound to
-// the exact candidate the assignment reviewed.
+// the exact candidate the assignment reviewed. A phased reviewer result
+// carries the same binding through its typed v2 verdict instead: exactly
+// one verdict payload, no candidate, no legacy string findings.
 func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error {
 	if err := r.Validate(); err != nil {
 		return err
 	}
 	if role == project.RoleReviewer {
 		if r.Reported {
+			if r.Review == nil && isPhasedReviewVerdict(r, sourceCommit) {
+				return nil
+			}
 			if r.Review == nil || r.Status != "completed" || r.Candidate != sourceCommit || r.ReviewPassed || len(r.Findings) != 0 || r.Summary != r.Review.Summary {
 				return errors.New("reported reviewer result does not match its candidate")
 			}
@@ -131,6 +141,35 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 		return errors.New("non-reviewer result carries a review report")
 	}
 	return nil
+}
+
+// isPhasedReviewVerdict reports whether a reported result is a phased
+// reviewer result: completed, bound to the review phase with exactly one
+// typed verdict payload, and carrying no legacy reviewer evidence. An
+// explicit clear additionally binds the exact reviewed candidate: the
+// reviewer finished on the assignment's source commit, never another
+// head. Cycle/reviewer/carried-set binding belongs to the consumer,
+// which sees the publication, its cycles and the canonical findings;
+// deep verdict shape stays with PhaseBinding at finish. This gate only
+// admits the phased wire so legacy pins keep refusing.
+func isPhasedReviewVerdict(r AssignmentResult, sourceCommit string) bool {
+	if r.PhaseResult == nil || r.PhaseResult.Phase != project.ExecutionReview ||
+		r.Phase != project.ExecutionReview || r.Status != "completed" ||
+		r.Candidate != "" || r.ReviewPassed || len(r.Findings) != 0 ||
+		r.Summary != r.PhaseResult.Summary {
+		return false
+	}
+	output := r.PhaseResult.Output
+	if output == nil {
+		return false
+	}
+	if (output.Review == nil) == (output.Clear == nil) {
+		return false
+	}
+	if output.Clear != nil && output.Clear.Head != sourceCommit {
+		return false
+	}
+	return true
 }
 
 // ToResult returns the retained harness result shape.

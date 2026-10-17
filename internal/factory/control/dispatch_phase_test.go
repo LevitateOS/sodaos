@@ -253,10 +253,14 @@ func TestDerivePhasedRefusals(t *testing.T) {
 	}
 }
 
-// Reviewer reports stay on the legacy review fence until FW06C admits
-// review payloads through this boundary.
-func TestDerivePhasedReviewerKeepsLegacyReport(t *testing.T) {
-	a := phaseTestAssignment(t, project.ExecutionReview, project.RoleReviewer, true)
+// Pre-phase reviewer runs keep the legacy review fence: phased reviewer
+// runs report the strict v2 phase contract with exactly one typed verdict
+// (see dispatch_result_phased_test.go), while records without a phase keep
+// the retained harness report contract.
+func TestDerivePrePhaseReviewerKeepsLegacyReport(t *testing.T) {
+	a := phaseTestAssignment(t, project.ExecutionReview, project.RoleReviewer, false)
+	a.Subject = factory.ExecutionSubject{}
+	a.Phase, a.ParentAssignment = "", ""
 	output := "notes\n```" + factory.ReviewReportFence + "\n" +
 		`{"verdict":"approve","summary":"clean","body":"no blockers","findings":[]}` + "\n```\n"
 	finished := finishPhasedFixture(t, a, phaseTestRun(a, factory.Succeeded), output)

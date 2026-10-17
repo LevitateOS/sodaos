@@ -49,25 +49,89 @@ func (r ImplementationReceipt) validate(status string) error {
 }
 
 // PhaseOutput is the single typed payload for its phase: an investigated
-// plan for investigate, an implementation receipt for implement, and the
-// D13 reassessment report for reassess (FW32). Decomposition, review and
-// correction payloads are admitted by FW06B and FW06C through these same
-// slots; until then only a nil output validates for those phases. The
-// reassessment coder is a single coder with no children, source writes or
-// publication: a completed reassess result carries exactly its typed
-// report (including a valid empty change set), while a held reassess run
-// carries no report. Every phase result stays within the 64 KiB bound,
-// including reassess; the 320 KiB exception covers the prompt only.
+// plan for investigate, an implementation receipt for implement, the D13
+// reassessment report for reassess (FW32), the single chosen decomposition
+// for decompose, the typed review verdict for review, and the typed
+// correction dispositions for correct. The reassessment coder is a single
+// coder with no children, source writes or publication: a completed
+// reassess result carries exactly its typed report (including a valid
+// empty change set), while a held reassess run carries no report. Every
+// phase result stays within the 64 KiB bound, including reassess; the
+// 320 KiB exception covers the prompt only.
+//
+// Completed decompose, review and correct results carry no publishable
+// candidate: the decomposition chooses task boundaries only, the review
+// verdict assesses findings only, and the correction accounts findings
+// only, so such a result can never be interpreted as publishable code.
 type PhaseOutput struct {
 	Plan           *InvestigationPlan     `json:"plan,omitempty"`
 	Implementation *ImplementationReceipt `json:"implementation,omitempty"`
 	Reassessment   *ReassessmentReport    `json:"reassessment,omitempty"`
+	Decomposition  *ScopedDecomposition   `json:"decomposition,omitempty"`
+	Review         *ReviewCycleReport     `json:"review,omitempty"`
+	Clear          *ClearReviewReport     `json:"clear,omitempty"`
+	Correction     *CorrectionReport      `json:"correction,omitempty"`
+}
+
+// validateReviewShape checks the structural review verdict: finding and
+// assessment shapes with a bound cycle identity. A findings verdict must
+// carry something blocking — a new defect or a still-open assessment — or
+// it is not a findings verdict at all: a fully verified round reports an
+// explicit clear instead. Coverage of the whole carried set belongs to
+// admission, which sees the controller's canonical findings — never to
+// this shape check.
+func validateReviewShape(r *ReviewCycleReport) error {
+	if !ValidID(r.CycleID) {
+		return errors.New("review verdict lacks its cycle")
+	}
+	blocking := len(r.NewFindings) > 0
+	for _, finding := range r.NewFindings {
+		if err := finding.Validate(); err != nil {
+			return err
+		}
+	}
+	for _, assessment := range r.Assessments {
+		if err := assessment.Validate(); err != nil {
+			return err
+		}
+		if assessment.Status == FindingStillOpen {
+			blocking = true
+		}
+	}
+	if !blocking {
+		return errors.New("review verdict carries no blocking finding; report an explicit clear")
+	}
+	return nil
+}
+
+// validateClearShape checks the structural explicit-clear verdict: the
+// clear conclusion over an exact candidate with its coverage digest and
+// bounded assessments. Carried-set binding belongs to admission.
+func validateClearShape(r *ClearReviewReport) error {
+	if r.Conclusion != ClearReviewConclusion {
+		return errors.New("review report is not an explicit clear")
+	}
+	if !ValidID(r.CycleID) {
+		return errors.New("invalid clear review cycle")
+	}
+	if !ValidCommit(r.Head) || !ValidCommit(r.BaseOID) || r.Head == r.BaseOID {
+		return errors.New("clear review covers no exact candidate")
+	}
+	if !ValidDigest(r.CoverageDigest) {
+		return errors.New("clear review lacks its complete coverage digest")
+	}
+	for _, assessment := range r.Assessments {
+		if err := assessment.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (o PhaseOutput) validate(phase, status string) error {
 	switch phase {
 	case project.ExecutionInvestigate:
-		if o.Plan == nil || o.Implementation != nil || o.Reassessment != nil {
+		if o.Plan == nil || !o.nilTypedOutputExceptPlan() {
 			return errors.New("investigation output must be exactly its plan")
 		}
 		if err := o.Plan.Validate(); err != nil {
@@ -80,12 +144,12 @@ func (o PhaseOutput) validate(phase, status string) error {
 		}
 		return nil
 	case project.ExecutionImplement:
-		if o.Implementation == nil || o.Plan != nil || o.Reassessment != nil {
+		if o.Implementation == nil || !o.nilTypedOutputExceptImplementation() {
 			return errors.New("implementation output must be exactly its receipt")
 		}
 		return o.Implementation.validate(status)
 	case project.ExecutionReassess:
-		if o.Plan != nil || o.Implementation != nil {
+		if !o.nilTypedOutputExceptReassessment() {
 			return errors.New("cross-phase result payload refused")
 		}
 		if status == "completed" {
@@ -98,14 +162,84 @@ func (o PhaseOutput) validate(phase, status string) error {
 			return errors.New("held reassessment carries no report")
 		}
 		return nil
-	case project.ExecutionDecompose, project.ExecutionReview, project.ExecutionCorrect:
-		if o.Plan != nil || o.Implementation != nil || o.Reassessment != nil {
+	case project.ExecutionDecompose:
+		if o.Decomposition == nil || !o.nilTypedOutputExceptDecomposition() {
 			return errors.New("cross-phase result payload refused")
 		}
-		return errors.New("phase payload admitted by its owning task")
+		if status != "completed" {
+			return errors.New("non-completed decomposition carries no payload")
+		}
+		return o.Decomposition.Validate()
+	case project.ExecutionReview:
+		if !o.nilTypedOutputExceptReview() {
+			return errors.New("cross-phase result payload refused")
+		}
+		if status != "completed" {
+			if o.Review != nil || o.Clear != nil {
+				return errors.New("non-completed review carries no verdict")
+			}
+			return nil
+		}
+		if (o.Review == nil) == (o.Clear == nil) {
+			return errors.New("completed review carries exactly one verdict")
+		}
+		if o.Review != nil {
+			return validateReviewShape(o.Review)
+		}
+		return validateClearShape(o.Clear)
+	case project.ExecutionCorrect:
+		if o.Correction == nil || !o.nilTypedOutputExceptCorrection() {
+			return errors.New("cross-phase result payload refused")
+		}
+		if status != "completed" {
+			return errors.New("non-completed correction carries no payload")
+		}
+		return o.Correction.Validate()
 	default:
 		return errors.New("unknown result phase")
 	}
+}
+
+// nilTypedOutputExceptPlan reports whether every payload slot except the
+// investigation plan is empty.
+func (o PhaseOutput) nilTypedOutputExceptPlan() bool {
+	return o.Implementation == nil && o.Reassessment == nil &&
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil
+}
+
+// nilTypedOutputExceptImplementation reports whether every payload slot
+// except the implementation receipt is empty.
+func (o PhaseOutput) nilTypedOutputExceptImplementation() bool {
+	return o.Plan == nil && o.Reassessment == nil &&
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil
+}
+
+// nilTypedOutputExceptReassessment reports whether every payload slot
+// except the reassessment report is empty.
+func (o PhaseOutput) nilTypedOutputExceptReassessment() bool {
+	return o.Plan == nil && o.Implementation == nil &&
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil && o.Correction == nil
+}
+
+// nilTypedOutputExceptDecomposition reports whether every payload slot
+// except the chosen decomposition is empty.
+func (o PhaseOutput) nilTypedOutputExceptDecomposition() bool {
+	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
+		o.Review == nil && o.Clear == nil && o.Correction == nil
+}
+
+// nilTypedOutputExceptReview reports whether every payload slot except the
+// two review verdicts is empty.
+func (o PhaseOutput) nilTypedOutputExceptReview() bool {
+	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
+		o.Decomposition == nil && o.Correction == nil
+}
+
+// nilTypedOutputExceptCorrection reports whether every payload slot except
+// the correction dispositions is empty.
+func (o PhaseOutput) nilTypedOutputExceptCorrection() bool {
+	return o.Plan == nil && o.Implementation == nil && o.Reassessment == nil &&
+		o.Decomposition == nil && o.Review == nil && o.Clear == nil
 }
 
 // PhaseResult is the strict phase-bound process result. Completed

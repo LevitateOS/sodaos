@@ -136,6 +136,11 @@ type st15Fixture struct {
 	// the stop lands within seconds of record.
 	controlBrowser chan error
 
+	// authNote carries the latest merge-authorize poll note: a
+	// permanently refusing gate joins the terminal merge error instead
+	// of timing out unexplained.
+	authNote string
+
 	checks []st15Check
 }
 

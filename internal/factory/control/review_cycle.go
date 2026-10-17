@@ -12,6 +12,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 // reviewCyclePassLimit bounds one review-cycle sweep: published
@@ -120,6 +121,189 @@ func (c *Coordinator) currentPublicationApproved(ctx context.Context, p factory.
 	return ok && !pending && !refused && review.Verdict == "approve"
 }
 
+// ResolvedReviewVerdict is the canonical consumer view of one reviewer
+// assignment's recorded verdict: exactly one source. A pre-phase reviewer
+// run reports the legacy string report; a phased review run reports
+// exactly one typed verdict (findings verdict or explicit clear). The
+// resolver admits exactly one source per assignment — never both, never
+// neither — so legacy and typed rows never share authority over one
+// verdict. Findings verdicts always map to request-changes (their shape
+// guarantees blocking content); only an explicit clear maps to approve.
+type ResolvedReviewVerdict struct {
+	Verdict string // "approve" | "request-changes"
+	Legacy  *factory.ReviewReport
+	Review  *factory.ReviewCycleReport
+	Clear   *factory.ClearReviewReport
+}
+
+// resolveAssignmentVerdict resolves one reviewer assignment's recorded
+// verdict to its single canonical source. Pre-phase assignments resolve
+// the legacy report; phased review assignments resolve the typed v2
+// verdict. Anything else — missing report, both sources, neither source,
+// or a non-review phase — refuses.
+func resolveAssignmentVerdict(assignment factory.Assignment) (ResolvedReviewVerdict, error) {
+	var empty ResolvedReviewVerdict
+	if assignment.Result == nil || !assignment.Result.Reported {
+		return empty, errors.New("review lacks its recorded report")
+	}
+	result := assignment.Result
+	if assignment.Phase == "" {
+		if result.Review == nil {
+			return empty, errors.New("review lacks its recorded report")
+		}
+		return ResolvedReviewVerdict{Verdict: result.Review.Verdict, Legacy: result.Review}, nil
+	}
+	if assignment.Phase != project.ExecutionReview {
+		return empty, errors.New("review assignment carries another phase")
+	}
+	if result.PhaseResult == nil || result.PhaseResult.Output == nil {
+		return empty, errors.New("phased review lacks its typed verdict")
+	}
+	output := result.PhaseResult.Output
+	if (output.Review == nil) == (output.Clear == nil) {
+		return empty, errors.New("phased review carries no single verdict")
+	}
+	if result.Review != nil {
+		return empty, errors.New("phased review carries a legacy report")
+	}
+	if output.Review != nil {
+		return ResolvedReviewVerdict{Verdict: "request-changes", Review: output.Review}, nil
+	}
+	return ResolvedReviewVerdict{Verdict: "approve", Clear: output.Clear}, nil
+}
+
+// reviewCarriedFindings rebuilds the canonical carried set one review
+// cycle must answer: the first correction journal's findings when a
+// correction already answered this cycle, otherwise every same-head prior
+// round's phased new findings. Same-head prior rounds that resolved
+// legacy refuse: their string defects carry no stable key, so a typed
+// verdict cannot prove coverage and the legacy consumer keeps the chain.
+// Rounds on superseded heads are history, never carried.
+func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publication, cycle factory.ReviewCycle) ([]factory.Finding, error) {
+	for _, journal := range p.CorrectionJournals {
+		if journal.CycleID == cycle.ID {
+			return append([]factory.Finding(nil), journal.Report.Findings...), nil
+		}
+	}
+	carried := []factory.Finding{}
+	seen := map[string]bool{}
+	for _, prior := range p.ReviewCycles {
+		if prior.ID == cycle.ID || prior.Head != cycle.Head {
+			continue
+		}
+		reviewer, err := c.Store.Assignment(ctx, prior.ReviewerAssignment)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		if reviewer.Result == nil || !reviewer.Result.Reported {
+			continue
+		}
+		if reviewer.Result.PhaseResult == nil || reviewer.Result.PhaseResult.Output == nil ||
+			reviewer.Result.PhaseResult.Output.Review == nil {
+			if reviewer.Result.Review != nil {
+				return nil, errors.New("prior review needs its legacy consumer")
+			}
+			continue
+		}
+		for _, finding := range reviewer.Result.PhaseResult.Output.Review.NewFindings {
+			if !seen[finding.Key] {
+				seen[finding.Key] = true
+				carried = append(carried, finding)
+			}
+		}
+	}
+	return carried, nil
+}
+
+// bindPhasedReviewVerdict binds one resolved typed verdict to the exact
+// submission it authorizes: the current reviewer assignment, the exact
+// candidate, base and review cycle, and the complete carried findings.
+// Wrong head or base, a cycle that is unrecorded or bound to another
+// reviewer or tuple, and a missing carried assessment all refuse with zero
+// downstream effect: no native call happens before every check passes. It
+// returns the native event and body for the bound verdict.
+func (c *Coordinator) bindPhasedReviewVerdict(ctx context.Context, p factory.Publication, assignment factory.Assignment, head string, verdict ResolvedReviewVerdict) (string, string, error) {
+	if verdict.Legacy != nil || (verdict.Review == nil && verdict.Clear == nil) {
+		return "", "", errors.New("phased binding needs its typed verdict")
+	}
+	if assignment.Role != project.RoleReviewer || assignment.SourceCommit != head || head != p.Candidate {
+		return "", "", errors.New("reviewer finished on another candidate")
+	}
+	var cycleID string
+	if verdict.Review != nil {
+		cycleID = verdict.Review.CycleID
+	} else {
+		cycleID = verdict.Clear.CycleID
+		if verdict.Clear.Head != head || verdict.Clear.BaseOID != p.PRCreate.BaseOID {
+			return "", "", errors.New("clear review answers another candidate")
+		}
+	}
+	var cycle factory.ReviewCycle
+	found := false
+	for _, recorded := range p.ReviewCycles {
+		if recorded.ID == cycleID {
+			cycle, found = recorded, true
+			break
+		}
+	}
+	if !found {
+		return "", "", errors.New("review verdict consumes an unrecorded cycle")
+	}
+	if cycle.PublicationID != p.ID || cycle.ReviewerAssignment != assignment.ID ||
+		cycle.Head != head || cycle.BaseOID != p.PRCreate.BaseOID {
+		return "", "", errors.New("review verdict answers another round")
+	}
+	carried, err := c.reviewCarriedFindings(ctx, p, cycle)
+	if err != nil {
+		return "", "", err
+	}
+	if verdict.Review != nil {
+		if err := verdict.Review.Validate(carried); err != nil {
+			return "", "", err
+		}
+		return "REQUEST_CHANGES", renderTypedReviewBody(head, cycle.BaseOID, verdict), nil
+	}
+	if err := verdict.Clear.Validate(carried); err != nil {
+		return "", "", err
+	}
+	return "APPROVED", renderTypedReviewBody(head, cycle.BaseOID, verdict), nil
+}
+
+// renderTypedReviewBody renders one bound typed verdict as the native
+// review prose: the exact head and base, every new defect with its
+// evidence and required outcome, and every carried assessment with its
+// state and evidence. Deterministic: the same verdict always renders the
+// same bytes. Native inline finding comments stay with the FW16/FW18
+// review operation work, never this submission.
+func renderTypedReviewBody(head, base string, verdict ResolvedReviewVerdict) string {
+	var cycleID string
+	if verdict.Review != nil {
+		cycleID = verdict.Review.CycleID
+	} else if verdict.Clear != nil {
+		cycleID = verdict.Clear.CycleID
+	}
+	var b strings.Builder
+	if verdict.Clear != nil {
+		b.WriteString("Explicit clear of " + head + " at base " + base + " for cycle " + cycleID + ".\n")
+		for _, assessment := range verdict.Clear.Assessments {
+			b.WriteString("- [" + assessment.Key + "] verified: " + assessment.Evidence + "\n")
+		}
+		return b.String()
+	}
+	b.WriteString("Review findings on " + head + " at base " + base + " for cycle " + cycleID + ".\n")
+	for _, finding := range verdict.Review.NewFindings {
+		b.WriteString("- [" + finding.Key + "] (" + finding.Severity + "/" + finding.FixKind + ") defect: " + finding.Defect +
+			" evidence: " + finding.Evidence + " required outcome: " + finding.RequiredOutcome + "\n")
+	}
+	for _, assessment := range verdict.Review.Assessments {
+		b.WriteString("- [" + assessment.Key + "] " + assessment.Status + ": " + assessment.Evidence + "\n")
+	}
+	return b.String()
+}
+
 // SubmitReviewForRun submits one settled reviewer run's genuine verdict
 // through the separate reviewer actor: it re-reads the recorded
 // publication, refuses a superseded head, observes the exact native
@@ -202,22 +386,33 @@ func (c *Coordinator) SubmitReviewForRun(ctx context.Context, runID string) (fac
 	if head != p.Candidate {
 		return empty, errors.New("review head superseded by a correction")
 	}
-	if assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded ||
-		assignment.Result == nil || !assignment.Result.Reported || assignment.Result.Review == nil {
+	if assignment.Stage != factory.AssignmentFinished || assignment.Outcome != factory.Succeeded {
 		return empty, errors.New("review lacks its recorded report")
 	}
-	report := *assignment.Result.Review
+	resolved, err := resolveAssignmentVerdict(assignment)
+	if err != nil {
+		return empty, err
+	}
 	policy, err := c.Store.RepositoryPolicy(ctx, p.Repository)
 	if err != nil {
 		return empty, err
 	}
-	event := "APPROVED"
-	if report.Verdict == "request-changes" {
-		event = "REQUEST_CHANGES"
-	}
-	body := report.Body
-	if strings.TrimSpace(body) == "" {
-		body = report.Summary
+	var event, body string
+	if resolved.Legacy != nil {
+		report := *resolved.Legacy
+		event = "APPROVED"
+		if report.Verdict == "request-changes" {
+			event = "REQUEST_CHANGES"
+		}
+		body = report.Body
+		if strings.TrimSpace(body) == "" {
+			body = report.Summary
+		}
+	} else {
+		event, body, err = c.bindPhasedReviewVerdict(ctx, p, assignment, head, resolved)
+		if err != nil {
+			return empty, err
+		}
 	}
 	w := factory.ReviewWork{
 		OperationID: "review-" + run.ID, AuthRevision: factory.ReviewAuthRevision(owner.ID, run.ID),
@@ -344,6 +539,16 @@ func (c *Coordinator) reconcileRecordedReviews(ctx context.Context, p *factory.P
 // identity derivation; their assignment IDs stay distinct via role.
 const reviewCyclePhase = "review"
 
+// reviewCycleEvidenceDigest binds one cycle's inputs for the resolved
+// current verdict: the legacy v1 digest for string reports, the v2 digest
+// for typed verdicts. One verdict, one digest domain — never both.
+func reviewCycleEvidenceDigest(head, base string, review ResolvedReviewVerdict, checks *factory.CheckAssessment) string {
+	if review.Legacy != nil {
+		return reviewCycleInputDigest(head, base, review.Legacy, checks)
+	}
+	return reviewCycleInputDigestTyped(head, base, review.Review, review.Clear, checks)
+}
+
 // reviewCycleInputDigest binds one cycle's inputs: exact head/base plus the
 // outstanding review/check evidence the child must answer. Fresh independent
 // reviews bind head/base only; corrections and same-head re-reviews bind the
@@ -360,6 +565,47 @@ func reviewCycleInputDigest(head, base string, review *factory.ReviewReport, che
 		sort.Strings(sorted)
 		for _, f := range sorted {
 			h.Write([]byte(f + "\x00"))
+		}
+	} else {
+		h.Write([]byte("\x00"))
+	}
+	if checks != nil {
+		h.Write([]byte(checks.Verdict + "\x00" + checks.Reason + "\x00"))
+	} else {
+		h.Write([]byte("\x00"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// reviewCycleInputDigestTyped binds one cycle's inputs for a typed current
+// verdict: exact head/base plus the typed review or clear evidence the
+// child must answer, with the check verdict. The v2 domain keeps typed
+// rounds distinct from legacy v1 rounds; new decisions change the digest
+// (new round, fresh IDs) and replay reuses it. Exactly one of review and
+// clear is set; nil evidence means a fresh independent review.
+func reviewCycleInputDigestTyped(head, base string, review *factory.ReviewCycleReport, clear *factory.ClearReviewReport, checks *factory.CheckAssessment) string {
+	h := sha256.New()
+	h.Write([]byte("review-cycle-input-v2\x00" + head + "\x00" + base + "\x00"))
+	if review != nil {
+		h.Write([]byte("review\x00" + review.CycleID + "\x00"))
+		keys := make([]string, 0, len(review.NewFindings)+len(review.Assessments))
+		for _, finding := range review.NewFindings {
+			h.Write([]byte(finding.Key + "\x00" + finding.Severity + "\x00" + finding.FixKind + "\x00" +
+				finding.Defect + "\x00" + finding.Evidence + "\x00" + finding.RequiredOutcome + "\x00"))
+			keys = append(keys, finding.Key)
+		}
+		for _, assessment := range review.Assessments {
+			h.Write([]byte(assessment.Key + "\x00" + assessment.Status + "\x00" + assessment.Evidence + "\x00"))
+			keys = append(keys, assessment.Key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			h.Write([]byte(key + "\x00"))
+		}
+	} else if clear != nil {
+		h.Write([]byte("clear\x00" + clear.CycleID + "\x00" + clear.Head + "\x00" + clear.BaseOID + "\x00" + clear.CoverageDigest + "\x00"))
+		for _, assessment := range clear.Assessments {
+			h.Write([]byte(assessment.Key + "\x00" + assessment.Status + "\x00" + assessment.Evidence + "\x00"))
 		}
 	} else {
 		h.Write([]byte("\x00"))

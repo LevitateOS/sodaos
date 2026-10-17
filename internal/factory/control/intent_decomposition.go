@@ -12,6 +12,39 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
+// scopedIntentTasksFromChosen adopts exactly the single planner candidate
+// the Generate work command chose before serving: it binds the choice to
+// the current accepted head and enforces it inside accepted scope before
+// any native observation. No triplet judgment or template restructuring
+// runs here: the choice arrives decided, so a second evaluation cannot
+// rewrite it on the serving path.
+func (c *Coordinator) scopedIntentTasksFromChosen(_ context.Context, r factory.IntentRevision, chosen *ChosenIntentPlan) ([]factory.IntentTask, error) {
+	if chosen == nil {
+		return nil, errors.New("chosen planner candidate is missing")
+	}
+	if chosen.Intent != r.Intent {
+		return nil, errors.New("chosen planner candidate binds another intent")
+	}
+	if chosen.Operation != factory.IntentPlanningOptions {
+		return nil, errors.New("chosen planner candidate is not a decomposition choice")
+	}
+	// The planner runs against the reviewed draft; the accepted successor
+	// adopts its choice. Either the choice binds this exact revision or
+	// the draft this acceptance reviewed — never a third revision.
+	if chosen.Revision != r.ID && chosen.Revision != r.Predecessor {
+		return nil, errors.New("chosen planner revision mismatch")
+	}
+	if len(chosen.Tasks) == 0 {
+		return nil, errors.New("chosen planner candidate carries no tasks")
+	}
+	work := r
+	work.Tasks = append([]factory.IntentTask(nil), chosen.Tasks...)
+	if err := work.Validate(); err != nil {
+		return nil, errors.New("chosen planner candidate exceeds accepted scope")
+	}
+	return work.Tasks, nil
+}
+
 // scopedIntentTasks selects the S07-advised task graph for native writes and
 // enforces it inside accepted scope before any native observation. Review
 // verdicts hold for a human challenge; funding failures surface for retry.
@@ -43,10 +76,21 @@ func (c *Coordinator) scopedIntentTasks(ctx context.Context, r factory.IntentRev
 // returns the submitted task graph and delivered bindings alongside the
 // payload; callers persist them so adoption and later deltas bind submitted
 // truth rather than re-deriving it.
-func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRevision, revision int64) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
+// prepareIntentGraphWithChoice expresses a reviewed decomposition change
+// through the existing native issue owner, adopting either the serving
+// advised graph (nil choice) or exactly one pre-chosen planner candidate.
+// The chosen path performs no triplet or template evaluation: submitted,
+// adopted and delivered bindings all derive from the same chosen tasks.
+func (c *Coordinator) prepareIntentGraphWithChoice(ctx context.Context, r factory.IntentRevision, revision int64, chosen *ChosenIntentPlan) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
+	scoped := func(previous *factory.IntentRevision) ([]factory.IntentTask, error) {
+		if chosen != nil {
+			return c.scopedIntentTasksFromChosen(ctx, r, chosen)
+		}
+		return c.scopedIntentTasks(ctx, r, previous)
+	}
 	previous, err := c.Store.PreviousGeneratedIntent(ctx, r.Intent, r.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		tasks, e := c.scopedIntentTasks(ctx, r, nil)
+		tasks, e := scoped(nil)
 		if e != nil {
 			return sdk.IssueGraphPayload{}, nil, nil, nil, e
 		}
@@ -70,7 +114,7 @@ func (c *Coordinator) prepareIntentGraph(ctx context.Context, r factory.IntentRe
 	}
 	priorSubmitted := previous
 	priorSubmitted.Tasks = generation.SubmittedTasks
-	tasks, err := c.scopedIntentTasks(ctx, r, &priorSubmitted)
+	tasks, err := scoped(&priorSubmitted)
 	if err != nil {
 		return sdk.IssueGraphPayload{}, nil, nil, nil, err
 	}

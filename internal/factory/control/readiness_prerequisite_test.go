@@ -20,10 +20,12 @@ func TestCodePrereqRequiresAttributableOriginalClosure(t *testing.T) {
 		return confirmation, err
 	}
 	fx.wire(exec)
+	ctx := context.Background()
+	fx.pass(t)
+	authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
 	if report := fx.pass(t); len(report.Merged) != 1 {
 		t.Fatalf("native completion did not record: %+v", report)
 	}
-	ctx := context.Background()
 	endpoint, err := fx.publish.db.AcceptanceDecision(ctx, p.Acceptance)
 	if err != nil {
 		t.Fatal(err)

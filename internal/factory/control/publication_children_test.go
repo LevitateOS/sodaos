@@ -373,7 +373,10 @@ func TestPublishPassPersistsD07CyclesFreshVsReplay(t *testing.T) {
 	if !ok {
 		t.Fatal("correction lacks its current check assessment")
 	}
-	wantCorrectionDigest := reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, &prior, assessment)
+	if prior.Legacy == nil || prior.Verdict != "request-changes" {
+		t.Fatalf("current verdict is not the legacy findings report: %+v", prior)
+	}
+	wantCorrectionDigest := reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, prior.Legacy, assessment)
 	if second.Round != 2 || second.Head != p.Candidate || second.BaseOID != p.PRCreate.BaseOID ||
 		second.FindingDigest != wantCorrectionDigest || second.TriggerDecision != "correction-after-review" ||
 		second.ReviewerAssignment == first.ReviewerAssignment || second.CorrectionAssignment == first.ReviewerAssignment ||

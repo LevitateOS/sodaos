@@ -18,6 +18,8 @@ var (
 	ErrIntentPlanningExternal    = errors.New("funded semantic planning capability is unavailable")
 	ErrIntentPlanningCancelled   = errors.New("intent planning was cancelled")
 	ErrIntentPlanningInvestigate = errors.New("intent planning needs source investigation first")
+	ErrIntentPlanningAttention   = errors.New("intent planning needs a product decision first")
+	ErrIntentPlanningAmbiguous   = errors.New("intent planning needs a funded single choice")
 )
 
 // SemanticPlanner produces candidate issue graphs from planner outputs.
@@ -123,4 +125,139 @@ func PlanIntentDecomposition(ctx context.Context, subject factory.ExecutionSubje
 		return factory.SemanticPlannerOutput{}, err
 	}
 	return out, nil
+}
+
+// ChosenIntentPlan is the single planner candidate the Generate work command
+// adopts exactly. It binds the assessed planning input (intent, revision,
+// operation) to the one chosen candidate key and its task graph. Native
+// adoption consumes these tasks verbatim: no second triplet judgment or
+// template restructuring rewrites them on the serving path.
+type ChosenIntentPlan struct {
+	Intent    string
+	Revision  string
+	Operation string
+	Key       string
+	Tasks     []factory.IntentTask
+}
+
+// ChooseSingleCandidate reduces one planner answer to its single adopted
+// candidate. Assessment is pure and re-runs here, so replaying the same
+// input and output reaches the same choice and spends nothing. An attention
+// answer carries no candidates and reports ErrIntentPlanningAttention: the
+// named product decision needs human review, not another automatic batch.
+// A multi-candidate answer reports ErrIntentPlanningAmbiguous: choosing
+// among semantic alternatives needs funded judgment, and silently taking
+// the first candidate would invent authority.
+func ChooseSingleCandidate(in factory.SemanticPlannerInput, out factory.SemanticPlannerOutput) (ChosenIntentPlan, error) {
+	if err := factory.AssessSemanticOutput(in, out); err != nil {
+		return ChosenIntentPlan{}, err
+	}
+	if out.Attention != "" {
+		return ChosenIntentPlan{}, fmt.Errorf("%w: %s", ErrIntentPlanningAttention, out.Attention)
+	}
+	if len(out.Candidates) != 1 {
+		return ChosenIntentPlan{}, fmt.Errorf("%w: planner offered %d candidates", ErrIntentPlanningAmbiguous, len(out.Candidates))
+	}
+	candidate := out.Candidates[0]
+	chosen := ChosenIntentPlan{
+		Intent: in.Head.Intent, Revision: in.Head.ID, Operation: in.Operation,
+		Key: candidate.Key, Tasks: append([]factory.IntentTask(nil), candidate.Tasks...),
+	}
+	if chosen.Key == "" {
+		return ChosenIntentPlan{}, errors.New("chosen planner candidate lacks its key")
+	}
+	return chosen, nil
+}
+
+// PlanSingleIntentDecomposition is the plan-time joint for the pre-issue
+// semantic planning run behind the Generate work command: it admits one
+// run, consumes the funded planner answer, assesses it, and reduces a
+// single candidate to the choice native adoption binds. Deterministic
+// orchestration (admission, assessment, single choice) stays separate from
+// provider semantics: a missing funded account reports the precise
+// external gate, provider failures and invalid answers return for the
+// caller to record, and attention stays visible instead of triggering
+// another batch. A multi-candidate answer refuses here without spending:
+// resolving alternatives needs the finite funded choice at serve time
+// (see ChoosePlannedCandidate), never a silent first-pick.
+func PlanSingleIntentDecomposition(ctx context.Context, subject factory.ExecutionSubject, phase, role string, head factory.IntentRevision, allowanceAvailable bool, in factory.SemanticPlannerInput, planner SemanticPlanner) (ChosenIntentPlan, error) {
+	out, err := PlanIntentDecomposition(ctx, subject, phase, role, head, allowanceAvailable, in, planner)
+	if err != nil {
+		return ChosenIntentPlan{}, err
+	}
+	return ChooseSingleCandidate(in, out)
+}
+
+// plannedChoiceRubric judges planner-produced candidates against the
+// accepted product direction. Every candidate already preserves accepted
+// outcomes, idea bindings and bounds (assessed); choose the task
+// boundaries and prerequisite edges that best remove overlap or
+// fragmentation without changing approved outcomes. Judge only supplied
+// facts; grant no authority, access or spending.
+const plannedChoiceRubric = "Compare the supplied planner candidates against the accepted product direction. Every candidate preserves accepted outcomes, idea bindings and bounds; choose the task boundaries and prerequisite edges that best remove overlap or fragmentation. Judge only supplied facts; grant no authority, access or spending."
+
+// ChoosePlannedCandidate resolves one planner answer to its adopted
+// candidate at serve time, against the current accepted head. A single
+// candidate adopts directly with no comparative call; multiple
+// alternatives resolve through exactly one finite funded choice among the
+// planner's own candidates — reserved against the planning allowance,
+// fingerprinted and replay-cached, so resumes spend nothing further. An
+// uncertain or failed funded choice refuses visibly instead of guessing,
+// and attention stays visible instead of triggering another batch. The
+// returned choice binds the planning input head (usually the reviewed
+// draft); the accepted successor adopts it as its predecessor.
+func (c *Coordinator) ChoosePlannedCandidate(ctx context.Context, r factory.IntentRevision, in factory.SemanticPlannerInput, out factory.SemanticPlannerOutput) (ChosenIntentPlan, error) {
+	if err := r.Validate(); err != nil {
+		return ChosenIntentPlan{}, err
+	}
+	if r.State != "accepted" {
+		return ChosenIntentPlan{}, errors.New("planned choice serves the accepted direction")
+	}
+	if err := factory.AssessSemanticOutput(in, out); err != nil {
+		return ChosenIntentPlan{}, err
+	}
+	if out.Attention != "" {
+		return ChosenIntentPlan{}, fmt.Errorf("%w: %s", ErrIntentPlanningAttention, out.Attention)
+	}
+	if len(out.Candidates) == 1 {
+		return ChooseSingleCandidate(in, out)
+	}
+	if len(out.Candidates) == 0 {
+		return ChosenIntentPlan{}, fmt.Errorf("%w: planner offered no candidates", ErrIntentPlanningAmbiguous)
+	}
+	byKey := map[string]factory.SemanticCandidate{}
+	options := make(map[string]any, len(out.Candidates))
+	for _, candidate := range out.Candidates {
+		byKey[candidate.Key] = candidate
+		options[candidate.Key] = candidate.Rationale
+	}
+	type choiceEvidence struct {
+		Current    factory.IntentRevision      `json:"current"`
+		Candidates []factory.SemanticCandidate `json:"candidates"`
+	}
+	state := choiceEvidence{Current: effectiveDecompositionScope(r), Candidates: out.Candidates}
+	answer, _, err := c.AdvisePurpose(ctx, PurposeAdvice{
+		Purpose:  factory.JudgmentDecomposition,
+		State:    state,
+		Question: plannedChoiceRubric,
+		Options:  options,
+		Outcome:  "planned-choice",
+		Reserve: func(ctx context.Context, snapshot string) (bool, error) {
+			return c.Store.ReserveIntentJudgment(ctx, r, snapshot)
+		},
+	})
+	if err != nil {
+		return ChosenIntentPlan{}, err
+	}
+	if answer.Confidence < 0.5 {
+		return ChosenIntentPlan{}, fmt.Errorf("%w: funded choice is uncertain", ErrIntentPlanningAmbiguous)
+	}
+	candidate, ok := byKey[answer.Selected]
+	if !ok {
+		return ChosenIntentPlan{}, errors.New("funded choice selected an unknown candidate")
+	}
+	return ChosenIntentPlan{
+		Intent: in.Head.Intent, Revision: in.Head.ID, Operation: in.Operation,
+		Key: candidate.Key, Tasks: append([]factory.IntentTask(nil), candidate.Tasks...),
+	}, nil
 }
