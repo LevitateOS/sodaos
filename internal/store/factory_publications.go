@@ -167,6 +167,41 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 	return tx.Commit()
 }
 
+// publicationTupleTransitionAllowed pins the current-tuple lifecycle for
+// publicationUpdateAllowed. BaseSHA above stays the immutable original
+// admitted source base and is never compared to Tuple.Base here. A nil
+// tuple stays nil for nondependent updates; initialization requires
+// Revision 0 with a valid shape bound to the next candidate; a present
+// tuple never drops to nil; an unchanged value (even a new pointer) stays
+// allowed; any other change requires exactly old Revision+1 with a valid
+// shape bound to the next candidate. Fresh native observation and tuple
+// CAS initialization belong to serving callers; this guard alone is not
+// native-authority proof.
+func publicationTupleTransitionAllowed(old, next factory.Publication) error {
+	oldTuple, nextTuple := old.Tuple, next.Tuple
+	switch {
+	case oldTuple == nil && nextTuple == nil:
+		return nil
+	case oldTuple == nil:
+		if nextTuple.Revision != 0 {
+			return ErrPublicationConflict
+		}
+	case nextTuple == nil:
+		return ErrPublicationConflict
+	case *oldTuple == *nextTuple:
+		return nil
+	case nextTuple.Revision != oldTuple.Revision+1:
+		return ErrPublicationConflict
+	}
+	if err := nextTuple.Validate(); err != nil {
+		return ErrPublicationConflict
+	}
+	if nextTuple.Head != next.Candidate {
+		return ErrPublicationConflict
+	}
+	return nil
+}
+
 func publicationUpdateAllowed(old, next factory.Publication) error {
 	if old.ID != next.ID || old.AssignmentID != next.AssignmentID || old.ProjectID != next.ProjectID ||
 		old.Role != next.Role || old.Acceptance != next.Acceptance || old.Preparation != next.Preparation ||
@@ -190,6 +225,9 @@ func publicationUpdateAllowed(old, next factory.Publication) error {
 		if next.Run != committedRun {
 			return ErrPublicationConflict
 		}
+	}
+	if err := publicationTupleTransitionAllowed(old, next); err != nil {
+		return err
 	}
 	if len(next.Corrections) < len(old.Corrections) {
 		return ErrPublicationConflict

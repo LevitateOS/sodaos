@@ -188,7 +188,10 @@ func (p Publication) Validate() error {
 		if err := p.Tuple.Validate(); err != nil {
 			return err
 		}
-		if p.Tuple.Head != p.Candidate || p.Tuple.Base != p.BaseSHA {
+		// The tuple head stays bound to the publication candidate. The tuple
+		// base tracks the current native base independently of BaseSHA, which
+		// remains the immutable original admitted source/preparation base.
+		if p.Tuple.Head != p.Candidate {
 			return errors.New("candidate tuple differs from its publication")
 		}
 	}
