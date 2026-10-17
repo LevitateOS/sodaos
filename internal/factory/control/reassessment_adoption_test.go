@@ -148,45 +148,45 @@ func TestAdmitReassessmentCoder(t *testing.T) {
 	a := adoptAssignment(t, completion, cycle)
 	c := adoptCycle(completion, cycle)
 	c.Ledger.CoderRuns = []string{a.Run}
-	if err := AdmitReassessmentCoder(c, a, factory.ReassessmentOptionReassess); err != nil {
+	if err := factory.AdmitReassessmentCoder(c, a, factory.ReassessmentOptionReassess); err != nil {
 		t.Fatal("fresh reassessment root refused:", err)
 	}
-	if err := AdmitReassessmentCoder(c, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionContinue); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionContinue); err == nil {
 		t.Fatal("continue launched an agent")
 	}
 	child := adoptAssignment(t, completion, cycle)
 	child.ParentAssignment = adoptHex('7', 32)
 	child.AttemptRoot = adoptHex('7', 32)
-	if err := AdmitReassessmentCoder(c, child, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, child, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("parented assignment reopened its completed root")
 	}
 	publishing := adoptAssignment(t, completion, cycle)
 	publishing.PublicationAssignment = adoptHex('8', 32)
-	if err := AdmitReassessmentCoder(c, publishing, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, publishing, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("publishing assignment bound its cycle")
 	}
 	reviewer := adoptAssignment(t, completion, cycle)
 	reviewer.Role = project.RoleReviewer
-	if err := AdmitReassessmentCoder(c, reviewer, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, reviewer, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("reviewer admitted to the coder phase")
 	}
 	wrongPhase := a
 	wrongPhase.Phase = project.ExecutionInvestigate
-	if err := AdmitReassessmentCoder(c, wrongPhase, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, wrongPhase, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("wrong phase admitted its coder")
 	}
 	other := adoptCycle(adoptHex('0', 32), cycle)
-	if err := AdmitReassessmentCoder(other, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(other, adoptAssignment(t, completion, cycle), factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("another completion bound its cycle")
 	}
 	otherCycle := c
 	otherCycle.CycleID = adoptHex('3', 32)
-	if err := AdmitReassessmentCoder(otherCycle, a, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(otherCycle, a, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("another cycle bound its assignment")
 	}
 	bare := c
 	bare.Ledger = factory.ReassessmentLedger{}
-	if err := AdmitReassessmentCoder(bare, a, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(bare, a, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("coder admitted without its ledger run")
 	}
 	wrongRun := a
@@ -195,7 +195,7 @@ func TestAdmitReassessmentCoder(t *testing.T) {
 	if err := wrongRun.Validate(); err != nil {
 		t.Fatal("wrong-run fixture refused its own validation:", err)
 	}
-	if err := AdmitReassessmentCoder(c, wrongRun, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, wrongRun, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("unrecorded run bound its cycle")
 	}
 	wrongRepo := a
@@ -203,12 +203,12 @@ func TestAdmitReassessmentCoder(t *testing.T) {
 	if err := wrongRepo.Validate(); err != nil {
 		t.Fatal("wrong-repo fixture refused its own validation:", err)
 	}
-	if err := AdmitReassessmentCoder(c, wrongRepo, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, wrongRepo, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("cross-repository reassessment admitted")
 	}
 	attention := c
 	attention.State = factory.ReassessmentAttention
-	if err := AdmitReassessmentCoder(attention, a, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(attention, a, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("attention cycle admitted its coder")
 	}
 	stale := a
@@ -219,7 +219,7 @@ func TestAdmitReassessmentCoder(t *testing.T) {
 	if err := stale.Validate(); err != nil {
 		t.Fatal("stale-attempt fixture refused its own validation:", err)
 	}
-	if err := AdmitReassessmentCoder(c, stale, factory.ReassessmentOptionReassess); err == nil {
+	if err := factory.AdmitReassessmentCoder(c, stale, factory.ReassessmentOptionReassess); err == nil {
 		t.Fatal("stale second attempt reused its root")
 	}
 }

@@ -593,6 +593,52 @@ func (c ReassessmentCycle) BindsAssignment(a Assignment) error {
 	return nil
 }
 
+// AdmitReassessmentCoder admits the cycle's single completion-subject
+// coder (T35) against the exact proposed recorded cycle BEFORE packet
+// commit. A continue decision launches no agent; a parented or
+// publishing assignment never reopens the completed root; the wrong
+// subject, role or phase refuses. The recorded cycle itself is gated:
+// it must validate, sit in the reassessing state, carry the reassess
+// decision matching the caller's, name the assignment's repository, and
+// record exactly the assignment's paid run. Admission is fresh assigned
+// work only: first attempt, sole run in history, assigned stage.
+func AdmitReassessmentCoder(cycle ReassessmentCycle, a Assignment, decision string) error {
+	if decision != ReassessmentOptionReassess {
+		return errors.New("continue launches no reassessment agent")
+	}
+	if err := cycle.Validate(); err != nil {
+		return err
+	}
+	if cycle.State != ReassessmentReassessing {
+		return errors.New("reassessment cycle is not in its reassessing state")
+	}
+	if cycle.Decision != decision || cycle.Decision != ReassessmentOptionReassess {
+		return errors.New("reassessment cycle lacks its reassess decision")
+	}
+	if len(cycle.Ledger.CoderRuns) != 1 {
+		return errors.New("reassessment run needs its admitted coder run")
+	}
+	if err := cycle.BindsAssignment(a); err != nil {
+		return err
+	}
+	if cycle.Repository != a.Repository {
+		return errors.New("reassessment assignment does not match its cycle repository")
+	}
+	if cycle.Ledger.CoderRuns[0] != a.Run {
+		return errors.New("reassessment run does not match its admitted coder run")
+	}
+	if a.Attempts != 1 || len(a.RunHistory) != 1 || a.RunHistory[0] != a.Run {
+		return errors.New("reassessment coder needs its fresh assigned run")
+	}
+	if a.Stage != AssignmentAssigned {
+		return errors.New("reassessment coder needs its fresh assigned work")
+	}
+	if a.Phase != project.ExecutionReassess || !ValidPhaseRole(a.Phase, a.Role) {
+		return errors.New("reassessment coder needs its reassess coder binding")
+	}
+	return nil
+}
+
 // ReassessmentIntentChange proposes the full replacement D02 graph for
 // one intent: tasks are decision-keyed graph tasks, never native issue
 // IDs. The delta stays inside idle factory-generated tasks within their
