@@ -491,6 +491,9 @@ pub(crate) fn reconcile_boot(args: &[String]) -> Result<(), Failure> {
         };
         no_other_repairs()?;
         let deadline = Instant::now() + Duration::from_secs(120);
+        // Boot consumes the same importer custody: an acquisition that
+        // outlived its operation retires here or fences the finalize.
+        crate::importer_custody::reconcile(Path::new(admission::DIRECTORY), 0, deadline)?;
         verify_active(&record, deadline)?;
         finish(record.clone(), deadline)?;
         Ok(Some(record))
@@ -544,6 +547,11 @@ fn run_operation(args: &[String]) -> Result<(), String> {
             verify_active(record, deadline)?;
             return finish(record.clone(), deadline);
         }
+    }
+    if o.recover {
+        // Recovery consumes the same importer custody the run recorded: an
+        // outstanding acquisition retires here or fences recovery.
+        crate::importer_custody::reconcile(Path::new(admission::DIRECTORY), 0, deadline)?;
     }
     let directory = o
         .directory
@@ -624,7 +632,9 @@ fn run_operation(args: &[String]) -> Result<(), String> {
         target.qualification_scope()
     );
     let content = release_stage::StagedContent::open(&target, deadline)?;
-    if !o.recover {
+    // Preview is read-only: image acquisition runs under importer custody
+    // in the real run, never in preflight.
+    if !o.recover && !o.check {
         record.extensions.prefetch(deadline)?;
     }
     record.extensions.retained(false, deadline)?;
@@ -655,7 +665,7 @@ fn run_operation(args: &[String]) -> Result<(), String> {
         deadline,
     )?;
     if o.check {
-        println!("Release {} preflight: {} exact Projects idle; native activation and support replacement have not run{}",record.target_release,entries.len(),if fixture { "; qualification fixture only" } else { "" });
+        println!("Release {} preflight: {} exact Projects idle; native activation, support replacement and image acquisition have not run{}",record.target_release,entries.len(),if fixture { "; qualification fixture only" } else { "" });
         return content.close(deadline);
     }
     target.confirm_source(deadline)?;
@@ -682,6 +692,9 @@ fn run_operation(args: &[String]) -> Result<(), String> {
 fn rollback(deadline: Instant) -> Result<(), String> {
     let pending = fs::symlink_metadata(path(RECORD)).is_ok();
     let mut record = load(if pending { RECORD } else { LAST })?;
+    // Rollback consumes the same importer custody: outstanding acquisition
+    // retires here or fences the rollback.
+    crate::importer_custody::reconcile(Path::new(admission::DIRECTORY), 0, deadline)?;
     if !pending {
         record
             .extensions

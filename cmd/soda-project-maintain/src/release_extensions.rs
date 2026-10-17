@@ -354,16 +354,37 @@ fn inputs(
 
 fn ensure_images(payload: &Payload, tailnet: bool, deadline: Instant) -> Result<(), String> {
     // Same importer and native Podman store as boot; no embedded OCI reader.
+    // Every acquisition runs under durable custody: the exact payload and
+    // argv bind before launch, the group identity binds at launch, and
+    // retirement is recorded after the wait loop verifies the empty group.
+    // A failed acquisition keeps its launched custody so recovery either
+    // retires the group or fences; it never silently releases descendants.
     let dir = inputs(payload, None, deadline)?;
     let path = dir.join("payload.json");
     let path = path.to_str().ok_or("invalid release input path")?;
+    let bytes = fs::read(path).map_err(|_| "release payload unreadable")?;
+    let digest = format!("{:x}", Sha256::digest(&bytes));
+    let custody = Path::new(soda_host::project::admission::DIRECTORY);
     for set in std::iter::once("required").chain(tailnet.then_some("tailnet")) {
-        crate::command::run_group(
+        let argv = vec![
+            "ensure".to_string(),
+            "--payload".to_string(),
+            path.to_string(),
+            "--set".to_string(),
+            set.to_string(),
+        ];
+        let args: Vec<&str> = argv.iter().map(String::as_str).collect();
+        crate::importer_custody::acquire(custody, &digest, &argv, 0)?;
+        let launched = crate::command::run_group_observed(
             "/usr/libexec/soda/soda-image-import",
-            &["ensure", "--payload", path, "--set", set],
+            &args,
             deadline,
-        )
-        .map_err(|_| "selected release image acquisition failed")?;
+            |pgid| crate::importer_custody::launched(custody, &digest, &argv, pgid, 0),
+        );
+        match launched {
+            Ok(_) => crate::importer_custody::retired(custody, &digest, 0)?,
+            Err(_) => return Err("selected release image acquisition failed".into()),
+        }
     }
     Ok(())
 }

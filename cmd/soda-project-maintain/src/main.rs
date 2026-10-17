@@ -8,6 +8,7 @@ mod config;
 mod config_validation;
 mod config_wire;
 mod filesystem;
+mod importer_custody;
 mod interface;
 mod interface_admission;
 mod network;

@@ -24,14 +24,22 @@ pub(crate) fn run(program: &str, args: &[&str], deadline: Instant) -> Result<Vec
     wait_output(child, deadline)
 }
 
-/// The importer owns Podman children; cancellation retires its whole group.
-pub(crate) fn run_group(
+/// Group launch with a post-spawn observation hook. The importer owns
+/// Podman children; every return path retires its whole group, including
+/// leader exit: success never releases custody while an owned descendant
+/// may still execute. The hook runs after
+/// the child is spawned in its own group and before the wait loop, so the
+/// caller can persist acquisition custody (pgid plus leader identity)
+/// while the child handle is still owned: the pid cannot be reused until
+/// it is reaped, so the recorded group identity stays pinned.
+pub(crate) fn run_group_observed(
     program: &str,
     args: &[&str],
     deadline: Instant,
+    observed: impl FnOnce(i32) -> Result<(), String>,
 ) -> Result<Vec<u8>, String> {
     use std::os::unix::process::CommandExt;
-    let child = Command::new(program)
+    let mut child = Command::new(program)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -40,7 +48,117 @@ pub(crate) fn run_group(
         .spawn()
         .map_err(|_| "project maintenance command failed")?;
     let group = child.id() as i32;
+    if let Err(hook) = observed(group) {
+        // Owned cleanup on launch-persistence failure: the child is still
+        // unreaped, so the group id is pinned and safe to signal. The
+        // failed persistence fences recovery through the acquired custody
+        // left on disk; the child itself is never dropped live and unowned.
+        unsafe {
+            libc::killpg(group, libc::SIGKILL);
+        }
+        let _ = child.wait();
+        return Err(hook);
+    }
     wait_output_owned(child, deadline, Some(group))
+}
+
+/// wait_exit_unreaped reports whether one owned child has exited without
+/// reaping it: `waitid` with `WNOWAIT` leaves the zombie anchor in place,
+/// so the pid cannot be reused while it is still owned. A reaped pid pins
+/// nothing, so group-owned execution must never signal a numeric group
+/// after `try_wait` or `wait` has released it. The success flag comes from
+/// the same observation: only a `CLD_EXITED` child with status zero
+/// counts, and the anchor stays unreaped either way.
+fn wait_exit_unreaped(pid: u32) -> Result<Option<bool>, String> {
+    let failed = String::from("project maintenance command failed");
+    loop {
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        let r = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                pid as libc::id_t,
+                &mut info,
+                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+            )
+        };
+        if r == 0 {
+            unsafe {
+                if info.si_pid() == 0 {
+                    return Ok(None);
+                }
+                return Ok(Some(
+                    info.si_code == libc::CLD_EXITED && info.si_status() == 0,
+                ));
+            }
+        }
+        let e = std::io::Error::last_os_error();
+        if e.kind() == std::io::ErrorKind::Interrupted {
+            continue;
+        }
+        return Err(failed);
+    }
+}
+
+/// group_executing_members lists one process group's still-executing
+/// members by scanning `/proc`: entries in zombie or dead states execute
+/// nothing, so only live members fence retirement. Vanishing entries are
+/// races, not failures; an unreadable `/proc` itself fails closed.
+pub(crate) fn group_executing_members(group: i32) -> Result<Vec<i32>, String> {
+    let failed = String::from("project maintenance command failed");
+    let mut members = Vec::new();
+    let proc = fs::read_dir("/proc").map_err(|_| failed.clone())?;
+    for entry in proc.flatten() {
+        let pid: i32 = match entry.file_name().to_str().and_then(|s| s.parse().ok()) {
+            Some(pid) => pid,
+            None => continue,
+        };
+        let stat = match fs::read_to_string(format!("/proc/{pid}/stat")) {
+            Ok(stat) => stat,
+            Err(_) => continue,
+        };
+        let after = match stat.rsplit_once(") ") {
+            Some((_, rest)) => rest,
+            None => continue,
+        };
+        let mut fields = after.split_whitespace();
+        let state = fields.next().unwrap_or("");
+        if state.starts_with('Z') || state.starts_with('X') || state.starts_with('x') {
+            continue;
+        }
+        fields.next();
+        let pgrp: i32 = fields.next().and_then(|s| s.parse().ok()).unwrap_or(-1);
+        if pgrp == group {
+            members.push(pid);
+        }
+    }
+    members.sort_unstable();
+    Ok(members)
+}
+
+/// retire_group verifies no owned descendant executes after leader exit,
+/// while the leader's zombie anchor is still owned: the anchor pins the
+/// pid, so the group id cannot have been reused and signaling it is
+/// legitimate. An empty group retires silently; survivors are signaled
+/// and re-verified until the caller deadline, and anything still alive
+/// fences the result instead of releasing custody. Groups 0 and 1 are
+/// never signaled: 0 names our own group and 1 names init.
+pub(crate) fn retire_group(group: i32, deadline: Instant) -> Result<(), String> {
+    let failed = String::from("project maintenance command failed");
+    if group <= 1 {
+        return Err(failed);
+    }
+    loop {
+        if group_executing_members(group)?.is_empty() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(failed);
+        }
+        unsafe {
+            libc::killpg(group, libc::SIGKILL);
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
 }
 
 // podman_streamed feeds the local tar archive through an interruptible
@@ -215,7 +333,7 @@ fn wait_output_owned(
         }
     }
     let mut out = Vec::new();
-    let mut child_status = None;
+    let mut exited = false;
     let mut exited_at = None;
     let mut buf = [0u8; 65536];
     loop {
@@ -230,10 +348,10 @@ fn wait_output_owned(
             let _ = child.wait();
             return Err(failed);
         }
-        if child_status.is_none() {
-            match child.try_wait() {
-                Ok(Some(status)) => {
-                    child_status = Some(status);
+        if !exited {
+            match wait_exit_unreaped(child.id()) {
+                Ok(Some(_)) => {
+                    exited = true;
                     exited_at = Some(now);
                 }
                 Ok(None) => {}
@@ -288,14 +406,18 @@ fn wait_output_owned(
         if close_stdout {
             stdout = None;
         }
-        if let Some(status) = child_status {
+        if exited {
             if eof {
+                // The leader exited but stays unreaped: its zombie anchor
+                // pins the group id, so retiring the group here signals
+                // only owned descendants. The final reap below is the only
+                // reap on this path; after it no numeric group from this
+                // execution may be signaled again.
+                if let Some(group) = group {
+                    retire_group(group, deadline)?;
+                }
+                let status = child.wait().map_err(|_| failed.clone())?;
                 if !status.success() {
-                    if let Some(group) = group {
-                        unsafe {
-                            libc::killpg(group, libc::SIGKILL);
-                        }
-                    }
                     return Err(failed);
                 }
                 return Ok(out);
@@ -303,10 +425,9 @@ fn wait_output_owned(
             if exited_at.is_some_and(|at| now.duration_since(at) >= Duration::from_secs(2)) {
                 stdout.take();
                 if let Some(group) = group {
-                    unsafe {
-                        libc::killpg(group, libc::SIGKILL);
-                    }
+                    let _ = retire_group(group, deadline);
                 }
+                let _ = child.wait();
                 return Err(failed);
             }
         }
@@ -396,10 +517,72 @@ mod custody_tests {
 mod acquisition_cancellation_tests {
     use super::*;
     #[test]
+    fn leader_exit_retires_surviving_descendant_before_success() {
+        // The descendant closes stdio and outlives the leader: success
+        // must still reap it instead of releasing custody. Pre-fix this
+        // returned Ok with the descendant executing.
+        let dir = crate::test_support::TestDir::make("importer-successor");
+        let path = dir.path("child.pid");
+        let out = run_group_observed(
+            "/bin/sh",
+            &[
+                "-c",
+                "sleep 30 >&- 2>&- & child=$!; printf '%s' \"$child\" > \"$1\"; exit 0",
+                "probe",
+                &path,
+            ],
+            Instant::now() + Duration::from_secs(30),
+            |_| Ok(()),
+        )
+        .expect("leader exit with a surviving descendant must retire the group");
+        assert!(out.is_empty());
+        let pid = fs::read_to_string(path).unwrap();
+        let state = fs::read_to_string(format!("/proc/{pid}/stat"));
+        assert!(
+            state.is_err() || state.unwrap().rsplit_once(") ").unwrap().1.starts_with('Z'),
+            "descendant still executing after success"
+        );
+    }
+
+    #[test]
+    fn retire_group_never_signals_caller_or_init() {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        assert!(retire_group(0, deadline).is_err());
+        assert!(retire_group(1, deadline).is_err());
+        assert!(group_executing_members(i32::MAX).unwrap().is_empty());
+    }
+
+    #[test]
+    fn launch_persistence_failure_cleans_up_the_owned_child() {
+        // The injected hook fails after spawn: the owned leader must be
+        // killed and reaped by the caller, never dropped live, and the
+        // error must surface so custody stays fenced as acquired.
+        use std::sync::{Arc, Mutex};
+        let seen = Arc::new(Mutex::new(0));
+        let probe = seen.clone();
+        let err = run_group_observed(
+            "/bin/sh",
+            &["-c", "exec sleep 30"],
+            Instant::now() + Duration::from_secs(30),
+            |pgid| {
+                *probe.lock().unwrap() = pgid;
+                Err(String::from("injected persistence failure"))
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, "injected persistence failure");
+        let pgid = *seen.lock().unwrap();
+        assert!(pgid > 1);
+        // The leader was reaped by owned cleanup: no entry remains.
+        assert!(fs::read_to_string(format!("/proc/{pgid}/stat")).is_err());
+        assert!(group_executing_members(pgid).unwrap().is_empty());
+    }
+
+    #[test]
     fn importer_deadline_stops_descendants_before_returning() {
         let dir = crate::test_support::TestDir::make("importer-cancellation");
         let path = dir.path("child.pid");
-        assert!(run_group(
+        assert!(run_group_observed(
             "/bin/sh",
             &[
                 "-c",
@@ -407,7 +590,8 @@ mod acquisition_cancellation_tests {
                 "probe",
                 &path
             ],
-            Instant::now() + Duration::from_millis(300)
+            Instant::now() + Duration::from_millis(300),
+            |_| Ok(())
         )
         .is_err());
         let pid = fs::read_to_string(path).unwrap();
