@@ -42,6 +42,39 @@ func NewCompletionSnapshotSource(observer *forgejo.ServiceObserver) *CompletionS
 	}
 }
 
+// completionPageReader is a tiny purpose-specific SnapshotReader
+// wrapper that charges actual completion-page native calls one EACH
+// at the ReadNativeRevision/ReadSnapshot boundary against the
+// existing readiness-pass budget. The reservation charges the
+// attempt itself, so denied or transiently failed reads keep their
+// charge: called work is never refunded and fictitious body reads
+// are never charged. A nil budget (store-free fixtures) carries no
+// charge.
+//
+// Ownership: Source.ObserveRevision calls the raw Reader directly
+// and stays charged BY ITS CONTROL OWNER — the outer bracket's
+// upfront-2 plus the collector's upfront-2 and restart reservations
+// — never by this wrapper. The wrapper covers page-bracket and
+// body-bracket reads only; no generic forgejo, service or
+// background transport changes.
+type completionPageReader struct {
+	inner forgejo.SnapshotReader
+}
+
+func (w completionPageReader) ReadNativeRevision(ctx context.Context) (extensions.NativeRevisionObservation, error) {
+	if err := control.ReserveCompletionPageCall(ctx); err != nil {
+		return extensions.NativeRevisionObservation{}, err
+	}
+	return w.inner.ReadNativeRevision(ctx)
+}
+
+func (w completionPageReader) ReadSnapshot(ctx context.Context, credential extensions.CredentialFile, req forgejo.SnapshotRequest) (forgejo.NativeSnapshot, error) {
+	if err := control.ReserveCompletionPageCall(ctx); err != nil {
+		return forgejo.NativeSnapshot{}, err
+	}
+	return w.inner.ReadSnapshot(ctx, credential, req)
+}
+
 // ObserveRevision observes the atomic native revision and idle/busy
 // state backing the inventory bracket.
 func (s *CompletionSnapshotSource) ObserveRevision(ctx context.Context) (int64, bool, error) {
@@ -63,23 +96,33 @@ func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, reposito
 	if s == nil || s.Reader == nil {
 		return control.NativeInventoryPage{}, forgejo.ErrUnavailable
 	}
+	// The page budget bounds every page before any native call: at
+	// most min(native 50, floor((remaining-3)/3)) items fit beside
+	// the page's own 3-call bracket, with the outer and collector
+	// final observations already prepaid. Below 1 the source holds
+	// pending before spending a single call.
+	requestLimit := control.CompletionPageItemLimit(ctx)
+	if requestLimit < 1 {
+		return control.NativeInventoryPage{}, control.ErrReadinessPassPending
+	}
 	repositoryID := strconv.FormatInt(repository, 10)
-	before, err := s.Reader.ReadNativeRevision(ctx)
+	reader := completionPageReader{inner: s.Reader}
+	before, err := reader.ReadNativeRevision(ctx)
 	if err != nil {
 		return control.NativeInventoryPage{}, err
 	}
 	if before.Revision < 1 || !before.Idle {
 		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryRevision)
 	}
-	snapshot, err := s.Reader.ReadSnapshot(ctx, s.Credential, forgejo.SnapshotRequest{
+	snapshot, err := reader.ReadSnapshot(ctx, s.Credential, forgejo.SnapshotRequest{
 		RepositoryID: repositoryID,
 		Families:     []forgejo.SnapshotFamily{forgejo.FamilyRepositoryIssues},
-		Limit:        forgejo.SnapshotPageLimit, Cursor: cursor,
+		Limit:        requestLimit, Cursor: cursor,
 	})
 	if err != nil {
 		return control.NativeInventoryPage{}, err
 	}
-	after, err := s.Reader.ReadNativeRevision(ctx)
+	after, err := reader.ReadNativeRevision(ctx)
 	if err != nil {
 		return control.NativeInventoryPage{}, err
 	}
@@ -88,6 +131,12 @@ func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, reposito
 	}
 	if snapshot.RepositoryIssues == nil {
 		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryUnavailable)
+	}
+	// The producer must honor the requested bound: more items than
+	// requested refuse instead of truncating silently, and an
+	// incomplete prefix is never treated as terminal.
+	if len(snapshot.RepositoryIssues.Items) > requestLimit {
+		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryPage)
 	}
 	if err := forgejo.ValidateRepositoryIssuesPage(snapshot.RepositoryIssues, repositoryID, cursor); err != nil {
 		return control.NativeInventoryPage{}, errors.New(control.HoldInventoryPage)
@@ -123,7 +172,7 @@ func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, reposito
 // a hidden body, or a closed or pull-request body refuses rather than
 // sealing a subset or redacted content.
 func (s *CompletionSnapshotSource) readIssueBody(ctx context.Context, repositoryID string, item forgejo.RepositoryIssueItem, revision int64) (factory.CompletionIssueEvidence, error) {
-	snapshot, err := forgejo.BracketedRead(ctx, s.Reader, s.Credential, forgejo.SnapshotRequest{
+	snapshot, err := forgejo.BracketedRead(ctx, completionPageReader{inner: s.Reader}, s.Credential, forgejo.SnapshotRequest{
 		RepositoryID: repositoryID, IssueIndex: item.IssueIndex,
 		Families: []forgejo.SnapshotFamily{forgejo.FamilyIssue, forgejo.FamilyDependencies},
 		Limit:    forgejo.SnapshotPageLimit,

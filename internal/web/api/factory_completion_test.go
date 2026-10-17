@@ -27,9 +27,11 @@ type completionReaderFake struct {
 	snapErr  error
 	moveRev  func(calls int) int64
 	calls    int
+	revs     int
 }
 
 func (f *completionReaderFake) ReadNativeRevision(context.Context) (extensions.NativeRevisionObservation, error) {
+	f.revs++
 	if f.revErr != nil {
 		return extensions.NativeRevisionObservation{}, f.revErr
 	}
@@ -243,6 +245,78 @@ func TestCompletionSnapshotSourceReportsRevisionMove(t *testing.T) {
 	_, err := source.EnumerateIssues(context.Background(), 7, "")
 	if err == nil || err.Error() != control.HoldInventoryRevision {
 		t.Fatalf("err=%v, want the revision hold for the restart path", err)
+	}
+}
+
+// One page costs exactly its actual native calls: the 3-call page
+// bracket (before, snapshot, after) plus one 3-call body bracket
+// per issue. A two-body page spends 3 snapshot reads and 6
+// revision observations; the terminal one-body page adds 2 and 4.
+func TestCompletionSnapshotSourceCountsActualPageCalls(t *testing.T) {
+	fake := completionTwoPageFake()
+	source := NewCompletionSnapshotSource(nil)
+	source.Reader = fake
+	ctx := context.Background()
+	if _, err := source.EnumerateIssues(ctx, 7, ""); err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if fake.calls != 3 || fake.revs != 6 {
+		t.Fatalf("calls=%d revs=%d, want 3 snapshots and 6 observations for the two-body page", fake.calls, fake.revs)
+	}
+	if _, err := source.EnumerateIssues(ctx, 7, "2"); err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	if fake.calls != 5 || fake.revs != 10 {
+		t.Fatalf("calls=%d revs=%d, want 5 snapshots and 10 observations across both pages", fake.calls, fake.revs)
+	}
+}
+
+// An empty complete page costs exactly 3 actual calls: before,
+// snapshot and after, with no fictitious body reads.
+func TestCompletionSnapshotSourceCountsEmptyCompletePage(t *testing.T) {
+	fake := &completionReaderFake{
+		revision: 41, idle: true,
+		pages: map[string][]string{"2": {}},
+		bodies: map[string]forgejo.NativeSnapshot{},
+	}
+	source := NewCompletionSnapshotSource(nil)
+	source.Reader = fake
+	page, err := source.EnumerateIssues(context.Background(), 7, "2")
+	if err != nil {
+		t.Fatalf("empty page: %v", err)
+	}
+	if !page.Complete || len(page.Issues) != 0 {
+		t.Fatalf("page=%+v, want the complete empty page", page)
+	}
+	if fake.calls != 1 || fake.revs != 2 {
+		t.Fatalf("calls=%d revs=%d, want 1 snapshot and 2 observations for the empty page", fake.calls, fake.revs)
+	}
+}
+
+// A producer page larger than the requested limit refuses instead
+// of truncating silently: the over-limit page errors with the page
+// hold after only its 3-call bracket, never reading bodies.
+func TestCompletionSnapshotSourceRefusesOverLimitPage(t *testing.T) {
+	indexes := make([]string, 0, 51)
+	bodies := map[string]forgejo.NativeSnapshot{}
+	for i := 1; i <= 51; i++ {
+		index := strconv.Itoa(i)
+		indexes = append(indexes, index)
+		bodies[index] = completionBody(index, "title "+index, "body "+index)
+	}
+	fake := &completionReaderFake{
+		revision: 41, idle: true,
+		pages: map[string][]string{"": indexes},
+		bodies: bodies,
+	}
+	source := NewCompletionSnapshotSource(nil)
+	source.Reader = fake
+	_, err := source.EnumerateIssues(context.Background(), 7, "")
+	if err == nil || err.Error() != control.HoldInventoryPage {
+		t.Fatalf("err=%v, want %q", err, control.HoldInventoryPage)
+	}
+	if fake.calls != 1 || fake.revs != 2 {
+		t.Fatalf("calls=%d revs=%d, want only the 3-call bracket before the refusal", fake.calls, fake.revs)
 	}
 }
 

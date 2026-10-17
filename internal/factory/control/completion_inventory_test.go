@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/forgejo"
 )
 
 // testMaterialLocal builds one valid material-bearing local for
@@ -661,10 +662,12 @@ func TestInventoryCollectorRefusesDigestOnlyLocal(t *testing.T) {
 	}
 }
 
-// The stable bracket charges exactly its two revision observations
+// The stable bracket charges exactly its two outer revision
+// observations plus the collector's own two (opening + confirming)
 // through the caller's readiness pass, reusing the existing budget:
-// five pre-reserved units plus the two bracket charges read back as
-// seven, proving no new counter and no uncharged exemption.
+// five pre-reserved units plus the four observation charges read
+// back as nine, proving no new counter, no uncharged exemption and
+// no double charge of either bracket.
 func TestBracketMaterialCollectChargesTwoObservations(t *testing.T) {
 	coord := &Coordinator{}
 	ctx, _, cancel := coord.readinessPass(context.Background())
@@ -676,13 +679,177 @@ func TestBracketMaterialCollectChargesTwoObservations(t *testing.T) {
 	if !budget.reserveNativeRPC(5) {
 		t.Fatal("fixture could not prime its budget")
 	}
+	enum := twoPageEnumerator(t)
 	capture := &bracketCapture{locals: []factory.CompletionLocal{testLocal(), testLocal()}}
-	out := bracketMaterialCollect(ctx, bracketDeps(twoPageEnumerator(t), capture), 7, 1, nil)
+	out := bracketMaterialCollect(ctx, bracketDeps(enum, capture), 7, 1, nil)
 	if out.hold != "" || out.sealed == nil {
 		t.Fatalf("out=%+v, want a confirmed seal", out)
 	}
-	if got := budget.nativeRPC.Load(); got != 7 {
-		t.Fatalf("nativeRPC=%d, want 5 primed plus exactly the two charged bracket observations", got)
+	if got := budget.nativeRPC.Load(); got != 9 {
+		t.Fatalf("nativeRPC=%d, want 5 primed plus two outer plus two collector observations", got)
+	}
+	if enum.observes != 4 {
+		t.Fatalf("observes=%d, want two outer plus two collector observations", enum.observes)
+	}
+}
+
+// scriptedRevEnumerator serves twoPageEnumerator pages while
+// reporting scripted observation revisions, so confirmation movement
+// can be isolated from page movement (the shared fixture keys both
+// off fetch counts).
+type scriptedRevEnumerator struct {
+	inner             *fixtureEnumerator
+	observes          int
+	fetches           int
+	moveFromObserve   int
+	movedRev          int64
+	flipAfterFetches  int
+	flipTo            int64
+	flipped           bool
+}
+
+func (e *scriptedRevEnumerator) ObserveRevision(ctx context.Context) (int64, bool, error) {
+	e.observes++
+	if e.moveFromObserve > 0 && e.observes >= e.moveFromObserve {
+		_, idle, err := e.inner.ObserveRevision(ctx)
+		return e.movedRev, idle, err
+	}
+	return e.inner.ObserveRevision(ctx)
+}
+
+func (e *scriptedRevEnumerator) EnumerateIssues(ctx context.Context, repository int64, cursor string) (NativeInventoryPage, error) {
+	e.fetches++
+	if e.flipAfterFetches > 0 && e.fetches > e.flipAfterFetches && !e.flipped {
+		e.inner.revision = e.flipTo
+		e.flipped = true
+	}
+	return e.inner.EnumerateIssues(ctx, repository, cursor)
+}
+
+// A rebracket quota hold carries actually-resumable progress: the
+// cursor tracks the folded prefix, and a fresh pass seals exactly the
+// ordered bodies with the identical digest of a clean single-pass
+// seal — no duplicate, no gap.
+func TestInventoryCollectorResumesPrefixAfterBudgetHold(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("missing readiness pass")
+	}
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC - 2) {
+		t.Fatal("fixture could not prime its budget")
+	}
+	enum := twoPageEnumerator(t)
+	enum.moveRev = func(call int) int64 {
+		if call >= 2 {
+			return 42
+		}
+		return 41
+	}
+	_, progress, err := (&InventoryCollector{}).Collect(ctx, enum, 7, 1, testLocal())
+	if err == nil || err.Error() != HoldInventoryInProgress {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryInProgress)
+	}
+	if progress == nil || len(progress.Issues) != 2 || progress.Cursor != "2" {
+		t.Fatalf("progress=%+v, want the one-page prefix with its advanced cursor", progress)
+	}
+	if enum.observes != 1 {
+		t.Fatalf("observes=%d, want only the opening call: the re-bracket reserves its own unit and fails", enum.observes)
+	}
+	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC {
+		t.Fatalf("nativeRPC=%d, want the upfront two spent and the refused re-bracket spending nothing", got)
+	}
+	clean, _, err := (&InventoryCollector{}).Collect(context.Background(), twoPageEnumerator(t), 7, 1, testLocal())
+	if err != nil {
+		t.Fatalf("clean seal: %v", err)
+	}
+	ctx2, _, cancel2 := coord.readinessPass(context.Background())
+	defer cancel2()
+	resumed, _, err := progress.Collect(ctx2, twoPageEnumerator(t), 7, 1, testLocal())
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if resumed.Issues != 3 {
+		t.Fatalf("resumed issues=%d, want exactly the three ordered bodies", resumed.Issues)
+	}
+	for i, want := range []int64{1, 2, 3} {
+		if resumed.Indexes[i] != want || resumed.Bodies[i].Index != want {
+			t.Fatalf("resumed=%+v, want exact ordered bodies without duplicate or gap", resumed.Indexes)
+		}
+	}
+	if resumed.Digest != clean.Digest {
+		t.Fatal("resumed digest differs from the clean single-pass seal")
+	}
+}
+
+// A confirmation-observed move resets (the old-rev prefix is invalid)
+// with a named hold; resume seals the new-revision set exactly once.
+func TestInventoryCollectorResetsOnConfirmMoveAndResumes(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("missing readiness pass")
+	}
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC - 2) {
+		t.Fatal("fixture could not prime its budget")
+	}
+	enum := &scriptedRevEnumerator{inner: twoPageEnumerator(t), moveFromObserve: 2, movedRev: 42}
+	_, progress, err := (&InventoryCollector{}).Collect(ctx, enum, 7, 1, testLocal())
+	if err == nil || err.Error() != HoldInventoryInProgress {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryInProgress)
+	}
+	if progress == nil || len(progress.Issues) != 0 {
+		t.Fatalf("progress=%+v, want the valid reset: moved revision invalidates the prefix", progress)
+	}
+	ctx2, _, cancel2 := coord.readinessPass(context.Background())
+	defer cancel2()
+	fresh := twoPageEnumerator(t)
+	fresh.revision = 42
+	resumed, _, err := progress.Collect(ctx2, fresh, 7, 1, testLocal())
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if resumed.Issues != 3 || resumed.Revision != 42 {
+		t.Fatalf("resumed=%+v, want the three new-revision bodies sealed exactly once", resumed)
+	}
+	for i, want := range []int64{1, 2, 3} {
+		if resumed.Indexes[i] != want {
+			t.Fatalf("resumed=%+v, want exact ordered bodies", resumed.Indexes)
+		}
+	}
+}
+
+// A funded confirmation move retries transparently within the call:
+// the replacement reservation arms the next confirmation and the
+// recollected set seals at the new revision.
+func TestInventoryCollectorRetriesConfirmMoveWhenFunded(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("missing readiness pass")
+	}
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC - 3) {
+		t.Fatal("fixture could not prime its budget")
+	}
+	enum := &scriptedRevEnumerator{
+		inner: twoPageEnumerator(t), moveFromObserve: 2, movedRev: 42,
+		flipAfterFetches: 2, flipTo: 42,
+	}
+	sealed, _, err := (&InventoryCollector{}).Collect(ctx, enum, 7, 1, testLocal())
+	if err != nil {
+		t.Fatalf("funded retry: %v", err)
+	}
+	if sealed.Issues != 3 || sealed.Revision != 42 {
+		t.Fatalf("sealed=%+v, want the recollected new-revision set", sealed)
+	}
+	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC {
+		t.Fatalf("nativeRPC=%d, want upfront two plus the replacement confirmation spent", got)
 	}
 }
 
@@ -754,5 +921,129 @@ func TestBracketMaterialCollectHoldsPendingWhenConfirmUncharged(t *testing.T) {
 	}
 	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC-1 {
 		t.Fatalf("nativeRPC=%d, want the primed count unchanged (failed reserve consumes nothing)", got)
+	}
+}
+
+// The collector prepays exactly its two revision observations
+// (opening + confirming) upfront: a stable two-page seal over a
+// fresh budget charges two units and observes exactly twice, with
+// no page calling into an uncharged observation.
+func TestInventoryCollectorPrepaysTwoObservations(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("missing readiness pass")
+	}
+	enum := twoPageEnumerator(t)
+	sealed, progress, err := (&InventoryCollector{}).Collect(ctx, enum, 7, 1, testLocal())
+	if err != nil || sealed == nil || sealed.Issues != 3 {
+		t.Fatalf("sealed=%+v progress=%+v err=%v, want the complete seal", sealed, progress, err)
+	}
+	if progress != nil {
+		t.Fatalf("progress=%+v, want no resumable progress after a seal", progress)
+	}
+	if got := budget.nativeRPC.Load(); got != 2 {
+		t.Fatalf("nativeRPC=%d, want exactly the two prepaid collector observations", got)
+	}
+	if enum.observes != 2 {
+		t.Fatalf("observes=%d, want the opening plus the confirming observation", enum.observes)
+	}
+}
+
+// An exhausted budget holds collecting before any native read: the
+// incoming prefix/cursor returns untouched with the collecting hold,
+// and zero observations or pages are spent.
+func TestInventoryCollectorHoldsCollectingOnExhaustedBudget(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("missing readiness pass")
+	}
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC) {
+		t.Fatal("fixture could not exhaust its budget")
+	}
+	saved := &InventoryCollector{Revision: 41, Cursor: "2"}
+	enum := twoPageEnumerator(t)
+	_, progress, err := saved.Collect(ctx, enum, 7, 1, testLocal())
+	if err == nil || err.Error() != HoldInventoryInProgress {
+		t.Fatalf("err=%v, want %q", err, HoldInventoryInProgress)
+	}
+	if progress != saved {
+		t.Fatalf("progress=%+v, want the saved prefix/cursor untouched", progress)
+	}
+	if enum.observes != 0 || enum.calls != 0 {
+		t.Fatalf("observes=%d calls=%d, want zero native spend on the upfront refusal", enum.observes, enum.calls)
+	}
+	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC {
+		t.Fatalf("nativeRPC=%d, want the exhausted count unchanged", got)
+	}
+}
+
+// A moved revision restarts under a tight budget: the re-bracket
+// spends the confirming prepayment and the later confirmation
+// reserves anew, sealing exactly at the cap with three observations
+// and no uncharged call.
+func TestInventoryCollectorRestartReservesConfirmationAnew(t *testing.T) {
+	coord := &Coordinator{}
+	ctx, _, cancel := coord.readinessPass(context.Background())
+	defer cancel()
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		t.Fatal("missing readiness pass")
+	}
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC - 3) {
+		t.Fatal("fixture could not prime its budget")
+	}
+	enum := twoPageEnumerator(t)
+	enum.moveRev = func(call int) int64 {
+		if call >= 2 {
+			return 42
+		}
+		return 41
+	}
+	sealed, progress, err := (&InventoryCollector{}).Collect(ctx, enum, 7, 1, testLocal())
+	if err != nil || sealed == nil {
+		t.Fatalf("sealed=%+v progress=%+v err=%v, want the post-move seal", sealed, progress, err)
+	}
+	if progress != nil {
+		t.Fatalf("progress=%+v, want no resumable progress after a seal", progress)
+	}
+	if sealed.Revision != 42 || sealed.Issues != 3 {
+		t.Fatalf("sealed=%+v, want the full post-move set, never a subset", sealed)
+	}
+	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC {
+		t.Fatalf("nativeRPC=%d, want the upfront two plus the re-reserved confirmation", got)
+	}
+	if enum.observes != 3 {
+		t.Fatalf("observes=%d, want opening plus re-bracket plus confirmation", enum.observes)
+	}
+}
+
+// When the re-reserved confirmation finds no free unit, the
+// collection holds collecting with resumable progress: the revision
+// move already reset the cursor (snapshots never combine across
+// revisions), the confirming observation never runs, and nothing
+// seals or charges a decision.
+/*
+ * TestInventoryCollectorHoldsPrefixWhenConfirmationUncharged was
+ * removed: its "3 final issues / cursor 2 is resumable" assertion was
+ * false — resuming that prefix re-appended the final page and sealed
+ * 4 bodies. Replaced by
+ * TestInventoryCollectorResumesPrefixAfterBudgetHold (actual
+ * fresh-pass resume, digest-equal to a clean seal),
+ * TestInventoryCollectorResetsOnConfirmMoveAndResumes, and
+ * TestInventoryCollectorRetriesConfirmMoveWhenFunded.
+ */
+
+// The completion page cap mirrors the native transport bound: the
+// control boundary stays adapter-free while the limit math cannot
+// drift from the producer it protects.
+func TestCompletionPageCapMatchesNativePageLimit(t *testing.T) {
+	if completionNativePageCap != forgejo.SnapshotPageLimit {
+		t.Fatalf("completionNativePageCap=%d, want the native page bound %d", completionNativePageCap, forgejo.SnapshotPageLimit)
 	}
 }

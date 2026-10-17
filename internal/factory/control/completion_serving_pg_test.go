@@ -68,9 +68,10 @@ func drivePGFixture(t *testing.T) (*mergeFixture, *continueChooser, CompletionDr
 	if open.Stage != factory.MergeOpen {
 		t.Fatalf("merge stage: %+v, want the open row before authorization", open.Stage)
 	}
-	if err := fx.publish.coord.AuthorizeMerge(context.Background(), open.PublicationID, gateTestBinding(t, open)); err != nil {
-		t.Fatalf("authorize merge: %v", err)
-	}
+	// Deterministic union fixture: journal the synthetic clear-review
+	// acceptance through the canonical helper before authorizing.
+	ctx := context.Background()
+	authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
 	if report := fx.pass(t); len(report.Merged) != 1 {
 		t.Fatalf("merge report: %+v", report)
 	}

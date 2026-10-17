@@ -97,9 +97,12 @@ func (n *sqliteNativeDB) truth(t *testing.T, index int64) (title, body string, d
 type sqliteNativeReader struct {
 	native *sqliteNativeDB
 	limit  int
+	revs   int
+	snaps  int
 }
 
 func (r *sqliteNativeReader) ReadNativeRevision(context.Context) (extensions.NativeRevisionObservation, error) {
+	r.revs++
 	var observation extensions.NativeRevisionObservation
 	var idle int
 	if err := r.native.db.QueryRow(`SELECT rev,idle FROM native_revision`).Scan(&observation.Revision, &idle); err != nil {
@@ -110,6 +113,7 @@ func (r *sqliteNativeReader) ReadNativeRevision(context.Context) (extensions.Nat
 }
 
 func (r *sqliteNativeReader) ReadSnapshot(_ context.Context, _ extensions.CredentialFile, req forgejo.SnapshotRequest) (forgejo.NativeSnapshot, error) {
+	r.snaps++
 	for _, family := range req.Families {
 		if family == forgejo.FamilyRepositoryIssues {
 			return r.enumerate(req)
@@ -277,6 +281,17 @@ func TestCompletionServingPathSealDecideReleaseEvidence(t *testing.T) {
 		if body.Title != title || body.Body != content {
 			t.Fatalf("body=%+v, want the file-backed substance", body)
 		}
+	}
+
+	// The seal costs exactly its actual native calls: the
+	// collector's opening and confirming observations plus, per
+	// page, the 3-call page bracket and one 3-call body bracket per
+	// issue. Two pages (two bodies, then one) spend 5 snapshots and
+	// 12 revision observations, proving the source charges actual
+	// calls with no fictitious body reads.
+	reader := adapter.Reader.(*sqliteNativeReader)
+	if reader.snaps != 5 || reader.revs != 12 {
+		t.Fatalf("snaps=%d revs=%d, want 5 snapshots and 12 observations for the two-page seal", reader.snaps, reader.revs)
 	}
 
 	// The exact D13 decision request carries that substance.

@@ -119,6 +119,52 @@ func (b *readinessPass) reserveNativeRPC(count int) bool {
 	}
 }
 
+// completionNativePageCap mirrors forgejo.SnapshotPageLimit without
+// importing the native adapter: the control import boundary stays
+// adapter-free (see CompletionIssueEnumerator), and the collector
+// budget test asserts the equality.
+const completionNativePageCap = 50
+
+// ReserveCompletionPageCall reserves one actual completion-page
+// native call (one ReadNativeRevision or ReadSnapshot inside a
+// completion inventory page) against the existing pass budget. It
+// reports ErrReadinessPassPending when the cap is reached. The
+// reservation charges the attempt itself, so denied or transiently
+// failed reads are never refunded and fictitious body reads are
+// never charged. A nil budget (store-free fixtures) carries no
+// charge and keeps existing test behavior. Serving
+// DriveCompletions owns the actual readiness pass.
+func ReserveCompletionPageCall(ctx context.Context) error {
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		return nil
+	}
+	if !budget.reserveNativeRPC(1) {
+		return ErrReadinessPassPending
+	}
+	return nil
+}
+
+// CompletionPageItemLimit chooses the safe repository-page item
+// limit from the remaining RPC slots: one page costs its 3-call
+// bracket (before, snapshot, after) plus 3 calls per body read, so
+// the limit is min(native 50, floor((remaining-3)/3)) with the outer
+// and collector final observations already prepaid. A nil budget
+// returns the native cap, keeping existing test behavior. A return
+// below 1 means the caller holds pending before any page call.
+func CompletionPageItemLimit(ctx context.Context) int {
+	budget := readinessBudgetFrom(ctx)
+	if budget == nil {
+		return completionNativePageCap
+	}
+	remaining := int(readinessMaxNativeRPC) - int(budget.nativeRPC.Load())
+	limit := (remaining - 3) / 3
+	if limit > completionNativePageCap {
+		limit = completionNativePageCap
+	}
+	return limit
+}
+
 // observePriorityRevision reports one idle native revision for the durable
 // priority inventory. Without an observer the scan revision is zero and
 // members compare against their recorded controls.

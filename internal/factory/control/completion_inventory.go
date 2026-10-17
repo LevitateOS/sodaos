@@ -214,8 +214,57 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 	if enum == nil {
 		return nil, c, errors.New(HoldInventoryUnavailable)
 	}
+	// The collector prepays its TWO revision observations (opening +
+	// confirming) upfront against the existing budget before any
+	// native read. The outer bracket's own 2-reservation in
+	// completion_drive.go stays unchanged and prepaid: these units
+	// cover the collector's own two calls, never the outer ones, so
+	// no observation is charged twice. A short budget holds
+	// collecting with the incoming prefix/cursor untouched and zero
+	// native spend. A nil budget (store-free fixtures) carries no
+	// charge and keeps existing test behavior.
+	budget := readinessBudgetFrom(ctx)
+	confirmReserved := false
+	if budget != nil {
+		if !budget.reserveNativeRPC(2) {
+			return nil, c, errors.New(HoldInventoryInProgress)
+		}
+		// TWO upfront units dedicated to the opening observation
+		// and the eventual confirmation. Every extra restart or
+		// re-bracket observation reserves its OWN unit before the
+		// call and never consumes the held confirmation.
+		confirmReserved = true
+	}
+	// observeRestart reserves its own unit before every call: restart
+	// re-brackets never spend the held confirmation. A refused
+	// reservation holds collecting with the current prefix/cursor
+	// preserved: no partial seal, no decision or provider charge.
+	observeRestart := func() (int64, bool, error) {
+		if budget != nil {
+			if !budget.reserveNativeRPC(1) {
+				return 0, false, errors.New(HoldInventoryInProgress)
+			}
+		}
+		return enum.ObserveRevision(ctx)
+	}
+	// observeConfirm spends the held confirmation once; past it,
+	// every further confirmation reserves anew before the call.
+	observeConfirm := func() (int64, bool, error) {
+		if budget != nil {
+			if confirmReserved {
+				confirmReserved = false
+			} else if !budget.reserveNativeRPC(1) {
+				return 0, false, errors.New(HoldInventoryInProgress)
+			}
+		}
+		return enum.ObserveRevision(ctx)
+	}
+	// The opening observation spends its dedicated upfront unit.
 	revision, idle, err := enum.ObserveRevision(ctx)
-	if err != nil || !idle {
+	if err != nil {
+		return nil, c, errors.New(HoldInventoryRevision)
+	}
+	if !idle {
 		return nil, c, errors.New(HoldInventoryRevision)
 	}
 	if c.Revision != 0 && c.Revision != revision {
@@ -239,9 +288,14 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 		}
 		page, err := enum.EnumerateIssues(ctx, repository, next.Cursor)
 		if err != nil {
-			// The producer names exact holds visibly: oversize,
+			// A quota refusal names the collecting hold with the
+			// current prefix/cursor preserved for resume; the
+			// producer names exact holds visibly: oversize,
 			// malformed and unstable evidence keep their reason
 			// instead of collapsing into unavailable.
+			if errors.Is(err, ErrReadinessPassPending) {
+				return nil, &next, errors.New(HoldInventoryInProgress)
+			}
 			switch err.Error() {
 			case HoldInventoryOversize, HoldInventoryPage, HoldInventoryRevision:
 				return nil, &next, err
@@ -255,9 +309,18 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 			}
 			// Re-bracket before restarting: the saved cursor belongs
 			// to the moved revision and resuming it could omit the
-			// concurrent insertion.
-			fresh, idle, err := enum.ObserveRevision(ctx)
-			if err != nil || !idle {
+			// concurrent insertion. The re-bracket reserves its own
+			// unit and never spends the held confirmation; a refused
+			// reservation holds with the advanced cursor, which
+			// actually resumes.
+			fresh, idle, err := observeRestart()
+			if err != nil {
+				if err.Error() == HoldInventoryInProgress {
+					return nil, &next, err
+				}
+				return nil, &next, errors.New(HoldInventoryRevision)
+			}
+			if !idle {
 				return nil, &next, errors.New(HoldInventoryRevision)
 			}
 			revision = fresh
@@ -273,13 +336,37 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 		for _, issue := range page.Issues {
 			evidence += len(issue.Data)
 		}
+		// The cursor advances with the folded prefix, so any hold
+		// below carries actually-resumable progress: resuming never
+		// re-appends the already-folded final page.
+		next.Cursor = page.NextCursor
 		if page.Complete {
-			confirmed, idle, err := enum.ObserveRevision(ctx)
+			confirmed, idle, err := observeConfirm()
+			// A complete prefix is never held for resume: resuming
+			// it would re-append the final page. Non-seal exits
+			// below restart or reset honestly instead.
+			if err != nil && err.Error() == HoldInventoryInProgress {
+				return nil, &InventoryCollector{Revision: revision, Local: local, Restarts: next.Restarts + 1}, err
+			}
 			if err != nil || !idle || confirmed != revision {
 				if next.Restarts >= maxCollectorRestarts {
 					return nil, &next, errors.New(HoldInventoryRevision)
 				}
-				next = InventoryCollector{Revision: confirmed, Local: local, Restarts: next.Restarts + 1}
+				// The held confirmation is spent (or the call
+				// failed). Reserve its replacement BEFORE fetching
+				// another page; without it, return a valid reset
+				// hold — a moved revision invalidates the old-rev
+				// prefix — rather than an unconfirmable prefix.
+				fresh := revision
+				if err == nil && idle && confirmed != 0 && confirmed != revision {
+					fresh = confirmed
+				}
+				if budget != nil && !budget.reserveNativeRPC(1) {
+					return nil, &InventoryCollector{Revision: fresh, Local: local, Restarts: next.Restarts + 1}, errors.New(HoldInventoryInProgress)
+				}
+				confirmReserved = true
+				revision = fresh
+				next = InventoryCollector{Revision: fresh, Local: local, Restarts: next.Restarts + 1}
 				evidence = 0
 				continue
 			}
@@ -315,7 +402,6 @@ func (c *InventoryCollector) Collect(ctx context.Context, enum CompletionIssueEn
 				Issues: len(next.Issues), Evidence: evidence,
 			}, nil, nil
 		}
-		next.Cursor = page.NextCursor
 	}
 	return nil, &next, errors.New(HoldInventoryInProgress)
 }
