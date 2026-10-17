@@ -229,11 +229,25 @@ func carriedReviewer(t *testing.T, id, root, head, cycleID string, report *facto
 	return factory.Assignment{
 		ID: id, Role: project.RoleReviewer, SourceCommit: head,
 		Phase: project.ExecutionReview, AttemptRoot: root,
-		Run: runID,
+		Run: runID, RunHistory: []string{runID}, Attempts: 1,
+		Stage: factory.AssignmentFinished, Outcome: factory.Succeeded,
+		Reason: factory.AssignReasonReported, FinishedUnix: 1700000001,
+		Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: 9, Acceptance: "d" + strings.Repeat("a", 24)}},
+		PublicationAssignment: strings.Repeat("9", 32), ParentAssignment: strings.Repeat("9", 32),
+		ProjectID: "p" + strings.Repeat("1", 24), CreatedUnix: 1700000000,
+		Acceptance: "d" + strings.Repeat("a", 24), Preparation: "f" + strings.Repeat("b", 24),
+		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "muse-spark-1.3-contributor",
+		Connection: "native", Prompt: []byte("review the candidate"),
+		PromptSHA:  "5044a8c61c76dca4d24e852e42c590e2431855a110cc0ae16e1b2827955b9e02",
+		NativeRev:  1,
+		ActorID:    1,
+		Repository: 7, Issue: 9,
 		Result: &factory.AssignmentResult{Status: "completed", Reported: true, Summary: "review recorded",
+			Phase:        project.ExecutionReview,
 			AssignmentID: id, RunID: runID, RecordedUnix: 1700000000,
 			PhaseResult: &factory.PhaseResult{Version: 2, Phase: project.ExecutionReview,
-				Status: "completed", Output: &factory.PhaseOutput{Review: report}}},
+				Status: "completed", Summary: "review recorded", Output: &factory.PhaseOutput{Review: report}}},
 	}
 }
 
@@ -262,7 +276,7 @@ func TestCarriedHistoryKeepsUnresolvedAcrossHeadChange(t *testing.T) {
 	ctx := context.Background()
 	oldHead, newHead, base := carriedHead('a'), carriedHead('b'), carriedHead('f')
 	key := strings.Repeat("3", 32)
-	pubID, root := strings.Repeat("6", 32), strings.Repeat("7", 32)
+	pubID, root := strings.Repeat("6", 32), strings.Repeat("9", 32)
 	oldReviewer, newReviewer := strings.Repeat("7", 32), strings.Repeat("8", 32)
 	finding := carriedFinding(key, "line 7 lacks a check")
 	prior := carriedCycle(pubID, root, oldHead, base, oldReviewer, 1)
@@ -410,6 +424,56 @@ func TestCarriedHistoryOmittedCoverageHoldsIncomplete(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "incomplete") {
 		t.Fatalf("omitted coverage refused for the wrong reason: %v", err)
+	}
+}
+
+// Matched-run but unfinished, failed or wrong-subject prior results
+// hold incomplete: only a finished succeeded review run on the exact
+// historical subject can retire keys.
+func TestCarriedHistoryUnfinishedFailedWrongSubjectHoldIncomplete(t *testing.T) {
+	s, dsn := carriedEphemeral(t)
+	ctx := context.Background()
+	oldHead, newHead, base := carriedHead('a'), carriedHead('b'), carriedHead('f')
+	key := strings.Repeat("3", 32)
+	pubID, root := strings.Repeat("6", 32), strings.Repeat("9", 32)
+	stage := func(id string, mutate func(*factory.Assignment)) (factory.Publication, factory.ReviewCycle) {
+		p := carriedPublication(pubID, newHead, base)
+		prior := carriedCycle(pubID, root, oldHead, base, id, 1)
+		current := carriedCycle(pubID, root, newHead, base, strings.Repeat("8", 32), 2)
+		a := carriedReviewer(t, id, root, oldHead, prior.ID,
+			&factory.ReviewCycleReport{CycleID: prior.ID,
+				NewFindings: []factory.Finding{carriedFinding(key, "line 7 lacks a check")},
+				Assessments: []factory.FindingAssessment{
+					{Key: key, Status: factory.FindingVerified, Evidence: "checked"},
+				}})
+		mutate(&a)
+		carriedStoreAssignment(t, s, dsn, a)
+		p.ReviewCycles = []factory.ReviewCycle{prior, current}
+		return p, current
+	}
+	coord := &Coordinator{Store: s}
+	cases := map[string]struct {
+		id     string
+		mutate func(*factory.Assignment)
+	}{
+		"unfinished": {strings.Repeat("c", 32), func(a *factory.Assignment) {
+			a.Stage, a.Outcome, a.Reason, a.Result, a.FinishedUnix =
+				factory.AssignmentAssigned, factory.Outcome(""), "", nil, 0
+		}},
+		"failed": {strings.Repeat("d", 32), func(a *factory.Assignment) {
+			a.Outcome, a.Reason = factory.Failed, factory.AssignReasonRunFailed
+		}},
+		"wrong_subject": {strings.Repeat("e", 32), func(a *factory.Assignment) {
+			a.Subject = factory.ExecutionSubject{Kind: factory.SubjectIntent}
+		}},
+	}
+	for name, tc := range cases {
+		p, current := stage(tc.id, tc.mutate)
+		if carried, err := coord.reviewCarriedFindings(ctx, p, current); err == nil {
+			t.Fatalf("%s: invalid prior run succeeded with %d findings", name, len(carried))
+		} else if !strings.Contains(err.Error(), "incomplete") {
+			t.Fatalf("%s: refused for the wrong reason: %v", name, err)
+		}
 	}
 }
 

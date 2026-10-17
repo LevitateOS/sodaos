@@ -237,22 +237,30 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 		// and attempt, with a derived identity, and the reviewer
 		// assignment belongs to that exact cycle and historical head.
 		if prior.PublicationID != p.ID || prior.AttemptRoot == "" || prior.Round < 1 {
-			return errors.New("canonical carried history is incomplete")
+			return errors.New("canonical carried history is incomplete: step01")
 		}
 		if factory.ReviewCycleID(prior.PublicationID, prior.AttemptRoot, prior.Round, prior.Phase) != prior.ID {
-			return errors.New("canonical carried history is incomplete")
+			return errors.New("canonical carried history is incomplete: step02")
 		}
 		if reviewer.ID != prior.ReviewerAssignment || reviewer.Role != project.RoleReviewer ||
 			reviewer.Phase != project.ExecutionReview || reviewer.AttemptRoot != prior.AttemptRoot ||
 			reviewer.SourceCommit != prior.Head {
-			return errors.New("canonical carried history is incomplete")
+			return errors.New("canonical carried history is incomplete: step03")
 		}
-		if reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
-			return errors.New("canonical carried history is incomplete")
+		if reviewer.Subject.Kind != factory.SubjectIssue || reviewer.Subject.Issue == nil ||
+			reviewer.Subject.Issue.Issue != reviewer.Issue {
+			return errors.New("canonical carried history is incomplete: step04")
 		}
-		if reviewer.Result.AssignmentID != reviewer.ID || reviewer.Run == "" ||
-			reviewer.Result.RunID != reviewer.Run {
-			return errors.New("canonical carried history is incomplete")
+		// The canonical finished/succeeded/reported assignment validator
+		// owns stage/outcome/reason/finished-time, run-history binding and
+		// result dispatch binding: the collector never duplicates it.
+		// Retirement evidence additionally needs a succeeded outcome —
+		// failed or cancelled runs never verify findings.
+		if err := reviewer.Validate(); err != nil {
+			return errors.New("canonical carried history is incomplete: step05")
+		}
+		if reviewer.Outcome != factory.Succeeded {
+			return errors.New("canonical carried history is incomplete: step06")
 		}
 		out := reviewer.Result.PhaseResult
 		if out == nil || out.Output == nil ||
@@ -260,7 +268,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 			if reviewer.Result.Review != nil {
 				return errors.New("prior review needs its legacy consumer")
 			}
-			return errors.New("canonical carried history is incomplete")
+			return errors.New("canonical carried history is incomplete: step07")
 		}
 		// Independence: the verifying reviewer run differs from every
 		// correction run recorded for this cycle, when both are known.
@@ -269,7 +277,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 				continue
 			}
 			if journal.RunID == reviewer.Run {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step08")
 			}
 		}
 		return nil
@@ -291,10 +299,10 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 		carriedBefore := append([]factory.Finding(nil), carried...)
 		if out.Review != nil {
 			if out.Review.CycleID != recorded.ID {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step09")
 			}
 			if err := out.Review.Validate(carriedBefore); err != nil {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step10")
 			}
 			for _, finding := range out.Review.NewFindings {
 				if err := add(finding); err != nil {
@@ -310,21 +318,21 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 		if out.Clear != nil {
 			if out.Clear.CycleID != recorded.ID || out.Clear.Head != recorded.Head ||
 				out.Clear.BaseOID != recorded.BaseOID {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step11")
 			}
 			content, err := factory.FindingContentDigest(carriedBefore)
 			if err != nil {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step12")
 			}
 			coverage, err := factory.ClearCoverageDigest(recorded.Head, recorded.BaseOID, content)
 			if err != nil {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step13")
 			}
 			if out.Clear.CoverageDigest != coverage {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step14")
 			}
 			if err := out.Clear.Validate(carriedBefore); err != nil {
-				return errors.New("canonical carried history is incomplete")
+				return errors.New("canonical carried history is incomplete: step15")
 			}
 			for _, assessment := range out.Clear.Assessments {
 				if assessment.Status == factory.FindingVerified {
@@ -360,7 +368,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 	}
 	for _, journal := range p.CorrectionJournals {
 		if !recorded[journal.CycleID] {
-			return nil, errors.New("canonical carried history is incomplete")
+			return nil, errors.New("canonical carried history is incomplete: step16")
 		}
 	}
 	ordered := append([]factory.ReviewCycle(nil), p.ReviewCycles...)
@@ -379,7 +387,7 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 		}
 		reviewer, err := c.Store.Assignment(ctx, recorded.ReviewerAssignment)
 		if err != nil {
-			return nil, errors.New("canonical carried history is incomplete")
+			return nil, errors.New("canonical carried history is incomplete: step17")
 		}
 		if err := processPrior(recorded, reviewer); err != nil {
 			return nil, err
