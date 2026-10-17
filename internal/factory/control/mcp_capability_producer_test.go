@@ -1,13 +1,14 @@
 package control
 
 // Direct proof for the dispatch-side MCP capability producer
-// (SUPERVISOR-031, lane-mcp-producer): a real dispatch lights the
-// starved path, and the recorded capability carries one full
-// admission, durable record, receipt and status readback through the
-// exact layer stack the real handler wires (store-backed capability
-// source plus submission sink, control admission, store
-// persistence). A concurrent conflicting stage refuses, restart
-// replay succeeds, and stop intent never activates.
+// (trace-029 proposal prompted it; no supervisor authorized live
+// activation). CODEX FREEZE032: ordinary dispatch records STAGED
+// metadata only. A dispatched run's staged capability is retained as
+// history and every admission through the served handler gate
+// refuses inactive, so no catalog tool admits and no submission row
+// is durably recorded — including across a stop. The store replays
+// identical staged bytes and conflicts changed scope; unknown phases
+// carry no MCP authority.
 //
 // The fixture is a disposable database and never a shared one: these
 // tests require SODA_PG_* (own pinned PG17 fixture under /home, free
@@ -68,11 +69,11 @@ func producerDispatch(t *testing.T, ctx context.Context, db *store.Store) (facto
 	return assignment, run
 }
 
-// TestMCPCapabilityProducerLightsDispatchedRun proves the starved
-// path is lit: the dispatched run's staged capability is active,
-// and one full admission, durable record, receipt and status
-// readback succeeds through the real handler layers.
-func TestMCPCapabilityProducerLightsDispatchedRun(t *testing.T) {
+// TestMCPCapabilityProducerStagesDispatchedHold proves the staged
+// hold: the dispatched run records a staged capability bound to its
+// scope, and the served handler gate refuses it inactive for both
+// read and mutation tools, so zero submission rows can follow.
+func TestMCPCapabilityProducerStagesDispatchedHold(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	db := producerTestDB(t)
@@ -82,8 +83,8 @@ func TestMCPCapabilityProducerLightsDispatchedRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("produced capability unreadable: %v", err)
 	}
-	if capability.State != factory.MCPCapabilityActive {
-		t.Fatalf("produced capability state = %s, want active", capability.State)
+	if capability.State != factory.MCPCapabilityStaged {
+		t.Fatalf("produced capability state = %s, want staged", capability.State)
 	}
 	if capability.AssignmentID != assignment.ID || capability.RunID != run.ID ||
 		capability.Generation != 1 || capability.Repository != assignment.Repository ||
@@ -99,65 +100,28 @@ func TestMCPCapabilityProducerLightsDispatchedRun(t *testing.T) {
 		t.Fatalf("produced profile = %s, want architect", capability.Profile)
 	}
 
-	// Read admission, exactly as the handler's shared gate runs it:
-	// recorded capability, profile/tool binding, deadline, and the
-	// empty host observation the handler wires while the relay is
-	// unwired.
+	// The served gate refuses the staged scope inactive for read and
+	// mutation tools alike: no admission, no durable row.
 	now := time.Now()
-	if err := AdmitMCPCapability(capability, factory.MCPToolStatus, now, MCPRunObservation{}); err != nil {
-		t.Fatalf("status admission refused: %v", err)
+	if err := AdmitMCPCapability(capability, factory.MCPToolStatus, now, MCPRunObservation{}); !errors.Is(err, ErrMCPCapabilityInactive) {
+		t.Fatalf("staged status admission = %v, want inactive refusal", err)
 	}
-
-	// Mutation admission plus durable record, exactly as the
-	// handler's mutation leg runs them.
-	payload := []byte(`{"approach":"a","tasks":["t1"],"evidence_refs":["r1"]}`)
-	submission := factory.MCPSubmission{
-		AssignmentID: capability.AssignmentID, SubmissionID: factory.NewID(),
-		CapabilityID: capability.ID, Tool: factory.MCPToolFinishIssuePlan,
-		ExpectedInputDigest: capability.ScopeDigest(),
-		PayloadHash:         factory.MCPInputDigest(payload), Payload: payload,
+	if err := AdmitMCPCapability(capability, factory.MCPToolFinishIssuePlan, now, MCPRunObservation{}); !errors.Is(err, ErrMCPCapabilityInactive) {
+		t.Fatalf("staged mutation admission = %v, want inactive refusal", err)
 	}
-	if err := AdmitMCPSubmission(ctx, db, capability, submission); err != nil {
-		t.Fatalf("mutation admission refused: %v", err)
+	if count, err := db.MCPSubmissionCount(ctx, capability.AssignmentID); err != nil || count != 0 {
+		t.Fatalf("submission count = %d err = %v, want zero durable rows", count, err)
 	}
-	recorded, err := db.RecordMCPSubmission(ctx, submission, factory.MCPReceipt{
-		SubmissionID: submission.SubmissionID, Tool: submission.Tool,
-		State: factory.MCPReceiptRecorded, InputDigest: submission.PayloadHash,
-	})
-	if err != nil {
-		t.Fatalf("durable record refused: %v", err)
-	}
-	if recorded.State != factory.MCPReceiptRecorded || recorded.SubmissionID != submission.SubmissionID {
-		t.Fatalf("durable receipt = %+v, want the recorded submission", recorded)
-	}
-
-	// Receipt and status readback, exactly as the handler serves
-	// them: the durable receipt for the recorded identity, the
-	// terminal proposal the terminal recorded, and the submission
-	// count behind the still-active capability.
-	recovered, err := db.MCPReceipt(ctx, capability.AssignmentID, submission.SubmissionID)
-	if err != nil {
-		t.Fatalf("receipt readback refused: %v", err)
-	}
-	if recovered != recorded {
-		t.Fatal("recovered receipt differs from the recorded receipt")
-	}
-	terminal, frozen, err := db.TerminalMCPProposal(ctx, capability.AssignmentID)
-	if err != nil || !frozen || terminal.SubmissionID != submission.SubmissionID {
-		t.Fatalf("terminal = %+v frozen = %v err = %v, want the recorded terminal", terminal, frozen, err)
-	}
-	if count, err := db.MCPSubmissionCount(ctx, capability.AssignmentID); err != nil || count != 1 {
-		t.Fatalf("submission count = %d err = %v, want exactly the one durable row", count, err)
-	}
-	if live, err := db.GetMCPCapability(ctx, capability.ID); err != nil || live.State != factory.MCPCapabilityActive {
-		t.Fatalf("capability after readback = %+v err = %v, want still active", live, err)
+	if live, err := db.GetMCPCapability(ctx, capability.ID); err != nil || live.State != factory.MCPCapabilityStaged {
+		t.Fatalf("capability after hold = %+v err = %v, want still staged", live, err)
 	}
 }
 
 // TestMCPCapabilityProducerConflictAndReplay proves the
-// store-backed guards the producer preserves: a concurrent
-// conflicting second stage refuses, exact restart replay succeeds,
-// and stop intent never activates.
+// store-backed guards the producer preserves: exact restart replay
+// of identical staged bytes succeeds with no new authority, a
+// concurrent conflicting second stage refuses on every contender,
+// and stop intent stages retained history without activating.
 func TestMCPCapabilityProducerConflictAndReplay(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
@@ -179,9 +143,9 @@ func TestMCPCapabilityProducerConflictAndReplay(t *testing.T) {
 	if built.ScopeDigest() != produced.ScopeDigest() {
 		t.Fatal("rebuilt scope differs from the dispatch-produced scope")
 	}
-	// Exact restart replay succeeds: the staged replay is identical
-	// and the already-active identical scope reports success.
-	if err := StageAndActivateMCPCapability(ctx, db, built, false, time.Now()); err != nil {
+	// Exact restart replay succeeds with no new authority: identical
+	// staged bytes re-stage as a no-op.
+	if err := StageMCPCapabilityForLaunch(ctx, db, built); err != nil {
 		t.Fatalf("restart replay refused: %v", err)
 	}
 
@@ -212,16 +176,63 @@ func TestMCPCapabilityProducerConflictAndReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if kept.ScopeDigest() != built.ScopeDigest() || kept.State != factory.MCPCapabilityActive {
+	if kept.ScopeDigest() != built.ScopeDigest() || kept.State != factory.MCPCapabilityStaged {
 		t.Fatalf("recorded row moved under conflict: %+v", kept)
 	}
 
-	// Stop intent stages history but never activates.
-	if err := StageAndActivateMCPCapability(ctx, db, built, true, time.Now()); !errors.Is(err, ErrMCPCapabilityStopped) {
-		t.Fatalf("stopped activation = %v, want stop-intent refusal", err)
+	// The full produce path on an open dispatch stages the retained
+	// history and succeeds; the row stays staged and the served gate
+	// keeps refusing it.
+	if err := ProduceMCPCapabilityForLaunch(ctx, db, assignment, run); err != nil {
+		t.Fatalf("open produce refused: %v", err)
 	}
-	if live, err := db.GetMCPCapability(ctx, built.ID); err != nil || live.State != factory.MCPCapabilityActive {
-		t.Fatalf("capability after stopped replay = %+v err = %v, want still active", live, err)
+	if live, err := db.GetMCPCapability(ctx, built.ID); err != nil || live.State != factory.MCPCapabilityStaged {
+		t.Fatalf("capability after produce = %+v err = %v, want still staged", live, err)
+	}
+	if err := AdmitMCPCapability(kept, factory.MCPToolFinishIssuePlan, time.Now(), MCPRunObservation{}); !errors.Is(err, ErrMCPCapabilityInactive) {
+		t.Fatalf("mutation admission = %v, want inactive refusal", err)
+	}
+	if count, err := db.MCPSubmissionCount(ctx, built.AssignmentID); err != nil || count != 0 {
+		t.Fatalf("submission count = %d err = %v, want zero durable rows", count, err)
+	}
+}
+
+// TestMCPCapabilityProducerStopBarrierHold is the deterministic unit
+// counterpart of the independent stop-during-activation race: a
+// capability staged while stop intent is recorded stays inactive,
+// every admission refuses, and zero submission rows follow.
+func TestMCPCapabilityProducerStopBarrierHold(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	db := producerTestDB(t)
+	assignment, run := producerDispatch(t, ctx, db)
+
+	preparation, err := db.Preparation(ctx, assignment.Preparation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	built, err := BuildMCPCapability(assignment, run, preparation)
+	if err != nil {
+		t.Fatalf("rebuild from recorded state refused: %v", err)
+	}
+	if err := StageMCPCapabilityForLaunch(ctx, db, built); err != nil {
+		t.Fatalf("stopped stage refused: %v", err)
+	}
+	held, err := db.GetMCPCapability(ctx, built.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if held.State != factory.MCPCapabilityStaged {
+		t.Fatalf("stopped capability state = %s, want staged", held.State)
+	}
+	now := time.Now()
+	for _, tool := range []factory.MCPTool{factory.MCPToolStatus, factory.MCPToolFinishIssuePlan} {
+		if err := AdmitMCPCapability(held, tool, now, MCPRunObservation{}); !errors.Is(err, ErrMCPCapabilityInactive) {
+			t.Fatalf("stopped admission for %s = %v, want inactive refusal", tool, err)
+		}
+	}
+	if count, err := db.MCPSubmissionCount(ctx, built.AssignmentID); err != nil || count != 0 {
+		t.Fatalf("submission count = %d err = %v, want zero durable post-stop rows", count, err)
 	}
 }
 
@@ -262,8 +273,10 @@ func TestBuildMCPCapabilityRefusesUnrecorded(t *testing.T) {
 	}
 }
 
-// TestMCPProfileForPhase proves the dispatch-phase mapping covers
-// every admitted execution phase and defaults by role.
+// TestMCPProfileForPhase proves the exact canonical phase/profile
+// mapping: every admitted execution phase maps once, and unknown,
+// legacy, or pre-phase input carries no MCP authority — nothing
+// defaults to Builder or Inspector by role.
 func TestMCPProfileForPhase(t *testing.T) {
 	cases := map[string]factory.MCPProfile{
 		project.ExecutionDecompose:   factory.MCPProfileProductLead,
@@ -274,17 +287,20 @@ func TestMCPProfileForPhase(t *testing.T) {
 		project.ExecutionReassess:    factory.MCPProfileStrategist,
 	}
 	for phase, want := range cases {
-		if got := mcpProfileForPhase(phase, project.RoleCoder); got != want {
+		got, err := mcpProfileForPhase(phase)
+		if err != nil {
+			t.Fatalf("phase %q refused: %v", phase, err)
+		}
+		if got != want {
 			t.Fatalf("phase %q maps to %s, want %s", phase, got, want)
 		}
 		if factory.MCPPhaseOf(want) == "" {
 			t.Fatalf("mapped profile %s serves no phase", want)
 		}
 	}
-	if got := mcpProfileForPhase("", project.RoleCoder); got != factory.MCPProfileBuilder {
-		t.Fatalf("pre-phase coder maps to %s, want builder", got)
-	}
-	if got := mcpProfileForPhase("", project.RoleReviewer); got != factory.MCPProfileInspector {
-		t.Fatalf("pre-phase reviewer maps to %s, want inspector", got)
+	for _, phase := range []string{"", "legacy", "plan", "verify"} {
+		if got, err := mcpProfileForPhase(phase); err == nil {
+			t.Fatalf("phase %q produced %s, want no MCP authority", phase, got)
+		}
 	}
 }

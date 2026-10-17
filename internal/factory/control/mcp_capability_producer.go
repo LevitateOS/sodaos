@@ -1,18 +1,28 @@
 package control
 
-// Dispatch-side MCP capability producer (SUPERVISOR-031, lane-mcp-producer).
+// Dispatch-side MCP capability producer (trace-029 proposal prompted
+// it; no supervisor authorized live activation).
 //
 // Production serving (web/api FactoryMCPHandler), admission
 // (AdmitMCPCapability, AdmitMCPSubmission) and durability (store
 // Stage/Activate/Record) are wired but starved: no production caller
-// ever stages or activates a capability, so every admission refuses
-// inactive. This producer is the smallest P-gate-free joint that
-// lights that path: one staged capability per dispatched run, built
-// from already-recorded state only — the assignment, the
+// ever stages a capability, so every admission refuses inactive.
+// This producer records one staged capability per dispatched run,
+// built from already-recorded state only — the assignment, the
 // packet-settled run, the recorded preparation digest and recorded
-// stop-intent — then activated under the store's observed-binding
-// guard. Alone it lights the full served path: all fourteen
-// admissions, durable record, receipt and status readback.
+// stop-intent. That is metadata, not activation.
+//
+// CODEX FREEZE032: ordinary dispatch produces STAGED metadata ONLY
+// while FW39/P1/P6/P7 live-observation, protected native-attribution,
+// pre-start and stop gates stay unqualified. Dispatch must NEVER
+// transition a capability to active from a stored snapshot or caller
+// assertions: an independent real-PG race proved a cached
+// stopped=false/authority digest activates across a stop and admits a
+// durable post-stop submission. Activation needs a separately frozen
+// handoff with a qualified controller/host-native observation gate,
+// never another patch around a cached boolean. Until then the served
+// path honestly reports staged/unavailable/qualification-hold; no
+// claim labels all fourteen tools served or accepted.
 //
 // Deliberately OUT of scope (FW39 held intact): provider calls,
 // relay transport, proof-of-possession secrets, permission-model or
@@ -29,7 +39,6 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -43,30 +52,26 @@ import (
 const mcpCapabilityGeneration = 1
 
 // mcpProfileForPhase maps one dispatch execution phase to its
-// admitted MCP profile. Phases and profiles share names by
-// construction (see factory.MCPPhaseOf); the pre-phase legacy record
-// and anything unmapped default by role: coder runs build, reviewer
-// runs inspect. The verify profile has no dispatch phase and is
-// never produced here.
-func mcpProfileForPhase(phase, role string) factory.MCPProfile {
+// admitted MCP profile through the exact canonical phase/profile
+// mapping. Unknown, legacy, or pre-phase input refuses with no MCP
+// authority: nothing defaults to Builder or Inspector, and the caller
+// role never substitutes for the recorded phase.
+func mcpProfileForPhase(phase string) (factory.MCPProfile, error) {
 	switch phase {
 	case project.ExecutionDecompose:
-		return factory.MCPProfileProductLead
+		return factory.MCPProfileProductLead, nil
 	case project.ExecutionInvestigate:
-		return factory.MCPProfileArchitect
+		return factory.MCPProfileArchitect, nil
 	case project.ExecutionImplement:
-		return factory.MCPProfileBuilder
+		return factory.MCPProfileBuilder, nil
 	case project.ExecutionReview:
-		return factory.MCPProfileInspector
+		return factory.MCPProfileInspector, nil
 	case project.ExecutionCorrect:
-		return factory.MCPProfileFixer
+		return factory.MCPProfileFixer, nil
 	case project.ExecutionReassess:
-		return factory.MCPProfileStrategist
+		return factory.MCPProfileStrategist, nil
 	}
-	if role == project.RoleReviewer {
-		return factory.MCPProfileInspector
-	}
-	return factory.MCPProfileBuilder
+	return "", errors.New("mcp producer refuses a phase without MCP authority")
 }
 
 // mcpAuthorityDigest binds the recorded grant revisions behind one
@@ -134,6 +139,10 @@ func BuildMCPCapability(a factory.Assignment, run factory.Run, preparation proje
 	if run.Deadline.IsZero() {
 		return factory.MCPCapability{}, errors.New("mcp producer refuses a run without recorded deadline")
 	}
+	profile, err := mcpProfileForPhase(a.Phase)
+	if err != nil {
+		return factory.MCPCapability{}, err
+	}
 	subject := mcpSubjectForAssignment(a)
 	if subject == "" || len(subject) > factory.MCPMaxRefChars {
 		return factory.MCPCapability{}, errors.New("mcp producer refuses an unnameable recorded subject")
@@ -143,7 +152,7 @@ func BuildMCPCapability(a factory.Assignment, run factory.Run, preparation proje
 		AssignmentID:      a.ID,
 		RunID:             run.ID,
 		Generation:        mcpCapabilityGeneration,
-		Profile:           mcpProfileForPhase(a.Phase, a.Role),
+		Profile:           profile,
 		Subject:           subject,
 		Repository:        a.Repository,
 		Project:           a.ProjectID,
@@ -160,15 +169,12 @@ func BuildMCPCapability(a factory.Assignment, run factory.Run, preparation proje
 	return capability, nil
 }
 
-// StageAndActivateMCPCapability records one staged capability and
-// moves it to active under the store's observed-binding guard. Stop
-// intent stages but never activates: the staged row is retained as
-// history and the activation refuses, so stop ordered before start
-// permanently prevents admission. Exact restart replay succeeds:
-// staging replays identically and an already-active identical scope
-// reports success instead of a state refusal. A changed scope under
-// the same ID conflicts, and that refusal is preserved.
-func StageAndActivateMCPCapability(ctx context.Context, st *store.Store, capability factory.MCPCapability, stopped bool, now time.Time) error {
+// StageMCPCapabilityForLaunch records one staged capability and
+// stops there: staged metadata only, never activation. The store
+// replays identical staged bytes as a no-op and conflicts a changed
+// scope under the same identity, so exact restart delivery is safe
+// and authority can never be replaced through this path.
+func StageMCPCapabilityForLaunch(ctx context.Context, st *store.Store, capability factory.MCPCapability) error {
 	if st == nil {
 		return errors.New("mcp producer has no store")
 	}
@@ -178,27 +184,7 @@ func StageAndActivateMCPCapability(ctx context.Context, st *store.Store, capabil
 	if capability.State != factory.MCPCapabilityStaged {
 		return errors.New("mcp producer stages only staged capabilities")
 	}
-	if err := st.StageMCPCapability(ctx, capability); err != nil {
-		return err
-	}
-	if stopped {
-		return ErrMCPCapabilityStopped
-	}
-	if now.IsZero() {
-		now = time.Now()
-	}
-	if err := st.ActivateMCPCapability(ctx, capability.ID, capability.Generation,
-		capability.RunID, capability.AssignmentID, capability.Authority, now.Unix(), false); err != nil {
-		if errors.Is(err, store.ErrMCPCapabilityState) {
-			if recorded, rerr := st.GetMCPCapability(ctx, capability.ID); rerr == nil &&
-				recorded.State == factory.MCPCapabilityActive &&
-				recorded.ScopeDigest() == capability.ScopeDigest() {
-				return nil
-			}
-		}
-		return err
-	}
-	return nil
+	return st.StageMCPCapability(ctx, capability)
 }
 
 // recordedMCPPreparation loads the recorded preparation digest and
@@ -215,10 +201,11 @@ func recordedMCPPreparation(ctx context.Context, st *store.Store, id string) (pr
 	}
 }
 
-// ProduceMCPCapabilityForLaunch stages and activates the capability
-// for one packet-settled launch from recorded state only. Stop
-// intent is the recorded preparation stop plus the recorded
-// dispatch-gate closure: either stages without activating. An
+// ProduceMCPCapabilityForLaunch stages the capability metadata for
+// one packet-settled launch from recorded state only — never active.
+// Stop intent is the recorded preparation stop plus the recorded
+// dispatch-gate closure: either stages the retained history and
+// reports the stop; admission stays refused while inactive. An
 // unreadable stop signal refuses production rather than guessing.
 // Dispatch calls this best-effort and ignores refusal: a refused
 // capability never fails its launch.
@@ -241,5 +228,11 @@ func ProduceMCPCapabilityForLaunch(ctx context.Context, st *store.Store, a facto
 	if err != nil {
 		return err
 	}
-	return StageAndActivateMCPCapability(ctx, st, capability, stopped, time.Now())
+	if serr := StageMCPCapabilityForLaunch(ctx, st, capability); serr != nil {
+		return serr
+	}
+	if stopped {
+		return ErrMCPCapabilityStopped
+	}
+	return nil
 }
