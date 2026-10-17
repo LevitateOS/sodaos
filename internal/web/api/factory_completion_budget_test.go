@@ -19,11 +19,13 @@ import (
 
 // scriptedBudgetReader serves a deterministic synthetic issue set
 // through the REAL production snapshot adapter and bracket reads
-// while counting every native call. It proves budgeted multi-pass
-// resumption, not native/provider/semantic capture.
+// while counting every native call, plus the served current-target
+// tip for the production serving capture. It proves budgeted
+// multi-pass resumption, not native/provider/semantic capture.
 type scriptedBudgetReader struct {
 	total int
 	calls int
+	tip   string
 }
 
 func (r *scriptedBudgetReader) ReadNativeRevision(context.Context) (extensions.NativeRevisionObservation, error) {
@@ -33,6 +35,16 @@ func (r *scriptedBudgetReader) ReadNativeRevision(context.Context) (extensions.N
 
 func (r *scriptedBudgetReader) ReadSnapshot(_ context.Context, _ extensions.CredentialFile, req forgejo.SnapshotRequest) (forgejo.NativeSnapshot, error) {
 	r.calls++
+	if len(req.Families) == 1 && req.Families[0] == forgejo.FamilyRefs {
+		refs := []forgejo.RefEvidence{}
+		for _, want := range req.Refs {
+			if r.tip == "" {
+				continue
+			}
+			refs = append(refs, forgejo.RefEvidence{Ref: want, OID: r.tip, Exists: true, Visible: true, Complete: true})
+		}
+		return forgejo.NativeSnapshot{Revision: 41, RepositoryID: req.RepositoryID, Refs: refs}, nil
+	}
 	if len(req.Families) == 1 && req.Families[0] == forgejo.FamilyRepositoryIssues {
 		start := 0
 		if req.Cursor != "" {
@@ -71,7 +83,10 @@ func (r *scriptedBudgetReader) ReadSnapshot(_ context.Context, _ extensions.Cred
 // persists its prefix cursor across DriveCompletions passes and
 // eventually seals every exact body with per-pass actual native RPC
 // at or under the readiness cap — never a subset seal, never a paid
-// choice before complete.
+// choice before complete. Both local captures run the REAL production
+// serving capture (refs-only current-target read plus the declared
+// NATIVE96 fake source store), so the per-pass call counter includes
+// every refs call plus every inventory call.
 func TestCompletionDriveServingCallsAndResume(t *testing.T) {
 	ctx := context.Background()
 	admin, ok := store.TestFixtureDSN()
@@ -113,17 +128,14 @@ func TestCompletionDriveServingCallsAndResume(t *testing.T) {
 		rec.Cycle.CycleID, event.ID, string(recordRaw)); err != nil {
 		t.Fatal(err)
 	}
-	reader := &scriptedBudgetReader{total: 130}
-	source := &CompletionSnapshotSource{Reader: reader}
+	reader := &scriptedBudgetReader{total: 130, tip: strings.Repeat("c", 40)}
+	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
 	coord := &control.Coordinator{Store: db}
 	prior := 0
 	for pass := 0; pass < 10; pass++ {
 		before := reader.calls
 		report := coord.DriveCompletions(ctx, control.CompletionDriveDeps{
-			Enumerator: source,
-			CaptureLocal: func(context.Context, int64) (factory.CompletionLocal, error) {
-				return completionTestLocal(), nil
-			},
+			Enumerator: source, CaptureLocal: source.CaptureLocal,
 		})
 		used := reader.calls - before
 		t.Logf("pass%d actual nativeRPC=%d", pass, used)
@@ -198,9 +210,10 @@ func (c *continueReleaseChooser) Select(_ context.Context, state any, _ string, 
 // release: the fresh prefix persists via the deciding CAS (never a subset
 // seal, never a second paid decision), per-pass actual native RPC stays at
 // or under the readiness cap, and continuation/replay never duplicates the
-// paid receipt. Capture Local is the synthetic completionTestLocal fixture
-// here — this proves budgeted multi-pass resumption, not native/provider
-// or semantic capture.
+// paid receipt. Both local captures run the REAL production serving
+// capture (refs-only current-target read plus the declared NATIVE96 fake
+// source store) — this proves budgeted multi-pass resumption with
+// production capture costs, not native/provider or semantic capture.
 func TestCompletionDriveContinueReleaseResumesAcrossPasses(t *testing.T) {
 	ctx := context.Background()
 	admin, ok := store.TestFixtureDSN()
@@ -242,17 +255,12 @@ func TestCompletionDriveContinueReleaseResumesAcrossPasses(t *testing.T) {
 		rec.Cycle.CycleID, event.ID, string(recordRaw)); err != nil {
 		t.Fatal(err)
 	}
-	reader := &scriptedBudgetReader{total: 130}
-	source := &CompletionSnapshotSource{Reader: reader}
+	reader := &scriptedBudgetReader{total: 130, tip: strings.Repeat("c", 40)}
+	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
 	db.PriorityCallBudget = 100
 	chooser := &continueReleaseChooser{}
 	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
-	deps := control.CompletionDriveDeps{
-		Enumerator: source,
-		CaptureLocal: func(context.Context, int64) (factory.CompletionLocal, error) {
-			return completionTestLocal(), nil
-		},
-	}
+	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
 	sealed := false
 	for pass := 0; pass < 14; pass++ {
 		before := reader.calls
@@ -498,4 +506,216 @@ func TestCompletionDriveRefusesStaleContinueRelease(t *testing.T) {
 	scenario(9, "stale-revision", func(fake *completionReaderFake, current *factory.CompletionLocal) {
 		fake.revision = 42
 	}, "completion evidence changed during reassessment")
+}
+
+// continue48Chooser answers exactly one deterministic funded continue
+// per cycle after asserting the sealed substance: 48 judged bodies with
+// sealed local bindings, never hashes. It counts every consultation so
+// the release test proves no duplicated paid decision across
+// continuation and replay.
+type continue48Chooser struct {
+	calls int
+}
+
+func (c *continue48Chooser) Select(_ context.Context, state any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	c.calls++
+	decision, ok := state.(control.ReassessmentDecisionState)
+	if !ok || len(decision.Evidence) != 48 || !decision.Local.Sealed() {
+		return factory.PriorityAnswer{}, errors.New("decision judges without the 48 sealed bodies")
+	}
+	for _, body := range decision.Evidence {
+		if err := body.Validate(); err != nil {
+			return factory.PriorityAnswer{}, err
+		}
+	}
+	return factory.PriorityAnswer{
+		Selected: factory.ReassessmentOptionContinue, Model: "lane-continue-096", Confidence: 0.9,
+		Probabilities: map[string]float64{factory.ReassessmentOptionContinue: 0.9, factory.ReassessmentOptionReassess: 0.1},
+	}, nil
+}
+
+// A naive single pass over 48 issues would spend 7+147+3=157 actual
+// native RPC against the 156 cap (two outer plus two collector plus
+// the opening capture, one page bracket plus 48 three-call bodies,
+// the closing capture). The fixed-8 prepayment plus the closing-3
+// hold before the limit calc instead progresses exactly 47+1 across
+// passes: the first pass holds collecting with the 47-prefix, the
+// second seals, the decided continue releases fresh — every pass at
+// or under 156 actual RPC with exactly one paid decision, one ledger
+// call, and a replay-free release. Both captures run the REAL
+// production serving capture, so refs reads ride the same counter as
+// inventory reads.
+func TestCompletionDriveCompletes48AcrossTwoPasses(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG fixture unavailable")
+	}
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	raw, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer raw.Close()
+	cycleID := seedStaleRefusalCycle(t, raw, 7, "budget-48")
+	reader := &scriptedBudgetReader{total: 48, tip: strings.Repeat("c", 40)}
+	source := &CompletionSnapshotSource{Reader: reader, Store: newFakeCompletionSourceStoreNATIVE96(completionTestLocal())}
+	db.PriorityCallBudget = 100
+	chooser := &continue48Chooser{}
+	coord := &control.Coordinator{Store: db, Planning: &control.PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}}
+	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
+	sealed := false
+	for pass := 0; pass < 10; pass++ {
+		before := reader.calls
+		report := coord.DriveCompletions(ctx, deps)
+		used := reader.calls - before
+		if used > 156 {
+			t.Fatalf("pass%d used %d actual native RPC, cap 156", pass, used)
+		}
+		stored, err := db.ReassessmentRecord(ctx, cycleID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("pass%d actual nativeRPC=%d state=%s decision=%s prefixBytes=%d chooserCalls=%d report=%+v",
+			pass, used, stored.Cycle.State, stored.Cycle.Decision, len(stored.CollectorProgress), chooser.calls, report)
+		if pass == 0 {
+			if len(report.Sealed) != 0 {
+				t.Fatalf("report=%+v, want no seal on the first pass: 48 exceeds one bounded pass", report)
+			}
+			if stored.Cycle.State != factory.ReassessmentCollecting || len(stored.CollectorProgress) == 0 {
+				t.Fatalf("no resumable collecting prefix after the first pass: %+v", report)
+			}
+			var progress control.InventoryCollector
+			if err = json.Unmarshal(stored.CollectorProgress, &progress); err != nil {
+				t.Fatal(err)
+			}
+			if len(progress.Issues) != 47 || progress.Cursor != "47" {
+				t.Fatalf("prefix issues=%d cursor=%q, want exactly the 47-prefix with its cursor", len(progress.Issues), progress.Cursor)
+			}
+			continue
+		}
+		if len(report.Sealed) > 0 {
+			if len(stored.Evidence) != 48 || stored.EvidenceIssues != 48 {
+				t.Fatalf("sealed incomplete set: bodies %d count %d", len(stored.Evidence), stored.EvidenceIssues)
+			}
+			if pass != 1 {
+				t.Fatalf("sealed on pass %d, want the exact 47+1 shape across two passes", pass)
+			}
+			sealed = true
+		}
+		if len(report.Released) > 0 {
+			if !sealed {
+				t.Fatal("released without a complete seal")
+			}
+			if stored.Cycle.State != factory.ReassessmentReleased || stored.Cycle.Decision != factory.ReassessmentOptionContinue {
+				t.Fatalf("record=%+v, want the released continue", stored)
+			}
+			if len(stored.CollectorProgress) != 0 {
+				t.Fatalf("prefixBytes=%d, want the deciding prefix cleared on release", len(stored.CollectorProgress))
+			}
+			if chooser.calls != 1 {
+				t.Fatalf("calls=%d, want exactly one paid continue decision", chooser.calls)
+			}
+			if len(stored.Cycle.Ledger.DecisionCalls) != 1 {
+				t.Fatalf("decisionCalls=%d, want exactly one paid decision call across continuation",
+					len(stored.Cycle.Ledger.DecisionCalls))
+			}
+			for replay := 0; replay < 2; replay++ {
+				before := reader.calls
+				report := coord.DriveCompletions(ctx, deps)
+				if used := reader.calls - before; used > 156 {
+					t.Fatalf("replay used %d actual native RPC in one pass, cap 156", used)
+				}
+				if len(report.Released) != 0 || len(report.Decided) != 0 {
+					t.Fatalf("replay report=%+v, want no second release or decision", report)
+				}
+			}
+			if chooser.calls != 1 {
+				t.Fatalf("calls=%d after replay, want still exactly one paid decision", chooser.calls)
+			}
+			t.Logf("48-issue inventory sealed 47+1 and released with one paid decision")
+			return
+		}
+	}
+	t.Fatal("stable 48-issue inventory never released its continue across bounded passes")
+}
+
+// A native tip change between the opening and closing serving captures
+// defers with the named material hold and a reset cursor: the
+// unconfirmed seal never persists, and the next drive reseals clean at
+// the new tip. The inventory revision never moves here — only the
+// current-target tip does, between snapshot calls 1 (opening refs) and
+// 7 (closing refs: one refs plus two pages plus three bodies precede
+// it).
+func TestCompletionDriveDefersOnTipChangeDuringCapturePair(t *testing.T) {
+	ctx := context.Background()
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG fixture unavailable")
+	}
+	db, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	raw, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer raw.Close()
+	cycleID := seedStaleRefusalCycle(t, raw, 7, "tip-pair-move")
+	tipA, tipB := strings.Repeat("c", 40), strings.Repeat("e", 40)
+	fake := completionTwoPageFake()
+	fake.refTipMove = func(snapCalls int) string {
+		if snapCalls >= 7 {
+			return tipB
+		}
+		return tipA
+	}
+	source := NewCompletionSnapshotSource(nil)
+	source.Reader = fake
+	source.Store = newFakeCompletionSourceStoreNATIVE96(completionTestLocalForRepo(t, 7))
+	coord := &control.Coordinator{Store: db}
+	deps := control.CompletionDriveDeps{Enumerator: source, CaptureLocal: source.CaptureLocal}
+	before := fake.calls + fake.revs
+	report := coord.DriveCompletions(ctx, deps)
+	if used := fake.calls + fake.revs - before; used > 156 {
+		t.Fatalf("used %d actual native RPC in one pass, cap 156", used)
+	}
+	want := cycleID + ":" + control.HoldInventoryMaterial
+	found := false
+	for _, held := range report.Held {
+		found = found || held == want
+	}
+	if !found || len(report.Sealed) != 0 {
+		t.Fatalf("report=%+v, want %q with no seal", report, want)
+	}
+	stored, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Cycle.State != factory.ReassessmentCollecting || len(stored.CollectorProgress) != 0 {
+		t.Fatalf("record=%+v, want collecting with a reset cursor after the tip move", stored)
+	}
+	fake.refTipMove = nil
+	fake.refTip = tipB
+	before = fake.calls + fake.revs
+	report = coord.DriveCompletions(ctx, deps)
+	if used := fake.calls + fake.revs - before; used > 156 {
+		t.Fatalf("used %d actual native RPC in one pass, cap 156", used)
+	}
+	if len(report.Sealed) != 1 || report.Sealed[0] != cycleID {
+		t.Fatalf("report=%+v, want the clean reseal at the new tip", report)
+	}
+	stored, err = db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Evidence) != 3 || stored.Local.SourceCommit != tipB {
+		t.Fatalf("bodies=%d source=%q, want the 3-issue seal bound at the new tip", len(stored.Evidence), stored.Local.SourceCommit)
+	}
 }

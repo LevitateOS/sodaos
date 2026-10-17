@@ -89,8 +89,10 @@ func New(c config.Config, db *store.Store) *Server {
 		s.Coordinator.Readiness = source
 		s.Coordinator.Creations = observer
 		s.Coordinator.DispatchReads = source
-		s.Coordinator.CompletionEnumerator = api.NewCompletionSnapshotSource(observer)
-		s.Coordinator.CompletionLocalCapture = db.CaptureCompletionLocal
+		completionSource := api.NewCompletionSnapshotSource(observer)
+		completionSource.Store = db
+		s.Coordinator.CompletionEnumerator = completionSource
+		s.Coordinator.CompletionLocalCapture = completionSource.CaptureLocal
 		s.Coordinator.Publication = forgejo.NewPublisher(background, client, c.ForgejoInternalURL,
 			publicationRoot(c), c.ForgejoBackgroundCredentialFile)
 		if c.ForgejoReviewCredentialFile != "" {

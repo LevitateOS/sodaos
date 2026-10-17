@@ -24,9 +24,21 @@ import (
 // page. Closed, pull-request, hidden or digest-mismatched bodies
 // refuse instead of sealing a subset. Payloads encode the canonical
 // sealed issue substance the funded decision assesses.
+// completionSourceStore is the NATIVE95 store authority behind one
+// serving capture: the local-authority context plus the
+// source-qualified local capture at a native tip. *store.Store
+// satisfies it once NATIVE95 publishes the exports; the control
+// package stays adapter-free so the interface lives here, not in
+// control. No SourceInputs cross this seam in either direction.
+type completionSourceStore interface {
+	CompletionSourceContext(ctx context.Context, repository int64) (factory.CompletionAuthority, error)
+	CaptureCompletionLocalAtSource(ctx context.Context, repository int64, expected factory.CompletionAuthority, tip string) (factory.CompletionLocal, error)
+}
+
 type CompletionSnapshotSource struct {
 	Reader     forgejo.SnapshotReader
 	Credential extensions.CredentialFile
+	Store      completionSourceStore
 }
 
 var _ control.CompletionIssueEnumerator = (*CompletionSnapshotSource)(nil)
@@ -98,9 +110,12 @@ func (s *CompletionSnapshotSource) EnumerateIssues(ctx context.Context, reposito
 	}
 	// The page budget bounds every page before any native call: at
 	// most min(native 50, floor((remaining-3)/3)) items fit beside
-	// the page's own 3-call bracket, with the outer and collector
-	// final observations already prepaid. Below 1 the source holds
-	// pending before spending a single call.
+	// the page's own 3-call bracket, with the fixed-8 bracket
+	// prepayment (two outer observations plus both 3-call serving
+	// captures) and the collector's own two already reserved, and
+	// the closing 3 held here before the limit calc, never after
+	// full collection. Below 1 the source holds pending before
+	// spending a single call.
 	requestLimit := control.CompletionPageItemLimit(ctx)
 	if requestLimit < 1 {
 		return control.NativeInventoryPage{}, control.ErrReadinessPassPending
@@ -228,4 +243,58 @@ func (s *CompletionSnapshotSource) readIssueBody(ctx context.Context, repository
 		return factory.CompletionIssueEvidence{}, errors.New(control.HoldInventoryPage)
 	}
 	return body, nil
+}
+
+// CaptureLocal captures the serving local half of D13 sealed evidence
+// at the CURRENT native tip for the D13 completion drive. It composes
+// (1) the local-authority context from the store, (2) exactly one
+// bounded refs-only BracketedRead on that context's target branch, and
+// (3) the source-qualified capture at the observed tip. The requested
+// ref must be complete, visible, existing and a full OID; a hidden,
+// missing, busy, malformed or moved ref refuses without any fallback
+// to an unqualified local capture, and no SourceInputs are ever
+// returned. The read goes through the RAW reader: the capture's native
+// cost is at most 3 reads, prepaid by the controller's fixed-8
+// reservation, never charged per call against the page counter.
+func (s *CompletionSnapshotSource) CaptureLocal(ctx context.Context, repository int64) (factory.CompletionLocal, error) {
+	if s == nil || s.Reader == nil || s.Store == nil {
+		return factory.CompletionLocal{}, forgejo.ErrUnavailable
+	}
+	expected, err := s.Store.CompletionSourceContext(ctx, repository)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	if err := expected.Validate(); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	snapshot, err := forgejo.BracketedRead(ctx, s.Reader, s.Credential, forgejo.SnapshotRequest{
+		RepositoryID: strconv.FormatInt(repository, 10),
+		Families:     []forgejo.SnapshotFamily{forgejo.FamilyRefs},
+		Refs:         []string{expected.TargetBranch},
+	})
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	var tip string
+	for _, ref := range snapshot.Refs {
+		if ref.Ref != expected.TargetBranch {
+			continue
+		}
+		if !ref.Complete || !ref.Visible || !ref.Exists || !factory.ValidCommit(ref.OID) {
+			return factory.CompletionLocal{}, forgejo.ErrIncompleteSnapshot
+		}
+		tip = ref.OID
+		break
+	}
+	if tip == "" {
+		return factory.CompletionLocal{}, forgejo.ErrIncompleteSnapshot
+	}
+	local, err := s.Store.CaptureCompletionLocalAtSource(ctx, repository, expected, tip)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	if err := local.Validate(); err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	return local, nil
 }

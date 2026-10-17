@@ -150,13 +150,12 @@ func (c *Coordinator) advanceProgressPage(ctx context.Context, standingPreparati
 	// repository and generation order. Attention cycles are never
 	// touched and no automatic re-run starts; reassessing and later
 	// states rest for the FW32 coder admission. The production
-	// bindings are the serving-wired enumerator plus the store local
-	// capture; a missing enumerator still holds collecting cycles
-	// honestly instead of sealing from partial evidence.
+	// bindings are the serving-wired enumerator plus the serving
+	// source capture; a missing binding holds collecting cycles
+	// honestly instead of sealing from partial evidence. There is no
+	// automatic store-local fallback: a nil production callback holds
+	// with completion wiring, never with an unqualified capture.
 	deps := CompletionDriveDeps{Enumerator: c.CompletionEnumerator, CaptureLocal: c.CompletionLocalCapture}
-	if deps.CaptureLocal == nil && c.Store != nil {
-		deps.CaptureLocal = c.Store.CaptureCompletionLocal
-	}
 	_ = c.DriveCompletions(ctx, deps)
 	c.Dispatch(ctx)
 	if ownsPass {

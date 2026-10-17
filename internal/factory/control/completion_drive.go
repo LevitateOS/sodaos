@@ -64,9 +64,10 @@ func (c *Coordinator) DriveCompletions(ctx context.Context, deps CompletionDrive
 	}
 	// The drive owns no new budget: it reuses the caller's readiness
 	// pass when one exists (the production advanceProgressPage pass) and
-	// creates it when called standalone, so the bracket's two revision
-	// observations always charge through the existing reserveNativeRPC
-	// accounting. Reuse returns a no-op cancel; ownership stays here.
+	// creates it when called standalone, so the bracket's fixed-8
+	// prepayment (two revision observations plus both serving captures)
+	// always charges through the existing reserveNativeRPC accounting.
+	// Reuse returns a no-op cancel; ownership stays here.
 	ctx, _, cancelPass := c.readinessPass(ctx)
 	defer cancelPass()
 	repositories, err := c.Store.PendingCompletionRepositories(ctx)
@@ -151,19 +152,22 @@ type bracketResult struct {
 	hold     string
 }
 
-// chargeBracketObserves reserves TWO native-RPC units upfront for both
-// bracket revision observations through the existing readiness pass. A
-// nil pass (store-free unit fixtures) carries no charge; a pass with
-// fewer than two units free reports pending so the caller holds
-// immediately with the saved cursor unchanged and zero external calls.
-// No new counter or ledger is introduced: this is the existing
-// reserveNativeRPC accounting only.
-func chargeBracketObserves(ctx context.Context) bool {
+// chargeBracketCapturesAndObserves reserves EIGHT native-RPC units
+// upfront through the existing readiness pass: TWO outer revision
+// observations plus BOTH serving captures at three native reads each
+// (one refs-only bracket per capture on the raw reader, never
+// per-call charged). A nil pass (store-free unit fixtures) carries no
+// charge; a pass with fewer than eight units free reports pending so
+// the caller holds immediately with the saved cursor unchanged and
+// zero external calls. No new counter or ledger is introduced: this
+// is the existing reserveNativeRPC accounting only, and the collector
+// keeps its own upfront two beside it.
+func chargeBracketCapturesAndObserves(ctx context.Context) bool {
 	budget := readinessBudgetFrom(ctx)
 	if budget == nil {
 		return true
 	}
-	return budget.reserveNativeRPC(2)
+	return budget.reserveNativeRPC(8)
 }
 
 // bracketMaterialCollect runs the SAME-RR bracket without touching the
@@ -172,9 +176,10 @@ func chargeBracketObserves(ctx context.Context) bool {
 // native revision after that recapture. It seals only if both local
 // values are Equal and the revision stayed fixed; any movement defers
 // with a named bounded hold and a reset cursor. Both bracket
-// observations are reserved upfront (two units) through the existing
-// readiness pass; a short budget holds pending before any call with
-// the saved cursor kept, spending nothing and sealing nothing. Reads inside the collection keep their
+// observations plus both serving captures are reserved upfront (eight
+// units) through the existing readiness pass; a short budget holds
+// pending before any call with the saved cursor kept, spending nothing
+// and sealing nothing. Reads inside the collection keep their
 // existing page-count bound; their native-call quota stays unqualified
 // and out of scope here. An incomplete collection is never charged on
 // the funded-decision path.
@@ -182,11 +187,12 @@ func bracketMaterialCollect(ctx context.Context, deps CompletionDriveDeps, repos
 	if deps.Enumerator == nil || deps.CaptureLocal == nil {
 		return bracketResult{hold: HoldCompletionWiring, progress: saved}
 	}
-	// Both bracket observations are reserved upfront: with fewer than
-	// two units free this holds pending immediately with the saved
-	// cursor unchanged and zero observes, captures, or page reads, so
-	// a late budget failure can never discard newly collected work.
-	if !chargeBracketObserves(ctx) {
+	// Both bracket observations plus both serving captures are
+	// reserved upfront: with fewer than eight units free this holds
+	// pending immediately with the saved cursor unchanged and zero
+	// observes, captures, or page reads, so a late budget failure
+	// can never discard newly collected work.
+	if !chargeBracketCapturesAndObserves(ctx) {
 		return bracketResult{hold: HoldInventoryInProgress, progress: saved}
 	}
 	collector := saved

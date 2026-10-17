@@ -28,6 +28,16 @@ type completionReaderFake struct {
 	moveRev  func(calls int) int64
 	calls    int
 	revs     int
+	// refTip is the served tip for any requested refs-only read (""
+	// serves no refs, proving the missing-refusal); refTipMove
+	// scripts a tip change keyed on the snapshot-call count for the
+	// capture-pair tests; hideRef serves the requested ref redacted.
+	// lastReq records the most recent snapshot request so tests can
+	// assert the refs-only shape.
+	refTip     string
+	refTipMove func(snapCalls int) string
+	hideRef    bool
+	lastReq    forgejo.SnapshotRequest
 }
 
 func (f *completionReaderFake) ReadNativeRevision(context.Context) (extensions.NativeRevisionObservation, error) {
@@ -44,12 +54,31 @@ func (f *completionReaderFake) ReadNativeRevision(context.Context) (extensions.N
 
 func (f *completionReaderFake) ReadSnapshot(_ context.Context, _ extensions.CredentialFile, req forgejo.SnapshotRequest) (forgejo.NativeSnapshot, error) {
 	f.calls++
+	f.lastReq = req
 	if f.snapErr != nil {
 		return forgejo.NativeSnapshot{}, f.snapErr
 	}
 	revision := f.revision
 	if f.moveRev != nil {
 		revision = f.moveRev(f.calls)
+	}
+	if len(req.Families) == 1 && req.Families[0] == forgejo.FamilyRefs {
+		tip := f.refTip
+		if f.refTipMove != nil {
+			tip = f.refTipMove(f.calls)
+		}
+		refs := []forgejo.RefEvidence{}
+		for _, want := range req.Refs {
+			if tip == "" {
+				continue
+			}
+			ref := forgejo.RefEvidence{Ref: want, Complete: true, Visible: !f.hideRef}
+			if !f.hideRef {
+				ref.OID, ref.Exists = tip, true
+			}
+			refs = append(refs, ref)
+		}
+		return forgejo.NativeSnapshot{Revision: revision, RepositoryID: req.RepositoryID, Refs: refs}, nil
 	}
 	if len(req.Families) == 1 && req.Families[0] == forgejo.FamilyRepositoryIssues {
 		indexes, ok := f.pages[req.Cursor]

@@ -676,13 +676,15 @@ func TestInventoryCollectorRefusesDigestOnlyLocal(t *testing.T) {
 	}
 }
 
-// The stable bracket charges exactly its two outer revision
-// observations plus the collector's own two (opening + confirming)
-// through the caller's readiness pass, reusing the existing budget:
-// five pre-reserved units plus the four observation charges read
-// back as nine, proving no new counter, no uncharged exemption and
-// no double charge of either bracket.
-func TestBracketMaterialCollectChargesTwoObservations(t *testing.T) {
+// The stable bracket charges exactly its fixed-8 prepayment (two
+// outer revision observations plus both 3-call serving captures) plus
+// the collector's own two (opening + confirming) through the caller's
+// readiness pass, reusing the existing budget: five pre-reserved units
+// plus the ten reservation charges read back as fifteen, proving no
+// new counter, no uncharged exemption and no double charge of either
+// bracket. This is the explicit fixed-cost contract: the captures are
+// prepaid here, never per-call charged.
+func TestBracketMaterialCollectChargesEightUnitPrepayment(t *testing.T) {
 	coord := &Coordinator{}
 	ctx, _, cancel := coord.readinessPass(context.Background())
 	defer cancel()
@@ -699,8 +701,8 @@ func TestBracketMaterialCollectChargesTwoObservations(t *testing.T) {
 	if out.hold != "" || out.sealed == nil {
 		t.Fatalf("out=%+v, want a confirmed seal", out)
 	}
-	if got := budget.nativeRPC.Load(); got != 9 {
-		t.Fatalf("nativeRPC=%d, want 5 primed plus two outer plus two collector observations", got)
+	if got := budget.nativeRPC.Load(); got != 15 {
+		t.Fatalf("nativeRPC=%d, want 5 primed plus the fixed 8 plus two collector observations", got)
 	}
 	if enum.observes != 4 {
 		t.Fatalf("observes=%d, want two outer plus two collector observations", enum.observes)
@@ -898,12 +900,14 @@ func TestBracketMaterialCollectHoldsPendingOnExhaustedBudget(t *testing.T) {
 	}
 }
 
-// One free unit cannot cover the upfront two-unit bracket
-// reservation: the drive holds pending immediately with the saved
+// Seven free units cannot cover the upfront eight-unit bracket
+// reservation (two outer observations plus both 3-call serving
+// captures): the drive holds pending immediately with the saved
 // cursor kept and zero observes, captures, or page reads — no
 // expensive collection is started that a late quota failure could
-// discard.
-func TestBracketMaterialCollectHoldsPendingWhenConfirmUncharged(t *testing.T) {
+// discard. This is the explicit fixed-cost contract: short of eight,
+// nothing is spent.
+func TestBracketMaterialCollectHoldsPendingWhenShortOfEightUnitPrepayment(t *testing.T) {
 	coord := &Coordinator{}
 	ctx, _, cancel := coord.readinessPass(context.Background())
 	defer cancel()
@@ -911,7 +915,7 @@ func TestBracketMaterialCollectHoldsPendingWhenConfirmUncharged(t *testing.T) {
 	if budget == nil {
 		t.Fatal("drive did not create its readiness pass")
 	}
-	if !budget.reserveNativeRPC(readinessMaxNativeRPC - 1) {
+	if !budget.reserveNativeRPC(readinessMaxNativeRPC - 7) {
 		t.Fatal("fixture could not prime its budget")
 	}
 	saved := &InventoryCollector{Revision: 41, Cursor: "2"}
@@ -933,7 +937,7 @@ func TestBracketMaterialCollectHoldsPendingWhenConfirmUncharged(t *testing.T) {
 	if enum.calls != 0 {
 		t.Fatalf("page calls=%d, want zero page reads on the upfront preflight refusal", enum.calls)
 	}
-	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC-1 {
+	if got := budget.nativeRPC.Load(); got != readinessMaxNativeRPC-7 {
 		t.Fatalf("nativeRPC=%d, want the primed count unchanged (failed reserve consumes nothing)", got)
 	}
 }
