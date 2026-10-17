@@ -436,7 +436,7 @@ func TestStageExecutionManifestBindsItsRun(t *testing.T) {
 	runID := factory.NewID()
 	deadline := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
 	data, err := stageExecutionManifest(&plan, runID, deadline,
-		factory.ExecutionProfile{Effort: factory.EffortXHigh, Contributor: true}, 3)
+		factory.ExecutionProfile{Effort: factory.EffortXHigh, Contributor: true}, project.ExecutionImplement, 3)
 	if err != nil {
 		t.Fatalf("stage refused: %v", err)
 	}
@@ -464,7 +464,7 @@ func TestStageExecutionManifestBindsItsRun(t *testing.T) {
 		t.Fatalf("staged envelope does not bind its run: %v", err)
 	}
 	// An omitted profile resolves to the product defaults.
-	defaulted, err := stageExecutionManifest(&plan, runID, deadline, factory.ExecutionProfile{}, 2)
+	defaulted, err := stageExecutionManifest(&plan, runID, deadline, factory.ExecutionProfile{}, project.ExecutionImplement, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,10 +476,10 @@ func TestStageExecutionManifestBindsItsRun(t *testing.T) {
 		t.Fatalf("defaulted profile = %s/%v", parsed.Effort, parsed.Contributor)
 	}
 	// Limits outside the admitted range refuse before any host call.
-	if _, err := stageExecutionManifest(&plan, runID, deadline, factory.ExecutionProfile{}, 5); err == nil {
+	if _, err := stageExecutionManifest(&plan, runID, deadline, factory.ExecutionProfile{}, project.ExecutionImplement, 5); err == nil {
 		t.Fatal("over-limit envelope staged")
 	}
-	if _, err := stageExecutionManifest(nil, runID, deadline, factory.ExecutionProfile{}, 3); err == nil {
+	if _, err := stageExecutionManifest(nil, runID, deadline, factory.ExecutionProfile{}, project.ExecutionImplement, 3); err == nil {
 		t.Fatal("missing plan staged")
 	}
 }
