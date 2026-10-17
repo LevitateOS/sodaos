@@ -47,20 +47,11 @@ func TestCloseExpiredAttemptClosesSettledRootAndReplays(t *testing.T) {
 		t.Fatalf("unexpired attempt changed: %+v, %v", unchanged, err)
 	}
 
-	future := unchanged
-	future.CheckpointUnix = time.Now().Add(time.Minute).Unix()
-	future.Revision++
-	saveExpiredAttemptAllowance(t, db, future)
-	if _, err = db.CloseExpiredAttempt(ctx, a.ID); !errors.Is(err, factory.ErrAllowanceClock) {
-		t.Fatalf("future checkpoint close = %v", err)
-	}
-	afterClockError, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
-	if err != nil || afterClockError.Revision != future.Revision || afterClockError.CheckpointUnix != future.CheckpointUnix || afterClockError.Closed {
-		t.Fatalf("clock error changed allowance: %+v, %v", afterClockError, err)
-	}
-
-	paused := afterClockError
-	paused.CheckpointUnix = time.Now().Unix()
+	// NOTE: the future-clock negative now lives in its own fresh-root
+	// test below. Resetting this root's checkpoint backward would
+	// violate the monotone/no-refill contract; the positive flow
+	// continues from the unchanged valid allowance.
+	paused := unchanged
 	paused.Active = false
 	paused.Revision++
 	saveExpiredAttemptAllowance(t, db, paused)
@@ -100,6 +91,37 @@ func TestCloseExpiredAttemptClosesSettledRootAndReplays(t *testing.T) {
 	replayed, readErr := db.AttemptAllowance(ctx, a.Repository, a.Issue)
 	if err != nil || readErr != nil || !closed || replayed.Revision != after.Revision || replayed.Active || !replayed.Closed {
 		t.Fatalf("close replay changed settled root: closed=%v allowance=%+v err=%v read=%v", closed, replayed, err, readErr)
+	}
+}
+
+// TestCloseExpiredAttemptRefusesFutureCheckpointClock isolates the
+// future-clock negative on its own fresh root: a stored future
+// checkpoint makes CloseExpiredAttempt return ErrAllowanceClock and
+// leaves the stored checkpoint/revision/closed posture unchanged.
+// Resetting a root's clock backward on the SAME root would violate
+// the monotone/no-refill contract and is never done here.
+func TestCloseExpiredAttemptRefusesFutureCheckpointClock(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	now := time.Now().UTC()
+	a, reservation, run, view := dispatchTestPacket(t, now)
+	if err := recordDispatchTestPacket(t, ctx, db, dispatchTestRegistration(a), a, reservation, run, view); err != nil {
+		t.Fatal(err)
+	}
+	initial, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	future := initial
+	future.CheckpointUnix = time.Now().Add(time.Minute).Unix()
+	future.Revision++
+	saveExpiredAttemptAllowance(t, db, future)
+	if _, err = db.CloseExpiredAttempt(ctx, a.ID); !errors.Is(err, factory.ErrAllowanceClock) {
+		t.Fatalf("future checkpoint close = %v", err)
+	}
+	afterClockError, err := db.AttemptAllowance(ctx, a.Repository, a.Issue)
+	if err != nil || afterClockError.Revision != future.Revision || afterClockError.CheckpointUnix != future.CheckpointUnix || afterClockError.Closed {
+		t.Fatalf("clock error changed allowance: %+v, %v", afterClockError, err)
 	}
 }
 
