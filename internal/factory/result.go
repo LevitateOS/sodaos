@@ -380,9 +380,9 @@ func (r PhaseResult) BindAssignment(a Assignment) error {
 				}
 			} else {
 				subject, report := a.Subject.DeliveryRepair, r.Output.DeliveryRepair
-				if report == nil || report.DeliveryID != subject.DeliveryID ||
-					report.FailedVerificationRunID != subject.FailedVerificationRunID ||
-					report.CycleID != subject.CycleID || report.InventoryDigest != subject.InventoryDigest {
+				if report == nil || report.Subject.DeliveryID != subject.DeliveryID ||
+					report.Subject.FailedVerificationRunID != subject.FailedVerificationRunID ||
+					report.Subject.CycleID != subject.CycleID || report.Subject.InventoryDigest != subject.InventoryDigest {
 					return errors.New("delivery repair report does not match its assigned subject")
 				}
 			}

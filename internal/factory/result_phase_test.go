@@ -64,25 +64,49 @@ func correctionOutput() *PhaseOutput {
 	}}
 }
 
+func repairCause() CheckFailure {
+	return CheckFailure{CheckRef: "smoke", Detail: "smoke check failed"}
+}
+
+func repairInspected() []InspectedSource {
+	return []InspectedSource{{
+		Path: "internal/factory/stall.go", Commit: strings.Repeat("c", 40),
+		Evidence: "inspected repair scope",
+	}}
+}
+
 func stallRepairOutput() *PhaseOutput {
 	return &PhaseOutput{Repair: &StallRepairReport{
 		StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
 		InventoryDigest: strings.Repeat("9", 64), Outcome: RepairOutcomeRepair,
+		SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64),
+		Inspected: repairInspected(), Causes: []CheckFailure{repairCause()},
 	}}
 }
 
 func deliveryRepairOutput() *PhaseOutput {
 	return &PhaseOutput{DeliveryRepair: &DeliveryRepairReport{
-		DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
-		InputDigest: strings.Repeat("9", 64), InventoryDigest: strings.Repeat("a", 64),
-		CycleID: strings.Repeat("b", 32), Outcome: RepairOutcomeVerifiedWait,
+		Subject: DeliveryRepairSubject{
+			DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
+			FailureDigest:   strings.Repeat("e", 64),
+			InventoryDigest: strings.Repeat("a", 64), CycleID: strings.Repeat("b", 32),
+		},
+		InputDigest: strings.Repeat("9", 64), Outcome: RepairOutcomeVerifiedWait,
+		Inspected: repairInspected(), Causes: []CheckFailure{repairCause()},
 	}}
+}
+
+func verificationReceipt() VerificationCheckReceipt {
+	return VerificationCheckReceipt{
+		CheckID: "smoke", Outcome: CheckReceiptPassed, LogExcerpt: "smoke passed",
+	}
 }
 
 func appVerificationOutput() *PhaseOutput {
 	return &PhaseOutput{Verification: &AppVerificationReport{
 		DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64),
-		Outcome: AppVerificationVerified,
+		Outcome:       AppVerificationVerified,
+		CheckReceipts: []VerificationCheckReceipt{verificationReceipt()},
 	}}
 }
 
@@ -162,12 +186,12 @@ func TestPhaseResultRefusals(t *testing.T) {
 		"repair report on blocked":    {Version: 2, Phase: project.ExecutionRepair, Status: "blocked", Summary: "x", Output: stallRepairOutput()},
 		"repair plan":                 {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: goodPlan},
 		"repair receipt":              {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: implementReceipt()},
-		"repair bad outcome":          {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: &PhaseOutput{Repair: &StallRepairReport{StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32), InventoryDigest: strings.Repeat("9", 64), Outcome: "merged"}}},
+		"repair bad outcome":          {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: &PhaseOutput{Repair: &StallRepairReport{StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32), InventoryDigest: strings.Repeat("9", 64), Outcome: "merged", SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64), Inspected: repairInspected(), Causes: []CheckFailure{repairCause()}}}},
 		"verify no report":            {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: &PhaseOutput{}},
 		"verify report on blocked":    {Version: 2, Phase: project.ExecutionVerify, Status: "blocked", Summary: "x", Output: appVerificationOutput()},
 		"verify plan":                 {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: goodPlan},
 		"verify receipt":              {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: implementReceipt()},
-		"verify bad outcome":          {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: &PhaseOutput{Verification: &AppVerificationReport{DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64), Outcome: "needs_attention"}}},
+		"verify bad outcome":          {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: &PhaseOutput{Verification: &AppVerificationReport{DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64), Outcome: "needs_attention", CheckReceipts: []VerificationCheckReceipt{verificationReceipt()}}}},
 		"stall report on verify":      {Version: 2, Phase: project.ExecutionVerify, Status: "completed", Summary: "x", Output: stallRepairOutput()},
 		"verification on repair":      {Version: 2, Phase: project.ExecutionRepair, Status: "completed", Summary: "x", Output: appVerificationOutput()},
 	}

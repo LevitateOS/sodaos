@@ -10,6 +10,7 @@ package factory
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/levitateos/sodaos/internal/project"
 )
@@ -80,6 +81,57 @@ func (s DeliveryRepairSubject) Validate() error {
 	return nil
 }
 
+// CheckFailure names one exact failed check or outcome behind a repair
+// cause or verification failure, with bounded detail. Causes reference
+// exact failed checks and outcomes; they never carry a candidate.
+type CheckFailure struct {
+	CheckRef string `json:"check_ref"`
+	Detail   string `json:"detail"`
+}
+
+func (f CheckFailure) Validate() error {
+	if f.CheckRef == "" || len(f.CheckRef) > MaxPlanPathBytes || strings.ContainsRune(f.CheckRef, 0) {
+		return errors.New("invalid failed check reference")
+	}
+	if !intentText(f.Detail, MaxPlanTextBytes) {
+		return errors.New("invalid failed check detail")
+	}
+	return nil
+}
+
+// CheckReceiptPassed marks one trusted executor receipt as passed. A
+// failed receipt reuses the established CheckFailed verdict: a required
+// check reported a definitive non-pass state. No other receipt outcome
+// is admitted.
+const CheckReceiptPassed = "passed"
+
+// VerificationCheckReceipt is one trusted executor receipt behind an app
+// verification report: the admitted check, its outcome, the artifact
+// digest where an artifact was produced, and bounded log evidence. Agent
+// prose, screenshots alone or agent-supplied digests never substitute.
+type VerificationCheckReceipt struct {
+	CheckID        string `json:"check_id"`
+	Outcome        string `json:"outcome"`
+	ArtifactDigest string `json:"artifact_digest,omitempty"`
+	LogExcerpt     string `json:"log_excerpt"`
+}
+
+func (r VerificationCheckReceipt) Validate() error {
+	if r.CheckID == "" || len(r.CheckID) > MaxPlanPathBytes || strings.ContainsRune(r.CheckID, 0) {
+		return errors.New("invalid verification check identity")
+	}
+	if r.Outcome != CheckReceiptPassed && r.Outcome != CheckFailed {
+		return errors.New("invalid verification check outcome")
+	}
+	if r.ArtifactDigest != "" && !ValidDigest(r.ArtifactDigest) {
+		return errors.New("invalid verification artifact digest")
+	}
+	if !intentText(r.LogExcerpt, MaxPlanTextBytes) {
+		return errors.New("invalid verification log evidence")
+	}
+	return nil
+}
+
 // App verification outcomes: the exact delivery is verified, failed with
 // recorded evidence, or incomplete and never finished.
 const (
@@ -104,10 +156,82 @@ func ValidAppVerificationOutcome(outcome string) bool {
 // outcome. It carries no candidate: verification never authorizes
 // publication. Check/artifact receipts behind the outcome belong to the
 // R38 trusted-manifest consumers; the envelope binds the result.
+func validateVerificationEvidence(
+	coverage []ReassessmentCoverage,
+	receipts []VerificationCheckReceipt,
+	artifacts []string,
+	failures []CheckFailure,
+	evidence []string,
+) error {
+	if len(coverage) > MaxReassessmentCoverage {
+		return errors.New("verification coverage exceeds its bound")
+	}
+	covered := make(map[string]bool, len(coverage))
+	for _, entry := range coverage {
+		if err := entry.validate(); err != nil {
+			return err
+		}
+		key := entry.IntentID + "\x00" + entry.OutcomeID
+		if covered[key] {
+			return errors.New("verification outcome covered twice")
+		}
+		covered[key] = true
+	}
+	if len(receipts) > MaxInspectedRefs {
+		return errors.New("verification check receipts exceed their bound")
+	}
+	seen := make(map[string]bool, len(receipts))
+	for _, receipt := range receipts {
+		if err := receipt.Validate(); err != nil {
+			return err
+		}
+		if seen[receipt.CheckID] {
+			return errors.New("verification check receipted twice")
+		}
+		seen[receipt.CheckID] = true
+	}
+	if len(artifacts) > MaxInspectedRefs {
+		return errors.New("verification artifact refs exceed their bound")
+	}
+	for _, ref := range artifacts {
+		if !ValidDigest(ref) {
+			return errors.New("invalid verification artifact ref")
+		}
+	}
+	if len(failures) > MaxInspectedRefs {
+		return errors.New("verification failures exceed their bound")
+	}
+	for _, failure := range failures {
+		if err := failure.Validate(); err != nil {
+			return err
+		}
+	}
+	if len(evidence) > MaxInspectedRefs {
+		return errors.New("verification evidence outside its bound")
+	}
+	for _, ref := range evidence {
+		if ref == "" || len(ref) > MaxPlanPathBytes || strings.ContainsRune(ref, 0) {
+			return errors.New("invalid verification evidence ref")
+		}
+	}
+	return nil
+}
+
+// AppVerificationReport is the typed output of a completed verify phase:
+// the full D16 field set with delivery identity, admitted input digest,
+// outcome, outcome coverage, trusted check receipts, artifact refs,
+// failures and evidence refs. It carries no candidate: verification
+// never authorizes publication. Receipt adoption belongs to the R38
+// trusted-manifest consumers; the envelope binds the result.
 type AppVerificationReport struct {
-	DeliveryID  string `json:"delivery_id"`
-	InputDigest string `json:"input_digest"`
-	Outcome     string `json:"outcome"`
+	DeliveryID    string                     `json:"delivery_id"`
+	InputDigest   string                     `json:"input_digest"`
+	Outcome       string                     `json:"outcome"`
+	Coverage      []ReassessmentCoverage     `json:"coverage"`
+	CheckReceipts []VerificationCheckReceipt `json:"check_receipts"`
+	ArtifactRefs  []string                   `json:"artifact_refs"`
+	Failures      []CheckFailure             `json:"failures"`
+	EvidenceRefs  []string                   `json:"evidence_refs"`
 }
 
 func (r AppVerificationReport) Validate() error {
@@ -120,7 +244,27 @@ func (r AppVerificationReport) Validate() error {
 	if !ValidAppVerificationOutcome(r.Outcome) {
 		return errors.New("invalid app verification outcome")
 	}
-	return nil
+	// A verified delivery proves every required check with a receipt and
+	// records no failure; a failed delivery proves at least one failure
+	// with its receipts. Failure and incomplete never become finished.
+	switch r.Outcome {
+	case AppVerificationVerified:
+		if len(r.CheckReceipts) == 0 || len(r.Failures) != 0 {
+			return errors.New("verified delivery lacks its passing receipts")
+		}
+		for _, receipt := range r.CheckReceipts {
+			if receipt.Outcome != CheckReceiptPassed {
+				return errors.New("verified delivery carries a failing receipt")
+			}
+		}
+	case AppVerificationFailed:
+		if len(r.CheckReceipts) == 0 || len(r.Failures) == 0 {
+			return errors.New("failed delivery lacks its failure evidence")
+		}
+	}
+	return validateVerificationEvidence(
+		r.Coverage, r.CheckReceipts, r.ArtifactRefs, r.Failures, r.EvidenceRefs,
+	)
 }
 
 // DeliveryRepairReport is the typed output of a completed repair phase
@@ -128,27 +272,37 @@ func (r AppVerificationReport) Validate() error {
 // input digest, and its outcome under the shared D15 repair rubric. It
 // carries no candidate. Cause/coverage/adoption detail belongs to the
 // R37/R40 repair consumers; the envelope binds the result.
+// DeliveryRepairReport is the typed output of a completed repair phase
+// answering a delivery failure: the full D16 field set with the exact
+// bound subject, admitted input digest, inspected sources, causes,
+// retained issues, intent changes, coverage, attention and outcome under
+// the shared D15 repair rubric. It carries no candidate. Cause and
+// coverage adoption detail belongs to the R37/R40 repair consumers; the
+// envelope binds the result.
 type DeliveryRepairReport struct {
-	DeliveryID              string `json:"delivery_id"`
-	FailedVerificationRunID string `json:"failed_verification_run_id"`
-	InputDigest             string `json:"input_digest"`
-	InventoryDigest         string `json:"inventory_digest"`
-	CycleID                 string `json:"cycle_id"`
-	Outcome                 string `json:"outcome"`
+	Subject              DeliveryRepairSubject        `json:"subject"`
+	InputDigest          string                       `json:"input_digest"`
+	Inspected            []InspectedSource            `json:"inspected_refs"`
+	Causes               []CheckFailure               `json:"causes"`
+	RetainedIssueIndexes []int64                      `json:"retained_issue_indexes"`
+	IntentChanges        []ReassessmentIntentChange   `json:"intent_changes"`
+	Coverage             []ReassessmentCoverage       `json:"coverage"`
+	Attention            []ReassessmentAttentionEntry `json:"attention"`
+	Outcome              string                       `json:"outcome"`
 }
 
 func (r DeliveryRepairReport) Validate() error {
-	if !ValidID(r.DeliveryID) || !ValidID(r.CycleID) {
-		return errors.New("invalid delivery repair report identity")
+	if err := r.Subject.Validate(); err != nil {
+		return err
 	}
-	if !ValidID(r.FailedVerificationRunID) {
-		return errors.New("delivery repair report lacks its failed verification run")
-	}
-	if !ValidDigest(r.InputDigest) || !ValidDigest(r.InventoryDigest) {
-		return errors.New("delivery repair report must bind its evidence digests")
+	if !ValidDigest(r.InputDigest) {
+		return errors.New("delivery repair report must bind its admitted input")
 	}
 	if !ValidRepairOutcome(r.Outcome) {
 		return errors.New("invalid delivery repair outcome")
 	}
-	return nil
+	return validateRepairEvidence(
+		r.Inspected, r.Causes, r.RetainedIssueIndexes,
+		r.IntentChanges, r.Coverage, r.Attention,
+	)
 }

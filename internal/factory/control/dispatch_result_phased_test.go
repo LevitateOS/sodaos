@@ -301,18 +301,35 @@ func phasedDeliveryRepairSubject() factory.ExecutionSubject {
 	}
 }
 
+func phasedRepairCause() factory.CheckFailure {
+	return factory.CheckFailure{CheckRef: "smoke", Detail: "smoke check failed"}
+}
+
+func phasedRepairInspected() []factory.InspectedSource {
+	return []factory.InspectedSource{{
+		Path: "internal/factory/stall.go", Commit: phaseTestCommit(),
+		Evidence: "inspected repair scope",
+	}}
+}
+
 func phasedStallRepair() *factory.PhaseOutput {
 	return &factory.PhaseOutput{Repair: &factory.StallRepairReport{
 		StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
 		InventoryDigest: phaseTestSHA("inventory"), Outcome: factory.RepairOutcomeRepair,
+		SourceCommit: phaseTestCommit(), PreparationDigest: phaseTestSHA("prep"),
+		Inspected: phasedRepairInspected(), Causes: []factory.CheckFailure{phasedRepairCause()},
 	}}
 }
 
 func phasedDeliveryRepair() *factory.PhaseOutput {
 	return &factory.PhaseOutput{DeliveryRepair: &factory.DeliveryRepairReport{
-		DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
-		InputDigest: phaseTestSHA("input"), InventoryDigest: phaseTestSHA("inventory"),
-		CycleID: strings.Repeat("9", 32), Outcome: factory.RepairOutcomeVerifiedWait,
+		Subject: factory.DeliveryRepairSubject{
+			DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
+			FailureDigest:   phaseTestSHA("failure"),
+			InventoryDigest: phaseTestSHA("inventory"), CycleID: strings.Repeat("9", 32),
+		},
+		InputDigest: phaseTestSHA("input"), Outcome: factory.RepairOutcomeVerifiedWait,
+		Inspected: phasedRepairInspected(), Causes: []factory.CheckFailure{phasedRepairCause()},
 	}}
 }
 
@@ -320,6 +337,9 @@ func phasedAppVerification() *factory.PhaseOutput {
 	return &factory.PhaseOutput{Verification: &factory.AppVerificationReport{
 		DeliveryID: strings.Repeat("7", 32), InputDigest: phaseTestSHA("input"),
 		Outcome: factory.AppVerificationVerified,
+		CheckReceipts: []factory.VerificationCheckReceipt{{
+			CheckID: "smoke", Outcome: factory.CheckReceiptPassed, LogExcerpt: "smoke passed",
+		}},
 	}}
 }
 
@@ -408,10 +428,12 @@ func TestDerivePhasedRepairVerifyRejectsStaleIdentity(t *testing.T) {
 		{"stall", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.StallID = strings.Repeat("a", 32) }},
 		{"stall cycle", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.CycleID = strings.Repeat("a", 32) }},
 		{"stall inventory", phasedStallSubject(), phasedStallRepair, func(o *factory.PhaseOutput) { o.Repair.InventoryDigest = phaseTestSHA("stale") }},
-		{"repair delivery", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.DeliveryID = strings.Repeat("a", 32) }},
-		{"repair failed run", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.FailedVerificationRunID = strings.Repeat("a", 32) }},
-		{"repair cycle", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.CycleID = strings.Repeat("a", 32) }},
-		{"repair inventory", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.InventoryDigest = phaseTestSHA("stale") }},
+		{"repair delivery", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.Subject.DeliveryID = strings.Repeat("a", 32) }},
+		{"repair failed run", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) {
+			o.DeliveryRepair.Subject.FailedVerificationRunID = strings.Repeat("a", 32)
+		}},
+		{"repair cycle", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.Subject.CycleID = strings.Repeat("a", 32) }},
+		{"repair inventory", phasedDeliveryRepairSubject(), phasedDeliveryRepair, func(o *factory.PhaseOutput) { o.DeliveryRepair.Subject.InventoryDigest = phaseTestSHA("stale") }},
 		{"verified delivery", phasedDeliverySubject(), phasedAppVerification, func(o *factory.PhaseOutput) { o.Verification.DeliveryID = strings.Repeat("a", 32) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

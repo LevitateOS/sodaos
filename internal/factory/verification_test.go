@@ -226,17 +226,28 @@ func TestRepairOutcomeVocabulary(t *testing.T) {
 }
 
 func TestRepairReportValidation(t *testing.T) {
+	goodCause := CheckFailure{CheckRef: "smoke", Detail: "smoke check failed"}
+	goodInspected := []InspectedSource{{
+		Path: "internal/factory/stall.go", Commit: strings.Repeat("c", 40),
+		Evidence: "inspected repair scope",
+	}}
 	goodStall := StallRepairReport{
 		StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
 		InventoryDigest: strings.Repeat("9", 64), Outcome: RepairOutcomeRepair,
+		SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64),
+		Inspected: goodInspected, Causes: []CheckFailure{goodCause},
 	}
 	if err := goodStall.Validate(); err != nil {
 		t.Fatalf("valid stall repair report refused: %v", err)
 	}
 	goodDeliveryRepair := DeliveryRepairReport{
-		DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
-		InputDigest: strings.Repeat("9", 64), InventoryDigest: strings.Repeat("a", 64),
-		CycleID: strings.Repeat("b", 32), Outcome: RepairOutcomeNoChange,
+		Subject: DeliveryRepairSubject{
+			DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: strings.Repeat("8", 32),
+			FailureDigest:   strings.Repeat("e", 64),
+			InventoryDigest: strings.Repeat("a", 64), CycleID: strings.Repeat("b", 32),
+		},
+		InputDigest: strings.Repeat("9", 64), Outcome: RepairOutcomeNoChange,
+		Inspected: goodInspected, Causes: []CheckFailure{goodCause},
 	}
 	if err := goodDeliveryRepair.Validate(); err != nil {
 		t.Fatalf("valid delivery repair report refused: %v", err)
@@ -244,6 +255,10 @@ func TestRepairReportValidation(t *testing.T) {
 	goodVerification := AppVerificationReport{
 		DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64),
 		Outcome: AppVerificationFailed,
+		CheckReceipts: []VerificationCheckReceipt{{
+			CheckID: "smoke", Outcome: CheckFailed, LogExcerpt: "smoke failed",
+		}},
+		Failures: []CheckFailure{goodCause},
 	}
 	if err := goodVerification.Validate(); err != nil {
 		t.Fatalf("valid app verification report refused: %v", err)
@@ -251,13 +266,54 @@ func TestRepairReportValidation(t *testing.T) {
 	badStall := goodStall
 	badStall.Outcome = "merged"
 	badDeliveryRepair := goodDeliveryRepair
-	badDeliveryRepair.FailedVerificationRunID = "short"
+	badDeliveryRepair.Subject.FailedVerificationRunID = "short"
 	badVerification := goodVerification
 	badVerification.InputDigest = "short"
 	for name, err := range map[string]error{
 		"stall bad outcome":       badStall.Validate(),
 		"delivery repair bad run": badDeliveryRepair.Validate(),
 		"verification bad digest": badVerification.Validate(),
+	} {
+		if err == nil {
+			t.Fatalf("report case %s admitted", name)
+		}
+	}
+}
+
+func TestRepairReportEvidenceRefusals(t *testing.T) {
+	inspected := []InspectedSource{{
+		Path: "internal/factory/stall.go", Commit: strings.Repeat("c", 40),
+		Evidence: "inspected repair scope",
+	}}
+	causeless := StallRepairReport{
+		StallID: strings.Repeat("7", 32), CycleID: strings.Repeat("8", 32),
+		InventoryDigest: strings.Repeat("9", 64), Outcome: RepairOutcomeRepair,
+		SourceCommit: strings.Repeat("c", 40), PreparationDigest: strings.Repeat("d", 64),
+		Inspected: inspected,
+	}
+	failingReceiptVerified := AppVerificationReport{
+		DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64),
+		Outcome: AppVerificationVerified,
+		CheckReceipts: []VerificationCheckReceipt{{
+			CheckID: "smoke", Outcome: CheckFailed, LogExcerpt: "smoke failed",
+		}},
+	}
+	emptyReceiptVerified := AppVerificationReport{
+		DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64),
+		Outcome: AppVerificationVerified,
+	}
+	unprovenFailure := AppVerificationReport{
+		DeliveryID: strings.Repeat("7", 32), InputDigest: strings.Repeat("9", 64),
+		Outcome: AppVerificationFailed,
+		CheckReceipts: []VerificationCheckReceipt{{
+			CheckID: "smoke", Outcome: CheckFailed, LogExcerpt: "smoke failed",
+		}},
+	}
+	for name, err := range map[string]error{
+		"repair without causes":         causeless.Validate(),
+		"verified with failing receipt": failingReceiptVerified.Validate(),
+		"verified without receipts":     emptyReceiptVerified.Validate(),
+		"failed without failure record": unprovenFailure.Validate(),
 	} {
 		if err == nil {
 			t.Fatalf("report case %s admitted", name)

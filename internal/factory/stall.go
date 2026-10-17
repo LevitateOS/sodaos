@@ -12,6 +12,7 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -578,29 +579,126 @@ func ValidRepairOutcome(outcome string) bool {
 	}
 }
 
+// validateRepairEvidence checks one repair report's shared evidence
+// envelope under the D15 limits: bounded inspected sources, causes,
+// retained issues, intent changes, coverage and attention. Coverage
+// entries must each validate with no duplicate outcome, but the D13
+// change-matching rule stays D13's own: repair coverage stands on its
+// own bindings.
+func validateRepairEvidence(
+	inspected []InspectedSource,
+	causes []CheckFailure,
+	retained []int64,
+	changes []ReassessmentIntentChange,
+	coverage []ReassessmentCoverage,
+	attention []ReassessmentAttentionEntry,
+) error {
+	if len(inspected) > MaxInspectedRefs {
+		return errors.New("repair report inspects too many sources")
+	}
+	for _, ref := range inspected {
+		if !validOwnershipEntry(ref.Path) || strings.HasSuffix(ref.Path, "/") {
+			return errors.New("repair inspected source is not an exact file")
+		}
+		if !ValidCommit(ref.Commit) {
+			return errors.New("repair inspected source lacks its commit")
+		}
+		if !intentText(ref.Evidence, MaxPlanTextBytes) {
+			return errors.New("repair inspected evidence outside its bound")
+		}
+	}
+	if len(causes) == 0 || len(causes) > MaxInspectedRefs {
+		return errors.New("repair report lacks its bounded causes")
+	}
+	for _, cause := range causes {
+		if err := cause.Validate(); err != nil {
+			return err
+		}
+	}
+	if !sortedUniqueIndexes(retained) {
+		return errors.New("repair retained issues are not sorted unique")
+	}
+	for _, index := range retained {
+		if index < 1 {
+			return errors.New("invalid repair retained issue")
+		}
+	}
+	if len(changes) > MaxReassessmentIntentChanges {
+		return errors.New("repair intent changes exceed their bound")
+	}
+	prior := ""
+	for _, change := range changes {
+		if change.IntentID <= prior {
+			return errors.New("repair intent changes are not sorted unique")
+		}
+		prior = change.IntentID
+		if err := change.validate(); err != nil {
+			return err
+		}
+	}
+	if len(coverage) > MaxReassessmentCoverage {
+		return errors.New("repair coverage exceeds its bound")
+	}
+	covered := make(map[string]bool, len(coverage))
+	for _, entry := range coverage {
+		if err := entry.validate(); err != nil {
+			return err
+		}
+		key := entry.IntentID + "\x00" + entry.OutcomeID
+		if covered[key] {
+			return errors.New("repair outcome covered twice")
+		}
+		covered[key] = true
+	}
+	if len(attention) > MaxReassessmentAttention {
+		return errors.New("repair attention exceeds its bound")
+	}
+	for _, entry := range attention {
+		if err := entry.validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // StallRepairReport is the typed output of a completed repair phase
-// answering a stall: the stall and cycle it investigated, the sealed
-// inventory it reviewed, and its outcome. It carries no candidate.
-// Cause/coverage/adoption detail belongs to the R37 repair consumers;
-// the envelope binds the result.
+// answering a stall: the full D15 field set over the sealed inventory
+// with inspected sources, causes, retained issues, intent changes,
+// coverage, attention and outcome. It carries no candidate. Cause and
+// coverage adoption detail belongs to the R37 repair consumers; the
+// envelope binds the result.
 type StallRepairReport struct {
-	StallID         string `json:"stall_id"`
-	CycleID         string `json:"cycle_id"`
-	InventoryDigest string `json:"inventory_digest"`
-	Outcome         string `json:"outcome"`
+	StallID              string                       `json:"stall_id"`
+	CycleID              string                       `json:"cycle_id"`
+	InventoryDigest      string                       `json:"inventory_digest"`
+	SourceCommit         string                       `json:"source_commit"`
+	PreparationDigest    string                       `json:"preparation_digest"`
+	Inspected            []InspectedSource            `json:"inspected_refs"`
+	Causes               []CheckFailure               `json:"causes"`
+	RetainedIssueIndexes []int64                      `json:"retained_issue_indexes"`
+	IntentChanges        []ReassessmentIntentChange   `json:"intent_changes"`
+	Coverage             []ReassessmentCoverage       `json:"coverage"`
+	Attention            []ReassessmentAttentionEntry `json:"attention"`
+	Outcome              string                       `json:"outcome"`
 }
 
 func (r StallRepairReport) Validate() error {
 	if !ValidID(r.StallID) || !ValidID(r.CycleID) {
 		return errors.New("invalid stall repair report identity")
 	}
-	if !ValidDigest(r.InventoryDigest) {
-		return errors.New("stall repair report must bind its sealed inventory")
+	if !ValidDigest(r.InventoryDigest) || !ValidDigest(r.PreparationDigest) {
+		return errors.New("stall repair report must bind its sealed digests")
+	}
+	if !ValidCommit(r.SourceCommit) {
+		return errors.New("invalid stall repair report source")
 	}
 	if !ValidRepairOutcome(r.Outcome) {
 		return errors.New("invalid stall repair outcome")
 	}
-	return nil
+	return validateRepairEvidence(
+		r.Inspected, r.Causes, r.RetainedIssueIndexes,
+		r.IntentChanges, r.Coverage, r.Attention,
+	)
 }
 
 // ApplyIncrease records an explicit owner-authorized limit increase. It
