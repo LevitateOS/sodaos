@@ -226,16 +226,19 @@ func planAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupanc
 // Phased callers additionally name the admitted phase, the advanced parent
 // and, for a rebuilt implementation prompt, the recorded investigation plan.
 // Only investigation opens a phased root and only a planned implementation
-// advances under its parent; every other phased combination refuses, with
-// intent subjects arriving through the intent-bound admission and other
-// phases through their owning boundaries.
+// advances under its parent; review and correction children of a published
+// publication keep their caller-staged prompt under their parent instead.
+// Every other phased combination refuses, with intent subjects arriving
+// through the intent-bound admission and other phases through their owning
+// boundaries.
 func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository, issue int64, head string, control factory.IssueControl, freshAttempt bool, role, preparation string, recordedPrompt bool, retryID string, lineage attemptLineage) (*attemptPlan, *planWait, *planWait) {
 	if control.Validate() != nil || control.Readiness != factory.ReadinessQueued || control.Repository != repository || control.Issue != issue || control.Acceptance != head {
 		return nil, waitFor(WaitInputsChanged, "queued readiness changed during dispatch"), nil
 	}
 	plan := &attemptPlan{control: control, freshAttempt: freshAttempt, phase: lineage.phase, parent: lineage.parent, advancePlan: lineage.advancePlan}
 	if lineage.phase != "" {
-		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement {
+		if lineage.phase != project.ExecutionInvestigate && lineage.phase != project.ExecutionImplement &&
+			lineage.phase != project.ExecutionReview && lineage.phase != project.ExecutionCorrect {
 			return nil, nil, waitFor("phase_not_admitted", "execution phase enters through its owning boundary")
 		}
 		if !factory.ValidPhaseRole(lineage.phase, role) {
@@ -245,10 +248,31 @@ func planAttemptForRole(ctx context.Context, deps DispatchDeps, occupancy *passO
 			if lineage.phase != project.ExecutionInvestigate {
 				return nil, nil, waitFor("phase_not_admitted", "only investigation opens a phased attempt root")
 			}
-		} else if lineage.phase != project.ExecutionImplement || (!recordedPrompt && lineage.advancePlan == nil) {
-			return nil, nil, waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
+		} else {
+			switch lineage.phase {
+			case project.ExecutionImplement:
+				if !recordedPrompt && lineage.advancePlan == nil {
+					return nil, nil, waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
+				}
+			case project.ExecutionReview, project.ExecutionCorrect:
+				// Publication children never rebuild prompts: the caller
+				// stages the admitted publication prompt carrying the
+				// exact current review/check evidence, and planning never
+				// invents review or correction content. The investigation
+				// plan slot stays empty on this path; the correction
+				// manifest is staged from the derived singleton plan at
+				// launch instead.
+				if !recordedPrompt || lineage.advancePlan != nil {
+					return nil, nil, waitFor("phase_not_admitted", "publication children keep their staged prompt under their parent")
+				}
+			default:
+				return nil, nil, waitFor("phase_not_admitted", "only a planned implementation advances under its parent")
+			}
 		}
 		plan.subject = factory.ExecutionSubject{Kind: factory.SubjectIssue, Issue: &factory.IssueSubject{Issue: issue, Acceptance: head}}
+		if !factory.SubjectKindAllowed(plan.subject.Kind, lineage.phase) {
+			return nil, nil, waitFor("phase_not_admitted", "execution subject cannot enter its phase")
+		}
 	}
 	effective, err := deps.Authority(ctx, repository)
 	if err != nil {

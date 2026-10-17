@@ -127,12 +127,14 @@ func implementationManifest(plan *factory.InvestigationPlan) ([]byte, error) {
 }
 
 // stageExecutionManifest binds the recorded investigation plan as the full
-// immutable execution envelope of one implement run (D05/FW14): exact plan
-// bytes and digest, invocation, phase/run/deadline, the admitted profile
-// snapshot and the child limit. An omitted profile resolves to the product
-// defaults at staging, matching policy creation; running snapshots stay
-// explicit. The returned bytes are parsed back before use so a construction
-// drift refuses here instead of at the native boundary.
+// immutable execution envelope of one phased run (D05/FW14, C15 wire):
+// exact plan bytes and digest, invocation, phase/run/deadline, the
+// admitted profile snapshot and the child limit. An omitted profile
+// resolves to the product defaults at staging, matching policy creation;
+// running snapshots stay explicit. The returned bytes are parsed back
+// before use so a construction drift refuses here instead of at the
+// native boundary. Implementations stage 1-4 children; corrections stage
+// the singleton envelope with no children.
 //
 // Invocation reuses the fresh run identity. Dispatch observes no native
 // invocation: the executor learns systemd's at launch and enforces it for
@@ -142,7 +144,7 @@ func implementationManifest(plan *factory.InvestigationPlan) ([]byte, error) {
 // authorization stays authoritative. FW14 joint for Codex D05 review:
 // either accept this doubling with the live binding authoritative, or
 // revise D05 so the executor adopts the staged invocation (deep change).
-func stageExecutionManifest(plan *factory.InvestigationPlan, runID string, deadline time.Time, profile factory.ExecutionProfile, maxChildren int) ([]byte, error) {
+func stageExecutionManifest(plan *factory.InvestigationPlan, runID string, deadline time.Time, profile factory.ExecutionProfile, phase string, maxChildren int) ([]byte, error) {
 	planBytes, err := implementationManifest(plan)
 	if err != nil {
 		return nil, err
@@ -150,7 +152,7 @@ func stageExecutionManifest(plan *factory.InvestigationPlan, runID string, deadl
 	effective := factory.EffectiveExecutionProfile(&profile)
 	manifest := project.ExecutionManifest{
 		Plan: planBytes, PlanDigest: project.PlanDigest(planBytes),
-		Invocation: runID, Phase: project.ExecutionImplement, Run: runID,
+		Invocation: runID, Phase: phase, Run: runID,
 		Deadline: deadline,
 		Effort:   effective.Effort, Contributor: effective.Contributor,
 		MaxChildren: maxChildren,
@@ -187,7 +189,7 @@ func admitImplementChild(ctx context.Context, deps DispatchDeps, occupancy *pass
 	now := time.Now()
 	runID := factory.NewID()
 	selection := plan.policy.Roles[project.RoleCoder]
-	manifest, err := stageExecutionManifest(plan.advancePlan, runID, plan.deadline, selection.Profile, plan.attemptLimits.MaxChildren)
+	manifest, err := stageExecutionManifest(plan.advancePlan, runID, plan.deadline, selection.Profile, project.ExecutionImplement, plan.attemptLimits.MaxChildren)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
 		return
@@ -314,6 +316,18 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 	// parent checks below do not apply.
 	if a.Phase == project.ExecutionImplement && a.ParentAssignment != "" && a.PublicationAssignment != a.ID {
 		retryPhasedChild(ctx, deps, &occupancy, control, a, report)
+		return
+	}
+	// A phased publication child (review or correction) rebinds against
+	// its publication owner and, for corrections, its current reviewer:
+	// the recorded prompt bytes stay immutable and the correction
+	// manifest restages from the derived singleton plan. A relaunch never
+	// recharges: the review round and correction cycle were consumed by
+	// the immutable assignment identity at first launch.
+	if (a.Phase == project.ExecutionReview || a.Phase == project.ExecutionCorrect) &&
+		a.ParentAssignment != "" && a.PublicationAssignment != a.ID &&
+		a.Subject.Kind == factory.SubjectIssue {
+		retryPhasedPublicationChild(ctx, deps, &occupancy, control, a, report)
 		return
 	}
 	child := a.PublicationAssignment != a.ID
@@ -485,7 +499,7 @@ func retryPhasedChild(ctx context.Context, deps DispatchDeps, occupancy *passOcc
 	// identity, deadline and current limits: its digest still binds the
 	// launch below.
 	selection := plan.policy.Roles[a.Role]
-	manifest, err := stageExecutionManifest(parent.Result.PhaseResult.Output.Plan, runID, plan.deadline, selection.Profile, plan.attemptLimits.MaxChildren)
+	manifest, err := stageExecutionManifest(parent.Result.PhaseResult.Output.Plan, runID, plan.deadline, selection.Profile, project.ExecutionImplement, plan.attemptLimits.MaxChildren)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
 		return
@@ -622,4 +636,224 @@ func settleUnusedLaunch(ctx context.Context, deps DispatchDeps, a factory.Assign
 		return
 	}
 	report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitLaunchRefused, Detail: "dispatch launch refused; retries remain"})
+}
+
+// validPublicationChildOwner verifies one publication child still binds its
+// recorded publication owner: a finished reported coder owning its own
+// publication slot on the same scope, root and acceptance.
+func validPublicationChildOwner(a, owner factory.Assignment) bool {
+	if owner.Validate() != nil || owner.ID != a.PublicationAssignment ||
+		owner.PublicationAssignment != owner.ID || owner.Role != project.RoleCoder ||
+		owner.Stage != factory.AssignmentFinished || owner.Outcome != factory.Succeeded {
+		return false
+	}
+	return owner.Repository == a.Repository && owner.Issue == a.Issue &&
+		owner.ProjectID == a.ProjectID && owner.Acceptance == a.Acceptance &&
+		owner.AttemptRoot == a.AttemptRoot
+}
+
+// validReviewLineage verifies one reviewer child still binds its publication
+// owner: the same scope, root and acceptance, on a distinct reviewer
+// preparation under the owner's publication slot.
+func validReviewLineage(a, owner factory.Assignment) bool {
+	if !validPublicationChildOwner(a, owner) {
+		return false
+	}
+	return a.Role == project.RoleReviewer && a.Phase == project.ExecutionReview &&
+		a.ParentAssignment == owner.ID &&
+		a.Subject.Kind == factory.SubjectIssue && a.Subject.Issue != nil &&
+		a.Subject.Issue.Issue == a.Issue && a.Subject.Issue.Acceptance == a.Acceptance &&
+		a.Preparation != owner.Preparation
+}
+
+// validCorrectLineage verifies one corrector child still binds its
+// publication owner and the reviewer that authored its verdict: the same
+// scope, root, acceptance and candidate, a single typed review verdict on
+// this head, and the owner's coder preparation distinct from the reviewer
+// session.
+func validCorrectLineage(a, owner, reviewer factory.Assignment) bool {
+	if !validPublicationChildOwner(a, owner) {
+		return false
+	}
+	if reviewer.Validate() != nil || reviewer.ID != a.ParentAssignment ||
+		reviewer.Role != project.RoleReviewer || reviewer.Phase != project.ExecutionReview ||
+		reviewer.Stage != factory.AssignmentFinished || reviewer.Outcome != factory.Succeeded ||
+		reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
+		return false
+	}
+	verdict := reviewer.Result.PhaseResult
+	if verdict == nil || verdict.Phase != project.ExecutionReview || verdict.Output == nil ||
+		(verdict.Output.Review == nil) == (verdict.Output.Clear == nil) {
+		return false
+	}
+	if verdict.Output.Clear != nil && verdict.Output.Clear.Head != a.SourceCommit {
+		return false
+	}
+	return a.Role == project.RoleCoder && a.Phase == project.ExecutionCorrect &&
+		reviewer.Repository == a.Repository && reviewer.Issue == a.Issue &&
+		reviewer.ProjectID == a.ProjectID && reviewer.Acceptance == a.Acceptance &&
+		reviewer.AttemptRoot == a.AttemptRoot &&
+		reviewer.PublicationAssignment == a.PublicationAssignment &&
+		reviewer.SourceCommit == a.SourceCommit &&
+		a.Subject.Kind == factory.SubjectIssue && a.Subject.Issue != nil &&
+		a.Subject.Issue.Issue == a.Issue && a.Subject.Issue.Acceptance == a.Acceptance &&
+		a.Preparation == owner.Preparation && a.Preparation != reviewer.Preparation
+}
+
+// newestCommittedCorrectionRunID returns the run behind the newest committed
+// review submission on one exact head and base.
+func newestCommittedCorrectionRunID(p factory.Publication, head, base string) (string, bool) {
+	for i := len(p.ReviewOperations) - 1; i >= 0; i-- {
+		op := p.ReviewOperations[i]
+		if op.Work.HeadOID != head || op.Work.BaseOID != base {
+			continue
+		}
+		if op.Outcome.Effect != factory.OpEffectCommitted || op.Outcome.Completion != factory.OpCompletionComplete {
+			return "", false
+		}
+		return op.RunID, true
+	}
+	return "", false
+}
+
+// retryPhasedPublicationChild relaunches one interrupted phased reviewer or
+// corrector: the recorded prompt bytes are immutable, so planning only
+// rechecks live limits, preparation, harness and inputs before recording a
+// fresh run for the same assignment. Reviewers relaunch bare; correctors
+// restage the derived singleton plan as their correct-phase manifest with
+// the retry's fresh run identity. Anything the lineage no longer binds
+// supersedes the child instead of executing it.
+func retryPhasedPublicationChild(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, control factory.IssueControl, a factory.Assignment, report *DispatchReport) {
+	owner, err := deps.Store.Assignment(ctx, a.PublicationAssignment)
+	if err != nil || !validPublicationChildOwner(a, owner) {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "publication owner no longer holds", report)
+		return
+	}
+	p, err := deps.Store.PublicationByAssignment(ctx, owner.ID)
+	if err != nil || p.Stage != factory.PublicationPublished || p.WithdrawRequested ||
+		p.Repository != a.Repository || p.Issue != a.Issue || p.Acceptance != a.Acceptance ||
+		p.Candidate != a.SourceCommit {
+		finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "published candidate no longer holds", report)
+		return
+	}
+	var lineage attemptLineage
+	if a.Phase == project.ExecutionReview {
+		if !validReviewLineage(a, owner) {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "reviewer lineage no longer holds", report)
+			return
+		}
+		lineage = attemptLineage{phase: a.Phase, parent: owner.ID}
+	} else {
+		reviewer, err := deps.Store.Assignment(ctx, a.ParentAssignment)
+		if err != nil || !validCorrectLineage(a, owner, reviewer) {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "corrector lineage no longer holds", report)
+			return
+		}
+		current, ok := newestCommittedCorrectionRunID(p, a.SourceCommit, p.PRCreate.BaseOID)
+		if !ok || current != reviewer.Run {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "correction answers a superseded review", report)
+			return
+		}
+		lineage = attemptLineage{phase: a.Phase, parent: reviewer.ID}
+	}
+	plan, wait, failed := planAttemptForRole(ctx, deps, occupancy, a.Repository, a.Issue, a.Acceptance, control, false, a.Role, a.Preparation, true, "", lineage)
+	if failed != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: failed.Reason, Detail: failed.Detail})
+		return
+	}
+	if wait != nil {
+		switch wait.Reason {
+		case WaitAuthority, WaitDispatchClosed, WaitSponsorshipRole:
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonWithdrawn, "grants no longer authorize dispatch", report)
+		case WaitInputsChanged, WaitInputsHidden, WaitIssueClosed, WaitIssueLocked:
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "accepted inputs no longer hold", report)
+		}
+		return
+	}
+	runID := factory.NewID()
+	now := time.Now()
+	var manifest []byte
+	manifestDigest := ""
+	if a.Phase == project.ExecutionCorrect {
+		var cycle factory.ReviewCycle
+		found := false
+		for _, recorded := range p.ReviewCycles {
+			if recorded.CorrectionAssignment == a.ID {
+				cycle, found = recorded, true
+				break
+			}
+		}
+		if !found {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "correction answers an unrecorded cycle", report)
+			return
+		}
+		if owner.Phase != project.ExecutionInvestigate || owner.Result == nil || owner.Result.PhaseResult == nil ||
+			owner.Result.PhaseResult.Output == nil || owner.Result.PhaseResult.Output.Plan == nil {
+			finishTerminal(ctx, deps, a, factory.Cancelled, factory.AssignReasonSuperseded, "recorded investigation plan is unavailable", report)
+			return
+		}
+		derived, derivationErr := deriveCorrectionPlan(plan.acceptance, *owner.Result.PhaseResult.Output.Plan,
+			owner.AttemptRoot, a.SourceCommit, p.PRCreate.BaseOID, owner.Preparation,
+			cycle.ID, cycle.FindingDigest, nil, plan.policy.Checks)
+		if derivationErr != nil {
+			if reason, blocked := correctionPlanWaitReason(derivationErr); blocked {
+				report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: reason, Detail: "recorded investigation plan is unavailable"})
+				return
+			}
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
+			return
+		}
+		selection := plan.policy.Roles[a.Role]
+		staged, err := stageExecutionManifest(derived, runID, plan.deadline, selection.Profile, project.ExecutionCorrect, 0)
+		if err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "recorded plan is unstaged"})
+			return
+		}
+		manifest, manifestDigest = staged, project.ExecutionManifestDigest(staged)
+	}
+	run := factory.Run{
+		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
+		Started: now, Deadline: plan.deadline,
+		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
+	}
+	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
+	next, err := deps.Store.RecordRetryPacket(ctx, a, plan.control, plan.effective.Authority, run, view, plan.planned)
+	if err != nil {
+		if errors.Is(err, store.ErrDispatchControlStale) {
+			report.Waits = append(report.Waits, DispatchWait{Repository: a.Repository, Issue: a.Issue, Reason: WaitInputsChanged, Detail: "queued readiness changed during retry"})
+			return
+		}
+		// A limit refusal defers quietly: the fresh visit already
+		// reports the issue as assigned, and a later pass retries.
+		if admissionWait(err) != nil {
+			return
+		}
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "dispatch attempt unrecorded"})
+		return
+	}
+	launch := project.FactoryLaunch{
+		Run: project.FactoryRun{
+			ID: runID, Project: a.ProjectID, Role: a.Role,
+			Preparation: a.Preparation,
+			Harness:     plan.pin.Harness, HarnessVers: a.HarnessVers,
+			Model:      a.Model,
+			Assignment: a.PromptSHA, SourceCommit: a.SourceCommit,
+			Connection: a.Connection, Actor: a.ActorID,
+			Deadline: plan.deadline, ExecutionPhase: a.Phase,
+			ManifestDigest: manifestDigest,
+		},
+		Prompt: a.Prompt, HarnessSHA256: plan.pin.SHA256,
+		ExecutionManifest: manifest,
+	}
+	if err := launch.Validate(); err != nil {
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
+		return
+	}
+	if a.Phase == project.ExecutionCorrect {
+		if err := verifyStagedManifest(launch); err != nil {
+			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrHost, Detail: "dispatch launch invalid"})
+			return
+		}
+	}
+	launchTail(ctx, deps, next, run, launch, report)
 }

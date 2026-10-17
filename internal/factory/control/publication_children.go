@@ -51,6 +51,13 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		publicationError(report, p.ID, "publication_owner_unavailable")
 		return
 	}
+	// Phased activation: children of a phased (explicit-phase) publication
+	// owner enter the typed review/correct wire with their record phase,
+	// subject and parent. Children of a pre-phase owner keep the legacy
+	// wire, and follow-up children match the evidence they answer, so an
+	// upgrade-era publication heals through the leg its current verdict
+	// admits instead of stranding.
+	phasedOwner := owner.Phase != ""
 	latest, err := c.Store.LatestIssueAssignment(ctx, p.Repository, p.Issue)
 	if err != nil {
 		publicationError(report, p.ID, "issue_assignment_unavailable")
@@ -166,6 +173,35 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 			policyReview = policyCauseOwed(p, checks.Verdict, policyActor)
 		}
 	}
+	// Typed-wire leg: a phased child records its execution phase, issue
+	// subject and parent. First reviews follow a phased owner; follow-up
+	// children follow the evidence they answer, so a typed verdict earns
+	// a phased child while legacy string verdicts keep the legacy child
+	// they admit. Anything else stays pre-phase.
+	childPhase := ""
+	phasedChild := false
+	if phasedOwner && (review.Legacy == nil) {
+		childPhase = project.ExecutionCorrect
+		if role == project.RoleReviewer {
+			childPhase = project.ExecutionReview
+		}
+		phasedChild = true
+	}
+	lineage := attemptLineage{}
+	parentAssignment := ""
+	if phasedChild {
+		if role == project.RoleReviewer {
+			parentAssignment = owner.ID
+		} else {
+			reviewer, ok := c.currentReviewerForCorrection(ctx, p, owner)
+			if !ok {
+				publicationWait(report, p.ID, "child_assignment_unavailable")
+				return
+			}
+			parentAssignment = reviewer.ID
+		}
+		lineage = attemptLineage{phase: childPhase, parent: parentAssignment}
+	}
 	// Durable D07 cycle: fresh independent reviews bind head/base only;
 	// corrections and same-head re-reviews bind the full outstanding
 	// review/check evidence. New digests open new rounds (fresh IDs);
@@ -199,14 +235,14 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		digest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, review, checks)
 		triggerDecision, triggerReason = "correction-after-review", "address "+review.Verdict+" with "+checks.Verdict+" checks on head "+shortHead
 	}
-	_, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, triggerDecision, triggerReason)
+	cycle, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, triggerDecision, triggerReason)
 	if cycleErr != nil {
 		publicationWait(report, p.ID, "child_cycle_unrecorded")
 		return
 	}
 	existing, err := c.Store.Assignment(ctx, childID)
 	if err == nil {
-		if !existingMatchesPublicationChild(childID, existing, p, owner, role) {
+		if !existingMatchesPublicationChild(childID, existing, p, owner, role, childPhase, parentAssignment) {
 			c.fenceChildPublication(ctx, p, report)
 			return
 		}
@@ -263,7 +299,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	if role == project.RoleCoder {
 		exactPreparation = owner.Preparation
 	}
-	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true, "", attemptLineage{})
+	plan, wait, failed := planAttemptForRole(ctx, deps, &occupancy, p.Repository, p.Issue, p.Acceptance, control, false, role, exactPreparation, true, "", lineage)
 	if failed != nil {
 		publicationWait(report, p.ID, failed.Reason)
 		return
@@ -333,7 +369,161 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		return
 	}
 	plan.prompt, plan.promptSHA = prompt, project.FactoryPromptDigest(prompt)
-	c.executePublicationChild(ctx, deps, &occupancy, plan, p, owner, childID, preparationID, role, report)
+	// A phased corrector executes the controller-derived singleton plan,
+	// never a rebuilt or agent-selected one. An accepted-policy gap is a
+	// visible planning blocker; any other derivation failure refuses
+	// loudly instead of launching without a manifest.
+	var correctionPlan *factory.InvestigationPlan
+	if phasedChild && role == project.RoleCoder {
+		derived, derivationErr := c.correctionPlanFor(ctx, plan, p, owner, cycle, review)
+		if derivationErr != nil {
+			if reason, blocked := correctionPlanWaitReason(derivationErr); blocked {
+				publicationWait(report, p.ID, reason)
+				return
+			}
+			publicationError(report, p.ID, "child_assignment_unrecorded")
+			return
+		}
+		correctionPlan = derived
+	}
+	// Recheck the source, preparation, current tuple and allowance after
+	// the waits above: a moved head, retired preparation, replaced
+	// acceptance or spent allowance waits instead of launching stale
+	// work, and a phased correction additionally rebinds its current
+	// reviewer before any host call.
+	if wait, recheckErr := c.recheckPublicationChild(ctx, p, owner, plan, phasedChild, parentAssignment); recheckErr != nil {
+		publicationError(report, p.ID, "child_assignment_unavailable")
+		return
+	} else if wait != nil {
+		publicationWait(report, p.ID, wait.Reason)
+		return
+	}
+	c.executePublicationChild(ctx, deps, &occupancy, plan, p, owner, childID, preparationID, role, correctionPlan, report)
+}
+
+// correctionPlanFor derives the singleton correction plan for one phased
+// correction round from the accepted issue inputs and the owner's
+// immutable recorded investigation plan.
+func (c *Coordinator) correctionPlanFor(ctx context.Context, plan *attemptPlan, p factory.Publication, owner factory.Assignment, cycle factory.ReviewCycle, review ResolvedReviewVerdict) (*factory.InvestigationPlan, error) {
+	_ = ctx
+	if owner.Phase != project.ExecutionInvestigate || owner.Result == nil || owner.Result.PhaseResult == nil ||
+		owner.Result.PhaseResult.Output == nil || owner.Result.PhaseResult.Output.Plan == nil {
+		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "publication owner carries no recorded investigation plan"}
+	}
+	if cycle.CorrectionAssignment == "" || cycle.Head != p.Candidate || cycle.BaseOID != p.PRCreate.BaseOID {
+		return nil, &correctionPlanBlocked{reason: "correction_plan_unavailable", detail: "correction answers another round"}
+	}
+	return deriveCorrectionPlan(plan.acceptance, *owner.Result.PhaseResult.Output.Plan,
+		owner.AttemptRoot, p.Candidate, p.PRCreate.BaseOID, owner.Preparation,
+		cycle.ID, cycle.FindingDigest, correctionFindingKeys(review), plan.policy.Checks)
+}
+
+// correctionFindingKeys returns the deterministic finding keys one phased
+// correction answers: the typed verdict's new findings plus its carried
+// assessments. Legacy string verdicts carry no stable keys.
+func correctionFindingKeys(review ResolvedReviewVerdict) []string {
+	seen := map[string]bool{}
+	var keys []string
+	if review.Review != nil {
+		for _, finding := range review.Review.NewFindings {
+			if !seen[finding.Key] {
+				seen[finding.Key] = true
+				keys = append(keys, finding.Key)
+			}
+		}
+		for _, assessment := range review.Review.Assessments {
+			if !seen[assessment.Key] {
+				seen[assessment.Key] = true
+				keys = append(keys, assessment.Key)
+			}
+		}
+	}
+	if review.Clear != nil {
+		for _, assessment := range review.Clear.Assessments {
+			if !seen[assessment.Key] {
+				seen[assessment.Key] = true
+				keys = append(keys, assessment.Key)
+			}
+		}
+	}
+	return keys
+}
+
+// recheckPublicationChild re-reads the publication, current tuple and
+// allowance after the wait-inducing preparation and planning above. A
+// changed candidate, fenced publication, replaced acceptance, retired
+// allowance or rebound reviewer waits instead of launching.
+func (c *Coordinator) recheckPublicationChild(ctx context.Context, p factory.Publication, owner factory.Assignment, plan *attemptPlan, phasedChild bool, parentAssignment string) (*planWait, error) {
+	fresh, err := c.Store.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		return nil, err
+	}
+	if fresh.Stage != factory.PublicationPublished || fresh.WithdrawRequested ||
+		fresh.Candidate != p.Candidate || fresh.PRNumber != p.PRNumber || fresh.PRID != p.PRID ||
+		fresh.PRCreate.BaseOID != p.PRCreate.BaseOID {
+		return waitFor("child_dispatch_inputs_changed", "published candidate changed before launch"), nil
+	}
+	head, err := c.Store.AcceptanceHead(ctx, p.Repository, p.Issue)
+	if err != nil {
+		return nil, err
+	}
+	if head != p.Acceptance {
+		return waitFor("child_dispatch_inputs_changed", "acceptance head changed before launch"), nil
+	}
+	allowance, err := c.Store.AttemptAllowance(ctx, p.Repository, p.Issue)
+	if err != nil {
+		return nil, err
+	}
+	if allowance.RootAssignment != owner.AttemptRoot || allowance.Closed || !allowance.Active ||
+		allowance.RemainingSeconds(time.Now()) <= 0 {
+		return waitFor("child_dispatch_inputs_changed", "attempt allowance changed before launch"), nil
+	}
+	if plan.inputs.Tip != fresh.Candidate {
+		return waitFor("child_dispatch_inputs_changed", "published candidate changed before launch"), nil
+	}
+	if phasedChild && plan.phase == project.ExecutionCorrect {
+		reviewer, ok := c.currentReviewerForCorrection(ctx, fresh, owner)
+		if !ok || reviewer.ID != parentAssignment {
+			return waitFor("child_dispatch_inputs_changed", "current reviewer changed before launch"), nil
+		}
+	}
+	return nil, nil
+}
+
+// currentReviewerForCorrection resolves the reviewer assignment behind the
+// newest committed verdict on the publication's exact current head and
+// base. A pending or refused current-head operation, a missing or stale
+// reviewer, or any other head all report false with zero downstream
+// effect: no native call happens before every check passes.
+func (c *Coordinator) currentReviewerForCorrection(ctx context.Context, p factory.Publication, owner factory.Assignment) (factory.Assignment, bool) {
+	var empty factory.Assignment
+	for i := len(p.ReviewOperations) - 1; i >= 0; i-- {
+		op := p.ReviewOperations[i]
+		if op.Work.HeadOID != p.Candidate {
+			continue
+		}
+		if op.Work.BaseOID != p.PRCreate.BaseOID {
+			return empty, false
+		}
+		if op.Outcome.Effect == factory.OpEffectPending || op.Outcome.Effect == factory.OpEffectIndeterminate ||
+			op.Outcome.Completion == factory.OpCompletionPending {
+			return empty, false
+		}
+		if op.Outcome.Effect != factory.OpEffectCommitted || op.Outcome.Completion != factory.OpCompletionComplete {
+			return empty, false
+		}
+		reviewer, err := c.Store.AssignmentByRun(ctx, op.RunID)
+		if err != nil || reviewer.Validate() != nil || reviewer.Role != project.RoleReviewer ||
+			reviewer.PublicationAssignment != owner.ID || reviewer.AttemptRoot != owner.AttemptRoot ||
+			reviewer.SourceCommit != p.Candidate || reviewer.Repository != p.Repository ||
+			reviewer.Issue != p.Issue || reviewer.Acceptance != p.Acceptance ||
+			reviewer.Stage != factory.AssignmentFinished || reviewer.Outcome != factory.Succeeded ||
+			reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
+			return empty, false
+		}
+		return reviewer, true
+	}
+	return empty, false
 }
 
 // currentReviewReport returns only evidence whose native operation completed
@@ -567,14 +757,34 @@ func (c *Coordinator) observeCandidatePreparation(ctx context.Context, prior pro
 	return nil
 }
 
-func (c *Coordinator) executePublicationChild(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, p factory.Publication, owner factory.Assignment, assignmentID, preparationID, role string, report *PublishReport) {
+func (c *Coordinator) executePublicationChild(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, p factory.Publication, owner factory.Assignment, assignmentID, preparationID, role string, correctionPlan *factory.InvestigationPlan, report *PublishReport) {
 	now := time.Now()
 	runID := factory.NewID()
+	// A phased corrector stages its controller-derived singleton plan as
+	// the actual correct-phase manifest bytes (C15 wire) with no child
+	// concurrency. Reviewers stage no manifest; legacy children stage
+	// neither phase nor manifest.
+	var manifest []byte
+	var manifestDigest string
+	if plan.phase == project.ExecutionCorrect {
+		if correctionPlan == nil {
+			publicationError(report, p.ID, "child_assignment_unrecorded")
+			return
+		}
+		selection := plan.policy.Roles[role]
+		staged, err := stageExecutionManifest(correctionPlan, runID, plan.deadline, selection.Profile, project.ExecutionCorrect, 0)
+		if err != nil {
+			publicationError(report, p.ID, "child_assignment_unrecorded")
+			return
+		}
+		manifest, manifestDigest = staged, project.ExecutionManifestDigest(staged)
+	}
 	authority := plan.effective.Authority
 	authority.RequirementsID, authority.ApprovalID = plan.requirement, plan.approval
 	assignment := factory.Assignment{
 		Authority: authority,
 		ID:        assignmentID, AttemptRoot: owner.AttemptRoot, PublicationAssignment: owner.ID,
+		Subject: plan.subject, Phase: plan.phase, ParentAssignment: plan.parent,
 		ProjectID: owner.ProjectID, Role: role,
 		Repository: p.Repository, Issue: p.Issue, NativeRev: plan.inputs.Revision,
 		Acceptance: owner.Acceptance, Preparation: preparationID,
@@ -618,12 +828,20 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 			Preparation: preparationID, Harness: plan.pin.Harness, HarnessVers: plan.pin.Version,
 			Model: assignment.Model, Assignment: assignment.PromptSHA, SourceCommit: p.Candidate,
 			Connection: plan.sponsorship.Connection, Actor: assignment.ActorID, Deadline: plan.deadline,
+			ExecutionPhase: plan.phase, ManifestDigest: manifestDigest,
 		},
 		Prompt: plan.prompt, HarnessSHA256: plan.pin.SHA256,
+		ExecutionManifest: manifest,
 	}
 	if err := launch.Validate(); err != nil {
 		publicationError(report, p.ID, "child_launch_invalid")
 		return
+	}
+	if plan.phase == project.ExecutionCorrect {
+		if err := verifyStagedManifest(launch); err != nil {
+			publicationError(report, p.ID, "child_launch_invalid")
+			return
+		}
 	}
 	tail := newDispatchReport()
 	launchTail(ctx, deps, assignment, run, launch, &tail)
@@ -635,11 +853,19 @@ func (c *Coordinator) executePublicationChild(ctx context.Context, deps Dispatch
 	}
 }
 
-func existingMatchesPublicationChild(expectedID string, a factory.Assignment, p factory.Publication, owner factory.Assignment, role string) bool {
-	return a.Validate() == nil && a.ID == expectedID &&
+func existingMatchesPublicationChild(expectedID string, a factory.Assignment, p factory.Publication, owner factory.Assignment, role, phase, parent string) bool {
+	if !(a.Validate() == nil && a.ID == expectedID &&
 		a.PublicationAssignment == owner.ID && a.AttemptRoot == owner.AttemptRoot &&
 		a.Repository == p.Repository && a.Issue == p.Issue && a.Acceptance == p.Acceptance &&
-		a.Role == role && a.SourceCommit == p.Candidate
+		a.Role == role && a.SourceCommit == p.Candidate) {
+		return false
+	}
+	if phase == "" {
+		return a.Phase == "" && a.ParentAssignment == "" && a.Subject.Kind == ""
+	}
+	return a.Phase == phase && a.ParentAssignment == parent &&
+		a.Subject.Kind == factory.SubjectIssue && a.Subject.Issue != nil &&
+		a.Subject.Issue.Issue == p.Issue && a.Subject.Issue.Acceptance == p.Acceptance
 }
 
 func publicationChildID(publication, head, role string) string {
