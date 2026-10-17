@@ -349,10 +349,6 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 		return factory.CompletionLocal{}, err
 	}
 	_ = preparationRows.Close()
-	authorityInput, err := factoryAuthorityInput(ctx, tx, repository)
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
 	materialDigest, err := material.Digest()
 	if err != nil {
 		return factory.CompletionLocal{}, err
@@ -369,7 +365,7 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 		SourceCommit:         material.Authority.RequirementSourceCommit,
 		PreparationDigest:    hex.EncodeToString(preparationSum[:]),
 		ScopeDigest:          materialDigest,
-		AuthorityFingerprint: factory.AuthorityFingerprint(factory.EvaluateAuthority(authorityInput)),
+		AuthorityFingerprint: factory.AuthorityFingerprint(material.Authority.Effective),
 	}
 	if err = local.Validate(); err != nil {
 		return factory.CompletionLocal{}, err

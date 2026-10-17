@@ -1106,6 +1106,21 @@ Extend existing Work/Spaces/API read models with completion, gate decision,
 assessment progress, exact proposal effects/receipts and the wait/retry reason.
 Read endpoints do not spend money. No new dashboard, scheduler or recurring timer.
 
+Current-head context and resumable continue freshness: the sealed material
+carries the CURRENT accepted requirement/approval head identity and content
+digests (project, source commit, setup/inputs digests, approval effects/
+readiness, verified flag, target branch) bound into its scope digest, loaded
+in the same repeatable-read LOCAL capture (heads/policy read alongside the
+local material rows) — never a later admission-time comparison standing in
+for sealed heads. The native inventory itself is NOT inside that PostgreSQL
+transaction: it runs in the OUTER idle-revision bracket around local
+capture+recapture. A recorded continue
+decision releases only after a complete fresh re-observation bracket reproduces
+the sealed digest/local under the same native revision; quota or transient
+holds retain the durable fresh prefix across passes (resetting the cursor on
+real revision moves, never mixing revisions), and stale current-vs-sealed
+material refuses release. Collector progress clears on release.
+
 ## D14 — One Factory MCP implementation and seven profiles
 
 FW-REFINE-003 freezes the control surface below. Jev remains the controller's typed
