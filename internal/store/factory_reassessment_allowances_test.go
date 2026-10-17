@@ -84,6 +84,122 @@ func reassessmentSubjectOf(a factory.Assignment) factory.CompletionSubject {
 	return *a.Subject.Completion
 }
 
+// completionTerminalResult builds a valid candidate-free reassessment
+// report result for one completion root: completed, bound to the
+// reassess phase with exactly the typed reassessment payload, and
+// carrying no publishable candidate.
+func completionTerminalResult(t *testing.T, a factory.Assignment, now time.Time) factory.AssignmentResult {
+	t.Helper()
+	subject := reassessmentSubjectOf(a)
+	report := factory.ReassessmentReport{
+		CompletionID: subject.CompletionID, CycleID: subject.CycleID,
+		InventoryDigest: subject.InventoryDigest, SourceCommit: a.SourceCommit,
+		PreparationDigest: strings.Repeat("b", 64), LocalInputDigest: strings.Repeat("9", 64),
+		Summary: "completion terminal accounting probe",
+	}
+	phased := factory.PhaseResult{
+		Phase: project.ExecutionReassess, Status: "completed",
+		Summary: "completion terminal accounting probe",
+		Version: factory.PhaseResultVersion,
+		Output:  &factory.PhaseOutput{Reassessment: &report},
+	}
+	if err := phased.Validate(); err != nil {
+		t.Fatalf("terminal phased result invalid: %v", err)
+	}
+	return factory.AssignmentResult{
+		AssignmentID: a.ID, RunID: a.Run, Phase: project.ExecutionReassess,
+		Status: "completed", Summary: "completion terminal accounting probe",
+		Reported: true, RecordedUnix: now.Unix(), PhaseResult: &phased,
+	}
+}
+
+// finishCompletionRoot marks one assigned completion root finished with
+// the given outcome and reason, carrying a recorded result, and
+// validates the finished shape before any store call.
+func finishCompletionRoot(t *testing.T, a factory.Assignment, now time.Time, outcome factory.Outcome, reason string) factory.Assignment {
+	t.Helper()
+	finished := a
+	finished.Stage, finished.Outcome, finished.Reason = factory.AssignmentFinished, outcome, reason
+	finished.FinishedUnix = now.Unix()
+	var result factory.AssignmentResult
+	if outcome == factory.Succeeded {
+		result = completionTerminalResult(t, finished, now)
+	} else {
+		result = factory.ResultSynthesized(finished.ID, finished.Run, "failed", "run failed", now.Unix())
+	}
+	finished.Result = &result
+	if err := finished.Validate(); err != nil {
+		t.Fatalf("finished completion root invalid: %v", err)
+	}
+	return finished
+}
+
+// completionRunFixture builds the run row for one completion root
+// attempt. Reconciled runs carry their terminal outcome; active runs
+// carry none.
+func completionRunFixture(t *testing.T, a factory.Assignment, now time.Time, reconciled bool) factory.Run {
+	t.Helper()
+	selection := grantTestPolicy().Roles[project.RoleCoder]
+	run := factory.Run{
+		ID: a.Run, ProjectID: a.ProjectID, Role: project.RoleCoder,
+		InputSHA: strings.Repeat("c", 40),
+		Started:  now.Add(-time.Minute), Deadline: now.Add(30 * time.Minute),
+		Image:   "sha256:" + strings.Repeat("b", 64),
+		Harness: selection.Harness + "-" + selection.HarnessVers, Model: selection.Model,
+	}
+	if reconciled {
+		run.Outcome, run.Reconciled, run.Summary = factory.Succeeded, true, "run settled"
+	}
+	if err := run.Validate(); err != nil {
+		t.Fatalf("completion run fixture invalid: %v", err)
+	}
+	return run
+}
+
+// insertCompletionRunRow records one run plus its run view for a
+// completion root attempt with explicit active/settled state. Settled
+// fixtures record settled reconciled rows; active-effect fixtures
+// record genuinely unsettled rows. Nothing is inferred from absent
+// rows.
+func insertCompletionRunRow(t *testing.T, ctx context.Context, db *Store, a factory.Assignment, run factory.Run, active, settled bool) {
+	t.Helper()
+	data, err := json.Marshal(run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.db.ExecContext(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES($1,$2,$3,$4)`,
+		run.ID, active, settled, string(data)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.db.ExecContext(ctx, `INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES($1,$2,$3,$4)`,
+		run.ID, a.Repository, 0, a.ID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// readinessWorkCount reports recorded readiness sources and the budget
+// generation, proving a terminal completion finish enqueues zero
+// readiness work.
+func readinessWorkCount(t *testing.T, ctx context.Context, db *Store) (sources, generation int64) {
+	t.Helper()
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM factory_readiness_sources`).Scan(&sources); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.db.QueryRowContext(ctx, `SELECT generation FROM factory_readiness_budget WHERE id=1`).Scan(&generation); err != nil {
+		t.Fatal(err)
+	}
+	return sources, generation
+}
+
+func storedAssignmentStage(t *testing.T, ctx context.Context, db *Store, id string) string {
+	t.Helper()
+	var stage string
+	if err := db.db.QueryRowContext(ctx, `SELECT stage FROM factory_assignments WHERE id=$1`, id).Scan(&stage); err != nil {
+		t.Fatal(err)
+	}
+	return stage
+}
+
 func TestReassessmentAllowanceTypedRootInsertRead(t *testing.T) {
 	ctx := context.Background()
 	db, _ := postgresFixture(t, nil)
@@ -599,5 +715,341 @@ func TestReassessmentPositiveIssueAllowanceRegression(t *testing.T) {
 		CompletionID: factory.NewID(), CycleID: factory.NewID(), InventoryDigest: strings.Repeat("d", 64),
 	}, a.ID); err == nil {
 		t.Fatal("typed completion lookup answered a positive-issue root")
+	}
+}
+
+// TestReassessmentTerminalFinishSettledCheckpointsNoReadiness proves
+// 062 defect 1 repaired: a valid candidate-free completion result,
+// succeeded and reported, finishes atomically in the same terminal
+// transaction with zero readiness work. Its recorded run is settled,
+// so consumed time checkpoints exactly and the root closes.
+func TestReassessmentTerminalFinishSettledCheckpointsNoReadiness(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, a)
+	commitReassessmentInsert(t, ctx, db, a, 45, now.Add(30*time.Minute), now)
+	before, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(a), a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	insertCompletionRunRow(t, ctx, db, a, completionRunFixture(t, a, now, true), false, true)
+	sourcesBefore, generationBefore := readinessWorkCount(t, ctx, db)
+	if err = db.FinishAssignment(ctx, finishCompletionRoot(t, a, now, factory.Succeeded, factory.AssignReasonReported)); err != nil {
+		t.Fatalf("settled completion finish refused: %v", err)
+	}
+	if got := storedAssignmentStage(t, ctx, db, a.ID); got != factory.AssignmentFinished {
+		t.Fatalf("completion assignment stage = %q", got)
+	}
+	after, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(a), a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.Closed || after.Active {
+		t.Fatalf("settled terminal completion did not close+stop: %+v", after)
+	}
+	// Stored checkpoint arithmetic: the consumed seconds must exactly
+	// equal the checkpoint advance, with no sleeps or tolerances.
+	if after.ActiveSeconds != after.CheckpointUnix-before.CheckpointUnix {
+		t.Fatalf("consumed %d != checkpoint advance %d", after.ActiveSeconds, after.CheckpointUnix-before.CheckpointUnix)
+	}
+	if after.Revision != before.Revision+1 {
+		t.Fatalf("terminal checkpoint revision = %d, want %d", after.Revision, before.Revision+1)
+	}
+	if sources, generation := readinessWorkCount(t, ctx, db); sources != sourcesBefore || generation != generationBefore || sources != 0 {
+		t.Fatalf("completion finish enqueued readiness work: sources %d->%d generation %d->%d",
+			sourcesBefore, sources, generationBefore, generation)
+	}
+}
+
+// TestReassessmentTerminalFinishUnsettledKeepsClock proves the shared
+// joint retains the active clock when the recorded run is still
+// unsettled: the finish still commits atomically with zero readiness
+// work, the coder-only admission closes, but no time is consumed and
+// the checkpoint does not move.
+func TestReassessmentTerminalFinishUnsettledKeepsClock(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	a := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, a)
+	commitReassessmentInsert(t, ctx, db, a, 45, now.Add(30*time.Minute), now)
+	before, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(a), a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A genuinely unsettled recorded run: active, unreconciled, with a
+	// run view bound to this root. The active clock must survive it.
+	insertCompletionRunRow(t, ctx, db, a, completionRunFixture(t, a, now, false), true, false)
+	if err = db.FinishAssignment(ctx, finishCompletionRoot(t, a, now, factory.Succeeded, factory.AssignReasonReported)); err != nil {
+		t.Fatalf("unsettled completion finish refused: %v", err)
+	}
+	after, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(a), a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.Closed || !after.Active {
+		t.Fatalf("unsettled terminal completion must close admission yet keep its clock: %+v", after)
+	}
+	if after.ActiveSeconds != 0 || after.CheckpointUnix != before.CheckpointUnix {
+		t.Fatalf("unsettled finish stopped the clock early: %+v", after)
+	}
+	if after.Revision != before.Revision+1 {
+		t.Fatalf("close-only revision = %d, want %d", after.Revision, before.Revision+1)
+	}
+	if sources, generation := readinessWorkCount(t, ctx, db); sources != 0 || generation != 1 {
+		t.Fatalf("unsettled completion finish enqueued readiness work: sources %d generation %d", sources, generation)
+	}
+}
+
+// TestReassessmentTransitionAddressesOlderCycle proves 062 defect 2
+// repaired at the shared joint: with a newer different cycle as the
+// latest (repository, 0) row, settling the older root checkpoints and
+// closes ONLY the older allowance at a deterministic instant, while
+// the later root stays byte-identical. Before the repair the joint
+// consulted latest(repository, 0) and silently skipped the older root.
+func TestReassessmentTransitionAddressesOlderCycle(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	completion := factory.NewID()
+	older := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	newer := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, older)
+	insertReassessmentRootRow(t, ctx, db, newer)
+	commitReassessmentInsert(t, ctx, db, older, 45, now.Add(30*time.Minute), now)
+	commitReassessmentInsert(t, ctx, db, newer, 60, now.Add(30*time.Minute), now)
+	olderBefore, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(older), older.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newerBefore, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(newer), newer.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The older root's recorded run is settled; the newer root keeps a
+	// genuinely unsettled recorded run so per-root addressing is proven
+	// on both sides.
+	insertCompletionRunRow(t, ctx, db, older, completionRunFixture(t, older, now, true), false, true)
+	insertCompletionRunRow(t, ctx, db, newer, completionRunFixture(t, newer, now, false), true, false)
+	// Deterministic instant: exactly five active minutes past the older
+	// root's recorded checkpoint.
+	at := time.Unix(olderBefore.CheckpointUnix+300, 0)
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = transitionAttemptAssignmentTx(ctx, tx, older.ID, true, at); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	olderAfter, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(older), older.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !olderAfter.Closed || olderAfter.Active || olderAfter.ActiveSeconds != 300 ||
+		olderAfter.CheckpointUnix != olderBefore.CheckpointUnix+300 || olderAfter.Revision != olderBefore.Revision+1 {
+		t.Fatalf("older root not settled exactly: %+v", olderAfter)
+	}
+	newerAfter, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(newer), newer.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newerAfter.Revision != newerBefore.Revision || newerAfter.ActiveSeconds != newerBefore.ActiveSeconds ||
+		newerAfter.CheckpointUnix != newerBefore.CheckpointUnix || newerAfter.Active != newerBefore.Active ||
+		newerAfter.Closed != newerBefore.Closed || newerAfter.Limits != newerBefore.Limits {
+		t.Fatalf("newer root changed: before %+v after %+v", newerBefore, newerAfter)
+	}
+}
+
+// TestReassessmentTerminalFinishNeedsTypedAllowance proves terminal
+// assignment cannot commit without its accounting: a missing typed
+// allowance and a mismatched typed subject both fail the finish and
+// roll the assignment back to assigned.
+func TestReassessmentTerminalFinishNeedsTypedAllowance(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	// Missing: recorded root and settled run, but no typed allowance row.
+	missing := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, missing)
+	insertCompletionRunRow(t, ctx, db, missing, completionRunFixture(t, missing, now, true), false, true)
+	if err := db.FinishAssignment(ctx, finishCompletionRoot(t, missing, now, factory.Succeeded, factory.AssignReasonReported)); err == nil {
+		t.Fatal("completion finish committed without its typed allowance")
+	}
+	if got := storedAssignmentStage(t, ctx, db, missing.ID); got != factory.AssignmentAssigned {
+		t.Fatalf("missing-allowance finish left stage = %q", got)
+	}
+	// Mismatched: the recorded root and allowance bind cycle one, but
+	// the finishing assignment carries cycle two under the same
+	// completion event. The canonical lineage key still matches, so the
+	// typed subject check is what must refuse.
+	recorded := reassessmentRootFixture(t, now, 7, factory.NewID(), factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, recorded)
+	commitReassessmentInsert(t, ctx, db, recorded, 45, now.Add(30*time.Minute), now)
+	insertCompletionRunRow(t, ctx, db, recorded, completionRunFixture(t, recorded, now, true), false, true)
+	other := recorded
+	cloned := *other.Subject.Completion
+	cloned.CycleID = factory.NewID()
+	other.Subject.Completion = &cloned
+	if err := db.FinishAssignment(ctx, finishCompletionRoot(t, other, now, factory.Succeeded, factory.AssignReasonReported)); err == nil {
+		t.Fatal("completion finish committed with a mismatched typed allowance")
+	}
+	if got := storedAssignmentStage(t, ctx, db, recorded.ID); got != factory.AssignmentAssigned {
+		t.Fatalf("mismatched-allowance finish left stage = %q", got)
+	}
+	// A failed non-success finish needs its accounting too: the
+	// cancellation-family close policy is preserved, but the typed row
+	// stays mandatory.
+	if err := db.FinishAssignment(ctx, finishCompletionRoot(t, missing, now, factory.Failed, factory.AssignReasonRunFailed)); err == nil {
+		t.Fatal("failed completion finish committed without its typed allowance")
+	}
+	if got := storedAssignmentStage(t, ctx, db, missing.ID); got != factory.AssignmentAssigned {
+		t.Fatalf("failed missing-allowance finish left stage = %q", got)
+	}
+}
+
+// TestReassessmentLateSettlementStopsClock proves the 067 late path: a
+// completion root finished while its real recorded run was unsettled
+// keeps an ACTIVE clock; settling that same run through the public
+// SaveFactoryRun then checkpoints ONLY the original root while a newer
+// other-cycle root in the same repository stays unchanged.
+func TestReassessmentLateSettlementStopsClock(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	completion := factory.NewID()
+	original := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	later := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, original)
+	insertReassessmentRootRow(t, ctx, db, later)
+	commitReassessmentInsert(t, ctx, db, original, 45, now.Add(30*time.Minute), now)
+	commitReassessmentInsert(t, ctx, db, later, 60, now.Add(30*time.Minute), now)
+	insertCompletionRunRow(t, ctx, db, original, completionRunFixture(t, original, now, false), true, false)
+	insertCompletionRunRow(t, ctx, db, later, completionRunFixture(t, later, now, false), true, false)
+	if err := db.FinishAssignment(ctx, finishCompletionRoot(t, original, now, factory.Succeeded, factory.AssignReasonReported)); err != nil {
+		t.Fatalf("unsettled completion finish refused: %v", err)
+	}
+	closed, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(original), original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !closed.Closed || !closed.Active || closed.ActiveSeconds != 0 {
+		t.Fatalf("finished unsettled root must stay active: %+v", closed)
+	}
+	laterBefore, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(later), later.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Settle the original recorded run through the public lifecycle:
+	// terminal outcome plus reconciliation on the actually recorded row.
+	stored, err := db.FactoryRun(ctx, original.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Outcome, stored.Reconciled, stored.Summary = factory.Succeeded, true, "run settled"
+	if err = db.SaveFactoryRun(ctx, stored); err != nil {
+		t.Fatalf("late settlement refused: %v", err)
+	}
+	settled, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(original), original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !settled.Closed || settled.Active {
+		t.Fatalf("late settlement did not stop the typed clock: %+v", settled)
+	}
+	if settled.ActiveSeconds < closed.ActiveSeconds || settled.ActiveSeconds != settled.CheckpointUnix-closed.CheckpointUnix {
+		t.Fatalf("late consumption invalid: %+v", settled)
+	}
+	if settled.Revision != closed.Revision+1 {
+		t.Fatalf("late settlement revision = %d, want %d", settled.Revision, closed.Revision+1)
+	}
+	laterAfter, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(later), later.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if laterAfter.Revision != laterBefore.Revision || laterAfter.ActiveSeconds != laterBefore.ActiveSeconds ||
+		laterAfter.CheckpointUnix != laterBefore.CheckpointUnix || laterAfter.Active != laterBefore.Active ||
+		laterAfter.Closed != laterBefore.Closed || laterAfter.Limits != laterBefore.Limits {
+		t.Fatalf("later root changed by foreign settlement: before %+v after %+v", laterBefore, laterAfter)
+	}
+	if sources, generation := readinessWorkCount(t, ctx, db); sources != 0 || generation != 1 {
+		t.Fatalf("late settlement enqueued readiness work: sources %d generation %d", sources, generation)
+	}
+}
+
+// TestReassessmentCancelledLateSettlementFreezesClock replays the
+// independent 070 counterproof: a terminal cancelled completion keeps
+// Closed false per policy, so the late-settlement branch must still
+// reach the shared joint once actual effects settle — never skip the
+// freeze forever and charge stopped time.
+func TestReassessmentCancelledLateSettlementFreezesClock(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	now := time.Now().UTC()
+	completion := factory.NewID()
+	original := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	later := reassessmentRootFixture(t, now, 7, completion, factory.NewID(), strings.Repeat("d", 64))
+	insertReassessmentRootRow(t, ctx, db, original)
+	insertReassessmentRootRow(t, ctx, db, later)
+	commitReassessmentInsert(t, ctx, db, original, 45, now.Add(30*time.Minute), now)
+	commitReassessmentInsert(t, ctx, db, later, 60, now.Add(30*time.Minute), now)
+	insertCompletionRunRow(t, ctx, db, original, completionRunFixture(t, original, now, false), true, false)
+	insertCompletionRunRow(t, ctx, db, later, completionRunFixture(t, later, now, false), true, false)
+	if err := db.FinishAssignment(ctx, finishCompletionRoot(t, original, now, factory.Cancelled, factory.AssignReasonCancelled)); err != nil {
+		t.Fatalf("cancelled completion finish refused: %v", err)
+	}
+	open, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(original), original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if open.Closed || !open.Active || open.ActiveSeconds != 0 {
+		t.Fatalf("cancelled root must stay open and active: %+v", open)
+	}
+	laterBefore, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(later), later.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Reconcile the original recorded run through the public lifecycle
+	// with its terminal cancelled outcome.
+	stored, err := db.FactoryRun(ctx, original.Run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Outcome, stored.Reconciled, stored.Summary = factory.Cancelled, true, "run cancelled"
+	if err = db.SaveFactoryRun(ctx, stored); err != nil {
+		t.Fatalf("cancelled late settlement refused: %v", err)
+	}
+	frozen, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(original), original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if frozen.Closed {
+		t.Fatalf("cancelled root must keep Closed false: %+v", frozen)
+	}
+	if frozen.Active {
+		t.Fatalf("settled cancelled root still charges time: %+v", frozen)
+	}
+	if frozen.ActiveSeconds < open.ActiveSeconds || frozen.ActiveSeconds != frozen.CheckpointUnix-open.CheckpointUnix {
+		t.Fatalf("cancelled late consumption invalid: %+v", frozen)
+	}
+	if frozen.Revision != open.Revision+1 {
+		t.Fatalf("cancelled late settlement revision = %d, want %d", frozen.Revision, open.Revision+1)
+	}
+	laterAfter, err := db.ReassessmentAttemptAllowance(ctx, 7, reassessmentSubjectOf(later), later.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if laterAfter.Revision != laterBefore.Revision || laterAfter.ActiveSeconds != laterBefore.ActiveSeconds ||
+		laterAfter.CheckpointUnix != laterBefore.CheckpointUnix || laterAfter.Active != laterBefore.Active ||
+		laterAfter.Closed != laterBefore.Closed || laterAfter.Limits != laterBefore.Limits {
+		t.Fatalf("later root changed by foreign settlement: before %+v after %+v", laterBefore, laterAfter)
+	}
+	if sources, generation := readinessWorkCount(t, ctx, db); sources != 0 || generation != 1 {
+		t.Fatalf("cancelled settlement enqueued readiness work: sources %d generation %d", sources, generation)
 	}
 }

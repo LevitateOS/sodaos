@@ -106,6 +106,44 @@ func settleClosedAttemptForRunTx(ctx context.Context, tx *sql.Tx, runID string, 
 	if err = json.Unmarshal(assignmentData, &assignment); err != nil {
 		return err
 	}
+	// Typed completion branch: completion roots carry no publication
+	// owner, so the ordinary latest(repository, issue) owner lookup
+	// below cannot address them and is never consulted here. The run
+	// view's attempt assignment binds the exact root instead: its typed
+	// allowance locks by exact subject IDs and digest, and the shared
+	// joint checkpoints only once actual recorded effects settle. A
+	// missing or mismatched typed scope fails the transaction instead
+	// of silently skipping, keeping SaveFactoryRun and its accounting
+	// atomic. Closed stays closed; terminal assignment state alone
+	// never stands in for settled native effects.
+	if assignment.Subject.Kind == factory.SubjectCompletion {
+		if err = assignment.Validate(); err != nil {
+			return err
+		}
+		if assignment.Repository != repository || issue != 0 || assignment.Issue != 0 {
+			return errors.New("completion run view does not match its typed scope")
+		}
+		if assignment.Subject.Completion == nil {
+			return errors.New("reassessment root lacks its completion subject")
+		}
+		typed, err := lockReassessmentAttemptAllowanceTx(ctx, tx, repository, *assignment.Subject.Completion, assignment.AttemptRoot)
+		if err != nil {
+			return err
+		}
+		// Closed OR terminal completion assignments both reach the
+		// shared joint once actual effects settle: a terminal
+		// cancelled/withdrawn/superseded root keeps Closed false per
+		// policy, so gating on Closed alone would skip its freeze
+		// forever and charge stopped time. closeRoot stays false here
+		// to preserve that posture — the joint checkpoints settled
+		// active clocks and never forces Closed true, reopens, or
+		// refunds. Non-terminal assignments wait (nil), mirroring the
+		// ordinary path.
+		if assignment.Stage != factory.AssignmentFinished {
+			return nil
+		}
+		return transitionLockedAttemptRootTx(ctx, tx, typed, false, now)
+	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, repository, issue, assignment.AttemptRoot)
 	if errors.Is(err, sql.ErrNoRows) || err == nil && !allowance.Active {
 		return nil
