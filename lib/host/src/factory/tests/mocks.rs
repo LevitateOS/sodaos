@@ -137,6 +137,7 @@ impl FactoryTerminal for FakeTerminal {
         _credential: &[u8],
         _prompt: &[u8],
         _deadline: Instant,
+        _execution_phase: &str,
     ) -> Result<(), FactoryError> {
         Self::pop(&self.start, "start")
     }
@@ -348,8 +349,9 @@ impl FactoryTerminal for std::rc::Rc<FakeTerminal> {
         credential: &[u8],
         prompt: &[u8],
         deadline: Instant,
+        execution_phase: &str,
     ) -> Result<(), FactoryError> {
-        (**self).start(lease, credential, prompt, deadline)
+        (**self).start(lease, credential, prompt, deadline, execution_phase)
     }
     fn wait(&self, lease: &Lease, deadline: Instant) -> Result<(i64, String), FactoryError> {
         (**self).wait(lease, deadline)

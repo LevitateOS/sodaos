@@ -20,8 +20,8 @@ use super::native::{
     systemd_escape,
 };
 use super::run::{
-    valid_factory_role, valid_factory_run_id, valid_harness_version, valid_preparation_id,
-    FACTORY_SCOPE_CODEX, MAX_FACTORY_PROMPT,
+    max_staging_prompt_for_phase, valid_factory_role, valid_factory_run_id, valid_harness_version,
+    valid_preparation_id, FACTORY_SCOPE_CODEX,
 };
 use crate::domain;
 use crate::project::Executor;
@@ -457,12 +457,17 @@ impl<E: Executor> Service<E> {
         credential: &[u8],
         prompt: &[u8],
         deadline: Instant,
+        execution_phase: &str,
     ) -> Result<(), String> {
         let p = factory_codex_binding(lease)?;
         if !terminal::credential_valid(credential) {
             return Err(terminal::err_denied());
         }
-        if prompt.is_empty() || prompt.len() > MAX_FACTORY_PROMPT {
+        // The staged bound follows the admitted phase: reassess and repair
+        // prompts may carry the full inventory, every other phase keeps
+        // the standard bound. Admission stays authoritative; staging never
+        // admits more than the phase allows.
+        if prompt.is_empty() || prompt.len() > max_staging_prompt_for_phase(execution_phase) {
             return Err(terminal::err_denied());
         }
         let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;

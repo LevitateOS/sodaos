@@ -5,7 +5,7 @@ use super::super::codex::tests::{
 use super::super::lifecycle::factory_retire;
 use super::super::native::{factory_unit_name, factory_user_bus, reserve_run_argv, shell_quote};
 use super::super::output::{MAX_FACTORY_OUTPUT_READ, MAX_FACTORY_OUTPUT_WINDOW};
-use super::super::run::{FactoryRun, FACTORY_SCOPE_CODEX, MAX_FACTORY_PROMPT};
+use super::super::run::{FactoryRun, FACTORY_SCOPE_CODEX, MAX_FACTORY_PROMPT, MAX_REASSESS_PROMPT};
 use super::super::tcodex::{factory_codex_binding, reserve_exec_argv, start_gate_script};
 
 use crate::terminal::{self, Delivery, Lease, KIND_FACTORY};
@@ -236,17 +236,17 @@ fn start_flows() {
     // Denials before exec.
     let svc = make_service(FakeExec::new(vec![]));
     assert_eq!(
-        svc.factory_codex_start(&Lease::default(), b"{}", b"prompt", deadline())
+        svc.factory_codex_start(&Lease::default(), b"{}", b"prompt", deadline(), "implement")
             .unwrap_err(),
         ERR_DENIED
     );
     assert_eq!(
-        svc.factory_codex_start(&lease, b"nope", b"prompt", deadline())
+        svc.factory_codex_start(&lease, b"nope", b"prompt", deadline(), "implement")
             .unwrap_err(),
         ERR_DENIED
     );
     assert_eq!(
-        svc.factory_codex_start(&lease, b"{}", b"", deadline())
+        svc.factory_codex_start(&lease, b"{}", b"", deadline(), "implement")
             .unwrap_err(),
         ERR_DENIED
     );
@@ -255,7 +255,8 @@ fn start_flows() {
             &lease,
             b"{}",
             &vec![b'x'; MAX_FACTORY_PROMPT + 1],
-            deadline()
+            deadline(),
+            "implement"
         )
         .unwrap_err(),
         ERR_DENIED
@@ -266,7 +267,7 @@ fn start_flows() {
     let stale_json = inspect_json().replace(CID, &other);
     let svc = make_service(FakeExec::new(vec![ok(&stale_json)]));
     assert_eq!(
-        svc.factory_codex_start(&lease, b"{}", b"prompt", deadline())
+        svc.factory_codex_start(&lease, b"{}", b"prompt", deadline(), "implement")
             .unwrap_err(),
         ERR_STALE
     );
@@ -278,7 +279,7 @@ fn start_flows() {
         ok(""),
         ok(""),
     ]));
-    svc.factory_codex_start(&lease, b"{\"t\":1}", b"do work", deadline())
+    svc.factory_codex_start(&lease, b"{\"t\":1}", b"do work", deadline(), "implement")
         .unwrap();
     let calls = svc.exec.calls();
     assert_eq!(calls.len(), 5);
@@ -315,7 +316,7 @@ fn start_flows() {
         err("exit status 1"),
     ]));
     assert_eq!(
-        svc.factory_codex_start(&lease, b"{}", b"prompt", deadline())
+        svc.factory_codex_start(&lease, b"{}", b"prompt", deadline(), "implement")
             .unwrap_err(),
         "factory start staging unconfirmed"
     );
@@ -325,10 +326,65 @@ fn start_flows() {
         err("exit status 1"),
     ]));
     assert_eq!(
-        svc.factory_codex_start(&lease, b"{}", b"prompt", deadline())
+        svc.factory_codex_start(&lease, b"{}", b"prompt", deadline(), "implement")
             .unwrap_err(),
         "factory file staging unconfirmed"
     );
+}
+
+/// Staged-prompt bounds follow the admitted phase: reassess and repair
+/// prompts may carry the full inventory, every other phase keeps the
+/// standard bound, and empty prompts refuse in every phase.
+#[test]
+fn start_phase_prompt_bounds() {
+    let lease = factory_lease();
+    let big = vec![b'x'; MAX_REASSESS_PROMPT];
+    // Repair at the inventory bound stages through the full flow.
+    let svc = make_service(FakeExec::new(vec![
+        ok(&inspect_json()),
+        ok(""),
+        ok(""),
+        ok(""),
+        ok(""),
+    ]));
+    svc.factory_codex_start(&lease, b"{}", &big, deadline(), "repair")
+        .unwrap();
+    assert_eq!(svc.exec.calls()[2].0, big);
+    // Reassess shares the inventory exception.
+    let svc = make_service(FakeExec::new(vec![
+        ok(&inspect_json()),
+        ok(""),
+        ok(""),
+        ok(""),
+        ok(""),
+    ]));
+    svc.factory_codex_start(&lease, b"{}", &big, deadline(), "reassess")
+        .unwrap();
+    // One byte past the exception refuses without exec.
+    let svc = make_service(FakeExec::new(vec![]));
+    let over = vec![b'x'; MAX_REASSESS_PROMPT + 1];
+    assert_eq!(
+        svc.factory_codex_start(&lease, b"{}", &over, deadline(), "repair")
+            .unwrap_err(),
+        ERR_DENIED
+    );
+    // Other phases keep the standard bound.
+    for phase in ["implement", "verify", "review", "publish"] {
+        assert_eq!(
+            svc.factory_codex_start(&lease, b"{}", &big, deadline(), phase)
+                .unwrap_err(),
+            ERR_DENIED
+        );
+    }
+    assert!(svc.exec.calls().is_empty());
+    // Empty prompts refuse in every phase.
+    for phase in ["repair", "implement"] {
+        assert_eq!(
+            svc.factory_codex_start(&lease, b"{}", b"", deadline(), phase)
+                .unwrap_err(),
+            ERR_DENIED
+        );
+    }
 }
 
 #[test]

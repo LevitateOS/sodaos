@@ -25,6 +25,22 @@ pub const ROLE_CODER: &str = "soda-coder";
 pub const ROLE_REVIEWER: &str = "soda-reviewer";
 /// Prompt byte bound (`64*1024`).
 pub const MAX_FACTORY_PROMPT: usize = 64 * 1024;
+/// Reassess/repair prompt exception (`320*1024`): those prompts carry the
+/// exact complete inventory inline. This mirrors the factory-domain
+/// `MaxPromptForPhase` policy at its staging mirror; the admission gate
+/// stays authoritative and staging never admits more than admission.
+pub const MAX_REASSESS_PROMPT: usize = 320 * 1024;
+
+/// `MaxStagingPromptForPhase`: the admitted staged-prompt bound for one
+/// execution phase. Unknown phases keep the standard bound and refuse
+/// downstream at admission; staging alone never widens authority.
+pub fn max_staging_prompt_for_phase(phase: &str) -> usize {
+    if phase == "reassess" || phase == "repair" {
+        MAX_REASSESS_PROMPT
+    } else {
+        MAX_FACTORY_PROMPT
+    }
+}
 
 /// `ValidFactoryRole`: the two fixed factory roles only.
 pub fn valid_factory_role(role: &str) -> bool {

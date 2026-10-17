@@ -153,6 +153,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                 &credential.0,
                 &req.prompt,
                 run_deadline,
+                &req.run.execution_phase,
             )
             .is_err()
         {

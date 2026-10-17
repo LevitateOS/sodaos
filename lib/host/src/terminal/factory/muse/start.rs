@@ -1,7 +1,7 @@
 use super::commands::muse_start_gate_script;
 use super::paths::factory_muse_binding;
 use crate::project::Executor;
-use crate::terminal::factory::run::MAX_FACTORY_PROMPT;
+use crate::terminal::factory::run::max_staging_prompt_for_phase;
 use crate::terminal::{self, Lease, Service};
 use std::time::Instant;
 
@@ -17,12 +17,17 @@ impl<E: Executor> Service<E> {
         credential: &[u8],
         prompt: &[u8],
         deadline: Instant,
+        execution_phase: &str,
     ) -> Result<(), String> {
         let p = factory_muse_binding(lease)?;
         if !terminal::credential_valid(credential) {
             return Err(terminal::err_denied());
         }
-        if prompt.is_empty() || prompt.len() > MAX_FACTORY_PROMPT {
+        // The staged bound follows the admitted phase: reassess and repair
+        // prompts may carry the full inventory, every other phase keeps
+        // the standard bound. Admission stays authoritative; staging never
+        // admits more than the phase allows.
+        if prompt.is_empty() || prompt.len() > max_staging_prompt_for_phase(execution_phase) {
             return Err(terminal::err_denied());
         }
         let binding = lease.binding.as_ref().ok_or_else(terminal::err_denied)?;

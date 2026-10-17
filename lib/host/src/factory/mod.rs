@@ -113,6 +113,7 @@ pub trait FactoryTerminal {
         credential: &[u8],
         prompt: &[u8],
         deadline: Instant,
+        execution_phase: &str,
     ) -> Result<(), FactoryError>;
     fn wait(&self, lease: &Lease, deadline: Instant) -> Result<(i64, String), FactoryError>;
     fn stop(&self, lease: &Lease, deadline: Instant) -> Result<(), FactoryError>;

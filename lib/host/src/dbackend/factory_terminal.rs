@@ -90,16 +90,17 @@ impl factory::FactoryTerminal for TerminalSeam {
         credential: &[u8],
         prompt: &[u8],
         deadline: Instant,
+        execution_phase: &str,
     ) -> Result<(), factory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
         if muse_scoped_lease(&tlease) {
             service
-                .factory_muse_start(&tlease, credential, prompt, deadline)
+                .factory_muse_start(&tlease, credential, prompt, deadline, execution_phase)
                 .map_err(factory::FactoryError::Msg)
         } else {
             service
-                .factory_codex_start(&tlease, credential, prompt, deadline)
+                .factory_codex_start(&tlease, credential, prompt, deadline, execution_phase)
                 .map_err(factory::FactoryError::Msg)
         }
     }
