@@ -53,10 +53,9 @@ pub(crate) fn run_group_observed(
         // unreaped, so the group id is pinned and safe to signal. The
         // failed persistence fences recovery through the acquired custody
         // left on disk; the child itself is never dropped live and unowned.
-        unsafe {
-            libc::killpg(group, libc::SIGKILL);
-        }
-        let _ = child.wait();
+        // The shared settle path bounds the cleanup: no unbounded wait on
+        // the running child, and the original hook error still surfaces.
+        let _ = settle_owned_child(&mut child, Some(group), deadline);
         return Err(hook);
     }
     wait_output_owned(child, deadline, Some(group))
@@ -97,6 +96,48 @@ fn wait_exit_unreaped(pid: u32) -> Result<Option<bool>, String> {
         }
         return Err(failed);
     }
+}
+
+/// settle_owned_child ends one owned execution after a terminal event
+/// (hook, setup, output, timeout or observation failure): it signals the
+/// owned group while the unreaped leader anchor pins the group id, kills
+/// the leader, observes the exit with `WNOWAIT` until the caller deadline,
+/// then reaps exactly once. The anchor is established first: a reaped or
+/// otherwise lost anchor fences with an error and no signal, since the
+/// numeric id may already be reused. Signals are requests, never proof:
+/// only the observed exit followed by the single reap confirms cleanup.
+/// Cleanup unconfirmed within the existing bound fences with an error;
+/// the caller's durable record keeps custody, and no deadline is
+/// extended here. A `child.wait()` on a possibly running child never
+/// happens: the reap runs only after the exit is observed.
+fn settle_owned_child(
+    child: &mut std::process::Child,
+    group: Option<i32>,
+    deadline: Instant,
+) -> Result<(), String> {
+    let failed = String::from("project maintenance command failed");
+    if wait_exit_unreaped(child.id()).is_err() {
+        return Err(failed);
+    }
+    if let Some(group) = group {
+        if group > 1 {
+            let _ = unsafe { libc::killpg(group, libc::SIGKILL) };
+        }
+    }
+    let _ = child.kill();
+    loop {
+        match wait_exit_unreaped(child.id()) {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    return Err(failed);
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(_) => return Err(failed),
+        }
+    }
+    child.wait().map(|_| ()).map_err(|_| failed)
 }
 
 /// group_executing_members lists one process group's still-executing
@@ -331,13 +372,7 @@ fn wait_output_owned(
         if flags < 0
             || unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0
         {
-            if let Some(group) = group {
-                unsafe {
-                    libc::killpg(group, libc::SIGKILL);
-                }
-            }
-            let _ = child.kill();
-            let _ = child.wait();
+            let _ = settle_owned_child(&mut child, group, deadline);
             return Err(failed);
         }
     }
@@ -348,13 +383,7 @@ fn wait_output_owned(
     loop {
         let now = Instant::now();
         if now >= deadline {
-            if let Some(group) = group {
-                unsafe {
-                    libc::killpg(group, libc::SIGKILL);
-                }
-            }
-            let _ = child.kill();
-            let _ = child.wait();
+            let _ = settle_owned_child(&mut child, group, deadline);
             return Err(failed);
         }
         if !exited {
@@ -365,13 +394,7 @@ fn wait_output_owned(
                 }
                 Ok(None) => {}
                 Err(_) => {
-                    if let Some(group) = group {
-                        unsafe {
-                            libc::killpg(group, libc::SIGKILL);
-                        }
-                    }
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    let _ = settle_owned_child(&mut child, group, deadline);
                     return Err(failed);
                 }
             }
@@ -387,13 +410,7 @@ fn wait_output_owned(
                 Ok(n) => {
                     const OUTPUT_LIMIT: usize = 8 << 20;
                     if out.len().saturating_add(n) > OUTPUT_LIMIT {
-                        if let Some(group) = group {
-                            unsafe {
-                                libc::killpg(group, libc::SIGKILL);
-                            }
-                        }
-                        let _ = child.kill();
-                        let _ = child.wait();
+                        let _ = settle_owned_child(&mut child, group, deadline);
                         return Err(failed);
                     }
                     out.extend_from_slice(&buf[..n]);
@@ -401,13 +418,7 @@ fn wait_output_owned(
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
                 Err(_) => {
-                    if let Some(group) = group {
-                        unsafe {
-                            libc::killpg(group, libc::SIGKILL);
-                        }
-                    }
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    let _ = settle_owned_child(&mut child, group, deadline);
                     return Err(failed);
                 }
             }
@@ -419,14 +430,17 @@ fn wait_output_owned(
             if eof {
                 // The leader exited but stays unreaped: its zombie anchor
                 // pins the group id, so retiring the group here signals
-                // only owned descendants. The final reap below is the only
-                // reap on this path; after it no numeric group from this
-                // execution may be signaled again.
-                if let Some(group) = group {
-                    retire_group(group, deadline)?;
-                }
+                // only owned descendants. Descendants retire before the
+                // single final reap below; a retirement failure still
+                // reaps so the anchor is never dropped, then fences with
+                // an error instead of releasing custody. The final reap
+                // is the only reap on this path; after it no numeric
+                // group from this execution may be signaled again.
+                let retired = group
+                    .map(|group| retire_group(group, deadline).is_ok())
+                    .unwrap_or(true);
                 let status = child.wait().map_err(|_| failed.clone())?;
-                if !status.success() {
+                if !retired || !status.success() {
                     return Err(failed);
                 }
                 return Ok(out);
@@ -434,8 +448,14 @@ fn wait_output_owned(
             if exited_at.is_some_and(|at| now.duration_since(at) >= Duration::from_secs(2)) {
                 stdout.take();
                 if let Some(group) = group {
+                    // Best effort while the outcome is already an error: a
+                    // descendant still holds stdout. Retire while the
+                    // anchor pins the group, then reap the exited leader
+                    // so no zombie leaks, and fence.
                     let _ = retire_group(group, deadline);
                 }
+                // The leader is observed exited: this reap is immediate,
+                // never a wait on a running child.
                 let _ = child.wait();
                 return Err(failed);
             }
@@ -485,6 +505,29 @@ mod custody_tests {
         assert_eq!(
             wait_output(child("exec sleep 30"), deadline).unwrap_err(),
             "project maintenance command failed"
+        );
+    }
+
+    #[test]
+    fn settle_owned_child_reaps_exited_leader() {
+        // The leader already exited: settle confirms without signaling a
+        // stranger and reaps exactly once, so no entry remains.
+        let mut leader = child("exit 0");
+        let pid = leader.id();
+        assert!(
+            settle_owned_child(&mut leader, None, Instant::now() + Duration::from_secs(5)).is_ok()
+        );
+        assert!(fs::read_to_string(format!("/proc/{pid}/stat")).is_err());
+    }
+
+    #[test]
+    fn settle_owned_child_refuses_lost_anchor_without_signaling() {
+        // The anchor is already reaped: settle fences with an error and
+        // never signals the possibly reused numeric id.
+        let mut leader = child("exit 0");
+        leader.wait().unwrap();
+        assert!(
+            settle_owned_child(&mut leader, None, Instant::now() + Duration::from_secs(5)).is_err()
         );
     }
 
@@ -636,12 +679,72 @@ mod acquisition_cancellation_tests {
         )
         .is_err());
         let pid = fs::read_to_string(path).unwrap();
-        let state = fs::read_to_string(format!("/proc/{pid}/stat"));
-        if let Ok(state) = state {
-            assert!(
-                state.rsplit_once(") ").unwrap().1.starts_with('Z'),
-                "descendant still executing"
-            );
+        // The error returns at the caller deadline without waiting out
+        // the kill, so the signaled descendant may still be dying: poll
+        // boundedly until it is gone or reaped elsewhere, and never
+        // accept one left executing.
+        let stop = Instant::now() + Duration::from_secs(5);
+        loop {
+            match fs::read_to_string(format!("/proc/{pid}/stat")) {
+                Err(_) => break,
+                Ok(state) => {
+                    let live = !state.rsplit_once(") ").unwrap().1.starts_with('Z');
+                    if !live {
+                        break;
+                    }
+                    assert!(Instant::now() < stop, "descendant still executing");
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
         }
+    }
+
+    #[test]
+    fn run_group_observed_reports_surviving_descendant_and_reaps_leader() {
+        // The leader exits at once while a descendant holds stdout: the
+        // caller deadline fires first, the error surfaces, the leader is
+        // reaped, and the signaled descendant cannot still execute.
+        use std::sync::{Arc, Mutex};
+        let seen = Arc::new(Mutex::new(0));
+        let probe = seen.clone();
+        assert!(run_group_observed(
+            "/bin/sh",
+            &["-c", "sleep 30 &"],
+            Instant::now() + Duration::from_secs(1),
+            |pgid| {
+                *probe.lock().unwrap() = pgid;
+                Ok(())
+            }
+        )
+        .is_err());
+        let pgid = *seen.lock().unwrap();
+        assert!(pgid > 1);
+        assert!(fs::read_to_string(format!("/proc/{pgid}/stat")).is_err());
+        assert!(retire_group(pgid, Instant::now() + Duration::from_secs(5)).is_ok());
+    }
+
+    #[test]
+    fn run_group_observed_failed_leader_is_error_and_reaped() {
+        // A failed leader with no descendants still fences as an error
+        // and leaves no zombie behind.
+        use std::sync::{Arc, Mutex};
+        let seen = Arc::new(Mutex::new(0));
+        let probe = seen.clone();
+        assert_eq!(
+            run_group_observed(
+                "/bin/sh",
+                &["-c", "exit 3"],
+                Instant::now() + Duration::from_secs(30),
+                |pgid| {
+                    *probe.lock().unwrap() = pgid;
+                    Ok(())
+                }
+            )
+            .unwrap_err(),
+            "project maintenance command failed"
+        );
+        let pgid = *seen.lock().unwrap();
+        assert!(pgid > 1);
+        assert!(fs::read_to_string(format!("/proc/{pgid}/stat")).is_err());
     }
 }
