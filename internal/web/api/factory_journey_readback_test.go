@@ -6,13 +6,13 @@ package api
 // partial producer->HTTP case (dispatch/admission entrypoints driving
 // a live attempt chain into this read) is NOT included: its fixtures
 // (mergeSeed, driveReassessmentBranch, happyMerger, twoPageEnumerator)
-// live in control package _test files, which api tests cannot import,
-// and no exported public fixture exposes that drive. Exact dependency
-// for that case: an exported deterministic-host harness for
-// Coordinator dispatch plus DriveCompletions over the typed seams
-// (CompletionIssueEnumerator, CompletionLocalCapture, Jev chooser).
-// Until it exists the full-journey gate stays OPEN; nothing here
-// injects an accepted merge, check verdict or synthesized graph.
+// live in control package _test files, which api tests cannot import.
+// The missing dependency is the actual F1/H2/H4 production joints
+// plus producer->HTTP/WorkSpaces/native proof evidence — explicitly
+// NOT an exported production test hook (rejected per 041; no
+// manufactured authority enters production seams to satisfy tests).
+// Until those joints exist the full-journey gate stays OPEN; nothing
+// here injects an accepted merge, check verdict or synthesized graph.
 //
 // Amendment (lane-api-phases/72, SUPERVISOR-041): the phase section
 // proves the 040 correction — one CURRENT state per canonical phase
@@ -994,6 +994,39 @@ func TestFactoryIssueJourneyPhasesRetainNewestFailed(t *testing.T) {
 	}
 	if len(journey.Reasons) != 2 || journey.Reasons[0] != journeyReasonAdoptionsUnavailable || journey.Reasons[1] != journeyReasonDeliveryUnavailable {
 		t.Fatalf("newest-failed reasons: %+v", journey.Reasons)
+	}
+}
+
+// TestFactoryIssueJourneyPhasesNeedsHumanAttention proves a finished
+// implement assignment with Outcome needs-human (Reason
+// harness_no_report, the normal dispatch_result outcome for missing
+// typed reports) renders attention, never complete, over the
+// registered HTTP path.
+func TestFactoryIssueJourneyPhasesNeedsHumanAttention(t *testing.T) {
+	fake := &journeyAcceptanceSource{}
+	fx, call := journeyMux(t, fake)
+	acceptance := admitJourneyAcceptance(t, fx.db, 1, "")
+	fake.decision = journeyAcceptanceFor(acceptance)
+	root := journeyOwner(t, strings.Repeat("7", 32), acceptance, project.ExecutionImplement, factory.AssignmentFinished, factory.Succeeded, "")
+	insertJourneyRow(t, fx.raw, root, factory.AssignmentFinished)
+	needy := journeyChild(t, fmt.Sprintf("%032x", 30000), root.ID, acceptance, project.ExecutionImplement, factory.AssignmentFinished, factory.NeedsHuman)
+	needy.Reason = factory.AssignReasonNoReport
+	insertJourneyRow(t, fx.raw, needy, factory.AssignmentFinished)
+
+	code, body := call(http.MethodGet, "/api/repositories/7/factory/issues/3", "")
+	if code != http.StatusOK {
+		t.Fatalf("needs-human status=%d body=%s", code, body)
+	}
+	journey := journeyIssueView(t, body).Journey
+	if len(journey.Phases) != 1 {
+		t.Fatalf("needs-human phases: %+v", journey.Phases)
+	}
+	got := journey.Phases[0]
+	if got.Phase != project.ExecutionImplement || got.State != journeyAttention {
+		t.Fatalf("needs-human state: %+v, want implement/attention", got)
+	}
+	if got.Assignment != needy.ID || got.Run != needy.Run || got.AttemptRoot != root.ID {
+		t.Fatalf("needs-human refs: %+v want %s/%s/%s", got, needy.ID, needy.Run, root.ID)
 	}
 }
 

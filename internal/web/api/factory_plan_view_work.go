@@ -105,16 +105,21 @@ func journeyPhaseEntryDTO(phase, state, assignment, run, root string) (journeyPh
 }
 
 // journeyAssignmentState reduces one recorded assignment to its
-// journey position: attention for finished work that failed or was
-// cancelled, complete for other finished work, active otherwise.
+// journey position: attention for finished work that failed, was
+// cancelled, or needs a human; complete ONLY for genuinely
+// succeeded finished work; active otherwise. An unknown or invalid
+// recorded outcome must never fabricate successful completion.
 func journeyAssignmentState(assignment factory.Assignment) string {
 	switch {
 	case assignment.Stage == factory.AssignmentFinished &&
 		(assignment.Outcome == factory.Failed || assignment.Outcome == factory.Cancelled ||
+			assignment.Outcome == factory.NeedsHuman ||
 			assignment.Reason == factory.AssignReasonRunFailed || assignment.Reason == factory.AssignReasonCancelled):
 		return journeyAttention
-	case assignment.Stage == factory.AssignmentFinished:
+	case assignment.Stage == factory.AssignmentFinished && assignment.Outcome == factory.Succeeded:
 		return journeyComplete
+	case assignment.Stage == factory.AssignmentFinished:
+		return journeyAttention
 	default:
 		return journeyActive
 	}
