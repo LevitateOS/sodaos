@@ -662,6 +662,19 @@ func TestCarriedHistoryMissingOrUnsuccessfulRunHoldsIncomplete(t *testing.T) {
 			t.Fatalf("foreign-project run refused for the wrong reason: %v", err)
 		}
 	})
+	t.Run("owner from another publication", func(t *testing.T) {
+		s, dsn, p, current := stage(t)
+		rev := strings.Repeat("7", 32)
+		carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(rev), carriedHead('a'), rev,
+			factory.Succeeded, nil)
+		carriedStoreOwner(t, s, dsn)
+		p.AssignmentID = strings.Repeat("0", 32)
+		if carried, err := (&Coordinator{Store: s}).reviewCarriedFindings(ctx, p, current); err == nil {
+			t.Fatalf("foreign-owner history succeeded with %d findings", len(carried))
+		} else if !strings.Contains(err.Error(), "incomplete") {
+			t.Fatalf("foreign-owner history refused for the wrong reason: %v", err)
+		}
+	})
 	t.Run("unreconciled succeeded run", func(t *testing.T) {
 		s, dsn, p, current := stage(t)
 		rev := strings.Repeat("7", 32)

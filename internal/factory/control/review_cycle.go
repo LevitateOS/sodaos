@@ -294,9 +294,15 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 			recorded.Outcome != factory.Succeeded || !recorded.Reconciled {
 			return errors.New("canonical carried history is incomplete: step18")
 		}
-		bound, _, err := c.publicationAssignmentsForRun(ctx, recorded)
+		bound, owner, err := c.publicationAssignmentsForRun(ctx, recorded)
 		if err != nil || bound.ID != reviewer.ID {
 			return errors.New("canonical carried history is incomplete: step19")
+		}
+		// Publication lineage: the joined owner must be this
+		// publication's own root assignment, so history from another
+		// publication's owner can never retire this publication's keys.
+		if owner.ID != p.AssignmentID {
+			return errors.New("canonical carried history is incomplete: step20")
 		}
 		return nil
 	}
