@@ -40,6 +40,50 @@ fn candidate_content_rules() {
     assert!(!valid_candidate_content(&bad_asset));
 }
 
+/// R50 protected admission: the valid pair admits, and every mutated
+/// binding refuses — forged payload digest or bytes, mismatched soda or
+/// Forgejo revision, architecture, source, provenance, prefix and format.
+#[test]
+fn candidate_admission_matrix() {
+    let (bytes, p, c) = Candidate::fixture_pair();
+    assert!(c.validate(&p, &bytes).is_ok(), "valid pair must admit");
+    let mut forged_digest = c.clone();
+    forged_digest.payload_sha256 = "f".repeat(64);
+    assert!(forged_digest.validate(&p, &bytes).is_err());
+    let mut tampered = bytes.clone();
+    let last = tampered.len() - 1;
+    tampered[last] ^= 0x01;
+    assert!(c.validate(&p, &tampered).is_err());
+    let mut mismatched_revision = c.clone();
+    mismatched_revision.host.revision = "f".repeat(40);
+    assert!(mismatched_revision.validate(&p, &bytes).is_err());
+    let mut mismatched_arch = c.clone();
+    mismatched_arch.architecture = "aarch64".to_string();
+    assert!(mismatched_arch.validate(&p, &bytes).is_err());
+    let mut mismatched_source = c.clone();
+    mismatched_source.host.source = "https://example.com/fork".to_string();
+    assert!(mismatched_source.validate(&p, &bytes).is_err());
+    let mut mismatched_forgejo = c.clone();
+    mismatched_forgejo.forgejo_revision = "f".repeat(40);
+    assert!(mismatched_forgejo.validate(&p, &bytes).is_err());
+    let mut empty_provenance = c.clone();
+    empty_provenance.migration.clear();
+    assert!(empty_provenance.validate(&p, &bytes).is_err());
+    let mut bad_prefix = c.clone();
+    bad_prefix.repository_prefix = "docker.io/example/sodaos".to_string();
+    bad_prefix.host_reference =
+        format!("docker.io/example/sodaos-host@{}", bad_prefix.host.manifest);
+    assert!(bad_prefix.validate(&p, &bytes).is_err());
+    let mut bad_format = c.clone();
+    bad_format.format = 2;
+    assert!(bad_format.validate(&p, &bytes).is_err());
+    let mut bad_content = c.clone();
+    bad_content
+        .content_sha256
+        .remove("package:soda-extension-0.1.0-linux-x86_64.tar.gz");
+    assert!(bad_content.validate(&p, &bytes).is_err());
+}
+
 #[test]
 fn path_clean_matches_go() {
     assert_eq!(path_clean(""), ".");
