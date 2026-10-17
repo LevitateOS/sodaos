@@ -157,6 +157,88 @@ func TestCaptureCompletionLocalStabilityAndScope(t *testing.T) {
 	}
 }
 
+// CaptureCompletionLocal seals material control state into the scope
+// digest (SUPERVISOR-073 hash-only slice): a queued->blocked assessment
+// moves only the scope digest, while an equal-material replay, a
+// NativeRev/assessed-time-only refresh and another repository's controls
+// leave it unchanged.
+func TestCaptureCompletionLocalControlFreshness(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 17, 0, 0, 0, 0, time.UTC)
+	queued := factory.IssueControl{
+		Repository: 7, Issue: 3,
+		Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
+		Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
+	}
+	if _, changed, err := db.RecordIssueAssessment(ctx, queued, now); err != nil || !changed {
+		t.Fatalf("queued assessment not recorded: changed=%v err=%v", changed, err)
+	}
+	base, err := db.CaptureCompletionLocal(ctx, 7)
+	if err != nil {
+		t.Fatalf("base capture: %v", err)
+	}
+	blocked := queued
+	blocked.Readiness = factory.ReadinessBlocked
+	blocked.Reason = factory.BlockerAcceptanceMissing
+	blocked.Blockers = []factory.Blocker{{
+		Code:       factory.BlockerAcceptanceMissing,
+		Resolution: factory.BlockerResolution(factory.BlockerAcceptanceMissing),
+	}}
+	blocked.Fingerprint = strings.Repeat("3", 64)
+	stored, changed, err := db.RecordIssueAssessment(ctx, blocked, now.Add(time.Minute))
+	if err != nil || !changed {
+		t.Fatalf("blocked assessment not recorded: changed=%v err=%v", changed, err)
+	}
+	if stored.Revision != 2 {
+		t.Fatalf("blocked revision=%d, want 2", stored.Revision)
+	}
+	moved, err := db.CaptureCompletionLocal(ctx, 7)
+	if err != nil {
+		t.Fatalf("recapture: %v", err)
+	}
+	if moved.ScopeDigest == base.ScopeDigest {
+		t.Fatal("queued->blocked assessment left the scope digest unchanged")
+	}
+	if moved.SourceCommit != base.SourceCommit || moved.PreparationDigest != base.PreparationDigest ||
+		moved.AuthorityFingerprint != base.AuthorityFingerprint {
+		t.Fatalf("moved=%+v, want only the scope binding to move", moved)
+	}
+	if replayed, changed, err := db.RecordIssueAssessment(ctx, blocked, now.Add(2*time.Minute)); err != nil || changed {
+		t.Fatalf("equal-material replay recorded: changed=%v err=%v", changed, err)
+	} else if replayed.Revision != stored.Revision {
+		t.Fatalf("replay revision=%d, want %d", replayed.Revision, stored.Revision)
+	}
+	if replay, err := db.CaptureCompletionLocal(ctx, 7); err != nil || replay != moved {
+		t.Fatalf("replay=%+v err=%v, want the unchanged capture", replay, err)
+	}
+	refresh := blocked
+	refresh.NativeRev = 41
+	if refreshed, changed, err := db.RecordIssueAssessment(ctx, refresh, now.Add(3*time.Minute)); err != nil || changed {
+		t.Fatalf("observation refresh recorded: changed=%v err=%v", changed, err)
+	} else if refreshed.Revision != stored.Revision {
+		t.Fatalf("refresh revision=%d, want %d", refreshed.Revision, stored.Revision)
+	}
+	if observed, err := db.CaptureCompletionLocal(ctx, 7); err != nil || observed != moved {
+		t.Fatalf("observed=%+v err=%v, want the unchanged capture", observed, err)
+	}
+	foreign := factory.IssueControl{
+		Repository: 8, Issue: 5,
+		Readiness: factory.ReadinessBlocked, Reason: factory.BlockerAcceptanceMissing,
+		Blockers: []factory.Blocker{{
+			Code:       factory.BlockerAcceptanceMissing,
+			Resolution: factory.BlockerResolution(factory.BlockerAcceptanceMissing),
+		}},
+		Fingerprint: strings.Repeat("4", 64), Authority: strings.Repeat("2", 64),
+	}
+	if _, changed, err := db.RecordIssueAssessment(ctx, foreign, now.Add(4*time.Minute)); err != nil || !changed {
+		t.Fatalf("foreign assessment not recorded: changed=%v err=%v", changed, err)
+	}
+	if isolated, err := db.CaptureCompletionLocal(ctx, 7); err != nil || isolated != moved {
+		t.Fatalf("isolated=%+v err=%v, want another repository's controls to leave the capture unchanged", isolated, err)
+	}
+}
+
 func TestCompletionFenceErrorsDistinct(t *testing.T) {
 	if ErrCompletionFenced == nil || ErrReassessmentBudgetExhausted == nil {
 		t.Fatal("fence errors missing")

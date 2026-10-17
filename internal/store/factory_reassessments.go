@@ -263,7 +263,8 @@ func (s *Store) PendingReassessmentCycles(ctx context.Context, repository int64)
 // CaptureCompletionLocal reads the local half of D13 sealed evidence
 // for one repository in a single repeatable-read transaction: the
 // requirement source commit, the approved-preparation digest, the
-// accepted-scope digest (acceptance heads plus withdrawals) and the
+// accepted-scope digest (acceptance heads plus withdrawals plus the
+// material issue-control state) and the
 // authority fingerprint. It is the production CompletionLocalCapture
 // behind the completion drive: stable while nothing material changes,
 // sensitive to source, preparation, scope and authority changes, and
@@ -376,6 +377,35 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 		return factory.CompletionLocal{}, err
 	}
 	_ = withdrawalRows.Close()
+	controlRows, err := tx.QueryContext(ctx, `SELECT data FROM issue_controls
+		WHERE repository=$1 ORDER BY issue`, repository)
+	if err != nil {
+		return factory.CompletionLocal{}, err
+	}
+	var controls []factory.IssueControl
+	for controlRows.Next() {
+		var raw []byte
+		var control factory.IssueControl
+		if err = controlRows.Scan(&raw); err != nil {
+			_ = controlRows.Close()
+			return factory.CompletionLocal{}, err
+		}
+		if err = json.Unmarshal(raw, &control); err != nil {
+			_ = controlRows.Close()
+			return factory.CompletionLocal{}, err
+		}
+		if err = control.Validate(); err != nil {
+			_ = controlRows.Close()
+			return factory.CompletionLocal{}, err
+		}
+		control.AssessedUnix, control.FirstSeenUnix, control.NativeRev = 0, 0, 0
+		controls = append(controls, control)
+	}
+	if err = controlRows.Err(); err != nil {
+		_ = controlRows.Close()
+		return factory.CompletionLocal{}, err
+	}
+	_ = controlRows.Close()
 	authorityInput, err := factoryAuthorityInput(ctx, tx, repository)
 	if err != nil {
 		return factory.CompletionLocal{}, err
@@ -387,9 +417,10 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 		return factory.CompletionLocal{}, err
 	}
 	scopeDoc, err := json.Marshal(struct {
-		Heads       []scopeBinding `json:"heads"`
-		Withdrawals []scopeBinding `json:"withdrawals"`
-	}{scope, withdrawals})
+		Heads       []scopeBinding         `json:"heads"`
+		Withdrawals []scopeBinding         `json:"withdrawals"`
+		Controls    []factory.IssueControl `json:"controls"`
+	}{scope, withdrawals, controls})
 	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
