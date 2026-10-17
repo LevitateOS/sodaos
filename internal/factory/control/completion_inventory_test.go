@@ -45,9 +45,23 @@ func testMaterialLocal() factory.CompletionLocal {
 		Merges:       []factory.CompletionMerge{},
 		Checks:       []factory.CompletionCheck{},
 		Authority: factory.CompletionAuthority{
-			Effective:           factory.EffectiveAuthority{Missing: []string{}, Effective: true, DispatchOpen: true},
-			Roles:               []string{"soda-coder", "soda-reviewer"},
-			ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+			Effective: factory.EffectiveAuthority{
+				Missing: []string{}, Effective: true, DispatchOpen: true,
+				Authority: factory.AuthorityRef{
+					RequirementsID: "d" + strings.Repeat("c", 24),
+					ApprovalID:     "d" + strings.Repeat("e", 24),
+				},
+			},
+			ProjectID:               "p" + strings.Repeat("d", 24),
+			RequirementSourceCommit: strings.Repeat("c", 40),
+			RequirementSetupDigest:  strings.Repeat("e", 64),
+			RequirementInputsDigest: strings.Repeat("f", 64),
+			ApprovalEffectsDigest:   strings.Repeat("0", 64),
+			ApprovalReadinessDigest: strings.Repeat("1", 64),
+			ApprovalVerified:        false,
+			TargetBranch:            "refs/heads/main",
+			Roles:                   []string{"soda-coder", "soda-reviewer"},
+			ReassessmentMinutes:     factory.DefaultReassessmentMinutes,
 		},
 		Repository: 7,
 	}
@@ -698,14 +712,14 @@ func TestBracketMaterialCollectChargesTwoObservations(t *testing.T) {
 // can be isolated from page movement (the shared fixture keys both
 // off fetch counts).
 type scriptedRevEnumerator struct {
-	inner             *fixtureEnumerator
-	observes          int
-	fetches           int
-	moveFromObserve   int
-	movedRev          int64
-	flipAfterFetches  int
-	flipTo            int64
-	flipped           bool
+	inner            *fixtureEnumerator
+	observes         int
+	fetches          int
+	moveFromObserve  int
+	movedRev         int64
+	flipAfterFetches int
+	flipTo           int64
+	flipped          bool
 }
 
 func (e *scriptedRevEnumerator) ObserveRevision(ctx context.Context) (int64, bool, error) {

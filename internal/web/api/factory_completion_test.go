@@ -187,9 +187,23 @@ func completionTestLocal() factory.CompletionLocal {
 		Merges:       []factory.CompletionMerge{},
 		Checks:       []factory.CompletionCheck{},
 		Authority: factory.CompletionAuthority{
-			Effective:           factory.EffectiveAuthority{Missing: []string{}, Effective: true, DispatchOpen: true},
-			Roles:               []string{"soda-coder", "soda-reviewer"},
-			ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+			Effective: factory.EffectiveAuthority{
+				Missing: []string{}, Effective: true, DispatchOpen: true,
+				Authority: factory.AuthorityRef{
+					RequirementsID: "d" + strings.Repeat("c", 24),
+					ApprovalID:     "d" + strings.Repeat("e", 24),
+				},
+			},
+			ProjectID:               "p" + strings.Repeat("d", 24),
+			RequirementSourceCommit: strings.Repeat("c", 40),
+			RequirementSetupDigest:  strings.Repeat("e", 64),
+			RequirementInputsDigest: strings.Repeat("f", 64),
+			ApprovalEffectsDigest:   strings.Repeat("0", 64),
+			ApprovalReadinessDigest: strings.Repeat("1", 64),
+			ApprovalVerified:        true,
+			TargetBranch:            "refs/heads/main",
+			Roles:                   []string{"soda-coder", "soda-reviewer"},
+			ReassessmentMinutes:     factory.DefaultReassessmentMinutes,
 		},
 		Repository: 7,
 	}
@@ -276,7 +290,7 @@ func TestCompletionSnapshotSourceCountsActualPageCalls(t *testing.T) {
 func TestCompletionSnapshotSourceCountsEmptyCompletePage(t *testing.T) {
 	fake := &completionReaderFake{
 		revision: 41, idle: true,
-		pages: map[string][]string{"2": {}},
+		pages:  map[string][]string{"2": {}},
 		bodies: map[string]forgejo.NativeSnapshot{},
 	}
 	source := NewCompletionSnapshotSource(nil)
@@ -306,7 +320,7 @@ func TestCompletionSnapshotSourceRefusesOverLimitPage(t *testing.T) {
 	}
 	fake := &completionReaderFake{
 		revision: 41, idle: true,
-		pages: map[string][]string{"": indexes},
+		pages:  map[string][]string{"": indexes},
 		bodies: bodies,
 	}
 	source := NewCompletionSnapshotSource(nil)
