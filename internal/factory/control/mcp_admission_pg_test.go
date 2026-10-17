@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 	"testing"
@@ -27,22 +26,14 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	s, dsn, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	s, _, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cleanup()
-	// Guard-table fixture setup through a setup-only connection:
-	// the table arrives through schema startup in production and is
-	// never created at request time.
-	setup, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = setup.Close() }()
-	if _, err := setup.ExecContext(ctx, store.FactoryMCPAssignmentGuardDDL); err != nil {
-		t.Fatalf("guard fixture: %v", err)
-	}
+	// The guard table arrives through schema startup (v53):
+	// OpenEphemeral already installs it. No fixture DDL here,
+	// never request-time DDL in production.
 
 	// The assignment's capability starts staged, activates, and is
 	// read back active: persistence only records under an active
