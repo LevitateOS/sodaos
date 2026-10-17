@@ -872,6 +872,20 @@ commit/preparation, completion/check results, accepted scope and task bindings,
 issue title/body/dependencies, active status and exact semantic digests. Ordinary
 observation timestamps do not invalidate it; material content/source changes do.
 
+The sealed local context is a complete MODEL-SAFE material body
+(`factory.CompletionMaterial`): repository plus complete non-nil ordered
+sections for intents, acceptances, withdrawals, controls, preparations,
+plans, plan heads/tasks, assignments, publications, merges, checks and
+authority, reusing existing domain types as read-only projections. Empty
+sections are explicit empty arrays; nil/missing sections refuse as
+incomplete. No prompts, terminals, credentials, secrets, setup values,
+raw payloads/receipts or private draft bodies ever enter it. Binding is
+by exact IDs and cross-references with a stable semantic digest over the
+validated complete material; `CompletionLocal.ScopeDigest` is exactly
+that digest. The funded decision and prompt refuse missing/invalid/
+mismatched material before any reservation or provider call, and hold
+or refuse past the 320 KiB aggregate rather than truncate.
+
 The current native snapshot has individual-issue reads but no repository issue
 enumeration. Add the generic `repository_issues` family in Fountain's existing
 `sdk/snapshot.go` / `services/nativeoperation/snapshot_read.go`, and the matching
