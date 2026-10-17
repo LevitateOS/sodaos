@@ -1126,6 +1126,13 @@ admits paid call IDs (atomic cycle/global charge/receipt placeholder before
 the provider). Generic cycle writes preserve the admitted DecisionCalls
 prefix and reject new/forked IDs — a prefix never grants authority.
 
+Current-target capture: the only serving local-capture callback reads the
+live native tip for the configured target branch first (never the merged
+commit or accepted requirement source as fallback), then captures the full
+local under that tip in the same repeatable-read scope. The bracket prepays
+a fixed 8 native calls (2 outer observations + 2x3 capture reads) before any
+collection; no automatic database-local fallback path exists.
+
 ## D14 — One Factory MCP implementation and seven profiles
 
 FW-REFINE-003 freezes the control surface below. Jev remains the controller's typed
