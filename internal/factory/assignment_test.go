@@ -253,6 +253,33 @@ func TestAssignmentResultBindsReviewerReportToRoleAndCandidate(t *testing.T) {
 	}
 }
 
+func TestAssignmentResultBindsPhasedRepairHead(t *testing.T) {
+	commit := strings.Repeat("c", 40)
+	good := AssignmentResult{
+		AssignmentID: NewID(), RunID: NewID(), Phase: project.ExecutionRepair,
+		Status: "completed", Summary: "stall addressed",
+		Findings: []string{}, Reported: true, RecordedUnix: 1700000000,
+		PhaseResult: &PhaseResult{
+			Version: PhaseResultVersion, Phase: project.ExecutionRepair,
+			Status: "completed", Summary: "stall addressed", Output: stallRepairOutput(),
+		},
+	}
+	if err := good.ValidateForAssignment(project.RoleCoder, commit); err != nil {
+		t.Fatalf("phased repair result refused: %v", err)
+	}
+	wrongHead := good
+	report := *wrongHead.PhaseResult.Output.Repair
+	report.SourceCommit = strings.Repeat("d", 40)
+	wrongHead.PhaseResult = &PhaseResult{
+		Version: PhaseResultVersion, Phase: project.ExecutionRepair,
+		Status: "completed", Summary: "stall addressed",
+		Output: &PhaseOutput{Repair: &report},
+	}
+	if err := wrongHead.ValidateForAssignment(project.RoleCoder, commit); err == nil {
+		t.Fatal("phased repair result for another head accepted")
+	}
+}
+
 func TestParseHarnessResult(t *testing.T) {
 	candidate := strings.Repeat("f", 40)
 	output := "working...\n```result-json\n" +

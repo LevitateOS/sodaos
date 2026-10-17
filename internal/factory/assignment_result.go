@@ -147,6 +147,12 @@ func (r AssignmentResult) ValidateForAssignment(role, sourceCommit string) error
 	if r.Review != nil {
 		return errors.New("non-reviewer result carries a review report")
 	}
+	if r.PhaseResult != nil && r.PhaseResult.Phase == project.ExecutionRepair &&
+		r.PhaseResult.Status == "completed" && r.PhaseResult.Output != nil &&
+		r.PhaseResult.Output.Repair != nil &&
+		r.PhaseResult.Output.Repair.SourceCommit != sourceCommit {
+		return errors.New("stall repair result runs a head its assignment was not admitted against")
+	}
 	return nil
 }
 
