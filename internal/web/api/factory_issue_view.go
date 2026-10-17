@@ -33,6 +33,7 @@ type factoryIssueView struct {
 	Links        *workLinksView             `json:"links,omitempty"`
 	Repository   string                     `json:"repository"`
 	Issue        string                     `json:"issue"`
+	Journey      *factoryIssueJourneyView   `json:"journey"`
 	Readiness    *readinessView             `json:"readiness,omitempty"`
 	Checks       *checksView                `json:"checks,omitempty"`
 	Merge        *mergeView                 `json:"merge,omitempty"`
@@ -685,6 +686,12 @@ func (s *API) apiFactoryIssue(w http.ResponseWriter, r *http.Request, v store.Se
 		}
 	}
 	applyWorkStaleness(&view, publication, merged)
+	journey, err := s.factoryIssueJourney(r.Context(), repository, index, issue, attempt, publication, time.Now().Unix())
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read issue journey.")
+		return
+	}
+	view.Journey = journey
 	view.Closure = workClosureDTO(publication, merged)
 	capabilities, requested, ok := s.factoryIssueCapabilities(w, r, v, repository, attempt, acceptance)
 	if !ok {

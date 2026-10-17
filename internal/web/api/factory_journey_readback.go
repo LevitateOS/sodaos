@@ -1,0 +1,419 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"strconv"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
+)
+
+// journeyChainPageLimit reuses the assignment paging window behind one
+// acceptance; journeyChainMaxPages bounds how many windows one issue
+// read follows. A cut chain reports chain_page_bound with its resume
+// cursor instead of rendering a partial head as the whole lineage.
+const (
+	journeyChainPageLimit = 256
+	journeyChainMaxPages  = 4
+)
+
+// factoryIssueJourney renders the one recorded journey subsection for
+// the existing issue read from real persisted records only. It binds
+// the repository and issue, the current acceptance head, the selected
+// owner assignment acceptance, and the actual attempt root (the latest
+// row may be a child; the journey never implicitly re-roots). It reads
+// only and spends nothing: no judgment, provision or dispatch.
+//
+// Storage failures return an error for the existing 503 pattern, except
+// a missing attempt, which renders explicit available/complete=false.
+// Rows that decode but fail their journey DTO name their incomplete
+// reason instead of dropping silently; backing that was never recorded
+// (no plan, no PR, pending funded calls) leaves its section empty.
+func (s *API) factoryIssueJourney(ctx context.Context, repository, index int64, issue string, owner *factory.Assignment, publication *factory.Publication, observedUnix int64) (*factoryIssueJourneyView, error) {
+	view := &factoryIssueJourneyView{
+		Phases:      []journeyPhaseView{},
+		Tasks:       []journeyTaskView{},
+		Commits:     []journeyCommitView{},
+		Findings:    []journeyFindingView{},
+		Corrections: []journeyCorrectionView{},
+		Judgments:   []journeyJudgmentView{},
+		Gates:       []journeyGateView{},
+		Adoptions:   []journeyAdoptionView{},
+		Repository:  strconv.FormatInt(repository, 10), Issue: issue,
+		ObservedUnix: observedUnix,
+	}
+	head, err := s.Store.AcceptanceHead(ctx, repository, index)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			return nil, err
+		}
+		head = ""
+	}
+	latest, err := s.Store.LatestIssueAttempt(ctx, repository, index)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+	if owner == nil {
+		if err == nil {
+			return nil, errors.New("journey attempt lacks its root assignment")
+		}
+		view.Lineage.Head = head
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonNoAttempt)
+		return view, nil
+	}
+	view.Available = true
+	view.Lineage.Head, view.Lineage.Acceptance = head, owner.Acceptance
+	view.Lineage.AttemptRoot, view.Lineage.RootAssignment = owner.AttemptRoot, owner.ID
+	view.Lineage.Run, view.Lineage.SourceCommit = owner.Run, owner.SourceCommit
+	view.Lineage.RunHistory = append([]string(nil), owner.RunHistory...)
+	view.Lineage.Stale = head != "" && head != owner.Acceptance
+	if err == nil {
+		view.Lineage.LatestAssignment, view.Lineage.LatestRun = latest.ID, latest.Run
+		if latest.Acceptance != owner.Acceptance {
+			view.Reasons = addJourneyReason(view.Reasons, journeyReasonLatestAcceptanceMismatch)
+		}
+	}
+	if publication != nil {
+		applyJourneyPublicationLineage(&view.Lineage, publication)
+	}
+	if err := s.journeyPhaseSection(ctx, view, repository, index, owner); err != nil {
+		return nil, err
+	}
+	if err := s.journeyTaskSection(ctx, view, owner.AttemptRoot, issue); err != nil {
+		return nil, err
+	}
+	applyJourneyPublicationSections(view, publication)
+	if err := s.journeyCycleSections(ctx, view, repository, index); err != nil {
+		return nil, err
+	}
+	// No producer journals adoptions yet, and delivery acceptances carry
+	// the funded call identity rather than the evidence fingerprint, so
+	// no recorded receipt linkage exists to render. Both stay empty and
+	// read unavailable until their producers record the linkage; the
+	// full merged journey stays blocked and never reports complete.
+	view.Reasons = addJourneyReason(view.Reasons, journeyReasonAdoptionsUnavailable)
+	view.Reasons = addJourneyReason(view.Reasons, journeyReasonDeliveryUnavailable)
+	view.Complete = len(view.Reasons) == 0
+	return view, nil
+}
+
+// applyJourneyPublicationLineage binds the recorded candidate, the
+// recorded historical head/base tuple and the native operation refs.
+// Recorded bases render as history; the read never re-resolves them.
+func applyJourneyPublicationLineage(lineage *journeyLineageView, publication *factory.Publication) {
+	lineage.Candidate = publication.Candidate
+	lineage.PublishOp, lineage.PRCreateOp = publication.Publish.OperationID, publication.PRCreate.OperationID
+	if publication.PRNumber > 0 {
+		lineage.PRNumber = strconv.FormatInt(publication.PRNumber, 10)
+	}
+	if publication.PRID > 0 {
+		lineage.PRID = strconv.FormatInt(publication.PRID, 10)
+	}
+	if publication.Tuple != nil {
+		lineage.TupleHead, lineage.TupleBase, lineage.TupleDiffBase =
+			publication.Tuple.Head, publication.Tuple.Base, publication.Tuple.DiffBase
+	}
+}
+
+// journeyPhaseSection renders the CURRENT state of the selected owner
+// attempt lineage: exactly one state per canonical phase, each bound to
+// the newest recorded assignment carrying that phase under the
+// selected AttemptRoot, in stable canonical order. A newer retry storm
+// on one phase cannot displace another phase, a sibling AttemptRoot
+// sharing the acceptance cannot leak in, and no old capped prefix ever
+// stands in for current state. Unknown nonempty phases and ref-less
+// contributing rows name phases_invalid_row instead of dropping
+// silently; pre-phase rows without a phase stay out explicitly under
+// phases_pre_phase and never fabricate a phase. A cut group read names
+// phases_truncated. Unreadable storage returns its error for the
+// existing 503 pattern.
+func (s *API) journeyPhaseSection(ctx context.Context, view *factoryIssueJourneyView, repository, index int64, owner *factory.Assignment) error {
+	trail, next, pageBound, err := s.journeyChain(ctx, repository, index, owner.Acceptance)
+	if err != nil {
+		return err
+	}
+	view.Lineage.ChainCursors = trail
+	if pageBound {
+		view.Lineage.NextCursor = next
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonChainPageBound)
+	}
+	groups, truncated, err := s.Store.LatestPhaseAttempts(ctx, repository, index, owner.Acceptance, owner.AttemptRoot)
+	if err != nil {
+		return err
+	}
+	if truncated {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonPhasesTruncated)
+	}
+	current := make(map[string]factory.Assignment, len(journeyCanonicalPhases))
+	for _, group := range groups {
+		assignment := group.Assignment
+		switch phase := assignment.Phase; {
+		case phase == "":
+			view.Reasons = addJourneyReason(view.Reasons, journeyReasonPhasesPrePhase)
+		case !project.ValidExecutionPhase(phase):
+			view.Reasons = addJourneyReason(view.Reasons, journeyReasonPhasesInvalidRow)
+		default:
+			current[phase] = assignment
+		}
+	}
+	phases := make([]journeyPhaseView, 0, len(journeyCanonicalPhases))
+	for _, phase := range journeyCanonicalPhases {
+		assignment, ok := current[phase]
+		if !ok {
+			continue
+		}
+		rendered, err := journeyPhaseEntryDTO(phase, journeyAssignmentState(assignment),
+			assignment.ID, assignment.Run, assignment.AttemptRoot)
+		if err != nil {
+			view.Reasons = addJourneyReason(view.Reasons, journeyReasonPhasesInvalidRow)
+			continue
+		}
+		phases = append(phases, rendered)
+	}
+	view.Phases = nonNilJourney(phases, []journeyPhaseView{})
+	return nil
+}
+
+// journeyChain pages one acceptance lineage oldest-first through the
+// stable seq keyset until the window stops advancing. It returns the
+// page cursor trail, the resume cursor and whether the page bound cut
+// the read. The trail is retained lineage history behind the rendered
+// window; the phase section itself always reads current-per-phase, so
+// a cut here never passes old head rows as current.
+func (s *API) journeyChain(ctx context.Context, repository, index int64, acceptance string) ([]string, string, bool, error) {
+	var trail []string
+	after := ""
+	for page := 0; ; page++ {
+		if page == journeyChainMaxPages {
+			return trail, after, true, nil
+		}
+		got, next, err := s.Store.AcceptanceAssignmentsAfter(ctx, repository, index, acceptance, after, journeyChainPageLimit)
+		if err != nil {
+			return nil, "", false, err
+		}
+		// The trail holds every advanced cursor, so a cut names the
+		// newest cursor reached as its resume ref.
+		advanced := next != "" && next != after
+		if advanced {
+			after = next
+			trail = append(trail, after)
+		}
+		if len(got) < journeyChainPageLimit || !advanced {
+			return trail, after, false, nil
+		}
+	}
+}
+
+// journeyTaskSection renders the admitted plan's tasks with their
+// receipt states. A missing head, revision or receipt set means no
+// plan was recorded and leaves the section empty; malformed task rows
+// name their reason. Only the tail window renders past the cap.
+func (s *API) journeyTaskSection(ctx context.Context, view *factoryIssueJourneyView, attemptRoot, issue string) error {
+	headID, _, err := s.Store.PlanHead(ctx, attemptRoot)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	plan, err := s.Store.InvestigationPlan(ctx, attemptRoot, headID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	receipts, err := s.Store.PlanTaskReceipts(ctx, attemptRoot, headID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			receipts = nil
+		} else {
+			return err
+		}
+	}
+	byTask := make(map[string]store.PlanTaskReceipt, len(receipts))
+	for _, receipt := range receipts {
+		byTask[receipt.TaskID] = receipt
+	}
+	tasks := make([]journeyTaskView, 0, len(plan.Tasks))
+	invalid := false
+	for _, task := range plan.Tasks {
+		state := journeyPending
+		if receipt, ok := byTask[task.ID]; ok {
+			switch receipt.State {
+			case store.PlanTaskCompleted:
+				state = journeyComplete
+			case store.PlanTaskFailed, store.PlanTaskCancelled:
+				state = journeyAttention
+			case store.PlanTaskRunning, store.PlanTaskOutputReady:
+				state = journeyActive
+			}
+		}
+		lane := task.Lane
+		if lane != journeyLaneA && lane != journeyLaneB && lane != journeyLaneC {
+			lane = journeyLaneUnassigned
+		}
+		rendered, err := journeyTaskDTO(task.ID, lane, issue, state)
+		if err != nil {
+			invalid = true
+			continue
+		}
+		tasks = append(tasks, rendered)
+	}
+	if invalid {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonTasksInvalidRow)
+	}
+	if len(tasks) > maxJourneyTasks {
+		tasks = tasks[len(tasks)-maxJourneyTasks:]
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonTasksTruncated)
+	}
+	view.Tasks = nonNilJourney(tasks, []journeyTaskView{})
+	return nil
+}
+
+// applyJourneyPublicationSections renders the publication candidate,
+// its correction operations and its journaled correction findings from
+// the passed record. The candidate commit binds with the RECORDED
+// creation base; the read never calls that base live-fresh. A linked
+// PR that fails its DTO is malformed history, while no linked PR yet
+// means nothing was recorded. Unsubmitted operations carry no
+// observations and stay out.
+func applyJourneyPublicationSections(view *factoryIssueJourneyView, publication *factory.Publication) {
+	if publication == nil {
+		return
+	}
+	if publication.PRNumber > 0 {
+		commit, err := journeyCommitDTO(publication.Candidate, publication.PRCreate.BaseOID,
+			strconv.FormatInt(publication.PRNumber, 10), strconv.FormatInt(publication.PRID, 10))
+		if err != nil {
+			view.Reasons = addJourneyReason(view.Reasons, journeyReasonCommitsInvalidRow)
+		} else {
+			view.Commits = []journeyCommitView{commit}
+		}
+	}
+	corrections := make([]journeyCorrectionView, 0, len(publication.Corrections))
+	invalidCorrection := false
+	for _, op := range publication.Corrections {
+		if op.Work == nil && op.Effect == "" && op.Completion == "" && op.Reason == "" {
+			continue
+		}
+		candidate := ""
+		if op.Work != nil {
+			candidate = op.Work.Candidate
+		}
+		correction, err := journeyCorrectionDTO(candidate, op.Effect, op.Completion, op.Reason)
+		if err != nil {
+			invalidCorrection = true
+			continue
+		}
+		corrections = append(corrections, correction)
+	}
+	if invalidCorrection {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonCorrectionsInvalidRow)
+	}
+	if len(corrections) > maxJourneyCorrections {
+		corrections = corrections[len(corrections)-maxJourneyCorrections:]
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonCorrectionsTruncated)
+	}
+	view.Corrections = nonNilJourney(corrections, []journeyCorrectionView{})
+	findings := make([]journeyFindingView, 0)
+	invalidFinding := false
+	for _, journal := range publication.CorrectionJournals {
+		for _, finding := range journal.Report.Findings {
+			rendered, err := journeyFindingDTO(finding)
+			if err != nil {
+				invalidFinding = true
+				continue
+			}
+			findings = append(findings, rendered)
+		}
+	}
+	if invalidFinding {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonFindingsInvalidRow)
+	}
+	if len(findings) > maxJourneyFindings {
+		findings = findings[len(findings)-maxJourneyFindings:]
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonFindingsTruncated)
+	}
+	view.Findings = nonNilJourney(findings, []journeyFindingView{})
+}
+
+// journeyCycleSections renders funded reassessment decisions and D13
+// gate cycles from one bounded per-issue read, so every section shares
+// the same lineage. Cycles awaiting their funded receipt hold without
+// a judgment; malformed rows and cap cuts name their reasons.
+func (s *API) journeyCycleSections(ctx context.Context, view *factoryIssueJourneyView, repository, index int64) error {
+	cycles, truncated, err := s.Store.JourneyReassignmentCycles(ctx, repository, index, maxJourneyJudgments)
+	if err != nil {
+		return err
+	}
+	judgments := make([]journeyJudgmentView, 0, len(cycles))
+	invalidJudgment := false
+	for _, record := range cycles {
+		if record.EvidenceFingerprint == "" {
+			continue
+		}
+		receipt, err := s.Store.PriorityJudgment(ctx, record.EvidenceFingerprint)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				continue
+			}
+			return err
+		}
+		if len(receipt.Calls) != 1 || receipt.Calls[0].Failure != "" {
+			continue
+		}
+		answer := receipt.Calls[0].Answer
+		probability, ok := answer.Probabilities[answer.Selected]
+		if !ok {
+			invalidJudgment = true
+			continue
+		}
+		wait := record.Cycle.State == factory.ReassessmentAttention
+		rendered, err := journeyJudgmentDTO(journeyJudgmentReassessDecision, answer.Selected, answer.Model,
+			answer.Confidence, probability, wait, record.WaitReason)
+		if err != nil {
+			invalidJudgment = true
+			continue
+		}
+		judgments = append(judgments, rendered)
+	}
+	if invalidJudgment {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonJudgmentsInvalidRow)
+	}
+	if truncated || len(judgments) > maxJourneyJudgments {
+		if len(judgments) > maxJourneyJudgments {
+			judgments = judgments[len(judgments)-maxJourneyJudgments:]
+		}
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonJudgmentsTruncated)
+	}
+	view.Judgments = nonNilJourney(judgments, []journeyJudgmentView{})
+	gates := make([]journeyGateView, 0, len(cycles))
+	unrenderable := false
+	for _, record := range cycles {
+		rendered, err := journeyGateDTO(factory.ReassessmentView{
+			CompletionID: record.Completion.ID, CycleID: record.Cycle.CycleID,
+			State: record.Cycle.State, Decision: record.Cycle.Decision, Proposal: record.Cycle.Proposal,
+			Repository: repository, Generation: record.Cycle.Generation, WaitReason: record.WaitReason,
+			InventoryDigest: record.InventoryDigest, Retryable: record.Cycle.State == factory.ReassessmentAttention,
+		})
+		if err != nil {
+			unrenderable = true
+			continue
+		}
+		gates = append(gates, rendered)
+	}
+	if unrenderable {
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonGatesUnrenderable)
+	}
+	if truncated || len(gates) > maxJourneyGates {
+		if len(gates) > maxJourneyGates {
+			gates = gates[len(gates)-maxJourneyGates:]
+		}
+		view.Reasons = addJourneyReason(view.Reasons, journeyReasonGatesTruncated)
+	}
+	view.Gates = nonNilJourney(gates, []journeyGateView{})
+	return nil
+}

@@ -53,11 +53,27 @@ const (
 	journeyLaneUnassigned = "unassigned"
 )
 
-// journeyPhaseView renders one execution phase's recorded state: the
-// frozen phase vocabulary with its position, never its payload bytes.
+// journeyCanonicalPhases orders the admitted execution phases for the
+// recorded journey: decompose, investigate, implement, review, correct,
+// reassess. The journey renders one current state per phase in this
+// stable order, never in row-recency order, so a newer retry storm on
+// one phase cannot displace another phase's current state.
+var journeyCanonicalPhases = []string{
+	project.ExecutionDecompose, project.ExecutionInvestigate, project.ExecutionImplement,
+	project.ExecutionReview, project.ExecutionCorrect, project.ExecutionReassess,
+}
+
+// journeyPhaseView renders one execution phase's recorded CURRENT
+// state: the frozen phase vocabulary with its position plus the exact
+// contributing assignment, run and AttemptRoot behind that state, so
+// the read names whose recorded work produced the current state instead of
+// leaving the phase anonymous. Payload bytes stay out.
 type journeyPhaseView struct {
-	Phase string `json:"phase"`
-	State string `json:"state"`
+	Phase       string `json:"phase"`
+	State       string `json:"state"`
+	Assignment  string `json:"assignment,omitempty"`
+	Run         string `json:"run,omitempty"`
+	AttemptRoot string `json:"attempt_root,omitempty"`
 }
 
 // journeyPhaseDTO validates one fixture phase against the frozen
@@ -70,6 +86,38 @@ func journeyPhaseDTO(phase, state string) (journeyPhaseView, error) {
 		return journeyPhaseView{}, errors.New("journey phase lacks its recorded state")
 	}
 	return journeyPhaseView{Phase: phase, State: state}, nil
+}
+
+// journeyPhaseEntryDTO validates one recorded current-phase entry: an
+// admitted canonical phase with its recorded state and the exact
+// contributing assignment, run and AttemptRoot refs. A phase without
+// its refs is malformed history, never an anonymous current state.
+func journeyPhaseEntryDTO(phase, state, assignment, run, root string) (journeyPhaseView, error) {
+	view, err := journeyPhaseDTO(phase, state)
+	if err != nil {
+		return journeyPhaseView{}, err
+	}
+	if assignment == "" || run == "" || root == "" {
+		return journeyPhaseView{}, errors.New("journey phase lacks its contributing refs")
+	}
+	view.Assignment, view.Run, view.AttemptRoot = assignment, run, root
+	return view, nil
+}
+
+// journeyAssignmentState reduces one recorded assignment to its
+// journey position: attention for finished work that failed or was
+// cancelled, complete for other finished work, active otherwise.
+func journeyAssignmentState(assignment factory.Assignment) string {
+	switch {
+	case assignment.Stage == factory.AssignmentFinished &&
+		(assignment.Outcome == factory.Failed || assignment.Outcome == factory.Cancelled ||
+			assignment.Reason == factory.AssignReasonRunFailed || assignment.Reason == factory.AssignReasonCancelled):
+		return journeyAttention
+	case assignment.Stage == factory.AssignmentFinished:
+		return journeyComplete
+	default:
+		return journeyActive
+	}
 }
 
 func validJourneyState(state string) bool {
@@ -438,4 +486,107 @@ func nonNilJourney[T any](got, fallback []T) []T {
 		return fallback
 	}
 	return got
+}
+
+// Journey reason codes name every incomplete or unavailable fact behind
+// one recorded issue journey. Codes carry no raw data and stay bounded:
+// absence of a code means its section rendered whole, never a guess.
+// Producer-absent sections (adoptions, delivery judgments) read
+// unavailable until their owners journal them; the full merged journey
+// stays blocked and never reports complete here.
+const (
+	journeyReasonNoAttempt                = "no_attempt"
+	journeyReasonChainPageBound           = "chain_page_bound"
+	journeyReasonLatestAcceptanceMismatch = "latest_acceptance_mismatch"
+	journeyReasonPhasesInvalidRow         = "phases_invalid_row"
+	journeyReasonPhasesPrePhase           = "phases_pre_phase"
+	journeyReasonPhasesTruncated          = "phases_truncated"
+	journeyReasonTasksInvalidRow          = "tasks_invalid_row"
+	journeyReasonTasksTruncated           = "tasks_truncated"
+	journeyReasonCommitsInvalidRow        = "commits_invalid_row"
+	journeyReasonCorrectionsInvalidRow    = "corrections_invalid_row"
+	journeyReasonCorrectionsTruncated     = "corrections_truncated"
+	journeyReasonFindingsInvalidRow       = "findings_invalid_row"
+	journeyReasonFindingsTruncated        = "findings_truncated"
+	journeyReasonJudgmentsInvalidRow      = "judgments_invalid_row"
+	journeyReasonJudgmentsTruncated       = "judgments_truncated"
+	journeyReasonGatesUnrenderable        = "gates_unrenderable"
+	journeyReasonGatesTruncated           = "gates_truncated"
+	journeyReasonAdoptionsUnavailable     = "adoptions_unavailable"
+	journeyReasonDeliveryUnavailable      = "delivery_unavailable"
+)
+
+// maxJourneyReasons caps the reported reason set; codes are a fixed
+// vocabulary so ordinary journeys carry at most a few.
+const maxJourneyReasons = 16
+
+// journeyLineageView binds one recorded journey to its exact persisted
+// scope: the current acceptance head against the selected assignment
+// acceptance (stale when the head moved on), the actual attempt root
+// with its root and latest assignments and runs (the latest may be a
+// child; the journey never implicitly re-roots), the recorded source
+// and candidate with the recorded historical head/base tuple, and the
+// native operation refs behind them. Recorded bases are history, never
+// live-fresh reads. NextCursor resumes a bound cut; ChainCursors trails
+// the stable keyset pages behind the rendered window.
+type journeyLineageView struct {
+	Head             string   `json:"head_acceptance,omitempty"`
+	Acceptance       string   `json:"acceptance,omitempty"`
+	AttemptRoot      string   `json:"attempt_root,omitempty"`
+	RootAssignment   string   `json:"root_assignment,omitempty"`
+	LatestAssignment string   `json:"latest_assignment,omitempty"`
+	Run              string   `json:"run,omitempty"`
+	LatestRun        string   `json:"latest_run,omitempty"`
+	SourceCommit     string   `json:"source_commit,omitempty"`
+	Candidate        string   `json:"candidate,omitempty"`
+	TupleHead        string   `json:"tuple_head,omitempty"`
+	TupleBase        string   `json:"tuple_base,omitempty"`
+	TupleDiffBase    string   `json:"tuple_diff_base,omitempty"`
+	PublishOp        string   `json:"publish_op,omitempty"`
+	PRCreateOp       string   `json:"prcreate_op,omitempty"`
+	PRNumber         string   `json:"pr_number,omitempty"`
+	PRID             string   `json:"pr_id,omitempty"`
+	NextCursor       string   `json:"next_cursor,omitempty"`
+	ChainCursors     []string `json:"chain_cursors,omitempty"`
+	Stale            bool     `json:"stale,omitempty"`
+	RunHistory       []string `json:"run_history,omitempty"`
+}
+
+// factoryIssueJourneyView is the one recorded journey subsection on the
+// existing issue read: every recorded section from real persisted
+// records with empty sections explicit, newest evidence last, plus the
+// bounded completeness metadata. Available is false only when no
+// attempt was ever recorded (explicit, never a 500). Complete holds
+// only when every bounded read finished within its cap with no
+// malformed row and no producer-absent section; any reason present
+// means incomplete. Read endpoints spend nothing.
+type factoryIssueJourneyView struct {
+	Lineage      journeyLineageView      `json:"lineage"`
+	Phases       []journeyPhaseView      `json:"phases"`
+	Tasks        []journeyTaskView       `json:"tasks"`
+	Commits      []journeyCommitView     `json:"commits"`
+	Findings     []journeyFindingView    `json:"findings"`
+	Corrections  []journeyCorrectionView `json:"corrections"`
+	Judgments    []journeyJudgmentView   `json:"judgments"`
+	Gates        []journeyGateView       `json:"gates"`
+	Adoptions    []journeyAdoptionView   `json:"adoptions"`
+	Reasons      []string                `json:"reasons,omitempty"`
+	Repository   string                  `json:"repository"`
+	Issue        string                  `json:"issue"`
+	Available    bool                    `json:"available"`
+	Complete     bool                    `json:"complete"`
+	ObservedUnix int64                   `json:"observed_unix"`
+}
+
+// addJourneyReason records one bounded reason code, deduplicated.
+func addJourneyReason(reasons []string, code string) []string {
+	for _, seen := range reasons {
+		if seen == code {
+			return reasons
+		}
+	}
+	if len(reasons) >= maxJourneyReasons {
+		return reasons
+	}
+	return append(reasons, code)
 }
