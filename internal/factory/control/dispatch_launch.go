@@ -586,6 +586,10 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 	defer cancel()
 	state, err := deps.Host.FactoryLaunch(launchCtx, launch)
 	if err == nil {
+		// SUPERVISOR-031 Stage+Activate producer: best-effort
+		// capability for the settled run so the served MCP path
+		// admits calls. Refusal never fails the launch.
+		_ = ProduceMCPCapabilityForLaunch(ctx, deps.Store, a, run)
 		report.Launched = append(report.Launched, DispatchLaunch{
 			Repository: a.Repository, Issue: a.Issue,
 			AssignmentID: a.ID, RunID: run.ID, Phase: state.Phase,
