@@ -251,6 +251,36 @@ func carriedReviewer(t *testing.T, id, root, head, cycleID string, report *facto
 	}
 }
 
+// carriedStoreRun records the supervisor run row every carriedReviewer
+// fixture claims: the shared run ID settled with a succeeded reviewer
+// outcome, mirroring the production dispatch-packet/settle path. Tests
+// for missing or unsuccessful runs omit this helper or record a
+// different outcome, and must hold incomplete.
+func carriedStoreRun(t *testing.T, s *store.Store, dsn string) {
+	t.Helper()
+	carriedStoreRunOutcome(t, s, dsn, strings.Repeat("d", 32), factory.Succeeded)
+}
+
+func carriedStoreRunOutcome(t *testing.T, s *store.Store, dsn string, runID string, outcome factory.Outcome) {
+	t.Helper()
+	raw, err := json.Marshal(factory.Run{
+		ID: runID, Role: project.RoleReviewer, Outcome: outcome, Reconciled: outcome == factory.Succeeded,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	if _, err := db.Exec(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,FALSE,TRUE,$2)`,
+		runID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	_ = s
+}
+
 func carriedEphemeral(t *testing.T) (*store.Store, string) {
 	t.Helper()
 	admin, ok := store.TestFixtureDSN()
@@ -286,6 +316,7 @@ func TestCarriedHistoryKeepsUnresolvedAcrossHeadChange(t *testing.T) {
 			Assessments: []factory.FindingAssessment{
 				{Key: key, Status: factory.FindingStillOpen, Evidence: "fix not yet attempted"},
 			}}))
+	carriedStoreRun(t, s, dsn)
 	p := carriedPublication(pubID, newHead, base)
 	p.CorrectionJournals = []factory.CorrectionJournal{
 		carriedJournal(t, prior.ID, []factory.Finding{finding}, nil),
@@ -344,6 +375,7 @@ func TestCarriedHistoryCrossHeadReadsAndRetires(t *testing.T) {
 	p.ReviewCycles = []factory.ReviewCycle{prior, current}
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, oldReviewer, root, oldHead, prior.ID,
 		report([]factory.FindingAssessment{{Key: key, Status: factory.FindingStillOpen, Evidence: "not yet fixed"}})))
+	carriedStoreRun(t, s, dsn)
 	carried, err := coord.reviewCarriedFindings(ctx, p, current)
 	if err != nil {
 		t.Fatalf("cross-head read refused: %v", err)
@@ -415,6 +447,7 @@ func TestCarriedHistoryOmittedCoverageHoldsIncomplete(t *testing.T) {
 				{Key: keyA, Status: factory.FindingVerified, Evidence: "fixed and checked"},
 				{Key: keyC, Status: factory.FindingStillOpen, Evidence: "just found"},
 			}}))
+	carriedStoreRun(t, s, dsn)
 	p := carriedPublication(pubID, newHead, base)
 	p.ReviewCycles = []factory.ReviewCycle{prior, round2, current}
 	coord := &Coordinator{Store: s}
@@ -504,6 +537,7 @@ func TestCarriedHistoryMissingCrossHeadHoldsIncomplete(t *testing.T) {
 			Assessments: []factory.FindingAssessment{
 				{Key: strings.Repeat("f", 32), Status: factory.FindingVerified, Evidence: "checked nowhere"},
 			}}))
+	carriedStoreRun(t, s, dsn)
 	p2 := carriedPublication(pubID, newHead, base)
 	prior2 := carriedCycle(pubID, root, oldHead, base, stranger, 1)
 	p2.ReviewCycles = []factory.ReviewCycle{prior2, current}
@@ -512,4 +546,45 @@ func TestCarriedHistoryMissingCrossHeadHoldsIncomplete(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "incomplete") {
 		t.Fatalf("unrecorded-key verification refused for the wrong reason: %v", err)
 	}
+}
+
+// A valid reviewer assignment whose run was never recorded — or whose
+// recorded run never succeeded — holds incomplete: matching run IDs in
+// the DTO alone never retire findings.
+func TestCarriedHistoryMissingOrUnsuccessfulRunHoldsIncomplete(t *testing.T) {
+	oldHead, newHead, base := carriedHead('a'), carriedHead('b'), carriedHead('f')
+	key := strings.Repeat("3", 32)
+	pubID, root := strings.Repeat("6", 32), strings.Repeat("9", 32)
+	stage := func(t *testing.T) (*store.Store, string, factory.Publication, factory.ReviewCycle) {
+		s, dsn := carriedEphemeral(t)
+		prior := carriedCycle(pubID, root, oldHead, base, strings.Repeat("7", 32), 1)
+		current := carriedCycle(pubID, root, newHead, base, strings.Repeat("8", 32), 2)
+		carriedStoreAssignment(t, s, dsn, carriedReviewer(t, strings.Repeat("7", 32), root, oldHead, prior.ID,
+			&factory.ReviewCycleReport{CycleID: prior.ID,
+				NewFindings: []factory.Finding{carriedFinding(key, "line 7 lacks a check")},
+				Assessments: []factory.FindingAssessment{
+					{Key: key, Status: factory.FindingStillOpen, Evidence: "not yet fixed"},
+				}}))
+		p := carriedPublication(pubID, newHead, base)
+		p.ReviewCycles = []factory.ReviewCycle{prior, current}
+		return s, dsn, p, current
+	}
+	ctx := context.Background()
+	t.Run("missing run record", func(t *testing.T) {
+		s, _, p, current := stage(t)
+		if carried, err := (&Coordinator{Store: s}).reviewCarriedFindings(ctx, p, current); err == nil {
+			t.Fatalf("unrecorded run succeeded with %d findings", len(carried))
+		} else if !strings.Contains(err.Error(), "incomplete") {
+			t.Fatalf("unrecorded run refused for the wrong reason: %v", err)
+		}
+	})
+	t.Run("unsuccessful recorded run", func(t *testing.T) {
+		s, dsn, p, current := stage(t)
+		carriedStoreRunOutcome(t, s, dsn, strings.Repeat("d", 32), factory.Failed)
+		if carried, err := (&Coordinator{Store: s}).reviewCarriedFindings(ctx, p, current); err == nil {
+			t.Fatalf("failed run succeeded with %d findings", len(carried))
+		} else if !strings.Contains(err.Error(), "incomplete") {
+			t.Fatalf("failed run refused for the wrong reason: %v", err)
+		}
+	})
 }

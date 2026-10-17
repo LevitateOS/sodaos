@@ -280,6 +280,16 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 				return errors.New("canonical carried history is incomplete: step08")
 			}
 		}
+		// Recorded run: the claimed run must exist as a recorded
+		// supervisor run for this assignment's role with a succeeded
+		// outcome. An internally consistent assignment DTO alone —
+		// matching run IDs with no recorded run, or a recorded run
+		// that never succeeded — never retires findings.
+		recorded, err := c.Store.FactoryRun(ctx, reviewer.Run)
+		if err != nil || recorded.ID != reviewer.Run ||
+			recorded.Outcome != factory.Succeeded || recorded.Role != reviewer.Role {
+			return errors.New("canonical carried history is incomplete: step18")
+		}
 		return nil
 	}
 	// processPrior merges one recorded prior round through the canonical
