@@ -1,10 +1,10 @@
 {
-  "sourceRevision": "f1911db36bf6b18dfdaac90555b334bc9f335639",
+  "sourceRevision": "1f524a62f16414c1e9a39d4380cd3ebf57c9e856",
   "archiveFilename": "canlang-tools-linux-x86_64.tar.gz",
-  "sha256": "f97a6cbe09f1383065ed1b1663e7dca16b64e5ea1f1496d882889aa7e85a5e8a",
+  "sha256": "9a4ba8ab01b3cfb2362778ee8c7d92ad6d04c19bd40829ed549becd47b2cf8f0",
   "versions": {
-    "compiler": "can 0.1.0 (commit f1911db3; language 1.0; schema 1)",
-    "node": "v24.21.0",
+    "compiler": "can 0.1.1 (commit 04f93345f; language 1.0; schema 1)",
+    "node": "v24.22.0",
     "bun": "1.4.2",
     "miniflare": "4.20260730.0",
     "workerd": "1.20260730.1"
