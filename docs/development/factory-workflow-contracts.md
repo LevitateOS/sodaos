@@ -1121,6 +1121,11 @@ holds retain the durable fresh prefix across passes (resetting the cursor on
 real revision moves, never mixing revisions), and stale current-vs-sealed
 material refuses release. Collector progress clears on release.
 
+Paid-call authority is the locked reservation row: ReserveReassessmentCall alone
+admits paid call IDs (atomic cycle/global charge/receipt placeholder before
+the provider). Generic cycle writes preserve the admitted DecisionCalls
+prefix and reject new/forked IDs — a prefix never grants authority.
+
 ## D14 — One Factory MCP implementation and seven profiles
 
 FW-REFINE-003 freezes the control surface below. Jev remains the controller's typed
