@@ -79,7 +79,9 @@ impl Store {
                     &LIST_PAGE_ROWS as &(dyn ToSql + Sync),
                 ],
             )?;
-            if rows.is_empty() { break; }
+            if rows.is_empty() {
+                break;
+            }
             let page = decode_lease_page(&rows)?;
             for mut lease in page {
                 if lease.connection_id != connection_id {
@@ -93,7 +95,9 @@ impl Store {
                 lease.binding = None;
                 output.push(&lease)?;
             }
-            if rows.len() < LIST_PAGE_ROWS as usize { break; }
+            if rows.len() < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         output.finish()
     }
@@ -213,11 +217,17 @@ impl Store {
 fn decode_lease_page(rows: &[crate::pg::Row]) -> Result<Vec<Lease>, Error> {
     let mut leases = Vec::with_capacity(rows.len());
     for row in rows {
-        let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
+        let id = row
+            .try_get::<_, Option<String>>(0)
+            .map_err(pg_error)?
             .ok_or_else(|| Error::internal("identity lease scan incomplete"))?;
-        let value = row.try_get::<_, Option<Json<Lease>>>(1).map_err(pg_error)?
+        let value = row
+            .try_get::<_, Option<Json<Lease>>>(1)
+            .map_err(pg_error)?
             .ok_or_else(|| Error::internal("identity lease scan incomplete"))?;
-        if value.0.id != id { return Err(Error::internal("identity lease scan incomplete")); }
+        if value.0.id != id {
+            return Err(Error::internal("identity lease scan incomplete"));
+        }
         leases.push(value.0);
     }
     Ok(leases)

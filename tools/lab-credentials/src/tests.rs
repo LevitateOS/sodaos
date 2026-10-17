@@ -140,9 +140,7 @@ fn first_live_inputs_skips_dangling_symlinks() {
 fn passphrase_is_64_lowercase_hex_without_newline() {
     let passphrase = random_hex_passphrase().unwrap();
     assert_eq!(passphrase.len(), 64);
-    assert!(
-        passphrase
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
-    );
+    assert!(passphrase
+        .bytes()
+        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
 }

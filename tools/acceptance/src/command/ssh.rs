@@ -11,7 +11,7 @@ use crate::error::Error;
 use crate::files;
 use crate::process::Phase;
 
-use super::{CommandSpec, StdinSpec, look_path, quote};
+use super::{look_path, quote, CommandSpec, StdinSpec};
 
 /// Pinned SSH endpoint. Keys are file references, never inline contents.
 pub struct Remote {

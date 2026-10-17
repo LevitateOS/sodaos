@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::runtime::Builder;
-use tokio::time::{Instant, timeout_at};
-use tokio_postgres::{Config, NoTls, config::SslMode};
+use tokio::time::{timeout_at, Instant};
+use tokio_postgres::{config::SslMode, Config, NoTls};
 
 const ADMIN_OPERATION_BUDGET: Duration = Duration::from_secs(30);
 const ADMIN_CLEANUP_BUDGET: Duration = Duration::from_millis(250);

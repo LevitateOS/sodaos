@@ -54,7 +54,11 @@ fn success_body_limit_includes_the_final_lf() {
     let exact = success_response(Some(vec![b'x'; limit - 1]));
     assert_eq!(exact.status(), hyper::StatusCode::OK);
     let body = tokio::runtime::Builder::new_current_thread()
-        .build().unwrap().block_on(exact.into_body().collect()).unwrap().to_bytes();
+        .build()
+        .unwrap()
+        .block_on(exact.into_body().collect())
+        .unwrap()
+        .to_bytes();
     assert_eq!(body.len(), limit);
     assert_eq!(body[limit - 1], b'\n');
 

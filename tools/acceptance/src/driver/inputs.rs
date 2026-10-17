@@ -25,11 +25,7 @@ fn read_secret_files(
     Ok(())
 }
 
-fn load_vm_secrets(
-    config_path: &str,
-    arch: &str,
-    target: &str,
-) -> Result<vm::VmConfig, Error> {
+fn load_vm_secrets(config_path: &str, arch: &str, target: &str) -> Result<vm::VmConfig, Error> {
     let (value, _) = jsonio::read_json_file(config_path)?;
     let vm_config = vm::decode_vm_config(&value)?;
     if vm_config.architecture != arch || vm_config.name != target {
@@ -70,7 +66,10 @@ mod tests {
         let mut secrets = provisioning::SecretCollector::default();
         let repeated = vec![name.clone(); provisioning::SECRET_COLLECTION_COUNT / 2];
         read_secret_files(&repeated, &mut secrets).unwrap();
-        assert_eq!(secrets.into_values().len(), provisioning::SECRET_COLLECTION_COUNT);
+        assert_eq!(
+            secrets.into_values().len(),
+            provisioning::SECRET_COLLECTION_COUNT
+        );
 
         let mut secrets = provisioning::SecretCollector::default();
         let repeated = vec![name; provisioning::SECRET_COLLECTION_COUNT / 2 + 1];

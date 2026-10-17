@@ -1,7 +1,7 @@
 use crate::pg::pg_error;
 use crate::pg_dsn::Dsn;
-use crate::store::{Store, schema_integer};
-use std::sync::{Arc, mpsc};
+use crate::store::{schema_integer, Store};
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 

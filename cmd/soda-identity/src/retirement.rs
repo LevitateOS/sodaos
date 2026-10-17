@@ -90,15 +90,21 @@ impl Controller {
         let mut failures = LeaseFailures::new();
         let mut after: Option<String> = None;
         loop {
-            let page = state.store.leases_page(after.as_deref())
+            let page = state
+                .store
+                .leases_page(after.as_deref())
                 .map_err(|_| Error::internal("lease scan incomplete"))?;
-            if page.is_empty() { break; }
+            if page.is_empty() {
+                break;
+            }
             let count = page.len();
             for lease in page {
                 after = Some(lease.id.clone());
                 failures.record(Self::end(&state, &lease));
             }
-            if count < LIST_PAGE_ROWS as usize { break; }
+            if count < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         failures.finish()
     }
@@ -108,15 +114,21 @@ impl Controller {
         let mut failures = LeaseFailures::new();
         let mut after: Option<String> = None;
         loop {
-            let page = state.store.leases_page(after.as_deref())
+            let page = state
+                .store
+                .leases_page(after.as_deref())
                 .map_err(|_| Error::internal("lease scan incomplete"))?;
-            if page.is_empty() { break; }
+            if page.is_empty() {
+                break;
+            }
             let count = page.len();
             for lease in page {
                 after = Some(lease.id.clone());
                 failures.record(Self::sweep_lease(&state, &lease));
             }
-            if count < LIST_PAGE_ROWS as usize { break; }
+            if count < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         failures.finish()
     }
@@ -148,15 +160,21 @@ impl Controller {
         let mut failures = LeaseFailures::new();
         let mut after: Option<String> = None;
         loop {
-            let page = state.store.leases_for_connection_page(id, after.as_deref())
+            let page = state
+                .store
+                .leases_for_connection_page(id, after.as_deref())
                 .map_err(|_| Error::internal("lease scan incomplete"))?;
-            if page.is_empty() { break; }
+            if page.is_empty() {
+                break;
+            }
             let count = page.len();
             for lease in page {
                 after = Some(lease.id.clone());
                 failures.record(Self::end(state, &lease));
             }
-            if count < LIST_PAGE_ROWS as usize { break; }
+            if count < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         failures.finish()
     }

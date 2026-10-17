@@ -319,6 +319,20 @@ func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevis
 		return false, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	reserved, err := s.reserveIntentJudgmentTx(ctx, tx, r, snapshot)
+	if err != nil || !reserved {
+		return false, err
+	}
+	return true, tx.Commit()
+}
+
+// reserveIntentJudgmentTx reserves planning usage in the caller's transaction.
+// The caller owns commit/rollback and must make provider calls outside the transaction.
+func (s *Store) reserveIntentJudgmentTx(ctx context.Context, tx *sql.Tx, r factory.IntentRevision, snapshot string) (bool, error) {
+	if !factory.ValidDigest(snapshot) {
+		return false, errors.New("invalid planning snapshot")
+	}
+	var err error
 	var head string
 	if err = tx.QueryRowContext(ctx, `SELECT revision FROM factory_intent_heads WHERE id=$1 AND owner_id=$2 FOR UPDATE`, r.Intent, r.Owner).Scan(&head); err != nil {
 		return false, err
@@ -369,7 +383,7 @@ func (s *Store) ReserveIntentJudgment(ctx context.Context, r factory.IntentRevis
 	if _, err = tx.ExecContext(ctx, `UPDATE factory_judgment_budget SET spent=spent+1 WHERE id=1`); err != nil {
 		return false, err
 	}
-	return true, tx.Commit()
+	return true, nil
 }
 
 func (s *Store) PriorityJudgment(ctx context.Context, snapshot string) (factory.PriorityReceipt, error) {

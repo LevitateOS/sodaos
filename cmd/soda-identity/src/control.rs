@@ -173,15 +173,22 @@ pub(crate) fn join_errors(failures: Vec<Error>) -> Result<(), Error> {
 pub(crate) struct LeaseFailures(u64);
 
 impl LeaseFailures {
-    pub(crate) fn new() -> Self { Self(0) }
+    pub(crate) fn new() -> Self {
+        Self(0)
+    }
     pub(crate) fn record(&mut self, result: Result<(), Error>) {
-        if result.is_err() { self.0 = self.0.saturating_add(1); }
+        if result.is_err() {
+            self.0 = self.0.saturating_add(1);
+        }
     }
     pub(crate) fn finish(self) -> Result<(), Error> {
         if self.0 == 0 {
             Ok(())
         } else {
-            Err(Error::internal(format!("lease retirement incomplete ({} failures)", self.0)))
+            Err(Error::internal(format!(
+                "lease retirement incomplete ({} failures)",
+                self.0
+            )))
         }
     }
 }

@@ -1,11 +1,12 @@
 # Factory implementation plan
 
-The [workflow completion plan](factory-workflow-plan.md) owns the 2026-10-16
-corrective task queue for semantic issue decomposition, investigation and parallel
-implementation, native inline review, and Jev's review-again/merge decision.
-Use its [ordered tasks](factory-workflow-plan.md#ordered-implementation-tasks)
-for overlapping workflow gaps; preserve the broader baseline and installed
-acceptance below. That revision is planning only and does not restart completed work.
+The [remaining-work catalog](factory-remaining-tasks.md) owns the consolidated
+2026-10-17 execution order for all remaining factory work, including this broader
+baseline and installed/UX/release acceptance and all three workflow refinements.
+The [workflow design](factory-workflow-plan.md) and
+[frozen contracts](factory-workflow-contracts.md) retain the corrective design and
+original FW requirement references. Preserve the acceptance below and valid scoped
+receipts; do not replay the older task queues or restart completed work.
 
 The planning target is Soda's automatic issue → readiness → coding → PR →
 review/fix → native merge → unblock loop, running in persistent Projects and

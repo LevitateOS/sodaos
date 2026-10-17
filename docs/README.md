@@ -56,8 +56,9 @@ command workflow. Spaces connects repository environments with human and factory
 | --- | --- |
 | [Development index](development/README.md) | How to work on this repository |
 | [Ideal file tree plan](development/ideal-filetree-plan/ideal-filetree-plan.md) | Living restructuring proposal and post-merge maintenance |
-| [Factory implementation plan](development/factory-implementation-plan.md) | Active factory source baseline and [end-to-end UX tasks, parallel lanes and dependencies](development/factory-implementation-plan.md#end-to-end-ux-implementation-tasks) |
-| [Factory workflow completion plan](development/factory-workflow-plan.md) | Corrective implementation tasks, native proof gates and three ordered parallel lanes for the prompt-to-delivery loop |
+| [Remaining factory work](development/factory-remaining-tasks.md) | Current consolidated task catalog, dependencies, three execution lanes and acceptance for all remaining baseline/refinement/native/installed/release work |
+| [Factory implementation plan](development/factory-implementation-plan.md) | Original source, appliance and end-to-end UX requirements; execution is consolidated in Remaining factory work |
+| [Factory workflow design](development/factory-workflow-plan.md) | Workflow design, native proof requirements and original FW packet references; execution is consolidated in Remaining factory work |
 | [Native frontend correction tasks](development/native-frontend-correction-tasks.md) | Fountain/Soda correction tasks, parallel lanes, physical writers, partial handoffs and installed acceptance |
 | [Canlang and Soda OS implementation plan](development/canlang-soda-os-implementation-plan.md) | Current local evidence, dependency gates and remaining implementation/qualification tasks |
 | [Go ownership](development/go.md) | Package placement and house style |

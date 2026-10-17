@@ -99,12 +99,18 @@ impl Store {
                     &LIST_PAGE_ROWS as &(dyn ToSql + Sync),
                 ],
             )?;
-            if rows.is_empty() { break; }
+            if rows.is_empty() {
+                break;
+            }
             for row in &rows {
-                let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
+                let id = row
+                    .try_get::<_, Option<String>>(0)
+                    .map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
                 let owner = row.try_get::<_, i32>(1).map_err(pg_error)?;
-                let value = row.try_get::<_, Option<Json<Connection>>>(2).map_err(pg_error)?
+                let value = row
+                    .try_get::<_, Option<Json<Connection>>>(2)
+                    .map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
                 if value.0.id != id || value.0.owner_id != owner as i64 {
                     return Err(Error::internal("identity list incomplete"));
@@ -112,7 +118,9 @@ impl Store {
                 output.push(&value.0)?;
                 after = Some(id);
             }
-            if rows.len() < LIST_PAGE_ROWS as usize { break; }
+            if rows.len() < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         output.finish()
     }
@@ -134,22 +142,32 @@ impl Store {
                     &LIST_PAGE_ROWS as &(dyn ToSql + Sync),
                 ],
             )?;
-            if rows.is_empty() { break; }
+            if rows.is_empty() {
+                break;
+            }
             for row in &rows {
-                let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
+                let id = row
+                    .try_get::<_, Option<String>>(0)
+                    .map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
                 let owner = row.try_get::<_, i32>(1).map_err(pg_error)?;
-                let value = row.try_get::<_, Option<Json<Connection>>>(2).map_err(pg_error)?
+                let value = row
+                    .try_get::<_, Option<Json<Connection>>>(2)
+                    .map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity list incomplete"))?;
                 if value.0.id != id || value.0.owner_id != owner as i64 {
                     return Err(Error::internal("identity list incomplete"));
                 }
                 let mut connection = value.0;
-                if owner != actor { connection.email.clear(); }
+                if owner != actor {
+                    connection.email.clear();
+                }
                 output.push(&connection)?;
                 after = Some(id);
             }
-            if rows.len() < LIST_PAGE_ROWS as usize { break; }
+            if rows.len() < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         output.finish()
     }
@@ -188,19 +206,37 @@ impl Store {
     }
 }
 
-pub(crate) struct ListJson { bytes: Vec<u8>, first: bool }
+pub(crate) struct ListJson {
+    bytes: Vec<u8>,
+    first: bool,
+}
 
 impl ListJson {
-    pub(crate) fn new() -> Self { Self { bytes: vec![b'['], first: true } }
+    pub(crate) fn new() -> Self {
+        Self {
+            bytes: vec![b'['],
+            first: true,
+        }
+    }
     pub(crate) fn push<T: serde::Serialize>(&mut self, value: &T) -> Result<(), Error> {
-        if !self.first { self.write_chunk(b",")?; }
-        serde_json::to_writer(BoundedListWriter { bytes: &mut self.bytes, limit: LIST_JSON_BYTES - 1 }, value)
-            .map_err(|_| Error::internal("identity list exceeds response limit"))?;
+        if !self.first {
+            self.write_chunk(b",")?;
+        }
+        serde_json::to_writer(
+            BoundedListWriter {
+                bytes: &mut self.bytes,
+                limit: LIST_JSON_BYTES - 1,
+            },
+            value,
+        )
+        .map_err(|_| Error::internal("identity list exceeds response limit"))?;
         self.first = false;
         Ok(())
     }
     pub(crate) fn finish(mut self) -> Result<Vec<u8>, Error> {
-        if self.bytes.len() >= LIST_JSON_BYTES { return Err(Error::internal("identity list exceeds response limit")); }
+        if self.bytes.len() >= LIST_JSON_BYTES {
+            return Err(Error::internal("identity list exceeds response limit"));
+        }
         self.bytes.push(b']');
         Ok(self.bytes)
     }
@@ -214,16 +250,24 @@ impl ListJson {
     }
 }
 
-struct BoundedListWriter<'a> { bytes: &'a mut Vec<u8>, limit: usize }
+struct BoundedListWriter<'a> {
+    bytes: &'a mut Vec<u8>,
+    limit: usize,
+}
 impl std::io::Write for BoundedListWriter<'_> {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         if self.bytes.len().saturating_add(bytes.len()) > self.limit {
-            return Err(std::io::Error::new(std::io::ErrorKind::WriteZero, "list limit"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "list limit",
+            ));
         }
         self.bytes.extend_from_slice(bytes);
         Ok(bytes.len())
     }
-    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

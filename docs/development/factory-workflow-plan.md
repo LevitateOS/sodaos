@@ -1,5 +1,13 @@
 # Complete the software factory workflow
 
+**Execution reorganization, 2026-10-17:** use
+[Remaining factory work](factory-remaining-tasks.md) for the current consolidated
+task boundaries, dependencies and three-lane order. The existing run's single
+central checklist owns live progress and writer leases. The FW tables and lane
+sequences below retain original packet requirements and design context; they are
+not a second active queue. Preserve accepted work and evidence at its recorded
+scope. This changes execution organization, not the frozen product contracts.
+
 Status: **implementation in progress; not qualified**. This plan follows the owner's
 2026-10-16 request to plan all gaps in the prompt-to-delivery loop before further
 implementation. It is based on read-only inspection of Soda
@@ -13,11 +21,14 @@ FW-REASSESS-002 (D13) and FW-REFINE-003 (D14–D17). Read them before assigning
 any task. Spark implements those decisions; failed native assumptions return to
 Codex with evidence rather than becoming worker-selected architectures.
 
-This document owns the corrective implementation queue for that workflow. The
-[existing factory plan](factory-implementation-plan.md) retains its broader
+The [remaining-work catalog](factory-remaining-tasks.md) now owns the consolidated
+corrective execution order. This document retains its workflow design and original
+packet requirements. The [existing factory plan](factory-implementation-plan.md)
+retains its broader
 source history, appliance and installed-experience acceptance. For overlapping
-workflow tasks, use this queue rather than executing both plans. Preserve already
-completed work. This is separate from the completed RCX-2 release-component work.
+workflow tasks, use the consolidated catalog rather than executing both old plans.
+Preserve already completed work. This is separate from the completed RCX-2
+release-component work.
 
 Product behavior belongs in [the product overview](../product/overview.md),
 interfaces in [factory interfaces](../architecture/factory-interfaces.md), and
@@ -43,8 +54,9 @@ be generalized, not deleted or rebuilt from scratch. Claimed worker completion
 and helper fixtures do not replace production/native evidence.
 
 The existing Muse coordinator retains one central completion/writer checklist.
-FW33–FW50 are additive tasks; this document owns design, dependencies and tests,
-not live progress. Preserve active FW24/recovery work until a named safe handoff.
+FW33–FW50 remain additive requirements; this document owns their design and tests,
+while the remaining-work catalog owns current dependencies and execution packets.
+Preserve active work until a named safe handoff.
 Any old acceptance wording amended below uses the new frozen contracts. Source
 changes already committed under earlier wording are correction inputs, not a
 reason to restart the run. No second Muse instance or worktree.
@@ -415,6 +427,10 @@ failed evidence. Independent tasks may continue, but dependent broad changes wai
 for the corrected boundary. Do not compensate with a full image build.
 
 ## Ordered implementation tasks
+
+The original FW packet definitions below are preserved for requirement traceability.
+Execute their remaining portions through the [current catalog](factory-remaining-tasks.md#task-list),
+not by replaying this historical order or its lane schedules.
 
 The active run's single central checklist owns completion and writer status; this
 plan defines dependencies and acceptance, not a second progress ledger. Preserve

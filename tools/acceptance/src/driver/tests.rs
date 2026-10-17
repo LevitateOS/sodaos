@@ -265,16 +265,12 @@ fn redacted_artifact_key_collision_prevents_observation_publication() {
     .unwrap_err();
 
     assert!(error.to_string().contains("redacted JSON key collision"));
-    assert!(
-        !std::path::Path::new(&path)
-            .join("observation.json")
-            .exists()
-    );
-    assert!(
-        !std::path::Path::new(&path)
-            .join("observation.pending.json")
-            .exists()
-    );
+    assert!(!std::path::Path::new(&path)
+        .join("observation.json")
+        .exists());
+    assert!(!std::path::Path::new(&path)
+        .join("observation.pending.json")
+        .exists());
     assert!(!error.to_string().contains("artifact-secret"));
 }
 

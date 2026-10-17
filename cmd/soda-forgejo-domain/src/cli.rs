@@ -38,7 +38,9 @@ pub(crate) fn parse_args(prog: &str, args: &[String]) -> Result<Option<String>, 
         }
         if arg.starts_with("--help=") {
             let explicit = arg["--help=".len()..].to_string();
-            return Err(format!("argument -h/--help: ignored explicit argument '{explicit}'"));
+            return Err(format!(
+                "argument -h/--help: ignored explicit argument '{explicit}'"
+            ));
         }
         if arg.starts_with("--") && !arg.contains('=') {
             // Unambiguous long-option prefixes (help is the only one).

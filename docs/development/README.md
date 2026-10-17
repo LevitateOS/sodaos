@@ -44,14 +44,19 @@ plans or begin the refactor as part of routine upkeep.
 
 ## Factory implementation planning
 
-The [workflow completion plan](factory-workflow-plan.md) covers the inspected gaps
-from prompt decomposition through Jev's review/merge decision and dependent issue
-release. Its [ordered tasks](factory-workflow-plan.md#ordered-implementation-tasks)
-and [three parallel lanes](factory-workflow-plan.md#parallel-schedule-and-writer-handoffs)
-are the current corrective queue for those gaps, with native proof gates before
-broad implementation. It preserves completed work and does not authorize execution.
-Its [frozen contracts and tests](factory-workflow-contracts.md) settle schemas,
-algorithms, limits, recovery and native failure routing before Spark implementation.
+The [remaining-work catalog](factory-remaining-tasks.md) is the current consolidated
+execution order for the existing factory run: 55 outcomes cover the original
+baseline, all three refinements and applicable native/installed/release work.
+It defines dependencies, acceptance and three lanes; the existing run's central
+checklist alone records live progress and writer leases.
+
+The [workflow design](factory-workflow-plan.md) and
+[frozen contracts and tests](factory-workflow-contracts.md) retain the original
+requirements, schemas, algorithms, limits, recovery and native failure rules.
+The [original factory plan](factory-implementation-plan.md) retains broader
+appliance and end-to-end UX acceptance. Their old task IDs remain requirement
+references, rather than separate queues. Preserve completed source and scoped
+evidence; a planning document alone does not authorize execution or publication.
 
 The [factory implementation plan](factory-implementation-plan.md) records the
 current source baseline, owning contracts, exclusions and

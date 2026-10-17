@@ -59,11 +59,17 @@ impl Store {
                     &LIST_PAGE_ROWS as &(dyn ToSql + Sync),
                 ],
             )?;
-            if rows.is_empty() { break; }
+            if rows.is_empty() {
+                break;
+            }
             for row in &rows {
-                let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
+                let id = row
+                    .try_get::<_, Option<String>>(0)
+                    .map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity grant list incomplete"))?;
-                let value = row.try_get::<_, Option<Json<Grant>>>(1).map_err(pg_error)?
+                let value = row
+                    .try_get::<_, Option<Json<Grant>>>(1)
+                    .map_err(pg_error)?
                     .ok_or_else(|| Error::internal("identity grant list incomplete"))?;
                 if value.0.id != id || value.0.connection_id != connection_id {
                     return Err(Error::internal("identity grant list incomplete"));
@@ -71,7 +77,9 @@ impl Store {
                 output.push(&value.0)?;
                 after = Some(id);
             }
-            if rows.len() < LIST_PAGE_ROWS as usize { break; }
+            if rows.len() < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         output.finish()
     }
@@ -93,9 +101,13 @@ impl Store {
         )?;
         let mut grants = Vec::with_capacity(rows.len());
         for row in &rows {
-            let id = row.try_get::<_, Option<String>>(0).map_err(pg_error)?
+            let id = row
+                .try_get::<_, Option<String>>(0)
+                .map_err(pg_error)?
                 .ok_or_else(|| Error::internal("identity grant scan incomplete"))?;
-            let value = row.try_get::<_, Option<Json<Grant>>>(1).map_err(pg_error)?
+            let value = row
+                .try_get::<_, Option<Json<Grant>>>(1)
+                .map_err(pg_error)?
                 .ok_or_else(|| Error::internal("identity grant scan incomplete"))?;
             if value.0.id != id || value.0.connection_id != connection_id {
                 return Err(Error::internal("identity grant scan incomplete"));

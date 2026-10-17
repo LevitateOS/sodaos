@@ -67,7 +67,8 @@ fn enrollment_to_lease_lifecycle() {
         .return_lease(&lease.id, &binding("factory", 1), &subscription())
         .unwrap();
     // Return rotated the credential generation.
-    let connections: Vec<Connection> = serde_json::from_slice(&broker.connections(1).unwrap()).unwrap();
+    let connections: Vec<Connection> =
+        serde_json::from_slice(&broker.connections(1).unwrap()).unwrap();
     assert_eq!(connections[0].generation, 2);
     let execution = broker.get_execution("factory", "execution-1").unwrap();
     assert_eq!(execution.state, "terminal");

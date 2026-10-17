@@ -7,8 +7,8 @@
 //! for byte; only unpinned failure text (HTTP transport errors, usage
 //! errors, malformed-input details) differs.
 
-pub mod muse;
 pub mod canlang;
+pub mod muse;
 pub mod tea;
 pub mod terminal;
 

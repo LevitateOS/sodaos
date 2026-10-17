@@ -13,7 +13,9 @@ impl Controller {
         if owner <= 0 {
             return Err(Error::denied("identity authority denied"));
         }
-        state.store.leases_for_connection(owner, id, connection.owner_id == owner)
+        state
+            .store
+            .leases_for_connection(owner, id, connection.owner_id == owner)
     }
 
     pub fn acquire(&self, input: &AcquireRequest) -> Result<Lease, Error> {
@@ -194,7 +196,9 @@ impl Controller {
         let mut after: Option<String> = None;
         loop {
             let grants = state.store.grants_page(&connection.id, after.as_deref())?;
-            if grants.is_empty() { break; }
+            if grants.is_empty() {
+                break;
+            }
             let count = grants.len();
             for grant in grants {
                 after = Some(grant.id.clone());
@@ -207,7 +211,9 @@ impl Controller {
                     return Ok(());
                 }
             }
-            if count < LIST_PAGE_ROWS as usize { break; }
+            if count < LIST_PAGE_ROWS as usize {
+                break;
+            }
         }
         Err(Error::denied("identity authority denied"))
     }

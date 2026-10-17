@@ -65,7 +65,9 @@ pub(crate) fn parse_args(prog: &str, args: &[String]) -> Result<Option<CliArgs>,
         let opt = matches[0].to_string();
         if opt == "help" {
             if let Some(v) = inline {
-                return Err(format!("argument -h/--help: ignored explicit argument '{v}'"));
+                return Err(format!(
+                    "argument -h/--help: ignored explicit argument '{v}'"
+                ));
             }
             let _ = prog;
             return Ok(None);

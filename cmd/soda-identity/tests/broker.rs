@@ -4,8 +4,8 @@ mod common;
 
 use base64::Engine;
 use common::{
-    Ephemeral, StubRuntime, binding, connection, controller, fixture_key, stub_provider,
-    subscription,
+    binding, connection, controller, fixture_key, stub_provider, subscription, Ephemeral,
+    StubRuntime,
 };
 use soda_identity::control::{self, Controller};
 use soda_identity::wire::*;
