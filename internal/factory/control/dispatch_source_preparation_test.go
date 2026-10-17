@@ -86,9 +86,7 @@ func mergedSourcePreparationScenario(t *testing.T, expireBeforePacket bool, corr
 	// bind the ready first-generation fixture auth, then drive the merge
 	// to completion. Later generations stay out of this scenario.
 	if open := fx.merge(t, p); open.Stage == factory.MergeOpen {
-		if err := fx.publish.coord.AuthorizeMerge(ctx, open.PublicationID, gateTestBinding(t, open)); err != nil {
-			t.Fatalf("authorize merge: %v", err)
-		}
+		authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
 		fx.pass(t)
 	}
 	if merge := fx.merge(t, p); merge.Stage != factory.MergeMerged {
