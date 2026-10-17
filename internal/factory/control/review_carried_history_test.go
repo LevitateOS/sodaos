@@ -2,7 +2,9 @@ package control
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -225,7 +227,10 @@ func carriedStoreAssignment(t *testing.T, s *store.Store, dsn string, a factory.
 
 func carriedReviewer(t *testing.T, id, root, head, cycleID string, report *factory.ReviewCycleReport) factory.Assignment {
 	t.Helper()
-	runID := strings.Repeat("d", 32)
+	// One distinct valid run per reviewer: production records a run per
+	// dispatch, and the canonical run-view join resolves one attempt per
+	// run. Sharing a run across reviewers would neither bind nor retire.
+	runID := strings.Repeat("d", 31) + id[31:]
 	return factory.Assignment{
 		ID: id, Role: project.RoleReviewer, SourceCommit: head,
 		Phase: project.ExecutionReview, AttemptRoot: root,
@@ -251,21 +256,34 @@ func carriedReviewer(t *testing.T, id, root, head, cycleID string, report *facto
 	}
 }
 
-// carriedStoreRun records the supervisor run row every carriedReviewer
-// fixture claims: the shared run ID settled with a succeeded reviewer
-// outcome, mirroring the production dispatch-packet/settle path. Tests
-// for missing or unsuccessful runs omit this helper or record a
-// different outcome, and must hold incomplete.
-func carriedStoreRun(t *testing.T, s *store.Store, dsn string) {
-	t.Helper()
-	carriedStoreRunOutcome(t, s, dsn, strings.Repeat("d", 32), factory.Succeeded)
+// carriedReviewRunID mirrors carriedReviewer's derived run for one reviewer.
+func carriedReviewRunID(reviewerID string) string {
+	return strings.Repeat("d", 31) + reviewerID[31:]
 }
 
-func carriedStoreRunOutcome(t *testing.T, s *store.Store, dsn string, runID string, outcome factory.Outcome) {
+// carriedStoreReviewRun records the production-path completion rows for
+// one reviewer fixture: a supervisor run that passes the canonical
+// factory Run validator (settled succeeded reviewer run bound to the
+// reviewer's project/source), plus the run-view row pointing at the
+// reviewer assignment. The helper refuses to store an invalid run, so
+// fixtures cannot fabricate minimal JSON the production path rejects.
+func carriedStoreReviewRun(t *testing.T, s *store.Store, dsn, runID, head, reviewerID string, outcome factory.Outcome, mutate func(*factory.Run)) {
 	t.Helper()
-	raw, err := json.Marshal(factory.Run{
-		ID: runID, Role: project.RoleReviewer, Outcome: outcome, Reconciled: outcome == factory.Succeeded,
-	})
+	started := time.Unix(1700000000, 0)
+	run := factory.Run{
+		ID: runID, ProjectID: "p" + strings.Repeat("1", 24), Role: project.RoleReviewer,
+		InputSHA: head, Started: started, Deadline: started.Add(time.Hour),
+		Image:   "sha256:" + strings.Repeat("a", 64),
+		Harness: "codex-1.2.3", Model: "muse-spark-1.3-contributor",
+		Outcome: outcome, Reconciled: outcome == factory.Succeeded,
+	}
+	if mutate != nil {
+		mutate(&run)
+	}
+	if err := run.Validate(); err != nil {
+		t.Fatalf("fixture run is not production-valid: %v", err)
+	}
+	raw, err := json.Marshal(run)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,6 +294,52 @@ func carriedStoreRunOutcome(t *testing.T, s *store.Store, dsn string, runID stri
 	defer func() { _ = db.Close() }()
 	if _, err := db.Exec(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,FALSE,TRUE,$2)`,
 		runID, string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO factory_run_views(run,repository,issue,attempt) VALUES($1,$2,$3,$4)`,
+		runID, 7, 9, reviewerID); err != nil {
+		t.Fatal(err)
+	}
+	_ = s
+}
+
+// carriedStoreOwner records the self-owned coder publication assignment
+// every reviewer fixture publishes under: the canonical owner join
+// resolves run views through it, so positive paths need exactly one per
+// database. The helper refuses an invalid owner.
+func carriedStoreOwner(t *testing.T, s *store.Store, dsn string) {
+	t.Helper()
+	acceptance := "d" + strings.Repeat("a", 24)
+	prompt := []byte("implement the candidate")
+	sum := sha256.Sum256(prompt)
+	owner := factory.Assignment{
+		ID: strings.Repeat("9", 32), Role: project.RoleCoder, SourceCommit: carriedHead('f'),
+		Phase: project.ExecutionImplement, AttemptRoot: strings.Repeat("9", 32),
+		PublicationAssignment: strings.Repeat("9", 32),
+		Run:                   strings.Repeat("e", 32), RunHistory: []string{strings.Repeat("e", 32)}, Attempts: 1,
+		Stage: factory.AssignmentAssigned,
+		Subject: factory.ExecutionSubject{Kind: factory.SubjectIssue,
+			Issue: &factory.IssueSubject{Issue: 9, Acceptance: acceptance}},
+		ProjectID: "p" + strings.Repeat("1", 24), CreatedUnix: 1700000000,
+		Acceptance: acceptance, Preparation: "f" + strings.Repeat("b", 24),
+		Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "muse-spark-1.3-contributor",
+		Connection: "native", Prompt: prompt, PromptSHA: hex.EncodeToString(sum[:]),
+		NativeRev: 1, ActorID: 1, Repository: 7, Issue: 9,
+	}
+	if err := owner.Validate(); err != nil {
+		t.Fatalf("fixture owner is not production-valid: %v", err)
+	}
+	raw, err := json.Marshal(owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	if _, err := db.Exec(`INSERT INTO factory_assignments(id,repository,issue,run,stage,revision,data) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+		owner.ID, 7, 9, owner.Run, "assigned", 1, string(raw)); err != nil {
 		t.Fatal(err)
 	}
 	_ = s
@@ -316,7 +380,8 @@ func TestCarriedHistoryKeepsUnresolvedAcrossHeadChange(t *testing.T) {
 			Assessments: []factory.FindingAssessment{
 				{Key: key, Status: factory.FindingStillOpen, Evidence: "fix not yet attempted"},
 			}}))
-	carriedStoreRun(t, s, dsn)
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(oldReviewer), oldHead, oldReviewer, factory.Succeeded, nil)
+	carriedStoreOwner(t, s, dsn)
 	p := carriedPublication(pubID, newHead, base)
 	p.CorrectionJournals = []factory.CorrectionJournal{
 		carriedJournal(t, prior.ID, []factory.Finding{finding}, nil),
@@ -375,7 +440,8 @@ func TestCarriedHistoryCrossHeadReadsAndRetires(t *testing.T) {
 	p.ReviewCycles = []factory.ReviewCycle{prior, current}
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, oldReviewer, root, oldHead, prior.ID,
 		report([]factory.FindingAssessment{{Key: key, Status: factory.FindingStillOpen, Evidence: "not yet fixed"}})))
-	carriedStoreRun(t, s, dsn)
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(oldReviewer), oldHead, oldReviewer, factory.Succeeded, nil)
+	carriedStoreOwner(t, s, dsn)
 	carried, err := coord.reviewCarriedFindings(ctx, p, current)
 	if err != nil {
 		t.Fatalf("cross-head read refused: %v", err)
@@ -386,6 +452,7 @@ func TestCarriedHistoryCrossHeadReadsAndRetires(t *testing.T) {
 	oldReviewer2 := strings.Repeat("a", 32)
 	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, oldReviewer2, root, oldHead, prior.ID,
 		report([]factory.FindingAssessment{{Key: key, Status: factory.FindingVerified, Evidence: "check added, suite green"}})))
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(oldReviewer2), oldHead, oldReviewer2, factory.Succeeded, nil)
 	p2 := carriedPublication(pubID, newHead, base)
 	prior2 := carriedCycle(pubID, root, oldHead, base, oldReviewer2, 1)
 	p2.ReviewCycles = []factory.ReviewCycle{prior2, current}
@@ -404,6 +471,7 @@ func TestCarriedHistoryCrossHeadReadsAndRetires(t *testing.T) {
 			Assessments: []factory.FindingAssessment{
 				{Key: key, Status: factory.FindingStillOpen, Evidence: "regressed on the new head"},
 			}}))
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(rediscoverReviewer), newHead, rediscoverReviewer, factory.Succeeded, nil)
 	p3 := carriedPublication(pubID, newHead, base)
 	current3 := carriedCycle(pubID, root, newHead, base, newReviewer, 3)
 	p3.ReviewCycles = []factory.ReviewCycle{prior2, mid, current3}
@@ -447,7 +515,9 @@ func TestCarriedHistoryOmittedCoverageHoldsIncomplete(t *testing.T) {
 				{Key: keyA, Status: factory.FindingVerified, Evidence: "fixed and checked"},
 				{Key: keyC, Status: factory.FindingStillOpen, Evidence: "just found"},
 			}}))
-	carriedStoreRun(t, s, dsn)
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(oldReviewer), oldHead, oldReviewer, factory.Succeeded, nil)
+	carriedStoreOwner(t, s, dsn)
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(round2Reviewer), oldHead, round2Reviewer, factory.Succeeded, nil)
 	p := carriedPublication(pubID, newHead, base)
 	p.ReviewCycles = []factory.ReviewCycle{prior, round2, current}
 	coord := &Coordinator{Store: s}
@@ -537,7 +607,8 @@ func TestCarriedHistoryMissingCrossHeadHoldsIncomplete(t *testing.T) {
 			Assessments: []factory.FindingAssessment{
 				{Key: strings.Repeat("f", 32), Status: factory.FindingVerified, Evidence: "checked nowhere"},
 			}}))
-	carriedStoreRun(t, s, dsn)
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(stranger), oldHead, stranger, factory.Succeeded, nil)
+	carriedStoreOwner(t, s, dsn)
 	p2 := carriedPublication(pubID, newHead, base)
 	prior2 := carriedCycle(pubID, root, oldHead, base, stranger, 1)
 	p2.ReviewCycles = []factory.ReviewCycle{prior2, current}
@@ -578,9 +649,35 @@ func TestCarriedHistoryMissingOrUnsuccessfulRunHoldsIncomplete(t *testing.T) {
 			t.Fatalf("unrecorded run refused for the wrong reason: %v", err)
 		}
 	})
+
+	t.Run("run recorded for another project", func(t *testing.T) {
+		s, dsn, p, current := stage(t)
+		rev := strings.Repeat("7", 32)
+		carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(rev), carriedHead('a'), rev,
+			factory.Succeeded, func(r *factory.Run) { r.ProjectID = "p" + strings.Repeat("2", 24) })
+		carriedStoreOwner(t, s, dsn)
+		if carried, err := (&Coordinator{Store: s}).reviewCarriedFindings(ctx, p, current); err == nil {
+			t.Fatalf("foreign-project run succeeded with %d findings", len(carried))
+		} else if !strings.Contains(err.Error(), "incomplete") {
+			t.Fatalf("foreign-project run refused for the wrong reason: %v", err)
+		}
+	})
+	t.Run("unreconciled succeeded run", func(t *testing.T) {
+		s, dsn, p, current := stage(t)
+		rev := strings.Repeat("7", 32)
+		carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(rev), carriedHead('a'), rev,
+			factory.Succeeded, func(r *factory.Run) { r.Reconciled = false })
+		carriedStoreOwner(t, s, dsn)
+		if carried, err := (&Coordinator{Store: s}).reviewCarriedFindings(ctx, p, current); err == nil {
+			t.Fatalf("unreconciled run succeeded with %d findings", len(carried))
+		} else if !strings.Contains(err.Error(), "incomplete") {
+			t.Fatalf("unreconciled run refused for the wrong reason: %v", err)
+		}
+	})
 	t.Run("unsuccessful recorded run", func(t *testing.T) {
 		s, dsn, p, current := stage(t)
-		carriedStoreRunOutcome(t, s, dsn, strings.Repeat("d", 32), factory.Failed)
+		rev := strings.Repeat("7", 32)
+		carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(rev), carriedHead('a'), rev, factory.Failed, nil)
 		if carried, err := (&Coordinator{Store: s}).reviewCarriedFindings(ctx, p, current); err == nil {
 			t.Fatalf("failed run succeeded with %d findings", len(carried))
 		} else if !strings.Contains(err.Error(), "incomplete") {
