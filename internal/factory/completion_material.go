@@ -878,12 +878,27 @@ func (c CompletionCheck) Validate() error {
 
 // CompletionAuthority projects the standing authority behind the seal:
 // the actual effective verdict with its missing reasons and bound
-// revisions, the permitted role names, and the admitted reassessment
-// minute allowance. No secret grant or config documents enter.
+// revisions, the current-head context (project, admitted requirement
+// and approval head digests with the verified flag, and the policy
+// target branch), the permitted role names, and the admitted
+// reassessment minute allowance. No secret grant or config documents,
+// no SourceInputs map and no raw setup/config/secret/private bodies
+// enter. A false ApprovalVerified is representable and MUST NOT be
+// relabeled verified. This grants no new authority: the coarse
+// preparation-ready predicate behind EvaluateAuthority never proves a
+// head-matching prepared checkout.
 type CompletionAuthority struct {
-	Effective           EffectiveAuthority `json:"effective"`
-	Roles               []string           `json:"roles"`
-	ReassessmentMinutes int                `json:"reassessment_minutes"`
+	Effective               EffectiveAuthority `json:"effective"`
+	ProjectID               string             `json:"project_id"`
+	RequirementSourceCommit string             `json:"requirement_source_commit"`
+	RequirementSetupDigest  string             `json:"requirement_setup_digest"`
+	RequirementInputsDigest string             `json:"requirement_inputs_digest"`
+	ApprovalEffectsDigest   string             `json:"approval_effects_digest"`
+	ApprovalReadinessDigest string             `json:"approval_readiness_digest"`
+	ApprovalVerified        bool               `json:"approval_verified"`
+	TargetBranch            string             `json:"target_branch"`
+	Roles                   []string           `json:"roles"`
+	ReassessmentMinutes     int                `json:"reassessment_minutes"`
 }
 
 // PermittedCompletionRoles projects the sorted unique permitted roles:
@@ -919,6 +934,23 @@ func (a CompletionAuthority) Validate() error {
 		a.Effective.Authority.Capacity < 0 || a.Effective.Authority.Sponsorship < 0 ||
 		a.Effective.Authority.ConnectionUsageBudget < 0 || a.Effective.Authority.Environment < 0 {
 		return errors.New("invalid completion authority revisions")
+	}
+	if !project.ValidDecisionID(a.Effective.Authority.RequirementsID) ||
+		!project.ValidDecisionID(a.Effective.Authority.ApprovalID) {
+		return errors.New("completion authority lacks its current head identities")
+	}
+	if !project.ValidID(a.ProjectID) {
+		return errors.New("invalid completion authority project")
+	}
+	if !ValidCommit(a.RequirementSourceCommit) {
+		return errors.New("invalid completion authority requirement source")
+	}
+	if !ValidDigest(a.RequirementSetupDigest) || !ValidDigest(a.RequirementInputsDigest) ||
+		!ValidDigest(a.ApprovalEffectsDigest) || !ValidDigest(a.ApprovalReadinessDigest) {
+		return errors.New("invalid completion authority head digests")
+	}
+	if !ValidTargetBranch(a.TargetBranch) {
+		return errors.New("invalid completion authority target")
 	}
 	if a.Roles == nil {
 		return errors.New("completion authority lacks its permitted roles")

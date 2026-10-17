@@ -124,9 +124,23 @@ func sealedTestMaterial() *factory.CompletionMaterial {
 		Merges:       []factory.CompletionMerge{},
 		Checks:       []factory.CompletionCheck{},
 		Authority: factory.CompletionAuthority{
-			Effective:           factory.EffectiveAuthority{Missing: []string{}},
-			Roles:               []string{"soda-coder", "soda-reviewer"},
-			ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+			Effective: factory.EffectiveAuthority{
+				Missing: []string{},
+				Authority: factory.AuthorityRef{
+					RequirementsID: "d" + strings.Repeat("c", 24),
+					ApprovalID:     "d" + strings.Repeat("e", 24),
+				},
+			},
+			ProjectID:               "p" + strings.Repeat("d", 24),
+			RequirementSourceCommit: strings.Repeat("c", 40),
+			RequirementSetupDigest:  strings.Repeat("e", 64),
+			RequirementInputsDigest: strings.Repeat("f", 64),
+			ApprovalEffectsDigest:   strings.Repeat("0", 64),
+			ApprovalReadinessDigest: strings.Repeat("1", 64),
+			ApprovalVerified:        true,
+			TargetBranch:            "refs/heads/main",
+			Roles:                   []string{"soda-coder", "soda-reviewer"},
+			ReassessmentMinutes:     factory.DefaultReassessmentMinutes,
 		},
 		Repository: 7,
 	}

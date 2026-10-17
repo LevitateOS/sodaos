@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -48,9 +49,21 @@ func materialTestMaterial() CompletionMaterial {
 				Missing:      []string{},
 				Effective:    true,
 				DispatchOpen: true,
+				Authority: AuthorityRef{
+					RequirementsID: "d" + strings.Repeat("c", 24),
+					ApprovalID:     "d" + strings.Repeat("e", 24),
+				},
 			},
-			Roles:               []string{"soda-coder", "soda-reviewer"},
-			ReassessmentMinutes: DefaultReassessmentMinutes,
+			ProjectID:               "p" + strings.Repeat("d", 24),
+			RequirementSourceCommit: strings.Repeat("c", 40),
+			RequirementSetupDigest:  materialTestDigest("e"),
+			RequirementInputsDigest: materialTestDigest("f"),
+			ApprovalEffectsDigest:   materialTestDigest("0"),
+			ApprovalReadinessDigest: materialTestDigest("1"),
+			ApprovalVerified:        true,
+			TargetBranch:            "refs/heads/main",
+			Roles:                   []string{"soda-coder", "soda-reviewer"},
+			ReassessmentMinutes:     DefaultReassessmentMinutes,
 		},
 		Repository: 7,
 	}
@@ -257,7 +270,7 @@ func TestNewCompletionIntentScopeAuthorizesSubmitted(t *testing.T) {
 		"pending idea":  {task("d"+strings.Repeat("1", 24), []string{pendingID}, nil)},
 		"unknown idea":  {task("d"+strings.Repeat("2", 24), []string{unknownID}, nil)},
 		"unknown dep":   {task("d"+strings.Repeat("3", 24), []string{acceptedID}, []string{unknownID})},
-		"cyclic graph":  {task("d"+strings.Repeat("4", 24), []string{acceptedID}, []string{"d" + strings.Repeat("5", 24)}), task("d" + strings.Repeat("5", 24), []string{acceptedID}, []string{"d" + strings.Repeat("4", 24)})},
+		"cyclic graph":  {task("d"+strings.Repeat("4", 24), []string{acceptedID}, []string{"d" + strings.Repeat("5", 24)}), task("d"+strings.Repeat("5", 24), []string{acceptedID}, []string{"d" + strings.Repeat("4", 24)})},
 		"duplicate key": {task(taskKey, []string{acceptedID}, nil), task(taskKey, []string{acceptedID}, nil)},
 	} {
 		if _, err := NewCompletionIntentScope(revision, "accepted", true, gen(tasks, revision.Digest()), nil); err == nil {
@@ -416,11 +429,114 @@ func TestCompletionLocalMaterialBinding(t *testing.T) {
 	if local.Equal(moved) {
 		t.Fatal("moved source compares equal")
 	}
+	headMoved := clone
+	headOther := *clone.Material
+	headOther.Authority.RequirementSourceCommit = strings.Repeat("e", 40)
+	headMoved.Material = &headOther
+	if local.Equal(headMoved) {
+		t.Fatal("moved head source compares equal")
+	}
 	digest, err := local.Digest()
 	if err != nil || !ValidDigest(digest) {
 		t.Fatalf("local digest: %q %v", digest, err)
 	}
 	if again, err := local.Digest(); err != nil || again != digest {
 		t.Fatalf("local digest unstable: %q %v", again, err)
+	}
+}
+
+// Current-head context rides the authority: every added field is
+// required and validated, the existing head identities bind the
+// current heads, and a false ApprovalVerified stays representable
+// without being relabeled verified.
+func TestCompletionAuthorityHeadContext(t *testing.T) {
+	material := materialTestMaterial()
+	if err := material.Validate(); err != nil {
+		t.Fatalf("head-context material refused: %v", err)
+	}
+	unverified := materialTestMaterial()
+	unverified.Authority.ApprovalVerified = false
+	if err := unverified.Validate(); err != nil {
+		t.Fatalf("false verified refused: %v", err)
+	}
+	if unverified.Authority.ApprovalVerified {
+		t.Fatal("false verified relabeled")
+	}
+	cases := map[string]func(*CompletionMaterial){
+		"project":           func(m *CompletionMaterial) { m.Authority.ProjectID = "" },
+		"source commit":     func(m *CompletionMaterial) { m.Authority.RequirementSourceCommit = "short" },
+		"setup digest":      func(m *CompletionMaterial) { m.Authority.RequirementSetupDigest = "not-a-digest" },
+		"inputs digest":     func(m *CompletionMaterial) { m.Authority.RequirementInputsDigest = "" },
+		"effects digest":    func(m *CompletionMaterial) { m.Authority.ApprovalEffectsDigest = "not-a-digest" },
+		"readiness digest":  func(m *CompletionMaterial) { m.Authority.ApprovalReadinessDigest = "" },
+		"target":            func(m *CompletionMaterial) { m.Authority.TargetBranch = "main" },
+		"requirements head": func(m *CompletionMaterial) { m.Authority.Effective.Authority.RequirementsID = "" },
+		"approval head":     func(m *CompletionMaterial) { m.Authority.Effective.Authority.ApprovalID = "bogus" },
+	}
+	for name, mutate := range cases {
+		bad := materialTestMaterial()
+		mutate(&bad)
+		if err := bad.Validate(); err == nil {
+			t.Fatalf("%s head context accepted", name)
+		}
+	}
+}
+
+// The full material ScopeDigest binds every added head field and ID:
+// any single head change moves the digest. No SourceInputs map and no
+// raw setup/config/secret/private bodies enter the encoding.
+func TestCompletionAuthorityHeadContextBindsDigest(t *testing.T) {
+	material := materialTestMaterial()
+	before, err := material.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutations := map[string]func(*CompletionAuthority){
+		"project":           func(a *CompletionAuthority) { a.ProjectID = "p" + strings.Repeat("e", 24) },
+		"source commit":     func(a *CompletionAuthority) { a.RequirementSourceCommit = strings.Repeat("d", 40) },
+		"setup digest":      func(a *CompletionAuthority) { a.RequirementSetupDigest = materialTestDigest("a") },
+		"inputs digest":     func(a *CompletionAuthority) { a.RequirementInputsDigest = materialTestDigest("b") },
+		"effects digest":    func(a *CompletionAuthority) { a.ApprovalEffectsDigest = materialTestDigest("c") },
+		"readiness digest":  func(a *CompletionAuthority) { a.ApprovalReadinessDigest = materialTestDigest("d") },
+		"verified":          func(a *CompletionAuthority) { a.ApprovalVerified = false },
+		"target":            func(a *CompletionAuthority) { a.TargetBranch = "refs/heads/release" },
+		"requirements head": func(a *CompletionAuthority) { a.Effective.Authority.RequirementsID = "d" + strings.Repeat("1", 24) },
+		"approval head":     func(a *CompletionAuthority) { a.Effective.Authority.ApprovalID = "d" + strings.Repeat("2", 24) },
+	}
+	for name, mutate := range mutations {
+		moved := materialTestMaterial()
+		mutate(&moved.Authority)
+		after, err := moved.Digest()
+		if err != nil {
+			t.Fatalf("%s head move refused: %v", name, err)
+		}
+		if after == before {
+			t.Fatalf("%s head change left the scope digest unchanged", name)
+		}
+	}
+	raw, err := json.Marshal(material)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(raw)
+	if strings.Contains(encoded, "source_inputs") {
+		t.Fatal("head context leaks a SourceInputs map")
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	authority, ok := decoded["authority"].(map[string]any)
+	if !ok {
+		t.Fatal("material lacks its authority section")
+	}
+	for _, key := range []string{
+		"project_id", "requirement_source_commit", "requirement_setup_digest",
+		"requirement_inputs_digest", "approval_effects_digest",
+		"approval_readiness_digest", "approval_verified", "target_branch",
+	} {
+		if _, ok := authority[key]; !ok {
+			t.Fatalf("authority lacks its frozen field %q", key)
+		}
 	}
 }

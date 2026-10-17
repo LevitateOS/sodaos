@@ -95,7 +95,7 @@ func completionMaterialTx(ctx context.Context, tx *sql.Tx, repository int64) (*f
 	if err != nil {
 		return nil, err
 	}
-	authority, err := completionAuthorityTx(ctx, tx, repository)
+	authority, err := completionAuthorityTx(ctx, tx, repository, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -993,11 +993,19 @@ func completionChecksTx(ctx context.Context, tx *sql.Tx, repository int64) ([]fa
 
 // completionAuthorityTx projects the standing authority: the actual
 // effective verdict with its missing reasons and bound revisions, the
-// permitted role names and the admitted reassessment minute allowance.
-// Stable semantic grant state only: no secret grant or config documents
-// enter, and a missing policy fails closed instead of projecting an
-// empty authority.
-func completionAuthorityTx(ctx context.Context, tx *sql.Tx, repository int64) (factory.CompletionAuthority, error) {
+// current-head context (project, admitted requirement and approval
+// head digests with the verified flag, and the policy target branch),
+// the permitted role names and the admitted reassessment minute
+// allowance. The existing Effective.Authority.RequirementsID and
+// ApprovalID carry the actual current heads; no duplicate identity
+// fields exist. Stable semantic grant state only: no secret grant or
+// config documents, no SourceInputs map and no raw setup/config/secret
+// bodies enter, and a missing policy or head fails closed instead of
+// projecting an empty authority. This grants no new authority: the
+// coarse preparation-ready predicate behind EvaluateAuthority never
+// proves a head-matching prepared checkout, and the existing
+// AuthorityFingerprint still hashes grant revisions only.
+func completionAuthorityTx(ctx context.Context, tx *sql.Tx, repository int64, projectID string) (factory.CompletionAuthority, error) {
 	input, err := factoryAuthorityInput(ctx, tx, repository)
 	if err != nil {
 		return factory.CompletionAuthority{}, err
@@ -1005,17 +1013,107 @@ func completionAuthorityTx(ctx context.Context, tx *sql.Tx, repository int64) (f
 	if input.Policy == nil {
 		return factory.CompletionAuthority{}, errors.New("completion material lacks its authority policy")
 	}
+	head, err := completionHeadContextTx(ctx, tx, projectID)
+	if err != nil {
+		return factory.CompletionAuthority{}, err
+	}
 	effective := factory.EvaluateAuthority(input)
 	if effective.Missing == nil {
 		effective.Missing = []string{}
 	}
+	effective.Authority.RequirementsID = head.requirement.ID
+	effective.Authority.ApprovalID = head.approval.ID
 	authority := factory.CompletionAuthority{
-		Effective:           effective,
-		Roles:               factory.PermittedCompletionRoles(input.Policy.Roles, input.Sponsorship),
-		ReassessmentMinutes: factory.EffectiveReassessmentMinutes(input.Policy.ReassessmentMinutes),
+		Effective:               effective,
+		ProjectID:               projectID,
+		RequirementSourceCommit: head.requirement.SourceCommit,
+		RequirementSetupDigest:  head.requirement.SetupDigest,
+		RequirementInputsDigest: head.requirement.InputsDigest,
+		ApprovalEffectsDigest:   head.approval.EffectsDigest,
+		ApprovalReadinessDigest: head.approval.ReadinessDigest,
+		ApprovalVerified:        head.approval.Verified,
+		TargetBranch:            input.Policy.TargetBranch,
+		Roles:                   factory.PermittedCompletionRoles(input.Policy.Roles, input.Sponsorship),
+		ReassessmentMinutes:     factory.EffectiveReassessmentMinutes(input.Policy.ReassessmentMinutes),
 	}
 	if err = authority.Validate(); err != nil {
 		return factory.CompletionAuthority{}, err
 	}
 	return authority, nil
+}
+
+// completionHeadContext is the admitted current-head pair behind one
+// capture: the immutable requirement and approval decisions selected
+// by the project heads.
+type completionHeadContext struct {
+	requirement project.RequirementDecision
+	approval    project.ApprovalDecision
+}
+
+// completionHeadContextTx loads the repo project head decision pair in
+// the caller's repeatable-read capture transaction: BOTH current head
+// IDs plus their immutable RequirementDecision/ApprovalDecision rows.
+// Every row validates its full shape, the selected head equals the
+// decoded decision ID, the decision project matches the repo project,
+// and the approval requirement equals the current requirement ID.
+// Missing, unbound or invalid rows hold the capture with a named
+// error, never an empty authority fallback. Row identity and
+// provenance stay tight: plain pinned SELECTs observe the immutable
+// rows, never bypassing their immutable triggers.
+func completionHeadContextTx(ctx context.Context, tx *sql.Tx, projectID string) (completionHeadContext, error) {
+	var head completionHeadContext
+	var requirementID string
+	if err := tx.QueryRowContext(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=$1`, projectID).Scan(&requirementID); err != nil {
+		return head, errors.New("completion material lacks its requirement head")
+	}
+	if !project.ValidDecisionID(requirementID) {
+		return head, errors.New("completion material requirement head is invalid")
+	}
+	var requirementData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM project_requirement_decisions WHERE id=$1`, requirementID).Scan(&requirementData); err != nil {
+		return head, errors.New("completion material lacks its requirement decision")
+	}
+	var requirement project.RequirementDecision
+	if err := json.Unmarshal(requirementData, &requirement); err != nil {
+		return head, errors.New("completion material requirement decision is malformed")
+	}
+	if err := requirement.Validate(); err != nil {
+		return head, errors.New("completion material requirement decision is invalid")
+	}
+	if requirement.ID != requirementID {
+		return head, errors.New("completion material requirement head differs from its decision")
+	}
+	if requirement.Project != projectID {
+		return head, errors.New("completion material requirement names another project")
+	}
+	var approvalID string
+	if err := tx.QueryRowContext(ctx, `SELECT decision FROM project_approval_heads WHERE project_id=$1`, projectID).Scan(&approvalID); err != nil {
+		return head, errors.New("completion material lacks its approval head")
+	}
+	if !project.ValidDecisionID(approvalID) {
+		return head, errors.New("completion material approval head is invalid")
+	}
+	var approvalData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM project_approval_decisions WHERE id=$1`, approvalID).Scan(&approvalData); err != nil {
+		return head, errors.New("completion material lacks its approval decision")
+	}
+	var approval project.ApprovalDecision
+	if err := json.Unmarshal(approvalData, &approval); err != nil {
+		return head, errors.New("completion material approval decision is malformed")
+	}
+	if err := approval.Validate(); err != nil {
+		return head, errors.New("completion material approval decision is invalid")
+	}
+	if approval.ID != approvalID {
+		return head, errors.New("completion material approval head differs from its decision")
+	}
+	if approval.Project != projectID {
+		return head, errors.New("completion material approval names another project")
+	}
+	if approval.Requirement != requirement.ID {
+		return head, errors.New("completion material approval names another requirement")
+	}
+	head.requirement = requirement
+	head.approval = approval
+	return head, nil
 }

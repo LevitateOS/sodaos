@@ -285,10 +285,11 @@ func (s *Store) PendingReassessmentCycles(ctx context.Context, repository int64)
 
 // CaptureCompletionLocal reads the local half of D13 sealed evidence
 // for one repository in a single repeatable-read transaction: the
-// requirement source commit, the approved-preparation digest, the
-// canonical material digest as the accepted-scope digest, and the
-// authority fingerprint, carrying the complete validated material
-// alongside. It is the production CompletionLocalCapture
+// requirement source commit (reused from the projected material's
+// current-head authority, no redundant head read), the
+// approved-preparation digest, the canonical material digest as the
+// accepted-scope digest, and the authority fingerprint, carrying the
+// complete validated material alongside. It is the production CompletionLocalCapture
 // behind the completion drive: stable while nothing material changes,
 // sensitive to source, preparation, scope and authority changes, and
 // honest about gaps — a repository without a project or requirement
@@ -302,25 +303,15 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 		return factory.CompletionLocal{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var projectID string
-	if err = tx.QueryRowContext(ctx, `SELECT id FROM projects WHERE repository_id=$1`, repository).Scan(&projectID); err != nil {
+	material, err := completionMaterialTx(ctx, tx, repository)
+	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
-	var requirementID string
-	if err = tx.QueryRowContext(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=$1`, projectID).Scan(&requirementID); err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	var requirementData []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM project_requirement_decisions WHERE id=$1`, requirementID).Scan(&requirementData); err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	var requirement project.RequirementDecision
-	if err = json.Unmarshal(requirementData, &requirement); err != nil {
-		return factory.CompletionLocal{}, err
-	}
-	if !factory.ValidCommit(requirement.SourceCommit) {
-		return factory.CompletionLocal{}, errors.New("completion local lacks its source commit")
-	}
+	// The projected material already carries the SAME-RR repo project
+	// and the current-head requirement source; reuse them instead of
+	// re-reading the heads. Local.SourceCommit REMAINS the accepted
+	// requirement source for this slice.
+	projectID := material.Authority.ProjectID
 	preparationRows, err := tx.QueryContext(ctx, `SELECT data FROM project_preparations
 		WHERE project_id=$1 AND NOT (data ? 'factory_admission') ORDER BY id`, projectID)
 	if err != nil {
@@ -362,10 +353,6 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 	if err != nil {
 		return factory.CompletionLocal{}, err
 	}
-	material, err := completionMaterialTx(ctx, tx, repository)
-	if err != nil {
-		return factory.CompletionLocal{}, err
-	}
 	materialDigest, err := material.Digest()
 	if err != nil {
 		return factory.CompletionLocal{}, err
@@ -379,7 +366,7 @@ func (s *Store) CaptureCompletionLocal(ctx context.Context, repository int64) (f
 	preparationSum := sha256.Sum256(preparationDoc)
 	local := factory.CompletionLocal{
 		Material:             material,
-		SourceCommit:         requirement.SourceCommit,
+		SourceCommit:         material.Authority.RequirementSourceCommit,
 		PreparationDigest:    hex.EncodeToString(preparationSum[:]),
 		ScopeDigest:          materialDigest,
 		AuthorityFingerprint: factory.AuthorityFingerprint(factory.EvaluateAuthority(authorityInput)),
