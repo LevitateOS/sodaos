@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"time"
@@ -25,7 +26,99 @@ func finishFromRun(ctx context.Context, db *store.Store, a factory.Assignment, r
 	if err != nil {
 		return err
 	}
+	finished, err = settleRepairChain(ctx, db, finished, now)
+	if err != nil {
+		return err
+	}
 	return db.FinishAssignment(ctx, finished)
+}
+
+// repairChainSubject reports whether one finished assignment needs its
+// delivery-repair result bound to a recorded failed verification: a
+// reported successful repair carrying a completed delivery-repair
+// report. Anything else passes through untouched.
+func repairChainSubject(finished factory.Assignment) (factory.DeliveryRepairSubject, bool) {
+	if finished.Subject.Kind != factory.SubjectDeliveryRepair || finished.Subject.DeliveryRepair == nil {
+		return factory.DeliveryRepairSubject{}, false
+	}
+	if finished.Outcome != factory.Succeeded || finished.Result == nil || !finished.Result.Reported {
+		return factory.DeliveryRepairSubject{}, false
+	}
+	report := finished.Result.PhaseResult
+	if report == nil || report.Status != "completed" || report.Output == nil || report.Output.DeliveryRepair == nil {
+		return factory.DeliveryRepairSubject{}, false
+	}
+	return *finished.Subject.DeliveryRepair, true
+}
+
+// checkRepairChain verifies one loaded failed-verification assignment
+// against the repair subject citing it: the loaded assignment must be
+// the cited run's delivery verification, and its recorded result must
+// report that same delivery as failed. Anything else means the repair
+// answers no recorded failure. The failure digest has no producer
+// equation yet, so digest-to-report linkage stays open; run,
+// assignment, delivery and failed-outcome linkage close here.
+func checkRepairChain(failed factory.Assignment, runID string, subject factory.DeliveryRepairSubject) error {
+	if failed.Run != runID {
+		return errors.New("repair cites a run outside its recorded assignment")
+	}
+	if failed.Subject.Kind != factory.SubjectDelivery || failed.Subject.Delivery == nil {
+		return errors.New("repair cites a run that never verified a delivery")
+	}
+	if failed.Subject.Delivery.DeliveryID != subject.DeliveryID {
+		return errors.New("repair cites a failure recorded for another delivery")
+	}
+	result := failed.Result
+	if result == nil || !result.Reported || result.RunID != runID {
+		return errors.New("cited run recorded no reported result")
+	}
+	phased := result.PhaseResult
+	if phased == nil || phased.Phase != project.ExecutionVerify || phased.Status != "completed" ||
+		phased.Output == nil || phased.Output.Verification == nil {
+		return errors.New("cited run recorded no completed verification")
+	}
+	if phased.Output.Verification.Outcome != factory.AppVerificationFailed {
+		return errors.New("cited verification did not fail")
+	}
+	if phased.Output.Verification.DeliveryID != subject.DeliveryID {
+		return errors.New("cited verification covered another delivery")
+	}
+	return nil
+}
+
+// settleRepairChain binds one derived delivery-repair result to its
+// recorded failed verification before persistence. A proven miss (no
+// such run, or a run that never recorded that delivery as failed)
+// replaces the unproven repair with the blocked refusal the settle
+// path persists instead of it. A load failure returns retryable
+// without persisting anything: an unprovable chain is not a disproven
+// one, and recovery replays it.
+func settleRepairChain(ctx context.Context, db *store.Store, finished factory.Assignment, now time.Time) (factory.Assignment, error) {
+	subject, ok := repairChainSubject(finished)
+	if !ok {
+		return finished, nil
+	}
+	failed, err := db.AssignmentByRun(ctx, subject.FailedVerificationRunID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return refuseUnprovenRepair(finished, now), nil
+		}
+		return factory.Assignment{}, err
+	}
+	if err := checkRepairChain(failed, subject.FailedVerificationRunID, subject); err != nil {
+		return refuseUnprovenRepair(finished, now), nil
+	}
+	return finished, nil
+}
+
+// refuseUnprovenRepair replaces an unbound delivery repair with the
+// blocked refusal the settle path persists: the assignment finishes
+// fenced for human attention instead of recording an unproven repair.
+func refuseUnprovenRepair(finished factory.Assignment, now time.Time) factory.Assignment {
+	refused := factory.ResultSynthesized(finished.ID, finished.Run, "blocked", "delivery repair answers no recorded failed verification", now.Unix())
+	finished.Result = &refused
+	finished.Outcome, finished.Reason = factory.NeedsHuman, factory.AssignReasonNoReport
+	return finished
 }
 
 func finishAssignmentFromRun(a factory.Assignment, run factory.Run, output string, now time.Time) (factory.Assignment, error) {
@@ -376,6 +469,10 @@ func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, ou
 		return factory.Assignment{}, false
 	}
 	finished, err := finishAssignmentFromRun(a, run, output, now)
+	if err != nil {
+		return factory.Assignment{}, false
+	}
+	finished, err = settleRepairChain(ctx, db, finished, now)
 	if err != nil {
 		return factory.Assignment{}, false
 	}

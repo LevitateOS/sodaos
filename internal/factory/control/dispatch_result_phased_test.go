@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -559,5 +560,118 @@ func TestDerivePhasedDecomposeReviewCorrectNonCompleted(t *testing.T) {
 		if result.PhaseResult == nil || result.PhaseResult.Output != nil {
 			t.Fatalf("%s failed result carries a payload: %+v", tc.phase, result.PhaseResult)
 		}
+	}
+}
+
+// chainFailedVerification builds one fresh recorded failed delivery
+// verification with its citing repair subject: same delivery, same run.
+func chainFailedVerification() (factory.Assignment, factory.DeliveryRepairSubject, string) {
+	runID := strings.Repeat("8", 32)
+	subject := factory.DeliveryRepairSubject{
+		DeliveryID: strings.Repeat("7", 32), FailedVerificationRunID: runID,
+		FailureDigest:   phaseTestSHA("failure"),
+		InventoryDigest: phaseTestSHA("inventory"), CycleID: strings.Repeat("9", 32),
+	}
+	failed := factory.Assignment{
+		ID: strings.Repeat("1", 32), Run: runID,
+		Subject: factory.ExecutionSubject{
+			Kind: factory.SubjectDelivery,
+			Delivery: &factory.DeliverySubject{
+				DeliveryID: strings.Repeat("7", 32), IntentID: phasedDecisionID(20),
+				AcceptedRevision: phasedDecisionID(21), ScopeDigest: phaseTestSHA("scope"),
+				SourceCommit: phaseTestCommit(), PreparationDigest: phaseTestSHA("prep"),
+				VerificationManifestDigest: phaseTestSHA("manifest"),
+			},
+		},
+		Result: &factory.AssignmentResult{
+			AssignmentID: strings.Repeat("1", 32), RunID: runID,
+			Phase: project.ExecutionVerify, Status: "completed",
+			Summary: "delivery failed", Reported: true, RecordedUnix: 1700000100,
+			PhaseResult: &factory.PhaseResult{
+				Version: 2, Phase: project.ExecutionVerify, Status: "completed",
+				Summary: "delivery failed",
+				Output: &factory.PhaseOutput{Verification: &factory.AppVerificationReport{
+					DeliveryID: strings.Repeat("7", 32), InputDigest: phaseTestSHA("input"),
+					Outcome: factory.AppVerificationFailed,
+					CheckReceipts: []factory.VerificationCheckReceipt{{
+						CheckID: "smoke", Outcome: factory.CheckFailed, LogExcerpt: "smoke failed",
+					}},
+					Failures: []factory.CheckFailure{{CheckRef: "smoke", Detail: "smoke check failed"}},
+				}},
+			},
+		},
+	}
+	return failed, subject, runID
+}
+
+// A delivery repair settles only against its recorded failed delivery
+// verification: same run, same delivery subject, reported failed
+// outcome. Anything else refuses, and the refusal shape finishes
+// fenced for human attention instead of recording the repair.
+func TestRepairChainVerdict(t *testing.T) {
+	failed, subject, runID := chainFailedVerification()
+	if err := checkRepairChain(failed, runID, subject); err != nil {
+		t.Fatalf("recorded failed verification refused: %v", err)
+	}
+	otherRun := failed
+	otherRun.Run = strings.Repeat("2", 32)
+	otherDelivery := failed
+	otherDeliverySubject := *failed.Subject.Delivery
+	otherDeliverySubject.DeliveryID = strings.Repeat("3", 32)
+	otherDelivery.Subject.Delivery = &otherDeliverySubject
+	unreported := failed
+	unreported.Result = &factory.AssignmentResult{RunID: runID}
+	verified := failed
+	verifiedReport := *verified.Result.PhaseResult.Output.Verification
+	verifiedReport.Outcome = factory.AppVerificationVerified
+	verified.Result = &factory.AssignmentResult{
+		RunID: verified.Result.RunID, Reported: true,
+		PhaseResult: &factory.PhaseResult{
+			Version: verified.Result.PhaseResult.Version, Phase: verified.Result.PhaseResult.Phase,
+			Status: verified.Result.PhaseResult.Status, Summary: verified.Result.PhaseResult.Summary,
+			Output: &factory.PhaseOutput{Verification: &verifiedReport},
+		},
+	}
+	for name, err := range map[string]error{
+		"run outside its assignment":     checkRepairChain(otherRun, runID, subject),
+		"non-delivery cited run":         checkRepairChain(factory.Assignment{Run: runID}, runID, subject),
+		"failure for another delivery":   checkRepairChain(otherDelivery, runID, subject),
+		"unreported cited result":        checkRepairChain(unreported, runID, subject),
+		"cited verification that passed": checkRepairChain(verified, runID, subject),
+	} {
+		if err == nil {
+			t.Fatalf("repair chain case %s admitted", name)
+		}
+	}
+	// The gated subject passes only for reported successful repairs;
+	// anything else settles through untouched.
+	repairFinished := factory.Assignment{
+		Subject: factory.ExecutionSubject{Kind: factory.SubjectDeliveryRepair, DeliveryRepair: &subject},
+		Outcome: factory.Succeeded,
+		Result: &factory.AssignmentResult{
+			Reported: true,
+			PhaseResult: &factory.PhaseResult{
+				Status: "completed", Output: &factory.PhaseOutput{DeliveryRepair: phasedDeliveryRepair().DeliveryRepair},
+			},
+		},
+	}
+	if _, ok := repairChainSubject(repairFinished); !ok {
+		t.Fatal("reported repair repair skipped the chain")
+	}
+	blocked := repairFinished
+	blocked.Outcome = factory.Failed
+	if _, ok := repairChainSubject(blocked); ok {
+		t.Fatal("unreported repair entered the chain")
+	}
+	stall := repairFinished
+	stall.Subject = factory.ExecutionSubject{Kind: factory.SubjectStall}
+	if _, ok := repairChainSubject(stall); ok {
+		t.Fatal("stall repair entered the delivery chain")
+	}
+	// The refusal finishes fenced: blocked, needs-human, unreported.
+	refused := refuseUnprovenRepair(repairFinished, time.Unix(1700000100, 0))
+	if refused.Outcome != factory.NeedsHuman || refused.Reason != factory.AssignReasonNoReport ||
+		refused.Result == nil || refused.Result.Reported || refused.Result.Status != "blocked" {
+		t.Fatalf("unproven repair refusal not fenced: %+v", refused.Result)
 	}
 }
