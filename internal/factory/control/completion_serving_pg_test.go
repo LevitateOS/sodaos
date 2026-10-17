@@ -258,3 +258,323 @@ func TestCompletionDriveChargedReplayPG(t *testing.T) {
 		t.Fatalf("report=%+v calls=%d, want the free release without recharge", report, chooser.calls)
 	}
 }
+
+// NATIVE92 (SUPERVISOR-20261017-105) paid-ledger durable proofs. The
+// adapters and helpers below are defined inside this reserved file:
+// small deterministic synthetic review/nativeReader judgments with no
+// provider calls. They never touch the held untracked branch file.
+
+// native92ReassessChooser judges the sealed substance exactly like the
+// supplement continueChooser, then answers reassess once per
+// consultation at valid confidence.
+type native92ReassessChooser struct {
+	calls int
+}
+
+func (f *native92ReassessChooser) Select(_ context.Context, state any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	f.calls++
+	decision, ok := state.(ReassessmentDecisionState)
+	if !ok {
+		return factory.PriorityAnswer{}, errReassessmentTestState
+	}
+	if len(decision.Evidence) == 0 || !decision.Local.Sealed() || decision.Completion.ID == "" {
+		return factory.PriorityAnswer{}, errReassessmentTestBodiless
+	}
+	for _, body := range decision.Evidence {
+		if err := body.Validate(); err != nil {
+			return factory.PriorityAnswer{}, err
+		}
+	}
+	share := 0.9
+	answer := factory.PriorityAnswer{Selected: factory.ReassessmentOptionReassess, Model: "native92-synthetic", Confidence: 0.9, Probabilities: map[string]float64{}}
+	for id := range choices {
+		answer.Probabilities[id] = (1 - share) / float64(len(choices)-1)
+	}
+	answer.Probabilities[factory.ReassessmentOptionReassess] = share
+	return answer, nil
+}
+
+// native92LowConfidenceChooser judges the sealed substance, then
+// answers a valid-shape but non-actionable low-confidence continue.
+type native92LowConfidenceChooser struct {
+	calls int
+}
+
+func (f *native92LowConfidenceChooser) Select(_ context.Context, state any, _ string, choices map[string]any) (factory.PriorityAnswer, error) {
+	f.calls++
+	decision, ok := state.(ReassessmentDecisionState)
+	if !ok {
+		return factory.PriorityAnswer{}, errReassessmentTestState
+	}
+	if len(decision.Evidence) == 0 || !decision.Local.Sealed() || decision.Completion.ID == "" {
+		return factory.PriorityAnswer{}, errReassessmentTestBodiless
+	}
+	for _, body := range decision.Evidence {
+		if err := body.Validate(); err != nil {
+			return factory.PriorityAnswer{}, err
+		}
+	}
+	share := 0.9
+	answer := factory.PriorityAnswer{Selected: factory.ReassessmentOptionContinue, Model: "native92-synthetic", Confidence: 0.49, Probabilities: map[string]float64{}}
+	for id := range choices {
+		answer.Probabilities[id] = (1 - share) / float64(len(choices)-1)
+	}
+	answer.Probabilities[factory.ReassessmentOptionContinue] = share
+	return answer, nil
+}
+
+// native92FailingChooser judges the sealed substance, then fails the
+// actual consultation: a real charged-failed receipt must survive.
+type native92FailingChooser struct {
+	calls int
+}
+
+func (f *native92FailingChooser) Select(_ context.Context, state any, _ string, _ map[string]any) (factory.PriorityAnswer, error) {
+	f.calls++
+	decision, ok := state.(ReassessmentDecisionState)
+	if !ok {
+		return factory.PriorityAnswer{}, errReassessmentTestState
+	}
+	if len(decision.Evidence) == 0 || !decision.Local.Sealed() || decision.Completion.ID == "" {
+		return factory.PriorityAnswer{}, errReassessmentTestBodiless
+	}
+	return factory.PriorityAnswer{}, errorString("native92 synthetic chooser failure")
+}
+
+// native92DrivePGFixture mirrors drivePGFixture with the lane's own
+// deterministic chooser wired through the canonical merge authorization
+// path.
+func native92DrivePGFixture(t *testing.T, chooser ProductJudgment) (*mergeFixture, CompletionDriveDeps) {
+	t.Helper()
+	fx, p := mergeSeed(t, 3)
+	exec := happyMerger()
+	fx.wire(exec)
+	fx.pass(t)
+	open := fx.merge(t, p)
+	if open.Stage != factory.MergeOpen {
+		t.Fatalf("merge stage: %+v, want the open row before authorization", open.Stage)
+	}
+	ctx := context.Background()
+	authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
+	if report := fx.pass(t); len(report.Merged) != 1 {
+		t.Fatalf("merge report: %+v", report)
+	}
+	m := fx.merge(t, p)
+	if m.Stage != factory.MergeMerged {
+		t.Fatalf("merge stage: %+v", m)
+	}
+	db := fx.publish.db
+	db.PriorityCallBudget = 100
+	fx.publish.coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: chooser}
+	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal}
+	return fx, deps
+}
+
+func native92ReportHas(report []string, want string) bool {
+	for _, got := range report {
+		if got == want {
+			return true
+		}
+	}
+	return false
+}
+
+// A paid reassess decision rests recorded for the coder admission with
+// its paid call intact: the root-090 receipt-vs-ledger comparison (one
+// charged PriorityJudgment call against exactly one ledger call)
+// holds, and replays rest without paying again. The global budget
+// carries no exported reader, so the no-recharge replay plus the exact
+// receipt counts below are the spend evidence.
+func TestCompletionDrivePaidReassessKeepsLedgerPG(t *testing.T) {
+	ctx := context.Background()
+	chooser := &native92ReassessChooser{}
+	fx, deps := native92DrivePGFixture(t, chooser)
+	db := fx.publish.db
+	coord := fx.publish.coord
+	cycleID := pendingCycleID(t, fx)
+
+	if report := coord.DriveCompletions(ctx, deps); len(report.Sealed) != 1 || report.Sealed[0] != cycleID {
+		t.Fatalf("report=%+v, want the sealed collecting cycle", report)
+	}
+	before, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("BEFORE decision: state=%s decision=%q ledgerCalls=%d", before.Cycle.State, before.Cycle.Decision, len(before.Cycle.Ledger.DecisionCalls))
+
+	report := coord.DriveCompletions(ctx, deps)
+	if !native92ReportHas(report.Decided, cycleID) || !native92ReportHas(report.AwaitingCoder, cycleID) {
+		t.Fatalf("report=%+v, want the decided cycle resting for the coder admission", report)
+	}
+	if chooser.calls != 1 {
+		t.Fatalf("calls=%d, want the single paid consultation", chooser.calls)
+	}
+	after, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Cycle.Decision != factory.ReassessmentOptionReassess {
+		t.Fatalf("record=%+v, want the recorded reassess decision", after)
+	}
+	if len(after.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("PAID LEDGER LOST: ledgerCalls=%d ledger=%v, want exactly the one paid call", len(after.Cycle.Ledger.DecisionCalls), after.Cycle.Ledger.DecisionCalls)
+	}
+	state, err := DecisionStateFromRecord(after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := db.PriorityJudgment(ctx, fingerprintOf(state))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("AFTER decision: receiptCalls=%d receiptFailure=%q ledgerCalls=%d ledger=%v", len(receipt.Calls), receipt.Calls[0].Failure, len(after.Cycle.Ledger.DecisionCalls), after.Cycle.Ledger.DecisionCalls)
+	if len(receipt.Calls) != 1 || receipt.Calls[0].Failure != "" {
+		t.Fatalf("receipt=%+v, want the one charged reassess receipt", receipt)
+	}
+
+	again := coord.DriveCompletions(ctx, deps)
+	if !native92ReportHas(again.AwaitingCoder, cycleID) || len(again.Decided) != 0 {
+		t.Fatalf("report=%+v, want the recorded reassess to rest without deciding again", again)
+	}
+	if chooser.calls != 1 {
+		t.Fatalf("calls=%d, want no second consultation on replay", chooser.calls)
+	}
+	replayed, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(replayed.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("ledger=%v, want the one paid call after replay", replayed.Cycle.Ledger.DecisionCalls)
+	}
+	restate, err := DecisionStateFromRecord(replayed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rereceipt, err := db.PriorityJudgment(ctx, fingerprintOf(restate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rereceipt.Calls) != 1 {
+		t.Fatalf("receipt=%+v, want still the one charged receipt after replay", rereceipt)
+	}
+}
+
+// A paid but non-actionable low-confidence continue holds with
+// attention while its paid ledger and successful receipt survive; the
+// replay waits for explicit retry without charging again.
+func TestCompletionDrivePaidLowConfidenceHoldsAttentionPG(t *testing.T) {
+	ctx := context.Background()
+	chooser := &native92LowConfidenceChooser{}
+	fx, deps := native92DrivePGFixture(t, chooser)
+	db := fx.publish.db
+	coord := fx.publish.coord
+	cycleID := pendingCycleID(t, fx)
+
+	if report := coord.DriveCompletions(ctx, deps); len(report.Sealed) != 1 {
+		t.Fatalf("report=%+v, want the seal", report)
+	}
+	report := coord.DriveCompletions(ctx, deps)
+	if !native92ReportHas(report.Held, cycleID+":decision_not_actionable") {
+		t.Fatalf("report=%+v, want the non-actionable hold", report)
+	}
+	if chooser.calls != 1 {
+		t.Fatalf("calls=%d, want the single paid consultation", chooser.calls)
+	}
+	attended, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attended.Cycle.State != factory.ReassessmentAttention || attended.Cycle.Decision != "" {
+		t.Fatalf("record=%+v, want attention with no inferred decision", attended)
+	}
+	if len(attended.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("PAID LEDGER LOST: ledgerCalls=%d ledger=%v, want exactly the one paid call", len(attended.Cycle.Ledger.DecisionCalls), attended.Cycle.Ledger.DecisionCalls)
+	}
+	state, err := DecisionStateFromRecord(attended)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := db.PriorityJudgment(ctx, fingerprintOf(state))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("AFTER low-confidence hold: receiptCalls=%d receiptFailure=%q selected=%q ledgerCalls=%d", len(receipt.Calls), receipt.Calls[0].Failure, receipt.Calls[0].Answer.Selected, len(attended.Cycle.Ledger.DecisionCalls))
+	if len(receipt.Calls) != 1 || receipt.Calls[0].Failure != "" || receipt.Calls[0].Answer.Selected != factory.ReassessmentOptionContinue {
+		t.Fatalf("receipt=%+v, want the one recorded low-confidence continue answer", receipt)
+	}
+
+	again := coord.DriveCompletions(ctx, deps)
+	if !native92ReportHas(again.Held, cycleID+":awaiting-retry") {
+		t.Fatalf("report=%+v, want the attention cycle to wait for explicit retry", again)
+	}
+	if chooser.calls != 1 {
+		t.Fatalf("calls=%d, want no second consultation on replay", chooser.calls)
+	}
+	restill, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(restill.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("ledger=%v, want the one paid call after replay", restill.Cycle.Ledger.DecisionCalls)
+	}
+}
+
+// An actual chooser error holds with attention while its paid ledger
+// and charged-failed receipt survive; the replay waits for explicit
+// retry without charging again.
+func TestCompletionDrivePaidChooserErrorHoldsAttentionPG(t *testing.T) {
+	ctx := context.Background()
+	chooser := &native92FailingChooser{}
+	fx, deps := native92DrivePGFixture(t, chooser)
+	db := fx.publish.db
+	coord := fx.publish.coord
+	cycleID := pendingCycleID(t, fx)
+
+	if report := coord.DriveCompletions(ctx, deps); len(report.Sealed) != 1 {
+		t.Fatalf("report=%+v, want the seal", report)
+	}
+	report := coord.DriveCompletions(ctx, deps)
+	if !native92ReportHas(report.Held, cycleID+":decision_unavailable") {
+		t.Fatalf("report=%+v, want the unavailable hold", report)
+	}
+	if chooser.calls != 1 {
+		t.Fatalf("calls=%d, want the single paid consultation attempt", chooser.calls)
+	}
+	attended, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attended.Cycle.State != factory.ReassessmentAttention {
+		t.Fatalf("record=%+v, want the attention hold", attended)
+	}
+	if len(attended.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("PAID LEDGER LOST: ledgerCalls=%d ledger=%v, want exactly the one paid call", len(attended.Cycle.Ledger.DecisionCalls), attended.Cycle.Ledger.DecisionCalls)
+	}
+	state, err := DecisionStateFromRecord(attended)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := db.PriorityJudgment(ctx, fingerprintOf(state))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("AFTER chooser-error hold: receiptCalls=%d receiptFailure=%q outcome=%q ledgerCalls=%d", len(receipt.Calls), receipt.Calls[0].Failure, receipt.Outcome, len(attended.Cycle.Ledger.DecisionCalls))
+	if len(receipt.Calls) != 1 || receipt.Calls[0].Failure == "" {
+		t.Fatalf("receipt=%+v, want the one charged-failed receipt", receipt)
+	}
+
+	again := coord.DriveCompletions(ctx, deps)
+	if !native92ReportHas(again.Held, cycleID+":awaiting-retry") {
+		t.Fatalf("report=%+v, want the attention cycle to wait for explicit retry", again)
+	}
+	if chooser.calls != 1 {
+		t.Fatalf("calls=%d, want no second consultation on replay", chooser.calls)
+	}
+	restill, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(restill.Cycle.Ledger.DecisionCalls) != 1 {
+		t.Fatalf("ledger=%v, want the one paid call after replay", restill.Cycle.Ledger.DecisionCalls)
+	}
+}
