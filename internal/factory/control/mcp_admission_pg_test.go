@@ -169,3 +169,93 @@ func TestAdmitMCPSubmissionReplayEndToEnd(t *testing.T) {
 		t.Fatalf("live submission count = %d, err = %v, want no rows", count, err)
 	}
 }
+
+// TestAdmitMCPSubmissionExpiryEndToEnd proves the F3-expiry half
+// against real PostgreSQL (SODA_PG_*; skips without it): a
+// submission admitted while its capability is live but inserted
+// after the deadline refuses at the insert transaction with zero
+// new rows, while a receipt recorded before expiry stays readable
+// through the receipt route without granting new authority.
+func TestAdmitMCPSubmissionExpiryEndToEnd(t *testing.T) {
+	admin, ok := store.TestFixtureDSN()
+	if !ok {
+		t.Skip("SODA_PG_* fixture unavailable")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	s, _, cleanup, err := store.OpenEphemeral(ctx, admin, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+
+	// The capability lives only two seconds: admission happens
+	// now, insertion happens past the deadline.
+	staged := testMCPCapability()
+	staged.State = factory.MCPCapabilityStaged
+	staged.DeadlineUnix = time.Now().Add(2 * time.Second).Unix()
+	if err := s.StageMCPCapability(ctx, staged); err != nil {
+		t.Fatalf("stage: %v", err)
+	}
+	if err := s.ActivateMCPCapability(ctx, staged.ID, staged.Generation, staged.RunID,
+		staged.AssignmentID, staged.Authority, time.Now().Unix(), false); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	capability, err := s.GetMCPCapability(ctx, staged.ID)
+	if err != nil {
+		t.Fatalf("readback: %v", err)
+	}
+	// Admit-before: both admission layers pass while live.
+	now := time.Now()
+	observed := testMCPObserved(capability)
+	if err := AdmitMCPCapability(capability, factory.MCPToolSubmitTaskOutput, now, observed); err != nil {
+		t.Fatalf("live capability admission refused: %v", err)
+	}
+	early := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), []byte(`{"task_id":"t-early"}`))
+	if err := AdmitMCPSubmission(ctx, s, capability, early); err != nil {
+		t.Fatalf("live submission admission refused: %v", err)
+	}
+	queued := testMCPSubmission(capability, factory.MCPToolSubmitTaskOutput, factory.NewID(), []byte(`{"task_id":"t-queued"}`))
+	if err := AdmitMCPSubmission(ctx, s, capability, queued); err != nil {
+		t.Fatalf("queued submission admission refused: %v", err)
+	}
+	// One receipt records before expiry so the post-expiry read
+	// leg has history to recover.
+	earlyReceipt := factory.MCPReceipt{
+		SubmissionID: early.SubmissionID, Tool: early.Tool,
+		State: factory.MCPReceiptRecorded, InputDigest: early.PayloadHash,
+	}
+	first, err := s.RecordMCPSubmission(ctx, early, earlyReceipt)
+	if err != nil {
+		t.Fatalf("pre-expiry record: %v", err)
+	}
+	// Cross the deadline: queueing delay the admission check
+	// cannot see. Lateness only strengthens the assertions below.
+	if wait := time.Until(time.Unix(capability.DeadlineUnix, 0).Add(time.Second)); wait > 0 {
+		time.Sleep(wait)
+	}
+	// Insert-after: admission now refuses, and the queued insert
+	// refuses at the transaction with zero new rows.
+	if err := AdmitMCPCapability(capability, factory.MCPToolSubmitTaskOutput, time.Now(), observed); !errors.Is(err, ErrMCPCapabilityExpired) {
+		t.Fatalf("post-expiry capability admission = %v, want expired refusal", err)
+	}
+	queuedReceipt := factory.MCPReceipt{
+		SubmissionID: queued.SubmissionID, Tool: queued.Tool,
+		State: factory.MCPReceiptRecorded, InputDigest: queued.PayloadHash,
+	}
+	if _, err := s.RecordMCPSubmission(ctx, queued, queuedReceipt); !errors.Is(err, store.ErrMCPSubmissionCapabilityExpired) {
+		t.Fatalf("post-expiry persistence = %v, want capability-expired refusal", err)
+	}
+	if count, err := s.MCPSubmissionCount(ctx, capability.AssignmentID); err != nil || count != 1 {
+		t.Fatalf("submission count = %d, err = %v, want the one pre-expiry row", count, err)
+	}
+	// Exact replay keeps working through the recorded receipt
+	// read, granting nothing new.
+	recovered, err := s.MCPReceipt(ctx, capability.AssignmentID, early.SubmissionID)
+	if err != nil {
+		t.Fatalf("post-expiry receipt read: %v", err)
+	}
+	if recovered != first {
+		t.Fatal("post-expiry receipt differs from recorded receipt")
+	}
+}

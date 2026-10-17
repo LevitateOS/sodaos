@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -75,6 +76,13 @@ var (
 	// recorded scope. A revocation racing an in-flight insert lands
 	// here once it commits first.
 	ErrMCPSubmissionCapabilityInactive = errors.New("factory submission capability is not active for this assignment")
+	// ErrMCPSubmissionCapabilityExpired reports a submission inserted
+	// past its bound capability's deadline. Admission checks the
+	// deadline once; queueing after admission can cross it, so the
+	// insert transaction rechecks the deadline against insertion
+	// time. Recorded receipt reads stay on the separate MCPReceipt
+	// route: this refusal records nothing and grants nothing.
+	ErrMCPSubmissionCapabilityExpired = errors.New("factory submission capability is expired at insert")
 )
 
 // RecordMCPSubmission persists one admitted submission with its
@@ -91,7 +99,12 @@ var (
 // the authentic capability (active, same assignment, current
 // scope), the exact ID, the terminal freeze and the handoff cap,
 // so a revocation committing ahead of an in-flight insert refuses
-// that insert instead of racing it.
+// that insert instead of racing it. The deadline rechecks last, at
+// the new-record admission point, so queueing on any of those locks
+// past expiry still refuses. The active check stays before the
+// exact-ID replay: replay of new authority is an insert, and
+// recorded history is recovered through the separate MCPReceipt
+// read, never through this path.
 func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error) {
 	if err := submission.Validate(); err != nil {
 		return factory.MCPReceipt{}, err
@@ -198,6 +211,17 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 		if handoffs >= factory.MCPMaxHandoffs {
 			return factory.MCPReceipt{}, ErrMCPSubmissionHandoffCap
 		}
+	}
+	// Deadline binds at the new-record admission point, after every
+	// potentially blocking lock (capability row, assignment guard,
+	// submission row) and after the replay/freeze/cap decisions: a
+	// request that locks the capability while live but queues on the
+	// guard past the deadline still refuses here instead of
+	// inserting. The clock reads last, so it names insertion time.
+	// Replay and same-terminal-content returns above record nothing
+	// and grant no new authority, so they never reach this gate.
+	if capability.Expired(time.Now()) {
+		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityExpired
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submissions(assignment,submission,tool,input_digest,payload_hash,payload,state,reason,receipt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		submission.AssignmentID, submission.SubmissionID, string(submission.Tool),
