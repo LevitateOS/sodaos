@@ -2,19 +2,19 @@
 
 This is the new remaining-work catalog requested on 2026-10-17. It replaces the execution order in the older FW/FT/ST/RT/UX/RCX packets for this existing Muse run. It preserves their requirements and valid completed work; it does not restart implementation or create a second coordinator.
 
-**55 remaining outcomes. The complete factory is not ready.** No task below is marked done merely because code, an artifact, a proposal receipt or an older green test exists.
+**55 outcomes in the reorganized scope. The complete factory is not ready.** The central checklist records subsequent acceptance. No task below is marked done merely because code, an artifact, a proposal receipt or an older green test exists.
 
 This document owns task boundaries, dependencies, acceptance and the intended three-lane schedule. The existing run's single [central checklist](../../.artifacts/muse-factory-workflow/checklist.md) owns live status and exclusive file/command/resource leases. The [workflow design](factory-workflow-plan.md), [frozen contracts and decisive cases](factory-workflow-contracts.md), [original baseline](factory-implementation-plan.md), [testing owner](testing.md), [product](../product/overview.md) and [trust model](../architecture/trust.md) remain the requirement authorities. Old packet IDs are requirement references, not a competing queue.
 
 ## Current inputs and preserved work
 
-Planning inputs: Soda `ddd6251bef5bb7e0dba02b269e7e419dcffce5f9` (origin `603f9c23ee548b001ddf4857a6395efca21da005`) and Fountain `c8fea1d293366b457df7608c6f3b9293d0810110` (published source). All protected uncommitted identity/tooling work and the retained Fountain stash remain outside new writer ownership until an explicit handoff.
+Original planning inputs: Soda `ddd6251bef5bb7e0dba02b269e7e419dcffce5f9` (origin `603f9c23ee548b001ddf4857a6395efca21da005`) and Fountain `c8fea1d293366b457df7608c6f3b9293d0810110` (published source). The owner-requested Soda snapshot `d308e8e9edabb6dba55692eb9250069d04170eb6` now preserves the formerly dirty identity/tooling work, task documents and reservation extraction. Committing those inputs does not qualify them or transfer writer ownership. Current Fountain cleanup changes and its retained stash remain preserved.
 
 - Keep durable inventory/selection, immutable plans, budgets, native collaboration/recovery, authorization helpers and persisted journey views. Complete their missing callers and acceptance; do not rebuild them from historical gap prose.
 - Keep scoped RCX native development acceptance at Soda730/Fountaina4fd and earlier NFX source/browser/installed proofs. Recheck changed inputs and joins; do not reopen completed component or frontend redesign as new implementation.
 - Preserve the completed approved test-fixture retirement and Fountain pull/source push. Neither closes product importer custody or installed release qualification.
-- The newer Fountain full run `39061684838` has a failed unit cleanup job and a running database job at the 20:25 UTC observation. Earlier exact-c8 full/required/admission successes remain historical scoped facts; there is no unconditional current green claim.
-- Keep A197/198 as unrun, unapplied review inputs; 183A remains returned, 183B incomplete, and B197 is not freeze-ready. The eight-file tuple overlay's thirteen selected passing tests do not accept the later increment.
+- Fountain full run `39061684838` finished with failure: its unit cleanup job failed and database job `117480774633` succeeded at 20:55:42 UTC. Earlier exact-c8 full/required/admission successes remain historical scoped facts; there is no unconditional current green claim.
+- Preserve the original A197/198 artifacts separately from their newer canonical variants. Fountain has a distinct uncommitted two-file cleanup revision; Soda's snapshot includes the corrected reservation extraction, without transactional qualification. The R01 review binds their exact bytes and proposed checks through the central checklist. 183A remains returned, 183B incomplete, and B197 is a partial source map. The eight-file tuple overlay's thirteen selected passing tests do not accept the later increment.
 
 R02 is a newly observed CI regression with no separate legacy-index ancestor. The other tasks carry the indexed requirements; adding this repair does not replace or omit any of the 365 historical rows.
 

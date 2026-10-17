@@ -7,7 +7,7 @@
 
 **Work:** Review. **Owner lane:** Coordinator. **Accepted inputs:** none.
 
-**Current:** 183A is returned; 183B is incomplete; A197 and the 198 reservation refactor are unapplied and unrun; B197 is a partial source packet.
+**Current inputs:** The original drafts name Soda `ddd6251b`; review against the owner-requested snapshot `d308e8e9`, which already contains a corrected 198 reservation extraction. Fountain also has a newer two-file cleanup revision distinct from A197. Preserve those canonical bytes when reviewing the older artifacts. The existing central checklist links the R01 dispositions, exact input manifest and frozen first packets; it alone records acceptance and leases.
 
 **Deliver:** Review exact current preimages, patches and meaningful proposed checks. Accept useful slices or return precise defects. Reconcile orphan49, writer/resource custody and the protected dirty paths. Freeze exact files, shared contracts and next evidence for the first assignments.
 
