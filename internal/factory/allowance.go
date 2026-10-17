@@ -90,6 +90,11 @@ var (
 	// it; only a new head or a policy-required cause inspects again
 	// without spending it (D08).
 	ErrUnchangedHeadExtraExhausted = errors.New("unchanged-head discretionary extra pass exhausted")
+	// ErrCompletionTimeOnly reports that a completion-root allowance carries
+	// active time only: issue review, correction, delivery and child budget
+	// can never be consumed on it, and AttemptLimits review/child defaults
+	// never fill its zero sub-budgets.
+	ErrCompletionTimeOnly = errors.New("completion root carries active time only")
 )
 
 // AttemptAllowance retains one automatic attempt across assignments,
@@ -123,19 +128,29 @@ type AttemptAllowance struct {
 	// edits never reset it. Policy-required reviews never write here:
 	// they stay separately caused.
 	UnchangedHeadExtra map[string]string `json:"unchanged_head_extra,omitempty"`
-	RootAssignment     string            `json:"root_assignment"`
-	Repository         int64             `json:"repository,string"`
-	Issue              int64             `json:"issue,string"`
-	Revision           int64             `json:"revision"`
-	ActiveSeconds      int64             `json:"active_seconds"`
-	CheckpointUnix     int64             `json:"checkpoint_unix"`
-	Active             bool              `json:"active"`
-	Closed             bool              `json:"closed"`
+	// Completion binds a time-only reassessment record to its verified
+	// completion (D13/FW32), reusing the canonical CompletionSubject. It is
+	// required exactly when Issue is zero and forbidden on positive issues.
+	Completion     *CompletionSubject `json:"completion,omitempty"`
+	RootAssignment string             `json:"root_assignment"`
+	Repository     int64              `json:"repository,string"`
+	Issue          int64              `json:"issue,string"`
+	Revision       int64              `json:"revision"`
+	ActiveSeconds  int64              `json:"active_seconds"`
+	CheckpointUnix int64              `json:"checkpoint_unix"`
+	Active         bool               `json:"active"`
+	Closed         bool               `json:"closed"`
 }
 
 func (a AttemptAllowance) Validate() error {
-	if a.Repository <= 0 || a.Issue <= 0 || !ValidID(a.RootAssignment) || a.Revision < 0 || a.ActiveSeconds < 0 || a.CheckpointUnix <= 0 {
+	if a.Repository <= 0 || a.Issue < 0 || !ValidID(a.RootAssignment) || a.Revision < 0 || a.ActiveSeconds < 0 || a.CheckpointUnix <= 0 {
 		return errors.New("invalid attempt allowance binding")
+	}
+	if a.Issue == 0 {
+		return a.validateCompletionTimeOnly()
+	}
+	if a.Completion != nil {
+		return errors.New("issue attempt allowance carries no completion subject")
 	}
 	if err := a.Limits.Validate(); err != nil {
 		return err
@@ -189,12 +204,47 @@ func (a AttemptAllowance) Validate() error {
 	return nil
 }
 
+// validateCompletionTimeOnly validates the explicitly completion-bound
+// time-only branch: Issue zero with the canonical completion subject,
+// ActiveMinutes as the admitted EffectiveReassessmentMinutes (1..120),
+// and every issue sub-budget (correction, review, child, delivery) zero
+// with no recorded consumption. AttemptLimits.Validate stays unchanged
+// for ordinary issue policy and never runs here: a zero review or child
+// budget is the valid time-only posture, not an omission to default.
+func (a AttemptAllowance) validateCompletionTimeOnly() error {
+	if a.Completion == nil {
+		return errors.New("completion attempt allowance lacks its completion subject")
+	}
+	if !ValidID(a.Completion.CompletionID) || !ValidID(a.Completion.CycleID) {
+		return errors.New("invalid completion subject identity")
+	}
+	if !ValidDigest(a.Completion.InventoryDigest) {
+		return errors.New("invalid completion subject inventory digest")
+	}
+	if a.Limits.ActiveMinutes != EffectiveReassessmentMinutes(a.Limits.ActiveMinutes) ||
+		a.Limits.ActiveMinutes < MinReassessmentMinutes || a.Limits.ActiveMinutes > MaxReassessmentMinutes {
+		return errors.New("completion active time is not its admitted reassessment minutes")
+	}
+	if a.Limits.CorrectionCycles != 0 || a.Limits.ReviewRounds != 0 ||
+		a.Limits.MaxChildren != 0 || a.Limits.DeliveryCalls != 0 {
+		return errors.New("completion allowance carries only active time")
+	}
+	if len(a.Corrections) != 0 || len(a.DeliveryCalls) != 0 || len(a.Reviews) != 0 ||
+		len(a.ReviewedHeads) != 0 || len(a.UnchangedHeadExtra) != 0 {
+		return errors.New("completion allowance carries only active time")
+	}
+	return nil
+}
+
 // ReserveDeliveryCall charges one funded delivery judgment before its
 // request sends. Replaying the same request never consumes a second call,
 // even after exhaustion. Failure after reservation stays charged: there is
 // no unreserve. A zero delivery limit authorizes no call, so automatic
 // merge stays unreachable on an unfunded attempt.
 func (a AttemptAllowance) ReserveDeliveryCall(id string, now time.Time) (AttemptAllowance, bool, error) {
+	if a.Issue == 0 || a.Completion != nil {
+		return AttemptAllowance{}, false, ErrCompletionTimeOnly
+	}
 	if !ValidID(id) {
 		return AttemptAllowance{}, false, errors.New("invalid delivery request identity")
 	}
@@ -262,6 +312,9 @@ func (a AttemptAllowance) Checkpoint(now time.Time, active bool) (AttemptAllowan
 // discretionary re-review of an already inspected head additionally needs
 // that head's single extra pass. Reads spend nothing.
 func (a AttemptAllowance) ReviewFits(head string, policy bool, now time.Time) bool {
+	if a.Issue == 0 || a.Completion != nil {
+		return false
+	}
 	if !ValidID(a.RootAssignment) || !ValidCommit(head) {
 		return false
 	}
@@ -294,6 +347,9 @@ func (a AttemptAllowance) ReviewFits(head string, policy bool, now time.Time) bo
 // A replay does not itself authorize dispatch; the caller checks remaining
 // time. Only explicit authorized Retry starts a new root.
 func (a AttemptAllowance) ConsumeReview(id, head string, policy bool, now time.Time) (AttemptAllowance, bool, error) {
+	if a.Issue == 0 || a.Completion != nil {
+		return AttemptAllowance{}, false, ErrCompletionTimeOnly
+	}
 	if !ValidID(id) {
 		return AttemptAllowance{}, false, errors.New("invalid reviewer assignment identity")
 	}
@@ -338,6 +394,9 @@ func (a AttemptAllowance) ConsumeReview(id, head string, policy bool, now time.T
 // that same assignment never consumes a second cycle, even after exhaustion.
 // A replay does not itself authorize launch; the caller checks remaining time.
 func (a AttemptAllowance) ConsumeCorrection(id string, now time.Time) (AttemptAllowance, bool, error) {
+	if a.Issue == 0 || a.Completion != nil {
+		return AttemptAllowance{}, false, ErrCompletionTimeOnly
+	}
 	if !ValidID(id) {
 		return AttemptAllowance{}, false, errors.New("invalid correction assignment identity")
 	}

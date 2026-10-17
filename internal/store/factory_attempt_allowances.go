@@ -18,8 +18,14 @@ var (
 
 // AttemptAllowance returns the newest attempt allowance for the issue.
 // Explicit maintainer retries keep earlier allowance rows in history.
+// Unscoped issue-zero lookups refuse: completion roots are read only
+// through the typed ReassessmentAttemptAllowance getter, never through
+// the latest-per-issue path.
 func (s *Store) AttemptAllowance(ctx context.Context, repository, issue int64) (factory.AttemptAllowance, error) {
 	var allowance factory.AttemptAllowance
+	if issue <= 0 {
+		return allowance, errors.New("attempt allowance lookup needs its issue scope")
+	}
 	var root string
 	var revision int64
 	var data []byte
@@ -181,6 +187,9 @@ func validateAttemptAllowanceRow(a factory.AttemptAllowance, repository, issue i
 
 func lockAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue int64) (factory.AttemptAllowance, error) {
 	var allowance factory.AttemptAllowance
+	if issue <= 0 {
+		return allowance, errors.New("attempt allowance lookup needs its issue scope")
+	}
 	var root string
 	var revision int64
 	var data []byte
@@ -428,9 +437,39 @@ func deactivateReleasedAttemptTx(ctx context.Context, tx *sql.Tx, assignmentID s
 	return transitionLockedAttemptRootTx(ctx, tx, allowance, false, now)
 }
 
+// sameAttemptAllowanceScope reports whether next keeps the immutable
+// record scope of stored: repository, issue, root assignment, completion
+// subject and admitted limits. Only revision-gated consumption and clock
+// state may advance across CAS saves, on issue and completion roots alike.
+func sameAttemptAllowanceScope(stored, next factory.AttemptAllowance) bool {
+	if stored.Repository != next.Repository || stored.Issue != next.Issue ||
+		stored.RootAssignment != next.RootAssignment || stored.Limits != next.Limits {
+		return false
+	}
+	if stored.Completion == nil || next.Completion == nil {
+		return stored.Completion == nil && next.Completion == nil
+	}
+	return *stored.Completion == *next.Completion
+}
+
 func saveAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, allowance factory.AttemptAllowance) error {
 	if err := allowance.Validate(); err != nil {
 		return err
+	}
+	var storedData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=$2 AND root_assignment=$3 FOR UPDATE`,
+		allowance.Repository, allowance.Issue, allowance.RootAssignment).Scan(&storedData); err != nil {
+		return err
+	}
+	var stored factory.AttemptAllowance
+	if err := json.Unmarshal(storedData, &stored); err != nil {
+		return err
+	}
+	if err := stored.Validate(); err != nil {
+		return err
+	}
+	if !sameAttemptAllowanceScope(stored, allowance) {
+		return errors.New("attempt allowance scope is immutable")
 	}
 	data, err := json.Marshal(allowance)
 	if err != nil {
