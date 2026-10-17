@@ -330,7 +330,7 @@ impl ExecBackend for ScriptBackend {
 
 #[test]
 fn native_clean_paths_reject_query_and_escapes() {
-    assert_eq!(NATIVE_CLEAN_PATHS.len(), 22);
+    assert_eq!(NATIVE_CLEAN_PATHS.len(), 23);
     assert!(NATIVE_CLEAN_PATHS.contains(&"/application"));
     assert!(NATIVE_CLEAN_PATHS.contains(&"/terminal-support"));
     for path in NATIVE_CLEAN_PATHS {
@@ -532,7 +532,7 @@ fn terminal_gate_caps_and_releases() {
 
 #[test]
 fn route_table_has_every_go_route() {
-    assert_eq!(ROUTE_TABLE.len(), 39);
+    assert_eq!(ROUTE_TABLE.len(), 40);
     let count = |prefix: &str| {
         ROUTE_TABLE
             .iter()
@@ -571,6 +571,7 @@ fn route_table_has_every_go_route() {
         "/factory-stop",
         "/factory-takeover",
         "/factory-output",
+        "/factory-task-events",
         "/factory-harness",
         "/factory-export",
         "/factory-candidate-inspect",
