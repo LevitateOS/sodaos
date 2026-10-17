@@ -32,6 +32,21 @@ while IFS= read -r -d '' file; do
     # Isolate bounded traversal from admission headers; inspect saved cursors.
     ./internal/factory/control/traversal_test.go) continue ;;
     ./internal/factory/control/readiness_sweep_test.go) continue ;;
+    # Remove emitted admission headers to isolate priority traversal, fresh
+    # members and cursor bounds; same traversal-test reason as above.
+    ./internal/factory/control/serving_priority_starvation_test.go) continue ;;
+    # Seed and corrupt attributable assignment/run/view history to challenge
+    # carried-finding retirement; validating writers gain no corruption hook.
+    ./internal/factory/control/review_carried_history_test.go) continue ;;
+    # Test-owned SQLite emulates external native issue truth and the revision
+    # bracket through the real adapter; not product Store or native proof.
+    ./internal/web/api/factory_completion_serving_test.go) continue ;;
+    # Seed completion/reassessment prefixes and observe budget/cursor rollback
+    # with scripted native RPC evidence; not a full native producer.
+    ./internal/web/api/factory_completion_budget_test.go) continue ;;
+    # Seed and corrupt persisted assignment/publication/completion records for
+    # registered-HTTP projection, order and refusal; no exported hook.
+    ./internal/web/api/factory_journey_readback_test.go) continue ;;
   esac
   if grep -nE '"database/sql"|sql\.Open[[:space:]]*\(|`(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]|"[[:space:]]*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]' "$file" >"$hits_file" 2>/dev/null; then
     while IFS= read -r hit; do

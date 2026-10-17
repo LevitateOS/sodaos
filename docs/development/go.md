@@ -272,6 +272,11 @@ same scenario. Do not add a production SQL escape hatch just to seed a test.
 | `traversal_test.go` | Remove admission headers so their independent cap does not obscure dispatch traversal limits |
 | `readiness_sweep_test.go` | Isolate the cycle bound and inspect durable cursor state across acceptance changes |
 | `staged_seed_test.go` | Seed an external Forgejo SQLite fixture whose dependency edges have no REST writer |
+| `internal/factory/control/serving_priority_starvation_test.go` | Remove emitted admission headers to isolate priority traversal, fresh members and cursor bounds |
+| `internal/factory/control/review_carried_history_test.go` | Seed and corrupt attributable assignment/run/view history to challenge carried-finding retirement |
+| `internal/web/api/factory_completion_serving_test.go` | Test-owned SQLite emulating external native issue truth and revision bracket through the real adapter |
+| `internal/web/api/factory_completion_budget_test.go` | Seed completion/reassessment prefixes and observe budget/cursor rollback with scripted native RPC evidence |
+| `internal/web/api/factory_journey_readback_test.go` | Seed and corrupt persisted assignment/publication/completion records for registered-HTTP projection, order and refusal |
 
 The separate `internal/acceptance/workload_access.go` and its matching test also
 have exact exemptions: their `psql` statements target disposable workload

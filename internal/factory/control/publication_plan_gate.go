@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -168,7 +167,7 @@ func (c *Coordinator) gatePhasedPublication(ctx context.Context, a factory.Assig
 	headID, _, err := c.Store.PlanHead(ctx, a.AttemptRoot)
 	switch {
 	case err == nil:
-	case errors.Is(err, store.ErrNotFound) || errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, store.ErrNotFound):
 		publicationWait(report, a.ID, PlanWaitEvidenceUnavailable)
 		return false
 	default:
@@ -177,7 +176,7 @@ func (c *Coordinator) gatePhasedPublication(ctx context.Context, a factory.Assig
 	}
 	plan, err := c.Store.InvestigationPlan(ctx, a.AttemptRoot, headID)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, store.ErrNotFound) {
 			publicationWait(report, a.ID, PlanWaitEvidenceUnavailable)
 			return false
 		}

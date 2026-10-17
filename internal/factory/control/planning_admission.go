@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"sort"
@@ -97,7 +96,7 @@ func admitInvestigationPlan(ctx context.Context, s *store.Store, owner factory.A
 			}
 			return nil, err
 		}
-	case errors.Is(headErr, store.ErrNotFound) || errors.Is(headErr, sql.ErrNoRows):
+	case errors.Is(headErr, store.ErrNotFound):
 		if err := s.AdvancePlanHead(ctx, owner.AttemptRoot, "", reported.ID); err != nil {
 			if errors.Is(err, store.ErrStaleRevision) {
 				return nil, store.ErrStalePlanBindings
