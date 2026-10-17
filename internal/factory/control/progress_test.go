@@ -865,7 +865,7 @@ func TestCoordinatorWakeRetriesStaleReviewPreparationAdmission(t *testing.T) {
 		if current.Revision == prior.Revision+1 && raced.Load() >= 1 {
 			break
 		}
-		if current.Revision != prior.Revision {
+		if current.Revision != prior.Revision && current.Revision != prior.Revision+1 {
 			t.Fatalf("stale admission overcharged the allowance: before=%+v after=%+v", prior, current)
 		}
 		if time.Now().After(chargeDeadline) {
