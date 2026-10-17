@@ -1,7 +1,8 @@
 //! D05 manifest scope: the immutable execution-manifest envelope binds
 //! plan bytes/digest, invocation, phase/run/deadline/profile and child
-//! limit, and verifies against its launching run. FW14 stages this
-//! envelope at dispatch; these tests pin the contract it must produce.
+//! limit (implement 1-4, correct singleton 0), and verifies against its
+//! launching run. FW14 stages this envelope at dispatch; these tests pin
+//! the contract it must produce.
 
 use crate::factory::*;
 use crate::sha256;
@@ -77,6 +78,52 @@ fn manifest_envelope_refusals() {
         let valid = decoded.map(|m| m.validate().is_ok()).unwrap_or(false);
         assert!(!valid, "{name} validated");
     }
+}
+
+/// Lane C15: correct runs carry a singleton manifest with `max_children`
+/// 0, bound to the launching run exactly like implement.
+#[test]
+fn manifest_correct_singleton_binds_its_run() {
+    assert!(execution_manifest_required("implement"));
+    assert!(execution_manifest_required("correct"));
+    assert!(!execution_manifest_required("review"));
+    assert!(!execution_manifest_required("investigate"));
+    let body = envelope_json().replace("\"phase\":\"implement\"", "\"phase\":\"correct\"");
+    let body = body.replace("\"max_children\":3", "\"max_children\":0");
+    let staged = body.into_bytes();
+    let manifest = ExecutionManifest::decode(&staged).unwrap();
+    assert!(manifest.validate().is_ok());
+    let mut run = implement_run_for(&staged);
+    run.execution_phase = "correct".to_string();
+    assert!(run.validate().is_ok());
+    assert!(manifest.verify_for_run(&run, &staged).is_ok());
+}
+
+#[test]
+fn manifest_correct_singleton_refusals() {
+    // Correct with child concurrency refuses.
+    let with_children = envelope_json().replace("\"phase\":\"implement\"", "\"phase\":\"correct\"");
+    let decoded = ExecutionManifest::decode(with_children.as_bytes()).unwrap();
+    assert!(decoded.validate().is_err());
+    // Implement with zero children still refuses.
+    let zero = envelope_json().replace("\"max_children\":3", "\"max_children\":0");
+    let decoded = ExecutionManifest::decode(zero.as_bytes()).unwrap();
+    assert!(decoded.validate().is_err());
+    // A correct run without its manifest digest refuses.
+    let staged = envelope_json()
+        .replace("\"phase\":\"implement\"", "\"phase\":\"correct\"")
+        .replace("\"max_children\":3", "\"max_children\":0")
+        .into_bytes();
+    let manifest = ExecutionManifest::decode(&staged).unwrap();
+    let mut run = implement_run_for(&staged);
+    run.execution_phase = "correct".to_string();
+    run.manifest_digest = String::new();
+    assert!(run.validate().is_err());
+    assert_eq!(
+        run.validate().unwrap_err(),
+        "correct run lacks its manifest digest"
+    );
+    let _ = manifest;
 }
 
 #[test]

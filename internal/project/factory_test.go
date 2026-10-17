@@ -60,7 +60,10 @@ func TestExecutionPhaseVocabulary(t *testing.T) {
 	if !ExecutionManifestRequired(ExecutionImplement) {
 		t.Fatal("implement run skips its manifest")
 	}
-	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionReview, ExecutionCorrect, ExecutionReassess} {
+	if !ExecutionManifestRequired(ExecutionCorrect) {
+		t.Fatal("correct run skips its manifest")
+	}
+	for _, phase := range []string{"", ExecutionDecompose, ExecutionInvestigate, ExecutionReview, ExecutionReassess} {
 		if ExecutionManifestRequired(phase) {
 			t.Fatalf("single-agent phase stages a manifest: %q", phase)
 		}
@@ -101,8 +104,8 @@ func TestReassessPromptBoundAndRole(t *testing.T) {
 }
 
 // T16 wire scope: the manifest/phase/digest rule binds every launch.
-// Implement runs stage their exact manifest bytes; every other phase
-// stages none; digests never drift from bytes.
+// Implement and correct runs stage their exact manifest bytes; every other
+// phase stages none; digests never drift from bytes.
 func TestFactoryLaunchManifestRule(t *testing.T) {
 	launchFor := func(phase string, manifest []byte, digest string) FactoryLaunch {
 		run := factoryRunFixture()
@@ -119,13 +122,22 @@ func TestFactoryLaunchManifestRule(t *testing.T) {
 	if err := good.Run.Validate(); err != nil {
 		t.Fatalf("manifested implement run refused: %v", err)
 	}
+	correctGood := launchFor(ExecutionCorrect, manifest, ExecutionManifestDigest(manifest))
+	if err := correctGood.Validate(); err != nil {
+		t.Fatalf("manifested correct launch refused: %v", err)
+	}
+	if err := correctGood.Run.Validate(); err != nil {
+		t.Fatalf("manifested correct run refused: %v", err)
+	}
 	cases := map[string]FactoryLaunch{
-		"missing manifest":   launchFor(ExecutionImplement, nil, strings.Repeat("d", 64)),
-		"drifted digest":     launchFor(ExecutionImplement, manifest, strings.Repeat("d", 64)),
-		"manifest elsewhere": launchFor(ExecutionInvestigate, manifest, ExecutionManifestDigest(manifest)),
-		"digest elsewhere":   launchFor(ExecutionReview, nil, strings.Repeat("d", 64)),
-		"unknown phase":      launchFor("publish", nil, ""),
-		"oversized manifest": launchFor(ExecutionImplement, make([]byte, MaxExecutionManifest+1), strings.Repeat("d", 64)),
+		"missing manifest":         launchFor(ExecutionImplement, nil, strings.Repeat("d", 64)),
+		"missing correct manifest": launchFor(ExecutionCorrect, nil, strings.Repeat("d", 64)),
+		"drifted digest":           launchFor(ExecutionImplement, manifest, strings.Repeat("d", 64)),
+		"drifted correct digest":   launchFor(ExecutionCorrect, manifest, strings.Repeat("d", 64)),
+		"manifest elsewhere":       launchFor(ExecutionInvestigate, manifest, ExecutionManifestDigest(manifest)),
+		"digest elsewhere":         launchFor(ExecutionReview, nil, strings.Repeat("d", 64)),
+		"unknown phase":            launchFor("publish", nil, ""),
+		"oversized manifest":       launchFor(ExecutionImplement, make([]byte, MaxExecutionManifest+1), strings.Repeat("d", 64)),
 	}
 	for name, launch := range cases {
 		if err := launch.Validate(); err == nil {

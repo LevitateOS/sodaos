@@ -42,7 +42,7 @@ func ValidTaskEffort(effort string) bool {
 }
 
 // ExecutionManifest is the immutable child-control envelope staged with an
-// implement launch (D05). It binds the exact serialized plan bytes and
+// implement or correct launch (D05). It binds the exact serialized plan bytes and
 // their digest to the admitted invocation, phase, run, deadline, execution
 // profile snapshot and child limit. The executor verifies the staged bytes
 // against the run's manifest digest, not a separately reconstructed
@@ -97,9 +97,11 @@ func ParseExecutionManifest(data []byte) (ExecutionManifest, error) {
 	return manifest, nil
 }
 
-// Validate binds every envelope field. Only implement runs carry a
-// manifest; the phase, run and digest bindings below are checked against
-// the launching run by ValidateManifestForRun.
+// Validate binds every envelope field. Only implement and correct runs
+// carry a manifest: implement admits child concurrency 1-4 while correct is
+// singleton re-execution with MaxChildren 0. The phase, run and digest
+// bindings below are checked against the launching run by
+// ValidateManifestForRun.
 func (m ExecutionManifest) Validate() error {
 	if len(m.Plan) == 0 || len(m.Plan) > MaxExecutionManifest {
 		return errors.New("execution manifest lacks its plan bytes")
@@ -107,7 +109,9 @@ func (m ExecutionManifest) Validate() error {
 	if PlanDigest(m.Plan) != m.PlanDigest {
 		return errors.New("execution manifest plan does not match its digest")
 	}
-	if m.Phase != ExecutionImplement {
+	switch m.Phase {
+	case ExecutionImplement, ExecutionCorrect:
+	default:
 		return errors.New("execution manifest phase is not implement")
 	}
 	if !ValidFactoryRunID(m.Run) {
@@ -122,7 +126,11 @@ func (m ExecutionManifest) Validate() error {
 	if !ValidTaskEffort(m.Effort) {
 		return errors.New("invalid execution effort")
 	}
-	if m.MaxChildren < MinTaskChildren || m.MaxChildren > MaxTaskChildren {
+	if m.Phase == ExecutionCorrect {
+		if m.MaxChildren != 0 {
+			return errors.New("execution manifest child limit is outside its range")
+		}
+	} else if m.MaxChildren < MinTaskChildren || m.MaxChildren > MaxTaskChildren {
 		return errors.New("execution manifest child limit is outside its range")
 	}
 	return nil

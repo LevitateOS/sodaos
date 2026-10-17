@@ -54,10 +54,11 @@ pub fn valid_execution_phase(phase: &str) -> bool {
     )
 }
 
-/// `ExecutionManifestRequired`: only implement runs are multi-child planned
-/// execution with a staged manifest; every other phase stays single-agent.
+/// `ExecutionManifestRequired`: implement runs are multi-child planned
+/// execution and correct runs are singleton re-execution, both with a staged
+/// manifest; every other phase stays single-agent.
 pub fn execution_manifest_required(phase: &str) -> bool {
-    phase == EXECUTION_IMPLEMENT
+    phase == EXECUTION_IMPLEMENT || phase == EXECUTION_CORRECT
 }
 
 /// `MaxPromptForPhase`: the admitted prompt bound for one phase.
@@ -222,8 +223,8 @@ impl std::error::Error for FactoryError {}
 /// `project.FactoryRun`: one supervised CLI execution identity. The
 /// deadline keeps its verbatim Go `time.Time` JSON text so receipt bytes
 /// round-trip exactly. `execution_phase` names the admitted factory phase;
-/// `manifest_digest` binds the staged execution manifest for implement runs
-/// and stays empty otherwise.
+/// `manifest_digest` binds the staged execution manifest for implement and
+/// correct runs and stays empty otherwise.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FactoryRun {
     pub deadline: String,
@@ -288,6 +289,9 @@ impl FactoryRun {
         }
         if execution_manifest_required(&self.execution_phase) {
             if !preparation::valid_digest(&self.manifest_digest) {
+                if self.execution_phase == EXECUTION_CORRECT {
+                    return Err("correct run lacks its manifest digest".to_string());
+                }
                 return Err("implement run lacks its manifest digest".to_string());
             }
         } else if !self.manifest_digest.is_empty() {
@@ -377,9 +381,9 @@ typed_run_fields!(FactoryRun, "a factory run object", {
 });
 
 /// `project.FactoryLaunch`: the host run request. `execution_manifest`
-/// carries the immutable staged plan for implement runs and stays absent
-/// for every other phase; the run's manifest digest must match its exact
-/// bytes.
+/// carries the immutable staged plan for implement and correct runs and stays
+/// absent for every other phase; the run's manifest digest must match its
+/// exact bytes.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FactoryLaunch {
     pub run: FactoryRun,
@@ -512,6 +516,9 @@ impl FactoryLaunch {
         }
         if execution_manifest_required(&self.run.execution_phase) {
             if self.execution_manifest.is_empty() {
+                if self.run.execution_phase == EXECUTION_CORRECT {
+                    return Err("correct run lacks its execution manifest".to_string());
+                }
                 return Err("implement run lacks its execution manifest".to_string());
             }
             if crate::sha256::hex_lower(&crate::sha256::digest(&self.execution_manifest))

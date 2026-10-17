@@ -86,9 +86,13 @@ func ValidExecutionPhase(phase string) bool {
 }
 
 // ExecutionManifestRequired reports whether phase stages an immutable
-// execution manifest. Only implement runs are multi-child planned execution;
-// every other phase remains a single-agent run without a manifest.
-func ExecutionManifestRequired(phase string) bool { return phase == ExecutionImplement }
+// execution manifest. Implement runs are multi-child planned execution;
+// correct runs are singleton re-execution of the admitted plan with no
+// child concurrency. Every other phase remains a single-agent run without
+// a manifest.
+func ExecutionManifestRequired(phase string) bool {
+	return phase == ExecutionImplement || phase == ExecutionCorrect
+}
 
 // MaxExecutionManifest bounds one staged execution manifest: exact serialized
 // plan bytes, invocation, phase/run/deadline/profile and child limit. The
@@ -142,7 +146,8 @@ func MaxPromptForPhase(phase string) int {
 // preparation, source and broker sponsorship. The ID is also the broker
 // execution ID; the assignment digest binds the immutable prompt bytes.
 // ExecutionPhase names the admitted factory phase; ManifestDigest binds the
-// staged execution manifest for implement runs and stays empty otherwise.
+// staged execution manifest for implement and correct runs and stays empty
+// otherwise.
 type FactoryRun struct {
 	Deadline       time.Time `json:"deadline"`
 	Actor          int64     `json:"actor"`
@@ -199,6 +204,9 @@ func (r FactoryRun) Validate() error {
 	}
 	if ExecutionManifestRequired(r.ExecutionPhase) {
 		if !ValidDigest(r.ManifestDigest) {
+			if r.ExecutionPhase == ExecutionCorrect {
+				return errors.New("correct run lacks its manifest digest")
+			}
 			return errors.New("implement run lacks its manifest digest")
 		}
 	} else if r.ManifestDigest != "" {
@@ -217,8 +225,8 @@ func FactoryPromptDigest(prompt []byte) string {
 // FactoryLaunch is the host run request: the recorded run identity, the exact
 // prompt bytes and the caller-observed harness pin. The executor admits only
 // its own pinned harness bytes. ExecutionManifest carries the immutable staged
-// plan for implement runs and stays absent for every other phase; the run's
-// manifest digest must match its exact bytes.
+// plan for implement and correct runs and stays absent for every other phase;
+// the run's manifest digest must match its exact bytes.
 type FactoryLaunch struct {
 	Run               FactoryRun `json:"run"`
 	Prompt            []byte     `json:"prompt"`
@@ -252,6 +260,9 @@ func (l FactoryLaunch) Validate() error {
 	}
 	if ExecutionManifestRequired(l.Run.ExecutionPhase) {
 		if len(l.ExecutionManifest) == 0 {
+			if l.Run.ExecutionPhase == ExecutionCorrect {
+				return errors.New("correct run lacks its execution manifest")
+			}
 			return errors.New("implement run lacks its execution manifest")
 		}
 		if ExecutionManifestDigest(l.ExecutionManifest) != l.Run.ManifestDigest {

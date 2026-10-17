@@ -2,10 +2,11 @@
 //!
 //! Wire mirror of `project.ExecutionManifest`: the exact serialized plan
 //! bytes and their digest bound to the admitted invocation, phase, run,
-//! deadline, execution profile snapshot and child limit. The executor
-//! verifies the staged bytes against the run's manifest digest, not a
-//! separately reconstructed cross-language serialization. FW14 stages
-//! this envelope at dispatch; planning phases stage no manifest at all.
+//! deadline, execution profile snapshot and child limit (implement 1-4,
+//! correct singleton 0). The executor verifies the staged bytes against the
+//! run's manifest digest, not a separately reconstructed cross-language
+//! serialization. FW14 stages this envelope at dispatch; non-manifest phases
+//! stage no manifest at all.
 
 use serde::de::{self, MapAccess, Visitor};
 use serde::Deserialize;
@@ -15,8 +16,8 @@ use crate::json;
 
 use super::deadline::parse_deadline;
 use super::run::{
-    execution_manifest_required, valid_factory_run_id, EXECUTION_IMPLEMENT, MAX_EXECUTION_MANIFEST,
-    MAX_TASK_CHILDREN, MIN_TASK_CHILDREN,
+    execution_manifest_required, valid_factory_run_id, EXECUTION_CORRECT, EXECUTION_IMPLEMENT,
+    MAX_EXECUTION_MANIFEST, MAX_TASK_CHILDREN, MIN_TASK_CHILDREN,
 };
 use super::FactoryRun;
 
@@ -188,7 +189,7 @@ impl ExecutionManifest {
         if crate::sha256::hex_lower(&crate::sha256::digest(&self.plan)) != self.plan_digest {
             return Err("execution manifest plan does not match its digest".to_string());
         }
-        if self.phase != EXECUTION_IMPLEMENT {
+        if self.phase != EXECUTION_IMPLEMENT && self.phase != EXECUTION_CORRECT {
             return Err("execution manifest phase is not implement".to_string());
         }
         if !valid_factory_run_id(&self.run) {
@@ -206,7 +207,11 @@ impl ExecutionManifest {
         if !valid_task_effort(&self.effort) {
             return Err("invalid execution effort".to_string());
         }
-        if !(MIN_TASK_CHILDREN..=MAX_TASK_CHILDREN).contains(&self.max_children) {
+        if self.phase == EXECUTION_CORRECT {
+            if self.max_children != 0 {
+                return Err("execution manifest child limit is outside its range".to_string());
+            }
+        } else if !(MIN_TASK_CHILDREN..=MAX_TASK_CHILDREN).contains(&self.max_children) {
             return Err("execution manifest child limit is outside its range".to_string());
         }
         Ok(())
