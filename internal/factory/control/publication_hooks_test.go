@@ -226,6 +226,71 @@ func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing
 	}
 }
 
+// TestInvestigateJourneySelectsOneIssueWithoutDoubleSpend proves the R15
+// selected investigation-to-plan journey at the dispatch layer: with two
+// queued issues a single pass investigates exactly one, the unselected
+// issue receives no generative run and no funding, the settled plan
+// advances to its implement child instead of relaunching investigation,
+// and a further replay launches nothing new.
+func TestInvestigateJourneySelectsOneIssueWithoutDoubleSpend(t *testing.T) {
+	ctx := context.Background()
+	fx := publishSeed(t)
+	decision := fx.seed.accept(t, 3, "d333333333333333333333333")
+	fx.seed.queue(t, 3, decision.ID)
+	fourth := fx.seed.accept(t, 4, "d444444444444444444444444")
+	fx.seed.queue(t, 4, fourth.ID)
+	fx.reads.evidence["7/3"] = AcceptanceEvidence{
+		Revision: 41,
+		Issue:    AcceptanceIssueView{Index: "3", TitleDigest: decision.TitleDigest, TitleOccurrence: decision.TitleOccurrence, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
+		Comments: []AcceptanceComment{{ID: "11", Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
+	}
+	fx.reads.evidence["7/4"] = AcceptanceEvidence{
+		Revision: 41,
+		Issue:    AcceptanceIssueView{Index: "4", TitleDigest: fourth.TitleDigest, TitleOccurrence: fourth.TitleOccurrence, ContentDigest: fourth.ContentDigest, ContentVer: fourth.ContentVersion, Visible: true},
+		Comments: []AcceptanceComment{{ID: "11", Digest: fourth.Sources[0].Digest, ContentVer: fourth.Sources[0].ContentVersion, Visible: true}},
+	}
+	h := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, db: fx.db, candidate: strings.Repeat("2", 40)}
+	fx.coord.Host = h
+	fx.coord.Broker = &stubBroker{
+		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
+		close: func(string, string) error { return nil },
+	}
+	fx.coord.DispatchReads = fx.seed.reads
+	fx.wire(happyPublisher())
+
+	first := fx.coord.Dispatch(ctx)
+	if len(first.Errors) != 0 || len(first.Launched) != 1 {
+		t.Fatalf("select dispatch: %+v", first)
+	}
+	root, err := fx.db.Assignment(ctx, first.Launched[0].AssignmentID)
+	if err != nil || root.Issue != 3 || root.Phase != project.ExecutionInvestigate || root.Stage != factory.AssignmentFinished {
+		t.Fatalf("selected investigate root: %+v %v", root, err)
+	}
+	if _, err := fx.db.LatestIssueAssignment(ctx, 7, 4); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("unselected issue received a run: %v", err)
+	}
+
+	second := fx.coord.Dispatch(ctx)
+	if len(second.Errors) != 0 || len(second.Launched) != 1 {
+		t.Fatalf("advance dispatch: %+v", second)
+	}
+	child, err := fx.db.Assignment(ctx, second.Launched[0].AssignmentID)
+	if err != nil || child.Phase != project.ExecutionImplement || child.ParentAssignment != root.ID || child.Stage != factory.AssignmentFinished {
+		t.Fatalf("advanced implement child: %+v %v", child, err)
+	}
+	if _, err := fx.db.LatestIssueAssignment(ctx, 7, 4); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("unselected issue received a run during advance: %v", err)
+	}
+
+	third := fx.coord.Dispatch(ctx)
+	if len(third.Errors) != 0 || len(third.Launched) != 0 {
+		t.Fatalf("replay dispatch relaunched: %+v", third)
+	}
+	if len(h.launches) != 2 {
+		t.Fatalf("launches = %d, want exactly the investigate and implement runs", len(h.launches))
+	}
+}
+
 func TestDispatchPublicationPassRetainsCallerCancellation(t *testing.T) {
 	// This fixture uses synthetic completed records only to reach the check
 	// boundary. It proves context propagation and custody handling, not native
