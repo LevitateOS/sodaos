@@ -19,6 +19,11 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use super::super::children::{ChildProfile, ChildSpec, ChildTable};
 use super::super::run::{FACTORY_HARNESS_CODEX, FACTORY_HARNESS_MUSE, ROLE_CODER};
+use crate::factory::{
+    TASK_EVENT_CHILD_REPORTED, TASK_EVENT_CHILD_START_INTENT, TASK_EVENT_TASK_COMMITTED,
+    TaskRunner,
+};
+use crate::sha256;
 
 /// Pinned Codex binary for the trial; override with `CODEX_TRIAL_BIN`.
 const DEFAULT_CODEX_BIN: &str =
@@ -254,4 +259,124 @@ fn trial_codex_overlap_and_cancel() {
 #[ignore = "spends real provider budget; run explicitly for a bounded R07 trial"]
 fn trial_muse_overlap_and_cancel() {
     drive(&MUSE, "muse");
+}
+
+fn output_digest(tail: &[u8]) -> String {
+    sha256::hex_lower(&sha256::digest(tail))
+}
+
+/// Dependent successor through the real [`TaskRunner`]: the second child
+/// starts only after the first reaches its terminal receipt, and the
+/// journal records intent/started/reported/committed in order for both.
+fn run_successor_trial(scratch: &std::path::Path) -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|_| "HOME is not set".to_string())?;
+    let auth_src = PathBuf::from(format!("{home}/{}", CODEX.auth_rel));
+    if !auth_src.is_file() {
+        return Err(format!("trial precondition: ~/{0} is absent", CODEX.auth_rel));
+    }
+    let bin = resolve_bin(&CODEX)?;
+    std::fs::create_dir_all(scratch).map_err(|e| e.to_string())?;
+    std::fs::set_permissions(scratch, std::fs::Permissions::from_mode(0o700))
+        .map_err(|e| e.to_string())?;
+    let custody = scratch.join("custody");
+    let auth_bytes = std::fs::read(&auth_src).map_err(|e| e.to_string())?;
+    write_private(&custody.join(CODEX.auth_rel), &auth_bytes)?;
+    let jobs = scratch.join("jobs");
+    std::fs::create_dir_all(&jobs).map_err(|e| e.to_string())?;
+    let jobs_str = jobs.to_string_lossy().into_owned();
+
+    let run = format!("{:032x}", nanos_now());
+    let plan = format!("{:064x}", nanos_now());
+    let profile = ChildProfile {
+        effort: "low".to_string(),
+        contributor: false,
+        role: ROLE_CODER.to_string(),
+        account_home: custody.to_string_lossy().into_owned(),
+    };
+    let mut runner =
+        TaskRunner::open(&run, "r07trial", &plan, FACTORY_HARNESS_CODEX, &profile, 2, scratch)?;
+    let deadline = Instant::now() + Duration::from_secs(600);
+    let spec = |task: &str, word: &str| ChildSpec {
+        task_key: task.to_string(),
+        argv: vec![
+            bin.clone(),
+            "exec".to_string(),
+            "-s".to_string(),
+            "read-only".to_string(),
+            "--ephemeral".to_string(),
+            "-C".to_string(),
+            jobs_str.clone(),
+            "--skip-git-repo-check".to_string(),
+            format!("Reply with exactly the single word {word} and nothing else."),
+        ],
+        workdir: jobs.clone(),
+    };
+    let settle = |runner: &mut TaskRunner,
+                  task: &str,
+                  word: &str|
+     -> Result<String, String> {
+        let code = runner.join_task(task, Duration::from_secs(300))?;
+        let tail = runner.observe_task(task)?.output_tail;
+        let text = String::from_utf8_lossy(&tail).into_owned();
+        if code != 0 || !text.contains(word) {
+            return Err(format!("{task} failed: exit={code} tail={text:?}"));
+        }
+        let digest = output_digest(&tail);
+        let reported = runner.report_task(task, &digest)?;
+        if reported != 0 {
+            return Err(format!("{task} reported nonzero: {reported}"));
+        }
+        runner.complete_task(task, None, None)?;
+        Ok(digest)
+    };
+
+    let first_id = runner.start_task(&spec("dep-first", "SBEACONA"), deadline)?;
+    if runner.active_tasks() != vec!["dep-first".to_string()] {
+        return Err(format!("active = {:?}", runner.active_tasks()));
+    }
+    settle(&mut runner, "dep-first", "SBEACONA")?;
+    let second_id = runner.start_task(&spec("dep-second", "SBEACONB"), deadline)?;
+    let journal = runner.journal_snapshot();
+    let committed = journal
+        .iter()
+        .find(|e| e.event_type == TASK_EVENT_TASK_COMMITTED && e.task_key == "dep-first")
+        .map(|e| e.sequence)
+        .ok_or("missing dep-first committed receipt")?;
+    let intent = journal
+        .iter()
+        .find(|e| e.event_type == TASK_EVENT_CHILD_START_INTENT && e.task_key == "dep-second")
+        .map(|e| e.sequence)
+        .ok_or("missing dep-second start intent")?;
+    if !(committed < intent) {
+        return Err(format!("successor started before predecessor receipt: {committed} !< {intent}"));
+    }
+    settle(&mut runner, "dep-second", "SBEACONB")?;
+    if !runner.active_tasks().is_empty() {
+        return Err(format!("tasks remain active: {:?}", runner.active_tasks()));
+    }
+    let reported = journal
+        .iter()
+        .filter(|e| e.event_type == TASK_EVENT_CHILD_REPORTED)
+        .count();
+    let report = runner.stop("dep-second", "trial complete")?;
+    if !report.uncertain.is_empty() {
+        return Err(format!("uncertain remainder: {:?}", report.uncertain));
+    }
+    Ok(format!(
+        "first={} second={} committed_seq={committed} intent_seq={intent} reported={reported} retired={}",
+        &first_id[..8],
+        &second_id[..8],
+        report.retired.len(),
+    ))
+}
+
+#[test]
+#[ignore = "spends real provider budget; run explicitly for a bounded R07 trial"]
+fn trial_codex_dependent_successor() {
+    let home = std::env::var("HOME").expect("HOME");
+    let scratch = trial_dir(&home, "successor");
+    let result = run_successor_trial(&scratch);
+    let _ = std::fs::remove_dir_all(&scratch);
+    let evidence = result.expect("trial failed");
+    println!("R07-CODEX-SUCCESSOR {evidence}");
 }
