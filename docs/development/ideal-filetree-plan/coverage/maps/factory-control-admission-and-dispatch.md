@@ -72,6 +72,46 @@ Delta duty inspection at `93fb3513`. Coherent-recommendation and unsupported-con
 | --- | --- | --- | --- |
 | 1–62; file scaffold; TestJudgeConsolidationRecommendsOneCoherentProposal; TestJudgeConsolidationRefusesUnsupportedContent | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 
+<a id="coverage-cb1a904d77e2"></a>
+
+## [internal/factory/control/context_bundle_advice.go](../../../../../internal/factory/control/context_bundle_advice.go)
+
+R31 context-bundle selection (added `479e2cd2`, eligibility threaded `f491ebfa`, fingerprint shared `9c5e90de`). Fixed Choice rubric, eligibility-gated options, scope-bound state and funded selection over code-enforced eligibility, plus exact fingerprint recomputation for receipt lookup.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–103; file scaffold; contextBundleRubric; contextBundleOptions; contextBundleScope; contextBundleState; contextBundleStateFor; ContextBundleFingerprint; SelectContextBundle | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 7 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
+<a id="coverage-cb2b115e88f3"></a>
+
+## [internal/factory/control/context_bundle_advice_test.go](../../../../../internal/factory/control/context_bundle_advice_test.go)
+
+R31 selection tests (added `479e2cd2`, eligibility and unoffered-hold cases `f491ebfa`, fingerprint binding `9c5e90de`). Funded serve/hold/exhaustion cases with injected choosers plus pure option/state/fingerprint units.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–171; file scaffold; bundleChooser; Select; contextBundleFixture; onceReserve; TestSelectContextBundleServesConfidentCurrent; TestSelectContextBundleServesConfidentAttempt; TestSelectContextBundleHoldsLowConfidence; TestSelectContextBundleHoldsUnofferedLineage; TestSelectContextBundleHoldsWhenChooserDown; TestSelectContextBundleExhaustedHoldsUnfunded; TestContextBundleFingerprintBindsEligibility; TestContextBundleOptionsOfferCurrentAndHold; TestContextBundleStateBindsScope | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 14 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
+<a id="coverage-cb3c226f99a4"></a>
+
+## [internal/factory/control/context_bundle_prepare.go](../../../../../internal/factory/control/context_bundle_prepare.go)
+
+R31 preparation-time selection (added `f6835c02`). Rebuilds the staged capability from recorded preparation, joins parent content for eligibility and records one funded Choice per fingerprint from the priority call budget; best-effort, never fails the launch.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–41; file scaffold; PrepareContextBundleSelection | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 1 named unit assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
+<a id="coverage-cb4d337a10b5"></a>
+
+## [internal/factory/control/context_bundle_prepare_test.go](../../../../../internal/factory/control/context_bundle_prepare_test.go)
+
+R31 preparation tests (added `f6835c02`). Funded-choice record with receipt reuse, chooser-down hold and nil-input refusal.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–68; file scaffold; TestPrepareContextBundleSelectionRecordsFundedChoice; TestPrepareContextBundleSelectionHoldsWhenChooserDown; TestPrepareContextBundleSelectionRefusesWithoutInputs | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-b7b1cd2777fd"></a>
 
 ## [internal/factory/control/dispatch_preparation.go](../../../../../internal/factory/control/dispatch_preparation.go)

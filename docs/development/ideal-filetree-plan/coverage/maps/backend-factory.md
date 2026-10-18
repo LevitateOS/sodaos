@@ -426,25 +426,45 @@ Delta duty inspection at `93fb3513`. Acceptance, attribution, authorization, dra
 | --- | --- | --- | --- |
 | 1–181; file scaffold; validIntent; TestAcceptedIntentPreservesIndependentRoots; TestAcceptedIntentRejectsUnresolvedAndDeclinedIdeas; TestAcceptedIntentRejectsCyclesAndUnknownDependencies; TestIntentEditsAndBounds; TestAcceptedIntentAllowsUnrelatedPendingBranch; TestIntentRejectsForgedHumanAttribution; TestIntentRequiresEvidenceAndEffectiveAuthorization; TestIntentTerminalDraftStates; TestAcceptedWorkRequiresExplicitDecisionBasis; TestIntentSummaryAndListFilter | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 11 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 
+<a id="coverage-cb5e448b21c6"></a>
+
+## [internal/factory/context_bundle.go](../../../../../internal/factory/context_bundle.go)
+
+R31 fixed bundle identities, decision bounds and content mapping (added `479e2cd2`, eligibility and continuity `f491ebfa`). Only a confident eligible selection serves; everything else holds snapshot_hold with attention, never an inferred bundle.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–59; file scaffold; ContextBundleCurrent; ContextBundleAttempt; ContextBundleLineage; ContextBundleSnapshotHold; MinContextBundleProbability; MinContextBundleConfidence; ContextBundleHoldLowConfidence; ContextBundleHoldIneligible; BundleEligibility; AttemptContinuity; ApplyContextBundleAnswer | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 11 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
+<a id="coverage-cb6f559c32d7"></a>
+
+## [internal/factory/context_bundle_test.go](../../../../../internal/factory/context_bundle_test.go)
+
+R31 bundle mapping tests (added `479e2cd2`, eligibility and continuity `f491ebfa`). Confident-eligible serve, below-bounds and ineligible holds, backing-content eligibility and opaque-ID continuity copy.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–80; file scaffold; TestApplyContextBundleAnswerServesConfidentEligible; TestApplyContextBundleAnswerHoldsBelowBounds; TestBundleEligibilityNeedsBackingContent; TestAttemptContinuityCopiesOpaqueIDs; TestApplyContextBundleAnswerHoldsIneligible | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 6 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-3842d671f549"></a>
 
 ## [internal/factory/judgment.go](../../../../../internal/factory/judgment.go)
 
-Delta duty inspection at `93fb3513`. Judgment domain (S02/S09): observed-evidence priority candidates with receipts/snapshots plus the seven typed JudgmentPurposes and their semantic fingerprint binding every purpose.
+Delta duty inspection at `93fb3513`. Judgment domain (S02/S09): observed-evidence priority candidates with receipts/snapshots plus the seven typed JudgmentPurposes and their semantic fingerprint binding every purpose. R31 delta adds the `context-bundle-v1` purpose (eleven purposes).
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–176; file scaffold; PriorityCandidate; PriorityRubric; PriorityRequest; PriorityAnswer; PriorityCall; PriorityReceipt; PrioritySnapshot; Validate; JudgmentPurpose; JudgmentProductApproaches; JudgmentAssumptions; JudgmentConsolidation; JudgmentDecomposition; JudgmentPlanningFreshness; JudgmentNextWork; JudgmentConsistency; JudgmentPurposes; valid; JudgmentFingerprint | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 19 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 1–508; file scaffold; PriorityCandidate; PriorityRubric; PriorityRequest; PriorityAnswer; PriorityCall; PriorityReceipt; PrioritySnapshot; Validate; JudgmentPurpose; JudgmentProductApproaches; JudgmentAssumptions; JudgmentConsolidation; JudgmentDecomposition; JudgmentPlanningFreshness; JudgmentNextWork; JudgmentConsistency; JudgmentDeliveryReview; JudgmentReassessmentDecision; JudgmentReassessmentProposal; JudgmentContextBundle; JudgmentPurposes; valid; JudgmentFingerprint | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 23 named units assigned here — Current complete declaration/method or file span inspected at HEAD; R31 context-bundle purpose mapped `479e2cd2`; historical pins retain their scope. |
 
 <a id="coverage-a20f274a43d5"></a>
 
 ## [internal/factory/judgment_test.go](../../../../../internal/factory/judgment_test.go)
 
-Delta duty inspection at `93fb3513`. Priority-answer and seven-purpose fingerprint tests.
+Delta duty inspection at `93fb3513`. Priority-answer and seven-purpose fingerprint tests. R31 delta binds eleven purposes.
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–78; file scaffold; TestPriorityAnswerRejectsOmittedAndFabricatedChoices; TestJudgmentFingerprintBindsSevenPurposes | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+| 1–225; file scaffold; TestDeliveryPolicyBoundaries; TestDeliveryFingerprintBindsEvidence; TestPriorityAnswerRejectsOmittedAndFabricatedChoices; TestJudgmentFingerprintBindsElevenPurposes | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 5 named units assigned here — Current complete declaration/method or file span inspected at HEAD; R31 eleven-purpose binding mapped `479e2cd2`; historical pins retain their scope. |
 <a id="coverage-ad9ecd63bd81"></a>
 
 ## [internal/factory/lifecycle.go](../../../../../internal/factory/lifecycle.go)
