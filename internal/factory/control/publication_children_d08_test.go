@@ -187,32 +187,44 @@ func TestPublishPassPolicyReviewCarriesSeparateCause(t *testing.T) {
 }
 
 // TestPublishPassWithholdsDisputedFeedbackForDecision proves the T44
-// routing leg on the serving path: disputed feedback on the current head
-// withholds the correction run pending the funded D08 decision instead of
-// launching an automatic second coder run.
+// routing leg on the serving path with current typed reviewer provenance:
+// disputed feedback on the current head withholds the correction run
+// pending the funded D08 decision instead of launching an automatic
+// second coder run. The reviewer verdict carries the exact finding the
+// disputed correction answers, so the canonical carried set binds it;
+// finding-less legacy histories cannot satisfy that binding and stay
+// refused (see TestPublishCorrectionWithReportWithholdsDisputed for the
+// typed direct-entry hold and
+// TestPublishCorrectionWithReportRefusesMissingReviewerEvidence for the
+// missing-provenance refusal).
 func TestPublishPassWithholdsDisputedFeedbackForDecision(t *testing.T) {
 	ctx := context.Background()
-	fx, host, owner, publication := publishedChildProducerSeed(t, 29)
+	fx, host, owner, publication, _ := phasedChildProducerSeed(t, 29)
 	if len(host.launches) != 1 {
 		t.Fatalf("initial reviewer launch count = %d", len(host.launches))
 	}
 	reviewerLaunch := host.launches[0]
-	reviewOutput := "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"empty input panics\",\"findings\":[\"empty input\"]}\n```"
-	_, reviewerRun := settleProducedChild(t, fx, reviewerLaunch.Run.ID, reviewOutput)
-	fx.coord.Reviews = &fakeReviewer{
-		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
-		outcome:  committedOutcome(`{"review_id":31}`),
-		adopted: factory.ReviewOutcome{
-			ReviewID: 31, CommentID: 32, ReviewerID: 6, PRID: publication.PRID,
-			PRNumber: publication.PRNumber, IssueID: publication.PRCreate.IssueID,
-			HeadOID: publication.Candidate, BaseOID: publication.PRCreate.BaseOID,
-			CommitID: publication.Candidate, Event: "REQUEST_CHANGES",
-		},
+	reviewer, err := fx.db.AssignmentByRun(ctx, reviewerLaunch.Run.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
+	cycle := phasedReviewCycle(t, ctx, fx, owner, reviewer.ID)
+	// The disputed correction below answers exactly this finding: the
+	// reviewer verdict and the correction report share the finding value,
+	// so the canonical carried set binds the dispute byte-identically.
+	finding := correctionTestFinding(1, true, factory.FindingFixCode)
+	_, reviewerRun := settleProducedChild(t, fx, reviewerLaunch.Run.ID, phasedFenceOutput(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
+		Summary: "reviewed",
+		Output: &factory.PhaseOutput{Review: &factory.ReviewCycleReport{
+			CycleID: cycle.ID, NewFindings: []factory.Finding{finding},
+		}},
+	}))
+	fx.coord.Reviews = requestChangesReviewer(publication)
 	if _, err := fx.coord.SubmitReviewForRun(ctx, reviewerRun.ID); err != nil {
 		t.Fatalf("submit produced reviewer result: %v", err)
 	}
-	fx.coord.Checks = happyCheckObserver()
+	failingPhasedChecks(fx)
 	if report := fx.coord.CheckPass(ctx); len(report.Errors) != 0 {
 		t.Fatalf("check pass: %+v", report)
 	}
@@ -225,7 +237,11 @@ func TestPublishPassWithholdsDisputedFeedbackForDecision(t *testing.T) {
 	if len(host.launches) != 2 {
 		t.Fatalf("serving correction undispatched: launches=%d", len(host.launches))
 	}
-	settleProducedChild(t, fx, host.launches[1].Run.ID, correctionOutput(publication.Candidate))
+	corrector, err := fx.db.AssignmentByRun(ctx, host.launches[1].Run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settleProducedChild(t, fx, host.launches[1].Run.ID, phasedCorrectionOutput(t, corrector))
 	correctorRun := correctionRun(t, fx, owner, publication.Candidate)
 	correctorChild, err := fx.db.AssignmentByRun(ctx, correctorRun.ID)
 	if err != nil {
@@ -238,7 +254,7 @@ func TestPublishPassWithholdsDisputedFeedbackForDecision(t *testing.T) {
 	withReportCycle(t, ctx, fx, p, correctorChild, mustFindingSetDigest(t, correctionTestKey(1)))
 	disputedReport := factory.CorrectionReport{
 		SetDigest: mustFindingSetDigest(t, correctionTestKey(1)), NewCandidate: publication.Candidate,
-		Findings: []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)},
+		Findings: []factory.Finding{finding},
 		Dispositions: []factory.CorrectionDisposition{
 			{Key: correctionTestKey(1), Disposition: factory.DispositionDisputed},
 		},

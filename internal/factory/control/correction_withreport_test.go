@@ -369,6 +369,64 @@ func TestPublishCorrectionWithReportWithholdsDisputed(t *testing.T) {
 	}
 }
 
+// TestPublishCorrectionWithReportRefusesMissingReviewerEvidence (real pg)
+// proves the canonical-history refusal keeps its zero-effect guarantee: a
+// disputed report on a cycle whose reviewer provenance names no recorded
+// row refuses instead of journaling, advancing the head, or exporting, so
+// missing or foreign evidence never becomes a journalable dispute.
+func TestPublishCorrectionWithReportRefusesMissingReviewerEvidence(t *testing.T) {
+	ctx := context.Background()
+	fx, p := checkSeedWithReviewer(t, 47)
+	owner, err := fx.db.Assignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A reviewer round with foreign provenance: the recorded reviewer
+	// assignment names no row, so the canonical carried set cannot be
+	// rebuilt through it.
+	p.ReviewCycles = append(p.ReviewCycles, factory.ReviewCycle{
+		PublicationID: p.ID, AttemptRoot: owner.AttemptRoot,
+		ID: factory.ReviewCycleID(p.ID, owner.AttemptRoot, 1, "review"), Phase: "review",
+		TriggerDecision: "initial-review", TriggerReason: "first review of published head",
+		Head: p.Candidate, BaseOID: p.PRCreate.BaseOID,
+		FindingDigest:      reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil),
+		ReviewerAssignment: factory.NewID(),
+		Round:              1,
+	})
+	p.Revision++
+	if err := fx.db.UpdatePublication(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	finding := correctionTestFinding(1, true, factory.FindingFixCode)
+	run := correctionRun(t, fx, owner, p.Candidate)
+	child, err := fx.db.AssignmentByRun(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withReportCycle(t, ctx, fx, p, child, correctionTestDigest(t, finding.Key))
+	report := correctionTestReport(p.Candidate, []factory.Finding{finding}, []factory.CorrectionDisposition{{
+		Key: finding.Key, Disposition: factory.DispositionDisputed,
+	}})
+	exports, pushes := len(fx.host.exports), len(fx.exec.pushes)
+	served := fx.coord.PublishCorrectionWithReport(ctx, run.ID, report, nil, nil)
+	if len(served.Errors) != 0 || len(served.Corrected) != 0 || len(served.Waits) != 1 || served.Waits[0].Reason != "correction_refused" {
+		t.Fatalf("missing reviewer evidence mis-served: %+v", served)
+	}
+	held, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(held.CorrectionJournals) != 0 {
+		t.Fatalf("refused dispute journaled: %+v", held.CorrectionJournals)
+	}
+	if held.Candidate != p.Candidate {
+		t.Fatalf("refused dispute advanced the head: %q", held.Candidate)
+	}
+	if len(fx.host.exports) != exports || len(fx.exec.pushes) != pushes {
+		t.Fatalf("refused dispute exported: exports=%d pushes=%d", len(fx.host.exports), len(fx.exec.pushes))
+	}
+}
+
 // TestPublishCorrectionWithReportRefusesRewrite (real pg) proves the
 // canonical binding on the serving entry: a replay that rewrites its
 // recorded findings refuses instead of replacing the canonical set, and
