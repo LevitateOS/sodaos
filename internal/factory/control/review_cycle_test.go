@@ -113,6 +113,18 @@ func TestCheckPassOpensMergeOnFreshPass(t *testing.T) {
 	if child, err := fx.db.AssignmentByRun(ctx, reviewerRun.ID); err != nil || child.PublicationAssignment != owner.ID || child.AttemptRoot != owner.AttemptRoot {
 		t.Fatalf("review result lost parent assignment identity: child=%+v err=%v", child, err)
 	}
+	// The approved review opens the row unbound through
+	// progressAfterPublish; the union gate binds it before the merge
+	// pass may submit. The approving round owns cycle one, so the
+	// binding synthesis takes round two over the same head.
+	pa, err := fx.db.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizeMergeFixtureRound(t, ctx, fx.db, fx.coord, pa, 2)
+	if merged := fx.coord.MergePass(ctx); len(merged.Errors) != 0 {
+		t.Fatalf("authorized merge pass: %+v", merged)
+	}
 	m, err := fx.db.MergeByPublication(ctx, p.ID)
 	if err != nil || m.Stage != factory.MergeMerged || len(merger.submits) != 1 {
 		t.Fatalf("approved reviewer did not open and complete the merge: merge=%+v submits=%d err=%v", m, len(merger.submits), err)

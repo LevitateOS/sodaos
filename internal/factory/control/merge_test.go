@@ -131,13 +131,35 @@ func TestAttemptSlotRemainsActiveUntilConfirmedMerge(t *testing.T) {
 		t.Fatalf("second issue bypassed active attempt slot: %+v", waiting)
 	}
 
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
 	fx.wire(happyMerger())
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	if report := fx.pass(t); len(report.Merged) != 1 {
 		t.Fatalf("confirmed merge report = %+v", report)
 	}
 	allowance, err = fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
 	if err != nil || !allowance.Closed || allowance.Active {
 		t.Fatalf("merged coder attempt allowance = %+v, %v", allowance, err)
+	}
+
+	// The confirmed merge records its completion event and closes the
+	// repository fence; the next slot opens only after the completion
+	// drive seals the merged substance and releases the continue
+	// decision through the production path.
+	db := fx.publish.db
+	db.PriorityCallBudget = 100
+	fx.publish.coord.Planning = &PlanningJudgments{Journal: db, Funding: db, Chooser: &continueChooser{}}
+	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: db.CaptureCompletionLocal}
+	if sealed := fx.publish.coord.DriveCompletions(ctx, deps); len(sealed.Sealed) != 1 {
+		t.Fatalf("completion seal: %+v", sealed)
+	}
+	if released := fx.publish.coord.DriveCompletions(ctx, deps); len(released.Released) != 1 {
+		t.Fatalf("completion release: %+v", released)
 	}
 
 	ready := DispatchPass(ctx, fx.publish.seed.deps())

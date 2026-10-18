@@ -82,14 +82,23 @@ func TestLifecycleCallbackPR(t *testing.T) {
 }
 
 // TestLifecycleCallbackMerge proves a real MergePass to Merged fires
-// the note effect after verified merge plus original closure.
+// the note effect after verified merge plus original closure. The row
+// opens unbound, binds through the union gate, then drives: an
+// unauthorized row waits honestly instead of merging ungated.
 func TestLifecycleCallbackMerge(t *testing.T) {
 	ctx := context.Background()
-	fx, _ := mergeSeed(t, 3)
+	fx, p := mergeSeed(t, 3)
 	enableCallbackConfig(t, fx.publish, factory.LifecycleEventVerifiedMerge, nil)
 	ex := callbackLifecycleExecutor()
 	fx.publish.coord.Lifecycle = ex
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
 	fx.wire(happyMerger())
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	if len(first.Merged) != 1 {
 		t.Fatalf("default report: %+v", first)

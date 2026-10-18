@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -17,8 +18,65 @@ import (
 type publicationDispatchHost struct {
 	*fakeDispatchHost
 	exporter  *fakePublishHost
+	db        *store.Store
 	candidate string
 	stops     []project.FactoryStop
+}
+
+// phasedDispatchOutput renders the strict v2 report the settling phase
+// requires: an executable plan bound to the investigating assignment's
+// exact root, source and preparation, or the implemented candidate
+// bound to the implementation child. Planning never names a
+// publishable candidate; only the implement report carries one.
+func phasedDispatchOutput(a factory.Assignment, candidate string) (string, error) {
+	var result factory.PhaseResult
+	switch a.Phase {
+	case project.ExecutionInvestigate:
+		plan := factory.InvestigationPlan{
+			ID: factory.NewID(), AttemptRoot: a.AttemptRoot,
+			ScopeDigest: dispatchDigest("dispatch handoff scope"), InputDigest: dispatchDigest("dispatch handoff input"),
+			SourceCommit: a.SourceCommit, IntegrationCommit: a.SourceCommit,
+			Preparation:        a.Preparation,
+			Approach:           "implement the accepted objective behind checks",
+			AcceptanceCoverage: []string{"accept-one"},
+			Tasks: []factory.PlanTask{{
+				ID: "task-one", Objective: "implement the accepted objective",
+				Outputs: []string{"candidate"}, AcceptanceRefs: []string{"accept-one"},
+				Lane: "lane-one", OwnedPaths: []string{"internal/x.go"},
+			}},
+			Lanes: []factory.PlanLane{{ID: "lane-one", TaskIDs: []string{"task-one"}}},
+		}
+		digest, err := factory.PlanDigest(plan)
+		if err != nil {
+			return "", err
+		}
+		plan.Digest = digest
+		if err := plan.Validate(); err != nil {
+			return "", err
+		}
+		if err := plan.Executable(); err != nil {
+			return "", err
+		}
+		result = factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionInvestigate, Status: "completed",
+			Summary: "plan ready", Output: &factory.PhaseOutput{Plan: &plan},
+		}
+	case project.ExecutionImplement:
+		if !factory.ValidCommit(candidate) {
+			return "", errors.New("implement report needs its candidate")
+		}
+		result = factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionImplement, Status: "completed",
+			Summary: "implemented", Output: &factory.PhaseOutput{Implementation: &factory.ImplementationReceipt{Candidate: candidate}},
+		}
+	default:
+		return "", errors.New("dispatch host covers only investigate and implement phases")
+	}
+	data, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+	return "work log\n```" + factory.ResultFence + "\n" + string(data) + "\n```\ntrailer\n", nil
 }
 
 type cancelingPublicationCheckObserver struct {
@@ -44,11 +102,19 @@ func (o *cancelingPublicationCheckObserver) ObserveChecks(ctx context.Context, _
 	return factory.ObservedChecks{}, errors.New("caller canceled during check observation")
 }
 
-func (h *publicationDispatchHost) FactoryStop(_ context.Context, in project.FactoryStop) (project.FactoryState, error) {
+func (h *publicationDispatchHost) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
 	h.stops = append(h.stops, in)
+	assignment, err := h.db.AssignmentByRun(ctx, in.ID)
+	if err != nil {
+		return project.FactoryState{}, err
+	}
+	output, err := phasedDispatchOutput(assignment, h.candidate)
+	if err != nil {
+		return project.FactoryState{}, err
+	}
 	return project.FactoryState{
 		ID: in.ID, Project: in.Project, Phase: project.FactoryCompleted, Retirement: "confirmed",
-		Output: "```result-json\n" + `{"status":"completed","summary":"candidate ready","candidate":"` + h.candidate + `","review_passed":false,"findings":[]}` + "\n```",
+		Output: output,
 	}, nil
 }
 
@@ -62,11 +128,11 @@ func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing
 	decision := fx.seed.accept(t, 3, "d333333333333333333333333")
 	fx.seed.queue(t, 3, decision.ID)
 	fx.reads.evidence["7/3"] = AcceptanceEvidence{
-		Revision: 9,
+		Revision: 41,
 		Issue:    AcceptanceIssueView{Index: "3", TitleDigest: decision.TitleDigest, TitleOccurrence: decision.TitleOccurrence, ContentDigest: decision.ContentDigest, ContentVer: decision.ContentVersion, Visible: true},
 		Comments: []AcceptanceComment{{ID: "11", Digest: decision.Sources[0].Digest, ContentVer: decision.Sources[0].ContentVersion, Visible: true}},
 	}
-	h := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, candidate: strings.Repeat("2", 40)}
+	h := &publicationDispatchHost{fakeDispatchHost: fx.seed.host, exporter: fx.host, db: fx.db, candidate: strings.Repeat("2", 40)}
 	closed := 0
 	fx.coord.Host = h
 	fx.coord.Broker = &stubBroker{
@@ -75,6 +141,17 @@ func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing
 	}
 	fx.coord.DispatchReads = fx.seed.reads
 	exec := happyPublisher()
+	// This fixture's native revision is the seed's 41 on every fake;
+	// the publisher observes the same native state as acceptance.
+	nativeObserve := exec.observe
+	exec.observe = func(w factory.PublicationWork) (factory.PublicationObservation, error) {
+		observation, err := nativeObserve(w)
+		if err != nil {
+			return observation, err
+		}
+		observation.NativeRev = 41
+		return observation, nil
+	}
 	fx.wire(exec)
 
 	report := fx.coord.Dispatch(ctx)
@@ -82,23 +159,69 @@ func TestPublicationDispatchHandoffAccountsAndPublishesRecordedResult(t *testing
 		t.Fatalf("dispatch: %+v", report)
 	}
 	a, err := fx.db.Assignment(ctx, report.Launched[0].AssignmentID)
-	if err != nil || a.Stage != factory.AssignmentFinished || a.Result == nil || !a.Result.Reported || a.Result.Candidate != h.candidate {
-		t.Fatalf("recorded result: %+v %v", a, err)
+	if err != nil || a.Stage != factory.AssignmentFinished || a.Result == nil || !a.Result.Reported || a.Result.Candidate != "" {
+		t.Fatalf("recorded investigate result: %+v %v", a, err)
 	}
-	run, err := fx.db.FactoryRun(ctx, a.Run)
-	if err != nil || !run.Reconciled || run.Outcome != factory.Succeeded || closed != 1 || len(h.stops) != 1 {
+	// The reported plan advances the implement child through the same
+	// dispatch; only the implement report carries the candidate.
+	advanced := fx.coord.Dispatch(ctx)
+	if len(advanced.Errors) != 0 || len(advanced.Launched) != 1 {
+		t.Fatalf("implement dispatch: %+v", advanced)
+	}
+	child, err := fx.db.Assignment(ctx, advanced.Launched[0].AssignmentID)
+	if err != nil || child.Stage != factory.AssignmentFinished || child.Result == nil || !child.Result.Reported || child.Result.Candidate != h.candidate {
+		t.Fatalf("recorded implement result: %+v %v", child, err)
+	}
+	run, err := fx.db.FactoryRun(ctx, child.Run)
+	if err != nil || !run.Reconciled || run.Outcome != factory.Succeeded || closed != 2 || len(h.stops) != 2 {
 		t.Fatalf("settlement: %+v %v close=%d stops=%d", run, err, closed, len(h.stops))
 	}
-	reservation, err := fx.db.Reservation(ctx, a.ID)
+	reservation, err := fx.db.Reservation(ctx, child.ID)
 	if err != nil || reservation.State != factory.ReservationConsumed {
 		t.Fatalf("accounting: %+v %v", reservation, err)
 	}
+	// The FW15 plan-task evidence walks pending to completed under the
+	// admitted head, binding the reported candidate as the task commit.
+	headID, _, err := fx.db.PlanHead(ctx, a.AttemptRoot)
+	if err != nil {
+		t.Fatalf("plan head: %v", err)
+	}
+	pending := store.PlanTaskReceipt{AttemptRoot: a.AttemptRoot, PlanID: headID, TaskID: "task-one", State: store.PlanTaskPending}
+	if err := fx.db.SavePlanTaskReceipt(ctx, pending); err != nil {
+		t.Fatalf("pending receipt unrecorded: %v", err)
+	}
+	running := pending
+	running.Revision, running.State, running.Child = 0, store.PlanTaskRunning, "child-task-one"
+	if err := fx.db.SavePlanTaskReceipt(ctx, running); err != nil {
+		t.Fatalf("running receipt unrecorded: %v", err)
+	}
+	ready := running
+	ready.Revision, ready.State, ready.OutputDigest = 1, store.PlanTaskOutputReady, dispatchDigest("task output")
+	if err := fx.db.SavePlanTaskReceipt(ctx, ready); err != nil {
+		t.Fatalf("ready receipt unrecorded: %v", err)
+	}
+	completed := ready
+	completed.Revision, completed.State, completed.Commit, completed.Tree = 2, store.PlanTaskCompleted, h.candidate, h.candidate
+	completed.Reason = "planned task finished with its checkpoint commit"
+	if err := fx.db.SavePlanTaskReceipt(ctx, completed); err != nil {
+		t.Fatalf("completed receipt unrecorded: %v", err)
+	}
+	published := fx.coord.Dispatch(ctx)
+	if len(published.Errors) != 0 {
+		t.Fatalf("publication dispatch: %+v", published)
+	}
+	// The recording pass opens the publication; the next pass drives
+	// its native publish/PR effects to Published through the same path.
+	driven := fx.coord.Dispatch(ctx)
+	if len(driven.Errors) != 0 {
+		t.Fatalf("publication drive: %+v", driven)
+	}
 	p := fx.publication(t, a)
-	if p.Stage != factory.PublicationPublished || p.Run != a.Run || p.Candidate != a.Result.Candidate || p.PRNumber != 9 {
+	if p.Stage != factory.PublicationPublished || p.Run != child.Run || p.Candidate != h.candidate || p.PRNumber != 9 {
 		t.Fatalf("automatic publication: %+v", p)
 	}
 	fx.coord.Dispatch(ctx)
-	if len(h.launches) != 1 || len(exec.submits) != 1 || len(exec.creates) != 1 {
+	if len(h.launches) != 2 || len(exec.submits) != 1 || len(exec.creates) != 1 {
 		t.Fatal("repeat dispatch duplicated execution or publication")
 	}
 }
