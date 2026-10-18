@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -88,19 +89,8 @@ func finishedCommands(ctx context.Context, q grantCommandSQL, typ, target string
 // predecessor must state its effect; consumption and history carry
 // forward in the separate charge rows, so an increase never refills.
 func (s *Store) ApplyRepairGrantCommand(ctx context.Context, cmd factory.Command, grant factory.RepairGrant, now time.Time) (factory.Command, bool, error) {
-	if err := cmd.Validate(); err != nil {
+	if err := admitRepairGrantCommand(cmd, grant); err != nil {
 		return factory.Command{}, false, err
-	}
-	if err := grant.Validate(); err != nil {
-		return factory.Command{}, false, err
-	}
-	payload, err := json.Marshal(grant)
-	if err != nil {
-		return factory.Command{}, false, err
-	}
-	if cmd.Type != factory.CommandRepairGrant || cmd.Target != factory.RepairTarget(grant.Repository) ||
-		string(payload) != cmd.Payload || cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
-		return factory.Command{}, false, ErrCommandConflict
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -116,58 +106,98 @@ func (s *Store) ApplyRepairGrantCommand(ctx context.Context, cmd factory.Command
 		return factory.Command{}, false, err
 	}
 	if !created {
-		if stored.Outcome == "" {
-			if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(receipt), now); err != nil {
-				return factory.Command{}, false, err
-			}
-			stored.Outcome = string(receipt)
-			stored.Finished = now.UTC().Format(time.RFC3339Nano)
-		}
-		if err = tx.Commit(); err != nil {
-			return factory.Command{}, false, err
-		}
-		return stored, false, nil
+		return replayGrantCommandTx(ctx, tx, cmd, stored, string(receipt), now)
 	}
 	heads, err := finishedCommands(ctx, tx, factory.CommandRepairGrant, cmd.Target)
 	if err != nil {
 		return factory.Command{}, false, err
 	}
+	if err = checkRepairGrantHead(grant, heads); err != nil {
+		return factory.Command{}, false, err
+	}
+	return finishGrantCommandTx(ctx, tx, cmd, stored, string(receipt), now)
+}
+
+// admitRepairGrantCommand validates one repair grant command against
+// its change.
+func admitRepairGrantCommand(cmd factory.Command, grant factory.RepairGrant) error {
+	if err := cmd.Validate(); err != nil {
+		return err
+	}
+	if err := grant.Validate(); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(grant)
+	if err != nil {
+		return err
+	}
+	if cmd.Type != factory.CommandRepairGrant || cmd.Target != factory.RepairTarget(grant.Repository) ||
+		string(payload) != cmd.Payload || cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
+		return ErrCommandConflict
+	}
+	return nil
+}
+
+// replayGrantCommandTx finishes an already-recorded command without
+// granting again.
+func replayGrantCommandTx(ctx context.Context, tx *sql.Tx, cmd, stored factory.Command, receipt string, now time.Time) (factory.Command, bool, error) {
+	if stored.Outcome == "" {
+		if err := finishFactoryCommandTx(ctx, tx, cmd.ID, receipt, now); err != nil {
+			return factory.Command{}, false, err
+		}
+		stored.Outcome = receipt
+		stored.Finished = now.UTC().Format(time.RFC3339Nano)
+	}
+	if err := tx.Commit(); err != nil {
+		return factory.Command{}, false, err
+	}
+	return stored, false, nil
+}
+
+// finishGrantCommandTx records one admitted command's outcome and commits.
+func finishGrantCommandTx(ctx context.Context, tx *sql.Tx, cmd, stored factory.Command, receipt string, now time.Time) (factory.Command, bool, error) {
+	if err := finishFactoryCommandTx(ctx, tx, cmd.ID, receipt, now); err != nil {
+		return factory.Command{}, false, err
+	}
+	stored.Outcome = receipt
+	stored.Finished = now.UTC().Format(time.RFC3339Nano)
+	if err := tx.Commit(); err != nil {
+		return factory.Command{}, false, err
+	}
+	return stored, true, nil
+}
+
+// checkRepairGrantHead requires one repair grant to chain its head's
+// predecessor with a stated effect behind increases.
+func checkRepairGrantHead(grant factory.RepairGrant, heads []factory.Command) error {
 	// The recorded row above is still unfinished, so the finished
 	// heads below exclude it: the head is the predecessor this
 	// revision must name.
 	if len(heads) == 0 {
 		if grant.Predecessor != "" || grant.Revision != 0 {
-			return factory.Command{}, false, ErrStaleRevision
+			return ErrStaleRevision
 		}
-	} else {
-		head, err := headRepairGrant(heads)
-		if err != nil {
-			return factory.Command{}, false, err
-		}
-		var old factory.RepairGrant
-		if err := json.Unmarshal([]byte(head.Payload), &old); err != nil {
-			return factory.Command{}, false, err
-		}
-		if grant.Predecessor != head.ID {
-			return factory.Command{}, false, ErrStaleRevision
-		}
-		if grant.Revision != old.Revision+1 || grant.Repository != old.Repository || grant.Sponsor != old.Sponsor {
-			return factory.Command{}, false, errors.New("repair grant identity is immutable")
-		}
-		if (grant.InvestigatorRuns > old.InvestigatorRuns || grant.ProposalJudgments > old.ProposalJudgments ||
-			grant.ActiveMinutes > old.ActiveMinutes) && grant.Effect == "" {
-			return factory.Command{}, false, errors.New("repair grant increase must state its effect")
-		}
+		return nil
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(receipt), now); err != nil {
-		return factory.Command{}, false, err
+	head, err := headRepairGrant(heads)
+	if err != nil {
+		return err
 	}
-	stored.Outcome = string(receipt)
-	stored.Finished = now.UTC().Format(time.RFC3339Nano)
-	if err = tx.Commit(); err != nil {
-		return factory.Command{}, false, err
+	var old factory.RepairGrant
+	if err := json.Unmarshal([]byte(head.Payload), &old); err != nil {
+		return err
 	}
-	return stored, true, nil
+	if grant.Predecessor != head.ID {
+		return ErrStaleRevision
+	}
+	if grant.Revision != old.Revision+1 || grant.Repository != old.Repository || grant.Sponsor != old.Sponsor {
+		return errors.New("repair grant identity is immutable")
+	}
+	if (grant.InvestigatorRuns > old.InvestigatorRuns || grant.ProposalJudgments > old.ProposalJudgments ||
+		grant.ActiveMinutes > old.ActiveMinutes) && grant.Effect == "" {
+		return errors.New("repair grant increase must state its effect")
+	}
+	return nil
 }
 
 // headRepairGrant selects the current head by document revision: the
@@ -362,19 +392,8 @@ func (s *Store) readRepairReceipt(ctx context.Context, repository int64, charge 
 // derives from existing attempt rows, so the bound never refills: an
 // increase retains spent time by construction.
 func (s *Store) ApplyIntentExecutionLimitCommand(ctx context.Context, cmd factory.Command, limit factory.IntentExecutionAllowance, now time.Time) (factory.Command, bool, error) {
-	if err := cmd.Validate(); err != nil {
+	if err := admitExecutionLimitCommand(cmd, limit); err != nil {
 		return factory.Command{}, false, err
-	}
-	if err := limit.Validate(); err != nil {
-		return factory.Command{}, false, err
-	}
-	payload, err := json.Marshal(limit)
-	if err != nil {
-		return factory.Command{}, false, err
-	}
-	if cmd.Type != factory.CommandIntentExecutionLimit || cmd.Target != factory.IntentExecutionTarget(limit.IntentID) ||
-		string(payload) != cmd.Payload || cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
-		return factory.Command{}, false, ErrCommandConflict
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -390,54 +409,65 @@ func (s *Store) ApplyIntentExecutionLimitCommand(ctx context.Context, cmd factor
 		return factory.Command{}, false, err
 	}
 	if !created {
-		if stored.Outcome == "" {
-			if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(receipt), now); err != nil {
-				return factory.Command{}, false, err
-			}
-			stored.Outcome = string(receipt)
-			stored.Finished = now.UTC().Format(time.RFC3339Nano)
-		}
-		if err = tx.Commit(); err != nil {
-			return factory.Command{}, false, err
-		}
-		return stored, false, nil
+		return replayGrantCommandTx(ctx, tx, cmd, stored, string(receipt), now)
 	}
 	heads, err := finishedCommands(ctx, tx, factory.CommandIntentExecutionLimit, cmd.Target)
 	if err != nil {
 		return factory.Command{}, false, err
 	}
+	if err = checkExecutionLimitHead(limit, heads); err != nil {
+		return factory.Command{}, false, err
+	}
+	return finishGrantCommandTx(ctx, tx, cmd, stored, string(receipt), now)
+}
+
+// admitExecutionLimitCommand validates one execution limit command
+// against its change.
+func admitExecutionLimitCommand(cmd factory.Command, limit factory.IntentExecutionAllowance) error {
+	if err := cmd.Validate(); err != nil {
+		return err
+	}
+	if err := limit.Validate(); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(limit)
+	if err != nil {
+		return err
+	}
+	if cmd.Type != factory.CommandIntentExecutionLimit || cmd.Target != factory.IntentExecutionTarget(limit.IntentID) ||
+		string(payload) != cmd.Payload || cmd.Digest != factory.SettingsDigest(cmd.Type, cmd.Target, cmd.Payload) {
+		return ErrCommandConflict
+	}
+	return nil
+}
+
+// checkExecutionLimitHead requires one execution limit to chain its
+// head's predecessor without ever decreasing the aggregate bound.
+func checkExecutionLimitHead(limit factory.IntentExecutionAllowance, heads []factory.Command) error {
 	if len(heads) == 0 {
 		if limit.Predecessor != "" || limit.Revision != 0 {
-			return factory.Command{}, false, ErrStaleRevision
+			return ErrStaleRevision
 		}
-	} else {
-		head, err := headExecutionLimit(heads)
-		if err != nil {
-			return factory.Command{}, false, err
-		}
-		var old factory.IntentExecutionAllowance
-		if err := json.Unmarshal([]byte(head.Payload), &old); err != nil {
-			return factory.Command{}, false, err
-		}
-		if limit.Predecessor != head.ID {
-			return factory.Command{}, false, ErrStaleRevision
-		}
-		if limit.Revision != old.Revision+1 || limit.IntentID != old.IntentID || limit.OwnerID != old.OwnerID || limit.RepositoryID != old.RepositoryID {
-			return factory.Command{}, false, errors.New("intent execution aggregate identity is immutable")
-		}
-		if limit.ActiveLimitMs < old.ActiveLimitMs {
-			return factory.Command{}, false, errors.New("intent execution aggregate limit cannot decrease")
-		}
+		return nil
 	}
-	if err = finishFactoryCommandTx(ctx, tx, cmd.ID, string(receipt), now); err != nil {
-		return factory.Command{}, false, err
+	head, err := headExecutionLimit(heads)
+	if err != nil {
+		return err
 	}
-	stored.Outcome = string(receipt)
-	stored.Finished = now.UTC().Format(time.RFC3339Nano)
-	if err = tx.Commit(); err != nil {
-		return factory.Command{}, false, err
+	var old factory.IntentExecutionAllowance
+	if err := json.Unmarshal([]byte(head.Payload), &old); err != nil {
+		return err
 	}
-	return stored, true, nil
+	if limit.Predecessor != head.ID {
+		return ErrStaleRevision
+	}
+	if limit.Revision != old.Revision+1 || limit.IntentID != old.IntentID || limit.OwnerID != old.OwnerID || limit.RepositoryID != old.RepositoryID {
+		return errors.New("intent execution aggregate identity is immutable")
+	}
+	if limit.ActiveLimitMs < old.ActiveLimitMs {
+		return errors.New("intent execution aggregate limit cannot decrease")
+	}
+	return nil
 }
 
 // headExecutionLimit selects the current bound by document revision:

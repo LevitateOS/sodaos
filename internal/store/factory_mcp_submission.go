@@ -106,17 +106,7 @@ var (
 // recorded history is recovered through the separate MCPReceipt
 // read, never through this path.
 func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPSubmission, receipt factory.MCPReceipt) (factory.MCPReceipt, error) {
-	if err := submission.Validate(); err != nil {
-		return factory.MCPReceipt{}, err
-	}
-	if err := receipt.Validate(); err != nil {
-		return factory.MCPReceipt{}, err
-	}
-	if receipt.SubmissionID != submission.SubmissionID || receipt.Tool != submission.Tool ||
-		receipt.InputDigest != submission.PayloadHash {
-		return factory.MCPReceipt{}, errors.New("receipt does not match its submission")
-	}
-	raw, err := json.Marshal(receipt)
+	raw, err := admitMCPSubmission(submission, receipt)
 	if err != nil {
 		return factory.MCPReceipt{}, err
 	}
@@ -125,92 +115,21 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 		return factory.MCPReceipt{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	// Authentic capability first, under the same row lock the
-	// revoke/retire CAS takes: only an active capability bound to
-	// this assignment and current scope admits the insert. Admission
-	// checked the same facts earlier; this recheck closes the
-	// revoke-vs-insert race inside the transaction.
-	var capState string
-	var capRaw []byte
-	if err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_mcp_capabilities WHERE id=$1 FOR UPDATE`,
-		submission.CapabilityID).Scan(&capState, &capRaw); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityInactive
-		}
-		return factory.MCPReceipt{}, err
-	}
-	var capability factory.MCPCapability
-	if err = json.Unmarshal(capRaw, &capability); err != nil {
-		return factory.MCPReceipt{}, err
-	}
-	capability.State = capState
-	if err = capability.Validate(); err != nil {
-		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityInactive
-	}
-	if capability.State != factory.MCPCapabilityActive ||
-		capability.AssignmentID != submission.AssignmentID ||
-		capability.ScopeDigest() != submission.ExpectedInputDigest {
-		return factory.MCPReceipt{}, ErrMCPSubmissionCapabilityInactive
-	}
-	// Per-assignment serialization next: the guard row exists once
-	// per assignment, so concurrent submitters for one assignment
-	// queue on this row lock instead of racing an unlocked
-	// terminal scan past each other. Assignments never block each
-	// other, and capability rows always lock before guard rows.
-	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_mcp_submission_guards(assignment) VALUES($1) ON CONFLICT DO NOTHING`,
-		submission.AssignmentID); err != nil {
-		return factory.MCPReceipt{}, err
-	}
-	var guard string
-	if err = tx.QueryRowContext(ctx, `SELECT assignment FROM factory_mcp_submission_guards WHERE assignment=$1 FOR UPDATE`,
-		submission.AssignmentID).Scan(&guard); err != nil {
-		return factory.MCPReceipt{}, err
-	}
-	var currentTool, currentInput, currentHash, currentState string
-	var currentReceipt []byte
-	err = tx.QueryRowContext(ctx, `SELECT tool,input_digest,payload_hash,state,receipt FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 FOR UPDATE`,
-		submission.AssignmentID, submission.SubmissionID).Scan(&currentTool, &currentInput, &currentHash, &currentState, &currentReceipt)
-	if err == nil {
-		if currentTool != string(submission.Tool) || currentInput != submission.ExpectedInputDigest || currentHash != submission.PayloadHash {
-			return factory.MCPReceipt{}, ErrMCPSubmissionConflict
-		}
-		var recorded factory.MCPReceipt
-		if err = json.Unmarshal(currentReceipt, &recorded); err != nil {
-			return factory.MCPReceipt{}, err
-		}
-		return recorded, tx.Commit()
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return factory.MCPReceipt{}, err
-	}
-	// The terminal atomically freezes new identities: once the
-	// assignment records a terminal proposal, only exact replay of a
-	// recorded ID (handled above) and the same terminal content
-	// under another ID record nothing new. Admission refuses these
-	// calls first; persistence refuses them anyway so races cannot
-	// slip a second proposal past the freeze.
-	terminal, frozen, err := terminalMCPProposalTx(ctx, tx, submission.AssignmentID)
+	capability, err := lockMCPCapabilityTx(ctx, tx, submission)
 	if err != nil {
 		return factory.MCPReceipt{}, err
 	}
-	if frozen {
-		if terminal.Tool == submission.Tool && terminal.InputDigest == submission.PayloadHash {
-			return terminal, tx.Commit()
-		}
-		return factory.MCPReceipt{}, ErrMCPSubmissionFrozen
+	if err = lockMCPSubmissionGuardTx(ctx, tx, submission.AssignmentID); err != nil {
+		return factory.MCPReceipt{}, err
 	}
-	// The handoff cap binds at insert under the same guard, so a
-	// burst of concurrent handoffs cannot overshoot 256 before any
-	// of them commits.
-	if submission.Tool == factory.MCPToolRequestHandoff {
-		var handoffs int
-		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`,
-			submission.AssignmentID, string(factory.MCPToolRequestHandoff)).Scan(&handoffs); err != nil {
-			return factory.MCPReceipt{}, err
-		}
-		if handoffs >= factory.MCPMaxHandoffs {
-			return factory.MCPReceipt{}, ErrMCPSubmissionHandoffCap
-		}
+	if recorded, done, err := replayMCPSubmissionTx(ctx, tx, submission); done || err != nil {
+		return recorded, err
+	}
+	if terminal, done, err := freezeTerminalMCPSubmissionTx(ctx, tx, submission); done || err != nil {
+		return terminal, err
+	}
+	if err = checkMCPHandoffCapTx(ctx, tx, submission); err != nil {
+		return factory.MCPReceipt{}, err
 	}
 	// Deadline binds at the new-record admission point, after every
 	// potentially blocking lock (capability row, assignment guard,
@@ -230,6 +149,130 @@ func (s *Store) RecordMCPSubmission(ctx context.Context, submission factory.MCPS
 		return factory.MCPReceipt{}, err
 	}
 	return receipt, tx.Commit()
+}
+
+// admitMCPSubmission validates one submission against its receipt,
+// returning the encoded receipt.
+func admitMCPSubmission(submission factory.MCPSubmission, receipt factory.MCPReceipt) ([]byte, error) {
+	if err := submission.Validate(); err != nil {
+		return nil, err
+	}
+	if err := receipt.Validate(); err != nil {
+		return nil, err
+	}
+	if receipt.SubmissionID != submission.SubmissionID || receipt.Tool != submission.Tool ||
+		receipt.InputDigest != submission.PayloadHash {
+		return nil, errors.New("receipt does not match its submission")
+	}
+	return json.Marshal(receipt)
+}
+
+// lockMCPCapabilityTx locks the authentic capability behind one
+// submission under the same row lock the revoke/retire CAS takes:
+// only an active capability bound to this assignment and current
+// scope admits the insert. Admission checked the same facts earlier;
+// this recheck closes the revoke-vs-insert race inside the
+// transaction.
+func lockMCPCapabilityTx(ctx context.Context, tx *sql.Tx, submission factory.MCPSubmission) (factory.MCPCapability, error) {
+	var capability factory.MCPCapability
+	var capState string
+	var capRaw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT state,data FROM factory_mcp_capabilities WHERE id=$1 FOR UPDATE`,
+		submission.CapabilityID).Scan(&capState, &capRaw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return capability, ErrMCPSubmissionCapabilityInactive
+		}
+		return capability, err
+	}
+	if err := json.Unmarshal(capRaw, &capability); err != nil {
+		return capability, err
+	}
+	capability.State = capState
+	if err := capability.Validate(); err != nil {
+		return capability, ErrMCPSubmissionCapabilityInactive
+	}
+	if capability.State != factory.MCPCapabilityActive ||
+		capability.AssignmentID != submission.AssignmentID ||
+		capability.ScopeDigest() != submission.ExpectedInputDigest {
+		return capability, ErrMCPSubmissionCapabilityInactive
+	}
+	return capability, nil
+}
+
+// lockMCPSubmissionGuardTx serializes one assignment's submitters:
+// the guard row exists once per assignment, so concurrent submitters
+// for one assignment queue on this row lock instead of racing an
+// unlocked terminal scan past each other. Assignments never block
+// each other, and capability rows always lock before guard rows.
+func lockMCPSubmissionGuardTx(ctx context.Context, tx *sql.Tx, assignmentID string) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO factory_mcp_submission_guards(assignment) VALUES($1) ON CONFLICT DO NOTHING`,
+		assignmentID); err != nil {
+		return err
+	}
+	var guard string
+	return tx.QueryRowContext(ctx, `SELECT assignment FROM factory_mcp_submission_guards WHERE assignment=$1 FOR UPDATE`,
+		assignmentID).Scan(&guard)
+}
+
+// replayMCPSubmissionTx replays the recorded receipt behind an exact
+// identity replay, refusing conflicting rewrites.
+func replayMCPSubmissionTx(ctx context.Context, tx *sql.Tx, submission factory.MCPSubmission) (factory.MCPReceipt, bool, error) {
+	var currentTool, currentInput, currentHash, currentState string
+	var currentReceipt []byte
+	err := tx.QueryRowContext(ctx, `SELECT tool,input_digest,payload_hash,state,receipt FROM factory_mcp_submissions WHERE assignment=$1 AND submission=$2 FOR UPDATE`,
+		submission.AssignmentID, submission.SubmissionID).Scan(&currentTool, &currentInput, &currentHash, &currentState, &currentReceipt)
+	if err == nil {
+		if currentTool != string(submission.Tool) || currentInput != submission.ExpectedInputDigest || currentHash != submission.PayloadHash {
+			return factory.MCPReceipt{}, true, ErrMCPSubmissionConflict
+		}
+		var recorded factory.MCPReceipt
+		if err = json.Unmarshal(currentReceipt, &recorded); err != nil {
+			return factory.MCPReceipt{}, true, err
+		}
+		return recorded, true, tx.Commit()
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return factory.MCPReceipt{}, true, err
+	}
+	return factory.MCPReceipt{}, false, nil
+}
+
+// freezeTerminalMCPSubmissionTx freezes new identities once the
+// assignment records a terminal proposal: only exact replay of a
+// recorded ID (handled above) and the same terminal content under
+// another ID record nothing new. Admission refuses these calls
+// first; persistence refuses them anyway so races cannot slip a
+// second proposal past the freeze.
+func freezeTerminalMCPSubmissionTx(ctx context.Context, tx *sql.Tx, submission factory.MCPSubmission) (factory.MCPReceipt, bool, error) {
+	terminal, frozen, err := terminalMCPProposalTx(ctx, tx, submission.AssignmentID)
+	if err != nil {
+		return factory.MCPReceipt{}, true, err
+	}
+	if !frozen {
+		return factory.MCPReceipt{}, false, nil
+	}
+	if terminal.Tool == submission.Tool && terminal.InputDigest == submission.PayloadHash {
+		return terminal, true, tx.Commit()
+	}
+	return factory.MCPReceipt{}, true, ErrMCPSubmissionFrozen
+}
+
+// checkMCPHandoffCapTx binds the handoff cap at insert under the
+// same guard, so a burst of concurrent handoffs cannot overshoot 256
+// before any of them commits.
+func checkMCPHandoffCapTx(ctx context.Context, tx *sql.Tx, submission factory.MCPSubmission) error {
+	if submission.Tool != factory.MCPToolRequestHandoff {
+		return nil
+	}
+	var handoffs int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM factory_mcp_submissions WHERE assignment=$1 AND tool=$2`,
+		submission.AssignmentID, string(factory.MCPToolRequestHandoff)).Scan(&handoffs); err != nil {
+		return err
+	}
+	if handoffs >= factory.MCPMaxHandoffs {
+		return ErrMCPSubmissionHandoffCap
+	}
+	return nil
 }
 
 // MCPReceipt recovers the durable receipt for one submission: the
