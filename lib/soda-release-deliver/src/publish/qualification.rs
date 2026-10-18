@@ -364,3 +364,392 @@ pub(super) fn validate_publication_time(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::{assets, Manifest};
+    use super::*;
+    use crate::model::{Distribution, DockerMetadata, FileIdentity};
+    use soda_acceptance::report::{observation_json, Observation};
+    use std::collections::BTreeMap;
+
+    const KIND_ORDER: [&str; 4] = KINDS;
+    const REVISIONS: (&str, &str) = (
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    );
+
+    struct Staged {
+        _evidence: tempfile::TempDir,
+        _release: tempfile::TempDir,
+        manifest: Manifest,
+    }
+
+    impl Staged {
+        fn evidence(&self) -> &Path {
+            self._evidence.path()
+        }
+        fn release(&self) -> &Path {
+            self._release.path()
+        }
+    }
+
+    fn file_identity(digest: &str, bytes: u64) -> FileIdentity {
+        FileIdentity {
+            sha256: digest.to_string(),
+            bytes,
+        }
+    }
+
+    fn observation(kind_index: usize, files: BTreeMap<String, String>) -> Observation {
+        let mut artifacts = BTreeMap::new();
+        for asset in Staged::download_assets() {
+            artifacts.insert(asset.0, asset.1);
+        }
+        Observation {
+            owner: "P06".to_string(),
+            requested_revision: REVISIONS.0.to_string(),
+            tool_revision: "d".repeat(40),
+            requested_architecture: "x86_64".to_string(),
+            target: "synthetic-qual".to_string(),
+            client_platform: "linux/amd64".to_string(),
+            action: "exec".to_string(),
+            outcome: "completed".to_string(),
+            execution: "completed".to_string(),
+            evidence: "completed".to_string(),
+            cleanup: "synthetic".to_string(),
+            topology: "synthetic".to_string(),
+            exit_code: Some(0),
+            tool_dirty: false,
+            invocation: Some(vec!["/bin/true".to_string()]),
+            files: Some(files),
+            artifacts: Some(artifacts),
+            started: format!("2026-10-04T00:{:02}:00Z", kind_index * 10),
+            finished: format!("2026-10-04T00:{:02}:05Z", kind_index * 10),
+            ..Default::default()
+        }
+    }
+
+    impl Staged {
+        fn download_assets() -> Vec<(String, String)> {
+            let mut out = Vec::new();
+            for name in DOWNLOADS {
+                let digest = crate::hash_bytes(format!("qualification-{name}\n").as_bytes());
+                out.push((name.to_string(), digest[7..].to_string()));
+            }
+            out
+        }
+
+        fn stage() -> Self {
+            let evidence =
+                tempfile::TempDir::new().expect("isolated evidence directory must stage");
+            let release = tempfile::TempDir::new().expect("isolated release directory must stage");
+            let downloads = evidence.path().join("downloads");
+            std::fs::create_dir_all(&downloads).unwrap();
+            let mut manifest_assets = Vec::new();
+            for (name, _) in Self::download_assets() {
+                let bytes = format!("qualification-{name}\n");
+                std::fs::write(downloads.join(&name), &bytes).unwrap();
+                manifest_assets.push(assets::inspect(&downloads.join(&name), &name).unwrap());
+            }
+            let asset = |assets: &[crate::publish::assets::Asset], name: &str| {
+                assets
+                    .iter()
+                    .find(|entry| entry.name == name)
+                    .unwrap()
+                    .clone()
+            };
+            let compose_asset = asset(&manifest_assets, "sodaos-docker-compose.yaml");
+            let installer_asset = asset(&manifest_assets, super::super::installer::NAME);
+            let fedora = "registry.fedoraproject.org/fedora@sha256:".to_string() + &"c".repeat(64);
+            let image = crate::buildx::Image {
+                manifest: format!("sha256:{}", "b".repeat(64)),
+                config: format!("sha256:{}", "c".repeat(64)),
+                architecture: "amd64".to_string(),
+                revision: REVISIONS.0.to_string(),
+                source: "https://github.com/LevitateOS/sodaos".to_string(),
+                base_name: fedora.clone(),
+                base_digest: "c".repeat(64),
+            };
+            let manifest = Manifest {
+                format: 1,
+                tag: "v0.1.0".to_string(),
+                distribution: Distribution::Docker,
+                docker: Some(DockerMetadata {
+                    format: 1,
+                    distribution: Distribution::Docker,
+                    purpose: crate::model::BuildPurpose::Production,
+                    release_tag: "v0.1.0".to_string(),
+                    architecture: "x86_64".to_string(),
+                    platform: "linux/amd64".to_string(),
+                    soda_revision: REVISIONS.0.to_string(),
+                    forgejo_revision: REVISIONS.1.to_string(),
+                    soda_source: file_identity(&"d".repeat(64), 7),
+                    forgejo_source: file_identity(&"d".repeat(64), 7),
+                    candidate_sha256: "e".repeat(64),
+                    payload_sha256: "f".repeat(64),
+                    host_manifest: format!("sha256:{}", "b".repeat(64)),
+                    host_archive_sha256: "a".repeat(64),
+                    fedora_base: fedora,
+                    recipe: file_identity(&"d".repeat(64), 7),
+                    image,
+                    image_archive: file_identity(&"d".repeat(64), 7),
+                    packages: file_identity(&"d".repeat(64), 7),
+                    compose: file_identity(&compose_asset.sha256, compose_asset.bytes),
+                }),
+                soda_revision: REVISIONS.0.to_string(),
+                forgejo_revision: REVISIONS.1.to_string(),
+                iso: assets::ISO_NAME.to_string(),
+                rootfs: "synthetic-rootfs.img".to_string(),
+                notes: "development proof fixture, never production evidence".to_string(),
+                assets: manifest_assets,
+            };
+            let (_, payload, _) = crate::model::Candidate::fixture_pair();
+            let configs = soda_build_tools::payload::Role::iter()
+                .map(|role| {
+                    (
+                        role.name().to_string(),
+                        role.binding(&payload.images).config.clone(),
+                    )
+                })
+                .collect::<BTreeMap<_, _>>();
+            let installer_log = b"synthetic installer execution log\n";
+            let provider_log = b"synthetic provider execution log\n";
+            let probe_log = b"synthetic probe log\n";
+            let log_hash = |bytes: &[u8]| crate::hash_bytes(bytes)[7..].to_string();
+            let native = NativeDocker {
+                target: "synthetic-qual".to_string(),
+                tag: manifest.tag.clone(),
+                registry_manifest: manifest.docker.as_ref().unwrap().image.manifest.clone(),
+                registry_config: manifest.docker.as_ref().unwrap().image.config.clone(),
+                compose_sha256: compose_asset.sha256.clone(),
+                installer_sha256: installer_asset.sha256.clone(),
+                installer_execution_sha256: log_hash(installer_log),
+                candidate_sha256: manifest.docker.as_ref().unwrap().candidate_sha256.clone(),
+                payload_sha256: manifest.docker.as_ref().unwrap().payload_sha256.clone(),
+                soda_revision: REVISIONS.0.to_string(),
+                forgejo_revision: REVISIONS.1.to_string(),
+                application_configs: configs,
+                os: "linux".to_string(),
+                architecture: "x86_64".to_string(),
+                rootful: true,
+                cgroup_version: 2,
+                host_network: true,
+                fresh_volumes: true,
+                outer_id: "2".repeat(64),
+            };
+            let factory = NativeFactory {
+                provider_execution_sha256: log_hash(provider_log),
+                repository_id: 7,
+                issue_id: 8,
+                pull_request_id: 9,
+                coder_actor: 10,
+                reviewer_actor: 11,
+                reviewed_head: "c".repeat(40),
+                merged_candidate_head: "c".repeat(40),
+                required_checks: BTreeMap::from([("smoke".to_string(), "success".to_string())]),
+                elapsed_ms: 1000,
+                funding_limit_ms: 60000,
+            };
+            let persistence = NativePersistence {
+                target: native.target.clone(),
+                registry_manifest: native.registry_manifest.clone(),
+                registry_config: native.registry_config.clone(),
+                outer_before: native.outer_id.clone(),
+                outer_after: "4".repeat(64),
+                project_before: "5".repeat(64),
+                project_after: "5".repeat(64),
+                protected_before_sha256: "6".repeat(64),
+                protected_after_sha256: "6".repeat(64),
+            };
+            let native_bytes = serde_json::to_vec(&native).unwrap();
+            let factory_bytes = serde_json::to_vec(&factory).unwrap();
+            let persistence_bytes = serde_json::to_vec(&persistence).unwrap();
+            let hash_of = |bytes: &[u8]| crate::hash_bytes(bytes)[7..].to_string();
+            for kind in KIND_ORDER {
+                std::fs::create_dir_all(evidence.path().join(kind)).unwrap();
+            }
+            std::fs::write(
+                evidence.path().join("installation/native.json"),
+                &native_bytes,
+            )
+            .unwrap();
+            std::fs::write(evidence.path().join("factory/native.json"), &factory_bytes).unwrap();
+            std::fs::write(
+                evidence.path().join("persistence/native.json"),
+                &persistence_bytes,
+            )
+            .unwrap();
+            for (index, kind) in KIND_ORDER.iter().enumerate() {
+                let mut files = BTreeMap::new();
+                if *kind == "installation" {
+                    files.insert("native.json".to_string(), hash_of(&native_bytes));
+                } else if *kind == "factory" {
+                    files.insert("native.json".to_string(), hash_of(&factory_bytes));
+                } else if *kind == "persistence" {
+                    files.insert("native.json".to_string(), hash_of(&persistence_bytes));
+                } else {
+                    std::fs::write(evidence.path().join(kind).join("probe.log"), probe_log)
+                        .unwrap();
+                    files.insert("probe.log".to_string(), log_hash(probe_log));
+                }
+                if *kind == "factory" {
+                    std::fs::write(
+                        evidence.path().join(kind).join("provider.log"),
+                        provider_log,
+                    )
+                    .unwrap();
+                    files.insert(
+                        "provider.log".to_string(),
+                        factory.provider_execution_sha256.clone(),
+                    );
+                }
+                if *kind == "installation" {
+                    std::fs::write(
+                        evidence.path().join(kind).join("installer.log"),
+                        installer_log,
+                    )
+                    .unwrap();
+                    files.insert(
+                        "installer.log".to_string(),
+                        native.installer_execution_sha256.clone(),
+                    );
+                }
+                let completed = observation(index, files);
+                let record = observation_json(&completed);
+                std::fs::create_dir_all(evidence.path().join(kind)).unwrap();
+                std::fs::write(
+                    evidence.path().join(kind).join("observation.json"),
+                    serde_json::to_string(&record).unwrap(),
+                )
+                .unwrap();
+            }
+            let (payload_bytes, _, _) = crate::model::Candidate::fixture_pair();
+            std::fs::write(release.path().join("payload.json"), &payload_bytes).unwrap();
+            Self {
+                _evidence: evidence,
+                _release: release,
+                manifest,
+            }
+        }
+    }
+
+    /// rewrite_observation mutates one staged observation file as the
+    /// corresponding failed, cancelled, incomplete, mismatched or forged
+    /// record would appear on disk: same JSON shape, altered content.
+    fn rewrite_observation(
+        staged: &Staged,
+        kind: &str,
+        mutate: impl FnOnce(&mut serde_json::Value),
+    ) {
+        let path = staged.evidence().join(kind).join("observation.json");
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        mutate(&mut value);
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+    }
+
+    /// R50 development proof: completed native evidence across all four
+    /// observation kinds reaches finalization — stamp persists the
+    /// receipt, verify re-collects it from the retained directory, and
+    /// re-stamping is idempotent. Isolated temp directories only; no
+    /// signing, publication or production bytes.
+    #[test]
+    fn valid_evidence_stamps_finalization_and_reverifies() {
+        let staged = Staged::stage();
+        let receipt = super::stamp(&staged.manifest, staged.release(), staged.evidence())
+            .expect("completed evidence must finalize");
+        assert!(staged.release().join("docker-qualification.json").is_file());
+        let reverified = super::verify(&staged.manifest, staged.release())
+            .expect("retained evidence must re-verify");
+        assert_eq!(reverified, receipt);
+        let restamped = super::stamp(&staged.manifest, staged.release(), staged.evidence())
+            .expect("identical re-collection must re-stamp");
+        assert_eq!(restamped, receipt);
+    }
+
+    /// R50 failed/cancelled observations cannot finalize, even when every
+    /// other binding matches.
+    #[test]
+    fn failed_and_cancelled_observations_cannot_finalize() {
+        let staged = Staged::stage();
+        rewrite_observation(&staged, "factory", |value| {
+            value["Outcome"] = serde_json::Value::String("failed".to_string());
+            value["Execution"] = serde_json::Value::String("failed".to_string());
+        });
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+
+        let staged = Staged::stage();
+        rewrite_observation(&staged, "installation", |value| {
+            value["Outcome"] = serde_json::Value::String("cancelled".to_string());
+        });
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+    }
+
+    /// R50 incomplete observations cannot finalize: a missing record and
+    /// an empty retained-files map both refuse.
+    #[test]
+    fn incomplete_observations_cannot_finalize() {
+        let staged = Staged::stage();
+        std::fs::remove_file(staged.evidence().join("browser_project/observation.json")).unwrap();
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+
+        let staged = Staged::stage();
+        rewrite_observation(&staged, "persistence", |value| {
+            value["Files"] = serde_json::Value::Object(serde_json::Map::new());
+        });
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+    }
+
+    /// R50 mismatched observations cannot finalize: a foreign requested
+    /// revision and a download whose bytes no longer match the manifest
+    /// both refuse.
+    #[test]
+    fn mismatched_observations_cannot_finalize() {
+        let staged = Staged::stage();
+        rewrite_observation(&staged, "factory", |value| {
+            value["RequestedRevision"] = serde_json::Value::String("0".repeat(40));
+        });
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+
+        let staged = Staged::stage();
+        std::fs::write(
+            staged.evidence().join("downloads/docker.json"),
+            b"tampered download bytes\n",
+        )
+        .unwrap();
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+    }
+
+    /// R50 forged native evidence cannot finalize: native bytes that no
+    /// longer match the observation's retained file hash refuse.
+    #[test]
+    fn forged_native_evidence_cannot_finalize() {
+        let staged = Staged::stage();
+        let path = staged.evidence().join("factory/native.json");
+        let mut bytes = std::fs::read(&path).unwrap();
+        bytes.extend_from_slice(b"forged");
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+    }
+
+    /// R50 preservation and recovery: evidence tampered after stamping no
+    /// longer verifies against the retained receipt, and a fresh stamp
+    /// after receipt removal re-collects (refusing the tampered
+    /// evidence) rather than restoring the old receipt.
+    #[test]
+    fn tampered_evidence_breaks_preservation_and_restamp_refuses() {
+        let staged = Staged::stage();
+        super::stamp(&staged.manifest, staged.release(), staged.evidence())
+            .expect("completed evidence must finalize");
+        let path = staged.evidence().join("installation/native.json");
+        let mut bytes = std::fs::read(&path).unwrap();
+        bytes.extend_from_slice(b"tampered");
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(super::verify(&staged.manifest, staged.release()).is_err());
+        std::fs::remove_file(staged.release().join("docker-qualification.json")).unwrap();
+        // Recovery re-collects the tampered evidence, so it must refuse
+        // rather than restore the old receipt.
+        assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
+    }
+}
