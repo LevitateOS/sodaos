@@ -708,6 +708,239 @@ fn qualification_verifies_the_public_installer_asset_with_github() {
     assert!(output.join("docker-qualification.json").exists());
 }
 
+/// R50 serving-path proof: the real qualify_docker gate admits only the
+/// exact immutable published release. Every refusal — unbound tag, failed
+/// CI, draft/mutable/early remote state, a foreign registry image, a failed
+/// asset verification, a missing download, incomplete observations — leaves
+/// no receipt behind.
+#[test]
+fn docker_serving_path_admits_only_the_published_release() {
+    let fixture = Fixture::new(BuildPurpose::Production);
+    let (output, manifest, metadata) = prepared(&fixture);
+    let proof = evidence(&fixture, &output, &manifest, &metadata);
+    let tag_reply = |release_tag: &str, sha: &str| {
+        Ok(serde_json::to_vec(
+            &json!({"ref":format!("refs/tags/{release_tag}"),"object":{"type":"commit","sha":sha}}),
+        )
+        .unwrap())
+    };
+    let runs_reply = |head_sha: &str, conclusion: &str| {
+        Ok(
+            serde_json::to_vec(&json!({"workflow_runs":[{"id":23,"head_sha":head_sha,"head_branch":"main","event":"push","path":".github/workflows/ci.yml","status":"completed","conclusion":conclusion}]}))
+                .unwrap(),
+        )
+    };
+    let remote_reply = |mutate: &dyn Fn(&mut serde_json::Value)| {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&remote(&manifest, &output, true)?).unwrap();
+        mutate(&mut value);
+        Ok(serde_json::to_vec(&value).unwrap())
+    };
+    let base_gh = || -> Vec<Result<Vec<u8>, Error>> {
+        let mut replies = vec![
+            tag_reply(&metadata.release_tag, &metadata.soda_revision),
+            Ok(serde_json::to_vec(&json!({"revision": metadata.forgejo_revision})).unwrap()),
+            runs_reply(&metadata.soda_revision, "success"),
+            Ok(b"{\"databaseId\":17}".to_vec()),
+            remote(&manifest, &output, true),
+            Ok(vec![]),
+        ];
+        replies.extend((0..5).map(|_| Ok(vec![])));
+        replies
+    };
+    let no_receipt = || {
+        assert!(
+            !output.join("docker-qualification.json").exists(),
+            "a refused serving path must never write a receipt"
+        );
+    };
+
+    // Wrong tag: the remote tag does not identify the built Soda revision.
+    let mut replies = base_gh();
+    replies[0] = tag_reply(&metadata.release_tag, &"0".repeat(40));
+    let gh = Commands::new(replies, "");
+    let registry = Commands::new(readback(&fixture, &metadata), "");
+    assert!(crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof).is_err());
+    no_receipt();
+
+    // Wrong CI: the latest main push run for the built revision failed.
+    let mut replies = base_gh();
+    replies[2] = runs_reply(&metadata.soda_revision, "failure");
+    let gh = Commands::new(replies, "");
+    let registry = Commands::new(readback(&fixture, &metadata), "");
+    assert!(crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof).is_err());
+    no_receipt();
+
+    // Mutable remote state is not qualification: drafts, non-prereleases and
+    // mutable releases all refuse before any evidence is touched.
+    for mutate in [
+        (&|value: &mut serde_json::Value| {
+            value["draft"] = serde_json::json!(true);
+            value["immutable"] = serde_json::json!(false);
+        }) as &dyn Fn(&mut serde_json::Value),
+        &|value: &mut serde_json::Value| {
+            value["prerelease"] = serde_json::json!(false);
+        },
+    ] {
+        let mut replies = base_gh();
+        replies[4] = remote_reply(mutate);
+        let gh = Commands::new(replies, "");
+        let registry = Commands::new(readback(&fixture, &metadata), "");
+        assert!(
+            crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof).is_err()
+        );
+        no_receipt();
+    }
+
+    // Publication-time ordering: observations from before the immutable
+    // publication cannot qualify.
+    let mut replies = base_gh();
+    replies[4] = remote_reply(&|value: &mut serde_json::Value| {
+        value["published_at"] = serde_json::json!("2026-10-15T00:00:00Z");
+    });
+    let gh = Commands::new(replies, "");
+    let registry = Commands::new(readback(&fixture, &metadata), "");
+    assert!(crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof).is_err());
+    no_receipt();
+
+    // Foreign registry bytes: the public image manifest differs from the
+    // admitted image, and a mismatched observed digest refuses as well.
+    let gh = Commands::new(base_gh(), "");
+    let registry = Commands::new(vec![Ok(b"foreign image bytes".to_vec())], "");
+    assert!(crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof).is_err());
+    no_receipt();
+    let gh = Commands::new(base_gh(), "");
+    let mut observed = readback(&fixture, &metadata);
+    let first = observed.remove(0);
+    observed.remove(0); // Discard the honest observation; serve the wrong digest.
+    observed.push(Ok(
+        serde_json::to_vec(&json!({"Digest":format!("sha256:{}", "f".repeat(64)),"Architecture":"amd64","Os":"linux","Labels":fixture.runtime_labels}))
+            .unwrap(),
+    ));
+    let registry = Commands::new(vec![first, observed.remove(0)], "");
+    assert!(crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof).is_err());
+    no_receipt();
+
+    // A failed asset verification refuses after the downloads are checked.
+    let mut replies = base_gh();
+    replies[8] = Err(Error::msg("asset verification failed"));
+    let gh = Commands::new(replies, "");
+    let registry = Commands::new(readback(&fixture, &metadata), "");
+    assert!(crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof).is_err());
+    no_receipt();
+
+    // A missing download refuses: the staged bytes cannot be confirmed.
+    let missing = Fixture::new(BuildPurpose::Production);
+    let (missing_output, missing_manifest, missing_metadata) = prepared(&missing);
+    let missing_evidence = evidence(
+        &missing,
+        &missing_output,
+        &missing_manifest,
+        &missing_metadata,
+    );
+    std::fs::remove_file(missing_evidence.join("downloads/install-docker.sh")).unwrap();
+    let gh = Commands::new(
+        vec![
+            tag_reply(
+                &missing_metadata.release_tag,
+                &missing_metadata.soda_revision,
+            ),
+            Ok(
+                serde_json::to_vec(&json!({"revision": missing_metadata.forgejo_revision}))
+                    .unwrap(),
+            ),
+            runs_reply(&missing_metadata.soda_revision, "success"),
+            Ok(b"{\"databaseId\":17}".to_vec()),
+            remote(&missing_manifest, &missing_output, true),
+            Ok(vec![]),
+        ]
+        .into_iter()
+        .chain((0..5).map(|_| Ok(vec![])))
+        .collect(),
+        "",
+    );
+    let registry = Commands::new(readback(&missing, &missing_metadata), "");
+    assert!(crate::publish::qualify_docker(
+        &gh,
+        &registry,
+        &missing_manifest,
+        &missing_output,
+        &missing_evidence
+    )
+    .is_err());
+    assert!(!missing_output.join("docker-qualification.json").exists());
+
+    // Incomplete observations refuse: a missing factory kind cannot finalize.
+    let partial = Fixture::new(BuildPurpose::Production);
+    let (partial_output, partial_manifest, partial_metadata) = prepared(&partial);
+    let partial_evidence = evidence(
+        &partial,
+        &partial_output,
+        &partial_manifest,
+        &partial_metadata,
+    );
+    std::fs::remove_dir_all(partial_evidence.join("factory")).unwrap();
+    let gh = Commands::new(
+        vec![
+            tag_reply(
+                &partial_metadata.release_tag,
+                &partial_metadata.soda_revision,
+            ),
+            Ok(
+                serde_json::to_vec(&json!({"revision": partial_metadata.forgejo_revision}))
+                    .unwrap(),
+            ),
+            runs_reply(&partial_metadata.soda_revision, "success"),
+            Ok(b"{\"databaseId\":17}".to_vec()),
+            remote(&partial_manifest, &partial_output, true),
+            Ok(vec![]),
+        ]
+        .into_iter()
+        .chain((0..5).map(|_| Ok(vec![])))
+        .collect(),
+        "",
+    );
+    let registry = Commands::new(readback(&partial, &partial_metadata), "");
+    assert!(crate::publish::qualify_docker(
+        &gh,
+        &registry,
+        &partial_manifest,
+        &partial_output,
+        &partial_evidence
+    )
+    .is_err());
+    assert!(!partial_output.join("docker-qualification.json").exists());
+
+    // The exact immutable published release qualifies, and a repeat run
+    // re-verifies the retained receipt instead of re-stamping.
+    for _ in 0..2 {
+        let gh = Commands::new(base_gh(), "");
+        let registry = Commands::new(readback(&fixture, &metadata), "");
+        crate::publish::qualify_docker(&gh, &registry, &manifest, &output, &proof)
+            .expect("the published release must qualify");
+        assert!(gh.replies.borrow().is_empty());
+    }
+    let receipt: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(output.join("docker-qualification.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        receipt["qualification"]["native"]["tag"],
+        serde_json::json!(manifest.tag)
+    );
+    assert_eq!(
+        receipt["qualification"]["native"]["soda_revision"],
+        serde_json::json!(metadata.soda_revision)
+    );
+    assert_eq!(
+        receipt["qualification"]["native"]["registry_manifest"],
+        serde_json::json!(metadata.image.manifest)
+    );
+    assert_eq!(
+        receipt["qualification"]["factory"]["provider_execution_sha256"],
+        serde_json::json!(identity(b"native observation").sha256)
+    );
+}
+
 #[test]
 fn qualification_requires_the_downloaded_installer_in_each_observation() {
     for case in ["download", "artifact", "identity", "transcript"] {

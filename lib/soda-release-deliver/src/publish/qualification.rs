@@ -721,10 +721,10 @@ mod tests {
         assert!(super::stamp(&staged.manifest, staged.release(), staged.evidence()).is_err());
     }
 
-    /// R50 forged native evidence cannot finalize: native bytes that no
-    /// longer match the observation's retained file hash refuse.
+    /// R50 tampered native bytes cannot finalize: retained native bytes
+    /// that no longer match the observation's recorded file hash refuse.
     #[test]
-    fn forged_native_evidence_cannot_finalize() {
+    fn tampered_native_bytes_cannot_finalize() {
         let staged = Staged::stage();
         let path = staged.evidence().join("factory/native.json");
         let mut bytes = std::fs::read(&path).unwrap();
