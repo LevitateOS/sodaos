@@ -590,6 +590,16 @@ func launchTail(ctx context.Context, deps DispatchDeps, a factory.Assignment, ru
 		// metadata only, never activation): best-effort staged
 		// record for the settled run. Refusal never fails the launch.
 		_ = ProduceMCPCapabilityForLaunch(ctx, deps.Store, a, run)
+		// R31 preparation-time bundle selection: one funded Choice
+		// per capability before the first read. Best-effort like
+		// staging — refusal or an unavailable consultation never
+		// fails the launch; reads fall back to the widest eligible
+		// bundle.
+		if deps.Priority != nil && deps.Priority.Journal != nil && deps.Priority.Chooser != nil {
+			if chooser, ok := deps.Priority.Chooser.(ProductJudgment); ok {
+				_, _, _ = PrepareContextBundleSelection(ctx, deps.Store, deps.Priority.Journal, chooser, a, run)
+			}
+		}
 		report.Launched = append(report.Launched, DispatchLaunch{
 			Repository: a.Repository, Issue: a.Issue,
 			AssignmentID: a.ID, RunID: run.ID, Phase: state.Phase,
