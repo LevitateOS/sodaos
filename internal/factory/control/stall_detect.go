@@ -386,7 +386,7 @@ func (c *Coordinator) DetectRepairStalls(ctx context.Context, deps StallDetectDe
 	if deps.Store == nil {
 		return StallClassification{}, errStallStoreMissing
 	}
-	controls, err := deps.Store.AllIssueControls(ctx, 4096)
+	controls, complete, err := deps.Store.AllIssueControls(ctx, 4096)
 	if err != nil {
 		return StallClassification{}, err
 	}
@@ -395,7 +395,7 @@ func (c *Coordinator) DetectRepairStalls(ctx context.Context, deps StallDetectDe
 		waits[stallIssueKey(wait.Repository, wait.Issue)] = wait.Reason
 	}
 	in := StallInventory{
-		Generation: deps.Generation, Complete: true,
+		Generation: deps.Generation, Complete: complete,
 		SourceCommit: deps.SourceCommit, PreparationDigest: deps.PreparationDigest,
 		Cycles: map[string]string{}, Producers: map[string]bool{},
 		PriorEvents: map[string]string{},
@@ -407,10 +407,18 @@ func (c *Coordinator) DetectRepairStalls(ctx context.Context, deps StallDetectDe
 		fingerprint.Write([]byte(key + "\x00" + control.Fingerprint + "\x00"))
 		seenRepo[control.Repository] = true
 		if _, ok := in.Cycles[key]; !ok {
-			if cycle, _, err := c.findPrereqCycle(ctx, control.Repository, control.Issue); err == nil && cycle != "" {
-				in.Cycles[key] = cycle
-			} else if err != nil {
+			cycle, exceeded, err := c.findPrereqCycle(ctx, control.Repository, control.Issue)
+			if err != nil {
 				return StallClassification{}, err
+			}
+			if exceeded {
+				// The bounded walk did not finish: the cycle map is
+				// incomplete, so the whole inventory fails closed to
+				// incomplete rather than proving deadlock from a
+				// partial walk.
+				in.Complete = false
+			} else if cycle != "" {
+				in.Cycles[key] = cycle
 			}
 		}
 		in.Producers[key] = true
@@ -437,7 +445,11 @@ func (c *Coordinator) DetectRepairStalls(ctx context.Context, deps StallDetectDe
 		}
 		for _, blocker := range control.Blockers {
 			if blocker.Code == factory.BlockerCodePending || blocker.Code == factory.BlockerResultPending {
-				in.Producers[key] = producerViable(control, blocker)
+				tracked, err := c.endpointProducerTracked(ctx, blocker)
+				if err != nil {
+					return StallClassification{}, err
+				}
+				in.Producers[key] = tracked
 			}
 		}
 		in.Issues = append(in.Issues, issue)
@@ -445,17 +457,21 @@ func (c *Coordinator) DetectRepairStalls(ctx context.Context, deps StallDetectDe
 	return ClassifyStallInventory(in), nil
 }
 
-// producerViable reports whether a pending prerequisite names a real
-// endpoint that assessment still tracks. An endpoint without a
-// recorded head or with hidden evidence has no viable producer.
-func producerViable(control factory.IssueControl, prereq factory.Blocker) bool {
+// endpointProducerTracked reports whether the pending prerequisite's
+// specific endpoint still has a recorded head acceptance. Any nonempty
+// head on an unrelated occurrence must not stand in for the endpoint
+// this blocker actually waits on: only the endpoint's own recorded
+// head proves a viable producer.
+func (c *Coordinator) endpointProducerTracked(ctx context.Context, prereq factory.Blocker) (bool, error) {
 	if prereq.EndpointRepo <= 0 || prereq.EndpointIssue <= 0 {
-		return false
+		return false, nil
 	}
-	for occurrence, head := range control.EndpointHeads {
-		if occurrence != "" && head != "" {
-			return true
+	_, err := c.Store.AcceptanceHead(ctx, prereq.EndpointRepo, prereq.EndpointIssue)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return false, nil
 		}
+		return false, err
 	}
-	return false
+	return true, nil
 }

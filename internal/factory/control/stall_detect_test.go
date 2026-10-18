@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -356,4 +357,127 @@ func TestStallDiscoveryPG(t *testing.T) {
 	if resumed.Kind != StallRepositoryReady || resumed.Event != nil {
 		t.Fatalf("resumed=%+v, want ready selection without an episode", resumed)
 	}
+}
+
+// TestExceededCycleWalkFailsClosedToIncomplete proves the bounded
+// dependency walk cannot establish a cycle it did not finish: a
+// two-level fan-out past the 1024-node budget marks the inventory
+// incomplete, and classification binds no episode from it.
+func TestExceededCycleWalkFailsClosedToIncomplete(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	coord := &Coordinator{Store: db}
+	const repo = 41
+	decisionID := func(tag string) string {
+		sum := sha256.Sum256([]byte("stall-fanout\x00" + tag))
+		return "d" + hex.EncodeToString(sum[:])[:24]
+	}
+	// Root fans to 50 mids; each mid fans to 50 leaves. The walk
+	// visits past the node budget during the mids' expansion while
+	// leaf decisions are never recorded.
+	prereqs := func(first, count int, leafBase int64) []factory.AcceptedPrerequisite {
+		out := make([]factory.AcceptedPrerequisite, 0, count)
+		for i := 0; i < count; i++ {
+			out = append(out, factory.AcceptedPrerequisite{
+				Occurrence:   strconv.FormatInt(int64(first+i), 10),
+				DependsOn:    strconv.FormatInt(int64(first+i), 10),
+				EndpointRepo: repo, EndpointIssue: leafBase + int64(i),
+				Outcome: factory.PrereqResult,
+			})
+		}
+		return out
+	}
+	admit := func(issue int64, id string, prereq []factory.AcceptedPrerequisite) {
+		t.Helper()
+		decision := factory.Acceptance{
+			ID: id, Repository: repo, IssueIndex: strconv.FormatInt(issue, 10),
+			Approver: 7, NativeRev: 41,
+			TitleDigest: stallDigest("title"), ContentDigest: stallDigest("body"),
+			TitleOccurrence: "1", Prerequisites: prereq,
+		}
+		if err := db.AdmitAcceptanceDecision(ctx, decision); err != nil {
+			t.Fatalf("admit decision %d: %v", issue, err)
+		}
+	}
+	admit(1, decisionID("root"), prereqs(1, 50, 2))
+	for mid := int64(0); mid < 50; mid++ {
+		admit(2+mid, decisionID("mid-"+strconv.FormatInt(mid, 10)), prereqs(1000, 50, 10000+mid*50))
+	}
+	if _, exceeded, err := coord.findPrereqCycle(ctx, repo, 1); err != nil || !exceeded {
+		t.Fatalf("fan-out walk: exceeded=%v err=%v, want the failed-closed bound", exceeded, err)
+	}
+	stallSeedControl(t, db, repo, 1, factory.ReadinessBlocked,
+		factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
+	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 3})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(classified.Repositories) != 0 {
+		t.Fatalf("repositories=%+v, want no episode from an incomplete walk", classified.Repositories)
+	}
+}
+
+// TestPendingPrereqNeedsItsOwnEndpointHead proves exact endpoint
+// identity: a pending prerequisite whose own endpoint has no recorded
+// head claims missing-producer stall even when an unrelated
+// occurrence carries a head; a recorded endpoint head waits quietly.
+func TestPendingPrereqNeedsItsOwnEndpointHead(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	coord := &Coordinator{Store: db}
+	const repo = 42
+	headless := stallControl(repo, 1, factory.ReadinessBlocked, factory.BlockerCodePending,
+		stallBlocker(factory.BlockerCodePending, repo, 99))
+	headless.EndpointHeads = map[string]string{"7": decisionForTest("unrelated")}
+	if _, _, err := db.RecordIssueAssessment(ctx, headless, time.Now()); err != nil {
+		t.Fatalf("seed headless control: %v", err)
+	}
+	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 3})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(classified.Repositories) != 1 {
+		t.Fatalf("repositories=%+v, want the seeded repository", classified.Repositories)
+	}
+	result := classified.Repositories[0]
+	if result.Kind != StallRepositoryStall || !result.Investigate || result.Event == nil {
+		t.Fatalf("repo=%+v, want missing-producer stall, not an unrelated-head wait", result)
+	}
+	if result.Event.Reason != factory.StallReasonMissingProducer {
+		t.Fatalf("reason=%q, want the missing-producer episode", result.Event.Reason)
+	}
+
+	tracked := stallControl(repo, 2, factory.ReadinessBlocked, factory.BlockerCodePending,
+		stallBlocker(factory.BlockerCodePending, repo, 98))
+	if _, _, err := db.RecordIssueAssessment(ctx, tracked, time.Now()); err != nil {
+		t.Fatalf("seed tracked control: %v", err)
+	}
+	endpoint := factory.Acceptance{
+		ID: decisionForTest("endpoint"), Repository: repo, IssueIndex: "98",
+		Approver: 7, NativeRev: 41,
+		TitleDigest: stallDigest("title"), ContentDigest: stallDigest("body"),
+		TitleOccurrence: "1",
+	}
+	if err := db.AdmitAcceptanceDecision(ctx, endpoint); err != nil {
+		t.Fatalf("admit endpoint decision: %v", err)
+	}
+	again, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 3})
+	if err != nil {
+		t.Fatalf("redetect: %v", err)
+	}
+	byIssue := map[int64]StallComponentDecision{}
+	for _, decision := range again.Repositories[0].Decisions {
+		byIssue[decision.Issue] = decision
+	}
+	if got := byIssue[2]; got.Investigate || got.Kind != StallComponentWait {
+		t.Fatalf("tracked endpoint=%+v, want a quiet endpoint-delivery wait", got)
+	}
+	if got := byIssue[1]; !got.Investigate {
+		t.Fatalf("headless endpoint=%+v, want the stall to persist", got)
+	}
+}
+
+func decisionForTest(tag string) string {
+	sum := sha256.Sum256([]byte("stall-decision\x00" + tag))
+	return "d" + hex.EncodeToString(sum[:])[:24]
 }

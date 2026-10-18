@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,7 +41,11 @@ func TestAdmitStallEpisodeRunAdmitsOneBoundCharge(t *testing.T) {
 
 	stallSeedControl(t, db, repo, 1, factory.ReadinessBlocked,
 		factory.BlockerCycle, stallBlocker(factory.BlockerCycle, 0, 0))
-	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: 7})
+	watermark, err := db.CompletionWatermark(ctx, repo)
+	if err != nil || watermark != 0 {
+		t.Fatalf("fresh watermark=%d err=%v, want zero verified deliveries", watermark, err)
+	}
+	classified, err := coord.DetectRepairStalls(ctx, StallDetectDeps{Store: db, Generation: watermark})
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
@@ -94,5 +99,25 @@ func TestAdmitStallEpisodeRunRefusesWithoutStall(t *testing.T) {
 	}
 	if _, err := AdmitStallEpisodeRun(ctx, db, broken, 30, now); err == nil {
 		t.Fatal("invalid bound episode admitted without an error")
+	}
+}
+
+// TestAdmitStallEpisodeRunRefusesFutureGeneration pins generation
+// matching: an episode bound ahead of the verified-delivery watermark
+// cannot spend, even with a fully valid event shape.
+func TestAdmitStallEpisodeRunRefusesFutureGeneration(t *testing.T) {
+	ctx := context.Background()
+	db, _ := postgresFixture(t, nil)
+	ahead := StallRepositoryResult{
+		Repository: 21, Kind: StallRepositoryStall, Investigate: true,
+		Event: &factory.StallEvent{
+			ID: factory.NewID(), EpisodeID: factory.NewID(),
+			Repository: 21, ProgressGeneration: 5,
+			InputFingerprint: strings.Repeat("3", 64), InventoryDigest: strings.Repeat("4", 64),
+			Reason: factory.StallReasonCycle, State: factory.StallObserved,
+		},
+	}
+	if spent, err := AdmitStallEpisodeRun(ctx, db, ahead, 30, time.Now().UTC()); err == nil || spent {
+		t.Fatalf("future episode: spent=%v err=%v, want a redetect refusal", spent, err)
 	}
 }

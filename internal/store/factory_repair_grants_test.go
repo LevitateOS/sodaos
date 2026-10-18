@@ -370,3 +370,65 @@ func TestIntentExecutionAggregatePG(t *testing.T) {
 		t.Fatal("shrinking aggregate bound admitted")
 	}
 }
+
+// TestAllIssueControlsOverflowFailsClosed proves the inventory bound:
+// a set past the limit returns no controls and reports incomplete, so
+// no caller can prove deadlock from a truncated set. Bounded cost is
+// preserved by the limit+1 probe row.
+func TestAllIssueControlsOverflowFailsClosed(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	now := time.Now().UTC()
+	for issue := int64(1); issue <= 3; issue++ {
+		control := factory.IssueControl{
+			Repository: 31, Issue: issue,
+			Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
+			Fingerprint: repairTestDigest(byte('0' + issue)), Authority: repairTestDigest(byte('a' + issue)),
+		}
+		if _, _, err := db.RecordIssueAssessment(ctx, control, now); err != nil {
+			t.Fatalf("seed control %d: %v", issue, err)
+		}
+	}
+	if _, _, err := db.AllIssueControls(ctx, 0); err == nil {
+		t.Fatal("zero inventory bound admitted")
+	}
+	controls, complete, err := db.AllIssueControls(ctx, 2)
+	if err != nil || complete || controls != nil {
+		t.Fatalf("overflow: complete=%v controls=%d err=%v, want incomplete with no set", complete, len(controls), err)
+	}
+	controls, complete, err = db.AllIssueControls(ctx, 3)
+	if err != nil || !complete || len(controls) != 3 {
+		t.Fatalf("exact bound: complete=%v controls=%d err=%v", complete, len(controls), err)
+	}
+}
+
+// TestCompletionWatermarkStartsZeroAndAdvances proves the verified-
+// delivery generation source behind stall episode binding: empty when
+// nothing completed, advancing only through recorded completions.
+func TestCompletionWatermarkStartsZeroAndAdvances(t *testing.T) {
+	ctx := context.Background()
+	db := dispatchStoreFixture(t)
+	if mark, err := db.CompletionWatermark(ctx, 31); err != nil || mark != 0 {
+		t.Fatalf("fresh watermark=%d err=%v, want zero", mark, err)
+	}
+	event := factory.CompletionEvent{
+		ID: factory.NewID(), PublicationID: factory.NewID(),
+		Repository: 31, Issue: 1, Generation: 1,
+		AcceptanceID: "d" + strings.Repeat("e", 24),
+		MergedCommit: strings.Repeat("f", 40), ClosingOccurrence: "native closed the issue",
+	}
+	eventData, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO factory_completions(repository,generation,event,publication,occurrence,data)
+		VALUES($1,$2,$3,$4,$5,$6)`, event.Repository, event.Generation, event.ID, event.PublicationID, event.ClosingOccurrence, string(eventData)); err != nil {
+		t.Fatalf("seed completion: %v", err)
+	}
+	if mark, err := db.CompletionWatermark(ctx, 31); err != nil || mark != 1 {
+		t.Fatalf("watermark=%d err=%v, want the verified delivery", mark, err)
+	}
+	if mark, err := db.CompletionWatermark(ctx, 32); err != nil || mark != 0 {
+		t.Fatalf("other repository watermark=%d err=%v, want zero", mark, err)
+	}
+}

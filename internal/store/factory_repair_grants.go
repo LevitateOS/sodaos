@@ -484,13 +484,19 @@ func (s *Store) IntentExecutionLimit(ctx context.Context, intent string) (factor
 // the dispatch queue listing, blocked and unauthorized controls are
 // included: a stall classifier must see the whole sealed set, never a
 // runnable subset.
-func (s *Store) AllIssueControls(ctx context.Context, limit int) ([]factory.IssueControl, error) {
+// AllIssueControls returns every recorded issue control up to limit and
+// reports whether the inventory is complete. A set past the bound fails
+// closed to incomplete: the extra probe row is discarded and no
+// truncated set is returned, so callers can never prove deadlock from
+// a partial inventory. Bounded cost is preserved: at most limit+1 rows
+// are read.
+func (s *Store) AllIssueControls(ctx context.Context, limit int) ([]factory.IssueControl, bool, error) {
 	if limit < 1 || limit > 4096 {
-		return nil, errors.New("invalid stall inventory bound")
+		return nil, false, errors.New("invalid stall inventory bound")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM issue_controls ORDER BY repository ASC, issue ASC LIMIT $1`, limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM issue_controls ORDER BY repository ASC, issue ASC LIMIT $1`, limit+1)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer func() { _ = rows.Close() }()
 	var out []factory.IssueControl
@@ -498,17 +504,21 @@ func (s *Store) AllIssueControls(ctx context.Context, limit int) ([]factory.Issu
 		var data []byte
 		var control factory.IssueControl
 		if err := rows.Scan(&data); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if err := json.Unmarshal(data, &control); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		out = append(out, control)
+		if len(out) > limit {
+			_ = rows.Close()
+			return nil, false, nil
+		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return out, nil
+	return out, true, nil
 }
 
 // AttemptAllowanceHistory returns every attempt allowance row for one

@@ -34,6 +34,13 @@ func AdmitStallEpisodeRun(ctx context.Context, db *store.Store, result StallRepo
 	if err := event.Validate(); err != nil {
 		return false, errors.New("stall result carries an invalid bound episode")
 	}
+	watermark, err := db.CompletionWatermark(ctx, result.Repository)
+	if err != nil {
+		return false, err
+	}
+	if event.ProgressGeneration != watermark {
+		return false, errors.New("stall episode no longer matches verified delivery: redetect before spending")
+	}
 	grant, err := db.RepairGrantCommand(ctx, result.Repository)
 	if err != nil {
 		return false, err
