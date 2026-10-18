@@ -95,11 +95,21 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 	// D13 completion fence (FW31): the gate row above is locked, so this
 	// read observes every committed completion. A pending event refuses
 	// fresh attempts, explicit retries and advanced children alike; an
-	// earlier priority check alone is insufficient.
-	if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
-		return err
+	// earlier priority check alone is insufficient. Reassessment roots
+	// are exempt: the guard below binds the exact pending event and open
+	// cycle they answer, and fencing them would deadlock the cycle they
+	// are admitted to work.
+	if a.Phase != project.ExecutionReassess {
+		if err := checkCompletionFenceTx(ctx, tx, a.Repository); err != nil {
+			return err
+		}
 	}
-	if err := checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
+	if a.Issue == 0 {
+		// Issue-zero roots carry no issue control row: the guard binds
+		// the verified completion and staged cycle as the outcome
+		// evidence instead. Any other issue-zero subject stays refused
+		// at allowance admission below.
+	} else if err := checkQueuedControlTx(ctx, tx, expected, a.Repository, a.Issue, a.Acceptance); err != nil {
 		return err
 	}
 	if d.ID != a.ID || d.Repository != a.Repository {
@@ -179,7 +189,18 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 				return err
 			}
 		}
-		if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now); err != nil {
+		if a.Issue == 0 {
+			// Issue-zero roots take no issue allowance. Reassessment
+			// roots fund their time-only allowance against the verified
+			// completion here: the packet rows above are already
+			// recorded, so the constructor binds the exact recorded
+			// root, and replays return the unchanged row without
+			// refill. Any other issue-zero subject stays refused
+			// there until its lane records it.
+			if err = insertReassessmentAttemptAllowanceTx(ctx, tx, a, grants.policy.ReassessmentMinutes, run.Deadline, now); err != nil {
+				return err
+			}
+		} else if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now); err != nil {
 			return err
 		}
 	}
@@ -226,6 +247,8 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	switch a.Phase {
 	case project.ExecutionImplement:
 		return validateImplementChildTx(ctx, tx, a)
+	case project.ExecutionReassess:
+		return validateReassessRootTx(ctx, tx, a)
 	case project.ExecutionReview:
 		return validateReviewChildTx(ctx, tx, a)
 	case project.ExecutionCorrect:
@@ -425,6 +448,57 @@ func validateReviewChildTx(ctx context.Context, tx *sql.Tx, a factory.Assignment
 		return errors.New("reviewer child requires a distinct preparation")
 	}
 	return childAllowanceRootExistsTx(ctx, tx, a)
+}
+
+// validateReassessRootTx admits one completion reassessment fresh root
+// against its verified completion event and staged reassessment cycle.
+// The root carries no parent, publication slot or issue authority; it
+// reviews the sealed inventory but implements nothing. Both the event
+// and the cycle must already be recorded in this repository — a
+// reassessment answers a verified completion, never an unrecorded one.
+func validateReassessRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
+	if a.Phase != project.ExecutionReassess {
+		return errors.New("reassessment root needs its reassess phase")
+	}
+	if a.Role != project.RoleCoder || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" {
+		return errors.New("reassessment cycle is a fresh attempt root")
+	}
+	if !factory.ValidPhaseRole(a.Phase, a.Role) || !factory.SubjectKindAllowed(a.Subject.Kind, a.Phase) {
+		return errors.New("reassessment root does not match its execution phase")
+	}
+	if a.Subject.Kind != factory.SubjectCompletion || a.Subject.Completion == nil {
+		return errors.New("reassessment root does not match its completion subject")
+	}
+	if a.Issue != 0 || a.Acceptance != "" {
+		return errors.New("completion assignment carries issue authority")
+	}
+	var eventData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_completions WHERE repository=$1 AND event=$2`, a.Repository, a.Subject.Completion.CompletionID).Scan(&eventData); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: reassessment answers an unrecorded completion", ErrAttemptRootMismatch)
+		}
+		return err
+	}
+	var event factory.CompletionEvent
+	if err := json.Unmarshal(eventData, &event); err != nil {
+		return err
+	}
+	if err := event.Validate(); err != nil {
+		return err
+	}
+	if event.ID != a.Subject.Completion.CompletionID || event.Repository != a.Repository {
+		return fmt.Errorf("%w: reassessment answers another repository completion", ErrAttemptRootMismatch)
+	}
+	// The cycle must still be open: a released or superseded cycle no
+	// longer takes work, using the fence's own terminal definition.
+	var cycleRepository int64
+	if err := tx.QueryRowContext(ctx, `SELECT repository FROM factory_reassessments WHERE repository=$1 AND event=$2 AND cycle=$3 AND state NOT IN ('released','superseded')`, a.Repository, event.ID, a.Subject.Completion.CycleID).Scan(&cycleRepository); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: reassessment answers an unstaged cycle", ErrAttemptRootMismatch)
+		}
+		return err
+	}
+	return nil
 }
 
 // validateCorrectChildTx admits one phased corrector child against the

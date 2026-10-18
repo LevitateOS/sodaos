@@ -294,7 +294,7 @@ func finishCorrectionChild(t *testing.T, ctx context.Context, db *Store, child f
 		AssignmentID: child.ID, RunID: run.ID, Phase: project.ExecutionCorrect,
 		PhaseResult: &phased, Status: "completed", Summary: "corrected",
 		Candidate: reviewCorrectCandidate,
-		Findings: []string{}, Reported: true, RecordedUnix: now.Unix(),
+		Findings:  []string{}, Reported: true, RecordedUnix: now.Unix(),
 	}
 	stored.Stage, stored.Outcome, stored.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported
 	stored.FinishedUnix = now.Unix()
