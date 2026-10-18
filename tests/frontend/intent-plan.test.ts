@@ -1,9 +1,13 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
+import {SodaRequestError} from '../../frontend/spaces/sodaspaces-api.js';
 import {
+  generationFailureNotice,
+  generationWaitNotice,
   intentPlanLaunch,
   intentPlanStatus,
   planActionBody,
+  planWait,
   runPlanWork,
 } from '../../frontend/spaces/sodaspaces-intent-response';
 
@@ -136,4 +140,32 @@ test('plan status rejects unknown states and out-of-shape payloads', () => {
   assert.throws(() => intentPlanStatus({...base, state: 'completed', candidates: -1}));
   assert.throws(() => intentPlanStatus({state: 'none'}));
   assert.throws(() => intentPlanStatus({...base, state: 'attention', attention: ''}));
+});
+
+test('generate wait renders the recorded-plan wait without claiming work', () => {
+  const body = {
+    launched: false,
+    waits: [{reason: 'already_assigned', detail: 'recorded decomposition plan is still running'}],
+  };
+  assert.equal(planWait(body), true);
+  assert.equal(
+    generationWaitNotice(body),
+    'Factory work is waiting: recorded decomposition plan is still running No native work was started.'
+  );
+  assert.equal(planWait({launched: true, waits: []}), false);
+  assert.equal(
+    generationWaitNotice({launched: false, waits: []}),
+    'Factory work is waiting: the required preparation is not ready No native work was started.'
+  );
+});
+
+test('generate failure maps recorded-plan refusals to actionable notices', () => {
+  assert.match(
+    generationFailureNotice(new SodaRequestError(409, 'planning_choice_unavailable')),
+    /completed decomposition plan/
+  );
+  assert.match(generationFailureNotice(new SodaRequestError(409, 'planning_attention')), /product decision/);
+  assert.match(generationFailureNotice(new SodaRequestError(412, 'stale_planning_choice')), /revise it and plan again/);
+  assert.match(generationFailureNotice(new SodaRequestError(503)), /could not be confirmed/);
+  assert.match(generationFailureNotice(Error('boom')), /could not be confirmed/);
 });

@@ -11,6 +11,9 @@ import {
   intentPlanStatus,
   intentRevision,
   planActionBody,
+  planWait,
+  generationWaitNotice,
+  generationFailureNotice,
   runPlanWork,
   newDecisionID,
   planningAllowance,
@@ -798,11 +801,16 @@ export class SodaIntent extends LitElement {
     const accepted = this.revision;
     if (!accepted || accepted.state !== 'accepted') throw Error('Product direction not accepted');
     try {
-      const generation = object(await this.call('/api/factory/intents/' + accepted.intent + '/generate', {}, signal));
+      const body = await this.call('/api/factory/intents/' + accepted.intent + '/generate', {}, signal);
+      if (planWait(body)) {
+        this.generationNotice = generationWaitNotice(body);
+        return;
+      }
+      const generation = object(body);
       check(generation.intent_id === accepted.intent && generation.revision_id === accepted.id);
       this.generationNotice = generationMessage(generation.state);
     } catch (error) {
-      this.generationNotice = generationFailure(error);
+      this.generationNotice = generationFailureNotice(error);
     }
   }
   private planWork = () => {
@@ -1158,11 +1166,4 @@ function generationMessage(state: unknown): string {
     return 'Your product direction is saved. Factory is waiting for confirmation of the native work.';
   check(state === 'refused');
   return 'Your product direction is saved. Factory could not create the native work; an administrator must inspect the refusal.';
-}
-function generationFailure(error: unknown): string {
-  if (error instanceof SodaRequestError && error.code === 'native_graph_unavailable')
-    return 'Your product direction is saved. An administrator must enable native work creation before Factory can proceed.';
-  if (error instanceof SodaRequestError && error.code === 'intent_review_required')
-    return 'Your product direction is saved. The proposed work needs reconsideration before native work can be created.';
-  return 'Your product direction is saved. Native work creation could not be confirmed. Factory will inspect the original request before retrying.';
 }

@@ -1,4 +1,4 @@
-import {check, object, id} from './sodaspaces-api.js';
+import {check, object, id, SodaRequestError} from './sodaspaces-api.js';
 
 export interface Department {
   id: string;
@@ -605,11 +605,39 @@ export interface IntentPlanWait {
   launched: false;
   waits: {reason: string; detail: string}[];
 }
-const planWait = (value: unknown): value is IntentPlanWait => {
+export const planWait = (value: unknown): value is IntentPlanWait => {
   if (!value || typeof value !== 'object') return false;
   const raw = value as Record<string, unknown>;
   return raw.launched === false && Array.isArray(raw.waits);
 };
+export function generationWaitNotice(value: unknown): string {
+  const raw = object(value);
+  const waits = Array.isArray(raw.waits) ? raw.waits : [];
+  const first =
+    waits.length > 0 && waits[0] && typeof waits[0] === 'object' ? (waits[0] as Record<string, unknown>) : {};
+  const detail =
+    typeof first.detail === 'string' && first.detail ? first.detail : 'the required preparation is not ready';
+  return `Factory work is waiting: ${detail} No native work was started.`;
+}
+const generationFailureNotices: Record<string, string> = {
+  native_graph_unavailable:
+    'Your product direction is saved. An administrator must enable native work creation before Factory can proceed.',
+  planning_choice_unavailable:
+    'Your product direction is saved. Factory needs a completed decomposition plan for this direction before native work can be created.',
+  planning_attention:
+    'Your product direction is saved. The recorded plan needs a product decision before native work can be created.',
+  stale_planning_choice:
+    'Your product direction is saved. The direction changed while Factory was planning; revise it and plan again before retrying.',
+  intent_review_required:
+    'Your product direction is saved. The proposed work needs reconsideration before native work can be created.',
+};
+export function generationFailureNotice(error: unknown): string {
+  if (error instanceof SodaRequestError && error.code !== undefined) {
+    const notice = generationFailureNotices[error.code];
+    if (notice !== undefined) return notice;
+  }
+  return 'Your product direction is saved. Native work creation could not be confirmed. Factory will inspect the original request before retrying.';
+}
 export function planWaitNotice(value: unknown): string {
   const raw = object(value);
   const waits = Array.isArray(raw.waits) ? raw.waits : [];
