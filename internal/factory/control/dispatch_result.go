@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 	"time"
@@ -100,7 +99,7 @@ func settleRepairChain(ctx context.Context, db *store.Store, finished factory.As
 	}
 	failed, err := db.AssignmentByRun(ctx, subject.FailedVerificationRunID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, store.ErrNotFound) {
 			return refuseUnprovenRepair(finished, now), nil
 		}
 		return factory.Assignment{}, err

@@ -27,11 +27,16 @@ func (s *Store) Assignment(ctx context.Context, id string) (factory.Assignment, 
 }
 
 // AssignmentByRun returns the assignment whose latest attempt runs under
-// the given run identity.
+// the given run identity. A missing run reports ErrNotFound like the
+// other assignment readers, never a raw driver miss: callers outside
+// the store must not import database/sql for this lookup.
 func (s *Store) AssignmentByRun(ctx context.Context, runID string) (factory.Assignment, error) {
 	var a factory.Assignment
 	var data []byte
 	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_assignments WHERE run=$1`, runID).Scan(&data)
+	if errors.Is(err, sql.ErrNoRows) {
+		return factory.Assignment{}, ErrNotFound
+	}
 	if err == nil {
 		err = json.Unmarshal(data, &a)
 	}
