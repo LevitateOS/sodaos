@@ -124,129 +124,181 @@ func journalStopped(receipts []store.PlanTaskReceipt) bool {
 // violations refuse with the sentinel above.
 func ImportTaskEvents(plan factory.InvestigationPlan, receipts []store.PlanTaskReceipt, imp TaskEventImport) (TaskExecutionResult, error) {
 	var result TaskExecutionResult
-	if err := plan.Validate(); err != nil {
+	byTask, err := admitTaskEventImport(plan, imp)
+	if err != nil {
 		return result, err
+	}
+	stored, err := admitTaskEventReceipts(plan, receipts, imp, byTask)
+	if err != nil {
+		return result, err
+	}
+	fold := &taskEventFold{plan: plan, imp: imp, pending: stored, byTask: byTask, result: &result,
+		next: importCursor(receipts), stopped: journalStopped(receipts)}
+	if err := fold.seedPendingReceipts(); err != nil {
+		return result, err
+	}
+	for _, event := range imp.Events {
+		if err := fold.foldEvent(event); err != nil {
+			return result, err
+		}
+	}
+	fold.finishExecution()
+	return result, nil
+}
+
+// admitTaskEventImport validates one task event import against its plan.
+func admitTaskEventImport(plan factory.InvestigationPlan, imp TaskEventImport) (map[string]int, error) {
+	if err := plan.Validate(); err != nil {
+		return nil, err
 	}
 	if !factory.ValidID(imp.AttemptRoot) || !factory.ValidID(imp.PlanID) ||
 		plan.AttemptRoot != imp.AttemptRoot || plan.ID != imp.PlanID {
-		return result, errors.New("task event import names an unknown plan revision")
+		return nil, errors.New("task event import names an unknown plan revision")
 	}
 	if imp.MaxChildren < project.MinTaskChildren || imp.MaxChildren > project.MaxTaskChildren {
-		return result, errors.New("task event import child limit is outside its range")
+		return nil, errors.New("task event import child limit is outside its range")
 	}
 	if imp.Invocation == "" || len(imp.Invocation) > 128 {
-		return result, errors.New("task event import invocation is invalid")
+		return nil, errors.New("task event import invocation is invalid")
 	}
 	if !factory.ValidDigest(imp.PlanDigest) {
-		return result, errors.New("task event import plan digest is invalid")
+		return nil, errors.New("task event import plan digest is invalid")
 	}
 	byTask := make(map[string]int, len(plan.Tasks))
 	for i, task := range plan.Tasks {
 		byTask[task.ID] = i
 	}
+	return byTask, nil
+}
+
+// admitTaskEventReceipts binds stored receipts to one import's plan revision.
+func admitTaskEventReceipts(plan factory.InvestigationPlan, receipts []store.PlanTaskReceipt, imp TaskEventImport, byTask map[string]int) (map[string]store.PlanTaskReceipt, error) {
 	stored := make(map[string]store.PlanTaskReceipt, len(receipts))
 	for _, receipt := range receipts {
 		if receipt.AttemptRoot != imp.AttemptRoot || receipt.PlanID != imp.PlanID {
-			return result, errors.New("task event import mixes plan revisions")
+			return nil, errors.New("task event import mixes plan revisions")
 		}
 		if _, ok := byTask[receipt.TaskID]; !ok {
-			return result, ErrTaskEventUnknown
+			return nil, ErrTaskEventUnknown
 		}
 		if _, dup := stored[receipt.TaskID]; dup {
-			return result, errors.New("task event import carries duplicate receipts")
+			return nil, errors.New("task event import carries duplicate receipts")
 		}
 		stored[receipt.TaskID] = receipt
 	}
-	next := importCursor(receipts)
-	stopped := journalStopped(receipts)
-	// Seed pending receipts for tasks the store never saw. Identical
-	// replays of an existing receipt emit nothing below.
-	pending := make(map[string]store.PlanTaskReceipt, len(plan.Tasks))
-	for taskID, receipt := range stored {
+	return stored, nil
+}
+
+// taskEventFold carries the shared state behind one task event import.
+type taskEventFold struct {
+	plan    factory.InvestigationPlan
+	imp     TaskEventImport
+	pending map[string]store.PlanTaskReceipt
+	byTask  map[string]int
+	result  *TaskExecutionResult
+	next    int64
+	stopped bool
+}
+
+// seedPendingReceipts seeds pending receipts for tasks the store
+// never saw. Identical replays of an existing receipt emit nothing.
+func (f *taskEventFold) seedPendingReceipts() error {
+	pending := make(map[string]store.PlanTaskReceipt, len(f.plan.Tasks))
+	for taskID, receipt := range f.pending {
 		pending[taskID] = receipt
 	}
-	for _, task := range plan.Tasks {
+	for _, task := range f.plan.Tasks {
 		if _, ok := pending[task.ID]; ok {
 			continue
 		}
 		seed := store.PlanTaskReceipt{
-			AttemptRoot: imp.AttemptRoot, PlanID: imp.PlanID, TaskID: task.ID,
+			AttemptRoot: f.imp.AttemptRoot, PlanID: f.imp.PlanID, TaskID: task.ID,
 			State: store.PlanTaskPending,
 		}
 		if err := seed.Validate(); err != nil {
-			return result, err
+			return err
 		}
 		pending[task.ID] = seed
-		result.Writes = append(result.Writes, seed)
+		f.result.Writes = append(f.result.Writes, seed)
 	}
-	// emit stages one receipt write when it changes stored state. The
-	// write carries the stored CAS base; identical content emits nothing,
-	// so replays never duplicate writes.
-	emit := func(next store.PlanTaskReceipt) {
-		if receiptsEqual(pending[next.TaskID], next) {
-			return
-		}
-		pending[next.TaskID] = next
-		result.Writes = append(result.Writes, next)
+	f.pending = pending
+	return nil
+}
+
+// emit stages one receipt write when it changes stored state. The
+// write carries the stored CAS base; identical content emits nothing,
+// so replays never duplicate writes.
+func (f *taskEventFold) emit(next store.PlanTaskReceipt) {
+	if receiptsEqual(f.pending[next.TaskID], next) {
+		return
 	}
-	for _, event := range imp.Events {
-		if err := event.Validate(); err != nil {
-			return result, err
-		}
-		if event.Invocation != imp.Invocation || event.PlanDigest != imp.PlanDigest {
-			return result, ErrTaskEventBinding
-		}
-		if event.Sequence <= next {
-			if !eventReplayed(pending, event) {
-				return result, ErrTaskEventGap
-			}
-			continue
-		}
-		if event.Sequence != next+1 {
-			return result, ErrTaskEventGap
-		}
-		if stopped && event.Type != project.TaskEventRunStopped {
-			return result, ErrTaskEventTransition
-		}
-		advanced, err := applyTaskEvent(plan, pending, byTask, event)
-		if err != nil {
-			return result, err
-		}
-		for _, write := range advanced {
-			emit(write)
-		}
-		if event.Type == project.TaskEventRunStopped {
-			stopped = true
-		}
-		next = event.Sequence
+	f.pending[next.TaskID] = next
+	f.result.Writes = append(f.result.Writes, next)
+}
+
+// foldEvent folds one fresh event into the pending receipts.
+func (f *taskEventFold) foldEvent(event project.TaskEvent) error {
+	if err := event.Validate(); err != nil {
+		return err
 	}
-	result.NextSequence = next
-	result.Stopped = stopped
+	if event.Invocation != f.imp.Invocation || event.PlanDigest != f.imp.PlanDigest {
+		return ErrTaskEventBinding
+	}
+	if event.Sequence <= f.next {
+		if !eventReplayed(f.pending, event) {
+			return ErrTaskEventGap
+		}
+		return nil
+	}
+	if event.Sequence != f.next+1 {
+		return ErrTaskEventGap
+	}
+	if f.stopped && event.Type != project.TaskEventRunStopped {
+		return ErrTaskEventTransition
+	}
+	advanced, err := applyTaskEvent(f.plan, f.pending, f.byTask, event)
+	if err != nil {
+		return err
+	}
+	for _, write := range advanced {
+		f.emit(write)
+	}
+	if event.Type == project.TaskEventRunStopped {
+		f.stopped = true
+	}
+	f.next = event.Sequence
+	return nil
+}
+
+// finishExecution computes failure containment and release decisions
+// over the folded state.
+func (f *taskEventFold) finishExecution() {
+	f.result.NextSequence = f.next
+	f.result.Stopped = f.stopped
 	// Failure containment and release compute over the folded state.
-	failed := failedTasks(plan, pending)
+	failed := failedTasks(f.plan, f.pending)
 	contained := len(failed) > 0
 	if contained {
-		cancelBlocked(plan, pending, failed, emit)
+		cancelBlocked(f.plan, f.pending, failed, f.emit)
 	}
 	// A scheduler violation is recorded truthfully and flagged, and
 	// releases freeze: the journal stays authoritative while the caller
 	// fences the over-limit run instead of adding load to it.
-	violated := overTaskLimits(plan, pending, imp.MaxChildren)
+	violated := overTaskLimits(f.plan, f.pending, f.imp.MaxChildren)
 	decisions := TaskExecutionDecisions{}
 	if contained {
 		decisions.StopRun = true
-		decisions.RetireChildren = activeChildren(plan, pending)
-	} else if stopped {
+		decisions.RetireChildren = activeChildren(f.plan, f.pending)
+	} else if f.stopped {
 		decisions.StopRun = true
 	} else if !violated {
-		decisions.NewlyReady = readyPlanTasks(plan, pending, imp.MaxChildren)
+		decisions.NewlyReady = readyPlanTasks(f.plan, f.pending, f.imp.MaxChildren)
 	}
 	if violated {
 		decisions.LimitViolation = true
 	}
-	result.Decisions = decisions
-	result.Contained = contained
-	return result, nil
+	f.result.Decisions = decisions
+	f.result.Contained = contained
 }
 
 // receiptsEqual compares two receipts ignoring no field: the caller sets
@@ -296,142 +348,167 @@ func eventReplayed(pending map[string]store.PlanTaskReceipt, event project.TaskE
 // named task only.
 func applyTaskEvent(plan factory.InvestigationPlan, pending map[string]store.PlanTaskReceipt, byTask map[string]int, event project.TaskEvent) ([]store.PlanTaskReceipt, error) {
 	if event.Type == project.TaskEventRunStopped {
-		if _, ok := byTask[event.TaskKey]; !ok {
-			return nil, ErrTaskEventUnknown
-		}
-		var writes []store.PlanTaskReceipt
-		for _, task := range plan.Tasks {
-			receipt := pending[task.ID]
-			if terminalReceipt(receipt.State) {
-				continue
-			}
-			next := receipt
-			next.State = store.PlanTaskCancelled
-			next.Reason = boundSummary(event.Detail, "run stopped")
-			next.Events = appendRef(next.Events, taskEventRef(event))
-			if err := next.Validate(); err != nil {
-				return nil, err
-			}
-			writes = append(writes, next)
-		}
-		return writes, nil
+		return cancelRunTasks(plan, pending, byTask, event)
 	}
 	if _, ok := byTask[event.TaskKey]; !ok {
 		return nil, ErrTaskEventUnknown
 	}
 	receipt := pending[event.TaskKey]
-	ref := taskEventRef(event)
 	if terminalReceipt(receipt.State) {
 		return nil, ErrTaskEventTransition
 	}
+	fold := &taskEventCase{plan: plan, receipt: receipt, ref: taskEventRef(event), event: event}
 	switch event.Type {
 	case project.TaskEventChildStartIntent:
-		next := receipt
-		next.Events = appendRef(next.Events, ref)
-		if err := next.Validate(); err != nil {
-			return nil, err
-		}
-		return []store.PlanTaskReceipt{next}, nil
+		return fold.noteStartIntent()
 	case project.TaskEventChildStarted:
-		if event.ChildID == "" {
-			return nil, fmt.Errorf("%w: task child start lacks its native identity", ErrTaskEventTransition)
-		}
-		if receipt.State != store.PlanTaskPending {
-			if receipt.Child != event.ChildID {
-				return nil, fmt.Errorf("%w: task already has its child", ErrTaskEventTransition)
-			}
-			next := receipt
-			next.Events = appendRef(next.Events, ref)
-			if err := next.Validate(); err != nil {
-				return nil, err
-			}
-			return []store.PlanTaskReceipt{next}, nil
-		}
-		next := receipt
-		next.State = store.PlanTaskRunning
-		next.Child = event.ChildID
-		next.Events = appendRef(next.Events, ref)
-		if err := next.Validate(); err != nil {
-			return nil, err
-		}
-		return []store.PlanTaskReceipt{next}, nil
+		return fold.startChild()
 	case project.TaskEventChildReported:
-		if !factory.ValidDigest(event.Detail) {
-			return nil, fmt.Errorf("%w: task report lacks its output digest", ErrTaskEventTransition)
-		}
-		if receipt.State != store.PlanTaskRunning {
-			return nil, fmt.Errorf("%w: task reported without its running child", ErrTaskEventTransition)
-		}
-		if event.ChildID != "" && event.ChildID != receipt.Child {
-			return nil, fmt.Errorf("%w: task report names a foreign child", ErrTaskEventTransition)
-		}
-		if receipt.OutputDigest != "" && receipt.OutputDigest != event.Detail {
-			return nil, fmt.Errorf("%w: task reported twice with different outputs", ErrTaskEventTransition)
-		}
-		next := receipt
-		next.State = store.PlanTaskOutputReady
-		next.OutputDigest = event.Detail
-		next.Events = appendRef(next.Events, ref)
-		if err := next.Validate(); err != nil {
-			return nil, err
-		}
-		return []store.PlanTaskReceipt{next}, nil
+		return fold.reportChild()
 	case project.TaskEventCheckpointReady:
-		if receipt.State != store.PlanTaskRunning && receipt.State != store.PlanTaskOutputReady {
-			return nil, fmt.Errorf("%w: checkpoint precedes its task execution", ErrTaskEventTransition)
-		}
-		if event.ChildID != "" && receipt.Child != "" && event.ChildID != receipt.Child {
-			return nil, fmt.Errorf("%w: checkpoint names a foreign child", ErrTaskEventTransition)
-		}
-		checks, err := parseCheckEvidence(plan, event.Detail)
-		if err != nil {
-			return nil, err
-		}
-		next := receipt
-		next.Checks = unionKeys(next.Checks, checks)
-		next.Events = appendRef(next.Events, ref)
-		if err := next.Validate(); err != nil {
-			return nil, err
-		}
-		return []store.PlanTaskReceipt{next}, nil
+		return fold.readyCheckpoint()
 	case project.TaskEventTaskCommitted:
-		if receipt.State != store.PlanTaskOutputReady || receipt.OutputDigest == "" {
-			return nil, fmt.Errorf("%w: task committed without its reported output", ErrTaskEventTransition)
-		}
-		if event.ChildID != "" && event.ChildID != receipt.Child {
-			return nil, fmt.Errorf("%w: task commit names a foreign child", ErrTaskEventTransition)
-		}
-		tree, commit, err := parseCommitEvidence(event.Detail)
-		if err != nil {
-			return nil, err
-		}
-		next := receipt
-		next.State = store.PlanTaskCompleted
-		next.Tree, next.Commit = tree, commit
-		next.Reason = boundSummary("task output accepted", "task output accepted")
-		next.Events = appendRef(next.Events, ref)
-		if err := next.Validate(); err != nil {
-			return nil, err
-		}
-		return []store.PlanTaskReceipt{next}, nil
+		return fold.commitTask()
 	case project.TaskEventTaskFailed:
-		if receipt.State != store.PlanTaskRunning && receipt.State != store.PlanTaskOutputReady {
-			return nil, fmt.Errorf("%w: task failed without its running child", ErrTaskEventTransition)
-		}
-		if event.ChildID != "" && event.ChildID != receipt.Child {
-			return nil, fmt.Errorf("%w: task failure names a foreign child", ErrTaskEventTransition)
-		}
-		next := receipt
-		next.State = store.PlanTaskFailed
-		next.Reason = boundSummary(event.Detail, "task reported failure")
-		next.Events = appendRef(next.Events, ref)
-		if err := next.Validate(); err != nil {
-			return nil, err
-		}
-		return []store.PlanTaskReceipt{next}, nil
+		return fold.failTask()
 	default:
 		return nil, fmt.Errorf("%w: unknown task event type", ErrTaskEventTransition)
 	}
+}
+
+// cancelRunTasks cancels every non-terminal task behind one run stop.
+func cancelRunTasks(plan factory.InvestigationPlan, pending map[string]store.PlanTaskReceipt, byTask map[string]int, event project.TaskEvent) ([]store.PlanTaskReceipt, error) {
+	if _, ok := byTask[event.TaskKey]; !ok {
+		return nil, ErrTaskEventUnknown
+	}
+	var writes []store.PlanTaskReceipt
+	for _, task := range plan.Tasks {
+		receipt := pending[task.ID]
+		if terminalReceipt(receipt.State) {
+			continue
+		}
+		next := receipt
+		next.State = store.PlanTaskCancelled
+		next.Reason = boundSummary(event.Detail, "run stopped")
+		next.Events = appendRef(next.Events, taskEventRef(event))
+		if err := next.Validate(); err != nil {
+			return nil, err
+		}
+		writes = append(writes, next)
+	}
+	return writes, nil
+}
+
+// taskEventCase carries one fresh event with its named receipt.
+type taskEventCase struct {
+	plan    factory.InvestigationPlan
+	receipt store.PlanTaskReceipt
+	ref     string
+	event   project.TaskEvent
+}
+
+// seal records one receipt advance with its event ref, validating the result.
+func (fold *taskEventCase) seal(apply func(*store.PlanTaskReceipt)) ([]store.PlanTaskReceipt, error) {
+	next := fold.receipt
+	apply(&next)
+	next.Events = appendRef(next.Events, fold.ref)
+	if err := next.Validate(); err != nil {
+		return nil, err
+	}
+	return []store.PlanTaskReceipt{next}, nil
+}
+
+// noteStartIntent records one child start intent on its named task.
+func (fold *taskEventCase) noteStartIntent() ([]store.PlanTaskReceipt, error) {
+	return fold.seal(func(next *store.PlanTaskReceipt) {})
+}
+
+// startChild starts one task child, replaying its start intent when
+// the child already runs under the same native identity.
+func (fold *taskEventCase) startChild() ([]store.PlanTaskReceipt, error) {
+	if fold.event.ChildID == "" {
+		return nil, fmt.Errorf("%w: task child start lacks its native identity", ErrTaskEventTransition)
+	}
+	if fold.receipt.State != store.PlanTaskPending {
+		if fold.receipt.Child != fold.event.ChildID {
+			return nil, fmt.Errorf("%w: task already has its child", ErrTaskEventTransition)
+		}
+		return fold.seal(func(next *store.PlanTaskReceipt) {})
+	}
+	return fold.seal(func(next *store.PlanTaskReceipt) {
+		next.State = store.PlanTaskRunning
+		next.Child = fold.event.ChildID
+	})
+}
+
+// reportChild records one running child's output digest.
+func (fold *taskEventCase) reportChild() ([]store.PlanTaskReceipt, error) {
+	if !factory.ValidDigest(fold.event.Detail) {
+		return nil, fmt.Errorf("%w: task report lacks its output digest", ErrTaskEventTransition)
+	}
+	if fold.receipt.State != store.PlanTaskRunning {
+		return nil, fmt.Errorf("%w: task reported without its running child", ErrTaskEventTransition)
+	}
+	if fold.event.ChildID != "" && fold.event.ChildID != fold.receipt.Child {
+		return nil, fmt.Errorf("%w: task report names a foreign child", ErrTaskEventTransition)
+	}
+	if fold.receipt.OutputDigest != "" && fold.receipt.OutputDigest != fold.event.Detail {
+		return nil, fmt.Errorf("%w: task reported twice with different outputs", ErrTaskEventTransition)
+	}
+	return fold.seal(func(next *store.PlanTaskReceipt) {
+		next.State = store.PlanTaskOutputReady
+		next.OutputDigest = fold.event.Detail
+	})
+}
+
+// readyCheckpoint records one checkpoint's verified plan checks.
+func (fold *taskEventCase) readyCheckpoint() ([]store.PlanTaskReceipt, error) {
+	if fold.receipt.State != store.PlanTaskRunning && fold.receipt.State != store.PlanTaskOutputReady {
+		return nil, fmt.Errorf("%w: checkpoint precedes its task execution", ErrTaskEventTransition)
+	}
+	if fold.event.ChildID != "" && fold.receipt.Child != "" && fold.event.ChildID != fold.receipt.Child {
+		return nil, fmt.Errorf("%w: checkpoint names a foreign child", ErrTaskEventTransition)
+	}
+	checks, err := parseCheckEvidence(fold.plan, fold.event.Detail)
+	if err != nil {
+		return nil, err
+	}
+	return fold.seal(func(next *store.PlanTaskReceipt) {
+		next.Checks = unionKeys(next.Checks, checks)
+	})
+}
+
+// commitTask completes one output-ready task with its commit evidence.
+func (fold *taskEventCase) commitTask() ([]store.PlanTaskReceipt, error) {
+	if fold.receipt.State != store.PlanTaskOutputReady || fold.receipt.OutputDigest == "" {
+		return nil, fmt.Errorf("%w: task committed without its reported output", ErrTaskEventTransition)
+	}
+	if fold.event.ChildID != "" && fold.event.ChildID != fold.receipt.Child {
+		return nil, fmt.Errorf("%w: task commit names a foreign child", ErrTaskEventTransition)
+	}
+	tree, commit, err := parseCommitEvidence(fold.event.Detail)
+	if err != nil {
+		return nil, err
+	}
+	return fold.seal(func(next *store.PlanTaskReceipt) {
+		next.State = store.PlanTaskCompleted
+		next.Tree, next.Commit = tree, commit
+		next.Reason = boundSummary("task output accepted", "task output accepted")
+	})
+}
+
+// failTask fails one running task with its reported reason.
+func (fold *taskEventCase) failTask() ([]store.PlanTaskReceipt, error) {
+	if fold.receipt.State != store.PlanTaskRunning && fold.receipt.State != store.PlanTaskOutputReady {
+		return nil, fmt.Errorf("%w: task failed without its running child", ErrTaskEventTransition)
+	}
+	if fold.event.ChildID != "" && fold.event.ChildID != fold.receipt.Child {
+		return nil, fmt.Errorf("%w: task failure names a foreign child", ErrTaskEventTransition)
+	}
+	return fold.seal(func(next *store.PlanTaskReceipt) {
+		next.State = store.PlanTaskFailed
+		next.Reason = boundSummary(fold.event.Detail, "task reported failure")
+	})
 }
 
 // parseCheckEvidence reads checkpoint check evidence: space-separated plan
