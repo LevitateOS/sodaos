@@ -101,9 +101,6 @@ fn read_native(directory: &Path) -> Result<NativeDocker, Error> {
 impl DockerQualification {
     fn validate(&self, manifest: &Manifest, directory: &Path) -> Result<(), Error> {
         let docker = manifest.docker.as_ref().ok_or_else(refused)?;
-        let native = &self.native;
-        let factory = &self.factory;
-        let persistence = &self.persistence;
         let payload: crate::payload::Payload = assets::read_json(&directory.join("payload.json"))?;
         let configs = soda_build_tools::payload::Role::iter()
             .map(|role| {
@@ -113,6 +110,29 @@ impl DockerQualification {
                 )
             })
             .collect::<BTreeMap<_, _>>();
+        self.validate_native_binding(docker, manifest, &configs)?;
+        self.validate_environment()?;
+        self.validate_persistence()?;
+        if self.observations.len() != KINDS.len() {
+            return Err(refused());
+        }
+        self.validate_factory()?;
+        if KINDS
+            .iter()
+            .any(|kind| !self.observations.contains_key(*kind))
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_native_binding(
+        &self,
+        docker: &crate::model::DockerMetadata,
+        manifest: &Manifest,
+        configs: &BTreeMap<String, String>,
+    ) -> Result<(), Error> {
+        let native = &self.native;
         if self.format != 1
             || native.tag != manifest.tag
             || native.registry_manifest != docker.image.manifest
@@ -124,8 +144,16 @@ impl DockerQualification {
             || native.payload_sha256 != docker.payload_sha256
             || native.soda_revision != manifest.soda_revision
             || native.forgejo_revision != manifest.forgejo_revision
-            || native.application_configs != configs
-            || native.target.is_empty()
+            || native.application_configs != *configs
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_environment(&self) -> Result<(), Error> {
+        let native = &self.native;
+        if native.target.is_empty()
             || native.os != "linux"
             || native.architecture != "x86_64"
             || !native.rootful
@@ -133,7 +161,16 @@ impl DockerQualification {
             || !native.host_network
             || !native.fresh_volumes
             || !is_digest(&native.outer_id)
-            || persistence.target != native.target
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_persistence(&self) -> Result<(), Error> {
+        let native = &self.native;
+        let persistence = &self.persistence;
+        if persistence.target != native.target
             || persistence.registry_manifest != native.registry_manifest
             || persistence.registry_config != native.registry_config
             || persistence.outer_before != native.outer_id
@@ -143,8 +180,15 @@ impl DockerQualification {
             || persistence.project_before != persistence.project_after
             || !is_digest(&persistence.protected_before_sha256)
             || persistence.protected_before_sha256 != persistence.protected_after_sha256
-            || self.observations.len() != KINDS.len()
-            || !is_digest(&factory.provider_execution_sha256)
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+
+    fn validate_factory(&self) -> Result<(), Error> {
+        let factory = &self.factory;
+        if !is_digest(&factory.provider_execution_sha256)
             || factory.repository_id == 0
             || factory.issue_id == 0
             || factory.pull_request_id == 0
@@ -161,9 +205,6 @@ impl DockerQualification {
             || factory.elapsed_ms == 0
             || factory.funding_limit_ms == 0
             || factory.elapsed_ms > factory.funding_limit_ms
-            || KINDS
-                .iter()
-                .any(|kind| !self.observations.contains_key(*kind))
         {
             return Err(refused());
         }
