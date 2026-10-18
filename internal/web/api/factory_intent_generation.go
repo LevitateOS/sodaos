@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/factory"
-	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
@@ -53,18 +53,19 @@ type intentPlanResponse struct {
 // apiIntentPlan starts one draft planning run through the shared
 // decompose dispatch path. Unlike accepted-intent Generate, which
 // creates native work through the enrolled graph, this plans a draft:
-// the caller binds the current head revision, the requested operation
-// and its inspected sources, and the enrolled host account answers the
-// staged prompt. Missing live capabilities refuse truthfully.
+// the caller binds only the saved revision and requested operation,
+// while the server assembles source, preparation and inspected evidence
+// from the authorized ready preparation and real preparation-context
+// bytes. The enrolled host account answers the staged prompt. Missing
+// live capabilities refuse truthfully, and missing preparation or
+// context waits truthfully before any funding or launch.
 func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.checkLifecycleSession(w, r, v) {
 		return
 	}
 	var in struct {
-		Revision  string                    `json:"revision"`
-		Operation string                    `json:"operation"`
-		Inspected []factory.InspectedSource `json:"inspected"`
-		Source    string                    `json:"source"`
+		Revision  string `json:"revision"`
+		Operation string `json:"operation"`
 	}
 	if !auth.DecodeAPIObject(w, r, &in) {
 		return
@@ -89,34 +90,20 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 		auth.JSONError(w, 400, "invalid_operation", "Unknown planning operation.")
 		return
 	}
-	if !project.ValidCommit(in.Source) {
-		auth.JSONError(w, 400, "invalid_source", "Planning source must name its commit.")
-		return
-	}
-	for _, ref := range in.Inspected {
-		if ref.Commit != in.Source {
-			auth.JSONError(w, 400, "invalid_inspected_source", "Inspected evidence must answer the admitted source commit.")
-			return
-		}
-	}
-	content, err := factory.ComposeProposalContent(current)
-	if err != nil {
-		factoryCommandError(w, err)
-		return
-	}
-	plan := factory.SemanticPlannerInput{
-		Operation: in.Operation, Head: current, Content: content,
-		Alternatives: factory.DescribeAlternatives(current.Objective), Inspected: in.Inspected,
-	}
-	if err := plan.Validate(); err != nil {
-		auth.JSONError(w, 400, "invalid_plan_input", err.Error())
-		return
-	}
 	if s.Coordinator == nil || s.Coordinator.Host == nil {
 		auth.JSONError(w, 503, "planning_unavailable", "No enrolled model account can answer the staged prompt.")
 		return
 	}
-	report := s.Coordinator.DispatchIntentPlan(r.Context(), current.Intent, v.User.ID, in.Operation, plan, in.Source)
+	plan, prep, wait, err := s.Coordinator.AssembleIntentPlanningInput(r.Context(), current, in.Operation)
+	if err != nil {
+		auth.JSONError(w, 503, "planning_unavailable", "Draft planning inputs are unavailable: "+err.Error())
+		return
+	}
+	if wait != nil {
+		auth.JSONResponse(w, 202, map[string]any{"launched": false, "waits": []control.DispatchWait{*wait}})
+		return
+	}
+	report := s.Coordinator.DispatchIntentPlan(r.Context(), current.Intent, v.User.ID, in.Operation, plan, prep.SourceCommit, prep.ID)
 	if len(report.Errors) != 0 {
 		factoryCommandError(w, errors.New(report.Errors[0].Detail))
 		return
@@ -126,6 +113,79 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 		return
 	}
 	auth.JSONResponse(w, 201, intentPlanResponse{AssignmentID: report.Launched[0].AssignmentID, RunID: report.Launched[0].RunID, RevisionID: current.ID})
+}
+
+// intentPlanStatusView is the minimal scoped draft-planning status for
+// one current revision: pending while the run is outstanding, the
+// reported shape once it settles, and none before the first attempt.
+// Copy stays about planning results, never source hashes.
+type intentPlanStatusView struct {
+	Revision     string `json:"revision"`
+	State        string `json:"state"`
+	AssignmentID string `json:"assignment_id,omitempty"`
+	RunID        string `json:"run_id,omitempty"`
+	Summary      string `json:"summary,omitempty"`
+	Candidates   int    `json:"candidates,omitempty"`
+	Attention    string `json:"attention,omitempty"`
+}
+
+// apiIntentPlanStatus shows the latest draft-planning attempt for the
+// current revision. Unknown or foreign requests report 404 without
+// disclosure. GET never judges, provisions or dispatches.
+func (s *API) apiIntentPlanStatus(w http.ResponseWriter, r *http.Request, v store.Session) {
+	if !s.checkLifecycleSession(w, r, v) {
+		return
+	}
+	if r.URL.RawQuery != "" || r.URL.ForceQuery {
+		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
+		return
+	}
+	head, err := s.Store.IntentRevision(r.Context(), r.PathValue("intentID"), v.User.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			auth.JSONError(w, 404, "not_found", "Build request not found.")
+		} else {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read build request.")
+		}
+		return
+	}
+	if head.State != "draft" {
+		auth.JSONError(w, 409, "intent_not_draft", "Only draft direction carries a planning status; accepted direction uses generation.")
+		return
+	}
+	a, err := s.Store.IntentPlanAttempt(r.Context(), head.Intent, head.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			auth.JSONResponse(w, 200, intentPlanStatusView{Revision: head.ID, State: "none"})
+		} else {
+			auth.JSONError(w, 503, "store_unavailable", "Could not read planning status.")
+		}
+		return
+	}
+	if a.Subject.Intent == nil || a.Subject.Intent.OwnerID != v.User.ID {
+		auth.JSONError(w, 404, "not_found", "Build request not found.")
+		return
+	}
+	view := intentPlanStatusView{Revision: head.ID, AssignmentID: a.ID, RunID: a.Run}
+	switch {
+	case a.Stage != factory.AssignmentFinished || a.Result == nil:
+		view.State = "pending"
+	case a.Outcome == factory.Failed:
+		view.State, view.Summary = "failed", a.Result.Summary
+	case a.Outcome == factory.Cancelled:
+		view.State, view.Summary = "cancelled", a.Result.Summary
+	case a.Result.Reported && a.Result.PhaseResult != nil && a.Result.PhaseResult.Status == "completed":
+		view.State, view.Summary = "completed", a.Result.Summary
+		if out := a.Result.PhaseResult.Output; out != nil && out.Decomposition != nil {
+			view.Candidates = len(out.Decomposition.Candidates)
+		}
+	default:
+		view.State, view.Summary = "attention", a.Result.Summary
+		if out := a.Result.PhaseResult; out != nil && out.Output != nil && out.Output.Decomposition != nil {
+			view.Attention = out.Output.Decomposition.Attention
+		}
+	}
+	auth.JSONResponse(w, 200, view)
 }
 
 func (s *API) apiIntentGeneration(w http.ResponseWriter, r *http.Request, v store.Session) {

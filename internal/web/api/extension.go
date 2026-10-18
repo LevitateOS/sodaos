@@ -168,6 +168,9 @@ func extensionProductRoute(r *http.Request) bool {
 	case "repositories":
 		return extensionRepositoryRoute(parts, r.Method)
 	case "factory":
+		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && parts[3] == "plan" {
+			return r.Method == http.MethodGet || r.Method == http.MethodPost
+		}
 		if len(parts) == 4 && parts[1] == "intents" && parts[2] != "" && (parts[3] == "generation" || parts[3] == "history" || parts[3] == "allowance" || parts[3] == "overview" || parts[3] == "revisions") {
 			return r.Method == http.MethodGet
 		}

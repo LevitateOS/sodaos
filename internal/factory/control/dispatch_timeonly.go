@@ -41,7 +41,7 @@ import (
 // Provider calls and native activation stay outside: the enrolled host
 // account answers the staged prompt, and settlement persists the typed
 // result through the existing phased path.
-func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, owner int64, operation string, in factory.SemanticPlannerInput, source string) DispatchReport {
+func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, owner int64, operation string, in factory.SemanticPlannerInput, source, preparationID string) DispatchReport {
 	var report DispatchReport
 	head, err := c.Store.IntentRevision(ctx, intentID, owner)
 	if err != nil {
@@ -80,15 +80,19 @@ func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, o
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "occupancy unreadable"})
 		return report
 	}
-	DispatchTimeOnlyRoot(ctx, c.dispatchDeps(), &occupancy, head.Repository, subject, source, prompt, &report)
+	DispatchTimeOnlyRoot(ctx, c.dispatchDeps(), &occupancy, head.Repository, subject, source, prompt, preparationID, &report)
 	return report
 }
 
 // Native revisions name the sealed native bracket for reassess roots
 // and the lowest valid value for intent roots, which have no native
 // observation: the sealed record and the head revision are their
-// authoritative input bindings.
-func DispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository int64, subject factory.ExecutionSubject, source string, prompt []byte, report *DispatchReport) {
+// authoritative input bindings. preparationID pins the dispatch to the
+// preparation the caller already read: when set, the run funds only if
+// that exact preparation is still the ready match, so a changed
+// preparation waits instead of funding stale input. Empty keeps the
+// standing match for callers without one.
+func DispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, repository int64, subject factory.ExecutionSubject, source string, prompt []byte, preparationID string, report *DispatchReport) {
 	// Truncated to the second like every packet caller: the funding
 	// check compares the deadline against a Unix-second horizon, so a
 	// sub-second skew on exact-horizon funding would refuse.
@@ -181,7 +185,7 @@ func DispatchTimeOnlyRoot(ctx context.Context, deps DispatchDeps, occupancy *pas
 		report.Waits = append(report.Waits, timeOnlyWait(repository, first))
 		return
 	}
-	if first, second := selectPreparationFor(ctx, deps, plan, project.RoleCoder, ""); second != nil {
+	if first, second := selectPreparationFor(ctx, deps, plan, project.RoleCoder, preparationID); second != nil {
 		report.Errors = append(report.Errors, timeOnlyFailure(repository, second))
 		return
 	} else if first != nil {

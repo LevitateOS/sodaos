@@ -596,3 +596,53 @@ export function newDecisionID(): string {
     'd' + Array.from(crypto.getRandomValues(new Uint8Array(12)), (byte) => byte.toString(16).padStart(2, '0')).join('')
   );
 }
+const runID = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);
+export function planActionBody(revision: string, operation: string): Record<string, unknown> {
+  check(decisionID(revision) && (operation === 'propose_intent' || operation === 'decomposition_options'));
+  return {revision, operation};
+}
+export interface IntentPlanLaunch {
+  assignment: string;
+  run: string;
+  revision: string;
+}
+export function intentPlanLaunch(value: unknown): IntentPlanLaunch {
+  const raw = object(value);
+  check(runID(raw.assignment_id) && runID(raw.run_id) && decisionID(raw.revision_id));
+  return {assignment: String(raw.assignment_id), run: String(raw.run_id), revision: String(raw.revision_id)};
+}
+export type IntentPlanState = 'none' | 'pending' | 'completed' | 'attention' | 'failed' | 'cancelled';
+const planState = (value: unknown): value is IntentPlanState =>
+  value === 'none' ||
+  value === 'pending' ||
+  value === 'completed' ||
+  value === 'attention' ||
+  value === 'failed' ||
+  value === 'cancelled';
+export interface IntentPlanStatus {
+  revision: string;
+  state: IntentPlanState;
+  assignment?: string;
+  run?: string;
+  summary?: string;
+  candidates: number;
+  attention?: string;
+}
+export function intentPlanStatus(value: unknown): IntentPlanStatus {
+  const raw = object(value);
+  check(decisionID(raw.revision));
+  check(planState(raw.state));
+  const out: IntentPlanStatus = {revision: String(raw.revision), state: raw.state, candidates: 0};
+  if (raw.assignment_id !== undefined) {
+    check(runID(raw.assignment_id));
+    out.assignment = String(raw.assignment_id);
+  }
+  if (raw.run_id !== undefined) {
+    check(runID(raw.run_id));
+    out.run = String(raw.run_id);
+  }
+  if (raw.summary !== undefined) out.summary = text(raw.summary, 4096);
+  if (raw.candidates !== undefined) out.candidates = bound(raw.candidates, 0, 3);
+  if (raw.attention !== undefined) out.attention = text(raw.attention, 4000);
+  return out;
+}

@@ -298,7 +298,7 @@ func settlePlanAnswer(t *testing.T, ctx context.Context, db *store.Store, fx dis
 	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
 	var observed bool
 	timeOnlyOrderHost(fx, &observed, func(context.Context, project.FactoryLaunch) {})
-	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "")
 	if len(report.Errors) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("plan route report: %+v", report)
 	}

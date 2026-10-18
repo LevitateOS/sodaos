@@ -90,7 +90,7 @@ func TestDispatchTimeOnlyRootLaunchesIntent(t *testing.T) {
 		}
 	})
 	report := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &report)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), "", &report)
 	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("route report: %+v", report)
 	}
@@ -119,7 +119,7 @@ func TestDispatchTimeOnlyRootReplaySingleCharge(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &first)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), "", &first)
 	if len(first.Launched) != 1 {
 		t.Fatalf("first route report: %+v", first)
 	}
@@ -135,7 +135,7 @@ func TestDispatchTimeOnlyRootReplaySingleCharge(t *testing.T) {
 		t.Fatal(err)
 	}
 	second := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &second)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), "", &second)
 	// The held first reservation waits at limits before any packet: no
 	// second run launches and no second charge records. The cross-pass
 	// race underneath is covered at the packet by the unfinished
@@ -161,7 +161,7 @@ func TestDispatchTimeOnlyRootUnfundedWaits(t *testing.T) {
 		t.Fatal(err)
 	}
 	report := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &report)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), "", &report)
 	if len(report.Launched) != 0 || len(report.Errors) != 0 || len(report.Waits) != 1 || report.Waits[0].Reason != WaitAllowance {
 		t.Fatalf("unfunded route report: %+v", report)
 	}
@@ -196,7 +196,7 @@ func TestDispatchTimeOnlyRootRefusesBadSubjects(t *testing.T) {
 	}
 	for name, subject := range subjects {
 		report := newDispatchReport()
-		DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, subject, strings.Repeat("c", 40), []byte("plan the recorded draft"), &report)
+		DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, subject, strings.Repeat("c", 40), []byte("plan the recorded draft"), "", &report)
 		if len(report.Launched) != 0 || len(report.Errors) == 0 {
 			t.Fatalf("%s routed: %+v", name, report)
 		}
@@ -353,7 +353,7 @@ func TestDispatchTimeOnlyRootLaunchesReassessment(t *testing.T) {
 		return project.FactoryState{ID: in.Run.ID, Project: in.Run.Project, Role: in.Run.Role, Phase: project.FactoryCompleted}, nil
 	}
 	report := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, repo, subject, source, []byte("reassess the sealed inventory"), &report)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, repo, subject, source, []byte("reassess the sealed inventory"), "", &report)
 	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("route report: %+v", report)
 	}
@@ -427,7 +427,7 @@ func TestDispatchIntentPlanConnectsHeadToBoundResult(t *testing.T) {
 			t.Fatal("staged prompt does not carry the bound head digest")
 		}
 	})
-	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "")
 	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("plan route report: %+v", report)
 	}
@@ -455,6 +455,34 @@ func TestDispatchIntentPlanConnectsHeadToBoundResult(t *testing.T) {
 	}
 }
 
+// TestDispatchIntentPlanWaitsWhenPreparationChanged proves the pinned
+// preparation binding: dispatching against a preparation that is no
+// longer the ready match waits instead of funding a run against stale
+// input, leaving no launch, run or funding behind.
+func TestDispatchIntentPlanWaitsWhenPreparationChanged(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	head := intentPlanHead(time.Now().UTC().Truncate(time.Second))
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatal(err)
+	}
+	in := intentPlanInput(t, head, factory.IntentPlanningPropose)
+	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
+	var observed bool
+	timeOnlyOrderHost(fx, &observed, func(context.Context, project.FactoryLaunch) {
+		t.Fatal("changed preparation reached the host")
+	})
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "f999999999999999999999999")
+	if len(report.Errors) != 0 || len(report.Launched) != 0 || len(report.Waits) != 1 {
+		t.Fatalf("changed preparation did not wait: %+v", report)
+	}
+	if observed {
+		t.Fatal("changed preparation launched a host run")
+	}
+}
+
 // TestDispatchIntentPlanRefusesUnreviewedHead proves the connector's
 // guards: an unassociated draft launches nothing, and a wrong owner
 // cannot read another owner's head.
@@ -470,7 +498,7 @@ func TestDispatchIntentPlanRefusesUnreviewedHead(t *testing.T) {
 	}
 	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
 	in := intentPlanInput(t, loose, factory.IntentPlanningPropose)
-	unassociated := coord.DispatchIntentPlan(ctx, loose.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	unassociated := coord.DispatchIntentPlan(ctx, loose.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "")
 	if len(unassociated.Errors) == 0 || len(unassociated.Launched) != 0 {
 		t.Fatalf("unassociated draft launched: %+v", unassociated)
 	}
@@ -479,7 +507,7 @@ func TestDispatchIntentPlanRefusesUnreviewedHead(t *testing.T) {
 	if err := db.SaveIntentRevision(ctx, head); err != nil {
 		t.Fatal(err)
 	}
-	foreign := coord.DispatchIntentPlan(ctx, head.Intent, 9, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	foreign := coord.DispatchIntentPlan(ctx, head.Intent, 9, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "")
 	if len(foreign.Errors) == 0 || len(foreign.Launched) != 0 {
 		t.Fatalf("wrong owner launched: %+v", foreign)
 	}
@@ -513,7 +541,7 @@ func TestDispatchIntentPlanRefusesMismatchedInspectedSource(t *testing.T) {
 		},
 	}
 	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
-	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "")
 	if len(report.Errors) == 0 || len(report.Launched) != 0 {
 		t.Fatalf("mismatched source admitted: %+v", report)
 	}
@@ -558,7 +586,7 @@ func TestSettledDecomposeRefusesUnrecordedIdeaBinding(t *testing.T) {
 	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
 	var observed bool
 	timeOnlyOrderHost(fx, &observed, func(context.Context, project.FactoryLaunch) {})
-	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40), "")
 	if len(report.Errors) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("plan route report: %+v", report)
 	}

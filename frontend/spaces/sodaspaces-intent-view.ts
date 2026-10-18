@@ -3,6 +3,7 @@ import type {
   Department,
   Exploration,
   IntentGenerationStatus,
+  IntentPlanStatus,
   IntentRevision,
   PlanningAllowance,
   ProductIdea,
@@ -40,6 +41,11 @@ export interface IntentView {
   allowance: PlanningAllowance | undefined;
   raiseCalls: number;
   fundingNote: string;
+  planOperation: string;
+  plan: IntentPlanStatus | undefined;
+  planNotice: string;
+  setPlanOperation(value: string): void;
+  planWork(): void;
   set(
     field: 'objective' | 'department' | 'departmentName' | 'departmentDescription' | 'changeText',
     value: string
@@ -399,6 +405,46 @@ function deliveryApproach(view: IntentView, revision: IntentRevision) {
     </p>
   </fieldset>`;
 }
+function planText(status: IntentPlanStatus): string {
+  switch (status.state) {
+    case 'none':
+      return 'Planning has not started for this draft.';
+    case 'pending':
+      return 'Planning is running. The result appears here when the run settles.';
+    case 'completed':
+      return `Planning proposed ${status.candidates} ${status.candidates === 1 ? 'candidate' : 'candidates'}. Choosing and adopting a graph comes next.`;
+    case 'attention':
+      return status.attention
+        ? `Planning needs a product decision: ${status.attention}`
+        : 'Planning needs a product decision before issues can be proposed.';
+    case 'failed':
+      return 'Planning failed. Your direction is saved; try again.';
+    case 'cancelled':
+      return 'Planning was cancelled before it could report.';
+  }
+}
+function planSection(view: IntentView) {
+  const revision = view.revision;
+  if (!revision || revision.state !== 'draft' || revision.repository === '0') return '';
+  return html`<section aria-label="Draft planning">
+    <h3>Plan work</h3>
+    <label
+      >Planning operation<select
+        aria-label="Planning operation"
+        .value=${view.planOperation}
+        ?disabled=${view.busy || view.blocked}
+        @change=${(event: Event) => view.setPlanOperation(input(event))}
+      >
+        <option value="propose_intent">Review baseline</option>
+        <option value="decomposition_options">Candidate issue graphs</option>
+      </select></label
+    >
+    <div class="actions">
+      <button class="primary" @click=${view.planWork} ?disabled=${view.busy || view.blocked}>Plan work</button>
+    </div>
+    ${view.planNotice ? html`<p>${view.planNotice}</p>` : ''} ${view.plan ? html`<p>${planText(view.plan)}</p>` : ''}
+  </section>`;
+}
 export function reviewIntent(view: IntentView) {
   const revision = view.revision;
   if (!revision) return '';
@@ -416,7 +462,7 @@ export function reviewIntent(view: IntentView) {
         @input=${(event: Event) => view.set('objective', input(event))}
       ></textarea>
     </label>
-    ${reviewLead(view)} ${fundingSection(view)} ${authorizationSection(view)}
+    ${reviewLead(view)} ${fundingSection(view)} ${authorizationSection(view)} ${planSection(view)}
     <p>Only asked questions and work-linked choices are required. Changes update the proposal before you continue.</p>
     ${deliveryApproach(view, revision)}
     ${!revision.tasks.length ? html`<p>More product direction is needed before work can be proposed. Edit the desired outcome or change an idea to explain the missing behavior, then update the proposal.</p>` : ''}

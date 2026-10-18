@@ -2,11 +2,14 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
@@ -15,6 +18,16 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
+
+// planSourcePath is the approved source file the seeded preparation
+// selects; the bounded host double returns synthetic bytes for exactly
+// the requested paths, so the test approves their digest.
+const planSourcePath = "internal/factory/intent.go"
+
+func planSourceDigest() string {
+	sum := sha256.Sum256([]byte("synthetic selected source: " + planSourcePath))
+	return hex.EncodeToString(sum[:])
+}
 
 // planStubHost is the bounded host double for the draft-planning
 // consumer proof: it records launches and answers nothing itself, so
@@ -92,8 +105,14 @@ func (planStubReads) ReadDispatchInputs(context.Context, string, string, []strin
 
 // seedPlanFunding records the execution funding and authority the
 // shared packet requires for repository 7, mirroring the dispatch
-// fixture shape with the session operator as actor.
+// fixture shape with the session operator as actor. With preparations,
+// it admits the ready coder preparation selecting the approved source
+// file the host double serves.
 func seedPlanFunding(t *testing.T, ctx context.Context, s *store.Store) {
+	seedPlanFundingWithPreparations(t, ctx, s, true)
+}
+
+func seedPlanFundingWithPreparations(t *testing.T, ctx context.Context, s *store.Store, preparations bool) {
 	t.Helper()
 	proj := "p765432109876543210987654"
 	if err := s.CreateProject(ctx, store.Project{ID: proj, Name: "factory", RepositoryID: 7, OwnerID: 1, Repository: "alice/factory"}); err != nil {
@@ -150,9 +169,12 @@ func seedPlanFunding(t *testing.T, ctx context.Context, s *store.Store) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if !preparations {
+		return
+	}
 	prep := project.StoredPreparation{Preparation: project.Preparation{
 		ID: "f111111111111111111111111", Project: proj, Role: project.RoleCoder,
-		Requirements: project.RequirementAcceptance{ID: "d111111111111111111111111", Revision: 1, Approver: 1, SourceCommit: commit, Digest: digest},
+		Requirements: project.RequirementAcceptance{ID: "d111111111111111111111111", Revision: 1, Approver: 1, SourceCommit: commit, Digest: digest, SourceInputs: map[string]string{planSourcePath: planSourceDigest()}},
 		Approval:     project.AdminApproval{ID: "d222222222222222222222222", Revision: 1, Approver: 1, EffectsDigest: digest},
 		SourceCommit: commit, SetupDigest: digest, Tools: []string{"python3"},
 	}}
@@ -178,9 +200,7 @@ const planDraftBody = `{"id":"d888888888888888888888888","intent":"d777777777777
 	`{"id":"d555555555555555555555555","description":"Delete requests automatically","consequence":"Old requests vanish","decision":"decline","source":"requested","provenance":"human","actor":"1"}]}`
 
 func planRequestBody(revision string) string {
-	return `{"revision":"` + revision + `","operation":"propose_intent",` +
-		`"inspected":[{"path":"internal/factory/intent.go","commit":"` + strings.Repeat("c", 40) + `","evidence":"Draft head carries attributed effective scope"}],` +
-		`"source":"` + strings.Repeat("c", 40) + `"}`
+	return `{"revision":"` + revision + `","operation":"propose_intent"}`
 }
 
 // TestIntentPlanConsumerLaunchesBoundDecompose proves the authenticated
@@ -198,15 +218,14 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	}
 	const intentID, draftID = "d777777777777777777777777", "d888888888888888888888888"
 
-	// Stale, malformed and non-draft callers refuse before any launch.
+	// Stale and malformed callers refuse before any launch. The caller
+	// binds only revision and operation; source and evidence are
+	// server-owned, so no caller commit is accepted.
 	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/plan", planRequestBody("d999999999999999999999999")); code != http.StatusPreconditionFailed || errorCode(body) != "stale_revision" {
 		t.Fatalf("stale status=%d body=%s", code, body)
 	}
-	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/plan", `{"revision":"`+draftID+`","operation":"nope","inspected":[],"source":"`+strings.Repeat("c", 40)+`"}`); code != http.StatusBadRequest || errorCode(body) != "invalid_operation" {
+	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/plan", `{"revision":"`+draftID+`","operation":"nope"}`); code != http.StatusBadRequest || errorCode(body) != "invalid_operation" {
 		t.Fatalf("operation status=%d body=%s", code, body)
-	}
-	if code, body := call(http.MethodPost, "/api/factory/intents/"+intentID+"/plan", `{"revision":"`+draftID+`","operation":"propose_intent","inspected":[],"source":"short"}`); code != http.StatusBadRequest || errorCode(body) != "invalid_source" {
-		t.Fatalf("source status=%d body=%s", code, body)
 	}
 
 	// Missing live capabilities refuse truthfully: no enrolled host.
@@ -244,18 +263,134 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 	if launched.Subject.Intent == nil || launched.Subject.Intent.ScopeDigest != head.Digest() {
 		t.Fatalf("launched subject not bound to its head: %+v", launched.Subject)
 	}
-	for _, want := range []string{"Sync only on explicit manager request", "Delete requests automatically", head.Digest()} {
+	for _, want := range []string{"Sync only on explicit manager request", "Delete requests automatically", head.Digest(), "synthetic selected source: " + planSourcePath} {
 		if !strings.Contains(string(launched.Prompt), want) {
 			t.Fatalf("staged prompt drops %q", want)
 		}
 	}
 }
 
-// TestIntentPlanRejectsWrongInspectedSource proves wrong-source evidence
-// never funds or launches: inspected evidence for another commit refuses
-// before effects, leaving no run, assignment or allowance behind.
-func TestIntentPlanRejectsWrongInspectedSource(t *testing.T) {
+// TestIntentPlanWaitsWithoutReadyPreparation proves missing preparation
+// waits truthfully: with funding but no ready coder preparation, the
+// route answers 202 with waits, leaving no run, assignment or allowance
+// behind.
+func TestIntentPlanWaitsWithoutReadyPreparation(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
+	ctx := context.Background()
+	if code, body := call(http.MethodPost, "/api/factory/intents", planDraftBody); code != http.StatusCreated {
+		t.Fatalf("save: %d %s", code, body)
+	}
+	seedPlanFundingWithPreparations(t, ctx, s, false)
+	stub := &planStubHost{}
+	product.Coordinator = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
+	code, body := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", planRequestBody("d888888888888888888888888"))
+	if code != http.StatusAccepted {
+		t.Fatalf("missing preparation status=%d body=%s", code, body)
+	}
+	var waited struct {
+		Launched bool `json:"launched"`
+		Waits    []struct {
+			Reason string `json:"reason"`
+		} `json:"waits"`
+	}
+	if err := json.Unmarshal(body, &waited); err != nil {
+		t.Fatal(err)
+	}
+	if waited.Launched || len(waited.Waits) == 0 || waited.Waits[0].Reason == "" {
+		t.Fatalf("missing preparation did not wait: %+v", waited)
+	}
+	if len(stub.launches) != 0 {
+		t.Fatalf("missing preparation launched: %d", len(stub.launches))
+	}
+	if _, err := s.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: "d777777777777777777777777", OwnerID: 1}, ""); err == nil {
+		t.Fatal("missing preparation funded an allowance")
+	}
+}
+
+// TestIntentPlanRefusesMismatchedPreparationContext proves server-assembled
+// evidence is verified against its approval: host bytes that do not match
+// the approved source selection refuse before funding or launch.
+func TestIntentPlanRefusesMismatchedPreparationContext(t *testing.T) {
 	product, s, call, errorCode := q05Mux(t, "")
+	ctx := context.Background()
+	if code, body := call(http.MethodPost, "/api/factory/intents", planDraftBody); code != http.StatusCreated {
+		t.Fatalf("save: %d %s", code, body)
+	}
+	seedPlanFundingWithPreparations(t, ctx, s, false)
+	commit, digest := strings.Repeat("c", 40), strings.Repeat("d", 64)
+	bad := project.StoredPreparation{Preparation: project.Preparation{
+		ID: "f111111111111111111111111", Project: "p765432109876543210987654", Role: project.RoleCoder,
+		Requirements: project.RequirementAcceptance{ID: "d111111111111111111111111", Revision: 1, Approver: 1, SourceCommit: commit, Digest: digest, SourceInputs: map[string]string{planSourcePath: digest}},
+		Approval:     project.AdminApproval{ID: "d222222222222222222222222", Revision: 1, Approver: 1, EffectsDigest: digest},
+		SourceCommit: commit, SetupDigest: digest, Tools: []string{"python3"},
+	}}
+	bad.State = project.PrepareState{ID: "f111111111111111111111111", Project: "p765432109876543210987654", Role: project.RoleCoder, Phase: project.PrepareReady, Ready: true}
+	if _, _, err := s.AdmitPreparation(ctx, bad); err != nil {
+		t.Fatal(err)
+	}
+	stub := &planStubHost{}
+	product.Coordinator = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
+	code, body := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", planRequestBody("d888888888888888888888888"))
+	if code != http.StatusServiceUnavailable || errorCode(body) != "planning_unavailable" {
+		t.Fatalf("mismatched context status=%d body=%s", code, body)
+	}
+	if len(stub.launches) != 0 {
+		t.Fatalf("mismatched context launched: %d", len(stub.launches))
+	}
+	if _, err := s.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: "d777777777777777777777777", OwnerID: 1}, ""); err == nil {
+		t.Fatal("mismatched context funded an allowance")
+	}
+}
+
+// planSettledAnswer fences one decompose answer for the saved draft head:
+// a covering single candidate, or attention-only when attention is set.
+func planSettledAnswer(t *testing.T, status, attention string) string {
+	t.Helper()
+	answer := &factory.SemanticPlannerOutput{
+		Intent: "d777777777777777777777777", Revision: "d888888888888888888888888", Operation: factory.IntentPlanningPropose,
+	}
+	if attention != "" {
+		answer.Attention = attention
+	} else {
+		answer.Candidates = []factory.SemanticCandidate{{
+			Key: "keep", Rationale: "Keep the recorded draft as the single review baseline.",
+			Tasks: []factory.IntentTask{{
+				Key: "d999999999999999999999999", Objective: "Plan the recorded draft",
+				Outcomes: []string{"Draft is planned"}, IdeaIDs: []string{"d333333333333333333333333"},
+			}},
+		}}
+	}
+	data, err := json.Marshal(factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: status,
+		Summary: "planning update", Output: &factory.PhaseOutput{Decomposition: answer},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "work log\n```result-json\n" + string(data) + "\n```\ntrailer\n"
+}
+
+func settlePlanRun(t *testing.T, ctx context.Context, s *store.Store, runID, answer string) {
+	t.Helper()
+	run, err := s.FactoryRun(ctx, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "planning done", true
+	if err := s.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := control.AccountSettledRun(ctx, s, run, answer, time.Now()); !ok {
+		t.Fatal("plan run unsettled")
+	}
+}
+
+// TestIntentPlanStatusReadsAttemptLifecycle proves the minimal scoped
+// read: none before the first attempt, pending while the launched run
+// is outstanding, and the reported completed shape with its candidate
+// count once the run settles.
+func TestIntentPlanStatusReadsAttemptLifecycle(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
 	ctx := context.Background()
 	if code, body := call(http.MethodPost, "/api/factory/intents", planDraftBody); code != http.StatusCreated {
 		t.Fatalf("save: %d %s", code, body)
@@ -263,15 +398,99 @@ func TestIntentPlanRejectsWrongInspectedSource(t *testing.T) {
 	seedPlanFunding(t, ctx, s)
 	stub := &planStubHost{}
 	product.Coordinator = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
-	body := strings.Replace(planRequestBody("d888888888888888888888888"), `"commit":"`+strings.Repeat("c", 40)+`"`, `"commit":"`+strings.Repeat("d", 40)+`"`, 1)
-	code, response := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", body)
-	if code != http.StatusBadRequest || errorCode(response) != "invalid_inspected_source" {
-		t.Fatalf("wrong inspected source status=%d response=%s", code, response)
+	const statusURL = "/api/factory/intents/d777777777777777777777777/plan"
+	if code, body := call(http.MethodGet, statusURL, ""); code != http.StatusOK {
+		t.Fatalf("empty status=%d body=%s", code, body)
+	} else {
+		var viewed struct {
+			Revision string `json:"revision"`
+			State    string `json:"state"`
+		}
+		if err := json.Unmarshal(body, &viewed); err != nil {
+			t.Fatal(err)
+		}
+		if viewed.Revision != "d888888888888888888888888" || viewed.State != "none" {
+			t.Fatalf("empty status not exact: %+v", viewed)
+		}
 	}
-	if len(stub.launches) != 0 {
-		t.Fatalf("wrong inspected source launched: %d", len(stub.launches))
+	code, body := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", planRequestBody("d888888888888888888888888"))
+	if code != http.StatusCreated {
+		t.Fatalf("plan status=%d body=%s", code, body)
 	}
-	if _, err := s.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: "d777777777777777777777777", OwnerID: 1}, ""); err == nil {
-		t.Fatal("wrong inspected source funded an allowance")
+	var launched struct {
+		RunID string `json:"run_id"`
+	}
+	if err := json.Unmarshal(body, &launched); err != nil {
+		t.Fatal(err)
+	}
+	if code, body := call(http.MethodGet, statusURL, ""); code != http.StatusOK {
+		t.Fatalf("pending status=%d body=%s", code, body)
+	} else {
+		var viewed struct {
+			State        string `json:"state"`
+			AssignmentID string `json:"assignment_id"`
+			RunID        string `json:"run_id"`
+		}
+		if err := json.Unmarshal(body, &viewed); err != nil {
+			t.Fatal(err)
+		}
+		if viewed.State != "pending" || viewed.AssignmentID == "" || viewed.RunID != launched.RunID {
+			t.Fatalf("pending status not exact: %+v", viewed)
+		}
+	}
+	settlePlanRun(t, ctx, s, launched.RunID, planSettledAnswer(t, "completed", ""))
+	code, body = call(http.MethodGet, statusURL, "")
+	if code != http.StatusOK {
+		t.Fatalf("settled status=%d body=%s", code, body)
+	}
+	var viewed struct {
+		State      string `json:"state"`
+		Summary    string `json:"summary"`
+		Candidates int    `json:"candidates"`
+	}
+	if err := json.Unmarshal(body, &viewed); err != nil {
+		t.Fatal(err)
+	}
+	if viewed.State != "completed" || viewed.Candidates != 1 || viewed.Summary == "" {
+		t.Fatalf("settled status not exact: %+v", viewed)
+	}
+}
+
+// TestIntentPlanStatusReadsAttention proves a blocked plan surfaces as
+// attention with its reported text preserved and no candidates.
+func TestIntentPlanStatusReadsAttention(t *testing.T) {
+	product, s, call, _ := q05Mux(t, "")
+	ctx := context.Background()
+	if code, body := call(http.MethodPost, "/api/factory/intents", planDraftBody); code != http.StatusCreated {
+		t.Fatalf("save: %d %s", code, body)
+	}
+	seedPlanFunding(t, ctx, s)
+	stub := &planStubHost{}
+	product.Coordinator = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
+	code, body := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", planRequestBody("d888888888888888888888888"))
+	if code != http.StatusCreated {
+		t.Fatalf("plan status=%d body=%s", code, body)
+	}
+	var launched struct {
+		RunID string `json:"run_id"`
+	}
+	if err := json.Unmarshal(body, &launched); err != nil {
+		t.Fatal(err)
+	}
+	settlePlanRun(t, ctx, s, launched.RunID, planSettledAnswer(t, "blocked", "Decide whether managers review in the same queue before issues can split."))
+	code, body = call(http.MethodGet, "/api/factory/intents/d777777777777777777777777/plan", "")
+	if code != http.StatusOK {
+		t.Fatalf("attention status=%d body=%s", code, body)
+	}
+	var viewed struct {
+		State      string `json:"state"`
+		Attention  string `json:"attention"`
+		Candidates int    `json:"candidates"`
+	}
+	if err := json.Unmarshal(body, &viewed); err != nil {
+		t.Fatal(err)
+	}
+	if viewed.State != "attention" || viewed.Candidates != 0 || viewed.Attention != "Decide whether managers review in the same queue before issues can split." {
+		t.Fatalf("attention status not exact: %+v", viewed)
 	}
 }
