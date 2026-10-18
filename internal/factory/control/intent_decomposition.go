@@ -81,50 +81,100 @@ func (c *Coordinator) scopedIntentTasks(ctx context.Context, r factory.IntentRev
 // advised graph (nil choice) or exactly one pre-chosen planner candidate.
 // The chosen path performs no triplet or template evaluation: submitted,
 // adopted and delivered bindings all derive from the same chosen tasks.
+// intentDeltaEdge binds one accepted dependency to its native issue pair.
+type intentDeltaEdge struct{ a, b int64 }
+
+// intentDeltaBuild carries the shared state behind one intent-graph
+// delta so each duty reads through one small check.
+type intentDeltaBuild struct {
+	c             *Coordinator
+	ctx           context.Context
+	r             factory.IntentRevision
+	revision      int64
+	work          factory.IntentRevision
+	prevWork      factory.IntentRevision
+	tasks         []factory.IntentTask
+	current       map[string]factory.IntentTask
+	reused        map[string]bool
+	oldIssues     map[string]sdk.IssueGraphIssueReceipt
+	generation    factory.IntentGeneration
+	priorBindings []factory.IntentTaskBinding
+	p             sdk.IssueGraphPayload
+	ids           map[string]int64
+	refs          map[string]sdk.IssueGraphRef
+	delivered     map[string]factory.DeliveredIssue
+	closed        map[string]factory.DeliveredIssue
+	oldEdges      map[intentDeltaEdge]bool
+}
+
 func (c *Coordinator) prepareIntentGraphWithChoice(ctx context.Context, r factory.IntentRevision, revision int64, chosen *ChosenIntentPlan) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
-	scoped := func(previous *factory.IntentRevision) ([]factory.IntentTask, error) {
-		if chosen != nil {
-			return c.scopedIntentTasksFromChosen(ctx, r, chosen)
-		}
-		return c.scopedIntentTasks(ctx, r, previous)
-	}
 	previous, err := c.Store.PreviousGeneratedIntent(ctx, r.Intent, r.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		tasks, e := scoped(nil)
-		if e != nil {
-			return sdk.IssueGraphPayload{}, nil, nil, nil, e
-		}
-		work := r
-		work.Tasks = tasks
-		p, e := IntentGraphPayload(work)
-		if e != nil {
-			return sdk.IssueGraphPayload{}, nil, nil, nil, e
-		}
-		return p, nil, tasks, nil, nil
+		return c.prepareFirstIntentGraph(ctx, r, chosen)
 	}
 	if err != nil {
 		return sdk.IssueGraphPayload{}, nil, nil, nil, err
 	}
+	b, err := c.loadIntentDeltaBuild(ctx, r, revision, chosen, previous)
+	if err != nil {
+		return sdk.IssueGraphPayload{}, nil, nil, nil, err
+	}
+	if err := b.verifyPreviousNatives(); err != nil {
+		return b.p, nil, nil, nil, err
+	}
+	return b.finishIntentDelta()
+}
+
+// prepareFirstIntentGraph scopes and packs the first generation
+// behind one accepted intent, which has no previous revision.
+func (c *Coordinator) prepareFirstIntentGraph(ctx context.Context, r factory.IntentRevision, chosen *ChosenIntentPlan) (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
+	var tasks []factory.IntentTask
+	var err error
+	if chosen != nil {
+		tasks, err = c.scopedIntentTasksFromChosen(ctx, r, chosen)
+	} else {
+		tasks, err = c.scopedIntentTasks(ctx, r, nil)
+	}
+	if err != nil {
+		return sdk.IssueGraphPayload{}, nil, nil, nil, err
+	}
+	work := r
+	work.Tasks = tasks
+	p, err := IntentGraphPayload(work)
+	if err != nil {
+		return sdk.IssueGraphPayload{}, nil, nil, nil, err
+	}
+	return p, nil, tasks, nil, nil
+}
+
+// loadIntentDeltaBuild resolves the previous generation, its receipt
+// issues and the task diff behind one intent-graph delta.
+func (c *Coordinator) loadIntentDeltaBuild(ctx context.Context, r factory.IntentRevision, revision int64, chosen *ChosenIntentPlan, previous factory.IntentRevision) (*intentDeltaBuild, error) {
 	generation, err := c.Store.IntentGeneration(ctx, previous.ID)
 	if err != nil {
-		return sdk.IssueGraphPayload{}, nil, nil, nil, err
+		return nil, err
 	}
 	if len(generation.SubmittedTasks) == 0 {
-		return sdk.IssueGraphPayload{}, nil, nil, nil, errors.New("previous generation predates submitted-task records")
+		return nil, errors.New("previous generation predates submitted-task records")
 	}
 	priorSubmitted := previous
 	priorSubmitted.Tasks = generation.SubmittedTasks
-	tasks, err := scoped(&priorSubmitted)
+	var tasks []factory.IntentTask
+	if chosen != nil {
+		tasks, err = c.scopedIntentTasksFromChosen(ctx, r, chosen)
+	} else {
+		tasks, err = c.scopedIntentTasks(ctx, r, &priorSubmitted)
+	}
 	if err != nil {
-		return sdk.IssueGraphPayload{}, nil, nil, nil, err
+		return nil, err
 	}
 	var receipt sdk.IssueGraphReceipt
 	if json.Unmarshal(generation.Receipt, &receipt) != nil || receipt.ActorID != generation.ActorID || receipt.RepositoryID != r.Repository {
-		return sdk.IssueGraphPayload{}, nil, nil, nil, errors.New("previous graph receipt is unavailable")
+		return nil, errors.New("previous graph receipt is unavailable")
 	}
 	oldIssues, err := intentReceiptIssues(generation.SubmittedTasks, generation, receipt)
 	if err != nil {
-		return sdk.IssueGraphPayload{}, nil, nil, nil, err
+		return nil, err
 	}
 	work := r
 	work.Tasks = tasks
@@ -132,135 +182,177 @@ func (c *Coordinator) prepareIntentGraphWithChoice(ctx context.Context, r factor
 	prevWork.Tasks = generation.SubmittedTasks
 	movement, err := factory.DiffIntentTasks(prevWork, work)
 	if err != nil {
-		return sdk.IssueGraphPayload{}, nil, nil, nil, err
+		return nil, err
 	}
-	reused := map[string]bool{}
+	b := &intentDeltaBuild{c: c, ctx: ctx, r: r, revision: revision,
+		work: work, prevWork: prevWork, tasks: tasks, generation: generation,
+		oldIssues: oldIssues, reused: map[string]bool{}, current: map[string]factory.IntentTask{},
+		ids: map[string]int64{}, refs: map[string]sdk.IssueGraphRef{},
+		delivered: map[string]factory.DeliveredIssue{}, closed: map[string]factory.DeliveredIssue{},
+		oldEdges: map[intentDeltaEdge]bool{}}
 	for _, key := range movement.Reused {
-		reused[key] = true
+		b.reused[key] = true
 	}
-	current := map[string]factory.IntentTask{}
 	for _, task := range tasks {
-		current[task.Key] = task
+		b.current[task.Key] = task
 	}
-	p := sdk.IssueGraphPayload{}
-	ids := map[string]int64{}
-	refs := map[string]sdk.IssueGraphRef{}
-	delivered := map[string]factory.DeliveredIssue{}
-	closed := map[string]factory.DeliveredIssue{}
 	priorBindings, err := c.Store.IntentTaskBindings(ctx, previous.ID)
 	if err != nil {
-		return p, nil, nil, nil, err
+		return nil, err
 	}
-	type edge struct{ a, b int64 }
-	oldEdges := map[edge]bool{}
-	for _, task := range generation.SubmittedTasks {
-		entry := oldIssues[task.Key]
-		native, nativeRev, e := c.Graph.ReadGeneratedIssue(ctx, r.Repository, entry.IssueIndex, generation.ActorID)
-		if e != nil {
-			return p, nil, nil, nil, e
-		}
-		if nativeRev != revision {
-			return p, nil, nil, nil, refuseAcceptance(RefusalStaleEvidence)
-		}
-		issue := native.Issue
-		if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) {
-			return p, nil, nil, nil, refuseAcceptance(RefusalObjectiveChanged)
-		}
-		// Delivered (closed) records are verified but never edited: the
-		// native writer refuses closed edits atomically. A delivered
-		// record still carries the body its writing revision gave it, so
-		// stability is checked against the previous acceptance pins; the
-		// rebuilt previous-revision body remains the fallback when the
-		// previous adoption never pinned the key. Open records are
-		// rewritten by every delta, so the rebuild is exact for them.
-		if issue.IsClosed {
-			stable, e := c.deliveredStable(ctx, priorBindings, task, entry, issue, prevWork)
-			if e != nil {
-				return p, nil, nil, nil, e
-			}
-			if !stable {
-				return p, nil, nil, nil, refuseAcceptance(RefusalObjectiveChanged)
-			}
-			closed[task.Key] = factory.DeliveredIssue{IssueID: entry.IssueID, IssueIndex: entry.IssueIndex, ContentVersion: entry.ContentVersion}
-		} else {
-			if issue.Title != intentTaskTitle(task) || issue.Content != intentTaskBody(prevWork, task) || issue.ContentVersion != entry.ContentVersion {
-				return p, nil, nil, nil, refuseAcceptance(RefusalObjectiveChanged)
-			}
-			title, body := issue.Title, issue.Content+"\nSuperseded by accepted product revision: "+r.ID+"\nThis task is retained as history and grants no current generated-work authority.\n"
-			if next, ok := current[task.Key]; ok {
-				title = intentTaskTitle(next)
-				body = intentTaskBody(work, next)
-			}
-			p.Edits = append(p.Edits, sdk.IssueGraphEdit{IssueID: entry.IssueID, ExpectedTitle: issue.Title, ExpectedBody: issue.Content, ExpectedContentVersion: issue.ContentVersion, Title: title, Body: body})
-		}
-		if native.Dependencies == nil || !native.Dependencies.Complete || len(native.Dependencies.Items) != len(task.DependsOn) {
-			return p, nil, nil, nil, refuseAcceptance(RefusalEdgeChanged)
-		}
-		expected := map[int64]bool{}
-		for _, dep := range task.DependsOn {
-			expected[oldIssues[dep].IssueID] = true
-		}
-		for _, d := range native.Dependencies.Items {
-			dep, e := strconv.ParseInt(d.DependencyID, 10, 64)
-			if e != nil || !d.Visible || !d.Complete || !expected[dep] {
-				return p, nil, nil, nil, refuseAcceptance(RefusalEdgeChanged)
-			}
-			delete(expected, dep)
-			oldEdges[edge{entry.IssueID, dep}] = true
-		}
-		if len(expected) > 0 {
-			return p, nil, nil, nil, refuseAcceptance(RefusalEdgeChanged)
+	b.priorBindings = priorBindings
+	return b, nil
+}
+
+// verifyPreviousNatives verifies every previously submitted task
+// against its native observation at this revision.
+func (b *intentDeltaBuild) verifyPreviousNatives() error {
+	for _, task := range b.generation.SubmittedTasks {
+		if err := b.verifyPreviousNative(task); err != nil {
+			return err
 		}
 	}
-	for _, task := range tasks {
-		old, ok := oldIssues[task.Key]
+	return nil
+}
+
+// verifyPreviousNative verifies one previously submitted task,
+// recording its edit or its delivered pin.
+func (b *intentDeltaBuild) verifyPreviousNative(task factory.IntentTask) error {
+	entry := b.oldIssues[task.Key]
+	native, nativeRev, err := b.c.Graph.ReadGeneratedIssue(b.ctx, b.r.Repository, entry.IssueIndex, b.generation.ActorID)
+	if err != nil {
+		return err
+	}
+	if nativeRev != b.revision {
+		return refuseAcceptance(RefusalStaleEvidence)
+	}
+	issue := native.Issue
+	if issue == nil || !issue.Visible || !issue.Complete || issue.IsPull || issue.IsLocked || issue.ID != strconv.FormatInt(entry.IssueID, 10) {
+		return refuseAcceptance(RefusalObjectiveChanged)
+	}
+	// Delivered (closed) records are verified but never edited: the
+	// native writer refuses closed edits atomically. A delivered
+	// record still carries the body its writing revision gave it, so
+	// stability is checked against the previous acceptance pins; the
+	// rebuilt previous-revision body remains the fallback when the
+	// previous adoption never pinned the key. Open records are
+	// rewritten by every delta, so the rebuild is exact for them.
+	if issue.IsClosed {
+		return b.pinDeliveredNative(task, entry, issue, native)
+	}
+	if issue.Title != intentTaskTitle(task) || issue.Content != intentTaskBody(b.prevWork, task) || issue.ContentVersion != entry.ContentVersion {
+		return refuseAcceptance(RefusalObjectiveChanged)
+	}
+	title, body := issue.Title, issue.Content+"\nSuperseded by accepted product revision: "+b.r.ID+"\nThis task is retained as history and grants no current generated-work authority.\n"
+	if next, ok := b.current[task.Key]; ok {
+		title = intentTaskTitle(next)
+		body = intentTaskBody(b.work, next)
+	}
+	b.p.Edits = append(b.p.Edits, sdk.IssueGraphEdit{IssueID: entry.IssueID, ExpectedTitle: issue.Title, ExpectedBody: issue.Content, ExpectedContentVersion: issue.ContentVersion, Title: title, Body: body})
+	return b.verifyNativeEdges(task, entry, native)
+}
+
+// pinDeliveredNative pins one closed native record as delivered after
+// proving it still carries its written content.
+func (b *intentDeltaBuild) pinDeliveredNative(task factory.IntentTask, entry sdk.IssueGraphIssueReceipt, issue *sdk.SnapshotIssue, native sdk.NativeSnapshot) error {
+	stable, err := b.c.deliveredStable(b.ctx, b.priorBindings, task, entry, issue, b.prevWork)
+	if err != nil {
+		return err
+	}
+	if !stable {
+		return refuseAcceptance(RefusalObjectiveChanged)
+	}
+	b.closed[task.Key] = factory.DeliveredIssue{IssueID: entry.IssueID, IssueIndex: entry.IssueIndex, ContentVersion: entry.ContentVersion}
+	return b.verifyNativeEdges(task, entry, native)
+}
+
+// verifyNativeEdges matches one native observation's dependencies
+// against the accepted graph.
+func (b *intentDeltaBuild) verifyNativeEdges(task factory.IntentTask, entry sdk.IssueGraphIssueReceipt, native sdk.NativeSnapshot) error {
+	if native.Dependencies == nil || !native.Dependencies.Complete || len(native.Dependencies.Items) != len(task.DependsOn) {
+		return refuseAcceptance(RefusalEdgeChanged)
+	}
+	expected := map[int64]bool{}
+	for _, dep := range task.DependsOn {
+		expected[b.oldIssues[dep].IssueID] = true
+	}
+	for _, d := range native.Dependencies.Items {
+		dep, err := strconv.ParseInt(d.DependencyID, 10, 64)
+		if err != nil || !d.Visible || !d.Complete || !expected[dep] {
+			return refuseAcceptance(RefusalEdgeChanged)
+		}
+		delete(expected, dep)
+		b.oldEdges[intentDeltaEdge{entry.IssueID, dep}] = true
+	}
+	if len(expected) > 0 {
+		return refuseAcceptance(RefusalEdgeChanged)
+	}
+	return nil
+}
+
+// finishIntentDelta plans creates, dependencies and removals behind
+// one verified delta and packs the immutable packet.
+func (b *intentDeltaBuild) finishIntentDelta() (sdk.IssueGraphPayload, map[string]int64, []factory.IntentTask, map[string]factory.DeliveredIssue, error) {
+	b.planDeltaCreates()
+	b.planDeltaDependencies()
+	if err := sdk.ValidateIssueGraphPayload(b.p); err != nil {
+		return b.p, nil, nil, nil, fmt.Errorf("accepted decomposition exceeds native packet bounds: %w", err)
+	}
+	if len(b.delivered) == 0 {
+		b.delivered = nil
+	}
+	return b.p, b.ids, b.tasks, b.delivered, nil
+}
+
+// planDeltaCreates plans created and rebound issues behind one delta.
+func (b *intentDeltaBuild) planDeltaCreates() {
+	for _, task := range b.tasks {
+		old, ok := b.oldIssues[task.Key]
 		if !ok {
-			p.Creates = append(p.Creates, sdk.IssueGraphCreate{Key: task.Key, Title: intentTaskTitle(task), Body: intentTaskBody(work, task)})
-			refs[task.Key] = sdk.IssueGraphRef{Key: task.Key}
+			b.p.Creates = append(b.p.Creates, sdk.IssueGraphCreate{Key: task.Key, Title: intentTaskTitle(task), Body: intentTaskBody(b.work, task)})
+			b.refs[task.Key] = sdk.IssueGraphRef{Key: task.Key}
 			continue
 		}
-		if ref, closed := closed[task.Key]; closed {
-			if reused[task.Key] {
-				delivered[task.Key] = ref
-				refs[task.Key] = sdk.IssueGraphRef{IssueID: ref.IssueID}
+		if ref, closed := b.closed[task.Key]; closed {
+			if b.reused[task.Key] {
+				b.delivered[task.Key] = ref
+				b.refs[task.Key] = sdk.IssueGraphRef{IssueID: ref.IssueID}
 			} else {
-				p.Creates = append(p.Creates, sdk.IssueGraphCreate{Key: task.Key, Title: intentTaskTitle(task), Body: intentTaskBody(work, task)})
-				refs[task.Key] = sdk.IssueGraphRef{Key: task.Key}
+				b.p.Creates = append(b.p.Creates, sdk.IssueGraphCreate{Key: task.Key, Title: intentTaskTitle(task), Body: intentTaskBody(b.work, task)})
+				b.refs[task.Key] = sdk.IssueGraphRef{Key: task.Key}
 			}
 			continue
 		}
-		ids[task.Key] = old.IssueID
-		refs[task.Key] = sdk.IssueGraphRef{IssueID: old.IssueID}
+		b.ids[task.Key] = old.IssueID
+		b.refs[task.Key] = sdk.IssueGraphRef{IssueID: old.IssueID}
 	}
-	retained := map[edge]bool{}
-	for _, task := range tasks {
+}
+
+// planDeltaDependencies plans added and removed dependencies behind
+// one delta, keeping the retained native edges out of removals.
+func (b *intentDeltaBuild) planDeltaDependencies() {
+	retained := map[intentDeltaEdge]bool{}
+	for _, task := range b.tasks {
 		for _, dep := range task.DependsOn {
-			a, b := refs[task.Key], refs[dep]
-			key := edge{a.IssueID, b.IssueID}
-			if key.a > 0 && key.b > 0 && oldEdges[key] {
+			a, c := b.refs[task.Key], b.refs[dep]
+			key := intentDeltaEdge{a.IssueID, c.IssueID}
+			if key.a > 0 && key.b > 0 && b.oldEdges[key] {
 				retained[key] = true
 				continue
 			}
-			p.Dependencies = append(p.Dependencies, sdk.IssueGraphDependency{Issue: a, Prerequisite: b})
+			b.p.Dependencies = append(b.p.Dependencies, sdk.IssueGraphDependency{Issue: a, Prerequisite: c})
 		}
 	}
 	// Stable order follows the previous task/dependency order; the immutable
 	// packet is deterministic even though membership checks use maps.
-	for _, task := range generation.SubmittedTasks {
+	for _, task := range b.generation.SubmittedTasks {
 		for _, dep := range task.DependsOn {
-			key := edge{oldIssues[task.Key].IssueID, oldIssues[dep].IssueID}
+			key := intentDeltaEdge{b.oldIssues[task.Key].IssueID, b.oldIssues[dep].IssueID}
 			if !retained[key] {
-				p.Dependencies = append(p.Dependencies, sdk.IssueGraphDependency{Issue: sdk.IssueGraphRef{IssueID: key.a}, Prerequisite: sdk.IssueGraphRef{IssueID: key.b}, Remove: true})
+				b.p.Dependencies = append(b.p.Dependencies, sdk.IssueGraphDependency{Issue: sdk.IssueGraphRef{IssueID: key.a}, Prerequisite: sdk.IssueGraphRef{IssueID: key.b}, Remove: true})
 			}
 		}
 	}
-	if err = sdk.ValidateIssueGraphPayload(p); err != nil {
-		return p, nil, nil, nil, fmt.Errorf("accepted decomposition exceeds native packet bounds: %w", err)
-	}
-	if len(delivered) == 0 {
-		delivered = nil
-	}
-	return p, ids, tasks, delivered, nil
 }
 
 // deliveredStable reports whether a closed native record still carries the
