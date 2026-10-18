@@ -23,6 +23,16 @@ import (
 // mechanics under test still run through their real entrypoints.
 func authorizeMergeFixture(t *testing.T, ctx context.Context, db *store.Store, coord *Coordinator, p factory.Publication) {
 	t.Helper()
+	authorizeMergeFixtureRound(t, ctx, db, coord, p, 1)
+}
+
+// authorizeMergeFixtureRound journals the round's clean_review delivery
+// acceptance and binds the open row. Re-authorization after a rebase
+// opens a new round: appending a duplicate cycle ID refuses, so callers
+// advancing the head re-read the publication and authorize the next
+// round.
+func authorizeMergeFixtureRound(t *testing.T, ctx context.Context, db *store.Store, coord *Coordinator, p factory.Publication, round int) {
+	t.Helper()
 	m, err := db.MergeByPublication(ctx, p.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -41,10 +51,10 @@ func authorizeMergeFixture(t *testing.T, ctx context.Context, db *store.Store, c
 	reviewer := factory.NewID()
 	cycle := factory.ReviewCycle{
 		PublicationID: p.ID, AttemptRoot: owner.AttemptRoot,
-		ID: factory.ReviewCycleID(p.ID, owner.AttemptRoot, 1, "review"), Phase: "review",
+		ID: factory.ReviewCycleID(p.ID, owner.AttemptRoot, round, "review"), Phase: "review",
 		TriggerDecision: factory.DeliveryReviewAgain, TriggerReason: "fixture round needs its independent inspection",
 		Head: p.Candidate, BaseOID: p.PRCreate.BaseOID, FindingDigest: emptyContent,
-		ReviewerAssignment: reviewer, Round: 1,
+		ReviewerAssignment: reviewer, Round: round,
 	}
 	if err := cycle.Validate(); err != nil {
 		t.Fatal(err)
@@ -59,29 +69,18 @@ func authorizeMergeFixture(t *testing.T, ctx context.Context, db *store.Store, c
 	if err != nil {
 		t.Fatal(err)
 	}
-	coverage, err := factory.ClearCoverageDigest(cycle.Head, cycle.BaseOID, emptyContent)
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	policy, err := db.RepositoryPolicy(ctx, p.Repository)
 	if err != nil {
 		t.Fatal(err)
 	}
 	journaled, acceptance, err := AdmitClearReview(ClearAdmissionInput{
 		Publication: cycled, Cycle: cycle,
-		Report: factory.ClearReviewReport{
-			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-			Head: cycle.Head, BaseOID: cycle.BaseOID, CoverageDigest: coverage,
-		},
-		Carried: nil,
-		Result: factory.Result{
-			Status: "completed", Summary: "fixture approval", Candidate: cycle.Head,
-			ReviewPassed: true,
-		},
+		Reviewer:       clearTestReviewer(t, reviewer, cycle.Head, cycle.BaseOID, cycle, nil, nil),
+		Carried:        nil,
 		ScopeDigest:    dispatchDigest("merge fixture scope"),
 		PolicyRevision: strconv.FormatInt(policy.Revision, 10),
 		CheckDigest:    assessment.ChecksDigest,
-		ReviewerRunID:  reviewer,
 		DiffBase:       p.PRCreate.BaseOID,
 	})
 	if err != nil {
@@ -104,6 +103,15 @@ func TestMergePassExpiresUndrivenMergeAndAllowsExplicitRetry(t *testing.T) {
 		return factory.MergeObservation{}, &factory.PublicationWait{Reason: "approval_missing"}
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	before := fx.merge(t, p)
 	if before.Stage != factory.MergeOpen || before.Operation.Attempts != 0 {
@@ -145,6 +153,15 @@ func TestMergePassExpiryRetainsUncertainNativeEffect(t *testing.T) {
 		return factory.OperationOutcome{NotObserved: true}, nil
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	before := fx.merge(t, p)
 	expireMergeRoot(t, fx, p)
@@ -164,6 +181,15 @@ func TestMergePassExpiryCompletesCommittedNativeEffect(t *testing.T) {
 		return outcome, nil
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	before := fx.merge(t, p)
 	if before.Stage != factory.MergeOpen || before.Operation.Effect != factory.OpEffectCommitted {
@@ -221,6 +247,15 @@ func TestMergePassReconcilesLostSubmitReply(t *testing.T) {
 		return committedOutcome(`{"pr_number":9}`), nil
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeOpen || len(first.Waits) != 1 || first.Waits[0].Reason != "submit_unconfirmed" {
@@ -244,6 +279,15 @@ func TestMergePassWaitsForNativeCompletion(t *testing.T) {
 		return factory.OperationOutcome{Effect: factory.OpEffectCommitted, Cancellation: factory.OpCancelNone, Completion: factory.OpCompletionPending, Receipt: []byte(`{"pr_number":9}`)}, nil
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	m := fx.merge(t, p)
 	// A committed ref without finished bookkeeping never finishes.
@@ -283,6 +327,15 @@ func TestMergePassWaitsForOriginalIssueClosure(t *testing.T) {
 				return out, err
 			}
 			fx.wire(exec)
+			fx.wire(pendingMerger())
+			setup := MergeReport{Merged: []MergeLink{}}
+			fx.publish.coord.mergeOne(context.Background(), p, &setup)
+			if len(setup.Errors) != 0 {
+				t.Fatalf("setup merge open: %+v", setup)
+			}
+
+			fx.wire(exec)
+			authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 			first := fx.pass(t)
 			m := fx.merge(t, p)
 			if m.Stage != factory.MergeOpen || m.Operation.Effect != factory.OpEffectCommitted || m.Operation.Completion != factory.OpCompletionComplete || len(first.Waits) != 1 || first.Waits[0].Reason != "original_issue_closure_pending" {
@@ -309,6 +362,15 @@ func TestMergePassFencesUnconfirmedCompletion(t *testing.T) {
 		return factory.MergeConfirmation{}, &factory.PublicationRefusal{Reason: "completion_unconfirmed"}
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeFenced || m.Reason != factory.MergeReasonUnattributed {
@@ -357,6 +419,15 @@ func TestMergePassFencesIndeterminateEffect(t *testing.T) {
 		return factory.OperationOutcome{Effect: factory.OpEffectIndeterminate, Cancellation: factory.OpCancelNone}, nil
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeFenced || m.Reason != factory.MergeReasonFenced {
@@ -397,6 +468,7 @@ func TestMergePassWithdrawalAfterCommitConfirmsCompletion(t *testing.T) {
 	fx.wire(exec)
 	fx.pass(t)
 	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
+	fx.wire(exec)
 	fx.pass(t)
 	if !submitted {
 		t.Fatal("seed merge never submitted")
@@ -467,7 +539,15 @@ func TestMergeCompletionReleasesCodeDependant(t *testing.T) {
 	}
 	fx.wire(exec)
 	fx.pass(t)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
 	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
+	fx.wire(exec)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeMerged {

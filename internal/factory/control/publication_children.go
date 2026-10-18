@@ -205,8 +205,12 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 	// Durable D07 cycle: fresh independent reviews bind head/base only;
 	// corrections and same-head re-reviews bind the full outstanding
 	// review/check evidence. New digests open new rounds (fresh IDs);
-	// identical digests replay their round (same IDs).
-	var digest, triggerDecision, triggerReason string
+	// identical digests replay their round (same IDs). Correction rounds
+	// separate the two domains: the finding-set digest binds report
+	// coverage while the complete input fingerprint drives round reuse,
+	// so same-key changed inputs open a new round instead of silently
+	// reusing the prior admitted correction.
+	var digest, inputDigest, triggerDecision, triggerReason string
 	shortHead := p.Candidate
 	if len(shortHead) > 8 {
 		shortHead = shortHead[:8]
@@ -231,11 +235,24 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 			digest = reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, nil, nil)
 			triggerDecision, triggerReason = "re-review-after-correction", "fresh review of corrected head "+shortHead
 		}
+		inputDigest = digest
 	} else {
-		digest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, review, checks)
+		// The correction round binds the finding set it answers, not
+		// the review/check evidence envelope: the journaled SetDigest
+		// must equal this digest or report admission cannot journal
+		// the correction. The input fingerprint separately preserves
+		// the broad evidence the round answers; checks still gate
+		// correction entry through the current assessment as well.
+		setDigest, setErr := factory.FindingSetDigest(correctionFindingKeys(review))
+		if setErr != nil {
+			publicationError(report, p.ID, "child_assignment_unrecorded")
+			return
+		}
+		digest = setDigest
+		inputDigest = reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, review, checks)
 		triggerDecision, triggerReason = "correction-after-review", "address "+review.Verdict+" with "+checks.Verdict+" checks on head "+shortHead
 	}
-	cycle, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, triggerDecision, triggerReason)
+	cycle, childID, expectedPrepID, cycleErr := c.ensureReviewCycle(ctx, &p, owner, role, digest, inputDigest, triggerDecision, triggerReason)
 	if cycleErr != nil {
 		publicationWait(report, p.ID, "child_cycle_unrecorded")
 		return
@@ -420,10 +437,22 @@ func (c *Coordinator) correctionPlanFor(ctx context.Context, plan *attemptPlan, 
 
 // correctionFindingKeys returns the deterministic finding keys one phased
 // correction answers: the typed verdict's new findings plus its carried
-// assessments. Legacy string verdicts carry no stable keys.
+// assessments. Verified assessments stay out: the canonical carried set
+// already retired those keys, so coverage derives from the outstanding
+// set, not blindly all assessment keys. Legacy string verdicts carry no
+// stable keys.
 func correctionFindingKeys(review ResolvedReviewVerdict) []string {
 	seen := map[string]bool{}
 	var keys []string
+	addAssessment := func(assessment factory.FindingAssessment) {
+		if assessment.Status == factory.FindingVerified {
+			return
+		}
+		if !seen[assessment.Key] {
+			seen[assessment.Key] = true
+			keys = append(keys, assessment.Key)
+		}
+	}
 	if review.Review != nil {
 		for _, finding := range review.Review.NewFindings {
 			if !seen[finding.Key] {
@@ -432,18 +461,12 @@ func correctionFindingKeys(review ResolvedReviewVerdict) []string {
 			}
 		}
 		for _, assessment := range review.Review.Assessments {
-			if !seen[assessment.Key] {
-				seen[assessment.Key] = true
-				keys = append(keys, assessment.Key)
-			}
+			addAssessment(assessment)
 		}
 	}
 	if review.Clear != nil {
 		for _, assessment := range review.Clear.Assessments {
-			if !seen[assessment.Key] {
-				seen[assessment.Key] = true
-				keys = append(keys, assessment.Key)
-			}
+			addAssessment(assessment)
 		}
 	}
 	return keys

@@ -66,14 +66,6 @@ func unionCleanAdmit(t *testing.T, n int) (factory.Publication, factory.Delivery
 		t.Fatal(err)
 	}
 	cycle := unionTestCycle(t, publicationID, attemptRoot, head, base, 1, reviewer, digest)
-	content, err := factory.FindingContentDigest(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	coverage, err := factory.ClearCoverageDigest(head, base, content)
-	if err != nil {
-		t.Fatal(err)
-	}
 	scope, err := factory.FindingContentDigest(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -81,20 +73,14 @@ func unionCleanAdmit(t *testing.T, n int) (factory.Publication, factory.Delivery
 	published, acceptance, err := AdmitClearReview(ClearAdmissionInput{
 		Publication: factory.Publication{
 			ID: publicationID, Candidate: head,
+			AssignmentID: attemptRoot,
 			PRCreate:     factory.PublicationOperation{BaseOID: base},
 			ReviewCycles: []factory.ReviewCycle{cycle},
 		},
-		Cycle: cycle,
-		Report: factory.ClearReviewReport{
-			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-			Head: head, BaseOID: base, CoverageDigest: coverage,
-		},
-		Result: factory.Result{
-			Status: "completed", Summary: "nothing found", Candidate: head,
-			ReviewPassed: true, Findings: []string{},
-		},
+		Cycle:       cycle,
+		Reviewer:    clearTestReviewer(t, reviewer, head, base, cycle, nil, nil),
 		ScopeDigest: scope, PolicyRevision: "policy-revision-9", CheckDigest: scope,
-		ReviewerRunID: reviewer, DiffBase: diffBase,
+		DiffBase: diffBase,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +251,7 @@ func unionAdmitAndPlan(t *testing.T, publicationID, head, base string, finding f
 		ReviewerAssignment: strings.Repeat("4", 32),
 		Round:              1,
 	}
-	report := correctionTestReport([]factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}})
+	report := correctionTestReport(head, []factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}})
 	admission, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), head, report, nil, correctionTestChecks(head, base))
 	if err != nil {
 		t.Fatal(err)
@@ -440,14 +426,6 @@ func unionCleanAdmitCarried(t *testing.T, n int) (factory.Publication, factory.D
 		t.Fatal(err)
 	}
 	cycle := unionTestCycle(t, publicationID, attemptRoot, head, base, 1, reviewer, digest)
-	content, err := factory.FindingContentDigest(carried)
-	if err != nil {
-		t.Fatal(err)
-	}
-	coverage, err := factory.ClearCoverageDigest(head, base, content)
-	if err != nil {
-		t.Fatal(err)
-	}
 	scope, err := factory.FindingContentDigest(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -455,24 +433,18 @@ func unionCleanAdmitCarried(t *testing.T, n int) (factory.Publication, factory.D
 	published, acceptance, err := AdmitClearReview(ClearAdmissionInput{
 		Publication: factory.Publication{
 			ID: publicationID, Candidate: head,
+			AssignmentID: attemptRoot,
 			PRCreate:     factory.PublicationOperation{BaseOID: base},
 			ReviewCycles: []factory.ReviewCycle{cycle},
 		},
 		Cycle: cycle,
-		Report: factory.ClearReviewReport{
-			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-			Head: head, BaseOID: base, CoverageDigest: coverage,
-			Assessments: []factory.FindingAssessment{
+		Reviewer: clearTestReviewer(t, reviewer, head, base, cycle,
+			[]factory.FindingAssessment{
 				{Key: finding.Key, Status: factory.FindingVerified, Evidence: "check verify passes on the head"},
-			},
-		},
-		Carried: carried,
-		Result: factory.Result{
-			Status: "completed", Summary: "nothing found", Candidate: head,
-			ReviewPassed: true, Findings: []string{},
-		},
+			}, carried),
+		Carried:     carried,
 		ScopeDigest: scope, PolicyRevision: "policy-revision-9", CheckDigest: scope,
-		ReviewerRunID: reviewer, DiffBase: diffBase,
+		DiffBase: diffBase,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -677,23 +649,13 @@ func unionPgAdmitClean(t *testing.T, ctx context.Context, db *store.Store, p fac
 	if err != nil {
 		t.Fatal(err)
 	}
-	coverage, err := factory.ClearCoverageDigest(p.Candidate, p.PRCreate.BaseOID, content)
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	published, acceptance, err := AdmitClearReview(ClearAdmissionInput{
 		Publication: p,
 		Cycle:       cycle,
-		Report: factory.ClearReviewReport{
-			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-			Head: p.Candidate, BaseOID: p.PRCreate.BaseOID, CoverageDigest: coverage,
-		},
-		Result: factory.Result{
-			Status: "completed", Summary: "nothing found", Candidate: p.Candidate,
-			ReviewPassed: true, Findings: []string{},
-		},
+		Reviewer:    clearTestReviewer(t, reviewer, p.Candidate, p.PRCreate.BaseOID, cycle, nil, nil),
 		ScopeDigest: content, PolicyRevision: "policy-revision-9", CheckDigest: content,
-		ReviewerRunID: reviewer, DiffBase: p.PRCreate.BaseOID,
+		DiffBase: p.PRCreate.BaseOID,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1202,23 +1164,13 @@ func dbAdmitCleanOnStored(t *testing.T, ctx context.Context, db *store.Store, p 
 	if err != nil {
 		return factory.DeliveryAcceptance{}, err
 	}
-	coverage, err := factory.ClearCoverageDigest(p.Candidate, p.PRCreate.BaseOID, content)
-	if err != nil {
-		return factory.DeliveryAcceptance{}, err
-	}
+
 	published, acceptance, err := AdmitClearReview(ClearAdmissionInput{
 		Publication: p,
 		Cycle:       cycle,
-		Report: factory.ClearReviewReport{
-			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-			Head: p.Candidate, BaseOID: p.PRCreate.BaseOID, CoverageDigest: coverage,
-		},
-		Result: factory.Result{
-			Status: "completed", Summary: "nothing found", Candidate: p.Candidate,
-			ReviewPassed: true, Findings: []string{},
-		},
+		Reviewer:    clearTestReviewer(t, reviewer, p.Candidate, p.PRCreate.BaseOID, cycle, nil, nil),
 		ScopeDigest: content, PolicyRevision: "policy-revision-9", CheckDigest: content,
-		ReviewerRunID: reviewer, DiffBase: p.PRCreate.BaseOID,
+		DiffBase: p.PRCreate.BaseOID,
 	})
 	if err != nil {
 		return factory.DeliveryAcceptance{}, err

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func clearTestIDs() (publicationID, attemptRoot, reviewer, head, base, diffBase string) {
@@ -38,9 +39,11 @@ func clearTestCycle(t *testing.T, publicationID, attemptRoot, reviewer, head, ba
 	}
 }
 
-func clearTestInput(t *testing.T, publicationID, attemptRoot, reviewer, head, base, diffBase string, round int, carried []factory.Finding, assessments []factory.FindingAssessment) ClearAdmissionInput {
+// clearTestReviewer builds the finished phased reviewer assignment behind
+// one clear admission: the recorded typed verdict is the single source the
+// consumer binds, never a parallel report or a faked candidate.
+func clearTestReviewer(t *testing.T, reviewer, head, base string, cycle factory.ReviewCycle, assessments []factory.FindingAssessment, carried []factory.Finding) factory.Assignment {
 	t.Helper()
-	cycle := clearTestCycle(t, publicationID, attemptRoot, reviewer, head, base, round, carried)
 	content, err := factory.FindingContentDigest(carried)
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +52,34 @@ func clearTestInput(t *testing.T, publicationID, attemptRoot, reviewer, head, ba
 	if err != nil {
 		t.Fatal(err)
 	}
+	a := phaseTestAssignment(t, project.ExecutionReview, project.RoleReviewer, true)
+	a.ID, a.SourceCommit = reviewer, head
+	// The reviewer is a child of the attempt root: its lineage binds
+	// the recorded publication owner and cycle attempt root.
+	a.ParentAssignment = cycle.AttemptRoot
+	a.AttemptRoot, a.PublicationAssignment = cycle.AttemptRoot, cycle.AttemptRoot
+	a.Stage, a.Outcome, a.Reason, a.FinishedUnix = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported, 1700000100
+	a.Result = &factory.AssignmentResult{
+		AssignmentID: reviewer, RunID: a.Run, Phase: project.ExecutionReview,
+		Status: "completed", Summary: "verdict recorded", Reported: true, RecordedUnix: 1700000100,
+		PhaseResult: &factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
+			Summary: "verdict recorded",
+			Output: &factory.PhaseOutput{Clear: &factory.ClearReviewReport{
+				Assessments: assessments, CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
+				Head: head, BaseOID: base, CoverageDigest: coverage,
+			}},
+		},
+	}
+	if err := a.Validate(); err != nil {
+		t.Fatalf("clear reviewer invalid: %v", err)
+	}
+	return a
+}
+
+func clearTestInput(t *testing.T, publicationID, attemptRoot, reviewer, head, base, diffBase string, round int, carried []factory.Finding, assessments []factory.FindingAssessment) ClearAdmissionInput {
+	t.Helper()
+	cycle := clearTestCycle(t, publicationID, attemptRoot, reviewer, head, base, round, carried)
 	scope, err := factory.FindingContentDigest(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -60,21 +91,16 @@ func clearTestInput(t *testing.T, publicationID, attemptRoot, reviewer, head, ba
 	return ClearAdmissionInput{
 		Publication: factory.Publication{
 			ID: publicationID, Candidate: head,
+			AssignmentID: attemptRoot,
 			PRCreate:     factory.PublicationOperation{BaseOID: base},
 			ReviewCycles: []factory.ReviewCycle{cycle},
 		},
-		Cycle: cycle,
-		Report: factory.ClearReviewReport{
-			Assessments: assessments, CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-			Head: head, BaseOID: base, CoverageDigest: coverage,
-		},
-		Carried: carried,
-		Result: factory.Result{
-			Status: "completed", Summary: "nothing found", Candidate: head,
-			ReviewPassed: true, Findings: []string{},
-		},
-		ScopeDigest: scope, PolicyRevision: "policy-revision-9", CheckDigest: check,
-		ReviewerRunID: reviewer, DiffBase: diffBase,
+		Cycle:          cycle,
+		Reviewer:       clearTestReviewer(t, reviewer, head, base, cycle, assessments, carried),
+		Carried:        carried,
+		ScopeDigest:    scope,
+		PolicyRevision: "policy-revision-9", CheckDigest: check,
+		DiffBase: diffBase,
 	}
 }
 
@@ -154,19 +180,19 @@ func TestAdmitClearReviewRefusesFalseClear(t *testing.T) {
 
 	cases := map[string]func(*ClearAdmissionInput){
 		"silence carries no explicit conclusion": func(in *ClearAdmissionInput) {
-			in.Report.Conclusion = ""
+			in.Reviewer.Result.PhaseResult.Output.Clear.Conclusion = ""
 		},
 		"native approval is not an explicit clear": func(in *ClearAdmissionInput) {
-			in.Report.Conclusion = "approve"
+			in.Reviewer.Result.PhaseResult.Output.Clear.Conclusion = "approve"
 		},
 		"empty coverage is incomplete": func(in *ClearAdmissionInput) {
-			in.Report.CoverageDigest = strings.Repeat("a", 64)
+			in.Reviewer.Result.PhaseResult.Output.Clear.CoverageDigest = strings.Repeat("a", 64)
 		},
 		"omitted carried finding never clears": func(in *ClearAdmissionInput) {
-			in.Report.Assessments = nil
+			in.Reviewer.Result.PhaseResult.Output.Clear.Assessments = nil
 		},
 		"stale report tuple never clears": func(in *ClearAdmissionInput) {
-			in.Report.Head = newHead
+			in.Reviewer.Result.PhaseResult.Output.Clear.Head = newHead
 		},
 		"stale cycle head never clears": func(in *ClearAdmissionInput) {
 			in.Cycle.Head = newHead
@@ -176,13 +202,13 @@ func TestAdmitClearReviewRefusesFalseClear(t *testing.T) {
 			in.Publication.PRCreate.BaseOID = newBase
 		},
 		"unfinished process never clears": func(in *ClearAdmissionInput) {
-			in.Result.Status = "blocked"
+			in.Reviewer.Result.Status = "blocked"
 		},
 		"finished-on-another-candidate never clears": func(in *ClearAdmissionInput) {
-			in.Result.Candidate = newHead
+			in.Reviewer.SourceCommit = newHead
 		},
-		"wrong reviewer run never clears": func(in *ClearAdmissionInput) {
-			in.ReviewerRunID = strings.Repeat("6", 32)
+		"wrong reviewer assignment never clears": func(in *ClearAdmissionInput) {
+			in.Reviewer.ID = strings.Repeat("6", 32)
 		},
 		"undistinct reviewer session never clears": func(in *ClearAdmissionInput) {
 			in.Cycle.CorrectionAssignment = reviewer
@@ -198,6 +224,38 @@ func TestAdmitClearReviewRefusesFalseClear(t *testing.T) {
 		if _, _, err := AdmitClearReview(in); err == nil {
 			t.Fatalf("%s: accepted", name)
 		}
+	}
+}
+
+// A same-ID substituted cycle refuses: every immutable cycle field
+// binds, so swapping the recorded head/base/digest under a known ID
+// takes no admission.
+func TestAdmitClearReviewRefusesSubstitutedCycle(t *testing.T) {
+	reviewer := strings.Repeat("e", 32)
+	head := strings.Repeat("5", 40)
+	base := strings.Repeat("a", 40)
+	in := clearTestInput(t, strings.Repeat("b", 32), strings.Repeat("a", 32), reviewer, head, base, base, 1, nil, nil)
+	in.Cycle.Head = strings.Repeat("9", 40)
+	if _, _, err := AdmitClearReview(in); err == nil {
+		t.Fatal("substituted cycle admitted")
+	}
+}
+
+// A foreign attempt's reviewer refuses: the reviewer assignment must
+// belong to the publication's owner lineage and attempt root.
+func TestAdmitClearReviewRefusesForeignReviewer(t *testing.T) {
+	reviewer := strings.Repeat("e", 32)
+	head := strings.Repeat("5", 40)
+	base := strings.Repeat("a", 40)
+	in := clearTestInput(t, strings.Repeat("b", 32), strings.Repeat("a", 32), reviewer, head, base, base, 1, nil, nil)
+	in.Reviewer.PublicationAssignment = strings.Repeat("f", 32)
+	if _, _, err := AdmitClearReview(in); err == nil {
+		t.Fatal("foreign publication reviewer admitted")
+	}
+	in.Reviewer.PublicationAssignment = in.Publication.AssignmentID
+	in.Reviewer.AttemptRoot = strings.Repeat("f", 32)
+	if _, _, err := AdmitClearReview(in); err == nil {
+		t.Fatal("foreign attempt reviewer admitted")
 	}
 }
 
@@ -233,13 +291,13 @@ func TestAdmitCorrectionReportCanonical(t *testing.T) {
 	newCandidate := strings.Repeat("9", 40)
 	findings := []factory.Finding{correctionTestFinding(0, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, publicationID, head, base, 1, correctionTestDigest(t, correctionTestKey(0)))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: correctionTestKey(0), Disposition: factory.DispositionUnresolved}})
+	report := correctionTestReport(newCandidate, findings, []factory.CorrectionDisposition{{Key: correctionTestKey(0), Disposition: factory.DispositionUnresolved}})
 	if _, err := AdmitCorrectionReportCanonical(cycle, strings.Repeat("4", 32), newCandidate, findings, report, nil, nil); err != nil {
 		t.Fatalf("canonical correction refused: %v", err)
 	}
 	rewritten := []factory.Finding{correctionTestFinding(0, true, factory.FindingFixCode)}
 	rewritten[0].Defect = "rewritten defect under the same key"
-	bad := correctionTestReport(rewritten, []factory.CorrectionDisposition{{Key: correctionTestKey(0), Disposition: factory.DispositionUnresolved}})
+	bad := correctionTestReport(newCandidate, rewritten, []factory.CorrectionDisposition{{Key: correctionTestKey(0), Disposition: factory.DispositionUnresolved}})
 	if _, err := AdmitCorrectionReportCanonical(cycle, strings.Repeat("4", 32), newCandidate, findings, bad, nil, nil); err == nil {
 		t.Fatal("agent-rewritten canonical finding admitted")
 	}

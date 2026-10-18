@@ -84,24 +84,68 @@ func (d CorrectionDisposition) Validate() error {
 // admission parses the last such block strictly.
 const CorrectionReportFence = "correction-json"
 
+// CorrectionFixEvidence is one fixed finding's mechanical proof: the relevant
+// changed paths and commits behind a code fix. Verification-only fixes carry
+// no paths; their proof is the new passing check assessment supplied
+// alongside the report.
+type CorrectionFixEvidence struct {
+	Key          string   `json:"key"`
+	ChangedPaths []string `json:"changed_paths,omitempty"`
+	Commits      []string `json:"commits,omitempty"`
+}
+
+// Validate checks one evidence entry's shape. Whether the entry is required,
+// and whether the checked tree backs it, belongs to admission, which sees
+// the whole report plus the candidate and checks.
+func (e CorrectionFixEvidence) Validate() error {
+	if !ValidFindingKey(e.Key) {
+		return errors.New("invalid correction fix evidence key")
+	}
+	if len(e.ChangedPaths) > MaxOutstandingFindings || len(e.Commits) > MaxOutstandingFindings {
+		return errors.New("correction fix evidence exceeds its bound")
+	}
+	for _, path := range e.ChangedPaths {
+		if path == "" || len(path) > 1024 || path != strings.TrimSpace(path) {
+			return errors.New("invalid correction fix evidence path")
+		}
+	}
+	for _, commit := range e.Commits {
+		if !ValidCommit(commit) {
+			return errors.New("invalid correction fix evidence commit")
+		}
+	}
+	return nil
+}
+
 // CorrectionReport is one correction run's output over the whole current
 // finding set: the exact finding-set digest it answered plus exactly one
-// disposition per supplied key. Fixed code findings require relevant
-// changed paths/commits and exact checked-tree evidence behind them;
-// verification-only findings may retain the same head when new passing
-// checks prove their required outcome. Missing, duplicate, unknown or
-// stale dispositions refuse; disputes use existing intervention. Every
-// correction run consumes one existing correction cycle.
+// disposition per supplied key, alongside the run's exact candidate
+// nomination and its fix evidence. The nomination names the resulting
+// tree the dispositions were taken against: a changed commit for fixed
+// code, the retained head for verification-only or contested rounds. It
+// is a nomination only — never checkpoint proof or authorization to
+// publish; the D05 checkpoint/export/check/authority gates still decide.
+// Fixed code findings require relevant changed paths/commits and exact
+// checked-tree evidence behind them; verification-only findings may retain
+// the same head when new passing checks prove their required outcome.
+// Missing, duplicate, unknown or stale dispositions refuse; disputes use
+// existing intervention. Every correction run consumes one existing
+// correction cycle.
 type CorrectionReport struct {
 	SetDigest    string                  `json:"set_digest"`
+	NewCandidate string                  `json:"new_candidate"`
 	Findings     []Finding               `json:"findings"`
 	Dispositions []CorrectionDisposition `json:"dispositions"`
+	Evidence     []CorrectionFixEvidence `json:"evidence,omitempty"`
 }
 
 // Validate binds the dispositions to the exact supplied finding set.
 func (r CorrectionReport) Validate() error {
 	if len(r.Findings) == 0 || len(r.Findings) > MaxOutstandingFindings {
 		return errors.New("correction report needs its bounded finding set")
+	}
+	if !ValidCommit(r.NewCandidate) {
+		return errors.New("correction report lacks its exact candidate nomination")
 	}
 	keys := make([]string, 0, len(r.Findings))
 	byKey := make(map[string]Finding, len(r.Findings))
@@ -124,6 +168,19 @@ func (r CorrectionReport) Validate() error {
 	}
 	if len(r.Dispositions) != len(r.Findings) {
 		return errors.New("correction dispositions omit a supplied finding")
+	}
+	seenEvidence := make(map[string]bool, len(r.Evidence))
+	for _, entry := range r.Evidence {
+		if err := entry.Validate(); err != nil {
+			return err
+		}
+		if _, ok := byKey[entry.Key]; !ok {
+			return errors.New("correction fix evidence answers an unknown finding")
+		}
+		if seenEvidence[entry.Key] {
+			return errors.New("correction fix evidence repeats its key")
+		}
+		seenEvidence[entry.Key] = true
 	}
 	seen := make(map[string]bool, len(r.Dispositions))
 	for _, disposition := range r.Dispositions {
@@ -178,15 +235,24 @@ func (j CorrectionJournal) Validate() error {
 // storage belongs to FW18 and fresh-session dispatch to FW20; this is the
 // frozen contract they persist.
 type ReviewCycle struct {
-	PublicationID        string `json:"publication_id"`
-	AttemptRoot          string `json:"attempt_root"`
-	ID                   string `json:"id"`
-	Phase                string `json:"phase"`
-	TriggerDecision      string `json:"trigger_decision"`
-	TriggerReason        string `json:"trigger_reason"`
-	Head                 string `json:"head"`
-	BaseOID              string `json:"base_oid"`
-	FindingDigest        string `json:"finding_digest"`
+	PublicationID   string `json:"publication_id"`
+	AttemptRoot     string `json:"attempt_root"`
+	ID              string `json:"id"`
+	Phase           string `json:"phase"`
+	TriggerDecision string `json:"trigger_decision"`
+	TriggerReason   string `json:"trigger_reason"`
+	Head            string `json:"head"`
+	BaseOID         string `json:"base_oid"`
+	FindingDigest   string `json:"finding_digest"`
+	// InputDigest fingerprints the complete review/check inputs the
+	// round answers (head, base, verdict and check evidence). It drives
+	// round reuse and invalidation; FindingDigest separately binds the
+	// finding-set coverage a correction report must answer. Reviewer
+	// rounds carry their evidence digest in both fields; correction
+	// rounds carry the finding-set digest in FindingDigest and the
+	// evidence digest here, so same-key changed inputs open a new round
+	// instead of silently reusing the prior admitted correction.
+	InputDigest          string `json:"input_digest,omitempty"`
 	ReviewerAssignment   string `json:"reviewer_assignment"`
 	CorrectionAssignment string `json:"correction_assignment,omitempty"`
 	Round                int    `json:"round"`
@@ -219,6 +285,9 @@ func (c ReviewCycle) Validate() error {
 	}
 	if !ValidDigest(c.FindingDigest) {
 		return errors.New("invalid review cycle finding digest")
+	}
+	if c.InputDigest != "" && !ValidDigest(c.InputDigest) {
+		return errors.New("invalid review cycle input digest")
 	}
 	if !ValidID(c.ReviewerAssignment) {
 		return errors.New("invalid review cycle reviewer assignment")

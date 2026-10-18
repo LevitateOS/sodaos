@@ -192,8 +192,8 @@ func TestNewestCurrentHeadDispositionsBindsCurrentHead(t *testing.T) {
 		return factory.CorrectionJournal{
 			CycleID: cycleID, RunID: strings.Repeat("6", 32),
 			Report: factory.CorrectionReport{
-				SetDigest: strings.Repeat("3", 64),
-				Findings:  []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)},
+				SetDigest: strings.Repeat("3", 64), NewCandidate: strings.Repeat("d", 40),
+				Findings: []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)},
 				Dispositions: []factory.CorrectionDisposition{
 					{Key: correctionTestKey(1), Disposition: disposition},
 				},

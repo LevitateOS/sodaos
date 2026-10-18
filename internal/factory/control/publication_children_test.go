@@ -376,9 +376,18 @@ func TestPublishPassPersistsD07CyclesFreshVsReplay(t *testing.T) {
 	if prior.Legacy == nil || prior.Verdict != "request-changes" {
 		t.Fatalf("current verdict is not the legacy findings report: %+v", prior)
 	}
-	wantCorrectionDigest := reviewCycleInputDigest(p.Candidate, p.PRCreate.BaseOID, prior.Legacy, assessment)
+	// The correction round binds the answered finding set, not the
+	// review/check evidence envelope; a legacy string verdict carries
+	// no stable keys, so the round binds the empty set. The complete
+	// input fingerprint rides separately and keeps the evidence domain.
+	wantCorrectionDigest, err := factory.FindingSetDigest(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCorrectionInputs := reviewCycleEvidenceDigest(p.Candidate, p.PRCreate.BaseOID, prior, assessment)
 	if second.Round != 2 || second.Head != p.Candidate || second.BaseOID != p.PRCreate.BaseOID ||
-		second.FindingDigest != wantCorrectionDigest || second.TriggerDecision != "correction-after-review" ||
+		second.FindingDigest != wantCorrectionDigest || second.InputDigest != wantCorrectionInputs ||
+		second.TriggerDecision != "correction-after-review" ||
 		second.ReviewerAssignment == first.ReviewerAssignment || second.CorrectionAssignment == first.ReviewerAssignment ||
 		second.CorrectionAssignment == "" || !factory.ValidID(second.CorrectionAssignment) {
 		t.Fatalf("round-2 correction cycle malformed: %+v wantDigest=%q", second, wantCorrectionDigest)
@@ -650,5 +659,26 @@ func TestPauseKeepsRunningCandidatePreparationUntilStopReceiptConfirms(t *testin
 				t.Fatalf("withdrawn gate authorized a candidate preparation: %v", err)
 			}
 		})
+	}
+}
+
+// TestCorrectionFindingKeysRetireVerifiedAssessments proves correction
+// coverage derives from the outstanding set: verified assessments stay
+// out of the finding keys the correction round binds, while still-open
+// carried assessments and new findings stay in.
+func TestCorrectionFindingKeysRetireVerifiedAssessments(t *testing.T) {
+	outstanding := correctionTestFinding(2, true, factory.FindingFixCode)
+	retired := correctionTestFinding(9, true, factory.FindingFixCode)
+	review := ResolvedReviewVerdict{Verdict: "request-changes", Review: &factory.ReviewCycleReport{
+		CycleID:     correctionTestKey(7),
+		NewFindings: []factory.Finding{outstanding},
+		Assessments: []factory.FindingAssessment{
+			{Key: retired.Key, Status: factory.FindingVerified, Evidence: "fixed and checked"},
+			{Key: outstanding.Key, Status: factory.FindingStillOpen, Evidence: "still open"},
+		},
+	}}
+	keys := correctionFindingKeys(review)
+	if len(keys) != 1 || keys[0] != outstanding.Key {
+		t.Fatalf("verified assessment leaked into correction coverage: %q", keys)
 	}
 }

@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -308,7 +309,7 @@ func (c *Coordinator) PublishCorrection(ctx context.Context, runID string) Corre
 // waits without mutating; admitted reports delegate the head advance to
 // PublishCorrection. Runs without a parsed report keep the legacy entry;
 // this entry never guesses dispositions.
-func (c *Coordinator) PublishCorrectionWithReport(ctx context.Context, runID string, report factory.CorrectionReport, evidence []CorrectionFixEvidence, checks *factory.CheckAssessment) CorrectionReport {
+func (c *Coordinator) PublishCorrectionWithReport(ctx context.Context, runID string, report factory.CorrectionReport, evidence []factory.CorrectionFixEvidence, checks *factory.CheckAssessment) CorrectionReport {
 	served := CorrectionReport{Corrected: []CorrectionLink{}}
 	if c.Store == nil {
 		correctionError(&served, runID, "operations_unavailable")
@@ -343,14 +344,21 @@ func (c *Coordinator) PublishCorrectionWithReport(ctx context.Context, runID str
 	}
 	// Replay reuses the recorded journal: a run that already reported
 	// never journals twice, and the head advance below replays too. A
-	// replay that rewrites its recorded findings refuses instead of
-	// replacing the canonical set.
+	// replay must preserve the entire recorded report, including its
+	// dispositions, candidate and evidence. A journaled dispute remains
+	// held; recording the report did not authorize its candidate.
 	for _, journal := range p.CorrectionJournals {
 		if journal.RunID == runID {
-			if err := factory.CheckSubmittedFindings(journal.Report.Findings, report.Findings); err != nil {
+			if !reflect.DeepEqual(journal.Report, report) {
 				correctionWait(&served, p.ID, "correction_refused")
-				served.Waits[len(served.Waits)-1].Detail = err.Error()
+				served.Waits[len(served.Waits)-1].Detail = "correction replay differs from its recorded report"
 				return served
+			}
+			for _, disposition := range journal.Report.Dispositions {
+				if disposition.Disposition == factory.DispositionDisputed {
+					correctionWait(&served, p.ID, "delivery_judgment_required")
+					return served
+				}
 			}
 			return c.PublishCorrection(ctx, runID)
 		}
@@ -373,6 +381,15 @@ func (c *Coordinator) PublishCorrectionWithReport(ctx context.Context, runID str
 		return served
 	}
 	newCandidate := assignment.Result.Candidate
+	// A superseded cycle answers another tree: the publication moved on
+	// before this report arrived, so no new journal may append merely
+	// because the eventual ref push would refuse. Already-recorded
+	// operations keep their replay recovery above; only first effects
+	// wait here.
+	if cycle.Head != p.Candidate || cycle.BaseOID != p.PRCreate.BaseOID {
+		correctionWait(&served, p.ID, "correction_cycle_superseded")
+		return served
+	}
 	var canonical []factory.Finding
 	for _, journal := range p.CorrectionJournals {
 		if journal.CycleID == cycle.ID {
@@ -383,7 +400,11 @@ func (c *Coordinator) PublishCorrectionWithReport(ctx context.Context, runID str
 	if canonical != nil {
 		_, err = AdmitCorrectionReportCanonical(*cycle, runID, newCandidate, canonical, report, evidence, checks)
 	} else {
-		_, err = AdmitCorrectionReport(*cycle, runID, newCandidate, report, evidence, checks)
+		// First admission binds the report to the owning history's
+		// canonical carried findings, not just the round's finding-set
+		// digest: same-key rewritten content, omissions and changed
+		// origins refuse before any journal/ref effect.
+		_, err = c.admitFirstCorrectionReport(ctx, p, *cycle, runID, newCandidate, report, evidence, checks)
 	}
 	if err != nil {
 		var block *CorrectionBlock

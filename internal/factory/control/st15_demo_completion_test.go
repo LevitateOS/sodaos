@@ -94,14 +94,6 @@ func (fx *st15Fixture) admitDemoAcceptance(ctx context.Context, m factory.Merge)
 			return fx.demoUnionBinding(ctx, m, recorded, assessment.Revision)
 		}
 	}
-	emptyContent, err := factory.FindingContentDigest(nil)
-	if err != nil {
-		return refuse("%v", err)
-	}
-	coverage, err := factory.ClearCoverageDigest(cycle.Head, cycle.BaseOID, emptyContent)
-	if err != nil {
-		return refuse("%v", err)
-	}
 	headID, _, err := fx.db.PlanHead(ctx, cycle.AttemptRoot)
 	if err != nil {
 		return refuse("admitted plan head unreadable: %v", err)
@@ -116,16 +108,11 @@ func (fx *st15Fixture) admitDemoAcceptance(ctx context.Context, m factory.Merge)
 	}
 	journaled, acceptance, err := control.AdmitClearReview(control.ClearAdmissionInput{
 		Publication: p, Cycle: cycle,
-		Report: factory.ClearReviewReport{
-			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-			Head: cycle.Head, BaseOID: cycle.BaseOID, CoverageDigest: coverage,
-		},
+		Reviewer:       reviewer,
 		Carried:        nil,
-		Result:         reviewer.Result.ToResult(),
 		ScopeDigest:    plan.ScopeDigest,
 		PolicyRevision: strconv.FormatInt(policy.Revision, 10),
 		CheckDigest:    assessment.ChecksDigest,
-		ReviewerRunID:  cycle.ReviewerAssignment,
 		DiffBase:       p.PRCreate.BaseOID,
 	})
 	if err != nil {

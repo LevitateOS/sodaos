@@ -55,10 +55,11 @@ func (r AssignmentResult) Validate() error {
 	}.Validate()); err != nil {
 		// Completed candidate-free phases expose no candidate: their
 		// typed shapes (plan, decomposition, reassessment, review
-		// verdict, correction dispositions) carry no candidate field, so
-		// such a result can never authorize effects. The exemption
-		// covers exactly the candidate rule; every other shape rule
-		// still refuses.
+		// verdict) carry no candidate field, so such a result can never
+		// authorize effects. Completed corrections nominate their
+		// resulting tree and validate as ordinary candidate results.
+		// The exemption covers exactly the candidate rule; every other
+		// shape rule still refuses.
 		if r.Candidate != "" || r.Status != "completed" || !isCandidateFreePhaseResult(r.PhaseResult) {
 			return err
 		}
@@ -77,19 +78,20 @@ func (r AssignmentResult) Validate() error {
 // isCandidateFreePhaseResult reports whether phased output belongs to a
 // phase whose completed result never names a publishable candidate:
 // investigate plans, chosen decompositions, reassessment reports, typed
-// review verdicts, correction dispositions, repair reports and app
-// verification reports. F7 joint cutover with the phased
+// review verdicts, repair reports and app verification reports.
+// Completed corrections nominate their resulting tree, so the correct
+// phase left this exemption with the phased dispatch_result.go consumer
+// and the typed correction payload. F7 joint cutover with the phased
 // dispatch_result.go consumer and the PhaseOutput typed payloads;
-// decompose arrived first, review and correct ride the same exemption,
-// and repair/verify extend it to stall, delivery-repair and delivery
-// subjects.
+// decompose arrived first, review rides the exemption, and repair/verify
+// extend it to stall, delivery-repair and delivery subjects.
 func isCandidateFreePhaseResult(phased *PhaseResult) bool {
 	if phased == nil {
 		return false
 	}
 	switch phased.Phase {
 	case project.ExecutionInvestigate, project.ExecutionDecompose, project.ExecutionReassess,
-		project.ExecutionReview, project.ExecutionCorrect,
+		project.ExecutionReview,
 		project.ExecutionRepair, project.ExecutionVerify:
 		return true
 	default:
@@ -116,7 +118,22 @@ func (r AssignmentResult) ValidatePhaseBinding(role, assignmentPhase string) err
 	if r.PhaseResult.Phase != r.Phase {
 		return errors.New("phased result payload does not match its phase")
 	}
-	return r.PhaseResult.Validate()
+	if err := r.PhaseResult.Validate(); err != nil {
+		return err
+	}
+	if r.Phase == project.ExecutionCorrect {
+		if r.Status != r.PhaseResult.Status {
+			return errors.New("recorded correction status differs from its typed result")
+		}
+		candidate := ""
+		if r.Status == "completed" {
+			candidate = r.PhaseResult.Output.Correction.NewCandidate
+		}
+		if r.Candidate != candidate {
+			return errors.New("recorded correction candidate differs from its typed result")
+		}
+	}
+	return nil
 }
 
 // ValidateForAssignment enforces the role-specific result contract. A

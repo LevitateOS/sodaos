@@ -48,39 +48,6 @@ func ParseCorrectionReport(output string) (factory.CorrectionReport, bool) {
 	return factory.CorrectionReport{}, false
 }
 
-// CorrectionFixEvidence is one fixed finding's mechanical proof: the relevant
-// changed paths and commits behind a code fix. Verification-only fixes carry
-// no paths; their proof is the new passing check assessment supplied
-// alongside the report.
-type CorrectionFixEvidence struct {
-	Key          string   `json:"key"`
-	ChangedPaths []string `json:"changed_paths,omitempty"`
-	Commits      []string `json:"commits,omitempty"`
-}
-
-// validate checks one evidence entry's shape. Whether the entry is required,
-// and whether the checked tree backs it, belongs to admission, which sees
-// the whole report plus the candidate and checks.
-func (e CorrectionFixEvidence) validate() error {
-	if !factory.ValidFindingKey(e.Key) {
-		return errors.New("invalid correction fix evidence key")
-	}
-	if len(e.ChangedPaths) > factory.MaxOutstandingFindings || len(e.Commits) > factory.MaxOutstandingFindings {
-		return errors.New("correction fix evidence exceeds its bound")
-	}
-	for _, path := range e.ChangedPaths {
-		if path == "" || len(path) > 1024 || path != strings.TrimSpace(path) {
-			return errors.New("invalid correction fix evidence path")
-		}
-	}
-	for _, commit := range e.Commits {
-		if !factory.ValidCommit(commit) {
-			return errors.New("invalid correction fix evidence commit")
-		}
-	}
-	return nil
-}
-
 // CorrectionAdmission is one corrector run's admitted report: the cycle and
 // run it answered, the finding-set digest covered, and the disposition keys
 // by outcome. Admitted reports proceed to judgment; judgment (FW21) decides
@@ -116,7 +83,7 @@ func (b *CorrectionBlock) Error() string { return "correction needs intervention
 // changed paths/commits on the exact new tree; verification-only findings
 // may retain the same head when new passing checks on that exact head prove
 // the required outcome. Unchanged code cannot claim a code fix.
-func AdmitCorrectionReport(cycle factory.ReviewCycle, runID, newCandidate string, report factory.CorrectionReport, evidence []CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
+func AdmitCorrectionReport(cycle factory.ReviewCycle, runID, newCandidate string, report factory.CorrectionReport, evidence []factory.CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
 	var empty CorrectionAdmission
 	if err := cycle.Validate(); err != nil {
 		return empty, err
@@ -130,6 +97,13 @@ func AdmitCorrectionReport(cycle factory.ReviewCycle, runID, newCandidate string
 	if err := report.Validate(); err != nil {
 		return empty, err
 	}
+	// The retained candidate binds the report's own nomination: the
+	// settlement-mapped candidate and the corrector's nominated tree must
+	// be the same commit, so a mismatched wiring refuses instead of
+	// advancing a tree the report never accounted.
+	if report.NewCandidate != newCandidate {
+		return empty, errors.New("correction nomination differs from its recorded candidate")
+	}
 	if report.SetDigest != cycle.FindingDigest {
 		return empty, errors.New("correction dispositions answer a changed finding set")
 	}
@@ -137,9 +111,9 @@ func AdmitCorrectionReport(cycle factory.ReviewCycle, runID, newCandidate string
 	for _, finding := range report.Findings {
 		byKey[finding.Key] = finding
 	}
-	evidenceByKey := make(map[string]CorrectionFixEvidence, len(evidence))
+	evidenceByKey := make(map[string]factory.CorrectionFixEvidence, len(evidence))
 	for _, entry := range evidence {
-		if err := entry.validate(); err != nil {
+		if err := entry.Validate(); err != nil {
 			return empty, err
 		}
 		if _, dup := evidenceByKey[entry.Key]; dup {
@@ -214,6 +188,25 @@ func AdmitCorrectionReport(cycle factory.ReviewCycle, runID, newCandidate string
 	return admission, nil
 }
 
+// admitFirstCorrectionReport binds a first correction report to the
+// cycle's canonical carried findings before any journal/ref effect. The
+// submitted findings must exactly equal the owning history's
+// reconstruction (same keys, same content, same provenance), so a
+// same-key rewritten defect, an omission or a changed origin refuses
+// instead of journaling. The round key stays the finding-set digest;
+// this content binding is the separate domain that keeps key equality
+// from standing in for content freshness. Later reports for the same
+// cycle answer the first journal's canonical set through
+// AdmitCorrectionReportCanonical. PublishCorrectionWithReport's
+// first-admission branch enters here.
+func (c *Coordinator) admitFirstCorrectionReport(ctx context.Context, p factory.Publication, cycle factory.ReviewCycle, runID, newCandidate string, report factory.CorrectionReport, evidence []factory.CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
+	canonical, err := c.reviewCarriedFindings(ctx, p, cycle)
+	if err != nil {
+		return CorrectionAdmission{}, err
+	}
+	return AdmitCorrectionReportCanonical(cycle, runID, newCandidate, canonical, report, evidence, checks)
+}
+
 // appendCorrectionJournal records one admitted report as the publication's
 // next immutable correction journal entry: the cycle must belong to this
 // publication, the run reports once, and the report answers the cycle's
@@ -254,7 +247,7 @@ func appendCorrectionJournal(p *factory.Publication, cycle factory.ReviewCycle, 
 // reports change nothing; admitted reports persist exactly one journal entry
 // per run over the cycle's exact finding-set digest. Journaling records the
 // report for judgment; it never resolves native threads.
-func (c *Coordinator) AdmitAndJournalCorrection(ctx context.Context, ownerAssignmentID, cycleID, runID, newCandidate string, report factory.CorrectionReport, evidence []CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
+func (c *Coordinator) AdmitAndJournalCorrection(ctx context.Context, ownerAssignmentID, cycleID, runID, newCandidate string, report factory.CorrectionReport, evidence []factory.CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
 	var empty CorrectionAdmission
 	if c.Store == nil {
 		return empty, errors.New("correction journal unavailable")

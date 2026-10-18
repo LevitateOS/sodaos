@@ -4,25 +4,26 @@ import (
 	"errors"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // ClearAdmissionInput is the controller's complete explicit-clear input:
-// the publication and its recorded review cycle, the independent reviewer
-// run, the reviewer's explicit clear report, the controller's canonical
-// carried findings, the reviewer's finished process result, and the
-// controller-observed scope/policy/check evidence the acceptance binds.
-// No allowance, chooser or delivery-call reservation travels here: a clear
+// the publication and its recorded review cycle, the actual completed
+// typed reviewer assignment behind the verdict, the controller's
+// canonical carried findings, and the controller-observed scope/policy/
+// check evidence the acceptance binds. The clear verdict is read from
+// the reviewer's recorded typed result — never a parallel report, and
+// never a faked candidate: review outputs stay candidate-free. No
+// allowance, chooser or delivery-call reservation travels here: a clear
 // review creates acceptance with zero delivery calls by construction.
 type ClearAdmissionInput struct {
 	Publication    factory.Publication
 	Cycle          factory.ReviewCycle
-	Report         factory.ClearReviewReport
+	Reviewer       factory.Assignment
 	Carried        []factory.Finding
-	Result         factory.Result
 	ScopeDigest    string
 	PolicyRevision string
 	CheckDigest    string
-	ReviewerRunID  string
 	DiffBase       string
 }
 
@@ -31,17 +32,20 @@ type ClearAdmissionInput struct {
 // Every D07/T41-T43 gate runs here:
 //
 //   - the cycle is recorded on this publication and validates;
-//   - the report is the reviewer's explicit clear over the controller's
-//     canonical carried set (silence, native approval, empty output,
-//     incomplete coverage, omitted carried findings and stale tuples
-//     refuse);
+//   - the reviewer assignment is the cycle's independent reviewer,
+//     distinct from any corrector session, finished succeeded with a
+//     reported completed typed result;
+//   - the recorded verdict is the reviewer's explicit clear over the
+//     controller's canonical carried set (silence, native approval,
+//     empty output, incomplete coverage, omitted carried findings and
+//     stale tuples refuse);
 //   - the coverage digest recomputed from the canonical set must equal the
 //     reported one, so same-key rewritten content invalidates;
-//   - the report answers the cycle's exact head/base, which must still be
-//     the publication's current candidate and PR creation base;
-//   - the reviewer run is the cycle's independent reviewer assignment,
-//     distinct from any corrector session;
-//   - the reviewer process finished completed on the exact head.
+//   - the verdict answers the cycle's exact head/base, which must still be
+//     the publication's current candidate and PR creation base, and must
+//     equal the reviewer's admitted source commit: the reviewer finished
+//     on the exact head through its assignment binding, not a result
+//     candidate field.
 //
 // The funded jev_acceptance variant is constructed by FW36 alongside D08
 // routing; the union type and its validation already admit both kinds.
@@ -51,26 +55,70 @@ func AdmitClearReview(in ClearAdmissionInput) (factory.Publication, factory.Deli
 	if err := in.Cycle.Validate(); err != nil {
 		return published, empty, err
 	}
-	recorded := false
+	var recorded factory.ReviewCycle
+	found := false
 	for _, cycle := range published.ReviewCycles {
 		if cycle.ID == in.Cycle.ID {
-			recorded = true
+			recorded, found = cycle, true
 			break
 		}
 	}
-	if !recorded || in.Cycle.PublicationID != published.ID {
+	if !found {
 		return published, empty, errors.New("clear review consumes an unrecorded cycle")
 	}
-	if !factory.ValidID(in.ReviewerRunID) || in.ReviewerRunID != in.Cycle.ReviewerAssignment {
-		return published, empty, errors.New("clear review needs its independent reviewer run")
+	// The recorded row binds every immutable cycle field not just its
+	// ID: a same-ID substituted cycle with another head, base, digest,
+	// round, phase, trigger or assignment takes no admission.
+	if recorded.PublicationID != published.ID ||
+		recorded.AttemptRoot != in.Cycle.AttemptRoot ||
+		recorded.Round != in.Cycle.Round ||
+		recorded.Phase != in.Cycle.Phase ||
+		recorded.Head != in.Cycle.Head ||
+		recorded.BaseOID != in.Cycle.BaseOID ||
+		recorded.FindingDigest != in.Cycle.FindingDigest ||
+		recorded.ReviewerAssignment != in.Cycle.ReviewerAssignment ||
+		recorded.CorrectionAssignment != in.Cycle.CorrectionAssignment ||
+		recorded.TriggerDecision != in.Cycle.TriggerDecision ||
+		recorded.TriggerReason != in.Cycle.TriggerReason {
+		return published, empty, errors.New("clear review consumes a substituted cycle")
 	}
-	if in.Cycle.CorrectionAssignment != "" && in.Cycle.CorrectionAssignment == in.Cycle.ReviewerAssignment {
-		return published, empty, errors.New("reviewer and corrector sessions must stay distinct")
-	}
-	if err := in.Report.Validate(in.Carried); err != nil {
+	reviewer := in.Reviewer
+	if err := reviewer.Validate(); err != nil {
 		return published, empty, err
 	}
-	if in.Report.CycleID != in.Cycle.ID {
+	if reviewer.ID != in.Cycle.ReviewerAssignment {
+		return published, empty, errors.New("clear review needs its independent reviewer assignment")
+	}
+	// The reviewer belongs to this publication's lineage: its owner
+	// assignment and attempt root must match the recorded publication
+	// and cycle, so a foreign attempt's reviewer takes no admission.
+	if reviewer.PublicationAssignment != published.AssignmentID {
+		return published, empty, errors.New("clear review needs its publication reviewer")
+	}
+	if reviewer.AttemptRoot != in.Cycle.AttemptRoot {
+		return published, empty, errors.New("clear review needs its attempt reviewer")
+	}
+	if reviewer.Role != project.RoleReviewer || reviewer.Phase != project.ExecutionReview {
+		return published, empty, errors.New("clear review needs its phased reviewer assignment")
+	}
+	if reviewer.Stage != factory.AssignmentFinished || reviewer.Outcome != factory.Succeeded {
+		return published, empty, errors.New("clear review needs its finished reviewer")
+	}
+	if reviewer.Result == nil || !reviewer.Result.Reported || reviewer.Result.Status != "completed" {
+		return published, empty, errors.New("clear review needs its reported reviewer result")
+	}
+	if reviewer.Result.PhaseResult == nil || reviewer.Result.PhaseResult.Output == nil ||
+		reviewer.Result.PhaseResult.Output.Clear == nil {
+		return published, empty, errors.New("clear review needs its recorded typed verdict")
+	}
+	report := *reviewer.Result.PhaseResult.Output.Clear
+	if in.Cycle.CorrectionAssignment != "" && in.Cycle.CorrectionAssignment == reviewer.ID {
+		return published, empty, errors.New("reviewer and corrector sessions must stay distinct")
+	}
+	if err := report.Validate(in.Carried); err != nil {
+		return published, empty, err
+	}
+	if report.CycleID != in.Cycle.ID {
 		return published, empty, errors.New("clear review answers another cycle")
 	}
 	content, err := factory.FindingContentDigest(in.Carried)
@@ -81,20 +129,16 @@ func AdmitClearReview(in ClearAdmissionInput) (factory.Publication, factory.Deli
 	if err != nil {
 		return published, empty, err
 	}
-	if in.Report.CoverageDigest != coverage {
+	if report.CoverageDigest != coverage {
 		return published, empty, errors.New("clear review coverage answers another input")
 	}
-	if in.Report.Head != in.Cycle.Head || in.Report.BaseOID != in.Cycle.BaseOID {
+	if report.Head != in.Cycle.Head || report.BaseOID != in.Cycle.BaseOID {
 		return published, empty, errors.New("clear review answers a superseded tuple")
 	}
 	if in.Cycle.Head != published.Candidate || in.Cycle.BaseOID != published.PRCreate.BaseOID {
 		return published, empty, errors.New("clear review answers a superseded tuple")
 	}
-	candidate, err := in.Result.CompletedCandidate()
-	if err != nil {
-		return published, empty, err
-	}
-	if candidate != in.Cycle.Head {
+	if reviewer.SourceCommit != in.Cycle.Head {
 		return published, empty, errors.New("reviewer finished on another candidate")
 	}
 	if !factory.ValidDigest(in.ScopeDigest) || !factory.ValidDigest(in.CheckDigest) {
@@ -110,7 +154,7 @@ func AdmitClearReview(in ClearAdmissionInput) (factory.Publication, factory.Deli
 		Tuple: tuple, ID: factory.DeliveryAcceptanceID(published.ID, in.Cycle.AttemptRoot, in.Cycle.Round, factory.AcceptanceCleanReview),
 		PublicationID: published.ID, AttemptRoot: in.Cycle.AttemptRoot,
 		ScopeDigest: in.ScopeDigest, FindingDigest: content, CoverageDigest: coverage, CheckDigest: in.CheckDigest,
-		PolicyRevision: in.PolicyRevision, OriginReceipt: in.ReviewerRunID,
+		PolicyRevision: in.PolicyRevision, OriginReceipt: reviewer.ID,
 		Kind: factory.AcceptanceCleanReview, Round: in.Cycle.Round,
 	}
 	if err := acceptance.Validate(); err != nil {
@@ -282,7 +326,7 @@ func appendDeliveryAcceptance(p *factory.Publication, acceptance factory.Deliver
 // severity, actionability, outcome, fix kind or location refuses before
 // disposition rules run. Callers without a canonical set keep the legacy
 // entrypoint; FW37 wires this canonical gate into every serving entry.
-func AdmitCorrectionReportCanonical(cycle factory.ReviewCycle, runID, newCandidate string, canonical []factory.Finding, report factory.CorrectionReport, evidence []CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
+func AdmitCorrectionReportCanonical(cycle factory.ReviewCycle, runID, newCandidate string, canonical []factory.Finding, report factory.CorrectionReport, evidence []factory.CorrectionFixEvidence, checks *factory.CheckAssessment) (CorrectionAdmission, error) {
 	var empty CorrectionAdmission
 	if err := factory.CheckSubmittedFindings(canonical, report.Findings); err != nil {
 		return empty, err

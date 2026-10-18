@@ -255,6 +255,13 @@ func derivePhasedAttemptResult(a factory.Assignment, run factory.Run, output, su
 		if a.Phase == project.ExecutionImplement && parsed.Output != nil && parsed.Output.Implementation != nil {
 			result.Candidate = parsed.Output.Implementation.Candidate
 		}
+		// A completed correction nominates its resulting tree: the
+		// retained candidate binds the report's nomination so the
+		// correction consumer advances exactly the accounted tree. The
+		// nomination is not checkpoint proof or publish authorization.
+		if a.Phase == project.ExecutionCorrect && parsed.Output != nil && parsed.Output.Correction != nil {
+			result.Candidate = parsed.Output.Correction.NewCandidate
+		}
 	case "blocked":
 		result.Status = "blocked"
 	case "failed":

@@ -409,6 +409,16 @@ func (c *Coordinator) reviewCarriedFindings(ctx context.Context, p factory.Publi
 		if recorded.Round > cycle.Round {
 			continue
 		}
+		// Correction rounds carry no reviewer report by construction:
+		// their reviewer assignment is a synthetic distinct-session
+		// marker, never a row. Their journals still merge below, so
+		// dispositions stay answered without a phantom reviewer.
+		if recorded.CorrectionAssignment != "" {
+			if err := addJournal(recorded.ID); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		reviewer, err := c.Store.Assignment(ctx, recorded.ReviewerAssignment)
 		if err != nil {
 			return nil, errors.New("canonical carried history is incomplete: step17")
@@ -868,18 +878,24 @@ func reviewCyclePreparationID(cycleID string) string {
 // Reviewer rounds leave CorrectionAssignment empty; correction rounds record
 // a fresh (unused) reviewer ID alongside the used correction ID so the cycle
 // always validates while reviewer/corrector sessions stay distinct.
-func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publication, owner factory.Assignment, role, digest, triggerDecision, triggerReason string) (factory.ReviewCycle, string, string, error) {
+func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publication, owner factory.Assignment, role, digest, inputDigest, triggerDecision, triggerReason string) (factory.ReviewCycle, string, string, error) {
 	var empty factory.ReviewCycle
 	if !factory.ValidDigest(digest) || strings.TrimSpace(triggerDecision) == "" || strings.TrimSpace(triggerReason) == "" {
 		return empty, "", "", errors.New("review cycle needs its digest and triggering decision")
 	}
+	if inputDigest != "" && !factory.ValidDigest(inputDigest) {
+		return empty, "", "", errors.New("review cycle needs its valid input digest")
+	}
 	if role != project.RoleReviewer && role != project.RoleCoder {
 		return empty, "", "", errors.New("review cycle needs its reviewer or corrector role")
 	}
-	// Replay: the latest round already binds these exact inputs.
+	// Replay: the latest round already binds these exact inputs. Both
+	// the finding-set binding and the complete input fingerprint must
+	// match: same keys with changed review/check inputs open a new round
+	// instead of silently reusing the prior admitted correction.
 	if n := len(p.ReviewCycles); n > 0 {
 		last := p.ReviewCycles[n-1]
-		if last.Head == p.Candidate && last.BaseOID == p.PRCreate.BaseOID && last.FindingDigest == digest {
+		if last.Head == p.Candidate && last.BaseOID == p.PRCreate.BaseOID && last.FindingDigest == digest && last.InputDigest == inputDigest {
 			var childID, prepID string
 			if role == project.RoleReviewer {
 				childID = last.ReviewerAssignment
@@ -954,7 +970,7 @@ func (c *Coordinator) ensureReviewCycle(ctx context.Context, p *factory.Publicat
 	cycle := factory.ReviewCycle{
 		PublicationID: p.ID, AttemptRoot: owner.AttemptRoot, ID: cycleID, Phase: reviewCyclePhase,
 		TriggerDecision: triggerDecision, TriggerReason: triggerReason,
-		Head: p.Candidate, BaseOID: p.PRCreate.BaseOID, FindingDigest: digest,
+		Head: p.Candidate, BaseOID: p.PRCreate.BaseOID, FindingDigest: digest, InputDigest: inputDigest,
 		ReviewerAssignment: reviewerAssignment, CorrectionAssignment: correctionAssignment, Round: round,
 	}
 	if err := cycle.Validate(); err != nil {

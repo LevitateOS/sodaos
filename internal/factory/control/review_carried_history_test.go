@@ -53,7 +53,7 @@ func carriedJournal(t *testing.T, cycleID string, findings []factory.Finding, di
 	}
 	return factory.CorrectionJournal{
 		CycleID: cycleID, RunID: strings.Repeat("2", 32),
-		Report: factory.CorrectionReport{SetDigest: digest, Findings: findings, Dispositions: ordered},
+		Report: factory.CorrectionReport{SetDigest: digest, NewCandidate: strings.Repeat("d", 40), Findings: findings, Dispositions: ordered},
 	}
 }
 
@@ -359,6 +359,42 @@ func carriedEphemeral(t *testing.T) (*store.Store, string) {
 	}
 	t.Cleanup(cleanup)
 	return s, dsn
+}
+
+// A correction round carries no reviewer report by construction: its
+// synthetic reviewer assignment never exists as a row. The canonical
+// carried pipeline must skip report processing for correction rounds
+// while still merging their journals, so a re-review after a correction
+// answers the finding instead of holding on reviewer step17.
+func TestCarriedHistorySkipsCorrectionRoundReviewer(t *testing.T) {
+	s, dsn := carriedEphemeral(t)
+	ctx := context.Background()
+	head, base := carriedHead('b'), carriedHead('f')
+	key := strings.Repeat("3", 32)
+	pubID, root := strings.Repeat("6", 32), strings.Repeat("9", 32)
+	reviewer1, reviewer3 := strings.Repeat("7", 32), strings.Repeat("5", 32)
+	finding := carriedFinding(key, "line 7 lacks a check")
+	prior := carriedCycle(pubID, root, head, base, reviewer1, 1)
+	carriedStoreAssignment(t, s, dsn, carriedReviewer(t, reviewer1, root, head, prior.ID,
+		&factory.ReviewCycleReport{CycleID: prior.ID, NewFindings: []factory.Finding{finding}}))
+	carriedStoreReviewRun(t, s, dsn, carriedReviewRunID(reviewer1), head, reviewer1, factory.Succeeded, nil)
+	carriedStoreOwner(t, s, dsn)
+	correction := carriedCycle(pubID, root, head, base, strings.Repeat("4", 32), 2)
+	correction.CorrectionAssignment = strings.Repeat("2", 32)
+	current := carriedCycle(pubID, root, head, base, reviewer3, 3)
+	p := carriedPublication(pubID, head, base)
+	p.CorrectionJournals = []factory.CorrectionJournal{
+		carriedJournal(t, correction.ID, []factory.Finding{finding}, map[string]string{key: factory.DispositionFixed}),
+	}
+	p.ReviewCycles = []factory.ReviewCycle{prior, correction, current}
+	coord := &Coordinator{Store: s}
+	carried, err := coord.reviewCarriedFindings(ctx, p, current)
+	if err != nil {
+		t.Fatalf("carried history held on its correction round: %v", err)
+	}
+	if !carriedKeys(carried)[key] {
+		t.Fatalf("round-one finding erased by its correction round: %v", carriedKeys(carried))
+	}
 }
 
 // The F8 repro at bind level on the persisted path: a valid unresolved

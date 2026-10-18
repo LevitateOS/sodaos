@@ -280,7 +280,7 @@ func finishCorrectionChild(t *testing.T, ctx context.Context, db *Store, child f
 		Version: 2, Phase: project.ExecutionCorrect, Status: "completed",
 		Summary: "corrected",
 		Output: &factory.PhaseOutput{Correction: &factory.CorrectionReport{
-			SetDigest: setDigest,
+			SetDigest: setDigest, NewCandidate: reviewCorrectCandidate,
 			Findings: []factory.Finding{{
 				Key: key, OriginRun: child.ParentAssignment,
 				Severity: factory.FindingSeverityMajor, Defect: "missing bound",
@@ -293,6 +293,7 @@ func finishCorrectionChild(t *testing.T, ctx context.Context, db *Store, child f
 	result := factory.AssignmentResult{
 		AssignmentID: child.ID, RunID: run.ID, Phase: project.ExecutionCorrect,
 		PhaseResult: &phased, Status: "completed", Summary: "corrected",
+		Candidate: reviewCorrectCandidate,
 		Findings: []string{}, Reported: true, RecordedUnix: now.Unix(),
 	}
 	stored.Stage, stored.Outcome, stored.Reason = factory.AssignmentFinished, factory.Succeeded, factory.AssignReasonReported

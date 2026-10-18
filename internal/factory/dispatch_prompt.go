@@ -259,13 +259,13 @@ func BuildDispatchPrompt(in PromptInputs) ([]byte, error) {
 		b.WriteString("and a correction block accounting every supplied finding exactly once with its finding-set digest:\n\n")
 		b.WriteString("```" + ResultFence + "\n")
 		if in.TypedReview != nil || in.TypedClear != nil {
-			b.WriteString(`{"version":2,"phase":"correct","status":"completed|blocked|failed|cancelled","summary":"...","output":{"correction":{"set_digest":"<finding-set digest from the evidence above>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}]}}}` + "\n")
+			b.WriteString(`{"version":2,"phase":"correct","status":"completed|blocked|failed|cancelled","summary":"...","output":{"correction":{"set_digest":"<finding-set digest from the evidence above>","new_candidate":"<40-hex commit of your resulting tree>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}],"evidence":[{"key":"<finding key>","changed_paths":["<path>"],"commits":["<40-hex commit>"]}]}}}` + "\n")
 		} else {
 			b.WriteString(`{"status":"completed|blocked|failed|cancelled","summary":"...","candidate":"<40-hex commit or empty>","review_passed":false,"findings":[]}` + "\n")
 		}
 		b.WriteString("```\n\n")
 		b.WriteString("```" + CorrectionReportFence + "\n")
-		b.WriteString(`{"set_digest":"<finding-set digest from the evidence above>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}]}` + "\n")
+		b.WriteString(`{"set_digest":"<finding-set digest from the evidence above>","new_candidate":"<40-hex commit of your resulting tree>","findings":[...],"dispositions":[{"key":"<finding key>","disposition":"fixed|unresolved|disputed|declined_optional"}],"evidence":[{"key":"<finding key>","changed_paths":["<path>"],"commits":["<40-hex commit>"]}]}` + "\n")
 		b.WriteString("```\n\n")
 		b.WriteString("Account every finding: missing, duplicate, unknown or stale dispositions refuse, and disputed findings need maintainer intervention. ")
 		b.WriteString("Report fixed for a code finding only with the changed candidate and its relevant changed paths and commits; ")

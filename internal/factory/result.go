@@ -64,11 +64,13 @@ func (r ImplementationReceipt) validate(status string) error {
 // result stays within the 64 KiB bound, including reassess and repair;
 // the 320 KiB exception covers the prompt only.
 //
-// Completed decompose, review, correct, repair and verify results carry no
+// Completed decompose, review, repair and verify results carry no
 // publishable candidate: the decomposition chooses task boundaries only,
-// the review verdict assesses findings only, the correction accounts
-// findings only, and repair/verification reports carry no candidate field
-// at all, so such a result can never be interpreted as publishable code.
+// the review verdict assesses findings only, and repair/verification
+// reports carry no candidate field at all, so such a result can never be
+// interpreted as publishable code. A completed correction nominates its
+// resulting tree alongside its dispositions; the nomination is not
+// checkpoint proof or publish authorization.
 type PhaseOutput struct {
 	Plan           *InvestigationPlan     `json:"plan,omitempty"`
 	Implementation *ImplementationReceipt `json:"implementation,omitempty"`

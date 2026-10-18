@@ -49,7 +49,7 @@ func correctionTestCycle(t *testing.T, publicationID string, head, base string, 
 	}
 }
 
-func correctionTestReport(findings []factory.Finding, dispositions []factory.CorrectionDisposition) factory.CorrectionReport {
+func correctionTestReport(candidate string, findings []factory.Finding, dispositions []factory.CorrectionDisposition) factory.CorrectionReport {
 	keys := make([]string, 0, len(findings))
 	for _, finding := range findings {
 		keys = append(keys, finding.Key)
@@ -58,7 +58,7 @@ func correctionTestReport(findings []factory.Finding, dispositions []factory.Cor
 	if err != nil {
 		return factory.CorrectionReport{}
 	}
-	return factory.CorrectionReport{SetDigest: digest, Findings: findings, Dispositions: dispositions}
+	return factory.CorrectionReport{SetDigest: digest, NewCandidate: candidate, Findings: findings, Dispositions: dispositions}
 }
 
 func correctionTestHeads() (head, base, candidate string) {
@@ -91,7 +91,7 @@ func correctionTestChecks(head, base string) *factory.CheckAssessment {
 
 func TestParseCorrectionReportRoundTrip(t *testing.T) {
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	report := correctionTestReport(strings.Repeat("d", 40), findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
 	raw, err := json.Marshal(report)
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +113,7 @@ func TestParseCorrectionReportRoundTrip(t *testing.T) {
 	}
 	// The last fenced block wins; trailing chatter without a new opener
 	// never mis-terminates it.
-	second := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionUnresolved}})
+	second := correctionTestReport(strings.Repeat("d", 40), findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionUnresolved}})
 	secondRaw, err := json.Marshal(second)
 	if err != nil {
 		t.Fatal(err)
@@ -133,8 +133,8 @@ func TestAdmitCorrectionAcceptsFixedCodeCorrection(t *testing.T) {
 	head, base, candidate := correctionTestHeads()
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, findings[0].Key))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
-	evidence := []CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"internal/factory/x.go"}, Commits: []string{candidate}}}
+	report := correctionTestReport(candidate, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	evidence := []factory.CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"internal/factory/x.go"}, Commits: []string{candidate}}}
 	admission, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, report, evidence, nil)
 	if err != nil {
 		t.Fatalf("mechanically complete fix refused: %v", err)
@@ -148,8 +148,8 @@ func TestAdmitCorrectionRefusesUnchangedCodeFix(t *testing.T) {
 	head, base, _ := correctionTestHeads()
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, findings[0].Key))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
-	evidence := []CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"internal/factory/x.go"}, Commits: []string{head}}}
+	report := correctionTestReport(head, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	evidence := []factory.CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"internal/factory/x.go"}, Commits: []string{head}}}
 	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), head, report, evidence, correctionTestChecks(head, base)); err == nil {
 		t.Fatal("unchanged code fix accepted")
 	}
@@ -159,7 +159,7 @@ func TestAdmitCorrectionAllowsSameHeadVerificationFix(t *testing.T) {
 	head, base, _ := correctionTestHeads()
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixVerification)}
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, findings[0].Key))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	report := correctionTestReport(head, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
 	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), head, report, nil, correctionTestChecks(head, base)); err != nil {
 		t.Fatalf("same-head verification fix with passing checks refused: %v", err)
 	}
@@ -172,10 +172,24 @@ func TestAdmitCorrectionRefusesStaleDigest(t *testing.T) {
 	head, base, candidate := correctionTestHeads()
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, correctionTestKey(99)))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
-	evidence := []CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"x.go"}, Commits: []string{candidate}}}
+	report := correctionTestReport(candidate, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	evidence := []factory.CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"x.go"}, Commits: []string{candidate}}}
 	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, report, evidence, nil); err == nil {
 		t.Fatal("stale finding-set digest accepted")
+	}
+}
+
+// A correction whose nomination differs from its recorded candidate
+// refuses: the consumer advances exactly the accounted tree, never a
+// mismatched wiring.
+func TestAdmitCorrectionRefusesNominationMismatch(t *testing.T) {
+	head, base, candidate := correctionTestHeads()
+	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
+	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, findings[0].Key))
+	report := correctionTestReport(head, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	evidence := []factory.CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"x.go"}, Commits: []string{candidate}}}
+	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, report, evidence, nil); err == nil {
+		t.Fatal("mismatched nomination admitted")
 	}
 }
 
@@ -184,8 +198,8 @@ func TestAdmitCorrectionRefusesAccountingGaps(t *testing.T) {
 	newAdmission := func(findings []factory.Finding, dispositions []factory.CorrectionDisposition) error {
 		digest := correctionTestDigest(t, findings[0].Key, findings[1].Key)
 		cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, digest)
-		report := factory.CorrectionReport{Findings: findings, Dispositions: dispositions, SetDigest: digest}
-		evidence := []CorrectionFixEvidence{
+		report := factory.CorrectionReport{Findings: findings, Dispositions: dispositions, SetDigest: digest, NewCandidate: candidate}
+		evidence := []factory.CorrectionFixEvidence{
 			{Key: findings[0].Key, ChangedPaths: []string{"x.go"}, Commits: []string{candidate}},
 			{Key: findings[1].Key, ChangedPaths: []string{"y.go"}, Commits: []string{candidate}},
 		}
@@ -213,7 +227,7 @@ func TestAdmitCorrectionBlocksDisputedActionable(t *testing.T) {
 	head, base, candidate := correctionTestHeads()
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, findings[0].Key))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionDisputed}})
+	report := correctionTestReport(candidate, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionDisputed}})
 	_, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, report, nil, nil)
 	if err == nil {
 		t.Fatal("disputed actionable finding passed")
@@ -228,7 +242,7 @@ func TestAdmitCorrectionRefusesActionableDeclinedOptional(t *testing.T) {
 	head, base, candidate := correctionTestHeads()
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, findings[0].Key))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionDeclinedOptional}})
+	report := correctionTestReport(candidate, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionDeclinedOptional}})
 	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, report, nil, nil); err == nil {
 		t.Fatal("actionable finding declined as optional accepted")
 	}
@@ -238,7 +252,7 @@ func TestAdmitCorrectionAcceptsOptionalOnlyWithoutForcingFailure(t *testing.T) {
 	head, base, candidate := correctionTestHeads()
 	optional := correctionTestFinding(1, false, factory.FindingFixCode)
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, optional.Key))
-	report := correctionTestReport([]factory.Finding{optional}, []factory.CorrectionDisposition{{Key: optional.Key, Disposition: factory.DispositionDeclinedOptional}})
+	report := correctionTestReport(candidate, []factory.Finding{optional}, []factory.CorrectionDisposition{{Key: optional.Key, Disposition: factory.DispositionDeclinedOptional}})
 	admission, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, report, nil, nil)
 	if err != nil {
 		t.Fatalf("optional-only report refused: %v", err)
@@ -256,16 +270,16 @@ func TestAdmitCorrectionRefusesEvidenceMismatch(t *testing.T) {
 	head, base, candidate := correctionTestHeads()
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, strings.Repeat("9", 32), head, base, 1, correctionTestDigest(t, findings[0].Key))
-	fixed := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
-	good := []CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"x.go"}, Commits: []string{candidate}}}
-	unknown := []CorrectionFixEvidence{{Key: correctionTestKey(77), ChangedPaths: []string{"x.go"}, Commits: []string{candidate}}}
+	fixed := correctionTestReport(candidate, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	good := []factory.CorrectionFixEvidence{{Key: findings[0].Key, ChangedPaths: []string{"x.go"}, Commits: []string{candidate}}}
+	unknown := []factory.CorrectionFixEvidence{{Key: correctionTestKey(77), ChangedPaths: []string{"x.go"}, Commits: []string{candidate}}}
 	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, fixed, unknown, nil); err == nil {
 		t.Fatal("fix evidence for an unknown finding accepted")
 	}
 	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, fixed, nil, nil); err == nil {
 		t.Fatal("code fix without changed paths and commits accepted")
 	}
-	unresolved := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionUnresolved}})
+	unresolved := correctionTestReport(candidate, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionUnresolved}})
 	if _, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, unresolved, good, nil); err == nil {
 		t.Fatal("fix evidence on an unresolved finding accepted")
 	}
@@ -304,8 +318,8 @@ func TestAdmitAndJournalCorrectionPersistsJournal(t *testing.T) {
 	if candidate == p.Candidate {
 		candidate = strings.Repeat("f", 40)
 	}
-	report := correctionTestReport([]factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}})
-	evidence := []CorrectionFixEvidence{{Key: finding.Key, ChangedPaths: []string{"internal/factory/x.go"}, Commits: []string{candidate}}}
+	report := correctionTestReport(candidate, []factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}})
+	evidence := []factory.CorrectionFixEvidence{{Key: finding.Key, ChangedPaths: []string{"internal/factory/x.go"}, Commits: []string{candidate}}}
 	runID := factory.NewID()
 	admission, err := fx.coord.AdmitAndJournalCorrection(ctx, p.AssignmentID, cycle.ID, runID, candidate, report, evidence, nil)
 	if err != nil {
@@ -328,7 +342,7 @@ func TestAdmitAndJournalCorrectionPersistsJournal(t *testing.T) {
 	if _, err := fx.coord.AdmitAndJournalCorrection(ctx, p.AssignmentID, cycle.ID, runID, candidate, report, evidence, nil); err == nil {
 		t.Fatal("correction run reported twice accepted")
 	}
-	disputed := correctionTestReport([]factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionDisputed}})
+	disputed := correctionTestReport(candidate, []factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionDisputed}})
 	if _, err := fx.coord.AdmitAndJournalCorrection(ctx, p.AssignmentID, cycle.ID, factory.NewID(), candidate, disputed, nil, nil); err == nil {
 		t.Fatal("disputed report journaled")
 	}
@@ -346,7 +360,7 @@ func TestAppendCorrectionJournalBindsCycleAndRun(t *testing.T) {
 	publicationID := strings.Repeat("9", 32)
 	findings := []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)}
 	cycle := correctionTestCycle(t, publicationID, head, base, 1, correctionTestDigest(t, findings[0].Key))
-	report := correctionTestReport(findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
+	report := correctionTestReport(head, findings, []factory.CorrectionDisposition{{Key: findings[0].Key, Disposition: factory.DispositionFixed}})
 	p := &factory.Publication{ID: publicationID, ReviewCycles: []factory.ReviewCycle{cycle}}
 	runID := strings.Repeat("c", 32)
 	if err := appendCorrectionJournal(p, cycle, runID, report); err != nil {

@@ -144,7 +144,7 @@ func (c *Coordinator) consumePublicationChildren(ctx context.Context, report *Pu
 			}
 			c.progressAfterPublish(ctx, child.PublicationAssignment)
 		case project.RoleCoder:
-			correction := c.PublishCorrection(ctx, child.Run)
+			correction := c.publishCorrectionChild(ctx, child)
 			for _, wait := range correction.Waits {
 				publicationWait(report, wait.ID, wait.Reason)
 			}
@@ -164,6 +164,52 @@ func (c *Coordinator) consumePublicationChildren(ctx context.Context, report *Pu
 		c.publicationChildCursor = ""
 		c.ownerMu.Unlock()
 	}
+}
+
+// publishCorrectionChild routes one settled corrector child to the
+// report-carrying correction entry when settlement kept the corrector's
+// parsed correction report. A phased corrector without its typed payload
+// on a completed report refuses loudly instead of taking the legacy
+// head-advance bypass; only legacy (pre-phase) correctors keep the
+// legacy entry, and unsettled phased runs stay on the legacy waits. The
+// typed report journals its dispositions and agent-claimed fix evidence
+// through the canonical gate with the publication's current check
+// assessment; admission judges freshness itself. A missing assessment
+// degrades to nil, but a real store failure surfaces instead of silently
+// discarding check evidence. Agent-claimed evidence rides the journal
+// only; the head advance still binds the settled accounted candidate,
+// never the corrector's claims. This route never guesses dispositions.
+func (c *Coordinator) publishCorrectionChild(ctx context.Context, child factory.Assignment) CorrectionReport {
+	if child.Result == nil || child.Result.PhaseResult == nil || child.Result.PhaseResult.Output == nil ||
+		child.Result.PhaseResult.Output.Correction == nil {
+		if child.Phase == project.ExecutionCorrect && child.Result != nil && child.Result.Reported &&
+			child.Result.Status == "completed" {
+			bad := CorrectionReport{Corrected: []CorrectionLink{}}
+			correctionError(&bad, child.Run, "correction_payload_missing")
+			return bad
+		}
+		return c.PublishCorrection(ctx, child.Run)
+	}
+	report := *child.Result.PhaseResult.Output.Correction
+	var checks *factory.CheckAssessment
+	p, err := c.Store.PublicationByAssignment(ctx, child.PublicationAssignment)
+	if err != nil {
+		bad := CorrectionReport{Corrected: []CorrectionLink{}}
+		correctionError(&bad, child.PublicationAssignment, "store_unavailable")
+		return bad
+	}
+	assessment, err := c.Store.CheckAssessment(ctx, p.Repository, p.PRNumber)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			bad := CorrectionReport{Corrected: []CorrectionLink{}}
+			correctionError(&bad, p.ID, "store_unavailable")
+			return bad
+		}
+	} else {
+		assessmentCopy := assessment
+		checks = &assessmentCopy
+	}
+	return c.PublishCorrectionWithReport(ctx, child.Run, report, report.Evidence, checks)
 }
 
 func publicationError(report *PublishReport, id, reason string) {

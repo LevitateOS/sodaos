@@ -51,7 +51,8 @@ func phasedCorrectionReport(t *testing.T, child factory.Assignment) factory.Corr
 		t.Fatal(err)
 	}
 	return factory.CorrectionReport{
-		SetDigest: setDigest, Findings: []factory.Finding{finding},
+		SetDigest: setDigest, NewCandidate: phasedSeedCandidate,
+		Findings:     []factory.Finding{finding},
 		Dispositions: []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}},
 	}
 }

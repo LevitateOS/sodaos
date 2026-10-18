@@ -333,8 +333,8 @@ func TestReviewCycleAndCorrectionContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	correction := CorrectionReport{
-		SetDigest: digest,
-		Findings:  carried,
+		SetDigest: digest, NewCandidate: strings.Repeat("d", 40),
+		Findings: carried,
 		Dispositions: []CorrectionDisposition{
 			{Key: testFindingKey(0), Disposition: DispositionFixed},
 			{Key: testFindingKey(1), Disposition: DispositionDeclinedOptional},
@@ -360,5 +360,20 @@ func TestReviewCycleAndCorrectionContracts(t *testing.T) {
 	stale.SetDigest = strings.Repeat("0", 64)
 	if err := stale.Validate(); err == nil {
 		t.Fatal("stale finding-set digest accepted")
+	}
+	absent := correction
+	absent.NewCandidate = ""
+	if err := absent.Validate(); err == nil {
+		t.Fatal("candidate-free correction accepted")
+	}
+	malformed := correction
+	malformed.NewCandidate = "not-a-commit"
+	if err := malformed.Validate(); err == nil {
+		t.Fatal("malformed-nomination correction accepted")
+	}
+	stray := correction
+	stray.Evidence = []CorrectionFixEvidence{{Key: testFindingKey(9), ChangedPaths: []string{"x.go"}, Commits: []string{strings.Repeat("d", 40)}}}
+	if err := stray.Validate(); err == nil {
+		t.Fatal("fix evidence for an unknown finding accepted")
 	}
 }

@@ -189,7 +189,7 @@ func TestBindPhasedReviewVerdict(t *testing.T) {
 			p.CorrectionJournals = []factory.CorrectionJournal{{
 				CycleID: out.Review.CycleID, RunID: strings.Repeat("9", 32),
 				Report: factory.CorrectionReport{
-					SetDigest: digest, Findings: []factory.Finding{prior},
+					SetDigest: digest, NewCandidate: strings.Repeat("d", 40), Findings: []factory.Finding{prior},
 					Dispositions: []factory.CorrectionDisposition{{Key: prior.Key, Disposition: factory.DispositionFixed}},
 				},
 			}}

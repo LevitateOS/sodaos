@@ -45,8 +45,8 @@ func journalStoreCycleJournal(t *testing.T, p factory.Publication, round int) (f
 		Round:              round,
 	}
 	journal := factory.CorrectionJournal{CycleID: cycle.ID, RunID: strings.Repeat("c", 32), Report: factory.CorrectionReport{
-		SetDigest: digest,
-		Findings:  findings,
+		SetDigest: digest, NewCandidate: strings.Repeat("d", 40),
+		Findings: findings,
 		Dispositions: []factory.CorrectionDisposition{
 			{Key: findings[0].Key, Disposition: factory.DispositionFixed},
 			{Key: findings[1].Key, Disposition: factory.DispositionDeclinedOptional},

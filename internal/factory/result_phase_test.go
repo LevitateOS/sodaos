@@ -56,7 +56,7 @@ func correctionOutput() *PhaseOutput {
 		panic(err)
 	}
 	return &PhaseOutput{Correction: &CorrectionReport{
-		SetDigest: digest, Findings: findings,
+		SetDigest: digest, NewCandidate: strings.Repeat("d", 40), Findings: findings,
 		Dispositions: []CorrectionDisposition{
 			{Key: findings[0].Key, Disposition: DispositionFixed},
 			{Key: findings[1].Key, Disposition: DispositionDeclinedOptional},

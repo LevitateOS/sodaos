@@ -285,7 +285,7 @@ func journeyPublicationFixture(root factory.Assignment, effect, severity string)
 		}},
 		CorrectionJournals: []factory.CorrectionJournal{{
 			CycleID: strings.Repeat("7", 32), RunID: strings.Repeat("8", 32),
-			Report: factory.CorrectionReport{Findings: []factory.Finding{journeyFindingWithSeverity(severity)}},
+			Report: factory.CorrectionReport{NewCandidate: journeyCorrection, Findings: []factory.Finding{journeyFindingWithSeverity(severity)}},
 		}},
 		Repository: journeyRepo, Issue: journeyIssue, Stage: factory.PublicationOpen,
 		PRNumber: 12, PRID: 34, CreatedUnix: 1700000000,

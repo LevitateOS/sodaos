@@ -62,6 +62,8 @@ func phasedReviewClear(head, base string) *factory.PhaseOutput {
 	}}
 }
 
+func phasedCorrectionCandidate() string { return strings.Repeat("d", 40) }
+
 func phasedCorrection(t *testing.T) *factory.PhaseOutput {
 	t.Helper()
 	findings := []factory.Finding{phasedFinding(0, true), phasedFinding(1, false)}
@@ -70,7 +72,7 @@ func phasedCorrection(t *testing.T) *factory.PhaseOutput {
 		t.Fatal(err)
 	}
 	return &factory.PhaseOutput{Correction: &factory.CorrectionReport{
-		SetDigest: digest, Findings: findings,
+		SetDigest: digest, NewCandidate: phasedCorrectionCandidate(), Findings: findings,
 		Dispositions: []factory.CorrectionDisposition{
 			{Key: findings[0].Key, Disposition: factory.DispositionFixed},
 			{Key: findings[1].Key, Disposition: factory.DispositionDeclinedOptional},
@@ -220,7 +222,8 @@ func TestDerivePhasedReviewRefusals(t *testing.T) {
 	}
 }
 
-// A completed correction finishes with exactly its typed dispositions.
+// A completed correction finishes with exactly its typed dispositions and
+// binds its retained candidate to the report's nomination.
 func TestDerivePhasedCorrectCompleted(t *testing.T) {
 	a := phaseTestAssignment(t, project.ExecutionCorrect, project.RoleCoder, true)
 	output := fencedResult(t, factory.PhaseResult{
@@ -232,14 +235,63 @@ func TestDerivePhasedCorrectCompleted(t *testing.T) {
 		t.Fatalf("correction outcome = %v/%v", finished.Outcome, finished.Reason)
 	}
 	result := finished.Result
-	if !result.Reported || result.Phase != project.ExecutionCorrect || result.Candidate != "" {
+	if !result.Reported || result.Phase != project.ExecutionCorrect || result.Candidate != phasedCorrectionCandidate() {
 		t.Fatalf("correction result not exact: %+v", result)
 	}
 	if result.PhaseResult.Output.Correction == nil {
 		t.Fatalf("correction result lacks its dispositions: %+v", result)
 	}
+	if result.PhaseResult.Output.Correction.NewCandidate != result.Candidate {
+		t.Fatalf("retained candidate differs from its nomination: %+v", result)
+	}
 	if err := result.ValidatePhaseBinding(project.RoleCoder, project.ExecutionCorrect); err != nil {
 		t.Fatalf("completed correction does not bind: %v", err)
+	}
+}
+
+// A correction without its candidate nomination refuses: the retained
+// result must bind a nominated tree, never an empty candidate.
+func TestDerivePhasedCorrectRefusesAbsentNomination(t *testing.T) {
+	a := phaseTestAssignment(t, project.ExecutionCorrect, project.RoleCoder, true)
+	correction := phasedCorrection(t)
+	correction.Correction.NewCandidate = ""
+	output := fencedResult(t, factory.PhaseResult{
+		Version: 2, Phase: project.ExecutionCorrect, Status: "completed",
+		Summary: "findings accounted", Output: correction,
+	})
+	result, outcome, _ := deriveAttemptResult(a, phaseTestRun(a, factory.Succeeded), output, "", 1700000100)
+	if outcome == factory.Succeeded && result.Reported {
+		t.Fatalf("candidate-free correction finished: %+v", result)
+	}
+}
+
+// A correction with a malformed nomination refuses instead of recording
+// an unusable candidate.
+func TestDerivePhasedCorrectRefusesMalformedNomination(t *testing.T) {
+	a := phaseTestAssignment(t, project.ExecutionCorrect, project.RoleCoder, true)
+	correction := phasedCorrection(t)
+	correction.Correction.NewCandidate = "not-a-commit"
+	output := fencedResult(t, factory.PhaseResult{
+		Version: 2, Phase: project.ExecutionCorrect, Status: "completed",
+		Summary: "findings accounted", Output: correction,
+	})
+	result, outcome, _ := deriveAttemptResult(a, phaseTestRun(a, factory.Succeeded), output, "", 1700000100)
+	if outcome == factory.Succeeded && result.Reported {
+		t.Fatalf("malformed-nomination correction finished: %+v", result)
+	}
+}
+
+// A correction payload on another phase refuses: nominations never cross
+// phase boundaries.
+func TestDerivePhasedCorrectRefusesCrossPhase(t *testing.T) {
+	a := phaseTestAssignment(t, project.ExecutionImplement, project.RoleCoder, true)
+	output := fencedResult(t, factory.PhaseResult{
+		Version: 2, Phase: project.ExecutionCorrect, Status: "completed",
+		Summary: "findings accounted", Output: phasedCorrection(t),
+	})
+	result, outcome, _ := deriveAttemptResult(a, phaseTestRun(a, factory.Succeeded), output, "", 1700000100)
+	if outcome == factory.Succeeded && result.Reported {
+		t.Fatalf("cross-phase correction finished: %+v", result)
 	}
 }
 

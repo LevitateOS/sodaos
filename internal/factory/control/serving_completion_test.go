@@ -47,9 +47,17 @@ func completionPlan(owner factory.Assignment) (factory.InvestigationPlan, error)
 		Tasks: []factory.PlanTask{{
 			ID: "task-one", Objective: "objective 31; inspect README.md",
 			Outputs: []string{"notes"}, AcceptanceRefs: []string{"accept-one"},
-			Lane: "lane-one", OwnedPaths: []string{"README.md"},
+			Lane: "lane-one", OwnedPaths: []string{"README.md"}, CheckIDs: []string{"check-one"},
 		}},
 		Lanes: []factory.PlanLane{{ID: "lane-one", TaskIDs: []string{"task-one"}}},
+		// The staged check is controller-selected verification: a
+		// checkless plan cannot derive the singleton correction plan,
+		// so the journey plan carries its check exactly like the
+		// phased producer seed.
+		Checks: []factory.CheckSpec{{
+			ID: "check-one", Argv: []string{"make", "check"}, Cwd: ".",
+			TimeoutSeconds: 60, Scope: factory.CheckScopeTask, Required: true,
+		}},
 	}
 	digest, err := factory.PlanDigest(plan)
 	if err != nil {
@@ -72,6 +80,171 @@ func fencedPhaseOutput(result factory.PhaseResult) (string, error) {
 	return "work\n```" + factory.ResultFence + "\n" + string(payload) + "\n```\n", nil
 }
 
+// completionFindingKey is the journey's single stable actionable finding
+// key: the first review reports it, the corrector answers it, and the
+// re-review verifies it. One key across the round, never rewritten.
+func completionFindingKey() string { return correctionTestKey(1) }
+
+// completionFinding builds the journey's actionable code finding with its
+// exact origin run. Every round must echo the identical struct: the
+// canonical carried pipeline refuses rewritten content on a known key, so
+// the corrector and re-reviewer resolve the round-one origin run from the
+// recorded publication instead of stamping their own.
+func completionFinding(originRun string) factory.Finding {
+	return factory.Finding{
+		Key: completionFindingKey(), OriginRun: originRun,
+		Severity: factory.FindingSeverityMajor, Defect: "empty input needs a regression test",
+		Evidence: "initial candidate lacks a regression test", RequiredOutcome: "add the regression test",
+		FixKind: factory.FindingFixCode, Actionable: true,
+	}
+}
+
+// completionRoundOneRun resolves the round-one reviewer run behind one
+// recorded cycle: the earliest round's reviewer assignment names it. The
+// corrector and re-reviewer need its identity to echo the finding
+// byte-identically.
+func (h *completionHost) completionRoundOneRun(ctx context.Context, p factory.Publication) (string, error) {
+	earliest := -1
+	reviewer := ""
+	for _, recorded := range p.ReviewCycles {
+		if recorded.PublicationID != p.ID {
+			continue
+		}
+		if earliest < 0 || recorded.Round < earliest {
+			earliest, reviewer = recorded.Round, recorded.ReviewerAssignment
+		}
+	}
+	if reviewer == "" {
+		return "", errors.New("journey names no round-one reviewer")
+	}
+	assignment, err := h.db.Assignment(ctx, reviewer)
+	if err != nil {
+		return "", err
+	}
+	if assignment.Run == "" {
+		return "", errors.New("round-one reviewer names no run")
+	}
+	return assignment.Run, nil
+}
+
+// typedReviewOutput reports one phased reviewer run's typed verdict over
+// the run's recorded cycle/head/base: a findings verdict with the
+// journey's actionable finding when the first review meets the defective
+// initial candidate, otherwise the explicit clear that verifies the
+// carried set. Pre-phase reviewer runs keep the legacy string report;
+// this entry only serves phased review children.
+func (h *completionHost) typedReviewOutput(ctx context.Context, child factory.Assignment) (string, error) {
+	p, err := h.db.PublicationByAssignment(ctx, child.PublicationAssignment)
+	if err != nil {
+		return "", err
+	}
+	var cycle factory.ReviewCycle
+	found := false
+	for _, recorded := range p.ReviewCycles {
+		if recorded.ReviewerAssignment == child.ID {
+			cycle, found = recorded, true
+			break
+		}
+	}
+	if !found {
+		return "", errors.New("typed reviewer names no recorded cycle")
+	}
+	if !h.approveFirst && child.SourceCommit == strings.Repeat("2", 40) {
+		return fencedPhaseOutput(factory.PhaseResult{
+			Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
+			Summary: "reviewed",
+			Output: &factory.PhaseOutput{Review: &factory.ReviewCycleReport{
+				CycleID: cycle.ID, NewFindings: []factory.Finding{completionFinding(child.Run)},
+			}},
+		})
+	}
+	var carried []factory.Finding
+	var assessments []factory.FindingAssessment
+	if !h.approveFirst {
+		origin, err := h.completionRoundOneRun(ctx, p)
+		if err != nil {
+			return "", err
+		}
+		carried = []factory.Finding{completionFinding(origin)}
+		assessments = []factory.FindingAssessment{{
+			Key: completionFindingKey(), Status: factory.FindingVerified,
+			Evidence: "corrected candidate carries the regression test",
+		}}
+	}
+	content, err := factory.FindingContentDigest(carried)
+	if err != nil {
+		return "", err
+	}
+	coverage, err := factory.ClearCoverageDigest(cycle.Head, cycle.BaseOID, content)
+	if err != nil {
+		return "", err
+	}
+	return fencedPhaseOutput(factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionReview, Status: "completed",
+		Summary: "verdict recorded",
+		Output: &factory.PhaseOutput{Clear: &factory.ClearReviewReport{
+			CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
+			Head: cycle.Head, BaseOID: cycle.BaseOID, CoverageDigest: coverage,
+			Assessments: assessments,
+		}},
+	})
+}
+
+// typedCorrectionOutput reports one phased corrector run's typed correction
+// over its recorded cycle: the journey finding echoed byte-identically
+// with a fixed disposition, in both envelopes the wire consumes (the typed
+// phase result for settlement and the fenced correction report for the
+// canonical report gate). The report's set digest is the finding-set
+// digest its own Validate demands; whether that answers the recorded
+// cycle's digest domain belongs to admission, never the fixture.
+func (h *completionHost) typedCorrectionOutput(ctx context.Context, child factory.Assignment) (string, error) {
+	p, err := h.db.PublicationByAssignment(ctx, child.PublicationAssignment)
+	if err != nil {
+		return "", err
+	}
+	known := false
+	for _, recorded := range p.ReviewCycles {
+		if recorded.CorrectionAssignment == child.ID {
+			known = true
+			break
+		}
+	}
+	if !known {
+		return "", errors.New("typed corrector names no recorded cycle")
+	}
+	origin, err := h.completionRoundOneRun(ctx, p)
+	if err != nil {
+		return "", err
+	}
+	finding := completionFinding(origin)
+	keys := []string{finding.Key}
+	setDigest, err := factory.FindingSetDigest(keys)
+	if err != nil {
+		return "", err
+	}
+	corrected := strings.Repeat("3", 40)
+	report := factory.CorrectionReport{
+		SetDigest: setDigest, NewCandidate: corrected, Findings: []factory.Finding{finding},
+		Dispositions: []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}},
+		Evidence: []factory.CorrectionFixEvidence{{
+			Key: finding.Key, ChangedPaths: []string{"README.md"}, Commits: []string{corrected},
+		}},
+	}
+	output, err := fencedPhaseOutput(factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionCorrect, Status: "completed",
+		Summary: "corrected",
+		Output:  &factory.PhaseOutput{Correction: &report},
+	})
+	if err != nil {
+		return "", err
+	}
+	payload, err := json.Marshal(report)
+	if err != nil {
+		return "", err
+	}
+	return output + "```" + factory.CorrectionReportFence + "\n" + string(payload) + "\n```\n", nil
+}
+
 func (h *completionHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
 	owner, err := h.db.AssignmentByRun(ctx, in.Run.ID)
 	if err != nil {
@@ -88,6 +261,17 @@ func (h *completionHost) FactoryLaunch(ctx context.Context, in project.FactoryLa
 		// introducing another publication journey into this fixture.
 		state.Phase, state.Live = project.FactoryRunning, true
 	case in.Run.Role == project.RoleReviewer:
+		if owner.Phase == project.ExecutionReview {
+			// Phased review children report the typed verdict the
+			// phased wire consumes; legacy string reports refuse
+			// on phased assignments.
+			output, typedErr := h.typedReviewOutput(ctx, owner)
+			if typedErr != nil {
+				return project.FactoryState{}, typedErr
+			}
+			state.Output = output
+			break
+		}
 		verdict, body, findings := "approve", "corrected candidate is sound", "[]"
 		if !h.approveFirst && in.Run.SourceCommit == strings.Repeat("2", 40) {
 			verdict, body, findings = "request-changes", "empty input needs a regression test", `["empty input"]`
@@ -117,6 +301,15 @@ func (h *completionHost) FactoryLaunch(ctx context.Context, in project.FactoryLa
 		})
 		if marshalErr != nil {
 			return project.FactoryState{}, marshalErr
+		}
+		state.Output = output
+	case owner.Phase == project.ExecutionCorrect:
+		// Phased corrector children report the typed correction the
+		// phased wire consumes; legacy harness shapes refuse on
+		// phased assignments.
+		output, typedErr := h.typedCorrectionOutput(ctx, owner)
+		if typedErr != nil {
+			return project.FactoryState{}, typedErr
 		}
 		state.Output = output
 	default:
@@ -289,7 +482,7 @@ func TestServingJevAcceptanceAfterFixMergesAndPicksUpDependent(t *testing.T) {
 // revision: every digest names persisted evidence, never fixture prose.
 // A row whose publication already journals the round's acceptance reuses
 // it, so repeated polls never duplicate the journal.
-func admitServingDeliveryAcceptance(t *testing.T, ctx context.Context, db *store.Store, m factory.Merge, kind string) (factory.MergeAuthorization, error) {
+func admitServingDeliveryAcceptance(t *testing.T, ctx context.Context, coord *Coordinator, db *store.Store, m factory.Merge, kind string) (factory.MergeAuthorization, error) {
 	t.Helper()
 	var empty factory.MergeAuthorization
 	refuse := func(format string, args ...any) (factory.MergeAuthorization, error) {
@@ -317,10 +510,6 @@ func admitServingDeliveryAcceptance(t *testing.T, ctx context.Context, db *store
 		return refuse("approving reviewer recorded no result")
 	}
 	emptyContent, err := factory.FindingContentDigest(nil)
-	if err != nil {
-		return refuse("%v", err)
-	}
-	coverage, err := factory.ClearCoverageDigest(cycle.Head, cycle.BaseOID, emptyContent)
 	if err != nil {
 		return refuse("%v", err)
 	}
@@ -382,21 +571,22 @@ func admitServingDeliveryAcceptance(t *testing.T, ctx context.Context, db *store
 	}
 	var acceptance factory.DeliveryAcceptance
 	var journaled factory.Publication
+	// Both acceptance kinds bind the controller's canonical carried set:
+	// the clear path proves coverage over it, the funded path digests it.
+	carried, carriedErr := coord.reviewCarriedFindings(ctx, p, cycle)
+	if carriedErr != nil {
+		return refuse("carried findings unready: %v", carriedErr)
+	}
 	switch kind {
 	case factory.AcceptanceCleanReview:
 		var admitErr error
 		journaled, acceptance, admitErr = AdmitClearReview(ClearAdmissionInput{
 			Publication: p, Cycle: cycle,
-			Report: factory.ClearReviewReport{
-				CycleID: cycle.ID, Conclusion: factory.ClearReviewConclusion,
-				Head: cycle.Head, BaseOID: cycle.BaseOID, CoverageDigest: coverage,
-			},
-			Carried:        nil,
-			Result:         reviewer.Result.ToResult(),
+			Reviewer:       reviewer,
+			Carried:        carried,
 			ScopeDigest:    plan.ScopeDigest,
 			PolicyRevision: policyRevision,
 			CheckDigest:    assessment.ChecksDigest,
-			ReviewerRunID:  cycle.ReviewerAssignment,
 			DiffBase:       p.PRCreate.BaseOID,
 		})
 		if admitErr != nil {
@@ -409,7 +599,7 @@ func admitServingDeliveryAcceptance(t *testing.T, ctx context.Context, db *store
 		}
 		var admitErr error
 		journaled, acceptance, admitErr = AdmitJevAcceptance(JevAdmissionInput{
-			Publication: p, Cycle: cycle, Carried: nil,
+			Publication: p, Cycle: cycle, Carried: carried,
 			FingerprintInput: fpIn, Fingerprint: fingerprint,
 			Decision: decision, DecisionID: factory.NewID(),
 			ScopeDigest: plan.ScopeDigest, PolicyRevision: policyRevision,
@@ -602,6 +792,43 @@ func servingJourney(t *testing.T, variant servingVariant, configure ...func(*Coo
 		_ = fx.coord.Close()
 		owner, _ := fx.db.LatestIssueAssignment(ctx, 7, 31)
 		publication, _ := fx.db.PublicationByAssignment(ctx, owner.ID)
+		t.Logf("serving owner: phase=%q stage=%s reason=%s", owner.Phase, owner.Stage, owner.Reason)
+		rev, hasReview, reviewPending, reviewRefused := fx.coord.currentReviewReport(ctx, publication)
+		t.Logf("serving current review: has=%v pending=%v refused=%v verdict=%q legacy=%v", hasReview, reviewPending, reviewRefused, rev.Verdict, rev.Legacy != nil)
+		if rc, ok := fx.coord.currentReviewerForCorrection(ctx, publication, owner); ok {
+			t.Logf("serving correction reviewer: %s phase=%q", rc.ID, rc.Phase)
+		} else {
+			t.Logf("serving correction reviewer: unavailable")
+		}
+		if allowance, err := fx.db.AttemptAllowance(ctx, 7, 31); err != nil {
+			t.Logf("serving allowance: err=%v", err)
+		} else {
+			t.Logf("serving allowance: corrections=%d reviews=%d active=%v closed=%v", len(allowance.Corrections), len(allowance.Reviews), allowance.Active, allowance.Closed)
+		}
+		t.Logf("serving owner result: phased=%v", owner.Result != nil && owner.Result.PhaseResult != nil)
+		if owner.Result != nil && owner.Result.PhaseResult != nil && owner.Result.PhaseResult.Output != nil {
+			out := owner.Result.PhaseResult.Output
+			t.Logf("serving owner output: plan=%v implementation=%v review=%v clear=%v correction=%v candidate=%q status=%q",
+				out.Plan != nil, out.Implementation != nil, out.Review != nil, out.Clear != nil, out.Correction != nil,
+				owner.Result.Candidate, owner.Result.Status)
+		}
+		freshPub, _ := fx.db.PublicationByAssignment(ctx, owner.ID)
+		for _, recorded := range freshPub.ReviewCycles {
+			if recorded.CorrectionAssignment == "" {
+				continue
+			}
+			t.Logf("serving correction cycle: round=%d head=%.8s digest=%.16s corrector=%.8s",
+				recorded.Round, recorded.Head, recorded.FindingDigest, recorded.CorrectionAssignment)
+			if child, err := fx.db.Assignment(ctx, recorded.CorrectionAssignment); err != nil {
+				t.Logf("serving corrector: err=%v", err)
+			} else if child.Result == nil {
+				t.Logf("serving corrector: stage=%s outcome=%s reported=false", child.Stage, child.Outcome)
+			} else {
+				t.Logf("serving corrector: stage=%s outcome=%s status=%q candidate=%.8s phased=%v",
+					child.Stage, child.Outcome, child.Result.Status, child.Result.Candidate, child.Result.PhaseResult != nil)
+			}
+		}
+
 		merge, _ := fx.db.MergeByPublication(ctx, publication.ID)
 		checks, _ := fx.db.CheckAssessment(ctx, 7, publication.PRNumber)
 		dependent, _ := fx.db.IssueControl(ctx, 7, 32)
@@ -664,6 +891,13 @@ func servingJourney(t *testing.T, variant servingVariant, configure ...func(*Coo
 	}
 	if fx.coord.CompletionEnumerator == nil {
 		fx.coord.CompletionEnumerator = twoPageEnumerator(t)
+	}
+	// The D13 fence release collects the merged completion through the
+	// same drive production uses: native inventory pages plus the store's
+	// local capture. Without the local half the cycle holds honestly
+	// instead of releasing the dependent.
+	if fx.coord.CompletionLocalCapture == nil {
+		fx.coord.CompletionLocalCapture = fx.db.CaptureCompletionLocal
 	}
 	// recordServingCheckpoints supplies the FW15 checkpoint evidence the
 	// phased publication gate requires: the native executor finished the
@@ -739,7 +973,7 @@ func servingJourney(t *testing.T, variant servingVariant, configure ...func(*Coo
 				continue
 			}
 			authTries++
-			auth, err := admitServingDeliveryAcceptance(t, ctx, fx.db, m, delivery)
+			auth, err := admitServingDeliveryAcceptance(t, ctx, fx.coord, fx.db, m, delivery)
 			if err != nil {
 				lastAuthErr = err.Error()
 				continue

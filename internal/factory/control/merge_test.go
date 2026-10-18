@@ -12,6 +12,15 @@ func TestMergePassMergesOneExactPR(t *testing.T) {
 	fx, p := mergeSeed(t, 3)
 	exec := happyMerger()
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	m := fx.merge(t, p)
 	if len(first.Merged) != 1 || m.Stage != factory.MergeMerged || m.MergedCommit != p.PRCreate.HeadOID || m.Operation.Effect != factory.OpEffectCommitted {
@@ -52,6 +61,15 @@ func TestMergePassWaitsForRequestedChangesThenCorrectedHead(t *testing.T) {
 		return factory.MergeObservation{}, &factory.PublicationRefusal{Reason: "changes_requested"}
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	m := fx.merge(t, p)
 	after, err := fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
@@ -72,13 +90,26 @@ func TestMergePassWaitsForRequestedChangesThenCorrectedHead(t *testing.T) {
 		t.Fatalf("corrected head did not receive a fresh check: %+v", assessment)
 	}
 	fx.wire(happyMerger())
+	// The corrected head rebases the same row and drops its stale
+	// binding first; the rebased head then waits for re-authorization
+	// behind fresh review and judgment before it may submit.
 	second := fx.pass(t)
+	rebased := fx.merge(t, p)
+	if rebased.ID != m.ID || rebased.HeadOID != newHead || rebased.Authorization.Bound() {
+		t.Fatalf("corrected head did not rebase its row unbound: %+v %+v", rebased, second)
+	}
+	p, err = fx.publish.db.PublicationByAssignment(ctx, p.AssignmentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizeMergeFixtureRound(t, ctx, fx.publish.db, fx.publish.coord, p, 2)
+	third := fx.pass(t)
 	completed := fx.merge(t, p)
 	after, err = fx.publish.db.AttemptAllowance(ctx, p.Repository, p.Issue)
-	if len(second.Merged) != 1 || completed.ID != m.ID || completed.Stage != factory.MergeMerged ||
+	if len(third.Merged) != 1 || completed.ID != m.ID || completed.Stage != factory.MergeMerged ||
 		completed.HeadOID != newHead || completed.Operation.Work == nil || completed.Operation.Work.HeadOID != newHead ||
 		len(fx.exec.submits) != 1 || err != nil || !after.Closed || after.Active || after.Limits != prior.Limits {
-		t.Fatalf("corrected approved head did not settle the same bounded root: merge=%+v allowance=%+v report=%+v err=%v", completed, after, second, err)
+		t.Fatalf("corrected approved head did not settle the same bounded root: merge=%+v allowance=%+v report=%+v err=%v", completed, after, third, err)
 	}
 }
 
@@ -141,6 +172,15 @@ func TestMergePassSkipsRowWithoutCurrentPass(t *testing.T) {
 	if _, err := fx.publish.db.RecordCheckAssessment(ctx, stored); err != nil {
 		t.Fatal(err)
 	}
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(happyMerger())
+	authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeMerged {
@@ -170,6 +210,7 @@ func TestMergePassWaitsForStaleCheckEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	fx.wire(happyMerger())
+	authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeOpen || len(first.Waits) != 1 || first.Waits[0].Reason != "check_evidence_stale" {
@@ -210,6 +251,7 @@ func TestMergePassRefusesFailedCheckEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	fx.wire(happyMerger())
+	authorizeMergeFixture(t, ctx, fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeFailed || m.Reason != factory.MergeReasonInvalid {
@@ -234,6 +276,15 @@ func TestMergePassWaitsForPendingChecks(t *testing.T) {
 		return observation, nil
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeOpen || len(first.Waits) != 1 || first.Waits[0].Reason != "check_evidence_pending" {
@@ -260,6 +311,15 @@ func TestMergePassRefusesRegressedChecks(t *testing.T) {
 		return observation, nil
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeFailed || m.Reason != factory.MergeReasonInvalid || len(exec.submits) != 0 {
@@ -279,6 +339,15 @@ func TestMergePassWaitsForApproval(t *testing.T) {
 		return observe(w)
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	first := fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeOpen || len(first.Waits) != 1 || first.Waits[0].Reason != "approval_missing" || len(exec.submits) != 0 {
@@ -299,6 +368,15 @@ func TestMergePassRefusesWrongCandidateIdentity(t *testing.T) {
 		return factory.MergeObservation{}, &factory.PublicationRefusal{Reason: "pr_mismatch"}
 	}
 	fx.wire(exec)
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(exec)
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeFailed || m.Reason != factory.MergeReasonInvalid || len(exec.submits) != 0 {
@@ -309,6 +387,15 @@ func TestMergePassRefusesWrongCandidateIdentity(t *testing.T) {
 func TestMergePassRequiresCurrentAuthority(t *testing.T) {
 	fx, p := mergeSeed(t, 3)
 	fx.wire(happyMerger())
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(context.Background(), p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
+
+	fx.wire(happyMerger())
+	authorizeMergeFixture(t, context.Background(), fx.publish.db, fx.publish.coord, p)
 	fx.pass(t)
 	m := fx.merge(t, p)
 	if m.Stage != factory.MergeMerged {
@@ -316,6 +403,18 @@ func TestMergePassRequiresCurrentAuthority(t *testing.T) {
 	}
 	// A later policy change strands nothing: new merges bind the new
 	// authority, and changed authority waits instead of submitting.
+	// The completed merge closes the D13 fence until its reassessment
+	// cycle seals, decides and releases through the real drive, so
+	// issue 4 admits only after that release.
+	fx.publish.db.PriorityCallBudget = 100
+	fx.publish.coord.Planning = &PlanningJudgments{Journal: fx.publish.db, Funding: fx.publish.db, Chooser: &continueChooser{}}
+	deps := CompletionDriveDeps{Enumerator: twoPageEnumerator(t), CaptureLocal: fx.publish.db.CaptureCompletionLocal}
+	if report := fx.publish.coord.DriveCompletions(context.Background(), deps); len(report.Sealed) != 1 {
+		t.Fatalf("completion never sealed: %+v", report)
+	}
+	if report := fx.publish.coord.DriveCompletions(context.Background(), deps); len(report.Released) != 1 {
+		t.Fatalf("completion never released: %+v", report)
+	}
 	a := fx.publish.finishReported(t, 4)
 	fx.publish.wire(happyPublisher())
 	fx.publish.pass(t)

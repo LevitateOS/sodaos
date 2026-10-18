@@ -237,8 +237,8 @@ func TestPublishPassWithholdsDisputedFeedbackForDecision(t *testing.T) {
 	}
 	withReportCycle(t, ctx, fx, p, correctorChild, mustFindingSetDigest(t, correctionTestKey(1)))
 	disputedReport := factory.CorrectionReport{
-		SetDigest: mustFindingSetDigest(t, correctionTestKey(1)),
-		Findings:  []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)},
+		SetDigest: mustFindingSetDigest(t, correctionTestKey(1)), NewCandidate: publication.Candidate,
+		Findings: []factory.Finding{correctionTestFinding(1, true, factory.FindingFixCode)},
 		Dispositions: []factory.CorrectionDisposition{
 			{Key: correctionTestKey(1), Disposition: factory.DispositionDisputed},
 		},

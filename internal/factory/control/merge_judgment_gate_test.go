@@ -38,7 +38,7 @@ func mergeGateTestSetup(t *testing.T) (MergeJudgmentGateInput, factory.DeliveryF
 	finding := correctionTestFinding(1, true, factory.FindingFixVerification)
 	digest := correctionTestDigest(t, finding.Key)
 	cycle := correctionTestCycle(t, publicationID, head, base, 1, digest)
-	report := correctionTestReport([]factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}})
+	report := correctionTestReport(candidate, []factory.Finding{finding}, []factory.CorrectionDisposition{{Key: finding.Key, Disposition: factory.DispositionFixed}})
 	checks := correctionTestChecks(candidate, base)
 	admission, err := AdmitCorrectionReport(cycle, strings.Repeat("c", 32), candidate, report, nil, checks)
 	if err != nil {

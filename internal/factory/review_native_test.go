@@ -34,6 +34,7 @@ func journalTestCycle(p Publication, digest string, round int) ReviewCycle {
 func journalTestJournal(cycle ReviewCycle, runID string, findings []Finding, dispositions []CorrectionDisposition) CorrectionJournal {
 	return CorrectionJournal{CycleID: cycle.ID, RunID: runID, Report: CorrectionReport{
 		SetDigest:    cycle.FindingDigest,
+		NewCandidate: strings.Repeat("d", 40),
 		Findings:     findings,
 		Dispositions: dispositions,
 	}}
