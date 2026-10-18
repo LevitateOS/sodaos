@@ -250,3 +250,28 @@ func TestIntentPlanConsumerLaunchesBoundDecompose(t *testing.T) {
 		}
 	}
 }
+
+// TestIntentPlanRejectsWrongInspectedSource proves wrong-source evidence
+// never funds or launches: inspected evidence for another commit refuses
+// before effects, leaving no run, assignment or allowance behind.
+func TestIntentPlanRejectsWrongInspectedSource(t *testing.T) {
+	product, s, call, errorCode := q05Mux(t, "")
+	ctx := context.Background()
+	if code, body := call(http.MethodPost, "/api/factory/intents", planDraftBody); code != http.StatusCreated {
+		t.Fatalf("save: %d %s", code, body)
+	}
+	seedPlanFunding(t, ctx, s)
+	stub := &planStubHost{}
+	product.Coordinator = &control.Coordinator{Store: s, Host: stub, Broker: planStubBroker{}, DispatchReads: planStubReads{}}
+	body := strings.Replace(planRequestBody("d888888888888888888888888"), `"commit":"`+strings.Repeat("c", 40)+`"`, `"commit":"`+strings.Repeat("d", 40)+`"`, 1)
+	code, response := call(http.MethodPost, "/api/factory/intents/d777777777777777777777777/plan", body)
+	if code != http.StatusBadRequest || errorCode(response) != "invalid_inspected_source" {
+		t.Fatalf("wrong inspected source status=%d response=%s", code, response)
+	}
+	if len(stub.launches) != 0 {
+		t.Fatalf("wrong inspected source launched: %d", len(stub.launches))
+	}
+	if _, err := s.IntentAttemptAllowance(ctx, 7, factory.IntentAttemptScope{IntentID: "d777777777777777777777777", OwnerID: 1}, ""); err == nil {
+		t.Fatal("wrong inspected source funded an allowance")
+	}
+}

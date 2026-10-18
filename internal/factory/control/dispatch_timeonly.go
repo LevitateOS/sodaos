@@ -56,6 +56,14 @@ func (c *Coordinator) DispatchIntentPlan(ctx context.Context, intentID string, o
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "intent subject invalid"})
 		return report
 	}
+	// Every inspected source must answer the admitted source commit:
+	// evidence for another commit cannot fund or launch this run.
+	for _, ref := range in.Inspected {
+		if ref.Commit != source {
+			report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "inspected source does not match its admitted source"})
+			return report
+		}
+	}
 	// The packet authoritatively funds or refuses; the pre-check only
 	// binds the operation to the exact head and input.
 	if err := AdmitIntentBoundLaunch(subject, project.ExecutionDecompose, project.RoleCoder, operation, head, true, in); err != nil {

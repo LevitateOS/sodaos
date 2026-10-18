@@ -484,3 +484,37 @@ func TestDispatchIntentPlanRefusesUnreviewedHead(t *testing.T) {
 		t.Fatalf("guarded connector reached the host: %d", len(fx.host.launches))
 	}
 }
+
+// TestDispatchIntentPlanRefusesMismatchedInspectedSource proves the
+// common boundary binds evidence to source: inspected evidence for
+// another commit refuses before admission, leaving no launch, run or
+// funding behind.
+func TestDispatchIntentPlanRefusesMismatchedInspectedSource(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	head := intentPlanHead(time.Now().UTC().Truncate(time.Second))
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatal(err)
+	}
+	content, err := factory.ComposeProposalContent(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := factory.SemanticPlannerInput{
+		Operation: factory.IntentPlanningPropose, Head: head, Content: content,
+		Alternatives: factory.DescribeAlternatives(head.Objective),
+		Inspected: []factory.InspectedSource{
+			{Path: "internal/factory/intent.go", Commit: strings.Repeat("d", 40), Evidence: "evidence for another commit"},
+		},
+	}
+	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	if len(report.Errors) == 0 || len(report.Launched) != 0 {
+		t.Fatalf("mismatched source admitted: %+v", report)
+	}
+	if len(fx.host.launches) != 0 {
+		t.Fatalf("mismatched source reached the host: %d", len(fx.host.launches))
+	}
+}

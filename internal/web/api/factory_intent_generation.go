@@ -93,6 +93,12 @@ func (s *API) apiIntentPlan(w http.ResponseWriter, r *http.Request, v store.Sess
 		auth.JSONError(w, 400, "invalid_source", "Planning source must name its commit.")
 		return
 	}
+	for _, ref := range in.Inspected {
+		if ref.Commit != in.Source {
+			auth.JSONError(w, 400, "invalid_inspected_source", "Inspected evidence must answer the admitted source commit.")
+			return
+		}
+	}
 	content, err := factory.ComposeProposalContent(current)
 	if err != nil {
 		factoryCommandError(w, err)
