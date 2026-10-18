@@ -1,7 +1,7 @@
 //! GitHub Releases owns publication state; local artifacts remain immutable inputs.
 use crate::Error;
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 pub mod assets;
 mod components;
@@ -510,12 +510,10 @@ pub fn qualify_appliance(
     Ok(())
 }
 
-pub fn stage(
-    gh: &dyn GitHub,
-    registry: &dyn registry::Registry,
+fn admit_image_staging<'a>(
     directory: &Path,
-    auth: Option<&Path>,
-) -> Result<(), Error> {
+    auth: Option<&'a Path>,
+) -> Result<(Manifest, Option<&'a Path>), Error> {
     let manifest = assets::load(directory)?;
     if !directory.join("components/public.json").exists()
         || (manifest.docker.is_some() && !directory.join("registry/registry.json").exists())
@@ -537,11 +535,28 @@ pub fn stage(
             return Err(Error::msg("registry upload was already attempted; run verify-images and inspect remote state instead of replaying it"));
         }
     }
-    let candidate = if manifest.docker.is_some() {
-        Some(assets::candidate(directory, &manifest)?)
+    Ok((manifest, auth))
+}
+
+fn admit_staging_candidate(
+    directory: &Path,
+    manifest: &Manifest,
+) -> Result<Option<PathBuf>, Error> {
+    if manifest.docker.is_some() {
+        Ok(Some(assets::candidate(directory, manifest)?))
     } else {
-        None
-    };
+        Ok(None)
+    }
+}
+
+pub fn stage(
+    gh: &dyn GitHub,
+    registry: &dyn registry::Registry,
+    directory: &Path,
+    auth: Option<&Path>,
+) -> Result<(), Error> {
+    let (manifest, auth) = admit_image_staging(directory, auth)?;
+    let candidate = admit_staging_candidate(directory, &manifest)?;
     stage_github(gh, &manifest, directory, |ci_run| {
         components::stage(gh, registry, directory, &manifest, auth)?;
         if let Some(metadata) = &manifest.docker {
@@ -860,6 +875,49 @@ pub fn verify_registry(
     Ok(())
 }
 
+fn check_release_absence(gh: &dyn GitHub, tag: &str) -> Result<(), Error> {
+    match release(gh, tag) {
+        Ok(_) => return Err(Error::msg("release already exists; choose a fresh version")),
+        Err(error) if error.0 == "GitHub resource not found" => (),
+        Err(error) => return Err(error),
+    }
+    Ok(())
+}
+
+fn check_tag_reference(gh: &dyn GitHub, tag: &str, soda: &str) -> Result<(), Error> {
+    match api::<TagRef>(gh, &format!("{API}/git/ref/tags/{tag}")) {
+        Ok(reference) if reference.object.kind == "commit" && reference.object.sha == soda => (),
+        Ok(_) => return Err(Error::msg("existing tag differs from selected source")),
+        Err(error) if error.0 == "GitHub resource not found" => (),
+        Err(error) => return Err(error),
+    }
+    Ok(())
+}
+
+fn check_package_visibility(
+    gh: &dyn GitHub,
+    distribution: crate::model::Distribution,
+) -> Result<(), Error> {
+    let mut packages = vec![
+        "sodaos-dashboard",
+        "sodaos-forgejo",
+        "sodaos-project-os",
+        "sodaos-canlang-runtime",
+    ];
+    if distribution != crate::model::Distribution::Appliance {
+        packages.push("sodaos");
+    }
+    for name in packages {
+        let package =
+            api::<serde_json::Value>(gh, &format!("orgs/LevitateOS/packages/container/{name}"));
+        match package {
+            Ok(value) if value.get("visibility").and_then(|v|v.as_str())!=Some("public")=>return Err(Error::msg("GHCR package must be public before staging; change its package visibility")),
+            Ok(_) =>(),Err(error) if error.0=="GitHub resource not found"=>eprintln!("GHCR package does not exist; first upload requires public visibility before anonymous verification."),Err(error)=>return Err(error),
+        }
+    }
+    Ok(())
+}
+
 pub fn preflight(
     gh: &dyn GitHub,
     soda: &str,
@@ -880,35 +938,9 @@ pub fn preflight(
             "enable immutable GitHub releases before building",
         ));
     }
-    match release(gh, tag) {
-        Ok(_) => return Err(Error::msg("release already exists; choose a fresh version")),
-        Err(error) if error.0 == "GitHub resource not found" => (),
-        Err(error) => return Err(error),
-    }
-    match api::<TagRef>(gh, &format!("{API}/git/ref/tags/{tag}")) {
-        Ok(reference) if reference.object.kind == "commit" && reference.object.sha == soda => (),
-        Ok(_) => return Err(Error::msg("existing tag differs from selected source")),
-        Err(error) if error.0 == "GitHub resource not found" => (),
-        Err(error) => return Err(error),
-    }
-    let mut packages = vec![
-        "sodaos-dashboard",
-        "sodaos-forgejo",
-        "sodaos-project-os",
-        "sodaos-canlang-runtime",
-    ];
-    if distribution != crate::model::Distribution::Appliance {
-        packages.push("sodaos");
-    }
-    for name in packages {
-        let package =
-            api::<serde_json::Value>(gh, &format!("orgs/LevitateOS/packages/container/{name}"));
-        match package {
-            Ok(value) if value.get("visibility").and_then(|v|v.as_str())!=Some("public")=>return Err(Error::msg("GHCR package must be public before staging; change its package visibility")),
-            Ok(_) =>(),Err(error) if error.0=="GitHub resource not found"=>eprintln!("GHCR package does not exist; first upload requires public visibility before anonymous verification."),Err(error)=>return Err(error),
-        }
-    }
-    Ok(())
+    check_release_absence(gh, tag)?;
+    check_tag_reference(gh, tag, soda)?;
+    check_package_visibility(gh, distribution)
 }
 
 fn verify_downloaded_assets(
