@@ -9,6 +9,8 @@ import (
 
 var errFeedUnavailable = errors.New("combined feed is unavailable")
 
+var errFeedQueryInvalid = errors.New("combined feed query is invalid")
+
 // FeedReader reads one combined feed window over canonical records.
 type FeedReader interface {
 	SubscribedFeed(ctx context.Context, query factory.FeedQuery) ([]factory.FeedEntry, string, bool, error)
