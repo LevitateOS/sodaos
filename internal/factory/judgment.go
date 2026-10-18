@@ -146,13 +146,20 @@ const (
 	// needs_attention over the sealed evidence, proposal and
 	// validation report.
 	JudgmentReassessmentProposal JudgmentPurpose = "post-completion-proposal-v1"
+	// JudgmentContextBundle selects one prebuilt context bundle
+	// (R31): Jev returns exactly one eligible bundle ID from the
+	// fixed current/attempt/lineage/snapshot_hold set. Low
+	// confidence or an unavailable response holds with attention on
+	// the deterministic snapshot, never an inferred bundle.
+	JudgmentContextBundle JudgmentPurpose = "context-bundle-v1"
 )
 
-// JudgmentPurposes lists the ten purposes in owning-doc order: the
-// eight planning/delivery purposes plus the two D13 post-completion
-// purposes the FW31 fence and FW32 adoption consume.
+// JudgmentPurposes lists the eleven purposes in owning-doc order: the
+// eight planning/delivery purposes, the two D13 post-completion
+// purposes the FW31 fence and FW32 adoption consume, and the R31
+// context-bundle selection.
 func JudgmentPurposes() []JudgmentPurpose {
-	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview, JudgmentReassessmentDecision, JudgmentReassessmentProposal}
+	return []JudgmentPurpose{JudgmentProductApproaches, JudgmentAssumptions, JudgmentConsolidation, JudgmentDecomposition, JudgmentPlanningFreshness, JudgmentNextWork, JudgmentConsistency, JudgmentDeliveryReview, JudgmentReassessmentDecision, JudgmentReassessmentProposal, JudgmentContextBundle}
 }
 
 func (p JudgmentPurpose) valid() bool {
