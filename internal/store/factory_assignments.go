@@ -163,12 +163,22 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 	// readiness refuses issue zero, and completion accounting is
 	// per-root, never per-latest(repository, 0).
 	isCompletion := a.Subject.Kind == factory.SubjectCompletion
+	isIntent := a.Subject.Kind == factory.SubjectIntent
 	if a.Outcome == factory.Succeeded && a.Reason == factory.AssignReasonReported {
 		if isCompletion {
 			// Successful+reported terminal completion closes its
 			// coder-only root admission here; the shared joint
 			// retains the active clock until actual recorded
 			// run/preparation effects settle.
+			if err = transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now()); err != nil {
+				return err
+			}
+		} else if isIntent {
+			// Successful+reported terminal intent closes its
+			// decompose-only root admission here through the same
+			// shared joint. It never enqueues ordinary issue
+			// readiness: readiness refuses issue zero, and intent
+			// accounting is per-root, never per-latest(repository, 0).
 			if err = transitionAttemptAssignmentTx(ctx, tx, a.ID, true, time.Now()); err != nil {
 				return err
 			}
@@ -181,12 +191,12 @@ func (s *Store) FinishAssignment(ctx context.Context, a factory.Assignment) erro
 			closeRoot = false
 		}
 		if err = transitionAttemptAssignmentTx(ctx, tx, a.ID, closeRoot, time.Now()); err != nil {
-			// Terminal completion accounting is mandatory: a
-			// missing or mismatched typed allowance fails the
-			// finish instead of committing without accounting.
-			// Ordinary issue paths keep the historical absent-row
-			// tolerance.
-			if !isCompletion && errors.Is(err, sql.ErrNoRows) {
+			// Terminal completion and intent accounting is
+			// mandatory: a missing or mismatched typed allowance
+			// fails the finish instead of committing without
+			// accounting. Ordinary issue paths keep the historical
+			// absent-row tolerance.
+			if !isCompletion && !isIntent && errors.Is(err, sql.ErrNoRows) {
 				err = nil
 			} else {
 				return err

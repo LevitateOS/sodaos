@@ -315,6 +315,23 @@ func transitionAttemptAssignmentTx(ctx context.Context, tx *sql.Tx, assignmentID
 		}
 		return transitionLockedAttemptRootTx(ctx, tx, typed, closeRoot, now)
 	}
+	// Intent roots carry no publication owner and never consult the
+	// latest (repository, 0) row: the exact typed allowance for this
+	// root's own stable intent scope performs the settled-effect, clock
+	// and CAS checks through the shared joint below. A missing or
+	// mismatched typed allowance fails the transaction; it is never a
+	// silent skip.
+	if assignment.Subject.Kind == factory.SubjectIntent {
+		if assignment.Subject.Intent == nil {
+			return errors.New("intent root lacks its intent subject")
+		}
+		scope := factory.IntentAttemptScope{IntentID: assignment.Subject.Intent.IntentID, OwnerID: assignment.Subject.Intent.OwnerID}
+		typed, err := lockIntentAttemptAllowanceTx(ctx, tx, assignment.Repository, scope, assignment.AttemptRoot)
+		if err != nil {
+			return err
+		}
+		return transitionLockedAttemptRootTx(ctx, tx, typed, closeRoot, now)
+	}
 	allowance, err := lockAttemptAllowanceRootTx(ctx, tx, assignment.Repository, assignment.Issue, assignment.AttemptRoot)
 	if errors.Is(err, sql.ErrNoRows) {
 		return err
@@ -1094,4 +1111,72 @@ func (s *Store) DeliveryJudgment(ctx context.Context, fingerprint string) (facto
 		return factory.DeliveryReceipt{}, err
 	}
 	return r, nil
+}
+
+// validateIntentScope checks the stable intent scope identity carried on
+// one time-only intent allowance: the project decision identity of the
+// planned intent and its positive owner. Mutable assignment snapshots
+// such as RevisionID and ScopeDigest never appear here.
+func validateIntentScope(scope factory.IntentAttemptScope) error {
+	if !project.ValidDecisionID(scope.IntentID) {
+		return errors.New("invalid intent scope identity")
+	}
+	if scope.OwnerID <= 0 {
+		return errors.New("invalid intent scope owner")
+	}
+	return nil
+}
+
+func lockIntentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository int64, scope factory.IntentAttemptScope, root string) (factory.AttemptAllowance, error) {
+	var allowance factory.AttemptAllowance
+	if repository <= 0 || !factory.ValidID(root) {
+		return allowance, errors.New("invalid intent allowance scope")
+	}
+	if err := validateIntentScope(scope); err != nil {
+		return allowance, err
+	}
+	var storedRoot string
+	var revision int64
+	var data []byte
+	err := tx.QueryRowContext(ctx, `SELECT root_assignment,revision,data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment=$2 FOR UPDATE`, repository, root).Scan(&storedRoot, &revision, &data)
+	if err != nil {
+		return allowance, err
+	}
+	if err = json.Unmarshal(data, &allowance); err != nil {
+		return allowance, err
+	}
+	if err = validateAttemptAllowanceRow(allowance, repository, 0, storedRoot, revision); err != nil {
+		return factory.AttemptAllowance{}, err
+	}
+	if allowance.Intent == nil || *allowance.Intent != scope {
+		return factory.AttemptAllowance{}, errors.New("intent allowance does not match its intent scope")
+	}
+	return allowance, nil
+}
+
+// IntentAttemptAllowance returns the recorded time-only allowance for
+// one exact intent root. The root assignment row must still match the
+// requested scope; a wrong root, intent or owner refuses, as does any
+// positive-issue spoof of the same root.
+func (s *Store) IntentAttemptAllowance(ctx context.Context, repository int64, scope factory.IntentAttemptScope, root string) (factory.AttemptAllowance, error) {
+	var allowance factory.AttemptAllowance
+	if repository <= 0 || !factory.ValidID(root) {
+		return allowance, errors.New("invalid intent allowance scope")
+	}
+	if err := validateIntentScope(scope); err != nil {
+		return allowance, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return allowance, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	allowance, err = lockIntentAttemptAllowanceTx(ctx, tx, repository, scope, root)
+	if err != nil {
+		return factory.AttemptAllowance{}, err
+	}
+	if err = tx.Commit(); err != nil {
+		return factory.AttemptAllowance{}, err
+	}
+	return allowance, nil
 }
