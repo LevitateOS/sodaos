@@ -100,6 +100,67 @@ func StageIntentPlanningPrompt(head factory.IntentRevision, in factory.SemanticP
 	return prompt, nil
 }
 
+// stagedPlanningInputMarker opens the exact typed planning input the
+// staged prompt preserves; the shared phased report marker closes it.
+const stagedPlanningInputMarker = "## Admitted planning input\n\n"
+
+// ParseStagedPlanningInput recovers the exact typed input a staged
+// prompt recorded. Prompts without the marker predate staged inputs
+// and report unstaged; a marker without a parseable input reports
+// corrupt. The JSON carries no fenced report block, so the fence guard
+// cannot alter its structure.
+func ParseStagedPlanningInput(prompt []byte) (in factory.SemanticPlannerInput, staged bool, err error) {
+	text := string(prompt)
+	start := strings.Index(text, stagedPlanningInputMarker)
+	if start < 0 {
+		return in, false, nil
+	}
+	rest := text[start+len(stagedPlanningInputMarker):]
+	end := strings.Index(rest, phasedReportMarker)
+	if end < 0 {
+		return in, true, errors.New("staged planning input lacks its report close")
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(rest[:end])), &in); err != nil {
+		return in, true, err
+	}
+	return in, true, nil
+}
+
+// AssessStagedDecomposition validates one reported decomposition
+// against its assignment's recorded staged input: the input answers
+// the funded operation triple, and the answer's tasks resolve to the
+// recorded head's ideas when the head carries any. Idea-less drafts
+// skip coverage: there is nothing to resolve. Shape and identity
+// already hold from parse and subject binding; this adds the semantic
+// input contract without calling any provider.
+func AssessStagedDecomposition(in factory.SemanticPlannerInput, subject factory.IntentSubject, decomposition *factory.ScopedDecomposition) error {
+	if err := in.Validate(); err != nil {
+		return err
+	}
+	if in.Head.Digest() != subject.ScopeDigest || in.Head.ID != subject.RevisionID ||
+		in.Head.Intent != subject.IntentID || in.Head.Owner != subject.OwnerID {
+		return errors.New("staged input answers another funded operation")
+	}
+	if decomposition == nil {
+		return errors.New("staged answer carries no decomposition")
+	}
+	if len(in.Head.Ideas) == 0 {
+		return nil
+	}
+	known := map[string]bool{}
+	for _, idea := range in.Head.Ideas {
+		known[idea.ID] = true
+	}
+	for _, task := range decomposition.Tasks {
+		for _, id := range task.IdeaIDs {
+			if !known[id] {
+				return errors.New("staged answer binds an unrecorded idea")
+			}
+		}
+	}
+	return nil
+}
+
 // IntentBoundLaunchInput carries the dispatch-verified identities one
 // admitted intent-bound decompose run launches under. Every identity was
 // verified at admission; this joint only binds them to the existing host

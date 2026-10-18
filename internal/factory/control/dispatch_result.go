@@ -420,6 +420,39 @@ func derivePhasedVerifyAttemptResult(a factory.Assignment, run factory.Run, outp
 	return result, outcome, reason
 }
 
+// settleDecomposeSemantic validates one reported decompose result
+// against its assignment's recorded staged input. A missing or corrupt
+// recorded input refuses the semantic result: there is no legacy
+// compatibility path around the staged contract. Anything failing the
+// semantic contract converts to needs-human with no report, mirroring
+// the derive path's refusal shape. Usage and consumption already
+// recorded stay untouched.
+func settleDecomposeSemantic(a, finished factory.Assignment, now time.Time) (factory.Assignment, bool) {
+	assess := func(detail string) (factory.Assignment, bool) {
+		converted := finished
+		converted.Outcome, converted.Reason = factory.NeedsHuman, factory.AssignReasonNoReport
+		blocked := synthesizePhased(a, "blocked", detail, now.Unix())
+		converted.Result = &blocked
+		if err := converted.Validate(); err != nil {
+			return factory.Assignment{}, false
+		}
+		return converted, false
+	}
+	in, staged, err := ParseStagedPlanningInput(a.Prompt)
+	if err != nil || !staged {
+		return assess("staged planning input is missing or corrupt")
+	}
+	if finished.Result.PhaseResult == nil || finished.Result.PhaseResult.Output == nil ||
+		finished.Result.PhaseResult.Output.Decomposition == nil {
+		return assess("staged answer carries no decomposition")
+	}
+	decomposition := finished.Result.PhaseResult.Output.Decomposition
+	if err := AssessStagedDecomposition(in, *a.Subject.Intent, decomposition); err != nil {
+		return assess(err.Error())
+	}
+	return finished, true
+}
+
 // synthesizePhased binds one supervisor-derived result to a phased
 // assignment, carrying the typed phase result for non-completed terminal
 // states. Planning and other completed states never synthesize: only a
@@ -478,6 +511,16 @@ func AccountSettledRun(ctx context.Context, db *store.Store, run factory.Run, ou
 	finished, err := finishAssignmentFromRun(a, run, output, now)
 	if err != nil {
 		return factory.Assignment{}, false
+	}
+	// A reported decompose answer additionally settles against its
+	// assignment's recorded staged input. Answers that fail the
+	// semantic contract convert to needs-human without touching the
+	// recorded usage and consumption, exactly like any other blocked
+	// result on this path.
+	if finished.Result != nil && finished.Result.Reported && a.Phase == project.ExecutionDecompose && a.Subject.Intent != nil {
+		if converted, valid := settleDecomposeSemantic(a, finished, now); !valid {
+			finished = converted
+		}
 	}
 	finished, err = settleRepairChain(ctx, db, finished, now)
 	if err != nil {

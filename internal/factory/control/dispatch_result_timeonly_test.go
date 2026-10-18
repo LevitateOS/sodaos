@@ -35,12 +35,28 @@ func settleIntentPacket(t *testing.T, ctx context.Context, db *store.Store, fx d
 		ID: revisionID, Intent: intentID, Owner: 7, Repository: fx.repo,
 		Objective: "plan the recorded draft", State: "draft",
 		MaxIssues: 10, CreatedUnix: now.Unix(),
+		Ideas: []factory.ProductIdea{
+			{ID: "d333333333333333333333333", Description: "Capture leave requests", Consequence: "Requests can be recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
+		},
 	}
 	if err := db.SaveIntentRevision(ctx, revision); err != nil {
 		t.Fatalf("intent revision not recorded: %v", err)
 	}
 	selection := fx.policy.Roles[project.RoleCoder]
-	prompt := []byte("settling intent packet " + revisionID)
+	content, err := factory.ComposeProposalContent(revision)
+	if err != nil {
+		t.Fatalf("proposal content: %v", err)
+	}
+	prompt, err := StageIntentPlanningPrompt(revision, factory.SemanticPlannerInput{
+		Operation: factory.IntentPlanningPropose, Head: revision, Content: content,
+		Alternatives: factory.DescribeAlternatives(revision.Objective),
+		Inspected: []factory.InspectedSource{
+			{Path: "internal/factory/intent.go", Commit: strings.Repeat("c", 40), Evidence: "recorded investigation"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("staged prompt: %v", err)
+	}
 	sum := sha256.Sum256(prompt)
 	rootID, runID := factory.NewID(), factory.NewID()
 	a := factory.Assignment{
@@ -104,7 +120,7 @@ func settleIntentOutput(t *testing.T, intentID, revisionID string) string {
 		Intent: intentID, Revision: revisionID, Selected: "keep",
 		Tasks: []factory.IntentTask{{
 			Key: "d999999999999999999999999", Objective: "Plan the recorded draft",
-			Outcomes: []string{"Draft is planned"}, IdeaIDs: []string{"d666666666666666666666666"},
+			Outcomes: []string{"Draft is planned"}, IdeaIDs: []string{"d333333333333333333333333"},
 		}},
 		Advice: []string{strings.Repeat("a", 64)},
 	}
