@@ -1369,6 +1369,8 @@ No row is complete through a schema, prompt, helper or mocked test alone.
 | finish_app_verification | Admission → D16 outcome/check verification → delivery/verification receipts → no deployment; failures enter bounded proposal admission → version-bound completion or failed journeys. |
 | finish_incomplete | Admission → assignment settlement/attention router → durable reason/evidence and actual host outcome → existing native stop/retirement and lease cleanup → blocker owner/next admissible action; no false success. |
 
+**Worker rule — a person is the last resort.** A worker tries everything it can do by itself first: its own retries, correction passes, reassessment, handoff to another role. It reports blocked only when no machine path remains, and the report states plainly what is wrong and what is needed. A person never gets a vague failure.
+
 Construct/close the dedicated listener in `internal/web`/`cmd/soda-dashboard`.
 Store methods own transactions; reuse the service database. Rust relay/staging,
 permission views and retirement belong to existing `lib/host/src/terminal/factory`,
