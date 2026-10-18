@@ -1,5 +1,9 @@
 # Canlang and Soda OS implementation plan
 
+## Wind-down status — 18 October 2026
+
+Execution is stopped. The [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) contain every unmet P outcome and its shared factory/release consumers; no second queue is dispatched here. Historical app/domain/UI and local Miniflare evidence remains accepted at its exact scope. Direct-workerd P14–P16 and affected P25–P29 are planned/unproved replacement work; P08/P09/P10, real-client P22, P30/P31/G4 and plan absorption retain explicit unmet criteria. Existing source/native component receipts are not reopened or promoted to full candidate acceptance.
+
 **Runtime replacement planned 18 October 2026 · historical native evidence from 14 October 2026**
 
 The [production workerd investigation and implementation chapter](canlang-soda-os-implementation-plan/production-workerd.md)

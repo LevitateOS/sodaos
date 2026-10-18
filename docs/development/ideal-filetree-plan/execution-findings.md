@@ -1,5 +1,9 @@
 # Finding allocation within the existing execution plan
 
+## Wind-down disposition — 18 October 2026
+
+This allocation is retained evidence, not an active queue. The [single remaining-outcome record](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) owns unmet parents and shared consumers. Later completion receipts in this file and implementation-tasks.md supersede earlier open wording: CON-M01/02 source/cutoff and bounded A07.V scope, SIMP-FD-1, CUST-C-BUTANE-CLEANUP-1, formatter/adapter/dependency cuts are not reopened. Broader native/installed/provider acceptance remains separately mapped. Optional CA narrowing/L16/parked structural proposals remain deferred; current retained algorithms and implementations stand. No reviewer or implementation assignment remains live.
+
 This is the detailed subtask allocation for the existing
 [task list](implementation-tasks.md) and [lanes](implementation-lanes.md), not a
 second queue. Each row has one accountable finding owner; cross-owner files use

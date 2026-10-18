@@ -1,13 +1,13 @@
 # Prompt to checked PR
 
-[Remaining-work catalog](../factory-remaining-tasks.md#task-list) owns execution order. These packets preserve the original requirement authorities; the existing central checklist alone owns live progress and writer leases. Exact source file subsets are frozen before allocation, so directories below are responsibility locators rather than blanket write leases.
+[Remaining-work catalog](../factory-remaining-tasks.md#task-list) owns execution order. These packets preserve the original requirement authorities; the catalog's consolidated outcomes own current status; the closed checklist retains evidence and former leases. Execution is stopped. Exact source file subsets are frozen before allocation, so directories below are responsibility locators rather than blanket write leases.
 
 <a id="r11"></a>
 ## R11 — Finish one atomic subject-aware dispatch and accounting path
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R01](01-boundaries.md#r01), [R10](01-boundaries.md#r10).
 
-**Current:** Issue dispatch and finite reservations exist. Intent dispatch is not serving; the 198 tx-bound reservation extraction is an unrun prerequisite candidate.
+**Current (wind-down):** Live/native dispatch and atomic settlement qualification; source/common-boundary acceptance retained. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Extend the existing shared registration/assignment/reservation/run/view/result core for intent and completion subjects. Factor transaction-bound reservation internals; inspect actual lock ordering, authority, preparation, current head, capacity and withdrawal. Persist intent before any host call.
 
@@ -24,7 +24,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R10](01-boundaries.md#r10), [R11](02-prompt-to-pr.md#r11).
 
-**Current:** Planner/admission helpers exist, but Generate follows the accepted authored/template route and no real semantic producer serves it.
+**Current (wind-down):** Real semantic provider qualification; server inputs, plan/Generate UI through cf5887a0 accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect authenticated Generate to current reviewed draft, repository association, prepared Project, inspected source and bounded generative planning through the common dispatch path. Persist typed attention/failure/candidate results bound to exact inputs.
 
@@ -41,7 +41,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R12](02-prompt-to-pr.md#r12).
 
-**Current:** Chosen-plan and native graph adoption helpers exist; fixtures manually calling them do not prove the serving producer.
+**Current (wind-down):** Native chosen-graph adoption qualification; 3e4de021 source repair accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Wire single-candidate direct choice and complete-set funded multi-candidate choice to current accepted outcome authority and exact native graph adoption. Preserve existing task/delivered bindings and explicit human product decisions.
 
@@ -56,7 +56,7 @@
 
 **Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current:** Durable complete-set inventory, cursor, fairness and fresh selected admission are implemented; do not rebuild them from an old gap description.
+**Current (wind-down):** Native current-inventory readiness qualification; cursor/restart/large-queue source proofs accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Audit current serving calls and close only remaining cursor, prerequisite truth, freshness and selection seams. Use actual per-pass bounds and authoritative eligibility; preserve independent component progress.
 
@@ -71,7 +71,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R11](02-prompt-to-pr.md#r11), [R14](02-prompt-to-pr.md#r14).
 
-**Current:** Immutable plan revisions and head admission exist; the actual selected generative investigation-to-plan journey is not accepted.
+**Current (wind-down):** Compose selected investigation and exact plan/head admission; journey and immutable old-revision Store proofs already pass. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Investigate only the freshly selected issue using current source/prerequisite evidence. Persist a concrete required-check plan and ordered task DAG with coverage, output dependencies, nonconflicting ownership and parallel lanes before coding.
 
@@ -86,7 +86,7 @@
 
 **Work:** Implement after proof. **Owner lane:** A. **Accepted inputs:** [R07](01-boundaries.md#r07), [R08](01-boundaries.md#r08), [R09](01-boundaries.md#r09), [R15](02-prompt-to-pr.md#r15).
 
-**Current:** Task schemas/host scaffolding exist; real native event-to-Store progression is incomplete.
+**Current (wind-down):** Connect native task events to Store and accepted dependency release. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Drive approved plan tasks through genuine native children under one admitted parent, with inherited identity and limits. Observe results, cancellation and retirement; release successors promptly from trusted accepted outputs.
 
@@ -99,7 +99,7 @@
 
 **Work:** Implement after proof. **Owner lane:** A. **Accepted inputs:** [R16](02-prompt-to-pr.md#r16).
 
-**Current:** Task-receipt CAS exists; SavePlanTaskReceipt has no production caller in the current search.
+**Current (wind-down):** Production trusted task-receipt/check/Git-CAS/Store join. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect host-observed task output to protected exact-tree checks, serialized Git CAS checkpoint receipts and durable Store admission. Preserve worker files and unrelated dirty/index state through crash/lost reply.
 
@@ -116,7 +116,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** A. **Accepted inputs:** [R17](02-prompt-to-pr.md#r17).
 
-**Current:** Candidate publication exists; complete-task/checkpoint/ancestry gates have not been qualified as one journey.
+**Current (wind-down):** Complete-plan checked-tree publication gate. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Join all required task outputs, checkpoint ancestry and declared final exact-tree checks before exporting one publishable candidate. Support verification-only/no-change work without fake commits or PRs.
 
@@ -129,7 +129,7 @@
 
 **Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R18](02-prompt-to-pr.md#r18), [R20](03-review-merge-reassessment.md#r20).
 
-**Current:** Conditional ref publication, PR creation and recovery primitives are real code.
+**Current (wind-down):** Current attributable PR and publication recovery composition. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Compose current checkpoints with separate conditional ref and PR operations, exact receipt adoption, correction reuse and native completion. Preserve committed effects when later work fails.
 

@@ -1,5 +1,11 @@
 # Implementation task list
 
+## Execution stopped — 18 October 2026
+
+All assignments and source/index/command claims are released. The [canonical remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) own continuation status and exact unmet deliverables. A/B/C and old R/Q IDs below retain responsibility and accepted scope, not active lanes. Completed M/C/V and source-verification receipts remain accepted. Native/provider/installed residuals share factory R04/R44/R45/R46/R48/R52; they are not repeated as another backlog. Filetree R02 coverage and optional structural proposals remain explicitly separated there.
+
+The current 20-path integration is mapped once in the [coverage index](coverage/README.md#wind-down-integration-batch-18-october-2026). No deferred refactor or backlog item is started.
+
 ## Current Docker release handoff (2026-10-16)
 
 The [installer delta](coverage/maps/release-docker-current.md#installer-integration-scope)
@@ -46,7 +52,7 @@ qualify a new downloadable OS. Older task and native evidence scopes below stand
 The current request authorizes the assessment and start of implementation.
 The [nine-subsystem index](slices/README.md#first-principles-refresh-2026-10-13)
 links all 80 per-slice purpose, constraint, current-gap and next-step assessments.
-Those tables are the current first-principles work queue; historical packets
+Those tables retain historical first-principles scope; historical packets
 below retain their broader scope and separately recorded completion evidence.
 Retain slices whose inspected behavior satisfies the purpose. Reproduce a
 specific failure before extending their code; missing native evidence calls
@@ -314,8 +320,8 @@ mode match the retained source exactly. Independent evidence review passed,
 closing C09.C. Personal-Git and matching-workflow R04 checks remain open.
 Formal release signing, public distribution and publication are not selected.
 
-Implementation is active under the owner's “go”, “commit early and often” and
-subsequent all-tasks goal. Current path reconciliation uses source `63ace9cd`;
+Implementation under the earlier “go”, “commit early and often” and
+all-tasks goal is stopped by the 18 October wind-down. Current path reconciliation uses source `63ace9cd`;
 `04286c48`/`0caf6b91` remain the pre-implementation planning identities. The
 first twelve selected packets are committed, followed by readiness/artifact
 identity, installed-probe joins, duration cleanup, typed SDK snapshot cuts and

@@ -1,5 +1,9 @@
 # Factory experience and System One planning
 
+## Current disposition — 18 October 2026
+
+This is a historical direction/baseline, not an implementation queue. Later accepted intent, Generate/planning and UI source work supersedes “no implementation” descriptions below. New role/verb feed scope and remaining native/installed proof live in the [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped), chiefly R12/R13/R32/R42/R43/R49. Execution is stopped; accepted components are not reopened.
+
 Soda should let a person describe what they want built, review understandable
 product ideas and material assumptions, and have the Factory plan and carry out
 the work. Routine technical decomposition must not create a succession of human

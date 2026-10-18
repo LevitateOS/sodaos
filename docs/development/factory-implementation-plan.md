@@ -1,5 +1,9 @@
 # Factory implementation plan
 
+## Wind-down status — 18 October 2026
+
+Execution and supervision are stopped; all source/index/command custody is released. The [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) now own status, concrete holds and finite acceptance. Accepted FX/source, native development and NFX scopes below remain accepted; their unmet parent/native/installed/release criteria are counted once under the mapped R IDs. Historical “active” and old queue descriptions below are evidence of prior runs, not continuation instructions.
+
 The [remaining-work catalog](factory-remaining-tasks.md) owns the consolidated
 2026-10-17 execution order for all remaining factory work, including this broader
 baseline and installed/UX/release acceptance and all three workflow refinements.

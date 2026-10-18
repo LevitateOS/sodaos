@@ -56,7 +56,7 @@ command workflow. Spaces connects repository environments with human and factory
 | --- | --- |
 | [Development index](development/README.md) | How to work on this repository |
 | [Ideal file tree plan](development/ideal-filetree-plan/ideal-filetree-plan.md) | Living restructuring proposal and post-merge maintenance |
-| [Remaining factory work](development/factory-remaining-tasks.md) | Current consolidated task catalog, dependencies, three execution lanes and acceptance for all remaining baseline/refinement/native/installed/release work |
+| [Remaining factory work](development/factory-remaining-tasks.md) | Single remaining-outcome record after wind-down: accepted scope, unmet deliverables, owners, holds and finite release conditions |
 | [Factory implementation plan](development/factory-implementation-plan.md) | Original source, appliance and end-to-end UX requirements; execution is consolidated in Remaining factory work |
 | [Factory workflow design](development/factory-workflow-plan.md) | Workflow design, native proof requirements and original FW packet references; execution is consolidated in Remaining factory work |
 | [Native frontend correction tasks](development/native-frontend-correction-tasks.md) | Fountain/Soda correction tasks, parallel lanes, physical writers, partial handoffs and installed acceptance |

@@ -1,5 +1,9 @@
 # Audit ownership and collaboration
 
+## Current execution decision — 18 October 2026
+
+Human-directed finite wind-down supersedes prior dispatch/concurrency/continuation instructions. No coordinator, worker, worktree, timer or automation is to be launched from the retained assignments below. Current AGENTS.md anti-bureaucracy controls procedural conflicts. Review-002 already selected admitted harness pins for first proof: remove the superseded “pin decision needed” hold; exact binaries, aligned tools and funded native evidence remain missing inputs. The [single remaining-outcome record](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) distinguishes those engineering/external inputs and optional design choices. Language/package and all-page-design decisions in GUIDANCE-01–08 are unchanged.
+
 ## Current release guidance reconciliation (2026-10-16)
 
 The owner's current Docker installer instruction adds a streamed consumer to the

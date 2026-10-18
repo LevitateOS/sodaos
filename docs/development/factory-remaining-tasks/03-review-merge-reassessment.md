@@ -1,13 +1,13 @@
 # Current review, merge and reassessment
 
-[Remaining-work catalog](../factory-remaining-tasks.md#task-list) owns execution order. These packets preserve the original requirement authorities; the existing central checklist alone owns live progress and writer leases. Exact source file subsets are frozen before allocation, so directories below are responsibility locators rather than blanket write leases.
+[Remaining-work catalog](../factory-remaining-tasks.md#task-list) owns execution order. These packets preserve the original requirement authorities; the catalog's consolidated outcomes own current status; the closed checklist retains evidence and former leases. Execution is stopped. Exact source file subsets are frozen before allocation, so directories below are responsibility locators rather than blanket write leases.
 
 <a id="r20"></a>
 ## R20 — Wire fresh candidate/base tuples into every current consumer
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R01](01-boundaries.md#r01).
 
-**Current:** The eight-file tuple candidate has narrow real-PG evidence but is unapplied; the later 183B increment is incomplete and unrun.
+**Current (wind-down):** Native tuple/checkpoint qualification only; source conversion and classified historical BaseOID uses accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Persist actual observer snapshots with outer-revision CAS, no churn and explicit freshness. Convert all current diff/check/review/judgment/dispatch/merge consumers; retain historical PR-create/review records unchanged.
 
@@ -22,7 +22,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R19](02-prompt-to-pr.md#r19), [R20](03-review-merge-reassessment.md#r20), [R15](02-prompt-to-pr.md#r15).
 
-**Current:** Holding a base-ahead candidate exists as a draft; holding is not an actual correction sponsor.
+**Current (wind-down):** Bounded base-advance merge-in correction sponsor. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Use the existing bounded coder correction/root accounting to merge the current base into the candidate while preserving ancestry and the same PR. Resume current checks/review/acceptance only after verified new output.
 
@@ -37,7 +37,7 @@
 
 **Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R19](02-prompt-to-pr.md#r19), [R20](03-review-merge-reassessment.md#r20).
 
-**Current:** Native inline anchoring, submission and finding records exist; the complete current review journey is not accepted.
+**Current (wind-down):** Current independent native review and complete conversation journey. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Launch a fresh exact-candidate independent reviewer, gather every paged/outdated/human native thread and submit attributable anchored findings or a complete explicit clear report.
 
@@ -52,7 +52,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R22](03-review-merge-reassessment.md#r22).
 
-**Current:** Correction/disposition/history records and narrow repairs exist; complete current producer/consumer accounting remains open.
+**Current (wind-down):** Current finding/correction/disposition/native resolution composition. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Supply canonical current finding content to a distinct corrector. Admit candidate-bound evidence/dispositions for every item, retain carried/human history and reconcile only authorized native resolutions with exact readback.
 
@@ -67,7 +67,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R22](03-review-merge-reassessment.md#r22), [R23](03-review-merge-reassessment.md#r23), [R11](02-prompt-to-pr.md#r11).
 
-**Current:** Acceptance union/admission helpers exist with no production callers in the inspected source.
+**Current (wind-down):** Serving clean-review and finite funded Jev acceptance producers. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Produce durable explicit complete-clear acceptance with zero delivery calls, or a finite funded Jev routing/acceptance from complete current evidence. Connect both to the same authorization flow and bounded review/correction accounting.
 
@@ -82,7 +82,7 @@
 
 **Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R19](02-prompt-to-pr.md#r19), [R20](03-review-merge-reassessment.md#r20).
 
-**Current:** Check observation/policy code exists. This is original implementation-plan D13, not post-completion reassessment.
+**Current (wind-down):** Exact-tuple complete native check evidence. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Connect complete nonempty configured Actions/check evidence to current candidate and verified base, exposing failure versus infrastructure wait and refusing unaccepted check-policy edits.
 
@@ -97,7 +97,7 @@
 
 **Work:** Implement and integrate. **Owner lane:** B. **Accepted inputs:** [R20](03-review-merge-reassessment.md#r20), [R21](03-review-merge-reassessment.md#r21), [R24](03-review-merge-reassessment.md#r24), [R25](03-review-merge-reassessment.md#r25).
 
-**Current:** Merge primitives/generations/recovery exist; the real acceptance producer and all current consumers remain incomplete.
+**Current (wind-down):** Join current acceptance and authorization at every new merge entry. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Apply clean/Jev union, tuple/source/policy/native approval/protection/check gates to every new merge entry. Serialize withdrawal, cancellation, replacement generations and resolution readback without losing already committed effects.
 
@@ -112,7 +112,7 @@
 
 **Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R26](03-review-merge-reassessment.md#r26), [R14](02-prompt-to-pr.md#r14).
 
-**Current:** Completion/closure/prerequisite code exists; the full current serving chain remains unaccepted.
+**Current (wind-down):** Composed original-closure readiness release; evidence/authority/CAS/completion source checks accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Bind reachable attributable merge, native completion and the approved original issue outcome to durable completion/readiness. Preserve outcome truth and record each completion event exactly once.
 
@@ -127,7 +127,7 @@
 
 **Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R27](03-review-merge-reassessment.md#r27), [R11](02-prompt-to-pr.md#r11).
 
-**Current:** Integrated source and narrow PG proofs exist; a stale failure receipt does not negate them. This is contracts D13.
+**Current (wind-down):** Two-completion/two-Jev-decision serving proof; fence/drive/replay PG checks accepted. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** After each verified completion, collect the full current repository inventory and make the bounded persisted Jev continue/reassess decision. Enforce the repository fence across selection, Retry and phase advancement.
 
@@ -142,7 +142,7 @@
 
 **Work:** Integrate and qualify. **Owner lane:** B. **Accepted inputs:** [R28](03-review-merge-reassessment.md#r28), [R13](02-prompt-to-pr.md#r13).
 
-**Current:** Substantial reassessment/history/adoption source and narrow fixes are present, with incomplete current composition.
+**Current (wind-down):** Finish serial adoption/materialization composition; T35–T39, committed-prefix recovery and no-change release accepted. FW32 step driver remains deferred/unmaterialized. Execution stopped; owner unassigned. The catalog owns the remaining prerequisites and release condition.
 
 **Deliver:** Consume checked no-change or proposed revisions, assess through finite Jev policy and adopt serial exact native graph operations without replacing protected/manual/active/completed identities or accepted history.
 

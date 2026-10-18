@@ -1,5 +1,9 @@
 # RCX-2 review correction plan
 
+## Current disposition — 18 October 2026
+
+P00 and all eight FX01–FX08 source corrections were accepted in the retained [closed-run checklist](../../.artifacts/muse-factory-workflow/archive/checklist-before-R01-R55-20261017.md#rcx-2-corrections-rcx2-fixes-001-sole-status-owner-remains-this-checklist): Fountain 5eba39c66e/4d7931028a/2551d0aa2b/e7117f6272 and Soda b11f23af/e47fa0ec/1a11c7c6/dbaf94eb. This closes the focused source repair queue, not G2/G3/G4 parent/native/public-byte requirements. Earlier process-handshake environment failures remain explicit; no green full-suite claim is added. Current release-component/native/publication gaps live once under R03–R06/R45/R46/R50–R53 in the [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped). Execution is stopped; old lane/scheduler setup instructions below are historical.
+
 Prepared 2026-10-16 for the eight findings in the independent RCX-2 review.
 This is a repair specification, not evidence that the repairs have been made.
 The current instruction is planning only: no implementation, runtime mutation,
@@ -560,15 +564,15 @@ source tests, local native evidence and public qualification separate.
 
 ## Execution checklist
 
-- [ ] P00: refresh source/runtime ownership; verify execution route and handoffs.
-- [ ] FX01: confirmed and durable ordinary admission; focused commit/evidence.
-- [ ] FX02: cold disabled observation/cleanup; focused commit/evidence.
-- [ ] FX03: bounded maintenance guard lifetime; focused commit/evidence.
-- [ ] FX04: startup/offline package swap recovery; focused commit/evidence.
-- [ ] FX05: verified obsolete companion retirement; focused commit/evidence.
-- [ ] FX06: current-intent boot reconciliation; focused commit/evidence.
-- [ ] FX07: trusted catalog/controller relationship required; focused commit/evidence.
-- [ ] FX08: in-flight timeout/cancellation diagnostics; focused commit/evidence.
+- [x] P00 (accepted source execution preflight): refresh source/runtime ownership; verify execution route and handoffs.
+- [x] FX01 (accepted focused source repair; native integration remains separate): confirmed and durable ordinary admission; focused commit/evidence.
+- [x] FX02 (accepted focused source repair; native integration remains separate): cold disabled observation/cleanup; focused commit/evidence.
+- [x] FX03 (accepted focused source repair; native integration remains separate): bounded maintenance guard lifetime; focused commit/evidence.
+- [x] FX04 (accepted focused source repair; native integration remains separate): startup/offline package swap recovery; focused commit/evidence.
+- [x] FX05 (accepted focused source repair; native integration remains separate): verified obsolete companion retirement; focused commit/evidence.
+- [x] FX06 (accepted focused source repair; native integration remains separate): current-intent boot reconciliation; focused commit/evidence.
+- [x] FX07 (accepted focused source repair; native integration remains separate): trusted catalog/controller relationship required; focused commit/evidence.
+- [x] FX08 (accepted focused source repair; native integration remains separate): in-flight timeout/cancellation diagnostics; focused commit/evidence.
 - [ ] G1/G2: affected suites and small native boundaries pass on released revisions.
 - [ ] G3: packaged integration and independent review accept all eight repairs.
 - [ ] G4: owning docs, focused local commits, precise cleanup and residual gate report.

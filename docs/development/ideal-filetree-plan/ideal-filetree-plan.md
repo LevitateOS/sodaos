@@ -1,5 +1,13 @@
 # SodaOS ideal file tree plan
 
+## Wind-down integration reconciliation (18 October 2026)
+
+Implementation and supervision are stopped. The single [remaining-outcome record](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) supersedes active schedules below; accepted source/native development scopes stay closed.
+
+This batch reconciles all **20 paths** in `ad4603f9..51ba6d2f`: the [coverage index](coverage/README.md#wind-down-integration-batch-18-october-2026) maps each existing owner and the three added documentation leaves. R36 serving detection/event persistence retains the Go controller/Store owners. Dispatch wait classification, canonical Go DDL/Rust schema parity and release payload version 58 retain their current owners; no package, process, language or installed topology change is claimed. Feed and direct-workerd documents define requested/planned scope, not an implemented new runtime or UI.
+
+The measured integrated complexity residual is 58 Go functions above 20 (max 94), zero Rust and zero TypeScript above 20. Completed reductions are not new decomposition work. The prior broad structural/body/native review pins remain unchanged; accumulated coverage gaps beyond this exact batch remain the Filetree R02 outcome in the canonical record. This batch does not claim all-HEAD architecture or native acceptance.
+
 ## Current Docker release reconciliation (2026-10-16)
 
 The bounded installer integration is `730fc205..92069938869499a671a52e84ab03c639bb0b09d9`:

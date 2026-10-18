@@ -1,5 +1,7 @@
 # Production workerd replacement: investigation and implementation plan
 
+**Execution stopped at wind-down.** This remains proposed replacement scope, not an implemented runtime. Parent P IDs and their unmet deliverables/prerequisites/acceptance are consolidated in [Remaining outcomes](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped); substeps below refine those same outcomes and do not authorize dispatch.
+
 Investigated 18 October 2026. This is the runtime-replacement chapter of the
 [existing Canlang/Soda plan](../canlang-soda-os-implementation-plan.md), not a
 second application-platform project. It specifies proposed implementation;

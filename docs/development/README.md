@@ -1,5 +1,7 @@
 # Development
 
+Execution is stopped after the 18 October 2026 wind-down. [Remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) is the single current roadmap/backlog; detailed plans retain requirements and scoped evidence. Reading a plan does not dispatch it.
+
 How to work on the Soda OS repository itself.
 
 ## Setup

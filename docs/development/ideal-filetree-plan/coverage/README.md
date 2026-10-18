@@ -1,5 +1,22 @@
 # Coverage index
 
+## Wind-down integration batch (18 October 2026)
+
+Exact source range: `ad4603f9..51ba6d2f`, 20 changed paths, including three added documents. This is one bounded source/duty reconciliation, separate from historical whole-tree/body/native pins and older accumulated coverage gaps. No unchanged-source checks are repeated.
+
+| Paths in this batch | Defining responsibility / desired placement |
+| --- | --- |
+| `internal/factory/control/stall_detect.go`, `stall_serve.go`, `stall_detect_test.go` | F/Factory Go controller detection pass, repository isolation and mixed-prerequisite regression; retain current package, serving owner and test. Observation ordering is consumed by R37; R36/R37 parent qualification remains open. |
+| `internal/store/factory_stall_events.go`, `factory_completions.go` | Store owns durable stall events/observation order and registered canonical Go DDL. DDL moved into the registered schema-test owner; no second database/process owner. |
+| `internal/factory/control/dispatch_attempt.go` | Existing dispatch prompt owner returns seven wait causes in the wait slot rather than failure. Accepted real-PG prompt/source checks cover the repaired seam. |
+| `cmd/soda-identity/src/schema.rs` | Existing Rust mirror/drift check, stall table and version-58 assignments/allowances parity; test formatting retained. Canonical DDL remains Go-owned. |
+| `lib/soda-release-image/src/model.rs` | Existing image model binds payload schema 58; focused schema/payload tests pass. No build/install proof inferred. |
+| `docs/README.md`; `docs/development/factory-remaining-tasks.md`; six `factory-remaining-tasks/01-boundaries.md`, `02-prompt-to-pr.md`, `03-review-merge-reassessment.md`, `04-controls-repair-verification.md`, `05-experience-and-development.md`, `06-candidate-release-closure.md` | Existing navigation, canonical remaining outcomes and requirement cards; dependency/acceptance owners retained. |
+| `docs/design/factory-feed-and-ralph-integration.md` (added) | Proposed/adopted feed direction, eight communication verbs, role/asset choices; document remains at this desired path, with R30/R32/R42/R43/R49 implementation consumers. No React or runtime component is selected by the document alone. |
+| `docs/development/canlang-soda-os-implementation-plan.md`; `canlang-soda-os-implementation-plan/production-workerd.md` and `proposed-tree.md` (two added leaves) | Existing Canlang plan and its replacement-runtime/target-tree chapters; planned Canlang provider/exec-guard/runtime and Soda release owners. Desired doc paths are their current paths; code allocations remain proposals until P14–P16 native gates pass. |
+
+All eight source/test and twelve document paths are accounted for above. The later wind-down documentation edits update these existing owners/indices and introduce no product/source path. Existing large-function concerns are retained under the current complexity policy; no zero-debt or fresh full-body review is asserted.
+
 ## Current Docker release delta (2026-10-16)
 
 The [current ledger](maps/release-docker-current.md#installer-integration-scope)

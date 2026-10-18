@@ -1,5 +1,9 @@
 # Complete the software factory workflow
 
+## Wind-down status — 18 October 2026
+
+Implementation is stopped and remains unqualified as a complete factory. Use the [single remaining-outcome record](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) for current status and holds; the central checklist is closed evidence. Accepted R11/R12/R13/R14/R20 source work, R36 serving/event/isolation/order slices and R50 serving integration are preserved. Native/installed parents and R37/verification/feed remainder stay open; earlier helper/no-caller gap prose is historical and must not restart accepted work.
+
 **Execution reorganization, 2026-10-17:** use
 [Remaining factory work](factory-remaining-tasks.md) for the current consolidated
 task boundaries, dependencies and three-lane order. The existing run's single
@@ -8,7 +12,7 @@ sequences below retain original packet requirements and design context; they are
 not a second active queue. Preserve accepted work and evidence at its recorded
 scope. This changes execution organization, not the frozen product contracts.
 
-Status: **implementation in progress; not qualified**. This plan follows the owner's
+Historical planning status: **implementation was in progress; not qualified**. This plan follows the owner's
 2026-10-16 request to plan all gaps in the prompt-to-delivery loop before further
 implementation. It is based on read-only inspection of Soda
 `6d0281e64102269fda3614c7bd77948c4845914e` and Fountain
@@ -53,7 +57,7 @@ refinement tasks below. In particular, the current judgment-only merge gate must
 be generalized, not deleted or rebuilt from scratch. Claimed worker completion
 and helper fixtures do not replace production/native evidence.
 
-The existing Muse coordinator retains one central completion/writer checklist.
+The closed Muse run retains its historical completion/writer checklist.
 FW33–FW50 remain additive requirements; this document owns their design and tests,
 while the remaining-work catalog owns current dependencies and execution packets.
 Preserve active work until a named safe handoff.

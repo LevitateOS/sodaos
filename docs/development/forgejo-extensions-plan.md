@@ -1,5 +1,9 @@
 # Fountain: extensible Forgejo implementation plan
 
+## Current disposition — 18 October 2026
+
+The extension transition baseline and task order below are superseded requirement/evidence material. Later accepted native/SDK/background authority, source cutovers, NFX browser/installed scopes and RCX component work are retained. Only current boundary/composition/installed/release gaps remain, counted once under R03–R05/R43/R45/R51/R52/R54 in the [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped). No active transition coordinator or assignment remains.
+
 This earlier extension transition plan is historical input to the current
 [factory implementation plan](factory-implementation-plan.md). Its old baseline,
 task order and completion definition are not the current factory execution plan.

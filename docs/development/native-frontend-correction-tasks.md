@@ -1,5 +1,9 @@
 # Native frontend correction tasks and parallel lanes
 
+## Current disposition — 18 October 2026
+
+The later October 13 completion/repair-continuation evidence below supersedes the old 23-accepted/34-open snapshot and its individual stale remainder rows. Accepted NFX source, natural-link, real-browser history/terminal and installed refresh scopes are retained. This is no longer a live 57-task queue. Changed joins/new role feed and current matching-candidate qualification are counted once as R03/R43/R52/R54 in the [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped). Full new factory acceptance is not inferred from those historical NFX results. Execution and supervision are stopped.
+
 This is the executable decomposition of the
 [native frontend correction](factory-implementation-plan.md#native-frontend-responsibility-and-correction):
 Fountain supplies extensions through Forgejo's native frontend, with a reusable
@@ -71,11 +75,11 @@ and Fountain `87ec92d4f0101071a734b2f790f3bb1fb1d3366e`; it is historical input,
 not the current source or installed revision. Recheck heads and dirty work before
 future implementation; preserve unrelated work, files, Projects and processes.
 
-**Execution in repair continuation 2026-10-13 (see status above; not complete).**
+**Historical repair continuation 2026-10-13 (see scoped evidence above).**
 The native implementation and existing-VM delivery authorization remain in scope.
 This document records actual source handoffs and unmet finish conditions; worker
-goals and percentages do not supply acceptance. The continuing coordinator owns
-the final task ledger, matching native qualification and existing-VM delivery.
+goals and percentages do not supply acceptance. The released coordinator no longer owns live work. Current matching-native and
+installed finish conditions are owned by the consolidated outcomes.
 
 The generic target belongs to Fountain's `contrib/extensions/README.md`, **Native
 frontend correction target**. Product/security guarantees remain in

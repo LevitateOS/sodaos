@@ -1,5 +1,11 @@
 # Production function complexity
 
+## Integrated source debt — 18 October 2026
+
+One scan of source `51ba6d2f` with the existing pinned analyzers found **58 Go functions above 20**, maximum **94** in `internal/factory/dispatch_prompt.go::BuildDispatchPrompt`; Rust and TypeScript have **zero above 20**, maxima 20 and 19. Preferred-target debt (>10) is Go 631, Rust 638, TypeScript 10. This is source complexity, not a behavior/quality acceptance score. The unchanged baseline remains historical; no allowance is regenerated. Exact rows are retained in the existing ignored `.artifacts/source-complexity/current-report.txt`.
+
+Completed complexity batches, including `6bf6cecf` and subsequent focused repairs, are retained. The residual BROAD-COMPLEXITY-037 outcome is unassigned in the [canonical remaining record](factory-remaining-tasks.md#other-distinct-outcomes-and-shared-consumers). Execution is stopped; this measurement does not schedule another refactor.
+
 Go, Rust and TypeScript share this policy: **prefer cyclomatic complexity ≤10;
 normal maximum 20**. Above 20, a function needs a narrow, specific justification
 and an explicit score cap (for example, an exhaustive protocol dispatcher whose
