@@ -101,6 +101,55 @@ pub struct MediaBinding {
     pub rootfs: MediaFile,
 }
 
+type RawSlot = Option<Box<serde_json::value::RawValue>>;
+
+#[derive(Default)]
+struct RawBinding {
+    revision: RawSlot,
+    architecture: RawSlot,
+    host_manifest: RawSlot,
+    payload_sha256: RawSlot,
+    deployment_commit: RawSlot,
+    rootfs_url: RawSlot,
+    iso: RawSlot,
+    rootfs: RawSlot,
+}
+
+fn collect_raw_binding<'de, M: MapAccess<'de>>(m: &mut M) -> Result<RawBinding, M::Error> {
+    let mut raw = RawBinding::default();
+    while let Some(key) = m.next_key::<String>()? {
+        let slot = match key.as_str() {
+            "Revision" => &mut raw.revision,
+            "Architecture" => &mut raw.architecture,
+            "HostManifest" => &mut raw.host_manifest,
+            "PayloadSHA256" => &mut raw.payload_sha256,
+            "DeploymentCommit" => &mut raw.deployment_commit,
+            "RootfsURL" => &mut raw.rootfs_url,
+            "ISO" => &mut raw.iso,
+            "Rootfs" => &mut raw.rootfs,
+            _ => {
+                m.next_value::<IgnoredAny>()?;
+                continue;
+            }
+        };
+        *slot = Some(m.next_value::<Box<serde_json::value::RawValue>>()?);
+    }
+    Ok(raw)
+}
+
+fn decode_raw_binding<E: serde::de::Error>(raw: RawBinding) -> Result<MediaBinding, E> {
+    Ok(MediaBinding {
+        revision: decode_slot(raw.revision)?,
+        architecture: decode_slot(raw.architecture)?,
+        host_manifest: decode_slot(raw.host_manifest)?,
+        payload_sha256: decode_slot(raw.payload_sha256)?,
+        deployment_commit: decode_slot(raw.deployment_commit)?,
+        rootfs_url: decode_slot(raw.rootfs_url)?,
+        iso: decode_slot(raw.iso)?,
+        rootfs: decode_slot(raw.rootfs)?,
+    })
+}
+
 impl<'de> Deserialize<'de> for MediaBinding {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct V;
@@ -110,58 +159,8 @@ impl<'de> Deserialize<'de> for MediaBinding {
                 f.write_str("a media binding object")
             }
             fn visit_map<M: MapAccess<'de>>(self, mut m: M) -> Result<MediaBinding, M::Error> {
-                let (
-                    mut revision,
-                    mut architecture,
-                    mut host_manifest,
-                    mut payload_sha256,
-                    mut deployment_commit,
-                    mut rootfs_url,
-                    mut iso,
-                    mut rootfs,
-                ) = (None, None, None, None, None, None, None, None);
-                while let Some(key) = m.next_key::<String>()? {
-                    match key.as_str() {
-                        "Revision" => {
-                            revision = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
-                        }
-                        "Architecture" => {
-                            architecture = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
-                        }
-                        "HostManifest" => {
-                            host_manifest =
-                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
-                        }
-                        "PayloadSHA256" => {
-                            payload_sha256 =
-                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
-                        }
-                        "RootfsURL" => {
-                            rootfs_url = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
-                        }
-                        "DeploymentCommit" => {
-                            deployment_commit =
-                                Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
-                        }
-                        "ISO" => iso = Some(m.next_value::<Box<serde_json::value::RawValue>>()?),
-                        "Rootfs" => {
-                            rootfs = Some(m.next_value::<Box<serde_json::value::RawValue>>()?)
-                        }
-                        _ => {
-                            m.next_value::<IgnoredAny>()?;
-                        }
-                    }
-                }
-                Ok(MediaBinding {
-                    revision: decode_slot(revision)?,
-                    architecture: decode_slot(architecture)?,
-                    host_manifest: decode_slot(host_manifest)?,
-                    payload_sha256: decode_slot(payload_sha256)?,
-                    deployment_commit: decode_slot(deployment_commit)?,
-                    rootfs_url: decode_slot(rootfs_url)?,
-                    iso: decode_slot(iso)?,
-                    rootfs: decode_slot(rootfs)?,
-                })
+                let raw = collect_raw_binding(&mut m)?;
+                decode_raw_binding(raw)
             }
         }
         d.deserialize_map(V)
