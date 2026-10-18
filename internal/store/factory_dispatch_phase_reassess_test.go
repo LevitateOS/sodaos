@@ -30,8 +30,10 @@ func countReassessAssignmentRows(t *testing.T, db *Store, id string) int {
 // disposable database; nothing is borrowed.
 
 // reassessCycleFixture records one verified completion on the fixture
-// repository and returns its event ID, first staged cycle ID and merged
-// commit.
+// repository, seals its first cycle with a decided reassess outcome,
+// and returns its event ID, cycle ID and merged commit. The sealed
+// cycle carries inventory digest c*64 over one sealed body with local
+// source m.MergedCommit, so an admitted root must bind all three.
 func reassessCycleFixture(t *testing.T, db *Store) (eventID, cycleID, merged string) {
 	t.Helper()
 	m := mergedCompletionRecord(factory.NewID(), "501")
@@ -43,7 +45,70 @@ func reassessCycleFixture(t *testing.T, db *Store) (eventID, cycleID, merged str
 	if err := row.Scan(&eventID, &cycleID); err != nil {
 		t.Fatalf("staged cycle not recorded: %v", err)
 	}
+	sealReassessmentCycle(t, ctx, db, cycleID, m.MergedCommit, factory.ReassessmentOptionReassess)
 	return eventID, cycleID, m.MergedCommit
+}
+
+// sealReassessmentCycle drives one collecting cycle to a sealed,
+// decided outcome through the production CAS joint: the collecting
+// seal (local bindings, inventory digest, one body), the deciding
+// decision, then reassessing. Every write carries the expected state,
+// so the fixture exercises the same ordering the packet guard relies
+// on. A continue decision stays in deciding: only reassess advances a
+// coder root.
+func sealReassessmentCycle(t *testing.T, ctx context.Context, db *Store, cycleID, source, decision string) {
+	t.Helper()
+	record, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.Cycle.State != factory.ReassessmentCollecting {
+		t.Fatalf("staged cycle state = %q", record.Cycle.State)
+	}
+	local := sealedTestLocal(t)
+	local.SourceCommit = source
+	record.Local = local
+	record.InventoryDigest = strings.Repeat("c", 64)
+	record.Evidence = []factory.CompletionIssueEvidence{sealedTestBody(t, 9, "title", "body")}
+	record.EvidenceIssues = 1
+	record.EvidenceRevision = 41
+	if err := record.Validate(); err != nil {
+		t.Fatalf("sealed cycle invalid: %v", err)
+	}
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentCollecting, record); err != nil {
+		t.Fatalf("seal not recorded: %v", err)
+	}
+	decided, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decided.Cycle.Decision = decision
+	decided.Cycle.State = factory.ReassessmentDeciding
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentCollecting, decided); err != nil {
+		t.Fatalf("decision not recorded: %v", err)
+	}
+	if decision != factory.ReassessmentOptionReassess {
+		return
+	}
+	advancing, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	advancing.Cycle.State = factory.ReassessmentReassessing
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, advancing); err != nil {
+		t.Fatalf("reassessing not recorded: %v", err)
+	}
+}
+
+// countAttemptAllowanceRows reports recorded allowance rows for one
+// attempt root: refusals must leave zero.
+func countAttemptAllowanceRows(t *testing.T, db *Store, root string) int {
+	t.Helper()
+	var count int
+	if err := db.db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM factory_attempt_allowances WHERE root_assignment=$1`, root).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	return count
 }
 
 // reassessRootPacket builds one completion reassessment fresh-root
@@ -164,5 +229,147 @@ func TestReassessRootReplayWritesNoRows(t *testing.T) {
 	count := countReassessAssignmentRows(t, db, a.ID)
 	if count != 1 {
 		t.Fatalf("replay left %d assignment rows, want exactly one", count)
+	}
+}
+
+// TestReassessRootRefusesCollectingCycle proves the guard binds the
+// seal, not the staging row: a freshly collected cycle with no sealed
+// inventory, source or decision refuses with no packet or charge rows.
+func TestReassessRootRefusesCollectingCycle(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	// A sealed decided cycle coexists on the same repository: only the
+	// collecting one must refuse.
+	_, _, _ = reassessCycleFixture(t, db)
+	second := mergedCompletionRecord(factory.NewID(), "502")
+	if !recordTestCompletion(t, db, second) {
+		t.Fatal("second completion not recorded")
+	}
+	var eventID, cycleID string
+	row := db.db.QueryRowContext(ctx, `SELECT event,cycle FROM factory_reassessments WHERE repository=$1 ORDER BY generation DESC LIMIT 1`, second.Repository)
+	if err := row.Scan(&eventID, &cycleID); err != nil {
+		t.Fatal(err)
+	}
+	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, second.MergedCommit)
+	err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view)
+	if !errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("collecting cycle error = %v, want root mismatch", err)
+	}
+	assertDispatchPacketAbsent(t, db, a)
+	if count := countAttemptAllowanceRows(t, db, a.ID); count != 0 {
+		t.Fatalf("refused collecting root funded %d allowance rows", count)
+	}
+}
+
+// TestReassessRootRefusesSealMismatch proves the guard binds the exact
+// sealed inventory digest and sealed source commit: either drift
+// refuses with no packet or charge rows.
+func TestReassessRootRefusesSealMismatch(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	eventID, cycleID, merged := reassessCycleFixture(t, db)
+	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	a.Subject.Completion.InventoryDigest = strings.Repeat("e", 64)
+	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+		t.Fatal("foreign inventory digest admitted")
+	} else if !errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("foreign digest error = %v, want root mismatch", err)
+	}
+	assertDispatchPacketAbsent(t, db, a)
+	if count := countAttemptAllowanceRows(t, db, a.ID); count != 0 {
+		t.Fatalf("refused foreign digest funded %d allowance rows", count)
+	}
+	d, a, r, run, view = reassessRootPacket(t, ctx, db, now, eventID, cycleID, strings.Repeat("d", 40))
+	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+		t.Fatal("foreign source commit admitted")
+	} else if !errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("foreign source error = %v, want root mismatch", err)
+	}
+	assertDispatchPacketAbsent(t, db, a)
+	if count := countAttemptAllowanceRows(t, db, a.ID); count != 0 {
+		t.Fatalf("refused foreign source funded %d allowance rows", count)
+	}
+}
+
+// TestReassessRootRefusesIneligibleDecision proves only a decided
+// reassess outcome in its reassessing state admits a coder root: a
+// continue decision (staying in deciding) and a released terminal
+// cycle both refuse with no packet or charge rows.
+func TestReassessRootRefusesIneligibleDecision(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	m := mergedCompletionRecord(factory.NewID(), "503")
+	if !recordTestCompletion(t, db, m) {
+		t.Fatal("completion not recorded")
+	}
+	var eventID, cycleID string
+	row := db.db.QueryRowContext(ctx, `SELECT event,cycle FROM factory_reassessments WHERE repository=$1 ORDER BY generation DESC LIMIT 1`, m.Repository)
+	if err := row.Scan(&eventID, &cycleID); err != nil {
+		t.Fatal(err)
+	}
+	sealReassessmentCycle(t, ctx, db, cycleID, m.MergedCommit, factory.ReassessmentOptionContinue)
+	d, a, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, m.MergedCommit)
+	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+		t.Fatal("continue decision admitted a coder root")
+	} else if !errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("continue decision error = %v, want root mismatch", err)
+	}
+	assertDispatchPacketAbsent(t, db, a)
+	if count := countAttemptAllowanceRows(t, db, a.ID); count != 0 {
+		t.Fatalf("refused continue decision funded %d allowance rows", count)
+	}
+	released, err := db.ReassessmentRecord(ctx, cycleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	released.Cycle.State = factory.ReassessmentReleased
+	if err := db.CasReassessmentRecord(ctx, cycleID, factory.ReassessmentDeciding, released); err != nil {
+		t.Fatalf("release not recorded: %v", err)
+	}
+	d, a, r, run, view = reassessRootPacket(t, ctx, db, now, eventID, cycleID, m.MergedCommit)
+	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(a), a, r, run, view); err == nil {
+		t.Fatal("released cycle admitted a coder root")
+	} else if !errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("released cycle error = %v, want root mismatch", err)
+	}
+	assertDispatchPacketAbsent(t, db, a)
+	if count := countAttemptAllowanceRows(t, db, a.ID); count != 0 {
+		t.Fatalf("refused released cycle funded %d allowance rows", count)
+	}
+}
+
+// TestReassessConcurrentRootsSingleCharge proves R11 one-run/charge
+// acceptance across distinct roots for one cycle: the first fresh root
+// admits and funds exactly once, and a concurrent second root for the
+// same sealed cycle refuses with ErrAssignmentActive — the unfinished
+// completion assignment uniqueness — leaving no second packet or
+// charge rows while the first allowance stays intact.
+func TestReassessConcurrentRootsSingleCharge(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	eventID, cycleID, merged := reassessCycleFixture(t, db)
+	d, first, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	if err := db.RecordDispatchPacket(ctx, d, reassessTestControl(first), first, r, run, view); err != nil {
+		t.Fatalf("first concurrent root refused: %v", err)
+	}
+	d, second, r, run, view := reassessRootPacket(t, ctx, db, now, eventID, cycleID, merged)
+	err := db.RecordDispatchPacket(ctx, d, reassessTestControl(second), second, r, run, view)
+	if !errors.Is(err, ErrAssignmentActive) {
+		t.Fatalf("concurrent root error = %v, want concurrent admission refusal", err)
+	}
+	assertDispatchPacketAbsent(t, db, second)
+	if count := countAttemptAllowanceRows(t, db, second.ID); count != 0 {
+		t.Fatalf("refused concurrent root funded %d allowance rows", count)
+	}
+	allowance, err := db.ReassessmentAttemptAllowance(ctx, 7, *first.Subject.Completion, first.ID)
+	if err != nil {
+		t.Fatalf("first root lost its allowance: %v", err)
+	}
+	if allowance.Limits.ActiveMinutes != factory.DefaultReassessmentMinutes || !allowance.Active || allowance.Closed {
+		t.Fatalf("first root allowance disturbed: %+v", allowance)
 	}
 }

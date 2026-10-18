@@ -547,14 +547,45 @@ func validateReassessRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignmen
 	if event.ID != a.Subject.Completion.CompletionID || event.Repository != a.Repository {
 		return fmt.Errorf("%w: reassessment answers another repository completion", ErrAttemptRootMismatch)
 	}
-	// The cycle must still be open: a released or superseded cycle no
-	// longer takes work, using the fence's own terminal definition.
-	var cycleRepository int64
-	if err := tx.QueryRowContext(ctx, `SELECT repository FROM factory_reassessments WHERE repository=$1 AND event=$2 AND cycle=$3 AND state NOT IN ('released','superseded')`, a.Repository, event.ID, a.Subject.Completion.CycleID).Scan(&cycleRepository); err != nil {
+	// The exact cycle row is locked for the packet duration, following
+	// the reassessment CAS lock ordering (state,data FOR UPDATE by
+	// cycle): concurrent admissions serialize on the row instead of
+	// racing the seal. The locked record must carry the reassess
+	// decision in its reassessing state and bind this root's exact
+	// sealed inventory and source commit: an unsealed or collecting
+	// cycle, a mismatched digest or source, or any other
+	// decision/state refuses with no packet or charge rows. Released
+	// and superseded cycles no longer take work.
+	var cycleState string
+	var cycleData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE repository=$1 AND event=$2 AND cycle=$3 FOR UPDATE`, a.Repository, event.ID, a.Subject.Completion.CycleID).Scan(&cycleState, &cycleData); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w: reassessment answers an unstaged cycle", ErrAttemptRootMismatch)
 		}
 		return err
+	}
+	var record ReassessmentRecord
+	if err := json.Unmarshal(cycleData, &record); err != nil {
+		return err
+	}
+	if err := record.Validate(); err != nil {
+		return err
+	}
+	if cycleState != factory.ReassessmentReassessing || record.Cycle.State != factory.ReassessmentReassessing ||
+		record.Cycle.Decision != factory.ReassessmentOptionReassess {
+		return fmt.Errorf("%w: reassessment answers a cycle without its reassess decision", ErrAttemptRootMismatch)
+	}
+	if record.Cycle.EventID != event.ID || record.Cycle.CycleID != a.Subject.Completion.CycleID || record.Cycle.Repository != a.Repository {
+		return fmt.Errorf("%w: reassessment answers another cycle", ErrAttemptRootMismatch)
+	}
+	if !record.Local.Sealed() || record.InventoryDigest == "" {
+		return fmt.Errorf("%w: reassessment answers an unsealed cycle", ErrAttemptRootMismatch)
+	}
+	if record.InventoryDigest != a.Subject.Completion.InventoryDigest {
+		return fmt.Errorf("%w: reassessment answers another sealed inventory", ErrAttemptRootMismatch)
+	}
+	if record.Local.SourceCommit != a.SourceCommit {
+		return fmt.Errorf("%w: reassessment runs a head its cycle was not sealed against", ErrAttemptRootMismatch)
 	}
 	return nil
 }
