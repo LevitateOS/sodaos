@@ -334,7 +334,10 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 	}
 	prior.ActiveSeconds = int64(prior.Limits.ActiveMinutes * 60)
 	prior.Corrections = []string{factory.NewID(), factory.NewID(), factory.NewID()}
-	prior.CheckpointUnix, prior.Active = now.Unix(), true
+	// Preserve the actually stored checkpoint: overwriting it with the
+	// earlier pre-dispatch instant rewinds the recorded clock, and the
+	// no-refill guard correctly refuses that save as backward.
+	prior.Active = true
 	prior.Revision++
 
 	root := a
@@ -365,7 +368,13 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	limits := factory.AttemptLimits{ActiveMinutes: 45, CorrectionCycles: 1, ReviewRounds: 6, MaxChildren: 3, DeliveryCalls: 8}
-	if err = startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, root.ID, limits, now.Add(30*time.Minute), now); err != nil {
+	// Derive a coherent retry time: the explicit retry arrives after the
+	// preserved checkpoint, never at the earlier pre-dispatch instant.
+	retryNow := time.Now().UTC()
+	if retryNow.Unix() < prior.CheckpointUnix {
+		retryNow = time.Unix(prior.CheckpointUnix, 0).UTC()
+	}
+	if err = startFreshAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, root.ID, limits, retryNow.Add(30*time.Minute), retryNow); err != nil {
 		t.Fatal(err)
 	}
 	if err = tx.Commit(); err != nil {
@@ -389,6 +398,22 @@ func TestFreshRetryAllowancePreservesConsumedPriorRoot(t *testing.T) {
 	}
 	if previous.Limits != factory.DefaultAttemptLimits() || len(previous.Corrections) != 3 || previous.ActiveSeconds != int64(previous.Limits.ActiveMinutes*60) || previous.Active || !previous.Closed {
 		t.Fatalf("prior root consumption changed: %+v", previous)
+	}
+	// The no-refill guard still refuses genuinely backward input:
+	// rewinding the preserved checkpoint by one second must fail
+	// instead of silently rewriting history.
+	rewound := previous
+	rewound.CheckpointUnix--
+	rewound.Revision++
+	probeTx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = probeTx.Rollback() }()
+	if err = saveAttemptAllowanceTx(ctx, probeTx, rewound); err == nil {
+		t.Fatal("backward checkpoint rewrite admitted")
+	} else if !strings.Contains(err.Error(), "clock moved backward") {
+		t.Fatalf("backward checkpoint refusal %q does not name the clock", err)
 	}
 }
 
