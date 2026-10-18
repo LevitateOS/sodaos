@@ -156,12 +156,9 @@ fn check_workspace_capacity(
     }
     Ok(())
 }
-pub fn run(flags: &ArgMatches) -> Result<(), String> {
-    let values = choices(
-        flags,
-        &mut std::io::stdin().lock(),
-        &mut std::io::stderr().lock(),
-    )?;
+fn admit_start_identity(
+    values: &BTreeMap<String, String>,
+) -> Result<(Distribution, crate::worker::WorkerConfig), String> {
     if crate::worker::euid() != 0 {
         return Err("run soda-release start with sudo: its admitted controller and restricted worker configuration require root; preserve GH_CONFIG_DIR and TMPDIR on the workspace disk".into());
     }
@@ -182,6 +179,12 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
     let config = crate::worker::read_worker_config(&values["worker-config"])?;
     crate::worker::trusted_executable(&config.executable)?;
     crate::worker::admit_storage_root(&config)?;
+    Ok((selected, config))
+}
+
+fn admit_start_source(
+    config: &crate::worker::WorkerConfig,
+) -> Result<(std::path::PathBuf, String, String), String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     if cwd.to_str() != Some(config.source.as_str()) {
         return Err("run start from the worker's selected clean checkout or worktree".into());
@@ -206,8 +209,16 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
     {
         return Err("explicit FountainReleaseURL required in worker configuration".into());
     }
-    let out = Path::new(&values["out"]);
-    workflow_output(&cwd, out)?;
+    Ok((cwd, revision, forgejo))
+}
+
+fn admit_build_request(
+    config: &crate::worker::WorkerConfig,
+    cwd: &Path,
+    out: &Path,
+    values: &BTreeMap<String, String>,
+) -> Result<(std::path::PathBuf, crate::build_spec::Request), String> {
+    workflow_output(cwd, out)?;
     if !Path::new(&config.build_home).starts_with(cwd.join(".artifacts"))
         || !Path::new(&config.runtime).starts_with(cwd.join(".artifacts"))
     {
@@ -226,12 +237,22 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         distribution: values["distribution"].clone(),
         ..Default::default()
     };
-    if !crate::worker::valid_worker_task_paths(&config, &request) {
+    if !crate::worker::valid_worker_task_paths(config, &request) {
         return Err("build output does not match admitted worker paths".into());
     }
-    for path in crate::worker::worker_config_paths(&config, &request) {
+    for path in crate::worker::worker_config_paths(config, &request) {
         crate::worker::valid_worker_path(&path)?;
     }
+    Ok((build, request))
+}
+
+fn check_release_toolchain(
+    cwd: &Path,
+    selected: Distribution,
+    revision: &str,
+    forgejo: &str,
+    tag: &str,
+) -> Result<(), String> {
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Canlang {
@@ -276,8 +297,21 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
             return Err(format!("required release tool {tool} unavailable"));
         }
     }
-    publish::preflight(&publish::Gh, &revision, &forgejo, &values["tag"], selected)
+    publish::preflight(&publish::Gh, revision, forgejo, tag, selected)
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn start_build_attempt(
+    flags: &ArgMatches,
+    values: &BTreeMap<String, String>,
+    config: &crate::worker::WorkerConfig,
+    selected: Distribution,
+    build: &Path,
+    out: &Path,
+    pins: (String, String),
+) -> Result<(), String> {
+    let (revision, forgejo) = pins;
     let metadata = std::fs::metadata(&config.output_parent).map_err(|e| e.to_string())?;
     if !metadata.is_dir() {
         return Err("existing output parent required".into());
@@ -365,6 +399,28 @@ pub fn run(flags: &ArgMatches) -> Result<(), String> {
         out.join("release").display()
     );
     Ok(())
+}
+
+pub fn run(flags: &ArgMatches) -> Result<(), String> {
+    let values = choices(
+        flags,
+        &mut std::io::stdin().lock(),
+        &mut std::io::stderr().lock(),
+    )?;
+    let (selected, config) = admit_start_identity(&values)?;
+    let (cwd, revision, forgejo) = admit_start_source(&config)?;
+    let out = Path::new(&values["out"]);
+    let (build, _request) = admit_build_request(&config, &cwd, out, &values)?;
+    check_release_toolchain(&cwd, selected, &revision, &forgejo, &values["tag"])?;
+    start_build_attempt(
+        flags,
+        &values,
+        &config,
+        selected,
+        &build,
+        out,
+        (revision, forgejo),
+    )
 }
 
 #[cfg(test)]

@@ -92,95 +92,110 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), String> {
     let (action, flags) = cli
         .subcommand()
         .ok_or_else(|| "release action required".to_owned())?;
-    let get = |name: &str| {
-        flags
-            .get_one::<String>(name)
-            .map(String::as_str)
-            .ok_or_else(|| format!("{name} required"))
-    };
     match action {
         "start" => crate::release_start::run(flags),
-        "stage" | "promote" => {
-            let out = Path::new(get("input")?);
-            let auth = flags
-                .get_one::<String>("auth-file")
-                .map(|file| Path::new(file));
-            let result = if action == "stage" {
-                publish::stage(&publish::Gh, &publish::registry::Skopeo, out, auth)
-            } else {
-                publish::promote(&publish::Gh, &publish::registry::Skopeo, out, auth)
-            };
-            result.map_err(|error| error.to_string())
-        }
-        "status" => {
-            let result = publish::status(
-                &publish::Gh,
-                &publish::registry::Skopeo,
-                Path::new(get("input")?),
-            )
-            .map_err(|error| error.to_string())?;
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
-            );
-            Ok(())
-        }
-        "verify-images" => {
-            let input = Path::new(get("input")?);
-            publish::verify_registry(&publish::Gh, &publish::registry::Skopeo, input)
-                .map_err(|error| error.to_string())
-        }
-        "qualify" => {
-            let input = Path::new(get("input")?);
-            let manifest = publish::assets::load(input).map_err(|error| error.to_string())?;
-            qualification_inputs(flags, manifest.distribution)?;
-            if manifest.docker.is_some() {
-                publish::qualify_docker(
-                    &publish::Gh,
-                    &publish::registry::Skopeo,
-                    &manifest,
-                    input,
-                    Path::new(get("evidence")?),
-                )
-                .map_err(|error| error.to_string())?;
-            }
-            if manifest.has_appliance() {
-                publish::qualify_appliance(
-                    &publish::Gh,
-                    input,
-                    Path::new(get("downloaded-iso")?),
-                    get("observed-revision")?,
-                    flags.get_flag("smoke-passed"),
-                )
-                .map_err(|error| error.to_string())?;
-            }
-            println!("Required qualification receipts validated; use status before promotion.");
-            Ok(())
-        }
-        "qualify-upgrade" => soda_release_deliver::upgrade::stamp(
-            Path::new(get("candidate")?),
-            Path::new(get("evidence")?),
-        )
-        .map(|_| ())
-        .map_err(|e| e.to_string()),
-        "prepare" => {
-            let manifest = publish::prepare(
-                Path::new(get("candidate")?),
-                get("tag")?,
-                crate::release_start::distribution(get("distribution")?)?,
-                Path::new(get("notes")?),
-                Path::new(get("out")?),
-            )
-            .map_err(|e| e.to_string())?;
-            println!(
-                "Prepared {} at {}; no remote publication.",
-                manifest.tag,
-                get("out")?
-            );
-            Ok(())
-        }
+        "stage" | "promote" => run_stage_or_promote(action, flags),
+        "status" => run_status(flags),
+        "verify-images" => run_verify_images(flags),
+        "qualify" => run_qualify(flags),
+        "qualify-upgrade" => run_qualify_upgrade(flags),
+        "prepare" => run_prepare(flags),
         _ => Err("unknown release action".to_owned()),
     }
+}
+
+fn required_input<'a>(flags: &'a clap::ArgMatches, name: &str) -> Result<&'a str, String> {
+    flags
+        .get_one::<String>(name)
+        .map(String::as_str)
+        .ok_or_else(|| format!("{name} required"))
+}
+
+fn run_stage_or_promote(action: &str, flags: &clap::ArgMatches) -> Result<(), String> {
+    let out = Path::new(required_input(flags, "input")?);
+    let auth = flags
+        .get_one::<String>("auth-file")
+        .map(|file| Path::new(file));
+    let result = if action == "stage" {
+        publish::stage(&publish::Gh, &publish::registry::Skopeo, out, auth)
+    } else {
+        publish::promote(&publish::Gh, &publish::registry::Skopeo, out, auth)
+    };
+    result.map_err(|error| error.to_string())
+}
+
+fn run_status(flags: &clap::ArgMatches) -> Result<(), String> {
+    let result = publish::status(
+        &publish::Gh,
+        &publish::registry::Skopeo,
+        Path::new(required_input(flags, "input")?),
+    )
+    .map_err(|error| error.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+fn run_verify_images(flags: &clap::ArgMatches) -> Result<(), String> {
+    let input = Path::new(required_input(flags, "input")?);
+    publish::verify_registry(&publish::Gh, &publish::registry::Skopeo, input)
+        .map_err(|error| error.to_string())
+}
+
+fn run_qualify(flags: &clap::ArgMatches) -> Result<(), String> {
+    let input = Path::new(required_input(flags, "input")?);
+    let manifest = publish::assets::load(input).map_err(|error| error.to_string())?;
+    qualification_inputs(flags, manifest.distribution)?;
+    if manifest.docker.is_some() {
+        publish::qualify_docker(
+            &publish::Gh,
+            &publish::registry::Skopeo,
+            &manifest,
+            input,
+            Path::new(required_input(flags, "evidence")?),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    if manifest.has_appliance() {
+        publish::qualify_appliance(
+            &publish::Gh,
+            input,
+            Path::new(required_input(flags, "downloaded-iso")?),
+            required_input(flags, "observed-revision")?,
+            flags.get_flag("smoke-passed"),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    println!("Required qualification receipts validated; use status before promotion.");
+    Ok(())
+}
+
+fn run_qualify_upgrade(flags: &clap::ArgMatches) -> Result<(), String> {
+    soda_release_deliver::upgrade::stamp(
+        Path::new(required_input(flags, "candidate")?),
+        Path::new(required_input(flags, "evidence")?),
+    )
+    .map(|_| ())
+    .map_err(|e| e.to_string())
+}
+
+fn run_prepare(flags: &clap::ArgMatches) -> Result<(), String> {
+    let manifest = publish::prepare(
+        Path::new(required_input(flags, "candidate")?),
+        required_input(flags, "tag")?,
+        crate::release_start::distribution(required_input(flags, "distribution")?)?,
+        Path::new(required_input(flags, "notes")?),
+        Path::new(required_input(flags, "out")?),
+    )
+    .map_err(|e| e.to_string())?;
+    println!(
+        "Prepared {} at {}; no remote publication.",
+        manifest.tag,
+        required_input(flags, "out")?
+    );
+    Ok(())
 }
 fn qualification_inputs(
     flags: &clap::ArgMatches,

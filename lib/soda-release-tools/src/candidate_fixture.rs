@@ -33,10 +33,7 @@ pub fn default_rootfs_dir(o: &mut Options) -> Result<(), String> {
     Ok(())
 }
 
-fn pickup_url(url: &str) -> Option<(Host<String>, Option<u16>)> {
-    if url.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\') || !valid_percent_escapes(url) {
-        return None;
-    }
+fn url_authority(url: &str) -> Option<&str> {
     let (_, rest) = url.split_once("://")?;
     let authority = rest.split(['/', '?', '#']).next()?;
     if authority.is_empty()
@@ -47,23 +44,41 @@ fn pickup_url(url: &str) -> Option<(Host<String>, Option<u16>)> {
     {
         return None;
     }
+    Some(authority)
+}
+
+fn pickup_port(authority: &str) -> Option<Option<u16>> {
     let hostport = authority.rsplit('@').next()?;
     let port_text = if hostport.starts_with('[') {
         hostport.split_once(']')?.1.strip_prefix(':')
     } else {
         hostport.rsplit_once(':').map(|(_, port)| port)
     };
-    let port = match port_text {
-        Some(text) if !text.is_empty() => Some(text.parse::<u16>().ok().filter(|port| *port != 0)?),
-        Some(_) => return None,
-        None => None,
-    };
+    match port_text {
+        Some(text) if !text.is_empty() => {
+            Some(Some(text.parse::<u16>().ok().filter(|port| *port != 0)?))
+        }
+        Some(_) => None,
+        None => Some(None),
+    }
+}
+
+fn pickup_host(url: &str) -> Option<Host<String>> {
     let parsed = Url::parse(url).ok()?;
-    let host = match parsed.host()? {
+    Some(match parsed.host()? {
         Host::Domain(host) => Host::Domain(host.to_owned()),
         Host::Ipv4(host) => Host::Ipv4(host),
         Host::Ipv6(host) => Host::Ipv6(host),
-    };
+    })
+}
+
+fn pickup_url(url: &str) -> Option<(Host<String>, Option<u16>)> {
+    if url.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'\\') || !valid_percent_escapes(url) {
+        return None;
+    }
+    let authority = url_authority(url)?;
+    let port = pickup_port(authority)?;
+    let host = pickup_host(url)?;
     Some((host, port))
 }
 
