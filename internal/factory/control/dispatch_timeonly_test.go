@@ -518,3 +518,69 @@ func TestDispatchIntentPlanRefusesMismatchedInspectedSource(t *testing.T) {
 		t.Fatalf("mismatched source reached the host: %d", len(fx.host.launches))
 	}
 }
+
+// TestSettledDecomposeRefusesUnrecordedIdeaBinding proves settlement
+// validates the reported answer against its recorded staged input: a
+// decomposition binding an idea the recorded head never carried
+// converts to needs-human with no report, while the executed run's
+// usage and consumed reservation stay recorded.
+func TestSettledDecomposeRefusesUnrecordedIdeaBinding(t *testing.T) {
+	ctx := context.Background()
+	db, _ := dispatchTestDB(t)
+	fx := dispatchSeed(t, db)
+	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
+	now := time.Now().UTC().Truncate(time.Second)
+	head := factory.IntentRevision{
+		ID: "d888888888888888888888888", Intent: "d777777777777777777777777", Owner: 7, Repository: fx.repo,
+		Objective: "Decide vacation requests with manager review", State: "draft",
+		MaxIssues: 10, CreatedUnix: now.Unix(),
+		Ideas: []factory.ProductIdea{
+			{ID: "d333333333333333333333333", Description: "Capture leave requests", Consequence: "Requests can be recorded", Decision: "accept", Source: "requested", Provenance: "human", Actor: 7},
+		},
+	}
+	if err := db.SaveIntentRevision(ctx, head); err != nil {
+		t.Fatal(err)
+	}
+	content, err := factory.ComposeProposalContent(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := factory.SemanticPlannerInput{
+		Operation: factory.IntentPlanningPropose, Head: head, Content: content,
+		Alternatives: factory.DescribeAlternatives(head.Objective),
+		Inspected: []factory.InspectedSource{
+			{Path: "internal/factory/intent.go", Commit: strings.Repeat("c", 40), Evidence: "recorded investigation"},
+		},
+	}
+	coord := &Coordinator{Store: db, Host: fx.host, Broker: fx.broker, DispatchReads: fx.deps().Reads}
+	var observed bool
+	timeOnlyOrderHost(fx, &observed, func(context.Context, project.FactoryLaunch) {})
+	report := coord.DispatchIntentPlan(ctx, head.Intent, 7, factory.IntentPlanningPropose, in, strings.Repeat("c", 40))
+	if len(report.Errors) != 0 || len(report.Launched) != 1 {
+		t.Fatalf("plan route report: %+v", report)
+	}
+	run, err := db.FactoryRun(ctx, report.Launched[0].RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Outcome, run.Summary, run.Reconciled = factory.Succeeded, "planning done", true
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	stranger := fencedResult(t, factory.PhaseResult{
+		Version: factory.PhaseResultVersion, Phase: project.ExecutionDecompose, Status: "completed",
+		Summary: "single choice ready",
+		Output: &factory.PhaseOutput{Decomposition: &factory.ScopedDecomposition{
+			Intent: head.Intent, Revision: head.ID, Selected: "keep",
+			Tasks: []factory.IntentTask{{
+				Key: "d999999999999999999999999", Objective: "Decide the rollout order",
+				Outcomes: []string{"Rollout is ordered"}, IdeaIDs: []string{"d666666666666666666666666"},
+			}},
+			Advice: []string{"keep the single choice"},
+		}},
+	})
+	finished, ok := AccountSettledRun(ctx, db, run, stranger, time.Now())
+	if !ok || finished.Outcome != factory.NeedsHuman || finished.Result == nil || finished.Result.Reported {
+		t.Fatalf("unbound answer settled: %+v %v", finished, ok)
+	}
+}
