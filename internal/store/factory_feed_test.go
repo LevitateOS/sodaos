@@ -56,3 +56,87 @@ func TestSubscribedFeedWindowsAcrossRepositories(t *testing.T) {
 		t.Fatal("unscoped query admitted")
 	}
 }
+
+func TestSubscribedFeedContinuationUnderInsert(t *testing.T) {
+	ctx := context.Background()
+	s, dsn := postgresFixture(t, nil)
+	raw := journeySQL(t, dsn)
+	acceptance := "d" + strings.Repeat("a", 24)
+	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("1", 32), strings.Repeat("1", 32), acceptance, 7, 3, true), "assigned", 1)
+	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("2", 32), strings.Repeat("2", 32), acceptance, 9, 5, true), "assigned", 1)
+
+	first, resume, truncated, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 1})
+	if err != nil || len(first) != 1 || !truncated {
+		t.Fatalf("first window = %d entries truncated=%v err=%v", len(first), truncated, err)
+	}
+	// Concurrent newer inserts take higher order keys and never disturb
+	// the in-flight tail: resuming still reads the older rows in order.
+	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("3", 32), strings.Repeat("3", 32), acceptance, 7, 4, true), "assigned", 1)
+	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("4", 32), strings.Repeat("4", 32), acceptance, 9, 6, true), "assigned", 1)
+
+	rest, _, truncated, err := s.SubscribedFeed(ctx, factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 2, Cursor: resume})
+	if err != nil || len(rest) != 1 || truncated {
+		t.Fatalf("resumed window = %d entries truncated=%v err=%v", len(rest), truncated, err)
+	}
+	if rest[0].ID != strings.Repeat("1", 32) {
+		t.Fatalf("resumed tail: %+v", rest)
+	}
+}
+
+func TestSubscribedFeedSubscriptionScopeAndUnsubscribe(t *testing.T) {
+	ctx := context.Background()
+	s, dsn := postgresFixture(t, nil)
+	raw := journeySQL(t, dsn)
+	acceptance := "d" + strings.Repeat("a", 24)
+	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("1", 32), strings.Repeat("1", 32), acceptance, 7, 3, true), "assigned", 1)
+	insertJourneyAssignment(t, raw, journeyAssignment(strings.Repeat("2", 32), strings.Repeat("2", 32), acceptance, 9, 5, true), "assigned", 1)
+
+	sub := factory.FeedSubscription{Subscriber: "reader-1", Repositories: []int64{7}}
+	sub.Revision = 1
+	if err := s.SetFeedSubscription(ctx, "reader-1", 0, sub); err != nil {
+		t.Fatal(err)
+	}
+	stored, _, err := s.FeedSubscription(ctx, "reader-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	narrowed := factory.ApplyFeedSubscription(factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 10}, stored)
+	page, _, truncated, err := s.SubscribedFeed(ctx, narrowed)
+	if err != nil || len(page) != 1 || truncated || page[0].Repository != 7 {
+		t.Fatalf("subscribed window = %+v truncated=%v err=%v", page, truncated, err)
+	}
+	// Unsubscribe: the narrowed scope empties and refuses instead of
+	// widening back to the query scope.
+	away := factory.FeedSubscription{Subscriber: "reader-1", Repositories: []int64{11}, Revision: 2}
+	if err := s.SetFeedSubscription(ctx, "reader-1", 1, away); err != nil {
+		t.Fatal(err)
+	}
+	emptied := factory.ApplyFeedSubscription(factory.FeedQuery{Repositories: []int64{7, 9}, Limit: 10}, away)
+	if _, _, _, err := s.SubscribedFeed(ctx, emptied); err == nil {
+		t.Fatal("unsubscribed scope read served")
+	}
+}
+
+func TestFeedSubscriptionRestartPersistence(t *testing.T) {
+	ctx := context.Background()
+	_, dsn := postgresFixture(t, nil)
+	first, err := Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub := factory.FeedSubscription{Subscriber: "reader-9", Repositories: []int64{7, 9}, Kinds: []string{factory.FeedKindRecord}}
+	sub.Revision = 1
+	if err := first.SetFeedSubscription(ctx, "reader-9", 0, sub); err != nil {
+		t.Fatal(err)
+	}
+	// A reopened handle reads the same preference back: subscriptions
+	// persist across restarts.
+	second, err := Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, revision, err := second.FeedSubscription(ctx, "reader-9")
+	if err != nil || revision != 1 || len(stored.Repositories) != 2 {
+		t.Fatalf("restarted subscription = %+v %d %v", stored, revision, err)
+	}
+}
