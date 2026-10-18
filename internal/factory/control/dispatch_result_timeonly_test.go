@@ -47,7 +47,7 @@ func settleIntentPacket(t *testing.T, ctx context.Context, db *store.Store, fx d
 		ID: rootID, AttemptRoot: rootID, PublicationAssignment: "", ParentAssignment: "",
 		Subject: factory.ExecutionSubject{
 			Kind:   factory.SubjectIntent,
-			Intent: &factory.IntentSubject{IntentID: intentID, RevisionID: revisionID, ScopeDigest: strings.Repeat("d", 64), OwnerID: 7},
+			Intent: &factory.IntentSubject{IntentID: intentID, RevisionID: revisionID, ScopeDigest: revision.Digest(), OwnerID: 7},
 		},
 		Phase:     project.ExecutionDecompose,
 		ProjectID: fx.proj, ActorID: 7, Role: project.RoleCoder,

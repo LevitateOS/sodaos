@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -811,15 +812,19 @@ func sameIntentRootScope(stored, next factory.Assignment) bool {
 // refuseDuplicateIntentAttemptTx enforces the one-funding rule for an
 // intent operation across roots inside the packet transaction. It locks
 // the intent head row so concurrent same-intent admissions serialize,
-// then binds every other recorded root allowance with the same intent
-// scope to its root assignment: an identical intent/revision/owner
-// triple on another root refuses instead of refilling. An active prior
-// reports the concurrent admission; any settled prior keeps its
-// consumption and requires an explicit maintainer Retry. A new revision
-// admits: its triple differs.
+// revalidates the incoming revision against the locked head (a revision
+// committed after the guard's unlocked read refuses as stale), then
+// binds every other recorded root allowance with the same intent scope
+// to its root assignment: an identical intent/revision/owner triple on
+// another root refuses instead of refilling, whatever caller-supplied
+// snapshot variation the subjects carry. An active prior reports the
+// concurrent admission; any settled prior keeps its consumption and
+// requires an explicit maintainer Retry. A new revision admits: its
+// triple differs.
 func refuseDuplicateIntentAttemptTx(ctx context.Context, tx *sql.Tx, repository int64, root string, intent *factory.IntentSubject) error {
-	var head string
-	if err := tx.QueryRowContext(ctx, `SELECT id FROM factory_intent_heads WHERE id=$1 FOR UPDATE`, intent.IntentID).Scan(&head); err != nil {
+	var head, headRevision string
+	var headOwner int64
+	if err := tx.QueryRowContext(ctx, `SELECT id, revision, owner_id FROM factory_intent_heads WHERE id=$1 FOR UPDATE`, intent.IntentID).Scan(&head, &headRevision, &headOwner); err != nil {
 		// No head row means the caller bypassed the decompose guard
 		// (direct test construction): the cross-root binding is
 		// defined over guarded admissions, so there is nothing to
@@ -828,6 +833,12 @@ func refuseDuplicateIntentAttemptTx(ctx context.Context, tx *sql.Tx, repository 
 			return nil
 		}
 		return err
+	}
+	// Authoritative revalidation under the head lock: the guard read
+	// this head unlocked, so a revision committed afterwards must
+	// refuse here rather than admit stale.
+	if headOwner != intent.OwnerID || headRevision != intent.RevisionID {
+		return fmt.Errorf("%w: intent root answers a superseded head", ErrAttemptRootMismatch)
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT root_assignment, data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment<>$2`, repository, root)
 	if err != nil {
@@ -867,7 +878,12 @@ func refuseDuplicateIntentAttemptTx(ctx context.Context, tx *sql.Tx, repository 
 		if err != nil {
 			return err
 		}
-		if priorAssignment.Subject.Intent == nil || *priorAssignment.Subject.Intent != *intent {
+		// The binding is the funded operation triple, not the
+		// caller-supplied snapshot: scope-digest variation never
+		// redefines it.
+		priorSubject := priorAssignment.Subject.Intent
+		if priorSubject == nil || priorSubject.IntentID != intent.IntentID ||
+			priorSubject.RevisionID != intent.RevisionID || priorSubject.OwnerID != intent.OwnerID {
 			continue
 		}
 		if prior.allowance.Active {

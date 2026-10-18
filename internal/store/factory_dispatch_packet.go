@@ -333,6 +333,10 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 // nothing. The revision must already be recorded as the current head for
 // this intent and owner in this repository — intent persists before any
 // host call — so an unrecorded, superseded or foreign revision refuses.
+// The subject's scope digest must equal the persisted revision's digest:
+// caller-supplied snapshot variation cannot redefine the funded
+// operation. This read is unlocked; the duplicate-refusal revalidates
+// the head under its lock before funding.
 func validateDecomposeRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
 	if a.Phase != project.ExecutionDecompose {
 		return errors.New("intent root needs its decompose phase")
@@ -370,6 +374,9 @@ func validateDecomposeRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	}
 	if revision.Repository != a.Repository {
 		return fmt.Errorf("%w: intent root answers another repository revision", ErrAttemptRootMismatch)
+	}
+	if a.Subject.Intent.ScopeDigest != revision.Digest() {
+		return fmt.Errorf("%w: intent subject does not match its recorded revision", ErrAttemptRootMismatch)
 	}
 	return nil
 }

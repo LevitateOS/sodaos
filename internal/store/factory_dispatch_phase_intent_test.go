@@ -34,15 +34,43 @@ func decomposeIntentRevisionFixture(t *testing.T, db *Store, intentID, revisionI
 	}
 }
 
+// decomposeRevisionDigest reads one persisted intent revision row and
+// returns its authoritative digest: the exact value admission binds
+// the subject to. Placeholder digests never enter a packet.
+func decomposeRevisionDigest(t *testing.T, db *Store, revisionID string) string {
+	t.Helper()
+	var raw []byte
+	if err := db.db.QueryRowContext(context.Background(), `SELECT data FROM factory_intent_revisions WHERE id=$1`, revisionID).Scan(&raw); err != nil {
+		t.Fatalf("intent revision unreadable: %v", err)
+	}
+	var revision factory.IntentRevision
+	if err := json.Unmarshal(raw, &revision); err != nil {
+		t.Fatal(err)
+	}
+	return revision.Digest()
+}
+
 // decomposeRootPacket builds one intent decompose fresh-root packet:
 // repository slot, Issue zero, fresh attempt root, decompose phase,
 // coder role, no parent, no publication, and the canonical intent
 // subject bound to the persisted head revision.
 func decomposeRootPacket(t *testing.T, ctx context.Context, db *Store, now time.Time, intentID, revisionID string, owner int64, source string) (factory.DispatchRegistration, factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
 	t.Helper()
+	return decomposeRootPacketWithDigest(t, ctx, db, now, intentID, revisionID, owner, source, "")
+}
+
+// decomposeRootPacketWithDigest builds the same packet with an explicit
+// subject digest. An empty digest reads the persisted revision row; a
+// test proving refusal for an unrecorded revision supplies the digest
+// of its unsaved literal instead, since no row exists to read.
+func decomposeRootPacketWithDigest(t *testing.T, ctx context.Context, db *Store, now time.Time, intentID, revisionID string, owner int64, source string, digest string) (factory.DispatchRegistration, factory.Assignment, factory.Reservation, factory.Run, factory.RunView) {
+	t.Helper()
 	selection, ok := grantTestPolicy().Roles[project.RoleCoder]
 	if !ok {
 		t.Fatal("coder fixture role has no policy selection")
+	}
+	if digest == "" {
+		digest = decomposeRevisionDigest(t, db, revisionID)
 	}
 	prompt := []byte("intent root packet " + revisionID)
 	sum := sha256.Sum256(prompt)
@@ -52,7 +80,7 @@ func decomposeRootPacket(t *testing.T, ctx context.Context, db *Store, now time.
 		ID:        rootID, AttemptRoot: rootID, PublicationAssignment: "", ParentAssignment: "",
 		Subject: factory.ExecutionSubject{
 			Kind:   factory.SubjectIntent,
-			Intent: &factory.IntentSubject{IntentID: intentID, RevisionID: revisionID, ScopeDigest: strings.Repeat("d", 64), OwnerID: owner},
+			Intent: &factory.IntentSubject{IntentID: intentID, RevisionID: revisionID, ScopeDigest: digest, OwnerID: owner},
 		},
 		Phase:     project.ExecutionDecompose,
 		ProjectID: dispatchTestProjectID(), ActorID: 7, Role: project.RoleCoder,
@@ -121,7 +149,12 @@ func TestDecomposeRootRefusesUnrecordedRevision(t *testing.T) {
 	db := dispatchStoreFixture(t)
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
-	d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24), 7, strings.Repeat("c", 40))
+	unsaved := factory.IntentRevision{
+		ID: "d" + strings.Repeat("a", 24), Intent: "d" + strings.Repeat("b", 24), Owner: 7, Repository: 7,
+		Objective: "plan the recorded draft", State: "draft",
+		MaxIssues: 10, CreatedUnix: now.Unix(),
+	}
+	d, a, r, run, view := decomposeRootPacketWithDigest(t, ctx, db, now, "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24), 7, strings.Repeat("c", 40), unsaved.Digest())
 	err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view)
 	if !errors.Is(err, ErrAttemptRootMismatch) {
 		t.Fatalf("unrecorded revision error = %v, want root mismatch", err)
@@ -308,4 +341,112 @@ func TestIntentNewRevisionFundsNextAttempt(t *testing.T) {
 	if prior.Active || !prior.Closed || prior.Limits.ActiveMinutes != 30 {
 		t.Fatalf("prior revision allowance disturbed: %+v", prior)
 	}
+}
+
+// TestIntentDigestChangeCannotRefillSameRevision proves the funded
+// operation is the recorded revision, not the caller-supplied snapshot:
+// after failed settlement with consumption recorded, a second root for
+// the same intent/revision/owner carrying only a different scope digest
+// refuses instead of funding another root.
+func TestIntentDigestChangeCannotRefillSameRevision(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	intent, revision := "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24)
+	decomposeIntentRevisionFixture(t, db, intent, revision, 7)
+	d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
+	if err := db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view); err != nil {
+		t.Fatal(err)
+	}
+	run.Outcome, run.Reconciled, run.Summary = factory.Failed, true, "provider failed"
+	if err := db.SaveFactoryRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	ended := time.Now().UTC()
+	if err := db.RecordRunUsage(ctx, factory.Usage{RunID: run.ID, Repository: a.Repository, Connection: a.Connection, Minutes: 1, StartedAt: run.Started, EndedAt: ended}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.FinishAssignment(ctx, finishIntentRoot(t, a, ended, factory.Failed, factory.AssignReasonRunFailed)); err != nil {
+		t.Fatal(err)
+	}
+	prior := readIntentAllowance(t, db, a.ID)
+	if prior.Active || !prior.Closed {
+		t.Fatalf("prior root not settled: %+v", prior)
+	}
+	d2, a2, r2, run2, view2 := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
+	a2.Subject.Intent.ScopeDigest = strings.Repeat("e", 64)
+	err := db.RecordDispatchPacket(ctx, d2, decomposeTestControl(a2), a2, r2, run2, view2)
+	if err == nil {
+		first, second := readIntentAllowance(t, db, a.ID), readIntentAllowance(t, db, a2.ID)
+		t.Fatalf("same intent revision admitted two distinct roots and funded both: first=%d second=%d active=%v/%v", first.Limits.ActiveMinutes, second.Limits.ActiveMinutes, first.Active, second.Active)
+	}
+	t.Logf("second distinct-root refusal: %v", err)
+	assertDispatchPacketAbsent(t, db, a2)
+}
+
+// TestIntentHeadChangeBeforeAdmissionCommit proves the packet admits
+// the authoritative head even when a new revision commits between the
+// guard's unlocked read and the funding lock: the duplicate refusal
+// revalidates the head under its lock, so the stale revision refuses
+// atomically. The probe synchronizes on the packet's real post-head-
+// validation capacity-lock wait instead of sleeping.
+func TestIntentHeadChangeBeforeAdmissionCommit(t *testing.T) {
+	db := dispatchStoreFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	now := time.Now().UTC().Truncate(time.Second)
+	intent, revision := "d"+strings.Repeat("b", 24), "d"+strings.Repeat("a", 24)
+	decomposeIntentRevisionFixture(t, db, intent, revision, 7)
+	d, a, r, run, view := decomposeRootPacket(t, ctx, db, now, intent, revision, 7, strings.Repeat("c", 40))
+	blocker, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = blocker.Rollback() }()
+	var capacity []byte
+	if err := blocker.QueryRowContext(ctx, `SELECT data FROM factory_capacity WHERE id=1 FOR UPDATE`).Scan(&capacity); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- db.RecordDispatchPacket(ctx, d, decomposeTestControl(a), a, r, run, view) }()
+	// Synchronize on the real packet waiting at its post-head-validation capacity lock.
+	for {
+		var waiting bool
+		err := db.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND wait_event_type='Lock' AND query LIKE 'SELECT data FROM factory_capacity%')`).Scan(&waiting)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if waiting {
+			break
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("packet ended before capacity lock: %v", err)
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	next := factory.IntentRevision{ID: "d" + strings.Repeat("f", 24), Intent: intent, Owner: 7, Repository: 7, Predecessor: revision, Objective: "changed draft", State: "draft", MaxIssues: 10, CreatedUnix: now.Unix()}
+	publishCtx, stop := context.WithTimeout(ctx, 10*time.Second)
+	err = db.SaveIntentRevision(publishCtx, next)
+	stop()
+	if err != nil {
+		t.Fatalf("new head publication failed: %v", err)
+	}
+	head, err := db.IntentRevision(ctx, intent, 7)
+	if err != nil || head.ID != next.ID {
+		t.Fatalf("new head not committed: %s %v", head.ID, err)
+	}
+	if err := blocker.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	err = <-done
+	if !errors.Is(err, ErrAttemptRootMismatch) {
+		t.Fatalf("stale revision error = %v, want root mismatch", err)
+	}
+	assertDispatchPacketAbsent(t, db, a)
 }

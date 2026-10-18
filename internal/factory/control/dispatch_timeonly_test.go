@@ -33,14 +33,14 @@ func timeOnlyOrderHost(fx dispatchFixture, observed *bool, check func(ctx contex
 	}
 }
 
-func timeOnlyIntentSubject() factory.ExecutionSubject {
+func timeOnlyIntentSubject(digest string) factory.ExecutionSubject {
 	return factory.ExecutionSubject{
 		Kind:   factory.SubjectIntent,
-		Intent: &factory.IntentSubject{IntentID: "d777777777777777777777777", RevisionID: "d888888888888888888888888", ScopeDigest: strings.Repeat("d", 64), OwnerID: 7},
+		Intent: &factory.IntentSubject{IntentID: "d777777777777777777777777", RevisionID: "d888888888888888888888888", ScopeDigest: digest, OwnerID: 7},
 	}
 }
 
-func recordTimeOnlyIntent(t *testing.T, ctx context.Context, db *store.Store) {
+func recordTimeOnlyIntent(t *testing.T, ctx context.Context, db *store.Store) string {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
 	revision := factory.IntentRevision{
@@ -51,6 +51,7 @@ func recordTimeOnlyIntent(t *testing.T, ctx context.Context, db *store.Store) {
 	if err := db.SaveIntentRevision(ctx, revision); err != nil {
 		t.Fatalf("intent revision not recorded: %v", err)
 	}
+	return revision.Digest()
 }
 
 func fundTimeOnlyPolicy(t *testing.T, ctx context.Context, db *store.Store, repo int64) {
@@ -71,7 +72,7 @@ func TestDispatchTimeOnlyRootLaunchesIntent(t *testing.T) {
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
-	recordTimeOnlyIntent(t, ctx, db)
+	digest := recordTimeOnlyIntent(t, ctx, db)
 	deps := fx.deps()
 	occupancy, err := snapshotOccupancy(ctx, db)
 	if err != nil {
@@ -89,7 +90,7 @@ func TestDispatchTimeOnlyRootLaunchesIntent(t *testing.T) {
 		}
 	})
 	report := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(), strings.Repeat("c", 40), []byte("plan the recorded draft"), &report)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &report)
 	if len(report.Errors) != 0 || len(report.Waits) != 0 || len(report.Launched) != 1 {
 		t.Fatalf("route report: %+v", report)
 	}
@@ -111,14 +112,14 @@ func TestDispatchTimeOnlyRootReplaySingleCharge(t *testing.T) {
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
 	fundTimeOnlyPolicy(t, ctx, db, fx.repo)
-	recordTimeOnlyIntent(t, ctx, db)
+	digest := recordTimeOnlyIntent(t, ctx, db)
 	deps := fx.deps()
 	occupancy, err := snapshotOccupancy(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
 	first := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(), strings.Repeat("c", 40), []byte("plan the recorded draft"), &first)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &first)
 	if len(first.Launched) != 1 {
 		t.Fatalf("first route report: %+v", first)
 	}
@@ -134,7 +135,7 @@ func TestDispatchTimeOnlyRootReplaySingleCharge(t *testing.T) {
 		t.Fatal(err)
 	}
 	second := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(), strings.Repeat("c", 40), []byte("plan the recorded draft"), &second)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &second)
 	// The held first reservation waits at limits before any packet: no
 	// second run launches and no second charge records. The cross-pass
 	// race underneath is covered at the packet by the unfinished
@@ -153,14 +154,14 @@ func TestDispatchTimeOnlyRootUnfundedWaits(t *testing.T) {
 	ctx := context.Background()
 	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
-	recordTimeOnlyIntent(t, ctx, db)
+	digest := recordTimeOnlyIntent(t, ctx, db)
 	deps := fx.deps()
 	occupancy, err := snapshotOccupancy(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
 	report := newDispatchReport()
-	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(), strings.Repeat("c", 40), []byte("plan the recorded draft"), &report)
+	DispatchTimeOnlyRoot(ctx, deps, &occupancy, fx.repo, timeOnlyIntentSubject(digest), strings.Repeat("c", 40), []byte("plan the recorded draft"), &report)
 	if len(report.Launched) != 0 || len(report.Errors) != 0 || len(report.Waits) != 1 || report.Waits[0].Reason != WaitAllowance {
 		t.Fatalf("unfunded route report: %+v", report)
 	}
