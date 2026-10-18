@@ -9,7 +9,7 @@ import (
 // ordered by repository generation and append-only cycles. FW31 adds
 // persistence and the atomic fence against these tables.
 func TestFactoryCompletionSchemaRegistered(t *testing.T) {
-	if SchemaVersion() != 58 {
+	if SchemaVersion() != 59 {
 		t.Fatalf("D13 schema version: %d", SchemaVersion())
 	}
 	joined := strings.Join(schemaStatements, "\n")
@@ -17,7 +17,7 @@ func TestFactoryCompletionSchemaRegistered(t *testing.T) {
 		FactoryCompletionsDDL, FactoryReassessmentsDDL,
 		FactoryCompletionTriggers, FactoryCompletionDeleteTrigger,
 		FactoryReassessmentDeleteTrigger,
-		"INSERT INTO schema_version(version) VALUES(58)",
+		"INSERT INTO schema_version(version) VALUES(59)",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("completion schema statement missing: %.60s", want)
