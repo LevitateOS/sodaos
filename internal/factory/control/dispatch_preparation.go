@@ -81,17 +81,9 @@ func (c *Coordinator) prepareSourceCoder(ctx context.Context, plan *attemptPlan)
 }
 
 func (c *Coordinator) prepareCoder(ctx context.Context, plan *attemptPlan, command string, expectedGate *int64) (bool, error) {
-	source := plan.prep.Preparation
-	var sourceRun *project.FactoryExport
-	if source.SourceCommit != plan.inputs.Tip {
-		if len(source.Requirements.SourceInputs) == 0 {
-			return false, errors.New("accepted effective source input selection is unavailable")
-		}
-		bound, err := c.Store.MergedPreparationSource(ctx, plan.control.Repository, plan.projectID, plan.policy.TargetBranch, plan.inputs.Tip)
-		if err != nil {
-			return false, err
-		}
-		sourceRun = &bound
+	source, sourceRun, err := c.resolveCoderSource(ctx, plan)
+	if err != nil {
+		return false, err
 	}
 	sum := sha256.Sum256([]byte("fresh-coder\x00" + command + "\x00" + plan.inputs.Tip))
 	prep := source
@@ -108,25 +100,8 @@ func (c *Coordinator) prepareCoder(ctx context.Context, plan *attemptPlan, comma
 		GateRevision: plan.gateRev, Control: plan.control, RequestedNotAfter: requested,
 		SourceRun: sourceRun,
 	}
-	// The gate is read before preparation admission, rather than after prompt
-	// construction, so setup is fenced by the same revision as dispatch.
-	open, revision, _, err := c.Store.DispatchState(ctx, plan.control.Repository)
-	if err != nil || !open {
-		return false, errors.New("retry dispatch gate is unavailable or closed")
-	}
-	if expectedGate != nil && revision != *expectedGate {
-		return false, store.ErrStaleRevision
-	}
-	registration.GateRevision = revision
-	record, created, err := c.Store.AdmitCandidatePreparation(ctx, project.StoredPreparation{Preparation: prep}, registration)
+	record, created, err := c.admitCoderPreparation(ctx, plan, prep, registration, command, expectedGate)
 	if err != nil {
-		if prior, readErr := c.Store.CandidatePreparation(ctx, prep.ID); retryPreparationInvalidated(err) && readErr == nil &&
-			prior.Admission.OwnerAssignment == command && prior.Admission.PublicationID == "" && !prior.Stopped {
-			plan.prep = prior.Preparation
-			if stopErr := c.retireRetryCoder(ctx, plan); stopErr != nil {
-				return false, stopErr
-			}
-		}
 		return false, err
 	}
 	stored := record.Preparation
@@ -142,31 +117,101 @@ func (c *Coordinator) prepareCoder(ctx context.Context, plan *attemptPlan, comma
 		return true, nil
 	}
 	if !created {
-		if budget := readinessBudgetFrom(ctx); budget != nil && !budget.reserveNativeRPC(1) {
-			return false, ErrReadinessPassPending
-		}
-		state, inspectErr := c.Host.InspectPreparation(ctx, project.PrepareInspect{Project: plan.projectID, ID: prep.ID})
-		if inspectErr == nil {
-			if !candidatePreparationIdentityMatches(state, prep) {
-				return false, errors.New("retry preparation native identity differs")
-			}
-			if err := c.observeCandidatePreparation(ctx, stored, state); err != nil {
-				return false, err
-			}
-			if state.Ready {
-				plan.prep, err = c.Store.Preparation(ctx, prep.ID)
-				return err == nil, err
-			}
-			if state.Phase == project.PrepareRunning {
-				return false, nil
-			}
-			if state.Phase == project.PrepareFailed || state.Phase == project.PrepareStopped || state.Phase == project.PrepareInterrupted {
-				return false, errors.New("retry preparation requires intervention")
-			}
-		} else if !errors.Is(inspectErr, project.ErrPreparationNotFound) {
-			return false, inspectErr
+		done, ready, err := c.inspectCoderPreparation(ctx, plan, prep, stored)
+		if done || err != nil {
+			return ready, err
 		}
 	}
+	return c.authorizeCoderPreparation(ctx, plan, prep, source, stored, sourceRun)
+}
+
+// resolveCoderSource rebinds one retry preparation to the merged
+// source at the planned tip.
+func (c *Coordinator) resolveCoderSource(ctx context.Context, plan *attemptPlan) (project.Preparation, *project.FactoryExport, error) {
+	source := plan.prep.Preparation
+	if source.SourceCommit == plan.inputs.Tip {
+		return source, nil, nil
+	}
+	if len(source.Requirements.SourceInputs) == 0 {
+		return source, nil, errors.New("accepted effective source input selection is unavailable")
+	}
+	bound, err := c.Store.MergedPreparationSource(ctx, plan.control.Repository, plan.projectID, plan.policy.TargetBranch, plan.inputs.Tip)
+	if err != nil {
+		return source, nil, err
+	}
+	return source, &bound, nil
+}
+
+// admitCoderPreparation reads the dispatch gate and admits one retry
+// preparation, retiring an invalidated prior owner preparation.
+func (c *Coordinator) admitCoderPreparation(ctx context.Context, plan *attemptPlan, prep project.Preparation, registration store.CandidatePreparationRegistration, command string, expectedGate *int64) (store.CandidatePreparationRecord, bool, error) {
+	var empty store.CandidatePreparationRecord
+	// The gate is read before preparation admission, rather than after prompt
+	// construction, so setup is fenced by the same revision as dispatch.
+	open, revision, _, err := c.Store.DispatchState(ctx, plan.control.Repository)
+	if err != nil || !open {
+		return empty, false, errors.New("retry dispatch gate is unavailable or closed")
+	}
+	if expectedGate != nil && revision != *expectedGate {
+		return empty, false, store.ErrStaleRevision
+	}
+	registration.GateRevision = revision
+	record, created, err := c.Store.AdmitCandidatePreparation(ctx, project.StoredPreparation{Preparation: prep}, registration)
+	if err != nil {
+		if prior, readErr := c.Store.CandidatePreparation(ctx, prep.ID); retryPreparationInvalidated(err) && readErr == nil &&
+			prior.Admission.OwnerAssignment == command && prior.Admission.PublicationID == "" && !prior.Stopped {
+			plan.prep = prior.Preparation
+			if stopErr := c.retireRetryCoder(ctx, plan); stopErr != nil {
+				return empty, false, stopErr
+			}
+		}
+		return empty, false, err
+	}
+	return record, created, nil
+}
+
+// inspectCoderPreparation inspects one already-recorded preparation,
+// reporting done when the outcome already settles the caller.
+func (c *Coordinator) inspectCoderPreparation(ctx context.Context, plan *attemptPlan, prep project.Preparation, stored project.StoredPreparation) (bool, bool, error) {
+	if budget := readinessBudgetFrom(ctx); budget != nil && !budget.reserveNativeRPC(1) {
+		return true, false, ErrReadinessPassPending
+	}
+	state, inspectErr := c.Host.InspectPreparation(ctx, project.PrepareInspect{Project: plan.projectID, ID: prep.ID})
+	if inspectErr == nil {
+		return c.observeInspectedCoderPreparation(ctx, plan, prep, stored, state)
+	}
+	if !errors.Is(inspectErr, project.ErrPreparationNotFound) {
+		return true, false, inspectErr
+	}
+	return false, false, nil
+}
+
+// observeInspectedCoderPreparation observes one inspected preparation
+// state, settling ready, running and failed phases.
+func (c *Coordinator) observeInspectedCoderPreparation(ctx context.Context, plan *attemptPlan, prep project.Preparation, stored project.StoredPreparation, state project.PrepareState) (bool, bool, error) {
+	if !candidatePreparationIdentityMatches(state, prep) {
+		return true, false, errors.New("retry preparation native identity differs")
+	}
+	if err := c.observeCandidatePreparation(ctx, stored, state); err != nil {
+		return true, false, err
+	}
+	if state.Ready {
+		planPrep, err := c.Store.Preparation(ctx, prep.ID)
+		plan.prep = planPrep
+		return true, err == nil, err
+	}
+	if state.Phase == project.PrepareRunning {
+		return true, false, nil
+	}
+	if state.Phase == project.PrepareFailed || state.Phase == project.PrepareStopped || state.Phase == project.PrepareInterrupted {
+		return true, false, errors.New("retry preparation requires intervention")
+	}
+	return false, false, nil
+}
+
+// authorizeCoderPreparation authorizes and prepares one admitted
+// retry preparation, loading it when ready.
+func (c *Coordinator) authorizeCoderPreparation(ctx context.Context, plan *attemptPlan, prep, source project.Preparation, stored project.StoredPreparation, sourceRun *project.FactoryExport) (bool, error) {
 	notAfter, err := c.Store.AuthorizeCandidatePreparation(ctx, prep.ID)
 	if err != nil {
 		if retryPreparationInvalidated(err) {
@@ -196,7 +241,8 @@ func (c *Coordinator) prepareCoder(ctx context.Context, plan *attemptPlan, comma
 	if !state.Ready {
 		return false, nil
 	}
-	plan.prep, err = c.Store.Preparation(ctx, prep.ID)
+	planPrep, err := c.Store.Preparation(ctx, prep.ID)
+	plan.prep = planPrep
 	return err == nil, err
 }
 
