@@ -137,6 +137,36 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
       - run: bash scripts/check-push.sh rust
 
+  complexity:
+    needs: [reuse]
+    if: ${{ needs.reuse.outputs.reused != 'true' }}
+    name: Production function complexity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: rustup toolchain install --profile minimal --no-self-update
+      - run: cargo fetch --locked --manifest-path tools/source-complexity/rust/Cargo.toml
+      - name: Check source without building the product
+        env:
+          COMPLEXITY_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          if [[ -z "$COMPLEXITY_BASE" || "$COMPLEXITY_BASE" =~ ^0+$ ]]; then
+            COMPLEXITY_BASE=$(git rev-parse HEAD^)
+          fi
+          bash scripts/check-complexity.sh --all --base "$COMPLEXITY_BASE"
+          bun run test:complexity
+
   packaging:
     needs: [reuse]
     if: ${{ needs.reuse.outputs.reused != 'true' }}
@@ -162,7 +192,7 @@ jobs:
     name: CI
     runs-on: ubuntu-24.04
     timeout-minutes: 1
-    needs: [reuse, go, browser, rust, packaging]
+    needs: [reuse, go, browser, rust, complexity, packaging]
     if: ${{ always() }}
     steps:
       - name: Require all push jobs within five minutes
@@ -174,6 +204,7 @@ jobs:
           BROWSER_RESULT: ${{ needs.browser.result }}
           RUST_RESULT: ${{ needs.rust.result }}
           PACKAGING_RESULT: ${{ needs.packaging.result }}
+          COMPLEXITY_RESULT: ${{ needs.complexity.result }}
         run: |
           set -euo pipefail
           test "$REUSE_RESULT" = success
@@ -189,3 +220,4 @@ jobs:
           test "$BROWSER_RESULT" = "$expected"
           test "$RUST_RESULT" = "$expected"
           test "$PACKAGING_RESULT" = "$expected"
+          test "$COMPLEXITY_RESULT" = "$expected"

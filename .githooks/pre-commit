@@ -38,15 +38,12 @@ if [ -n "$cred_hits" ]; then
   fail=1
 fi
 
-# 3. Cyclomatic complexity below 10 on staged shipping Go (not scripts/tests).
+# 3. Shared Go/Rust/TypeScript complexity policy, reading the actual index.
+# Existing excess is baselined; new/increased excess needs a specific exception.
 gofiles=$(printf '%s\n' "$staged" | grep '\.go$' || true)
-prodgofiles=$(printf '%s\n' "$staged" | grep '\.go$' | grep -E '^(internal|cmd|tools|appliance|project-os)/' | grep -v '_test\.go$' || true)
-if [ -n "$prodgofiles" ]; then
-  # shellcheck disable=SC2086
-  if ! bash scripts/check-complexity.sh $prodgofiles; then
-    printf 'pre-commit: complexity gate failed on staged shipping Go files.\n'
-    fail=1
-  fi
+if ! bash scripts/check-complexity.sh --staged; then
+  printf 'pre-commit: staged production complexity gate failed.\n'
+  fail=1
 fi
 
 # 4. gofumpt on staged Go files (strict gofmt; whole-tree backlog is not
@@ -90,17 +87,7 @@ if [ -n "$tsfiles" ]; then
   fi
 fi
 
-# 9. Cyclomatic complexity below 10 on staged browser-payload TypeScript.
-prodtsfiles=$(printf '%s\n' "$tsfiles" | grep -E '^(frontend/|assets/branding/)' | grep -v -E '(/fixtures/|/testdata/|\.test\.ts$)' || true)
-if [ -n "$prodtsfiles" ]; then
-  # shellcheck disable=SC2086
-  if ! bash scripts/check-ts-complexity.sh $prodtsfiles; then
-    printf 'pre-commit: TypeScript complexity gate failed on staged browser-payload files.\n'
-    fail=1
-  fi
-fi
-
-# 10. Oxlint correctness on staged TypeScript (complexity is the previous step).
+# 10. Oxlint correctness on staged TypeScript (complexity is checked in step 3).
 if [ -n "$tsfiles" ]; then
   # shellcheck disable=SC2086
   if ! bash scripts/check-oxlint.sh $tsfiles; then

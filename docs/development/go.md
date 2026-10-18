@@ -289,3 +289,10 @@ transport or the daemon, executors reaching up or out, leaves reaching up,
 the dashboard binary reaching the daemon directly). Run it with
 `go test ./internal/archcheck/`; keep its rules in sync with the tables
 above whenever ownership genuinely moves.
+
+## Function complexity
+
+Use the [shared complexity policy](complexity.md): preferred ≤10, normal maximum
+20, with existing excess baselined and non-increasing. Specific capped exceptions
+need justification. `bash scripts/check-complexity.sh --language go` checks changed
+production Go functions; tests and generated/dependency sources are excluded.

@@ -161,6 +161,11 @@ justify keeping obsolete implementations alive.
 
 ## Code and tooling
 
+- Apply the [shared complexity policy](docs/development/complexity.md) to authored
+  Go, Rust and TypeScript production functions: prefer ≤10, normal maximum 20.
+  Higher scores require a narrow capped justification or an existing non-increasing
+  baseline. Exclude tests/generated/dependency code; never split merely to game scores.
+
 - Follow the [recorded owner language policy](docs/development/ideal-filetree-plan/ideal-filetree-plan.md#owner-language-policy):
   network-facing servers stay Go; system and privileged applications use Rust;
   Python is eliminated from Soda-authored tracked programs. Preserve the named
@@ -204,7 +209,7 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bun install --frozen-lockfile` | Install the locked workspace dependencies. |
 | `go test ./internal/factory` | Example focused Go package test; select the affected package/tests. |
 | `bun run typecheck` | Strict TypeScript and Lit checks. |
-| `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and cyclomatic-below-10 on browser-payload TS (see [typescript guide](docs/development/typescript.md)). |
+| `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and changed-function complexity (preferred ≤10, normal maximum 20; see [complexity policy](docs/development/complexity.md)). |
 | `bash scripts/check-no-python.sh` | Zero-Python gate: no tracked `.py`, no Python shebang/execution (see [Python elimination](docs/development/python.md)). |
 | `bash scripts/check-gofumpt.sh` / `check-staticcheck.sh` / `check-errcheck.sh` | Go format (gofumpt), staticcheck, and unchecked-error lint; linux analysis for the last two. |
 | `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |

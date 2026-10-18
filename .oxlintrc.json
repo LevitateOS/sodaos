@@ -4,7 +4,7 @@
     "correctness": "error"
   },
   "rules": {
-    "complexity": ["error", { "max": 9 }],
+    "complexity": "off",
     "no-control-regex": "off",
     "no-useless-escape": "off"
   },
