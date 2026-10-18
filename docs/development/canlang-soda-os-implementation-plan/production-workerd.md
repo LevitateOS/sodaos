@@ -391,10 +391,15 @@ of this investigation.
 Critical path: P14.1 → {P14.2, P14.3} → P14.4 → {P15.1,
 P16.1 → P16.2} → P25.1 → P26.1/P29 → P27.1/P28 → P30/P31.
 Reader/schema design and pin correction can run beside runtime work; they do
-not justify early release qualification. With four available workers, use a
-coordinator/shared-manifest owner, provider lane, runtime lane and packaging
-lane. Hand off `soda-run.ts` and CLI composition before changing writers. One
-operator owns container/VM/storage-fault fixtures and expensive native runs.
+not justify early release qualification. These are responsibility boundaries,
+not a requirement to launch workers. Coordinate actual shared edits to
+`soda-run.ts`, CLI composition and manifests; keep each native fixture under one
+owner. The canonical second pass releases P27/P28's producer/source outputs to
+R54/R51 before the matching-release Project Create/boot subcriterion. P30 and
+R52/P31/G4 consume that one candidate; they do not precede its build. P22's real
+client input holds the corresponding physical-access case, not local component
+work. P08/P10 remain separately selected service outcomes and do not expand the
+adopted first-app runtime gate implicitly.
 
 ## Verification subjects and production acceptance
 

@@ -1,6 +1,6 @@
 # Candidate, release and independent closure
 
-[Remaining-work catalog](../factory-remaining-tasks.md#task-list) owns execution order. These packets preserve the original requirement authorities; the catalog's consolidated outcomes own current status; the closed checklist retains evidence and former leases. Execution is stopped. Exact source file subsets are frozen before allocation, so directories below are responsibility locators rather than blanket write leases.
+[Remaining-work catalog](../factory-remaining-tasks.md#task-list) owns execution order. These packets preserve the original requirement authorities; the catalog's consolidated outcomes own current status; the closed checklist retains evidence and former leases. Implementation is stopped. The executable remainder refines each existing parent without adding counted outcomes. Source locators identify the current owner, not blanket write permission; use the catalog’s next-step disposition and actual prerequisite outputs.
 
 <a id="r50"></a>
 ## R50 — Finish protected release-evidence admission and finalization
@@ -14,6 +14,8 @@
 **Accept only when:** Focused valid/failed/cancelled/incomplete/mismatched/forged cases and the native protected boundary prove the executable mechanism, including preservation and recovery. Valid development evidence exercises finalization without rebuilding those tested bytes, while remaining non-qualifying for production release. As original RT01 requires, this proof precedes candidate production and does not depend on R49 or the future R51/R52 candidate. Actual shipping-byte observations are collected in R52 and consumed by R53; this task does not assert them in advance. Do not replace guards with optimistic acceptance or unreleased compatibility branches.
 
 **Milestones:** First implement and narrowly prove admission/finalization here; after R51/R52, exercise that accepted mechanism with the real candidate under R53. These are different evidence layers, with no dependency from this prerequisite back to its future candidate.
+
+**Executable remainder:** Start at the existing protected release collector/admission/finalization path in `lib/soda-release-tools` and the release/native-support guides. First identify the admitted controller/worker and collector access for a disposable development fixture; then drive valid evidence and forged/mismatched/incomplete/cancelled failure through that same boundary. Release a demonstrated executable mechanism to R51, including preservation/recovery, without rebuilding tested bytes. Missing privileged fixture/collector access is the precise setup input for that witness. R52 later supplies shipping observations and R53 consumes them; no dependency back to those future bytes or repetition of accepted serving/tag repairs.
 
 **Principal source owners:** [lib/soda-release-tools](../../../lib/soda-release-tools), [tools/release-assets](../../../tools/release-assets), [docs/development/native-support.md](../../../docs/development/native-support.md), [docs/development/release.md](../../../docs/development/release.md).
 
@@ -32,6 +34,8 @@
 
 **Accept only when:** The complete stage is attributable and native-checkable for x86_64; unsupported architectures refuse before fetching inputs. No obsolete alternate build engine, guessed component/public URL or hidden mismatch between local SDK replacement and packaged source pin. Candidate production is not installed qualification.
 
+**Executable remainder:** Consume R49 development proof, R54 source freeze, R50 protected mechanism, R45 components and Canlang P27/P28's qualified runtime/tools producers. Preflight the existing release workflow with actual immutable source/SDK/package/image/archive URLs and digests, including matching Canlang closure; resolve missing component publication through its owner before building. Then produce/stage one x86_64 candidate through `soda-release`/`soda-build`, reusing outputs whose real inputs are unchanged. Release exact candidate identities/media to R52 and P30. Current source CI and preflight plus native-checkable stage are the acceptance here; installed proof follows. A missing component is a held input, never a guessed URL or alternate engine.
+
 **Principal source owners:** [lib/soda-release-tools](../../../lib/soda-release-tools), [tools/release-assets](../../../tools/release-assets), [lib/release-inputs](../../../lib/release-inputs), [fountain-source.json](../../../fountain-source.json).
 
 <a id="r52"></a>
@@ -44,6 +48,8 @@
 **Deliver:** Use the existing native x86_64 drivers against the exact candidate for fresh ISO/Docker, supported upgrade source, maintenance/rollback/recovery, retained human/network/operator behavior and finished factory.
 
 **Accept only when:** Actual installed byte/mode/source/artifact/architecture readback and every required case agree. Failed-run identities remain non-qualifying. Missing immutable components or a qualified upgrade source are specific unfulfilled inputs, not an invitation to rebuild blindly or waive cases.
+
+**Executable remainder:** Consume R51's exact candidate and R49's development result. In existing native-support/testing/installation drivers, first qualify fresh ISO and Docker against those bytes; then the named supported upgrade source, rollback/recovery and retained human/network/operator behavior. Run Canlang P30's installed UI/API/app journey on this same candidate and bind P31/G4 here, not a second release. Release protected observed byte/mode/source/artifact identities to R53. Missing qualified upgrade media or private-client input holds only its case and keeps full qualification open. Driver-only fixes reuse unchanged candidate bytes; byte-changing fixes return to R51.
 
 **Principal source owners:** [docs/development/testing.md](../../../docs/development/testing.md), [docs/guides/installation.md](../../../docs/guides/installation.md), [docs/guides/docker.md](../../../docs/guides/docker.md), [docs/guides/media.md](../../../docs/guides/media.md).
 
@@ -58,6 +64,8 @@
 
 **Accept only when:** Published URLs/digests/provenance and downloaded/installable bytes match the already qualified candidate. No force/settings/protection bypass or inferred deployment permission. This task list and the earlier origin-push instruction do not themselves authorize product release/deployment.
 
+**Executable remainder:** Consume R52's protected exact-candidate evidence through R50's accepted mechanism. Prepare the concrete immutable product/media/metadata batch using `lib/soda-release-deliver` and the documented release path. Obtain publication authorization for that batch when required, then publish and verify anonymous downloaded digests/provenance and installable bytes. Release actual URLs/receipts to R55. This planning pass or Git push is not product publication authorization. Do not rebuild a qualified candidate during publication or bypass protections; failed/partial publication retains exact identities for supported reconciliation.
+
 **Principal source owners:** [tools/release-assets](../../../tools/release-assets), [docs/development/release.md](../../../docs/development/release.md).
 
 <a id="r54"></a>
@@ -71,6 +79,8 @@
 
 **Accept only when:** No parallel legacy reader/engine or misleading existing-interface/public-readiness claim remains, and all shipping source/selector changes are complete before candidate production. Native Actions and human work are preserved, no broad prune occurs, and resources with unknown ownership remain explicit. Publication receipts and actual URLs can be recorded under R53 after qualification without changing tested product bytes; any byte-changing correction requires a new R51 candidate. Completed planning material is absorbed only after its requirements/evidence are carried forward.
 
+**Executable remainder:** Consume completed R41/R43/R45/R49/R50 changes, then inspect only their actual superseded callers/selectors/assets and affected durable docs. Remove each obsolete path with its replacement and reconcile notices/pins before R51's source freeze; reuse accepted cutovers and the already closed cleanup. Include measured Canlang P29 contracts and the P27/P28 release schema when they are ready. Release coherent shipping source/docs plus retained qualification-resource ownership. Check affected source references/links and required changed-source gates; do not run broad prune or remove the Canlang plan before P31/G4. Later receipt-only documentation is allowed; changed product bytes require a new candidate.
+
 **Principal source owners:** [docs/README.md](../../../docs/README.md), [docs/development/factory-implementation-plan.md](../../../docs/development/factory-implementation-plan.md), [docs/development/factory-workflow-plan.md](../../../docs/development/factory-workflow-plan.md), [docs/reference](../../../docs/reference), [docs/public](../../../docs/public).
 
 <a id="r55"></a>
@@ -83,5 +93,7 @@
 **Deliver:** Independently close every mapped requirement/control/case at its actual revision and evidence layer, resolve substantive findings, verify focused commits and writer/command/resource release, and report precise remaining external cases if any.
 
 **Accept only when:** Production callers and decisive evidence agree across the original 26 deliverables, all refinements, seven profiles, fourteen controls and retained appliance/UX/release requirements. Uncovered or externally gated cases keep full qualification open. Retire supervision only when no follow-up remains or the human stops it.
+
+**Executable remainder:** Consume the existing mapped requirement results from R46–R54, P31/G4 (R52) and P30. Account separately for remaining Canlang and maintenance outcomes; deferred P08/P10 or unchanged source debt must not become artificial prerequisites for the adopted first-app release. Reconcile uncovered criteria once against production callers and decisive evidence, resolve substantive discrepancies and report any named external cases. Absorb Canlang P32 and other completed temporary plans into their existing durable owners only after their qualification is true. Release only identified ended fixture/writer resources through existing ownership records; the October 18 cleanup remains closed. Independent final acceptance is an evidence judgment, not mandatory reruns, a review-of-review or a new supervisor. An unfulfilled mapped Factory/release criterion keeps this parent open; any other remaining catalog row still prevents claiming the entire 67-outcome catalog complete.
 
 **Principal source owners:** [docs/development/factory-remaining-tasks.md](../../../docs/development/factory-remaining-tasks.md), [docs/development/factory-workflow-contracts.md](../../../docs/development/factory-workflow-contracts.md), [docs/development/testing.md](../../../docs/development/testing.md).

@@ -20,6 +20,14 @@ replace them or create a second implementation task catalog.
 ## Agreed direction
 
 - Put the feed **inside Soda OS**, following real Factory work.
+- Consolidate subscribed activity into **one combined feed**, with the newest
+  posts at the top. Users subscribe to feeds/projects; project-only views and
+  threads support navigation but do not replace this combined experience.
+- Let users **comment on feed posts**. Agents can read authorized comments and
+  use them to make plans and/or create issues through existing Factory owners.
+  Derived work links back to its originating discussion and exposes its result
+  or failure. A subscription grants no access and a comment alone is not an
+  automatic dispatch or a new approval requirement.
 - Make the entire intended factory procedure understandable, including decisions,
   parallel tasks, reviews, corrections, waits, recovery and application verification.
 - Use the marketing website's factory film as a source of component and interaction
@@ -179,10 +187,12 @@ portraits have not been selected by this discussion.
 
 ## Feed and component proposal
 
-The proposed starting composition is a project overview above one activity feed,
-with related activity grouped into expandable issue/assignment threads. Readers
-can inspect the overall project, focus on an issue or role, and open the native
-change or supporting evidence without losing context.
+The primary composition is one combined feed of the user's subscribed activity,
+with newest posts first. This accepted direction supersedes the earlier
+project-overview/per-project-feed starting proposal. Every post retains project,
+repository, issue/assignment and author provenance; project filters and expandable
+threads preserve context without fragmenting the primary feed. Readers can open
+native changes and evidence and return to the same reading position.
 
 Each useful entry answers: **what happened, who did it, why it matters, and what
 follows**. Decision entries show the recorded choice and supplied criteria and
@@ -201,6 +211,7 @@ evidence. They must not invent an explanation attributed to JEV.
 | Reassessment and repair | Before/after plan, reason for change, protected work and adoption outcome |
 | Application verification | Accepted-outcome coverage, approved journeys, exact delivery and receipts |
 | Question and reply | Structured question, options/recommendation, blocking meaning and recorded answer |
+| User discussion and derived work | Persisted user comments/replies, agent-visible context, originating discussion and linked plan/issue creation result or failure |
 | Wait and attention | Cause, affected scope, responsible owner and release condition |
 
 Useful reading behavior includes stable expanded entries, filters, access to older
@@ -209,9 +220,58 @@ reader's position. Playback or history browsing is separate from pausing factory
 execution. Feed reads do not run agents or advance workflow state. Semantic status
 colors describe outcomes; author identity also needs readable names and icons.
 
-Exact screen composition, default ordering, threading depth, update behavior and
-mobile layout still need design. The existing persistent Work/Spaces owner and
+Newest-first post ordering and combined subscribed activity are settled. Exact
+subscription unit/defaults, reply/update bump behavior, threading depth, live
+update behavior and mobile layout still need design. The existing persistent Work/Spaces owner and
 terminal lifetimes remain relevant constraints, as defined by [Spaces UX](spaces-ux.md).
+
+### Subscriptions, comments and executable work
+
+R32 owns authenticated communication/comment mutations and their stable identities;
+R42 owns authorized combined readback and subscription preferences in the existing
+domain/Store. R43 presents them through Work/Spaces. Server-derived human identity
+and project access govern comment writes; agent identity comes from its admitted
+run. Subscription membership is a filter within already permitted activity, never
+a grant. Reads, counts, paging and agent context recheck access, including after
+revocation, account changes or a subscription change. Do not copy private posts
+into a globally readable stream or grant an agent access to everything a human
+can see.
+
+Persist the post/comment ID, author, scope, revision and discussion relationship.
+Feed posts sort newest first with a stable unique tie-break and bounded
+cursor paging; ordering must not depend on whichever page arrived last. Specify
+reply ordering and whether replies/edits bump a root before implementing that
+behavior. Preserve a reader's position, expanded threads and unsent drafts as
+new posts arrive; a deliberate return-to-latest action can reveal queued updates.
+Changing subscriptions or permissions must not leave another account's cached
+content visible. Neither a timer nor a notification service is required by this
+direction.
+
+Agents receive comments as attributed user input through R31's bounded context
+and evidence reads. A selected discussion can supply a draft/plan input via
+R12/R15 and an issue/graph request via R13's existing native adoption path. Bind
+the triggering post/comment revision and a durable request identity to the
+resulting plan/issue; retries recover the original result rather than create
+duplicate issues or spend again. Changed or deleted input, lost effect replies,
+unavailable agents and insufficient scope/grants produce visible stale, pending,
+refused or failed results, not a fabricated success. A resulting native issue or
+plan keeps its own canonical owner and links back to the discussion.
+
+The capability to turn discussion into plans/issues is adopted. The exact trigger
+is still a bounded product choice: explicit user action, an addressed agent
+request, or an existing authorized assignment consuming relevant comments.
+Select supported triggers and routing before enabling that slice; do not infer
+universal auto-dispatch. Ordinary commenting/readback and feed aggregation can
+proceed independently. Existing consequential product decisions and issue/graph
+authority remain in force, without adding approval to every comment. Comments
+are untrusted content, not instructions to bypass those contracts.
+
+Acceptance joins R32/R42/R43/R49: two authorized subscribed projects in one
+newest-first feed; equal-time posts and concurrent pagination; persisted comments
+after reload/restart; denial across an inaccessible project; one authorized
+comment-to-plan/issue path with origin link, replay and visible failure. Use the
+same records for formal agent results and human replies. No separate social task
+database, parallel backlog or mock-only browser demonstration.
 
 ## Recommended frontend stack
 
@@ -449,13 +509,16 @@ task identities, dependencies and the single execution ledger are retained.
 
 Before implementation, resolve:
 
-1. The exact project/issue/assignment post and thread structure.
+1. Subscription unit/defaults and the exact project/issue/assignment post/thread
+   structure within the adopted combined newest-first feed; reply/edit bump rules.
 2. The role character set and whether/how technical specialties appear.
 3. The exact tool representation and schemas for the adopted eight verbs,
    permitted components, post maintenance and existing formal-result bindings.
 4. Which facts are linked from their existing owners and which new communication
    history needs durable storage, ordering, paging and revision semantics.
-5. Human reply behavior and the transition into existing product decisions.
+5. Comment-to-agent trigger/routing, revision/deletion handling and transitions
+   into existing plan/issue/product-decision owners. Commenting and agents using
+   comments to create plans/issues are accepted capabilities, not optional scope.
 6. Mobile presentation, live update behavior and history inspection.
 7. Concrete Ralph code/assets to reuse or adapt, their destination owners, and
    genuine gaps requiring new work.
@@ -467,8 +530,9 @@ can be retained, code requiring adaptation, responsibilities already owned by So
 and demonstrated new work. Define the fresh Lit interface using concrete Ralph
 behaviors, Soda's procedure and existing host/lifetime constraints. React
 integration is excluded; visual design and portrait selection remain open.
-It should refine this record and the existing owners, then produce
-dependency-ordered implementation work when implementation is requested.
+Refine this record in the existing R32/R43 slices; the canonical task cards now
+hold their dependency-ordered execution instructions. Resolve only the choices
+needed for the next slice rather than requiring another whole-design pass.
 
 ## Source references
 

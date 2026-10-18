@@ -7,7 +7,7 @@ This chapter is a retained contract/evidence owner. Completed library/caller sou
 The selected priority is to repair concrete correctness defects and replace
 handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and
-[lane schedule](implementation-lanes.md) remain the execution plan. This chapter
+[lane schedule](implementation-lanes.md) retain historical responsibility; the canonical catalog's executable slices now govern remaining work. This chapter
 defines their library-adoption packets; it is not another queue or architecture.
 The [current task status](implementation-tasks.md#selected-library-adoption-subpackets)
 records L00 initial preparation, L01–L15 and L18 complete at their documented

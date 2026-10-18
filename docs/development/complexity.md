@@ -12,6 +12,30 @@ and an explicit score cap (for example, an exhaustive protocol dispatcher whose
 cases select existing handlers). Do not split functions mechanically to game the
 score. Review cohesion and readability alongside the metric.
 
+### Executable residual — BROAD-COMPLEXITY-037
+
+Ready for one cohesive source slice after implementation is authorized. Use the
+retained `current-report.txt` at `51ba6d2f` to select affected functions, then read
+their current body/callers; do not rescan the repository just to choose work.
+Its 58 Go residuals comprise 33 controller, 11 domain/prompt and 14 Store functions.
+Begin with `internal/factory/dispatch_prompt.go::BuildDispatchPrompt` and
+`dispatch_prompt_stage.go` if their ownership is free: separate actual prompt
+sections/admission duties while preserving field order, bounds and refusal order.
+An executor may instead take one coherent Store transaction or controller branch
+whose callers are understood; do not combine unrelated functions merely to fill
+a batch or split code mechanically to lower a score.
+
+Keep lock/effect order, authority, error/wait classification and rollback behavior
+unchanged. Check the changed functions with the existing complexity gate against
+their real preimage and run the affected behavioral tests (real PG for changed
+transaction/locking paths). New helpers must meet the normal cap. Existing
+baseline and exceptions cannot be regenerated to accept an increase. Record the
+remaining function identities in the existing report/change context as each
+slice finishes; all 58 retain the same single outcome until <=20 or a substantive
+narrow exception resolves each. Do not broaden this into the >10 preferred debt
+or repeat accepted Rust/TypeScript reductions. No functional factory parent must
+finish before a behavior-preserving simplification of an available owner.
+
 Existing excess is recorded in `tools/source-complexity/baseline.json`, from its
 exact `revision`. A changed function cannot exceed either that baseline or its
 score in the comparison revision. Reductions therefore cannot be regained in a

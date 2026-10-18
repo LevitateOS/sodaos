@@ -11,6 +11,12 @@ approval screens. System One judgments should help choose among sensible options
 throughout the process, while code determines eligibility, enforces authority and
 accounts for effects and spending.
 
+The later [feed design](../design/factory-feed-and-ralph-integration.md) additionally
+adopts combined subscribed activity with newest posts first and persisted user
+comments that agents can use for linked plans/issues. That direction supersedes
+any per-project-only presentation assumption here; existing scope, grants and
+consequential product decisions still govern effects.
+
 This records the owner's direction from the October 11, 2026 phone call.
 Implementation is pending. It supplements the
 [Factory implementation plan](factory-implementation-plan.md) and

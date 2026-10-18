@@ -48,6 +48,18 @@ records their scope and source revisions.
 
 ## Factory MCP role interface
 
+The adopted [feed/comment direction](../design/factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work)
+adds one combined subscribed feed, newest posts first, with persisted human
+comments that admitted agents can use to produce linked plans/issues. These are
+target additions under R30–R32/R42/R43 and the existing planning/adoption owners,
+not a claim that those handlers are implemented. Human comments use authenticated
+user permissions; subscriptions filter authorized reads and grant no authority.
+Agent context retains the comment's author/scope/revision as untrusted input.
+Derived work records its source discussion and observable result/failure through
+the existing dispatch and conditional issue/graph owners. Commenting itself needs
+no new per-comment approval and does not automatically dispatch work. Trigger and
+subscription details remain the finite choices in the owning design.
+
 This is a target interface, pending the native proofs and production tasks in the
 [workflow plan](../development/factory-workflow-plan.md#fw-refine-003-dependency-ordered-tasks).
 One Go MCP implementation runs in the existing `soda-dashboard` process on a
@@ -207,6 +219,11 @@ both exact comment revisions in Soda's acceptance action. Proposed prerequisites
 likewise become native dependencies before adoption. Factual resolutions can use
 already approved source evidence under the product rules. Do not add unattended
 issue-comment writes or treat a Soda-local answer as an accepted native comment.
+
+The new feed discussion can inform a draft or an authorized plan/issue request;
+it does not impersonate these native comment revisions or independently resolve
+a consequential product acceptance. Preserve that distinction when linking a
+feed comment to the resulting native issue and its existing decision route.
 
 Retained `soda-factory` operator commands use a private Unix endpoint on this same
 backend: `POST /operator/factory` with the command envelope and `status`, `stop`

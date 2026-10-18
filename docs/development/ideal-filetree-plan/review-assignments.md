@@ -4,6 +4,18 @@
 
 Human-directed finite wind-down supersedes prior dispatch/concurrency/continuation instructions. No coordinator, worker, worktree, timer or automation is to be launched from the retained assignments below. Current AGENTS.md anti-bureaucracy controls procedural conflicts. Review-002 already selected admitted harness pins for first proof: remove the superseded “pin decision needed” hold; exact binaries, aligned tools and funded native evidence remain missing inputs. The [single remaining-outcome record](../factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) distinguishes those engineering/external inputs and optional design choices. Language/package and all-page-design decisions in GUIDANCE-01–08 are unchanged.
 
+The subsequent authorized second pass prepares executable documentation only.
+The [execution guide](../factory-remaining-tasks.md#how-to-execute-the-remaining-work)
+supersedes old staffing, blanket review and wave instructions below; small-model
+manageability is aspirational, not a qualification gate. The owner additionally
+adopted one combined subscribed feed with newest posts on top and persisted user
+comments that agents can use to make linked plans/issues. The
+[feed contract](../../design/factory-feed-and-ralph-integration.md#subscriptions-comments-and-executable-work)
+owns those capabilities and the remaining subscription/trigger choices. The older
+per-project-feed starting proposal is superseded. Subscription grants no access,
+and existing execution authority governs derived work without a new approval for
+every comment. These changes refine existing R IDs; no implementation is dispatched.
+
 ## Current release guidance reconciliation (2026-10-16)
 
 The owner's current Docker installer instruction adds a streamed consumer to the

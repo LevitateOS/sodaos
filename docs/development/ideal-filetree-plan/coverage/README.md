@@ -1,5 +1,26 @@
 # Coverage index
 
+## Executable residual — Filetree R02
+
+Ready for scoped documentation work. Start from the actual pinned inventories/maps
+below and `maps/release-docker-current.md`, then compare their source ranges to the
+chosen current revision with `git diff --name-status <pin>..<revision>`. Subtract
+already mapped scoped deltas; the documented accumulated components-v4/pre-730fc205
+gap and any later unmapped paths are the work, not another review of unchanged
+leaves. Process one subsystem's changed duties at a time in its existing map,
+inventory and desired-tree chapter. Trace the real entrypoint/caller and canonical
+data/type owner, record retained/moved/removed destination and any substantial
+large-file concern, and reconcile affected cross-owner joins and links.
+
+Release a source-to-duty/destination mapping for each affected leaf, with its exact
+range and no duplicate owner. Use changed-path membership, source-reference and
+link checks to establish that bounded coverage; an uninspected body remains
+explicitly uninspected. Historical body/independent/native pins are not advanced
+by structural accounting. A discovered implementation defect belongs to its
+existing Factory/Canlang/maintenance outcome or a concrete unresolved finding,
+not a new parallel queue. Completion requires all accumulated missing coverage
+to be accounted for; this executable preparation does not claim that refresh.
+
 ## Wind-down integration batch (18 October 2026)
 
 Exact source range: `ad4603f9..51ba6d2f`, 20 changed paths, including three added documents. This is one bounded source/duty reconciliation, separate from historical whole-tree/body/native pins and older accumulated coverage gaps. No unchanged-source checks are repeated.
