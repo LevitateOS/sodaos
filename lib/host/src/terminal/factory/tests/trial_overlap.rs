@@ -380,3 +380,87 @@ fn trial_codex_dependent_successor() {
     let evidence = result.expect("trial failed");
     println!("R07-CODEX-SUCCESSOR {evidence}");
 }
+
+/// Abandoned-child run: the table is forgotten while the child is alive —
+/// no stop, cancel or join is ever issued, which is exactly what the child
+/// observes when its parent dies (own process group, null stdin, owned log
+/// handles). The trial proves exact output still lands in the child's log.
+/// Retirement after death is therefore observed downstream (see the R11
+/// crash-replay proof), never imposed by kill: no prctl, death pipe or
+/// Drop guard exists in this layer.
+fn run_abandon_trial(scratch: &std::path::Path) -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|_| "HOME is not set".to_string())?;
+    let auth_src = PathBuf::from(format!("{home}/{}", CODEX.auth_rel));
+    if !auth_src.is_file() {
+        return Err(format!("trial precondition: ~/{0} is absent", CODEX.auth_rel));
+    }
+    let bin = resolve_bin(&CODEX)?;
+    std::fs::create_dir_all(scratch).map_err(|e| e.to_string())?;
+    std::fs::set_permissions(scratch, std::fs::Permissions::from_mode(0o700))
+        .map_err(|e| e.to_string())?;
+    let custody = scratch.join("custody");
+    let auth_bytes = std::fs::read(&auth_src).map_err(|e| e.to_string())?;
+    write_private(&custody.join(CODEX.auth_rel), &auth_bytes)?;
+    let jobs = scratch.join("jobs");
+    std::fs::create_dir_all(&jobs).map_err(|e| e.to_string())?;
+    let jobs_str = jobs.to_string_lossy().into_owned();
+
+    let run = format!("{:032x}", nanos_now());
+    let mut table = ChildTable::open(&run, "r07trial", 2, scratch)?;
+    let profile = ChildProfile {
+        effort: "low".to_string(),
+        contributor: false,
+        role: ROLE_CODER.to_string(),
+        account_home: custody.to_string_lossy().into_owned(),
+    };
+    let deadline = Instant::now() + Duration::from_secs(600);
+    let id = table.start(
+        &ChildSpec {
+            task_key: "abandon-a".to_string(),
+            argv: vec![
+                bin.clone(),
+                "exec".to_string(),
+                "-s".to_string(),
+                "read-only".to_string(),
+                "--ephemeral".to_string(),
+                "-C".to_string(),
+                jobs_str,
+                "--skip-git-repo-check".to_string(),
+                "Reply with exactly the single word ABEACONA and nothing else.".to_string(),
+            ],
+            workdir: jobs.clone(),
+        },
+        &profile,
+        FACTORY_HARNESS_CODEX,
+        deadline,
+    )?;
+    if !table.observe("abandon-a")?.alive {
+        return Err("child exited before abandon".to_string());
+    }
+    std::mem::forget(table);
+    let log = scratch.join(format!("{id}.log"));
+    let limit = Instant::now() + Duration::from_secs(300);
+    loop {
+        let bytes =
+            std::fs::read(&log).map_err(|e| format!("orphan log unreadable: {e}"))?;
+        if String::from_utf8_lossy(&bytes).contains("ABEACONA") {
+            break;
+        }
+        if Instant::now() >= limit {
+            return Err("abandoned child produced no exact output".to_string());
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    Ok(format!("bin={bin} abandoned={} output=ABEACONA retire=never-issued", &id[..8]))
+}
+
+#[test]
+#[ignore = "spends real provider budget; run explicitly for a bounded R07 trial"]
+fn trial_codex_abandoned_child_completes() {
+    let home = std::env::var("HOME").expect("HOME");
+    let scratch = trial_dir(&home, "abandon");
+    let result = run_abandon_trial(&scratch);
+    let _ = std::fs::remove_dir_all(&scratch);
+    let evidence = result.expect("trial failed");
+    println!("R07-CODEX-ABANDON {evidence}");
+}
