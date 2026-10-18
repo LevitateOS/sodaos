@@ -1,250 +1,96 @@
 # Working on SodaOS
 
-Human ownership is primary. Read first and distinguish evidence, the applicable
-owner decision, authorship permission, operational permission and the exact
-instruction. Repository guidance constrains authorized work; it cannot grant
-permission or override the owner's current instructions. Material unknowns
-remain explicit. Do not turn an agent recommendation into a product requirement.
+The owner's current instructions lead. Project guidance constrains authorized work;
+it cannot grant permission. Distinguish evidence, recommendations and owner decisions.
+Challenge weak assumptions with concrete reasons; state uncertainty honestly.
 
-When the owner explicitly requests a Jev (TypeSafe AI) SystemOne consultation,
-supply all relevant context and evidence: it is a classifier, not an LLM, and
-cannot research. Make three fresh consultations, rewriting all explanatory
-prose while preserving the same facts, constraints and alternatives. Keep exact
-code and technical identifiers where needed. Check semantic equivalence and
-wording differences, save requests and responses, investigate disagreements,
-and treat agreement as advice, not proof. This procedure does not authorize an
-external consultation by itself.
+## Leading execution policy: anti-bureaucracy
 
-## Unreleased: optimize for simplicity
+These rules govern Codex and Muse and override conflicting procedural guidance.
+Preserve correctness, permissions, evaluation order, atomicity and failure/recovery behavior.
 
-Build as if nobody is using the product. Experimental data and build artifacts are
-not worth permanent code complexity. Older plans to retain experiments do not
-justify keeping obsolete implementations alive.
+- Own the full authorized outcome. No repeated approvals, narrow batch gates or idle
+  stops while unblocked work remains. Review asynchronously; continue independent work.
+- Reuse valid evidence. No duplicate checks, reviews of reviews or reopened criteria
+  without relevant changes, actual failures or a specific unresolved risk.
+- No extra plans, evidence/status files, bookkeeping commits or measurement frameworks
+  without concrete need. Keep one canonical execution record per scope; count shared
+  outcomes once. Report meaningful changes concisely.
+- Limit routine coordination to five minutes per transition, then continue independent
+  work if a conflict remains. This does not limit necessary engineering or safety work.
+- Every blocker names the missing prerequisite, owner, release condition and affected
+  work. Resolve authorized setup yourself; generic “operator-owned” is insufficient.
+- Distinguish requested, sent, acknowledged, executing and verified. Separate partial
+  work, source checks and full acceptance. Never infer execution from dispatch or invent
+  completion percentages. Save coherent completed work at safe boundaries.
 
-- **One current implementation.** Replace obsolete code, formats, callers and test
-  fixtures together. Do not add legacy readers, compatibility branches, migrations
-  or version negotiation for unreleased experiments unless the owner explicitly
-  requires them. A format identifier can reject old input without supporting it.
-- **Solve the requested problem, not a larger imagined one.** Implement the current
-  working path first. Add other paths only for demonstrated failures, actual callers
-  or explicit requirements. Briefly note useful unresolved concerns; do not build
-  speculative recovery, fallback or prevention subsystems around them.
-- **Removal should remove code.** A removal or simplification request is not a reason
-  to add compatibility scaffolding or a subsystem that checks the removed feature
-  never returns. Count moved/new equivalents when assessing complexity. If the
-  solution grows instead of simplifying, reconsider it before expanding the patch.
-  Do not weaken necessary verification or merely compress code to improve LOC totals.
-- **Use mature upstream implementations directly.** Check the selected version and
-  actual Soda caller before adding an adapter or declaring a limitation. Do not
-  recreate an upstream service, protocol or state machine for an optional feature;
-  drop or defer the feature when its maintenance cost outweighs its value.
-- **The owner's limited weekly token budget is a hard engineering constraint.**
-  Before costly investigation, implementation or execution, identify the unresolved
-  fact, the evidence the action will produce, and the cheapest sufficient way to
-  obtain it. Reuse evidence, artifacts and test drivers. Prove critical native
-  integration assumptions before building orchestration around them. Do not turn a
-  narrow request into a broad audit, test framework or documentation project.
-  Reconsider the approach when failures invalidate its assumptions; do not merely
-  keep patching the chosen plan. Stop once sufficient evidence exists, and keep
-  reasoning, polling and reporting concise.
-- **Separate development experiments from final qualification.** A failed release
-  run must not be relabeled successful or resumed as a qualified release, but its
-  retained artifacts can support task-scoped, explicitly non-qualifying development
-  checks without another approval. Driver-only debugging does not inherently
-  require rebuilding shipping bytes. Use the smallest applicable development target;
-  run full production qualification when its prerequisites are demonstrated, not as
-  the default debug loop.
+## Scope and protection
 
-## Working style
+- Work in the canonical `~/Projects/sodaos` checkout; no worktrees unless requested.
+  Inspect changes and active writers first. Preserve unrelated work; coordinate actual
+  overlaps without stopping independent work. Leave the predecessor/Updates platform alone.
+- Implementation includes matching code, tests, docs and operational configuration.
+  Installation/deployment requests include necessary builds, transfers, scoped restarts
+  and verification. Read-only review does not authorize mutation. Do not infer permission
+  to publish, push, open PRs, merge, contact others or perform unrelated destructive work.
+  Never amend or rewrite history without permission.
+- **All writes, builds, caches, state and scratch belong under `/home`. The root disk
+  is off-limits, including as a fallback.** Approved privilege use does not change this.
+- Protect credentials and explicitly preserved data. Use restricted secret files; never
+  expose secrets in argv, logs, screenshots or evidence, or request private SSH keys.
+  Back up protected state consistently; never restore over newer protected writes or
+  replay mutations to repair an observer. Use neutral fixture identities, never the
+  owner's personal information or identities derived from local accounts or paths.
+- Clean only identified task-owned resources. Before release cleanup, inspect the active
+  `request.json` and [release reservations](docs/development/release.md#guided-release-operator-flow).
+  Retain reserved outputs/assets/caches until promotion or explicit abandonment; idle
+  resources are not automatically disposable. Preserve canonical assets, licenses and
+  attribution; put generated outputs in ignored `.artifacts/` and keep private inputs untracked.
 
-- Prioritize engineering correctness over agreement. Challenge flawed assumptions
-  and technically weaker proposals directly, including the owner's; explain the
-  concrete tradeoff and recommend the stronger option. Pushback alone is not new
-  technical evidence. When changing a recommendation, identify the evidence,
-  corrected reasoning, requirement or priority that changed it. State uncertainty;
-  do not invent certainty or disagreement. Respect explicit owner decisions within
-  approval, but do not recast a chosen tradeoff as the technically stronger option.
+## Engineering
 
-- **Learn from the M4 execution failure.** The agent wrote roughly 1,500 lines of
-  qualification orchestration before validating critical native boundaries, then
-  repeated approximately 22-minute production builds while those boundaries were
-  unresolved. Passing tests and compliance with a self-selected plan did not justify
-  that sequencing or expense. Review necessity and cost independently of correctness.
-  Authorized implementation leaves routine choices within that scope to the agent;
-  it does not excuse wasteful execution. Own the decision and its rationale; do not substitute
-  agreement for reassessment or frame the owner's status questions as technical
-  pushback. Reassess from available evidence without waiting for the owner to notice
-  waste.
+- This is unreleased software: maintain one current implementation. Replace obsolete
+  formats, callers and fixtures together; no compatibility layers or migrations unless
+  explicitly required. Removals should reduce code, not add replacement scaffolding.
+- Solve demonstrated needs with mature upstream implementations. Verify the selected
+  version and actual caller before adding adapters or claiming limitations. Avoid
+  speculative recovery systems, harnesses and abstractions.
+- Token and build budgets matter. Resolve critical native assumptions before building
+  orchestration. Choose the cheapest sufficient investigation/check; stop once the
+  criterion is established and move on. Failed assumptions require reassessment.
+- Preserve [language/package ownership](docs/development/ideal-filetree-plan/package-ownership.md)
+  and [owner language decisions](docs/development/ideal-filetree-plan/ideal-filetree-plan.md#owner-language-policy):
+  network servers use Go, system/privileged applications Rust, no authored Python programs.
+  Planned cutovers are not completed cutovers or permission to port. Resolve conflicts
+  through the [guidance register](docs/development/ideal-filetree-plan/review-assignments.md#guidance-conflicts-and-controlling-decisions).
+- Preserve dependency direction and canonical definitions. No retired packages, forwarding
+  packages, duplicate domain DTOs or forbidden cross-boundary imports. Resolve new
+  ownership before changing it; update affected guidance and architecture assertions together.
+- Follow [complexity policy](docs/development/complexity.md): prefer ≤10, normal maximum 20;
+  exceptions need a narrow cap or existing non-increasing baseline. Exclude tests/generated
+  code; do not split merely to game scores. Use pinned toolchains/locks; avoid incidental upgrades.
 
-- Never put the owner's personal name or other identifying information in source,
-  tests, fixtures, example accounts, generated resource names or documentation.
-  Use neutral synthetic identities such as `soda-tester`. Do not derive fixture
-  names from local usernames, home-directory paths or account profiles.
+## Verification and documentation
 
-- Work in the canonical `~/Projects/sodaos` checkout for this redesign. Do not create or use a worktree unless the owner explicitly changes that preference.
+Test changed behavior, demonstrated failures and relevant permission/destructive boundaries
+with existing focused checks. Keep callers, browser assets and staging connected. Required
+combined/final acceptance addresses genuine remaining criteria, not ritual reruns.
+Development probes may reuse failed-release artifacts but cannot qualify that release.
+Do not rebuild shipping bytes for driver-only debugging without a concrete need.
+SodaOS targets native x86_64; cross-compilation/emulation is not native or installed proof.
 
-- Inspect the working tree first; preserve unrelated changes. Make coherent local
-  changes only within the matching instruction. Make coherent verified local commits when authorized by the task. Push,
-  PR creation, merge and deployment remain distinct operations; an implementation
-  request alone does not imply publication or deployment. Do not amend or rewrite history without explicit permission.
-- Finish the requested work within its authorized scope. Check the current
-  instruction and any existing authorization before asking again. A review or
-  planning request does not authorize implementation or state-changing verification.
-- Use the smallest sufficient investigation and affected-contract checks. A passing
-  receipt supports its stated scope, not a prescribed sequence. Reuse valid evidence;
-  ground required checks in current contracts, source behavior or an explicit user
-  decision. Label optional diagnostic/review choices as recommendations.
-- Update requirements in their owning guide; link to them elsewhere instead of
-  copying rules or appending exceptions. The documentation map below identifies owners.
-  Documentation authority rules live in [docs/README.md](docs/README.md#authority-rules):
-  one canonical owner per subject; product docs are not status trackers; completed
-  plans are absorbed and deleted; research is non-normative.
-- After every merge, refresh the [living ideal file tree plan](docs/development/ideal-filetree-plan/maintenance.md#keeping-the-plan-current-after-every-merge)
-  against the resulting source before considering the merge task complete. Follow
-  its maintenance workflow; implementation remains deferred until time is available.
-- Before assigning a validity review or recommending a port, read the
-  [prepared review input baseline](docs/development/ideal-filetree-plan/review-baseline.md),
-  [guidance conflicts and controlling decisions](docs/development/ideal-filetree-plan/review-assignments.md#guidance-conflicts-and-controlling-decisions),
-  [shared review format](docs/development/ideal-filetree-plan/review-format.md)
-  and [slice assignments](docs/development/ideal-filetree-plan/review-assignments.md).
-  Identify the applicable owner decision. Flag unresolved conflicts before
-  marking a language/ownership correction executable; do not silently select
-  whichever document supports the preferred recommendation.
-- Report changes, checks actually run and remaining limitations concisely. Prefer
-  issues, milestones and Git history for transient status. Detailed receipts belong
-  in history, not additional durable docs.
+Use [docs/README.md](docs/README.md) to find the owning guide; read relevant sections only.
+Keep one owner per requirement, link rather than duplicate, and update affected plan facts
+when responsibilities, paths, dependencies or status change. No unchanged-plan audit.
+Product docs are not status trackers; completed plans are absorbed and removed.
 
-## Permissions and preservation
+Use [testing](docs/development/testing.md), [native support](docs/development/native-support.md)
+and [installation](docs/guides/installation.md) for execution commands and effects;
+[Go](docs/development/go.md), [TypeScript](docs/development/typescript.md) and
+`internal/archcheck` for language/boundary checks. Read the relevant operational guide
+before provisioning, activation, VM or installed checks; these can change real state.
 
-- The small root disk is permanently and completely off-limits, forever. Never put
-  anything on `/`: no builds, state, caches, temp files, installs, cleanups or
-  other writes. Never propose the root disk as an option, a fallback or a
-  shortcut, and never present it as one. The roomy disk (`/home`) is the only
-  workspace. If work cannot be done there, stop and say so instead of reaching
-  for `/`. This covers the root filesystem only; explicitly approved privilege
-  use is unaffected.
-- **Implement requested work.** A request to implement, fix or change software
-  authorizes the matching code, tests, documentation and operational configuration.
-  Make routine engineering choices and complete the work without asking again
-  for permissions already supplied by the task. A read-only review remains a
-  review; a combined review-and-fix request authorizes the requested fixes.
-- **Carry operational intent through to completion.** A deployment or installation
-  request includes the necessary build, transfer, installation, scoped service
-  restarts and verification on the identified target. Do not invent a separate
-  approval queue for each step. Preserve existing data and human processes;
-  inspect unknown effects and choose the smallest sufficient operation.
-- **Respect task scope and current instructions.** The owner's latest instruction
-  supersedes earlier restrictions within its scope. Do not infer permission to
-  push, publish, merge, contact others or perform unrelated destructive work.
-  Ask only when missing intent or target information prevents safe completion,
-  and finish independent work while waiting. A special override phrase is not
-  required for an ordinary direct instruction.
-- **Keep cleanup precise.** Identify exact task-owned resources before cleanup;
-  never broadly prune, recreate roots or guess names against unrelated or
-  protected state. Report partial operations and inspect retained state before
-  choosing a recovery.
-- Before release-related cleanup, read the active workflow's `request.json` and
-  [release reservation contract](docs/development/release.md#guided-release-operator-flow).
-  Preserve its build output, prepared assets and required caches until promotion
-  or explicit abandonment, including while waiting for CI or user approval.
-  An idle directory or absence of open descriptors does not prove it is disposable.
-- Protect credentials, unrelated work and any state the owner explicitly requires
-  keeping. Take consistent backups when that protection requires them; do not create
-  a preservation programme for disposable experiments. Never blindly restore an old
-  database over protected later writes or replay a mutation to repair an observer.
-- Use restricted secret-file inputs. Never expose credentials in source, argv, logs,
-  screenshots or evidence, or request a developer's private SSH key for onboarding.
-  Full container inspection and provisioning outputs can contain secrets.
-- Distinguish authored checks, local tests, native builds and installed evidence.
-  SodaOS targets x86_64 only; [Release architecture](docs/architecture/release.md#architectures)
-  owns platform scope. Cross-compilation/emulation is not native proof.
-
-## Code and tooling
-
-- Apply the [shared complexity policy](docs/development/complexity.md) to authored
-  Go, Rust and TypeScript production functions: prefer ≤10, normal maximum 20.
-  Higher scores require a narrow capped justification or an existing non-increasing
-  baseline. Exclude tests/generated/dependency code; never split merely to game scores.
-
-- Follow the [recorded owner language policy](docs/development/ideal-filetree-plan/ideal-filetree-plan.md#owner-language-policy):
-  network-facing servers stay Go; system and privileged applications use Rust;
-  Python is eliminated from Soda-authored tracked programs. Preserve the named
-  Go domain, factory coordinator, store and client/wire owners in
-  [package ownership](docs/development/ideal-filetree-plan/package-ownership.md#boundaries-that-should-remain).
-  A slice can span both languages. Planned target paths and retained Rust owners
-  do not prove that a cutover has landed or authorize porting code.
-  The [Go ownership guide](docs/development/go.md) owns applicable Go house style,
-  package placement and SQL locality; its stale placement/cutover claims are
-  recorded in the guidance conflict register, not blanket language instructions.
-  The [TypeScript guide](docs/development/typescript.md)
-  owns JS-family language, strict typing, Bun workspace and asset-porting conventions.
-  Versions belong in source manifests/locks; avoid incidental upgrades.
-- Preserve established ownership, dependency direction and canonical definitions.
-  The [living target tree](docs/development/ideal-filetree-plan/proposed-tree.md)
-  records proposed package moves, consolidation and splits; current paths remain
-  current until their cutover is inspected. Applicable Go boundaries are described
-  in [Go ownership](docs/development/go.md) and checked by `internal/archcheck`
-  (`go test ./internal/archcheck/`).
-  Never recreate a retired package name, add a forwarding/alias package
-  between internal packages, duplicate a domain DTO, or add a cross-boundary
-  import the arch test forbids. If a change genuinely needs new ownership,
-  first resolve its applicable owner decision and exact target allocation.
-  A later authorized implementation must update affected owning guidance and
-  architecture assertions together; this instruction does not authorize that patch.
-- Test the changed working path, demonstrated failures and relevant authorization or
-  destructive-operation boundaries. Do not invent exhaustive hypothetical test matrices
-  or new harnesses where existing tests suffice. Keep callers, generated browser assets
-  and staging wired together.
-- Generated outputs belong in ignored `.artifacts/`; private inputs stay untracked.
-  Preserve canonical `assets/`, attribution and licenses. Leave the separate
-  predecessor repository and its Updates platform outside this work.
-
-## Commands
-
-Run from the repository root with the pinned toolchain and documented prerequisites.
-Choose checks for the change; this table is not a mandatory sequence.
-
-| Command | Purpose |
-| --- | --- |
-| `bun install --frozen-lockfile` | Install the locked workspace dependencies. |
-| `go test ./internal/factory` | Example focused Go package test; select the affected package/tests. |
-| `bun run typecheck` | Strict TypeScript and Lit checks. |
-| `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and changed-function complexity (preferred ≤10, normal maximum 20; see [complexity policy](docs/development/complexity.md)). |
-| `bash scripts/check-no-python.sh` | Zero-Python gate: no tracked `.py`, no Python shebang/execution (see [Python elimination](docs/development/python.md)). |
-| `bash scripts/check-gofumpt.sh` / `check-staticcheck.sh` / `check-errcheck.sh` | Go format (gofumpt), staticcheck, and unchecked-error lint; linux analysis for the last two. |
-| `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |
-| `bun test tests/forgejo/cockpit-branding.test.ts` | Independent stock-Cockpit branding source/component checks. |
-| `bun run check:source` | Broad Go, TypeScript and browser source checks, including the zero-Python gate. |
-| `bash scripts/check-native.sh ARCH CANDIDATE_DIR` | Verify a soda-build candidate artifacts directory; does not build, install or publish. |
-
-Native candidate production uses `soda-build` from `lib/soda-release-tools`;
-follow the [native support guide](docs/development/native-support.md) for its
-admitted inputs and effects.
-
-`ARCH` is `x86_64`, as defined by [platform scope](docs/architecture/release.md#architectures).
-Read the deployment/support guides before using install/activation, provisioning,
-VM tools or `tests/installed/`; they can change real state. Provisioning output
-contains sensitive password hashes.
-
-## Task-specific documentation
-
-Read the owning guide before changing its contracts, not this entire list.
-Architecture owns product/security boundaries; feature guides own their details.
-Service/image source in `system/host/services/` and `system/project/` establishes topology.
-
-| Area | Guide |
-| --- | --- |
-| Documentation map and authority | [docs/README.md](docs/README.md) |
-| Audit guidance conflicts, ownership and review format | [Guidance register and assignments](docs/development/ideal-filetree-plan/review-assignments.md#guidance-conflicts-and-controlling-decisions), [Review format](docs/development/ideal-filetree-plan/review-format.md) |
-| Target language, package and cutover decisions | [Ideal file tree policy](docs/development/ideal-filetree-plan/ideal-filetree-plan.md#owner-language-policy), [Package ownership](docs/development/ideal-filetree-plan/package-ownership.md), [Port assessment](docs/development/ideal-filetree-plan/port-assessment.md) |
-| Go package ownership and style | [Go ownership](docs/development/go.md), [package convention](docs/development/go-packages.md) |
-| Product scope and ownership | [Architecture](docs/architecture/overview.md), [Spaces](docs/product/spaces.md), [Scope](docs/product/scope.md) |
-| Networking and Tailnet | [Networking](docs/architecture/networking.md) |
-| Forgejo customization and UI | [Forgejo](docs/reference/forgejo.md), [Lit](docs/development/lit.md), [TypeScript](docs/development/typescript.md) |
-| Python elimination record | [Python elimination](docs/development/python.md) |
-| Project runtime and access | [Project OS](docs/reference/project-os.md), [Terminal](docs/reference/terminal.md), [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md) |
-| Cockpit and operator setup | [Cockpit](docs/development/cockpit.md), [Operator setup](docs/guides/operator-setup.md) |
-| Release | [Release architecture](docs/architecture/release.md), [Release workflow](docs/development/release.md) |
-| Build, deployment and native tools | [Installation](docs/guides/installation.md), [Testing](docs/development/testing.md), [Native support](docs/development/native-support.md) |
-| Browser screenshots | [Screenshot capture](docs/design/screenshot-capture.md); use `scripts/screenshot.ts`. |
-| Local fixture access | [Local testing](docs/guides/local-testing.md) |
+Only when explicitly requested, consult Jev/SystemOne with complete supplied context:
+it cannot research. Make three fresh, semantically equivalent consultations with rewritten
+prose and unchanged technical facts; retain requests/responses, investigate disagreements,
+and treat agreement as advice rather than proof. This grants no external-call permission.
