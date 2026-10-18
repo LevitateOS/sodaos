@@ -72,6 +72,46 @@ qualified components before R51. R54 must not wait for P30/G4, and P27/P28
 producer/source admission must not wait for the matching-release Create/boot
 check it supplies; that installed subcriterion is consumed at P30/R52.
 
+## Priority by downstream effort saved
+
+At source `928761ac`, prioritize bounded units that remove shared blockers or
+repeated setup, diagnosis, capture and integration work. This ranks the existing
+67 outcomes, without a new queue, score, benchmark or gate. **Do not finish an
+entire band before taking an independent useful slice.** Actual prerequisites
+still control; unavailable fixtures/provider inputs hold only their consumers.
+Canlang IDs identify producer outputs needed by Soda, not assignments or messages
+to the Canlang repository.
+
+**First actionable unit: R47's MCP transport-fixture clock boundary.** Bind request
+digests to the actually admitted fixture capability instead of recalculating its
+deadline in `internal/web/api/factory_mcp_test.go::catalogPayload`. Extend the
+existing transport proof across that clock boundary while retaining intentional
+stale-scope refusal. [R47](factory-remaining-tasks/05-experience-and-development.md#r47)
+records the observed failure: required CI failed during consolidation, followed
+by another successful publication cycle taking 201 seconds. This is concrete
+avoidable repeat work, not a measured failure rate. The bounded fixture repair
+comes before larger integration; it does not require finishing R47, repairing
+every Deep-CI failure or changing production admission.
+
+| Priority / existing outcomes, each counted once | Next sequence or branch | Effort saved, prerequisites and risk |
+| --- | --- | --- |
+| 1 — R47 (1) | Fix the clock-boundary fixture; triage other recorded failures when they obstruct the selected consumer. Full composition stays late. | Remove an observed false refusal/publication retry through a small test change; no new build system or broad cleanup. |
+| 2 — R03–R11, R30, R31, R44; Canlang P09, P14 (14) | Next prefer ready R10 typed ingress and R31 bounded projections. Independent branches: R03 → R04 → R05; R07 pin/driver preparation → R08 → R09; R06 custody. Their outputs release R44, R30 activation and R11 composition. P14 assumption proof and native P09 are independent producer work. | Shared authority, result envelopes, receipts/context and custody avoid repeated diagnosis/setup assumptions. R31 projections can precede live R30. Native/harness proofs cost more and need actual inputs, but early failure prevents downstream rework. P14 retires storage/lifetime risk; a native rewrite is not assumed faster. |
+| 3 — R12–R20, R32, R33, R35, R42, R43 (14) | R12/R13 and R14 → R15 → R16 → R17 → R18, then R20/R19; attach R33 output and R35 settlement. Pull R32 persisted communication and R42 query preparation forward; R43 consumes their actual records. | Connecting the existing task journal through `ImportTaskEvents` to Store/checkpoints removes manual result stitching. Reuse one authorized read/comment path for roles and screens. Preserve the combined subscribed newest-first feed and user comments → linked plans/issues/results. Full native acceptance waits for actual consumers. |
+| 4 — R21–R29, R34, R36–R41 (16) | Review/correction/checks → merge → dependency release → reassessment/adoption, then stall/delivery verification and recovery. R36's ready slice can start after R10/R14 outputs; formal finish controls join their existing effect owners. | Reduce manual reconciliation on each finding, merge, stall and retry. `ValidateReassessmentAdoption` needs its production caller, not another validator. Authority, spending and crash custody make this higher-risk composition; reuse accepted mechanisms and prove changed joins. |
+| 5 — R45, R46, R50; Canlang P15, P16, P25, P26, P27/P28, P29 (9) | Ready R50 can proceed independently. R03/R06/R44 release R45 → R46. Consume P14 → P15/P16 → P25 → P26 → P27/P28 and P29. Share an applicable private-client fixture with P22. | Establish reusable component/tool/image identities and procedures before candidate assembly, avoiding builds that merely discover storage/offline/lifetime assumptions. Native cutover is substantial work. Retain scoped RCX/Miniflare evidence without treating it as replacement proof; remote access holds only its cases. |
+| 6 — R48, R49, R54, R51, R52, R53, R55; Canlang P30 (8) | R48 cases as role consumers become ready; complete R47 composition/R49 journey. Then R54 freeze → R51 candidate → P30/R52 installed journey → R53 public bytes → R55. | Group bounded provider trials by actual configuration; reuse component proof and one matching candidate to avoid duplicate build/install/capture loops. Real qualification and external authority remain required. P31/G4 aliases R52; P32 aliases R55. |
+| 7 — Canlang P08, P10, P22 (3) | Obtain the selected R2/provider contract or actual client/route/trust input when its dependent scope needs it; promote the available concrete slice. | Resolve actual waits without speculative adapters/substitute clients. P22 gates claimed remote access; P08/P10 do not become universal first-app release gates. |
+| 8 — BROAD-COMPLEXITY-037, Filetree R02 (2) | Take a cohesive simplification or missing duty map when it materially eases the next selected change; otherwise follow the branches above. | Comprehension benefits are plausible, not measured throughput gains. No whole-tree refactor/audit first; keep the 58-function residual and historical coverage gap explicit. |
+
+Release useful outputs without waiting for siblings. Existing fixtures, journals,
+read models and focused checks are the reuse opportunities, not a new capture
+service or wrapper framework. Apart from the observed CI cost and inspected
+missing caller/read/activation joins, savings are engineering hypotheses.
+Provider availability and first native storage/harness results may change the
+cheapest next branch. Optional L16/CA/structural proposals stay outside the 67;
+this ranking neither adopts them nor reopens accepted components.
+
 ## Historical planning inputs and preserved evidence
 
 The former Factory baseline/workflow/experience, extension, RCX, frontend,
