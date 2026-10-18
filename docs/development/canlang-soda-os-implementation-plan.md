@@ -2,7 +2,7 @@
 
 ## Wind-down status — 18 October 2026
 
-Execution is stopped. The [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) contain every unmet P outcome and its shared factory/release consumers; no second queue is dispatched here. Historical app/domain/UI and local Miniflare evidence remains accepted at its exact scope. Direct-workerd P14–P16 and affected P25–P29 are planned/unproved replacement work; P08/P09/P10, real-client P22, P30/P31/G4 and plan absorption retain explicit unmet criteria. Existing source/native component receipts are not reopened or promoted to full candidate acceptance.
+Execution is stopped. The [canonical remaining outcomes](factory-remaining-tasks.md#consolidated-remaining-outcomes--execution-stopped) contain every unmet P outcome and its shared factory/release consumers; no second queue is dispatched here. P27/P28 share one matching runtime/tools admission outcome; P31/G4 is a consumer of factory R52, and P32 final plan absorption is a consumer of R55 after G4 (R54 owns the earlier shipping-source documentation freeze). Historical app/domain/UI and local Miniflare evidence remains accepted at its exact scope. Direct-workerd P14–P16 and affected P25–P29 are planned/unproved replacement work; P08/P09/P10, real-client P22, P30/P31/G4 and plan absorption retain explicit unmet criteria. Existing source/native component receipts are not reopened or promoted to full candidate acceptance.
 
 **Runtime replacement planned 18 October 2026 · historical native evidence from 14 October 2026**
 

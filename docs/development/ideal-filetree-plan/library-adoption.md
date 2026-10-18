@@ -1,5 +1,9 @@
 # Library adoption within the existing implementation plan
 
+## Consolidated disposition
+
+This chapter is a retained contract/evidence owner. Completed library/caller source cuts are not remaining tasks. The [canonical remaining outcomes and aliases](../factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes) own shipped/native/provider/installed consumers and the single Filetree R02 coverage remainder; optional L16 and CA-profile choices are separately excluded proposals. Old pending generic-engine/decomposition and lane prose below must not become a second adoption queue.
+
 The selected priority is to repair concrete correctness defects and replace
 handwritten generic infrastructure before further decomposition of that
 infrastructure. The [task list](implementation-tasks.md) and

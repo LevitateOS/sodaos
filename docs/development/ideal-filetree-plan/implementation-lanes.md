@@ -1,5 +1,9 @@
 # Parallel implementation schedule
 
+## Schedule retired at wind-down
+
+There are no active A/B/C assignments or continuation lanes. The [canonical remaining outcomes and aliases](../factory-remaining-tasks.md#counts-and-aliases) own all current work, holds and acceptance; this chapter retains historical handoffs and source responsibility only. Its first-principles/native/frontend/Docker schedules below must not be dispatched as another queue. Their remaining native, installed, release and coverage consumers are mapped once in the catalog.
+
 ## Current Docker release handoff (2026-10-16)
 
 The [current handoff](implementation-tasks.md#current-docker-release-handoff-2026-10-16)

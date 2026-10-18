@@ -1,5 +1,9 @@
 # Fountain and Soda correctness implementation tasks
 
+## Consolidated disposition
+
+The 18 accepted task scopes remain accepted. The sole remaining V03 managed-account requirement is an explicit human/provider input to R44/R48/R49 in the [canonical remaining catalog](../factory-remaining-tasks.md#requirement-aliases-and-shared-consumers--not-additional-outcomes). The 19-task chapter preserves original contracts/evidence, not another live task list. Historical continuation and qualification sequences below do not restart implementation.
+
 Prepared **2026-10-10** from the product-objective review and subsequent source review. This chapter orders the newly identified corrections; it supplements the existing [factory implementation plan](../factory-implementation-plan.md) and [implementation task list](implementation-tasks.md). It does not reset completed tasks or certify the whole repository.
 
 This is a planning deliverable. Writing it does not authorize implementation, commits, provider calls, appliance operations or deployment. The implementing chat must apply its existing direct authorization and repository instructions to each operation.
