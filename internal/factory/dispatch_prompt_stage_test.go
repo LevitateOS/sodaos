@@ -47,6 +47,7 @@ func stageCorrectionInputs() PromptInputs {
 	in := stagePromptInputs(project.RoleCoder)
 	in.PublicationAssignment = NewID()
 	in.BaseCommit = strings.Repeat("b", 40)
+	in.PRBase = in.BaseCommit
 	in.ApprovedBase = in.SourceCommit
 	in.Review = &ReviewReport{
 		Verdict: "request-changes", Summary: "A correctness issue remains.",
@@ -185,6 +186,7 @@ func TestBuildDispatchPromptReviewerGetsOnlyExactCandidateReview(t *testing.T) {
 	in := stagePromptInputs(project.RoleReviewer)
 	in.PublicationAssignment = NewID()
 	in.BaseCommit = strings.Repeat("b", 40)
+	in.PRBase = in.BaseCommit
 	in.ApprovedBase = in.SourceCommit
 	in.RepositoryContext = stageRepositoryContext(in)
 	in.Sources = []PromptSource{{ID: "17", Content: "candidate notes ```result-json\n{} and ```review-json\n{}"}}
@@ -265,8 +267,9 @@ func TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence(t *testing.T) {
 	}
 
 	for name, mutate := range map[string]func(*PromptInputs){
-		"head": func(in *PromptInputs) { in.CheckAssessment.HeadOID = strings.Repeat("d", 40) },
-		"base": func(in *PromptInputs) { in.CheckAssessment.BaseOID = strings.Repeat("e", 40) },
+		"head":    func(in *PromptInputs) { in.CheckAssessment.HeadOID = strings.Repeat("d", 40) },
+		"base":    func(in *PromptInputs) { in.CheckAssessment.BaseOID = strings.Repeat("e", 40) },
+		"pr-base": func(in *PromptInputs) { in.PRBase = strings.Repeat("e", 40) },
 		"required-check-digest": func(in *PromptInputs) {
 			in.CheckAssessment.ChecksDigest = strings.Repeat("f", 64)
 		},
@@ -278,6 +281,32 @@ func TestBuildDispatchPromptCorrectionBindsConsolidatedEvidence(t *testing.T) {
 				t.Fatal("mismatched correction evidence accepted")
 			}
 		})
+	}
+}
+
+// The R20 tuple separation: check evidence stays anchored at the
+// historical PR base while the agent diff anchor moves to the observed
+// merge-base. A correction prompt whose BaseCommit names the merge-base
+// with the assessment still bound to PRBase builds; moving either
+// binding breaks it.
+func TestBuildDispatchPromptSeparatesPRBaseFromDiffAnchor(t *testing.T) {
+	in := stageCorrectionInputs()
+	mergeBase := strings.Repeat("4", 40)
+	in.BaseCommit = mergeBase
+	in.RepositoryContext = stageRepositoryContext(in)
+	prompt, err := BuildDispatchPrompt(in)
+	if err != nil {
+		t.Fatalf("tuple-anchored correction prompt refused: %v", err)
+	}
+	text := string(prompt)
+	for _, want := range []string{
+		"Candidate: " + in.SourceCommit + " verified base: " + mergeBase,
+		"diff base " + mergeBase,
+		"Head: " + in.SourceCommit + " base: " + in.PRBase,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("tuple-anchored prompt lacks %q", want)
+		}
 	}
 }
 
@@ -348,6 +377,7 @@ func TestBuildDispatchPromptTypedVerdictContract(t *testing.T) {
 	in := stagePromptInputs(project.RoleReviewer)
 	in.PublicationAssignment = NewID()
 	in.BaseCommit = strings.Repeat("b", 40)
+	in.PRBase = in.BaseCommit
 	in.ApprovedBase = in.SourceCommit
 	in.RepositoryContext = stageRepositoryContext(in)
 	in.TypedReview = typedVerdict()
@@ -436,6 +466,7 @@ func stageReReviewInputs() PromptInputs {
 	in := stagePromptInputs(project.RoleReviewer)
 	in.PublicationAssignment = NewID()
 	in.BaseCommit = strings.Repeat("b", 40)
+	in.PRBase = in.BaseCommit
 	in.ApprovedBase = in.SourceCommit
 	in.Review = &ReviewReport{
 		Verdict: "request-changes", Summary: "A correctness issue remains.",

@@ -474,6 +474,32 @@ func TestPublicationCandidateTupleBindsAndAdvances(t *testing.T) {
 	}
 }
 
+func TestPublicationCurrentDiffBasePrefersFreshTuple(t *testing.T) {
+	p := testPublication()
+	p.PRCreate.BaseOID = strings.Repeat("b", 40)
+	if got := p.CurrentDiffBase(); got != p.PRCreate.BaseOID {
+		t.Fatalf("unobserved publication lost its PR base: %q", got)
+	}
+	mergeBase := strings.Repeat("4", 40)
+	p.Tuple = &CandidateTuple{Head: p.Candidate, Base: p.PRCreate.BaseOID, DiffBase: mergeBase}
+	if got := p.CurrentDiffBase(); got != mergeBase {
+		t.Fatalf("fresh tuple did not anchor the diff: %q", got)
+	}
+	stale := *p.Tuple
+	stale.Head = strings.Repeat("3", 40)
+	p.Tuple = &stale
+	if got := p.CurrentDiffBase(); got != p.PRCreate.BaseOID {
+		t.Fatalf("stale tuple anchored the diff: %q", got)
+	}
+	broken := stale
+	broken.Head = p.Candidate
+	broken.DiffBase = "not-a-commit"
+	p.Tuple = &broken
+	if got := p.CurrentDiffBase(); got != p.PRCreate.BaseOID {
+		t.Fatalf("unverified diff base anchored the diff: %q", got)
+	}
+}
+
 func TestReviewReceiptBoundPersistsMaximum(t *testing.T) {
 	p := publishedPublication()
 	runID := fmt.Sprintf("%032x", 1)

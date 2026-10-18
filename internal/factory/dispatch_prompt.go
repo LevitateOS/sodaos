@@ -28,18 +28,23 @@ type PromptSource struct {
 // head at dispatch; IDs, digests and commits are exact references. No
 // credential or credential-adjacent value enters the prompt.
 type PromptInputs struct {
-	Project               string
-	Sources               []PromptSource
-	Resolutions           []PromptSource
-	Prerequisites         []AcceptedPrerequisite
-	Control               IssueControl
-	Title                 string
-	Body                  string
-	AcceptanceID          string
-	TargetBranch          string
-	SourceCommit          string
-	ApprovedBase          string
-	BaseCommit            string
+	Project       string
+	Sources       []PromptSource
+	Resolutions   []PromptSource
+	Prerequisites []AcceptedPrerequisite
+	Control       IssueControl
+	Title         string
+	Body          string
+	AcceptanceID  string
+	TargetBranch  string
+	SourceCommit  string
+	ApprovedBase  string
+	BaseCommit    string
+	// PRBase is the historical PR creation base anchoring check
+	// evidence. It stays the PR record even when the tuple moves the
+	// current diff anchor in BaseCommit: checks answer the PR base,
+	// the agent diffs against the observed merge-base.
+	PRBase                string
 	PublicationAssignment string
 	Review                *ReviewReport
 	// TypedReview and TypedClear carry the phased current verdict a

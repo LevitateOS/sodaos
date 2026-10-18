@@ -55,7 +55,7 @@ func validatePromptStage(in PromptInputs) error {
 		}
 	}
 	if a := in.CheckAssessment; a != nil {
-		if a.Validate() != nil || a.Repository != in.Repository || a.HeadOID != in.SourceCommit || a.BaseOID != in.BaseCommit ||
+		if a.Validate() != nil || a.Repository != in.Repository || a.HeadOID != in.SourceCommit || a.BaseOID != in.PRBase ||
 			a.BaseRef != in.TargetBranch || a.ChecksDigest != ChecksDigest(in.RequiredChecks) {
 			return errors.New("prompt check evidence does not match its exact candidate and checks")
 		}

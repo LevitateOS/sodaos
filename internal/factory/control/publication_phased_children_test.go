@@ -268,6 +268,68 @@ func TestPhasedProducerLaunchesCorrectionWithSingletonManifest(t *testing.T) {
 	}
 }
 
+// TestPhasedProducerUsesObservedDiffBase proves the R20 prompt conversion
+// on the serving path: before any review the reviewer prompt anchors its
+// diff at the PR creation base, and after the review natively observes a
+// distinct merge-base the corrector prompt anchors at the recorded tuple
+// instead of reconstructing history.
+func TestPhasedProducerUsesObservedDiffBase(t *testing.T) {
+	ctx := context.Background()
+	fx, host, owner, publication, _ := phasedChildProducerSeed(t, 51)
+	if len(host.launches) != 1 {
+		t.Fatalf("initial reviewer launch count = %d", len(host.launches))
+	}
+	reviewerLaunch := host.launches[0]
+	reviewer, err := fx.db.AssignmentByRun(ctx, reviewerLaunch.Run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := publication.PRCreate.BaseOID
+	if !strings.Contains(string(reviewer.Prompt), "diff base "+base) {
+		t.Fatalf("reviewer prompt lost its PR-base diff anchor: %s", reviewer.Prompt)
+	}
+	cycle := phasedReviewCycle(t, ctx, fx, owner, reviewer.ID)
+	_, reviewerRun := settleProducedChild(t, fx, reviewerLaunch.Run.ID, phasedReviewOutput(t, cycle.ID, reviewer))
+	mergeBase := strings.Repeat("4", 40)
+	fx.coord.Reviews = &fakeReviewer{
+		observed: factory.ReviewObservation{NativeRev: 9, ObservedUnix: time.Now().Unix()},
+		outcome:  committedOutcome(`{"review_id":31}`),
+		adopted: factory.ReviewOutcome{
+			ReviewID: 31, CommentID: 32, ReviewerID: 6, PRID: publication.PRID,
+			PRNumber: publication.PRNumber, IssueID: publication.PRCreate.IssueID,
+			HeadOID: publication.Candidate, BaseOID: base, MergeBaseOID: mergeBase,
+			CommitID: publication.Candidate, Event: "REQUEST_CHANGES",
+		},
+	}
+	if _, err := fx.coord.SubmitReviewForRun(ctx, reviewerRun.ID); err != nil {
+		t.Fatalf("submit produced reviewer result: %v", err)
+	}
+	seeded, err := fx.db.PublicationByAssignment(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seeded.Tuple == nil || seeded.Tuple.Head != publication.Candidate || seeded.Tuple.Base != base || seeded.Tuple.DiffBase != mergeBase {
+		t.Fatalf("review adoption seeded no fresh tuple: %+v", seeded.Tuple)
+	}
+	failingPhasedChecks(fx)
+	if report := fx.coord.CheckPass(ctx); len(report.Errors) != 0 {
+		t.Fatalf("check pass: %+v", report)
+	}
+	if len(host.launches) != 2 {
+		t.Fatalf("serving correction undispatched: launches=%d", len(host.launches))
+	}
+	corrector, err := fx.db.AssignmentByRun(ctx, host.launches[1].Run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(corrector.Prompt), "diff base "+mergeBase) {
+		t.Fatalf("corrector prompt missed its observed diff anchor: %s", corrector.Prompt)
+	}
+	if strings.Contains(string(corrector.Prompt), "diff base "+base) {
+		t.Fatalf("corrector prompt kept its stale PR-base anchor: %s", corrector.Prompt)
+	}
+}
+
 func TestPhasedProducerReplaysWithoutRelaunchOrRecharge(t *testing.T) {
 	ctx := context.Background()
 	fx, host, owner, publication, _ := phasedChildProducerSeed(t, 43)

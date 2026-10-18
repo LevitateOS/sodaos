@@ -512,6 +512,21 @@ func (t CandidateTuple) Advance(observedRevision int64, head, base, diffBase str
 	return next, nil
 }
 
+// CurrentDiffBase returns the publication's current diff anchor: the
+// recorded candidate tuple's natively observed merge-base while the tuple
+// is fresh for the current candidate, else the historical PR creation
+// base. A tuple for another head, an unverified diff base, or no tuple
+// all fall back, so unobserved flows keep working, stale snapshots never
+// anchor diffs, and the current anchor is never reconstructed from
+// history. The PR creation record itself never moves; checks, reviews,
+// Jev and merge admission each decide their own base-identity reads.
+func (p Publication) CurrentDiffBase() string {
+	if p.Tuple != nil && p.Tuple.Head == p.Candidate && ValidCommit(p.Tuple.DiffBase) {
+		return p.Tuple.DiffBase
+	}
+	return p.PRCreate.BaseOID
+}
+
 // RefHead returns the branch name without its refs/heads/ prefix, or empty
 // for a malformed ref.
 func RefHead(ref string) string {

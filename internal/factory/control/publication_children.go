@@ -375,7 +375,7 @@ func (c *Coordinator) producePublicationChild(ctx context.Context, p factory.Pub
 		checksPrompt = checks
 	}
 	repositoryContext, contextErr := readRepositoryContext(ctx, c.Host, plan, contextPreparation, role,
-		owner.SourceCommit, p.PRCreate.BaseOID, p.Candidate, false)
+		owner.SourceCommit, p.CurrentDiffBase(), p.Candidate, false)
 	if contextErr != nil {
 		publicationWait(report, p.ID, "native prepared repository context is unavailable or changed")
 		return
@@ -915,7 +915,8 @@ func buildPublicationChildPrompt(plan *attemptPlan, p factory.Publication, owner
 		Project: plan.projectID, Repository: p.Repository, Issue: p.Issue, NativeRev: plan.inputs.Revision,
 		Phase:        phase,
 		AcceptanceID: p.Acceptance, TargetBranch: plan.policy.TargetBranch,
-		SourceCommit: p.Candidate, ApprovedBase: owner.SourceCommit, BaseCommit: p.PRCreate.BaseOID,
+		SourceCommit: p.Candidate, ApprovedBase: owner.SourceCommit, BaseCommit: p.CurrentDiffBase(),
+		PRBase:                p.PRCreate.BaseOID,
 		PublicationAssignment: p.AssignmentID, Preparation: preparationID,
 		RequirementsID: plan.requirement, ApprovalID: plan.approval,
 		Harness: plan.pin.Harness + "-" + plan.pin.Version, Model: selection.Model, Role: role,
