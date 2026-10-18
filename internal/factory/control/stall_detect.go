@@ -78,9 +78,10 @@ type StallInventory struct {
 	Cycles    map[string]string
 	Producers map[string]bool
 	// PriorEvents carries standing stall event IDs with the inventory
-	// digest they bound. New ready work stales an obsolete
-	// investigation before any release.
-	PriorEvents map[string]string
+	// digest they bound, scoped by repository: new ready work stales
+	// only its own repository's obsolete investigation. A global map
+	// would let one repository retire another's events.
+	PriorEvents map[int64]map[string]string
 }
 
 // StallComponentDecision is one classified component.
@@ -333,7 +334,7 @@ func ClassifyStallInventory(in StallInventory) StallClassification {
 		switch {
 		case readies > 0:
 			result.Kind = StallRepositoryReady
-			for id, digest := range in.PriorEvents {
+			for id, digest := range in.PriorEvents[repo] {
 				if digest != in.Digest {
 					result.StalePrior = append(result.StalePrior, id)
 				}
@@ -376,9 +377,10 @@ type StallDetectDeps struct {
 	Paused            map[string]bool
 	ProductChoiceOpen map[string]bool
 	// PriorEvents carries standing stall event IDs with the
-	// inventory digest they bound; the serving round feeds back
-	// the store's latest observation per repository.
-	PriorEvents map[string]string
+	// inventory digest they bound, scoped by repository; the
+	// serving round feeds back the store's latest observation
+	// per repository.
+	PriorEvents map[int64]map[string]string
 }
 
 // DetectRepairStalls runs the D15 detector over the sealed store

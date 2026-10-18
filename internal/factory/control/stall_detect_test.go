@@ -212,7 +212,7 @@ func TestReadyWorkResumesAndStalesObsoleteInvestigation(t *testing.T) {
 		Complete: true,
 		Issues:   []StallInventoryIssue{cyclic, stallQueued(9, 2)},
 		Cycles:   map[string]string{}, Producers: map[string]bool{},
-		PriorEvents: map[string]string{"old-event": stallDigest("h")},
+		PriorEvents: map[int64]map[string]string{9: {"old-event": stallDigest("h")}},
 	}
 	classified := ClassifyStallInventory(in)
 	if len(classified.Repositories) != 1 {
@@ -237,6 +237,55 @@ func TestReadyWorkResumesAndStalesObsoleteInvestigation(t *testing.T) {
 	classified = ClassifyStallInventory(delivered)
 	if len(classified.Repositories) != 1 || classified.Repositories[0].Kind != StallRepositoryVerify {
 		t.Fatalf("delivered=%+v, want verification instead of a stall", classified.Repositories)
+	}
+}
+
+// TestReadyWorkStalesOnlyItsOwnRepository proves prior-event
+// isolation: ready work in one repository never retires another
+// repository's standing events, while its own obsolete
+// investigation still retires.
+func TestReadyWorkStalesOnlyItsOwnRepository(t *testing.T) {
+	in := StallInventory{
+		Generation: 4, Fingerprint: stallDigest("m"), Digest: stallDigest("n"),
+		Complete: true,
+		Issues:   []StallInventoryIssue{stallQueued(9, 1), stallQueued(10, 1)},
+		Cycles:   map[string]string{}, Producers: map[string]bool{},
+		PriorEvents: map[int64]map[string]string{
+			9:  {"e9": stallDigest("o")},
+			10: {"e10": stallDigest("p")},
+		},
+	}
+	classified := ClassifyStallInventory(in)
+	if len(classified.Repositories) != 2 {
+		t.Fatalf("repositories=%+v, want both ready repositories", classified.Repositories)
+	}
+	byRepo := map[int64]StallRepositoryResult{}
+	for _, result := range classified.Repositories {
+		byRepo[result.Repository] = result
+	}
+	if got := byRepo[9]; len(got.StalePrior) != 1 || got.StalePrior[0] != "e9" {
+		t.Fatalf("repo9 stale=%+v, want only its own retired event", got.StalePrior)
+	}
+	if got := byRepo[10]; len(got.StalePrior) != 1 || got.StalePrior[0] != "e10" {
+		t.Fatalf("repo10 stale=%+v, want only its own retired event", got.StalePrior)
+	}
+
+	foreign := StallInventory{
+		Generation: 4, Fingerprint: stallDigest("m"), Digest: stallDigest("n"),
+		Complete: true,
+		Issues:   []StallInventoryIssue{stallQueued(9, 1), stallQueued(10, 1)},
+		Cycles:   map[string]string{}, Producers: map[string]bool{},
+		PriorEvents: map[int64]map[string]string{
+			10: {"e10": stallDigest("p")},
+		},
+	}
+	classified = ClassifyStallInventory(foreign)
+	byRepo = map[int64]StallRepositoryResult{}
+	for _, result := range classified.Repositories {
+		byRepo[result.Repository] = result
+	}
+	if got := byRepo[9]; len(got.StalePrior) != 0 {
+		t.Fatalf("repo9 stale=%+v, want no foreign retirement", got.StalePrior)
 	}
 }
 

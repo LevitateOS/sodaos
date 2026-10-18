@@ -30,9 +30,14 @@ func (c *Coordinator) ServeStallRound(ctx context.Context, report DispatchReport
 	if err != nil {
 		return StallClassification{}, err
 	}
-	prior := make(map[string]string, len(standing))
+	prior := make(map[int64]map[string]string, len(standing))
 	for _, entry := range standing {
-		prior[entry.EventID] = entry.Digest
+		events, ok := prior[entry.Repository]
+		if !ok {
+			events = map[string]string{}
+			prior[entry.Repository] = events
+		}
+		events[entry.EventID] = entry.Digest
 	}
 	classified, err := c.DetectRepairStalls(ctx, StallDetectDeps{
 		Store: c.Store, Generation: generation,

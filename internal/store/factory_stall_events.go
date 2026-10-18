@@ -27,6 +27,7 @@ const (
 // redetected round to the identical row; episode identity stays
 // (repository, generation) by construction of the stored event.
 const FactoryStallEventsDDL = `CREATE TABLE factory_stall_events(
+seq BIGSERIAL UNIQUE NOT NULL,
 repository BIGINT NOT NULL CHECK(repository>0), generation BIGINT NOT NULL CHECK(generation>=0),
 event TEXT NOT NULL CHECK(event ~ '^[a-f0-9]{32}$'),
 episode TEXT NOT NULL CHECK(episode ~ '^[a-f0-9]{32}$'),
@@ -85,9 +86,12 @@ func (s *Store) StallRoundGeneration(ctx context.Context) (int64, error) {
 
 // StandingStallEvents returns the latest bound observation per
 // repository. A fresh round feeds these back as prior events so ready
-// work stales an obsolete investigation before any release.
+// work stales an obsolete investigation before any release. Latest
+// is true observation order (the insertion sequence), never a hash
+// of the observed bytes: R37 must advance the progress generation
+// on verified delivery rather than read recency into this row.
 func (s *Store) StandingStallEvents(ctx context.Context) (map[int64]StandingStallEvent, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT ON (repository) repository, generation, event, data->>'inventory_digest' FROM factory_stall_events ORDER BY repository, generation DESC, fingerprint DESC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT ON (repository) repository, generation, event, data->>'inventory_digest' FROM factory_stall_events ORDER BY repository, generation DESC, seq DESC`)
 	if err != nil {
 		return nil, err
 	}
