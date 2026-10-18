@@ -304,14 +304,20 @@ impl Qualification {
 }
 
 /// Stage exact bytes locally; this does not qualify or publish a release.
-pub fn prepare(
+fn admit_prepare_candidate(
     candidate: &Path,
+    media_path: &Path,
     tag: &str,
     distribution: Distribution,
-    notes_path: &Path,
-    out: &Path,
-) -> Result<Manifest, Error> {
-    let media_path = candidate.join("media/media.json");
+) -> Result<
+    (
+        crate::payload::Payload,
+        crate::model::Candidate,
+        Option<(MediaBinding, String)>,
+        Option<DockerMetadata>,
+    ),
+    Error,
+> {
     if !valid_tag(tag) {
         return Err(failure("exact release tag required"));
     }
@@ -330,7 +336,7 @@ pub fn prepare(
         &c.forgejo_revision,
     )?;
     let media = if distribution != Distribution::Docker {
-        Some(admit_media(&media_path, &payload, &c, tag)?)
+        Some(admit_media(media_path, &payload, &c, tag)?)
     } else {
         None
     };
@@ -343,6 +349,10 @@ pub fn prepare(
     } else {
         None
     };
+    Ok((payload, c, media, docker))
+}
+
+fn admit_release_notes(notes_path: &Path, out: &Path) -> Result<String, Error> {
     let notes = String::from_utf8(crate::document::read_file(
         notes_path
             .to_str()
@@ -354,7 +364,15 @@ pub fn prepare(
         return Err(failure("release notes required"));
     }
     fs::create_dir(out).map_err(|_| failure("new release output directory required"))?;
-    let mut assets = Vec::new();
+    Ok(notes)
+}
+
+fn copy_media_assets(
+    media_path: &Path,
+    media: &Option<(MediaBinding, String)>,
+    out: &Path,
+    assets: &mut Vec<Asset>,
+) -> Result<(), Error> {
     if let Some((media, rootfs)) = &media {
         let parent = media_path
             .parent()
@@ -368,8 +386,18 @@ pub fn prepare(
         {
             return Err(failure("media bytes differ from recorded hashes"));
         }
-        assets.push(copy_asset(&media_path, out, "media.json")?);
+        assets.push(copy_asset(media_path, out, "media.json")?);
     }
+    Ok(())
+}
+
+fn copy_release_payload(
+    candidate: &Path,
+    tag: &str,
+    out: &Path,
+    docker: &Option<DockerMetadata>,
+    assets: &mut Vec<Asset>,
+) -> Result<(), Error> {
     if docker.is_some() {
         for (source, name) in [
             (crate::docker::METADATA_PATH, "docker.json"),
@@ -398,6 +426,15 @@ pub fn prepare(
             &name,
         )?);
     }
+    Ok(())
+}
+
+fn check_release_sources(
+    out: &Path,
+    assets: &[Asset],
+    payload: &crate::payload::Payload,
+    c: &crate::model::Candidate,
+) -> Result<(), Error> {
     for (name, expected) in [
         ("sodaos-source.tar", payload.revision.as_str()),
         ("fountain-source.tar", c.forgejo_revision.as_str()),
@@ -428,12 +465,23 @@ pub fn prepare(
             "Fountain source differs from the compiled candidate",
         ));
     }
+    Ok(())
+}
+
+fn stage_upgrade_receipt(
+    candidate: &Path,
+    payload: &crate::payload::Payload,
+    c: &crate::model::Candidate,
+    media: &Option<(MediaBinding, String)>,
+    out: &Path,
+    assets: &mut Vec<Asset>,
+) -> Result<(), Error> {
     if !payload.upgrade_from.is_empty() {
         let path = candidate.join(crate::upgrade::QUALIFICATION_FILE);
         let receipt = crate::upgrade::load(&path)?;
         receipt.validate(
-            &payload,
-            &c,
+            payload,
+            c,
             &media
                 .as_ref()
                 .ok_or_else(|| failure("upgrade requires appliance media"))?
@@ -447,6 +495,16 @@ pub fn prepare(
             "upgrade qualification requires a declared prospective source",
         ));
     }
+    Ok(())
+}
+
+fn stage_docker_installer(
+    out: &Path,
+    tag: &str,
+    payload: &crate::payload::Payload,
+    docker: &Option<DockerMetadata>,
+    assets: &mut Vec<Asset>,
+) -> Result<(), Error> {
     if docker.is_some() {
         let metadata = assets
             .iter()
@@ -465,22 +523,14 @@ pub fn prepare(
             super::installer::NAME,
         )?);
     }
-    let manifest = Manifest {
-        format: 1,
-        tag: tag.to_owned(),
-        soda_revision: payload.revision,
-        forgejo_revision: c.forgejo_revision,
-        distribution,
-        docker,
-        iso: if media.is_some() {
-            ISO_NAME.to_owned()
-        } else {
-            String::new()
-        },
-        rootfs: media.map(|(_, rootfs)| rootfs).unwrap_or_default(),
-        notes,
-        assets,
-    };
+    Ok(())
+}
+
+fn finalize_release_manifest(
+    manifest: Manifest,
+    candidate: &Path,
+    out: &Path,
+) -> Result<Manifest, Error> {
     manifest.validate()?;
     write_json(&out.join("release.json"), &manifest)?;
     #[derive(Serialize)]
@@ -503,6 +553,42 @@ pub fn prepare(
     )?;
     write_checksums(&manifest, out)?;
     Ok(manifest)
+}
+
+pub fn prepare(
+    candidate: &Path,
+    tag: &str,
+    distribution: Distribution,
+    notes_path: &Path,
+    out: &Path,
+) -> Result<Manifest, Error> {
+    let media_path = candidate.join("media/media.json");
+    let (payload, c, media, docker) =
+        admit_prepare_candidate(candidate, &media_path, tag, distribution)?;
+    let notes = admit_release_notes(notes_path, out)?;
+    let mut assets = Vec::new();
+    copy_media_assets(&media_path, &media, out, &mut assets)?;
+    copy_release_payload(candidate, tag, out, &docker, &mut assets)?;
+    check_release_sources(out, &assets, &payload, &c)?;
+    stage_upgrade_receipt(candidate, &payload, &c, &media, out, &mut assets)?;
+    stage_docker_installer(out, tag, &payload, &docker, &mut assets)?;
+    let manifest = Manifest {
+        format: 1,
+        tag: tag.to_owned(),
+        soda_revision: payload.revision,
+        forgejo_revision: c.forgejo_revision,
+        distribution,
+        docker,
+        iso: if media.is_some() {
+            ISO_NAME.to_owned()
+        } else {
+            String::new()
+        },
+        rootfs: media.map(|(_, rootfs)| rootfs).unwrap_or_default(),
+        notes,
+        assets,
+    };
+    finalize_release_manifest(manifest, candidate, out)
 }
 pub(super) fn inventory(manifest: &Manifest, directory: &Path) -> Result<Vec<Asset>, Error> {
     manifest.validate()?;
