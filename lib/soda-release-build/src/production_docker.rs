@@ -38,15 +38,11 @@ impl Production {
         Ok(())
     }
 
-    /// Export one OCI archive and verify every candidate-owned byte before
-    /// issuing its metadata. The host config ID selects the local candidate;
-    /// --pull=never prevents either stage from resolving a mutable tag.
-    pub fn build_docker(
+    fn admit_docker_build(
         &self,
         release_tag: &str,
         distribution: Distribution,
-        purpose: BuildPurpose,
-    ) -> Result<(), Error> {
+    ) -> Result<(PathBuf, String), Error> {
         self.validate()?;
         if ![Distribution::Docker, Distribution::All].contains(&distribution)
             || !soda_build_tools::reader::settings::release_tag(release_tag)
@@ -58,15 +54,14 @@ impl Production {
         }
         let recipe = PathBuf::from(&self.source).join("system/docker/Dockerfile");
         let requested = recipe_base(&recipe)?;
-        let (_, base) = self.pull_frozen_image(&self.inputs, &requested, "")?;
-        let request = DockerRequest {
-            release_tag: release_tag.to_owned(),
-            distribution,
-            purpose,
-            fedora_base: base.clone(),
-        };
-        let out = PathBuf::from(&self.out);
-        let candidate_path = out.join("candidate.json");
+        Ok((recipe, requested))
+    }
+
+    fn bind_docker_candidate(
+        &self,
+        out: &PathBuf,
+        candidate_path: &PathBuf,
+    ) -> Result<(String, String, String), Error> {
         let (_, candidate, _) = soda_release_deliver::admission::load_admitted_candidate(&self.out)
             .map_err(|e| Error::msg(e.0))?;
         if candidate.host.revision != self.revision || candidate.architecture != self.arch {
@@ -78,11 +73,35 @@ impl Production {
         if payload_hash != candidate.payload_sha256 {
             return Err(Error::msg("Docker candidate payload differs"));
         }
-        let candidate_hash = hash_file(&candidate_path)?;
+        let candidate_hash = hash_file(candidate_path)?;
+        Ok((payload_hash, candidate_hash, candidate.host.config))
+    }
+
+    /// Export one OCI archive and verify every candidate-owned byte before
+    /// issuing its metadata. The host config ID selects the local candidate;
+    /// --pull=never prevents either stage from resolving a mutable tag.
+    pub fn build_docker(
+        &self,
+        release_tag: &str,
+        distribution: Distribution,
+        purpose: BuildPurpose,
+    ) -> Result<(), Error> {
+        let (recipe, requested) = self.admit_docker_build(release_tag, distribution)?;
+        let (_, base) = self.pull_frozen_image(&self.inputs, &requested, "")?;
+        let request = DockerRequest {
+            release_tag: release_tag.to_owned(),
+            distribution,
+            purpose,
+            fedora_base: base.clone(),
+        };
+        let out = PathBuf::from(&self.out);
+        let candidate_path = out.join("candidate.json");
+        let (payload_hash, candidate_hash, host_config) =
+            self.bind_docker_candidate(&out, &candidate_path)?;
         let recipe_hash = hash_file(&recipe)?;
         let context = PathBuf::from(&self.source).join("system/docker");
         let args = vec![
-            format!("--build-arg=SODA_BASE_IMAGE={}", candidate.host.config),
+            format!("--build-arg=SODA_BASE_IMAGE={host_config}"),
             format!("--label=org.opencontainers.image.version={release_tag}"),
             format!(
                 "--label=io.soda.distribution={}",

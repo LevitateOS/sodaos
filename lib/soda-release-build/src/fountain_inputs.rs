@@ -31,11 +31,10 @@ pub fn resolve_fountain_release(
     resolve_fountain_release_with(&UreqTransport, url, expected_revision)
 }
 
-pub fn resolve_fountain_release_with<T: HttpTransport>(
+fn fetch_fountain_metadata<T: HttpTransport>(
     transport: &T,
     url: &str,
-    expected_revision: &str,
-) -> Result<FountainRelease, Error> {
+) -> Result<(Vec<u8>, String), Error> {
     if !https_url(url) || !url.ends_with("/release.json") {
         return Err(Error::msg(
             "explicit immutable HTTPS Fountain release.json URL required",
@@ -61,9 +60,18 @@ pub fn resolve_fountain_release_with<T: HttpTransport>(
     if bytes.is_empty() || bytes.len() > 1 << 20 {
         return Err(Error::msg("Fountain metadata exceeds limit"));
     }
-    let metadata: Metadata = serde_json::from_slice(&bytes)
-        .map_err(|_| Error::msg("invalid Fountain release metadata"))?;
-    let prefix = url.strip_suffix("release.json").unwrap();
+    let prefix = url
+        .strip_suffix("release.json")
+        .ok_or_else(|| Error::msg("explicit immutable HTTPS Fountain release.json URL required"))?
+        .to_owned();
+    Ok((bytes, prefix))
+}
+
+fn admit_fountain_metadata(
+    metadata: &Metadata,
+    prefix: &str,
+    expected_revision: &str,
+) -> Result<(), Error> {
     if metadata.source_commit != expected_revision {
         return Err(Error::msg(
             "Fountain metadata differs from selected source revision",
@@ -86,6 +94,18 @@ pub fn resolve_fountain_release_with<T: HttpTransport>(
             "Fountain release identity, platform or source filenames disagree",
         ));
     }
+    Ok(())
+}
+
+pub fn resolve_fountain_release_with<T: HttpTransport>(
+    transport: &T,
+    url: &str,
+    expected_revision: &str,
+) -> Result<FountainRelease, Error> {
+    let (bytes, prefix) = fetch_fountain_metadata(transport, url)?;
+    let metadata: Metadata = serde_json::from_slice(&bytes)
+        .map_err(|_| Error::msg("invalid Fountain release metadata"))?;
+    admit_fountain_metadata(&metadata, &prefix, expected_revision)?;
     let mut release = FountainRelease {
         version: metadata.version.clone(),
         metadata: ReleaseFile {

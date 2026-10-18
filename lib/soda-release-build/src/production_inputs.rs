@@ -163,11 +163,7 @@ impl Production {
         Ok((rocky, forgejo, proxy, postgres))
     }
 
-    /// Records the actual upstream manifests once, before shipping work.
-    /// Every pull is platform-scoped, so the recorded digest is the exact
-    /// Linux child manifest the runtime verifies, never a mutable tag or a
-    /// multi-platform index.
-    pub fn resolve_inputs(&mut self) -> Result<(), Error> {
+    fn admit_fountain_dispatch(&mut self) -> Result<(), Error> {
         self.validate()?;
         match std::fs::symlink_metadata(PathBuf::from(&self.out).join("app-inputs.json")) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -203,6 +199,60 @@ impl Production {
             &proof,
             0o644,
         )?;
+        Ok(())
+    }
+
+    fn check_fountain_platform_manifest(
+        &self,
+        config: String,
+        pinned: String,
+        fountain: &soda_build_tools::payload::FountainRelease,
+    ) -> Result<(), Error> {
+        if config != fountain.image_config || pinned != fountain.image {
+            return Err(Error::msg(
+                "Fountain platform manifest/config differs from release metadata",
+            ));
+        }
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Identity {
+            os: String,
+            architecture: String,
+            revision: String,
+            version: String,
+        }
+        let body = self.call_capture(
+            &self.source,
+            "podman",
+            &[
+                "--remote=false".into(),
+                "image".into(),
+                "inspect".into(),
+                "--format".into(),
+                FOUNTAIN_IDENTITY.into(),
+                config,
+            ],
+        )?;
+        let identity: Identity = serde_json::from_str(&body)
+            .map_err(|_| Error::msg("Fountain image identity unavailable"))?;
+        if identity.os != "linux"
+            || identity.architecture != "amd64"
+            || identity.revision != fountain.source_revision
+            || identity.version != fountain.version
+        {
+            return Err(Error::msg(
+                "Fountain image labels/platform differ from release metadata",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Records the actual upstream manifests once, before shipping work.
+    /// Every pull is platform-scoped, so the recorded digest is the exact
+    /// Linux child manifest the runtime verifies, never a mutable tag or a
+    /// multi-platform index.
+    pub fn resolve_inputs(&mut self) -> Result<(), Error> {
+        self.admit_fountain_dispatch()?;
         let platform = oci_architecture(&self.arch).unwrap_or("amd64").to_string();
         let (rocky, forgejo, proxy, postgres) = self.recipe_image_refs()?;
         let mut inputs = Vec::new();
@@ -217,42 +267,7 @@ impl Production {
                 self.pull_resolved_input(reference, "", &platform, &mut inputs)?;
             if reference == &forgejo {
                 let fountain = self.fountain.as_ref().unwrap();
-                if config != fountain.image_config || pinned != fountain.image {
-                    return Err(Error::msg(
-                        "Fountain platform manifest/config differs from release metadata",
-                    ));
-                }
-                #[derive(serde::Deserialize)]
-                #[serde(deny_unknown_fields)]
-                struct Identity {
-                    os: String,
-                    architecture: String,
-                    revision: String,
-                    version: String,
-                }
-                let body = self.call_capture(
-                    &self.source,
-                    "podman",
-                    &[
-                        "--remote=false".into(),
-                        "image".into(),
-                        "inspect".into(),
-                        "--format".into(),
-                        FOUNTAIN_IDENTITY.into(),
-                        config,
-                    ],
-                )?;
-                let identity: Identity = serde_json::from_str(&body)
-                    .map_err(|_| Error::msg("Fountain image identity unavailable"))?;
-                if identity.os != "linux"
-                    || identity.architecture != "amd64"
-                    || identity.revision != fountain.source_revision
-                    || identity.version != fountain.version
-                {
-                    return Err(Error::msg(
-                        "Fountain image labels/platform differ from release metadata",
-                    ));
-                }
+                self.check_fountain_platform_manifest(config, pinned, fountain)?;
             }
         }
         self.inputs = inputs;

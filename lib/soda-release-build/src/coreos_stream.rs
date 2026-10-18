@@ -115,6 +115,69 @@ pub fn coreos_registry() -> String {
     }
 }
 
+fn stream_field(raw: Option<&RawJson>) -> Result<String, Error> {
+    match raw {
+        None => Ok(String::new()),
+        Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
+            .map(Option::unwrap_or_default)
+            .map_err(|_| Error::msg("invalid stable stream document")),
+    }
+}
+
+fn resolve_stream_disk(
+    artifacts: &Option<ArtifactMap>,
+    artifact: &str,
+    format: &str,
+) -> Result<CoreOSImage, Error> {
+    let missing = if artifact == "metal" {
+        "stable stream lacks x86_64 live ISO".to_string()
+    } else {
+        format!("stable stream lacks x86_64 {artifact} image")
+    };
+    let no_artifact = || Error::msg(missing.clone());
+    let art_raw = artifacts
+        .as_ref()
+        .and_then(|a| match artifact {
+            "metal" => a.metal.as_deref(),
+            "qemu" => a.qemu.as_deref(),
+            _ => None,
+        })
+        .ok_or_else(no_artifact)?;
+    let art = decode_raw::<Artifact>(Some(art_raw.to_owned()))
+        .ok()
+        .flatten()
+        .ok_or_else(no_artifact)?;
+    let formats_raw = art.formats.as_deref().ok_or_else(no_artifact)?;
+    let formats = decode_raw::<FormatMap>(Some(formats_raw.to_owned()))
+        .ok()
+        .flatten()
+        .ok_or_else(no_artifact)?;
+    let entry_raw = match format {
+        "iso" => formats.iso.as_deref(),
+        "qcow2.xz" => formats.qcow2_xz.as_deref(),
+        _ => None,
+    }
+    .ok_or_else(no_artifact)?;
+    let entry = decode_raw::<FormatEntry>(Some(entry_raw.to_owned()))
+        .ok()
+        .flatten()
+        .ok_or_else(no_artifact)?;
+    // A missing disk decodes to the zero triple, which the shape rules
+    // refuse downstream, exactly as the Go owner flows.
+    let disk = entry
+        .disk
+        .as_deref()
+        .and_then(|raw| decode_raw::<Disk>(Some(raw.to_owned())).ok().flatten());
+    Ok(CoreOSImage {
+        url: stream_field(disk.as_ref().and_then(|d| d.location.as_ref()))?,
+        signature_url: stream_field(disk.as_ref().and_then(|d| d.signature.as_ref()))?,
+        sha256: stream_field(disk.as_ref().and_then(|d| d.sha256.as_ref()))?,
+        uncompressed_sha256: stream_field(
+            disk.as_ref().and_then(|d| d.uncompressed_sha256.as_ref()),
+        )?,
+    })
+}
+
 /// Parses one stable-stream document into release + x86_64 ISO/QEMU triples.
 fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage), Error> {
     let text = String::from_utf8_lossy(data);
@@ -128,65 +191,10 @@ fn resolve_stream_build(data: &[u8]) -> Result<(String, CoreOSImage, CoreOSImage
         .ok_or_else(|| Error::msg("stable stream lacks architecture x86_64"))?;
     let artifacts = decode_raw::<ArtifactMap>(entry.artifacts)
         .map_err(|_| Error::msg("invalid stable stream document"))?;
-    let disk = |artifact: &str, format: &str| -> Result<CoreOSImage, Error> {
-        let missing = if artifact == "metal" {
-            "stable stream lacks x86_64 live ISO".to_string()
-        } else {
-            format!("stable stream lacks x86_64 {artifact} image")
-        };
-        let no_artifact = || Error::msg(missing.clone());
-        let art_raw = artifacts
-            .as_ref()
-            .and_then(|a| match artifact {
-                "metal" => a.metal.as_deref(),
-                "qemu" => a.qemu.as_deref(),
-                _ => None,
-            })
-            .ok_or_else(no_artifact)?;
-        let art = decode_raw::<Artifact>(Some(art_raw.to_owned()))
-            .ok()
-            .flatten()
-            .ok_or_else(no_artifact)?;
-        let formats_raw = art.formats.as_deref().ok_or_else(no_artifact)?;
-        let formats = decode_raw::<FormatMap>(Some(formats_raw.to_owned()))
-            .ok()
-            .flatten()
-            .ok_or_else(no_artifact)?;
-        let entry_raw = match format {
-            "iso" => formats.iso.as_deref(),
-            "qcow2.xz" => formats.qcow2_xz.as_deref(),
-            _ => None,
-        }
-        .ok_or_else(no_artifact)?;
-        let entry = decode_raw::<FormatEntry>(Some(entry_raw.to_owned()))
-            .ok()
-            .flatten()
-            .ok_or_else(no_artifact)?;
-        // A missing disk decodes to the zero triple, which the shape rules
-        // refuse downstream, exactly as the Go owner flows.
-        let disk = entry
-            .disk
-            .as_deref()
-            .and_then(|raw| decode_raw::<Disk>(Some(raw.to_owned())).ok().flatten());
-        let get = |raw: Option<&RawJson>| -> Result<String, Error> {
-            match raw {
-                None => Ok(String::new()),
-                Some(raw) => serde_json::from_str::<Option<String>>(raw.get())
-                    .map(Option::unwrap_or_default)
-                    .map_err(|_| Error::msg("invalid stable stream document")),
-            }
-        };
-        Ok(CoreOSImage {
-            url: get(disk.as_ref().and_then(|d| d.location.as_ref()))?,
-            signature_url: get(disk.as_ref().and_then(|d| d.signature.as_ref()))?,
-            sha256: get(disk.as_ref().and_then(|d| d.sha256.as_ref()))?,
-            uncompressed_sha256: get(disk.as_ref().and_then(|d| d.uncompressed_sha256.as_ref()))?,
-        })
-    };
-    let iso = disk("metal", "iso")?;
+    let iso = resolve_stream_disk(&artifacts, "metal", "iso")?;
     let release = stream_release_from_location(&iso.url)
         .ok_or_else(|| Error::msg("stable stream x86_64 ISO location names no release"))?;
-    let qemu = disk("qemu", "qcow2.xz")?;
+    let qemu = resolve_stream_disk(&artifacts, "qemu", "qcow2.xz")?;
     soda_build_tools::reader::stream::valid_stream_images(&release, &iso, &qemu)?;
     Ok((release, iso, qemu))
 }

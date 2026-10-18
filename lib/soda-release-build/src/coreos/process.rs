@@ -7,6 +7,80 @@ use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
+/// Retires a still-owned direct child on a failed path: SIGKILL where
+/// live (harmless if it raced exit), then reap. The caller keeps and
+/// returns the initiating error unchanged.
+fn retire_child(child: &mut std::process::Child) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Drains the rest of the pipe after the child exited; there is no live
+/// child left to retire on this path.
+fn drain_exited_pipe(
+    stdout: Option<&mut std::process::ChildStdout>,
+    buf: &mut [u8; 32 << 10],
+    remaining: &mut i64,
+    drain: &mut dyn FnMut(&[u8]) -> Result<(), Error>,
+) -> Result<(), Error> {
+    if let Some(out) = stdout {
+        use std::os::unix::io::AsRawFd;
+        set_nonblocking(out.as_raw_fd(), true);
+        loop {
+            match out.read(buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    if n as i64 > *remaining {
+                        return Err(Error::msg("input exceeds size limit"));
+                    }
+                    drain(&buf[..n])?;
+                    *remaining -= n as i64;
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) => return Err(Error::msg(e.to_string())),
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Reads one live-pipe chunk while the child runs, retiring the
+/// still-owned direct child on limit, drain or read failures.
+fn drain_live_pipe(
+    child: &mut std::process::Child,
+    stdout: Option<&mut std::process::ChildStdout>,
+    buf: &mut [u8; 32 << 10],
+    remaining: &mut i64,
+    drain: &mut dyn FnMut(&[u8]) -> Result<(), Error>,
+) -> Result<(), Error> {
+    if let Some(out) = stdout {
+        use std::os::unix::io::AsRawFd;
+        set_nonblocking(out.as_raw_fd(), true);
+        match out.read(buf) {
+            Ok(0) => std::thread::sleep(Duration::from_millis(5)),
+            Ok(n) => {
+                if n as i64 > *remaining {
+                    retire_child(child);
+                    return Err(Error::msg("input exceeds size limit"));
+                }
+                if let Err(e) = drain(&buf[..n]) {
+                    retire_child(child);
+                    return Err(e);
+                }
+                *remaining -= n as i64;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(5))
+            }
+            Err(e) => {
+                retire_child(child);
+                return Err(Error::msg(e.to_string()));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Runs a command with piped stdout drained through a bounded writer.
 pub(super) fn run_bounded(
     name: &str,
@@ -28,13 +102,6 @@ pub(super) fn run_bounded(
     let mut buf = [0u8; 32 << 10];
     let mut drained = stdout.is_none();
     let mut timed_out = false;
-    // Retires a still-owned direct child on a failed path: SIGKILL where
-    // live (harmless if it raced exit), then reap. The caller keeps and
-    // returns the initiating error unchanged.
-    let retire = |child: &mut std::process::Child| {
-        let _ = child.kill();
-        let _ = child.wait();
-    };
     while !drained {
         if std::time::Instant::now() > deadline {
             timed_out = true;
@@ -43,59 +110,24 @@ pub(super) fn run_bounded(
         let exited = match child.try_wait() {
             Ok(exited) => exited,
             Err(e) => {
-                retire(&mut child);
+                retire_child(&mut child);
                 return Err(io_error(name, Path::new(name), e));
             }
         };
         match exited {
             Some(_) => {
                 // Process exited; drain the rest of the pipe.
-                if let Some(out) = stdout.as_mut() {
-                    use std::os::unix::io::AsRawFd;
-                    set_nonblocking(out.as_raw_fd(), true);
-                    loop {
-                        match out.read(&mut buf) {
-                            Ok(0) => break,
-                            Ok(n) => {
-                                if n as i64 > remaining {
-                                    return Err(Error::msg("input exceeds size limit"));
-                                }
-                                drain(&buf[..n])?;
-                                remaining -= n as i64;
-                            }
-                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                            Err(e) => return Err(Error::msg(e.to_string())),
-                        }
-                    }
-                }
+                drain_exited_pipe(stdout.as_mut(), &mut buf, &mut remaining, &mut *drain)?;
                 drained = true;
             }
             None => {
-                if let Some(out) = stdout.as_mut() {
-                    use std::os::unix::io::AsRawFd;
-                    set_nonblocking(out.as_raw_fd(), true);
-                    match out.read(&mut buf) {
-                        Ok(0) => std::thread::sleep(Duration::from_millis(5)),
-                        Ok(n) => {
-                            if n as i64 > remaining {
-                                retire(&mut child);
-                                return Err(Error::msg("input exceeds size limit"));
-                            }
-                            if let Err(e) = drain(&buf[..n]) {
-                                retire(&mut child);
-                                return Err(e);
-                            }
-                            remaining -= n as i64;
-                        }
-                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                            std::thread::sleep(Duration::from_millis(5))
-                        }
-                        Err(e) => {
-                            retire(&mut child);
-                            return Err(Error::msg(e.to_string()));
-                        }
-                    }
-                }
+                drain_live_pipe(
+                    &mut child,
+                    stdout.as_mut(),
+                    &mut buf,
+                    &mut remaining,
+                    &mut *drain,
+                )?;
             }
         }
     }
