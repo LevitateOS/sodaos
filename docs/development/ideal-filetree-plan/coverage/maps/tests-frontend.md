@@ -381,6 +381,16 @@ Exact byte-identical prior detailed map units
 | 24–48; prior detailed responsibility interval | [H06](../../slices/shared-supporting-slices.md#h06-developer-tooling-and-verification-infrastructure) | retained | Test harness scope — Exact private matrix/terminal approval and native observer contracts; declarations/fields: `scope` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/workspace-journey.test.ts; manifest identical_prior confirms byte identity |
 | 114–169; prior detailed responsibility interval | [S04](../../slices/spaces-and-terminals.md#s04-human-terminal-lifecycle) | retained | Assert exact native observer requires original account, PID/start, unit, cgroup and records; quoted shell parses without execution; declarations/fields: `test: exact native observer requires original account, PID/start, unit, cgroup and records; quoted shell parses without execution`; Assert reservation permission admits only the selected name and measured bounded geometry; declarations/fields: `test: reservation permission admits only the selected name and measured bounded geometry` — docs/development/ideal-filetree-plan/coverage/maps/tests-frontend.md#tests/frontend/workspace-journey.test.ts; manifest identical_prior confirms byte identity |
 
+<a id="coverage-d5440ced63b3"></a>
+
+## [tests/frontend/workspace-native-shell.test.ts](../../../../../tests/frontend/workspace-native-shell.test.ts)
+
+Fountain direct Workspace test: native paths, history and terminal owner preserved.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–115; native shell test suite | [S02](../../slices/spaces-and-terminals.md#s02-workspace-lifetime-and-navigation) | retained | Checks direct Workspace preserves native paths, history and terminal owner — Current source inspected at tests/frontend/workspace-native-shell.test.ts; concrete renderer/build/test consumer is named in the selector and description. |
+
 <a id="coverage-223e47bacb7e"></a>
 
 ## [tests/frontend/workspace-recovery.test.ts](../../../../../tests/frontend/workspace-recovery.test.ts)

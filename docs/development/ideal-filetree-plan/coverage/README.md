@@ -176,7 +176,7 @@ existing owners and no new directories, tasks or lanes). The S 400-line
 concern review and its factual addendum are incorporated as OCR pins on the
 five oversized delta files; installed credential/configuration proof stays
 Q08 scope. Sixteen tracked paths added between `9a184b7f` and `299e3d20`
-and untouched by this delta still await rows:
+and untouched by that delta are now mapped (R02 batch `f1a8f3dc` follow-up):
 `internal/config/factory_judgment_test.go`,
 `internal/factory/control/intent_generation_recovery.go`,
 `internal/factory/control/planning_test.go`,
@@ -191,6 +191,13 @@ and untouched by this delta still await rows:
 `internal/web/api/factory_intent_generation.go`,
 `internal/web/factory_activity_test.go`,
 `tests/frontend/workspace-native-shell.test.ts`.
+The same batch maps the R10/R13/R15/R31/R36/R37 recent additions
+(`dispatch_advance_stale_test`, `dispatch_terminal_phase_test`,
+`intent_generation_binding_test`, `intent_generation_mechanics_test`,
+`intent_plan_choice`, `stall_serve`, `repair_admit`, `context_bundle`,
+`factory_mcp` server) and refreshes the `judgment` and `dispatch_launch`
+duty rows. The older components-v4/pre-`730fc205` accumulation remains
+explicitly pending as recorded above.
 
 Final upkeep at `deb79186` (2026-10-12), incremental from `93fb3513`: 1
 added, 24 modified, 0 deleted outside this plan. New duties only are

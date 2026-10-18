@@ -50,6 +50,16 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–16; file scaffold; TestBaseURL | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestBaseURL — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-d522eacb41f1"></a>
+
+## [internal/config/factory_judgment_test.go](../../../../../internal/config/factory_judgment_test.go)
+
+Factory judgment configuration admission test.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–37; file scaffold; TestFactoryJudgmentConfigurationAdmission | [H04](../../slices/shared-supporting-slices.md#h04-configuration-and-filesystem-primitives) | retained | Current scaffold duty: file scaffold; 1 named unit assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-a4c4d4b34dd9"></a>
 
 ## [internal/config/grant_key_test.go](../../../../../internal/config/grant_key_test.go)

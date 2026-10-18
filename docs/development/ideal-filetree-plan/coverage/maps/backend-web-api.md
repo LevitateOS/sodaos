@@ -351,6 +351,17 @@ Delta duty inspection at `93fb3513`. Intent collection handlers (I03/F05/H-A): d
 | 1–56, 166–205; apiDepartments; apiIntent; apiIntentRevision | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Department/intent/revision reads — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 | 57–120; apiIntents; apiIntentHistory | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Bounded list and history reads — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
 | 121–165; apiIntentAllowance; apiIntentAllowanceSave | [F03](../../slices/factory-coordination.md#f03-capacity-reservations-and-accounting) | retained | Independent allowance read/save — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-d4bc75b83cf3"></a>
+
+## [internal/web/api/factory_intent_generation.go](../../../../../internal/web/api/factory_intent_generation.go)
+
+Intent Generate/plan API: generation submission, plan and head admission views, plan outcome rendering and status/generation reads against recorded revisions.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–240; file scaffold; apiIntentGenerate; intentPlanResponse; apiIntentPlan; intentPlanStatusView; admitIntentPlanHead; renderIntentPlanOutcome; apiIntentPlanStatus; apiIntentGeneration | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 8 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-451d790c97ec"></a>
 
 ## [internal/web/api/factory_issue_view.go](../../../../../internal/web/api/factory_issue_view.go)
@@ -403,6 +414,34 @@ Delta duty inspection at `93fb3513`. Config capability-gating, absent-config, ac
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–102; file scaffold; TestLifecycleConfigDTOGatesEnabledOnCapability; TestAbsentConfigViewReportsCapability; TestLifecycleActionDTORendersBudget; TestDecodeLifecycleConfigSaveRejects; apiTestLifecycleExecutor; EnrolledActor; ObserveLifecycleRevision; ResolveNoteTarget; SubmitLifecycle; LookupLifecycle; TestLifecycleExecutorReady | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Current scaffold duty: file scaffold; 11 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+
+<a id="coverage-d4cd86c94da4"></a>
+
+## [internal/web/api/factory_mcp.go](../../../../../internal/web/api/factory_mcp.go)
+
+R30/R31 Factory MCP catalog server: capability/submission/assignment/receipt/run source deps, capability-bound envelope schema, per-run rate limiter, admission with scope-digest and payload validation, capability-bound context/status reads with recorded bundle foregrounding, bounded run evidence projections, receipt recovery, immutable mutations and the fixed HTTP route.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–106; file scaffold; FactoryMCPCapabilitySource; FactoryMCPSubmissionSink; FactoryMCPAssignmentSource; FactoryMCPPriorityJudgmentSource; FactoryMCPRunSource; FactoryMCPDeps | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Dependency interfaces and wiring — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 107–183; mcpCallArgs; mcpEnvelopeSchema; mcpRateLimiter; newMCPRateLimiter; admit | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Capability-bound envelope and per-run admission — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 184–229; factoryCatalogServer; now; observed; admitCall | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Call admission against recorded capabilities — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 230–456; canonicalPayload; mcpPayloadSpec; isHex64; checkPayloadKeys; checkPayloadRequired; checkPayloadEnums; checkPayloadHex; checkPayloadOutcome; checkPayload; mcpOptionalPayloadKey; checkManifestProposal; admitMutation | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Deterministic payload validation and mutation admission — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 457–533; mcpTextResult; mcpJSONResult; newFactoryCatalogServer; serve | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Tool routing and result envelope — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 534–648; serveRead | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | R31 capability-bound context/status with bundle eligibility, parent join and recorded-selection foregrounding — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 649–702; serveEvidence | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | R31 bounded run evidence projections, honestly incomplete — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 703–725; serveReceipt | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Durable receipt recovery without cross-assignment disclosure — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+| 726–790; serveMutation; factoryCatalogMux; FactoryMCPHandler | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Immutable mutation recording and fixed-route handler — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
+<a id="coverage-d4de97da5eb5"></a>
+
+## [internal/web/api/factory_mcp_test.go](../../../../../internal/web/api/factory_mcp_test.go)
+
+Catalog server proof: native-harness transport, clock-boundary digest, spend-nothing read contract, current/attempt/lineage context projections with foregrounding and incomplete-lineage honesty, bounded run evidence with truncation and refusal, manifest gate, rate limit and HTTP route.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–1157; file scaffold; fakeCatalogCapability; fakeCatalogSink; catalogPayload; TestFactoryCatalogServerProcess; TestFactoryCatalogTransportPerHarness; TestFactoryCatalogClockBoundaryDigest; TestFactoryCatalogReadsSpendNothingAndDiscloseNothing; TestFactoryCatalogContextProjectsAssignmentCurrent; TestFactoryCatalogContextServesAttemptBundle; TestFactoryCatalogContextServesLineageBundle; TestFactoryCatalogContextMarksIncompleteLineage; TestFactoryCatalogContextForegroundsRecordedCurrent; TestFactoryCatalogContextForegroundsRecordedHold; TestFactoryCatalogContextForegroundsRecordedLineage; TestFactoryCatalogContextIgnoresForeignReceipt; TestFactoryCatalogContextIgnoresUnknownSelection; TestFactoryCatalogEvidenceServesRunProjections; TestFactoryCatalogEvidenceTruncatesLongHistory; TestFactoryCatalogEvidenceRefusesUnresolvableRun; TestFactoryCatalogManifestGate; TestFactoryCatalogRateLimit; TestFactoryCatalogHTTPRoute | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 22 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
 
 <a id="coverage-a081deaca2cc"></a>
 

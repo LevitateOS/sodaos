@@ -547,6 +547,26 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–268; file scaffold; MergeOperation; Validate; validateLinks; MergeOperationID; MergeWork; MergeIntent; Intent; Apply; ValidateTarget; validate; ValidateObservation | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 14 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-d4dd9bee6fc6"></a>
+
+## [internal/factory/planning.go](../../../../../internal/factory/planning.go)
+
+Investigation plan domain: digest-bound plan identity with validation and executability gates, plus planning input/record snapshots for freshness-checked launches.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–223; file scaffold; InspectedSource; RejectedAlternative; InvestigationPlan; PlanDigest; Validate; Executable; PlanningInput; PlanningRecord; PlanningSnapshot | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 9 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
+<a id="coverage-d4eeace90db7"></a>
+
+## [internal/factory/planning_test.go](../../../../../internal/factory/planning_test.go)
+
+Plan domain tests: pending outcomes stay provisional with relevant changes invalidating; plan validation, executability and refusals.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–105; file scaffold; TestPlanningPendingOutcomesAreProvisionalAndRelevantChangesInvalidate; TestInvestigationPlanValidatesAndExecutes; TestInvestigationPlanRefusals | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-90709be52019"></a>
 
 ## [internal/factory/merge_test.go](../../../../../internal/factory/merge_test.go)

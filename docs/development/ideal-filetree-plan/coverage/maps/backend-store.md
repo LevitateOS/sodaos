@@ -458,6 +458,16 @@ Delta duty inspection at `93fb3513`. Receipt cursor validation and paging tests.
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–67; file scaffold; TestPriorityReceiptsForIssueValidation; TestPriorityReceiptsForIssuePages | [F05](../../slices/factory-coordination.md#f05-accepted-requirements-and-invalidation) | retained | Current scaffold duty: file scaffold; 2 named units assigned here — Current complete declaration/method or file span inspected at `93fb3513`; historical pins retain their scope. |
+<a id="coverage-d4ffbd9a1ec8"></a>
+
+## [internal/store/factory_planning.go](../../../../../internal/store/factory_planning.go)
+
+Planning record store: per-issue planning record reads and saves plus cursor-paged planning controls.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–55; file scaffold; PlanningRecord; SavePlanningRecord; PlanningControlsAfter | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 3 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-62af5f6eb272"></a>
 
 ## [internal/store/factory_publication_intent_test.go](../../../../../internal/store/factory_publication_intent_test.go)

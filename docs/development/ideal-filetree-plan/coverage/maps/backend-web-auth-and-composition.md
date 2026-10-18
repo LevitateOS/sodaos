@@ -256,6 +256,16 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–49; file scaffold; TestExtensionUsernamePolicy | [P01](../../slices/projects.md#p01-repository-association-and-creation) | retained | Current scaffold duty: file scaffold; Current declaration duty: TestExtensionUsernamePolicy — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-d533fbdc52a2"></a>
+
+## [internal/web/factory_activity_test.go](../../../../../internal/web/factory_activity_test.go)
+
+Factory activity tests: native visibility owner with CAS and changed-native-session refusal before mutation.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–95; file scaffold; TestFactoryActivityNativeVisibilityOwnerAndCAS; TestFactoryActivityRejectsChangedNativeSessionBeforeMutation | [S06](../../slices/spaces-and-terminals.md#s06-factory-activity-presentation) | retained | Current scaffold duty: file scaffold; 3 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-1b87e76a2f2a"></a>
 
 ## [internal/web/factory_checks_view_test.go](../../../../../internal/web/factory_checks_view_test.go)

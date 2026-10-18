@@ -115,6 +115,26 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–69; file scaffold; TestResponseBoundary; TestNativeStatusIsTypedAndSanitized; TestTransportCancellation | [G06](../../slices/forgejo-integration.md#g06-native-ci-observation) | retained | Current scaffold duty: file scaffold; 4 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-d500cea92fd9"></a>
+
+## [internal/forgejo/issue_graph.go](../../../../../internal/forgejo/issue_graph.go)
+
+Native issue-graph writer: owner-checked graph submit/lookup/cancel with lost-response reconciliation and snapshot reads against stable revisions.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–177; file scaffold; IssueGraphWriter; NewIssueGraphWriter; checkActor; CheckIntentOwner; graphOperationIntent; SubmitGraph; LookupGraph; CancelGraph; validateGraphRecord; ReadGeneratedIssue | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current scaffold duty: file scaffold; 10 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
+<a id="coverage-d511dfba30e0"></a>
+
+## [internal/forgejo/issue_graph_test.go](../../../../../internal/forgejo/issue_graph_test.go)
+
+Issue-graph writer tests: current-owner check at stable revision and exact operation reconciliation after lost response, with fixture graph client.
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–107; file scaffold; graphClientFixture; ReadNativeRevision; ReadSnapshot; SubmitOperation; GetOperation; graphWriterFixture; TestIssueGraphWriterChecksCurrentOwnerAtStableRevision; TestIssueGraphWriterReconcilesExactOperationAfterLostResponse | [G03](../../slices/forgejo-integration.md#g03-authoritative-native-reads) | retained | Current scaffold duty: file scaffold; 8 named units assigned here — Current complete declaration/method or file span inspected at HEAD; historical pins retain their scope. |
+
 <a id="coverage-98ea52a7eced"></a>
 
 ## [internal/forgejo/lifecycle_capabilities.go](../../../../../internal/forgejo/lifecycle_capabilities.go)
