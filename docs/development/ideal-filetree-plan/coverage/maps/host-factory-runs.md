@@ -364,7 +364,7 @@ current line spans and declarations inspected; prior intervals reused only for b
 
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
-| 1–4; declaration artifacts; declaration run | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | artifacts: implement the current factory run lifecycle and intervention duty in mod.rs.; run: implement the current factory run lifecycle and intervention duty in mod.rs. — current source lib/host/src/terminal/factory/tests/mod.rs; lines 1-2; module/caller wiring inspected; current source lib/host/src/terminal/factory/tests/mod.rs; lines 3-4; module/caller wiring inspected |
+| 1–6; declaration artifacts; declaration run; declaration trial_overlap | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | artifacts: implement the current factory run lifecycle and intervention duty in mod.rs.; run: implement the current factory run lifecycle and intervention duty in mod.rs.; trial_overlap: implement the current factory run lifecycle and intervention duty in mod.rs. — current source lib/host/src/terminal/factory/tests/mod.rs; lines 1-2; module/caller wiring inspected; current source lib/host/src/terminal/factory/tests/mod.rs; lines 3-4; module/caller wiring inspected; current source lib/host/src/terminal/factory/tests/mod.rs; lines 5-6; module/caller wiring inspected |
 
 <a id="coverage-c25786ca9afa"></a>
 
@@ -375,6 +375,16 @@ current line spans and declarations inspected; prior intervals reused only for b
 | Current spans and named units | Owner | Disposition | Responsibility / evidence |
 | --- | --- | --- | --- |
 | 1–836; current module/import/attribute shell; declaration reserve_success_argv_sequence; declaration reserve_stage_and_failure_paths; declaration reserve_unattested_unit_is_stopped; declaration start_flows; declaration wait_flows; declaration validate_flows; declaration stop_flows; declaration capture_and_finish_flows; declaration stop_unbound_flows; declaration live_matrix; declaration output_flows; declaration factory_identity_operation_matrix | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Imports and module declarations wire lib/host/src/terminal/factory/tests/run.rs into its current native target.; 13 named units assigned here; remaining selectors preserve each duty — Current named units/source consumers; retained normalized source evidence records each selector |
+
+<a id="coverage-02f5b42a691b"></a>
+
+## [lib/host/src/terminal/factory/tests/trial_overlap.rs](../../../../../lib/host/src/terminal/factory/tests/trial_overlap.rs)
+
+current line spans and declarations inspected; prior intervals reused only for byte-identical source, otherwise prior units serve as symbol-level allocation evidence
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| 1–483; current module/import/attribute shell; declaration TrialHarness; fields name, family, bin_env, auth_rel, effort, contributor; declaration CODEX; declaration MUSE; declaration DEFAULT_CODEX_BIN; declaration resolve_bin; declaration nanos_now; declaration trial_dir; declaration write_private; declaration run_trial; declaration remove_scratch; declaration drive; declaration trial_codex_overlap_and_cancel; declaration trial_muse_overlap_and_cancel; declaration output_digest; declaration run_successor_trial; declaration trial_codex_dependent_successor; declaration run_abandon_trial; declaration trial_codex_abandoned_child_completes | [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) | retained | Ignored-by-default bounded native trials: two real children overlap per harness with exact output, cancel and parent-stop retire clean; dependent successor orders through TaskRunner journal receipts; abandoned-child run proves output-without-retire with retried scratch removal. Added in 76b0abe3, extended through e1a5c16c (R07). |
 
 ## Removed predecessor navigation
 
