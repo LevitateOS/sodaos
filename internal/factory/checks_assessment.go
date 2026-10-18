@@ -32,6 +32,21 @@ type CheckAssessment struct {
 // Validate rejects malformed assessments. A pass carries only passing
 // results; any other verdict carries the results behind it.
 func (a CheckAssessment) Validate() error {
+	if err := a.validateCheckScope(); err != nil {
+		return err
+	}
+	if err := a.validateCheckSet(); err != nil {
+		return err
+	}
+	if err := a.validateCheckResults(); err != nil {
+		return err
+	}
+	return a.validateCheckVerdict()
+}
+
+// validateCheckScope refuses assessments outside the admitted scope
+// and binding.
+func (a CheckAssessment) validateCheckScope() error {
 	if a.Repository <= 0 || a.PRNumber <= 0 || a.PRID <= 0 || a.IssueID <= 0 {
 		return errors.New("invalid check assessment scope")
 	}
@@ -44,6 +59,12 @@ func (a CheckAssessment) Validate() error {
 	if a.PolicyRevision < 0 || a.NativeRev < 1 || a.Revision < 0 || a.AssessedUnix <= 0 || a.ObservedContexts < 0 {
 		return errors.New("invalid check assessment binding")
 	}
+	return nil
+}
+
+// validateCheckSet refuses empty, oversized, unnamed, duplicate or
+// digest-divergent check sets.
+func (a CheckAssessment) validateCheckSet() error {
 	if len(a.Checks) == 0 || len(a.Checks) > MaxRequiredChecks {
 		return errors.New("check assessment requires its nonempty check set")
 	}
@@ -57,6 +78,12 @@ func (a CheckAssessment) Validate() error {
 	if !ValidDigest(a.ChecksDigest) || a.ChecksDigest != ChecksDigest(a.Checks) {
 		return errors.New("check assessment digest differs from its set")
 	}
+	return nil
+}
+
+// validateCheckResults refuses results that diverge from the admitted
+// check set.
+func (a CheckAssessment) validateCheckResults() error {
 	if !ValidCheckVerdict(a.Verdict) || !validCheckReason(a.Reason) {
 		return errors.New("invalid check assessment verdict")
 	}
@@ -71,16 +98,15 @@ func (a CheckAssessment) Validate() error {
 			return errors.New("check assessment results differ from its set")
 		}
 	}
+	return nil
+}
+
+// validateCheckVerdict refuses verdicts whose reason or results
+// disagree with the verdict.
+func (a CheckAssessment) validateCheckVerdict() error {
 	switch a.Verdict {
 	case CheckPass:
-		if a.Reason != CheckReasonPass {
-			return errors.New("check pass names its reason")
-		}
-		for _, result := range a.Results {
-			if !result.Passed {
-				return errors.New("check pass carries only passing results")
-			}
-		}
+		return validatePassedAssessment(a)
 	case CheckPending:
 		if a.Reason != CheckReasonPending {
 			return errors.New("pending check assessment names its reason")
@@ -99,6 +125,20 @@ func (a CheckAssessment) Validate() error {
 			CheckReasonHidden:
 		default:
 			return errors.New("refused check assessment names its cause")
+		}
+	}
+	return nil
+}
+
+// validatePassedAssessment refuses passing verdicts with a divergent
+// reason or any non-passing result.
+func validatePassedAssessment(a CheckAssessment) error {
+	if a.Reason != CheckReasonPass {
+		return errors.New("check pass names its reason")
+	}
+	for _, result := range a.Results {
+		if !result.Passed {
+			return errors.New("check pass carries only passing results")
 		}
 	}
 	return nil

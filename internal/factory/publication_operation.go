@@ -92,11 +92,7 @@ func (o PublicationOperation) Validate() error {
 		return errors.New("invalid publication attempt count")
 	}
 	if o.Attempts == 0 {
-		if o.RunID != "" || o.Work != nil || o.OperationID != "" || o.InstallationID != "" || o.ActorID != 0 || o.RepositoryID != 0 || o.Effect != "" || o.Cancellation != "" ||
-			o.Completion != "" || o.Reason != "" || o.Receipt != "" || o.UpdatedUnix != 0 {
-			return errors.New("unsubmitted operation carries no observations")
-		}
-		return o.validateLinks()
+		return o.validateUnsubmittedOperation()
 	}
 	if !ValidPublicationOperationID(o.OperationID) {
 		return errors.New("invalid publication operation identity")
@@ -107,6 +103,23 @@ func (o PublicationOperation) Validate() error {
 	if err := o.Work.Validate(); err != nil {
 		return err
 	}
+	return o.validateSubmittedOperation()
+}
+
+// validateUnsubmittedOperation refuses unsubmitted operations carrying
+// any observation, then checks their links.
+func (o PublicationOperation) validateUnsubmittedOperation() error {
+	if o.RunID != "" || o.Work != nil || o.OperationID != "" || o.InstallationID != "" || o.ActorID != 0 || o.RepositoryID != 0 || o.Effect != "" || o.Cancellation != "" ||
+		o.Completion != "" || o.Reason != "" || o.Receipt != "" || o.UpdatedUnix != 0 {
+		return errors.New("unsubmitted operation carries no observations")
+	}
+	return o.validateLinks()
+}
+
+// validateSubmittedOperation refuses submitted operations with unknown
+// effects, missing record time, invalid states or oversized
+// observations, then checks their links.
+func (o PublicationOperation) validateSubmittedOperation() error {
 	// An empty effect records a submit in flight: the identity is
 	// persisted before its submit so a crash reconciles by lookup and a
 	// withdrawal cancels by the same identity. The next pass reconciles
@@ -134,20 +147,32 @@ func (o PublicationOperation) validateLinks() error {
 		return errors.New("invalid publication native links")
 	}
 	if o.Kind == OpRefPublish {
-		if o.PRNumber != 0 || o.PRID != 0 || o.IssueID != 0 {
-			return errors.New("branch operation carries no PR links")
-		}
-		if o.HeadRef != "" || o.BaseRef != "" || o.HeadOID != "" || o.BaseOID != "" {
-			return errors.New("branch operation carries no PR snapshot")
-		}
-		return nil
+		return validateBranchOperationLinks(o)
 	}
+	return validatePullRequestLinks(o)
+}
+
+// validateBranchOperationLinks refuses branch operations carrying any
+// PR links or snapshot.
+func validateBranchOperationLinks(o PublicationOperation) error {
+	if o.PRNumber != 0 || o.PRID != 0 || o.IssueID != 0 {
+		return errors.New("branch operation carries no PR links")
+	}
+	if o.HeadRef != "" || o.BaseRef != "" || o.HeadOID != "" || o.BaseOID != "" {
+		return errors.New("branch operation carries no PR snapshot")
+	}
+	return nil
+}
+
+// validatePullRequestLinks refuses PR creations with partial links,
+// unverified links or malformed snapshots. A committed creation may
+// await adoption: links arrive only from its own verified receipt. An
+// uncommitted creation carries no links, and partial links never
+// stand.
+func validatePullRequestLinks(o PublicationOperation) error {
 	if (o.PRNumber == 0) != (o.PRID == 0) || (o.PRNumber == 0) != (o.IssueID == 0) {
 		return errors.New("incomplete publication PR links")
 	}
-	// A committed creation may await adoption: links arrive only from
-	// its own verified receipt. An uncommitted creation carries no
-	// links, and partial links never stand.
 	if o.Effect != OpEffectCommitted && o.PRNumber != 0 {
 		return errors.New("uncommitted PR creation carries no PR links")
 	}

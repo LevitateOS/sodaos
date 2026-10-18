@@ -198,6 +198,21 @@ const MaxControlBlockers = 64
 // Validate rejects malformed control records. Fingerprint and authority
 // digests are required: every recorded verdict binds its exact inputs.
 func (c IssueControl) Validate() error {
+	if err := c.validateControlIdentity(); err != nil {
+		return err
+	}
+	if err := c.validateControlReadiness(); err != nil {
+		return err
+	}
+	if err := c.validateControlBlockers(); err != nil {
+		return err
+	}
+	return c.validateControlEndpoints()
+}
+
+// validateControlIdentity refuses controls outside the admitted
+// identity, acceptance, readiness and reason vocabulary.
+func (c IssueControl) validateControlIdentity() error {
 	if c.Repository <= 0 || c.Issue <= 0 || c.Revision < 0 || c.NativeRev < 0 ||
 		c.FirstSeenUnix < 0 || c.AssessedUnix < 0 {
 		return errors.New("invalid issue control identity")
@@ -211,12 +226,23 @@ func (c IssueControl) Validate() error {
 	if c.Reason != ReasonEligible && !validBlockerCode(c.Reason) {
 		return errors.New("invalid issue control reason")
 	}
+	return nil
+}
+
+// validateControlReadiness refuses queued controls carrying blockers
+// and unready controls naming none.
+func (c IssueControl) validateControlReadiness() error {
 	if c.Readiness == ReadinessQueued && (c.Reason != ReasonEligible || len(c.Blockers) != 0) {
 		return errors.New("queued issue control carries no blockers")
 	}
 	if c.Readiness != ReadinessQueued && len(c.Blockers) == 0 {
 		return errors.New("unready issue control names its blockers")
 	}
+	return nil
+}
+
+// validateControlBlockers refuses oversized or invalid blocker sets.
+func (c IssueControl) validateControlBlockers() error {
 	if len(c.Blockers) > MaxControlBlockers {
 		return errors.New("too many issue control blockers")
 	}
@@ -225,6 +251,12 @@ func (c IssueControl) Validate() error {
 			return err
 		}
 	}
+	return nil
+}
+
+// validateControlEndpoints refuses controls with unbound assessment
+// inputs or malformed endpoint heads and satisfactions.
+func (c IssueControl) validateControlEndpoints() error {
 	if !ValidDigest(c.Fingerprint) || !ValidDigest(c.Authority) {
 		return errors.New("issue control must bind its assessment inputs")
 	}

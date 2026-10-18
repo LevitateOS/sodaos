@@ -120,6 +120,24 @@ type PlanTaskReceipt struct {
 // Validate checks the receipt shape and bounds. Task membership and check
 // references are verified against the stored plan revision on save.
 func (r PlanTaskReceipt) Validate() error {
+	if err := r.validateTaskIdentity(); err != nil {
+		return err
+	}
+	if err := r.validateTaskChild(); err != nil {
+		return err
+	}
+	if err := r.validateTaskDigests(); err != nil {
+		return err
+	}
+	if err := r.validateTaskContent(); err != nil {
+		return err
+	}
+	return r.validateTaskReason()
+}
+
+// validateTaskIdentity refuses receipts outside the admitted identity,
+// revision and state vocabulary.
+func (r PlanTaskReceipt) validateTaskIdentity() error {
 	if !factory.ValidID(r.AttemptRoot) || !factory.ValidID(r.PlanID) {
 		return errors.New("invalid plan task identity")
 	}
@@ -134,15 +152,27 @@ func (r PlanTaskReceipt) Validate() error {
 	default:
 		return errors.New("unknown plan task state")
 	}
+	return nil
+}
+
+// validateTaskChild refuses pending tasks carrying a child and other
+// states missing theirs. A cancelled task may never have launched a
+// child; every other active or terminal state carries its native child
+// identity.
+func (r PlanTaskReceipt) validateTaskChild() error {
 	if r.State == PlanTaskPending {
 		if r.Child != "" {
 			return errors.New("pending plan task has no child")
 		}
 	} else if len(r.Child) > 128 || (r.Child == "" && r.State != PlanTaskCancelled) {
-		// A cancelled task may never have launched a child; every other
-		// active or terminal state carries its native child identity.
 		return errors.New("plan task child outside its bound")
 	}
+	return nil
+}
+
+// validateTaskDigests refuses malformed digests and ready outputs
+// missing theirs.
+func (r PlanTaskReceipt) validateTaskDigests() error {
 	if r.InputDigest != "" && !factory.ValidDigest(r.InputDigest) {
 		return errors.New("invalid plan task input digest")
 	}
@@ -152,6 +182,12 @@ func (r PlanTaskReceipt) Validate() error {
 	if (r.State == PlanTaskOutputReady || r.State == PlanTaskCompleted) && r.OutputDigest == "" {
 		return errors.New("plan task output lacks its digest")
 	}
+	return nil
+}
+
+// validateTaskContent refuses oversized events, non-key checks and
+// unidentified tree/commit evidence.
+func (r PlanTaskReceipt) validateTaskContent() error {
 	if len(r.Events) > 512 {
 		return errors.New("plan task event sequence exceeds its bound")
 	}
@@ -171,6 +207,12 @@ func (r PlanTaskReceipt) Validate() error {
 	if r.Commit != "" && !factory.ValidCommit(r.Commit) {
 		return errors.New("plan task commit evidence lacks its identity")
 	}
+	return nil
+}
+
+// validateTaskReason refuses terminal states missing their reason,
+// oversized reasons and oversized encodings.
+func (r PlanTaskReceipt) validateTaskReason() error {
 	if terminalPlanTaskState(r.State) {
 		if r.Reason == "" || len(r.Reason) > factory.MaxPlanTextBytes {
 			return errors.New("plan task terminal state lacks its reason")
@@ -429,42 +471,65 @@ func (s *Store) SavePlanTaskReceipt(ctx context.Context, receipt PlanTaskReceipt
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var planRaw []byte
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM factory_plan_revisions WHERE attempt_root=$1 AND plan_id=$2`, receipt.AttemptRoot, receipt.PlanID).Scan(&planRaw); err != nil {
-		return err
-	}
-	var plan factory.InvestigationPlan
-	if err = json.Unmarshal(planRaw, &plan); err != nil {
-		return err
-	}
-	if err = checkPlanTaskRefs(plan, receipt); err != nil {
+	if err = planForTaskReceiptTx(ctx, tx, receipt); err != nil {
 		return err
 	}
 	var storedRevision int64
 	var storedRaw []byte
 	err = tx.QueryRowContext(ctx, `SELECT revision,data FROM factory_plan_tasks WHERE attempt_root=$1 AND plan_id=$2 AND task_id=$3 FOR UPDATE`, receipt.AttemptRoot, receipt.PlanID, receipt.TaskID).Scan(&storedRevision, &storedRaw)
 	if errors.Is(err, sql.ErrNoRows) {
-		if receipt.Revision != 0 {
-			return ErrStaleRevision
-		}
-		if receipt.State != PlanTaskPending {
-			return ErrPlanTaskTransition
-		}
-		data, marshalErr := json.Marshal(receipt)
-		if marshalErr != nil {
-			return marshalErr
-		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO factory_plan_tasks(attempt_root,plan_id,task_id,revision,state,data) VALUES($1,$2,$3,$4,$5,$6)`,
-			receipt.AttemptRoot, receipt.PlanID, receipt.TaskID, receipt.Revision, receipt.State, string(data)); err != nil {
-			return err
-		}
-		return tx.Commit()
+		return insertPendingTaskReceiptTx(ctx, tx, receipt)
 	}
 	if err != nil {
 		return err
 	}
+	return advanceTaskReceiptTx(ctx, tx, receipt, storedRevision, storedRaw)
+}
+
+// planForTaskReceiptTx loads the stored plan revision behind one
+// receipt and verifies the receipt names a task and checks the plan
+// declares.
+func planForTaskReceiptTx(ctx context.Context, tx *sql.Tx, receipt PlanTaskReceipt) error {
+	var planRaw []byte
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM factory_plan_revisions WHERE attempt_root=$1 AND plan_id=$2`, receipt.AttemptRoot, receipt.PlanID).Scan(&planRaw); err != nil {
+		return err
+	}
+	var plan factory.InvestigationPlan
+	if err := json.Unmarshal(planRaw, &plan); err != nil {
+		return err
+	}
+	return checkPlanTaskRefs(plan, receipt)
+}
+
+// insertPendingTaskReceiptTx records the first revision of a task.
+// Only a pending revision zero inserts; anything else is stale or an
+// illegal transition.
+func insertPendingTaskReceiptTx(ctx context.Context, tx *sql.Tx, receipt PlanTaskReceipt) error {
+	if receipt.Revision != 0 {
+		return ErrStaleRevision
+	}
+	if receipt.State != PlanTaskPending {
+		return ErrPlanTaskTransition
+	}
+	data, err := json.Marshal(receipt)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO factory_plan_tasks(attempt_root,plan_id,task_id,revision,state,data) VALUES($1,$2,$3,$4,$5,$6)`,
+		receipt.AttemptRoot, receipt.PlanID, receipt.TaskID, receipt.Revision, receipt.State, string(data)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// advanceTaskReceiptTx moves one recorded task receipt forward under
+// CAS. Identical replays commit without touching the stored receipt;
+// impossible states fail even for superseded writers; legal advances
+// against a superseded revision report staleness so the caller
+// refreshes and retries.
+func advanceTaskReceiptTx(ctx context.Context, tx *sql.Tx, receipt PlanTaskReceipt, storedRevision int64, storedRaw []byte) error {
 	var stored PlanTaskReceipt
-	if err = json.Unmarshal(storedRaw, &stored); err != nil {
+	if err := json.Unmarshal(storedRaw, &stored); err != nil {
 		return err
 	}
 	if stored.Revision != storedRevision {
@@ -475,9 +540,6 @@ func (s *Store) SavePlanTaskReceipt(ctx context.Context, receipt PlanTaskReceipt
 	if reflect.DeepEqual(stored, replay) {
 		return tx.Commit()
 	}
-	// Impossible states fail even for superseded writers; legal advances
-	// against a superseded revision report staleness so the caller
-	// refreshes and retries.
 	if !validPlanTaskTransition(stored.State, receipt.State) {
 		return ErrPlanTaskTransition
 	}

@@ -139,6 +139,21 @@ type Merge struct {
 // merge links exactly the PR its own merge receipt proved and carries
 // the confirmed completion stamps.
 func (m Merge) Validate() error {
+	if err := m.validateMergeIdentity(); err != nil {
+		return err
+	}
+	if err := m.validateMergeEvidence(); err != nil {
+		return err
+	}
+	if err := m.validateMergeOperation(); err != nil {
+		return err
+	}
+	return m.validateMergeStage()
+}
+
+// validateMergeIdentity refuses merges outside the admitted identity,
+// address and scope.
+func (m Merge) validateMergeIdentity() error {
 	if !ValidID(m.ID) || !ValidID(m.PublicationID) || !ValidID(m.AssignmentID) {
 		return errors.New("invalid merge identity")
 	}
@@ -148,6 +163,12 @@ func (m Merge) Validate() error {
 	if m.Repository <= 0 || m.Issue <= 0 || m.PRNumber <= 0 || m.PRID <= 0 || m.IssueID <= 0 || m.Revision < 0 {
 		return errors.New("invalid merge scope")
 	}
+	return nil
+}
+
+// validateMergeEvidence refuses merges with dependent reviewer,
+// acceptance, ref, commit, observation or time evidence.
+func (m Merge) validateMergeEvidence() error {
 	if m.PRAuthorID <= 0 || m.ReviewerID <= 0 || m.ReviewerID == m.PRAuthorID {
 		return errors.New("merge review evidence needs its independent reviewer")
 	}
@@ -163,22 +184,32 @@ func (m Merge) Validate() error {
 	if m.MergedCommit != "" && (!ValidCommit(m.MergedCommit) || m.MergedCommit != m.HeadOID) {
 		return errors.New("merge realized commit differs from its exact head")
 	}
+	return m.validateMergeObservation()
+}
+
+// validateMergeObservation refuses merges with incoherent observation
+// bindings or timestamps.
+func (m Merge) validateMergeObservation() error {
 	if m.NativeRev < 0 || (m.NativeRev == 0) != (m.ObservedUnix == 0) {
 		return errors.New("invalid merge observation binding")
 	}
 	if m.ObservedUnix < 0 || m.CreatedUnix <= 0 || m.MergedUnix < 0 || m.ClosedUnix < 0 || m.OriginalClosedUnix < 0 {
 		return errors.New("invalid merge time")
 	}
+	return nil
+}
+
+// validateMergeOperation refuses merges whose recorded operation,
+// authorization or ledger diverge from the merge. A bound
+// authorization stays valid under its own registration gate; an
+// unbound row is pending authorization and submits nothing.
+func (m Merge) validateMergeOperation() error {
 	if err := m.Operation.Validate(); err != nil {
 		return err
 	}
 	if m.Operation.Kind != OpMerge {
 		return errors.New("merge operation has the wrong kind")
 	}
-	// A bound authorization stays valid under its own registration gate;
-	// an unbound row is pending authorization and submits nothing. The
-	// binding never moves with the row: a rebased row clears it and waits
-	// for re-authorization on its new head.
 	if m.Authorization.Bound() {
 		if err := m.Authorization.Validate(); err != nil {
 			return err
@@ -202,53 +233,84 @@ func (m Merge) Validate() error {
 	if op := m.Operation; op.PRNumber != 0 && (op.Effect != OpEffectCommitted || op.PRNumber != m.PRNumber || op.PRID != m.PRID || op.IssueID != m.IssueID) {
 		return errors.New("merge PR is not the recorded merge effect")
 	}
+	return nil
+}
+
+// validateMergeStage refuses merges whose stage and outcome disagree.
+func (m Merge) validateMergeStage() error {
 	switch m.Stage {
 	case MergeOpen:
-		if m.Outcome != "" || m.Reason != "" || m.FinishedUnix != 0 || m.MergedCommit != "" || m.MergedUnix != 0 || m.ClosedUnix != 0 || m.OriginalClosingOccurrence != "" || m.OriginalClosedUnix != 0 {
-			return errors.New("open merge carries no outcome")
-		}
+		return validateOpenMerge(m)
 	case MergeMerged:
-		if m.Outcome != Succeeded || m.Reason != MergeReasonMerged || m.FinishedUnix <= 0 {
-			return errors.New("merged merge lacks its outcome")
-		}
-		if m.Operation.Effect != OpEffectCommitted || m.Operation.Completion != OpCompletionComplete {
-			return errors.New("merged merge lacks native completion")
-		}
-		if m.Operation.MergedCommit != m.HeadOID || m.MergedCommit != m.HeadOID || m.MergedUnix <= 0 || m.ClosedUnix <= 0 {
-			return errors.New("merged merge lacks its confirmed completion")
-		}
-		if !ValidNativeOccurrence(m.OriginalClosingOccurrence) || m.OriginalClosedUnix <= 0 {
-			return errors.New("merged merge lacks its original issue closure")
-		}
-		if m.Operation.PRNumber != m.PRNumber || m.Operation.PRID != m.PRID || m.Operation.IssueID != m.IssueID {
-			return errors.New("merged PR is not the recorded merge effect")
-		}
+		return validateMergedMerge(m)
 	case MergeFailed, MergeWithdrawn, MergeFenced:
-		if !validMergeReason(m.Reason) || m.FinishedUnix <= 0 {
-			return errors.New("finished merge lacks its outcome")
-		}
-		if m.Reason == MergeReasonMerged {
-			return errors.New("unfinished merge cannot claim completed linkage")
-		}
-		switch m.Stage {
-		case MergeFailed:
-			if m.Outcome != Failed {
-				return errors.New("failed merge lacks its outcome")
-			}
-		case MergeWithdrawn:
-			if m.Outcome != Cancelled {
-				return errors.New("withdrawn merge lacks its outcome")
-			}
-			if op := m.Operation; op.Attempts != 0 && op.Effect != OpEffectCommitted && op.Effect != OpEffectNotCommitted {
-				return errors.New("withdrawn merge still has an unresolved native effect")
-			}
-		case MergeFenced:
-			if m.Outcome != NeedsHuman {
-				return errors.New("fenced merge lacks its outcome")
-			}
-		}
+		return validateFinishedMerge(m)
 	default:
 		return errors.New("invalid merge stage")
+	}
+}
+
+// validateOpenMerge refuses open merges carrying any outcome.
+func validateOpenMerge(m Merge) error {
+	if m.Outcome != "" || m.Reason != "" || m.FinishedUnix != 0 || m.MergedCommit != "" || m.MergedUnix != 0 || m.ClosedUnix != 0 || m.OriginalClosingOccurrence != "" || m.OriginalClosedUnix != 0 {
+		return errors.New("open merge carries no outcome")
+	}
+	return nil
+}
+
+// validateMergedMerge refuses merged merges missing their confirmed
+// completion evidence.
+func validateMergedMerge(m Merge) error {
+	if m.Outcome != Succeeded || m.Reason != MergeReasonMerged || m.FinishedUnix <= 0 {
+		return errors.New("merged merge lacks its outcome")
+	}
+	if m.Operation.Effect != OpEffectCommitted || m.Operation.Completion != OpCompletionComplete {
+		return errors.New("merged merge lacks native completion")
+	}
+	if m.Operation.MergedCommit != m.HeadOID || m.MergedCommit != m.HeadOID || m.MergedUnix <= 0 || m.ClosedUnix <= 0 {
+		return errors.New("merged merge lacks its confirmed completion")
+	}
+	if !ValidNativeOccurrence(m.OriginalClosingOccurrence) || m.OriginalClosedUnix <= 0 {
+		return errors.New("merged merge lacks its original issue closure")
+	}
+	if m.Operation.PRNumber != m.PRNumber || m.Operation.PRID != m.PRID || m.Operation.IssueID != m.IssueID {
+		return errors.New("merged PR is not the recorded merge effect")
+	}
+	return nil
+}
+
+// validateFinishedMerge refuses finished merges missing their outcome
+// and dispatches the stage-specific outcome check.
+func validateFinishedMerge(m Merge) error {
+	if !validMergeReason(m.Reason) || m.FinishedUnix <= 0 {
+		return errors.New("finished merge lacks its outcome")
+	}
+	if m.Reason == MergeReasonMerged {
+		return errors.New("unfinished merge cannot claim completed linkage")
+	}
+	switch m.Stage {
+	case MergeFailed:
+		if m.Outcome != Failed {
+			return errors.New("failed merge lacks its outcome")
+		}
+	case MergeWithdrawn:
+		return validateWithdrawnMerge(m)
+	case MergeFenced:
+		if m.Outcome != NeedsHuman {
+			return errors.New("fenced merge lacks its outcome")
+		}
+	}
+	return nil
+}
+
+// validateWithdrawnMerge refuses withdrawn merges with an unresolved
+// native effect.
+func validateWithdrawnMerge(m Merge) error {
+	if m.Outcome != Cancelled {
+		return errors.New("withdrawn merge lacks its outcome")
+	}
+	if op := m.Operation; op.Attempts != 0 && op.Effect != OpEffectCommitted && op.Effect != OpEffectNotCommitted {
+		return errors.New("withdrawn merge still has an unresolved native effect")
 	}
 	return nil
 }

@@ -215,59 +215,90 @@ func (d ScopedDecomposition) Validate() error {
 			return errors.New("invalid scoped decomposition advice")
 		}
 	}
+	tasks, err := admitScopedTasks(d.Tasks)
+	if err != nil {
+		return err
+	}
+	return checkScopedAcyclic(tasks)
+}
+
+// admitScopedTasks refuses tasks with malformed keys, objectives,
+// outcomes or idea bindings, and duplicate task keys.
+func admitScopedTasks(list []IntentTask) (map[string]IntentTask, error) {
 	tasks := map[string]IntentTask{}
-	for _, task := range d.Tasks {
+	for _, task := range list {
 		if !project.ValidDecisionID(task.Key) || !intentText(task.Objective, 4000) || len(task.Outcomes) == 0 || len(task.Outcomes) > 20 || len(task.IdeaIDs) == 0 {
-			return errors.New("invalid scoped task")
+			return nil, errors.New("invalid scoped task")
 		}
 		if _, exists := tasks[task.Key]; exists {
-			return errors.New("duplicate scoped task")
+			return nil, errors.New("duplicate scoped task")
 		}
-		for _, outcome := range task.Outcomes {
-			if !intentText(outcome, 4000) {
-				return errors.New("invalid scoped outcome")
-			}
-		}
-		for _, id := range task.IdeaIDs {
-			if !project.ValidDecisionID(id) {
-				return errors.New("invalid scoped idea binding")
-			}
+		if err := admitScopedTaskContent(task); err != nil {
+			return nil, err
 		}
 		tasks[task.Key] = task
 	}
+	return tasks, nil
+}
+
+// admitScopedTaskContent refuses tasks with malformed outcomes or idea
+// bindings.
+func admitScopedTaskContent(task IntentTask) error {
+	for _, outcome := range task.Outcomes {
+		if !intentText(outcome, 4000) {
+			return errors.New("invalid scoped outcome")
+		}
+	}
+	for _, id := range task.IdeaIDs {
+		if !project.ValidDecisionID(id) {
+			return errors.New("invalid scoped idea binding")
+		}
+	}
+	return nil
+}
+
+// checkScopedAcyclic refuses dependency graphs with cycles, unknown
+// or duplicate dependencies.
+func checkScopedAcyclic(tasks map[string]IntentTask) error {
 	visited, active := map[string]bool{}, map[string]bool{}
 	var visit func(string) error
 	visit = func(key string) error {
-		if active[key] {
-			return errors.New("cyclic scoped dependencies")
-		}
-		if visited[key] {
-			return nil
-		}
-		task, exists := tasks[key]
-		if !exists {
-			return errors.New("unknown scoped dependency")
-		}
-		active[key] = true
-		seen := map[string]bool{}
-		for _, dep := range task.DependsOn {
-			if seen[dep] {
-				return errors.New("duplicate scoped dependency")
-			}
-			seen[dep] = true
-			if err := visit(dep); err != nil {
-				return err
-			}
-		}
-		active[key] = false
-		visited[key] = true
-		return nil
+		return visitScopedDependency(tasks, key, visited, active)
 	}
 	for key := range tasks {
 		if err := visit(key); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// visitScopedDependency depth-first checks one task's dependencies for
+// cycles, unknown keys and duplicates.
+func visitScopedDependency(tasks map[string]IntentTask, key string, visited, active map[string]bool) error {
+	if active[key] {
+		return errors.New("cyclic scoped dependencies")
+	}
+	if visited[key] {
+		return nil
+	}
+	task, exists := tasks[key]
+	if !exists {
+		return errors.New("unknown scoped dependency")
+	}
+	active[key] = true
+	seen := map[string]bool{}
+	for _, dep := range task.DependsOn {
+		if seen[dep] {
+			return errors.New("duplicate scoped dependency")
+		}
+		seen[dep] = true
+		if err := visitScopedDependency(tasks, dep, visited, active); err != nil {
+			return err
+		}
+	}
+	active[key] = false
+	visited[key] = true
 	return nil
 }
 

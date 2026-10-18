@@ -72,6 +72,35 @@ func PlanDigest(plan InvestigationPlan) (string, error) {
 // mandatory fact resolved, and FW12 revalidates source, prerequisite and
 // preparation bindings against current state before launch.
 func (p InvestigationPlan) Validate() error {
+	if err := p.validatePlanIdentity(); err != nil {
+		return err
+	}
+	if err := p.validatePlanPrerequisites(); err != nil {
+		return err
+	}
+	if err := p.validateInspectedRefs(); err != nil {
+		return err
+	}
+	if err := p.validatePlanTextBounds(); err != nil {
+		return err
+	}
+	if err := ValidatePlanGraph(p.Tasks, p.Lanes, p.Checks); err != nil {
+		return err
+	}
+	digest, err := PlanDigest(p)
+	if err != nil || digest != p.Digest {
+		return errors.New("plan digest does not match its content")
+	}
+	encoded, err := json.Marshal(p)
+	if err != nil || len(encoded) > MaxEncodedPlan {
+		return errors.New("encoded plan exceeds its bound")
+	}
+	return nil
+}
+
+// validatePlanIdentity refuses plans outside the admitted identity,
+// digests and source commits.
+func (p InvestigationPlan) validatePlanIdentity() error {
 	if !ValidID(p.ID) || !ValidID(p.AttemptRoot) {
 		return errors.New("invalid plan identity")
 	}
@@ -84,6 +113,12 @@ func (p InvestigationPlan) Validate() error {
 	if !ValidCommit(p.SourceCommit) || !ValidCommit(p.IntegrationCommit) {
 		return errors.New("invalid plan source identity")
 	}
+	return nil
+}
+
+// validatePlanPrerequisites refuses plans with malformed prerequisite
+// digests or preparation references.
+func (p InvestigationPlan) validatePlanPrerequisites() error {
 	for _, digest := range p.PrerequisiteDigest {
 		if !ValidDigest(digest) {
 			return errors.New("invalid plan prerequisite digest")
@@ -92,6 +127,12 @@ func (p InvestigationPlan) Validate() error {
 	if !ValidPreparationRef(p.Preparation) {
 		return errors.New("invalid plan preparation")
 	}
+	return nil
+}
+
+// validateInspectedRefs refuses plans whose inspected sources are not
+// exact committed files with bounded evidence.
+func (p InvestigationPlan) validateInspectedRefs() error {
 	if len(p.Inspected) > MaxInspectedRefs {
 		return errors.New("plan inspects too many sources")
 	}
@@ -106,6 +147,12 @@ func (p InvestigationPlan) Validate() error {
 			return errors.New("inspected evidence outside its bound")
 		}
 	}
+	return nil
+}
+
+// validatePlanTextBounds refuses plans with unbounded findings,
+// approach, rejected alternatives or acceptance coverage.
+func (p InvestigationPlan) validatePlanTextBounds() error {
 	for _, text := range append(append([]string(nil), p.Findings...), p.Unresolved...) {
 		if text == "" || len(text) > MaxPlanTextBytes {
 			return errors.New("plan finding outside its bound")
@@ -126,17 +173,6 @@ func (p InvestigationPlan) Validate() error {
 		if text == "" || len(text) > MaxPlanTextBytes {
 			return errors.New("plan acceptance coverage outside its bound")
 		}
-	}
-	if err := ValidatePlanGraph(p.Tasks, p.Lanes, p.Checks); err != nil {
-		return err
-	}
-	digest, err := PlanDigest(p)
-	if err != nil || digest != p.Digest {
-		return errors.New("plan digest does not match its content")
-	}
-	encoded, err := json.Marshal(p)
-	if err != nil || len(encoded) > MaxEncodedPlan {
-		return errors.New("encoded plan exceeds its bound")
 	}
 	return nil
 }

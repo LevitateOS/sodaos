@@ -65,10 +65,9 @@ func (r ReassessmentRecord) evidenceBytes() int {
 // validate within their count and byte bounds with indexes matching
 // the sealed count, and the wait reason stays a short resumable-step
 // name, never evidence bytes.
-func (r ReassessmentRecord) Validate() error {
-	if err := r.Cycle.Validate(); err != nil {
-		return err
-	}
+// validateReassessmentCompletion refuses completions that do not
+// match their cycle.
+func (r ReassessmentRecord) validateReassessmentCompletion() error {
 	if r.Completion != (factory.CompletionEvent{}) {
 		if err := r.Completion.Validate(); err != nil {
 			return err
@@ -78,12 +77,17 @@ func (r ReassessmentRecord) Validate() error {
 			return errors.New("reassessment completion does not match its cycle")
 		}
 	}
-	// Material binds sealed and digest-bearing records: an all-zero
-	// Local is allowed only on an unsealed record with no
-	// InventoryDigest. A nonzero Local must validate full
-	// material/repo; a sealed record MUST validate Local even when the
-	// digest alone looks well-formed. Validation precedes any Material
-	// pointer access.
+	return nil
+}
+
+// validateReassessmentMaterial refuses sealed or digest-bearing
+// records whose local material diverges. Material binds sealed and
+// digest-bearing records: an all-zero Local is allowed only on an
+// unsealed record with no InventoryDigest. A nonzero Local must
+// validate full material/repo; a sealed record MUST validate Local
+// even when the digest alone looks well-formed. Validation precedes
+// any Material pointer access.
+func (r ReassessmentRecord) validateReassessmentMaterial() error {
 	if r.Local.Sealed() || r.InventoryDigest != "" {
 		if err := r.Local.Validate(); err != nil {
 			return err
@@ -91,6 +95,19 @@ func (r ReassessmentRecord) Validate() error {
 		if r.Local.Material.Repository != r.Cycle.Repository {
 			return errors.New("reassessment local material names another repository")
 		}
+	}
+	return nil
+}
+
+func (r ReassessmentRecord) Validate() error {
+	if err := r.Cycle.Validate(); err != nil {
+		return err
+	}
+	if err := r.validateReassessmentCompletion(); err != nil {
+		return err
+	}
+	if err := r.validateReassessmentMaterial(); err != nil {
+		return err
 	}
 	if r.InventoryDigest != "" && !factory.ValidDigest(r.InventoryDigest) {
 		return errors.New("invalid sealed inventory digest")
@@ -396,7 +413,9 @@ func (s *Store) ReassessmentRecord(ctx context.Context, cycleID string) (Reasses
 // unreserved, forked or reordered ID refuses with no write. Only
 // DecisionCalls is resolved this way; CoderRuns pass through untouched
 // and the final Validate still guards them.
-func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedState string, record ReassessmentRecord) error {
+// admitCasRecord refuses CAS writes outside the admitted cycle
+// identity and completed issue.
+func admitCasRecord(cycleID string, record ReassessmentRecord) error {
 	if !factory.ValidID(cycleID) {
 		return errors.New("invalid reassessment cycle identity")
 	}
@@ -408,6 +427,70 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 	}
 	if record.Issue <= 0 {
 		return errors.New("reassessment record lacks its completed issue")
+	}
+	return nil
+}
+
+// checkDecisionCallPrefix refuses CAS writes that introduce unreserved
+// calls or fork the locked paid ledger.
+func checkDecisionCallPrefix(current, record ReassessmentRecord) error {
+	incoming := record.Cycle.Ledger.DecisionCalls
+	locked := current.Cycle.Ledger.DecisionCalls
+	if len(incoming) > len(locked) {
+		return errors.New("reassessment CAS introduces unreserved decision calls")
+	}
+	for i, id := range incoming {
+		if id != locked[i] {
+			return errors.New("reassessment CAS forks the locked paid ledger")
+		}
+	}
+	return nil
+}
+
+// checkSealedReassessmentImmutable refuses CAS writes that mutate
+// sealed evidence, bindings, bodies, completion or the completed
+// issue.
+func checkSealedReassessmentImmutable(current, record ReassessmentRecord) error {
+	if current.EvidenceFingerprint != "" && record.EvidenceFingerprint != current.EvidenceFingerprint {
+		return errors.New("sealed reassessment evidence is immutable")
+	}
+	if current.Local.Sealed() && !record.Local.Equal(current.Local) {
+		return errors.New("sealed reassessment local bindings are immutable")
+	}
+	if current.InventoryDigest != "" {
+		if err := checkSealedReassessmentBodies(current, record); err != nil {
+			return err
+		}
+		if record.Completion != current.Completion {
+			return errors.New("sealed reassessment completion is immutable")
+		}
+	}
+	if record.Issue != current.Issue {
+		return errors.New("reassessment completed issue is immutable")
+	}
+	return nil
+}
+
+// checkSealedReassessmentBodies refuses CAS writes that mutate sealed
+// issue bodies.
+func checkSealedReassessmentBodies(current, record ReassessmentRecord) error {
+	if record.EvidenceRevision != current.EvidenceRevision || record.EvidenceIssues != current.EvidenceIssues ||
+		len(record.Evidence) != len(current.Evidence) {
+		return errors.New("sealed reassessment bodies are immutable")
+	}
+	for i := range record.Evidence {
+		sealed, err := record.Evidence[i].CanonicalData()
+		held, herr := current.Evidence[i].CanonicalData()
+		if err != nil || herr != nil || sealed != held {
+			return errors.New("sealed reassessment bodies are immutable")
+		}
+	}
+	return nil
+}
+
+func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedState string, record ReassessmentRecord) error {
+	if err := admitCasRecord(cycleID, record); err != nil {
+		return err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -434,47 +517,18 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 	if err := current.Cycle.Ledger.Validate(); err != nil {
 		return err
 	}
-	incoming := record.Cycle.Ledger.DecisionCalls
-	locked := current.Cycle.Ledger.DecisionCalls
-	if len(incoming) > len(locked) {
-		return errors.New("reassessment CAS introduces unreserved decision calls")
+	if err := checkDecisionCallPrefix(current, record); err != nil {
+		return err
 	}
-	for i, id := range incoming {
-		if id != locked[i] {
-			return errors.New("reassessment CAS forks the locked paid ledger")
-		}
-	}
-	record.Cycle.Ledger.DecisionCalls = append([]string(nil), locked...)
+	record.Cycle.Ledger.DecisionCalls = append([]string(nil), current.Cycle.Ledger.DecisionCalls...)
 	if err := record.Validate(); err != nil {
 		return err
 	}
 	if current.InventoryDigest != "" && record.InventoryDigest != current.InventoryDigest {
 		return errors.New("sealed reassessment inventory is immutable")
 	}
-	if current.EvidenceFingerprint != "" && record.EvidenceFingerprint != current.EvidenceFingerprint {
-		return errors.New("sealed reassessment evidence is immutable")
-	}
-	if current.Local.Sealed() && !record.Local.Equal(current.Local) {
-		return errors.New("sealed reassessment local bindings are immutable")
-	}
-	if current.InventoryDigest != "" {
-		if record.EvidenceRevision != current.EvidenceRevision || record.EvidenceIssues != current.EvidenceIssues ||
-			len(record.Evidence) != len(current.Evidence) {
-			return errors.New("sealed reassessment bodies are immutable")
-		}
-		for i := range record.Evidence {
-			sealed, err := record.Evidence[i].CanonicalData()
-			held, herr := current.Evidence[i].CanonicalData()
-			if err != nil || herr != nil || sealed != held {
-				return errors.New("sealed reassessment bodies are immutable")
-			}
-		}
-		if record.Completion != current.Completion {
-			return errors.New("sealed reassessment completion is immutable")
-		}
-	}
-	if record.Issue != current.Issue {
-		return errors.New("reassessment completed issue is immutable")
+	if err := checkSealedReassessmentImmutable(current, record); err != nil {
+		return err
 	}
 	recordData, err := json.Marshal(record)
 	if err != nil {
@@ -507,6 +561,28 @@ func (s *Store) CasReassessmentRecord(ctx context.Context, cycleID, expectedStat
 // spent global budget refuses with ErrReassessmentBudgetExhausted; an
 // already-reserved fingerprint or a full ledger refuses with
 // reserved=false so the caller reconciles instead of charging again.
+// lockedReassessmentRowTx reads one reassessment row under the caller's
+// open transaction with a write lock, refusing missing rows and stale
+// states.
+func lockedReassessmentRowTx(ctx context.Context, tx *sql.Tx, cycleID, expectedState string) (ReassessmentRecord, error) {
+	var raw []byte
+	var state string
+	var record ReassessmentRecord
+	if err := tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE cycle=$1 FOR UPDATE`, cycleID).Scan(&state, &raw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return record, ErrNotFound
+		}
+		return record, err
+	}
+	if state != expectedState {
+		return record, ErrStaleRevision
+	}
+	if err := json.Unmarshal(raw, &record); err != nil {
+		return record, err
+	}
+	return record, nil
+}
+
 func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedState, callID, purpose, decision, fingerprint string) (bool, error) {
 	if !factory.ValidID(cycleID) || !factory.ValidID(callID) || !factory.ValidDigest(fingerprint) {
 		return false, errors.New("invalid reassessment reservation")
@@ -516,19 +592,8 @@ func (s *Store) ReserveReassessmentCall(ctx context.Context, cycleID, expectedSt
 		return false, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var raw []byte
-	var state string
-	if err = tx.QueryRowContext(ctx, `SELECT state,data FROM factory_reassessments WHERE cycle=$1 FOR UPDATE`, cycleID).Scan(&state, &raw); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, ErrNotFound
-		}
-		return false, err
-	}
-	if state != expectedState {
-		return false, ErrStaleRevision
-	}
-	var record ReassessmentRecord
-	if err = json.Unmarshal(raw, &record); err != nil {
+	record, err := lockedReassessmentRowTx(ctx, tx, cycleID, expectedState)
+	if err != nil {
 		return false, err
 	}
 	if purpose != factory.ReassessmentDecisionPurpose && purpose != factory.ReassessmentProposalPurpose {

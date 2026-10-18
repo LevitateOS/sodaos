@@ -193,6 +193,22 @@ func (a AttemptAllowance) Validate() error {
 	if err := a.Limits.Validate(); err != nil {
 		return err
 	}
+	if err := a.validateCorrectionLedger(); err != nil {
+		return err
+	}
+	if err := a.validateDeliveryLedger(); err != nil {
+		return err
+	}
+	seenReview, err := a.validateReviewLedger()
+	if err != nil {
+		return err
+	}
+	return a.validateReviewHeads(seenReview)
+}
+
+// validateCorrectionLedger refuses correction consumption beyond the
+// admitted cycles or with duplicate identities.
+func (a AttemptAllowance) validateCorrectionLedger() error {
 	if len(a.Corrections) > a.Limits.CorrectionCycles {
 		return errors.New("attempt correction consumption exceeds its allowance")
 	}
@@ -203,6 +219,12 @@ func (a AttemptAllowance) Validate() error {
 		}
 		seen[id] = true
 	}
+	return nil
+}
+
+// validateDeliveryLedger refuses delivery consumption beyond the
+// admitted calls or with duplicate identities.
+func (a AttemptAllowance) validateDeliveryLedger() error {
 	if len(a.DeliveryCalls) > a.Limits.DeliveryCalls {
 		return errors.New("attempt delivery consumption exceeds its allowance")
 	}
@@ -213,16 +235,29 @@ func (a AttemptAllowance) Validate() error {
 		}
 		seenDelivery[id] = true
 	}
+	return nil
+}
+
+// validateReviewLedger refuses review consumption beyond the admitted
+// rounds or with duplicate identities, returning the admitted reviewer
+// set for head binding checks.
+func (a AttemptAllowance) validateReviewLedger() (map[string]bool, error) {
 	if len(a.Reviews) > a.Limits.ReviewRounds {
-		return errors.New("attempt review consumption exceeds its allowance")
+		return nil, errors.New("attempt review consumption exceeds its allowance")
 	}
 	seenReview := make(map[string]bool, len(a.Reviews))
 	for _, id := range a.Reviews {
 		if !ValidID(id) || seenReview[id] {
-			return errors.New("invalid reviewer assignment identity")
+			return nil, errors.New("invalid reviewer assignment identity")
 		}
 		seenReview[id] = true
 	}
+	return seenReview, nil
+}
+
+// validateReviewHeads refuses reviewed-head bindings outside the
+// admitted reviewer set and extra passes on uninspected heads.
+func (a AttemptAllowance) validateReviewHeads(seenReview map[string]bool) error {
 	if len(a.ReviewedHeads) > a.Limits.ReviewRounds || len(a.UnchangedHeadExtra) > a.Limits.ReviewRounds {
 		return errors.New("attempt review head ledger exceeds its allowance")
 	}
