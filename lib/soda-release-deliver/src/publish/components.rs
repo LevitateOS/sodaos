@@ -5,7 +5,7 @@ use crate::payload::{Image, Payload, Role};
 use crate::{hash_bytes, Error};
 use serde::Deserialize;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const LOCAL: [Role; 4] = [
     Role::Dashboard,
@@ -153,18 +153,7 @@ pub(super) fn observe_public(
     observe_payload(registry, &payload(directory, manifest)?)
 }
 
-pub(super) fn stage(
-    gh: &dyn GitHub,
-    registry: &dyn Registry,
-    directory: &Path,
-    manifest: &Manifest,
-    auth: Option<&Path>,
-) -> Result<(), Error> {
-    let payload = payload(directory, manifest)?;
-    let out = directory.join("components");
-    if out.join("public.json").exists() {
-        return verify(registry, directory, manifest);
-    }
+fn admit_stage_attempt<'a>(out: &Path, auth: Option<&'a Path>) -> Result<&'a Path, Error> {
     if out.exists() {
         return Err(Error::msg("component staging already attempted; inspect remote state and run verify-images instead of replaying uploads"));
     }
@@ -175,9 +164,17 @@ pub(super) fn stage(
     if !st.is_file() || st.mode() & 0o077 != 0 || st.len() == 0 {
         return Err(Error::refused());
     }
+    Ok(auth)
+}
+
+fn admit_stage_candidate(
+    directory: &Path,
+    manifest: &Manifest,
+    payload: &Payload,
+) -> Result<PathBuf, Error> {
     let candidate = assets::candidate(directory, manifest)?;
     let (actual, transport, _) = crate::admission::load_admitted_candidate(path(&candidate)?)?;
-    if actual != payload {
+    if actual != *payload {
         return Err(Error::msg(
             "local candidate differs from prepared component payload",
         ));
@@ -195,6 +192,16 @@ pub(super) fn stage(
         &manifest.soda_revision,
         &manifest.forgejo_revision,
     )?;
+    Ok(candidate)
+}
+
+fn observe_stage_inputs(
+    gh: &dyn GitHub,
+    registry: &dyn Registry,
+    manifest: &Manifest,
+    payload: &Payload,
+    auth: &Path,
+) -> Result<(), Error> {
     // Check every fixed destination and upstream input before the first upload.
     for role in LOCAL {
         authenticated_tag_absent(
@@ -228,42 +235,73 @@ pub(super) fn stage(
         registry,
         &payload.optional_extensions.tailnet.images.tailscale,
     )?;
+    Ok(())
+}
+
+fn upload_role_copy(
+    registry: &dyn Registry,
+    out: &Path,
+    candidate: &Path,
+    manifest: &Manifest,
+    payload: &Payload,
+    auth: &Path,
+    role: Role,
+) -> Result<(), Error> {
+    let digest_file = out.join(format!("{}.digest", role.name()));
+    run(
+        registry,
+        &[
+            "copy",
+            "--preserve-digests",
+            "--dest-authfile",
+            path(auth)?,
+            "--digestfile",
+            path(&digest_file)?,
+            &format!(
+                "oci-archive:{}",
+                path(&candidate.join(format!("images/{}.oci", role.name())))?
+            ),
+            &format!(
+                "docker://{}-{}:{}",
+                crate::model::DOCKER_REPOSITORY,
+                role.name(),
+                manifest.tag
+            ),
+        ],
+    )?;
+    if std::fs::read_to_string(&digest_file)
+        .map_err(|_| Error::refused())?
+        .trim()
+        != role.binding(&payload.images).manifest
+    {
+        return Err(Error::msg(
+            "application upload changed the admitted manifest digest",
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn stage(
+    gh: &dyn GitHub,
+    registry: &dyn Registry,
+    directory: &Path,
+    manifest: &Manifest,
+    auth: Option<&Path>,
+) -> Result<(), Error> {
+    let payload = payload(directory, manifest)?;
+    let out = directory.join("components");
+    if out.join("public.json").exists() {
+        return verify(registry, directory, manifest);
+    }
+    let auth = admit_stage_attempt(&out, auth)?;
+    let candidate = admit_stage_candidate(directory, manifest, &payload)?;
+    observe_stage_inputs(gh, registry, manifest, &payload, auth)?;
     std::fs::DirBuilder::new()
         .mode(0o700)
         .create(&out)
         .map_err(|_| Error::refused())?;
     for role in LOCAL {
-        let digest_file = out.join(format!("{}.digest", role.name()));
-        run(
-            registry,
-            &[
-                "copy",
-                "--preserve-digests",
-                "--dest-authfile",
-                path(auth)?,
-                "--digestfile",
-                path(&digest_file)?,
-                &format!(
-                    "oci-archive:{}",
-                    path(&candidate.join(format!("images/{}.oci", role.name())))?
-                ),
-                &format!(
-                    "docker://{}-{}:{}",
-                    crate::model::DOCKER_REPOSITORY,
-                    role.name(),
-                    manifest.tag
-                ),
-            ],
-        )?;
-        if std::fs::read_to_string(&digest_file)
-            .map_err(|_| Error::refused())?
-            .trim()
-            != role.binding(&payload.images).manifest
-        {
-            return Err(Error::msg(
-                "application upload changed the admitted manifest digest",
-            ));
-        }
+        upload_role_copy(registry, &out, &candidate, manifest, &payload, auth, role)?;
     }
     verify(registry, directory, manifest)
 }
