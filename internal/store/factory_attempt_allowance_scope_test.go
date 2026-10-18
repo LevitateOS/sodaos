@@ -85,7 +85,7 @@ func issueScopeAllowance(t *testing.T, root string) factory.AttemptAllowance {
 // scope compare equal, including through a value-copy of the Intent
 // pointer.
 func TestSameAttemptAllowanceScopeKeepsStableIntent(t *testing.T) {
-	intentID := factory.NewID()
+	intentID := "d" + strings.Repeat("b", 24)
 	root := factory.NewID()
 	stored := intentScopeAllowance(t, intentID, 7, root)
 	next := intentScopeAllowance(t, intentID, 7, root)
@@ -106,7 +106,7 @@ func TestSameAttemptAllowanceScopeKeepsStableIntent(t *testing.T) {
 // The counterexample: changed IntentID or OwnerID must refuse. The
 // pre-NATIVE112 helper returned TRUE for both.
 func TestSameAttemptAllowanceScopeRefusesIntentMutation(t *testing.T) {
-	intentID := factory.NewID()
+	intentID := "d" + strings.Repeat("c", 24)
 	root := factory.NewID()
 	stored := intentScopeAllowance(t, intentID, 7, root)
 	forgedID := cloneScopeAllowance(stored)
@@ -126,7 +126,7 @@ func TestSameAttemptAllowanceScopeRefusesIntentMutation(t *testing.T) {
 	}
 	plain := issueScopeAllowance(t, root)
 	gained := cloneScopeAllowance(plain)
-	gained.Intent = &factory.IntentAttemptScope{IntentID: factory.NewID(), OwnerID: 7}
+	gained.Intent = &factory.IntentAttemptScope{IntentID: "d" + strings.Repeat("f", 24), OwnerID: 7}
 	if sameAttemptAllowanceScope(plain, gained) {
 		t.Fatal("gained Intent kept the allowance scope")
 	}
@@ -135,7 +135,7 @@ func TestSameAttemptAllowanceScopeRefusesIntentMutation(t *testing.T) {
 // Legitimate advances on the same stable intent stay in scope, and the
 // pre-existing issue/completion behavior is unchanged.
 func TestSameAttemptAllowanceScopeKeepsLegitimateAdvances(t *testing.T) {
-	intentID := factory.NewID()
+	intentID := "d" + strings.Repeat("e", 24)
 	root := factory.NewID()
 	stored := intentScopeAllowance(t, intentID, 7, root)
 	advanced := cloneScopeAllowance(stored)

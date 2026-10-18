@@ -84,10 +84,12 @@ func sameReassessmentRootScope(stored, next factory.Assignment) bool {
 	return *stored.Subject.Completion == *next.Subject.Completion
 }
 
-// loadReassessmentRootAssignmentTx reads the exact root assignment row.
-// Callers hold or take the row lock; there is no latest-per-repository
-// fallback for completion roots.
-func loadReassessmentRootAssignmentTx(ctx context.Context, tx *sql.Tx, root string, lock bool) (factory.Assignment, error) {
+// loadAttemptRootAssignmentTx reads the exact attempt-root assignment
+// row. It is shared by both Issue-zero time-only alternatives
+// (completion reassessment and private intent): it performs no subject
+// check, the caller validates the locked row. Callers hold or take the
+// row lock; there is no latest-per-repository fallback for these roots.
+func loadAttemptRootAssignmentTx(ctx context.Context, tx *sql.Tx, root string, lock bool) (factory.Assignment, error) {
 	var a factory.Assignment
 	query := `SELECT data FROM factory_assignments WHERE id=$1`
 	if lock {
@@ -136,7 +138,7 @@ func lockReassessmentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, reposit
 		allowance.Completion.InventoryDigest != subject.InventoryDigest {
 		return factory.AttemptAllowance{}, errors.New("reassessment allowance does not match its completion subject")
 	}
-	stored, err := loadReassessmentRootAssignmentTx(ctx, tx, root, false)
+	stored, err := loadAttemptRootAssignmentTx(ctx, tx, root, false)
 	if err != nil {
 		return factory.AttemptAllowance{}, err
 	}
@@ -167,7 +169,7 @@ func insertReassessmentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a fac
 	if err := validateReassessmentRootAssignment(a, a.Repository, subject, a.ID); err != nil {
 		return err
 	}
-	stored, err := loadReassessmentRootAssignmentTx(ctx, tx, a.ID, true)
+	stored, err := loadAttemptRootAssignmentTx(ctx, tx, a.ID, true)
 	if errors.Is(err, sql.ErrNoRows) {
 		return errors.New("reassessment root assignment is not recorded")
 	}

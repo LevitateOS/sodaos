@@ -37,6 +37,7 @@ func grantTestPolicy() factory.RepositoryPolicy {
 		Merge:               factory.ActorBindingRef{TokenID: 15, ActorID: 16, Kind: factory.OpMerge},
 		AttemptLimits:       factory.DefaultAttemptLimits(),
 		ReassessmentMinutes: factory.DefaultReassessmentMinutes,
+		IntentMinutes:       factory.DefaultIntentMinutes,
 		MaxConcurrent:       2,
 	}
 }

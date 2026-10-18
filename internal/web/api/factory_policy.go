@@ -21,6 +21,7 @@ type factoryPolicyRequest struct {
 	RequiredChecks      []string                         `json:"required_checks"`
 	ExpectedRevision    int64                            `json:"expected_revision"`
 	ReassessmentMinutes int                              `json:"reassessment_minutes"`
+	IntentMinutes       int                              `json:"intent_minutes"`
 	MaxConcurrent       int                              `json:"max_concurrent"`
 	Enabled             bool                             `json:"enabled"`
 	Paused              bool                             `json:"paused"`
@@ -64,6 +65,9 @@ func (s *API) apiFactoryPolicy(w http.ResponseWriter, r *http.Request, v store.S
 		// Omission resolves to the D13 default so the stored record always
 		// carries its admitted reassessment allowance explicitly.
 		ReassessmentMinutes: factory.EffectiveReassessmentMinutes(in.ReassessmentMinutes),
+		// Intent minutes map through unchanged: zero is the valid
+		// unfunded posture, so no omission fill may invent funding here.
+		IntentMinutes: in.IntentMinutes,
 	}
 	if policy.Revision < 0 || policy.Validate() != nil {
 		auth.JSONError(w, 400, "invalid_policy", "Repository policy is incomplete or invalid.")

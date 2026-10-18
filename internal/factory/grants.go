@@ -187,6 +187,13 @@ func EffectiveReassessmentMinutes(minutes int) int {
 	return minutes
 }
 
+// Frozen intent planning allowance default: the explicit funded horizon
+// fixtures and admission carry for one intent decompose root. Unlike the
+// reassessment allowance there is no omission fill: zero is the valid
+// unfunded posture that funds nothing, and funding itself enforces the
+// finite-positive bound from the allowance rule.
+const DefaultIntentMinutes = 30
+
 // RepositoryPolicy is the repository owner's standing factory authorization:
 // enablement, target, role selections, required native checks, merge method,
 // repository limits, the post-completion reassessment allowance and the
@@ -207,6 +214,7 @@ type RepositoryPolicy struct {
 	MergeMethod         string                   `json:"merge_method"`
 	AttemptLimits       AttemptLimits            `json:"attempt_limits"`
 	ReassessmentMinutes int                      `json:"reassessment_minutes"`
+	IntentMinutes       int                      `json:"intent_minutes"`
 	MaxConcurrent       int                      `json:"max_concurrent"`
 	Enabled             bool                     `json:"enabled"`
 	Paused              bool                     `json:"paused"`
@@ -252,6 +260,12 @@ func (p RepositoryPolicy) Validate() error {
 	}
 	if p.ReassessmentMinutes < MinReassessmentMinutes || p.ReassessmentMinutes > MaxReassessmentMinutes {
 		return errors.New("policy reassessment minutes outside their bound")
+	}
+	// Intent minutes carry no omission fill and no upper cap: zero is the
+	// valid unfunded posture, and funding enforces the finite-positive
+	// bound from the allowance rule. Only a negative horizon refuses here.
+	if p.IntentMinutes < 0 {
+		return errors.New("policy intent minutes outside their bound")
 	}
 	if err := p.AttemptLimits.Validate(); err != nil {
 		return err

@@ -190,15 +190,24 @@ func recordDispatchPacketTx(ctx context.Context, tx *sql.Tx, d factory.DispatchR
 			}
 		}
 		if a.Issue == 0 {
-			// Issue-zero roots take no issue allowance. Reassessment
-			// roots fund their time-only allowance against the verified
-			// completion here: the packet rows above are already
-			// recorded, so the constructor binds the exact recorded
-			// root, and replays return the unchanged row without
-			// refill. Any other issue-zero subject stays refused
-			// there until its lane records it.
-			if err = insertReassessmentAttemptAllowanceTx(ctx, tx, a, grants.policy.ReassessmentMinutes, run.Deadline, now); err != nil {
-				return err
+			// Issue-zero roots take no issue allowance. Time-only
+			// funding follows the recorded subject: reassessment roots
+			// fund against their verified completion, intent roots
+			// against their persisted revision. The packet rows above
+			// are already recorded, so each constructor binds the exact
+			// recorded root, and replays conflict on the recorded row
+			// rather than refilling it.
+			switch a.Subject.Kind {
+			case factory.SubjectCompletion:
+				if err = insertReassessmentAttemptAllowanceTx(ctx, tx, a, grants.policy.ReassessmentMinutes, run.Deadline, now); err != nil {
+					return err
+				}
+			case factory.SubjectIntent:
+				if err = insertIntentAttemptAllowanceTx(ctx, tx, a, grants.policy.IntentMinutes, run.Deadline, now); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("%w: issue-zero root carries no fundable subject", ErrAttemptRootMismatch)
 			}
 		} else if err = admitAttemptAllowanceTx(ctx, tx, a.Repository, a.Issue, a.AttemptRoot, &grants.policy.AttemptLimits, run.Deadline, now); err != nil {
 			return err
@@ -245,6 +254,8 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	// current reviewer, its correction cycle and the retained owner slot.
 	// Pre-phase children keep the published-parent path below.
 	switch a.Phase {
+	case project.ExecutionDecompose:
+		return validateDecomposeRootTx(ctx, tx, a)
 	case project.ExecutionImplement:
 		return validateImplementChildTx(ctx, tx, a)
 	case project.ExecutionReassess:
@@ -312,6 +323,53 @@ func validateAttemptPacketTx(ctx context.Context, tx *sql.Tx, a factory.Assignme
 	}
 	if !rootExists {
 		return ErrAttemptRootMismatch
+	}
+	return nil
+}
+
+// validateDecomposeRootTx admits one intent decompose fresh root against
+// its persisted intent revision. The root carries no parent, publication
+// slot or issue authority; it plans the recorded draft but implements
+// nothing. The revision must already be recorded as the current head for
+// this intent and owner in this repository — intent persists before any
+// host call — so an unrecorded, superseded or foreign revision refuses.
+func validateDecomposeRootTx(ctx context.Context, tx *sql.Tx, a factory.Assignment) error {
+	if a.Phase != project.ExecutionDecompose {
+		return errors.New("intent root needs its decompose phase")
+	}
+	if a.Role != project.RoleCoder || a.ParentAssignment != "" || a.AttemptRoot != a.ID || a.PublicationAssignment != "" {
+		return errors.New("intent planning is a fresh attempt root")
+	}
+	if !factory.ValidPhaseRole(a.Phase, a.Role) || !factory.SubjectKindAllowed(a.Subject.Kind, a.Phase) {
+		return errors.New("intent root does not match its execution phase")
+	}
+	if a.Subject.Kind != factory.SubjectIntent || a.Subject.Intent == nil {
+		return errors.New("intent root does not match its intent subject")
+	}
+	if a.Issue != 0 || a.Acceptance != "" {
+		return errors.New("intent assignment carries issue authority")
+	}
+	var head string
+	var owner int64
+	var revisionData []byte
+	if err := tx.QueryRowContext(ctx, `SELECT h.revision, h.owner_id, r.data FROM factory_intent_heads h JOIN factory_intent_revisions r ON r.id=h.revision WHERE h.id=$1`, a.Subject.Intent.IntentID).Scan(&head, &owner, &revisionData); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: intent revision is not recorded", ErrAttemptRootMismatch)
+		}
+		return err
+	}
+	if owner != a.Subject.Intent.OwnerID || head != a.Subject.Intent.RevisionID {
+		return fmt.Errorf("%w: intent root answers a superseded or foreign revision", ErrAttemptRootMismatch)
+	}
+	var revision factory.IntentRevision
+	if err := json.Unmarshal(revisionData, &revision); err != nil {
+		return err
+	}
+	if err := revision.Validate(); err != nil {
+		return err
+	}
+	if revision.Repository != a.Repository {
+		return fmt.Errorf("%w: intent root answers another repository revision", ErrAttemptRootMismatch)
 	}
 	return nil
 }

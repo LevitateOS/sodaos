@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 var (
@@ -736,6 +737,132 @@ func admitAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, repository, issue 
 		}
 	}
 	return nil
+}
+
+// validateIntentRootAssignment checks the allowance-time shape for a
+// private-intent planning cycle: the repository slot with Issue zero, a
+// fresh attempt root, the decompose phase with the coder role, no parent
+// and no publication assignment, and the stable intent scope (IntentID
+// plus OwnerID). Mutable assignment snapshots such as RevisionID and
+// ScopeDigest are deliberately not part of the scope: the allowance
+// binds the stable association while the dispatch guard pins the exact
+// persisted head revision.
+func validateIntentRootAssignment(a factory.Assignment, repository int64, scope factory.IntentAttemptScope, root string) error {
+	if err := a.Validate(); err != nil {
+		return err
+	}
+	if repository <= 0 || !factory.ValidID(root) {
+		return errors.New("invalid intent allowance scope")
+	}
+	if a.ID != root || a.AttemptRoot != root || a.Repository != repository || a.Issue != 0 {
+		return errors.New("intent root does not match its allowance scope")
+	}
+	if a.Phase != project.ExecutionDecompose || a.Role != project.RoleCoder {
+		return errors.New("intent root needs its decompose coder binding")
+	}
+	if a.ParentAssignment != "" || a.PublicationAssignment != "" {
+		return errors.New("intent planning is a fresh attempt root")
+	}
+	if a.Subject.Kind != factory.SubjectIntent || a.Subject.Intent == nil {
+		return errors.New("intent root lacks its intent subject")
+	}
+	recorded := *a.Subject.Intent
+	if recorded.IntentID != scope.IntentID || recorded.OwnerID != scope.OwnerID {
+		return errors.New("intent root does not match its intent scope")
+	}
+	return nil
+}
+
+// sameIntentRootScope reports whether stored and next describe the same
+// intent root: identity, scope, phase, role, parentage and the identical
+// intent subject snapshot.
+func sameIntentRootScope(stored, next factory.Assignment) bool {
+	if stored.ID != next.ID || stored.AttemptRoot != next.AttemptRoot ||
+		stored.Repository != next.Repository || stored.Issue != next.Issue ||
+		stored.Phase != next.Phase || stored.Role != next.Role ||
+		stored.ParentAssignment != next.ParentAssignment ||
+		stored.PublicationAssignment != next.PublicationAssignment ||
+		stored.Subject.Kind != next.Subject.Kind {
+		return false
+	}
+	if stored.Subject.Intent == nil || next.Subject.Intent == nil {
+		return stored.Subject.Intent == next.Subject.Intent
+	}
+	return *stored.Subject.Intent == *next.Subject.Intent
+}
+
+// insertIntentAttemptAllowanceTx records the time-only allowance for one
+// intent decompose root. The exact root assignment row must already be
+// recorded and must match the passed assignment on every scope field;
+// minutes is the admitted policy horizon (no omission fill: zero is the
+// valid unfunded posture and refuses here, funding enforces the
+// finite-positive bound). Replaying the same root with the same admitted
+// minutes returns without refill; a recorded row with different admitted
+// minutes or a different intent scope conflicts instead of overwriting.
+// This constructor performs no dispatch-gate, owner or head-revision
+// admission: the packet guard owns those locks.
+func insertIntentAttemptAllowanceTx(ctx context.Context, tx *sql.Tx, a factory.Assignment, minutes int, deadline, now time.Time) error {
+	if minutes < 1 || int64(minutes) > math.MaxInt64/int64(time.Minute) {
+		return errors.New("intent minutes outside their bound")
+	}
+	if a.Subject.Kind != factory.SubjectIntent || a.Subject.Intent == nil {
+		return errors.New("intent root lacks its intent subject")
+	}
+	scope := factory.IntentAttemptScope{IntentID: a.Subject.Intent.IntentID, OwnerID: a.Subject.Intent.OwnerID}
+	if err := validateIntentRootAssignment(a, a.Repository, scope, a.ID); err != nil {
+		return err
+	}
+	stored, err := loadAttemptRootAssignmentTx(ctx, tx, a.ID, true)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("intent root assignment is not recorded")
+	}
+	if err != nil {
+		return err
+	}
+	if err = validateIntentRootAssignment(stored, a.Repository, scope, a.ID); err != nil {
+		return err
+	}
+	if !sameIntentRootScope(stored, a) {
+		return errors.New("intent root assignment does not match its recorded row")
+	}
+	var existingData []byte
+	err = tx.QueryRowContext(ctx, `SELECT data FROM factory_attempt_allowances WHERE repository=$1 AND issue=0 AND root_assignment=$2`, a.Repository, a.ID).Scan(&existingData)
+	if err == nil {
+		var existing factory.AttemptAllowance
+		if err = json.Unmarshal(existingData, &existing); err != nil {
+			return err
+		}
+		if err = validateAttemptAllowanceRow(existing, a.Repository, 0, a.ID, existing.Revision); err != nil {
+			return err
+		}
+		if existing.Intent == nil || *existing.Intent != scope ||
+			existing.Limits.ActiveMinutes != minutes {
+			return errors.New("intent allowance does not match its recorded root")
+		}
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	allowance := factory.AttemptAllowance{
+		Limits: factory.AttemptLimits{ActiveMinutes: minutes}, Intent: &scope,
+		RootAssignment: a.ID, Repository: a.Repository, Issue: 0,
+		CheckpointUnix: now.Unix(), Active: true,
+	}
+	if err := allowance.Validate(); err != nil {
+		return err
+	}
+	remaining := allowance.RemainingSeconds(now)
+	if !deadline.After(now) || remaining == 0 || deadline.After(time.Unix(now.Unix()+remaining, 0)) {
+		return factory.ErrAttemptTimeExhausted
+	}
+	data, err := json.Marshal(allowance)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO factory_attempt_allowances(repository,issue,root_assignment,revision,data) VALUES($1,$2,$3,$4,$5)`,
+		a.Repository, 0, a.ID, allowance.Revision, string(data))
+	return err
 }
 
 // consumeCorrectionAttemptTx charges a correction child before its dispatch

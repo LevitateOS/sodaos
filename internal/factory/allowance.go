@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // AttemptLimits is the owner's finite allowance for one automatic attempt.
@@ -281,7 +283,10 @@ func (a AttemptAllowance) validateCompletionTimeOnly() error {
 // future authorized root policy admission; this validation grants no
 // execution authority.
 func (a AttemptAllowance) validateIntentTimeOnly() error {
-	if !ValidID(a.Intent.IntentID) {
+	// Intent identities are project decision IDs everywhere intent is
+	// admitted (revisions, allowances, bindings); a 32-hex check here
+	// would refuse every production scope.
+	if !project.ValidDecisionID(a.Intent.IntentID) {
 		return errors.New("invalid intent scope identity")
 	}
 	if a.Intent.OwnerID <= 0 {

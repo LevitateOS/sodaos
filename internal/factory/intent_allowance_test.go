@@ -42,7 +42,7 @@ func intentAllowanceFixture() (AttemptAllowance, time.Time) {
 	now := time.Unix(1700000000, 0)
 	return AttemptAllowance{
 		Limits:         AttemptLimits{ActiveMinutes: 45},
-		Intent:         &IntentAttemptScope{IntentID: NewID(), OwnerID: 7},
+		Intent:         &IntentAttemptScope{IntentID: "d111111111111111111111111", OwnerID: 7},
 		Repository:     7,
 		RootAssignment: NewID(), CheckpointUnix: now.Unix(), Active: true,
 	}, now
