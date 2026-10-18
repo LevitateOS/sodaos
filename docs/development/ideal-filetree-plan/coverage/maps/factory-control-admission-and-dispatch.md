@@ -331,6 +331,16 @@ current source declaration/method inspection; receiver methods normalized by met
 | --- | --- | --- | --- |
 | 1–332; file scaffold; TestDispatchAccountingNeverRefreshes; TestDispatchInterruptionReleasesOnlyUnused; TestDispatchApprovedReceiptReleasesWhenBrokerUnknown; TestDispatchApprovedReceiptFencesWhenBrokerHolds; TestDispatchFencedLaunchStaysHeld; TestAccountSettledRunResults | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Current scaffold duty: file scaffold; 7 named units assigned here; remaining selectors preserve each duty — Current complete declaration/method or file span inspected; owner transferred by exact current symbol match where available, otherwise by traced package consumer and duty. |
 
+<a id="coverage-185e3e52d1b1"></a>
+
+## [internal/factory/control/dispatch_settlement_race_test.go](../../../../../internal/factory/control/dispatch_settlement_race_test.go)
+
+current source declaration/method inspection; receiver methods normalized by method name; unmatched helpers assigned by inspected consumer duty
+
+| Current spans and named units | Owner | Disposition | Responsibility / evidence |
+| --- | --- | --- | --- |
+| settleFailedRunFixture; TestSettlementConcurrentDoubleFinish; TestSettlementConsumeThenCrashReplay | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) | retained | Once-charged settlement under an eight-way concurrent double finish and a consume-then-crash replay: one finished write, one usage row, one consumed reservation, silent stable replays. Added in 6a43a818 (R11). |
+
 <a id="coverage-81f3f2c15426"></a>
 <a id="internalfactorycontroldispatch_attemptgo-1"></a>
 
